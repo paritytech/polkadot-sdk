@@ -23,9 +23,7 @@ use crate::common::{
 	},
 	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
-use cumulus_client_bootnodes::{
-	bootnode_request_response_config, start_bootnode_tasks, StartBootnodeTasksParams,
-};
+use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
@@ -408,6 +406,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				task_manager: &mut task_manager,
 				relay_chain_interface: relay_chain_interface.clone(),
 				request_receiver: paranode_rx,
+				parachain_network: network,
+				advertise_non_global_ips: parachain_config.network.allow_non_globals_in_dht,
+				parachain_genesis_hash: client.chain_info().genesis_hash,
+				parachain_fork_id: parachain_config.chain_spec.fork_id.map(ToString::to_string),
 			});
 
 			if validator {

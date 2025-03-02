@@ -20,7 +20,7 @@ use crate::advertisement::{BootnodeAdvertisement, BootnodeAdvertisementParams};
 use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use log::error;
-use sc_network::request_responses::IncomingRequest;
+use sc_network::{request_responses::IncomingRequest, service::traits::NetworkService};
 use sc_service::TaskManager;
 use std::sync::Arc;
 
@@ -33,14 +33,22 @@ pub struct StartBootnodeTasksParams<'a> {
 	pub task_manager: &'a mut TaskManager,
 	pub relay_chain_interface: Arc<dyn RelayChainInterface>,
 	pub request_receiver: async_channel::Receiver<IncomingRequest>,
+	pub parachain_network: Arc<dyn NetworkService>,
+	pub advertise_non_global_ips: bool,
+	pub parachain_genesis_hash: Vec<u8>,
+	pub parachain_fork_id: Option<String>,
 }
 
 async fn bootnode_advertisement(
 	para_id: ParaId,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	request_receiver: async_channel::Receiver<IncomingRequest>,
+	parachain_network: Arc<dyn NetworkService>,
+	advertise_non_global_ips: bool,
+	parachain_genesis_hash: Vec<u8>,
+	parachain_fork_id: Option<String>,
 ) {
-	let network_service = match relay_chain_interface.network_service() {
+	let relay_chain_network = match relay_chain_interface.network_service() {
 		Ok(network_service) => network_service,
 		Err(e) => {
 			error!(
@@ -54,8 +62,12 @@ async fn bootnode_advertisement(
 	let bootnode_advertisement = BootnodeAdvertisement::new(BootnodeAdvertisementParams {
 		para_id,
 		relay_chain_interface,
-		network_service,
+		relay_chain_network,
 		request_receiver,
+		parachain_network,
+		advertise_non_global_ips,
+		parachain_genesis_hash,
+		parachain_fork_id,
 	});
 
 	if let Err(e) = bootnode_advertisement.run().await {
@@ -69,11 +81,23 @@ pub fn start_bootnode_tasks(
 		task_manager,
 		relay_chain_interface,
 		request_receiver,
+		parachain_network,
+		advertise_non_global_ips,
+		parachain_genesis_hash,
+		parachain_fork_id,
 	}: StartBootnodeTasksParams,
 ) {
 	task_manager.spawn_essential_handle().spawn_blocking(
 		"cumulus-bootnode-advertisement",
 		None,
-		bootnode_advertisement(para_id, relay_chain_interface, request_receiver),
+		bootnode_advertisement(
+			para_id,
+			relay_chain_interface,
+			request_receiver,
+			parachain_network,
+			advertise_non_global_ips,
+			parachain_genesis_hash,
+			parachain_fork_id,
+		),
 	);
 }

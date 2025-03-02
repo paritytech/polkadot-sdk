@@ -16,7 +16,7 @@
 
 //! Parachain bootnodes advertisement.
 
-use codec::{Decode, Encode};
+use codec::{Compact, CompactRef, Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{Hash, Header},
 	ParaId,
@@ -24,8 +24,10 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::StreamExt;
 use log::{debug, warn};
+use prost::Message;
 use sc_network::{
-	request_responses::IncomingRequest, service::traits::NetworkService, KademliaKey,
+	config::OutgoingResponse, request_responses::IncomingRequest, service::traits::NetworkService,
+	KademliaKey, Multiaddr, ReputationChange,
 };
 use sp_consensus_babe::{digests::CompatibleDigestItem, Epoch, Randomness};
 use sp_runtime::traits::Header as _;
@@ -41,19 +43,32 @@ pub struct BootnodeAdvertisementParams {
 	/// Relay chain interface.
 	pub relay_chain_interface: Arc<dyn RelayChainInterface>,
 	/// Relay chain node network service.
-	pub network_service: Arc<dyn NetworkService>,
+	pub relay_chain_network: Arc<dyn NetworkService>,
 	/// Bootnode request-response protocol request receiver.
 	pub request_receiver: async_channel::Receiver<IncomingRequest>,
+	/// Parachain node network service.
+	pub parachain_network: Arc<dyn NetworkService>,
+	/// Whether to advertise non-global IPs.
+	pub advertise_non_global_ips: bool,
+	/// Parachain genesis hash.
+	pub parachain_genesis_hash: Vec<u8>,
+	/// Parachain fork ID.
+	pub parachain_fork_id: Option<String>,
 }
 
 /// Parachain bootnode advertisement service.
 pub struct BootnodeAdvertisement {
+	para_id: ParaId,
 	para_id_scale_compact: Vec<u8>,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	network_service: Arc<dyn NetworkService>,
+	relay_chain_network: Arc<dyn NetworkService>,
 	current_epoch_key: Option<KademliaKey>,
 	next_epoch_key: Option<KademliaKey>,
 	request_receiver: async_channel::Receiver<IncomingRequest>,
+	parachain_network: Arc<dyn NetworkService>,
+	advertise_non_global_ips: bool,
+	parachain_genesis_hash: Vec<u8>,
+	parachain_fork_id: Option<String>,
 }
 
 impl BootnodeAdvertisement {
@@ -61,17 +76,26 @@ impl BootnodeAdvertisement {
 		BootnodeAdvertisementParams {
 			para_id,
 			relay_chain_interface,
-			network_service,
+			relay_chain_network,
 			request_receiver,
+			parachain_network,
+			advertise_non_global_ips,
+			parachain_genesis_hash,
+			parachain_fork_id,
 		}: BootnodeAdvertisementParams,
 	) -> Self {
 		Self {
-			para_id_scale_compact: Encode::encode(&para_id),
+			para_id,
+			para_id_scale_compact: CompactRef(&para_id).encode(),
 			relay_chain_interface,
-			network_service,
+			relay_chain_network,
 			current_epoch_key: None,
 			next_epoch_key: None,
 			request_receiver,
+			parachain_network,
+			advertise_non_global_ips,
+			parachain_genesis_hash,
+			parachain_fork_id,
 		}
 	}
 
@@ -160,7 +184,7 @@ impl BootnodeAdvertisement {
 						hex::encode(current_epoch_key.as_ref()),
 					);
 				} else {
-					self.network_service.stop_providing(old_current_epoch_key.clone());
+					self.relay_chain_network.stop_providing(old_current_epoch_key.clone());
 					debug!(
 						target: LOG_TARGET,
 						"Stopped advertising bootnode for past epoch key {}",
@@ -181,7 +205,7 @@ impl BootnodeAdvertisement {
 					}
 				}
 
-				self.network_service.start_providing(current_epoch_key.clone());
+				self.relay_chain_network.start_providing(current_epoch_key.clone());
 				self.current_epoch_key = Some(current_epoch_key.clone());
 			}
 
@@ -190,7 +214,7 @@ impl BootnodeAdvertisement {
 				match (current_epoch_key, &self.next_epoch_key) {
 					(Some(current_epoch_key), Some(old_next_epoch_key)) =>
 						if *old_next_epoch_key != current_epoch_key {
-							self.network_service.stop_providing(old_next_epoch_key.clone());
+							self.relay_chain_network.stop_providing(old_next_epoch_key.clone());
 
 							debug!(
 								target: LOG_TARGET,
@@ -203,7 +227,7 @@ impl BootnodeAdvertisement {
 					_ => {},
 				}
 
-				self.network_service.start_providing(next_epoch_key.clone());
+				self.relay_chain_network.start_providing(next_epoch_key.clone());
 				self.next_epoch_key = Some(next_epoch_key.clone());
 
 				debug!(
@@ -226,7 +250,7 @@ impl BootnodeAdvertisement {
 					hex::encode(current_epoch_key.as_ref()),
 				);
 
-				self.network_service.start_providing(current_epoch_key);
+				self.relay_chain_network.start_providing(current_epoch_key);
 			} else {
 				warn!(
 					target: LOG_TARGET,
@@ -241,12 +265,61 @@ impl BootnodeAdvertisement {
 					hex::encode(next_epoch_key.as_ref()),
 				);
 
-				self.network_service.start_providing(next_epoch_key);
+				self.relay_chain_network.start_providing(next_epoch_key);
 			} else {
 				warn!(
 					target: LOG_TARGET,
 					"Initial advertisement of bootnode for next epoch failed: no key."
 				);
+			}
+		}
+	}
+
+	fn paranode_addresses(&self) -> Vec<Multiaddr> {
+		self.parachain_network.external_addresses()
+		// TODO: join public addresses, listen addresses, external addresses.
+	}
+
+	fn handle_request(&mut self, req: IncomingRequest) {
+		if req.payload == self.para_id_scale_compact {
+			debug!(
+				target: LOG_TARGET,
+				"Serving paranode addresses request from {:?} for parachain ID {}",
+				req.peer,
+				self.para_id,
+			);
+
+			let response = crate::schema::Response {
+				peer_id: self.parachain_network.local_peer_id().to_bytes(),
+				addrs: self.paranode_addresses().iter().map(|a| a.to_vec()).collect(),
+				genesis_hash: self.parachain_genesis_hash.clone(),
+				fork_id: self.parachain_fork_id.clone(),
+			};
+
+			let _ = req.pending_response.send(OutgoingResponse {
+				result: Ok(response.encode_to_vec()),
+				reputation_changes: Vec::new(),
+				sent_feedback: None,
+			});
+		} else {
+			let payload = req.payload;
+			match Compact::<ParaId>::decode(&mut &payload[..]) {
+				Ok(para_id) => {
+					debug!(
+						target: LOG_TARGET,
+						"Ignoring request for parachain ID {} != self parachain ID {} from {:?}",
+						para_id.0,
+						self.para_id,
+						req.peer,
+					);
+				},
+				Err(e) => {
+					debug!(
+						target: LOG_TARGET,
+						"Cannot decode parachain ID from request from {:?}: {e}",
+						req.peer,
+					);
+				},
 			}
 		}
 	}
@@ -267,7 +340,18 @@ impl BootnodeAdvertisement {
 						return Ok(());
 					}
 				},
-				// TODO: handle requests for multiaddresses.
+				req = self.request_receiver.recv() => match req {
+					Ok(req) => {
+						self.handle_request(req);
+					},
+					Err(_) => {
+						debug!(
+							target: LOG_TARGET,
+							"Paranode request receiver terminated, terminating bootnode advertisement."
+						);
+						return Ok(());
+					}
+				}
 			}
 		}
 	}
