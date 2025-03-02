@@ -73,15 +73,15 @@ pub enum Subcommand {
 
 	/// Build a chain specification.
 	///
-	/// The `build-spec` command generates a chain specification from existing
-	/// configurations. It is typically used for quickly creating a chainspec for
-	/// predefined chains such as `dev`, `local`, or a custom specification.
-	/// ## When to Use:
-	/// - **Quick and simple** chainspec generation.
-	/// - Suitable for **standard setups** where manual edits are acceptable.
-	/// - When you need a **basic template** that you can modify later.
-	/// - You don’t require extensive modifications or validation.
-	/// - You need a **quick** chain spec for a predefined network.
+	/// The `build-spec` command relies on pre-existing chain specification described by
+	/// runtimes genesis presets, embedded in the nodes that support the `buid-spec`
+	/// command. Since `polkadot-omni-node` does not contain any embedded runtime,
+	/// and requires a `chain-spec` path to be passed to its `--chain` flag, the command
+	/// isn't bringing significant value as it does for other node binaries (e.g. the
+	///  `polkadot` binary).
+	///
+	/// For a more versatile `chain-spec` manipulation experience please check out the 
+	/// `polkadot-omni-node chain-spec-builder` subcommand.
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Validate blocks.
