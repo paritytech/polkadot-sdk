@@ -58,7 +58,12 @@ pub async fn assert_para_throughput(
 	stop_after: u32,
 	expected_candidate_ranges: HashMap<ParaId, Range<u32>>,
 ) -> Result<(), anyhow::Error> {
-	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	// Check on backed blocks in all imported relay chain blocks. The slot-based collator
+	// builds on all forks currently. It can happen that it builds on a fork which is not getting
+	// finalized, in which case we will lose some blocks. This makes it harder to build stable
+	// asserts. Once we are building on older relay parents, this can be changed to finalized blocks
+	// again.
+	let mut blocks_sub = relay_client.blocks().subscribe_all().await?;
 	let mut candidate_count: HashMap<ParaId, u32> = HashMap::new();
 	let mut current_block_count = 0;
 
