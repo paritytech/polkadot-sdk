@@ -1306,7 +1306,7 @@ fn check_and_process_funding_and_payout_payment_works() {
 			Error::<Test>::UnexpectedStatus
 		);
 
-		// When
+		// When (process BountyStatus::Approved and check PaymentState::Success)
 		assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_index));
 		let payment_id = get_payment_id(bounty_index, None).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Success);
@@ -1359,7 +1359,7 @@ fn check_and_process_funding_and_payout_payment_works() {
 			Ok(PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes })
 		);
 
-		// When/Then (check BountyStatus::Approved - PaymentState::Failed)
+		// When/Then (check BountyStatus::PayoutAttempted - PaymentState::Failed)
 		assert_noop!(
 			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_index),
 			Error::<Test>::UnexpectedStatus
@@ -1422,7 +1422,7 @@ fn check_and_process_refund_payment_works() {
 			Error::<Test>::UnexpectedStatus
 		);
 
-		// When
+		// When (process BountyStatus::RefundAttempted and check PaymentState::Success)
 		assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_index));
 		let payment_id = get_payment_id(bounty_index, None).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Success);
