@@ -15087,6 +15087,8 @@ dependencies = [
  "polkavm 0.21.0",
  "polkavm-common 0.21.0",
  "pretty_assertions",
+ "rand 0.8.5",
+ "rand_pcg",
  "rlp 0.6.1",
  "scale-info",
  "secp256k1 0.28.2",
