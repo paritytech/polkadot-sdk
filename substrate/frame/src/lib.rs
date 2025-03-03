@@ -203,9 +203,9 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+		Contains, EitherOf, EstimateNextSessionRotation, Everything, FindAuthor, IsSubType,
+		MapSuccess, NoOpPoll, OnRuntimeUpgrade, OnTimestampSet, OneSessionHandler, RankedMembers,
+		RankedMembersSwapHandler, VariantCount, VariantCountOf,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -220,8 +220,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
-	pub use super::hashing::*;
+	/// All hashing related things.
+	pub use super::cryptography::*;
 
 	/// All account related things.
 	pub use super::account::*;
@@ -232,17 +232,19 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, IsMember, OpaqueKeys,
+		ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput, ValidateUnsigned,
 	};
 
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
 
-	/// Other error/result types for runtime
+	/// Runtime types
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		curve::PiecewiseLinear, BoundToRuntimeAppPublic, DispatchErrorWithPostInfo,
+		DispatchResultWithInfo, TokenError,
 	};
 }
 
@@ -297,7 +299,10 @@ pub mod weights_prelude {
 	pub use frame_support::{
 		traits::Get,
 		weights::{
-			constants::{ParityDbWeight, RocksDbWeight},
+			constants::{
+				ParityDbWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_MICROS,
+				WEIGHT_REF_TIME_PER_NANOS,
+			},
 			Weight,
 		},
 	};
@@ -413,7 +418,7 @@ pub mod runtime {
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
 		pub use sp_keyring::Sr25519Keyring;
-		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
+		pub use sp_runtime::{impl_opaque_keys, ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
 	/// Types and traits for runtimes that implement runtime APIs.
@@ -515,7 +520,10 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::{BuildStorage, DispatchError};
+		pub use sp_runtime::{
+			testing::{Digest, TestXt},
+			BuildStorage, DispatchError,
+		};
 	}
 }
 
@@ -558,8 +566,12 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
+pub mod cryptography {
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		Pair, H160, H256, H512, U256, U512,
+	};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
