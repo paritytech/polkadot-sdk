@@ -328,6 +328,7 @@ pub fn testnet_genesis(
 			.map(|x| {
 				(
 					x.0.clone(),
+					// stash account is controller
 					x.0.clone(),
 					session_keys(
 						x.2.clone(),
