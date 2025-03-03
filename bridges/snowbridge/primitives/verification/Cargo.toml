@@ -11,6 +11,9 @@ categories = ["cryptography::cryptocurrencies"]
 [lints]
 workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [dependencies]
 codec = { workspace = true }
 frame-support = { workspace = true }
