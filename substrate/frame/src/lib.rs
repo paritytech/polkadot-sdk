@@ -203,11 +203,9 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
-
-		Contains, FindAuthor, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OnTimestampSet,
-		OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+		Contains, EitherOf, EstimateNextSessionRotation, Everything, FindAuthor, IsSubType,
+		MapSuccess, NoOpPoll, OnRuntimeUpgrade, OnTimestampSet, OneSessionHandler, RankedMembers,
+		RankedMembersSwapHandler, VariantCount, VariantCountOf,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -247,7 +245,6 @@ pub mod prelude {
 	pub use sp_runtime::{
 		curve::PiecewiseLinear, BoundToRuntimeAppPublic, DispatchErrorWithPostInfo,
 		DispatchResultWithInfo, TokenError,
-	,
 	};
 }
 
@@ -525,7 +522,7 @@ pub mod runtime {
 		pub use sp_core::storage::Storage;
 		pub use sp_runtime::{
 			testing::{Digest, TestXt},
-			BuildStorage, DispatchError
+			BuildStorage, DispatchError,
 		};
 	}
 }
