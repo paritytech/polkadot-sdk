@@ -90,10 +90,9 @@ impl CollatorProtocolSubsystem {
 impl<Context> CollatorProtocolSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = match self.protocol_side {
-			ProtocolSide::Validator { keystore, eviction_policy, metrics } =>
-				validator_side::run(ctx, keystore, eviction_policy, metrics)
-					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed(),
+			ProtocolSide::Validator { keystore, metrics } => validator_side::run(ctx, keystore)
+				.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+				.boxed(),
 			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } =>
 				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))

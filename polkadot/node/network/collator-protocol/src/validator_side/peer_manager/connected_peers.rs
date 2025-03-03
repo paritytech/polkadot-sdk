@@ -1,0 +1,204 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
+use crate::validator_side::common::{
+	DisconnectedPeers, PeerState, ReputationBump, Score, CONNECTED_PEERS_LIMIT,
+};
+use polkadot_node_network_protocol::PeerId;
+use polkadot_primitives::Id as ParaId;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+
+use super::db::ReputationDb;
+
+#[derive(Default)]
+pub struct ConnectedPeers {
+	per_paraid: BTreeMap<ParaId, PerParaId>,
+	peers: HashMap<PeerId, PeerState>,
+}
+
+impl ConnectedPeers {
+	pub fn new(scheduled_paras: BTreeSet<ParaId>) -> Self {
+		let per_para_limit = std::cmp::min(
+			(CONNECTED_PEERS_LIMIT as usize).checked_div(scheduled_paras.len()).unwrap_or(0),
+			CONNECTED_PEERS_LIMIT as usize / 3,
+		);
+
+		let mut per_para = BTreeMap::new();
+		for para_id in scheduled_paras {
+			per_para.insert(
+				para_id,
+				PerParaId { limit: per_para_limit as usize, scores: HashMap::new() },
+			);
+		}
+
+		Self { per_paraid: per_para, peers: Default::default() }
+	}
+
+	pub fn peer_ids<'a>(&'a self) -> impl Iterator<Item = &'a PeerId> + 'a {
+		self.peers.keys()
+	}
+
+	pub fn contains(&self, peer_id: &PeerId) -> bool {
+		self.peers.contains_key(peer_id)
+	}
+
+	pub fn disconnect(&mut self, mut peers_to_disconnect: Vec<PeerId>) -> DisconnectedPeers {
+		peers_to_disconnect.retain(|peer| !self.contains(&peer));
+		for peer in peers_to_disconnect.iter() {
+			self.peers.remove(peer);
+		}
+
+		peers_to_disconnect
+		// TODO: send disconnect messages
+	}
+
+	pub fn disconnected(&mut self, peer_id: PeerId) {
+		for per_para_id in self.per_paraid.values_mut() {
+			per_para_id.scores.remove(&peer_id);
+		}
+
+		self.peers.remove(&peer_id);
+	}
+
+	pub fn assigned_paras<'a>(&'a self) -> impl Iterator<Item = ParaId> + 'a {
+		self.per_paraid.keys().copied()
+	}
+
+	pub fn try_add(&mut self, reputation_db: &ReputationDb, peer_id: PeerId) -> DisconnectedPeers {
+		if self.contains(&peer_id) {
+			return vec![]
+		}
+
+		let mut kept = false;
+		let mut peers_to_disconnect = vec![];
+		for (para_id, per_para_id) in self.per_paraid.iter_mut() {
+			let past_reputation = reputation_db.query(&peer_id, para_id).unwrap_or(0);
+			let res = per_para_id.try_add(peer_id, past_reputation);
+			if res.0 {
+				kept = true;
+
+				if let Some(to_disconnect) = res.1 {
+					peers_to_disconnect.push(to_disconnect);
+				}
+			}
+		}
+
+		if !kept {
+			peers_to_disconnect.push(peer_id);
+		} else {
+			self.peers.insert(peer_id, PeerState::Connected);
+		}
+
+		peers_to_disconnect
+	}
+
+	pub fn declared(&mut self, peer_id: PeerId, para_id: ParaId) {
+		let Some(state) = self.peers.get_mut(&peer_id) else { return };
+
+		let mut kept = false;
+
+		match state {
+			PeerState::Connected =>
+				for (para, per_para_id) in self.per_paraid.iter_mut() {
+					if para != &para_id {
+						per_para_id.scores.remove(&peer_id);
+					} else {
+						kept = true;
+					}
+				},
+			PeerState::Collating(old_para_id) if old_para_id == &para_id => {
+				// Nothing to do.
+			},
+			PeerState::Collating(old_para_id) => {
+				if let Some(old_per_paraid) = self.per_paraid.get_mut(&old_para_id) {
+					old_per_paraid.scores.remove(&peer_id);
+				}
+				if let Some(per_para_id) = self.per_paraid.get(&para_id) {
+					if per_para_id.scores.contains_key(&peer_id) {
+						kept = true;
+					}
+				}
+			},
+		}
+
+		if !kept {
+			self.disconnect(vec![peer_id]);
+		} else {
+			*state = PeerState::Collating(para_id);
+		}
+	}
+
+	pub fn peer_state(&self, peer_id: &PeerId) -> Option<&PeerState> {
+		self.peers.get(&peer_id)
+	}
+
+	pub fn bump_rep(&mut self, bump: ReputationBump) {
+		let Some(per_para) = self.per_paraid.get_mut(&bump.para_id) else { return };
+		let Some(score) = per_para.scores.get_mut(&bump.peer_id) else { return };
+
+		*score = score.saturating_add(bump.value);
+	}
+
+	pub fn decrease_rep(&mut self, bump: ReputationBump) {
+		let Some(per_para) = self.per_paraid.get_mut(&bump.para_id) else { return };
+		let Some(score) = per_para.scores.get_mut(&bump.peer_id) else { return };
+		*score = score.saturating_sub(bump.value);
+	}
+
+	pub fn peer_rep(&self, para_id: &ParaId, peer_id: &PeerId) -> Option<Score> {
+		self.per_paraid.get(para_id).unwrap().scores.get(peer_id).copied()
+	}
+}
+
+#[derive(Default)]
+struct PerParaId {
+	limit: usize,
+	// TODO: Probably implement the priority queue using a min-heap
+	scores: HashMap<PeerId, Score>,
+}
+
+impl PerParaId {
+	fn new(limit: usize) -> Self {
+		Self { limit, scores: Default::default() }
+	}
+
+	fn try_add(&mut self, peer_id: PeerId, reputation: Score) -> (bool, Option<PeerId>) {
+		// If we've got enough room, add it. Otherwise, see if it has a higher reputation than any
+		// other connected peer.
+		if self.scores.len() < self.limit {
+			self.scores.insert(peer_id, reputation);
+			(true, None)
+		} else {
+			let Some(min_score) = self.min_score() else { return (false, None) };
+
+			if min_score >= reputation {
+				(false, None)
+			} else {
+				self.scores.insert(peer_id, reputation);
+				(true, self.pop_min_score().map(|x| x.0))
+			}
+		}
+	}
+
+	fn min_score(&self) -> Option<Score> {
+		None
+	}
+
+	fn pop_min_score(&mut self) -> Option<(PeerId, Score)> {
+		// TODO
+		None
+	}
+}
