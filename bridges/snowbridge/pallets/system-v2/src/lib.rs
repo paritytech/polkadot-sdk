@@ -32,10 +32,7 @@ pub mod api;
 pub mod weights;
 pub use weights::*;
 
-use frame_support::{
-	pallet_prelude::*,
-	traits::{EnsureOrigin, OriginTrait},
-};
+use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
 use snowbridge_core::{AgentIdOf as LocationHashOf, AssetMetadata, TokenId, TokenIdOf};
 use snowbridge_outbound_queue_primitives::{
@@ -49,6 +46,9 @@ use sp_runtime::traits::MaybeEquivalence;
 use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::OriginTrait;
 
 pub use pallet::*;
 
