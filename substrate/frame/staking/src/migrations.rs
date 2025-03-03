@@ -59,7 +59,7 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 /// Migrates `UnappliedSlashes` to a new storage structure to support paged slashing.
 /// This ensures that slashing can be processed in batches, preventing large storage operations in a
 /// single block.
-/// 
+///
 /// Exposes staking disabled validators so they can be migrated from staking to session pallet.
 pub mod v17 {
 	use super::*;

@@ -467,7 +467,6 @@ fn test_migration_v1() {
 	});
 }
 
-
 mod disabling_byzantine_threshold {
 	use super::*;
 	use crate::disabling::{DisablingStrategy, UpToLimitDisablingStrategy};
@@ -554,7 +553,6 @@ mod disabling_with_reenabling {
 	use super::*;
 	use crate::disabling::{DisablingStrategy, UpToLimitWithReEnablingDisablingStrategy};
 	use sp_staking::offence::{OffenceError, OffenceSeverity};
-
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set

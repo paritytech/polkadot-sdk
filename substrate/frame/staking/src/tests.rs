@@ -7718,7 +7718,12 @@ mod validator_disabling_integration {
 							fraction: Perbill::from_percent(10),
 							offence_era: 1
 						},
-						Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+						Event::SlashComputed {
+							offence_era: 1,
+							slash_era: 1,
+							offender: 11,
+							page: 0
+						},
 						Event::Slashed { staker: 11, amount: 100 },
 						Event::Slashed { staker: 101, amount: 12 },
 						Event::OffenceReported {
@@ -7726,7 +7731,12 @@ mod validator_disabling_integration {
 							fraction: Perbill::from_percent(20),
 							offence_era: 1
 						},
-						Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
+						Event::SlashComputed {
+							offence_era: 1,
+							slash_era: 1,
+							offender: 21,
+							page: 0
+						},
 						Event::Slashed { staker: 21, amount: 200 },
 						Event::Slashed { staker: 101, amount: 75 },
 						Event::OffenceReported {
@@ -7734,7 +7744,12 @@ mod validator_disabling_integration {
 							fraction: Perbill::from_percent(50),
 							offence_era: 1
 						},
-						Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 31, page: 0 },
+						Event::SlashComputed {
+							offence_era: 1,
+							slash_era: 1,
+							offender: 31,
+							page: 0
+						},
 						Event::Slashed { staker: 31, amount: 250 },
 					]
 				);
@@ -7767,7 +7782,11 @@ mod validator_disabling_integration {
 				// offence with a major slash
 				on_offence_now(
 					&[offence_from(11, None), offence_from(21, None), offence_from(31, None)],
-					&[Perbill::from_percent(50), Perbill::from_percent(50), Perbill::from_percent(10)],
+					&[
+						Perbill::from_percent(50),
+						Perbill::from_percent(50),
+						Perbill::from_percent(10),
+					],
 					true,
 				);
 
@@ -7799,12 +7818,27 @@ mod validator_disabling_integration {
 							fraction: Perbill::from_percent(10),
 							offence_era: 1
 						},
-						Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 31, page: 0 },
+						Event::SlashComputed {
+							offence_era: 1,
+							slash_era: 1,
+							offender: 31,
+							page: 0
+						},
 						Event::Slashed { staker: 31, amount: 50 },
-						Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
+						Event::SlashComputed {
+							offence_era: 1,
+							slash_era: 1,
+							offender: 21,
+							page: 0
+						},
 						Event::Slashed { staker: 21, amount: 500 },
 						Event::Slashed { staker: 101, amount: 187 },
-						Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+						Event::SlashComputed {
+							offence_era: 1,
+							slash_era: 1,
+							offender: 11,
+							page: 0
+						},
 						Event::Slashed { staker: 11, amount: 500 },
 						Event::Slashed { staker: 101, amount: 62 },
 					]
@@ -7822,7 +7856,7 @@ mod validator_disabling_integration {
 	}
 
 	#[test]
-	fn clear_disabled_only_on_era_change(){
+	fn clear_disabled_only_on_era_change() {
 		ExtBuilder::default()
 			.validator_count(7)
 			.set_status(41, StakerStatus::Validator)
@@ -7948,7 +7982,12 @@ mod validator_disabling_integration {
 							fraction: Perbill::from_percent(25),
 							offence_era: 1
 						},
-						Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
+						Event::SlashComputed {
+							offence_era: 1,
+							slash_era: 1,
+							offender: 21,
+							page: 0
+						},
 						Event::Slashed { staker: 21, amount: 250 },
 						Event::Slashed { staker: 101, amount: 94 }
 					]
@@ -7994,10 +8033,20 @@ mod validator_disabling_integration {
 
 				// --- Slash without disabling (because limit reached) ---
 				// offence that slashes 50% of the bond (setup for next slash)
-				on_offence_in_era(&[offence_from(11, None)], &[Perbill::from_percent(50)], now, true);
+				on_offence_in_era(
+					&[offence_from(11, None)],
+					&[Perbill::from_percent(50)],
+					now,
+					true,
+				);
 
 				// offence that slashes 25% of the bond but does not disable
-				on_offence_in_era(&[offence_from(21, None)], &[Perbill::from_percent(25)], now, true);
+				on_offence_in_era(
+					&[offence_from(21, None)],
+					&[Perbill::from_percent(25)],
+					now,
+					true,
+				);
 
 				// nomination remains untouched.
 				assert_eq!(Nominators::<Test>::get(101).unwrap().targets, vec![11, 21]);
@@ -8022,7 +8071,12 @@ mod validator_disabling_integration {
 							fraction: Perbill::from_percent(50),
 							offence_era: 1
 						},
-						Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 11, page: 0 },
+						Event::SlashComputed {
+							offence_era: 1,
+							slash_era: 1,
+							offender: 11,
+							page: 0
+						},
 						Event::Slashed { staker: 11, amount: 500 },
 						Event::Slashed { staker: 101, amount: 62 },
 						Event::OffenceReported {
@@ -8030,7 +8084,12 @@ mod validator_disabling_integration {
 							fraction: Perbill::from_percent(25),
 							offence_era: 1
 						},
-						Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
+						Event::SlashComputed {
+							offence_era: 1,
+							slash_era: 1,
+							offender: 21,
+							page: 0
+						},
 						Event::Slashed { staker: 21, amount: 250 },
 						Event::Slashed { staker: 101, amount: 94 }
 					]
@@ -8056,36 +8115,36 @@ mod validator_disabling_integration {
 			.build_and_execute(|| {
 				mock::start_active_era(1);
 				assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41]);
-	
+
 				assert_eq!(
 					UpToLimitWithReEnablingDisablingStrategy::<DISABLING_LIMIT_FACTOR>::disable_limit(
 						Session::validators().len()
 					),
 					1
 				);
-	
+
 				// we have 4 validators and an offending validator threshold of 1,
 				// even if two validators commit an offence a new era should not be forced
 				on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(50)], true);
-	
+
 				// 11 should be disabled because the byzantine threshold is 1
 				assert!(is_disabled(11));
-	
+
 				assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
-	
+
 				on_offence_now(&[offence_from(21, None)], &[Perbill::zero()], true);
-	
-				// 21 should not be disabled because the number of disabled validators will be above the
-				// byzantine threshold
+
+				// 21 should not be disabled because the number of disabled validators will be above
+				// the byzantine threshold
 				assert!(!is_disabled(21));
-	
+
 				assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
-	
+
 				on_offence_now(&[offence_from(31, None)], &[Perbill::zero()], true);
-	
+
 				// same for 31
 				assert!(!is_disabled(31));
-	
+
 				assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
 			});
 	}

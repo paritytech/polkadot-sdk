@@ -276,7 +276,6 @@ impl OffenceSeverity {
 	}
 }
 
-
 impl Default for OffenceSeverity {
 	/// Default is the maximum severity.
 	/// When severity is unclear it is best to assume the worst.

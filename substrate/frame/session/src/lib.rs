@@ -912,7 +912,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Disable the validator of index `i` with a specified severity,
 	/// returns `false` if the validator is not found.
-	/// 
+	///
 	/// Note: If validator is already disabled, the severity will
 	/// be updated if the new one is higher.
 	pub fn disable_index_with_severity(i: u32, severity: OffenceSeverity) -> bool {
@@ -926,7 +926,13 @@ impl<T: Config> Pallet<T> {
 				Ok(index) => {
 					let current_severity = &mut disabled[index].1;
 					if severity > *current_severity {
-						log!(trace, "updating disablement severity of validator {:?} from {:?} to {:?}", i, *current_severity, severity);
+						log!(
+							trace,
+							"updating disablement severity of validator {:?} from {:?} to {:?}",
+							i,
+							*current_severity,
+							severity
+						);
 						*current_severity = severity;
 					}
 					true
@@ -934,7 +940,9 @@ impl<T: Config> Pallet<T> {
 				// Validator is not disabled, add to `DisabledValidators` and disable it
 				Err(index) => {
 					log!(trace, "disabling validator {:?}", i);
-					Self::deposit_event(Event::ValidatorDisabled { validator: Validators::<T>::get()[index as usize].clone() });
+					Self::deposit_event(Event::ValidatorDisabled {
+						validator: Validators::<T>::get()[index as usize].clone(),
+					});
 					disabled.insert(index, (i, severity));
 					T::SessionHandler::on_disabled(i);
 					true
@@ -955,7 +963,9 @@ impl<T: Config> Pallet<T> {
 		DisabledValidators::<T>::mutate(|disabled| {
 			if let Ok(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
 				log!(trace, "reenabling validator {:?}", i);
-				Self::deposit_event(Event::ValidatorReenabled { validator: Validators::<T>::get()[index as usize].clone() });
+				Self::deposit_event(Event::ValidatorReenabled {
+					validator: Validators::<T>::get()[index as usize].clone(),
+				});
 				disabled.remove(index);
 				return true;
 			}
@@ -973,13 +983,14 @@ impl<T: Config> Pallet<T> {
 	/// what changes to disabled validators should be made.
 	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
 		log!(trace, "reporting offence for {:?} with {:?}", validator, severity);
-		let decision = T::DisablingStrategy::decision(&validator, severity, &DisabledValidators::<T>::get());
-	
+		let decision =
+			T::DisablingStrategy::decision(&validator, severity, &DisabledValidators::<T>::get());
+
 		// Disable
 		if let Some(offender_idx) = decision.disable {
 			Self::disable_index_with_severity(offender_idx, severity);
 		}
-	
+
 		// Re-enable
 		if let Some(reenable_idx) = decision.reenable {
 			Self::reenable_index(reenable_idx);
