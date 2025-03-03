@@ -3039,3 +3039,40 @@ fn unavailable_call_is_detected() {
 		assert!(!Preimage::is_requested(&hash));
 	});
 }
+
+#[test]
+fn postponed_task_is_still_available() {
+	new_test_ext().execute_with(|| {
+		let service_agendas_weight = <Test as Config>::WeightInfo::service_agendas_base();
+		let service_agenda_weight = <Test as Config>::WeightInfo::service_agenda_base(
+			<Test as Config>::MaxScheduledPerBlock::get(),
+		);
+
+		assert_ok!(Scheduler::schedule(
+			RuntimeOrigin::root(),
+			4,
+			None,
+			128,
+			Box::new(RuntimeCall::from(frame_system::Call::remark {
+				remark: vec![0u8; 3 * 1024 * 1024],
+			}))
+		));
+		System::run_to_block::<AllPalletsWithSystem>(3);
+		// Scheduled calls are in the agenda.
+		assert_eq!(Agenda::<Test>::get(4).len(), 1);
+
+		let old_weight = MaximumSchedulerWeight::get();
+		MaximumSchedulerWeight::set(&service_agenda_weight.saturating_add(service_agendas_weight));
+
+		System::run_to_block::<AllPalletsWithSystem>(4);
+
+		// The big task should still be there and the small one should have been executed.
+		assert_eq!(Agenda::<Test>::get(4).iter().filter(|a| a.is_some()).count(), 1);
+		System::assert_last_event(crate::Event::AgendaIncomplete { when: 4 }.into());
+
+		// Now it should get executed
+		MaximumSchedulerWeight::set(&old_weight);
+		System::run_to_block::<AllPalletsWithSystem>(5);
+		assert!(Agenda::<Test>::get(4).is_empty());
+	});
+}
