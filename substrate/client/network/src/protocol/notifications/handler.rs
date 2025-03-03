@@ -59,8 +59,8 @@
 
 use crate::{
 	protocol::notifications::upgrade::{
-		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
-		UpgradeCollec,
+		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutError,
+		NotificationsOutSubstream, UpgradeCollec,
 	},
 	service::metrics::NotificationMetrics,
 	types::ProtocolName,
@@ -329,6 +329,9 @@ pub enum NotifsHandlerOut {
 	CloseDesired {
 		/// Index of the protocol in the list of protocols passed at initialization.
 		protocol_index: usize,
+
+		/// Whether the remote has misbehaved and did not comply with the notification spec.
+		protocol_mismatch: bool,
 	},
 
 	/// Received a message on a custom protocol substream.
@@ -817,9 +820,16 @@ impl ConnectionHandler for NotifsHandler {
 				State::Open { out_substream: out_substream @ Some(_), .. } => {
 					match Sink::poll_flush(Pin::new(out_substream.as_mut().unwrap()), cx) {
 						Poll::Pending | Poll::Ready(Ok(())) => {},
-						Poll::Ready(Err(_)) => {
+						Poll::Ready(Err(error)) => {
 							*out_substream = None;
-							let event = NotifsHandlerOut::CloseDesired { protocol_index };
+
+							let protocol_mismatch =
+								matches!(error, NotificationsOutError::UnexpectedData);
+
+							let event = NotifsHandlerOut::CloseDesired {
+								protocol_index,
+								protocol_mismatch,
+							};
 							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event))
 						},
 					};
@@ -862,7 +872,10 @@ impl ConnectionHandler for NotifsHandler {
 							self.protocols[protocol_index].state =
 								State::Closed { pending_opening: *pending_opening };
 							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
-								NotifsHandlerOut::CloseDesired { protocol_index },
+								NotifsHandlerOut::CloseDesired {
+									protocol_index,
+									protocol_mismatch: false,
+								},
 							))
 						},
 					},

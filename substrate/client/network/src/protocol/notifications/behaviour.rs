@@ -399,6 +399,11 @@ pub enum NotificationsOut {
 		/// Message that has been received.
 		message: BytesMut,
 	},
+
+	BanPeer {
+		/// Id of the peer the message came from.
+		peer_id: PeerId,
+	},
 }
 
 impl Notifications {
@@ -1899,7 +1904,7 @@ impl NetworkBehaviour for Notifications {
 				};
 			},
 
-			NotifsHandlerOut::CloseDesired { protocol_index } => {
+			NotifsHandlerOut::CloseDesired { protocol_index, protocol_mismatch } => {
 				let set_id = SetId::from(protocol_index);
 
 				trace!(target: LOG_TARGET,
@@ -1914,6 +1919,11 @@ impl NetworkBehaviour for Notifications {
 					debug_assert!(false);
 					return
 				};
+
+				if protocol_mismatch {
+					self.events
+						.push_back(ToSwarm::GenerateEvent(NotificationsOut::BanPeer { peer_id }));
+				}
 
 				match mem::replace(entry.get_mut(), PeerState::Poisoned) {
 					// Enabled => Enabled | Disabled

@@ -36,7 +36,7 @@ use libp2p::{
 use log::{debug, warn};
 
 use codec::DecodeAll;
-use sc_network_common::role::Roles;
+use sc_network_common::{role::Roles, types::ReputationChange};
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::Block as BlockT;
 
@@ -375,6 +375,17 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 						},
 					)
 				}
+			},
+
+			NotificationsOut::BanPeer { peer_id } => {
+				self.peer_store_handle.report_peer(
+					peer_id.into(),
+					ReputationChange::new_fatal(
+						"Received unexpected data on outbound notification stream",
+					),
+				);
+
+				None
 			},
 		};
 
