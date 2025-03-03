@@ -37,6 +37,9 @@ use std::{collections::HashSet, sync::Arc};
 /// Log target for this file.
 const LOG_TARGET: &str = "bootnodes::advertisement";
 
+/// Maximum number of addresses to return via requset-response protocol.
+const MAX_ADDRESSES: usize = 32;
+
 /// Parachain bootnode advertisement parameters.
 pub struct BootnodeAdvertisementParams {
 	/// Parachain ID.
@@ -304,7 +307,7 @@ impl BootnodeAdvertisement {
 
 	/// The list of parachain side addresses.
 	///
-	/// The addresses are sorted as following:
+	/// The addresses are sorted as follows:
 	///  1) public addresses provided by the operator
 	///  2) global listen addresses
 	///  3) discovered external addresses
@@ -322,7 +325,7 @@ impl BootnodeAdvertisement {
 			Some(Protocol::P2p(_)) => {
 				warn!(
 					target: LOG_TARGET,
-					"Ignoring external/listen address containing not our peer ID: {addr}",
+					"Ignoring parachain side address containing not our peer ID: {addr}",
 				);
 				None
 			},
@@ -349,19 +352,32 @@ impl BootnodeAdvertisement {
 			})
 		};
 
+		// 1) public addresses provided by the operator
 		let public_addresses = self.public_addresses.clone().into_iter();
 
+		// 2) global listen addresses
 		let global_listen_addresses =
 			self.parachain_network.listen_addresses().into_iter().filter(is_global);
 
-		let external_addresses = self.parachain_network.external_addresses().into_iter();
+		// 3a) discovered external addresses (global)
+		let global_external_addresses =
+			self.parachain_network.external_addresses().into_iter().filter(is_global);
 
+		// 3b) discovered external addresses (non-global)
+		let non_global_external_addresses = self
+			.parachain_network
+			.external_addresses()
+			.into_iter()
+			.filter(|addr| !is_global(addr));
+
+		// 4) non-global listen addresses
 		let non_global_listen_addresses = self
 			.parachain_network
 			.listen_addresses()
 			.into_iter()
 			.filter(|addr| !is_global(addr) && !is_loopback(addr));
 
+		// 5) loopback listen addresses
 		let loopback_listen_addresses =
 			self.parachain_network.listen_addresses().into_iter().filter(is_loopback);
 
@@ -369,12 +385,21 @@ impl BootnodeAdvertisement {
 
 		public_addresses
 			.chain(global_listen_addresses)
-			.chain(external_addresses)
-			.chain(non_global_listen_addresses)
-			.chain(loopback_listen_addresses)
+			.chain(global_external_addresses)
+			.chain(
+				self.advertise_non_global_ips
+					.then_some(
+						non_global_external_addresses
+							.chain(non_global_listen_addresses)
+							.chain(loopback_listen_addresses),
+					)
+					.into_iter()
+					.flatten(),
+			)
 			.filter_map(without_p2p)
 			// Deduplicate addresses.
 			.filter(|addr| seen.insert(addr.clone()))
+			.take(MAX_ADDRESSES)
 			.collect()
 	}
 
