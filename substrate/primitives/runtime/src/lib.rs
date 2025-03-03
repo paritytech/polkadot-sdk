@@ -968,7 +968,7 @@ macro_rules! assert_eq_error_rate_float {
 
 /// Simple blob to hold an extrinsic without committing to its format and ensure it is serialized
 /// correctly.
-#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct OpaqueExtrinsic(Vec<u8>);
 
 impl OpaqueExtrinsic {
@@ -1248,16 +1248,17 @@ mod tests {
 mod sp_core_tests {
 	use super::*;
 
+	sp_core::generate_feature_enabled_macro!(if_test, test, $);
+	sp_core::generate_feature_enabled_macro!(if_not_test, not(test), $);
+
 	#[test]
 	#[should_panic]
 	fn generate_feature_enabled_macro_panics() {
-		sp_core::generate_feature_enabled_macro!(if_test, test, $);
 		if_test!(panic!("This should panic"));
 	}
 
 	#[test]
 	fn generate_feature_enabled_macro_works() {
-		sp_core::generate_feature_enabled_macro!(if_not_test, not(test), $);
 		if_not_test!(panic!("This should not panic"));
 	}
 }

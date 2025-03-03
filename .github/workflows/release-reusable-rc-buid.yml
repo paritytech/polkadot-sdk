@@ -82,7 +82,7 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign built artifacts
-          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
           which pgpkms
 
       - name: Checkout sources
@@ -204,7 +204,7 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign built artifacts
-          python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69" --break-system-packages
+          python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
 
       - name: Import gpg keys
         shell: bash
