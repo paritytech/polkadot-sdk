@@ -1,4 +1,4 @@
-title: Add `Paras` authorize code_hash for `(force_)set_current_code` feature
+title: "Add `Paras` `authorize_code_hash` + `apply_authorized_code` feature"
 doc:
 - audience: Runtime Dev
   description: |-
@@ -10,6 +10,6 @@ crates:
 - name: polkadot-runtime-parachains
   bump: major
 - name: rococo-runtime
-  bump: patch
+  bump: minor
 - name: westend-runtime
-  bump: patch
+  bump: minor
