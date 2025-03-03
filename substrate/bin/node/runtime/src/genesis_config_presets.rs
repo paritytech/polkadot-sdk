@@ -131,7 +131,8 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchensink_genesis(
 			vec![
-				// Use stash as controller account, otherwise grandpa can't load the authority set at genesis.
+				// Use stash as controller account, otherwise grandpa can't load the authority set
+				// at genesis.
 				(alice_stash.clone(), alice_stash.clone(), alice_session_keys),
 				(bob_stash.clone(), bob_stash.clone(), bob_session_keys),
 			],
