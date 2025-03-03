@@ -994,7 +994,7 @@ where
 	}
 }
 
-///The context which attached to pop message to attest its purpose
+/// The context which attached to pop message to attest its purpose.
 pub const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
 
 /// Pair which is able to generate proof of possession. While you don't need a keypair
