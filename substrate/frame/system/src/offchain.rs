@@ -484,8 +484,9 @@ pub trait CreateSignedTransaction<LocalCall>:
 
 /// Interface for creating an inherent.
 ///
-/// Implement this trait for the runtime but use `CreateBare` instead.
-/// This trait is defined to avoid a breaking change, and it automatically implements `CreateBare`.
+/// It automatically implements [`CreateBare`], but [`CreateBare`] should be implemented instead,
+/// this trait is deprecated.
+#[deprecated(note = "Use `CreateBare` instead")]
 pub trait CreateInherent<LocalCall>: CreateTransactionBase<LocalCall> {
 	/// Create an inherent.
 	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic;
@@ -510,9 +511,9 @@ pub trait CreateBare<LocalCall>: CreateTransactionBase<LocalCall> {
 	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic;
 }
 
-impl<LocalCall, T: CreateInherent<LocalCall>> CreateBare<LocalCall> for T {
+impl<LocalCall, T: CreateBare<LocalCall>> CreateBare<LocalCall> for T {
 	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-		<Self as CreateInherent<LocalCall>>::create_bare(call)
+		<Self as CreateBare<LocalCall>>::create_bare(call)
 	}
 }
 
@@ -662,7 +663,7 @@ mod tests {
 		type RuntimeCall = RuntimeCall;
 	}
 
-	impl CreateInherent<RuntimeCall> for TestRuntime {
+	impl CreateBare<RuntimeCall> for TestRuntime {
 		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
 			Extrinsic::new_bare(call)
 		}

@@ -7,37 +7,34 @@ doc:
     Both unsigned transaction and inherent use the extrinsic type `Bare`.
     Before this PR `CreateInherent` trait was use to generate unsigned transaction, now unsigned transaction can be generated using a proper trait `CreateBare`.
 
-    How to upgrade: change usage of `CreateInherent` to `CreateBare` if you wish to, but keep implementing `CreateInherent` for the runtime.
-
-    Changes:
-    * `SendUnsignedTransaction`: bounds `T: CreateBare` instead of `T: CreateInherent`. This is not a breaking change because any type implementing `CreateInherent` defacto implements `CreateBare` through automatic implementation.
-    * `SendUnsignedTransaction` is implemented for `Signer` when `T: CreateBase` instead of `T: CreateInherent`. This is not a breaking change for the same reason.
-    That said there might be some type inference or trait resolution that can be breaking, as rustc isn't perfectly predictable in this regard. So this PR still bump `frame-system` as major.
+    How to upgrade:
+    * in pallets change usage of `CreateInherent` to `CreateBare` in pallets,
+    * for the runtime you can keep implementing `CreateInherent` if some pallet haven't migrated to `CreateBare`, but if all have been migrated to `CreateBare` then you can implement `CreateBare` instead.
 
 crates:
 - name: frame-system
   bump: major
 - name: polkadot-runtime-common
-  bump: patch
+  bump: major
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
 - name: rococo-runtime
-  bump: patch
+  bump: major
 - name: westend-runtime
-  bump: patch
+  bump: major
 - name: pallet-babe
-  bump: patch
+  bump: major
 - name: pallet-beefy
-  bump: patch
+  bump: major
 - name: pallet-election-provider-multi-block
-  bump: patch
+  bump: major
 - name: pallet-election-provider-multi-phase
-  bump: patch
+  bump: major
 - name: pallet-grandpa
-  bump: patch
+  bump: major
 - name: pallet-im-online
-  bump: patch
+  bump: major
 - name: pallet-mixnet
-  bump: patch
+  bump: major
 - name: pallet-offences-benchmarking
-  bump: patch
+  bump: major
