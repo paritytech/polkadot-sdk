@@ -479,7 +479,7 @@ where
 			Poll::Pending => {},
 			Poll::Ready(Some(result)) => match result {
 				Ok(_) => {
-					error!(
+					warn!(
 						target: "sub-libp2p",
 						"Unexpected incoming data in `NotificationsOutSubstream` peer={:?}",
 						this.peer_id
