@@ -516,6 +516,11 @@ pub mod test_log_capture {
 	/// assert!(!log_capture.contains("Captured log message"));
 	/// assert!(log_capture.contains("Captured warning"));
 	/// ```
+	///
+	/// Related functions:
+	/// - [`init_log_capture()`]: Captures logs for assertions.
+	/// - [`init_log_capture_for_tests()`]: Captures logs and outputs `TRACE` level.
+	/// - [`sp_tracing::init_for_tests()`]: Outputs logs but does not capture them.
 	#[macro_export]
 	macro_rules! capture_test_logs {
 		// Case when max_level is provided
