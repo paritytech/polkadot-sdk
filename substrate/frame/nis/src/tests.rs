@@ -17,7 +17,7 @@
 
 //! Tests for NIS pallet.
 
-use frame::{runtime::prelude::*, testing_prelude::*};
+use frame::testing_prelude::*;
 
 use crate::{
 	mock::{Balance, *},
