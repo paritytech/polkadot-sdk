@@ -978,7 +978,7 @@ where
 	Self::Public: CryptoType,
 {
 	/// The proof of possession generator is supposed to
-	/// to produce a "signature" with unique hash context that should
+	/// produce a "signature" with unique hash context that should
 	/// never be used in other signatures. This proves that
 	/// that the secret key is known to the prover. While prevent
 	/// malicious actors to trick an honest party to sign their
