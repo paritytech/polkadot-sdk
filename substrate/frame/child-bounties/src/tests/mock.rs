@@ -76,7 +76,6 @@ impl Pay for TestPay {
 			balance_to,
 		));
 
-		println!("paying {} from {:?} to {:?} with asset kind {}", amount, from, to, asset_kind);
 		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
 		Ok(LAST_ID.with(|lid| {
 			let x = *lid.borrow();
@@ -227,6 +226,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 pub fn last_event() -> ChildBountiesEvent<Test> {
+	println!("{:?}", System::events());
 	System::events()
 		.into_iter()
 		.map(|r| r.event)

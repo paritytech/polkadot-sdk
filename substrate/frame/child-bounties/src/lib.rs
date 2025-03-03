@@ -909,13 +909,114 @@ pub mod pallet {
 		/// - O(1).
 		#[pallet::call_index(7)]
 		// TODO: change weight
-		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::accept_curator())]
 		pub fn process_payment(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			#[pallet::compact] child_bounty_id: BountyIndex,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
+
+			ChildBounties::<T, I>::try_mutate_exists(
+				parent_bounty_id,
+				child_bounty_id,
+				|maybe_child_bounty| -> DispatchResultWithPostInfo {
+					let child_bounty = maybe_child_bounty.as_mut().ok_or(BountiesError::<T, I>::InvalidIndex)?;
+
+					match child_bounty.status {
+						ChildBountyStatus::Approved { ref mut payment_status } => {
+							ensure!(
+								matches!(
+									payment_status,
+									PaymentState::Failed | PaymentState::Pending
+								),
+								BountiesError::<T, I>::UnexpectedStatus
+							);
+
+							let parent_bounty_account =
+								pallet_bounties::Pallet::<T, I>::bounty_account_id(parent_bounty_id);
+							let child_bounty_account =
+								Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
+							let asset_kind = Self::bounty_asset_kind(parent_bounty_id)?;
+							let payment_id = T::Paymaster::pay(
+								&parent_bounty_account,
+								&child_bounty_account,
+								asset_kind,
+								child_bounty.value,
+							)
+							.map_err(|_| BountiesError::<T, I>::RefundError)?;
+
+							*payment_status = PaymentState::Attempted { id: payment_id };
+							// Tiago: should I be returning something like
+							// <T as Config<I>>::WeightInfo::process_payment_approved() in each arm?
+							Ok(Pays::Yes.into())
+						},
+						ChildBountyStatus::RefundAttempted { ref mut payment_status } => {
+							ensure!(
+								matches!(
+									payment_status,
+									PaymentState::Failed | PaymentState::Pending
+								),
+								BountiesError::<T, I>::UnexpectedStatus
+							);
+
+							let child_bounty_account = Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
+							let parent_bounty_account =
+								pallet_bounties::Pallet::<T, I>::bounty_account_id(parent_bounty_id);
+							let asset_kind = Self::bounty_asset_kind(parent_bounty_id)?;
+							let payment_id = T::Paymaster::pay(
+								&child_bounty_account,
+								&parent_bounty_account,
+								asset_kind,
+								child_bounty.value,
+							)
+							.map_err(|_| BountiesError::<T, I>::RefundError)?;
+
+							*payment_status = PaymentState::Attempted { id: payment_id };
+							Ok(Pays::Yes.into())
+						},
+						ChildBountyStatus::PayoutAttempted {
+							ref mut curator_stash,
+							ref mut beneficiary,
+							..
+						} => {
+							let (final_fee, payout) = Self::calculate_curator_fee_and_payout(
+								child_bounty.fee,
+								child_bounty.value,
+							);
+							let child_bounty_account =
+								Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
+							let asset_kind = Self::bounty_asset_kind(parent_bounty_id)?;
+							let statuses = [
+								T::Paymaster::pay(
+									&child_bounty_account,
+									&curator_stash.0,
+									asset_kind.clone(),
+									final_fee,
+								)
+								.map_err(|_| BountiesError::<T, I>::PayoutError),
+								T::Paymaster::pay(
+									&child_bounty_account,
+									&beneficiary.0,
+									asset_kind,
+									payout,
+								)
+								.map_err(|_| BountiesError::<T, I>::PayoutError),
+							];
+							
+							// Tiago: process_payment does not change child_bounty.status state. Should it
+							// change?
+							let succeeded = statuses.iter().filter(|i| i.is_ok()).count();
+							if succeeded > 0 {
+								Ok(Pays::Yes.into())
+							} else {
+								Err(BountiesError::<T, I>::PayoutError.into())
+							}
+						},
+						_ => Err(BountiesError::<T, I>::UnexpectedStatus.into()),
+					}
+				},
+			)
 		}
 
 		/// Check and update the payment status of a child-bounty.
@@ -960,12 +1061,28 @@ pub mod pallet {
 					let mut new_child_bounty_status = None;
 
 					let result = match child_bounty.status {
-						ChildBountyStatus::Approved { ref mut payment_status } =>
-							Self::check_payment_status_for_funding(
-								&mut new_child_bounty_status,
-								payment_status,
-								None,
-							),
+						ChildBountyStatus::Approved { ref mut payment_status } => match payment_status {
+							PaymentState::Attempted { id } =>
+								match T::Paymaster::check_payment(*id) {
+									PaymentStatus::Success => {
+										*payment_status = PaymentState::Succeeded;
+										new_child_bounty_status = Some(ChildBountyStatus::Funded);
+										// Tiago: should I be returning something like
+										// <T as Config<I>>::WeightInfo::check_payment_status_approved() in each arm?
+										Ok(Pays::No.into())
+									},
+									PaymentStatus::InProgress =>
+										return Err(BountiesError::<T, I>::FundingInconclusive.into()),
+									PaymentStatus::Unknown | PaymentStatus::Failure => {
+										// TODO: should we assume payment has failed on unknown? not
+										// sure yet
+										*payment_status = PaymentState::Failed;
+										// user can retry from this tate
+										return Ok(Pays::No.into());
+									},
+								},
+							_ => return Err(BountiesError::<T, I>::UnexpectedStatus.into()),
+						},
 						ChildBountyStatus::PayoutAttempted {
 							ref curator,
 							ref mut curator_stash,
@@ -973,22 +1090,38 @@ pub mod pallet {
 						} => {
 							let (mut payments_progressed, mut payments_succeeded) = (0, 0);
 							// advance both curator, and beneficiary payments
-							let results = [
-								Self::check_payment_status_for_payout(
-									&mut payments_progressed,
-									&mut payments_succeeded,
-									curator_stash,
-								),
-								Self::check_payment_status_for_payout(
-									&mut payments_progressed,
-									&mut payments_succeeded,
-									beneficiary,
-								),
-							];
+							for (account, payment_state) in [
+								(&curator_stash.0, &mut curator_stash.1),
+								(&beneficiary.0, &mut beneficiary.1),
+							] {
+								match payment_state {
+									PaymentState::Attempted { id } =>
+										match T::Paymaster::check_payment(*id) {
+											PaymentStatus::Success => {
+												*payment_state = PaymentState::Succeeded;
+												payments_succeeded += 1;
+												payments_progressed += 1;
+											},
+											PaymentStatus::InProgress => {
+												// nothing new to report, return function without
+												// error so we could drive the next
+												// payment
+											},
+											PaymentStatus::Unknown | PaymentStatus::Failure => {
+												payments_progressed += 1;
+												*payment_state = PaymentState::Failed;
+											},
+										},
+									PaymentState::Succeeded => {
+										payments_succeeded += 1;
+									},
+									_ => return Err(BountiesError::<T, I>::UnexpectedStatus.into()),
+								}
+							}
 
 							// best scenario, both payments have succeeded,
 							// emit events and advance state machine to the end
-							if payments_succeeded >= results.len() as i32 {
+							if payments_succeeded >= 2 as i32 {
 								// all payments succeeded, cleanup the bounty
 								let (_final_fee, payout) = Self::calculate_curator_fee_and_payout(
 									child_bounty.fee,
@@ -1033,11 +1166,6 @@ pub mod pallet {
 								// return ok so these changes are saved to the state
 								Ok(Pays::Yes.into())
 							} else {
-								// try returning payment status errors if there are any
-								for result in results {
-									result?;
-								}
-
 								// no progress was made in the state machine if we're here,
 								return Err(BountiesError::<T, I>::PayoutInconclusive.into())
 							}
@@ -1068,7 +1196,7 @@ pub mod pallet {
 
 											*maybe_child_bounty = None;
 
-											Self::deposit_event(Event::<T, I>::Canceled {
+											let result = Self::deposit_event(Event::<T, I>::Canceled {
 												index: parent_bounty_id,
 												child_index: child_bounty_id,
 											});
@@ -1087,17 +1215,11 @@ pub mod pallet {
 										},
 									}
 								},
-								PaymentState::Pending | PaymentState::Failed => {
-									// nothing to do here, user should try calling
-									// `process_payment` again to try payment again
-									Err(BountiesError::<T, I>::UnexpectedStatus.into())
-								},
-								PaymentState::Succeeded => {
-									// should never be reached, if refund succeeded
-									// it should have been removed from the bounties
-									// already
-									Err(BountiesError::<T, I>::UnexpectedStatus.into())
-								},
+								// `Pending` and `Failed` states should trigger user to call
+								// `process_payment` retry. `Succeeded` should never be
+								// reached since a successful refund would have
+								//   already removed the bounty from storage.
+								_ => return Err(BountiesError::<T, I>::UnexpectedStatus.into()),
 							}
 						},
 						_ => return Err(BountiesError::<T, I>::UnexpectedStatus.into()),
@@ -1290,111 +1412,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(())
 			},
 		)
-	}
-
-	fn check_payment_status_for_funding(
-		child_bounty_status: &mut Option<ChildBountyStatusOf<T, I>>,
-		payment_status: &mut PaymentState<PaymentIdOf<T, I>>,
-		approved_curator: Option<&T::AccountId>,
-	) -> DispatchResultWithPostInfo {
-		match payment_status {
-			PaymentState::Pending => {
-				// user should try processing payment again, not check its status
-				return Err(BountiesError::<T, I>::UnexpectedStatus.into());
-			},
-			PaymentState::Failed => {
-				// payment is known to have failed, this function should revert
-				// not to pass as valid transaction
-				return Err(BountiesError::<T, I>::UnexpectedStatus.into());
-			},
-			PaymentState::Succeeded => {
-				// should never happen in funding payment, we should
-				// have advanced to the next bounty state on success
-				// from ::Attempted payment status
-				return Err(BountiesError::<T, I>::UnexpectedStatus.into());
-			},
-			PaymentState::Attempted { id } => {
-				match T::Paymaster::check_payment(*id) {
-					PaymentStatus::Success => {
-						*payment_status = PaymentState::Succeeded;
-						// success, advance bounty state machine to
-						// either Funded or CuratorProposed depending
-						// on whether approval was with curator
-						match approved_curator {
-							Some(curator) => {
-								*child_bounty_status = Some(ChildBountyStatus::CuratorProposed {
-									curator: curator.clone(),
-								});
-							},
-							None => {
-								*child_bounty_status = Some(ChildBountyStatus::Funded);
-							},
-						}
-						return Ok(Pays::No.into());
-					},
-					PaymentStatus::InProgress => {
-						// nothing new to report, revert so this is not spammed
-						return Err(BountiesError::<T, I>::FundingInconclusive.into());
-					},
-					PaymentStatus::Unknown | PaymentStatus::Failure => {
-						// TODO: should we assume payment has failed on unknown? not
-						// sure yet
-						*payment_status = PaymentState::Failed;
-						// user can retry from this tate
-						return Ok(Pays::No.into());
-					},
-				}
-			},
-		}
-	}
-
-	/// advance state machine of payout, used for curator and beneficiary payments
-	fn check_payment_status_for_payout(
-		// counter for the state changes that we'd like to keep in the storage
-		// say, first payment progresses and second fails, we want to save progress
-		// of the first in the state machine even if second payment is not successful yet
-		payments_progressed: &mut i32,
-		// payments that have finished processing successfully
-		payments_succeeded: &mut i32,
-		beneficiary: &mut (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
-	) -> Result<(), BountiesError<T, I>> {
-		match beneficiary.1 {
-			PaymentState::Pending => {
-				// user should try processing payment again, not check its status
-				return Err(BountiesError::<T, I>::UnexpectedStatus.into());
-			},
-			PaymentState::Failed => {
-				// payment is known to have failed, and should be retried
-				// instead of checking its status
-				return Err(BountiesError::<T, I>::UnexpectedStatus.into());
-			},
-			// this could be retried multiple times, say, curator payment succeeded
-			// and beneficiary payment failed, we should still allow beneficiary to
-			// retry, while having curator succeeded
-			PaymentState::Succeeded => {
-				*payments_succeeded += 1;
-			},
-			PaymentState::Attempted { id } => {
-				match T::Paymaster::check_payment(id) {
-					PaymentStatus::Success => {
-						// success, change payment state and increment successful payments counter
-						beneficiary.1 = PaymentState::Succeeded;
-						*payments_succeeded += 1;
-						*payments_progressed += 1;
-					},
-					PaymentStatus::InProgress => {
-						// nothing new to report, return function without error
-						// so we could drive the next payment
-					},
-					PaymentStatus::Unknown | PaymentStatus::Failure => {
-						*payments_progressed += 1;
-						beneficiary.1 = PaymentState::Failed;
-					},
-				}
-			},
-		};
-
-		Ok(())
 	}
 
 	fn calculate_curator_fee_and_payout(
