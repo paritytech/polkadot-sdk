@@ -116,9 +116,9 @@ mod types;
 ///
 /// Ignores any error. Useful for testing. Uses the default filter for logs.
 ///
-/// Similar functions:
-/// - [`init_for_tests()`]: Uses `TRACE` level.
-/// - [`test_log_capture::init_log_capture_for_tests()`]: Outputs `TRACE` level and captures logs.
+/// Related functions:
+/// - [`init_for_tests()`]: Enables `TRACE` level.
+/// - [`test_log_capture::init_log_capture_for_tests()`]: Captures logs and outputs `TRACE` level.
 #[cfg(feature = "std")]
 pub fn try_init_simple() {
 	let _ = tracing_subscriber::fmt()
@@ -136,9 +136,9 @@ pub fn try_init_simple() {
 /// or if [`nocapture`](https://doc.rust-lang.org/cargo/commands/cargo-test.html#display-options)
 /// is being used.
 ///
-/// Similar functions:
+/// Related functions:
 /// - [`try_init_simple()`]: Uses the default filter.
-/// - [`test_log_capture::init_log_capture_for_tests()`]: Outputs `TRACE` level and captures logs.
+/// - [`test_log_capture::init_log_capture_for_tests()`]: Captures logs and outputs `TRACE` level.
 #[cfg(feature = "std")]
 pub fn init_for_tests() {
 	let _ = tracing_subscriber::fmt()
@@ -271,7 +271,8 @@ pub mod test_log_capture {
 		sync::{Arc, Mutex},
 	};
 	use tracing::level_filters::LevelFilter;
-	use tracing_subscriber::{fmt, fmt::MakeWriter, Registry};
+	use tracing_subscriber::{fmt, fmt::MakeWriter, Layer, Registry};
+	use tracing_subscriber::layer::SubscriberExt;
 
 	/// A reusable log capturing struct for unit tests.
 	/// Captures logs written during test execution for assertions.
@@ -397,9 +398,9 @@ pub mod test_log_capture {
 	/// });
 	/// ```
 	///
-	/// Similar function/macro:
-	/// - [`init_log_capture_for_tests()`]: Outputs `TRACE` level and captures logs.
-	/// - [`capture_test_logs!()`]: Macro to capture logs during test execution.
+	/// Related functions/macros:
+	/// - [`init_log_capture_for_tests()`]: Captures logs and outputs `TRACE` level.
+	/// - [`capture_test_logs!()`]: A macro for capturing logs during test execution.
 	pub fn init_log_capture(
 		max_level: impl Into<LevelFilter>,
 	) -> (LogCapture, impl tracing::Subscriber + Send + Sync) {
@@ -443,6 +444,11 @@ pub mod test_log_capture {
 	///     assert!(log_capture.contains("This log will be captured and printed to test output"));
 	/// });
 	/// ```
+	///
+	/// Related functions:
+	/// - [`init_log_capture()`]: Captures logs for assertions.
+	/// - [`sp_tracing::init_for_tests()`]: Outputs logs but does not capture them.
+	/// - [`capture_test_logs!()`]: A macro for capturing logs during test execution.
 	pub fn init_log_capture_for_tests() -> (LogCapture, impl tracing::Subscriber + Send + Sync) {
 		do_init_log_capture(LevelFilter::TRACE, true)
 	}
