@@ -1361,7 +1361,7 @@ mod pool_integration {
 	}
 
 	#[test]
-	fn existing_pool_member_can_stake() {
+	fn existing_pool_member_cannot_stake() {
 		// A pool member is able to stake directly since staking only uses free funds but once a
 		// staker, they cannot join/add extra bond to the pool. They can still withdraw funds.
 		ExtBuilder::default().build_and_execute(|| {
@@ -1375,28 +1375,42 @@ mod pool_integration {
 			fund(&delegator, 1000);
 			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 200, pool_id));
 
-			// THEN: they can still stake directly.
+			// THEN: they cannot stake anymore
+			assert_noop!(
+				Staking::bond(
+					RuntimeOrigin::signed(delegator),
+					500,
+					RewardDestination::Account(101)
+				),
+				StakingError::<T>::BoundNotMet
+			);
+		});
+	}
+
+	#[test]
+	fn stakers_cannot_join_pool() {
+		ExtBuilder::default().build_and_execute(|| {
+			start_era(1);
+			// GIVEN: a pool.
+			fund(&200, 1000);
+			let pool_id = create_pool(200, 800);
+
+			// WHEN: an account is a staker.
+			let staker = 100;
+			fund(&staker, 1000);
+
 			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(delegator),
+				RuntimeOrigin::signed(staker),
 				500,
 				RewardDestination::Account(101)
 			));
-			assert_ok!(Staking::nominate(
-				RuntimeOrigin::signed(delegator),
-				vec![GENESIS_VALIDATOR]
-			));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(staker), vec![GENESIS_VALIDATOR]));
 
-			// The delegator cannot add any extra bond to the pool anymore.
+			// THEN: they cannot join pool.
 			assert_noop!(
-				Pools::bond_extra(RawOrigin::Signed(delegator).into(), BondExtra::FreeBalance(100)),
+				Pools::join(RawOrigin::Signed(staker).into(), 200, pool_id),
 				Error::<T>::AlreadyStaking
 			);
-
-			// But they can unbond
-			assert_ok!(Pools::unbond(RawOrigin::Signed(delegator).into(), delegator, 50));
-			// and withdraw
-			start_era(4);
-			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(delegator).into(), delegator, 0));
 		});
 	}
 
