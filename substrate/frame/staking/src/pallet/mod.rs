@@ -25,17 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-<<<<<<< HEAD
 		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
 		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
-=======
-		fungible::{
-			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
-			Inspect, Mutate, Mutate as FunMutate,
-		},
-		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, Nothing, OnUnbalanced, UnixTime,
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 	},
 	weights::Weight,
 	BoundedVec,
@@ -305,13 +296,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type DisablingStrategy: DisablingStrategy<Self>;
 
-		#[pallet::no_default_bounds]
-		/// Filter some accounts from participating in staking.
-		///
-		/// This is useful for example to blacklist an account that is participating in staking in
-		/// another way (such as pools).
-		type Filter: Contains<Self::AccountId>;
-
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -322,6 +306,16 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Determines whether a given account should be filtered out from staking operations.
+		///
+		/// This function provides a way to exclude certain accounts from bonding to staking. An
+		/// already bonded account is allowed to withdraw.
+		///
+		/// The default implementation does not filter out any accounts.
+		fn filter(_who: &Self::AccountId) -> bool {
+			false
+		}
 	}
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -358,11 +352,7 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
-<<<<<<< HEAD
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
-=======
-			type Filter = Nothing;
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -954,18 +944,6 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Operation not allowed for virtual stakers.
 		VirtualStakerNotAllowed,
-<<<<<<< HEAD
-=======
-		/// Stash could not be reaped as other pallet might depend on it.
-		CannotReapStash,
-		/// The stake of this account is already migrated to `Fungible` holds.
-		AlreadyMigrated,
-		/// Era not yet started.
-		EraNotStarted,
-		/// Account is restricted from participation in staking. This may happen if the account is
-		/// staking in another way already, such as via pool.
-		Restricted,
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 	}
 
 	#[pallet::hooks]
@@ -1045,7 +1023,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+			ensure!(!T::filter(&stash), Error::<T>::BoundNotMet);
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
@@ -1096,7 +1074,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+			ensure!(!T::filter(&stash), Error::<T>::BoundNotMet);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -1684,7 +1662,7 @@ pub mod pallet {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
 
-			ensure!(!T::Filter::contains(&ledger.stash), Error::<T>::Restricted);
+			ensure!(!T::filter(&ledger.stash), Error::<T>::BoundNotMet);
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
@@ -2189,67 +2167,6 @@ pub mod pallet {
 			);
 			Ok(())
 		}
-<<<<<<< HEAD
-=======
-
-		/// Migrates permissionlessly a stash from locks to holds.
-		///
-		/// This removes the old lock on the stake and creates a hold on it atomically. If all
-		/// stake cannot be held, the best effort is made to hold as much as possible. The remaining
-		/// stake is removed from the ledger.
-		///
-		/// The fee is waived if the migration is successful.
-		#[pallet::call_index(30)]
-		#[pallet::weight(T::WeightInfo::migrate_currency())]
-		pub fn migrate_currency(
-			origin: OriginFor<T>,
-			stash: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
-			Self::do_migrate_currency(&stash)?;
-
-			// Refund the transaction fee if successful.
-			Ok(Pays::No.into())
-		}
-
-		/// Manually applies a deferred slash for a given era.
-		///
-		/// Normally, slashes are automatically applied shortly after the start of the `slash_era`.
-		/// This function exists as a **fallback mechanism** in case slashes were not applied due to
-		/// unexpected reasons. It allows anyone to manually apply an unapplied slash.
-		///
-		/// ## Parameters
-		/// - `slash_era`: The staking era in which the slash was originally scheduled.
-		/// - `slash_key`: A unique identifier for the slash, represented as a tuple:
-		///   - `stash`: The stash account of the validator being slashed.
-		///   - `slash_fraction`: The fraction of the stake that was slashed.
-		///   - `page_index`: The index of the exposure page being processed.
-		///
-		/// ## Behavior
-		/// - The function is **permissionless**—anyone can call it.
-		/// - The `slash_era` **must be the current era or a past era**. If it is in the future, the
-		///   call fails with `EraNotStarted`.
-		/// - The fee is waived if the slash is successfully applied.
-		///
-		/// ## TODO: Future Improvement
-		/// - Implement an **off-chain worker (OCW) task** to automatically apply slashes when there
-		///   is unused block space, improving efficiency.
-		#[pallet::call_index(31)]
-		#[pallet::weight(T::WeightInfo::apply_slash())]
-		pub fn apply_slash(
-			origin: OriginFor<T>,
-			slash_era: EraIndex,
-			slash_key: (T::AccountId, Perbill, u32),
-		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
-			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
-			ensure!(slash_era <= active_era, Error::<T>::EraNotStarted);
-			let unapplied_slash = UnappliedSlashes::<T>::take(&slash_era, &slash_key)
-				.ok_or(Error::<T>::InvalidSlashRecord)?;
-			slashing::apply_slash::<T>(unapplied_slash, slash_era);
-
-			Ok(Pays::No.into())
-		}
 
 		/// Adjusts the staking ledger by withdrawing any excess staked amount.
 		///
@@ -2262,27 +2179,27 @@ pub mod pallet {
 		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
+			// Virtual stakers are controlled by some other pallet.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
+
 			let ledger = Self::ledger(Stash(stash.clone()))?;
-			let actual_stake = asset::staked::<T>(&stash);
-			let force_withdraw_amount = ledger.total.defensive_saturating_sub(actual_stake);
+			let stash_balance = T::Currency::free_balance(&stash);
 
-			// ensure there is something to force unstake.
-			ensure!(!force_withdraw_amount.is_zero(), Error::<T>::BoundNotMet);
+			// Ensure there is an overstake.
+			ensure!(ledger.total > stash_balance, Error::<T>::BoundNotMet);
 
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash, but we can't do much better here.
-			StakingLedger {
-				total: actual_stake,
-				active: ledger.active.saturating_sub(force_withdraw_amount),
-				..ledger
-			}
-			.update()?;
+			let force_withdraw_amount = ledger.total.defensive_saturating_sub(stash_balance);
+
+			// Update the ledger by withdrawing excess stake.
+			ledger.update_total_stake(stash_balance).update()?;
+
+			// Ensure lock is updated.
+			debug_assert_eq!(T::Currency::balance_locked(crate::STAKING_ID, &stash), stash_balance);
 
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
 
 			Ok(())
 		}
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 	}
 }
 

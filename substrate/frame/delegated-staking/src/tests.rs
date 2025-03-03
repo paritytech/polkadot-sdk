@@ -65,6 +65,31 @@ fn cannot_become_agent() {
 			DelegatedStaking::register_agent(RawOrigin::Signed(100).into(), 100),
 			Error::<T>::InvalidRewardDestination
 		);
+
+		// an existing validator cannot become agent
+		assert_noop!(
+			DelegatedStaking::register_agent(
+				RawOrigin::Signed(mock::GENESIS_VALIDATOR).into(),
+				100
+			),
+			Error::<T>::AlreadyStaking
+		);
+
+		// an existing direct staker to `CoreStaking` cannot become an agent.
+		assert_noop!(
+			DelegatedStaking::register_agent(
+				RawOrigin::Signed(mock::GENESIS_NOMINATOR_ONE).into(),
+				100
+			),
+			Error::<T>::AlreadyStaking
+		);
+		assert_noop!(
+			DelegatedStaking::register_agent(
+				RawOrigin::Signed(mock::GENESIS_NOMINATOR_TWO).into(),
+				100
+			),
+			Error::<T>::AlreadyStaking
+		);
 	});
 }
 
@@ -611,6 +636,18 @@ mod staking_integration {
 			assert_noop!(
 				DelegatedStaking::register_agent(RawOrigin::Signed(202).into(), 203),
 				Error::<T>::NotAllowed
+			);
+			// existing staker cannot become a delegate
+			assert_noop!(
+				DelegatedStaking::register_agent(
+					RawOrigin::Signed(GENESIS_NOMINATOR_ONE).into(),
+					201
+				),
+				Error::<T>::AlreadyStaking
+			);
+			assert_noop!(
+				DelegatedStaking::register_agent(RawOrigin::Signed(GENESIS_VALIDATOR).into(), 201),
+				Error::<T>::AlreadyStaking
 			);
 		});
 	}
@@ -1345,7 +1382,7 @@ mod pool_integration {
 					500,
 					RewardDestination::Account(101)
 				),
-				StakingError::<T>::Restricted
+				StakingError::<T>::BoundNotMet
 			);
 		});
 	}
@@ -1372,7 +1409,7 @@ mod pool_integration {
 			// THEN: they cannot join pool.
 			assert_noop!(
 				Pools::join(RawOrigin::Signed(staker).into(), 200, pool_id),
-				PoolsError::<T>::Restricted
+				Error::<T>::AlreadyStaking
 			);
 		});
 	}

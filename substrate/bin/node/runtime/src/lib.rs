@@ -699,13 +699,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = NominationPools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
-<<<<<<< HEAD
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
-=======
-	type MaxInvulnerables = ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
-	type Filter = Nothing;
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -924,11 +918,6 @@ impl pallet_nomination_pools::Config for Runtime {
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
 	>;
-<<<<<<< HEAD
-=======
-	type BlockNumberProvider = System;
-	type Filter = Nothing;
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 }
 
 parameter_types! {

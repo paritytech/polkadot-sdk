@@ -369,14 +369,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
 	type WeightInfo = ();
-<<<<<<< HEAD
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
-=======
-	type MaxValidatorSet = MaxAuthorities;
-	type MaxInvulnerables = ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
-	type Filter = frame_support::traits::Nothing;
->>>>>>> f7e98b40 ([Nomination Pool] Make staking restrictions configurable (#7685))
 }
 
 parameter_types! {
