@@ -855,47 +855,53 @@ fn double_controlling_attempt_should_fail() {
 
 #[test]
 fn session_and_eras_work_simple() {
-	ExtBuilder::default().period(1).build_and_execute(|| {
+	ExtBuilder::default().period(3).build_and_execute(|| {
 		assert_eq!(active_era(), 0);
 		assert_eq!(current_era(), 0);
-		assert_eq!(Session::current_index(), 1);
+		assert_eq!(Session::current_index(), 0);
 		assert_eq!(System::block_number(), 1);
 
 		// Session 1: this is basically a noop. This has already been started.
 		start_session(1);
 		assert_eq!(Session::current_index(), 1);
 		assert_eq!(active_era(), 0);
-		assert_eq!(System::block_number(), 1);
+		assert_eq!(current_era(), 0);
+		assert_eq!(System::block_number(), 3);
 
 		// Session 2: No change.
 		start_session(2);
 		assert_eq!(Session::current_index(), 2);
 		assert_eq!(active_era(), 0);
-		assert_eq!(System::block_number(), 2);
+		assert_eq!(current_era(), 1);
+		assert_eq!(System::block_number(), 6);
 
 		// Session 3: Era increment.
 		start_session(3);
 		assert_eq!(Session::current_index(), 3);
 		assert_eq!(active_era(), 1);
-		assert_eq!(System::block_number(), 3);
+		assert_eq!(current_era(), 1);
+		assert_eq!(System::block_number(), 9);
 
 		// Session 4: No change.
 		start_session(4);
 		assert_eq!(Session::current_index(), 4);
 		assert_eq!(active_era(), 1);
-		assert_eq!(System::block_number(), 4);
+		assert_eq!(current_era(), 1);
+		assert_eq!(System::block_number(), 12);
 
 		// Session 5: No change.
 		start_session(5);
 		assert_eq!(Session::current_index(), 5);
 		assert_eq!(active_era(), 1);
-		assert_eq!(System::block_number(), 5);
+		assert_eq!(current_era(), 2);
+		assert_eq!(System::block_number(), 15);
 
 		// Session 6: Era increment.
 		start_session(6);
 		assert_eq!(Session::current_index(), 6);
 		assert_eq!(active_era(), 2);
-		assert_eq!(System::block_number(), 6);
+		assert_eq!(current_era(), 2);
+		assert_eq!(System::block_number(), 18);
 	});
 }
 
