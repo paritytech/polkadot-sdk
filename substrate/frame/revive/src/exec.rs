@@ -357,7 +357,7 @@ pub trait Ext: sealing::Sealed {
 	/// Returns the value transferred along with this call.
 	fn value_transferred(&self) -> U256;
 
-	/// Returns the timestamp of the current block
+	/// Returns the timestamp of the current block in seconds.
 	fn now(&self) -> U256;
 
 	/// Returns the minimum balance that is required for creating an account.
