@@ -123,7 +123,7 @@ jobs:
         id: get-comment
         with:
           text: ${{ github.event.comment.body }}
-          regex: "^(\\/cmd )([-\\/\\s\\w.=:]+)$" # see explanation in docs/contributor/commands-readme.md#examples
+          regex: "^(\\/cmd )([-\\/\\s\\w.=:']+)$" # see explanation in docs/contributor/commands-readme.md#examples
       
       # Get PR branch name, because the issue_comment event does not contain the PR branch name
       - name: Check if the issue is a PR
