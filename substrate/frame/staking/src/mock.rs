@@ -212,6 +212,7 @@ parameter_types! {
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
 	pub static MaxWinnersPerPage: u32 = MaxValidatorSet::get();
+	pub static MaxRewardPages: u32 = 100;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -375,6 +376,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
+	type MaxRewardPages = ConstU32<100>;
 	type Filter = MockedRestrictList;
 }
 

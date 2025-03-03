@@ -94,6 +94,19 @@ pub mod pallet {
 		Remove,
 	}
 
+
+	/// The maximum pages of exposure a validator can have.
+	///
+	/// This is derived from `T::ElectionProvider::MaxBackersPerWinner` and `T::MaxExposurePageSize`.
+	struct MaxExposurePages<T: Config>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for MaxExposurePages<T> {
+		fn get() -> u32 {
+			(<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get() /
+				T::MaxExposurePageSize::get().max(1)) +
+				1
+		}
+	}
+
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The old trait for staking balance. Deprecated and only used for migrating old ledgers.
@@ -334,6 +347,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
+		/// The maximum number of reward pages a validator can have.
+		///
+		/// This value determines the upper limit on how many pages of rewards can be stored for a
+		/// single validator. A reasonable way to estimate this value is:
+		/// `(MaxExposedNominators * 0.25) / MaxExposurePageSize`
+		#[pallet::constant]
+		type MaxRewardPages: Get<u32>;
+
 		#[pallet::no_default_bounds]
 		/// Filter some accounts from participating in staking.
 		///
@@ -399,6 +420,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxDisabledValidators = ConstU32<100>;
+			type MaxRewardPages = ConstU32<200>;
 			type EventListeners = ();
 			type Filter = Nothing;
 			#[cfg(feature = "std")]
@@ -587,7 +609,8 @@ pub mod pallet {
 		EraIndex,
 		Twox64Concat,
 		T::AccountId,
-		Vec<Page>,
+		WeakBoundedVec<Page, T::MaxRewardPages>, //bounded_vec[0, 1, 2]
+		// MaxBackersPerWinner/64 = 100. 6400 nominators
 		ValueQuery,
 	>;
 
@@ -1309,7 +1332,7 @@ pub mod pallet {
 		pub fn claimed_rewards<EncodeLikeEraIndex, EncodeLikeAccountId>(
 			era_index: EncodeLikeEraIndex,
 			account_id: EncodeLikeAccountId,
-		) -> Vec<Page>
+		) -> WeakBoundedVec<Page, T::MaxRewardPages>
 		where
 			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,

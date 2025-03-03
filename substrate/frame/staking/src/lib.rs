@@ -1246,7 +1246,7 @@ impl<T: Config> EraInfo<T> {
 		}
 
 		// add page to claimed entries
-		claimed_pages.push(page);
+		claimed_pages.try_push(page);
 		ClaimedRewards::<T>::insert(era, validator, claimed_pages);
 	}
 

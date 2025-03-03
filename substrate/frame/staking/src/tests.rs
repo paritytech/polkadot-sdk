@@ -6790,7 +6790,8 @@ fn should_retain_era_info_only_upto_history_depth() {
 		let validator_stash = 10;
 
 		for era in 0..4 {
-			ClaimedRewards::<Test>::insert(era, &validator_stash, vec![0, 1, 2]);
+			let claimed_reward_val = WeakBoundedVec::force_from(vec![0, 1, 2], None);
+			ClaimedRewards::<Test>::insert(era, &validator_stash, claimed_reward_val);
 			for page in 0..3 {
 				ErasStakersPaged::<Test>::insert(
 					(era, &validator_stash, page),
@@ -8582,7 +8583,7 @@ mod getters {
 		ErasTotalStake, ErasValidatorPrefs, ErasValidatorReward, ForceEra, Forcing, Nominations,
 		Nominators, Perbill, SlashRewardFraction, SlashingSpans, ValidatorPrefs, Validators,
 	};
-	use frame_support::BoundedVec;
+	use frame_support::{BoundedVec, WeakBoundedVec};
 	use sp_staking::{EraIndex, Page, SessionIndex};
 
 	#[test]
@@ -8727,14 +8728,14 @@ mod getters {
 			// given
 			let era: EraIndex = 12;
 			let account_id: mock::AccountId = 1;
-			let rewards = Vec::<Page>::new();
-			ClaimedRewards::<Test>::insert(era, account_id, rewards.clone());
+			let rewards: Vec<Page> = vec![20, 45, 49];
+			ClaimedRewards::<Test>::insert(era, account_id, WeakBoundedVec::force_from(rewards.clone(), None));
 
 			// when
 			let result = Staking::claimed_rewards(era, &account_id);
 
 			// then
-			assert_eq!(result, rewards);
+			assert_eq!(result.into_inner(), rewards);
 		});
 	}
 
