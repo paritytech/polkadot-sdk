@@ -23,15 +23,16 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::StreamExt;
+use ip_network::IpNetwork;
 use log::{debug, warn};
 use prost::Message;
 use sc_network::{
-	config::OutgoingResponse, request_responses::IncomingRequest, service::traits::NetworkService,
-	KademliaKey, Multiaddr, ReputationChange,
+	config::OutgoingResponse, multiaddr::Protocol, request_responses::IncomingRequest,
+	service::traits::NetworkService, KademliaKey, Multiaddr,
 };
 use sp_consensus_babe::{digests::CompatibleDigestItem, Epoch, Randomness};
 use sp_runtime::traits::Header as _;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 /// Log target for this file.
 const LOG_TARGET: &str = "bootnodes::advertisement";
@@ -54,6 +55,8 @@ pub struct BootnodeAdvertisementParams {
 	pub parachain_genesis_hash: Vec<u8>,
 	/// Parachain fork ID.
 	pub parachain_fork_id: Option<String>,
+	/// Parachain side public addresses.
+	pub public_addresses: Vec<Multiaddr>,
 }
 
 /// Parachain bootnode advertisement service.
@@ -69,6 +72,7 @@ pub struct BootnodeAdvertisement {
 	advertise_non_global_ips: bool,
 	parachain_genesis_hash: Vec<u8>,
 	parachain_fork_id: Option<String>,
+	public_addresses: Vec<Multiaddr>,
 }
 
 impl BootnodeAdvertisement {
@@ -82,8 +86,30 @@ impl BootnodeAdvertisement {
 			advertise_non_global_ips,
 			parachain_genesis_hash,
 			parachain_fork_id,
+			public_addresses,
 		}: BootnodeAdvertisementParams,
 	) -> Self {
+		// Discard `/p2p/<peer_id>` from public addresses on initialization to not generate warnings
+		// on every request for what is an operator mistake.
+		let local_peer_id = parachain_network.local_peer_id();
+		let public_addresses = public_addresses
+			.into_iter()
+			.filter_map(|mut addr| match addr.iter().last() {
+				Some(Protocol::P2p(peer_id)) if &peer_id == local_peer_id.as_ref() => {
+					addr.pop();
+					Some(addr)
+				},
+				Some(Protocol::P2p(_)) => {
+					warn!(
+						target: LOG_TARGET,
+						"Discarding public address containing not our peer ID: {addr}",
+					);
+					None
+				},
+				_ => Some(addr),
+			})
+			.collect();
+
 		Self {
 			para_id,
 			para_id_scale_compact: CompactRef(&para_id).encode(),
@@ -96,6 +122,7 @@ impl BootnodeAdvertisement {
 			advertise_non_global_ips,
 			parachain_genesis_hash,
 			parachain_fork_id,
+			public_addresses,
 		}
 	}
 
@@ -275,9 +302,80 @@ impl BootnodeAdvertisement {
 		}
 	}
 
+	/// The list of parachain side addresses.
+	///
+	/// The addresses are sorted as following:
+	///  1) public addresses provided by the operator
+	///  2) global listen addresses
+	///  3) discovered external addresses
+	///  4) non-global listen addresses
+	///  5) loopback listen addresses
 	fn paranode_addresses(&self) -> Vec<Multiaddr> {
-		self.parachain_network.external_addresses()
-		// TODO: join public addresses, listen addresses, external addresses.
+		let local_peer_id = self.parachain_network.local_peer_id();
+
+		// Discard `/p2p/<peer_id>` part. `None` if the address contains foreign peer ID.
+		let without_p2p = |mut addr: Multiaddr| match addr.iter().last() {
+			Some(Protocol::P2p(peer_id)) if &peer_id == local_peer_id.as_ref() => {
+				addr.pop();
+				Some(addr)
+			},
+			Some(Protocol::P2p(_)) => {
+				warn!(
+					target: LOG_TARGET,
+					"Ignoring external/listen address containing not our peer ID: {addr}",
+				);
+				None
+			},
+			_ => Some(addr),
+		};
+
+		// Check if the address is global.
+		let is_global = |address: &Multiaddr| {
+			address.iter().all(|protocol| match protocol {
+				// The `ip_network` library is used because its `is_global()` method is stable,
+				// while `is_global()` in the standard library currently isn't.
+				Protocol::Ip4(ip) => IpNetwork::from(ip).is_global(),
+				Protocol::Ip6(ip) => IpNetwork::from(ip).is_global(),
+				_ => true,
+			})
+		};
+
+		// Check if the address is a loopback address.
+		let is_loopback = |address: &Multiaddr| {
+			address.iter().any(|protocol| match protocol {
+				Protocol::Ip4(ip) => IpNetwork::from(ip).is_loopback(),
+				Protocol::Ip6(ip) => IpNetwork::from(ip).is_loopback(),
+				_ => false,
+			})
+		};
+
+		let public_addresses = self.public_addresses.clone().into_iter();
+
+		let global_listen_addresses =
+			self.parachain_network.listen_addresses().into_iter().filter(is_global);
+
+		let external_addresses = self.parachain_network.external_addresses().into_iter();
+
+		let non_global_listen_addresses = self
+			.parachain_network
+			.listen_addresses()
+			.into_iter()
+			.filter(|addr| !is_global(addr) && !is_loopback(addr));
+
+		let loopback_listen_addresses =
+			self.parachain_network.listen_addresses().into_iter().filter(is_loopback);
+
+		let mut seen = HashSet::new();
+
+		public_addresses
+			.chain(global_listen_addresses)
+			.chain(external_addresses)
+			.chain(non_global_listen_addresses)
+			.chain(loopback_listen_addresses)
+			.filter_map(without_p2p)
+			// Deduplicate addresses.
+			.filter(|addr| seen.insert(addr.clone()))
+			.collect()
 	}
 
 	fn handle_request(&mut self, req: IncomingRequest) {

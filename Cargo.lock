@@ -4235,6 +4235,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "futures",
  "hex",
+ "ip_network",
  "log",
  "parity-scale-codec",
  "prost 0.12.6",

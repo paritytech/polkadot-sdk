@@ -20,7 +20,7 @@ use crate::advertisement::{BootnodeAdvertisement, BootnodeAdvertisementParams};
 use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use log::error;
-use sc_network::{request_responses::IncomingRequest, service::traits::NetworkService};
+use sc_network::{request_responses::IncomingRequest, service::traits::NetworkService, Multiaddr};
 use sc_service::TaskManager;
 use std::sync::Arc;
 
@@ -37,6 +37,7 @@ pub struct StartBootnodeTasksParams<'a> {
 	pub advertise_non_global_ips: bool,
 	pub parachain_genesis_hash: Vec<u8>,
 	pub parachain_fork_id: Option<String>,
+	pub parachain_public_addresses: Vec<Multiaddr>,
 }
 
 async fn bootnode_advertisement(
@@ -47,6 +48,7 @@ async fn bootnode_advertisement(
 	advertise_non_global_ips: bool,
 	parachain_genesis_hash: Vec<u8>,
 	parachain_fork_id: Option<String>,
+	public_addresses: Vec<Multiaddr>,
 ) {
 	let relay_chain_network = match relay_chain_interface.network_service() {
 		Ok(network_service) => network_service,
@@ -68,6 +70,7 @@ async fn bootnode_advertisement(
 		advertise_non_global_ips,
 		parachain_genesis_hash,
 		parachain_fork_id,
+		public_addresses,
 	});
 
 	if let Err(e) = bootnode_advertisement.run().await {
@@ -85,6 +88,7 @@ pub fn start_bootnode_tasks(
 		advertise_non_global_ips,
 		parachain_genesis_hash,
 		parachain_fork_id,
+		parachain_public_addresses,
 	}: StartBootnodeTasksParams,
 ) {
 	task_manager.spawn_essential_handle().spawn_blocking(
@@ -98,6 +102,7 @@ pub fn start_bootnode_tasks(
 			advertise_non_global_ips,
 			parachain_genesis_hash,
 			parachain_fork_id,
+			parachain_public_addresses,
 		),
 	);
 }
