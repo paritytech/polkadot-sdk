@@ -35,6 +35,12 @@ pub const USDT_ED: Balance = 70_000;
 
 parameter_types! {
 	pub AssetHubWestendAssetOwner: AccountId = Keyring::Alice.to_account_id();
+	pub EthereumSovereignAccount: AccountId = EthereumLocationsConverterFor::<AccountId>::convert_location(
+		&xcm::v5::Location::new(
+			2,
+			[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
+		),
+	).unwrap();
 }
 
 pub fn genesis() -> Storage {
@@ -99,14 +105,7 @@ pub fn genesis() -> Storage {
 						2,
 						[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
 					),
-					EthereumLocationsConverterFor::<[u8; 32]>::convert_location(
-						&xcm::v5::Location::new(
-							2,
-							[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
-						),
-					)
-						.unwrap()
-						.into(),
+					EthereumSovereignAccount::get(),
 					true,
 					ED,
 				),
@@ -119,14 +118,7 @@ pub fn genesis() -> Storage {
 							xcm::v5::Junction::AccountKey20 { network: None, key: WETH.into() },
 						],
 					),
-					EthereumLocationsConverterFor::<[u8; 32]>::convert_location(
-						&xcm::v5::Location::new(
-							2,
-							[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
-						),
-					)
-					.unwrap()
-					.into(),
+					EthereumSovereignAccount::get(),
 					true,
 					ED,
 				),
