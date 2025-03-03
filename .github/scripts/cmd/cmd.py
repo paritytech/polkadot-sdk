@@ -225,10 +225,10 @@ def main():
                         template = config['template']
                         output_path = xcm_path
                 
-                env_vars = " ".join(args.env_vars + [runtime['bench_env_vars']])
+                env_vars = " ".join(args.env_vars + [config['bench_env_vars']])
                 # Notice that extra_args can override some default args, like --steps or --repeat,
                 # since Python only considers the last occurence as valid in such cases.
-                extra_flags = " ".join(args.extra_flags + [runtime['bench_flags']])
+                extra_flags = " ".join(args.extra_flags + [config['bench_flags']])
 
                 print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
                 cmd = f"{env_vars} frame-omni-bencher v1 benchmark pallet " \
