@@ -999,7 +999,7 @@ pub const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
 
 /// Pair which is able to generate proof of possession. While you don't need a keypair
 /// to verify a proof of possession (you only need a public key) we constrain on Pair
-/// to use the Public  and Signature types associated to Pair. This is implemented
+/// to use the Public and Signature types associated to Pair. This is implemented
 /// in different trait (than Public Key) to provide default behavoir
 pub trait ProofOfPossessionVerifier: Pair
 where
