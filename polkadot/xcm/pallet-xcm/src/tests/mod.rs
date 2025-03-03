@@ -1464,10 +1464,7 @@ fn record_xcm_works() {
 #[test]
 fn execute_initiate_transfer_and_check_sent_event() {
 	use crate::Event;
-	use sp_tracing::{
-		test_log_capture::init_log_capture_for_tests,
-		tracing::{subscriber, Level},
-	};
+	use sp_tracing::{test_log_capture::init_log_capture_for_tests, tracing::subscriber};
 
 	let (log_capture, subscriber) = init_log_capture_for_tests();
 	subscriber::with_default(subscriber, || {
