@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Set a memory limit when decoding an `UncheckedExtrinsic`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR sets a 10 MiB heap memory limit when decoding an `UncheckedExtrinsic`.
+
+crates:
+  - name: sp-runtime
+    bump: minor
+  - name: pallet-revive
+    bump: minor
