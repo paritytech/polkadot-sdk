@@ -2502,6 +2502,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			return;
 		}
 
+		println!("{:?}", System::events());
 		let mut last_events = last_events(7).into_iter();
 		// asset events
 		// forceCreate
