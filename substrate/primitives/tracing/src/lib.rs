@@ -399,7 +399,7 @@ pub mod test_log_capture {
 	///
 	/// Related functions/macros:
 	/// - [`init_log_capture_for_tests()`]: Captures logs and outputs `TRACE` level.
-	/// - [`capture_test_logs!()`]: A macro for capturing logs during test execution.
+	/// - `capture_test_logs!()`: A macro for capturing logs during test execution.
 	pub fn init_log_capture(
 		max_level: impl Into<LevelFilter>,
 	) -> (LogCapture, impl tracing::Subscriber + Send + Sync) {
@@ -412,7 +412,7 @@ pub mod test_log_capture {
 	/// This function is useful when you need to:
 	/// - **Capture logs for assertions**, like [`init_log_capture()`].
 	/// - **Ensure logs up to `TRACE` level are printed to the test output**, similar to
-	///   [`sp_tracing::init_for_tests()`].
+	///   `sp_tracing::init_for_tests()`.
 	///
 	/// # Usage Guide
 	///
@@ -421,8 +421,8 @@ pub mod test_log_capture {
 	/// - If you only need to **capture logs for assertions** without printing them, use
 	///   [`init_log_capture()`].
 	/// - If you only need to **print logs** during tests but not capture them, use
-	///   [`sp_tracing::init_for_tests()`].
-	/// - If you prefer a macro-based approach, use [`capture_test_logs!()`], which internally calls
+	///   `sp_tracing::init_for_tests()`.
+	/// - If you prefer a macro-based approach, use `capture_test_logs!()`, which internally calls
 	///   `init_log_capture()`.
 	///
 	/// # Returns
@@ -520,7 +520,7 @@ pub mod test_log_capture {
 	/// Related functions:
 	/// - [`init_log_capture()`]: Captures logs for assertions.
 	/// - [`init_log_capture_for_tests()`]: Captures logs and outputs `TRACE` level.
-	/// - [`sp_tracing::init_for_tests()`]: Outputs logs but does not capture them.
+	/// - `sp_tracing::init_for_tests()`: Outputs logs but does not capture them.
 	#[macro_export]
 	macro_rules! capture_test_logs {
 		// Case when max_level is provided
