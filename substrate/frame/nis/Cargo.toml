@@ -1,13 +1,13 @@
 [package]
-authors.workspace    = true
-description          = "FRAME pallet for rewarding account freezing."
-edition.workspace    = true
-homepage.workspace   = true
-license              = "Apache-2.0"
-name                 = "pallet-nis"
-readme               = "README.md"
+name = "pallet-nis"
+version = "28.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
 repository.workspace = true
-version              = "28.0.0"
+description = "FRAME pallet for rewarding account freezing."
+readme = "README.md"
 
 [lints]
 workspace = true
@@ -16,21 +16,21 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec      = { features = ["derive"], workspace = true }
-frame      = { workspace = true, features = ["runtime"] }
+codec = { features = ["derive"], workspace = true }
+frame = { workspace = true, features = ["runtime"] }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
-sp-io           = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-runtime-benchmarks = [
+std = [
 	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 ]
-std = [
+runtime-benchmarks = [
 	"codec/std",
 	"frame/std",
 	"scale-info/std",
