@@ -51,7 +51,7 @@ pub struct StakingPlaygroundConfig {
 pub type Staker = (AccountId, AccountId, Balance, StakerStatus<AccountId>);
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
-pub fn kitchen_sink_genesis(
+pub fn kitchensink_genesis(
 	initial_authorities: Vec<(AccountId, AccountId, SessionKeys)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
@@ -120,14 +120,14 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let endowed = well_known_including_eth_accounts();
 
 	let patch = match id.as_ref() {
-		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchen_sink_genesis(
+		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchensink_genesis(
 			vec![(alice_stash.clone(), alice_stash.clone(), alice_session_keys)],
 			alice.clone(),
 			endowed,
 			vec![validator(alice_stash.clone())],
 			None,
 		),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchen_sink_genesis(
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchensink_genesis(
 			vec![
 				(alice_stash.clone(), alice_stash.clone(), alice_session_keys),
 				(bob_stash.clone(), bob_stash.clone(), bob_session_keys),

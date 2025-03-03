@@ -322,7 +322,7 @@ pub fn testnet_genesis(
 
 	// Todo: After #7748 is done, we can refactor this to avoid
 	// calling into the native runtime.
-	kitchensink_runtime::genesis_config_presets::kitchen_sink_genesis(
+	kitchensink_runtime::genesis_config_presets::kitchensink_genesis(
 		initial_authorities
 			.iter()
 			.map(|x| {
