@@ -1019,7 +1019,7 @@ where
 	}
 }
 
-/// Marker trait to identify whether the scheme is aggregatable thus changing
+/// Marker trait to identify whether the scheme is not aggregatable thus changing
 /// the implementation of the scheme parts such as Proof Of Possession or other specifics.
 pub trait NonAggregatable {}
 
