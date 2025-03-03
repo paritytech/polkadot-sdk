@@ -115,13 +115,13 @@ pub fn kitchensink_genesis(
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	// Note: Can't use `Sr25519Keyring::Alice.to_seed()` because the seed comes with `//`.
 	let (alice_stash, alice, alice_session_keys) = authority_keys_from_seed("Alice");
-	let (bob_stash, bob, bob_session_keys) = authority_keys_from_seed(&"Bob");
+	let (bob_stash, _bob, bob_session_keys) = authority_keys_from_seed(&"Bob");
 
 	let endowed = well_known_including_eth_accounts();
 
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchensink_genesis(
-			vec![(alice_stash.clone(), alice.clone(), alice_session_keys)],
+			vec![(alice_stash.clone(), alice_stash.clone(), alice_session_keys)],
 			alice.clone(),
 			endowed,
 			vec![validator(alice_stash.clone())],
@@ -129,8 +129,8 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchensink_genesis(
 			vec![
-				(alice_stash.clone(), alice.clone(), alice_session_keys),
-				(bob_stash.clone(), bob, bob_session_keys),
+				(alice_stash.clone(), alice_stash.clone(), alice_session_keys),
+				(bob_stash.clone(), bob_stash.clone(), bob_session_keys),
 			],
 			alice,
 			endowed,
