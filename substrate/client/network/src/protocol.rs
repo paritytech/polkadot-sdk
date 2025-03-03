@@ -377,7 +377,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 				}
 			},
 
-			NotificationsOut::ProtocolMismatch { peer_id, set_id } => {
+			NotificationsOut::ProtocolMisbehavior { peer_id, set_id } => {
 				let index: usize = set_id.into();
 				let protocol_name = self.notification_protocols.get(index);
 

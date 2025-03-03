@@ -331,7 +331,7 @@ pub enum NotifsHandlerOut {
 		protocol_index: usize,
 
 		/// Whether the remote has misbehaved and did not comply with the notification spec.
-		protocol_mismatch: bool,
+		protocol_misbehavior: bool,
 	},
 
 	/// Received a message on a custom protocol substream.
@@ -823,12 +823,12 @@ impl ConnectionHandler for NotifsHandler {
 						Poll::Ready(Err(error)) => {
 							*out_substream = None;
 
-							let protocol_mismatch =
+							let protocol_misbehavior =
 								matches!(error, NotificationsOutError::UnexpectedData);
 
 							let event = NotifsHandlerOut::CloseDesired {
 								protocol_index,
-								protocol_mismatch,
+								protocol_misbehavior,
 							};
 							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event))
 						},
@@ -874,7 +874,7 @@ impl ConnectionHandler for NotifsHandler {
 							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
 								NotifsHandlerOut::CloseDesired {
 									protocol_index,
-									protocol_mismatch: false,
+									protocol_misbehavior: false,
 								},
 							))
 						},
@@ -1697,7 +1697,10 @@ pub mod tests {
 			assert!(std::matches!(
 				handler.poll(cx),
 				Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
-					NotifsHandlerOut::CloseDesired { protocol_index: 0 },
+					NotifsHandlerOut::CloseDesired {
+						protocol_index: 0,
+						protocol_misbehavior: false
+					},
 				))
 			));
 			Poll::Ready(())

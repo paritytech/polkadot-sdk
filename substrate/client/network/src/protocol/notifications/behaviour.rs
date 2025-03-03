@@ -401,7 +401,7 @@ pub enum NotificationsOut {
 	},
 
 	/// The remote peer has misbehaved and the connection has been closed.
-	ProtocolMismatch {
+	ProtocolMisbehavior {
 		/// Id of the peer the message came from.
 		peer_id: PeerId,
 		/// Peerset set ID the substream is tied to.
@@ -1907,7 +1907,7 @@ impl NetworkBehaviour for Notifications {
 				};
 			},
 
-			NotifsHandlerOut::CloseDesired { protocol_index, protocol_mismatch } => {
+			NotifsHandlerOut::CloseDesired { protocol_index, protocol_misbehavior } => {
 				let set_id = SetId::from(protocol_index);
 
 				trace!(target: LOG_TARGET,
@@ -1923,9 +1923,9 @@ impl NetworkBehaviour for Notifications {
 					return
 				};
 
-				if protocol_mismatch {
+				if protocol_misbehavior {
 					self.events.push_back(ToSwarm::GenerateEvent(
-						NotificationsOut::ProtocolMismatch { peer_id, set_id },
+						NotificationsOut::ProtocolMisbehavior { peer_id, set_id },
 					));
 				}
 
