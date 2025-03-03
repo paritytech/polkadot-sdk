@@ -679,7 +679,7 @@ mod tests {
 	where
 		RuntimeCall: From<C>,
 	{
-		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 			UncheckedExtrinsic::new_bare(call)
 		}
 	}

@@ -2,14 +2,14 @@ title: 'Introduce CreateBare, deprecated CreateInherent'
 doc:
 - audience: Runtime Dev
   description: |
-    Introduce the trait `CreateBare` and implement it automatically for types implementing the trait `CreateInherent`.
+    Rename `CreateInherent` to `CreateBare`, add method `create_bare` and deprecate `create_inherent`.
 
     Both unsigned transaction and inherent use the extrinsic type `Bare`.
     Before this PR `CreateInherent` trait was use to generate unsigned transaction, now unsigned transaction can be generated using a proper trait `CreateBare`.
 
     How to upgrade:
-    * in pallets change usage of `CreateInherent` to `CreateBare` in pallets,
-    * for the runtime you can keep implementing `CreateInherent` if some pallet haven't migrated to `CreateBare`, but if all have been migrated to `CreateBare` then you can implement `CreateBare` instead.
+    * Change usage of `CreateInherent` to `CreateBare` and `create_inherent` to `create_bare`.
+    * Implement `CreateBare` for the runtime, the method `create_bare` is usually implemented using `Extrinsic::new_bare`.
 
 crates:
 - name: frame-system
