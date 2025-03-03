@@ -964,7 +964,7 @@ impl PalletCmd {
 		ignore_unknown_pov_mode: bool,
 	) -> Result<()> {
 		// Check that all PoV modes are valid pallet storage keys
-		for (pallet, storage) in pov_modes.keys() {
+		for (pallet, storage) in pov_modes.values().map(|i| i.keys()).flatten() {
 			let (mut found_pallet, mut found_storage) = (false, false);
 
 			for info in storage_info {
@@ -976,7 +976,7 @@ impl PalletCmd {
 				}
 			}
 			if !found_pallet || !found_storage {
-				let err = format!("The PoV mode references an unknown storage item or pallet: `{}::{}`. You can ignore this warning by specifying `--ignore-unknown-pov-mode`.", pallet, storage);
+				let err = format!("The PoV mode references an unknown storage item or pallet: `{}::{}`. You can ignore this warning by specifying `--ignore-unknown-pov-mode`", pallet, storage);
 
 				if ignore_unknown_pov_mode {
 					log::warn!(target: LOG_TARGET, "Error demoted to warning due to `--ignore-unknown-pov-mode`: {}", err);
