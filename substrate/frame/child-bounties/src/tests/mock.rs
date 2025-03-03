@@ -19,30 +19,23 @@
 
 #![cfg(test)]
 
-use crate::*;
 use crate as pallet_child_bounties;
-use crate::Event as ChildBountiesEvent;
+use crate::{Event as ChildBountiesEvent, *};
 
 use core::cell::RefCell;
 
 use alloc::collections::btree_map::BTreeMap;
-use pallet_bounties::{BountyStatus, PaymentState, BountyIndex};
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{
-		tokens::{UnityAssetBalanceConversion},
-		ConstU32, ConstU64, OnInitialize,
-	},
+	traits::{tokens::UnityAssetBalanceConversion, ConstU32, ConstU64, OnInitialize},
 	weights::Weight,
 	PalletId,
 };
-use sp_runtime::{
-	traits::IdentityLookup,
-	BuildStorage, Perbill, Permill,
-};
+use pallet_bounties::{BountyIndex, BountyStatus, PaymentState};
+use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill, Permill};
 
 type Block = frame_system::mocking::MockBlock<Test>;
-type AccountId = sp_core::U256;  // must be at least 20 bytes long because of child-bounty account derivation.
+type AccountId = sp_core::U256; // must be at least 20 bytes long because of child-bounty account derivation.
 type Balance = u64;
 
 thread_local! {
@@ -121,7 +114,7 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type AccountId = AccountId; 
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
@@ -247,57 +240,91 @@ pub fn get_bounty_payment_id(i: BountyIndex, to: Option<AccountId>) -> Option<u6
 
 	match bounty.get_status() {
 		BountyStatus::Approved { payment_status: PaymentState::Attempted { id } } => Some(id),
-		BountyStatus::ApprovedWithCurator { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
-		BountyStatus::RefundAttempted { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
-		BountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } => to.and_then(|account| {
-			if account == curator_stash.0 {
-				if let PaymentState::Attempted { id } = curator_stash.1 {
-					return Some(id);
+		BountyStatus::ApprovedWithCurator {
+			payment_status: PaymentState::Attempted { id },
+			..
+		} => Some(id),
+		BountyStatus::RefundAttempted {
+			payment_status: PaymentState::Attempted { id }, ..
+		} => Some(id),
+		BountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } =>
+			to.and_then(|account| {
+				if account == curator_stash.0 {
+					if let PaymentState::Attempted { id } = curator_stash.1 {
+						return Some(id);
+					}
+				} else if account == beneficiary.0 {
+					if let PaymentState::Attempted { id } = beneficiary.1 {
+						return Some(id);
+					}
 				}
-			} else if account == beneficiary.0 {
-				if let PaymentState::Attempted { id } = beneficiary.1 {
-					return Some(id);
-				}
-			}
-			None
-		}),
+				None
+			}),
 		_ => None,
 	}
 }
 
-pub fn get_child_bounty_payment_id(parent_id: BountyIndex, child_id: BountyIndex, to: Option<AccountId>) -> Option<u64> {
-	let child_bounty = pallet_child_bounties::ChildBounties::<Test>::get(parent_id, child_id).expect("no child-bounty");
+pub fn get_child_bounty_payment_id(
+	parent_id: BountyIndex,
+	child_id: BountyIndex,
+	to: Option<AccountId>,
+) -> Option<u64> {
+	let child_bounty = pallet_child_bounties::ChildBounties::<Test>::get(parent_id, child_id)
+		.expect("no child-bounty");
 
 	match child_bounty.status {
 		ChildBountyStatus::Approved { payment_status: PaymentState::Attempted { id } } => Some(id),
-		ChildBountyStatus::ApprovedWithCurator { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
-		ChildBountyStatus::RefundAttempted { payment_status: PaymentState::Attempted { id }, .. } => Some(id),
-		ChildBountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } => to.and_then(|account| {
-			if account == curator_stash.0 {
-				if let PaymentState::Attempted { id } = curator_stash.1 {
-					return Some(id);
+		ChildBountyStatus::ApprovedWithCurator {
+			payment_status: PaymentState::Attempted { id },
+			..
+		} => Some(id),
+		ChildBountyStatus::RefundAttempted {
+			payment_status: PaymentState::Attempted { id },
+			..
+		} => Some(id),
+		ChildBountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } =>
+			to.and_then(|account| {
+				if account == curator_stash.0 {
+					if let PaymentState::Attempted { id } = curator_stash.1 {
+						return Some(id);
+					}
+				} else if account == beneficiary.0 {
+					if let PaymentState::Attempted { id } = beneficiary.1 {
+						return Some(id);
+					}
 				}
-			} else if account == beneficiary.0 {
-				if let PaymentState::Attempted { id } = beneficiary.1 {
-					return Some(id);
-				}
-			}
-			None
-		}),
+				None
+			}),
 		_ => None,
 	}
 }
 
-pub fn approve_bounty_payment(account: AccountId, parent_id: BountyIndex, asset_id: u32, amount: u64) {
+pub fn approve_bounty_payment(
+	account: AccountId,
+	parent_id: BountyIndex,
+	asset_id: u32,
+	amount: u64,
+) {
 	assert_eq!(paid(account, asset_id), amount);
 	let payment_id = get_bounty_payment_id(parent_id, Some(account)).expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Success);
 	assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(account_id(0)), parent_id));
 }
 
-pub fn approve_child_bounty_payment(account: AccountId, parent_id: BountyIndex, child_id: BountyIndex, asset_id: u32, amount: u64) {
+pub fn approve_child_bounty_payment(
+	account: AccountId,
+	parent_id: BountyIndex,
+	child_id: BountyIndex,
+	asset_id: u32,
+	amount: u64,
+) {
 	assert_eq!(paid(account, asset_id), amount);
-	let payment_id = get_child_bounty_payment_id(parent_id, child_id, Some(account)).expect("no payment attempt");
+	let payment_id = get_child_bounty_payment_id(parent_id, child_id, Some(account))
+		.expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Success);
-    assert_ok!(ChildBounties::check_payment_status(RuntimeOrigin::signed(account_id(0)), parent_id, child_id));
+	assert_ok!(ChildBounties::check_payment_status(
+		RuntimeOrigin::signed(account_id(0)),
+		parent_id,
+		child_id
+	));
 }

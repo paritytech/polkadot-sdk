@@ -17,6 +17,6 @@
 
 //! Child-bounties pallet tests.
 
+pub mod genesis;
 pub mod mock;
 pub mod unit;
-pub mod genesis;

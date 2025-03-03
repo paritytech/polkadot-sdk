@@ -21,16 +21,16 @@
 
 use super::mock::*;
 use crate as pallet_child_bounties;
-use crate::tests::mock::ChildBounties;
 use crate::{
-	Event as ChildBountiesEvent, Error, ChildBounty, BountiesError, ChildBountyStatus, PaymentState, PaymentStatus
+	tests::mock::ChildBounties, BountiesError, ChildBounty, ChildBountyStatus, Error,
+	Event as ChildBountiesEvent, PaymentState, PaymentStatus,
 };
 
-use frame_support::{assert_noop, assert_ok, traits::{Currency, Hooks}};
-use sp_runtime::{
-	traits::BadOrigin,
-	TokenError,
+use frame_support::{
+	assert_noop, assert_ok,
+	traits::{Currency, Hooks},
 };
+use sp_runtime::{traits::BadOrigin, TokenError};
 
 #[test]
 fn add_child_bounty() {
@@ -46,12 +46,12 @@ fn add_child_bounty() {
 		//    Curator, child-bounty curator & beneficiary.
 
 		// Given (make the parent bounty)
-        // proposer = 0; 
-        // parent_curator = 4; 
-        // asset_kind = 1; 
-        // value = 50; 
-        // bounty_id = 0; 
-        // stash = 10;
+		// proposer = 0;
+		// parent_curator = 4;
+		// asset_kind = 1;
+		// value = 50;
+		// bounty_id = 0;
+		// stash = 10;
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(
@@ -61,7 +61,7 @@ fn add_child_bounty() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-        approve_bounty_payment(Bounties::bounty_account_id(0), 0, 1, 50);
+		approve_bounty_payment(Bounties::bounty_account_id(0), 0, 1, 50);
 		assert_eq!(Balances::free_balance(Bounties::account_id()), 101 - 50);
 		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0)), 50);
 		let fee = 8;
@@ -90,7 +90,7 @@ fn add_child_bounty() {
 			BountiesError::<Test>::RequireCurator,
 		);
 
-        // When/Then
+		// When/Then
 		// Tiago: I don't think I need this verification anymore
 		// Update the parent curator balance.
 		Balances::make_free_balance_be(&account_id(4), 101);
@@ -107,7 +107,7 @@ fn add_child_bounty() {
 			Error::<Test>::InsufficientBountyBalance,
 		);
 
-        // When/Then
+		// When/Then
 		assert_noop!(
 			ChildBounties::add_child_bounty(
 				RuntimeOrigin::signed(account_id(4)),
@@ -118,7 +118,7 @@ fn add_child_bounty() {
 			Error::<Test>::InsufficientBountyBalance,
 		);
 
-        // When
+		// When
 		// Add child-bounty with valid value, which can be funded by parent bounty.
 		assert_ok!(ChildBounties::add_child_bounty(
 			RuntimeOrigin::signed(account_id(4)),
@@ -127,7 +127,7 @@ fn add_child_bounty() {
 			b"12345-p1".to_vec()
 		));
 
-        // Then
+		// Then
 		// Check for the event child-bounty added.
 		assert_eq!(last_event(), ChildBountiesEvent::Added { index: 0, child_index: 0 });
 		assert_eq!(Balances::free_balance(account_id(4)), 101);
@@ -185,13 +185,13 @@ fn child_bounty_assign_curator() {
 		// 3, Test for DB state of `ChildBounties`.
 
 		// Given (make the parent bounty)
-        // proposer = 0; 
-        // parent_curator = 4; 
+		// proposer = 0;
+		// parent_curator = 4;
 		// child_curator = 8;
-        // asset_kind = 1; 
-        // value = 50; 
-        // bounty_id = 0; 
-        // parent/child stash = 10;
+		// asset_kind = 1;
+		// value = 50;
+		// bounty_id = 0;
+		// parent/child stash = 10;
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&account_id(4), 101);
@@ -292,7 +292,11 @@ fn child_bounty_assign_curator() {
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(8), curator_stash: account_id(10), update_due: 12 },
+				status: ChildBountyStatus::Active {
+					curator: account_id(8),
+					curator_stash: account_id(10),
+					update_due: 12
+				},
 			}
 		);
 		// Deposit for child-bounty curator deposit is reserved.
@@ -314,13 +318,13 @@ fn child_bounty_assign_curator() {
 fn award_claim_child_bounty() {
 	new_test_ext().execute_with(|| {
 		// Given (make the parent bounty)
-        // proposer = 0; 
-        // parent_curator = 4; 
+		// proposer = 0;
+		// parent_curator = 4;
 		// child_curator = 8;
-        // asset_kind = 1; 
-        // value = 50; 
-        // bounty_id = 0; 
-        // parent/child stash = 10;
+		// asset_kind = 1;
+		// value = 50;
+		// bounty_id = 0;
+		// parent/child stash = 10;
 		go_to_block(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 101);
@@ -415,7 +419,7 @@ fn award_claim_child_bounty() {
 		);
 
 		// When
-		go_to_block(9);  // block_number >= unlock_at
+		go_to_block(9); // block_number >= unlock_at
 		assert_ok!(ChildBounties::claim_child_bounty(RuntimeOrigin::signed(account_id(7)), 0, 0));
 
 		// Then (PaymentState::Attempted)
@@ -436,8 +440,8 @@ fn award_claim_child_bounty() {
 		);
 
 		// When
-		approve_child_bounty_payment(account_id(7), 0, 0, 1, 2);  // pay child-bounty beneficiary
-		approve_child_bounty_payment(account_id(10), 0, 0, 1, 8);  // pay child-bounty curator_stash
+		approve_child_bounty_payment(account_id(7), 0, 0, 1, 2); // pay child-bounty beneficiary
+		approve_child_bounty_payment(account_id(10), 0, 0, 1, 8); // pay child-bounty curator_stash
 
 		// Then (PaymentState::Success)
 		// Ensure child-bounty curator is paid deposit refund.
@@ -524,7 +528,7 @@ fn close_child_bounty_added() {
 			}
 		);
 
-		// When 
+		// When
 		approve_child_bounty_payment(ChildBounties::child_bounty_account_id(0, 0), 0, 0, 1, 10);
 
 		// Then (PaymentState::Success)
@@ -588,7 +592,6 @@ fn close_child_bounty_active() {
 			0,
 			account_id(10)
 		));
-
 
 		// When (Close child-bounty in active state).
 		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::signed(account_id(4)), 0, 0));
@@ -686,7 +689,6 @@ fn close_child_bounty_pending() {
 			account_id(7)
 		));
 
-
 		// When (Close child-bounty in pending_payout state)
 		assert_noop!(
 			ChildBounties::close_child_bounty(RuntimeOrigin::signed(account_id(4)), 0, 0),
@@ -740,7 +742,6 @@ fn child_bounty_added_unassign_curator() {
 		));
 		assert_eq!(last_event(), ChildBountiesEvent::Added { index: 0, child_index: 0 });
 		approve_child_bounty_payment(ChildBounties::child_bounty_account_id(0, 0), 0, 0, 1, 10);
-
 
 		// When/Then (Unassign curator in added state)
 		assert_noop!(
@@ -899,10 +900,13 @@ fn child_bounty_active_unassign_curator() {
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(8), curator_stash: account_id(10), update_due: 12 },
+				status: ChildBountyStatus::Active {
+					curator: account_id(8),
+					curator_stash: account_id(10),
+					update_due: 12
+				},
 			}
 		);
-
 
 		// When (Unassign curator - from reject origin)
 		go_to_block(4);
@@ -949,7 +953,11 @@ fn child_bounty_active_unassign_curator() {
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(7), curator_stash: account_id(10), update_due: 12 },
+				status: ChildBountyStatus::Active {
+					curator: account_id(7),
+					curator_stash: account_id(10),
+					update_due: 12
+				},
 			}
 		);
 		go_to_block(5);
@@ -973,7 +981,7 @@ fn child_bounty_active_unassign_curator() {
 		// Ensure child-bounty curator was slashed.
 		assert_eq!(Balances::free_balance(account_id(7)), 101 - expected_child_deposit);
 		assert_eq!(Balances::reserved_balance(account_id(7)), 0); // slashed
-		// Propose and accept curator for child-bounty again.
+															// Propose and accept curator for child-bounty again.
 		assert_ok!(ChildBounties::propose_curator(
 			RuntimeOrigin::signed(account_id(4)),
 			0,
@@ -995,10 +1003,13 @@ fn child_bounty_active_unassign_curator() {
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(6), curator_stash: account_id(10), update_due: 12 },
+				status: ChildBountyStatus::Active {
+					curator: account_id(6),
+					curator_stash: account_id(10),
+					update_due: 12
+				},
 			}
 		);
-
 
 		// When (Unassign curator again - from child-bounty curator)
 		go_to_block(6);
@@ -1014,7 +1025,7 @@ fn child_bounty_active_unassign_curator() {
 				value: 10,
 				fee: 2,
 				curator_deposit: 0,
-				status:  ChildBountyStatus::Funded,
+				status: ChildBountyStatus::Funded,
 			}
 		);
 		// Ensure child-bounty curator was **not** slashed.
@@ -1045,14 +1056,16 @@ fn child_bounty_active_unassign_curator() {
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(6), curator_stash: account_id(10), update_due: 12 },
+				status: ChildBountyStatus::Active {
+					curator: account_id(6),
+					curator_stash: account_id(10),
+					update_due: 12
+				},
 			}
 		);
 
-
-
-		// When/ Then (Unassign curator again - from non curator; non reject origin; some random guy)
-		// Bounty update period is not yet complete.
+		// When/ Then (Unassign curator again - from non curator; non reject origin; some random
+		// guy) Bounty update period is not yet complete.
 		go_to_block(7);
 		assert_noop!(
 			ChildBounties::unassign_curator(RuntimeOrigin::signed(account_id(3)), 0, 0),
@@ -1073,7 +1086,7 @@ fn child_bounty_active_unassign_curator() {
 				value: 10,
 				fee: 2,
 				curator_deposit: 0,
-				status:  ChildBountyStatus::Funded,
+				status: ChildBountyStatus::Funded,
 			}
 		);
 		// Ensure child-bounty curator was slashed.
@@ -1147,15 +1160,17 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 				value: 10,
 				fee,
 				curator_deposit: expected_child_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(8), curator_stash: account_id(10), update_due: 12 },
+				status: ChildBountyStatus::Active {
+					curator: account_id(8),
+					curator_stash: account_id(10),
+					update_due: 12
+				},
 			}
 		);
-
 
 		// When/Then (Unassign parent bounty curator)
 		go_to_block(4);
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), 0));
-
 
 		// When/ Then (Try unassign child-bounty curator - from non curator; non reject
 		// origin; some random guy. Bounty update period is not yet complete)
@@ -1219,7 +1234,11 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 				value: 10,
 				fee,
 				curator_deposit: expected_deposit,
-				status: ChildBountyStatus::Active { curator: account_id(7), curator_stash: account_id(10), update_due: 16 },
+				status: ChildBountyStatus::Active {
+					curator: account_id(7),
+					curator_stash: account_id(10),
+					update_due: 16
+				},
 			}
 		);
 		go_to_block(8);
@@ -1232,8 +1251,6 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 
 		// When/Then (Unassign parent bounty curator again)
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed(account_id(5)), 0));
-
-
 
 		// When (Unassign curator again - from parent curator)
 		go_to_block(9);
@@ -1429,8 +1446,8 @@ fn children_curator_fee_calculation_test() {
 		// When
 		// Claim child-bounty.
 		assert_ok!(ChildBounties::claim_child_bounty(RuntimeOrigin::signed(account_id(7)), 0, 0));
-		approve_child_bounty_payment(account_id(10), 0, 0, 1, 6);  // pay child-bounty curator_stash
-		approve_child_bounty_payment(account_id(7), 0, 0, 1, 4);  // pay child-bounty beneficiary
+		approve_child_bounty_payment(account_id(10), 0, 0, 1, 6); // pay child-bounty curator_stash
+		approve_child_bounty_payment(account_id(7), 0, 0, 1, 4); // pay child-bounty beneficiary
 
 		// Then
 		// Check the child-bounty count.
@@ -1445,8 +1462,8 @@ fn children_curator_fee_calculation_test() {
 
 		// When (Claim the parent bounty)
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(account_id(9)), 0));
-		approve_bounty_payment(account_id(10), 0, 1, 6);  // pay parent-bounty curator_stash
-		approve_bounty_payment(account_id(9), 0, 1, 50 - 10 - 6);  // pay parent-bounty beneficiary
+		approve_bounty_payment(account_id(10), 0, 1, 6); // pay parent-bounty curator_stash
+		approve_bounty_payment(account_id(9), 0, 1, 50 - 10 - 6); // pay parent-bounty beneficiary
 
 		// Then
 		// Check the total count after the parent bounty removal.
@@ -1480,7 +1497,12 @@ fn accept_curator_handles_different_deposit_calculations() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), parent_index));
-		approve_bounty_payment(Bounties::bounty_account_id(parent_index), parent_index, 1, parent_value);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(parent_index),
+			parent_index,
+			1,
+			parent_value,
+		);
 		go_to_block(2);
 		assert_ok!(Bounties::propose_curator(
 			RuntimeOrigin::root(),
@@ -1509,7 +1531,13 @@ fn accept_curator_handles_different_deposit_calculations() {
 			child_value,
 			b"12345-p1".to_vec()
 		));
-		approve_child_bounty_payment(ChildBounties::child_bounty_account_id(parent_index, child_index), parent_index, child_index, 1, child_value);
+		approve_child_bounty_payment(
+			ChildBounties::child_bounty_account_id(parent_index, child_index),
+			parent_index,
+			child_index,
+			1,
+			child_value,
+		);
 		go_to_block(3);
 		assert_ok!(ChildBounties::propose_curator(
 			RuntimeOrigin::signed(parent_curator),
@@ -1546,7 +1574,13 @@ fn accept_curator_handles_different_deposit_calculations() {
 			child_value,
 			b"12345-p1".to_vec()
 		));
-		approve_child_bounty_payment(ChildBounties::child_bounty_account_id(parent_index, child_index), parent_index, child_index, 1, child_value);
+		approve_child_bounty_payment(
+			ChildBounties::child_bounty_account_id(parent_index, child_index),
+			parent_index,
+			child_index,
+			1,
+			child_value,
+		);
 		go_to_block(4);
 		assert_ok!(ChildBounties::propose_curator(
 			RuntimeOrigin::signed(parent_curator),
@@ -1583,7 +1617,13 @@ fn accept_curator_handles_different_deposit_calculations() {
 			b"12345-p1".to_vec()
 		));
 		go_to_block(5);
-		approve_child_bounty_payment(ChildBounties::child_bounty_account_id(parent_index, child_index), parent_index, child_index, 1, child_value);
+		approve_child_bounty_payment(
+			ChildBounties::child_bounty_account_id(parent_index, child_index),
+			parent_index,
+			child_index,
+			1,
+			child_value,
+		);
 		assert_ok!(ChildBounties::propose_curator(
 			RuntimeOrigin::signed(parent_curator),
 			parent_index,
@@ -1604,7 +1644,13 @@ fn accept_curator_handles_different_deposit_calculations() {
 		assert_eq!(Balances::reserved_balance(child_curator), expected_deposit);
 		// There is a max number of child bounties at a time.
 		assert_ok!(ChildBounties::impl_close_child_bounty(parent_index, child_index));
-		approve_child_bounty_payment(ChildBounties::child_bounty_account_id(parent_index, child_index), parent_index, child_index, 1, child_value);
+		approve_child_bounty_payment(
+			ChildBounties::child_bounty_account_id(parent_index, child_index),
+			parent_index,
+			child_index,
+			1,
+			child_value,
+		);
 
 		// Given
 		// Case 4: Lower Limit
@@ -1621,7 +1667,13 @@ fn accept_curator_handles_different_deposit_calculations() {
 			child_value,
 			b"12345-p1".to_vec()
 		));
-		approve_child_bounty_payment(ChildBounties::child_bounty_account_id(parent_index, child_index), parent_index, child_index, 1, child_value);
+		approve_child_bounty_payment(
+			ChildBounties::child_bounty_account_id(parent_index, child_index),
+			parent_index,
+			child_index,
+			1,
+			child_value,
+		);
 		go_to_block(5);
 		assert_ok!(ChildBounties::propose_curator(
 			RuntimeOrigin::signed(parent_curator),

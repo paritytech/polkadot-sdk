@@ -24,8 +24,8 @@
 //!
 //! With child bounties, a large bounty proposal can be divided into smaller chunks,
 //! for parallel execution, and for efficient governance and tracking of spent funds.
-//! A child bounty is a smaller piece of work, extracted from a parent bounty.
-//! A curator is assigned after the child bounty is created by the parent bounty curator,
+//! A child-bounty is a smaller piece of work, extracted from a parent bounty.
+//! A curator is assigned after the child-bounty is created by the parent bounty curator,
 //! to be delegated with the responsibility of assigning a payout address once the specified
 //! set of tasks is completed.
 //!
@@ -34,16 +34,20 @@
 //! ### Dispatchable Functions
 //!
 //! Child Bounty protocol:
-//! - `add_child_bounty` - Add a child bounty for a parent bounty to for dividing the work in
+//! - `add_child_bounty` - Add a child-bounty for a parent bounty to for dividing the work in
 //!   smaller tasks.
-//! - `propose_curator` - Assign an account to a child bounty as candidate curator.
-//! - `accept_curator` - Accept a child bounty assignment from the parent bounty curator, setting a
+//! - `propose_curator` - Assign an account to a child-bounty as candidate curator.
+//! - `accept_curator` - Accept a child-bounty assignment from the parent bounty curator, setting a
 //!   curator deposit.
 //! - `award_child_bounty` - Close and pay out the specified amount for the completed work.
-//! - `claim_child_bounty` - Claim a specific child bounty amount from the payout address.
-//! - `unassign_curator` - Unassign an accepted curator from a specific child bounty.
-//! - `close_child_bounty` - Cancel the child bounty for a specific treasury amount and close the
+//! - `claim_child_bounty` - Claim a specific child-bounty amount from the payout address.
+//! - `unassign_curator` - Unassign an accepted curator from a specific child-bounty.
+//! - `close_child_bounty` - Cancel the child-bounty for a specific treasury amount and close the
 //!   bounty.
+//! - `process_payment` - Retry a failed payment for a specific child-bounty funding, curator and
+//!   beneficiary payout or refund.
+//! - `check_payment_status` - Check and update the current state of a specific child-bounty
+//!   funding, payout or refund.
 
 // Most of the business logic in this pallet has been
 // originally contributed by "https://github.com/shamb0",
@@ -59,17 +63,19 @@ pub mod migration;
 mod tests;
 pub mod weights;
 pub use pallet::*;
-pub use weights::WeightInfo;
 use pallet_bounties::PaymentState;
+pub use weights::WeightInfo;
 
 extern crate alloc;
 use alloc::vec::Vec;
-use frame_support::pallet_prelude::*;
-use frame_support::traits::{
-	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
-	Currency,
-	ExistenceRequirement::AllowDeath,
-	Get, OnUnbalanced, ReservableCurrency,
+use frame_support::{
+	pallet_prelude::*,
+	traits::{
+		tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
+		Currency,
+		ExistenceRequirement::AllowDeath,
+		Get, OnUnbalanced, ReservableCurrency,
+	},
 };
 use frame_system::pallet_prelude::{
 	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
@@ -111,7 +117,7 @@ pub type ChildBountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> =
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::child-bounties";
 
-/// A child bounty proposal.
+/// A child-bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ChildBounty<
 	AccountId,
@@ -132,7 +138,7 @@ pub struct ChildBounty<
 	pub asset_kind: AssetKind,
 	/// The (total) amount that should be paid if this child-bounty is rewarded.
 	value: BountyBalance,
-	/// The child bounty curator fee in the `asset_kind`. Included in value.
+	/// The child-bounty curator fee in the `asset_kind`. Included in value.
 	fee: BountyBalance,
 	// TODO: use consideration
 	/// The deposit of child-bounty curator.
@@ -253,10 +259,10 @@ pub mod pallet {
 		BoundedVec<u8, T::MaximumReasonLength>,
 	>;
 
-	/// The mapping of the child bounty ids from storage version `V0` to the new `V1` version.
+	/// The mapping of the child-bounty ids from storage version `V0` to the new `V1` version.
 	///
-	/// The `V0` ids based on total child bounty count [`ChildBountyCount`]`. The `V1` version ids
-	/// based on the child bounty count per parent bounty [`ParentTotalChildBounties`].
+	/// The `V0` ids based on total child-bounty count [`ChildBountyCount`]`. The `V1` version ids
+	/// based on the child-bounty count per parent bounty [`ParentTotalChildBounties`].
 	/// The item intended solely for client convenience and not used in the pallet's core logic.
 	#[pallet::storage]
 	pub type V0ToV1ChildBountyIds<T: Config<I>, I: 'static = ()> =
@@ -269,29 +275,26 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		// TODO: use pallet_treasury::Config::Paymaster for all transfers (except deposits).
-
-		// TODO: update doc. `value` in the asset of the parent bounty.
-
 		/// Add a new child-bounty.
 		///
+		/// ## Dispatch Origin
 		/// The dispatch origin for this call must be the curator of parent
 		/// bounty and the parent bounty must be in "active" state.
 		///
-		/// Child-bounty gets added successfully & fund gets transferred from
-		/// parent bounty to child-bounty account, if parent bounty has enough
-		/// funds, else the call fails.
+		/// ## Details
+		/// - A child-bounty is successfully created and funded if the parent bounty has sufficient
+		///   funds; otherwise, the call fails.
+		/// - The maximum number of active child bounties is limited by the runtime configuration
+		///   [`Config::MaxActiveChildBountyCount`].
+		/// - If successful, the status of the child-bounty is updated to `Added`.
 		///
-		/// Upper bound to maximum number of active  child bounties that can be
-		/// added are managed via runtime trait config
-		/// [`Config::MaxActiveChildBountyCount`].
-		///
-		/// If the call is success, the status of child-bounty is updated to
-		/// "Added".
-		///
+		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty for which child-bounty is being added.
-		/// - `value`: Value for executing the proposal.
+		/// - `value`: Amount allocated for executing the proposal.
 		/// - `description`: Text description for the child-bounty.
+		///
+		/// ## Events
+		/// Emits [`Event::ChildBountyAdded`] if successful.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::add_child_bounty(description.len() as u32))]
 		pub fn add_child_bounty(
@@ -321,8 +324,8 @@ pub mod pallet {
 				BountiesError::<T, I>::InvalidValue
 			);
 			ensure!(
-				ParentChildBounties::<T, I>::get(parent_bounty_id)
-					<= T::MaxActiveChildBountyCount::get() as u32,
+				ParentChildBounties::<T, I>::get(parent_bounty_id) <=
+					T::MaxActiveChildBountyCount::get() as u32,
 				Error::<T, I>::TooManyChildBounties,
 			);
 
@@ -333,14 +336,12 @@ pub mod pallet {
 			let parent_bounty_account =
 				pallet_bounties::Pallet::<T, I>::bounty_account_id(parent_bounty_id);
 			// Ensure parent bounty has enough balance after adding child-bounty.
-			// Tiago: is this right? bounty_balance() returns T::Currency::free_balance of bounty native account id. 
-			// but what I really want is to compare against the balance of the asset_kind of the parent bounty.
-			// as a plan B I sum the amounts of all child bounties and compare against the parent bounty amount.
+			// Tiago: is this right? bounty_balance() returns T::Currency::free_balance of bounty
+			// native account id. but what I really want is to compare against the balance of the
+			// asset_kind of the parent bounty. as a plan B I sum the amounts of all child
+			// bounties and compare against the parent bounty amount.
 			let bounty_balance = pallet_bounties::Pallet::<T, I>::bounty_balance(parent_bounty_id);
-			ensure!(
-				bounty_balance >= native_amount,
-				Error::<T, I>::InsufficientBountyBalance
-			);
+			ensure!(bounty_balance >= native_amount, Error::<T, I>::InsufficientBountyBalance);
 
 			// Get child-bounty ID.
 			let child_bounty_id = ParentTotalChildBounties::<T, I>::get(parent_bounty_id);
@@ -376,19 +377,22 @@ pub mod pallet {
 
 		/// Propose curator for funded child-bounty.
 		///
-		/// The dispatch origin for this call must be curator of parent bounty.
+		/// ## Dispatch Origin
+		/// The dispatch origin for this call must be the curator of the parent bounty.
 		///
-		/// Parent bounty must be in active state, for this child-bounty call to
-		/// work.
+		/// ## Details
+		/// - The parent bounty must be in the `Active` state for this call to proceed.
+		/// - The child-bounty must be in the `Added` state, for processing the call.
+		/// - If successful, the state of the child-bounty transitions to `CuratorProposed`.
 		///
-		/// Child-bounty must be in "Added" state, for processing the call. And
-		/// state of child-bounty is moved to "CuratorProposed" on successful
-		/// call completion.
-		///
+		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
-		/// - `child_bounty_id`: Index of child bounty.
+		/// - `child_bounty_id`: Index of child-bounty.
 		/// - `curator`: Address of child-bounty curator.
 		/// - `fee`: payment fee to child-bounty curator for execution.
+		///
+		/// ## Events
+		/// Emits [`Event::ChildBountyCuratorProposed`] if successful.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::propose_curator())]
 		pub fn propose_curator(
@@ -411,7 +415,7 @@ pub mod pallet {
 				|maybe_child_bounty| -> DispatchResult {
 					let child_bounty =
 						maybe_child_bounty.as_mut().ok_or(BountiesError::<T, I>::InvalidIndex)?;
-					
+
 					// Ensure child-bounty is in expected state.
 					ensure!(
 						child_bounty.status == ChildBountyStatus::Funded,
@@ -442,30 +446,30 @@ pub mod pallet {
 
 		/// Accept the curator role for the child-bounty.
 		///
-		/// The dispatch origin for this call must be the curator of this
-		/// child-bounty.
+		/// ## Dispatch Origin
+		/// The dispatch origin for this call must be the curator of the child-bounty.
 		///
-		/// A deposit will be reserved from the curator and refund upon
-		/// successful payout or cancellation.
+		/// ## Details
+		/// - A deposit will be reserved from the curator and refunded upon successful payout or
+		///   cancellation.
+		/// - The curator's fee is deducted from the parent bounty's curator fee.
+		/// - The parent bounty must be in the `Active` state for this child-bounty call to proceed.
+		/// - The child-bounty must be in the `CuratorProposed` state.
+		/// - If successful, the child-bounty transitions to the `Active` state.
 		///
-		/// Fee for curator is deducted from curator fee of parent bounty.
-		///
-		/// Parent bounty must be in active state, for this child-bounty call to
-		/// work.
-		///
-		/// Child-bounty must be in "CuratorProposed" state, for processing the
-		/// call. And state of child-bounty is moved to "Active" on successful
-		/// call completion.
-		///
+		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
-		/// - `child_bounty_id`: Index of child bounty.
+		/// - `child_bounty_id`: Index of child-bounty.
+		/// - `stash`: Account to receive the curator fee.
+		///
+		/// ## Events
+		/// Emits [`Event::ChildBountyCuratorAccepted`] if successful.
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::accept_curator())]
 		pub fn accept_curator(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			#[pallet::compact] child_bounty_id: BountyIndex,
-			// TODO: docs: curator stash account to receive the curator fee.
 			stash: BeneficiaryLookupOf<T, I>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
@@ -514,38 +518,35 @@ pub mod pallet {
 
 		/// Unassign curator from a child-bounty.
 		///
-		/// The dispatch origin for this call can be either `RejectOrigin`, or
-		/// the curator of the parent bounty, or any signed origin.
+		/// ## Dispatch Origin
+		/// The dispatch origin for this call can be one of the following:
+		/// - `RejectOrigin`
+		/// - The curator of the parent bounty
+		/// - Any signed origin
 		///
-		/// For the origin other than T::RejectOrigin and the child-bounty
-		/// curator, parent bounty must be in active state, for this call to
-		/// work. We allow child-bounty curator and T::RejectOrigin to execute
-		/// this call irrespective of the parent bounty state.
+		/// ## Details
+		/// - If the origin is neither `RejectOrigin` nor the child-bounty curator, the parent
+		///   bounty must be in the `Active` state for this call to be executed.
+		/// - The child-bounty curator and `RejectOrigin` can execute this call regardless of the
+		///   parent bounty's state.
+		/// - If the call is made by `RejectOrigin` or the parent bounty curator, the child-bounty
+		///   curator is assumed to be malicious or inactive, and their deposit is slashed.
+		/// - If the call is made by the child-bounty curator, they are considered to be voluntarily
+		///   stepping down. Their deposit is unreserved, and they exit without penalty. (This
+		///   behavior may be revised if abused.)
+		/// - If the call is made by any signed account and the child-bounty curator is deemed
+		///   inactive, the curator is removed, and their deposit is slashed. The inactivity status
+		///   is estimated based on the parent bounty's expiry update due.
+		/// - This mechanism allows anyone in the community to report an inactive child-bounty
+		///   curator, prompting the selection of a new curator.
+		/// - If successful, the child-bounty transitions back to the `Added` state.
 		///
-		/// If this function is called by the `RejectOrigin` or the
-		/// parent bounty curator, we assume that the child-bounty curator is
-		/// malicious or inactive. As a result, child-bounty curator deposit is
-		/// slashed.
-		///
-		/// If the origin is the child-bounty curator, we take this as a sign
-		/// that they are unable to do their job, and are willingly giving up.
-		/// We could slash the deposit, but for now we allow them to unreserve
-		/// their deposit and exit without issue. (We may want to change this if
-		/// it is abused.)
-		///
-		/// Finally, the origin can be anyone iff the child-bounty curator is
-		/// "inactive". Expiry update due of parent bounty is used to estimate
-		/// inactive state of child-bounty curator.
-		///
-		/// This allows anyone in the community to call out that a child-bounty
-		/// curator is not doing their due diligence, and we should pick a new
-		/// one. In this case the child-bounty curator deposit is slashed.
-		///
-		/// State of child-bounty is moved to Added state on successful call
-		/// completion.
-		///
+		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
-		/// - `child_bounty_id`: Index of child bounty.
+		/// - `child_bounty_id`: Index of child-bounty.
+		///
+		/// ## Events
+		/// Emits [`Event::ChildBountyCuratorUnassigned`] if successful.
 		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::unassign_curator())]
 		pub fn unassign_curator(
@@ -574,25 +575,29 @@ pub mod pallet {
 						};
 
 					match child_bounty.status {
-						ChildBountyStatus::Proposed
-						| ChildBountyStatus::Approved { .. }
-						| ChildBountyStatus::Funded
-						| ChildBountyStatus::PayoutAttempted { .. }
-						| ChildBountyStatus::RefundAttempted { .. } => {
+						ChildBountyStatus::Proposed |
+						ChildBountyStatus::Approved { .. } |
+						ChildBountyStatus::Funded |
+						ChildBountyStatus::PayoutAttempted { .. } |
+						ChildBountyStatus::RefundAttempted { .. } => {
 							// No curator to unassign at this point.
 							return Err(BountiesError::<T, I>::UnexpectedStatus.into());
 						},
-						ChildBountyStatus::ApprovedWithCurator { ref curator, ref payment_status } => {
+						ChildBountyStatus::ApprovedWithCurator {
+							ref curator,
+							ref payment_status,
+						} => {
 							// Bounty not yet funded, but bounty was approved with curator.
 							// `RejectOrigin` or curator himself can unassign from this bounty.
 							ensure!(
 								maybe_sender.map_or(true, |sender| sender == *curator),
 								BadOrigin
 							);
-							// This state can only be while the bounty is not yet funded so we return
-							// bounty to the `Approved` state without curator
-							child_bounty.status =
-							ChildBountyStatus::Approved { payment_status: payment_status.clone() };
+							// This state can only be while the bounty is not yet funded so we
+							// return bounty to the `Approved` state without curator
+							child_bounty.status = ChildBountyStatus::Approved {
+								payment_status: payment_status.clone(),
+							};
 							return Ok(());
 						},
 						ChildBountyStatus::CuratorProposed { ref curator } => {
@@ -601,8 +606,8 @@ pub mod pallet {
 							// child-bounty curator can unassign the child-bounty curator.
 							ensure!(
 								maybe_sender.map_or(true, |sender| {
-									sender == *curator
-										|| Self::ensure_bounty_active(parent_bounty_id)
+									sender == *curator ||
+										Self::ensure_bounty_active(parent_bounty_id)
 											.map_or(false, |(parent_curator, _)| {
 												sender == parent_curator
 											})
@@ -632,8 +637,8 @@ pub mod pallet {
 								Some(sender) => {
 									let (parent_curator, update_due) =
 										Self::ensure_bounty_active(parent_bounty_id)?;
-									if sender == parent_curator
-										|| update_due < Self::treasury_block_number()
+									if sender == parent_curator ||
+										update_due < Self::treasury_block_number()
 									{
 										// Slash the child-bounty curator if
 										// + the call is made by the parent bounty curator.
@@ -666,21 +671,23 @@ pub mod pallet {
 
 		/// Award child-bounty to a beneficiary.
 		///
-		/// The beneficiary will be able to claim the funds after a delay.
-		///
+		/// ## Dispatch Origin
 		/// The dispatch origin for this call must be the parent curator or
 		/// curator of this child-bounty.
 		///
-		/// Parent bounty must be in active state, for this child-bounty call to
-		/// work.
+		/// ## Details
+		/// - The beneficiary will be able to claim the funds after a delay.
+		/// - The parent bounty must be in the `Active` state for this call to be executed.
+		/// - The child-bounty must be in the `Active` state.
+		/// - If successful, the child-bounty transitions to the `PendingPayout` state.
 		///
-		/// Child-bounty must be in active state, for processing the call. And
-		/// state of child-bounty is moved to "PendingPayout" on successful call
-		/// completion.
-		///
+		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
-		/// - `child_bounty_id`: Index of child bounty.
-		/// - `beneficiary`: Beneficiary account.
+		/// - `child_bounty_id`: Index of child-bounty.
+		/// - `beneficiary`: Account to receive the bounty payout.
+		///
+		/// ## Events
+		/// Emits [`Event::ChildBountyAwarded`] if successful.
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::award_child_bounty())]
 		pub fn award_child_bounty(
@@ -714,8 +721,8 @@ pub mod pallet {
 						child_bounty.status = ChildBountyStatus::PendingPayout {
 							curator: signer,
 							beneficiary: beneficiary.clone(),
-							unlock_at: Self::treasury_block_number()
-								+ T::BountyDepositPayoutDelay::get(),
+							unlock_at: Self::treasury_block_number() +
+								T::BountyDepositPayoutDelay::get(),
 							curator_stash: curator_stash.clone(),
 						};
 						Ok(())
@@ -735,23 +742,23 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// TODO: should be able to retry claim if the payment from prev claim attempt failed.
 		/// Claim the payout from an awarded child-bounty after payout delay.
 		///
+		/// ## Dispatch Origin
 		/// The dispatch origin for this call may be any signed origin.
 		///
-		/// Call works independent of parent bounty state, No need for parent
-		/// bounty to be in active state.
+		/// ## Details
+		/// - Call works independent of the parent bounty's state; the parent bounty does not need
+		///   to be `Active`.
+		/// - The beneficiary is paid the agreed bounty amount.
+		/// - The curator's fee is paid, and the curator's deposit is unreserved.
+		/// - The child-bounty must be in the `PendingPayout` state.
+		/// - If successful, the child-bounty transitions to the `PayoutAttempted` state.
+		/// - `check_payment_status` must be called to advance bounty status.
 		///
-		/// The Beneficiary is paid out with agreed bounty value. Curator fee is
-		/// paid & curator deposit is unreserved.
-		///
-		/// Child-bounty must be in "PendingPayout" state, for processing the
-		/// call. And instance of child-bounty is removed from the state on
-		/// successful call completion.
-		///
+		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
-		/// - `child_bounty_id`: Index of child bounty.
+		/// - `child_bounty_id`: Index of child-bounty.
 		#[pallet::call_index(5)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::claim_child_bounty())]
 		pub fn claim_child_bounty(
@@ -783,8 +790,10 @@ pub mod pallet {
 							BountiesError::<T, I>::Premature,
 						);
 
-						let (final_fee, payout) =
-							Self::calculate_curator_fee_and_payout(child_bounty.fee, child_bounty.value);
+						let (final_fee, payout) = Self::calculate_curator_fee_and_payout(
+							child_bounty.fee,
+							child_bounty.value,
+						);
 						// Make curator fee payment.
 						let child_bounty_account =
 							Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
@@ -833,24 +842,31 @@ pub mod pallet {
 		/// are transferred to parent bounty account. The child-bounty curator
 		/// deposit may be unreserved if possible.
 		///
+		/// ## Dispatch Origin
 		/// The dispatch origin for this call must be either parent curator or
 		/// `T::RejectOrigin`.
 		///
-		/// If the state of child-bounty is `Active`, curator deposit is
-		/// unreserved.
+		/// ## Details
+		/// - If the child-bounty is in the `Proposed` state, it is simply removed from storage.
+		/// - If the child-bounty is in the `Funded` or `CuratorProposed` state, a refund payment is
+		///   initiated to return funds to the parent bounty account.
+		/// - If the child-bounty is in the `Active` state, the curator’s deposit is unreserved, and
+		///   a refund payment is initiated.
+		/// - If the child-bounty is in the `PendingPayout`, `PayoutAttempted`, or `RefundAttempted`
+		///   state, the call fails.
+		/// - If the origin is not `T::RejectOrigin`, the parent bounty must be in the `Active`
+		///   state for this call to succeed.
+		/// - If the origin is `T::RejectOrigin`, execution is forced regardless of the parent
+		///   bounty state.
+		/// - The child-bounty status transitions to `RefundAttempted`, and `check_payment_status`
+		///   must be called to finalize the refund.
 		///
-		/// If the state of child-bounty is `PendingPayout`, call fails &
-		/// returns `PendingPayout` error.
-		///
-		/// For the origin other than T::RejectOrigin, parent bounty must be in
-		/// active state, for this child-bounty call to work. For origin
-		/// T::RejectOrigin execution is forced.
-		///
-		/// Instance of child-bounty is removed from the state on successful
-		/// call completion.
-		///
+		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
-		/// - `child_bounty_id`: Index of child bounty.
+		/// - `child_bounty_id`: Index of child-bounty.
+		///
+		/// ## Events
+		/// If the child-bounty was in the `Proposed` state, emits [`Event::ChildBountyCanceled`]
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::close_child_bounty_added()
 			.max(<T as Config<I>>::WeightInfo::close_child_bounty_active()))]
@@ -872,13 +888,67 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Retry a payment for funding, payout or closing a child-bounty.
+		///
+		/// ## Dispatch Origin
+		/// Must be signed.
+		///
+		/// ## Details
+		/// - If the child-bounty is in the `Approved` state, it retries the funding payment.
+		/// - If the child-bounty is in the `PayoutAttempted` state, it retries the curator and
+		///   beneficiary payouts.
+		/// - If the bounty is in the `RefundAttempted` state, it retries the refund payment to
+		///   return funds to the parent bounty.
+		/// - `check_payment_status` must be called to advance bounty status.
+		///
+		/// ### Parameters
+		/// - `parent_bounty_id`: Index of parent bounty.
+		/// - `child_bounty_id`: Index of child-bounty.
+		///
+		/// ## Complexity
+		/// - O(1).
 		#[pallet::call_index(7)]
+		// TODO: change weight
+		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		pub fn process_payment(
+			origin: OriginFor<T>,
+			#[pallet::compact] parent_bounty_id: BountyIndex,
+			#[pallet::compact] child_bounty_id: BountyIndex,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+		}
+
+		/// Check and update the payment status of a child-bounty.
+		///
+		/// ## Dispatch Origin
+		/// Must be signed.
+		///
+		/// ## Details
+		/// - If the child-bounty is in the `Approved` state, it checks if the funding payment has
+		///   succeeded. If successful, the child-bounty status advanced to `Funded.
+		/// - If the bounty is in the `PayoutAttempted` state, it checks the status of curator and
+		///   beneficiary payouts. If both payments succeed, the bounty is removed, and the
+		///   curator's deposit is unreserved. If any payment failed, the bounty status is updated.
+		/// - If the bounty is in the `RefundAttempted` state, it checks if the refund was
+		///   completed. If successful, the bounty is removed.
+		///
+		/// ### Parameters
+		/// - `bounty_id`: The bounty index.
+		///
+		/// ## Events
+		/// - Emits `BountyBecameActive` when the bounty transitions to `Active`.
+		/// - Emits `BountyClaimed` when the payout process completes successfully.
+		/// - Emits `BountyCanceled` if the refund is successful.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(8)]
 		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::accept_curator())]
 		pub fn check_payment_status(
 			origin: OriginFor<T>,
-			parent_bounty_id: BountyIndex,
-			child_bounty_id: BountyIndex,
+			#[pallet::compact] parent_bounty_id: BountyIndex,
+			#[pallet::compact] child_bounty_id: BountyIndex,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			ChildBounties::<T, I>::try_mutate_exists(
@@ -897,130 +967,139 @@ pub mod pallet {
 								None,
 							),
 						ChildBountyStatus::PayoutAttempted {
-								ref curator,
-								ref mut curator_stash,
-								ref mut beneficiary,
-							} => {
-								let (mut payments_progressed, mut payments_succeeded) = (0, 0);
-								// advance both curator, and beneficiary payments
-								let results = [
-									Self::check_payment_status_for_payout(
-										&mut payments_progressed,
-										&mut payments_succeeded,
-										curator_stash,
-									),
-									Self::check_payment_status_for_payout(
-										&mut payments_progressed,
-										&mut payments_succeeded,
-										beneficiary,
-									),
-								];
-	
-								// best scenario, both payments have succeeded,
-								// emit events and advance state machine to the end
-								if payments_succeeded >= results.len() as i32 {
-									// all payments succeeded, cleanup the bounty
-									let (_final_fee, payout) = Self::calculate_curator_fee_and_payout(
-										child_bounty.fee,
-										child_bounty.value,
-									);
-									
-									// Tiago: Unreserve here?
-									// Unreserve the curator deposit when payment succeeds. Should not fail
-									// because the deposit is always reserved when curator is
-									// assigned.
-									// TODO: use consideration here
-									let err_amount = T::Currency::unreserve(&curator, child_bounty.curator_deposit);
+							ref curator,
+							ref mut curator_stash,
+							ref mut beneficiary,
+						} => {
+							let (mut payments_progressed, mut payments_succeeded) = (0, 0);
+							// advance both curator, and beneficiary payments
+							let results = [
+								Self::check_payment_status_for_payout(
+									&mut payments_progressed,
+									&mut payments_succeeded,
+									curator_stash,
+								),
+								Self::check_payment_status_for_payout(
+									&mut payments_progressed,
+									&mut payments_succeeded,
+									beneficiary,
+								),
+							];
 
-									// Trigger the Claimed event.
-									let asset_kind = Self::bounty_asset_kind(parent_bounty_id)?;
-									Self::deposit_event(Event::<T, I>::Claimed {
-										index: parent_bounty_id,
-										child_index: child_bounty_id,
-										asset_kind: asset_kind.clone(),
-										asset_payout: payout,
-										beneficiary: beneficiary.0.clone(),
-									});
+							// best scenario, both payments have succeeded,
+							// emit events and advance state machine to the end
+							if payments_succeeded >= results.len() as i32 {
+								// all payments succeeded, cleanup the bounty
+								let (_final_fee, payout) = Self::calculate_curator_fee_and_payout(
+									child_bounty.fee,
+									child_bounty.value,
+								);
 
-									// Update the active child-bounty tracking count.
-									ParentChildBounties::<T, I>::mutate(parent_bounty_id, |count| {
-										count.saturating_dec()
-									});
+								// Tiago: Unreserve here?
+								// Unreserve the curator deposit when payment succeeds. Should not
+								// fail because the deposit is always reserved when curator
+								// is assigned.
+								// TODO: use consideration here
+								let err_amount =
+									T::Currency::unreserve(&curator, child_bounty.curator_deposit);
 
-									// Remove the child-bounty description.
-									ChildBountyDescriptionsV1::<T, I>::remove(
-										parent_bounty_id,
-										child_bounty_id,
-									);
+								// Trigger the Claimed event.
+								let asset_kind = Self::bounty_asset_kind(parent_bounty_id)?;
+								Self::deposit_event(Event::<T, I>::Claimed {
+									index: parent_bounty_id,
+									child_index: child_bounty_id,
+									asset_kind: asset_kind.clone(),
+									asset_payout: payout,
+									beneficiary: beneficiary.0.clone(),
+								});
 
-									// Remove the child-bounty instance from the state.
-									*maybe_child_bounty = None;
-	
-									return Ok(Pays::No.into());
-								} else if payments_progressed > 0 {
-									// some payments have progressed in the state machine
-									// return ok so these changes are saved to the state
-									Ok(Pays::Yes.into())
-								} else {
-									// try returning payment status errors if there are any
-									for result in results {
-										result?;
-									}
-	
-									// no progress was made in the state machine if we're here,
-									return Err(BountiesError::<T, I>::PayoutInconclusive.into())
+								// Update the active child-bounty tracking count.
+								ParentChildBounties::<T, I>::mutate(parent_bounty_id, |count| {
+									count.saturating_dec()
+								});
+
+								// Remove the child-bounty description.
+								ChildBountyDescriptionsV1::<T, I>::remove(
+									parent_bounty_id,
+									child_bounty_id,
+								);
+
+								// Remove the child-bounty instance from the state.
+								*maybe_child_bounty = None;
+
+								return Ok(Pays::No.into());
+							} else if payments_progressed > 0 {
+								// some payments have progressed in the state machine
+								// return ok so these changes are saved to the state
+								Ok(Pays::Yes.into())
+							} else {
+								// try returning payment status errors if there are any
+								for result in results {
+									result?;
 								}
-							},
-							ChildBountyStatus::RefundAttempted { ref mut payment_status } => {
-								match payment_status {
-									PaymentState::Attempted { id } => {
-										match T::Paymaster::check_payment(*id) {
-											PaymentStatus::Success => {
 
-												// Revert the curator fee back to parent bounty curator &
-												// reduce the active child-bounty count.
-												ChildrenCuratorFees::<T, I>::mutate(parent_bounty_id, |value| {
+								// no progress was made in the state machine if we're here,
+								return Err(BountiesError::<T, I>::PayoutInconclusive.into())
+							}
+						},
+						ChildBountyStatus::RefundAttempted { ref mut payment_status } => {
+							match payment_status {
+								PaymentState::Attempted { id } => {
+									match T::Paymaster::check_payment(*id) {
+										PaymentStatus::Success => {
+											// Revert the curator fee back to parent bounty curator
+											// & reduce the active child-bounty count.
+											ChildrenCuratorFees::<T, I>::mutate(
+												parent_bounty_id,
+												|value| {
 													*value = value.saturating_sub(child_bounty.fee)
-												});
-												ParentChildBounties::<T, I>::mutate(parent_bounty_id, |count| {
-													*count = count.saturating_sub(1)
-												});
-	
-												// Remove the child-bounty description.
-												ChildBountyDescriptionsV1::<T, I>::remove(parent_bounty_id, child_bounty_id);
+												},
+											);
+											ParentChildBounties::<T, I>::mutate(
+												parent_bounty_id,
+												|count| *count = count.saturating_sub(1),
+											);
 
-												*maybe_child_bounty = None;
+											// Remove the child-bounty description.
+											ChildBountyDescriptionsV1::<T, I>::remove(
+												parent_bounty_id,
+												child_bounty_id,
+											);
 
-												Self::deposit_event(Event::<T, I>::Canceled {
-													index: parent_bounty_id,
-													child_index: child_bounty_id,
-												});
-												return Ok(Pays::No.into());
-											},
-											PaymentStatus::InProgress => {
-												// nothing new to report
-												return Err(BountiesError::<T, I>::RefundInconclusive.into())
-											},
-											PaymentStatus::Unknown | PaymentStatus::Failure => {
-												// assume payment has failed, allow user to retry
-												*payment_status = PaymentState::Failed;
-												return Ok(Pays::Yes.into());
-											},
-										}
-									},
-									PaymentState::Pending | PaymentState::Failed => {
-										// nothing to do here, user should try calling
-										// `process_payment` again to try payment again
-										Err(BountiesError::<T, I>::UnexpectedStatus.into())
-									},
-									PaymentState::Succeeded => {
-										// should never be reached, if refund succeeded
-										// it should have been removed from the bounties
-										// already
-										Err(BountiesError::<T, I>::UnexpectedStatus.into())
-									},
-								}
-							},
+											*maybe_child_bounty = None;
+
+											Self::deposit_event(Event::<T, I>::Canceled {
+												index: parent_bounty_id,
+												child_index: child_bounty_id,
+											});
+											return Ok(Pays::No.into());
+										},
+										PaymentStatus::InProgress => {
+											// nothing new to report
+											return Err(
+												BountiesError::<T, I>::RefundInconclusive.into()
+											)
+										},
+										PaymentStatus::Unknown | PaymentStatus::Failure => {
+											// assume payment has failed, allow user to retry
+											*payment_status = PaymentState::Failed;
+											return Ok(Pays::Yes.into());
+										},
+									}
+								},
+								PaymentState::Pending | PaymentState::Failed => {
+									// nothing to do here, user should try calling
+									// `process_payment` again to try payment again
+									Err(BountiesError::<T, I>::UnexpectedStatus.into())
+								},
+								PaymentState::Succeeded => {
+									// should never be reached, if refund succeeded
+									// it should have been removed from the bounties
+									// already
+									Err(BountiesError::<T, I>::UnexpectedStatus.into())
+								},
+							}
+						},
 						_ => return Err(BountiesError::<T, I>::UnexpectedStatus.into()),
 					};
 
@@ -1047,8 +1126,6 @@ pub mod pallet {
 				);
 		}
 	}
-
-	// TODO: similar with `pallet_bounties` add `process_payment` and `check_payment_status`.
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -1085,7 +1162,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::PalletId::get().into_sub_account_truncating(("cb", parent_bounty_id, child_bounty_id))
 	}
 
-	// Tiago: Is this how I should implement this? I need an AccountId to be compatible with T::Currency functions
+	// Tiago: Is this how I should implement this? I need an AccountId to be compatible with
+	// T::Currency functions
 	/// The account ID of a child-bounty account.
 	pub fn native_child_bounty_account_id(
 		parent_bounty_id: BountyIndex,
@@ -1158,13 +1236,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						// Return early, nothing else to do.
 						return Ok(());
 					},
-					ChildBountyStatus::Approved { .. } | ChildBountyStatus::ApprovedWithCurator { .. } => {
+					ChildBountyStatus::Approved { .. } |
+					ChildBountyStatus::ApprovedWithCurator { .. } => {
 						// For weight reasons, we don't allow a council to cancel in this phase.
 						// We ask for them to wait until it is funded before they can cancel.
 						return Err(BountiesError::<T, I>::UnexpectedStatus.into());
 					},
 					ChildBountyStatus::Funded | ChildBountyStatus::CuratorProposed { .. } => {
-						// Nothing extra to do besides the removal of the child-bounty below.
+						// Nothing extra to do besides initiating refund payment.
 					},
 					ChildBountyStatus::Active { curator, .. } => {
 						// Tiago: I should only unreserve once payment succeeds right?
@@ -1201,8 +1280,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					&parent_bounty_account,
 					asset_kind,
 					child_bounty.value,
-				).map_err(|_| BountiesError::<T, I>::RefundError)?;
-				
+				)
+				.map_err(|_| BountiesError::<T, I>::RefundError)?;
+
 				child_bounty.status = ChildBountyStatus::RefundAttempted {
 					payment_status: PaymentState::Attempted { id: payment_id },
 				};
@@ -1344,7 +1424,7 @@ impl<T: Config<I>, I: 'static> pallet_bounties::ChildBountyManager<BountyBalance
 		ParentChildBounties::<T, I>::get(bounty_id)
 	}
 
-	/// Returns cumulative child bounty curator fees for `bounty_id` also removing the associated
+	/// Returns cumulative child-bounty curator fees for `bounty_id` also removing the associated
 	/// storage item. This function is assumed to be called when parent bounty is claimed.
 	fn children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -> BountyBalanceOf<T, I> {
 		// This is asked for when the parent bounty is being claimed. No use of
@@ -1365,6 +1445,4 @@ impl<T: Config<I>, I: 'static> pallet_bounties::ChildBountyManager<BountyBalance
 		ParentChildBounties::<T, I>::remove(bounty_id);
 		ParentTotalChildBounties::<T, I>::remove(bounty_id);
 	}
-
-
 }

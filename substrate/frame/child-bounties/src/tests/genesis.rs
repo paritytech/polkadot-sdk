@@ -17,7 +17,7 @@
 
 //! Child-bounties pallet tests.
 
-use crate::tests::mock::{Treasury, Balances, new_test_ext};
+use crate::tests::mock::{new_test_ext, Balances, Treasury};
 
 use frame_support::traits::Currency;
 
