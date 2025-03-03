@@ -1796,7 +1796,7 @@ where
 	}
 
 	fn now(&self) -> U256 {
-		self.timestamp.into()
+		(self.timestamp / 1000u32.into()).into()
 	}
 
 	fn minimum_balance(&self) -> U256 {
