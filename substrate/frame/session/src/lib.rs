@@ -960,6 +960,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Re-enable the validator of index `i`, returns `false` if the validator was not disabled.
 	pub fn reenable_index(i: u32) -> bool {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
+			return false;
+		}
+
 		DisabledValidators::<T>::mutate(|disabled| {
 			if let Ok(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
 				log!(trace, "reenabling validator {:?}", i);
