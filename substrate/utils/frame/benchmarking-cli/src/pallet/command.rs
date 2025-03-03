@@ -927,7 +927,8 @@ impl PalletCmd {
 					)
 					.into())
 				}
-				let (pov_pallet, pov_storage) = (splits[0], splits.get(1).unwrap_or(&"ALL"));
+				let (pov_pallet, pov_storage) =
+					(splits[0].trim(), splits.get(1).unwrap_or(&"ALL").trim());
 
 				match parsed
 					.entry((pallet.clone(), extrinsic.clone()))
@@ -946,6 +947,8 @@ impl PalletCmd {
 				}
 			}
 		}
+		log::debug!("Parsed PoV modes: {:?}", parsed);
+
 		Ok(parsed)
 	}
 
