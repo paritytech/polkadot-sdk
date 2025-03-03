@@ -82,6 +82,10 @@
 //! - `claim_bounty` - Claim a specific bounty amount from the Payout Address.
 //! - `unassign_curator` - Unassign an accepted curator from a specific earmark.
 //! - `close_bounty` - Cancel the earmark for a specific treasury amount and close the bounty.
+//! - `process_payment` - Retry a failed payment for bounty funding, curator and beneficiary payout
+//!   or refund.
+//! - `check_payment_status` - Check and update the current state of the bounty funding, payout or
+//!   refund.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -1217,21 +1221,15 @@ pub mod pallet {
 		/// Must be signed.
 		///
 		/// ## Details
-		/// - If the bounty is in the `Approved` or `ApprovedWithCurator` state, it attempts to
-		///   process the funding payment.
-		/// - If the bounty is in the `PayoutAttempted` state, it processes the curator and
+		/// - If the bounty is in the `Approved` or `ApprovedWithCurator` state, it retries funding payment.
+		/// - If the bounty is in the `PayoutAttempted` state, it retries the curator and
 		///   beneficiary payouts.
-		/// - If the bounty is in the `RefundAttempted` state, it attempts to return funds to the
+		/// - If the bounty is in the `RefundAttempted` state, it retries the refund payment to return funds to the
 		///   treasury.
-		/// - If all payments fail, an error is returned.
-		/// - If payment(s) succeed, the state advances.
+		/// - `check_payment_status` must be called to advance bounty status.
 		///
 		/// ### Parameters
 		/// - `bounty_id`: The bounty index.
-		///
-		/// ## Events
-		/// - No events are emitted directly. State transitions will determine further event
-		///   emissions.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -1325,7 +1323,8 @@ pub mod pallet {
 								)
 								.map_err(|_| Error::<T, I>::PayoutError),
 							];
-							// Tiago: process_payment does not change bounty.status state. Should it change?
+							// Tiago: process_payment does not change bounty.status state. Should it
+							// change?
 
 							let succeeded = statuses.iter().filter(|i| i.is_ok()).count();
 							if succeeded > 0 {
@@ -1347,17 +1346,13 @@ pub mod pallet {
 		///
 		/// ## Details
 		/// - If the bounty is in the `Approved` or `ApprovedWithCurator` state, it checks if the
-		///   funding payment has succeeded.
-		///   - If successful, the bounty becomes `Active`, and the proposer's deposit is
-		///     unreserved.
+		///   funding payment has succeeded. If successful, the bounty becomes `Active`, and the
+		///   proposer's deposit is unreserved.
 		/// - If the bounty is in the `PayoutAttempted` state, it checks the status of curator and
-		///   beneficiary payouts.
-		///   - If both payments succeed, the bounty is removed, and the curator's deposit is
-		///     unreserved.
-		///   - If any payment is still pending, an error is returned.
+		///   beneficiary payouts. If both payments succeed, the bounty is removed, and the
+		///   curator's deposit is unreserved. If any payment failed, the bounty status is updated.
 		/// - If the bounty is in the `RefundAttempted` state, it checks if the refund was
-		///   completed.
-		///   - If successful, the bounty is removed, and a `BountyCanceled` event is emitted.
+		///   completed. If successful, the bounty is removed.
 		/// - If no progress is made in the state machine, an error is returned.
 		///
 		/// ### Parameters
@@ -1384,55 +1379,65 @@ pub mod pallet {
 				|maybe_bounty| -> DispatchResultWithPostInfo {
 					let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 					let mut new_bounty_status = None;
-					
+
 					let result = match bounty.status {
 						BountyStatus::Approved { ref mut payment_status } => match payment_status {
-							PaymentState::Attempted { id } => match T::Paymaster::check_payment(*id) {
-								PaymentStatus::Success => {
-									*payment_status = PaymentState::Succeeded;
-									new_bounty_status = Some(BountyStatus::Funded);
-									let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
-									debug_assert!(err_amount.is_zero());
-									Self::deposit_event(Event::<T, I>::BountyBecameActive { index: bounty_id });
-									// Tiago: should I be returning something like
-									// <T as Config<I>>::WeightInfo::check_payment_status_approved() in each arm?
-									Ok(Pays::No.into())
+							PaymentState::Attempted { id } =>
+								match T::Paymaster::check_payment(*id) {
+									PaymentStatus::Success => {
+										*payment_status = PaymentState::Succeeded;
+										new_bounty_status = Some(BountyStatus::Funded);
+										let err_amount =
+											T::Currency::unreserve(&bounty.proposer, bounty.bond);
+										debug_assert!(err_amount.is_zero());
+										Self::deposit_event(Event::<T, I>::BountyBecameActive {
+											index: bounty_id,
+										});
+										// Tiago: should I be returning something like
+										// <T as Config<I>>::WeightInfo::check_payment_status_approved() in each arm?
+										Ok(Pays::No.into())
+									},
+									PaymentStatus::InProgress =>
+										return Err(Error::<T, I>::FundingInconclusive.into()),
+									PaymentStatus::Unknown | PaymentStatus::Failure => {
+										// TODO: should we assume payment has failed on unknown? not
+										// sure yet
+										*payment_status = PaymentState::Failed;
+										// user can retry from this tate
+										return Ok(Pays::No.into());
+									},
 								},
-								PaymentStatus::InProgress => return Err(Error::<T, I>::FundingInconclusive.into()),
-								PaymentStatus::Unknown | PaymentStatus::Failure => {
-									// TODO: should we assume payment has failed on unknown? not
-									// sure yet
-									*payment_status = PaymentState::Failed;
-									// user can retry from this tate
-									return Ok(Pays::No.into());
-								}
-							},
 							_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 						},
 						BountyStatus::ApprovedWithCurator {
 							ref mut payment_status,
 							ref curator,
 						} => match payment_status {
-							PaymentState::Attempted { id } => match T::Paymaster::check_payment(*id) {
-								PaymentStatus::Success => {
-									*payment_status = PaymentState::Succeeded;
-									new_bounty_status = Some(BountyStatus::CuratorProposed {
-										curator: curator.clone(),
-									});
-									let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
-									debug_assert!(err_amount.is_zero());
-									Self::deposit_event(Event::<T, I>::BountyBecameActive { index: bounty_id });
-									Ok(Pays::No.into())
+							PaymentState::Attempted { id } =>
+								match T::Paymaster::check_payment(*id) {
+									PaymentStatus::Success => {
+										*payment_status = PaymentState::Succeeded;
+										new_bounty_status = Some(BountyStatus::CuratorProposed {
+											curator: curator.clone(),
+										});
+										let err_amount =
+											T::Currency::unreserve(&bounty.proposer, bounty.bond);
+										debug_assert!(err_amount.is_zero());
+										Self::deposit_event(Event::<T, I>::BountyBecameActive {
+											index: bounty_id,
+										});
+										Ok(Pays::No.into())
+									},
+									PaymentStatus::InProgress =>
+										return Err(Error::<T, I>::FundingInconclusive.into()),
+									PaymentStatus::Unknown | PaymentStatus::Failure => {
+										// TODO: should we assume payment has failed on unknown? not
+										// sure yet
+										*payment_status = PaymentState::Failed;
+										// user can retry from this tate
+										return Ok(Pays::No.into());
+									},
 								},
-								PaymentStatus::InProgress => return Err(Error::<T, I>::FundingInconclusive.into()),
-								PaymentStatus::Unknown | PaymentStatus::Failure => {
-									// TODO: should we assume payment has failed on unknown? not
-									// sure yet
-									*payment_status = PaymentState::Failed;
-									// user can retry from this tate
-									return Ok(Pays::No.into());
-								}
-							},
 							_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 						},
 						BountyStatus::PayoutAttempted {
@@ -1455,9 +1460,10 @@ pub mod pallet {
 												payments_progressed += 1;
 											},
 											PaymentStatus::InProgress => {
-												// nothing new to report, return function without error
-												// so we could drive the next payment
-											}
+												// nothing new to report, return function without
+												// error so we could drive the next
+												// payment
+											},
 											PaymentStatus::Unknown | PaymentStatus::Failure => {
 												payments_progressed += 1;
 												*payment_state = PaymentState::Failed;
@@ -1531,19 +1537,20 @@ pub mod pallet {
 											return Ok(Pays::No.into());
 										},
 										// nothing new to report
-										PaymentStatus::InProgress => return Err(Error::<T, I>::RefundInconclusive.into()),
+										PaymentStatus::InProgress =>
+											return Err(Error::<T, I>::RefundInconclusive.into()),
 										PaymentStatus::Unknown | PaymentStatus::Failure => {
 											// assume payment has failed, allow user to retry
 											*payment_status = PaymentState::Failed;
 											return Ok(Pays::Yes.into());
-										}
+										},
 									},
-									// `Pending` and `Failed` states should trigger user to call
-									// `process_payment` retry. `Succeeded` should never be
-									// reached since a successful refund would have
-									//   already removed the bounty from storage.
-									_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
-								}
+								// `Pending` and `Failed` states should trigger user to call
+								// `process_payment` retry. `Succeeded` should never be
+								// reached since a successful refund would have
+								//   already removed the bounty from storage.
+								_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
+							}
 						},
 						_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 					};

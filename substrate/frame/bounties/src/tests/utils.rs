@@ -19,8 +19,8 @@
 
 use crate::*;
 
-use core::cell::RefCell;
 use alloc::collections::btree_map::BTreeMap;
+use core::cell::RefCell;
 
 thread_local! {
 	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());

@@ -22,7 +22,7 @@
 use super::*;
 use crate::{
 	tests::utils::{LAST_ID, STATUS},
-	Pallet as Bounties
+	Pallet as Bounties,
 };
 
 use alloc::{vec, vec::Vec};
@@ -112,7 +112,8 @@ fn initialize_approved_bounty<T: Config<I>, I: 'static>(
 	bounty_id: BountyIndex,
 	caller: T::AccountId,
 ) -> Result<(), BenchmarkError> {
-	let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+	let approve_origin =
+		T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id)?;
 
 	let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
@@ -128,7 +129,7 @@ fn approve_bounty_and_propose_curator<T: Config<I>, I: 'static>(
 	let bounty_id = create_proposed_bounty::<T, I>()?;
 	initialize_approved_bounty::<T, I>(bounty_id, caller.clone())?;
 	Bounties::<T, I>::check_payment_status(RawOrigin::Signed(caller).into(), bounty_id)?;
-	
+
 	let curator_lookup = T::Lookup::unlookup(curator.clone());
 	Bounties::<T, I>::propose_curator(
 		T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
@@ -155,7 +156,8 @@ fn approve_bounty_and_accept_curator<T: Config<I>, I: 'static>(
 
 fn create_curator_and_award_bounty<T: Config<I>, I: 'static>(
 ) -> Result<(T::AccountId, BountyIndex), BenchmarkError> {
-	let (_caller, curator, _asset_kind, _fee, _value, curator_stash, _reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
+	let (_caller, curator, _asset_kind, _fee, _value, curator_stash, _reason) =
+		setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 	let (curator, bounty_id) = approve_bounty_and_accept_curator::<T, I>()?;
 	let beneficiary_account: T::Beneficiary = account("beneficiary", 0, SEED);
 	let beneficiary = T::BeneficiaryLookup::unlookup(beneficiary_account.clone());
@@ -166,7 +168,9 @@ fn create_curator_and_award_bounty<T: Config<I>, I: 'static>(
 		beneficiary.clone(),
 	)?;
 
-	set_block_number::<T, I>(T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get() + 1u32.into());
+	set_block_number::<T, I>(
+		T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get() + 1u32.into(),
+	);
 
 	Ok((curator, bounty_id))
 }
@@ -303,8 +307,8 @@ benchmarks_instance_pallet! {
 	check_payment_status_payout_attempted {
 		setup_pot_account::<T, I>();
 		let (curator, bounty_id) = create_curator_and_award_bounty::<T, I>()?;
-    	Bounties::<T, I>::claim_bounty(RawOrigin::Signed(curator.clone()).into(), bounty_id)?;
-		
+		Bounties::<T, I>::claim_bounty(RawOrigin::Signed(curator.clone()).into(), bounty_id)?;
+
 		let curator_payment_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
 		let beneficiary_payment_id = LAST_ID.with(|last_id| *last_id.borrow() - 2);
 		STATUS.with(|m| m.borrow_mut().insert(curator_payment_id, PaymentStatus::Success));
