@@ -27,13 +27,13 @@ sp-io = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"frame/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-]
-runtime-benchmarks = [
 	"codec/std",
 	"frame/std",
 	"scale-info/std",
+]
+runtime-benchmarks = [
+	"frame/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame/try-runtime",
