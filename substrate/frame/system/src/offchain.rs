@@ -484,6 +484,7 @@ pub trait CreateSignedTransaction<LocalCall>:
 
 /// Interface for creating an inherent; ⚠️  **Deprecated use [`CreateBare`]**.
 ///
+/// Doc for [`CreateBare`]:
 #[deprecated(note = "Use `CreateBare` instead")]
 #[doc(inline)]
 pub use CreateBare as CreateInherent;
