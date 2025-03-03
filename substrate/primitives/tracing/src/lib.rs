@@ -114,7 +114,11 @@ mod types;
 
 /// Try to init a simple tracing subscriber with log compatibility layer.
 ///
-/// Ignores any error. Useful for testing.
+/// Ignores any error. Useful for testing. Uses the default filter for logs.
+///
+/// Similar functions:
+/// - [`init_for_tests()`]: Uses `TRACE` level.
+/// - [`test_log_capture::init_log_capture_for_tests()`]: Outputs `TRACE` level and captures logs.
 #[cfg(feature = "std")]
 pub fn try_init_simple() {
 	let _ = tracing_subscriber::fmt()
@@ -131,6 +135,10 @@ pub fn try_init_simple() {
 /// The logs are not shown by default, logs are only shown when the test fails
 /// or if [`nocapture`](https://doc.rust-lang.org/cargo/commands/cargo-test.html#display-options)
 /// is being used.
+///
+/// Similar functions:
+/// - [`try_init_simple()`]: Uses the default filter.
+/// - [`test_log_capture::init_log_capture_for_tests()`]: Outputs `TRACE` level and captures logs.
 #[cfg(feature = "std")]
 pub fn init_for_tests() {
 	let _ = tracing_subscriber::fmt()
@@ -263,7 +271,7 @@ pub mod test_log_capture {
 		sync::{Arc, Mutex},
 	};
 	use tracing::level_filters::LevelFilter;
-	use tracing_subscriber::{fmt, fmt::MakeWriter, prelude::*, Registry};
+	use tracing_subscriber::{fmt, fmt::MakeWriter, Registry};
 
 	/// A reusable log capturing struct for unit tests.
 	/// Captures logs written during test execution for assertions.
@@ -388,6 +396,10 @@ pub mod test_log_capture {
 	///     assert!(log_capture.contains("This log will be captured"));
 	/// });
 	/// ```
+	///
+	/// Similar function/macro:
+	/// - [`init_log_capture_for_tests()`]: Outputs `TRACE` level and captures logs.
+	/// - [`capture_test_logs!()`]: Macro to capture logs during test execution.
 	pub fn init_log_capture(
 		max_level: impl Into<LevelFilter>,
 	) -> (LogCapture, impl tracing::Subscriber + Send + Sync) {
@@ -406,10 +418,10 @@ pub mod test_log_capture {
 	///
 	/// - **Use `init_log_capture_for_tests()` when you need both**: logs captured for assertions
 	///   **and** printed to the console.
-	/// - **Use [`sp_tracing::init_for_tests()`]** if you only need logs printed to the console
-	///   during tests.
 	/// - **Use [`init_log_capture()`]** if you only need to capture logs for assertions without
 	///   printing them.
+	/// - **Use [`sp_tracing::init_for_tests()`]** if you only need logs printed to the console
+	///   during tests.
 	///
 	/// # Returns
 	///
