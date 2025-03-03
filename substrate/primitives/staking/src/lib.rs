@@ -25,10 +25,11 @@ extern crate alloc;
 use crate::currency_to_vote::CurrencyToVote;
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, HasCompact, MaxEncodedLen};
-use core::ops::{Add, AddAssign, Sub, SubAssign};
+use core::ops::{Add, Sub};
 use scale_info::TypeInfo;
+use sp_core::bounded::WeakBoundedVec;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Zero},
+	traits::{AtLeast32BitUnsigned, Get, Zero},
 	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 
@@ -358,8 +359,9 @@ pub trait StakingUnchecked: StakingInterface {
 	RuntimeDebug,
 	TypeInfo,
 	Copy,
+	MaxEncodedLen,
 )]
-pub struct IndividualExposure<AccountId, Balance: HasCompact> {
+pub struct IndividualExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
 	/// The stash account of the nominator in question.
 	pub who: AccountId,
 	/// Amount of funds exposed.
@@ -380,7 +382,7 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	RuntimeDebug,
 	TypeInfo,
 )]
-pub struct Exposure<AccountId, Balance: HasCompact> {
+pub struct Exposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
 	pub total: Balance,
@@ -391,7 +393,9 @@ pub struct Exposure<AccountId, Balance: HasCompact> {
 	pub others: Vec<IndividualExposure<AccountId, Balance>>,
 }
 
-impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, Balance> {
+impl<AccountId, Balance: Default + HasCompact + codec::MaxEncodedLen> Default
+	for Exposure<AccountId, Balance>
+{
 	fn default() -> Self {
 		Self { total: Default::default(), own: Default::default(), others: vec![] }
 	}
@@ -426,14 +430,13 @@ impl<
 		}
 	}
 
-	/// Converts an `Exposure` into `PagedExposureMetadata` and multiple chunks of
-	/// `IndividualExposure` with each chunk having maximum of `page_size` elements.
-	pub fn into_pages(
+	/// Converts an unbounded `Exposure` into `PagedExposureMetadata` and multiple chunks of
+	/// `IndividualExposure` with each chunk having maximum of `PageSize` elements.
+	pub fn into_pages<PageSize: Get<u32>>(
 		self,
-		page_size: Page,
-	) -> (PagedExposureMetadata<Balance>, Vec<ExposurePage<AccountId, Balance>>) {
-		let individual_chunks = self.others.chunks(page_size as usize);
-		let mut exposure_pages: Vec<ExposurePage<AccountId, Balance>> =
+	) -> (PagedExposureMetadata<Balance>, Vec<ExposurePage<AccountId, Balance, PageSize>>) {
+		let individual_chunks = self.others.chunks(PageSize::get() as usize);
+		let mut exposure_pages: Vec<ExposurePage<AccountId, Balance, PageSize>> =
 			Vec::with_capacity(individual_chunks.len());
 
 		for chunk in individual_chunks {
@@ -447,7 +450,10 @@ impl<
 					value: individual.value,
 				})
 			}
-			exposure_pages.push(ExposurePage { page_total, others });
+			exposure_pages.push(ExposurePage {
+				page_total,
+				others: WeakBoundedVec::force_from(others, None),
+			});
 		}
 
 		(
@@ -463,31 +469,39 @@ impl<
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct ExposurePage<AccountId, Balance: HasCompact> {
+#[derive(
+	PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(MaxPage))]
+pub struct ExposurePage<AccountId, Balance: HasCompact + codec::MaxEncodedLen, MaxPage: Get<u32>> {
 	/// The total balance of this chunk/page.
 	#[codec(compact)]
 	pub page_total: Balance,
 	/// The portions of nominators stashes that are exposed.
-	pub others: Vec<IndividualExposure<AccountId, Balance>>,
+	pub others: WeakBoundedVec<IndividualExposure<AccountId, Balance>, MaxPage>,
 }
 
-impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
+impl<A, B: Default + HasCompact + codec::MaxEncodedLen, M: Get<u32>> Default
+	for ExposurePage<A, B, M>
+{
 	fn default() -> Self {
-		ExposurePage { page_total: Default::default(), others: vec![] }
+		ExposurePage {
+			page_total: Default::default(),
+			others: WeakBoundedVec::force_from(vec![], None),
+		}
 	}
 }
 
 /// Returns an exposure page from a set of individual exposures.
-impl<A, B: HasCompact + Default + AddAssign + SubAssign + Clone> From<Vec<IndividualExposure<A, B>>>
-	for ExposurePage<A, B>
+impl<A, B: HasCompact + AtLeast32BitUnsigned + Copy + codec::MaxEncodedLen, M: Get<u32>>
+	From<Vec<IndividualExposure<A, B>>> for ExposurePage<A, B, M>
 {
 	fn from(exposures: Vec<IndividualExposure<A, B>>) -> Self {
-		exposures.into_iter().fold(ExposurePage::default(), |mut page, e| {
-			page.page_total += e.value.clone();
-			page.others.push(e);
-			page
-		})
+		let page_total: B = exposures
+			.iter()
+			.fold(Zero::zero(), |acc, i| acc.saturating_add(i.value.clone()));
+
+		ExposurePage { page_total, others: WeakBoundedVec::force_from(exposures, None) }
 	}
 }
 

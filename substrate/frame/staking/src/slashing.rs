@@ -50,9 +50,10 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	asset, log, BalanceOf, Config, EraInfo, Error, NegativeImbalanceOf, NominatorSlashInEra,
-	OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill, ProcessingOffence,
-	SlashRewardFraction, SpanSlash, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
+	asset, log, BalanceOf, CloneNoBound, Config, EraInfo, Error, NegativeImbalanceOf,
+	NominatorSlashInEra, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
+	ProcessingOffence, SlashRewardFraction, SpanSlash, UnappliedSlash, UnappliedSlashes,
+	ValidatorSlashInEra,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -203,7 +204,7 @@ impl<Balance> SpanRecord<Balance> {
 }
 
 /// Parameters for performing a slash.
-#[derive(Clone)]
+#[derive(CloneNoBound)]
 pub(crate) struct SlashParams<'a, T: 'a + Config> {
 	/// The stash account being slashed.
 	pub(crate) stash: &'a T::AccountId,
@@ -214,7 +215,7 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 	/// Invariant: slash > prior_slash
 	pub(crate) prior_slash: Perbill,
 	/// The exposure of the stash and all nominators.
-	pub(crate) exposure: &'a PagedExposure<T::AccountId, BalanceOf<T>>,
+	pub(crate) exposure: &'a PagedExposure<T::AccountId, BalanceOf<T>, T::MaxExposurePageSize>,
 	/// The era where the offence occurred.
 	pub(crate) slash_era: EraIndex,
 	/// The first era in the current bonding period.

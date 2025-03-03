@@ -928,43 +928,34 @@ mod paged_exposures {
 
 			// exposures of validator 1 are the expected:
 			assert_eq!(
-				ErasStakersPaged::<Test>::get((0, &1, 0)).unwrap(),
-				ExposurePage {
-					page_total: 600,
-					others: vec![
-						IndividualExposure { who: 101, value: 500 },
-						IndividualExposure { who: 102, value: 100 }
-					]
-				},
+				ErasStakersPaged::<Test>::get((0, &1, 0)).unwrap().others.into_inner(),
+				vec![
+					IndividualExposure { who: 101, value: 500 },
+					IndividualExposure { who: 102, value: 100 }
+				]
 			);
 			assert_eq!(
-				ErasStakersPaged::<Test>::get((0, &1, 1)).unwrap(),
-				ExposurePage {
-					page_total: 350,
-					others: vec![
-						IndividualExposure { who: 103, value: 100 },
-						IndividualExposure { who: 110, value: 250 }
-					]
-				}
+				ErasStakersPaged::<Test>::get((0, &1, 1)).unwrap().others.into_inner(),
+				vec![
+					IndividualExposure { who: 103, value: 100 },
+					IndividualExposure { who: 110, value: 250 }
+				]
 			);
 			assert_eq!(
-				ErasStakersPaged::<Test>::get((0, &1, 2)).unwrap(),
-				ExposurePage {
-					page_total: 250,
-					others: vec![IndividualExposure { who: 111, value: 250 }]
-				}
+				ErasStakersPaged::<Test>::get((0, &1, 2)).unwrap().others.into_inner(),
+				vec![IndividualExposure { who: 111, value: 250 }]
 			);
 
-			// exposures of validator 2.
+			// exposures of validator 2 for era 0.
+			let exposures =
+				ErasStakersPaged::<Test>::iter_prefix_values((0, &2)).collect::<Vec<_>>();
+			assert_eq!(exposures.len(), 1);
 			assert_eq!(
-				ErasStakersPaged::<Test>::iter_prefix_values((0, &2)).collect::<Vec<_>>(),
-				vec![ExposurePage {
-					page_total: 1000,
-					others: vec![
-						IndividualExposure { who: 104, value: 500 },
-						IndividualExposure { who: 105, value: 500 }
-					]
-				}],
+				exposures[0].others.clone().into_inner(),
+				vec![
+					IndividualExposure { who: 104, value: 500 },
+					IndividualExposure { who: 105, value: 500 }
+				]
 			);
 		})
 	}

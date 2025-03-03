@@ -562,7 +562,6 @@ pub mod pallet {
 	///
 	/// This is cleared after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ErasStakersPaged<T: Config> = StorageNMap<
 		_,
 		(
@@ -570,7 +569,7 @@ pub mod pallet {
 			NMapKey<Twox64Concat, T::AccountId>,
 			NMapKey<Twox64Concat, Page>,
 		),
-		ExposurePage<T::AccountId, BalanceOf<T>>,
+		ExposurePage<T::AccountId, BalanceOf<T>, T::MaxExposurePageSize>,
 		OptionQuery,
 	>;
 

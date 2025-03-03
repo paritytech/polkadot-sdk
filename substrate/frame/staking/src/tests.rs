@@ -2445,7 +2445,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 			(current_era(), &11, 0),
 			ExposurePage {
 				page_total: stake - 1,
-				others: vec![IndividualExposure { who: 2, value: stake - 1 }],
+				others: vec![IndividualExposure { who: 2, value: stake - 1 }].try_into().unwrap(),
 			},
 		);
 
@@ -6740,6 +6740,7 @@ fn set_min_commission_works_with_admin_origin() {
 fn can_page_exposure() {
 	let mut others: Vec<IndividualExposure<AccountId, Balance>> = vec![];
 	let mut total_stake: Balance = 0;
+
 	// 19 nominators
 	for i in 1..20 {
 		let individual_stake: Balance = 100 * i as Balance;
@@ -6756,8 +6757,8 @@ fn can_page_exposure() {
 	// when
 	let (exposure_metadata, exposure_page): (
 		PagedExposureMetadata<Balance>,
-		Vec<ExposurePage<AccountId, Balance>>,
-	) = exposure.clone().into_pages(3);
+		Vec<ExposurePage<AccountId, Balance, ConstU32<3>>>,
+	) = exposure.clone().into_pages::<ConstU32<3>>();
 
 	// then
 	// 7 pages of nominators.
@@ -6793,7 +6794,7 @@ fn should_retain_era_info_only_upto_history_depth() {
 			for page in 0..3 {
 				ErasStakersPaged::<Test>::insert(
 					(era, &validator_stash, page),
-					ExposurePage { page_total: 100, others: vec![] },
+					ExposurePage { page_total: 100, others: vec![].try_into().unwrap() },
 				);
 			}
 		}

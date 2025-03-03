@@ -833,13 +833,18 @@ pub struct Nominations<T: Config> {
 /// This is useful where we need to take into account the validator's own stake and total exposure
 /// in consideration, in addition to the individual nominators backing them.
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
-pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
+#[scale_info(skip_type_params(PageSize))]
+pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen, PageSize: Get<u32>>
+{
 	exposure_metadata: PagedExposureMetadata<Balance>,
-	exposure_page: ExposurePage<AccountId, Balance>,
+	exposure_page: ExposurePage<AccountId, Balance, PageSize>,
 }
 
-impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEncodedLen>
-	PagedExposure<AccountId, Balance>
+impl<
+		AccountId,
+		Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEncodedLen,
+		PageSize: Get<u32>,
+	> PagedExposure<AccountId, Balance, PageSize>
 {
 	/// Create a new instance of `PagedExposure` from legacy clipped exposures.
 	pub fn from_clipped(exposure: Exposure<AccountId, Balance>) -> Self {
@@ -850,7 +855,10 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 				nominator_count: exposure.others.len() as u32,
 				page_count: 1,
 			},
-			exposure_page: ExposurePage { page_total: exposure.total, others: exposure.others },
+			exposure_page: ExposurePage {
+				page_total: exposure.total,
+				others: WeakBoundedVec::force_from(exposure.others, None),
+			},
 		}
 	}
 
@@ -1151,7 +1159,7 @@ impl<T: Config> EraInfo<T> {
 		era: EraIndex,
 		validator: &T::AccountId,
 		page: Page,
-	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
+	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>, T::MaxExposurePageSize>> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator)?;
 
 		// validator stake is added only in page zero
@@ -1180,7 +1188,9 @@ impl<T: Config> EraInfo<T> {
 		let mut others = Vec::with_capacity(overview.nominator_count as usize);
 		for page in 0..overview.page_count {
 			let nominators = <ErasStakersPaged<T>>::get((era, validator, page));
-			others.append(&mut nominators.map(|n| n.others).defensive_unwrap_or_default());
+			others.append(
+				&mut nominators.map(|n| n.others).defensive_unwrap_or_default().into_inner(),
+			);
 		}
 
 		Exposure { total: overview.total, own: overview.own, others }
@@ -1256,7 +1266,7 @@ impl<T: Config> EraInfo<T> {
 		if let Some(stored_overview) = ErasStakersOverview::<T>::get(era, &validator) {
 			let last_page_idx = stored_overview.page_count.saturating_sub(1);
 
-			let mut last_page =
+			let last_page =
 				ErasStakersPaged::<T>::get((era, validator, last_page_idx)).unwrap_or_default();
 			let last_page_empty_slots =
 				T::MaxExposurePageSize::get().saturating_sub(last_page.others.len() as u32);
@@ -1287,16 +1297,26 @@ impl<T: Config> EraInfo<T> {
 			});
 
 			// fill up last page with exposures.
-			last_page.page_total = last_page
+			let last_page_total = last_page
 				.page_total
 				.saturating_add(exposures_append.total)
 				.saturating_sub(exposures_append.own);
-			last_page.others.extend(exposures_append.others);
-			ErasStakersPaged::<T>::insert((era, &validator, last_page_idx), last_page);
+			let mut last_page_exposure = last_page.others.into_inner();
+			last_page_exposure.extend(exposures_append.others);
+			ErasStakersPaged::<T>::insert(
+				(era, &validator, last_page_idx),
+				ExposurePage {
+					page_total: last_page_total,
+					others: WeakBoundedVec::force_from(
+						last_page_exposure,
+						Some("last page should have fit empty slots."),
+					),
+				},
+			);
 
 			// now handle the remaining exposures and append the exposure pages. The metadata update
 			// has been already handled above.
-			let (_, exposure_pages) = exposure.into_pages(page_size);
+			let (_, exposure_pages) = exposure.into_pages::<T::MaxExposurePageSize>();
 
 			exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
 				let append_at =
@@ -1313,7 +1333,8 @@ impl<T: Config> EraInfo<T> {
 
 			// no exposures yet for this (era, validator) tuple, calculate paged exposure pages and
 			// metadata from a blank slate.
-			let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
+			let (exposure_metadata, exposure_pages) =
+				exposure.into_pages::<T::MaxExposurePageSize>();
 			defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
 
 			// insert metadata.
