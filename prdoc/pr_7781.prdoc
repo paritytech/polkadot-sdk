@@ -1,0 +1,10 @@
+title: Punish libp2p notification protocol misbehavior on outbound substreams
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This PR punishes behaviors that deviate from the notification spec.
+      When a peer misbehaves by writing data on an unidirectional read stream, the peer is banned and disconnected immediately.
+
+crates:
+  - name: sc-network
+    bump: patch
