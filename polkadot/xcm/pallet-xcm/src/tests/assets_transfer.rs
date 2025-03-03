@@ -2518,9 +2518,9 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 				// message sent onward to `dest`
 				xcm: Xcm(vec![
 					buy_execution((foreign_id_location_reanchored, SEND_AMOUNT / 2)),
-					DepositAsset { assets: AllCounted(1).into(), beneficiary }
-				])
-			}
+					DepositAsset { assets: AllCounted(1).into(), beneficiary },
+				]),
+			},
 		]);
 		let message_id = fake_message_hash(&sent_msg);
 
@@ -2575,10 +2575,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			AssetsPallet::total_issuance(foreign_asset_id_location.clone()),
 			expected_issuance
 		);
-		assert_eq!(
-			AssetsPallet::active_issuance(foreign_asset_id_location),
-			expected_issuance
-		);
+		assert_eq!(AssetsPallet::active_issuance(foreign_asset_id_location), expected_issuance);
 
 		// Verify sent XCM program
 		assert_eq!(
