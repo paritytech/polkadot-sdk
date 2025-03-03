@@ -833,7 +833,7 @@ mod tests {
 					Poll::Pending
 				},
 				Poll::Ready(Err(e)) => {
-					assert!(matches!(e, NotificationsOutError::Terminated));
+					assert!(matches!(e, NotificationsOutError::Closed));
 					Poll::Ready(())
 				},
 			})
