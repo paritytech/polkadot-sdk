@@ -2,34 +2,9 @@ title: 'pallet revive: rpc build script should not panic'
 doc:
 - audience: Runtime Dev
   description: |-
-    This can error when you use `cargo remote` and probably also with `cargo vendor`.
-    Still seeing two more build errors, but at least this one is fixed.
+    Fix a build error in the pallet revive RPC build scrip that can occur when using `cargo remote`
+    or `cargo vendor`.
 
-    Other one:
-    ```pre
-    error: set `DATABASE_URL` to use query macros online, or run `cargo sqlx prepare` to update the query cache
-       --> substrate/frame/revive/rpc/src/receipt_provider/db.rs:123:17
-        |
-    123 |               let result = query!(
-        |  __________________________^
-    124 | |                 r#"
-    125 | |                 INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
-    126 | |                 VALUES ($1, $2, $3)
-    ...   |
-    130 | |                 transaction_index
-    131 | |             )
-    ```
-
-    and (maybe Rust version related, this is 1.84.1)
-    ```pre
-    error[E0282]: type annotations needed
-       --> substrate/frame/revive/rpc/src/receipt_provider/db.rs:102:34
-        |
-    102 |         let (tx_result, logs_result) = tokio::join!(delete_transaction_hashes, delete_logs);
-        |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type
-        |
-        = note: this error originates in the macro `$crate::join` which comes from the expansion of the macro `tokio::join` (in Nightly builds, run with -Z macro-backtrace for more info)
-    ```
 crates:
 - name: pallet-revive-eth-rpc
   bump: patch
