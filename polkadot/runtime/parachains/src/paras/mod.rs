@@ -590,8 +590,8 @@ impl<N> CodeHashAuthorization<N> {
 		use CodeHashAuthorization::*;
 
 		match (self, other) {
-			(ForceSetCurrentCode { para_id: a, .. }, ForceSetCurrentCode { para_id: b, .. })
-			| (
+			(ForceSetCurrentCode { para_id: a, .. }, ForceSetCurrentCode { para_id: b, .. }) |
+			(
 				ForceScheduleCodeUpgrade { para_id: a, .. },
 				ForceScheduleCodeUpgrade { para_id: b, .. },
 			) if a == b => true,
@@ -608,9 +608,9 @@ impl<N> CodeHashAuthorization<N> {
 	/// Compares the stored `code_hash` with the hash of the provided validation code.
 	fn code_matches(&self, code: &ValidationCode) -> bool {
 		let code_hash = match self {
-			CodeHashAuthorization::ForceSetCurrentCode { code_hash, .. }
-			| CodeHashAuthorization::ForceScheduleCodeUpgrade { code_hash, .. }
-			| CodeHashAuthorization::AddTrustedValidationCode { code_hash } => code_hash,
+			CodeHashAuthorization::ForceSetCurrentCode { code_hash, .. } |
+			CodeHashAuthorization::ForceScheduleCodeUpgrade { code_hash, .. } |
+			CodeHashAuthorization::AddTrustedValidationCode { code_hash } => code_hash,
 		};
 
 		code_hash == &code.hash()
@@ -1277,12 +1277,10 @@ pub mod pallet {
 
 			// apply/dispatch
 			match authorized_code_hash {
-				CodeHashAuthorization::ForceSetCurrentCode { para_id, .. } => {
-					Self::do_force_set_current_code_update(para_id, code)
-				},
-				CodeHashAuthorization::AddTrustedValidationCode { .. } => {
-					Self::do_add_trusted_validation_code(code)
-				},
+				CodeHashAuthorization::ForceSetCurrentCode { para_id, .. } =>
+					Self::do_force_set_current_code_update(para_id, code),
+				CodeHashAuthorization::AddTrustedValidationCode { .. } =>
+					Self::do_add_trusted_validation_code(code),
 				CodeHashAuthorization::ForceScheduleCodeUpgrade {
 					para_id,
 					relay_parent_number,
@@ -1319,9 +1317,8 @@ pub mod pallet {
 					let validators = shared::ActiveValidatorKeys::<T>::get();
 					let validator_public = match validators.get(validator_index) {
 						Some(pk) => pk,
-						None => {
-							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into()
-						},
+						None =>
+							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
 					};
 
 					let signing_payload = stmt.signing_payload();
@@ -1336,12 +1333,10 @@ pub mod pallet {
 
 					match active_vote.has_vote(validator_index) {
 						Some(false) => (),
-						Some(true) => {
-							return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into()
-						},
-						None => {
-							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into()
-						},
+						Some(true) =>
+							return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into(),
+						None =>
+							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
 					}
 
 					ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
@@ -1361,7 +1356,8 @@ pub mod pallet {
 						Ok((authorization, expire_at)) => {
 							let now = frame_system::Pallet::<T>::block_number();
 							if expire_at < now {
-								// this should not happen, because `validate_authorization` validates `expire_at`
+								// this should not happen, because `validate_authorization`
+								// validates `expire_at`
 								return InvalidTransaction::Stale.into();
 							}
 							let longevity =
@@ -1374,9 +1370,8 @@ pub mod pallet {
 								.propagate(true)
 								.build()
 						},
-						Err(_) => {
-							return InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()
-						},
+						Err(_) =>
+							return InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into(),
 					}
 				},
 				_ => InvalidTransaction::Call.into(),
@@ -1444,10 +1439,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Called by the initializer to initialize the paras pallet.
 	pub(crate) fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
-		Self::prune_old_code(now)
-			+ Self::process_scheduled_upgrade_changes(now)
-			+ Self::process_future_code_upgrades_at(now)
-			+ Self::prune_expired_authorizations(now)
+		Self::prune_old_code(now) +
+			Self::process_scheduled_upgrade_changes(now) +
+			Self::process_future_code_upgrades_at(now) +
+			Self::prune_expired_authorizations(now)
 	}
 
 	/// Called by the initializer to finalize the paras pallet.
