@@ -33,7 +33,7 @@ use libp2p::{
 	},
 	Multiaddr, PeerId,
 };
-use log::{debug, warn};
+use log::{debug, error, warn};
 
 use codec::DecodeAll;
 use sc_network_common::{role::Roles, types::ReputationChange};
@@ -377,7 +377,17 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 				}
 			},
 
-			NotificationsOut::BanPeer { peer_id } => {
+			NotificationsOut::ProtocolMismatch { peer_id, set_id } => {
+				let index: usize = set_id.into();
+				let protocol_name = self.notification_protocols.get(index);
+
+				error!(
+					target: LOG_TARGET,
+					"Received protocol mismatch for peer {:?} on protocol {:?}",
+					peer_id,
+					protocol_name
+				);
+
 				self.peer_store_handle.report_peer(
 					peer_id.into(),
 					ReputationChange::new_fatal(

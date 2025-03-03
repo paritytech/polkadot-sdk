@@ -400,9 +400,12 @@ pub enum NotificationsOut {
 		message: BytesMut,
 	},
 
-	BanPeer {
+	/// The remote peer has misbehaved and the connection has been closed.
+	ProtocolMismatch {
 		/// Id of the peer the message came from.
 		peer_id: PeerId,
+		/// Peerset set ID the substream is tied to.
+		set_id: SetId,
 	},
 }
 
@@ -1921,8 +1924,9 @@ impl NetworkBehaviour for Notifications {
 				};
 
 				if protocol_mismatch {
-					self.events
-						.push_back(ToSwarm::GenerateEvent(NotificationsOut::BanPeer { peer_id }));
+					self.events.push_back(ToSwarm::GenerateEvent(
+						NotificationsOut::ProtocolMismatch { peer_id, set_id },
+					));
 				}
 
 				match mem::replace(entry.get_mut(), PeerState::Poisoned) {
