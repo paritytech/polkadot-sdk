@@ -22,10 +22,10 @@ use codec::Encode;
 use frame::{
 	deps::sp_runtime::{
 		curve::PiecewiseLinear,
-		testing::{DigestItem, Header},
+		testing::{Digest, DigestItem, Header, TestXt},
 	},
 	testing_prelude::*,
-	traits::Header as _,
+	traits::{Header as _, OpaqueKeys},
 };
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -33,18 +33,6 @@ use frame_election_provider_support::{
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
-use sp_core::{
-	crypto::{Pair, VrfSecret},
-	ConstBool, U256,
-};
-use sp_io;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	impl_opaque_keys,
-	testing::{Digest, DigestItem, Header, TestXt},
-	traits::{Header as _, OpaqueKeys},
-	BoundedVec, BuildStorage, Perbill,
-};
 use sp_staking::{EraIndex, SessionIndex};
 
 type DummyValidatorId = u64;
