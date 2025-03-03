@@ -83,7 +83,7 @@ pub mod v17 {
 
 	#[frame_support::storage_alias]
 	pub type DisabledValidators<T: Config> =
-		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<300>>, ValueQuery>;
+		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<333>>, ValueQuery>;
 
 	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
