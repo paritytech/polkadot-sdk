@@ -121,6 +121,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET => kitchensink_genesis(
+			// Use stash as controller account, otherwise grandpa can't load the authority set at genesis.
 			vec![(alice_stash.clone(), alice_stash.clone(), alice_session_keys)],
 			alice.clone(),
 			endowed,
