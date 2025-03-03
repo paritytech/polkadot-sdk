@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::{
 	common::{
@@ -37,9 +37,12 @@ use cumulus_client_collator::service::{
 use cumulus_client_consensus_aura::collators::slot_based::{
 	self as slot_based, Params as SlotBasedParams,
 };
-use cumulus_client_consensus_aura::collators::{
-	lookahead::{self as aura, Params as AuraParams},
-	slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
+use cumulus_client_consensus_aura::{
+	collators::{
+		lookahead::{self as aura, Params as AuraParams},
+		slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
+	},
+	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
 use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
@@ -118,48 +121,27 @@ where
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
-		let verifier_client = client.clone();
-
-		let aura_verifier = cumulus_client_consensus_aura::build_verifier::<
-			<AuraId as AppCrypto>::Pair,
-			_,
-			_,
-			_,
-		>(cumulus_client_consensus_aura::BuildVerifierParams {
-			client: verifier_client.clone(),
-			create_inherent_data_providers: move |parent_hash, _| {
-				let cidp_client = verifier_client.clone();
-				async move {
-					let slot_duration = cumulus_client_consensus_aura::slot_duration_at(
-						&*cidp_client,
-						parent_hash,
-					)?;
-					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-					let slot =
-                        sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-                            *timestamp,
-                            slot_duration,
-                        );
-
-					Ok((slot, timestamp))
-				}
-			},
-			telemetry: telemetry_handle,
-		});
+		let inherent_data_providers =
+			move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
+		let registry = config.prometheus_registry();
+		let spawner = task_manager.spawn_essential_handle();
 
 		let relay_chain_verifier =
 			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
 
+		let equivocation_aura_verifier =
+			EquivocationVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
+				client.clone(),
+				inherent_data_providers,
+				telemetry_handle,
+			);
+
 		let verifier = Verifier {
 			client,
+			aura_verifier: Box::new(equivocation_aura_verifier),
 			relay_chain_verifier,
-			aura_verifier: Box::new(aura_verifier),
-			_phantom: PhantomData,
+			_phantom: Default::default(),
 		};
-
-		let registry = config.prometheus_registry();
-		let spawner = task_manager.spawn_essential_handle();
 
 		Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
 	}
@@ -268,7 +250,7 @@ where
 {
 	#[docify::export_content]
 	fn launch_slot_based_collator<CIDP, CHP, Proposer, CS, Spawner>(
-		params: SlotBasedParams<
+		params_with_export: SlotBasedParams<
 			Block,
 			ParachainBlockImport<
 				Block,
@@ -295,7 +277,9 @@ where
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 		Spawner: SpawnNamed,
 	{
-		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params);
+		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(
+			params_with_export,
+		);
 	}
 }
 
@@ -337,7 +321,7 @@ where
 		_overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
-		_node_extra_args: NodeExtraArgs,
+		node_extra_args: NodeExtraArgs,
 		block_import_handle: SlotBasedBlockImportHandle<Block>,
 	) -> Result<(), Error> {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -376,10 +360,12 @@ where
 			slot_drift: Duration::from_secs(1),
 			block_import_handle,
 			spawner: task_manager.spawn_handle(),
+			export_pov: node_extra_args.export_pov,
 		};
 
 		// We have a separate function only to be able to use `docify::export` on this piece of
 		// code.
+
 		Self::launch_slot_based_collator(params);
 
 		Ok(())

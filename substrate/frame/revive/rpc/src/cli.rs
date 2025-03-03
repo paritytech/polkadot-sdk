@@ -16,8 +16,10 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::Client, EthRpcServer, EthRpcServerImpl, SystemHealthRpcServer,
-	SystemHealthRpcServerImpl,
+	client::{connect, native_to_eth_ratio, Client, SubscriptionType, SubstrateBlockNumber},
+	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
+	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
+	ReceiptProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl, LOG_TARGET,
 };
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
@@ -27,12 +29,15 @@ use sc_service::{
 	config::{PrometheusConfig, RpcConfiguration},
 	start_rpc_servers, TaskManager,
 };
+use std::sync::Arc;
 
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 
 // Default port if --rpc-port is not specified
 const DEFAULT_RPC_PORT: u16 = 8545;
+
+const IN_MEMORY_DB: &str = "sqlite::memory:";
 
 // Parsed command instructions from the command line
 #[derive(Parser, Debug)]
@@ -41,6 +46,24 @@ pub struct CliCommand {
 	/// The node url to connect to
 	#[clap(long, default_value = "ws://127.0.0.1:9944")]
 	pub node_rpc_url: String,
+
+	/// The maximum number of blocks to cache in memory.
+	#[clap(long, default_value = "256")]
+	pub cache_size: usize,
+
+	/// Earliest block number to consider when searching for transaction receipts.
+	#[clap(long)]
+	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
+
+	/// The database used to store Ethereum transaction hashes.
+	/// This is only useful if the node needs to act as an archive node and respond to Ethereum RPC
+	/// queries for transactions that are not in the in memory cache.
+	#[clap(long, env = "DATABASE_URL", default_value = IN_MEMORY_DB)]
+	pub database_url: String,
+
+	/// If not provided, only new blocks will be indexed
+	#[clap(long)]
+	pub index_until_block: Option<SubstrateBlockNumber>,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -76,9 +99,68 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 	Ok(())
 }
 
+fn build_client(
+	tokio_handle: &tokio::runtime::Handle,
+	cache_size: usize,
+	earliest_receipt_block: Option<SubstrateBlockNumber>,
+	node_rpc_url: &str,
+	database_url: &str,
+	abort_signal: Signals,
+) -> anyhow::Result<Client> {
+	let fut = async {
+		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
+		let block_provider: Arc<dyn BlockInfoProvider> =
+			Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
+
+		let prune_old_blocks = database_url == IN_MEMORY_DB;
+		if prune_old_blocks {
+			log::info!( target: LOG_TARGET, "Using in-memory database, keeping only {cache_size} blocks in memory");
+		}
+
+		let receipt_extractor = ReceiptExtractor::new(
+			native_to_eth_ratio(&api).await?,
+			earliest_receipt_block);
+
+		let receipt_provider: Arc<dyn ReceiptProvider> = Arc::new((
+			CacheReceiptProvider::default(),
+			DBReceiptProvider::new(
+				database_url,
+				block_provider.clone(),
+				receipt_extractor.clone(),
+				prune_old_blocks,
+			)
+			.await?,
+		));
+
+		let client =
+			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, receipt_extractor)
+				.await?;
+
+		Ok(client)
+	}
+	.fuse();
+	pin_mut!(fut);
+
+	match tokio_handle.block_on(abort_signal.try_until_signal(fut)) {
+		Ok(Ok(client)) => Ok(client),
+		Ok(Err(err)) => Err(err),
+		Err(_) => anyhow::bail!("Process interrupted"),
+	}
+}
+
 /// Start the JSON-RPC server using the given command line arguments.
 pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
-	let CliCommand { rpc_params, prometheus_params, node_rpc_url, shared_params, .. } = cmd;
+	let CliCommand {
+		rpc_params,
+		prometheus_params,
+		node_rpc_url,
+		cache_size,
+		database_url,
+		earliest_receipt_block,
+		index_until_block,
+		shared_params,
+		..
+	} = cmd;
 
 	#[cfg(not(test))]
 	init_logger(&shared_params)?;
@@ -110,24 +192,16 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	let tokio_runtime = sc_cli::build_runtime()?;
 	let tokio_handle = tokio_runtime.handle();
-	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
-	let essential_spawn_handle = task_manager.spawn_essential_handle();
 
-	let gen_rpc_module = || {
-		let signals = tokio_runtime.block_on(async { Signals::capture() })?;
-		let fut = Client::from_url(&node_rpc_url, &essential_spawn_handle).fuse();
-		pin_mut!(fut);
-
-		match tokio_handle.block_on(signals.try_until_signal(fut)) {
-			Ok(Ok(client)) => rpc_module(is_dev, client),
-			Ok(Err(err)) => {
-				log::error!("Error connecting to the node at {node_rpc_url}: {err}");
-				Err(sc_service::Error::Application(err.into()))
-			},
-			Err(_) => Err(sc_service::Error::Application("Client connection interrupted".into())),
-		}
-	};
+	let client = build_client(
+		tokio_handle,
+		cache_size,
+		earliest_receipt_block,
+		&node_rpc_url,
+		&database_url,
+		tokio_runtime.block_on(async { Signals::capture() })?,
+	)?;
 
 	// Prometheus metrics.
 	if let Some(PrometheusConfig { port, registry }) = prometheus_config.clone() {
@@ -138,10 +212,28 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		);
 	}
 
-	let rpc_server_handle =
-		start_rpc_servers(&rpc_config, prometheus_registry, tokio_handle, gen_rpc_module, None)?;
+	let rpc_server_handle = start_rpc_servers(
+		&rpc_config,
+		prometheus_registry,
+		tokio_handle,
+		|| rpc_module(is_dev, client.clone()),
+		None,
+	)?;
+
+	task_manager
+		.spawn_essential_handle()
+		.spawn("block-subscription", None, async move {
+			let fut1 = client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks);
+			if let Some(index_until_block) = index_until_block {
+				let fut2 = client.cache_old_blocks(index_until_block);
+				tokio::join!(fut1, fut2);
+			} else {
+				fut1.await;
+			}
+		});
 
 	task_manager.keep_alive(rpc_server_handle);
+	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	tokio_runtime.block_on(signals.run_until_signal(task_manager.future().fuse()))?;
 	Ok(())
 }
@@ -152,10 +244,12 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
 		.into_rpc();
 
-	let health_api = SystemHealthRpcServerImpl::new(client).into_rpc();
+	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
+	let debug_api = DebugRpcServerImpl::new(client).into_rpc();
 
 	let mut module = RpcModule::new(());
 	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
+	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	Ok(module)
 }

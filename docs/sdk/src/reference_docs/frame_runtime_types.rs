@@ -168,7 +168,17 @@ pub mod pallet_foo {
 	pub trait Config: frame_system::Config {}
 
 	#[pallet::origin]
-	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		RuntimeDebug,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum Origin {
 		A,
 		B,

@@ -42,26 +42,12 @@ RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc -- --dev
 Run one of the examples from the `examples` directory to send a transaction to the node:
 
 ```bash
-RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc --features example --example deploy
+RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc --example deploy
 ```
 
 ## JS examples
 
-Interact with the node using MetaMask & Ether.js, by starting the example web app:
-
-```bash
-
-cd substrate/frame/revive/rpc/examples/js
-bun install
-bun run dev
-```
-
-Alternatively, you can run the example script directly:
-
-```bash
-cd substrate/frame/revive/rpc/examples/js
-bun src/script.ts
-```
+JS examples have been moved to the [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 ### Configure MetaMask
 

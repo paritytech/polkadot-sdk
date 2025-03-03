@@ -19,7 +19,7 @@
 use super::*;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 
@@ -31,6 +31,7 @@ use sp_core::RuntimeDebug;
 	PartialEq,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	serde::Serialize,
 	serde::Deserialize,

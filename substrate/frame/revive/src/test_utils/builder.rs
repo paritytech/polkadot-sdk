@@ -17,9 +17,8 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, Code, CollectEvents, Config, ContractResult,
-	DebugInfo, DepositLimit, EventRecordOf, ExecReturnValue, InstantiateReturnValue, OriginFor,
-	Pallet, Weight,
+	address::AddressMapper, AccountIdOf, BalanceOf, Code, Config, ContractResult, DepositLimit,
+	ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
@@ -138,9 +137,7 @@ builder!(
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
-	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>, EventRecordOf<T>>;
+	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
 	/// Build the instantiate call and unwrap the result.
 	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue {
@@ -149,7 +146,10 @@ builder!(
 
 	/// Build the instantiate call and unwrap the account id.
 	pub fn build_and_unwrap_contract(self) -> Contract<T> {
-		let addr = self.build().result.unwrap().addr;
+		let result = self.build().result.unwrap();
+		assert!(!result.result.did_revert(), "instantiation did revert");
+
+		let addr = result.addr;
 		let account_id = T::AddressMapper::to_account_id(&addr);
 		Contract{ account_id,  addr }
 	}
@@ -164,8 +164,6 @@ builder!(
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
-			debug: DebugInfo::UnsafeDebug,
-			collect_events: CollectEvents::Skip,
 		}
 	}
 );
@@ -201,9 +199,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
-	) -> ContractResult<ExecReturnValue, BalanceOf<T>, EventRecordOf<T>>;
+	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
 
 	/// Build the call and unwrap the result.
 	pub fn build_and_unwrap_result(self) -> ExecReturnValue {
@@ -219,8 +215,6 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
 			data: vec![],
-			debug: DebugInfo::UnsafeDebug,
-			collect_events: CollectEvents::Skip,
 		}
 	}
 );

@@ -11,3 +11,21 @@ error: use of deprecated constant `pallet::warnings::UncheckedWeightWitness_0::_
    |
    = note: `-D deprecated` implied by `-D warnings`
    = help: to override `-D warnings` add `#[allow(deprecated)]`
+
+error: associated function `error_metadata` is never used
+  --> tests/pallet_ui/call_weight_unchecked_warning.rs:26:12
+   |
+26 |     #[pallet::pallet]
+   |               ^^^^^^ associated function in this implementation
+   |
+   = note: `-D dead-code` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(dead_code)]`
+
+error: associated function `new_call_variant_foo` is never used
+  --> tests/pallet_ui/call_weight_unchecked_warning.rs:33:10
+   |
+29 |     #[pallet::call]
+   |               ---- associated function in this implementation
+...
+33 |         pub fn foo(_: OriginFor<T>, _unused: u64) -> DispatchResult { Ok(()) }
+   |                ^^^

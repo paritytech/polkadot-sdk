@@ -206,7 +206,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, ops::Deref};
 use frame_support::{
 	defensive,
@@ -462,6 +462,17 @@ impl<Id> OnQueueChanged<Id> for () {
 	fn on_queue_changed(_: Id, _: QueueFootprint) {}
 }
 
+/// Allows to force the processing head to a specific queue.
+pub trait ForceSetHead<O> {
+	/// Set the `ServiceHead` to `origin`.
+	///
+	/// This function:
+	/// - `Err`: Queue did not exist, not enough weight or other error.
+	/// - `Ok(true)`: The service head was updated.
+	/// - `Ok(false)`: The service head was not updated since the queue is empty.
+	fn force_set_head(weight: &mut WeightMeter, origin: &O) -> Result<bool, ()>;
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -626,16 +637,16 @@ pub mod pallet {
 
 	/// The index of the first and last (non-empty) pages.
 	#[pallet::storage]
-	pub(super) type BookStateFor<T: Config> =
+	pub type BookStateFor<T: Config> =
 		StorageMap<_, Twox64Concat, MessageOriginOf<T>, BookState<MessageOriginOf<T>>, ValueQuery>;
 
 	/// The origin at which we should begin servicing.
 	#[pallet::storage]
-	pub(super) type ServiceHead<T: Config> = StorageValue<_, MessageOriginOf<T>, OptionQuery>;
+	pub type ServiceHead<T: Config> = StorageValue<_, MessageOriginOf<T>, OptionQuery>;
 
 	/// The map of page indices to pages.
 	#[pallet::storage]
-	pub(super) type Pages<T: Config> = StorageDoubleMap<
+	pub type Pages<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		MessageOriginOf<T>,
@@ -861,10 +872,25 @@ impl<T: Config> Pallet<T> {
 				ServiceHead::<T>::put(&head_neighbours.next);
 				Some(head)
 			} else {
+				defensive!("The head must point to a queue in the ready ring");
 				None
 			}
 		} else {
 			None
+		}
+	}
+
+	fn set_service_head(weight: &mut WeightMeter, queue: &MessageOriginOf<T>) -> Result<bool, ()> {
+		if weight.try_consume(T::WeightInfo::set_service_head()).is_err() {
+			return Err(())
+		}
+
+		// Ensure that we never set the head to an un-ready queue.
+		if BookStateFor::<T>::get(queue).ready_neighbours.is_some() {
+			ServiceHead::<T>::put(queue);
+			Ok(true)
+		} else {
+			Ok(false)
 		}
 	}
 
@@ -1613,6 +1639,12 @@ impl<T: Config> Pallet<T> {
 			Err(()) => weight.consumed(),
 			Ok(w) => w,
 		}
+	}
+}
+
+impl<T: Config> ForceSetHead<MessageOriginOf<T>> for Pallet<T> {
+	fn force_set_head(weight: &mut WeightMeter, origin: &MessageOriginOf<T>) -> Result<bool, ()> {
+		Pallet::<T>::set_service_head(weight, origin)
 	}
 }
 

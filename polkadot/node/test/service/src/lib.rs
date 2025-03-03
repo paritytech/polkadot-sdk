@@ -101,6 +101,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					prepare_workers_hard_max_num: None,
 					prepare_workers_soft_max_num: None,
 					enable_approval_voting_parallel: false,
+					keep_finalized_for: None,
 				},
 			),
 		sc_network::config::NetworkBackendType::Litep2p =>
@@ -123,6 +124,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					prepare_workers_hard_max_num: None,
 					prepare_workers_soft_max_num: None,
 					enable_approval_voting_parallel: false,
+					keep_finalized_for: None,
 				},
 			),
 	}
@@ -423,6 +425,7 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+		frame_system::WeightReclaim::<Runtime>::new(),
 	)
 		.into();
 	let raw_payload = SignedPayload::from_raw(
@@ -434,6 +437,7 @@ pub fn construct_extrinsic(
 			VERSION.transaction_version,
 			genesis_block,
 			current_block_hash,
+			(),
 			(),
 			(),
 			(),

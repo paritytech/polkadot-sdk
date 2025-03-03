@@ -24,11 +24,12 @@ use crate::{
 	},
 	DispatchResult,
 };
-use codec::{Codec, Decode, Encode};
-use impl_trait_for_tuples::impl_for_tuples;
+use alloc::vec::Vec;
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode};
+use core::fmt::Debug;
 #[doc(hidden)]
-pub use sp_std::marker::PhantomData;
-use sp_std::{self, fmt::Debug, prelude::*};
+pub use core::marker::PhantomData;
+use impl_trait_for_tuples::impl_for_tuples;
 use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
 
@@ -42,6 +43,72 @@ mod dispatch_transaction;
 #[allow(deprecated)]
 pub use as_transaction_extension::AsTransactionExtension;
 pub use dispatch_transaction::DispatchTransaction;
+
+/// Provides `Sealed` trait.
+mod private {
+	/// Special trait that prevents the implementation of some traits outside of this crate.
+	pub trait Sealed {}
+}
+
+/// The base implication in a transaction.
+///
+/// This struct is used to represent the base implication in the transaction, that is
+/// the implication not part of any transaction extensions. It usually comprises of the call and
+/// the transaction extension version.
+///
+/// The concept of implication in the transaction extension pipeline is explained in the trait
+/// documentation: [`TransactionExtension`].
+#[derive(Encode)]
+pub struct TxBaseImplication<T>(pub T);
+
+impl<T: Encode> Implication for TxBaseImplication<T> {
+	fn parts(&self) -> ImplicationParts<&impl Encode, &impl Encode, &impl Encode> {
+		ImplicationParts { base: self, explicit: &(), implicit: &() }
+	}
+}
+
+impl<T> private::Sealed for TxBaseImplication<T> {}
+
+/// The implication in a transaction.
+///
+/// The concept of implication in the transaction extension pipeline is explained in the trait
+/// documentation: [`TransactionExtension`].
+#[derive(Encode)]
+pub struct ImplicationParts<Base, Explicit, Implicit> {
+	/// The base implication, that is implication not part of any transaction extension, usually
+	/// the call and the transaction extension version.
+	pub base: Base,
+	/// The explicit implication in transaction extensions.
+	pub explicit: Explicit,
+	/// The implicit implication in transaction extensions.
+	pub implicit: Implicit,
+}
+
+impl<Base: Encode, Explicit: Encode, Implicit: Encode> Implication
+	for ImplicationParts<Base, Explicit, Implicit>
+{
+	fn parts(&self) -> ImplicationParts<&impl Encode, &impl Encode, &impl Encode> {
+		ImplicationParts { base: &self.base, explicit: &self.explicit, implicit: &self.implicit }
+	}
+}
+
+impl<Base, Explicit, Implicit> private::Sealed for ImplicationParts<Base, Explicit, Implicit> {}
+
+/// Interface of implications in the transaction extension pipeline.
+///
+/// Implications can be encoded, this is useful for checking signature on the implications.
+/// Implications can be split into parts, this allow to destructure and restructure the
+/// implications, this is useful for nested pipeline.
+///
+/// This trait is sealed, consider using [`TxBaseImplication`] and [`ImplicationParts`]
+/// implementations.
+///
+/// The concept of implication in the transaction extension pipeline is explained in the trait
+/// documentation: [`TransactionExtension`].
+pub trait Implication: Encode + private::Sealed {
+	/// Destructure the implication into its parts.
+	fn parts(&self) -> ImplicationParts<&impl Encode, &impl Encode, &impl Encode>;
+}
 
 /// Shortcut for the result value of the `validate` function.
 pub type ValidateResult<Val, Call> =
@@ -161,7 +228,7 @@ pub type ValidateResult<Val, Call> =
 /// correct amount of weight used during the call. This is because one cannot know the actual weight
 /// of an extension after post dispatch without running the post dispatch ahead of time.
 pub trait TransactionExtension<Call: Dispatchable>:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+	Codec + DecodeWithMemTracking + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
 	/// Unique identifier of this signed extension.
 	///
@@ -192,7 +259,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	/// This method provides a default implementation that returns a vec containing a single
 	/// [`TransactionExtensionMetadata`].
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		sp_std::vec![TransactionExtensionMetadata {
+		alloc::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
 			implicit: scale_info::meta_type::<Self::Implicit>()
@@ -244,7 +311,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 		self_implicit: Self::Implicit,
-		inherited_implication: &impl Encode,
+		inherited_implication: &impl Implication,
 		source: TransactionSource,
 	) -> ValidateResult<Self::Val, Call>;
 
@@ -421,7 +488,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 #[macro_export]
 macro_rules! impl_tx_ext_default {
 	($call:ty ; , $( $rest:tt )*) => {
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ; validate $( $rest:tt )*) => {
 		fn validate(
@@ -436,7 +503,7 @@ macro_rules! impl_tx_ext_default {
 		) -> $crate::traits::ValidateResult<Self::Val, $call> {
 			Ok((Default::default(), Default::default(), origin))
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ; prepare $( $rest:tt )*) => {
 		fn prepare(
@@ -449,13 +516,13 @@ macro_rules! impl_tx_ext_default {
 		) -> Result<Self::Pre, $crate::transaction_validity::TransactionValidityError> {
 			Ok(Default::default())
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ; weight $( $rest:tt )*) => {
 		fn weight(&self, _call: &$call) -> $crate::Weight {
 			$crate::Weight::zero()
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ;) => {};
 }
@@ -499,7 +566,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 		self_implicit: Self::Implicit,
-		inherited_implication: &impl Encode,
+		inherited_implication: &impl Implication,
 		source: TransactionSource,
 	) -> Result<
 		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
@@ -510,23 +577,20 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 		let following_explicit_implications = for_tuples!( ( #( &self.Tuple ),* ) );
 		let following_implicit_implications = self_implicit;
 
+		let implication_parts = inherited_implication.parts();
+
 		for_tuples!(#(
 			// Implication of this pipeline element not relevant for later items, so we pop it.
 			let (_item, following_explicit_implications) = following_explicit_implications.pop_front();
 			let (item_implicit, following_implicit_implications) = following_implicit_implications.pop_front();
 			let (item_valid, item_val, origin) = {
-				let implications = (
-					// The first is the implications born of the fact we return the mutated
-					// origin.
-					inherited_implication,
-					// This is the explicitly made implication born of the fact the new origin is
-					// passed into the next items in this pipeline-tuple.
-					&following_explicit_implications,
-					// This is the implicitly made implication born of the fact the new origin is
-					// passed into the next items in this pipeline-tuple.
-					&following_implicit_implications,
-				);
-				Tuple.validate(origin, call, info, len, item_implicit, &implications, source)?
+				Tuple.validate(origin, call, info, len, item_implicit,
+					&ImplicationParts {
+						base: implication_parts.base,
+						explicit: (&following_explicit_implications, implication_parts.explicit),
+						implicit: (&following_implicit_implications, implication_parts.implicit),
+					},
+					source)?
 			};
 			let valid = valid.combine_with(item_valid);
 			let val = val.push_back(item_val);
@@ -605,7 +669,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 impl<Call: Dispatchable> TransactionExtension<Call> for () {
 	const IDENTIFIER: &'static str = "UnitTransactionExtension";
 	type Implicit = ();
-	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(&self) -> core::result::Result<Self::Implicit, TransactionValidityError> {
 		Ok(())
 	}
 	type Val = ();
@@ -620,7 +684,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for () {
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
 		_self_implicit: Self::Implicit,
-		_inherited_implication: &impl Encode,
+		_inherited_implication: &impl Implication,
 		_source: TransactionSource,
 	) -> Result<
 		(ValidTransaction, (), <Call as Dispatchable>::RuntimeOrigin),
@@ -637,5 +701,170 @@ impl<Call: Dispatchable> TransactionExtension<Call> for () {
 		_len: usize,
 	) -> Result<(), TransactionValidityError> {
 		Ok(())
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn test_implications_on_nested_structure() {
+		use scale_info::TypeInfo;
+		use std::cell::RefCell;
+
+		#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+		struct MockExtension {
+			also_implicit: u8,
+			explicit: u8,
+		}
+
+		const CALL_IMPLICIT: u8 = 23;
+
+		thread_local! {
+			static COUNTER: RefCell<u8> = RefCell::new(1);
+		}
+
+		impl TransactionExtension<()> for MockExtension {
+			const IDENTIFIER: &'static str = "MockExtension";
+			type Implicit = u8;
+			fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+				Ok(self.also_implicit)
+			}
+			type Val = ();
+			type Pre = ();
+			fn weight(&self, _call: &()) -> Weight {
+				Weight::zero()
+			}
+			fn prepare(
+				self,
+				_val: Self::Val,
+				_origin: &DispatchOriginOf<()>,
+				_call: &(),
+				_info: &DispatchInfoOf<()>,
+				_len: usize,
+			) -> Result<Self::Pre, TransactionValidityError> {
+				Ok(())
+			}
+			fn validate(
+				&self,
+				origin: DispatchOriginOf<()>,
+				_call: &(),
+				_info: &DispatchInfoOf<()>,
+				_len: usize,
+				self_implicit: Self::Implicit,
+				inherited_implication: &impl Implication,
+				_source: TransactionSource,
+			) -> ValidateResult<Self::Val, ()> {
+				COUNTER.with(|c| {
+					let mut counter = c.borrow_mut();
+
+					assert_eq!(self_implicit, *counter);
+					assert_eq!(
+						self,
+						&MockExtension { also_implicit: *counter, explicit: *counter + 1 }
+					);
+
+					// Implications must be call then 1 to 22 then 1 to 22 odd.
+					let mut assert_implications = Vec::new();
+					assert_implications.push(CALL_IMPLICIT);
+					for i in *counter + 2..23 {
+						assert_implications.push(i);
+					}
+					for i in *counter + 2..23 {
+						if i % 2 == 1 {
+							assert_implications.push(i);
+						}
+					}
+					assert_eq!(inherited_implication.encode(), assert_implications);
+
+					*counter += 2;
+				});
+				Ok((ValidTransaction::default(), (), origin))
+			}
+			fn post_dispatch_details(
+				_pre: Self::Pre,
+				_info: &DispatchInfoOf<()>,
+				_post_info: &PostDispatchInfoOf<()>,
+				_len: usize,
+				_result: &DispatchResult,
+			) -> Result<Weight, TransactionValidityError> {
+				Ok(Weight::zero())
+			}
+		}
+
+		// Test for one nested structure
+
+		let ext = (
+			MockExtension { also_implicit: 1, explicit: 2 },
+			MockExtension { also_implicit: 3, explicit: 4 },
+			(
+				MockExtension { also_implicit: 5, explicit: 6 },
+				MockExtension { also_implicit: 7, explicit: 8 },
+				(
+					MockExtension { also_implicit: 9, explicit: 10 },
+					MockExtension { also_implicit: 11, explicit: 12 },
+				),
+				MockExtension { also_implicit: 13, explicit: 14 },
+				MockExtension { also_implicit: 15, explicit: 16 },
+			),
+			MockExtension { also_implicit: 17, explicit: 18 },
+			(MockExtension { also_implicit: 19, explicit: 20 },),
+			MockExtension { also_implicit: 21, explicit: 22 },
+		);
+
+		let implicit = ext.implicit().unwrap();
+
+		let res = ext
+			.validate(
+				(),
+				&(),
+				&DispatchInfoOf::<()>::default(),
+				0,
+				implicit,
+				&TxBaseImplication(CALL_IMPLICIT),
+				TransactionSource::Local,
+			)
+			.expect("valid");
+
+		assert_eq!(res.0, ValidTransaction::default());
+
+		// Test for another nested structure
+
+		COUNTER.with(|c| {
+			*c.borrow_mut() = 1;
+		});
+
+		let ext = (
+			MockExtension { also_implicit: 1, explicit: 2 },
+			MockExtension { also_implicit: 3, explicit: 4 },
+			MockExtension { also_implicit: 5, explicit: 6 },
+			MockExtension { also_implicit: 7, explicit: 8 },
+			MockExtension { also_implicit: 9, explicit: 10 },
+			MockExtension { also_implicit: 11, explicit: 12 },
+			(
+				MockExtension { also_implicit: 13, explicit: 14 },
+				MockExtension { also_implicit: 15, explicit: 16 },
+				MockExtension { also_implicit: 17, explicit: 18 },
+				MockExtension { also_implicit: 19, explicit: 20 },
+				MockExtension { also_implicit: 21, explicit: 22 },
+			),
+		);
+
+		let implicit = ext.implicit().unwrap();
+
+		let res = ext
+			.validate(
+				(),
+				&(),
+				&DispatchInfoOf::<()>::default(),
+				0,
+				implicit,
+				&TxBaseImplication(CALL_IMPLICIT),
+				TransactionSource::Local,
+			)
+			.expect("valid");
+
+		assert_eq!(res.0, ValidTransaction::default());
 	}
 }
