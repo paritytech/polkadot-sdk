@@ -31,7 +31,6 @@ fn main() {
 		.take(2)
 		.collect::<Vec<_>>()
 		.join("");
-
 	let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
 
 	let (branch, id) = if let Ok(repo) = git2::Repository::open("../../../..") {
