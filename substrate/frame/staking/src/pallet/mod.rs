@@ -29,7 +29,7 @@ use frame_support::{
 			Inspect, Mutate, Mutate as FunMutate,
 		},
 		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, OnUnbalanced, UnixTime,
+		InspectLockableCurrency, OnUnbalanced,
 	},
 	weights::Weight,
 	BoundedBTreeSet, BoundedVec,
@@ -129,12 +129,6 @@ pub mod pallet {
 			+ Send
 			+ Sync
 			+ MaxEncodedLen;
-		/// Time used for computing era duration.
-		///
-		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
-		/// genesis is not used.
-		#[pallet::no_default]
-		type UnixTime: UnixTime;
 
 		/// Convert a balance into a number used for election calculation. This must fit into a
 		/// `u64` but is allowed to be sensibly lossy. The `u64` is used to communicate with the
@@ -339,6 +333,13 @@ pub mod pallet {
 			false
 		}
 
+		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
+		/// relay chain.
+		#[pallet::no_default]
+		type RcClientInterface: pallet_staking_rc_client::RcClientInterface<
+			AccountId = Self::AccountId,
+		>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -525,6 +526,8 @@ pub mod pallet {
 	///
 	/// Note: This tracks the starting session (i.e. session index when era start being active)
 	/// for the eras in `[CurrentEra - HISTORY_DEPTH, CurrentEra]`.
+	///
+	/// TODO: clarify what this is, and if it is still needed?
 	#[pallet::storage]
 	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
 
@@ -1177,20 +1180,6 @@ pub mod pallet {
 			consumed_weight.saturating_add(fetch_weight)
 		}
 
-		fn on_finalize(_n: BlockNumberFor<T>) {
-			// Set the start of the first era.
-			if let Some(mut active_era) = ActiveEra::<T>::get() {
-				if active_era.start.is_none() {
-					let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
-					active_era.start = Some(now_as_millis_u64);
-					// This write only ever happens once, we don't include it in the weight in
-					// general
-					ActiveEra::<T>::put(active_era);
-				}
-			}
-			// `on_finalize` weight is tracked in `on_initialize`
-		}
-
 		fn integrity_test() {
 			// ensure that we funnel the correct value to the `DataProvider::MaxVotesPerVoter`;
 			assert_eq!(
@@ -1233,6 +1222,20 @@ pub mod pallet {
 						);
 						Self::do_elect_paged(current_page);
 						NextElectionPage::<T>::set(next_page);
+						// TODO: Both `NextElectionPage` and `VoterSnapshotStatus` need be checked
+						// carefully again.
+
+						// if current page was `Some`, and next is `None`, we have
+						// finished an election and we can report it now.
+						if next_page.is_none() {
+							crate::log!(info, "sending validator set report to RcClient");
+							use pallet_staking_rc_client::RcClientInterface;
+							T::RcClientInterface::validator_set(
+								ElectableStashes::<T>::get().into_iter().collect(),
+								0, // TODO: send ID, or we ignore for now.
+								0, // TODO: Send up to which era we should prune.
+							);
+						}
 					},
 					None => {
 						let pages = Self::election_pages();

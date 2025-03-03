@@ -34,7 +34,7 @@
 //!
 //! ## Outgoing Messages
 //!
-//! All outgoing messages are handled by a single trait [`AssetHubInterface`]. They match the
+//! All outgoing messages are handled by a single trait [`SendToAssetHub`]. They match the
 //! incoming messages of the `ah-client` pallet.
 //!
 //! ## Local Interfaces:
@@ -54,7 +54,7 @@ pub use pallet::*;
 extern crate alloc;
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
-use pallet_staking_rc_client::Offence;
+use pallet_staking_rc_client::{self as rc_client};
 use sp_staking::{offence::OffenceDetails, SessionIndex};
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";
@@ -77,19 +77,17 @@ macro_rules! log {
 ///
 /// In a real runtime, this is implemented via XCM calls, much like how the coretime pallet works.
 /// In a test runtime, it can be wired to direct function call.
-pub trait AssetHubInterface {
+pub trait SendToAssetHub {
 	/// The validator account ids.
 	type AccountId;
 
 	/// Report a session change to AssetHub.
-	fn relay_session_report(
-		session_report: pallet_staking_rc_client::SessionReport<Self::AccountId>,
-	);
+	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>);
 
 	/// Report new offences.
 	fn relay_new_offence(
 		session_index: SessionIndex,
-		offences: Vec<pallet_staking_rc_client::Offence<Self::AccountId>>,
+		offences: Vec<rc_client::Offence<Self::AccountId>>,
 	);
 }
 
@@ -116,7 +114,7 @@ pub mod pallet {
 		type AssetHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Our communication interface to AssetHub.
-		type AssetHubInterface: AssetHubInterface<AccountId = Self::AccountId>;
+		type SendToAssetHub: SendToAssetHub<AccountId = Self::AccountId>;
 
 		/// A safety measure that asserts an incoming validator set must be at least this large.
 		type MinimumValidatorSetSize: Get<u32>;
@@ -143,15 +141,23 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type IncompleteValidatorSetReport<T: Config> =
-		StorageValue<_, pallet_staking_rc_client::ValidatorSetReport<T::AccountId>, OptionQuery>;
+		StorageValue<_, rc_client::ValidatorSetReport<T::AccountId>, OptionQuery>;
 
 	/// All of the points of the validators.
 	///
-	/// This is populated during a session, and is flushed and sent over via [`AssetHubInterface`]
+	/// This is populated during a session, and is flushed and sent over via [`SendToAssetHub`]
 	/// at each session end.
 	#[pallet::storage]
 	pub type ValidatorPoints<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, u32, ValueQuery>;
+
+	/// A storage value that is set when a `new_session` gives a new validator set to the session
+	/// pallet, and is cleared on the next call.
+	///
+	/// Once cleared, we know a validator set has been activated, and therefore we can send a
+	/// timestamp to AH.
+	#[pallet::storage]
+	pub type NextSessionChangesValidators<T: Config> = StorageValue<_, (), OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -164,21 +170,19 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(0)]
-		pub fn new_validator_set(
+		pub fn validator_set(
 			origin: OriginFor<T>,
-			report: pallet_staking_rc_client::ValidatorSetReport<T::AccountId>,
+			report: rc_client::ValidatorSetReport<T::AccountId>,
 		) -> DispatchResult {
 			// Ensure the origin is one of Root or whatever is representing AssetHub.
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
-			let pallet_staking_rc_client::ValidatorSetReport {
-				id,
-				leftover,
-				mut new_validator_set,
-				prune_up_to,
-			} = report;
+			log!(info, "Received new validator set report {:?}", report);
+			let rc_client::ValidatorSetReport { id, leftover, mut new_validator_set, prune_up_to } =
+				report;
 			debug_assert!(!leftover);
 
-			// TODO: buffer in `IncompleteValidatorSetReport` if incomplete.
+			// TODO: buffer in `IncompleteValidatorSetReport` if incomplete, similar to how
+			// rc-client does it.
 
 			// ensure the validator set, deduplicated, is not too big.
 			new_validator_set.sort();
@@ -212,6 +216,11 @@ pub mod pallet {
 				// <pallet_session::historical::Pallet<T>>::prune_up_to(up_to); // TODO!!!
 			}
 
+			// TODO: move this to the normal impl
+			if maybe_new_validator_set.is_some() {
+				NextSessionChangesValidators::<T>::put(());
+			}
+
 			return maybe_new_validator_set
 		}
 
@@ -239,18 +248,22 @@ pub mod pallet {
 			use sp_runtime::SaturatedConversion;
 
 			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
-			let timestamp = T::UnixTime::now().as_millis().saturated_into::<u64>();
+			let activation_timestamp = NextSessionChangesValidators::<T>::take().map(|_| {
+				// TODO: not setting the id for now, not sure if needed.
+				(T::UnixTime::now().as_millis().saturated_into::<u64>(), 0)
+			});
+
 			// TODO: we need to know here if the ending of this session, which causes the start of a
 			// new session, is when a new validator set is being activated.
 			let session_report = pallet_staking_rc_client::SessionReport {
 				end_index: session_index,
 				validator_points,
-				activation_timestamp: None,
+				activation_timestamp,
 				leftover: false,
 			};
 
 			log!(info, "Sending session report {:?}", session_report);
-			T::AssetHubInterface::relay_session_report(session_report);
+			T::SendToAssetHub::relay_session_report(session_report);
 		}
 
 		fn start_session(session_index: u32) {}
@@ -292,14 +305,14 @@ pub mod pallet {
 				);
 
 				// prepare an `Offence` instance for the XCM message
-				offenders_and_slashes.push(pallet_staking_rc_client::Offence {
+				offenders_and_slashes.push(rc_client::Offence {
 					offender: offence.offender.0.into(),
 					reporters: offence.reporters.into_iter().map(|r| r.into()).collect(),
 					slash_fraction: *fraction,
 				});
 			}
 
-			T::AssetHubInterface::relay_new_offence(slash_session, offenders_and_slashes);
+			T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
 			Weight::zero()
 		}
 	}
@@ -309,6 +322,7 @@ pub mod pallet {
 			validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
 		) -> Weight {
 			// TODO: accumulate this in our pending points, which is sent off in the next session.
+
 			// TODO: if we move this trait `RewardsReporter` somewhere more easy to access, we can
 			// implement it directly and not need a custom type on the runtime. We can do it now
 			// too, but it would pull all of the polkadot-parachain pallets.

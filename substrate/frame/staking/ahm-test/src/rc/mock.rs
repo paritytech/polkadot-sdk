@@ -23,6 +23,7 @@ pub fn roll_next() {
 	let next = now + 1;
 
 	System::set_block_number(next);
+	// Timestamp is always the RC block number * 1000
 	Timestamp::set_timestamp(next * 1000);
 
 	Session::on_initialize(next);
@@ -33,10 +34,8 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_ah: bool) {
 	while !criteria() {
 		roll_next();
 		if with_ah {
-			shared::AH_STATE.with(|state| {
-				state.borrow_mut().execute_with(|| {
-					crate::ah::roll_next();
-				})
+			shared::in_ah(|| {
+				crate::ah::roll_next();
 			});
 		}
 	}
@@ -145,12 +144,11 @@ impl pallet_session::Config for Runtime {
 impl polkadot_runtime_parachains::origin::Config for Runtime {}
 
 parameter_types! {
-	pub static MinimumValidatorSetSize: u32 = 8;
+	pub static MinimumValidatorSetSize: u32 = 4;
 }
 
 impl ah_client::Config for Runtime {
-	type AssetHubId = ConstU32<42>;
-	type AssetHubInterface = DeliverToAH;
+	type SendToAssetHub = DeliverToAH;
 	// TODO: better description of this, if not we use AssetHubId + ensure_parachain?
 	type AssetHubOrigin = EnsureSigned<AccountId>;
 	type UnixTime = Timestamp;
@@ -160,36 +158,27 @@ impl ah_client::Config for Runtime {
 
 use pallet_staking_rc_client as rc_client;
 pub struct DeliverToAH;
-impl ah_client::AssetHubInterface for DeliverToAH {
+impl ah_client::SendToAssetHub for DeliverToAH {
 	type AccountId = AccountId;
 	fn relay_new_offence(
 		session_index: SessionIndex,
 		offences: Vec<rc_client::Offence<Self::AccountId>>,
 	) {
-		shared::AH_STATE.with(|state| {
-			state.borrow_mut().execute_with(|| {
-				let origin = crate::ah::RuntimeOrigin::root();
-				rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence(
-					origin,
-					session_index,
-					offences,
-				)
-				.unwrap();
-			})
+		shared::in_ah(|| {
+			let origin = crate::ah::RuntimeOrigin::root();
+			rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence(
+				origin,
+				session_index,
+				offences.clone(),
+			).unwrap();
 		});
 	}
 
 	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
-		shared::AH_STATE.with(|state| {
-			state.borrow_mut().execute_with(|| {
-				use rc_client;
-				let origin = crate::ah::RuntimeOrigin::root();
-				rc_client::Pallet::<crate::ah::Runtime>::relay_session_report(
-					origin,
-					session_report,
-				)
+		shared::in_ah(|| {
+			let origin = crate::ah::RuntimeOrigin::root();
+			rc_client::Pallet::<crate::ah::Runtime>::relay_session_report(origin, session_report.clone())
 				.unwrap();
-			})
 		});
 	}
 }

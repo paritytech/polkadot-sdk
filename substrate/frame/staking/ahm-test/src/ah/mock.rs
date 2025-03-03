@@ -1,7 +1,12 @@
-use frame::{testing_prelude::*, traits::Extrinsic as _};
-use frame_election_provider_support::{ElectionProvider, SequentialPhragmen};
+use crate::shared;
+use frame::testing_prelude::*;
+use frame_election_provider_support::{
+	bounds::{ElectionBounds, ElectionBoundsBuilder},
+	ElectionProvider, SequentialPhragmen,
+};
 use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
+use pallet_staking::{ActiveEra, ActiveEraInfo};
 use sp_staking::SessionIndex;
 
 construct_runtime! {
@@ -113,12 +118,31 @@ impl multi_block::unsigned::miner::MinerConfig for Runtime {
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 }
 
+parameter_types! {
+	pub Bounds: ElectionBounds = ElectionBoundsBuilder::default().build();
+}
+
+pub struct OnChainConfig;
+impl frame_election_provider_support::onchain::Config for OnChainConfig {
+	// unbounded
+	type Bounds = Bounds;
+	// We should not need sorting, as our bounds are large enough for the number of
+	// nominators/validators in this test setup.
+	type Sort = ConstBool<false>;
+	type DataProvider = Staking;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type Solver = SequentialPhragmen<AccountId, Perbill>;
+	type System = Runtime;
+	type WeightInfo = ();
+}
+
 impl multi_block::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
-	type Fallback = multi_block::Continue<Self>;
+	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
 
 	type Pages = Pages;
@@ -176,7 +200,8 @@ impl multi_block::signed::Config for Runtime {
 parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
-	pub static SessionsPerEra: u32 = 3;
+	// TODO: I don't think we need this anymore -- staking should always use `ActiveEra`, and `CurrentEra` is active.index + 1??
+	pub static SessionsPerEra: u32 = 6;
 }
 
 impl pallet_staking::Config for Runtime {
@@ -216,11 +241,19 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 
+	type RcClientInterface = RcClient;
+
 	fn maybe_start_election(
 		current_planned_session: SessionIndex,
 		era_start_session: SessionIndex,
 	) -> bool {
 		let session_progress = current_planned_session - era_start_session;
+		log::info!(
+			target: "runtime::staking",
+			"RUNTIME IMPL: current_planned_session: {:?} era_start_session: {:?}",
+			current_planned_session,
+			era_start_session
+		);
 		// start the election 1 session before the intended time.
 		session_progress == (SessionsPerEra::get() - 1)
 	}
@@ -228,17 +261,9 @@ impl pallet_staking::Config for Runtime {
 	// TODO
 	type NextNewSession = ();
 	// Staking no longer has this.
-	type UnixTime = TempToRemoveTimestamp;
 	// type SessionInterface = Self;
 
 	type WeightInfo = ();
-}
-
-pub struct TempToRemoveTimestamp;
-impl frame::traits::UnixTime for TempToRemoveTimestamp {
-	fn now() -> core::time::Duration {
-		unimplemented!()
-	}
 }
 
 impl pallet_staking_rc_client::Config for Runtime {
@@ -252,7 +277,11 @@ impl pallet_staking_rc_client::SendToRelayChain for DeliverToRelay {
 	type AccountId = AccountId;
 
 	fn validator_set(report: pallet_staking_rc_client::ValidatorSetReport<Self::AccountId>) {
-		todo!();
+		shared::in_rc(|| {
+			let origin = crate::rc::RuntimeOrigin::root();
+			pallet_staking_ah_client::Pallet::<crate::rc::Runtime>::validator_set(origin, report.clone())
+				.unwrap();
+		});
 	}
 }
 
@@ -316,7 +345,12 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		let state = t.into();
+		let mut state: TestState = t.into();
+
+		state.execute_with(|| {
+			pallet_staking::CurrentEra::<Runtime>::put(0);
+			pallet_staking::ActiveEra::<Runtime>::put(ActiveEraInfo { index: 0, start: Some(0) });
+		});
 
 		state
 	}

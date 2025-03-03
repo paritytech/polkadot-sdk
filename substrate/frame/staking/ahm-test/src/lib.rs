@@ -2,44 +2,37 @@
 pub mod ah;
 #[cfg(test)]
 pub mod rc;
+
 #[cfg(test)]
 pub mod shared;
 
+// shared tests.
 #[cfg(test)]
 mod tests {
-	use std::cell::RefCell;
-
 	use super::*;
 	use codec::Decode;
-	use frame::deps::frame_system;
-	use pallet_staking::ActiveEraInfo;
-	// shared tests.
+	use frame::testing_prelude::*;
+	use pallet_election_provider_multi_block as multi_block;
+	use pallet_staking::{ActiveEra, ActiveEraInfo};
 
 	#[test]
 	fn rc_session_change_reported_to_ah() {
-		use std::rc::Rc;
-		let mut rc = rc::ExtBuilder::default().build();
-		let mut ah = ah::ExtBuilder::default().build();
-
-		shared::AH_STATE.with(|state| {
-			// set the shared thread local state to the one created here.
-			state = &Rc::clone(&ah)
-		});
-		shared::RC_STATE.with(|state| {
-			// set the shared thread local state to the one created here.
-			state = &Rc::clone(&rc)
-		});
+		shared::put_ah_state(ah::ExtBuilder::default().build());
+		// shared::RC_STATE.with(|state| *state.get_mut() = rc::ExtBuilder::default().build());
 
 		// initial state of ah
-		ah.execute_with(|| {
+		shared::in_ah(|| {
 			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 0);
 			assert_eq!(pallet_staking::CurrentPlannedSession::<ah::Runtime>::get(), 0);
-			assert_eq!(pallet_staking::CurrentEra::<ah::Runtime>::get(), None);
-			assert_eq!(pallet_staking::ActiveEra::<ah::Runtime>::get(), None);
+			assert_eq!(pallet_staking::CurrentEra::<ah::Runtime>::get(), Some(0));
+			assert_eq!(
+				pallet_staking::ActiveEra::<ah::Runtime>::get(),
+				Some(ActiveEraInfo { index: 0, start: Some(0) })
+			);
 		});
 
-		// rc reports session change to ah
-		rc.execute_with(|| {
+		shared::in_rc(|| {
+			// go to session 1 in RC and test.
 			// when
 			assert!(frame_system::Pallet::<rc::Runtime>::block_number() == 0);
 
@@ -53,7 +46,7 @@ mod tests {
 			assert_eq!(frame_system::Pallet::<rc::Runtime>::block_number(), rc::Period::get());
 		});
 
-		rc.execute_with(|| {
+		shared::in_rc(|| {
 			// roll a few more sessions
 			rc::roll_until_matches(
 				|| pallet_session::CurrentIndex::<rc::Runtime>::get() == 4,
@@ -61,17 +54,41 @@ mod tests {
 			);
 		});
 
-		// ah's rc-client has reported the session change to staking
-		ah.execute_with(|| {
-			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 0);
-			assert_eq!(pallet_staking::CurrentPlannedSession::<ah::Runtime>::get(), 2);
-			assert_eq!(pallet_staking::CurrentEra::<ah::Runtime>::get(), None);
-			assert_eq!(pallet_staking::ActiveEra::<ah::Runtime>::get(), None);
+		shared::in_ah(|| {
+			// ah's rc-client has also progressed some blocks, equal to 4 sessions
+			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 120);
+			assert_eq!(pallet_staking::CurrentPlannedSession::<ah::Runtime>::get(), 5);
+			// election is ongoing, and has just started
+			assert!(matches!(
+				multi_block::CurrentPhase::<ah::Runtime>::get(),
+				multi_block::Phase::Snapshot(_)
+			));
 		});
 
-		// rc-client reports session change to staking
-		// staking progresses era accordingly
-		// staking calls `ElectionProvider::start` accordingly.
+		// go to session 5 in rc, and forward AH too.
+		shared::in_rc(|| {
+			rc::roll_until_matches(
+				|| pallet_session::CurrentIndex::<rc::Runtime>::get() == 5,
+				true,
+			);
+		});
+
+		// ah has bumped the current era, but not the active era
+		shared::in_ah(|| {
+			assert_eq!(pallet_staking::CurrentEra::<ah::Runtime>::get(), Some(1));
+			assert_eq!(
+				pallet_staking::ActiveEra::<ah::Runtime>::get(),
+				Some(ActiveEraInfo { index: 0, start: Some(0) })
+			);
+		});
+
+		// go to session 6 in rc, and forward AH too.
+		shared::in_rc(|| {
+			rc::roll_until_matches(
+				|| pallet_session::CurrentIndex::<rc::Runtime>::get() == 6,
+				true,
+			);
+		});
 	}
 
 	#[test]
@@ -101,5 +118,10 @@ mod tests {
 		// rc will trigger new sessions,
 		// ah cannot start a new era (election fail)
 		// we don't prune anything, because era should not be increased.
+	}
+
+	#[test]
+	fn ah_know_good_era_duration() {
+		// era duration and rewards work.
 	}
 }
