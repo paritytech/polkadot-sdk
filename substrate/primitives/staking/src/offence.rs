@@ -264,9 +264,24 @@ impl<Reporter, Evidence> OffenceReportSystem<Reporter, Evidence> for () {
 )]
 pub struct OffenceSeverity(pub Perbill);
 
-impl Default for OffenceSeverity {
-	fn default() -> Self {
+impl OffenceSeverity {
+	/// Returns the maximum severity.
+	pub fn max_severity() -> Self {
 		Self(Perbill::from_percent(100))
+	}
+
+	/// Returns the minimum severity.
+	pub fn min_severity() -> Self {
+		Self(Perbill::from_percent(0))
+	}
+}
+
+
+impl Default for OffenceSeverity {
+	/// Default is the maximum severity.
+	/// When severity is unclear it is best to assume the worst.
+	fn default() -> Self {
+		Self::max_severity()
 	}
 }
 
