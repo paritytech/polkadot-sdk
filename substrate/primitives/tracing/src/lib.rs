@@ -271,8 +271,7 @@ pub mod test_log_capture {
 		sync::{Arc, Mutex},
 	};
 	use tracing::level_filters::LevelFilter;
-	use tracing_subscriber::{fmt, fmt::MakeWriter, Layer, Registry};
-	use tracing_subscriber::layer::SubscriberExt;
+	use tracing_subscriber::{fmt, fmt::MakeWriter, layer::SubscriberExt, Layer, Registry};
 
 	/// A reusable log capturing struct for unit tests.
 	/// Captures logs written during test execution for assertions.
@@ -411,18 +410,20 @@ pub mod test_log_capture {
 	/// output visibility**.
 	///
 	/// This function is useful when you need to:
-	/// 1. **Capture logs for assertions** (like [`init_log_capture()`]).
-	/// 2. **Ensure logs up to `TRACE` level are printed to the test output**, similar to
-	///    [`sp_tracing::init_for_tests()`].
+	/// - **Capture logs for assertions**, like [`init_log_capture()`].
+	/// - **Ensure logs up to `TRACE` level are printed to the test output**, similar to
+	///   [`sp_tracing::init_for_tests()`].
 	///
-	/// # When to Use
+	/// # Usage Guide
 	///
-	/// - **Use `init_log_capture_for_tests()` when you need both**: logs captured for assertions
-	///   **and** printed to the console.
-	/// - **Use [`init_log_capture()`]** if you only need to capture logs for assertions without
-	///   printing them.
-	/// - **Use [`sp_tracing::init_for_tests()`]** if you only need logs printed to the console
-	///   during tests.
+	/// Use **`init_log_capture_for_tests()`** when you need **both**: logs captured for assertions
+	/// **and** printed to the console.
+	/// - If you only need to **capture logs for assertions** without printing them, use
+	///   [`init_log_capture()`].
+	/// - If you only need to **print logs** during tests but not capture them, use
+	///   [`sp_tracing::init_for_tests()`].
+	/// - If you prefer a macro-based approach, use [`capture_test_logs!()`], which internally calls
+	///   `init_log_capture()`.
 	///
 	/// # Returns
 	///
@@ -444,11 +445,6 @@ pub mod test_log_capture {
 	///     assert!(log_capture.contains("This log will be captured and printed to test output"));
 	/// });
 	/// ```
-	///
-	/// Related functions:
-	/// - [`init_log_capture()`]: Captures logs for assertions.
-	/// - [`sp_tracing::init_for_tests()`]: Outputs logs but does not capture them.
-	/// - [`capture_test_logs!()`]: A macro for capturing logs during test execution.
 	pub fn init_log_capture_for_tests() -> (LogCapture, impl tracing::Subscriber + Send + Sync) {
 		do_init_log_capture(LevelFilter::TRACE, true)
 	}
