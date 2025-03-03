@@ -2507,7 +2507,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			foreign_asset_id_location.clone().reanchored(&dest, &context).unwrap();
 		let dest_reanchored = dest.reanchored(&reserve_location, &context).unwrap();
 
-		let sent_msg = Xcm(vec![
+		let expected_msg = Xcm(vec![
 			WithdrawAsset((Location::here(), SEND_AMOUNT).into()),
 			ClearOrigin,
 			buy_execution((Location::here(), SEND_AMOUNT / 2)),
@@ -2522,7 +2522,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 				]),
 			},
 		]);
-		let message_id = fake_message_hash(&sent_msg);
+		let expected_msg_id = fake_message_hash(&expected_msg);
 
 		let mut last_events = last_events(7).into_iter();
 		// asset events
@@ -2543,7 +2543,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 				origin: user_account.clone().into(),
 				destination: Parachain(paid_para_id).into(),
 				message: Xcm::default(),
-				message_id,
+				message_id: expected_msg_id,
 			})
 		);
 		assert_eq!(
@@ -2583,7 +2583,7 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 			vec![(
 				reserve_location,
 				// `assets` are burned on source and withdrawn from SA in remote reserve chain
-				sent_msg,
+				expected_msg,
 			)]
 		);
 	});
