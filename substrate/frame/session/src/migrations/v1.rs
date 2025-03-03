@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet, Perbill, Vec};
+use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet, Vec};
 use frame_support::{
 	pallet_prelude::{Get, ValueQuery, Weight},
 	traits::UncheckedOnRuntimeUpgrade,
