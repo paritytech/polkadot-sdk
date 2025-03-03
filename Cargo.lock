@@ -23430,6 +23430,7 @@ name = "sp-tracing"
 version = "16.0.0"
 dependencies = [
  "parity-scale-codec",
+ "regex",
  "tracing",
  "tracing-core",
  "tracing-subscriber 0.3.18",
