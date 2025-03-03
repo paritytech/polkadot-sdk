@@ -1,0 +1,20 @@
+title: Ensure Logs Are Captured for Assertions and Printed During Tests
+doc:
+- audience: Runtime Dev
+  description: "This PR enhances **`test_log_capture`**, ensuring logs are **captured\
+    \ for assertions** and **printed to the console** during test execution.\n\n##\
+    \ **Motivation**\n\n- Improves developer **tracing and debugging** in XCM-related\
+    \ tests.\n- Partially addresses #6119 and #6125.\n- Builds on #7594, improving\
+    \ **log visibility** while maintaining test **log capture capabilities**.\n- While\
+    \ writing tests for #7234, I noticed this function was missing. This PR adds it\
+    \ to streamline log handling in unit tests.\n\n## **Changes**\n\n- Ensures logs\
+    \ up to `TRACE` level are **captured** (for assertions) and **printed** (for visibility).\n\
+    - Aligns behaviour between `init_log_capture_for_tests()` and `init_log_capture()`.\n\
+    - Refines documentation to clearly specify **when to use** each function.\n\n\
+    ## **When to Use?**\n\n- **`init_log_capture_for_tests()`** \u2192 Use when you\
+    \ need **both** log capture **and** real-time test output.\n- **`init_log_capture()`**\
+    \ \u2192 Use when you need **only** log capture without printing.\n- **`sp_tracing::init_for_tests()`**\
+    \ \u2192 Use when you need **only** logs printed to the console."
+crates:
+- name: sp-tracing
+  bump: minor
