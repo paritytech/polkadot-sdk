@@ -157,159 +157,158 @@ pub mod v17 {
 	}
 }
 
+// TODO: remove any migration that is already applied -- no need to retain them.
 /// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
 /// severity for re-enabling purposes.
-pub mod v16 {
-	use super::*;
-	use frame_support::Twox64Concat;
-	use sp_staking::offence::OffenceSeverity;
+// pub mod v16 {
+// 	use super::*;
+// 	use frame_support::Twox64Concat;
+// 	use sp_staking::offence::OffenceSeverity;
 
-	#[frame_support::storage_alias]
-	pub(crate) type Invulnerables<T: Config> =
-		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
+// 	#[frame_support::storage_alias]
+// 	pub(crate) type Invulnerables<T: Config> =
+// 		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
 
-	#[frame_support::storage_alias]
-	pub(crate) type DisabledValidators<T: Config> =
-		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
+// 	#[frame_support::storage_alias]
+// 	pub(crate) type DisabledValidators<T: Config> =
+// 		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
 
-	#[frame_support::storage_alias]
-	pub(crate) type ErasStakers<T: Config> = StorageDoubleMap<
-		Pallet<T>,
-		Twox64Concat,
-		EraIndex,
-		Twox64Concat,
-		<T as frame_system::Config>::AccountId,
-		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		ValueQuery,
-	>;
+// 	#[frame_support::storage_alias]
+// 	pub(crate) type ErasStakers<T: Config> = StorageDoubleMap<
+// 		Pallet<T>,
+// 		Twox64Concat,
+// 		EraIndex,
+// 		Twox64Concat,
+// 		<T as frame_system::Config>::AccountId,
+// 		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+// 		ValueQuery,
+// 	>;
 
-	#[frame_support::storage_alias]
-	pub(crate) type ErasStakersClipped<T: Config> = StorageDoubleMap<
-		Pallet<T>,
-		Twox64Concat,
-		EraIndex,
-		Twox64Concat,
-		<T as frame_system::Config>::AccountId,
-		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		ValueQuery,
-	>;
+// 	#[frame_support::storage_alias]
+// 	pub(crate) type ErasStakersClipped<T: Config> = StorageDoubleMap<
+// 		Pallet<T>,
+// 		Twox64Concat,
+// 		EraIndex,
+// 		Twox64Concat,
+// 		<T as frame_system::Config>::AccountId,
+// 		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+// 		ValueQuery,
+// 	>;
 
-	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
-	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let old_disabled_validators = v15::DisabledValidators::<T>::get();
-			Ok(old_disabled_validators.encode())
-		}
+// 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
+// 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
+// 		#[cfg(feature = "try-runtime")]
+// 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+// 			let old_disabled_validators = v15::DisabledValidators::<T>::get();
+// 			Ok(old_disabled_validators.encode())
+// 		}
 
-		fn on_runtime_upgrade() -> Weight {
-			// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>`.
-			// Using max severity (PerBill 100%) for the migration which effectively makes it so
-			// offenders before the migration will not be re-enabled this era unless there are
-			// other 100% offenders.
-			let max_offence = OffenceSeverity(Perbill::from_percent(100));
-			// Inject severity
-			let migrated = v15::DisabledValidators::<T>::take()
-				.into_iter()
-				.map(|v| (v, max_offence))
-				.collect::<Vec<_>>();
+// 		fn on_runtime_upgrade() -> Weight {
+// 			// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>`.
+// 			// Using max severity (PerBill 100%) for the migration which effectively makes it so
+// 			// offenders before the migration will not be re-enabled this era unless there are
+// 			// other 100% offenders.
+// 			let max_offence = OffenceSeverity(Perbill::from_percent(100));
+// 			// Inject severity
+// 			let migrated = v15::DisabledValidators::<T>::take()
+// 				.into_iter()
+// 				.map(|v| (v, max_offence))
+// 				.collect::<Vec<_>>();
 
-			v16::DisabledValidators::<T>::set(migrated);
+// 			v16::DisabledValidators::<T>::set(migrated);
 
-			log!(info, "v16 applied successfully.");
-			T::DbWeight::get().reads_writes(1, 1)
-		}
+// 			log!(info, "v16 applied successfully.");
+// 			T::DbWeight::get().reads_writes(1, 1)
+// 		}
 
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			// Decode state to get old_disabled_validators in a format of Vec<u32>
-			let old_disabled_validators =
-				Vec::<u32>::decode(&mut state.as_slice()).expect("Failed to decode state");
-			let new_disabled_validators = v17::DisabledValidators::<T>::get();
+// 		#[cfg(feature = "try-runtime")]
+// 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+// 			// Decode state to get old_disabled_validators in a format of Vec<u32>
+// 			let old_disabled_validators =
+// 				Vec::<u32>::decode(&mut state.as_slice()).expect("Failed to decode state");
+// 			let new_disabled_validators = v17::DisabledValidators::<T>::get();
 
-			// Compare lengths
-			frame_support::ensure!(
-				old_disabled_validators.len() == new_disabled_validators.len(),
-				"DisabledValidators length mismatch"
-			);
+// 			// Compare lengths
+// 			frame_support::ensure!(
+// 				old_disabled_validators.len() == new_disabled_validators.len(),
+// 				"DisabledValidators length mismatch"
+// 			);
 
-			// Compare contents
-			let new_disabled_validators =
-				new_disabled_validators.into_iter().map(|(v, _)| v).collect::<Vec<_>>();
-			frame_support::ensure!(
-				old_disabled_validators == new_disabled_validators,
-				"DisabledValidator ids mismatch"
-			);
+// 			// Compare contents
+// 			let new_disabled_validators =
+// 				new_disabled_validators.into_iter().map(|(v, _)| v).collect::<Vec<_>>();
+// 			frame_support::ensure!(
+// 				old_disabled_validators == new_disabled_validators,
+// 				"DisabledValidator ids mismatch"
+// 			);
 
-			// Verify severity
-			let max_severity = OffenceSeverity(Perbill::from_percent(100));
-			let new_disabled_validators = v17::DisabledValidators::<T>::get();
-			for (_, severity) in new_disabled_validators {
-				frame_support::ensure!(severity == max_severity, "Severity mismatch");
-			}
+// 			// Verify severity
+// 			let max_severity = OffenceSeverity(Perbill::from_percent(100));
+// 			let new_disabled_validators = v17::DisabledValidators::<T>::get();
+// 			for (_, severity) in new_disabled_validators {
+// 				frame_support::ensure!(severity == max_severity, "Severity mismatch");
+// 			}
 
-			Ok(())
-		}
-	}
+// 			Ok(())
+// 		}
+// 	}
 
-	pub type MigrateV15ToV16<T> = VersionedMigration<
-		15,
-		16,
-		VersionUncheckedMigrateV15ToV16<T>,
-		Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
-}
+// 	pub type MigrateV15ToV16<T> = VersionedMigration<
+// 		15,
+// 		16,
+// 		VersionUncheckedMigrateV15ToV16<T>,
+// 		Pallet<T>,
+// 		<T as frame_system::Config>::DbWeight,
+// 	>;
+// }
 
 /// Migrating `OffendingValidators` from `Vec<(u32, bool)>` to `Vec<u32>`
-pub mod v15 {
-	use super::*;
-	use pallet_staking_rc_client::SessionInterface;
+// pub mod v15 {
+// 	use super::*;
+// 	// The disabling strategy used by staking pallet
+// 	type DefaultDisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy;
 
-	// The disabling strategy used by staking pallet
-	type DefaultDisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy;
+// 	#[storage_alias]
+// 	pub(crate) type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
 
-	#[storage_alias]
-	pub(crate) type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
+// 	pub struct VersionUncheckedMigrateV14ToV15<T>(core::marker::PhantomData<T>);
+// 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
+// 		fn on_runtime_upgrade() -> Weight {
+// 			let mut migrated = v14::OffendingValidators::<T>::take()
+// 				.into_iter()
+// 				.filter(|p| p.1) // take only disabled validators
+// 				.map(|p| p.0)
+// 				.collect::<Vec<_>>();
 
-	pub struct VersionUncheckedMigrateV14ToV15<T>(core::marker::PhantomData<T>);
-	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
-		fn on_runtime_upgrade() -> Weight {
-			let mut migrated = v14::OffendingValidators::<T>::take()
-				.into_iter()
-				.filter(|p| p.1) // take only disabled validators
-				.map(|p| p.0)
-				.collect::<Vec<_>>();
+// 			// Respect disabling limit
+// 			migrated.truncate(DefaultDisablingStrategy::disable_limit(
+// 				T::SessionInterface::validators().len(),
+// 			));
 
-			// Respect disabling limit
-			migrated.truncate(DefaultDisablingStrategy::disable_limit(
-				T::SessionInterface::validators().len(),
-			));
+// 			DisabledValidators::<T>::set(migrated);
 
-			DisabledValidators::<T>::set(migrated);
+// 			log!(info, "v15 applied successfully.");
+// 			T::DbWeight::get().reads_writes(1, 1)
+// 		}
 
-			log!(info, "v15 applied successfully.");
-			T::DbWeight::get().reads_writes(1, 1)
-		}
+// 		#[cfg(feature = "try-runtime")]
+// 		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+// 			frame_support::ensure!(
+// 				v14::OffendingValidators::<T>::decode_len().is_none(),
+// 				"OffendingValidators is not empty after the migration"
+// 			);
+// 			Ok(())
+// 		}
+// 	}
 
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			frame_support::ensure!(
-				v14::OffendingValidators::<T>::decode_len().is_none(),
-				"OffendingValidators is not empty after the migration"
-			);
-			Ok(())
-		}
-	}
-
-	pub type MigrateV14ToV15<T> = VersionedMigration<
-		14,
-		15,
-		VersionUncheckedMigrateV14ToV15<T>,
-		Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
-}
+// 	pub type MigrateV14ToV15<T> = VersionedMigration<
+// 		14,
+// 		15,
+// 		VersionUncheckedMigrateV14ToV15<T>,
+// 		Pallet<T>,
+// 		<T as frame_system::Config>::DbWeight,
+// 	>;
+// }
 
 /// Migration of era exposure storage items to paged exposures.
 /// Changelog: [v14.](https://github.com/paritytech/substrate/blob/ankan/paged-rewards-rebased2/frame/staking/CHANGELOG.md#14)

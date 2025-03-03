@@ -32,8 +32,6 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use pallet_staking_rc_client::{Offence, SessionInterface, StakingApi};
-use sp_core::crypto::AccountId32;
 use sp_runtime::{
 	traits::{Bounded, CheckedAdd, Convert, SaturatedConversion, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchResult, Perbill, Percent,
@@ -1636,29 +1634,49 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 	}
 }
 
-impl<T: Config> StakingApi for Pallet<T>
-where
-	T::AccountId: From<AccountId32>,
-{
-	fn on_relay_chain_session_start(start_index: SessionIndex) {
-		log!(trace, "starting session {}", start_index);
-		Self::start_session(start_index)
-	}
+use pallet_staking_rc_client::{self as rc_client};
 
-	fn on_relay_chain_session_end(end_index: SessionIndex, block_authors: Vec<(AccountId32, u32)>) {
-		log!(trace, "ending session {}", end_index);
+impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
+	type AccountId = T::AccountId;
 
-		// reward block authors
-		for (author, block_count) in block_authors {
-			let author: T::AccountId = author.into();
-			let block_count: u32 = block_count;
-			Self::reward_by_ids(vec![(author, 20 * block_count)])
+	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
+		let rc_client::SessionReport { end_index, activation_timestamp, validator_points, leftover } = report;
+		debug_assert!(!leftover);
+
+		// TODO: pass the timestamp to end_session to be used for era calculation, and remove the
+		// local timestamp.
+
+		// TODO: handle reward points here -- no longer need of knowing that each
+		// block author will be equal to 20 points. The input is the sum of all points.
+
+		let starting = end_index + 1;
+		let planning = starting + 1;
+		log!(
+			info,
+			"session report received -- ending session {:?}, starting {:?}, planning: {:?}",
+			end_index,
+			starting,
+			planning
+		);
+
+		CurrentPlannedSession::<T>::put(planning);
+		Self::new_session(planning, false);
+		Self::end_session(end_index);
+		Self::start_session(starting);
+
+		// all all is said and done, possibly start the election.
+		let current_era = CurrentEra::<T>::get().unwrap_or_default();
+		let start_index = ErasStartSessionIndex::<T>::get(current_era).unwrap_or_default();
+		if T::maybe_start_election(planning, start_index) {
+			log!(info, "sending election start signal");
+			T::ElectionProvider::start();
 		}
-
-		Self::end_session(end_index)
 	}
 
-	fn on_new_offences(slash_session: SessionIndex, offences: Vec<Offence>) -> Weight {
+	fn on_new_offences(
+		slash_session: SessionIndex,
+		offences: Vec<rc_client::Offence<T::AccountId>>,
+	) -> Weight {
 		log!(debug, "🦹 on_new_offences: {:?}", offences);
 
 		// todo(ank4n): Needs to be properly benched.
@@ -1841,8 +1859,6 @@ where
 
 		consumed_weight
 	}
-
-	fn reward_by_ids(validators_points: Vec<(AccountId32, u32)>) {}
 }
 
 // TODO: is `new_session` still needed? If no - who sets `CurrentPlannedSession`
@@ -1877,10 +1893,13 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
 
 	fn score(who: &T::AccountId) -> Option<Self::Score> {
-		Self::ledger(Stash(who.clone())).map(|l| l.active).map(|a| {
-			let issuance = asset::total_issuance::<T>();
-			T::CurrencyToVote::to_vote(a, issuance)
-		}).ok()
+		Self::ledger(Stash(who.clone()))
+			.map(|l| l.active)
+			.map(|a| {
+				let issuance = asset::total_issuance::<T>();
+				T::CurrencyToVote::to_vote(a, issuance)
+			})
+			.ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

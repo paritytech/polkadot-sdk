@@ -1,8 +1,8 @@
-use crate::ah::mock::AccountId;
-use codec::Decode;
-use frame::traits::TrailingZeroInput;
+use std::cell::RefCell;
+use std::rc::Rc;
+use frame::testing_prelude::*;
 
-/// Convert a number to a 32 byte account id.
-pub fn acc(who: u32) -> AccountId {
-	<AccountId as Decode>::decode(&mut TrailingZeroInput::new(who.to_le_bytes().as_ref())).unwrap()
+thread_local! {
+	pub static RC_STATE: Rc<RefCell<TestState>> = Rc::new(RefCell::new(Default::default()));
+	pub static AH_STATE: Rc<RefCell<TestState>> = Rc::new(RefCell::new(Default::default()));
 }

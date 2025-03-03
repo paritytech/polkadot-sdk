@@ -35,7 +35,6 @@ use frame_support::{
 	BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use pallet_staking_rc_client::SessionInterface;
 use rand::seq::SliceRandom;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
@@ -44,7 +43,7 @@ use rand_chacha::{
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{SaturatedConversion, StaticLookup, Zero},
-	AccountId32, ArithmeticError, Perbill, Percent,
+	ArithmeticError, Perbill, Percent,
 };
 
 use sp_staking::{
@@ -95,7 +94,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config(with_default)]
-	pub trait Config: frame_system::Config<AccountId = AccountId32> { // TODO: remove this.
+	pub trait Config: frame_system::Config {
 		/// The old trait for staking balance. Deprecated and only used for migrating old ledgers.
 		#[pallet::no_default]
 		type OldCurrency: InspectLockableCurrency<
@@ -231,7 +230,8 @@ pub mod pallet {
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Interface for interacting with a session pallet.
-		type SessionInterface: SessionInterface<Self::AccountId>;
+		/// TODO: this is not needed anymore -- there is no session pallet for us to talk to.
+		// type SessionInterface: SessionInterface<Self::AccountId>;
 
 		/// The payout for validators and the system for the current era.
 		/// See [Era payout](./index.html#era-payout).
@@ -332,13 +332,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
-		/// A potential implementation to start the election process.
-		///
-		/// We check this upon each `on_initialize`, and if it returns `true`, we start the
-		/// election.
-		///
-		/// A runtime may either implement this, or make sure to call the start elsewhere.
-		fn maybe_start_election() -> bool {
+		fn maybe_start_election(
+			_current_planned_session: SessionIndex,
+			_era_start_session: SessionIndex,
+		) -> bool {
 			false
 		}
 
@@ -392,7 +389,6 @@ pub mod pallet {
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type SlashDeferDuration = ();
-			type SessionInterface = ();
 			type NextNewSession = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
@@ -1177,11 +1173,6 @@ pub mod pallet {
 			}
 
 			let fetch_weight = Self::on_initialize_maybe_fetch_election_results();
-			if T::maybe_start_election() {
-				// this is best effort, not much we can do if it fails.
-				let res = T::ElectionProvider::start().defensive();
-				log::info!("Election started with result: {:?}", res);
-			}
 
 			consumed_weight.saturating_add(fetch_weight)
 		}

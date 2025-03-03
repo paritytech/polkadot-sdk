@@ -1,16 +1,13 @@
-use std::ops::Mul;
-
-use crate::shared::acc;
 use frame::{testing_prelude::*, traits::Extrinsic as _};
-use frame_election_provider_support::SequentialPhragmen;
+use frame_election_provider_support::{ElectionProvider, SequentialPhragmen};
 use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
+use sp_staking::SessionIndex;
 
 construct_runtime! {
 	pub enum Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
-		Timestamp: pallet_timestamp,
 
 		Staking: pallet_staking,
 		RcClient: pallet_staking_rc_client,
@@ -50,8 +47,6 @@ pub type BlockNumber = BlockNumberFor<Runtime>;
 impl frame_system::Config for Runtime {
 	type Block = MockBlock<Self>;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type AccountId = frame::runtime::types_common::AccountId;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -207,7 +202,6 @@ impl pallet_staking::Config for Runtime {
 	type RewardRemainder = ();
 	type Slash = ();
 	type SlashDeferDuration = SlashDeferredDuration;
-	type UnixTime = Timestamp;
 
 	type HistoryDepth = ConstU32<7>;
 	type MaxControllersInDeprecationBatch = ();
@@ -222,60 +216,45 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 
+	fn maybe_start_election(
+		current_planned_session: SessionIndex,
+		era_start_session: SessionIndex,
+	) -> bool {
+		let session_progress = current_planned_session - era_start_session;
+		// start the election 1 session before the intended time.
+		session_progress == (SessionsPerEra::get() - 1)
+	}
+
 	// TODO
 	type NextNewSession = ();
-	// TODO
-	type SessionInterface = ();
+	// Staking no longer has this.
+	type UnixTime = TempToRemoveTimestamp;
+	// type SessionInterface = Self;
 
 	type WeightInfo = ();
+}
+
+pub struct TempToRemoveTimestamp;
+impl frame::traits::UnixTime for TempToRemoveTimestamp {
+	fn now() -> core::time::Duration {
+		unimplemented!()
+	}
 }
 
 impl pallet_staking_rc_client::Config for Runtime {
-	type AdminOrigin = EnsureRoot<AccountId>;
-	type StakingApi = Staking;
-	type ValidatorId = AccountId;
-	type SendXcm = AhMockXCM;
+	type AHStakingInterface = Staking;
+	type SendToRelayChain = DeliverToRelay;
+	type RelayChainOrigin = EnsureRoot<AccountId>;
 }
 
-parameter_types! {
-	pub static XcmQueue: Vec<xcm::v5::Xcm<()>> = Default::default();
-}
+pub struct DeliverToRelay;
+impl pallet_staking_rc_client::SendToRelayChain for DeliverToRelay {
+	type AccountId = AccountId;
 
-pub struct AhMockXCM;
-impl xcm::v5::SendXcm for AhMockXCM {
-	type Ticket = xcm::v5::Xcm<()>;
-
-	fn deliver(
-		ticket: Self::Ticket,
-	) -> std::result::Result<xcm::prelude::XcmHash, xcm::prelude::SendError> {
-		let mut queue = XcmQueue::get();
-		queue.push(ticket.clone());
-		XcmQueue::set(queue);
-		Ok(ticket.using_encoded(frame::hashing::blake2_256))
-	}
-
-	fn validate(
-		destination: &mut Option<xcm::prelude::Location>,
-		message: &mut Option<xcm::prelude::Xcm<()>>,
-	) -> xcm::prelude::SendResult<Self::Ticket> {
-		let message = message.take().unwrap();
-
-		// TODO: check destination to be RC.
-		let destination = destination.take().unwrap();
-		let assets = Default::default();
-
-		Ok((message, assets))
+	fn validator_set(report: pallet_staking_rc_client::ValidatorSetReport<Self::AccountId>) {
+		todo!();
 	}
 }
-
-impl pallet_timestamp::Config for Runtime {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = ConstU64<3>;
-	type WeightInfo = ();
-}
-
-parameter_types! {}
 
 const INITIAL_BALANCE: Balance = 1000;
 const INITIAL_STAKE: Balance = 100;
@@ -295,7 +274,7 @@ impl ExtBuilder {
 
 		let validators = vec![1, 2, 3, 4, 5, 6, 7, 8]
 			.into_iter()
-			.map(|x| (acc(x), acc(x), INITIAL_STAKE, pallet_staking::StakerStatus::Validator));
+			.map(|x| (x, x, INITIAL_STAKE, pallet_staking::StakerStatus::Validator));
 
 		let nominators = vec![
 			(100, vec![1, 2]),
@@ -314,8 +293,8 @@ impl ExtBuilder {
 		]
 		.into_iter()
 		.map(|(x, y)| {
-			let y = y.into_iter().map(|x| acc(x)).collect::<Vec<_>>();
-			(acc(x), acc(x), INITIAL_STAKE, pallet_staking::StakerStatus::Nominator(y))
+			let y = y.into_iter().map(|x| x).collect::<Vec<_>>();
+			(x, x, INITIAL_STAKE, pallet_staking::StakerStatus::Nominator(y))
 		});
 
 		let stakers = validators.chain(nominators).collect::<Vec<_>>();
@@ -337,6 +316,8 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		t.into()
+		let state = t.into();
+
+		state
 	}
 }

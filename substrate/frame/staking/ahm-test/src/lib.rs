@@ -7,48 +7,67 @@ pub mod shared;
 
 #[cfg(test)]
 mod tests {
+	use std::cell::RefCell;
+
 	use super::*;
-	use frame::deps::frame_system;
-	use xcm::v5::*;
 	use codec::Decode;
+	use frame::deps::frame_system;
+	use pallet_staking::ActiveEraInfo;
 	// shared tests.
 
 	#[test]
 	fn rc_session_change_reported_to_ah() {
+		use std::rc::Rc;
 		let mut rc = rc::ExtBuilder::default().build();
 		let mut ah = ah::ExtBuilder::default().build();
 
-		// ah-client reports session change to ah
+		shared::AH_STATE.with(|state| {
+			// set the shared thread local state to the one created here.
+			state = &Rc::clone(&ah)
+		});
+		shared::RC_STATE.with(|state| {
+			// set the shared thread local state to the one created here.
+			state = &Rc::clone(&rc)
+		});
+
+		// initial state of ah
+		ah.execute_with(|| {
+			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 0);
+			assert_eq!(pallet_staking::CurrentPlannedSession::<ah::Runtime>::get(), 0);
+			assert_eq!(pallet_staking::CurrentEra::<ah::Runtime>::get(), None);
+			assert_eq!(pallet_staking::ActiveEra::<ah::Runtime>::get(), None);
+		});
+
+		// rc reports session change to ah
 		rc.execute_with(|| {
 			// when
 			assert!(frame_system::Pallet::<rc::Runtime>::block_number() == 0);
-			assert!(rc::XcmQueue::get().is_empty());
 
-			// given
-			rc::roll_until_matches(|| pallet_session::CurrentIndex::<rc::Runtime>::get() == 1);
+			// given end session 0, start session 1, plan 2
+			rc::roll_until_matches(
+				|| pallet_session::CurrentIndex::<rc::Runtime>::get() == 1,
+				true,
+			);
 
 			// then
-			assert_eq!(frame_system::Pallet::<rc::Runtime>::block_number(), 10);
-			// end session 0, start session 1.
-			assert_eq!(rc::XcmQueue::get().len(), 2);
+			assert_eq!(frame_system::Pallet::<rc::Runtime>::block_number(), rc::Period::get());
 		});
 
-		// enacted the queued XCM message on ah.
+		rc.execute_with(|| {
+			// roll a few more sessions
+			rc::roll_until_matches(
+				|| pallet_session::CurrentIndex::<rc::Runtime>::get() == 4,
+				true,
+			);
+		});
+
+		// ah's rc-client has reported the session change to staking
 		ah.execute_with(|| {
-			rc::XcmQueue::get().into_iter().for_each(|instructions| {
-				instructions.into_iter().for_each(|instruction| {
-					if let Instruction::Transact { origin_kind, fallback_max_weight, call } =
-						instruction
-					{
-						let () = call;
-						// This should be decode-able as a AH call.
-						let call = ah::RuntimeCall::decode_all(&mut &call[..]).unwrap();
-					} else {
-						// nada.
-					}
-				})
-			})
-		})
+			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 0);
+			assert_eq!(pallet_staking::CurrentPlannedSession::<ah::Runtime>::get(), 2);
+			assert_eq!(pallet_staking::CurrentEra::<ah::Runtime>::get(), None);
+			assert_eq!(pallet_staking::ActiveEra::<ah::Runtime>::get(), None);
+		});
 
 		// rc-client reports session change to staking
 		// staking progresses era accordingly
@@ -73,4 +92,14 @@ mod tests {
 
 	#[test]
 	fn rc_is_late_to_report_session_change() {}
+
+	#[test]
+	fn pruning_is_at_least_bonding_duration() {}
+
+	#[test]
+	fn ah_eras_are_delayed() {
+		// rc will trigger new sessions,
+		// ah cannot start a new era (election fail)
+		// we don't prune anything, because era should not be increased.
+	}
 }

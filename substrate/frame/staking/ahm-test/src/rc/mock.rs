@@ -1,12 +1,16 @@
-use frame::testing_prelude::*;
-use frame::deps::sp_runtime::testing::UintAuthorityId;
+use frame::{deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*};
 use pallet_staking::NullIdentity;
+use pallet_staking_ah_client as ah_client;
+use sp_staking::SessionIndex;
+
+use crate::shared;
 
 construct_runtime! {
 	pub enum Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
 		ParasOrigin: polkadot_runtime_parachains::origin,
+		Timestamp: pallet_timestamp,
 
 		Session: pallet_session,
 		SessionHistorical: pallet_session::historical,
@@ -19,14 +23,22 @@ pub fn roll_next() {
 	let next = now + 1;
 
 	System::set_block_number(next);
+	Timestamp::set_timestamp(next * 1000);
 
 	Session::on_initialize(next);
 	StakingAhClient::on_initialize(next);
 }
 
-pub fn roll_until_matches(criteria: impl Fn() -> bool) {
+pub fn roll_until_matches(criteria: impl Fn() -> bool, with_ah: bool) {
 	while !criteria() {
 		roll_next();
+		if with_ah {
+			shared::AH_STATE.with(|state| {
+				state.borrow_mut().execute_with(|| {
+					crate::ah::roll_next();
+				})
+			});
+		}
 	}
 }
 
@@ -39,13 +51,18 @@ pub type BlockNumber = BlockNumberFor<Runtime>;
 impl frame_system::Config for Runtime {
 	type Block = MockBlock<Self>;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type AccountId = frame::runtime::types_common::AccountId;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
+}
+
+impl pallet_timestamp::Config for Runtime {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = ConstU64<3>;
+	type WeightInfo = ();
 }
 
 pub struct ValidatorIdOf;
@@ -87,7 +104,7 @@ frame::deps::sp_runtime::impl_opaque_keys! {
 }
 
 parameter_types! {
-	pub static Period: BlockNumber = 10;
+	pub static Period: BlockNumber = 30;
 	pub static Offset: BlockNumber = 0;
 }
 
@@ -124,49 +141,57 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 
-parameter_types! {
-	pub static AssetHubId: u32 = 42;
-}
-
-parameter_types! {
-	pub static XcmQueue: Vec<xcm::v5::Xcm<()>> = Default::default();
-}
-
-pub struct RcMockXCM;
-impl xcm::v5::SendXcm for RcMockXCM {
-	type Ticket = xcm::v5::Xcm<RuntimeCall>;
-
-	fn deliver(
-		ticket: Self::Ticket,
-	) -> std::result::Result<xcm::prelude::XcmHash, xcm::prelude::SendError> {
-		let mut queue = XcmQueue::get();
-		queue.push(ticket.clone());
-		XcmQueue::set(queue);
-		Ok(ticket.using_encoded(frame::hashing::blake2_256))
-	}
-
-	fn validate(
-		destination: &mut Option<xcm::prelude::Location>,
-		message: &mut Option<Self::Ticket>,
-	) -> xcm::prelude::SendResult<Self::Ticket> {
-		let message = message.take().unwrap();
-
-		// TODO: check destination to be RC.
-		let destination = destination.take().unwrap();
-		let assets = Default::default();
-
-		Ok((message, assets))
-	}
-}
-
 // needed because of the `RuntimeOrigin` of `pallet_staking_ah_client`
 impl polkadot_runtime_parachains::origin::Config for Runtime {}
 
-impl pallet_staking_ah_client::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type AssetHubId = AssetHubId;
-	type CurrencyBalance = Balance;
-	type SendXcm = RcMockXCM;
+parameter_types! {
+	pub static MinimumValidatorSetSize: u32 = 8;
+}
+
+impl ah_client::Config for Runtime {
+	type AssetHubId = ConstU32<42>;
+	type AssetHubInterface = DeliverToAH;
+	// TODO: better description of this, if not we use AssetHubId + ensure_parachain?
+	type AssetHubOrigin = EnsureSigned<AccountId>;
+	type UnixTime = Timestamp;
+	type MinimumValidatorSetSize = MinimumValidatorSetSize;
+	type PointsPerBlock = ConstU32<20>;
+}
+
+use pallet_staking_rc_client as rc_client;
+pub struct DeliverToAH;
+impl ah_client::AssetHubInterface for DeliverToAH {
+	type AccountId = AccountId;
+	fn relay_new_offence(
+		session_index: SessionIndex,
+		offences: Vec<rc_client::Offence<Self::AccountId>>,
+	) {
+		shared::AH_STATE.with(|state| {
+			state.borrow_mut().execute_with(|| {
+				let origin = crate::ah::RuntimeOrigin::root();
+				rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence(
+					origin,
+					session_index,
+					offences,
+				)
+				.unwrap();
+			})
+		});
+	}
+
+	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
+		shared::AH_STATE.with(|state| {
+			state.borrow_mut().execute_with(|| {
+				use rc_client;
+				let origin = crate::ah::RuntimeOrigin::root();
+				rc_client::Pallet::<crate::ah::Runtime>::relay_session_report(
+					origin,
+					session_report,
+				)
+				.unwrap();
+			})
+		});
+	}
 }
 
 pub struct ExtBuilder;

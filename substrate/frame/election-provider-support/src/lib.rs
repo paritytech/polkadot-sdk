@@ -488,16 +488,27 @@ pub trait ElectionProvider {
 	}
 
 	/// Return the duration of your election.
+	///
+	/// This excludes the duration of the export. For that, use [`duration_with_export`].
 	fn duration() -> Self::BlockNumber;
+
+	/// Return the duration of your election, including the export.
+	fn duration_with_export() -> Self::BlockNumber
+	where
+		Self::BlockNumber: From<PageIndex> + core::ops::Add<Output = Self::BlockNumber>,
+	{
+		let export: Self::BlockNumber = Self::Pages::get().into();
+		Self::duration() + export
+	}
 
 	/// Signal that the election should start
 	fn start() -> Result<(), Self::Error>;
 
 	/// Indicate whether this election provider is currently ongoing an asynchronous election.
 	///
-	/// `Err(())` should signal that we are not doing anything, and `elect` should def. not be called.
-	/// `Ok(false)` means we are doing something, but work is still ongoing. `elect` should not be called.
-	/// `Ok(true)` means we are done and ready for a call to `elect`.
+	/// `Err(())` should signal that we are not doing anything, and `elect` should def. not be
+	/// called. `Ok(false)` means we are doing something, but work is still ongoing. `elect` should
+	/// not be called. `Ok(true)` means we are done and ready for a call to `elect`.
 	fn status() -> Result<bool, ()>;
 }
 

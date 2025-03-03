@@ -21,6 +21,9 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 frame = { package = "polkadot-sdk-frame", workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
+sp-session = { workspace = true, default-features = true }
+sp-staking = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 # pallets we need in both
 pallet-balances = { workspace = true, default-features = true }
@@ -29,15 +32,12 @@ pallet-balances = { workspace = true, default-features = true }
 pallet-staking ={ workspace = true, default-features = true }
 pallet-staking-rc-client ={ workspace = true, default-features = true }
 pallet-election-provider-multi-block = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true }
-xcm ={ workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-# we skip nompools, fast-unstake, and other misc staking pallets as they are not important in this case.
 
 # pallets we need in the RC
 pallet-session = { workspace = true, default-features = true }
 pallet-staking-ah-client = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 
 [features]
