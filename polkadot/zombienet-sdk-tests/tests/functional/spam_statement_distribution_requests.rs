@@ -24,7 +24,11 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(vec![
+					// parachain::statement-distribution=trace to find
+					// "Peer already being served, dropping request"
+					("-lparachain=debug,parachain::statement-distribution=trace").into(),
+				])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -51,6 +55,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 						.with_args(vec![
 							"--alice".into(),
 							"--spam-factor=1000".into(),
+							"--insecure-validator-i-know-what-i-do".into(),
 							"-lMALUS=trace,parachain=debug".into(),
 						])
 				})
@@ -91,6 +96,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	let malus = network.get_node("malus")?;
 	let honest = network.get_node("honest-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = honest.wait_client().await?;
+	let _malus_client: OnlineClient<PolkadotConfig> = malus.wait_client().await?;
 
 	// Check authority status and peers.
 	malus.assert("node_roles", 4.0).await?;
@@ -133,10 +139,17 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		.await?;
 
 	// Check lag - approval
-	honest.assert("polkadot_parachain_approval_checking_finality_lag", 0.0).await?;
+	honest
+		.assert(
+			"polkadot_parachain_approval_checking_finality_lag{chain=\"rococo_local_testnet\"}",
+			0.0,
+		)
+		.await?;
 
 	// Check lag - dispute conclusion
-	honest.assert("polkadot_parachain_disputes_finality_lag", 0.0).await?;
+	honest
+		.assert("polkadot_parachain_disputes_finality_lag{chain=\"rococo_local_testnet\"}", 0.0)
+		.await?;
 
 	log::info!("Test finished successfully");
 
