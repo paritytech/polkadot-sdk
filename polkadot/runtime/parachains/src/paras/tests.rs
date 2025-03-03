@@ -2140,6 +2140,23 @@ fn authorize_code_hash_works() {
 
 #[test]
 fn apply_authorized_code_works() {
+	let apply_code = |origin,
+	                  authorization: CodeHashAuthorization<_>,
+	                  code: ValidationCode|
+	 -> (Result<_, _>, DispatchResultWithPostInfo) {
+		let call = Call::apply_authorized_code {
+			authorization: authorization.clone(),
+			code: code.clone(),
+		};
+		let validate_unsigned =
+			<Paras as ValidateUnsigned>::validate_unsigned(TransactionSource::InBlock, &call)
+				.map(|_| ());
+
+		let dispatch_result = Paras::apply_authorized_code(origin, authorization, code);
+
+		(validate_unsigned, dispatch_result)
+	};
+
 	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 		let para_a = ParaId::from(111);
 		let code_1 = ValidationCode(vec![1]);
@@ -2156,21 +2173,27 @@ fn apply_authorized_code_works() {
 		assert!(AuthorizedCodeHash::<Test>::get().is_empty());
 
 		// cannot apply code when nothing authorized
-		assert_err!(
-			Paras::apply_authorized_code(
+		assert_eq!(
+			apply_code(
 				RuntimeOrigin::signed(1),
 				authorize_force_set_current_code_1_for_para_a.clone(),
 				code_1.clone()
 			),
-			Error::<Test>::NothingAuthorized,
+			(
+				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
+				Err(Error::<Test>::NothingAuthorized.into())
+			),
 		);
-		assert_err!(
-			Paras::apply_authorized_code(
+		assert_eq!(
+			apply_code(
 				RuntimeOrigin::signed(1),
 				add_trusted_validation_code_2.clone(),
 				code_2.clone()
 			),
-			Error::<Test>::NothingAuthorized,
+			(
+				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
+				Err(Error::<Test>::NothingAuthorized.into())
+			),
 		);
 
 		// authorize
@@ -2180,34 +2203,58 @@ fn apply_authorized_code_works() {
 		]);
 
 		// cannot apply unauthorized code_2
-		assert_err!(
-			Paras::apply_authorized_code(
+		assert_eq!(
+			apply_code(
 				RuntimeOrigin::signed(1),
 				authorize_force_set_current_code_1_for_para_a.clone(),
 				code_2.clone()
 			),
-			Error::<Test>::Unauthorized,
+			(
+				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
+				Err(Error::<Test>::Unauthorized.into())
+			),
 		);
 
+		// cannot apply obsolete authorization
+		frame_system::Pallet::<Test>::set_block_number(expire_at + 1);
+		assert_eq!(
+			apply_code(
+				RuntimeOrigin::signed(1),
+				authorize_force_set_current_code_1_for_para_a.clone(),
+				code_1.clone(),
+			),
+			(
+				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
+				Err(Error::<Test>::InvalidBlockNumber.into())
+			),
+		);
+		frame_system::Pallet::<Test>::set_block_number(expire_at - 1);
+
 		// ok - can apply authorized code
-		assert_ok!(Paras::apply_authorized_code(
+		let (validate_unsigned, dispatch_result) = apply_code(
 			RuntimeOrigin::signed(1),
 			authorize_force_set_current_code_1_for_para_a.clone(),
-			code_1.clone()
-		));
+			code_1.clone(),
+		);
+		assert_ok!(validate_unsigned);
+		assert_ok!(dispatch_result);
+
 		assert_eq!(
 			AuthorizedCodeHash::<Test>::get(),
 			vec![(add_trusted_validation_code_2.clone(), expire_at),]
 		);
 
 		// cannot apply previously authorized code again
-		assert_err!(
-			Paras::apply_authorized_code(
+		assert_eq!(
+			apply_code(
 				RuntimeOrigin::signed(1),
 				authorize_force_set_current_code_1_for_para_a,
 				code_1,
 			),
-			Error::<Test>::NothingAuthorized
+			(
+				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
+				Err(Error::<Test>::NothingAuthorized.into())
+			),
 		);
 	})
 }

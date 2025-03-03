@@ -590,8 +590,8 @@ impl<N> CodeHashAuthorization<N> {
 		use CodeHashAuthorization::*;
 
 		match (self, other) {
-			(ForceSetCurrentCode { para_id: a, .. }, ForceSetCurrentCode { para_id: b, .. }) |
-			(
+			(ForceSetCurrentCode { para_id: a, .. }, ForceSetCurrentCode { para_id: b, .. })
+			| (
 				ForceScheduleCodeUpgrade { para_id: a, .. },
 				ForceScheduleCodeUpgrade { para_id: b, .. },
 			) if a == b => true,
@@ -608,9 +608,9 @@ impl<N> CodeHashAuthorization<N> {
 	/// Compares the stored `code_hash` with the hash of the provided validation code.
 	fn code_matches(&self, code: &ValidationCode) -> bool {
 		let code_hash = match self {
-			CodeHashAuthorization::ForceSetCurrentCode { code_hash, .. } |
-			CodeHashAuthorization::ForceScheduleCodeUpgrade { code_hash, .. } |
-			CodeHashAuthorization::AddTrustedValidationCode { code_hash } => code_hash,
+			CodeHashAuthorization::ForceSetCurrentCode { code_hash, .. }
+			| CodeHashAuthorization::ForceScheduleCodeUpgrade { code_hash, .. }
+			| CodeHashAuthorization::AddTrustedValidationCode { code_hash } => code_hash,
 		};
 
 		code_hash == &code.hash()
@@ -1269,21 +1269,20 @@ pub mod pallet {
 			// no need to ensure, anybody can do this
 
 			// Ensure `new_code` is authorized
-			let authorized_code_hash = AuthorizedCodeHash::<T>::try_mutate(|authorizations| {
-				if let Some(idx) = authorizations.iter().position(|(a, _)| a == &authorization) {
-					Ok(authorizations.swap_remove(idx).0)
-				} else {
-					Err(Error::<T>::NothingAuthorized)
-				}
-			})?;
-			ensure!(authorized_code_hash.code_matches(&code), Error::<T>::Unauthorized);
+			let (authorized_code_hash, _) = Self::validate_authorization(authorization, &code)?;
+			// remove
+			AuthorizedCodeHash::<T>::mutate(|authorizations| {
+				authorizations.retain(|(auth, _)| auth != &authorized_code_hash);
+			});
 
 			// apply/dispatch
 			match authorized_code_hash {
-				CodeHashAuthorization::ForceSetCurrentCode { para_id, .. } =>
-					Self::do_force_set_current_code_update(para_id, code),
-				CodeHashAuthorization::AddTrustedValidationCode { .. } =>
-					Self::do_add_trusted_validation_code(code),
+				CodeHashAuthorization::ForceSetCurrentCode { para_id, .. } => {
+					Self::do_force_set_current_code_update(para_id, code)
+				},
+				CodeHashAuthorization::AddTrustedValidationCode { .. } => {
+					Self::do_add_trusted_validation_code(code)
+				},
 				CodeHashAuthorization::ForceScheduleCodeUpgrade {
 					para_id,
 					relay_parent_number,
@@ -1307,52 +1306,81 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			let (stmt, signature) = match call {
-				Call::include_pvf_check_statement { stmt, signature } => (stmt, signature),
-				_ => return InvalidTransaction::Call.into(),
-			};
+			match call {
+				Call::include_pvf_check_statement { stmt, signature } => {
+					let current_session = shared::CurrentSessionIndex::<T>::get();
+					if stmt.session_index < current_session {
+						return InvalidTransaction::Stale.into()
+					} else if stmt.session_index > current_session {
+						return InvalidTransaction::Future.into()
+					}
 
-			let current_session = shared::CurrentSessionIndex::<T>::get();
-			if stmt.session_index < current_session {
-				return InvalidTransaction::Stale.into()
-			} else if stmt.session_index > current_session {
-				return InvalidTransaction::Future.into()
+					let validator_index = stmt.validator_index.0 as usize;
+					let validators = shared::ActiveValidatorKeys::<T>::get();
+					let validator_public = match validators.get(validator_index) {
+						Some(pk) => pk,
+						None => {
+							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into()
+						},
+					};
+
+					let signing_payload = stmt.signing_payload();
+					if !signature.verify(&signing_payload[..], &validator_public) {
+						return InvalidTransaction::BadProof.into();
+					}
+
+					let active_vote = match PvfActiveVoteMap::<T>::get(&stmt.subject) {
+						Some(v) => v,
+						None => return InvalidTransaction::Custom(INVALID_TX_BAD_SUBJECT).into(),
+					};
+
+					match active_vote.has_vote(validator_index) {
+						Some(false) => (),
+						Some(true) => {
+							return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into()
+						},
+						None => {
+							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into()
+						},
+					}
+
+					ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
+						.priority(T::UnsignedPriority::get())
+						.longevity(
+							TryInto::<u64>::try_into(
+								T::NextSessionRotation::average_session_length() / 2u32.into(),
+							)
+							.unwrap_or(64_u64),
+						)
+						.and_provides((stmt.session_index, stmt.validator_index, stmt.subject))
+						.propagate(true)
+						.build()
+				},
+				Call::apply_authorized_code { authorization, code } => {
+					match Self::validate_authorization(authorization.clone(), &code) {
+						Ok((authorization, expire_at)) => {
+							let now = frame_system::Pallet::<T>::block_number();
+							if expire_at < now {
+								// this should not happen, because `validate_authorization` validates `expire_at`
+								return InvalidTransaction::Stale.into();
+							}
+							let longevity =
+								expire_at.saturating_sub(frame_system::Pallet::<T>::block_number());
+
+							ValidTransaction::with_tag_prefix("ApplyAuthorizedCode")
+								.priority(T::UnsignedPriority::get())
+								.longevity(TryInto::<u64>::try_into(longevity).unwrap_or(64_u64))
+								.and_provides(authorization)
+								.propagate(true)
+								.build()
+						},
+						Err(_) => {
+							return InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()
+						},
+					}
+				},
+				_ => InvalidTransaction::Call.into(),
 			}
-
-			let validator_index = stmt.validator_index.0 as usize;
-			let validators = shared::ActiveValidatorKeys::<T>::get();
-			let validator_public = match validators.get(validator_index) {
-				Some(pk) => pk,
-				None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
-			};
-
-			let signing_payload = stmt.signing_payload();
-			if !signature.verify(&signing_payload[..], &validator_public) {
-				return InvalidTransaction::BadProof.into()
-			}
-
-			let active_vote = match PvfActiveVoteMap::<T>::get(&stmt.subject) {
-				Some(v) => v,
-				None => return InvalidTransaction::Custom(INVALID_TX_BAD_SUBJECT).into(),
-			};
-
-			match active_vote.has_vote(validator_index) {
-				Some(false) => (),
-				Some(true) => return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into(),
-				None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
-			}
-
-			ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
-				.priority(T::UnsignedPriority::get())
-				.longevity(
-					TryInto::<u64>::try_into(
-						T::NextSessionRotation::average_session_length() / 2u32.into(),
-					)
-					.unwrap_or(64_u64),
-				)
-				.and_provides((stmt.session_index, stmt.validator_index, stmt.subject))
-				.propagate(true)
-				.build()
 		}
 
 		fn pre_dispatch(_call: &Self::Call) -> Result<(), TransactionValidityError> {
@@ -1372,6 +1400,7 @@ pub mod pallet {
 const INVALID_TX_BAD_VALIDATOR_IDX: u8 = 1;
 const INVALID_TX_BAD_SUBJECT: u8 = 2;
 const INVALID_TX_DOUBLE_VOTE: u8 = 3;
+const INVALID_TX_UNAUTHORIZED_CODE: u8 = 4;
 
 /// This is intermediate "fix" for this issue:
 /// <https://github.com/paritytech/polkadot-sdk/issues/4737>
@@ -1415,10 +1444,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Called by the initializer to initialize the paras pallet.
 	pub(crate) fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
-		Self::prune_old_code(now) +
-			Self::process_scheduled_upgrade_changes(now) +
-			Self::process_future_code_upgrades_at(now) +
-			Self::prune_expired_authorizations(now)
+		Self::prune_old_code(now)
+			+ Self::process_scheduled_upgrade_changes(now)
+			+ Self::process_future_code_upgrades_at(now)
+			+ Self::prune_expired_authorizations(now)
 	}
 
 	/// Called by the initializer to finalize the paras pallet.
@@ -2548,6 +2577,27 @@ impl<T: Config> Pallet<T> {
 		code_hash: &ValidationCodeHash,
 	) -> Option<PvfCheckActiveVoteState<BlockNumberFor<T>>> {
 		PvfActiveVoteMap::<T>::get(code_hash)
+	}
+
+	/// This function checks whether the given `requested_authorization` exists in the list of
+	/// authorized code hashes. If found, it verifies that the associated code matches the provided
+	/// `code`. If the validation is successful, it returns the authorized `CodeHashAuthorization`.
+	pub(crate) fn validate_authorization(
+		requested_authorization: CodeHashAuthorization<BlockNumberFor<T>>,
+		code: &ValidationCode,
+	) -> Result<(CodeHashAuthorization<BlockNumberFor<T>>, BlockNumberFor<T>), Error<T>> {
+		let Some((authorized_code_hash, expire_at)) = AuthorizedCodeHash::<T>::get()
+			.into_iter()
+			.find(|(a, _)| a == &requested_authorization)
+		else {
+			return Err(Error::<T>::NothingAuthorized);
+		};
+		ensure!(authorized_code_hash.code_matches(code), Error::<T>::Unauthorized);
+		ensure!(
+			expire_at > frame_system::Pallet::<T>::block_number(),
+			Error::<T>::InvalidBlockNumber
+		);
+		Ok((authorized_code_hash, expire_at))
 	}
 }
 
