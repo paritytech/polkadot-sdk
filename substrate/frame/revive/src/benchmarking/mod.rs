@@ -2052,7 +2052,7 @@ mod benchmarks {
 		let mut memory = Vec::with_capacity((NUM_ADDRESSES * CACHE_LINE_SIZE) as usize);
 		for address in addresses {
 			memory.extend_from_slice(&address);
-			memory.resize(memory.len() + CACHE_LINE_SIZE as usize - 8, 0);
+			memory.resize(memory.len() + CACHE_LINE_SIZE as usize - address.len(), 0);
 		}
 
 		// Copies `memory` to `aux_data_base + MISALIGNMENT`.
