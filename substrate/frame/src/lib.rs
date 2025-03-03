@@ -554,6 +554,7 @@ pub mod derive {
 	/// or specify the `#[serde(crate = "PATH_TO_THIS_CRATE::serde")]` attribute that points
 	/// to the path where serde can be found.
 	pub use serde::{Deserialize, Serialize};
+	pub use serde;
 	pub use sp_runtime::RuntimeDebug;
 }
 
