@@ -197,7 +197,7 @@ pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
 /// Note: `//` is prepended internally.
 pub fn authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, SessionKeys) {
 	(
-		get_public_from_string_or_panic::<sr25519::Public>(&alloc::format!("{}//stash", seed))
+		get_public_from_string_or_panic::<sr25519::Public>(&alloc::format!("{seed}//stash"))
 			.into(),
 		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
 		session_keys_from_seed(seed),
