@@ -188,33 +188,26 @@ pub type Header = sp_runtime::generic::Header<BlockNumber, Hashing>;
 /// Balance of an account.
 pub type Balance = u64;
 
-// Conditional types for `Bls381Signature`
 #[cfg(feature = "bls-experimental")]
-pub mod bls_experimental {
+mod bls {
 	use sp_application_crypto::{bls381, ecdsa_bls381};
     pub type Bls381Public = bls381::AppPublic;
 	pub type Bls381Pop = bls381::AppSignature;
     pub type EcdsaBls381Public = ecdsa_bls381::AppPublic;
 	pub type EcdsaBls381Pop = ecdsa_bls381::AppSignature;
 }
-
 #[cfg(not(feature = "bls-experimental"))]
-pub mod bls_disabled {
+mod bls {
     pub type Bls381Public = ();
 	pub type Bls381Pop = ();
     pub type EcdsaBls381Public = ();
 	pub type EcdsaBls381Pop = ();
 }
+pub use bls::*;
 
 pub type EcdsaPop = ecdsa::AppSignature;
 pub type Sr25519Pop = sr25519::AppSignature;
 pub type Ed25519Pop = ed25519::AppSignature;
-
-#[cfg(feature = "bls-experimental")]
-pub use bls_experimental::*;
-
-#[cfg(not(feature = "bls-experimental"))]
-pub use bls_disabled::*;
 
 decl_runtime_apis! {
 	#[api_version(2)]
