@@ -34,6 +34,9 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_ah: bool) {
 	while !criteria() {
 		roll_next();
 		if with_ah {
+			if LocalQueue::get().is_some() {
+				panic!("when local queue is set, you cannot roll ah forward as well!")
+			}
 			shared::in_ah(|| {
 				crate::ah::roll_next();
 			});
@@ -143,13 +146,19 @@ impl pallet_session::Config for Runtime {
 // needed because of the `RuntimeOrigin` of `pallet_staking_ah_client`
 impl polkadot_runtime_parachains::origin::Config for Runtime {}
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum OutgoingMessages {
+	SessionReport(rc_client::SessionReport<AccountId>),
+	OffenceReport(SessionIndex, Vec<rc_client::Offence<AccountId>>),
+}
+
 parameter_types! {
 	pub static MinimumValidatorSetSize: u32 = 4;
+	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
 }
 
 impl ah_client::Config for Runtime {
 	type SendToAssetHub = DeliverToAH;
-	// TODO: better description of this, if not we use AssetHubId + ensure_parachain?
 	type AssetHubOrigin = EnsureSigned<AccountId>;
 	type UnixTime = Timestamp;
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
@@ -164,22 +173,40 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 		session_index: SessionIndex,
 		offences: Vec<rc_client::Offence<Self::AccountId>>,
 	) {
-		shared::in_ah(|| {
-			let origin = crate::ah::RuntimeOrigin::root();
-			rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence(
-				origin,
-				session_index,
-				offences.clone(),
-			).unwrap();
-		});
+		if let Some(mut local_queue) = LocalQueue::get() {
+			local_queue.push((
+				System::block_number(),
+				OutgoingMessages::OffenceReport(session_index, offences),
+			));
+			LocalQueue::set(Some(local_queue));
+		} else {
+			shared::in_ah(|| {
+				let origin = crate::ah::RuntimeOrigin::root();
+				rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence(
+					origin,
+					session_index,
+					offences.clone(),
+				)
+				.unwrap();
+			});
+		}
 	}
 
 	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
-		shared::in_ah(|| {
-			let origin = crate::ah::RuntimeOrigin::root();
-			rc_client::Pallet::<crate::ah::Runtime>::relay_session_report(origin, session_report.clone())
+		if let Some(mut local_queue) = LocalQueue::get() {
+			local_queue
+				.push((System::block_number(), OutgoingMessages::SessionReport(session_report)));
+			LocalQueue::set(Some(local_queue));
+		} else {
+			shared::in_ah(|| {
+				let origin = crate::ah::RuntimeOrigin::root();
+				rc_client::Pallet::<crate::ah::Runtime>::relay_session_report(
+					origin,
+					session_report.clone(),
+				)
 				.unwrap();
-		});
+			});
+		}
 	}
 }
 
@@ -192,6 +219,13 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
+	/// Set this if you want to test the rc-runtime locally. This will push outgoing messages to
+	/// `LocalQueue` instead of enacting them on AH.
+	pub fn local_queue(self) -> Self {
+		LocalQueue::set(Some(Default::default()));
+		self
+	}
+
 	pub fn build(self) -> TestState {
 		let _ = sp_tracing::try_init_simple();
 		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();

@@ -36,11 +36,20 @@ pub fn roll_next() {
 	MultiBlockVerifier::on_initialize(next);
 	MultiBlockSigned::on_initialize(next);
 	MultiBlockUnsigned::on_initialize(next);
+}
 
-	// we assume this block is empty, no operations happen.
-
-	// staking is the only pallet that has on-finalize.
-	Staking::on_finalize(now);
+pub fn roll_until_matches(criteria: impl Fn() -> bool, with_rc: bool) {
+	while !criteria() {
+		roll_next();
+		if with_rc {
+			if LocalQueue::get().is_some() {
+				panic!("when local queue is set, you cannot roll ah forward as well!")
+			}
+			shared::in_rc(|| {
+				crate::rc::roll_next();
+			});
+		}
+	}
 }
 
 pub type AccountId = <Runtime as frame_system::Config>::AccountId;
@@ -260,8 +269,6 @@ impl pallet_staking::Config for Runtime {
 
 	// TODO
 	type NextNewSession = ();
-	// Staking no longer has this.
-	// type SessionInterface = Self;
 
 	type WeightInfo = ();
 }
@@ -277,16 +284,34 @@ impl pallet_staking_rc_client::SendToRelayChain for DeliverToRelay {
 	type AccountId = AccountId;
 
 	fn validator_set(report: pallet_staking_rc_client::ValidatorSetReport<Self::AccountId>) {
-		shared::in_rc(|| {
-			let origin = crate::rc::RuntimeOrigin::root();
-			pallet_staking_ah_client::Pallet::<crate::rc::Runtime>::validator_set(origin, report.clone())
+		if let Some(mut local_queue) = LocalQueue::get() {
+			local_queue
+				.push((System::block_number(), OutgoingMessages::ValidatorSet(report)));
+			LocalQueue::set(Some(local_queue));
+		} else {
+			shared::in_rc(|| {
+				let origin = crate::rc::RuntimeOrigin::root();
+				pallet_staking_ah_client::Pallet::<crate::rc::Runtime>::validator_set(
+					origin,
+					report.clone(),
+				)
 				.unwrap();
-		});
+			});
+		}
 	}
 }
 
 const INITIAL_BALANCE: Balance = 1000;
 const INITIAL_STAKE: Balance = 100;
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum OutgoingMessages {
+	ValidatorSet(pallet_staking_rc_client::ValidatorSetReport<AccountId>),
+}
+
+parameter_types! {
+	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
+}
 
 pub struct ExtBuilder {}
 
@@ -297,6 +322,13 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
+	/// Set this if you want to test the ah-runtime locally. This will push outgoing messages to
+	/// `LocalQueue` instead of enacting them on RC.
+	pub fn local_queue(self) -> Self {
+		LocalQueue::set(Some(Default::default()));
+		self
+	}
+
 	pub fn build(self) -> TestState {
 		let _ = sp_tracing::try_init_simple();
 		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();

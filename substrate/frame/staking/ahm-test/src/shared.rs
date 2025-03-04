@@ -1,8 +1,5 @@
 use frame::testing_prelude::*;
-use std::{
-	cell::{RefCell, UnsafeCell},
-	rc::Rc,
-};
+use std::cell::UnsafeCell;
 
 thread_local! {
 	pub static RC_STATE: UnsafeCell<TestState> = UnsafeCell::new(Default::default());
