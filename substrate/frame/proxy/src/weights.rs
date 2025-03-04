@@ -81,6 +81,7 @@ pub trait WeightInfo {
 	fn remove_proxies(p: u32, ) -> Weight;
 	fn create_pure(p: u32, ) -> Weight;
 	fn kill_pure(p: u32, ) -> Weight;
+	fn poke_deposit() -> Weight;
 }
 
 /// Weights for `pallet_proxy` using the Substrate node and recommended hardware.
@@ -257,6 +258,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn poke_deposit() -> Weight {
+		Weight::from_parts(20_734_482, 4706)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -429,6 +435,11 @@ impl WeightInfo for () {
 		Weight::from_parts(20_734_482, 4706)
 			// Standard Error: 916
 			.saturating_add(Weight::from_parts(21_379, 0).saturating_mul(p.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn poke_deposit() -> Weight {
+		Weight::from_parts(20_734_482, 4706)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
