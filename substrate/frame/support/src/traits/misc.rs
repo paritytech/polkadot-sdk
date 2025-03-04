@@ -898,20 +898,6 @@ pub trait GetBacking {
 	fn get_backing(&self) -> Option<Backing>;
 }
 
-/// A trait to ensure the inherent are before non-inherent in a block.
-///
-/// This is typically implemented on runtime, through `construct_runtime!`.
-pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
-	IsInherent<<Block as sp_runtime::traits::Block>::Extrinsic>
-{
-	/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
-	///
-	/// On error return the index of the inherent with invalid position (counting from 0). On
-	/// success it returns the index of the last inherent. `0` therefore means that there are no
-	/// inherents.
-	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
-}
-
 /// A trait to check if an extrinsic is an inherent.
 pub trait IsInherent<Extrinsic> {
 	/// Whether this extrinsic is an inherent.

@@ -32,7 +32,7 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	assert_err, assert_ok, derive_impl,
+	assert_err, derive_impl,
 	migrations::MultiStepMigrator,
 	pallet_prelude::*,
 	parameter_types,
@@ -1320,68 +1320,6 @@ fn try_execute_tx_forbidden_errors() {
 			frame_try_runtime::TryStateSelect::All,
 		)
 		.unwrap();
-	});
-}
-
-/// Check that `ensure_inherents_are_first` reports the correct indices.
-#[test]
-fn ensure_inherents_are_first_works() {
-	let in1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
-	let in2 = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
-	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
-
-	// Mocked empty header:
-	let header = new_test_ext(1).execute_with(|| {
-		Executive::initialize_block(&Header::new_from_number(1));
-		Executive::finalize_block()
-	});
-
-	new_test_ext(1).execute_with(|| {
-		assert_ok!(Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![]),), 0);
-		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![xt2.clone()]),),
-			0
-		);
-		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![in1.clone()])),
-			1
-		);
-		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![in1.clone(), xt2.clone()]
-			),),
-			1
-		);
-		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![in2.clone(), in1.clone(), xt2.clone()]
-			),),
-			2
-		);
-
-		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), in1.clone()]
-			),),
-			Err(1)
-		);
-		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), xt2.clone(), in1.clone()]
-			),),
-			Err(2)
-		);
-		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()]
-			),),
-			Err(3)
-		);
 	});
 }
 

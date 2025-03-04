@@ -161,9 +161,8 @@ use frame_support::{
 	migrations::MultiStepMigrator,
 	pallet_prelude::InvalidTransaction,
 	traits::{
-		BeforeAllRuntimeMigrations, EnsureInherentsAreFirst, ExecuteBlock, OffchainWorker,
-		OnFinalize, OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents,
-		PostTransactions, PreInherents,
+		BeforeAllRuntimeMigrations, ExecuteBlock, IsInherent, OffchainWorker, OnFinalize, OnIdle,
+		OnInitialize, OnPoll, OnRuntimeUpgrade, PostInherents, PostTransactions, PreInherents,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -251,7 +250,7 @@ pub struct Executive<
 );
 
 impl<
-		System: frame_system::Config + EnsureInherentsAreFirst<Block>,
+		System: frame_system::Config + IsInherent<Block::Extrinsic>,
 		Block: traits::Block<
 			Header = frame_system::pallet_prelude::HeaderFor<System>,
 			Hash = System::Hash,
@@ -290,7 +289,7 @@ where
 
 #[cfg(feature = "try-runtime")]
 impl<
-		System: frame_system::Config + EnsureInherentsAreFirst<Block>,
+		System: frame_system::Config + IsInherent<Block::Extrinsic>,
 		Block: traits::Block<
 			Header = frame_system::pallet_prelude::HeaderFor<System>,
 			Hash = System::Hash,
@@ -340,16 +339,13 @@ where
 		);
 
 		let mode = Self::initialize_block(block.header());
-		if let Err(e) = Self::initial_checks(&block, mode) {
-			return Err(e)
-		}
+		Self::initial_checks(&block);
 		let (header, extrinsics) = block.deconstruct();
 
 		// Apply extrinsics:
-		let try_apply_extrinsic = |uxt: Block::Extrinsic| -> ApplyExtrinsicResult {
-			Self::do_apply_extrinsic(uxt, signature_check)
-		};
-		let _ = Self::apply_extrinsics(extrinsics.into_iter(), try_apply_extrinsic);
+		Self::apply_extrinsics(mode, extrinsics.into_iter(), |uxt, is_inherent| {
+			Self::do_apply_extrinsic(uxt, is_inherent, signature_check)
+		})?;
 
 		// In this case there were no transactions to trigger this state transition:
 		if !<frame_system::Pallet<System>>::inherents_applied() {
@@ -487,7 +483,7 @@ where
 }
 
 impl<
-		System: frame_system::Config + EnsureInherentsAreFirst<Block>,
+		System: frame_system::Config + IsInherent<Block::Extrinsic>,
 		Block: traits::Block<
 			Header = frame_system::pallet_prelude::HeaderFor<System>,
 			Hash = System::Hash,
@@ -601,8 +597,7 @@ where
 		last.map(|v| v.was_upgraded(&current)).unwrap_or(true)
 	}
 
-	/// Returns the number of inherents in the block.
-	fn initial_checks(block: &Block, mode: ExtrinsicInclusionMode) -> Result<(), ExecutiveError> {
+	fn initial_checks(block: &Block) {
 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "initial_checks");
 		let header = block.header();
 
@@ -614,19 +609,6 @@ where
 					*header.parent_hash(),
 			"Parent hash should be valid.",
 		);
-
-		let num_inherents = match System::ensure_inherents_are_first(block) {
-			Ok(num_inherents) => num_inherents as usize,
-			Err(i) => return Err(ExecutiveError::InvalidInherentPosition(i as usize)),
-		};
-
-		// Check if there are any forbidden non-inherents in the block.
-		if mode == ExtrinsicInclusionMode::OnlyInherents && block.extrinsics().len() > num_inherents
-		{
-			return Err(ExecutiveError::OnlyInherentsAllowed)
-		}
-
-		Ok(())
 	}
 
 	/// Actually execute all transitions for `block`.
@@ -636,12 +618,16 @@ where
 			sp_tracing::info_span!("execute_block", ?block);
 			// Execute `on_runtime_upgrade` and `on_initialize`.
 			let mode = Self::initialize_block(block.header());
-			if let Err(e) = Self::initial_checks(&block, mode) {
-				panic!("{:?}", e)
-			}
+			Self::initial_checks(&block);
 
 			let (header, extrinsics) = block.deconstruct();
-			if let Err(e) = Self::apply_extrinsics(extrinsics.into_iter(), Self::apply_extrinsic) {
+			if let Err(e) = Self::apply_extrinsics(
+				mode,
+				extrinsics.into_iter(),
+				|uxt, is_inherent| {
+					Self::do_apply_extrinsic(uxt, is_inherent, #[cfg(feature = "try-runtime")] true)
+				}
+			) {
 				panic!("{:?}", e)
 			}
 
@@ -680,15 +666,34 @@ where
 
 	/// Execute given extrinsics.
 	fn apply_extrinsics<F>(
+		mode: ExtrinsicInclusionMode,
 		extrinsics: impl Iterator<Item = Block::Extrinsic>,
 		mut f: F,
 	) -> Result<(), ExecutiveError>
 	where
-		F: FnMut(Block::Extrinsic) -> ApplyExtrinsicResult,
+		F: FnMut(Block::Extrinsic, bool) -> ApplyExtrinsicResult,
 	{
-		for uxt in extrinsics {
+		let mut last_inherent_idx = 0;
+		for (idx, uxt) in extrinsics.into_iter().enumerate() {
+			let is_inherent = System::is_inherent(&uxt);
+			match is_inherent {
+				true => {
+					// Check if inherents are first
+					if last_inherent_idx != idx {
+						return Err(ExecutiveError::InvalidInherentPosition(idx));
+					}
+					last_inherent_idx += 1;
+				},
+				false => {
+					// Check if there are any forbidden non-inherents in the block.
+					if mode == ExtrinsicInclusionMode::OnlyInherents {
+						return Err(ExecutiveError::OnlyInherentsAllowed)
+					}
+				},
+			}
+
 			log::debug!(target: LOG_TARGET, "Executing transaction: {:?}", uxt);
-			if let Err(e) = f(uxt.clone()) {
+			if let Err(e) = f(uxt, is_inherent) {
 				log::error!(
 					target: LOG_TARGET,
 					"Transaction failed due to {:?}. Aborting the rest of the block execution.",
@@ -778,6 +783,7 @@ where
 	/// hashes.
 	fn do_apply_extrinsic(
 		uxt: Block::Extrinsic,
+		is_inherent: bool,
 		#[cfg(feature = "try-runtime")] signature_check: bool,
 	) -> ApplyExtrinsicResult {
 		sp_io::init_tracing();
@@ -785,10 +791,6 @@ where
 		let encoded_len = encoded.len();
 		sp_tracing::enter_span!(sp_tracing::info_span!("apply_extrinsic",
 				ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)));
-
-		// We use the dedicated `is_inherent` check here, since just relying on `Mandatory` dispatch
-		// class does not capture optional inherents.
-		let is_inherent = System::is_inherent(&uxt);
 
 		// Verify that the signature is good.
 		let xt;
@@ -838,8 +840,10 @@ where
 	/// This doesn't attempt to validate anything regarding the block, but it builds a list of uxt
 	/// hashes.
 	pub fn apply_extrinsic(uxt: Block::Extrinsic) -> ApplyExtrinsicResult {
+		let is_inherent = System::is_inherent(&uxt);
 		Self::do_apply_extrinsic(
 			uxt,
+			is_inherent,
 			#[cfg(feature = "try-runtime")]
 			true,
 		)
