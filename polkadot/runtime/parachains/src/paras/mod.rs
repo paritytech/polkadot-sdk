@@ -1032,7 +1032,15 @@ pub mod pallet {
 			relay_parent_number: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_force_schedule_code_upgrade(para, new_code, relay_parent_number);
+			let config = configuration::ActiveConfig::<T>::get();
+			Self::schedule_code_upgrade(
+				para,
+				new_code,
+				relay_parent_number,
+				&config,
+				UpgradeStrategy::ApplyAtExpectedBlock,
+			);
+			Self::deposit_event(Event::CodeUpgradeScheduled(para));
 			Ok(())
 		}
 
@@ -1089,7 +1097,40 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_add_trusted_validation_code(validation_code);
+			let code_hash = validation_code.hash();
+
+			if let Some(vote) = PvfActiveVoteMap::<T>::get(&code_hash) {
+				// Remove the existing vote.
+				PvfActiveVoteMap::<T>::remove(&code_hash);
+				PvfActiveVoteList::<T>::mutate(|l| {
+					if let Ok(i) = l.binary_search(&code_hash) {
+						l.remove(i);
+					}
+				});
+
+				let cfg = configuration::ActiveConfig::<T>::get();
+				Self::enact_pvf_accepted(
+					frame_system::Pallet::<T>::block_number(),
+					&code_hash,
+					&vote.causes,
+					vote.age,
+					&cfg,
+				);
+				return Ok(())
+			}
+
+			if CodeByHash::<T>::contains_key(&code_hash) {
+				// There is no vote, but the code exists. Nothing to do here.
+				return Ok(())
+			}
+
+			// At this point the code is unknown and there is no PVF pre-checking vote for it, so we
+			// can just add the code into the storage.
+			//
+			// NOTE That we do not use `increase_code_ref` here, because the code is not yet used
+			// by any parachain.
+			CodeByHash::<T>::insert(code_hash, &validation_code);
+
 			Ok(())
 		}
 
@@ -2351,59 +2392,6 @@ impl<T: Config> Pallet<T> {
 		Self::increase_code_ref(&new_code_hash, &new_code);
 		Self::set_current_code(para, new_code_hash, frame_system::Pallet::<T>::block_number());
 		Self::deposit_event(Event::CurrentCodeUpdated(para));
-	}
-
-	/// Force schedule code upgrade for the given parachain.
-	fn do_force_schedule_code_upgrade(
-		para: ParaId,
-		new_code: ValidationCode,
-		relay_parent_number: BlockNumberFor<T>,
-	) {
-		let config = configuration::ActiveConfig::<T>::get();
-		Self::schedule_code_upgrade(
-			para,
-			new_code,
-			relay_parent_number,
-			&config,
-			UpgradeStrategy::ApplyAtExpectedBlock,
-		);
-		Self::deposit_event(Event::CodeUpgradeScheduled(para));
-	}
-
-	fn do_add_trusted_validation_code(validation_code: ValidationCode) {
-		let code_hash = validation_code.hash();
-
-		if let Some(vote) = PvfActiveVoteMap::<T>::get(&code_hash) {
-			// Remove the existing vote.
-			PvfActiveVoteMap::<T>::remove(&code_hash);
-			PvfActiveVoteList::<T>::mutate(|l| {
-				if let Ok(i) = l.binary_search(&code_hash) {
-					l.remove(i);
-				}
-			});
-
-			let cfg = configuration::ActiveConfig::<T>::get();
-			Self::enact_pvf_accepted(
-				frame_system::Pallet::<T>::block_number(),
-				&code_hash,
-				&vote.causes,
-				vote.age,
-				&cfg,
-			);
-			return;
-		}
-
-		if CodeByHash::<T>::contains_key(&code_hash) {
-			// There is no vote, but the code exists. Nothing to do here.
-			return;
-		}
-
-		// At this point the code is unknown and there is no PVF pre-checking vote for it, so we
-		// can just add the code into the storage.
-		//
-		// NOTE That we do not use `increase_code_ref` here, because the code is not yet used
-		// by any parachain.
-		CodeByHash::<T>::insert(code_hash, &validation_code);
 	}
 
 	/// Returns the list of PVFs (aka validation code) that require casting a vote by a validator in
