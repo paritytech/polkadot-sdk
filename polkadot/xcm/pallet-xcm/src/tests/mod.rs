@@ -341,27 +341,30 @@ fn send_works() {
 /// Asserts that `send` fails with `Error::SendFailure`
 #[test]
 fn send_fails_when_xcm_router_blocks() {
-	sp_tracing::init_for_tests();
+	use sp_tracing::{test_log_capture::init_log_capture_for_tests, tracing::subscriber};
 
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let sender: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
 		let message = Xcm(vec![
 			ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 			buy_execution((Parent, SEND_AMOUNT)),
 			DepositAsset { assets: AllCounted(1).into(), beneficiary: sender },
 		]);
-		assert_noop!(
-			XcmPallet::send(
+		let (log_capture, subscriber) = init_log_capture_for_tests();
+		subscriber::with_default(subscriber, || {
+			let result = XcmPallet::send(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(Location::ancestor(8).into()),
 				Box::new(VersionedXcm::from(message.clone())),
-			),
-			crate::Error::<Test>::SendFailure
-		);
+			);
+			assert!(log_capture
+				.contains("xcm::pallet_xcm::send: XCM send failed with error error=Transport(\"Destination location full\")"));
+			assert_noop!(result, Error::<Test>::SendFailure);
+		});
 	});
 }
 
@@ -1489,17 +1492,17 @@ fn execute_initiate_transfer_and_check_sent_event() {
 				BaseXcmWeight::get() * 3,
 			));
 
-			let expected_message: Xcm<()> = Xcm(vec![
+			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
 				ClearOrigin,
 				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
 				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
 			]);
 			assert!(log_capture
-				.contains(format!("xcm::send: Sending msg msg={:?}", expected_message).as_str()));
+				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));
 
 			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-			let message_id = fake_message_hash(&expected_message);
+			let sent_msg_id = fake_message_hash(&sent_message);
 			assert_eq!(
 				last_events(2),
 				vec![
@@ -1507,7 +1510,7 @@ fn execute_initiate_transfer_and_check_sent_event() {
 						origin,
 						destination: Parent.into(),
 						message: Xcm::default(),
-						message_id,
+						message_id: sent_msg_id,
 					}),
 					RuntimeEvent::XcmPallet(Event::Attempted {
 						outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }

@@ -845,7 +845,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						self.process_instruction(instr)
 					});
 					if let Err(e) = inst_res {
-						tracing::trace!(target: "xcm::execute", "!!! ERROR: {:?}", e);
+						tracing::debug!(target: "xcm::execute", "!!! ERROR: {:?}", e);
 						Config::XcmEventEmitter::emit_process_failure_event(
 							self.original_origin.clone(),
 							e.clone(),

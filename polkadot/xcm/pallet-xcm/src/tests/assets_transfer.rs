@@ -2030,6 +2030,8 @@ fn transfer_assets_with_filtered_teleported_fee_disallowed() {
 /// burn) effects are reverted.
 #[test]
 fn intermediary_error_reverts_side_effects() {
+	use sp_tracing::{test_log_capture::init_log_capture_for_tests, tracing::subscriber};
+
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -2060,15 +2062,25 @@ fn intermediary_error_reverts_side_effects() {
 		set_send_xcm_artificial_failure(true);
 
 		// do the transfer - extrinsic should completely fail on xcm send failure
-		assert!(XcmPallet::limited_reserve_transfer_assets(
-			RuntimeOrigin::signed(ALICE),
-			Box::new(dest.into()),
-			Box::new(beneficiary.into()),
-			Box::new(assets.into()),
-			fee_index as u32,
-			Unlimited,
-		)
-		.is_err());
+		let (log_capture, subscriber) = init_log_capture_for_tests();
+		subscriber::with_default(subscriber, || {
+			let result = XcmPallet::limited_reserve_transfer_assets(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(dest.into()),
+				Box::new(beneficiary.into()),
+				Box::new(assets.into()),
+				fee_index as u32,
+				Unlimited,
+			);
+			// Ensure the error occurs before `Config::XcmEventEmitter::emit_process_failure_event`
+			// is called.
+			assert!(log_capture.contains(
+				"xcm::execute: !!! ERROR: Transport(\"Intentional send failure used in tests\")"
+			));
+			let events = System::events();
+			println!("events={:?}", events);
+			assert!(result.is_err());
+		});
 
 		// Alice no changes
 		assert_eq!(
