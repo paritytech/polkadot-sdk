@@ -14,15 +14,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #![no_std]
 #![no_main]
 
-extern crate common;
-
 use common::input;
-use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
-
-static mut MULT: [u32; 5_000] = [1u32; 5_000];
+use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -31,13 +28,6 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(rounds: u32, );
-
-	let mut acc = 5;
-
-	for i in 0..rounds {
-		acc = acc * unsafe { MULT[i as usize] }
-	}
-
-	api::return_value(ReturnFlags::empty(), acc.to_le_bytes().as_ref());
+	input!(beneficiary: &[u8; 20],);
+	api::terminate(&beneficiary);
 }

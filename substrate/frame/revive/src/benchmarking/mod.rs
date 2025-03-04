@@ -59,12 +59,6 @@ use sp_runtime::{
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
 
-/// How many runs we do per instruction benchmark.
-///
-/// Same rationale as for [`API_BENCHMARK_RUNS`]. The number is bigger because instruction
-/// benchmarks are faster.
-const INSTR_BENCHMARK_RUNS: u32 = 5000;
-
 /// Number of layers in a Radix16 unbalanced trie.
 const UNBALANCED_TRIE_LAYERS: u32 = 20;
 
@@ -549,7 +543,7 @@ mod benchmarks {
 	fn noop_host_fn(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let mut setup = CallSetup::<T>::new(WasmModule::noop());
 		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode());
+		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode(), 0);
 		#[block]
 		{
 			prepared.call().unwrap();
@@ -2004,11 +1998,82 @@ mod benchmarks {
 	}
 
 	// Benchmark the execution of instructions.
+	//
+	// It benchmarks the absolute worst case by allocating a lot of memory
+	// and then accessing it so that each instruction generates two cache misses.
 	#[benchmark(pov_mode = Ignored)]
-	fn instr(r: Linear<0, INSTR_BENCHMARK_RUNS>) {
-		let mut setup = CallSetup::<T>::new(WasmModule::instr());
+	fn instr(r: Linear<0, 10_000>) {
+		use rand::{seq::SliceRandom, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		// Ideally, this needs to be bigger than the cache.
+		const MEMORY_SIZE: u64 = sp_core::MAX_POSSIBLE_ALLOCATION as u64;
+
+		// This is benchmarked for x86-64.
+		const CACHE_LINE_SIZE: u64 = 64;
+
+		// An 8 byte load from this misalignment will reach into the subsequent line.
+		const MISALIGNMENT: u64 = 60;
+
+		// We only need one address per cache line.
+		// -1 because we skip the first address
+		const NUM_ADDRESSES: u64 = (MEMORY_SIZE - MISALIGNMENT) / CACHE_LINE_SIZE - 1;
+
+		assert!(
+			u64::from(r) <= NUM_ADDRESSES / 2,
+			"If we do too many iterations we run into the risk of loading from warm cache lines",
+		);
+
+		let mut setup = CallSetup::<T>::new(WasmModule::instr(true));
 		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode());
+		let mut prepared =
+			CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), MEMORY_SIZE as u32);
+
+		assert!(
+			u64::from(prepared.aux_data_base()) & (CACHE_LINE_SIZE - 1) == 0,
+			"aux data base must be cache aligned"
+		);
+
+		// Addresses data will be located inside the aux data.
+		let misaligned_base = u64::from(prepared.aux_data_base()) + MISALIGNMENT;
+
+		// Create all possible addresses and shuffle them. This makes sure
+		// the accesses are random but no address is accessed more than once.
+		// we skip the first address since it is our entry point
+		let mut addresses = Vec::with_capacity(NUM_ADDRESSES as usize);
+		for i in 1..NUM_ADDRESSES {
+			let addr = (misaligned_base + i * CACHE_LINE_SIZE).to_le_bytes();
+			addresses.push(addr);
+		}
+		let mut rng = Pcg64::seed_from_u64(1337);
+		addresses.shuffle(&mut rng);
+
+		// The addresses need to be padded to be one cache line apart.
+		let mut memory = Vec::with_capacity((NUM_ADDRESSES * CACHE_LINE_SIZE) as usize);
+		for address in addresses {
+			memory.extend_from_slice(&address);
+			memory.resize(memory.len() + CACHE_LINE_SIZE as usize - address.len(), 0);
+		}
+
+		// Copies `memory` to `aux_data_base + MISALIGNMENT`.
+		// Sets `a0 = MISALIGNMENT` and `a1 = r`.
+		prepared
+			.setup_aux_data(memory.as_slice(), MISALIGNMENT as u32, r.into())
+			.unwrap();
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_empty_loop(r: Linear<0, 100_000>) {
+		let mut setup = CallSetup::<T>::new(WasmModule::instr(false));
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
+		prepared.setup_aux_data(&[], 0, r.into()).unwrap();
+
 		#[block]
 		{
 			prepared.call().unwrap();
