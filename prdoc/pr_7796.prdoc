@@ -1,0 +1,12 @@
+title: Switch to litep2p manual routing table mode
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      By default, litep2p will add to the routing table peers automatically.
+      In this PR, peers are added to the routing table only if they implement the substrate protocols.
+      For example, peers that implement the deprecated /kad/sup protocol will no longer be added to the routing table.
+
+crates:
+  - name: sc-network
+    bump: patch
