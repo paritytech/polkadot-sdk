@@ -23,13 +23,13 @@ use super::{mock::*, utils::*};
 use crate as pallet_child_bounties;
 use crate::{
 	tests::mock::ChildBounties, BountiesError, ChildBounty, ChildBountyStatus, Error,
-	Event as ChildBountiesEvent, PaymentState, PaymentStatus, Pays
+	Event as ChildBountiesEvent, PaymentState, PaymentStatus, Pays,
 };
 
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{Currency, Hooks},
 	dispatch::PostDispatchInfo,
+	traits::{Currency, Hooks},
 };
 use sp_runtime::traits::BadOrigin;
 
@@ -1744,10 +1744,15 @@ fn check_and_process_funding_and_payout_payment_works() {
 
 		// When/Then (check ChildBountyStatus::Approved - PaymentState::Attempted -
 		// PaymentStatus::InProgress)
-		let payment_id = get_child_bounty_payment_id(parent_index, child_index, None).expect("no payment attempt");
+		let payment_id = get_child_bounty_payment_id(parent_index, child_index, None)
+			.expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::InProgress);
 		assert_noop!(
-			ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index),
+			ChildBounties::check_payment_status(
+				RuntimeOrigin::signed(user),
+				parent_index,
+				child_index
+			),
 			BountiesError::<Test>::FundingInconclusive
 		);
 
@@ -1755,22 +1760,39 @@ fn check_and_process_funding_and_payout_payment_works() {
 		// PaymentStatus::Failure)
 		set_status(payment_id, PaymentStatus::Failure);
 		assert_eq!(
-			ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index),
+			ChildBounties::check_payment_status(
+				RuntimeOrigin::signed(user),
+				parent_index,
+				child_index
+			),
 			Ok(PostDispatchInfo { actual_weight: None, pays_fee: Pays::No })
 		);
 
 		// When/Then (check BountyStatus::Approved - PaymentState::Failed)
 		assert_noop!(
-			ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index),
+			ChildBounties::check_payment_status(
+				RuntimeOrigin::signed(user),
+				parent_index,
+				child_index
+			),
 			BountiesError::<Test>::UnexpectedStatus
 		);
 
 		// When (process BountyStatus::Approved and check PaymentState::Success)
-		assert_ok!(ChildBounties::process_payment(RuntimeOrigin::signed(user), parent_index, child_index));
-		let payment_id = get_child_bounty_payment_id(parent_index, child_index, None).expect("no payment attempt");
+		assert_ok!(ChildBounties::process_payment(
+			RuntimeOrigin::signed(user),
+			parent_index,
+			child_index
+		));
+		let payment_id = get_child_bounty_payment_id(parent_index, child_index, None)
+			.expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Success);
-		assert_ok!(ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index));
-	
+		assert_ok!(ChildBounties::check_payment_status(
+			RuntimeOrigin::signed(user),
+			parent_index,
+			child_index
+		));
+
 		// Then
 		assert_eq!(
 			pallet_child_bounties::ChildBounties::<Test>::get(parent_index, child_index).unwrap(),
@@ -1797,21 +1819,41 @@ fn check_and_process_funding_and_payout_payment_works() {
 			child_fee
 		));
 		Balances::make_free_balance_be(&child_curator, 6);
-		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(child_curator), parent_index, child_index, child_curator_stash));
-		assert_ok!(ChildBounties::award_child_bounty(RuntimeOrigin::signed(child_curator), parent_index, child_index, beneficiary));
+		assert_ok!(ChildBounties::accept_curator(
+			RuntimeOrigin::signed(child_curator),
+			parent_index,
+			child_index,
+			child_curator_stash
+		));
+		assert_ok!(ChildBounties::award_child_bounty(
+			RuntimeOrigin::signed(child_curator),
+			parent_index,
+			child_index,
+			beneficiary
+		));
 		go_to_block(5);
-		assert_ok!(ChildBounties::claim_child_bounty(RuntimeOrigin::signed(beneficiary), parent_index, child_index));
+		assert_ok!(ChildBounties::claim_child_bounty(
+			RuntimeOrigin::signed(beneficiary),
+			parent_index,
+			child_index
+		));
 
 		// When (check ChildBountyStatus::PayoutAttempted - PaymentState::Attempted - 2x
 		// PaymentStatus::InProgress)
 		let beneficiary_payment_id =
-			get_child_bounty_payment_id(parent_index, child_index, Some(beneficiary)).expect("no payment attempt");
+			get_child_bounty_payment_id(parent_index, child_index, Some(beneficiary))
+				.expect("no payment attempt");
 		set_status(beneficiary_payment_id, PaymentStatus::InProgress);
 		let curator_payment_id =
-		get_child_bounty_payment_id(parent_index, child_index, Some(child_curator_stash)).expect("no payment attempt");
-			set_status(curator_payment_id, PaymentStatus::InProgress);
+			get_child_bounty_payment_id(parent_index, child_index, Some(child_curator_stash))
+				.expect("no payment attempt");
+		set_status(curator_payment_id, PaymentStatus::InProgress);
 		assert_noop!(
-			ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index),
+			ChildBounties::check_payment_status(
+				RuntimeOrigin::signed(user),
+				parent_index,
+				child_index
+			),
 			BountiesError::<Test>::PayoutInconclusive
 		);
 
@@ -1819,13 +1861,21 @@ fn check_and_process_funding_and_payout_payment_works() {
 		// PaymentStatus::Failure)
 		set_status(beneficiary_payment_id, PaymentStatus::Failure);
 		assert_eq!(
-			ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index),
+			ChildBounties::check_payment_status(
+				RuntimeOrigin::signed(user),
+				parent_index,
+				child_index
+			),
 			Ok(PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes })
 		);
 
 		// When/Then (check ChildBountyStatus::PayoutAttempted - PaymentState::Failed)
 		assert_noop!(
-			ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index),
+			ChildBounties::check_payment_status(
+				RuntimeOrigin::signed(user),
+				parent_index,
+				child_index
+			),
 			BountiesError::<Test>::UnexpectedStatus
 		);
 
@@ -1879,18 +1929,32 @@ fn check_and_process_refund_payment_works() {
 			child_value,
 			b"12345-p1".to_vec()
 		));
-		let payment_id = get_child_bounty_payment_id(parent_index, child_index, None).expect("no payment attempt");
+		let payment_id = get_child_bounty_payment_id(parent_index, child_index, None)
+			.expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Success);
-		assert_ok!(ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index));
-		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::root(), parent_index, child_index));
+		assert_ok!(ChildBounties::check_payment_status(
+			RuntimeOrigin::signed(user),
+			parent_index,
+			child_index
+		));
+		assert_ok!(ChildBounties::close_child_bounty(
+			RuntimeOrigin::root(),
+			parent_index,
+			child_index
+		));
 		go_to_block(1);
 
 		// When/Then (check ChildBountyStatus::RefundAttempted - PaymentState::Attempted -
 		// PaymentStatus::InProgress)
-		let payment_id = get_child_bounty_payment_id(parent_index, child_index, None).expect("no payment attempt");
+		let payment_id = get_child_bounty_payment_id(parent_index, child_index, None)
+			.expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::InProgress);
 		assert_noop!(
-			ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index),
+			ChildBounties::check_payment_status(
+				RuntimeOrigin::signed(user),
+				parent_index,
+				child_index
+			),
 			BountiesError::<Test>::RefundInconclusive
 		);
 
@@ -1898,30 +1962,61 @@ fn check_and_process_refund_payment_works() {
 		// PaymentStatus::Failure)
 		set_status(payment_id, PaymentStatus::Failure);
 		assert_eq!(
-			ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index),
+			ChildBounties::check_payment_status(
+				RuntimeOrigin::signed(user),
+				parent_index,
+				child_index
+			),
 			Ok(PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes })
 		);
 
 		// When/Then (check ChildBountyStatus::RefundAttempted - PaymentState::Failed)
 		assert_noop!(
-			ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index),
+			ChildBounties::check_payment_status(
+				RuntimeOrigin::signed(user),
+				parent_index,
+				child_index
+			),
 			BountiesError::<Test>::UnexpectedStatus
 		);
 
 		// When (process ChildBountyStatus::RefundAttempted and check PaymentState::Success)
-		assert_ok!(ChildBounties::process_payment(RuntimeOrigin::signed(user), parent_index, child_index));
-		let payment_id = get_child_bounty_payment_id(parent_index, child_index, None).expect("no payment attempt");
+		assert_ok!(ChildBounties::process_payment(
+			RuntimeOrigin::signed(user),
+			parent_index,
+			child_index
+		));
+		let payment_id = get_child_bounty_payment_id(parent_index, child_index, None)
+			.expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Success);
-		assert_ok!(ChildBounties::check_payment_status(RuntimeOrigin::signed(user), parent_index, child_index));
+		assert_ok!(ChildBounties::check_payment_status(
+			RuntimeOrigin::signed(user),
+			parent_index,
+			child_index
+		));
 
 		// Then
 		assert_eq!(last_event(), ChildBountiesEvent::Canceled { index: parent_index, child_index });
-		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(parent_index, child_index)), 0);
-		assert_eq!(pallet_child_bounties::ChildBounties::<Test>::get(parent_index, child_index), None);
-		assert_eq!(pallet_child_bounties::ChildBountyDescriptionsV1::<Test>::get(parent_index, child_index), None);
+		assert_eq!(
+			Balances::free_balance(ChildBounties::child_bounty_account_id(
+				parent_index,
+				child_index
+			)),
+			0
+		);
+		assert_eq!(
+			pallet_child_bounties::ChildBounties::<Test>::get(parent_index, child_index),
+			None
+		);
+		assert_eq!(
+			pallet_child_bounties::ChildBountyDescriptionsV1::<Test>::get(
+				parent_index,
+				child_index
+			),
+			None
+		);
 	});
 }
-
 
 #[test]
 fn integrity_test() {

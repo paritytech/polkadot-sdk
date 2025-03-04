@@ -50,12 +50,12 @@ pub fn set_status(id: u64, s: PaymentStatus) {
 
 /// set the status of the last child-bounty payment to `PaymentStatus::Success`.
 pub fn approve_last_child_bounty_payment() {
-    let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-    STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Success));
+	let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
+	STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Success));
 }
 
 /// set the status of the last child-bounty payment to `PaymentStatus::Failure`.
 pub fn reject_last_child_bounty_payment() {
-    let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-    STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Failure));
+	let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
+	STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Failure));
 }

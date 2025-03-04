@@ -922,7 +922,8 @@ pub mod pallet {
 				parent_bounty_id,
 				child_bounty_id,
 				|maybe_child_bounty| -> DispatchResultWithPostInfo {
-					let child_bounty = maybe_child_bounty.as_mut().ok_or(BountiesError::<T, I>::InvalidIndex)?;
+					let child_bounty =
+						maybe_child_bounty.as_mut().ok_or(BountiesError::<T, I>::InvalidIndex)?;
 
 					match child_bounty.status {
 						ChildBountyStatus::Approved { ref mut payment_status } => {
@@ -935,7 +936,9 @@ pub mod pallet {
 							);
 
 							let parent_bounty_account =
-								pallet_bounties::Pallet::<T, I>::bounty_account_id(parent_bounty_id);
+								pallet_bounties::Pallet::<T, I>::bounty_account_id(
+									parent_bounty_id,
+								);
 							let child_bounty_account =
 								Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
 							let asset_kind = Self::bounty_asset_kind(parent_bounty_id)?;
@@ -961,9 +964,12 @@ pub mod pallet {
 								BountiesError::<T, I>::UnexpectedStatus
 							);
 
-							let child_bounty_account = Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
+							let child_bounty_account =
+								Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
 							let parent_bounty_account =
-								pallet_bounties::Pallet::<T, I>::bounty_account_id(parent_bounty_id);
+								pallet_bounties::Pallet::<T, I>::bounty_account_id(
+									parent_bounty_id,
+								);
 							let asset_kind = Self::bounty_asset_kind(parent_bounty_id)?;
 							let payment_id = T::Paymaster::pay(
 								&child_bounty_account,
@@ -1004,9 +1010,9 @@ pub mod pallet {
 								)
 								.map_err(|_| BountiesError::<T, I>::PayoutError),
 							];
-							
-							// Tiago: process_payment does not change child_bounty.status state. Should it
-							// change?
+
+							// Tiago: process_payment does not change child_bounty.status state.
+							// Should it change?
 							let succeeded = statuses.iter().filter(|i| i.is_ok()).count();
 							if succeeded > 0 {
 								Ok(Pays::Yes.into())
@@ -1062,28 +1068,32 @@ pub mod pallet {
 					let mut new_child_bounty_status = None;
 
 					let result = match child_bounty.status {
-						ChildBountyStatus::Approved { ref mut payment_status } => match payment_status {
-							PaymentState::Attempted { id } =>
-								match T::Paymaster::check_payment(*id) {
-									PaymentStatus::Success => {
-										*payment_status = PaymentState::Succeeded;
-										new_child_bounty_status = Some(ChildBountyStatus::Funded);
-										// Tiago: should I be returning something like
-										// <T as Config<I>>::WeightInfo::check_payment_status_approved() in each arm?
-										Ok(Pays::No.into())
+						ChildBountyStatus::Approved { ref mut payment_status } =>
+							match payment_status {
+								PaymentState::Attempted { id } =>
+									match T::Paymaster::check_payment(*id) {
+										PaymentStatus::Success => {
+											*payment_status = PaymentState::Succeeded;
+											new_child_bounty_status =
+												Some(ChildBountyStatus::Funded);
+											// Tiago: should I be returning something like
+											// <T as Config<I>>::WeightInfo::check_payment_status_approved() in each arm?
+											Ok(Pays::No.into())
+										},
+										PaymentStatus::InProgress =>
+											return Err(
+												BountiesError::<T, I>::FundingInconclusive.into()
+											),
+										PaymentStatus::Unknown | PaymentStatus::Failure => {
+											// TODO: should we assume payment has failed on unknown?
+											// not sure yet
+											*payment_status = PaymentState::Failed;
+											// user can retry from this tate
+											return Ok(Pays::No.into());
+										},
 									},
-									PaymentStatus::InProgress =>
-										return Err(BountiesError::<T, I>::FundingInconclusive.into()),
-									PaymentStatus::Unknown | PaymentStatus::Failure => {
-										// TODO: should we assume payment has failed on unknown? not
-										// sure yet
-										*payment_status = PaymentState::Failed;
-										// user can retry from this tate
-										return Ok(Pays::No.into());
-									},
-								},
-							_ => return Err(BountiesError::<T, I>::UnexpectedStatus.into()),
-						},
+								_ => return Err(BountiesError::<T, I>::UnexpectedStatus.into()),
+							},
 						ChildBountyStatus::PayoutAttempted {
 							ref curator,
 							ref mut curator_stash,
