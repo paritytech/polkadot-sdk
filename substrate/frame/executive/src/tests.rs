@@ -1296,7 +1296,7 @@ fn try_execute_block_works() {
 /// Same as `extrinsic_while_exts_forbidden_errors` but using the try-runtime function.
 #[test]
 #[cfg(feature = "try-runtime")]
-#[should_panic = "Only inherents allowed"]
+#[should_panic = "Only inherents are allowed in this block"]
 fn try_execute_tx_forbidden_errors() {
 	let xt1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
 	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
@@ -1438,7 +1438,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 			match header {
 				Err(e) => {
-					let err = e.downcast::<&str>().unwrap();
+					let err = e.downcast::<String>().unwrap();
 					assert_eq!(*err, "Only inherents are allowed in this block");
 					assert!(
 						MbmActive::get() && n_tx > 0,
