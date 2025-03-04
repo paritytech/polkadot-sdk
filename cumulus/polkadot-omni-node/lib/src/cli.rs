@@ -72,6 +72,7 @@ pub enum Subcommand {
 	Key(sc_cli::KeySubcommand),
 
 	/// Build a chain specification.
+	///
 	/// The `build-spec` command relies on the chain specification built (hard-coded) into the node
 	/// binary, and may utilize the genesis presets of the runtimes  also embedded in the nodes
 	/// that support  this command. Since `polkadot-omni-node` does not contain any embedded
@@ -100,7 +101,8 @@ pub enum Subcommand {
 	Revert(sc_cli::RevertCmd),
 
 	/// Subcommand for generating and managing chain specifications.
-	/// `chain-spec-builder` subcommand corresponds to the existing `chain-spec-builder` tool
+	///
+	/// A `chain-spec-builder` subcommand corresponds to the existing `chain-spec-builder` tool
 	/// (https://crates.io/crates/staging-chain-spec-builder), which can be used already standalone.
 	/// It provides the same functionality as the tool but bundled with `polkadot-omni-node` to
 	/// enable easier access to chain-spec generation, patching, converting to raw or validation,
@@ -109,7 +111,6 @@ pub enum Subcommand {
 	/// pages:
 	/// - https://crates.io/crates/staging-chain-spec-builder
 	/// - https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/
-	/// ---
 	ChainSpecBuilder(ChainSpecBuilder),
 
 	/// Remove the whole chain.
