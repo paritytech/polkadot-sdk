@@ -34,7 +34,7 @@ use litep2p::{
 			kademlia::{
 				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, ContentProvider,
 				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, PeerRecord, QueryId,
-				Quorum, Record, RecordKey,
+				Quorum, Record, RecordKey, RoutingTableUpdateMode,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
@@ -284,6 +284,7 @@ impl Discovery {
 			KademliaConfigBuilder::new()
 				.with_known_peers(known_peers)
 				.with_protocol_names(protocol_names)
+				.with_routing_table_update_mode(RoutingTableUpdateMode::Manual)
 				.with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
 				.build()
 		};
