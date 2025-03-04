@@ -1011,9 +1011,16 @@ pub trait EstimateCallFee<Call, Balance> {
 
 // Useful for building mocks.
 #[cfg(feature = "std")]
-impl<Call, Balance: From<u32>, G: Get<Balance>> EstimateCallFee<Call, Balance> for G {
+impl<Call, Balance: From<u32>, const T: u32> EstimateCallFee<Call, Balance> for ConstU32<T> {
 	fn estimate_call_fee(_: &Call, _: crate::dispatch::PostDispatchInfo) -> Balance {
-		G::get()
+		T.into()
+	}
+}
+
+#[cfg(feature = "std")]
+impl<Call, Balance: From<u32>, const T: u64> EstimateCallFee<Call, Balance> for ConstU64<T> {
+	fn estimate_call_fee(_: &Call, _: crate::dispatch::PostDispatchInfo) -> Balance {
+		(T as u32).into()
 	}
 }
 

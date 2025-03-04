@@ -850,8 +850,14 @@ pub mod pallet {
 			Ok(None.into())
 		}
 
-		#[pallet::weight(0)]
+		/// Clear the data of a submitter form an old round.
+		///
+		/// The dispatch origin of this call must be signed, and the original submitter.
+		///
+		/// This can only be called for submissions that end up being discarded, as in they are not
+		/// processed and they end up lingering in the queue.
 		#[pallet::call_index(3)]
+		#[pallet::weight(0)]
 		pub fn clear_old_round_data(
 			origin: OriginFor<T>,
 			round: u32,
