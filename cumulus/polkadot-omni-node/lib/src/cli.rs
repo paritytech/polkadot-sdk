@@ -103,14 +103,14 @@ pub enum Subcommand {
 	/// Subcommand for generating and managing chain specifications.
 	///
 	/// A `chain-spec-builder` subcommand corresponds to the existing `chain-spec-builder` tool
-	/// (https://crates.io/crates/staging-chain-spec-builder), which can be used already standalone.
+	/// (<https://crates.io/crates/staging-chain-spec-builder>), which can be used already standalone.
 	/// It provides the same functionality as the tool but bundled with `polkadot-omni-node` to
 	/// enable easier access to chain-spec generation, patching, converting to raw or validation,
 	/// from a single binary, which can be used as a parachain node tool
 	/// For a detailed usage guide please check out the standalone tool's crates.io or docs.rs
 	/// pages:
-	/// - https://crates.io/crates/staging-chain-spec-builder
-	/// - https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/
+	/// - <https://crates.io/crates/staging-chain-spec-builder>
+	/// - <https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/>
 	ChainSpecBuilder(ChainSpecBuilder),
 
 	/// Remove the whole chain.
