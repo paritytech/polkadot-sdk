@@ -28,7 +28,11 @@ use sp_keyring::Sr25519Keyring;
 /// However, the presets does not allow dynamic para-ids currently.
 pub const DEFAULT_GLUTTON_PARA_ID: ParaId = ParaId::new(1300);
 
-pub fn glutton_westend_genesis(authorities: Vec<AuraId>, sudo: Option<AccountId>, id: ParaId) -> serde_json::Value {
+pub fn glutton_westend_genesis(
+	authorities: Vec<AuraId>,
+	sudo: Option<AccountId>,
+	id: ParaId,
+) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		aura: AuraConfig { authorities },
