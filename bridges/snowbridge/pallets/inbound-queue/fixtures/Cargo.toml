@@ -14,6 +14,9 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [dependencies]
 hex-literal = { workspace = true, default-features = true }
 snowbridge-beacon-primitives = { workspace = true }

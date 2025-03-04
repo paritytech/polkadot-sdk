@@ -82,13 +82,7 @@ pub fn register_relay_token_on_bh() {
 }
 
 pub fn register_assets_on_penpal() {
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
-			2,
-			[GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap()
-		.into();
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	PenpalB::execute_with(|| {
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
 			<PenpalB as Chain>::RuntimeOrigin::root(),

@@ -14,6 +14,9 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }

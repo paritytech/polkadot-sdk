@@ -23,7 +23,7 @@ pub type AgentId = H256;
 
 /// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
 /// Ethereum which acts as the sovereign account for the Location.
-#[allow(deprecated)]
+/// Resolves Polkadot locations (as seen by Ethereum) to unique `AgentId` identifiers.
 pub type AgentIdOf = HashedDescription<
 	AgentId,
 	(

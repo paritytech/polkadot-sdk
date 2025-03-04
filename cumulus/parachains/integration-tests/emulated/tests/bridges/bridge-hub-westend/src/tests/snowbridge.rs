@@ -12,7 +12,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{imports::*, tests::penpal_emulated_chain::penpal_runtime};
+use crate::{
+	imports::*,
+	tests::{penpal_emulated_chain::penpal_runtime, snowbridge_common::snowbridge_sovereign},
+};
 use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumBeaconClient, EthereumInboundQueue,
@@ -28,7 +31,7 @@ use rococo_westend_system_emulated_network::{
 use snowbridge_core::{AssetMetadata, TokenIdOf};
 use snowbridge_inbound_queue_primitives::{
 	v1::{Command, Destination, MessageV1, VersionedMessage},
-	EthereumLocationsConverterFor, InboundQueueFixture,
+	InboundQueueFixture,
 };
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
 use sp_core::H256;
@@ -163,10 +166,7 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 /// a token from Ethereum to AssetHub.
 #[test]
 fn send_weth_token_from_ethereum_to_asset_hub() {
-	let ethereum_network: NetworkId = EthereumNetwork::get().into();
-	let origin_location = Location::new(2, ethereum_network);
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
 
@@ -281,11 +281,8 @@ fn send_weth_from_ethereum_to_penpal() {
 	let weth_asset_location: Location =
 		(Parent, Parent, ethereum_network_v5, AccountKey20 { network: None, key: WETH }).into();
 
-	let origin_location = (Parent, Parent, ethereum_network_v5).into();
-
 	// Fund ethereum sovereign on AssetHub
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	// Create asset on the Penpal parachain.
@@ -386,13 +383,12 @@ fn send_weth_from_ethereum_to_penpal() {
 #[test]
 fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 	let ethereum_network: NetworkId = EthereumNetwork::get().into();
-	let origin_location = (Parent, Parent, ethereum_network).into();
+	let origin_location: Location = (Parent, Parent, ethereum_network).into();
 
 	use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 
 	AssetHubWestend::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubWestend::force_default_xcm_version(Some(XCM_VERSION));
@@ -933,11 +929,8 @@ fn send_token_from_ethereum_to_penpal() {
 	let weth_asset_location: Location =
 		(Parent, Parent, ethereum_network_v5, AccountKey20 { network: None, key: WETH }).into();
 
-	let origin_location = (Parent, Parent, ethereum_network_v5).into();
-
 	// Fund ethereum sovereign on AssetHub
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	// Create asset on the Penpal parachain.
@@ -1036,13 +1029,7 @@ fn transfer_relay_token() {
 
 	let expected_token_id = TokenIdOf::convert_location(&expected_asset_id).unwrap();
 
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
-			2,
-			[GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap()
-		.into();
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 
 	// Register token
 	BridgeHubWestend::execute_with(|| {
@@ -1184,10 +1171,7 @@ fn transfer_ah_token() {
 
 	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
 
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&ethereum_destination)
-			.unwrap()
-			.into();
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	let asset_id: Location =

@@ -30,7 +30,7 @@ use sp_core::{ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
-use xcm::latest::{Junction::Parachain, Location, Asset, Result as XcmResult, XcmContext};
+use xcm::latest::{Asset, Junction::Parachain, Location, Result as XcmResult, XcmContext};
 use xcm_executor::traits::TransactAsset;
 
 /// The ID of an agent contract
@@ -184,10 +184,15 @@ impl Default for AssetMetadata {
 /// Maximum length of a string field in ERC20 token metada
 const METADATA_FIELD_MAX_LEN: u32 = 32;
 
+/// Helper function that validates `fee` can be burned, then withdraws it from `origin` and burns
+/// it.
+/// Note: Make sure this is called from a transactional storage context so that side-effects
+/// are rolled back on errors.
 pub fn burn_for_teleport<AssetTransactor>(origin: &Location, fee: &Asset) -> XcmResult
-where AssetTransactor: TransactAsset {
-	let dummy_context =
-		XcmContext { origin: None, message_id: Default::default(), topic: None };
+where
+	AssetTransactor: TransactAsset,
+{
+	let dummy_context = XcmContext { origin: None, message_id: Default::default(), topic: None };
 	AssetTransactor::can_check_out(origin, fee, &dummy_context)?;
 	AssetTransactor::check_out(origin, fee, &dummy_context);
 	AssetTransactor::withdraw_asset(fee, origin, None)?;
