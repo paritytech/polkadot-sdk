@@ -43,9 +43,12 @@
 //!
 //! * Implement `SessionManager` (and historical variant thereof).
 //! * Implement `OnOffenceHandler`.
-//! * Implement
+//! * Implement reward related APIs.
 //! * If further communication is needed to the session pallet, either a custom trait (`trait
 //!   SessionInterface`) or tightly coupling the session-pallet should work.
+//!
+//! TODO:
+//! * Governance functions to force set validators.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
