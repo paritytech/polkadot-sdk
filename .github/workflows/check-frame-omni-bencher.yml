@@ -90,7 +90,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: benchmark ${{ matrix.bench_cmd }}
+      - name: script
         id: required
         shell: bash
         run: |
