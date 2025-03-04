@@ -153,6 +153,8 @@ pub struct ValidatorSetReport<AccountId> {
 	/// later pointed to in a `SessionReport`.
 	pub id: u32,
 	/// Signal the relay chain that it can prune up to this session, ans enough eras have passed.
+	///
+	/// This can always have a safety buffer. For example, whatever is a sane value, it can be `value - 5`.
 	pub prune_up_to: SessionIndex,
 	/// Same semantics as [`SessionReport::leftover`].
 	pub leftover: bool,
@@ -267,6 +269,7 @@ pub trait RcClientInterface {
 
 // An offence on the relay chain. Based on [`sp_staking::offence::OffenceDetails`].
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
+// TODO: double check: one or many offenders/reporters?
 pub struct Offence<AccountId> {
 	/// The offender.
 	pub offender: AccountId,

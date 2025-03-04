@@ -9,7 +9,6 @@ construct_runtime! {
 	pub enum Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
-		ParasOrigin: polkadot_runtime_parachains::origin,
 		Timestamp: pallet_timestamp,
 
 		Session: pallet_session,
@@ -143,8 +142,6 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 
-// needed because of the `RuntimeOrigin` of `pallet_staking_ah_client`
-impl polkadot_runtime_parachains::origin::Config for Runtime {}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutgoingMessages {
