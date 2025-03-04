@@ -36,7 +36,7 @@ the default branch.
 
 ### Examples
 
-The regex in cmd.yml is: `^(\/cmd )([-\/\s\w.=:'"]+)$` accepts only alphanumeric, space, "-", "/", "=", ":", ".", "'" chars.
+The regex in cmd.yml is: `^(\/cmd )([-\/\s\w.=:]+)$` accepts only alphanumeric, space, "-", "/", "=", ":", "." chars.
 
 `/cmd bench --runtime bridge-hub-westend --pallet=pallet_name`
 `/cmd prdoc --audience runtime_dev runtime_user --bump patch --force`
