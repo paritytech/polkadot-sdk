@@ -168,7 +168,7 @@ fn reserve_transfer_with_error() {
 	MockNet::reset();
 
 	// Execute XCM Transfer and Capture Logs
-	let (log_capture, subscriber) = init_log_capture(Level::ERROR);
+	let (log_capture, subscriber) = init_log_capture(Level::ERROR, false);
 	subscriber::with_default(subscriber, || {
 		let invalid_dest = Box::new(Parachain(9999).into());
 		let withdraw_amount = 123;

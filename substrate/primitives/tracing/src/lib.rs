@@ -416,10 +416,13 @@ pub mod test_log_capture {
 		// Create a new log capture instance
 		let log_capture = LogCapture::new();
 
+		// Convert the max log level into LevelFilter
+		let level_filter = max_level.into();
+
 		// Create a layer for capturing logs into LogCapture
 		let capture_layer = fmt::layer()
 			.with_writer(log_capture.writer()) // Use LogCapture as the writer
-			.with_filter(max_level.clone().into()); // Set the max log level
+			.with_filter(level_filter.clone()); // Set the max log level
 
 		// Base subscriber with log capturing
 		let subscriber = Registry::default().with(capture_layer);
@@ -429,7 +432,7 @@ pub mod test_log_capture {
 			Some(
 				fmt::layer()
 					.with_test_writer() // Direct logs to test output
-					.with_filter(max_level.into()), // Apply the same max log level filter
+					.with_filter(level_filter), // Apply the same max log level filter
 			)
 		} else {
 			None

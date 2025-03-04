@@ -6,3 +6,5 @@ doc:
 crates:
 - name: sp-tracing
   bump: minor
+- name: xcm-simulator-example
+  bump: patch
