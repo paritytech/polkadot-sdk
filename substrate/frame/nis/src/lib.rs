@@ -78,24 +78,28 @@
 
 extern crate alloc;
 
-use frame_support::traits::{
-	fungible::{self, Inspect as FunInspect, Mutate as FunMutate},
-	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
-};
-pub use pallet::*;
-use sp_arithmetic::{traits::Unsigned, RationalArg};
-use sp_core::TypedGet;
-use sp_runtime::{
-	traits::{Convert, ConvertBack},
-	DispatchError, Perquintill,
-};
+pub mod weights;
 
 mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod weights;
+
+pub use pallet::*;
+pub use weights::WeightInfo;
+
+use alloc::{vec, vec::Vec};
+use frame::prelude::*;
+use fungible::{
+	Balanced as FunBalanced, Inspect as FunInspect, Mutate as FunMutate,
+	MutateHold as FunMutateHold,
+};
+use nonfungible::{Inspect as NftInspect, Transfer as NftTransfer};
+use tokens::{Balance, Restriction::*};
+use Fortitude::*;
+use Precision::*;
+use Preservation::*;
 
 pub struct WithMaximumOf<A: TypedGet>(core::marker::PhantomData<A>);
 impl<A: TypedGet> Convert<Perquintill, A::Type> for WithMaximumOf<A>
@@ -169,33 +173,9 @@ impl BenchmarkSetup for () {
 	fn create_counterpart_asset() {}
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
-	use super::{FunInspect, FunMutate};
-	pub use crate::weights::WeightInfo;
-	use alloc::{vec, vec::Vec};
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{
-			fungible::{self, hold::Mutate as FunHoldMutate, Balanced as FunBalanced},
-			nonfungible::{Inspect as NftInspect, Transfer as NftTransfer},
-			tokens::{
-				Balance,
-				Fortitude::Polite,
-				Precision::{BestEffort, Exact},
-				Preservation::Expendable,
-				Restriction::{Free, OnHold},
-			},
-			Defensive, DefensiveSaturating, OnUnbalanced,
-		},
-		PalletId,
-	};
-	use frame_system::pallet_prelude::*;
-	use sp_arithmetic::{PerThing, Perquintill};
-	use sp_runtime::{
-		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero},
-		Rounding, TokenError,
-	};
+	use super::*;
 
 	type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -224,7 +204,7 @@ pub mod pallet {
 		type Currency: FunInspect<Self::AccountId, Balance = Self::CurrencyBalance>
 			+ FunMutate<Self::AccountId>
 			+ FunBalanced<Self::AccountId>
-			+ FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+			+ FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
