@@ -1,15 +1,29 @@
-title: "Add `Paras` `authorize_code_hash` + `apply_authorized_code` feature"
+title: Add `Paras` `authorize_code_hash` + `apply_authorized_code` feature
 doc:
 - audience: Runtime Dev
   description: |-
-    This feature can be useful when we want to trigger for example `Paras::force_set_current_code(para, code)` from a different chain than the one where the `Paras` pallet is deployed.
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/7574
+    Relates to: https://github.com/paritytech/polkadot-sdk/issues/7591
 
-    The main reason is to avoid transferring the entire `new_code` wasm blob between chains.
-    Instead, we authorize `code_hash` by `root` with `Paras::authorize_force_set_current_code_hash(para, code)`, which can later be applied by `Paras::apply_authorized_force_set_current_code(para, code)` by anyone.
+    This feature is useful when triggering a `Paras` pallet call from a different chain than the one where the `Paras` pallet is deployed. For example, we may want to send `Paras::force_set_current_code(para, code)` from the Collectives and/or AssetHub to the relay chain (because the relaychain governance will be migrated to the AssetHub as a part of AHM).
+
+    The primary reason for this approach is to avoid transferring the entire `new_code` Wasm blob between chains. Instead, we authorize the `code_hash` using `root` via `fn authorize_force_set_current_code_hash(new_authorization, expire_at)`. This authorization can later be applied by anyone using `Paras::apply_authorized_force_set_current_code(para, new_code)`. If `expire_at` is reached without the authorization being used, it is automatically removed.
+
+    ## TODO
+    - [x] cover also `add_trusted_validation_code` or `force_schedule_code_upgrade` - see comment bellow: https://github.com/paritytech/polkadot-sdk/pull/7592#issuecomment-2678092104
+
+
+    ## Open questions
+
+    - [ ] ~Do we need something like `poke_authorized_code_hash`? E.g. in case that we authorize code hash, but nobody would apply it and the parachain starts working with old/other_new code? Is this possible?~
+    - [ ] Do we need something similar for `frame_system` pallet and `set_code` / `set_code_without_checks`?
+    - [ ] Can we achieve the same with `pallet-whitelist`?
+    - [ ] Do we have other extrinsics over chains which has `code` attribute?
+    - [x] Do we need to add `validate_unsigned` for `apply_authorized_code`?
 crates:
 - name: polkadot-runtime-parachains
-  bump: major
+  bump: patch
 - name: rococo-runtime
-  bump: minor
+  bump: patch
 - name: westend-runtime
-  bump: minor
+  bump: patch
