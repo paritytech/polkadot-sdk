@@ -57,8 +57,8 @@ bench_example = '''**Examples**:
  Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
  %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
 
- Runs benchamrks for pallet_election_provider_multi_block for westend runtime with env VALIDATOR_COUNT=300 and heap_pages set to 65000
- %(prog)s bench --pallet pallet-election-provider-multi-block --runtime westend --env-vars VALIDATOR_COUNT=300 -- --heap-pages 65000
+ Runs benchamrks for pallet_election_provider_multi_block for kitchensink runtime with env VALIDATOR_COUNT=300 and heap_pages set to 65000
+ %(prog)s bench --pallet pallet-election-provider-multi-block --runtime dev --env-vars VALIDATOR_COUNT=300 -- --heap-pages 65000
 '''
 
 parser_bench = subparsers.add_parser('bench', aliases=['bench-omni'], help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
