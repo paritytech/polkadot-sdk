@@ -4213,7 +4213,7 @@ fn origin_must_be_mapped() {
 
 #[test]
 fn mapped_address_works() {
-	let (code, _) = compile_module("terminate_and_send_to_eve").unwrap();
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -4222,7 +4222,7 @@ fn mapped_address_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
-		builder::bare_call(addr).build_and_unwrap_result();
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
 
 		// after mapping it will be sent to the real eve account
@@ -4231,9 +4231,40 @@ fn mapped_address_works() {
 		// need some balance to pay for the map deposit
 		<Test as Config>::Currency::set_balance(&EVE, 1_000);
 		<Pallet<Test>>::map_account(RuntimeOrigin::signed(EVE)).unwrap();
-		builder::bare_call(addr).build_and_unwrap_result();
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 1_100);
+	});
+}
+
+#[test]
+fn recovery_works() {
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// eve puts her AccountId20 as argument to terminate but forgot to register
+		// her AccountId32 first so now the funds are trapped in her fallback account
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
+
+		let call = RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+			dest: EVE,
+			keep_alive: false,
+		});
+
+		// she now uses the recovery function to move all funds from the fallback
+		// account to her real account
+		<Pallet<Test>>::dispatch_as_fallback_account(RuntimeOrigin::signed(EVE), Box::new(call))
+			.unwrap();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 100);
 	});
 }
 

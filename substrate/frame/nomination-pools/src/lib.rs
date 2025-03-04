@@ -364,7 +364,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
 		tokens::{Fortitude, Preservation},
-		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
+		Contains, Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
 	DefaultNoBound, PalletError,
 };
@@ -1729,6 +1729,9 @@ pub mod pallet {
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
+
+		/// Restrict some accounts from participating in a nomination pool.
+		type Filter: Contains<Self::AccountId>;
 	}
 
 	/// The sum of funds across all pools.
@@ -2049,6 +2052,9 @@ pub mod pallet {
 		NotMigrated,
 		/// This call is not allowed in the current state of the pallet.
 		NotSupported,
+		/// Account is restricted from participation in pools. This may happen if the account is
+		/// staking in another way already.
+		Restricted,
 	}
 
 	#[derive(
@@ -2088,8 +2094,9 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Stake funds with a pool. The amount to bond is transferred from the member to the pool
-		/// account and immediately increases the pools bond.
+		/// Stake funds with a pool. The amount to bond is delegated (or transferred based on
+		/// [`adapter::StakeStrategyType`]) from the member to the pool account and immediately
+		/// increases the pool's bond.
 		///
 		/// The method of transferring the amount to the pool account is determined by
 		/// [`adapter::StakeStrategyType`]. If the pool is configured to use
@@ -2113,6 +2120,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// ensure pool is not in an un-migrated state.
 			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
+			// ensure account is not restricted from joining the pool.
+			ensure!(!T::Filter::contains(&who), Error::<T>::Restricted);
 
 			ensure!(amount >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
 			// If a member already exists that means they already belong to a pool
@@ -3148,12 +3158,16 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _caller = ensure_signed(origin)?;
 
+			// ensure `DelegateStake` strategy is used.
 			ensure!(
 				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
 				Error::<T>::NotSupported
 			);
 
+			// ensure member is not restricted from joining the pool.
 			let member_account = T::Lookup::lookup(member_account)?;
+			ensure!(!T::Filter::contains(&member_account), Error::<T>::Restricted);
+
 			let member =
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 
@@ -3482,6 +3496,9 @@ impl<T: Config> Pallet<T> {
 		bouncer: AccountIdLookupOf<T>,
 		pool_id: PoolId,
 	) -> DispatchResult {
+		// ensure depositor is not restricted from joining the pool.
+		ensure!(!T::Filter::contains(&who), Error::<T>::Restricted);
+
 		let root = T::Lookup::lookup(root)?;
 		let nominator = T::Lookup::lookup(nominator)?;
 		let bouncer = T::Lookup::lookup(bouncer)?;
@@ -3555,6 +3572,9 @@ impl<T: Config> Pallet<T> {
 		member_account: T::AccountId,
 		extra: BondExtra<BalanceOf<T>>,
 	) -> DispatchResult {
+		// ensure account is not restricted from joining the pool.
+		ensure!(!T::Filter::contains(&member_account), Error::<T>::Restricted);
+
 		if signer != member_account {
 			ensure!(
 				ClaimPermissions::<T>::get(&member_account).can_bond_extra(),
@@ -4222,5 +4242,13 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 				tvl.saturating_reduce(amount);
 			});
 		}
+	}
+}
+
+/// A utility struct that provides a way to check if a given account is a pool member.
+pub struct AllPoolMembers<T: Config>(PhantomData<T>);
+impl<T: Config> Contains<T::AccountId> for AllPoolMembers<T> {
+	fn contains(t: &T::AccountId) -> bool {
+		PoolMembers::<T>::contains_key(t)
 	}
 }
