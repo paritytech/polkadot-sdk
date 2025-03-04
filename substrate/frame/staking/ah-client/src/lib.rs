@@ -251,8 +251,6 @@ pub mod pallet {
 				(T::UnixTime::now().as_millis().saturated_into::<u64>(), 0)
 			});
 
-			// TODO: we need to know here if the ending of this session, which causes the start of a
-			// new session, is when a new validator set is being activated.
 			let session_report = pallet_staking_rc_client::SessionReport {
 				end_index: session_index,
 				validator_points,
@@ -269,8 +267,6 @@ pub mod pallet {
 
 	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
 		fn note_author(author: T::AccountId) {
-			// TODO: points from para-validation should also be collected somewhere, and added to
-			// the same storage item.
 			ValidatorPoints::<T>::mutate(author, |points| {
 				points.saturating_accrue(T::PointsPerBlock::get());
 			});
