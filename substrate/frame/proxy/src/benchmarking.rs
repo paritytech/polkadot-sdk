@@ -351,60 +351,75 @@ mod benchmarks {
 		let account_1: T::AccountId = account("account", 1, SEED);
 		let account_2: T::AccountId = account("account", 2, SEED);
 		let account_3: T::AccountId = account("account", 3, SEED);
-		
+
 		// Fund accounts
 		T::Currency::make_free_balance_be(&account_1, BalanceOf::<T>::max_value() / 100u8.into());
 		T::Currency::make_free_balance_be(&account_2, BalanceOf::<T>::max_value() / 100u8.into());
 		T::Currency::make_free_balance_be(&account_3, BalanceOf::<T>::max_value() / 100u8.into());
-		
+
 		// Add proxy relationships
 		Proxy::<T>::add_proxy(
 			RawOrigin::Signed(account_1.clone()).into(),
 			T::Lookup::unlookup(account_2.clone()),
 			T::ProxyType::default(),
-			BlockNumberFor::<T>::zero()
+			BlockNumberFor::<T>::zero(),
 		)?;
 		Proxy::<T>::add_proxy(
 			RawOrigin::Signed(account_2.clone()).into(),
 			T::Lookup::unlookup(account_3.clone()),
 			T::ProxyType::default(),
-			BlockNumberFor::<T>::zero()
+			BlockNumberFor::<T>::zero(),
 		)?;
 		let (proxies, initial_proxy_deposit) = Proxies::<T>::get(&account_2);
 		assert!(!initial_proxy_deposit.is_zero());
 		assert_eq!(initial_proxy_deposit, T::Currency::reserved_balance(&account_2));
-		
+
 		// Create announcement
 		Proxy::<T>::announce(
 			RawOrigin::Signed(account_2.clone()).into(),
 			T::Lookup::unlookup(account_1.clone()),
-			T::CallHasher::hash_of(&("add_announcement", 1))
+			T::CallHasher::hash_of(&("add_announcement", 1)),
 		)?;
 		let (announcements, initial_announcement_deposit) = Announcements::<T>::get(&account_2);
 		assert!(!initial_announcement_deposit.is_zero());
-		assert_eq!(initial_announcement_deposit.saturating_add(initial_proxy_deposit), T::Currency::reserved_balance(&account_2));
+		assert_eq!(
+			initial_announcement_deposit.saturating_add(initial_proxy_deposit),
+			T::Currency::reserved_balance(&account_2)
+		);
 
 		// Artificially inflate deposits and reserve the extra amount
-		let extra_proxy_deposit = initial_proxy_deposit;  // Double the deposit
-		let extra_announcement_deposit = initial_announcement_deposit;  // Double the deposit
+		let extra_proxy_deposit = initial_proxy_deposit; // Double the deposit
+		let extra_announcement_deposit = initial_announcement_deposit; // Double the deposit
 		let total = extra_proxy_deposit.saturating_add(extra_announcement_deposit);
 
 		T::Currency::reserve(&account_2, total)?;
-		
+
 		let initial_reserved = T::Currency::reserved_balance(&account_2);
 		assert_eq!(initial_reserved, total.saturating_add(total)); // Double
-		// Update storage with increased deposits
-		Proxies::<T>::insert(&account_2, (proxies, initial_proxy_deposit.saturating_add(extra_proxy_deposit)));
+															 // Update storage with increased deposits
+		Proxies::<T>::insert(
+			&account_2,
+			(proxies, initial_proxy_deposit.saturating_add(extra_proxy_deposit)),
+		);
 		Announcements::<T>::insert(
 			&account_2,
-			(announcements, initial_announcement_deposit.saturating_add(extra_announcement_deposit))
+			(
+				announcements,
+				initial_announcement_deposit.saturating_add(extra_announcement_deposit),
+			),
 		);
 
 		// Verify artificial state
 		let (_, inflated_proxy_deposit) = Proxies::<T>::get(&account_2);
 		let (_, inflated_announcement_deposit) = Announcements::<T>::get(&account_2);
-		assert_eq!(inflated_proxy_deposit, initial_proxy_deposit.saturating_add(extra_proxy_deposit));
-		assert_eq!(inflated_announcement_deposit, initial_announcement_deposit.saturating_add(extra_announcement_deposit));
+		assert_eq!(
+			inflated_proxy_deposit,
+			initial_proxy_deposit.saturating_add(extra_proxy_deposit)
+		);
+		assert_eq!(
+			inflated_announcement_deposit,
+			initial_announcement_deposit.saturating_add(extra_announcement_deposit)
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(account_2.clone()));
@@ -425,7 +440,8 @@ mod benchmarks {
 				kind: DepositKind::Proxies,
 				old_deposit: inflated_proxy_deposit,
 				new_deposit: final_proxy_deposit,
-			}.into()
+			}
+			.into(),
 		);
 		assert_last_event::<T>(
 			Event::DepositPoked {
@@ -433,7 +449,8 @@ mod benchmarks {
 				kind: DepositKind::Announcements,
 				old_deposit: inflated_announcement_deposit,
 				new_deposit: final_announcement_deposit,
-			}.into(),
+			}
+			.into(),
 		);
 
 		Ok(())

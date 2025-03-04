@@ -133,7 +133,7 @@ impl Config for Test {
 
 use super::{Call as ProxyCall, Event as ProxyEvent};
 use frame_system::Call as SystemCall;
-use pallet_balances::{Call as BalancesCall, Event as BalancesEvent, Error as BalancesError};
+use pallet_balances::{Call as BalancesCall, Error as BalancesError, Event as BalancesEvent};
 use pallet_utility::{Call as UtilityCall, Event as UtilityEvent};
 
 type SystemError = frame_system::Error<Test>;
@@ -617,10 +617,9 @@ fn poke_deposit_works_for_proxy_deposits() {
 			}
 			.into(),
 		);
-		assert!(System::events().iter().any(|record| matches!(
-			record.event,
-			RuntimeEvent::Proxy(Event::DepositPoked { .. })
-		)));
+		assert!(System::events()
+			.iter()
+			.any(|record| matches!(record.event, RuntimeEvent::Proxy(Event::DepositPoked { .. }))));
 	});
 }
 
@@ -655,10 +654,9 @@ fn poke_deposit_works_for_announcement_deposits() {
 			}
 			.into(),
 		);
-		assert!(System::events().iter().any(|record| matches!(
-			record.event,
-			RuntimeEvent::Proxy(Event::DepositPoked { .. })
-		)));
+		assert!(System::events()
+			.iter()
+			.any(|record| matches!(record.event, RuntimeEvent::Proxy(Event::DepositPoked { .. }))));
 	});
 }
 
@@ -674,11 +672,10 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 		assert_ok!(result.as_ref());
 		assert_eq!(result.unwrap().pays_fee, Pays::Yes); // Pays fee
 		assert_eq!(Balances::reserved_balance(1), 2); // No change
-		// No event emitted
-		assert!(!System::events().iter().any(|record| matches!(
-			record.event,
-			RuntimeEvent::Proxy(Event::DepositPoked { .. })
-		)));
+												// No event emitted
+		assert!(!System::events()
+			.iter()
+			.any(|record| matches!(record.event, RuntimeEvent::Proxy(Event::DepositPoked { .. }))));
 
 		// Add an announcement and check initial deposit
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
@@ -695,11 +692,10 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 		assert_ok!(result.as_ref());
 		assert_eq!(result.unwrap().pays_fee, Pays::Yes); // Pays fee
 		assert_eq!(Balances::reserved_balance(3), initial_deposit); // No change
-		// No event emitted
-		assert!(!System::events().iter().any(|record| matches!(
-			record.event,
-			RuntimeEvent::Proxy(Event::DepositPoked { .. })
-		)));
+															  // No event emitted
+		assert!(!System::events()
+			.iter()
+			.any(|record| matches!(record.event, RuntimeEvent::Proxy(Event::DepositPoked { .. }))));
 	});
 }
 
@@ -712,7 +708,7 @@ fn poke_deposit_handles_insufficient_balance() {
 
 		// Change deposit base to require more than available balance
 		ProxyDepositBase::set(10);
-		
+
 		// Poking should fail due to insufficient balance
 		assert_noop!(
 			Proxy::poke_deposit(RuntimeOrigin::signed(5)),
@@ -745,7 +741,10 @@ fn poke_deposit_updates_both_proxy_and_announcement_deposits() {
 		let initial_announcement_deposit = Announcements::<Test>::get(2).1;
 
 		// Total reserved = deposit for proxy + deposit for announcement
-		assert_eq!(Balances::reserved_balance(2), initial_proxy_deposit.saturating_add(initial_announcement_deposit));
+		assert_eq!(
+			Balances::reserved_balance(2),
+			initial_proxy_deposit.saturating_add(initial_announcement_deposit)
+		);
 
 		// Change both deposit requirements
 		ProxyDepositBase::set(2);
@@ -761,13 +760,18 @@ fn poke_deposit_updates_both_proxy_and_announcement_deposits() {
 		let (_, new_announcement_deposit) = Announcements::<Test>::get(2);
 		assert_eq!(new_proxy_deposit, 3); // Base(2) + Factor(1) * 1
 		assert_eq!(new_announcement_deposit, 3); // Base(2) + Factor(1) * 1
-		assert_eq!(Balances::reserved_balance(2), new_proxy_deposit.saturating_add(new_announcement_deposit));
+		assert_eq!(
+			Balances::reserved_balance(2),
+			new_proxy_deposit.saturating_add(new_announcement_deposit)
+		);
 
 		// Verify both events were emitted in the correct order
 		let events = System::events();
 		let relevant_events: Vec<_> = events
 			.iter()
-			.filter(|record| matches!(record.event, RuntimeEvent::Proxy(ProxyEvent::DepositPoked { .. })))
+			.filter(|record| {
+				matches!(record.event, RuntimeEvent::Proxy(ProxyEvent::DepositPoked { .. }))
+			})
 			.collect();
 
 		assert_eq!(relevant_events.len(), 2);
@@ -800,20 +804,20 @@ fn poke_deposit_updates_both_proxy_and_announcement_deposits() {
 		let result = Proxy::poke_deposit(RuntimeOrigin::signed(2));
 		assert_ok!(result.as_ref());
 		assert_eq!(result.unwrap().pays_fee, Pays::Yes);
-		
+
 		// Verify deposits remained the same
 		assert_eq!(Proxies::<Test>::get(2).1, new_proxy_deposit);
 		assert_eq!(Announcements::<Test>::get(2).1, new_announcement_deposit);
-		assert_eq!(Balances::reserved_balance(2), new_proxy_deposit.saturating_add(new_announcement_deposit));
+		assert_eq!(
+			Balances::reserved_balance(2),
+			new_proxy_deposit.saturating_add(new_announcement_deposit)
+		);
 	});
 }
 
 #[test]
 fn poke_deposit_fails_for_unsigned_origin() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(
-			Proxy::poke_deposit(RuntimeOrigin::none()),
-			DispatchError::BadOrigin,
-		);
+		assert_noop!(Proxy::poke_deposit(RuntimeOrigin::none()), DispatchError::BadOrigin,);
 	});
 }

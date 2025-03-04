@@ -89,7 +89,18 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 }
 
 /// The type of deposit
-#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo, DecodeWithMemTracking)]
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+	DecodeWithMemTracking,
+)]
 pub enum DepositKind {
 	/// Proxy registration deposit
 	Proxies,
@@ -544,13 +555,11 @@ pub mod pallet {
 		/// The dispatch origin for this call must be _Signed_.
 		///
 		/// The transaction fee is waived if the deposit amount has changed.
-		/// 
+		///
 		/// Emits `DepositPoked` if successful.
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::poke_deposit())]
-		pub fn poke_deposit(
-			origin: OriginFor<T>,
-		) -> DispatchResultWithPostInfo {
+		pub fn poke_deposit(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let mut deposit_updated = false;
 
@@ -564,7 +573,7 @@ pub mod pallet {
 					T::ProxyDepositFactor::get(),
 					proxies.len(),
 				)?;
-		
+
 				match maybe_new_deposit {
 					Some(new_deposit) if new_deposit != old_deposit => {
 						*maybe_proxies = Some((proxies, new_deposit));
@@ -594,7 +603,7 @@ pub mod pallet {
 				}
 				Ok(())
 			})?;
-		
+
 			// Check and update announcement deposits
 			Announcements::<T>::try_mutate_exists(&who, |maybe_announcements| -> DispatchResult {
 				let (announcements, old_deposit) = maybe_announcements.take().unwrap_or_default();
@@ -605,7 +614,7 @@ pub mod pallet {
 					T::AnnouncementDepositFactor::get(),
 					announcements.len(),
 				)?;
-		
+
 				match maybe_new_deposit {
 					Some(new_deposit) if new_deposit != old_deposit => {
 						*maybe_announcements = Some((announcements, new_deposit));
@@ -635,12 +644,8 @@ pub mod pallet {
 				}
 				Ok(())
 			})?;
-		
-			Ok(if deposit_updated {
-				Pays::No.into()
-			} else {
-				Pays::Yes.into()
-			})
+
+			Ok(if deposit_updated { Pays::No.into() } else { Pays::Yes.into() })
 		}
 	}
 
@@ -904,7 +909,10 @@ impl<T: Config> Pallet<T> {
 			let excess = old_deposit.saturating_sub(new_deposit);
 			let remaining_unreserved = T::Currency::unreserve(who, excess);
 			if !remaining_unreserved.is_zero() {
-				defensive!("Failed to unreserve full amount. (Requested, Actual)", (excess, excess.saturating_sub(remaining_unreserved)));
+				defensive!(
+					"Failed to unreserve full amount. (Requested, Actual)",
+					(excess, excess.saturating_sub(remaining_unreserved))
+				);
 			}
 		}
 		Ok(if len == 0 { None } else { Some(new_deposit) })
