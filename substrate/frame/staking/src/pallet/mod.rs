@@ -28,8 +28,8 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Inspect, Mutate, Mutate as FunMutate,
 		},
-		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, OnUnbalanced, UnixTime,
+		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		InspectLockableCurrency, Nothing, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedBTreeSet, BoundedVec,
@@ -47,7 +47,6 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	offence::OffenceSeverity,
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
@@ -58,11 +57,10 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
-	DisablingStrategy, EraPayout, EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
-	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
+	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -73,19 +71,20 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 
 	use crate::{BenchmarkingConfig, PagedExposureMetadata, SnapshotStatus};
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	/// Possible operations on the configuration values of this pallet.
-	#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+	#[derive(TypeInfo, Debug, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq)]
 	pub enum ConfigOp<T: Default + Codec> {
 		/// Don't change.
 		Noop,
@@ -122,6 +121,8 @@ pub mod pallet {
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
 			+ codec::FullCodec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Copy
 			+ MaybeSerializeDeserialize
 			+ core::fmt::Debug
@@ -325,10 +326,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
-		/// `DisablingStragegy` controls how validators are disabled
-		#[pallet::no_default_bounds]
-		type DisablingStrategy: DisablingStrategy<Self>;
-
 		/// Maximum number of invulnerable validators.
 		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
@@ -336,6 +333,13 @@ pub mod pallet {
 		/// Maximum number of disabled validators.
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
+
+		#[pallet::no_default_bounds]
+		/// Filter some accounts from participating in staking.
+		///
+		/// This is useful for example to blacklist an account that is participating in staking in
+		/// another way (such as pools).
+		type Filter: Contains<Self::AccountId>;
 
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
@@ -396,7 +400,7 @@ pub mod pallet {
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxDisabledValidators = ConstU32<100>;
 			type EventListeners = ();
-			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
+			type Filter = Nothing;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -645,15 +649,67 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CanceledSlashPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
-	/// All unapplied slashes that are queued for later.
+	/// Stores reported offences in a queue until they are processed in subsequent blocks.
+	///
+	/// Each offence is recorded under the corresponding era index and the offending validator's
+	/// account. If an offence spans multiple pages, only one page is processed at a time. Offences
+	/// are handled sequentially, with their associated slashes computed and stored in
+	/// `UnappliedSlashes`. These slashes are then applied in a future era as determined by
+	/// `SlashDeferDuration`.
+	///
+	/// Any offences tied to an era older than `BondingDuration` are automatically dropped.
+	/// Processing always prioritizes the oldest era first.
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type UnappliedSlashes<T: Config> = StorageMap<
+	pub type OffenceQueue<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
-		Vec<UnappliedSlash<T::AccountId, BalanceOf<T>>>,
-		ValueQuery,
+		Twox64Concat,
+		T::AccountId,
+		slashing::OffenceRecord<T::AccountId>,
+	>;
+
+	/// Tracks the eras that contain offences in `OffenceQueue`, sorted from **earliest to latest**.
+	///
+	/// - This ensures efficient retrieval of the oldest offence without iterating through
+	/// `OffenceQueue`.
+	/// - When a new offence is added to `OffenceQueue`, its era is **inserted in sorted order**
+	/// if not already present.
+	/// - When all offences for an era are processed, it is **removed** from this list.
+	/// - The maximum length of this vector is bounded by `BondingDuration`.
+	///
+	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
+	/// to process.
+	#[pallet::storage]
+	pub type OffenceQueueEras<T: Config> = StorageValue<_, BoundedVec<u32, T::BondingDuration>>;
+
+	/// Tracks the currently processed offence record from the `OffenceQueue`.
+	///
+	/// - When processing offences, an offence record is **popped** from the oldest era in
+	///   `OffenceQueue` and stored here.
+	/// - The function `process_offence` reads from this storage, processing one page of exposure at
+	///   a time.
+	/// - After processing a page, the `exposure_page` count is **decremented** until it reaches
+	///   zero.
+	/// - Once fully processed, the offence record is removed from this storage.
+	///
+	/// This ensures that offences are processed incrementally, preventing excessive computation
+	/// in a single block while maintaining correct slashing behavior.
+	#[pallet::storage]
+	pub type ProcessingOffence<T: Config> =
+		StorageValue<_, (EraIndex, T::AccountId, slashing::OffenceRecord<T::AccountId>)>;
+
+	/// All unapplied slashes that are queued for later.
+	#[pallet::storage]
+	pub type UnappliedSlashes<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		// Unique key for unapplied slashes: (validator, slash fraction, page index).
+		(T::AccountId, Perbill, u32),
+		UnappliedSlash<T>,
+		OptionQuery,
 	>;
 
 	/// A mapping from still-bonded eras to the first session index of that era.
@@ -704,20 +760,6 @@ pub mod pallet {
 	/// This is basically in sync with the call to [`pallet_session::SessionManager::new_session`].
 	#[pallet::storage]
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
-
-	/// Indices of validators that have offended in the active era. The offenders are disabled for a
-	/// whole era. For this reason they are kept here - only staking pallet knows about eras. The
-	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
-	/// implicitly means that the implementor also controls the max number of disabled validators.
-	///
-	/// The vec is always kept sorted based on the u32 index so that we can find whether a given
-	/// validator has previously offended using binary search.
-	///
-	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which
-	/// represents how severe is the offence that got the validator disabled.
-	#[pallet::storage]
-	pub type DisabledValidators<T: Config> =
-		StorageValue<_, BoundedVec<(u32, OffenceSeverity), T::MaxDisabledValidators>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -936,13 +978,6 @@ pub mod pallet {
 			staker: T::AccountId,
 			amount: BalanceOf<T>,
 		},
-		/// A slash for the given validator, for the given percentage of their stake, at the given
-		/// era as been reported.
-		SlashReported {
-			validator: T::AccountId,
-			fraction: Perbill,
-			slash_era: EraIndex,
-		},
 		/// An old slashing report from a prior era was discarded because it could
 		/// not be processed.
 		OldSlashingReportDiscarded {
@@ -1007,14 +1042,6 @@ pub mod pallet {
 		ControllerBatchDeprecated {
 			failures: u32,
 		},
-		/// Validator has been disabled.
-		ValidatorDisabled {
-			stash: T::AccountId,
-		},
-		/// Validator has been re-enabled.
-		ValidatorReenabled {
-			stash: T::AccountId,
-		},
 		/// Staking balance migrated from locks to holds, with any balance that could not be held
 		/// is force withdrawn.
 		CurrencyMigrated {
@@ -1034,6 +1061,26 @@ pub mod pallet {
 			page: PageIndex,
 			result: Result<u32, u32>,
 		},
+		/// An offence for the given validator, for the given percentage of their stake, at the
+		/// given era as been reported.
+		OffenceReported {
+			offence_era: EraIndex,
+			validator: T::AccountId,
+			fraction: Perbill,
+		},
+		/// An offence has been processed and the corresponding slash has been computed.
+		SlashComputed {
+			offence_era: EraIndex,
+			slash_era: EraIndex,
+			offender: T::AccountId,
+			page: u32,
+		},
+		/// An unapplied slash has been cancelled.
+		SlashCancelled {
+			slash_era: EraIndex,
+			slash_key: (T::AccountId, Perbill, u32),
+			payout: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -1051,8 +1098,8 @@ pub mod pallet {
 		EmptyTargets,
 		/// Duplicate index.
 		DuplicateIndex,
-		/// Slash record index out of bounds.
-		InvalidSlashIndex,
+		/// Slash record not found.
+		InvalidSlashRecord,
 		/// Cannot have a validator or nominator role, with value less than the minimum defined by
 		/// governance (see `MinValidatorBond` and `MinNominatorBond`). If unbonding is the
 		/// intention, `chill` first to remove one's role as validator/nominator.
@@ -1067,8 +1114,6 @@ pub mod pallet {
 		InvalidEraToReward,
 		/// Invalid number of nominations.
 		InvalidNumberOfNominations,
-		/// Items are not sorted and unique.
-		NotSortedAndUnique,
 		/// Rewards for this era have already been claimed for this validator.
 		AlreadyClaimed,
 		/// No nominators exist on this page.
@@ -1109,6 +1154,11 @@ pub mod pallet {
 		CannotReapStash,
 		/// The stake of this account is already migrated to `Fungible` holds.
 		AlreadyMigrated,
+		/// Era not yet started.
+		EraNotStarted,
+		/// Account is restricted from participation in staking. This may happen if the account is
+		/// staking in another way already, such as via pool.
+		Restricted,
 	}
 
 	#[pallet::hooks]
@@ -1117,6 +1167,21 @@ pub mod pallet {
 		/// that the `ElectableStashes` has been populated with all validators from all pages at
 		/// the time of the election.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			// todo(ank4n): Hacky bench. Do it properly.
+			let mut consumed_weight = slashing::process_offence::<T>();
+
+			consumed_weight.saturating_accrue(T::DbWeight::get().reads(1));
+			if let Some(active_era) = ActiveEra::<T>::get() {
+				let max_slash_page_size = T::MaxExposurePageSize::get();
+				consumed_weight.saturating_accrue(
+					T::DbWeight::get().reads_writes(
+						3 * max_slash_page_size as u64,
+						3 * max_slash_page_size as u64,
+					),
+				);
+				Self::apply_unapplied_slashes(active_era.index);
+			}
+
 			let pages = Self::election_pages();
 
 			// election ongoing, fetch the next page.
@@ -1144,7 +1209,9 @@ pub mod pallet {
 				}
 			};
 
-			T::WeightInfo::on_initialize_noop().saturating_add(inner_weight)
+			consumed_weight.saturating_accrue(inner_weight);
+
+			consumed_weight
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
@@ -1349,6 +1416,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
@@ -1396,6 +1465,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -1907,33 +1977,35 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Cancel enactment of a deferred slash.
+		/// Cancels scheduled slashes for a given era before they are applied.
 		///
-		/// Can be called by the `T::AdminOrigin`.
+		/// This function allows `T::AdminOrigin` to selectively remove pending slashes from
+		/// the `UnappliedSlashes` storage, preventing their enactment.
 		///
-		/// Parameters: era and indices of the slashes for that era to kill.
+		/// ## Parameters
+		/// - `era`: The staking era for which slashes were deferred.
+		/// - `slash_keys`: A list of slash keys identifying the slashes to remove. This is a tuple
+		/// of `(stash, slash_fraction, page_index)`.
 		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
+		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_keys.len() as u32))]
 		pub fn cancel_deferred_slash(
 			origin: OriginFor<T>,
 			era: EraIndex,
-			slash_indices: Vec<u32>,
+			slash_keys: Vec<(T::AccountId, Perbill, u32)>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(!slash_keys.is_empty(), Error::<T>::EmptyTargets);
 
-			ensure!(!slash_indices.is_empty(), Error::<T>::EmptyTargets);
-			ensure!(is_sorted_and_unique(&slash_indices), Error::<T>::NotSortedAndUnique);
-
-			let mut unapplied = UnappliedSlashes::<T>::get(&era);
-			let last_item = slash_indices[slash_indices.len() - 1];
-			ensure!((last_item as usize) < unapplied.len(), Error::<T>::InvalidSlashIndex);
-
-			for (removed, index) in slash_indices.into_iter().enumerate() {
-				let index = (index as usize) - removed;
-				unapplied.remove(index);
-			}
-
-			UnappliedSlashes::<T>::insert(&era, &unapplied);
+			// Remove the unapplied slashes.
+			slash_keys.into_iter().for_each(|i| {
+				UnappliedSlashes::<T>::take(&era, &i).map(|unapplied_slash| {
+					Self::deposit_event(Event::<T>::SlashCancelled {
+						slash_era: era,
+						slash_key: i,
+						payout: unapplied_slash.payout,
+					});
+				});
+			});
 			Ok(())
 		}
 
@@ -1977,6 +2049,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
+
+			ensure!(!T::Filter::contains(&ledger.stash), Error::<T>::Restricted);
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
@@ -2494,10 +2568,76 @@ pub mod pallet {
 			// Refund the transaction fee if successful.
 			Ok(Pays::No.into())
 		}
-	}
-}
 
-/// Check that list is sorted and has no duplicates.
-fn is_sorted_and_unique(list: &[u32]) -> bool {
-	list.windows(2).all(|w| w[0] < w[1])
+		/// Manually applies a deferred slash for a given era.
+		///
+		/// Normally, slashes are automatically applied shortly after the start of the `slash_era`.
+		/// This function exists as a **fallback mechanism** in case slashes were not applied due to
+		/// unexpected reasons. It allows anyone to manually apply an unapplied slash.
+		///
+		/// ## Parameters
+		/// - `slash_era`: The staking era in which the slash was originally scheduled.
+		/// - `slash_key`: A unique identifier for the slash, represented as a tuple:
+		///   - `stash`: The stash account of the validator being slashed.
+		///   - `slash_fraction`: The fraction of the stake that was slashed.
+		///   - `page_index`: The index of the exposure page being processed.
+		///
+		/// ## Behavior
+		/// - The function is **permissionless**—anyone can call it.
+		/// - The `slash_era` **must be the current era or a past era**. If it is in the future, the
+		///   call fails with `EraNotStarted`.
+		/// - The fee is waived if the slash is successfully applied.
+		///
+		/// ## TODO: Future Improvement
+		/// - Implement an **off-chain worker (OCW) task** to automatically apply slashes when there
+		///   is unused block space, improving efficiency.
+		#[pallet::call_index(31)]
+		#[pallet::weight(T::WeightInfo::apply_slash())]
+		pub fn apply_slash(
+			origin: OriginFor<T>,
+			slash_era: EraIndex,
+			slash_key: (T::AccountId, Perbill, u32),
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
+			ensure!(slash_era <= active_era, Error::<T>::EraNotStarted);
+			let unapplied_slash = UnappliedSlashes::<T>::take(&slash_era, &slash_key)
+				.ok_or(Error::<T>::InvalidSlashRecord)?;
+			slashing::apply_slash::<T>(unapplied_slash, slash_era);
+
+			Ok(Pays::No.into())
+		}
+
+		/// Adjusts the staking ledger by withdrawing any excess staked amount.
+		///
+		/// This function corrects cases where a user's recorded stake in the ledger
+		/// exceeds their actual staked funds. This situation can arise due to cases such as
+		/// external slashing by another pallet, leading to an inconsistency between the ledger
+		/// and the actual stake.
+		#[pallet::call_index(32)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
+		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+
+			let ledger = Self::ledger(Stash(stash.clone()))?;
+			let actual_stake = asset::staked::<T>(&stash);
+			let force_withdraw_amount = ledger.total.defensive_saturating_sub(actual_stake);
+
+			// ensure there is something to force unstake.
+			ensure!(!force_withdraw_amount.is_zero(), Error::<T>::BoundNotMet);
+
+			// we ignore if active is 0. It implies the locked amount is not actively staked. The
+			// account can still get away from potential slash, but we can't do much better here.
+			StakingLedger {
+				total: actual_stake,
+				active: ledger.active.saturating_sub(force_withdraw_amount),
+				..ledger
+			}
+			.update()?;
+
+			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
+
+			Ok(())
+		}
+	}
 }
