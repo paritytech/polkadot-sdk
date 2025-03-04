@@ -273,11 +273,9 @@ mod benchmarks {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
 		Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
-		set_block_number::<T>(
-			T::SpendPeriod::get() +
-				T::BountyUpdatePeriod::get().unwrap_or(BlockNumberFor::<T>::max_value()) +
-				1u32.into(),
-		);
+		let bounty_update_period =
+			T::BountyUpdatePeriod::get().unwrap_or(BlockNumberFor::<T>::max_value());
+		set_block_number::<T>(T::SpendPeriod::get() + bounty_update_period + 1u32.into());
 		let caller = whitelisted_caller();
 
 		#[extrinsic_call]
