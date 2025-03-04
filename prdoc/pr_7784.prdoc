@@ -6,6 +6,6 @@ doc:
     see https://docs.soliditylang.org/en/latest/units-and-global-variables.html#block-and-transaction-properties
 crates:
 - name: pallet-revive
-  bump: minor
+  bump: patch
 - name: pallet-revive-uapi
-  bump: minor
+  bump: patch
