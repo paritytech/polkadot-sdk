@@ -422,7 +422,7 @@ where
 		});
 	}
 
-	/// Removes status info for finalized transactions.
+	/// Removes status info for transactions.
 	pub fn remove_transactions(
 		&self,
 		xts: impl IntoIterator<Item = ExtrinsicHash<ChainApi>> + Clone,
