@@ -54,9 +54,8 @@ use pallet_staking::{ActiveEra, CurrentEra, ErasStartSessionIndex, StakerStatus}
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-use frame_support::derive_impl;
-
 use crate::{log, log_current_time};
+use frame_support::{derive_impl, traits::Nothing};
 
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
@@ -187,7 +186,7 @@ parameter_types! {
 impl pallet_election_provider_multi_phase::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type EstimateCallFee = frame_support::traits::ConstU32<8>;
+	type EstimateCallFee = frame_support::traits::ConstU64<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = ();
@@ -290,6 +289,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BlockNumberProvider = System;
+	type Filter = Nothing;
 }
 
 parameter_types! {
