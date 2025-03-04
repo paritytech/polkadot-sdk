@@ -111,7 +111,6 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 
 	// No events should be emitted on the bridge hub
 	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		assert_expected_events!(BridgeHubWestend, vec![]);
 	});
 }
