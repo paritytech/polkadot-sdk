@@ -1311,8 +1311,8 @@ pub mod pallet {
 						Ok((authorized_code_hash, expire_at)) => {
 							let now = frame_system::Pallet::<T>::block_number();
 							if expire_at < now {
-								// this should not happen, because `Self::validate_authorization_for`
-								// validates `expire_at`.
+								// this should not happen, because
+								// `Self::validate_authorization_for` validates `expire_at`.
 								return InvalidTransaction::Stale.into();
 							}
 							let longevity =
@@ -1615,10 +1615,12 @@ impl<T: Config> Pallet<T> {
 	/// meaning their `expire_at` block is less than or equal to the current block (`now`).
 	fn prune_expired_authorizations(now: BlockNumberFor<T>) -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
-		let to_remove = AuthorizedCodeHash::<T>::iter().filter_map(|(para, (_, expire_at))| if expire_at <= now {
-			Some(para)
-		} else {
-			None
+		let to_remove = AuthorizedCodeHash::<T>::iter().filter_map(|(para, (_, expire_at))| {
+			if expire_at <= now {
+				Some(para)
+			} else {
+				None
+			}
 		});
 		for para in to_remove {
 			AuthorizedCodeHash::<T>::remove(&para);
@@ -2483,9 +2485,10 @@ impl<T: Config> Pallet<T> {
 		PvfActiveVoteMap::<T>::get(code_hash)
 	}
 
-	/// This function checks whether the given `code.hash()` exists in the `AuthorizedCodeHash` map of
-	/// authorized code hashes for a para. If found, it verifies that the associated code matches the provided
-	/// `code`. If the validation is successful, it returns tuple as the authorized `ValidationCodeHash` with `expire_at`.
+	/// This function checks whether the given `code.hash()` exists in the `AuthorizedCodeHash` map
+	/// of authorized code hashes for a para. If found, it verifies that the associated code
+	/// matches the provided `code`. If the validation is successful, it returns tuple as the
+	/// authorized `ValidationCodeHash` with `expire_at`.
 	pub(crate) fn validate_authorization_for(
 		para: &ParaId,
 		code: &ValidationCode,

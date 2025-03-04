@@ -260,11 +260,14 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id, new_code_hash, valid_period);
 
-		assert_last_event::<T>(Event::CodeAuthorized {
-			para_id,
-			code_hash: new_code_hash,
-			expire_at: frame_system::Pallet::<T>::block_number().saturating_add(valid_period)
-		}.into());
+		assert_last_event::<T>(
+			Event::CodeAuthorized {
+				para_id,
+				code_hash: new_code_hash,
+				expire_at: frame_system::Pallet::<T>::block_number().saturating_add(valid_period),
+			}
+			.into(),
+		);
 	}
 
 	#[benchmark]

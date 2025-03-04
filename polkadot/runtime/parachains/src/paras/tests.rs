@@ -2072,10 +2072,7 @@ fn authorize_force_set_current_code_hash_works() {
 			code_1_hash,
 			valid_period
 		));
-		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(&para_a),
-			Some((code_1_hash, 1 + valid_period))
-		);
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_a), Some((code_1_hash, 1 + valid_period)));
 		System::set_block_number(5);
 		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
@@ -2083,10 +2080,7 @@ fn authorize_force_set_current_code_hash_works() {
 			code_2_hash,
 			valid_period,
 		));
-		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(&para_b),
-			Some((code_2_hash, 5 + valid_period))
-		);
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_b), Some((code_2_hash, 5 + valid_period)));
 		assert_eq!(AuthorizedCodeHash::<Test>::iter().count(), 2);
 
 		// request for the same para is overwritten
@@ -2096,30 +2090,24 @@ fn authorize_force_set_current_code_hash_works() {
 			code_1_hash,
 			valid_period
 		));
-		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(&para_a),
-			Some((code_1_hash, 5 + valid_period))
-		);
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_a), Some((code_1_hash, 5 + valid_period)));
 		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
 			para_a,
 			code_2_hash,
 			valid_period
 		));
-		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(&para_a),
-			Some((code_2_hash, 5 + valid_period))
-		);
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_a), Some((code_2_hash, 5 + valid_period)));
 	})
 }
 
 #[test]
 fn apply_authorized_force_set_current_code_works() {
-	let apply_code = |origin, para: ParaId, code: ValidationCode|	-> (Result<_, _>, DispatchResultWithPostInfo) {
-		let call = Call::apply_authorized_force_set_current_code {
-			para,
-			new_code: code.clone(),
-		};
+	let apply_code = |origin,
+	                  para: ParaId,
+	                  code: ValidationCode|
+	 -> (Result<_, _>, DispatchResultWithPostInfo) {
+		let call = Call::apply_authorized_force_set_current_code { para, new_code: code.clone() };
 		let validate_unsigned =
 			<Paras as ValidateUnsigned>::validate_unsigned(TransactionSource::InBlock, &call)
 				.map(|_| ());
@@ -2141,11 +2129,7 @@ fn apply_authorized_force_set_current_code_works() {
 
 		// cannot apply code when nothing authorized
 		assert_eq!(
-			apply_code(
-				RuntimeOrigin::signed(1),
-				para_a,
-				code_1.clone()
-			),
+			apply_code(RuntimeOrigin::signed(1), para_a, code_1.clone()),
 			(
 				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
 				Err(Error::<Test>::NothingAuthorized.into())
@@ -2158,11 +2142,7 @@ fn apply_authorized_force_set_current_code_works() {
 
 		// cannot apply unauthorized code_2
 		assert_eq!(
-			apply_code(
-				RuntimeOrigin::signed(1),
-				para_a,
-				code_2.clone()
-			),
+			apply_code(RuntimeOrigin::signed(1), para_a, code_2.clone()),
 			(
 				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
 				Err(Error::<Test>::Unauthorized.into())
@@ -2172,24 +2152,17 @@ fn apply_authorized_force_set_current_code_works() {
 		// cannot apply obsolete authorization
 		frame_system::Pallet::<Test>::set_block_number(valid_period + 5 + 10);
 		assert_eq!(
-			apply_code(
-				RuntimeOrigin::signed(1),
-				para_a,
-				code_1.clone(),
-			),
+			apply_code(RuntimeOrigin::signed(1), para_a, code_1.clone(),),
 			(
 				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
 				Err(Error::<Test>::InvalidBlockNumber.into())
 			),
 		);
-		frame_system::Pallet::<Test>::set_block_number(5 );
+		frame_system::Pallet::<Test>::set_block_number(5);
 
 		// ok - can apply authorized code
-		let (validate_unsigned, dispatch_result) = apply_code(
-			RuntimeOrigin::signed(1),
-			para_a,
-			code_1.clone(),
-		);
+		let (validate_unsigned, dispatch_result) =
+			apply_code(RuntimeOrigin::signed(1), para_a, code_1.clone());
 		assert_ok!(validate_unsigned);
 		assert_ok!(dispatch_result);
 
@@ -2198,11 +2171,7 @@ fn apply_authorized_force_set_current_code_works() {
 
 		// cannot apply previously authorized code again
 		assert_eq!(
-			apply_code(
-				RuntimeOrigin::signed(1),
-				para_a,
-				code_1,
-			),
+			apply_code(RuntimeOrigin::signed(1), para_a, code_1,),
 			(
 				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
 				Err(Error::<Test>::NothingAuthorized.into())
@@ -2225,22 +2194,13 @@ fn prune_expired_authorizations_works() {
 
 		// nothing prunned at 200
 		let _ = Paras::prune_expired_authorizations(200);
-		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(&para_a),
-			Some((code_1_hash, 201))
-		);
-		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(&para_b),
-			Some((code_1_hash, 202))
-		);
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_a), Some((code_1_hash, 201)));
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_b), Some((code_1_hash, 202)));
 
 		// pruned at 201
 		let _ = Paras::prune_expired_authorizations(201);
 		assert!(AuthorizedCodeHash::<Test>::get(&para_a).is_none());
-		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(&para_b),
-			Some((code_1_hash, 202))
-		);
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_b), Some((code_1_hash, 202)));
 
 		// pruned at 203
 		let _ = Paras::prune_expired_authorizations(203);
