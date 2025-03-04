@@ -325,7 +325,7 @@ pub trait HostFn: private::Sealed {
 		salt: Option<&[u8; 32]>,
 	) -> Result;
 
-	/// Load the latest block timestamp into the supplied buffer
+	/// Load the latest block timestamp in seconds into the supplied buffer
 	///
 	/// # Parameters
 	///
