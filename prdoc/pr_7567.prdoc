@@ -7,23 +7,18 @@ doc:
       and cross-chain compatibility. Payments processing has been refactored to use the `Pay` which allows cross-chain setups instead of 
       the `Currency` trait, which is limited to local asset transfers.
 
-      Payments are now handled asynchronously, meaning the treasury no longer triggers them via `on_initialize`. 
-      Instead, payments are initiated and then tracked separately. 
-
       Adds an `asset_kind` parameter to `Bounty` and `ChildBounty`, defined in `propose_bounty` call.
-      
+      Payments are now handled asynchronously, meaning the treasury no longer triggers them via `on_initialize`. 
+      Instead, payments are initiated and then tracked separately.
+
       Introduces new call `check_payment_status` to advance the bounty and child-bounty lifecycle after payment completion. 
       Introduces new call `process_payment` to retry failed payments.
       These 2 new calls check and process three types of payments: 
-        - Funding (from treasury to bounty account in pallet-bounties, and bounty account to child bounty account in pallet-child-bounties)
+        - Funding (from treasury to bounty account in pallet-bounties, and bounty account to child-bounty account in pallet-child-bounties)
         - Payout (from bounty or child-bounty account to beneficiary and curator stash account, both in pallet-bounties and pallet-child-bounties)
-        - Refund (from bounty acconut to treasury in pallet-bounties and from child-bounty account to parent bounty account in pallet-child-bounties)
+        - Refund (from bounty acconut to treasury in pallet-bounties and from child-bounty account to bounty account in pallet-child-bounties)
 
-      Introduces the possibility that the curator payout is for another account  `curator_stash`.
-
-migrations:
-  db: []
-  runtime: []
+      Introduces the possibility that the curator payout is for another account `curator_stash`.
 
 crates:
   - name: pallet-bounties
