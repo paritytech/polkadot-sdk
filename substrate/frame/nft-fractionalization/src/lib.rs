@@ -159,7 +159,6 @@ pub mod pallet {
 
 	/// Keeps track of the corresponding NFT ID, asset ID and amount minted.
 	#[pallet::storage]
-	#[pallet::getter(fn nft_to_asset)]
 	pub type NftToAsset<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -336,6 +335,13 @@ pub mod pallet {
 		/// the value and only call this once.
 		fn get_pallet_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
+		}
+
+		/// Keeps track of the corresponding NFT ID, asset ID and amount minted.
+		pub fn nft_to_asset(
+			key: (T::NftCollectionId, T::NftId),
+		) -> Option<Details<AssetIdOf<T>, AssetBalanceOf<T>, DepositOf<T>, T::AccountId>> {
+			NftToAsset::<T>::get(key)
 		}
 
 		/// Prevent further transferring of NFT.
