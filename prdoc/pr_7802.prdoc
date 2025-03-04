@@ -1,0 +1,12 @@
+title: '[AHM] Make more stuff public'
+doc:
+- audience: Runtime Dev
+  description: 'Make some more stuff public that will be useful for AHM to reduce
+    code duplication.
+
+    '
+crates:
+- name: pallet-child-bounties
+  bump: minor
+- name: pallet-recovery
+  bump: minor
