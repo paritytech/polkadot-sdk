@@ -366,15 +366,17 @@ pub mod test_log_capture {
 		}
 	}
 
-	/// Initialises a log capture utility for testing.
+	/// Initialises a log capture utility for testing, with optional log printing.
 	///
 	/// This function sets up a `LogCapture` instance to capture logs during test execution.
 	/// It also configures a `tracing_subscriber` with the specified maximum log level
-	/// and a writer that directs logs to `LogCapture`.
+	/// and a writer that directs logs to `LogCapture`. If `print_logs` is enabled, logs
+	/// up to `TRACE` level are also printed to the test output.
 	///
 	/// # Arguments
 	///
 	/// * `max_level` - The maximum log level to capture, which can be converted into `LevelFilter`.
+	/// * `print_logs` - If `true`, logs will also be printed to the test output.
 	///
 	/// # Returns
 	///
@@ -390,84 +392,22 @@ pub mod test_log_capture {
 	///     tracing::{info, subscriber, Level},
 	/// };
 	///
-	/// let (log_capture, subscriber) = init_log_capture(Level::INFO);
+	/// let (log_capture, subscriber) = init_log_capture(Level::INFO, false);
 	/// subscriber::with_default(subscriber, || {
 	///     info!("This log will be captured");
 	///     assert!(log_capture.contains("This log will be captured"));
 	/// });
 	/// ```
 	///
-	/// Related functions/macros:
-	/// - [`init_log_capture_for_tests()`]: Captures logs and outputs `TRACE` level.
-	/// - `capture_test_logs!()`: A macro for capturing logs during test execution.
-	pub fn init_log_capture(
-		max_level: impl Into<LevelFilter>,
-	) -> (LogCapture, impl tracing::Subscriber + Send + Sync) {
-		do_init_log_capture(max_level, false)
-	}
-
-	/// Initialises a log capture utility for tests, ensuring both **log capturing** and **test
-	/// output visibility**.
-	///
-	/// This function is useful when you need to:
-	/// - **Capture logs for assertions**, like [`init_log_capture()`].
-	/// - **Ensure logs up to `TRACE` level are printed to the test output**, similar to
-	///   `sp_tracing::init_for_tests()`.
-	///
 	/// # Usage Guide
 	///
-	/// Use **`init_log_capture_for_tests()`** when you need **both**: logs captured for assertions
-	/// **and** printed to the console.
 	/// - If you only need to **capture logs for assertions** without printing them, use
-	///   [`init_log_capture()`].
-	/// - If you only need to **print logs** during tests but not capture them, use
-	///   `sp_tracing::init_for_tests()`.
-	/// - If you prefer a macro-based approach, use `capture_test_logs!()`, which internally calls
-	///   `init_log_capture()`.
-	///
-	/// # Returns
-	///
-	/// A tuple containing:
-	/// - `LogCapture`: The log capture instance for assertions.
-	/// - `Subscriber`: A `tracing_subscriber` that captures and prints logs.
-	///
-	/// # Examples
-	///
-	/// ```
-	/// use sp_tracing::{
-	///     test_log_capture::init_log_capture_for_tests,
-	///     tracing::{debug, subscriber},
-	/// };
-	///
-	/// let (log_capture, subscriber) = init_log_capture_for_tests();
-	/// subscriber::with_default(subscriber, || {
-	///     debug!("This log will be captured and printed to test output");
-	///     assert!(log_capture.contains("This log will be captured and printed to test output"));
-	/// });
-	/// ```
-	pub fn init_log_capture_for_tests() -> (LogCapture, impl tracing::Subscriber + Send + Sync) {
-		do_init_log_capture(LevelFilter::TRACE, true)
-	}
-
-	/// Internal function to initialise log capture with configurable test mode.
-	///
-	/// - Creates a `LogCapture` instance to store captured logs.
-	/// - Configures a `tracing_subscriber` with a custom log writer.
-	/// - Optionally adds a layer to print logs when `for_test` is `true`.
-	///
-	/// # Arguments
-	///
-	/// * `max_level` - The maximum log level to capture.
-	/// * `for_tests` - If `true`, adds a layer to print logs in test output.
-	///
-	/// # Returns
-	///
-	/// A tuple containing:
-	/// - `LogCapture`: The log capture instance.
-	/// - `Subscriber`: A combined `tracing_subscriber` with capture and optional test layers.
-	fn do_init_log_capture(
+	///   `init_log_capture(max_level, false)`.
+	/// - If you need both **capturing and printing logs**, use `init_log_capture(LevelFilter::TRACE, true)`.
+	/// - If you only need to **print logs** but not capture them, use `sp_tracing::init_for_tests()`.
+	pub fn init_log_capture(
 		max_level: impl Into<LevelFilter>,
-		for_tests: bool,
+		print_logs: bool,
 	) -> (LogCapture, impl tracing::Subscriber + Send + Sync) {
 		// Create a new log capture instance
 		let log_capture = LogCapture::new();
@@ -475,17 +415,17 @@ pub mod test_log_capture {
 		// Create a layer for capturing logs into LogCapture
 		let capture_layer = fmt::layer()
 			.with_writer(log_capture.writer()) // Use LogCapture as the writer
-			.with_filter(max_level.into()); // Set the max log level
+			.with_filter(max_level.clone().into()); // Set the max log level
 
 		// Base subscriber with log capturing
 		let subscriber = Registry::default().with(capture_layer);
 
-		// If in test mode, add a layer that prints logs to test output
-		let test_layer = if for_tests {
+		// If `print_logs` is enabled, add a layer that prints logs to test output
+		let test_layer = if print_logs {
 			Some(
 				fmt::layer()
 					.with_test_writer() // Use test writer for test output
-					.with_filter(LevelFilter::TRACE), // Capture all logs in tests
+					.with_filter(max_level.into()), // Capture all logs in tests
 			)
 		} else {
 			None
