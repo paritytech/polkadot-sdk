@@ -460,7 +460,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					self.context.message_id,
 				);
 				Err(error.into())
-			}
+			},
 		}
 	}
 
