@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Parachain bootnodes advertisement.
+//! Parachain bootnode advertisement.
 
 use codec::{Compact, CompactRef, Decode, Encode};
 use cumulus_primitives_core::{

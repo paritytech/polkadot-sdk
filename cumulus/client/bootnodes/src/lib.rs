@@ -20,6 +20,7 @@
 
 mod advertisement;
 mod config;
+mod discovery;
 mod task;
 
 mod schema {

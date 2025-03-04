@@ -16,7 +16,10 @@
 
 //! Parachain bootnodes advertisement and discovery service.
 
-use crate::advertisement::{BootnodeAdvertisement, BootnodeAdvertisementParams};
+use crate::{
+	advertisement::{BootnodeAdvertisement, BootnodeAdvertisementParams},
+	discovery::{BootnodeDiscovery, BootnodeDiscoveryParams},
+};
 use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use log::error;
@@ -66,6 +69,7 @@ async fn bootnode_advertisement(
 				target: LOG_TARGET,
 				"Bootnode advertisement: Failed to obtain network service: {e}",
 			);
+			// Returning here will cause an essential task to fail.
 			return;
 		},
 	};
@@ -87,6 +91,34 @@ async fn bootnode_advertisement(
 	}
 }
 
+async fn bootnode_discovery(
+	para_id: ParaId,
+	parachain_genesis_hash: Vec<u8>,
+	parachain_fork_id: Option<String>,
+	relay_chain_interface: Arc<dyn RelayChainInterface>,
+) {
+	let relay_chain_network = match relay_chain_interface.network_service() {
+		Ok(network_service) => network_service,
+		Err(e) => {
+			error!(
+				target: LOG_TARGET,
+				"Bootnode discovery: Failed to obtain network service: {e}",
+			);
+			// Returning here will cause an essential task to fail.
+			return;
+		},
+	};
+
+	let bootnode_discovery = BootnodeDiscovery::new(BootnodeDiscoveryParams {
+		para_id,
+		parachain_genesis_hash,
+		parachain_fork_id,
+		relay_chain_network,
+	});
+
+	bootnode_discovery.run().await;
+}
+
 /// Start parachain bootnode advertisement and discovery tasks.
 pub fn start_bootnode_tasks(
 	StartBootnodeTasksParams {
@@ -101,18 +133,28 @@ pub fn start_bootnode_tasks(
 		parachain_public_addresses,
 	}: StartBootnodeTasksParams,
 ) {
-	task_manager.spawn_essential_handle().spawn_blocking(
+	task_manager.spawn_essential_handle().spawn(
 		"cumulus-bootnode-advertisement",
 		None,
 		bootnode_advertisement(
 			para_id,
-			relay_chain_interface,
+			relay_chain_interface.clone(),
 			request_receiver,
 			parachain_network,
 			advertise_non_global_ips,
+			parachain_genesis_hash.clone(),
+			parachain_fork_id.clone(),
+			parachain_public_addresses,
+		),
+	);
+	task_manager.spawn_essential_handle().spawn(
+		"cumulus-bootnode-discovery",
+		None,
+		bootnode_discovery(
+			para_id,
 			parachain_genesis_hash,
 			parachain_fork_id,
-			parachain_public_addresses,
+			relay_chain_interface,
 		),
 	);
 }
