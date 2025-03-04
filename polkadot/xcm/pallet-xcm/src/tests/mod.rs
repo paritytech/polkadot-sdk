@@ -361,9 +361,9 @@ fn send_fails_when_xcm_router_blocks() {
 				Box::new(Location::ancestor(8).into()),
 				Box::new(VersionedXcm::from(message.clone())),
 			);
+			assert_noop!(result, Error::<Test>::SendFailure);
 			assert!(log_capture
 				.contains("xcm::pallet_xcm::send: XCM send failed with error error=Transport(\"Destination location full\")"));
-			assert_noop!(result, Error::<Test>::SendFailure);
 		});
 	});
 }

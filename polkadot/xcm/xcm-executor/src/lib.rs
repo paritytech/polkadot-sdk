@@ -844,16 +844,19 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 						self.process_instruction(instr)
 					});
-					if let Err(e) = inst_res {
-						tracing::debug!(target: "xcm::execute", "!!! ERROR: {:?}", e);
+					if let Err(error) = inst_res {
+						tracing::debug!(
+							target: "xcm::process",
+							?error, "XCM execution failed at instruction index={i}"
+						);
 						Config::XcmEventEmitter::emit_process_failure_event(
 							self.original_origin.clone(),
-							e.clone(),
+							error.clone(),
 							self.context.message_id,
 						);
 						*r = Err(ExecutorError {
 							index: i as u32,
-							xcm_error: e,
+							xcm_error: error,
 							weight: Weight::zero(),
 						});
 					}

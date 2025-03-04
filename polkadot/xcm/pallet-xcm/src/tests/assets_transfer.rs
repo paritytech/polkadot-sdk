@@ -2072,14 +2072,21 @@ fn intermediary_error_reverts_side_effects() {
 				fee_index as u32,
 				Unlimited,
 			);
-			// Ensure the error occurs before `Config::XcmEventEmitter::emit_process_failure_event`
-			// is called.
-			assert!(log_capture.contains(
-				"xcm::execute: !!! ERROR: Transport(\"Intentional send failure used in tests\")"
-			));
-			let events = System::events();
-			println!("events={:?}", events);
 			assert!(result.is_err());
+
+			// Ensure the log occurs before `XcmEventEmitter::emit_process_failure_event` is called.
+			assert!(log_capture.contains(
+				"xcm::process: XCM execution failed at instruction index=2 error=Transport(\"Intentional send failure used in tests\")"
+			), "Expected transport error log message not found");
+
+			// Verify that `XcmPallet::ProcessXcmError` was NOT emitted, indicating a rollback.
+			let process_xcm_error_emitted = System::events().iter().any(|r| {
+				matches!(r.event, RuntimeEvent::XcmPallet(crate::Event::ProcessXcmError { .. }))
+			});
+			assert!(
+				!process_xcm_error_emitted,
+				"Expected no `XcmPallet::ProcessXcmError` event due to rollback, but it was emitted"
+			);
 		});
 
 		// Alice no changes
@@ -2592,8 +2599,8 @@ fn remote_asset_reserve_and_remote_fee_reserve_paid_call<Call>(
 		assert_eq!(
 			sent_xcm(),
 			vec![(
-				reserve_location,
 				// `assets` are burned on source and withdrawn from SA in remote reserve chain
+				reserve_location,
 				sent_message,
 			)]
 		);
