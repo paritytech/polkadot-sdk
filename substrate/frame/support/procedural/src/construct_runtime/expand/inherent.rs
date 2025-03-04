@@ -204,27 +204,5 @@ pub fn expand_outer_inherent(
 				false
 			}
 		}
-
-		impl #scrate::traits::EnsureInherentsAreFirst<#block> for #runtime {
-			fn ensure_inherents_are_first(block: &#block) -> Result<u32, u32> {
-				use #scrate::inherent::ProvideInherent;
-				use #scrate::traits::{IsSubType, ExtrinsicCall};
-				use #scrate::sp_runtime::traits::Block as _;
-
-				let mut num_inherents = 0u32;
-
-				for (i, xt) in block.extrinsics().iter().enumerate() {
-					if <Self as #scrate::traits::IsInherent<_>>::is_inherent(xt) {
-						if num_inherents != i as u32 {
-							return Err(i as u32);
-						}
-
-						num_inherents += 1; // Safe since we are in an `enumerate` loop.
-					}
-				}
-
-				Ok(num_inherents)
-			}
-		}
 	}
 }
