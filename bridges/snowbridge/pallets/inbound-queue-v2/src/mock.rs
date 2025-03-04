@@ -3,7 +3,7 @@
 use super::*;
 
 use crate::{self as inbound_queue_v2};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::ConstU32,
@@ -148,7 +148,18 @@ parameter_types! {
 }
 
 /// Showcasing that we can handle multiple different rewards with the same pallet.
-#[derive(Clone, Copy, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Debug,
+	Decode,
+	Encode,
+	DecodeWithMemTracking,
+	Eq,
+	MaxEncodedLen,
+	PartialEq,
+	TypeInfo,
+)]
 pub enum BridgeReward {
 	/// Rewards for Snowbridge.
 	Snowbridge,

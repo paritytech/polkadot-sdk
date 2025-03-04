@@ -9,7 +9,7 @@ use frame_support::{
 	BoundedVec,
 };
 
-use codec::{Encode, MaxEncodedLen};
+use codec::{DecodeWithMemTracking, Encode, MaxEncodedLen};
 use hex_literal::hex;
 use scale_info::TypeInfo;
 use snowbridge_core::{
@@ -102,7 +102,18 @@ parameter_types! {
 pub const DOT: u128 = 10_000_000_000;
 
 /// Showcasing that we can handle multiple different rewards with the same pallet.
-#[derive(Clone, Copy, Debug, Decode, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Debug,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	MaxEncodedLen,
+	PartialEq,
+	TypeInfo,
+)]
 pub enum BridgeReward {
 	/// Rewards for Snowbridge.
 	Snowbridge,
