@@ -1515,12 +1515,94 @@ fn location_conversion_works() {
 			expected_account_id_str: "5FfpYGrFybJXFsQk7dabr1vEbQ5ycBBu85vrDjPJsF3q4A8P",
 		},
 		TestCase {
+			description: "Describe Rococo AccountID",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+					AccountId32 { network: None, id: AccountId::from(ALICE).into() },
+				],
+			),
+			expected_account_id_str: "5CXVYinTeQKQGWAP9RqaPhitk7ybrqBZf66kCJmtAjV4Xwbg",
+		},
+		TestCase {
+			description: "Describe Rococo AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+					AccountKey20 { network: None, key: [0u8; 20] },
+				],
+			),
+			expected_account_id_str: "5GbRhbJWb2hZY7TCeNvTqZXaP3x3UY5xt4ccxpV1ZtJS1gFL",
+		},
+		TestCase {
+			description: "Describe Rococo Treasury Plurality",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+					Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+				],
+			),
+			expected_account_id_str: "5EGi9NgJNGoMawY8ubnCDLmbdEW6nt2W2U2G3j9E3jXmspT7",
+		},
+		TestCase {
 			description: "Describe Rococo Parachain Location",
 			location: Location::new(
 				2,
 				[GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(1000)],
 			),
 			expected_account_id_str: "5CQeLKM7XC1xNBiQLp26Wa948cudjYRD5VzvaTG3BjnmUvLL",
+		},
+		TestCase {
+			description: "Describe Rococo Parachain AccountID",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+					Parachain(1000),
+					AccountId32 { network: None, id: AccountId::from(ALICE).into() },
+				],
+			),
+			expected_account_id_str: "5H8HsK17dV7i7J8fZBNd438rvwd7rHviZxJqyZpLEGJn6vb6",
+		},
+		TestCase {
+			description: "Describe Rococo Parachain AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+					Parachain(1000),
+					AccountKey20 { network: None, key: [0u8; 20] },
+				],
+			),
+			expected_account_id_str: "5G121Rtddxn6zwMD2rZZGXxFHZ2xAgzFUgM9ki4A8wMGo4e2",
+		},
+		TestCase {
+			description: "Describe Rococo Parachain Treasury Plurality",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+					Parachain(1000),
+					Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+				],
+			),
+			expected_account_id_str: "5FNk7za2pQ71NHnN1jA63hJxJwdQywiVGnK6RL3nYjCdkWDF",
+		},
+		TestCase {
+			description: "Describe Rococo USDT Location",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+					Parachain(1000),
+					PalletInstance(50),
+					GeneralIndex(1984),
+				],
+			),
+			expected_account_id_str: "5HNfT779KHeAL7PaVBTQDVxrT6dfJZJoQMTScxLSahBc9kxF",
 		},
 	];
 
@@ -1540,6 +1622,7 @@ fn location_conversion_works() {
 				tc.location.into(),
 			)
 			.unwrap();
+
 			assert_eq!(got, expected, "{}", tc.description);
 		});
 	}

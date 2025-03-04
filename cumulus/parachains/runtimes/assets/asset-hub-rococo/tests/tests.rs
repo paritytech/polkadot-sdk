@@ -1545,12 +1545,94 @@ fn location_conversion_works() {
 			expected_account_id_str: "5Fb4pyqFuYLZ43USEAcVUBhFTfTckG9zv9kUaVnmR79YgBCe",
 		},
 		TestCase {
+			description: "Describe Westend AccountID",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					AccountId32 { network: None, id: AccountId::from(ALICE).into() },
+				],
+			),
+			expected_account_id_str: "5CpcvNFY6jkMJrd7XQt3yTweRD1WxUeHXvHnbWuVM1MHKHPe",
+		},
+		TestCase {
+			description: "Describe Westend AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					AccountKey20 { network: None, key: [0u8; 20] },
+				],
+			),
+			expected_account_id_str: "5FzaTcFwUMyX5Sfe7wRGuc3zw1cbpGAGZpmAsxS4tBX6x6U3",
+		},
+		TestCase {
+			description: "Describe Westend Treasury Plurality",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+				],
+			),
+			expected_account_id_str: "5CpdRCmCYwnxS1mifwEddYHDJR8ydDfTpi1gwAQKQvfAjjzu",
+		},
+		TestCase {
 			description: "Describe Westend Parachain Location",
 			location: Location::new(
 				2,
 				[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)],
 			),
 			expected_account_id_str: "5CkWf1L181BiSbvoofnzfSg8ZLiBK3i1U4sknzETHk8QS2mA",
+		},
+		TestCase {
+			description: "Describe Westend Parachain AccountID",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					AccountId32 { network: None, id: AccountId::from(ALICE).into() },
+				],
+			),
+			expected_account_id_str: "5G6JJUm6tgsxJhRn76VGme8WGukdUNiBBK6ABUtH9YXEjEk9",
+		},
+		TestCase {
+			description: "Describe Westend Parachain AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					AccountKey20 { network: None, key: [0u8; 20] },
+				],
+			),
+			expected_account_id_str: "5EFpSvq8BUAjdjY4tuGhGXZ66P16iQnX7nxsNoHy7TM6NhMa",
+		},
+		TestCase {
+			description: "Describe Westend Parachain Treasury Plurality",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+				],
+			),
+			expected_account_id_str: "5GfwA4qaz9wpQPPHmf5MSKqvsPyrfx1yYeeZB1SUkqDuRuZ1",
+		},
+		TestCase {
+			description: "Describe Westend USDT Location",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					PalletInstance(50),
+					GeneralIndex(1984),
+				],
+			),
+			expected_account_id_str: "5Hd77ZjbVRrYiRXER8qo9DRDB8ZzaKtRswZoypMnMLdixzMs",
 		},
 	];
 
