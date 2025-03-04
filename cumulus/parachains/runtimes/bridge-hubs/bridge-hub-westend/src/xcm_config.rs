@@ -67,6 +67,7 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub const GovernanceLocation: Location = Location::parent();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -124,7 +125,9 @@ pub type XcmOriginToTransactDispatchOrigin = (
 pub struct ParentOrParentsPlurality;
 impl Contains<Location> for ParentOrParentsPlurality {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
+		let result = matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]));
+		tracing::trace!(target: "xcm::contains", ?location, ?result, "ParentOrParentsPlurality matches");
+		result
 	}
 }
 
@@ -305,6 +308,7 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 	}
 
 	fn handle_fee(fee: Assets, context: Option<&XcmContext>, reason: FeeReason) {
+		tracing::trace!(target: "xcm::handle_fee", ?fee, ?context, ?reason, "FeeManager handle_fee");
 		FeeHandler::handle_fee(fee, context, reason);
 	}
 }

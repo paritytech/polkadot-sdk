@@ -27,7 +27,7 @@ use crate::{
 	},
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
-	limits,
+	limits, pure_precompiles,
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
@@ -2305,47 +2305,6 @@ fn call_runtime_reentrancy_guarded() {
 }
 
 #[test]
-fn ecdsa_recover() {
-	let (wasm, _code_hash) = compile_module("ecdsa_recover").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Instantiate the ecdsa_recover contract.
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(100_000)
-			.build_and_unwrap_contract();
-
-		#[rustfmt::skip]
-		let signature: [u8; 65] = [
-			161, 234, 203,  74, 147, 96,  51, 212,   5, 174, 231,   9, 142,  48, 137, 201,
-			162, 118, 192,  67, 239, 16,  71, 216, 125,  86, 167, 139,  70,   7,  86, 241,
-			 33,  87, 154, 251,  81, 29, 160,   4, 176, 239,  88, 211, 244, 232, 232,  52,
-			211, 234, 100, 115, 230, 47,  80,  44, 152, 166,  62,  50,   8,  13,  86, 175,
-			 28,
-		];
-		#[rustfmt::skip]
-		let message_hash: [u8; 32] = [
-			162, 28, 244, 179, 96, 76, 244, 178, 188,  83, 230, 248, 143, 106,  77, 117,
-			239, 95, 244, 171, 65, 95,  62, 153, 174, 166, 182,  28, 130,  73, 196, 208
-		];
-		#[rustfmt::skip]
-		const EXPECTED_COMPRESSED_PUBLIC_KEY: [u8; 33] = [
-			  2, 121, 190, 102, 126, 249, 220, 187, 172, 85, 160,  98, 149, 206, 135, 11,
-			  7,   2, 155, 252, 219,  45, 206,  40, 217, 89, 242, 129,  91,  22, 248, 23,
-			152,
-		];
-		let mut params = vec![];
-		params.extend_from_slice(&signature);
-		params.extend_from_slice(&message_hash);
-		assert!(params.len() == 65 + 32);
-		let result = builder::bare_call(addr).data(params).build_and_unwrap_result();
-		assert!(!result.did_revert());
-		assert_eq!(result.data, EXPECTED_COMPRESSED_PUBLIC_KEY);
-	})
-}
-
-#[test]
 fn sr25519_verify() {
 	let (wasm, _code_hash) = compile_module("sr25519_verify").unwrap();
 
@@ -4254,7 +4213,7 @@ fn origin_must_be_mapped() {
 
 #[test]
 fn mapped_address_works() {
-	let (code, _) = compile_module("terminate_and_send_to_eve").unwrap();
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -4263,7 +4222,7 @@ fn mapped_address_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
-		builder::bare_call(addr).build_and_unwrap_result();
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
 
 		// after mapping it will be sent to the real eve account
@@ -4272,9 +4231,40 @@ fn mapped_address_works() {
 		// need some balance to pay for the map deposit
 		<Test as Config>::Currency::set_balance(&EVE, 1_000);
 		<Pallet<Test>>::map_account(RuntimeOrigin::signed(EVE)).unwrap();
-		builder::bare_call(addr).build_and_unwrap_result();
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 1_100);
+	});
+}
+
+#[test]
+fn recovery_works() {
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// eve puts her AccountId20 as argument to terminate but forgot to register
+		// her AccountId32 first so now the funds are trapped in her fallback account
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
+
+		let call = RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+			dest: EVE,
+			keep_alive: false,
+		});
+
+		// she now uses the recovery function to move all funds from the fallback
+		// account to her real account
+		<Pallet<Test>>::dispatch_as_fallback_account(RuntimeOrigin::signed(EVE), Box::new(call))
+			.unwrap();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 100);
 	});
 }
 
@@ -4601,15 +4591,15 @@ fn unknown_precompiles_revert() {
 
 		let cases: Vec<(H160, Box<dyn FnOnce(_)>)> = vec![
 			(
-				H160::from_low_u64_be(0x1),
+				H160::from_low_u64_be(0x2),
 				Box::new(|result| {
-					assert_err!(result, <Error<Test>>::UnsupportedPrecompileAddress);
+					assert_err!(result, <Error<Test>>::ContractTrapped);
 				}),
 			),
 			(
 				H160::from_low_u64_be(0xff),
 				Box::new(|result| {
-					assert_err!(result, <Error<Test>>::UnsupportedPrecompileAddress);
+					assert_err!(result, <Error<Test>>::ContractTrapped);
 				}),
 			),
 			(
@@ -4626,4 +4616,46 @@ fn unknown_precompiles_revert() {
 			assert_result(result);
 		}
 	});
+}
+
+#[test]
+fn ecrecover_precompile_works() {
+	use hex_literal::hex;
+
+	let cases = vec![
+			(
+				hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"),
+				hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b").to_vec(),
+			),
+			(
+				hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000000173b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"),
+				[0u8; 0].to_vec(),
+			),
+		];
+
+	for (input, output) in cases {
+		let (code, _code_hash) = compile_module("call_and_return").unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.value(1000)
+				.build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data((pure_precompiles::ECRECOVER, 100u64, input).encode())
+				.build_and_unwrap_result();
+
+			test_utils::get_balance(&<Test as Config>::AddressMapper::to_account_id(
+				&pure_precompiles::ECRECOVER,
+			));
+			assert_eq!(
+				test_utils::get_balance(&<Test as Config>::AddressMapper::to_account_id(
+					&pure_precompiles::ECRECOVER
+				)),
+				101u64
+			);
+			assert_eq!(result.data, output);
+			assert_eq!(result.flags, ReturnFlags::empty());
+		});
+	}
 }

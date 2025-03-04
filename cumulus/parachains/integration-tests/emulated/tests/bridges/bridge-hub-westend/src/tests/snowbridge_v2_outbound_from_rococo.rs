@@ -57,9 +57,14 @@ pub(crate) fn create_foreign_on_ah_westend(id: xcm::opaque::v5::Location, suffic
 }
 
 // set up pool
-pub(crate) fn set_up_pool_with_wnd_on_ah_westend(asset: Location, is_foreign: bool) {
+pub(crate) fn set_up_pool_with_wnd_on_ah_westend(
+	asset: Location,
+	is_foreign: bool,
+	initial_fund: u128,
+	initial_liquidity: u128,
+) {
 	let wnd: Location = Parent.into();
-	AssetHubWestend::fund_accounts(vec![(AssetHubWestendSender::get(), INITIAL_FUND)]);
+	AssetHubWestend::fund_accounts(vec![(AssetHubWestendSender::get(), initial_fund)]);
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		let owner = AssetHubWestendSender::get();
@@ -70,7 +75,7 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(asset: Location, is_foreign: bo
 				signed_owner.clone(),
 				asset.clone().into(),
 				owner.clone().into(),
-				8_000_000_000_000,
+				initial_fund,
 			));
 		} else {
 			let asset_id = match asset.interior.last() {
@@ -81,7 +86,7 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(asset: Location, is_foreign: bo
 				signed_owner.clone(),
 				asset_id.into(),
 				owner.clone().into(),
-				8_000_000_000_000,
+				initial_fund,
 			));
 		}
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
@@ -99,8 +104,8 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(asset: Location, is_foreign: bo
 			signed_owner.clone(),
 			Box::new(wnd),
 			Box::new(asset),
-			6_000_000_000_000,
-			6_000_000_000_000,
+			initial_liquidity,
+			initial_liquidity,
 			1,
 			1,
 			owner.into()
@@ -187,14 +192,26 @@ pub fn register_roc_on_bh() {
 
 #[test]
 fn send_roc_from_asset_hub_rococo_to_ethereum() {
-	let amount: u128 = 1_000_000_000_000_000;
-	let fee_amount: u128 = 80_000_000_000_000;
+	let initial_fund: u128 = 200_000_000_000_000;
+	let initial_liquidity: u128 = initial_fund / 2;
+	let amount: u128 = initial_fund;
+	let roc_fee_amount: u128 = initial_liquidity / 2;
+	let wnd_amount_to_swap: u128 = initial_liquidity / 10;
+	let wnd_fee_amount: u128 = wnd_amount_to_swap / 10;
+
+	let ether_fee_amount: u128 = 4_000_000;
+
 	let sender = AssetHubRococoSender::get();
 	let roc_at_asset_hub_rococo = roc_at_ah_rococo();
 	let bridged_roc_at_asset_hub_westend = bridged_roc_at_ah_westend();
 
 	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true);
-	set_up_pool_with_wnd_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true);
+	set_up_pool_with_wnd_on_ah_westend(
+		bridged_roc_at_asset_hub_westend.clone(),
+		true,
+		initial_fund,
+		initial_liquidity,
+	);
 	AssetHubWestend::execute_with(|| {
 		let previous_owner = snowbridge_sovereign();
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::start_destroy(
@@ -209,9 +226,9 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 		));
 	});
 	create_foreign_on_ah_westend(ethereum(), true);
-	set_up_pool_with_wnd_on_ah_westend(ethereum(), true);
-	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 50_000_000_000_000_000);
-	AssetHubRococo::fund_accounts(vec![(AssetHubRococoSender::get(), 50_000_000_000_000_000)]);
+	set_up_pool_with_wnd_on_ah_westend(ethereum(), true, initial_fund, initial_liquidity);
+	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), initial_fund);
+	AssetHubRococo::fund_accounts(vec![(AssetHubRococoSender::get(), initial_fund)]);
 	fund_on_bh();
 	register_roc_on_bh();
 
@@ -220,15 +237,13 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 	BridgeHubRococo::force_xcm_version(bridge_hub_westend_location(), XCM_VERSION);
 
 	// send ROCs, use them for fees
-	let local_fee_asset: Asset = (roc_at_asset_hub_rococo.clone(), fee_amount).into();
-	let remote_fee_on_westend: Asset = (roc_at_asset_hub_rococo.clone(), fee_amount).into();
+	let local_fee_asset: Asset = (roc_at_asset_hub_rococo.clone(), roc_fee_amount).into();
+	let remote_fee_on_westend: Asset = (roc_at_asset_hub_rococo.clone(), roc_fee_amount).into();
 	let assets: Assets = (roc_at_asset_hub_rococo.clone(), amount).into();
 	let reserved_asset_on_westend: Asset =
-		(roc_at_asset_hub_rococo.clone(), amount - fee_amount * 2).into();
+		(roc_at_asset_hub_rococo.clone(), amount - roc_fee_amount * 2).into();
 	let reserved_asset_on_westend_reanchored: Asset =
-		(bridged_roc_at_asset_hub_westend.clone(), (amount - fee_amount * 2) / 2).into();
-
-	let ether_fee_amount: u128 = 4_000_000;
+		(bridged_roc_at_asset_hub_westend.clone(), (amount - roc_fee_amount * 2) / 2).into();
 
 	let xcm = VersionedXcm::from(Xcm(vec![
 		WithdrawAsset(assets.clone().into()),
@@ -246,16 +261,16 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 				// swap from roc to wnd
 				ExchangeAsset {
 					give: Definite(reserved_asset_on_westend_reanchored.clone().into()),
-					want: (Parent, 4_000_000_000_000_u128).into(),
+					want: (Parent, wnd_amount_to_swap).into(),
 					maximal: true,
 				},
 				// swap some wnd to ether
 				ExchangeAsset {
-					give: Definite((Parent, 40_000_000_000_u128).into()),
+					give: Definite((Parent, ether_fee_amount * 2).into()),
 					want: (ethereum(), ether_fee_amount).into(),
 					maximal: true,
 				},
-				PayFees { asset: (Parent, 400_000_000_000_u128).into() },
+				PayFees { asset: (Parent, wnd_fee_amount).into() },
 				InitiateTransfer {
 					destination: ethereum(),
 					remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
