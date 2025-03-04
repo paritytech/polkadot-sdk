@@ -275,6 +275,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let client = params.client.clone();
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
+			let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
 			let (relay_chain_interface, collator_key, paranode_rx) = build_relay_chain_interface(
 				polkadot_config,
 				&parachain_config,
@@ -407,6 +408,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				para_id,
 				task_manager: &mut task_manager,
 				relay_chain_interface: relay_chain_interface.clone(),
+				relay_chain_fork_id,
 				request_receiver: paranode_rx,
 				parachain_network: network,
 				advertise_non_global_ips,

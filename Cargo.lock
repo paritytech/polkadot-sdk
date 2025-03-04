@@ -4237,6 +4237,7 @@ dependencies = [
  "hex",
  "ip_network",
  "log",
+ "num-traits",
  "parity-scale-codec",
  "prost 0.12.6",
  "prost-build",

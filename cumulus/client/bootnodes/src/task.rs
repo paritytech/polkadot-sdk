@@ -18,11 +18,13 @@
 
 use crate::{
 	advertisement::{BootnodeAdvertisement, BootnodeAdvertisementParams},
+	config::paranode_protocol_name,
 	discovery::{BootnodeDiscovery, BootnodeDiscoveryParams},
 };
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_core::{relay_chain::BlockId, ParaId};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use log::error;
+use num_traits::Zero;
 use sc_network::{request_responses::IncomingRequest, service::traits::NetworkService, Multiaddr};
 use sc_service::TaskManager;
 use std::sync::Arc;
@@ -38,6 +40,8 @@ pub struct StartBootnodeTasksParams<'a> {
 	pub task_manager: &'a mut TaskManager,
 	/// Relay chain interface.
 	pub relay_chain_interface: Arc<dyn RelayChainInterface>,
+	/// Relay chain fork ID.
+	pub relay_chain_fork_id: Option<String>,
 	/// `/paranode` protocol request receiver.
 	pub request_receiver: async_channel::Receiver<IncomingRequest>,
 	/// Parachain node network service.
@@ -93,30 +97,61 @@ async fn bootnode_advertisement(
 
 async fn bootnode_discovery(
 	para_id: ParaId,
+	parachain_network: Arc<dyn NetworkService>,
 	parachain_genesis_hash: Vec<u8>,
 	parachain_fork_id: Option<String>,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
+	relay_chain_fork_id: Option<String>,
 ) {
 	let relay_chain_network = match relay_chain_interface.network_service() {
 		Ok(network_service) => network_service,
 		Err(e) => {
 			error!(
 				target: LOG_TARGET,
-				"Bootnode discovery: Failed to obtain network service: {e}",
+				"Bootnode discovery: failed to obtain network service: {e}",
 			);
-			// Returning here will cause an essential task to fail.
+			// Make essential task fail.
 			return;
 		},
 	};
 
+	let relay_chain_genesis_hash =
+		match relay_chain_interface.header(BlockId::Number(Zero::zero())).await {
+			Ok(Some(header)) => header.hash().as_bytes().to_vec(),
+			Ok(None) => {
+				error!(
+					target: LOG_TARGET,
+					"Bootnode discovery: relay chain genesis hash does not exist",
+				);
+				// Make essential task fail.
+				return;
+			},
+			Err(e) => {
+				error!(
+					target: LOG_TARGET,
+					"Bootnode discovery: failed to obtain relay chain genesis hash: {e}",
+				);
+				// Make essential task fail.
+				return;
+			},
+		};
+
+	let paranode_protocol_name =
+		paranode_protocol_name(relay_chain_genesis_hash, relay_chain_fork_id.as_deref());
+
 	let bootnode_discovery = BootnodeDiscovery::new(BootnodeDiscoveryParams {
 		para_id,
+		parachain_network,
 		parachain_genesis_hash,
 		parachain_fork_id,
+		relay_chain_interface,
 		relay_chain_network,
+		paranode_protocol_name,
 	});
 
-	bootnode_discovery.run().await;
+	if let Err(e) = bootnode_discovery.run().await {
+		error!(target: LOG_TARGET, "Bootnode discovery terminated with error: {e}");
+	}
 }
 
 /// Start parachain bootnode advertisement and discovery tasks.
@@ -125,6 +160,7 @@ pub fn start_bootnode_tasks(
 		para_id,
 		task_manager,
 		relay_chain_interface,
+		relay_chain_fork_id,
 		request_receiver,
 		parachain_network,
 		advertise_non_global_ips,
@@ -140,7 +176,7 @@ pub fn start_bootnode_tasks(
 			para_id,
 			relay_chain_interface.clone(),
 			request_receiver,
-			parachain_network,
+			parachain_network.clone(),
 			advertise_non_global_ips,
 			parachain_genesis_hash.clone(),
 			parachain_fork_id.clone(),
@@ -152,9 +188,11 @@ pub fn start_bootnode_tasks(
 		None,
 		bootnode_discovery(
 			para_id,
+			parachain_network,
 			parachain_genesis_hash,
 			parachain_fork_id,
 			relay_chain_interface,
+			relay_chain_fork_id,
 		),
 	);
 }

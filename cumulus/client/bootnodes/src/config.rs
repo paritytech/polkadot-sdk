@@ -16,7 +16,9 @@
 
 //! Parachain bootnode request-response protocol configuration.
 
-use sc_network::{request_responses::IncomingRequest, service::traits::NetworkBackend};
+use sc_network::{
+	request_responses::IncomingRequest, service::traits::NetworkBackend, ProtocolName,
+};
 use sp_runtime::traits::Block as BlockT;
 use std::time::Duration;
 
@@ -31,7 +33,10 @@ const MAX_RESPONSE_SIZE: u64 = 16 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Bootnode request-response protocol name given a genesis hash and fork id.
-fn protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option<&str>) -> String {
+pub fn paranode_protocol_name<Hash: AsRef<[u8]>>(
+	genesis_hash: Hash,
+	fork_id: Option<&str>,
+) -> ProtocolName {
 	let genesis_hash = genesis_hash.as_ref();
 	if let Some(fork_id) = fork_id {
 		// This is not stated in RFC-0008, but other polkadot protocol names are based on `fork_id`
@@ -40,6 +45,7 @@ fn protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option<&str>) -
 	} else {
 		format!("/{}/paranode", array_bytes::bytes2hex("", genesis_hash))
 	}
+	.into()
 }
 
 /// Bootnode request-response protocol config.
@@ -54,7 +60,7 @@ pub fn bootnode_request_response_config<
 	let (inbound_tx, inbound_rx) = async_channel::bounded(INBOUND_CHANNEL_SIZE);
 
 	let config = N::request_response_config(
-		protocol_name(genesis_hash, fork_id).into(),
+		paranode_protocol_name(genesis_hash, fork_id),
 		Vec::new(),
 		MAX_REQUEST_SIZE,
 		MAX_RESPONSE_SIZE,

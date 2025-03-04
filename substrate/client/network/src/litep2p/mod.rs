@@ -722,7 +722,12 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								address.push(Protocol::P2p(litep2p::PeerId::from(peer).into()));
 							}
 
-							if self.litep2p.add_known_address(peer.into(), iter::once(address.clone())) == 0usize {
+							if self.litep2p.add_known_address(peer.into(), iter::once(address.clone())) > 0 {
+								// libp2p backend generates `DiscoveryOut::Discovered(peer_id)`
+								// event when a new address is added for a peer, which leads to the
+								// peer being added to peerstore. Do the same directly here.
+								self.peerstore_handle.add_known_peer(peer);
+							} else {
 								log::debug!(
 									target: LOG_TARGET,
 									"couldn't add known address ({address}) for {peer:?}, unsupported transport"
@@ -881,6 +886,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									target: LOG_TARGET,
 									"`GET_PROVIDERS` for {key:?} ({query_id:?}) succeeded",
 								);
+
+								// We likely requested providers to connect to them,
+								// so let's add their addresses to litep2p's transport manager.
+								// Consider also looking the addresses of providers up with `FIND_NODE`
+								// query, as it can yield more up to date addresses.
+								providers.iter().for_each(|p| {
+									self.litep2p.add_known_address(p.peer, p.addresses.clone().into_iter());
+								});
 
 								self.event_streams.send(Event::Dht(
 									DhtEvent::ProvidersFound(

@@ -23,6 +23,7 @@ futures = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
 ip_network = { workspace = true }
 log = { workspace = true, default-features = true }
+num-traits = { workspace = true, default-features = true }
 prost = { workspace = true }
 tokio = { workspace = true, default-features = true }
 
