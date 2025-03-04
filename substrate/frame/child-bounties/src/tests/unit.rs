@@ -19,7 +19,7 @@
 
 #![cfg(test)]
 
-use super::mock::*;
+use super::{mock::*, utils::*};
 use crate as pallet_child_bounties;
 use crate::{
 	tests::mock::ChildBounties, BountiesError, ChildBounty, ChildBountyStatus, Error,
@@ -31,7 +31,7 @@ use frame_support::{
 	traits::{Currency, Hooks},
 	dispatch::PostDispatchInfo,
 };
-use sp_runtime::{traits::BadOrigin, TokenError};
+use sp_runtime::traits::BadOrigin;
 
 #[test]
 fn add_child_bounty() {

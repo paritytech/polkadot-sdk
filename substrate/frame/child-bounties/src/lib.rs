@@ -57,9 +57,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod migration;
-#[cfg(test)]
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 mod tests;
 pub mod weights;
 pub use pallet::*;
@@ -1090,7 +1091,7 @@ pub mod pallet {
 						} => {
 							let (mut payments_progressed, mut payments_succeeded) = (0, 0);
 							// advance both curator, and beneficiary payments
-							for (account, payment_state) in [
+							for (_account, payment_state) in [
 								(&curator_stash.0, &mut curator_stash.1),
 								(&beneficiary.0, &mut beneficiary.1),
 							] {
@@ -1196,7 +1197,7 @@ pub mod pallet {
 
 											*maybe_child_bounty = None;
 
-											let result = Self::deposit_event(Event::<T, I>::Canceled {
+											Self::deposit_event(Event::<T, I>::Canceled {
 												index: parent_bounty_id,
 												child_index: child_bounty_id,
 											});

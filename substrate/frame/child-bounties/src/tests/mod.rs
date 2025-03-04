@@ -17,6 +17,11 @@
 
 //! Child-bounties pallet tests.
 
-pub mod genesis;
-pub mod mock;
-pub mod unit;
+#[cfg(test)]
+pub(crate) mod genesis;
+#[cfg(test)]
+pub(crate) mod mock;
+#[cfg(test)]
+pub(crate) mod unit;
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+pub(crate) mod utils;
