@@ -4,7 +4,6 @@
 //! Ethereum Outbound Queue V2 Runtime API
 //!
 //! * `prove_message`: Generate a merkle proof for a committed message
-//! * `dry_run`: dry run the xcm to get a message structure to execute on Ethereum
 
 #![cfg_attr(not(feature = "std"), no_std)]
 use frame_support::traits::tokens::Balance as BalanceT;
