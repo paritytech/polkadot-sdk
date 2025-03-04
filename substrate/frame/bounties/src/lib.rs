@@ -224,12 +224,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self, I>>;
 
+		/// The time limit for a curator to act before bounty expires.
+		///
 		/// The period that starts when a curator is approved, during which they must execute or
 		/// update the bounty via `extend_bounty_expiry`. If missed, the bounty expires, and the
-		/// curator may be slashed.
-		///
-		/// If `None`, bounties stay active indefinitely, removing the need for
-		/// `extend_bounty_expiry`.
+		/// curator may be slashed. If `None`, bounties stay active indefinitely, removing the need
+		/// for `extend_bounty_expiry`.
 		#[pallet::constant]
 		type BountyUpdatePeriod: Get<Option<BlockNumberFor<Self, I>>>;
 

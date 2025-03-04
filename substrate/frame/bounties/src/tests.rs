@@ -137,6 +137,7 @@ parameter_types! {
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMax: Balance = 1_000;
 	pub const CuratorDepositMin: Balance = 3;
+	pub static BountyUpdatePeriod: Option<u64> = Some(20);
 
 }
 
@@ -144,7 +145,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
-	type BountyUpdatePeriod = ConstU64<20>;
+	type BountyUpdatePeriod = BountyUpdatePeriod;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
@@ -160,7 +161,7 @@ impl Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
-	type BountyUpdatePeriod = ();
+	type BountyUpdatePeriod = BountyUpdatePeriod;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
@@ -1446,6 +1447,7 @@ fn accept_curator_sets_update_due_correctly() {
 		);
 
 		// Given (BountyUpdatePeriod = None)
+		BountyUpdatePeriod::set(None);
 		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
 		assert_ok!(Bounties1::propose_bounty(
 			RuntimeOrigin::signed(proposer),
