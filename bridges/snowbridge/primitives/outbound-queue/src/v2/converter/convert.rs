@@ -92,8 +92,16 @@ where
 	/// Extract the fee asset item from PayFees(V5)
 	fn extract_remote_fee(&mut self) -> Result<u128, XcmConverterError> {
 		use XcmConverterError::*;
-		let _ = match_expression!(self.next()?, WithdrawAsset(fee), fee)
+		let reserved_fee_assets = match_expression!(self.next()?, WithdrawAsset(fee), fee)
 			.ok_or(WithdrawAssetExpected)?;
+		ensure!(reserved_fee_assets.len() == 1, AssetResolutionFailed);
+		let reserved_fee_asset =
+			reserved_fee_assets.clone().into_inner().pop().ok_or(AssetResolutionFailed)?;
+		let (reserved_fee_asset_id, reserved_fee_amount) = match reserved_fee_asset {
+			Asset { id: asset_id, fun: Fungible(amount) } => Some((asset_id, amount)),
+			_ => None,
+		}
+		.ok_or(AssetResolutionFailed)?;
 		let fee_asset =
 			match_expression!(self.next()?, PayFees { asset: fee }, fee).ok_or(InvalidFeeAsset)?;
 		let (fee_asset_id, fee_amount) = match fee_asset {
@@ -103,6 +111,8 @@ where
 		.ok_or(AssetResolutionFailed)?;
 		// Check the fee asset is Ether
 		ensure!(fee_asset_id.0 == Here.into(), InvalidFeeAsset);
+		ensure!(reserved_fee_asset_id.0 == Here.into(), InvalidFeeAsset);
+		ensure!(reserved_fee_amount >= fee_amount, InvalidFeeAsset);
 		Ok(fee_amount)
 	}
 

@@ -379,7 +379,7 @@ fn exporter_validate_xcm_success_case_1() {
 
 	let mut message: Option<Xcm<()>> = Some(
 		vec![
-			WithdrawAsset(assets.clone()),
+			WithdrawAsset(fee_asset.clone().into()),
 			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -542,7 +542,7 @@ fn xcm_converter_convert_success() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -574,7 +574,7 @@ fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -606,7 +606,7 @@ fn xcm_converter_convert_without_set_topic_yields_set_topic_expected() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -640,7 +640,7 @@ fn xcm_converter_convert_with_partial_message_yields_invalid_fee_asset() {
 }
 
 #[test]
-fn xcm_converter_with_different_fee_asset_succeed() {
+fn xcm_converter_with_different_fee_asset_fails() {
 	let network = BridgedNetwork::get();
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
@@ -653,7 +653,7 @@ fn xcm_converter_with_different_fee_asset_succeed() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -670,7 +670,7 @@ fn xcm_converter_with_different_fee_asset_succeed() {
 }
 
 #[test]
-fn xcm_converter_with_fees_greater_than_reserve_succeed() {
+fn xcm_converter_with_fees_greater_than_reserve_will_fail() {
 	let network = BridgedNetwork::get();
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
@@ -684,7 +684,7 @@ fn xcm_converter_with_fees_greater_than_reserve_succeed() {
 	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -728,7 +728,7 @@ fn xcm_converter_convert_with_extra_instructions_yields_end_of_xcm_message_expec
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -791,7 +791,7 @@ fn xcm_converter_convert_without_withdraw_asset_yields_deposit_expected() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -816,7 +816,7 @@ fn xcm_converter_convert_without_assets_yields_no_reserve_assets() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 		DepositAsset {
@@ -855,7 +855,7 @@ fn xcm_converter_convert_with_two_assets_yields() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -888,7 +888,7 @@ fn xcm_converter_convert_without_consuming_filter_yields_filter_does_not_consume
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -921,7 +921,7 @@ fn xcm_converter_convert_with_zero_amount_asset_yields_zero_asset_transfer() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -953,7 +953,7 @@ fn xcm_converter_convert_non_ethereum_asset_yields_asset_resolution_failed() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) };
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone().into()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -988,7 +988,7 @@ fn xcm_converter_convert_non_ethereum_chain_asset_yields_asset_resolution_failed
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) };
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone().into()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -1023,7 +1023,7 @@ fn xcm_converter_convert_non_ethereum_chain_yields_asset_resolution_failed() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) };
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone().into()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -1058,7 +1058,7 @@ fn xcm_converter_convert_with_non_ethereum_beneficiary_yields_beneficiary_resolu
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) };
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone().into()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -1092,7 +1092,7 @@ fn xcm_converter_convert_with_non_ethereum_chain_beneficiary_yields_beneficiary_
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) };
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		WithdrawAsset(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -1155,7 +1155,7 @@ fn xcm_converter_transfer_native_token_success() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) };
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		ReserveAssetDeposited(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
@@ -1198,7 +1198,7 @@ fn xcm_converter_transfer_native_token_with_invalid_location_will_fail() {
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) };
 
 	let message: Xcm<()> = vec![
-		WithdrawAsset(assets.clone()),
+		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset },
 		ReserveAssetDeposited(assets.clone()),
 		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
