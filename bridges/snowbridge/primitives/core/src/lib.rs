@@ -189,6 +189,10 @@ const METADATA_FIELD_MAX_LEN: u32 = 32;
 /// Note: Make sure this is called from a transactional storage context so that side-effects
 /// are rolled back on errors.
 pub fn burn_for_teleport<AssetTransactor>(origin: &Location, fee: &Asset) -> XcmResult
+///
+/// Note: Make sure this is called from a transactional storage context so that side-effects
+/// are rolled back on errors.
+pub fn burn_for_teleport<AssetTransactor>(origin: &Location, fee: &Asset) -> XcmResult
 where AssetTransactor: TransactAsset {
 	let dummy_context =
 		XcmContext { origin: None, message_id: Default::default(), topic: None };
