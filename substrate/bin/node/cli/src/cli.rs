@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use polkadot_sdk::*;
+use polkadot_sdk::sc_cli::ExportChainSpecCmd;
 
 /// An overarching CLI command definition.
 #[derive(Debug, clap::Parser)]
@@ -79,6 +80,9 @@ pub enum Subcommand {
 
 	/// Build a chain specification.
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),

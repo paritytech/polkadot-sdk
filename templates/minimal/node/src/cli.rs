@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use polkadot_sdk::{sc_cli::RunCmd, *};
+use polkadot_sdk::sc_cli::ExportChainSpecCmd;
 
 #[derive(Debug, Clone)]
 pub enum Consensus {
@@ -60,6 +61,9 @@ pub enum Subcommand {
 
 	/// Build a chain specification.
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),

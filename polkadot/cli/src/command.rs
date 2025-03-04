@@ -291,6 +291,11 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			Ok(runner.sync_run(|config| cmd.run(config.chain_spec, config.network))?)
 		},
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			// Directly load the embedded chain spec using the CLI’s load_spec method.
+			let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
+			cmd.run(spec)
+		},
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd).map_err(Error::SubstrateCli)?;
 			let chain_spec = &runner.config().chain_spec;

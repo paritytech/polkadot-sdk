@@ -1,4 +1,4 @@
-use sc_cli::RunCmd;
+use sc_cli::{ExportChainSpecCmd, RunCmd};
 
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
@@ -18,6 +18,9 @@ pub enum Subcommand {
 
 	/// Build a chain specification.
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),

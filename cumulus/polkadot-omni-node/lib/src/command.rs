@@ -167,12 +167,6 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				cmd.run(config, polkadot_config)
 			})
 		},
-		Some(Subcommand::ExportChainSpec(cmd)) => {
-			// Directly load the embedded chain spec using the CLI’s load_spec method.
-			let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
-			cmd.run(&*spec)
-		},
-
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {

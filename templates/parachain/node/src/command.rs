@@ -123,6 +123,11 @@ pub fn run() -> Result<()> {
 				Ok(cmd.run(components.client, components.import_queue))
 			})
 		},
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			// Directly load the embedded chain spec using the CLI’s load_spec method.
+			let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
+			cmd.run(&*spec)
+		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			construct_async_run!(|components, cli, cmd, config| {
 				Ok(cmd.run(components.client, config.database))

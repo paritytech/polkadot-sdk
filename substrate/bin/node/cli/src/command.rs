@@ -93,6 +93,11 @@ pub fn run() -> Result<()> {
 
 			runner.sync_run(|config| cmd.run::<Block, RuntimeApi>(config))
 		},
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			// Directly load the embedded chain spec using the CLI’s load_spec method.
+			let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
+			cmd.run(spec)
+		},
 		Some(Subcommand::Benchmark(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 
