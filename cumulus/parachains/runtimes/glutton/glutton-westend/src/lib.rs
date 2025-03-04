@@ -299,6 +299,13 @@ pub type TxExtension = (
 	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
 	frame_system::CheckEra<Runtime>,
+	// No nonce checks, as we have nothing that creates accounts.
+	// Don't forget to enable this extension if we introduce
+	// means of creating accounts.
+	//
+	// This is safe, as only the sudo account can send transactions
+	// currently.
+	// frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	frame_system::WeightReclaim<Runtime>,
 );
