@@ -37,6 +37,7 @@ const SAMPLE_SIZE: u32 = 1024;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
+	println!("{:?}", events);
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
 	// compare to the last event record
 	let frame_system::EventRecord { event, .. } = &events[events.len() - 1];
@@ -250,32 +251,33 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn authorize_code_hash() {
+	fn authorize_force_set_current_code_hash() {
 		let para_id = ParaId::from(1000);
-		let authorization =
-			CodeHashAuthorization::ForceSetCurrentCode { para_id, code_hash: [0; 32].into() };
-		let expire_at = frame_system::Pallet::<T>::block_number()
-			.saturating_add(BlockNumberFor::<T>::from(1_000_000_u32));
+		let code = ValidationCode(vec![0; 32]);
+		let new_code_hash = code.hash();
+		let valid_period = BlockNumberFor::<T>::from(1_000_000_u32);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, authorization.clone(), expire_at);
+		_(RawOrigin::Root, para_id, new_code_hash, valid_period);
 
-		assert_last_event::<T>(Event::CodeAuthorized { authorization, expire_at }.into());
+		assert_last_event::<T>(Event::CodeAuthorized {
+			para_id,
+			code_hash: new_code_hash,
+			expire_at: frame_system::Pallet::<T>::block_number().saturating_add(valid_period)
+		}.into());
 	}
 
 	#[benchmark]
-	fn apply_authorized_code(c: Linear<MIN_CODE_SIZE, MAX_CODE_SIZE>) {
+	fn apply_authorized_force_set_current_code(c: Linear<MIN_CODE_SIZE, MAX_CODE_SIZE>) {
 		let code = ValidationCode(vec![0; c as usize]);
 		let para_id = ParaId::from(1000);
-		let authorization =
-			CodeHashAuthorization::ForceSetCurrentCode { para_id, code_hash: code.hash() };
 		let expire_at =
 			frame_system::Pallet::<T>::block_number().saturating_add(BlockNumberFor::<T>::from(c));
-		AuthorizedCodeHash::<T>::set(vec![(authorization.clone(), expire_at)]);
+		AuthorizedCodeHash::<T>::insert(&para_id, (code.hash(), expire_at));
 		generate_disordered_pruning::<T>();
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, authorization, code);
+		_(RawOrigin::Root, para_id, code);
 
 		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into());
 	}

@@ -550,73 +550,6 @@ impl AssignCoretime for () {
 	}
 }
 
-/// Represents different types of authorization for handling code hashes.
-/// This enum defines various actions related to validation code management.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
-#[cfg_attr(test, derive(Ord, PartialOrd))]
-pub enum CodeHashAuthorization<N> {
-	/// Forces the current validation code for a parachain to be set.
-	ForceSetCurrentCode {
-		/// The ID of the parachain.
-		para_id: ParaId,
-		/// The validation code hash.
-		code_hash: ValidationCodeHash,
-	},
-
-	/// Forces a scheduled code upgrade for a parachain.
-	ForceScheduleCodeUpgrade {
-		/// The ID of the parachain.
-		para_id: ParaId,
-		/// The validation code hash.
-		code_hash: ValidationCodeHash,
-		/// The relay parent block number at which the upgrade should be applied.
-		relay_parent_number: N,
-	},
-
-	/// Adds a trusted validation code hash to the system.
-	AddTrustedValidationCode {
-		/// The validation code hash
-		code_hash: ValidationCodeHash,
-	},
-}
-
-impl<N> CodeHashAuthorization<N> {
-	/// Determines if the current authorization should be replaced by another.
-	///
-	/// # Returns
-	/// - `true` if `other` should replace `self`
-	/// - `false` otherwise
-	fn should_be_replaced_by(&self, other: &CodeHashAuthorization<N>) -> bool {
-		use CodeHashAuthorization::*;
-
-		match (self, other) {
-			(ForceSetCurrentCode { para_id: a, .. }, ForceSetCurrentCode { para_id: b, .. }) |
-			(
-				ForceScheduleCodeUpgrade { para_id: a, .. },
-				ForceScheduleCodeUpgrade { para_id: b, .. },
-			) if a == b => true,
-
-			(
-				AddTrustedValidationCode { code_hash: a },
-				AddTrustedValidationCode { code_hash: b },
-			) if a == b => true,
-
-			_ => false,
-		}
-	}
-
-	/// Compares the stored `code_hash` with the hash of the provided validation code.
-	fn code_matches(&self, code: &ValidationCode) -> bool {
-		let code_hash = match self {
-			CodeHashAuthorization::ForceSetCurrentCode { code_hash, .. } |
-			CodeHashAuthorization::ForceScheduleCodeUpgrade { code_hash, .. } |
-			CodeHashAuthorization::AddTrustedValidationCode { code_hash } => code_hash,
-		};
-
-		code_hash == &code.hash()
-	}
-}
-
 pub trait WeightInfo {
 	fn force_set_current_code(c: u32) -> Weight;
 	fn force_set_current_head(s: u32) -> Weight;
@@ -632,8 +565,8 @@ pub trait WeightInfo {
 	fn include_pvf_check_statement_finalize_onboarding_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_onboarding_reject() -> Weight;
 	fn include_pvf_check_statement() -> Weight;
-	fn authorize_code_hash() -> Weight;
-	fn apply_authorized_code(c: u32) -> Weight;
+	fn authorize_force_set_current_code_hash() -> Weight;
+	fn apply_authorized_force_set_current_code(c: u32) -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -679,10 +612,10 @@ impl WeightInfo for TestWeightInfo {
 		// This special value is to distinguish from the finalizing variants above in tests.
 		Weight::MAX - Weight::from_parts(1, 1)
 	}
-	fn authorize_code_hash() -> Weight {
+	fn authorize_force_set_current_code_hash() -> Weight {
 		Weight::MAX
 	}
-	fn apply_authorized_code(_c: u32) -> Weight {
+	fn apply_authorized_force_set_current_code(_c: u32) -> Weight {
 		Weight::MAX
 	}
 }
@@ -757,8 +690,10 @@ pub mod pallet {
 		PvfCheckRejected(ValidationCodeHash, ParaId),
 		/// New code hash has been authorized for a Para.
 		CodeAuthorized {
-			/// CodeHash authorization request.
-			authorization: CodeHashAuthorization<BlockNumberFor<T>>,
+			// Para
+			para_id: ParaId,
+			/// Authorized code hash.
+			code_hash: ValidationCodeHash,
 			/// Block at which authorization expires and will be removed.
 			expire_at: BlockNumberFor<T>,
 		},
@@ -893,13 +828,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type FutureCodeHash<T: Config> = StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
-	/// The code hash authorizations which will expire `expire_at` `BlockNumberFor<T>`.
+	/// The code hash authorizations for a para which will expire `expire_at` `BlockNumberFor<T>`.
 	#[pallet::storage]
-	pub(super) type AuthorizedCodeHash<T: Config> = StorageValue<
-		_,
-		Vec<(CodeHashAuthorization<BlockNumberFor<T>>, BlockNumberFor<T>)>,
-		ValueQuery,
-	>;
+	pub type AuthorizedCodeHash<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, (ValidationCodeHash, BlockNumberFor<T>)>;
 
 	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
 	/// procedure.
@@ -1258,40 +1190,34 @@ pub mod pallet {
 		}
 
 		/// Sets the storage for the authorized current code hash of the parachain.
-		/// If not applied, it will be removed at the `expire_at` block.
+		/// If not applied, it will be removed at the `System::block_number() + valid_period` block.
 		///
-		/// This can be useful, for example, when triggering `Paras::force_set_current_code(para,
-		/// code)` from a different chain than the one where the `Paras` pallet is deployed.
+		/// This can be useful, when triggering `Paras::force_set_current_code(para, code)`
+		/// from a different chain than the one where the `Paras` pallet is deployed.
 		///
 		/// The main purpose is to avoid transferring the entire `code` Wasm blob between chains.
 		/// Instead, we authorize `code_hash` with `root`, which can later be applied by
-		/// `Paras::apply_authorized_code(authorization, code)` by anyone.
+		/// `Paras::apply_authorized_force_set_current_code(para, code)` by anyone.
 		///
-		/// Authorizations are stored in an **overwriting manner**,
-		/// for exampe we won't store multiple `ForceSetCurrentCode` for one parachain.
+		/// Authorizations are stored in an **overwriting manner**.
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config>::WeightInfo::authorize_code_hash())]
-		pub fn authorize_code_hash(
+		#[pallet::weight(<T as Config>::WeightInfo::authorize_force_set_current_code_hash())]
+		pub fn authorize_force_set_current_code_hash(
 			origin: OriginFor<T>,
-			new_authorization: CodeHashAuthorization<BlockNumberFor<T>>,
-			expire_at: BlockNumberFor<T>,
+			para: ParaId,
+			new_code_hash: ValidationCodeHash,
+			valid_period: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(
-				expire_at > frame_system::Pallet::<T>::block_number(),
-				Error::<T>::InvalidBlockNumber
-			);
 
-			// insert authorized code hash and make sure to overwrite existing variant
-			// `CodeHashAuthorization` for `para_id`.
-			AuthorizedCodeHash::<T>::mutate(|authorizations| {
-				authorizations.retain(|(authorization, _)| {
-					!authorization.should_be_replaced_by(&new_authorization)
-				});
-				authorizations.push((new_authorization.clone(), expire_at));
-			});
+			let now = frame_system::Pallet::<T>::block_number();
+			let expire_at = now.saturating_add(valid_period);
+
+			// insert authorized code hash and make sure to overwrite existing one for a para.
+			AuthorizedCodeHash::<T>::insert(&para, (new_code_hash, expire_at));
 			Self::deposit_event(Event::CodeAuthorized {
-				authorization: new_authorization,
+				para_id: para,
+				code_hash: new_code_hash,
 				expire_at,
 			});
 
@@ -1301,33 +1227,21 @@ pub mod pallet {
 		/// Applies the already authorized current code for the parachain,
 		/// triggering the same functionality as `force_set_current_code`.
 		#[pallet::call_index(10)]
-		#[pallet::weight(<T as Config>::WeightInfo::apply_authorized_code(code.0.len() as u32))]
-		pub fn apply_authorized_code(
+		#[pallet::weight(<T as Config>::WeightInfo::apply_authorized_force_set_current_code(new_code.0.len() as u32))]
+		pub fn apply_authorized_force_set_current_code(
 			_origin: OriginFor<T>,
-			authorization: CodeHashAuthorization<BlockNumberFor<T>>,
-			code: ValidationCode,
+			para: ParaId,
+			new_code: ValidationCode,
 		) -> DispatchResultWithPostInfo {
 			// no need to ensure, anybody can do this
 
 			// Ensure `new_code` is authorized
-			let (authorized_code_hash, _) = Self::validate_authorization(authorization, &code)?;
-			// remove
-			AuthorizedCodeHash::<T>::mutate(|authorizations| {
-				authorizations.retain(|(auth, _)| auth != &authorized_code_hash);
-			});
+			let _ = Self::validate_authorization_for(&para, &new_code)?;
+			// Remove authorization
+			AuthorizedCodeHash::<T>::remove(para);
 
 			// apply/dispatch
-			match authorized_code_hash {
-				CodeHashAuthorization::ForceSetCurrentCode { para_id, .. } =>
-					Self::do_force_set_current_code_update(para_id, code),
-				CodeHashAuthorization::AddTrustedValidationCode { .. } =>
-					Self::do_add_trusted_validation_code(code),
-				CodeHashAuthorization::ForceScheduleCodeUpgrade {
-					para_id,
-					relay_parent_number,
-					..
-				} => Self::do_force_schedule_code_upgrade(para_id, code, relay_parent_number),
-			}
+			Self::do_force_set_current_code_update(para, new_code);
 
 			// if ok, then allows "for free"
 			let post = PostDispatchInfo {
@@ -1392,22 +1306,22 @@ pub mod pallet {
 						.propagate(true)
 						.build()
 				},
-				Call::apply_authorized_code { authorization, code } => {
-					match Self::validate_authorization(authorization.clone(), &code) {
-						Ok((authorization, expire_at)) => {
+				Call::apply_authorized_force_set_current_code { para, new_code } => {
+					match Self::validate_authorization_for(para, new_code) {
+						Ok((authorized_code_hash, expire_at)) => {
 							let now = frame_system::Pallet::<T>::block_number();
 							if expire_at < now {
-								// this should not happen, because `validate_authorization`
-								// validates `expire_at`
+								// this should not happen, because `Self::validate_authorization_for`
+								// validates `expire_at`.
 								return InvalidTransaction::Stale.into();
 							}
 							let longevity =
 								expire_at.saturating_sub(frame_system::Pallet::<T>::block_number());
 
-							ValidTransaction::with_tag_prefix("ApplyAuthorizedCode")
+							ValidTransaction::with_tag_prefix("ApplyAuthorizedForceSetCurrentCode")
 								.priority(T::UnsignedPriority::get())
 								.longevity(TryInto::<u64>::try_into(longevity).unwrap_or(64_u64))
-								.and_provides(authorization)
+								.and_provides((para, authorized_code_hash))
 								.propagate(true)
 								.build()
 						},
@@ -1700,11 +1614,18 @@ impl<T: Config> Pallet<T> {
 	/// This function removes authorizations that have expired,
 	/// meaning their `expire_at` block is less than or equal to the current block (`now`).
 	fn prune_expired_authorizations(now: BlockNumberFor<T>) -> Weight {
-		AuthorizedCodeHash::<T>::mutate(|authorizations: &mut Vec<(_, BlockNumberFor<T>)>| {
-			authorizations.retain(|(_, expire_at)| expire_at > &now);
+		let mut weight = T::DbWeight::get().reads(1);
+		let to_remove = AuthorizedCodeHash::<T>::iter().filter_map(|(para, (_, expire_at))| if expire_at <= now {
+			Some(para)
+		} else {
+			None
 		});
+		for para in to_remove {
+			AuthorizedCodeHash::<T>::remove(&para);
+			weight.saturating_accrue(T::DbWeight::get().writes(1));
+		}
 
-		T::DbWeight::get().reads_writes(1, 1)
+		weight
 	}
 
 	/// Process the future code upgrades that should be applied directly.
@@ -2562,20 +2483,17 @@ impl<T: Config> Pallet<T> {
 		PvfActiveVoteMap::<T>::get(code_hash)
 	}
 
-	/// This function checks whether the given `requested_authorization` exists in the list of
-	/// authorized code hashes. If found, it verifies that the associated code matches the provided
-	/// `code`. If the validation is successful, it returns the authorized `CodeHashAuthorization`.
-	pub(crate) fn validate_authorization(
-		requested_authorization: CodeHashAuthorization<BlockNumberFor<T>>,
+	/// This function checks whether the given `code.hash()` exists in the `AuthorizedCodeHash` map of
+	/// authorized code hashes for a para. If found, it verifies that the associated code matches the provided
+	/// `code`. If the validation is successful, it returns tuple as the authorized `ValidationCodeHash` with `expire_at`.
+	pub(crate) fn validate_authorization_for(
+		para: &ParaId,
 		code: &ValidationCode,
-	) -> Result<(CodeHashAuthorization<BlockNumberFor<T>>, BlockNumberFor<T>), Error<T>> {
-		let Some((authorized_code_hash, expire_at)) = AuthorizedCodeHash::<T>::get()
-			.into_iter()
-			.find(|(a, _)| a == &requested_authorization)
-		else {
+	) -> Result<(ValidationCodeHash, BlockNumberFor<T>), Error<T>> {
+		let Some((authorized_code_hash, expire_at)) = AuthorizedCodeHash::<T>::get(para) else {
 			return Err(Error::<T>::NothingAuthorized);
 		};
-		ensure!(authorized_code_hash.code_matches(code), Error::<T>::Unauthorized);
+		ensure!(authorized_code_hash == code.hash(), Error::<T>::Unauthorized);
 		ensure!(
 			expire_at > frame_system::Pallet::<T>::block_number(),
 			Error::<T>::InvalidBlockNumber

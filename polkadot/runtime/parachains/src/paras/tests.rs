@@ -2040,7 +2040,7 @@ fn force_set_current_code_works() {
 }
 
 #[test]
-fn authorize_code_hash_works() {
+fn authorize_force_set_current_code_hash_works() {
 	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 		let para_a = ParaId::from(111);
 		let para_b = ParaId::from(222);
@@ -2048,111 +2048,83 @@ fn authorize_code_hash_works() {
 		let code_2 = ValidationCode(vec![2]);
 		let code_1_hash = code_1.hash();
 		let code_2_hash = code_2.hash();
-		let authorize_force_set_current_code_1_for_para_a =
-			CodeHashAuthorization::ForceSetCurrentCode { para_id: para_a, code_hash: code_1_hash };
-		let authorize_force_set_current_code_1_for_para_b =
-			CodeHashAuthorization::ForceSetCurrentCode { para_id: para_b, code_hash: code_1_hash };
-		let authorize_force_set_current_code_2_for_para_a =
-			CodeHashAuthorization::ForceSetCurrentCode { para_id: para_a, code_hash: code_2_hash };
-		let add_trusted_validation_code_1 =
-			CodeHashAuthorization::AddTrustedValidationCode { code_hash: code_1_hash };
-		let expire_at = 143;
+		let valid_period = 143;
 
 		// check before
-		assert!(AuthorizedCodeHash::<Test>::get().is_empty());
+		assert_eq!(AuthorizedCodeHash::<Test>::iter().count(), 0);
 
 		// non-root user cannot authorize
 		assert_err!(
-			Paras::authorize_code_hash(
+			Paras::authorize_force_set_current_code_hash(
 				RuntimeOrigin::signed(1),
-				authorize_force_set_current_code_1_for_para_a.clone(),
-				expire_at
+				para_a,
+				code_1_hash,
+				valid_period,
 			),
 			DispatchError::BadOrigin,
 		);
 
-		// cannot authorize when `expire_at` is in the past
-		System::set_block_number(expire_at + 1);
-		assert_err!(
-			Paras::authorize_code_hash(
-				RuntimeOrigin::root(),
-				authorize_force_set_current_code_1_for_para_a.clone(),
-				expire_at
-			),
-			Error::<Test>::InvalidBlockNumber,
-		);
-		let expire_at = expire_at + 2;
-
 		// root can authorize
-		assert_ok!(Paras::authorize_code_hash(
+		System::set_block_number(1);
+		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
-			authorize_force_set_current_code_1_for_para_a.clone(),
-			expire_at
-		));
-		assert_ok!(Paras::authorize_code_hash(
-			RuntimeOrigin::root(),
-			authorize_force_set_current_code_1_for_para_b.clone(),
-			expire_at
-		));
-		assert_ok!(Paras::authorize_code_hash(
-			RuntimeOrigin::root(),
-			add_trusted_validation_code_1.clone(),
-			expire_at
+			para_a,
+			code_1_hash,
+			valid_period
 		));
 		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(),
-			vec![
-				(authorize_force_set_current_code_1_for_para_a, expire_at),
-				(authorize_force_set_current_code_1_for_para_b.clone(), expire_at),
-				(add_trusted_validation_code_1.clone(), expire_at),
-			]
+			AuthorizedCodeHash::<Test>::get(&para_a),
+			Some((code_1_hash, 1 + valid_period))
 		);
-
-		// the same authorization variant is overwritten
-		assert_ok!(Paras::authorize_code_hash(
+		System::set_block_number(5);
+		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
-			authorize_force_set_current_code_2_for_para_a.clone(),
-			expire_at
-		));
-		assert_ok!(Paras::authorize_code_hash(
-			RuntimeOrigin::root(),
-			add_trusted_validation_code_1.clone(),
-			expire_at + 5
+			para_b,
+			code_2_hash,
+			valid_period,
 		));
 		assert_eq!(
-			{
-				let mut sorted = AuthorizedCodeHash::<Test>::get();
-				sorted.sort();
-				sorted
-			},
-			{
-				let mut sorted = vec![
-					(authorize_force_set_current_code_2_for_para_a, expire_at), // changed code
-					(authorize_force_set_current_code_1_for_para_b, expire_at), // no change
-					(add_trusted_validation_code_1, expire_at + 5),             /* changed expire_at */
-				];
-				sorted.sort();
-				sorted
-			}
+			AuthorizedCodeHash::<Test>::get(&para_b),
+			Some((code_2_hash, 5 + valid_period))
+		);
+		assert_eq!(AuthorizedCodeHash::<Test>::iter().count(), 2);
+
+		// request for the same para is overwritten
+		assert_ok!(Paras::authorize_force_set_current_code_hash(
+			RuntimeOrigin::root(),
+			para_a,
+			code_1_hash,
+			valid_period
+		));
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_a),
+			Some((code_1_hash, 5 + valid_period))
+		);
+		assert_ok!(Paras::authorize_force_set_current_code_hash(
+			RuntimeOrigin::root(),
+			para_a,
+			code_2_hash,
+			valid_period
+		));
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_a),
+			Some((code_2_hash, 5 + valid_period))
 		);
 	})
 }
 
 #[test]
-fn apply_authorized_code_works() {
-	let apply_code = |origin,
-	                  authorization: CodeHashAuthorization<_>,
-	                  code: ValidationCode|
-	 -> (Result<_, _>, DispatchResultWithPostInfo) {
-		let call = Call::apply_authorized_code {
-			authorization: authorization.clone(),
-			code: code.clone(),
+fn apply_authorized_force_set_current_code_works() {
+	let apply_code = |origin, para: ParaId, code: ValidationCode|	-> (Result<_, _>, DispatchResultWithPostInfo) {
+		let call = Call::apply_authorized_force_set_current_code {
+			para,
+			new_code: code.clone(),
 		};
 		let validate_unsigned =
 			<Paras as ValidateUnsigned>::validate_unsigned(TransactionSource::InBlock, &call)
 				.map(|_| ());
 
-		let dispatch_result = Paras::apply_authorized_code(origin, authorization, code);
+		let dispatch_result = Paras::apply_authorized_force_set_current_code(origin, para, code);
 
 		(validate_unsigned, dispatch_result)
 	};
@@ -2162,33 +2134,17 @@ fn apply_authorized_code_works() {
 		let code_1 = ValidationCode(vec![1]);
 		let code_2 = ValidationCode(vec![2]);
 		let code_1_hash = code_1.hash();
-		let code_2_hash = code_2.hash();
-		let authorize_force_set_current_code_1_for_para_a =
-			CodeHashAuthorization::ForceSetCurrentCode { para_id: para_a, code_hash: code_1_hash };
-		let add_trusted_validation_code_2 =
-			CodeHashAuthorization::AddTrustedValidationCode { code_hash: code_2_hash };
-		let expire_at = 143;
+		let valid_period = 143;
 
 		// check before
-		assert!(AuthorizedCodeHash::<Test>::get().is_empty());
+		assert_eq!(AuthorizedCodeHash::<Test>::iter().count(), 0);
 
 		// cannot apply code when nothing authorized
 		assert_eq!(
 			apply_code(
 				RuntimeOrigin::signed(1),
-				authorize_force_set_current_code_1_for_para_a.clone(),
+				para_a,
 				code_1.clone()
-			),
-			(
-				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
-				Err(Error::<Test>::NothingAuthorized.into())
-			),
-		);
-		assert_eq!(
-			apply_code(
-				RuntimeOrigin::signed(1),
-				add_trusted_validation_code_2.clone(),
-				code_2.clone()
 			),
 			(
 				Err(InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()),
@@ -2197,16 +2153,14 @@ fn apply_authorized_code_works() {
 		);
 
 		// authorize
-		AuthorizedCodeHash::<Test>::set(vec![
-			(authorize_force_set_current_code_1_for_para_a.clone(), expire_at),
-			(add_trusted_validation_code_2.clone(), expire_at),
-		]);
+		System::set_block_number(5);
+		AuthorizedCodeHash::<Test>::insert(&para_a, (code_1_hash, valid_period + 5));
 
 		// cannot apply unauthorized code_2
 		assert_eq!(
 			apply_code(
 				RuntimeOrigin::signed(1),
-				authorize_force_set_current_code_1_for_para_a.clone(),
+				para_a,
 				code_2.clone()
 			),
 			(
@@ -2216,11 +2170,11 @@ fn apply_authorized_code_works() {
 		);
 
 		// cannot apply obsolete authorization
-		frame_system::Pallet::<Test>::set_block_number(expire_at + 1);
+		frame_system::Pallet::<Test>::set_block_number(valid_period + 5 + 10);
 		assert_eq!(
 			apply_code(
 				RuntimeOrigin::signed(1),
-				authorize_force_set_current_code_1_for_para_a.clone(),
+				para_a,
 				code_1.clone(),
 			),
 			(
@@ -2228,27 +2182,25 @@ fn apply_authorized_code_works() {
 				Err(Error::<Test>::InvalidBlockNumber.into())
 			),
 		);
-		frame_system::Pallet::<Test>::set_block_number(expire_at - 1);
+		frame_system::Pallet::<Test>::set_block_number(5 );
 
 		// ok - can apply authorized code
 		let (validate_unsigned, dispatch_result) = apply_code(
 			RuntimeOrigin::signed(1),
-			authorize_force_set_current_code_1_for_para_a.clone(),
+			para_a,
 			code_1.clone(),
 		);
 		assert_ok!(validate_unsigned);
 		assert_ok!(dispatch_result);
 
-		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(),
-			vec![(add_trusted_validation_code_2.clone(), expire_at),]
-		);
+		// check for removed
+		assert!(AuthorizedCodeHash::<Test>::get(&para_a).is_none());
 
 		// cannot apply previously authorized code again
 		assert_eq!(
 			apply_code(
 				RuntimeOrigin::signed(1),
-				authorize_force_set_current_code_1_for_para_a,
+				para_a,
 				code_1,
 			),
 			(
@@ -2263,38 +2215,36 @@ fn apply_authorized_code_works() {
 fn prune_expired_authorizations_works() {
 	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 		let para_a = ParaId::from(111);
+		let para_b = ParaId::from(123);
 		let code_1 = ValidationCode(vec![1]);
 		let code_1_hash = code_1.hash();
-		let authorize_force_set_current_code_1_for_para_a =
-			CodeHashAuthorization::ForceSetCurrentCode { para_id: para_a, code_hash: code_1_hash };
-		let add_trusted_validation_code_1 =
-			CodeHashAuthorization::AddTrustedValidationCode { code_hash: code_1_hash };
 
 		// add authorizations
-		AuthorizedCodeHash::<Test>::set(vec![
-			(authorize_force_set_current_code_1_for_para_a.clone(), 201),
-			(add_trusted_validation_code_1.clone(), 202),
-		]);
+		AuthorizedCodeHash::<Test>::insert(&para_a, (code_1_hash, 201));
+		AuthorizedCodeHash::<Test>::insert(&para_b, (code_1_hash, 202));
 
-		// nothing
+		// nothing prunned at 200
 		let _ = Paras::prune_expired_authorizations(200);
 		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(),
-			vec![
-				(authorize_force_set_current_code_1_for_para_a.clone(), 201),
-				(add_trusted_validation_code_1.clone(), 202),
-			]
+			AuthorizedCodeHash::<Test>::get(&para_a),
+			Some((code_1_hash, 201))
 		);
-
-		// pruned 201
-		let _ = Paras::prune_expired_authorizations(201);
 		assert_eq!(
-			AuthorizedCodeHash::<Test>::get(),
-			vec![(add_trusted_validation_code_1.clone(), 202),]
+			AuthorizedCodeHash::<Test>::get(&para_b),
+			Some((code_1_hash, 202))
 		);
 
-		// pruned 202
+		// pruned at 201
+		let _ = Paras::prune_expired_authorizations(201);
+		assert!(AuthorizedCodeHash::<Test>::get(&para_a).is_none());
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_b),
+			Some((code_1_hash, 202))
+		);
+
+		// pruned at 203
 		let _ = Paras::prune_expired_authorizations(203);
-		assert_eq!(AuthorizedCodeHash::<Test>::get(), vec![]);
+		assert!(AuthorizedCodeHash::<Test>::get(&para_a).is_none());
+		assert!(AuthorizedCodeHash::<Test>::get(&para_b).is_none());
 	})
 }

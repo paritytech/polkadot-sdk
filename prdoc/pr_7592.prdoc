@@ -5,7 +5,7 @@ doc:
     This feature can be useful when we want to trigger for example `Paras::force_set_current_code(para, code)` from a different chain than the one where the `Paras` pallet is deployed.
 
     The main reason is to avoid transferring the entire `new_code` wasm blob between chains.
-    Instead, we authorize `code_hash` with `root`, which can later be applied by `Paras::apply_authorized_code(para, authorization)` by anyone.
+    Instead, we authorize `code_hash` by `root` with `Paras::authorize_force_set_current_code_hash(para, code)`, which can later be applied by `Paras::apply_authorized_force_set_current_code(para, code)` by anyone.
 crates:
 - name: polkadot-runtime-parachains
   bump: major
