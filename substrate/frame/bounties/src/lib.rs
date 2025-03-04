@@ -1220,11 +1220,12 @@ pub mod pallet {
 		/// Must be signed.
 		///
 		/// ## Details
-		/// - If the bounty is in the `Approved` or `ApprovedWithCurator` state, it retries funding payment.
+		/// - If the bounty is in the `Approved` or `ApprovedWithCurator` state, it retries funding
+		///   payment.
 		/// - If the bounty is in the `PayoutAttempted` state, it retries the curator and
 		///   beneficiary payouts.
-		/// - If the bounty is in the `RefundAttempted` state, it retries the refund payment to return funds to the
-		///   treasury.
+		/// - If the bounty is in the `RefundAttempted` state, it retries the refund payment to
+		///   return funds to the treasury.
 		/// - `check_payment_status` must be called to advance bounty status.
 		///
 		/// ### Parameters

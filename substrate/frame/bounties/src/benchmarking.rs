@@ -20,10 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::{
-	tests::utils::*,
-	Pallet as Bounties,
-};
+use crate::{tests::utils::*, Pallet as Bounties};
 
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{
