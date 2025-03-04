@@ -451,16 +451,16 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				);
 				Ok(message_id)
 			},
-			Err(e) => {
-				tracing::error!(target: "xcm::send", ?e, "XCM failed to deliver with error");
+			Err(error) => {
+				tracing::debug!(target: "xcm::send", ?error, "XCM failed to deliver with error");
 				Config::XcmEventEmitter::emit_send_failure_event(
 					self.original_origin.clone(),
 					dest,
-					e.clone(),
+					error.clone(),
 					self.context.message_id,
 				);
-				Err(e.into())
-			},
+				Err(error.into())
+			}
 		}
 	}
 
