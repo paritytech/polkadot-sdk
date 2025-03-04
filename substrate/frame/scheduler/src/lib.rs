@@ -323,7 +323,7 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
-	/// Block number from where the agenda is incompletely executed.
+	/// Block number at which the agenda began incomplete execution.
 	#[pallet::storage]
 	pub type IncompleteSince<T: Config> = StorageValue<_, BlockNumberFor<T>>;
 
