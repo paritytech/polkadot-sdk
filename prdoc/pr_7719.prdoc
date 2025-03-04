@@ -1,13 +1,16 @@
-title: 'Adding command export_chain_spec for polkadot-omni node'
+title: adding command export_chain_spec for polkadot-omni node
 doc:
 - audience: Runtime Dev
-  description: |
-    Idea is introduce a function export-chain-spec that does the chain-spec exporting. build-spec will work as before, but have a deprecation message on usage.
-    For now, this new command will focus on the ability to take the chain-specs embedded in the node and "exports" them to a json file
-    We will not include the addition of boot node functionality, that the build-spec command has right now into the new command, if along the process, we decide otherwise, we can include it
-    Part of this PR will also be to display the message the build-spec will soon be on deprecation pat
+  description: |-
+    1. Idea is introduce a function export-chain-spec that does the chain-spec exporting. build-spec will work as before, but have a deprecation message on usage.
+    2. For now, this new command will focus on the ability to take the chain-specs embedded in the node and "exports" them to a json file
+    3. We will not include the addition of boot node functionality, that the build-spec command has right now into the new command, if along the process, we decide otherwise, we can include it
+    4. Part of this PR will also be to display the message the build-spec will soon be on deprecation pat
+
 crates:
 - name: polkadot-omni-node-lib
-  bump: major
+  bump: patch
 - name: sc-cli
+  bump: patch
+- name: polkadot-cli
   bump: patch
