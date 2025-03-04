@@ -410,7 +410,7 @@ where
 			events_metrics_collector,
 			is_validator,
 			finality_timeout_threshold: FINALITY_TIMEOUT_THRESHOLD,
-			included_transacations: Default::default(),
+			included_transactions: Default::default(),
 		}
 	}
 
