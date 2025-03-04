@@ -294,7 +294,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::ExportChainSpec(cmd)) => {
 			// Directly load the embedded chain spec using the CLI’s load_spec method.
 			let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
-			cmd.run(spec)
+			cmd.run(spec).map_err(Into::into)
 		},
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd).map_err(Error::SubstrateCli)?;
