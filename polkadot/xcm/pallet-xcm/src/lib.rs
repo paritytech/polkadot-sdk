@@ -439,7 +439,7 @@ pub mod pallet {
 		/// An XCM message was sent.
 		Sent { origin: Location, destination: Location, message: Xcm<()>, message_id: XcmHash },
 		/// An XCM message failed to send.
-		SentFailed {
+		SendFailed {
 			origin: Location,
 			destination: Location,
 			error: SendError,
