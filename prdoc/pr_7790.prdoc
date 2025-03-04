@@ -3,7 +3,7 @@ doc:
 - audience: Runtime Dev
   description: "Right now `pallet-scheduler` is not putting back postponed tasks into\
     \ the agenda when the early weight check is failing. This pull request ensures\
-    \ that these taks are put back into the agenda and are not just \"lost\".\r\n"
+    \ that these tasks are put back into the agenda and are not just \"lost\".\r\n"
 crates:
 - name: pallet-scheduler
   bump: patch
