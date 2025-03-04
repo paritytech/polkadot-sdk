@@ -43,3 +43,15 @@ fn unpay(who: u128, asset_id: u32, amount: u64) {
 pub fn set_status(id: u64, s: PaymentStatus) {
 	STATUS.with(|m| m.borrow_mut().insert(id, s));
 }
+
+/// sets the status of the last payment to `PaymentStatus::Success`.
+pub fn approve_last_payment() {
+    let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
+    STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Success));
+}
+
+/// sets the status of the last payment to `PaymentStatus::Failure`.
+pub fn reject_last_payment() {
+    let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
+    STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Failure));
+}

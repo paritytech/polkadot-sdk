@@ -21,7 +21,7 @@
 
 use super::*;
 use crate::{
-	tests::utils::{LAST_ID, STATUS},
+	tests::utils::*,
 	Pallet as Bounties,
 };
 
@@ -59,8 +59,8 @@ fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
 
 // Create the pre-requisite information needed to create a treasury `propose_bounty`.
 fn setup_bounty<T: Config<I>, I: 'static>(
-	u: u32,
-	d: u32,
+	user: u32,
+	description: u32,
 ) -> (
 	T::AccountId,
 	T::AccountId,
@@ -70,29 +70,29 @@ fn setup_bounty<T: Config<I>, I: 'static>(
 	T::Beneficiary,
 	Vec<u8>,
 ) {
-	let caller = account("caller", u, SEED);
+	let caller = account("caller", user, SEED);
 	// Tiago: check with Muharem if we need coupling with pallet-assets
 	// let value: BalanceOf<T, I> = T::BountyValueMinimum::get().saturating_mul(100u32.into());
 	let asset_kind = <T as Config<I>>::BenchmarkHelper::create_asset_kind(SEED);
-	let asset_balance: BountyBalanceOf<T, I> = 100_000u32.into();
+	let value: BountyBalanceOf<T, I> = 100_000u32.into();
 	// Tiago: check with Muharem if we need coupling with pallet-assets
 	// TODO: revisit asset conversion
 	// let native_value =
 	// 	T::BalanceConverter::from_asset_balance(100u32.into(), asset_kind).unwrap_or(100u32.into());
-	let fee: BountyBalanceOf<T, I> = asset_balance / 2u32.into();
+	let fee: BountyBalanceOf<T, I> = value / 2u32.into();
 	let deposit = T::BountyDepositBase::get() +
 		T::DataDepositPerByte::get() * T::MaximumReasonLength::get().into();
 	let _ = T::Currency::make_free_balance_be(&caller, deposit + T::Currency::minimum_balance());
-	let curator = account("curator", u, SEED);
-	let curator_stash = account("curator_stash", u, SEED);
+	let curator = account("curator", user, SEED);
+	let curator_stash = account("curator_stash", user, SEED);
 	let curator_deposit =
 		Pallet::<T, I>::calculate_curator_deposit(&fee, asset_kind.clone()).expect("");
 	let _ = T::Currency::make_free_balance_be(
 		&curator,
 		curator_deposit + T::Currency::minimum_balance(),
 	);
-	let reason = vec![0; d as usize];
-	(caller, curator, asset_kind, fee, asset_balance, curator_stash, reason)
+	let reason = vec![0; description as usize];
+	(caller, curator, asset_kind, fee, value, curator_stash, reason)
 }
 
 fn create_proposed_bounty<T: Config<I>, I: 'static>() -> Result<BountyIndex, BenchmarkError> {
@@ -116,8 +116,7 @@ fn initialize_approved_bounty<T: Config<I>, I: 'static>(
 		T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id)?;
 
-	let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-	STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Success));
+	approve_last_payment();
 	Ok(())
 }
 
@@ -300,8 +299,7 @@ benchmarks_instance_pallet! {
 		let curator_lookup = T::Lookup::unlookup(curator);
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::approve_bounty_with_curator(approve_origin, bounty_id, curator_lookup, fee)?;
-		let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-		STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Success));
+		approve_last_payment();
 	}: check_payment_status<T::RuntimeOrigin>(RawOrigin::Signed(caller).into(), bounty_id)
 
 	check_payment_status_payout_attempted {
@@ -321,7 +319,7 @@ benchmarks_instance_pallet! {
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::close_bounty(approve_origin.clone(), bounty_id)?;
 		let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-		STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Success));
+		approve_last_payment();
 	}: check_payment_status<T::RuntimeOrigin>(RawOrigin::Signed(curator).into(), bounty_id)
 
 	process_payment_approved {
@@ -330,8 +328,7 @@ benchmarks_instance_pallet! {
 		let bounty_id = create_proposed_bounty::<T, I>()?;
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id)?;
-		let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-		STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Failure));
+		reject_last_payment();
 		Bounties::<T, I>::check_payment_status(RawOrigin::Signed(caller.clone()).into(), bounty_id)?;
 	}: process_payment<T::RuntimeOrigin>(RawOrigin::Signed(caller).into(), bounty_id)
 
@@ -351,8 +348,7 @@ benchmarks_instance_pallet! {
 		let (curator, bounty_id) = approve_bounty_and_accept_curator::<T, I>()?;
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::close_bounty(approve_origin.clone(), bounty_id)?;
-		let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-		STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Failure));
+		reject_last_payment();
 		Bounties::<T, I>::check_payment_status(RawOrigin::Signed(curator.clone()).into(), bounty_id)?;
 	}: process_payment<T::RuntimeOrigin>(RawOrigin::Signed(curator).into(), bounty_id)
 
