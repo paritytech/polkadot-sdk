@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate::{create_pool_with_native_on, tests::*};
-use emulated_integration_tests_common::macros::Dmp;
+use emulated_integration_tests_common::{macros::Dmp, xcm_emulator::sp_tracing};
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
@@ -126,6 +126,8 @@ fn send_assets_from_penpal_westend_through_westend_ah_to_rococo_ah(
 /// - foreign asset / bridged asset (other bridge / Snowfork): wETH (bridged from Ethereum to
 ///   Westend over Snowbridge, then bridged over to Rococo through this bridge).
 fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
+	sp_tracing::init_for_tests();
+
 	let amount = ASSET_HUB_WESTEND_ED * 1_000;
 	let sender = AssetHubWestendSender::get();
 	let receiver = AssetHubRococoReceiver::get();
@@ -540,6 +542,8 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo_t
 
 #[test]
 fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to_penpal_rococo() {
+	sp_tracing::init_for_tests();
+
 	let amount = WESTEND_ED * 1_000;
 	let sender = WestendSender::get();
 	let receiver = PenpalAReceiver::get();
