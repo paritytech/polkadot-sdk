@@ -269,6 +269,7 @@ pub trait RcClientInterface {
 
 // An offence on the relay chain. Based on [`sp_staking::offence::OffenceDetails`].
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
+// TODO: double check: one or many offenders/reporters?
 pub struct Offence<AccountId> {
 	/// The offender.
 	pub offender: AccountId,
