@@ -125,8 +125,8 @@ where
 			UniversalOrigin(GlobalConsensus(EthereumNetwork::get())),
 			ReserveAssetDeposited(total_assets.into()),
 			PayFees { asset: fee_asset },
-			DepositAsset { assets: AllCounted(1).into(), beneficiary },
 			RefundSurplus,
+			DepositAsset { assets: AllCounted(1).into(), beneficiary },
 		]
 		.into();
 
