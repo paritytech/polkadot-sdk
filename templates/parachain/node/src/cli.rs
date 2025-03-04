@@ -1,6 +1,5 @@
-use polkadot_sdk::*;
+use polkadot_sdk::{sc_cli::ExportChainSpecCmd, *};
 use std::path::PathBuf;
-use polkadot_sdk::sc_cli::ExportChainSpecCmd;
 
 /// Sub-commands supported by the collator.
 #[allow(clippy::large_enum_variant)]

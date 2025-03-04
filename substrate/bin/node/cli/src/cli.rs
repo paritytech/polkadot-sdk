@@ -16,8 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use polkadot_sdk::*;
-use polkadot_sdk::sc_cli::ExportChainSpecCmd;
+use polkadot_sdk::{sc_cli::ExportChainSpecCmd, *};
 
 /// An overarching CLI command definition.
 #[derive(Debug, clap::Parser)]

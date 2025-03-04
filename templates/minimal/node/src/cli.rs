@@ -15,8 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use polkadot_sdk::{sc_cli::RunCmd, *};
-use polkadot_sdk::sc_cli::ExportChainSpecCmd;
+use polkadot_sdk::{
+	sc_cli::{ExportChainSpecCmd, RunCmd},
+	*,
+};
 
 #[derive(Debug, Clone)]
 pub enum Consensus {
