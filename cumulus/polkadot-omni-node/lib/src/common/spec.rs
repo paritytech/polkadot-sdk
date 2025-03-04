@@ -266,7 +266,9 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	{
 		let fut = async move {
 			let parachain_config = prepare_node_config(parachain_config);
-
+			let parachain_public_addresses = parachain_config.network.public_addresses.clone();
+			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
+			let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
 			let params = Self::new_partial(&parachain_config)?;
 			let (block_import, mut telemetry, telemetry_worker_handle, block_import_auxiliary_data) =
 				params.other;
@@ -407,9 +409,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				relay_chain_interface: relay_chain_interface.clone(),
 				request_receiver: paranode_rx,
 				parachain_network: network,
-				advertise_non_global_ips: parachain_config.network.allow_non_globals_in_dht,
-				parachain_genesis_hash: client.chain_info().genesis_hash,
-				parachain_fork_id: parachain_config.chain_spec.fork_id.map(ToString::to_string),
+				advertise_non_global_ips,
+				parachain_genesis_hash: client.chain_info().genesis_hash.as_ref().to_vec(),
+				parachain_fork_id,
+				parachain_public_addresses,
 			});
 
 			if validator {
