@@ -79,6 +79,7 @@ pub struct BootnodeAdvertisement {
 }
 
 impl BootnodeAdvertisement {
+	/// Create a new bootnode advertisement service.
 	pub fn new(
 		BootnodeAdvertisementParams {
 			para_id,
@@ -439,7 +440,7 @@ impl BootnodeAdvertisement {
 				Err(e) => {
 					debug!(
 						target: LOG_TARGET,
-						"Cannot decode parachain ID from request from {:?}: {e}",
+						"Cannot decode parachain ID in a request from {:?}: {e}",
 						req.peer,
 					);
 				},
@@ -447,6 +448,7 @@ impl BootnodeAdvertisement {
 		}
 	}
 
+	/// Run the bootnode advertisement service.
 	pub async fn run(mut self) -> RelayChainResult<()> {
 		let mut import_notification_stream =
 			self.relay_chain_interface.import_notification_stream().await?;

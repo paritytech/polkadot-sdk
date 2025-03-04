@@ -16,6 +16,8 @@
 
 //! Parachain bootnodes advertisement and discovery service.
 
+#![warn(missing_docs)]
+
 mod advertisement;
 mod config;
 mod task;

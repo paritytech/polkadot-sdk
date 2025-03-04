@@ -29,14 +29,23 @@ const LOG_TARGET: &str = "bootnodes";
 
 /// Bootnode advertisement task params.
 pub struct StartBootnodeTasksParams<'a> {
+	/// Parachain ID.
 	pub para_id: ParaId,
+	/// Task manager.
 	pub task_manager: &'a mut TaskManager,
+	/// Relay chain interface.
 	pub relay_chain_interface: Arc<dyn RelayChainInterface>,
+	/// `/paranode` protocol request receiver.
 	pub request_receiver: async_channel::Receiver<IncomingRequest>,
+	/// Parachain node network service.
 	pub parachain_network: Arc<dyn NetworkService>,
+	/// Whether to advertise non-global IP addresses.
 	pub advertise_non_global_ips: bool,
+	/// Parachain genesis hash.
 	pub parachain_genesis_hash: Vec<u8>,
+	/// Parachain fork ID.
 	pub parachain_fork_id: Option<String>,
+	/// Parachain public addresses provided by the operator.
 	pub parachain_public_addresses: Vec<Multiaddr>,
 }
 
@@ -78,6 +87,7 @@ async fn bootnode_advertisement(
 	}
 }
 
+/// Start parachain bootnode advertisement and discovery tasks.
 pub fn start_bootnode_tasks(
 	StartBootnodeTasksParams {
 		para_id,
