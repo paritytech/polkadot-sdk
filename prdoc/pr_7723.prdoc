@@ -1,22 +1,15 @@
-title: '[pallet-bounties] Make BountyUpdatePeriod optional'
+title: '[pallet-bounties] Allow bounties to never expire'
 doc:
 - audience: Runtime Dev
   description: |
     Refactored `BountyUpdatePeriod` to be an optional configuration parameter.
+    Changes `BountyUpdatePeriod` type from `BlockNumber` to `Option<BlockNumber>`.
     If set to `None`, bounties remain active indefinitely, removing the need for
     `extend_bounty_expiry` and preventing automatic curator slashing for inactivity.
-
-migrations:
-  db: []
-  runtime:
-    - reference: pallet-bounties
-      description: |
-        Migrating `BountyUpdatePeriod` from `BlockNumber` to `Option<BlockNumber>`.
-        To retain the existing behavior, wrap the current value in `Some(BountyUpdatePeriod)`.
-        if set to None, bounties will no longer expire. 
-
+    To retain the existing behavior, wrap the current value in `Some(BountyUpdatePeriod)`.
+        
 crates:
 - name: pallet-bounties
-  bump: minor
+  bump: major
 - name: pallet-child-bounties
   bump: patch
