@@ -5,8 +5,8 @@ use super::*;
 use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_benchmarking::v2::*;
-use snowbridge_core::ChannelId;
-use snowbridge_outbound_queue_primitives::v1::{Command, Initializer, QueuedMessage};
+use frame_support::BoundedVec;
+use snowbridge_outbound_queue_primitives::v2::{Command, Initializer, Message};
 use sp_core::{H160, H256};
 
 #[allow(unused_imports)]
@@ -22,19 +22,21 @@ mod benchmarks {
 	/// Benchmark for processing a message.
 	#[benchmark]
 	fn do_process_message() -> Result<(), BenchmarkError> {
-		let enqueued_message = QueuedMessage {
+		let enqueued_message = Message {
+			origin: Default::default(),
 			id: H256::zero(),
-			channel_id: ChannelId::from([1; 32]),
-			command: Command::Upgrade {
+			fee: 0,
+			commands: BoundedVec::try_from(vec![Command::Upgrade {
 				impl_address: H160::zero(),
 				impl_code_hash: H256::zero(),
-				initializer: Some(Initializer {
+				initializer: Initializer {
 					params: [7u8; 256].into_iter().collect(),
 					maximum_required_gas: 200_000,
-				}),
-			},
+				},
+			}])
+			.unwrap(),
 		};
-		let origin = AggregateMessageOrigin::Snowbridge([1; 32].into());
+		let origin = AggregateMessageOrigin::SnowbridgeV2([1; 32].into());
 		let encoded_enqueued_message = enqueued_message.encode();
 
 		#[block]
