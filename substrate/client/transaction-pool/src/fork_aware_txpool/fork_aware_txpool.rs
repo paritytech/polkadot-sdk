@@ -1105,23 +1105,38 @@ where
 	/// Additionally, this method triggers the view store to handle and remove stale views caused by
 	/// the finality stall.
 	fn finality_stall_cleanup(&self, at: &HashAndNumber<Block>) {
-		let mut finality_timedout_blocks =
-			indexmap::IndexMap::<BlockHash<ChainApi>, Vec<ExtrinsicHash<ChainApi>>>::default();
-		let mut oldest_block_number: Option<NumberFor<Block>> = None;
+		let (oldest_block_number, finality_timedout_blocks) = {
+			let mut included_transactions = self.included_transactions.lock();
 
-		self.included_transactions.lock().retain(
-			|HashAndNumber { number: view_number, hash: view_hash }, tx_hashes| {
-				let diff = at.number.saturating_sub(*view_number);
-				oldest_block_number =
-					Some(oldest_block_number.unwrap_or(*view_number).min(*view_number));
-				if diff.into() > self.finality_timeout_threshold.into() {
-					finality_timedout_blocks.insert(*view_hash, std::mem::take(tx_hashes));
-					false
-				} else {
-					true
-				}
-			},
-		);
+			let Some(oldest_block_number) =
+				included_transactions.first_key_value().map(|(k, _)| k.number)
+			else {
+				return
+			};
+
+			if at.number.saturating_sub(oldest_block_number).into() <=
+				self.finality_timeout_threshold.into()
+			{
+				return
+			}
+
+			let mut finality_timedout_blocks =
+				indexmap::IndexMap::<BlockHash<ChainApi>, Vec<ExtrinsicHash<ChainApi>>>::default();
+
+			included_transactions.retain(
+				|HashAndNumber { number: view_number, hash: view_hash }, tx_hashes| {
+					let diff = at.number.saturating_sub(*view_number);
+					if diff.into() > self.finality_timeout_threshold.into() {
+						finality_timedout_blocks.insert(*view_hash, std::mem::take(tx_hashes));
+						false
+					} else {
+						true
+					}
+				},
+			);
+
+			(oldest_block_number, finality_timedout_blocks)
+		};
 
 		if !finality_timedout_blocks.is_empty() {
 			self.ready_poll.lock().remove_cancelled();
@@ -1245,7 +1260,7 @@ where
 		Some(view)
 	}
 
-	/// Retrieves transactions hashes from a `included_transacations` cache or, if not present,
+	/// Retrieves transactions hashes from a `included_transactions` cache or, if not present,
 	/// fetches them from the blockchain API using the block's hash `at`.
 	///
 	/// Returns a `Vec` of transactions hashes
