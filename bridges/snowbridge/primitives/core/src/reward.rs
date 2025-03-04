@@ -139,11 +139,6 @@ where
 	}
 }
 
-/// XCM asset descriptor for native ether relative to AH
-pub fn ether_asset(network: NetworkId, value: u128) -> Asset {
-	(Location::new(2, [GlobalConsensus(network)]), value).into()
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
