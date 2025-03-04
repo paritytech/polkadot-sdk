@@ -13,13 +13,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 use crate::{
+	bridge_common_config::BridgeReward,
 	xcm_config,
-	xcm_config::{TreasuryAccount, UniversalLocation},
-	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumOutboundQueueV2, EthereumSystem,
-	EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
+	xcm_config::{RelayNetwork, TreasuryAccount, UniversalLocation, XcmConfig},
+	Balances, BridgeRelayers, EthereumInboundQueue, EthereumOutboundQueue, EthereumOutboundQueueV2,
+	EthereumSystem, EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
 };
+use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
+use frame_system::EnsureRootWithSuccess;
+use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
@@ -27,8 +30,11 @@ use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
-use crate::BridgeRelayers;
 use sp_core::H160;
+use sp_runtime::{
+	traits::{ConstU32, ConstU8, Keccak256},
+	FixedU128,
+};
 use testnet_parachains_constants::westend::{
 	currency::*,
 	fee::WeightToFee,
@@ -37,19 +43,7 @@ use testnet_parachains_constants::westend::{
 		INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2,
 	},
 };
-use crate::bridge_common_config::BridgeReward;
-
-use crate::xcm_config::{RelayNetwork, XcmConfig, XcmRouter};
-#[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::DoNothingRouter;
-use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
-use frame_system::EnsureRootWithSuccess;
-use pallet_xcm::EnsureXcm;
-use sp_runtime::{
-	traits::{ConstU32, ConstU8, Keccak256},
-	FixedU128,
-};
-use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain, PalletInstance};
+use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, PalletInstance, Parachain};
 use xcm_executor::XcmExecutor;
 
 pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
@@ -104,9 +98,9 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
 	type Token = Balances;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type XcmSender = XcmRouter;
+	type XcmSender = crate::XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
-	type XcmSender = DoNothingRouter;
+	type XcmSender = benchmark_helpers::DoNothingRouter;
 	type ChannelLookup = EthereumSystem;
 	type GatewayAddress = EthereumGatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -133,9 +127,9 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type XcmSender = XcmRouter;
+	type XcmSender = crate::XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
-	type XcmSender = DoNothingRouter;
+	type XcmSender = benchmark_helpers::DoNothingRouter;
 	type GatewayAddress = EthereumGatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
