@@ -735,6 +735,17 @@ pub trait HostFn: private::Sealed {
 	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
 	#[unstable_hostfn]
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
+
+	/// Create a new query
+	/// 
+	/// # Parameters
+	/// 
+	/// - `responder`:  
+	/// - `maybe_notify`:  
+	/// - `timeout`:  
+	/// 
+	#[unstable_hostfn]
+	fn new_query(responder: &[u8], maybe_notify: &[u8], timeout: &[u8], output: &mut [u8; 32]) -> Result;
 }
 
 mod private {

@@ -2132,6 +2132,52 @@ pub mod env {
 		}
 	}
 
+	/// 
+	/// See [`pallet_revive_uapi::HostFn::new_query`].
+	#[mutating]
+	fn xcm_new_query(
+		&mut self,
+		memory: &mut M,
+		responder_ptr: u32,
+		responder_len: u32,
+		maybe_notify_ptr: u32,
+		maybe_notify_len: u32,
+		timeout_ptr: u32,
+		output_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		use xcm::VersionedLocation;
+		use xcm_builder::QueryHandler;
+
+		// Read responder from contract memory and convert it to the expected Location type.
+		self.charge_gas(RuntimeCosts::CopyFromContract(responder_len))?;
+		let responder: VersionedLocation = memory.read_as_unbounded(responder_ptr, responder_len)?;
+
+		// Read maybe_notify bytes. If length is zero, treat as None; otherwise decode as a (u8, u8) tuple.
+		let maybe_notify: Option<(u8, u8)> = if maybe_notify_len > 0 {
+			self.charge_gas(RuntimeCosts::CopyFromContract(maybe_notify_len))?;
+			let notify = memory.read_as_unbounded(maybe_notify_ptr, maybe_notify_len)?;
+			Some(notify)
+		} else {
+			None
+		};
+
+		let timeout_u256 = memory.read_u256(timeout_ptr)?;
+		let timeout = <<E::T as Config>::Xcm as QueryHandler>::BlockNumber::try_from(timeout_u256)
+    		.map_err(|_err| Error::<E::T>::DecodingFailed)?;
+
+		let querier = crate::RawOrigin::Signed(self.ext.account_id().clone()).into();
+
+		// Call pallet-xcm's new_query with the converted parameters.
+		let query_id = <<E::T as Config>::Xcm>::new_query(
+			responder.into(),
+			maybe_notify,
+			timeout,
+			querier,
+		);
+		memory.write(output_ptr, &query_id.encode())?;
+		Ok(ReturnErrorCode::Success)
+	}
+
 	/// Retrieves the account id for a specified contract address.
 	///
 	/// See [`pallet_revive_uapi::HostFn::to_account_id`].

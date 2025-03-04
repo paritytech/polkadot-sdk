@@ -150,6 +150,14 @@ mod sys {
 			msg_len: u32,
 			out_ptr: *mut u8,
 		) -> ReturnCode;
+		pub fn new_query(
+			responder_ptr: *const u8,
+			responder_len: *const u8,
+			maybe_notify_ptr: *const u8,
+			maybe_notify_len: u32,
+			timeout_ptr: *const u8,
+			out_ptr: *mut u8,
+		) -> ReturnCode;
 		pub fn return_data_size() -> u64;
 		pub fn return_data_copy(out_ptr: *mut u8, out_len_ptr: *mut u32, offset: u32);
 	}
@@ -605,6 +613,21 @@ impl HostFn for HostFnImpl {
 				dest.len() as _,
 				msg.as_ptr(),
 				msg.len() as _,
+				output.as_mut_ptr(),
+			)
+		};
+		ret_code.into()
+	}
+
+	#[unstable_hostfn]
+	fn new_query(responder: &[u8], maybe_notify: &[u8], timeout: &[u8], output: &mut [u8; 32]) -> Result {
+		let ret_code = unsafe {
+			sys::new_query(
+				responder.as_ptr(),
+				responder.len() as _,
+				maybe_notify.as_ptr(),
+				maybe_notify.len() as _,
+				timeout.as_ptr(),
 				output.as_mut_ptr(),
 			)
 		};

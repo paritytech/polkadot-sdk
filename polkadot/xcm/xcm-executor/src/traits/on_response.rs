@@ -19,6 +19,7 @@ use codec::{Decode, Encode};
 use core::{fmt::Debug, result};
 use frame_support::{pallet_prelude::Get, parameter_types};
 use sp_arithmetic::traits::Zero;
+use sp_core::U256;
 use xcm::latest::{
 	Error as XcmError, InteriorLocation, Location, QueryId, Response, Result as XcmResult, Weight,
 	XcmContext,
@@ -111,7 +112,7 @@ pub enum QueryResponseStatus<BlockNumber> {
 
 /// Provides methods to expect responses from XCMs and query their status.
 pub trait QueryHandler {
-	type BlockNumber: Zero + Encode;
+	type BlockNumber: Zero + Encode + TryFrom<U256>;
 	type Error;
 	type UniversalLocation: Get<InteriorLocation>;
 
