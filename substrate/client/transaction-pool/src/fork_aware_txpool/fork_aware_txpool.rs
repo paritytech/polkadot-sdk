@@ -182,7 +182,7 @@ where
 	///
 	/// Intended to be used in the finality stall cleanups and also as a cache for all in-block
 	/// transactions.
-	included_transacations: Mutex<BTreeMap<HashAndNumber<Block>, Vec<ExtrinsicHash<ChainApi>>>>,
+	included_transactions: Mutex<BTreeMap<HashAndNumber<Block>, Vec<ExtrinsicHash<ChainApi>>>>,
 }
 
 impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
@@ -277,7 +277,7 @@ where
 				events_metrics_collector: EventsMetricsCollector::default(),
 				finality_timeout_threshold: finality_timeout_threshold
 					.unwrap_or(FINALITY_TIMEOUT_THRESHOLD),
-				included_transacations: Default::default(),
+				included_transactions: Default::default(),
 			},
 			combined_tasks,
 		)
@@ -1109,7 +1109,7 @@ where
 			indexmap::IndexMap::<BlockHash<ChainApi>, Vec<ExtrinsicHash<ChainApi>>>::default();
 		let mut oldest_block_number: Option<NumberFor<Block>> = None;
 
-		self.included_transacations.lock().retain(
+		self.included_transactions.lock().retain(
 			|HashAndNumber { number: view_number, hash: view_hash }, tx_hashes| {
 				let diff = at.number.saturating_sub(*view_number);
 				oldest_block_number =
@@ -1143,7 +1143,7 @@ where
 		debug!(
 			target: LOG_TARGET,
 			?at,
-			included_transacations_len = ?self.included_transacations.lock().len(),
+			included_transactions_len = ?self.included_transactions.lock().len(),
 			finality_timedout_blocks_len,
 			?oldest_block_number,
 			"finality_stall_cleanup"
@@ -1250,7 +1250,7 @@ where
 	///
 	/// Returns a `Vec` of transactions hashes
 	async fn fetch_block_transactions(&self, at: &HashAndNumber<Block>) -> Vec<TxHash<Self>> {
-		if let Some(txs) = self.included_transacations.lock().get(at) {
+		if let Some(txs) = self.included_transactions.lock().get(at) {
 			return txs.clone()
 		};
 
@@ -1410,7 +1410,7 @@ where
 		.into_iter()
 		.for_each(|(key, enacted_log)| {
 			pruned_log.extend(enacted_log.clone());
-			self.included_transacations.lock().insert(key.clone(), enacted_log);
+			self.included_transactions.lock().insert(key.clone(), enacted_log);
 		});
 
 		self.metrics.report(|metrics| {
@@ -1507,7 +1507,7 @@ where
 			.report(|metrics| metrics.finalized_txs.inc_by(finalized_xts.len() as _));
 
 		if let Ok(Some(finalized_number)) = finalized_number {
-			self.included_transacations
+			self.included_transactions
 				.lock()
 				.retain(|cached_block, _| finalized_number < cached_block.number);
 			self.revalidation_queue
@@ -1530,7 +1530,7 @@ where
 		debug!(
 			target: LOG_TARGET,
 			active_views_count = self.active_views_count(),
-			included_transacations_len = ?self.included_transacations.lock().len(),
+			included_transactions_len = ?self.included_transactions.lock().len(),
 			"handle_finalized after"
 		);
 	}
