@@ -283,7 +283,6 @@ impl<T: Config> ElectionProvider for Continue<T> {
 	fn status() -> Result<bool, ()> {
 		Ok(true)
 	}
-
 }
 
 impl<T: Config> InstantElectionProvider for Continue<T> {
@@ -1317,7 +1316,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		match Self::status() {
 			// we allow `elect` to be called as long as we have received a start signal.
 			Ok(_) => (),
-			Err(_) => return Err(ElectionError::NotOngoing)
+			Err(_) => return Err(ElectionError::NotOngoing),
 		}
 
 		let result = T::Verifier::get_queued_solution_page(remaining)
@@ -2376,7 +2375,10 @@ mod admin_ops {
 							from: Phase::Snapshot(0),
 							to: Phase::Signed(SignedPhase::get() - 1)
 						},
-						Event::PhaseTransitioned { from: Phase::Signed(SignedPhase::get() - 1), to: Phase::Emergency },
+						Event::PhaseTransitioned {
+							from: Phase::Signed(SignedPhase::get() - 1),
+							to: Phase::Emergency
+						},
 						Event::PhaseTransitioned { from: Phase::Emergency, to: Phase::Off }
 					]
 				);

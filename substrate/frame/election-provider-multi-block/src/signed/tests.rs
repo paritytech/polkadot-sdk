@@ -215,9 +215,7 @@ mod calls {
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), score_from(100)));
 			assert_eq!(*Submissions::<Runtime>::leaderboard(0), vec![(91, score_from(100))]);
 			assert_eq!(balances(91), (95, 5));
-			assert!(
-				matches!(signed_events().as_slice(), &[SignedEvent::Registered(_, 91, _)])
-			);
+			assert!(matches!(signed_events().as_slice(), &[SignedEvent::Registered(_, 91, _)]));
 
 			// weaker one comes while we have space.
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), score_from(90)));

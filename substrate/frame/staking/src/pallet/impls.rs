@@ -671,7 +671,8 @@ impl<T: Config> Pallet<T> {
 			// note: exposures have already been processed and stored for each of the election
 			// solution page at the time of `elect_paged(page_index)`.
 			Self::register_weight(T::DbWeight::get().reads(1));
-			// TODO: here we should ensure that wea re not in the middle of importing election result.
+			// TODO: here we should ensure that wea re not in the middle of importing election
+			// result.
 			ElectableStashes::<T>::take()
 				.into_inner()
 				.into_iter()
@@ -1976,10 +1977,13 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
 
 	fn score(who: &T::AccountId) -> Option<Self::Score> {
-		Self::ledger(Stash(who.clone())).map(|l| l.active).map(|a| {
-			let issuance = asset::total_issuance::<T>();
-			T::CurrencyToVote::to_vote(a, issuance)
-		}).ok()
+		Self::ledger(Stash(who.clone()))
+			.map(|l| l.active)
+			.map(|a| {
+				let issuance = asset::total_issuance::<T>();
+				T::CurrencyToVote::to_vote(a, issuance)
+			})
+			.ok()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

@@ -424,11 +424,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 			})
 			.collect::<Result<Vec<_>, _>>()
 			.map_err(|err| {
-				miner_log!(
-					warn,
-					"feasibility check failed for solution at: {:?}",
-					err
-				);
+				miner_log!(warn, "feasibility check failed for solution at: {:?}", err);
 				MinerError::from(err)
 			})
 			.and_then(|supports| {
@@ -446,12 +442,8 @@ impl<T: MinerConfig> BaseMiner<T> {
 		all_targets: &BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
 		desired_targets: u32,
 	) -> Result<ElectionScore, MinerError<T>> {
-		let all_supports = Self::check_feasibility(
-			paged_solution,
-			paged_voters,
-			all_targets,
-			desired_targets,
-		)?;
+		let all_supports =
+			Self::check_feasibility(paged_solution, paged_voters, all_targets, desired_targets)?;
 		let mut total_backings: BTreeMap<T::AccountId, ExtendedBalance> = BTreeMap::new();
 		all_supports.into_iter().flat_map(|x| x.0).for_each(|(who, support)| {
 			let backing = total_backings.entry(who).or_default();
@@ -724,11 +716,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 	) -> Result<(), OffchainMinerError<T>> {
 		// NOTE: we prefer cheap checks first, so first run unsigned checks.
 		Pallet::<T>::unsigned_specific_checks(paged_solution)?;
-		Self::base_check_solution(
-			paged_solution,
-			maybe_snapshot_fingerprint,
-			do_feasibility,
-		)
+		Self::base_check_solution(paged_solution, maybe_snapshot_fingerprint, do_feasibility)
 	}
 
 	fn submit_call(call: Call<T>) -> Result<(), OffchainMinerError<T>> {
@@ -1104,8 +1092,7 @@ mod base_miner {
 			assert_eq!(paged.solution_pages.len(), 1);
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true)
-				.unwrap();
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true).unwrap();
 
 			// now do a realistic full verification
 			load_mock_signed_and_start(paged.clone());
@@ -1191,8 +1178,7 @@ mod base_miner {
 			);
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, false)
-				.unwrap();
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, false).unwrap();
 
 			// it must also be verified in the verifier
 			load_mock_signed_and_start(paged.clone());
@@ -1279,8 +1265,7 @@ mod base_miner {
 			);
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true)
-				.unwrap();
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true).unwrap();
 			// now do a realistic full verification
 			load_mock_signed_and_start(paged.clone());
 			let supports = roll_to_full_verification();
@@ -1359,8 +1344,7 @@ mod base_miner {
 			);
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true)
-				.unwrap();
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true).unwrap();
 			// now do a realistic full verification.
 			load_mock_signed_and_start(paged.clone());
 			let supports = roll_to_full_verification();
@@ -1424,8 +1408,7 @@ mod base_miner {
 			let paged = mine_solution(2).unwrap();
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true)
-				.unwrap();
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true).unwrap();
 
 			assert_eq!(
 				paged.solution_pages,
@@ -1455,8 +1438,7 @@ mod base_miner {
 			);
 
 			// this solution must be feasible and submittable.
-			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true)
-				.unwrap();
+			OffchainWorkerMiner::<Runtime>::base_check_solution(&paged, None, true).unwrap();
 			// now do a realistic full verification.
 			load_mock_signed_and_start(paged.clone());
 			let supports = roll_to_full_verification();
