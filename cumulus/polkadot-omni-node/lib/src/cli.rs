@@ -82,7 +82,7 @@ pub enum Subcommand {
 	///
 	/// For a more versatile `chain-spec` manipulation experience please check out the
 	/// `polkadot-omni-node chain-spec-builder` subcommand.
-	/// #[deprecated(note = "build-spec will be removed after 1/06/2025. Use chain-spec-builder instead")]
+	#[deprecated(note = "build-spec will be removed after 1/06/2025. Use chain-spec-builder instead")]
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Validate blocks.
