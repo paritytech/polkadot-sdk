@@ -7,8 +7,8 @@ doc:
     The primary reason for this approach is to avoid transferring the entire `new_code` Wasm blob between chains. Instead, we authorize the `code_hash` using `root` via `fn authorize_force_set_current_code_hash(new_authorization, expire_at)`. This authorization can later be applied by anyone using `Paras::apply_authorized_force_set_current_code(para, new_code)`. If `expire_at` is reached without the authorization being used, it is automatically removed.
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
 - name: rococo-runtime
-  bump: patch
+  bump: minor
 - name: westend-runtime
-  bump: patch
+  bump: minor
