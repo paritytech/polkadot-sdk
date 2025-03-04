@@ -548,6 +548,13 @@ pub mod derive {
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	pub use scale_info::TypeInfo;
+	pub use serde;
+	/// The `serde` `Serialize`/`Deserialize` derive macros and traits.
+	///
+	/// You will either need to add `serde` as a dependency in your crate's `Cargo.toml`
+	/// or specify the `#[serde(crate = "PATH_TO_THIS_CRATE::serde")]` attribute that points
+	/// to the path where serde can be found.
+	pub use serde::{Deserialize, Serialize};
 	pub use sp_runtime::RuntimeDebug;
 }
 
