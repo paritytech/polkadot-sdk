@@ -4,10 +4,10 @@ doc:
   - audience: Runtime Dev
     description: |
       Introduces the `asset_kind` parameter for both bounties and child-bounties, enabling multi-asset support 
-      and cross-chain compatibility. Payments processing has been refactored to use the `Pay` which allows cross-chain setups instead of 
+      and cross-chain compatibility. Payments processing has been refactored to use the `Pay` trait which allows cross-chain setups instead of 
       the `Currency` trait, which is limited to local asset transfers.
 
-      Adds an `asset_kind` parameter to `Bounty` and `ChildBounty`, defined in `propose_bounty` call.
+      Adds an `asset_kind` parameter to `Bounty` and `ChildBounty`, defined in the `propose_bounty` call.
       Payments are now handled asynchronously, meaning the treasury no longer triggers them via `on_initialize`. 
       Instead, payments are initiated and then tracked separately.
 
@@ -16,9 +16,9 @@ doc:
       These 2 new calls check and process three types of payments: 
         - Funding (from treasury to bounty account in pallet-bounties, and bounty account to child-bounty account in pallet-child-bounties)
         - Payout (from bounty or child-bounty account to beneficiary and curator stash account, both in pallet-bounties and pallet-child-bounties)
-        - Refund (from bounty acconut to treasury in pallet-bounties and from child-bounty account to bounty account in pallet-child-bounties)
+        - Refund (from bounty account to treasury in pallet-bounties and from child-bounty account to bounty account in pallet-child-bounties)
 
-      Introduces the possibility that the curator payout is for another account `curator_stash`.
+      Allows curator payouts to be directed to a separate account, `curator_stash`, instead of the curator's own account."
 
 crates:
   - name: pallet-bounties
