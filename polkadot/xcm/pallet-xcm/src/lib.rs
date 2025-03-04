@@ -423,7 +423,7 @@ pub mod pallet {
 			error: SendError,
 			message_id: XcmHash,
 		) {
-			Self::deposit_event(Event::SentFailed { origin, destination, error, message_id });
+			Self::deposit_event(Event::SendFailed { origin, destination, error, message_id });
 		}
 
 		fn emit_process_failure_event(origin: Location, error: XcmError, message_id: XcmHash) {
