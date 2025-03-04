@@ -3066,7 +3066,7 @@ fn postponed_task_is_still_available() {
 
 		System::run_to_block::<AllPalletsWithSystem>(4);
 
-		// The big task should still be there and the small one should have been executed.
+		// The task should still be there.
 		assert_eq!(Agenda::<Test>::get(4).iter().filter(|a| a.is_some()).count(), 1);
 		System::assert_last_event(crate::Event::AgendaIncomplete { when: 4 }.into());
 
