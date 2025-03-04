@@ -8,8 +8,6 @@ doc:
     4. Part of this PR will also be to display the message the build-spec will soon be on deprecation pat
 
 crates:
-- name: polkadot-omni-node-lib
-  bump: patch
 - name: sc-cli
   bump: patch
 - name: polkadot-cli
