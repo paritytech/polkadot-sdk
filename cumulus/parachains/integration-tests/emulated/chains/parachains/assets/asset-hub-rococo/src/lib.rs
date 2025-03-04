@@ -63,7 +63,7 @@ impl_foreign_assets_helpers_for_parachain!(AssetHubRococo, xcm::v5::Location);
 impl_xcm_helpers_for_parachain!(AssetHubRococo);
 impl_bridge_helpers_for_chain!(
 	AssetHubRococo,
-	ParaPallet,
+	ParaRuntime,
 	PolkadotXcm,
 	bp_bridge_hub_rococo::RuntimeCall::XcmOverBridgeHubWestend
 );

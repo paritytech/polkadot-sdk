@@ -23,7 +23,7 @@ fn relay_sets_system_para_xcm_supported_version() {
 
 	// Relay Chain sets supported version for Asset Parachain
 	Rococo::execute_with(|| {
-		assert_ok!(<Rococo as RococoPallet>::XcmPallet::force_xcm_version(
+		assert_ok!(<Rococo as RococoRuntime>::XcmPallet::force_xcm_version(
 			sudo_origin,
 			bx!(system_para_destination.clone()),
 			XCM_V3

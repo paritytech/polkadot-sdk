@@ -717,13 +717,13 @@ macro_rules! decl_test_parachains {
 			}
 
 			$crate::paste::paste! {
-				pub trait [<$name ParaPallet>] {
+				pub trait [<$name ParaRuntime>] {
 					$(
 						type $pallet_name;
 					)*
 				}
 
-				impl<N: $crate::Network> [<$name ParaPallet>] for $name<N> {
+				impl<N: $crate::Network> [<$name ParaRuntime>] for $name<N> {
 					$(
 						type $pallet_name = $pallet_path;
 					)*
