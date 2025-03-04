@@ -15,68 +15,93 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This pallet is intended to be used on a relay chain and to communicate with its counterpart on
-//! AssetHub (or a similar network) named `pallet-staking-rc-client`.
+//! The client for AssetHub, intended to be used in the relay chain.
 //!
-//! This pallet serves as an interface between the staking pallet on AssetHub and the session pallet
-//! on the relay chain. From the relay chain to AssetHub, its responsibilities are to send
-//! information about session changes (start and end) and to report offenses. From AssetHub to the
-//! relay chain, it receives information about the potentially new validator set for the session.
+//! The counter-part for this pallet is `pallet-staking-rc-client` on AssetHub.
 //!
-//! All the communication between the two pallets is performed with XCM messages.
+//! This documentation is divided into the following sections:
+//!
+//! 1. Incoming messages: the messages that we receive from the relay chian.
+//! 2. Outgoing messages: the messaged that we sent to the relay chain.
+//! 3. Local interfaces: the interfaces that we expose to other pallets in the runtime.
+//!
+//! ## Incoming Messages
+//!
+//! All incoming messages are handled via [`Call`]. They are all gated to be dispatched only by
+//! [`Config::AssetHubOrigin`]. The only one is:
+//!
+//! * [`Call::new_validator_set`]: A new validator set for a planning session index.
+//!
+//! ## Outgoing Messages
+//!
+//! All outgoing messages are handled by a single trait [`SendToAssetHub`]. They match the
+//! incoming messages of the `ah-client` pallet.
+//!
+//! ## Local Interfaces:
+//!
+//! Living on the relay chain, this pallet must:
+//!
+//! * Implement `SessionManager` (and historical variant thereof).
+//! * Implement `OnOffenceHandler`.
+//! * Implement reward related APIs.
+//! * If further communication is needed to the session pallet, either a custom trait (`trait
+//!   SessionInterface`) or tightly coupling the session-pallet should work.
+//!
+//! TODO:
+//! * Governance functions to force set validators.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
+pub use pallet::*;
 
+extern crate alloc;
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
-pub use pallet::*;
-use pallet_staking_rc_client::Offence;
-use sp_core::crypto::AccountId32;
+use pallet_staking_rc_client::{self as rc_client};
 use sp_staking::{offence::OffenceDetails, SessionIndex};
-use xcm::prelude::*;
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";
 
-/// `pallet-staking-rc-client` pallet index on AssetHub. Used to construct remote calls.
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: crate::LOG_TARGET,
+			concat!("[{:?}] ⬆️ ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
+
+/// The interface to communicate to asset hub.
 ///
-/// The codec index must correspond to the index of `pallet-staking-rc-client` in the
-/// `construct_runtime` of AssetHub.
-#[derive(Encode, Decode)]
-enum AssetHubRuntimePallets {
-	#[codec(index = 50)]
-	RcClient(StakingCalls),
+/// This trait should only encapsulate our outgoing communications. Any incoming message is handled
+/// with `Call`s.
+///
+/// In a real runtime, this is implemented via XCM calls, much like how the coretime pallet works.
+/// In a test runtime, it can be wired to direct function call.
+pub trait SendToAssetHub {
+	/// The validator account ids.
+	type AccountId;
+
+	/// Report a session change to AssetHub.
+	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>);
+
+	/// Report new offences.
+	fn relay_new_offence(
+		session_index: SessionIndex,
+		offences: Vec<rc_client::Offence<Self::AccountId>>,
+	);
 }
 
-/// Call encoding for the calls needed from the rc-client pallet.
-#[derive(Encode, Decode)]
-enum StakingCalls {
-	/// A session with the given index has started.
-	#[codec(index = 0)]
-	RelayChainSessionStart(SessionIndex),
-	// A session with the given index has ended. The block authors with their corresponding
-	// session points are provided.
-	#[codec(index = 1)]
-	RelayChainSessionEnd(SessionIndex, Vec<(AccountId32, u32)>),
-	/// Report one or more offences.
-	#[codec(index = 2)]
-	NewRelayChainOffences(SessionIndex, Vec<Offence>),
-	/// Report rewards from parachain blocks processing.
-	#[codec(index = 3)]
-	ParachainSessionPoints(Vec<(AccountId32, u32)>),
-}
-
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 	use crate::*;
 	use alloc::vec;
-	use core::result;
+	use frame_support::traits::UnixTime;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
-	use polkadot_primitives::Id as ParaId;
-	use polkadot_runtime_parachains::origin::{ensure_parachain, Origin};
-	use sp_runtime::Perbill;
+	use sp_runtime::{traits::Saturating, Perbill};
 	use sp_staking::{
 		offence::{OffenceSeverity, OnOffenceHandler},
 		SessionIndex,
@@ -84,67 +109,93 @@ pub mod pallet {
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
-	/// The balance type of this pallet.
-	pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		/// An origin type that ensures an incoming message is from asset hub.
+		type AssetHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Our communication interface to AssetHub.
+		type SendToAssetHub: SendToAssetHub<AccountId = Self::AccountId>;
+
+		/// A safety measure that asserts an incoming validator set must be at least this large.
+		type MinimumValidatorSetSize: Get<u32>;
+
+		/// A type that gives us a reliable unix timestamp.
+		type UnixTime: UnixTime;
+
+		/// Number of points to award a validator per block authored.
+		type PointsPerBlock: Get<u32>;
+	}
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
+	/// The queued validator sets for a given planning session index.
+	///
+	/// This is received via a call from AssetHub.
 	#[pallet::storage]
-	pub type ValidatorSet<T: Config> =
-		StorageValue<_, Option<Vec<<T as frame_system::Config>::AccountId>>, ValueQuery>;
+	#[pallet::unbounded]
+	pub type ValidatorSet<T: Config> = StorageValue<_, (u32, Vec<T::AccountId>), OptionQuery>;
 
-	/// Keeps track of the session points for each block author in the current session.
+	/// An incomplete validator set report.
 	#[pallet::storage]
-	pub type BlockAuthors<T: Config> = StorageMap<_, Twox64Concat, AccountId32, u32, ValueQuery>;
+	#[pallet::unbounded]
+	pub type IncompleteValidatorSetReport<T: Config> =
+		StorageValue<_, rc_client::ValidatorSetReport<T::AccountId>, OptionQuery>;
 
-	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
-			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
-		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
-		/// `From<u64>`.
-		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
-			+ codec::FullCodec
-			+ Copy
-			+ MaybeSerializeDeserialize
-			+ core::fmt::Debug
-			+ Default
-			+ From<u64>
-			+ TypeInfo
-			+ Send
-			+ Sync
-			+ MaxEncodedLen;
-		/// The ParaId of the AssetHub.
-		#[pallet::constant]
-		type AssetHubId: Get<u32>;
-		/// The XCM sender.
-		type SendXcm: SendXcm;
-	}
+	/// All of the points of the validators.
+	///
+	/// This is populated during a session, and is flushed and sent over via [`SendToAssetHub`]
+	/// at each session end.
+	#[pallet::storage]
+	pub type ValidatorPoints<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, u32, ValueQuery>;
+
+	/// A storage value that is set when a `new_session` gives a new validator set to the session
+	/// pallet, and is cleared on the next call.
+	///
+	/// Once cleared, we know a validator set has been activated, and therefore we can send a
+	/// timestamp to AH.
+	#[pallet::storage]
+	pub type NextSessionChangesValidators<T: Config> = StorageValue<_, (), OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The ParaId making the call is not AssetHub.
-		NotAssetHub,
+		/// The validator set received is way too small, as per
+		/// [`Config::MinimumValidatorSetSize`].
+		MinimumValidatorSetSize,
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	where
-		T::AccountId: Into<AccountId32>,
-	{
+	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		// #[pallet::weight(T::WeightInfo::new_validators())] // TODO
-		pub fn new_validator_set(
+		#[pallet::weight(0)]
+		pub fn validator_set(
 			origin: OriginFor<T>,
-			new_validator_set: Vec<T::AccountId>,
+			report: rc_client::ValidatorSetReport<T::AccountId>,
 		) -> DispatchResult {
-			// Ignore requests not coming from the AssetHub or root.
-			Self::ensure_root_or_para(origin, <T as Config>::AssetHubId::get().into())?;
+			// Ensure the origin is one of Root or whatever is representing AssetHub.
+			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
+			log!(info, "Received new validator set report {:?}", report);
+			let rc_client::ValidatorSetReport { id, leftover, mut new_validator_set, prune_up_to } =
+				report;
+			debug_assert!(!leftover);
 
-			// Save the validator set. We don't care if there is a validator set which was not used.
-			ValidatorSet::<T>::put(Some(new_validator_set));
+			// TODO: buffer in `IncompleteValidatorSetReport` if incomplete, similar to how
+			// rc-client does it.
+
+			// ensure the validator set, deduplicated, is not too big.
+			new_validator_set.sort();
+			new_validator_set.dedup();
+
+			ensure!(
+				new_validator_set.len() as u32 >= T::MinimumValidatorSetSize::get(),
+				Error::<T>::MinimumValidatorSetSize
+			);
+
+			// Save the validator set.
+			ValidatorSet::<T>::put((id, new_validator_set));
 
 			Ok(())
 		}
@@ -155,7 +206,7 @@ pub mod pallet {
 			_: sp_staking::SessionIndex,
 		) -> Option<Vec<(<T as frame_system::Config>::AccountId, ())>> {
 			let maybe_new_validator_set = ValidatorSet::<T>::take()
-				.map(|validators| validators.into_iter().map(|v| (v, ())).collect());
+				.map(|(session, validators)| validators.into_iter().map(|v| (v, ())).collect());
 
 			// A new validator set is an indication for a new era. Clear
 			if maybe_new_validator_set.is_none() {
@@ -166,14 +217,17 @@ pub mod pallet {
 				// <pallet_session::historical::Pallet<T>>::prune_up_to(up_to); // TODO!!!
 			}
 
+			// TODO: move this to the normal impl
+			if maybe_new_validator_set.is_some() {
+				NextSessionChangesValidators::<T>::put(());
+			}
+
 			return maybe_new_validator_set
 		}
 
-		fn new_session_genesis(
-			_: SessionIndex,
-		) -> Option<Vec<(<T as frame_system::Config>::AccountId, ())>> {
+		fn new_session_genesis(_: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
 			ValidatorSet::<T>::take()
-				.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
+				.map(|(session, validators)| validators.into_iter().map(|v| (v, ())).collect())
 		}
 
 		fn start_session(start_index: SessionIndex) {
@@ -186,61 +240,38 @@ pub mod pallet {
 	}
 
 	impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
-		fn new_session(_: u32) -> Option<Vec<<T as frame_system::Config>::AccountId>> {
-			// Doesn't do anything because all the logic is handled in `historical::SessionManager`
-			// implementation
-			defensive!("new_session should not be called");
+		fn new_session(_: u32) -> Option<Vec<T::AccountId>> {
+			// TODO return if we have a queued validator set.
 			None
 		}
 
 		fn end_session(session_index: u32) {
-			let authors = BlockAuthors::<T>::iter().collect::<Vec<_>>();
-			// The maximum number of block authors is `num_cores * max_validators_per_core` (both
-			// are parameters from [`SchedulerParams`]).
-			let _ = BlockAuthors::<T>::clear(u32::MAX, None);
+			use sp_runtime::SaturatedConversion;
 
-			let message = Xcm(vec![
-				Instruction::UnpaidExecution {
-					weight_limit: WeightLimit::Unlimited,
-					check_origin: None,
-				},
-				mk_asset_hub_call(StakingCalls::RelayChainSessionEnd(session_index, authors)),
-			]);
+			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
+			let activation_timestamp = NextSessionChangesValidators::<T>::take().map(|_| {
+				// TODO: not setting the id for now, not sure if needed.
+				(T::UnixTime::now().as_millis().saturated_into::<u64>(), 0)
+			});
 
-			if let Err(err) = send_xcm::<T::SendXcm>(
-				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
-				message,
-			) {
-				log::error!(target: LOG_TARGET, "Sending `RelayChainSessionEnd` to AssetHub failed: {:?}", err);
-			}
+			let session_report = pallet_staking_rc_client::SessionReport {
+				end_index: session_index,
+				validator_points,
+				activation_timestamp,
+				leftover: false,
+			};
+
+			log!(info, "Sending session report {:?}", session_report);
+			T::SendToAssetHub::relay_session_report(session_report);
 		}
 
-		fn start_session(session_index: u32) {
-			let message = Xcm(vec![
-				Instruction::UnpaidExecution {
-					weight_limit: WeightLimit::Unlimited,
-					check_origin: None,
-				},
-				mk_asset_hub_call(StakingCalls::RelayChainSessionStart(session_index)),
-			]);
-			if let Err(err) = send_xcm::<T::SendXcm>(
-				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
-				message,
-			) {
-				log::error!(target: LOG_TARGET, "Sending `RelayChainSessionStart` to AssetHub failed: {:?}", err);
-			}
-		}
+		fn start_session(session_index: u32) {}
 	}
 
-	impl<T> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T>
-	where
-		T: Config + pallet_authorship::Config + pallet_session::Config + Config,
-		T::AccountId: Into<AccountId32>,
-	{
-		// Notes the authored block in `BlockAuthors`.
+	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
 		fn note_author(author: T::AccountId) {
-			BlockAuthors::<T>::mutate(author.into(), |block_count| {
-				*block_count += 1;
+			ValidatorPoints::<T>::mutate(author, |points| {
+				points.saturating_accrue(T::PointsPerBlock::get());
 			});
 		}
 	}
@@ -252,7 +283,6 @@ pub mod pallet {
 		T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
 		T: pallet_session::historical::Config<FullIdentification = (), FullIdentificationOf = I>,
 		T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
-		T::AccountId: Into<AccountId32>,
 	{
 		fn on_offence(
 			offenders: &[OffenceDetails<
@@ -272,89 +302,29 @@ pub mod pallet {
 				);
 
 				// prepare an `Offence` instance for the XCM message
-				offenders_and_slashes.push(Offence::new(
-					offence.offender.0.into(),
-					offence.reporters.into_iter().map(|r| r.into()).collect(),
-					*fraction,
-				));
+				offenders_and_slashes.push(rc_client::Offence {
+					offender: offence.offender.0.into(),
+					reporters: offence.reporters.into_iter().map(|r| r.into()).collect(),
+					slash_fraction: *fraction,
+				});
 			}
 
-			// send the offender immediately over xcm
-			let message = Xcm(vec![
-				Instruction::UnpaidExecution {
-					weight_limit: WeightLimit::Unlimited,
-					check_origin: None,
-				},
-				mk_asset_hub_call(StakingCalls::NewRelayChainOffences(
-					slash_session,
-					offenders_and_slashes,
-				)),
-			]);
-			if let Err(err) = send_xcm::<T::SendXcm>(
-				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
-				message,
-			) {
-				log::error!(target: LOG_TARGET, "Sending `NewRelayChainOffences` to AssetHub failed: {:?}",
-			err);
-			}
-
+			T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
 			Weight::zero()
 		}
 	}
 
-	impl<T: Config> Pallet<T>
-	where
-		T::AccountId: Into<AccountId32>,
-	{
-		/// Ensure the origin is one of Root or the `para` itself.
-		fn ensure_root_or_para(
-			origin: <T as frame_system::Config>::RuntimeOrigin,
-			id: ParaId,
-		) -> DispatchResult {
-			if let Ok(caller_id) =
-				ensure_parachain(<T as Config>::RuntimeOrigin::from(origin.clone()))
-			{
-				// Check if matching para id...
-				ensure!(caller_id == id, Error::<T>::NotAssetHub);
-			} else {
-				// Check if root...
-				ensure_root(origin.clone())?;
-			}
-			Ok(())
-		}
-
+	impl<T: Config> Pallet<T> {
 		pub fn handle_parachain_rewards(
 			validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
 		) -> Weight {
-			let parachain_points = validators_points
-				.into_iter()
-				.map(|(id, points)| (id.into(), points))
-				.collect::<Vec<_>>();
+			// TODO: accumulate this in our pending points, which is sent off in the next session.
 
-			let message = Xcm(vec![
-				Instruction::UnpaidExecution {
-					weight_limit: WeightLimit::Unlimited,
-					check_origin: None,
-				},
-				mk_asset_hub_call(StakingCalls::ParachainSessionPoints(parachain_points)),
-			]);
-			if let Err(err) = send_xcm::<T::SendXcm>(
-				Location::new(0, [Junction::Parachain(T::AssetHubId::get())]),
-				message,
-			) {
-				log::error!(target: LOG_TARGET, "Sending `ParachainSessionPoints` to AssetHub failed: {:?}",
-			err);
-			}
+			// TODO: if we move this trait `RewardsReporter` somewhere more easy to access, we can
+			// implement it directly and not need a custom type on the runtime. We can do it now
+			// too, but it would pull all of the polkadot-parachain pallets.
 
 			Weight::zero()
-		}
-	}
-
-	fn mk_asset_hub_call(call: StakingCalls) -> Instruction<()> {
-		Instruction::Transact {
-			origin_kind: OriginKind::Superuser,
-			fallback_max_weight: None,
-			call: AssetHubRuntimePallets::RcClient(call).encode().into(),
 		}
 	}
 }

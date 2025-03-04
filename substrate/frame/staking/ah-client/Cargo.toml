@@ -22,7 +22,6 @@ scale-info = { workspace = true, features = ["derive"] }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
-xcm = { workspace = true }
 
 [features]
 default = ["std"]
@@ -41,7 +40,6 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
@@ -52,7 +50,6 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
