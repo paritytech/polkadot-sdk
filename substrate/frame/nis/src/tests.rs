@@ -17,21 +17,13 @@
 
 //! Tests for NIS pallet.
 
-use super::*;
-use crate::{mock::*, Error};
-use frame_support::{
-	assert_noop, assert_ok,
-	traits::{
-		fungible::{hold::Inspect as InspectHold, Inspect as FunInspect, Mutate as FunMutate},
-		nonfungible::{Inspect, Transfer},
-		tokens::{Fortitude::Force, Precision::Exact, Preservation::Expendable},
-	},
+use frame::testing_prelude::*;
+
+use crate::{
+	mock::{Balance, *},
+	*,
 };
-use sp_arithmetic::Perquintill;
-use sp_runtime::{
-	Saturating,
-	TokenError::{self, FundsUnavailable},
-};
+use fungible::InspectHold;
 
 fn pot() -> Balance {
 	Balances::free_balance(&Nis::account_id())
@@ -78,7 +70,7 @@ fn place_bid_works() {
 	new_test_ext().execute_with(|| {
 		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_noop!(Nis::place_bid(signed(1), 1, 2), Error::<Test>::AmountTooSmall);
-		assert_noop!(Nis::place_bid(signed(1), 101, 2), FundsUnavailable);
+		assert_noop!(Nis::place_bid(signed(1), 101, 2), TokenError::FundsUnavailable);
 		assert_noop!(Nis::place_bid(signed(1), 10, 4), Error::<Test>::DurationTooBig);
 		assert_ok!(Nis::place_bid(signed(1), 10, 2));
 		assert_eq!(Balances::reserved_balance(1), 10);
