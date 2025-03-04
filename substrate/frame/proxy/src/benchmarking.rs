@@ -396,6 +396,7 @@ mod benchmarks {
 
 		let initial_reserved = T::Currency::reserved_balance(&account_2);
 		assert_eq!(initial_reserved, total.saturating_add(total)); // Double
+
 		// Update storage with increased deposits
 		Proxies::<T>::insert(
 			&account_2,

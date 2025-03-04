@@ -672,6 +672,7 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 		assert_ok!(result.as_ref());
 		assert_eq!(result.unwrap().pays_fee, Pays::Yes); // Pays fee
 		assert_eq!(Balances::reserved_balance(1), 2); // No change
+
 		// No event emitted
 		assert!(!System::events()
 			.iter()
@@ -692,6 +693,7 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 		assert_ok!(result.as_ref());
 		assert_eq!(result.unwrap().pays_fee, Pays::Yes); // Pays fee
 		assert_eq!(Balances::reserved_balance(3), initial_deposit); // No change
+
 		// No event emitted
 		assert!(!System::events()
 			.iter()
