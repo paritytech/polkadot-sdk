@@ -38,6 +38,7 @@ use codec::{Decode, Encode};
 use core::ops::Mul;
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
+	__private::sp_io,
 	assert_noop, assert_ok, parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -47,13 +48,17 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
+use hex_literal::hex;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::traits::MaybeEquivalence;
+use sp_runtime::{traits::MaybeEquivalence, BuildStorage};
 use std::convert::Into;
 use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::WeightToFee};
-use xcm::latest::prelude::{Assets as XcmAssets, *};
+use xcm::latest::{
+	prelude::{Assets as XcmAssets, *},
+	WESTEND_GENESIS_HASH,
+};
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{JustTry, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -1514,18 +1519,61 @@ fn location_conversion_works() {
 			),
 			expected_account_id_str: "5DBoExvojy8tYnHgLL97phNH975CyT45PWTZEeGoBZfAyRMH",
 		},
+		// ExternalConsensusLocationsConverterFor
+		TestCase {
+			description: "Describe Ethereum Location",
+			location: Location::new(2, [GlobalConsensus(Ethereum { chain_id: 11155111 })]),
+			expected_account_id_str: "5GjRnmh5o3usSYzVmsxBWzHEpvJyHK4tKNPhjpUR3ASrruBy",
+		},
+		TestCase {
+			description: "Describe Ethereum AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(Ethereum { chain_id: 11155111 }),
+					AccountKey20 {
+						network: None,
+						key: hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d"),
+					},
+				],
+			),
+			expected_account_id_str: "5HV4j4AsqT349oLRZmTjhGKDofPBWmWaPUfWGaRkuvzkjW9i",
+		},
+		TestCase {
+			description: "Describe Westend Location",
+			location: Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]),
+			expected_account_id_str: "5Fb4pyqFuYLZ43USEAcVUBhFTfTckG9zv9kUaVnmR79YgBCe",
+		},
+		TestCase {
+			description: "Describe Westend Parachain Location",
+			location: Location::new(
+				2,
+				[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)],
+			),
+			expected_account_id_str: "5CkWf1L181BiSbvoofnzfSg8ZLiBK3i1U4sknzETHk8QS2mA",
+		},
 	];
 
 	for tc in test_cases {
-		let expected =
-			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
-
-		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
-			tc.location.into(),
-		)
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		parachain_info::GenesisConfig::<Runtime> {
+			parachain_id: 1000.into(),
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
 		.unwrap();
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| {
+			let expected = AccountId::from_string(tc.expected_account_id_str)
+				.expect("Invalid AccountId string");
 
-		assert_eq!(got, expected, "{}", tc.description);
+			let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+				tc.location.into(),
+			)
+			.unwrap();
+
+			assert_eq!(got, expected, "{}", tc.description);
+		});
 	}
 }
 
