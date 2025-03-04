@@ -8770,6 +8770,7 @@ checksum = "c33070833c9ee02266356de0c43f723152bd38bd96ddf52c82b3af10c9138b28"
 name = "kitchensink-runtime"
 version = "3.0.0-dev"
 dependencies = [
+ "array-bytes",
  "log",
  "node-primitives",
  "pallet-example-mbm",
@@ -16208,6 +16209,7 @@ dependencies = [
  "pallet-examples",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-api 26.0.0",
  "sp-arithmetic 23.0.0",
  "sp-block-builder",
