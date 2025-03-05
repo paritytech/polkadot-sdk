@@ -154,7 +154,8 @@ pub struct ValidatorSetReport<AccountId> {
 	pub id: u32,
 	/// Signal the relay chain that it can prune up to this session, ans enough eras have passed.
 	///
-	/// This can always have a safety buffer. For example, whatever is a sane value, it can be `value - 5`.
+	/// This can always have a safety buffer. For example, whatever is a sane value, it can be
+	/// `value - 5`.
 	pub prune_up_to: SessionIndex,
 	/// Same semantics as [`SessionReport::leftover`].
 	pub leftover: bool,
@@ -336,8 +337,7 @@ pub mod pallet {
 
 			// If we have anything previously buffered, then merge it.
 			let new_session_report = match IncompleteSessionReport::<T>::take() {
-				Some(old) =>
-					old.merge(report.clone()).map_err(|_| "CouldNotMerge")?,
+				Some(old) => old.merge(report.clone()).map_err(|_| "CouldNotMerge")?,
 				None => report,
 			};
 
@@ -361,7 +361,7 @@ pub mod pallet {
 			offences: Vec<Offence<T::AccountId>>,
 		) -> DispatchResult {
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
-			let weight = T::AHStakingInterface::on_new_offences(slash_session, offences);
+			T::AHStakingInterface::on_new_offences(slash_session, offences);
 			Ok(())
 		}
 	}

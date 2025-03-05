@@ -227,7 +227,7 @@ pub mod pallet {
 
 		fn new_session_genesis(_: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
 			ValidatorSet::<T>::take()
-				.map(|(session, validators)| validators.into_iter().map(|v| (v, ())).collect())
+				.map(|(_, validators)| validators.into_iter().map(|v| (v, ())).collect())
 		}
 
 		fn start_session(start_index: SessionIndex) {
@@ -265,7 +265,7 @@ pub mod pallet {
 			T::SendToAssetHub::relay_session_report(session_report);
 		}
 
-		fn start_session(session_index: u32) {}
+		fn start_session(_: u32) {}
 	}
 
 	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
@@ -318,7 +318,15 @@ pub mod pallet {
 		pub fn handle_parachain_rewards(
 			validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
 		) -> Weight {
-			// TODO: accumulate this in our pending points, which is sent off in the next session.
+			// Accumulate this in our pending points, which is sent off in the next session.
+			//
+			// Note: The input is the number of ACTUAL points which should be added to
+			// validator's balance!
+			for (validator_id, points) in validators_points {
+				ValidatorPoints::<T>::mutate(validator_id, |balance| {
+					balance.saturating_accrue(points);
+				});
+			}
 
 			// TODO: if we move this trait `RewardsReporter` somewhere more easy to access, we can
 			// implement it directly and not need a custom type on the runtime. We can do it now

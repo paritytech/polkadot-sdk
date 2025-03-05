@@ -80,6 +80,8 @@ pub trait FeeTracker {
 
 /// Trait for reporting rewards for processing parachains blocks
 pub trait RewardsReporter<C> {
+	/// The input is an iterator of tuples of validator account IDs and the amount of points they
+	/// should be rewarded.
 	fn reward_by_ids(validators_points: impl IntoIterator<Item = (C, u32)>);
 }
 
