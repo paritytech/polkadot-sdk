@@ -189,9 +189,8 @@ where
 			SchedulingLookahead(session_index, scheduling_lookahead) => self
 				.requests_cache
 				.cache_scheduling_lookahead(session_index, scheduling_lookahead),
-			ValidationCodeBombLimit(session_index, limit) => self
-				.requests_cache
-				.cache_validation_code_bomb_limit(session_index, limit),
+			ValidationCodeBombLimit(session_index, limit) =>
+				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit),
 		}
 	}
 

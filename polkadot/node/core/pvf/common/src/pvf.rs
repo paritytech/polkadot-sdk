@@ -52,7 +52,14 @@ impl PvfPrepData {
 		let maybe_compressed_code = Arc::new(code);
 		let code_hash = sp_crypto_hashing::blake2_256(&maybe_compressed_code).into();
 		let executor_params = Arc::new(executor_params);
-		Self { maybe_compressed_code, code_hash, executor_params, prep_timeout, prep_kind, validation_code_bomb_limit }
+		Self {
+			maybe_compressed_code,
+			code_hash,
+			executor_params,
+			prep_timeout,
+			prep_kind,
+			validation_code_bomb_limit,
+		}
 	}
 
 	/// Returns validation code hash
@@ -94,7 +101,7 @@ impl PvfPrepData {
 			ExecutorParams::default(),
 			timeout,
 			PrepareJobKind::Compilation,
-			30*1024*1024,
+			30 * 1024 * 1024,
 		)
 	}
 
