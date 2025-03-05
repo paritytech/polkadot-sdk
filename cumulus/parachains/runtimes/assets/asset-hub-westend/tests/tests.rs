@@ -1605,26 +1605,27 @@ fn location_conversion_works() {
 		},
 	];
 
-	for tc in test_cases {
-		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-		parachain_info::GenesisConfig::<Runtime> {
-			parachain_id: 1000.into(),
-			..Default::default()
-		}
+	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	parachain_info::GenesisConfig::<Runtime> {
+		parachain_id: 1000.into(),
+		..Default::default()
+	}
 		.assimilate_storage(&mut t)
 		.unwrap();
-		let mut ext = sp_io::TestExternalities::new(t);
-		ext.execute_with(|| {
-			let expected = AccountId::from_string(tc.expected_account_id_str)
-				.expect("Invalid AccountId string");
-			let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
-				tc.location.into(),
-			)
-			.unwrap();
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| {
+		for tc in test_cases {
 
-			assert_eq!(got, expected, "{}", tc.description);
-		});
-	}
+				let expected = AccountId::from_string(tc.expected_account_id_str)
+					.expect("Invalid AccountId string");
+				let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+					tc.location.into(),
+				)
+				.unwrap();
+
+				assert_eq!(got, expected, "{}", tc.description);
+		}
+	});
 }
 
 #[test]
