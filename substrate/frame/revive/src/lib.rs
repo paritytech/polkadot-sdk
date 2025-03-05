@@ -27,6 +27,7 @@ mod exec;
 mod gas;
 mod limits;
 mod primitives;
+mod pure_precompiles;
 mod storage;
 mod transient_storage;
 mod wasm;
@@ -74,7 +75,7 @@ use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
-	DispatchError,
+	AccountId32, DispatchError,
 };
 
 pub use crate::{
@@ -503,7 +504,7 @@ pub mod pallet {
 		CodeUploadDepositReserve,
 		/// The Pallet has reserved it for storage deposit.
 		StorageDepositReserve,
-		/// Deposit for creating an address mapping in [`AddressSuffix`].
+		/// Deposit for creating an address mapping in [`OriginalAccount`].
 		AddressMapping,
 	}
 
@@ -538,11 +539,12 @@ pub mod pallet {
 
 	/// Map a Ethereum address to its original `AccountId32`.
 	///
-	/// Stores the last 12 byte for addresses that were originally an `AccountId32` instead
-	/// of an `H160`. Register your `AccountId32` using [`Pallet::map_account`] in order to
+	/// When deriving a `H160` from an `AccountId32` we use a hash function. In order to
+	/// reconstruct the original account we need to store the reverse mapping here.
+	/// Register your `AccountId32` using [`Pallet::map_account`] in order to
 	/// use it with this pallet.
 	#[pallet::storage]
-	pub(crate) type AddressSuffix<T: Config> = StorageMap<_, Identity, H160, [u8; 12]>;
+	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {

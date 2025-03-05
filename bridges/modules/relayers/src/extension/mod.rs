@@ -30,7 +30,7 @@ use bp_relayers::{
 	RewardsAccountOwner, RewardsAccountParams,
 };
 use bp_runtime::{Chain, RangeInclusiveExt, StaticStrProvider};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
@@ -117,6 +117,7 @@ pub enum RelayerAccountAction<AccountId, RewardBalance, LaneId> {
 	DefaultNoBound,
 	CloneNoBound,
 	Decode,
+	DecodeWithMemTracking,
 	Encode,
 	EqNoBound,
 	PartialEqNoBound,
