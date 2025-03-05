@@ -53,8 +53,9 @@ fn register_token_v2() {
 	let relayer_account = BridgeHubWestendSender::get();
 	let relayer_reward = 1_500_000_000_000u128;
 	let receiver = AssetHubWestendReceiver::get();
+	let bridge_owner = snowbridge_sovereign();
 	BridgeHubWestend::fund_accounts(vec![(relayer_account.clone(), INITIAL_FUND)]);
-	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
+	AssetHubWestend::fund_accounts(vec![(bridge_owner.clone(), INITIAL_FUND)]);
 
 	set_up_eth_and_dot_pool();
 
@@ -109,7 +110,7 @@ fn register_token_v2() {
 				// Check that the token was created as a foreign asset on AssetHub
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { asset_id, owner, .. }) => {
 					asset_id: *asset_id == erc20_token_location(token),
-					owner: *owner == snowbridge_sovereign(),
+					owner: *owner == bridge_owner,
 				},
 				// Check that excess fees were paid to the claimer
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
@@ -407,7 +408,7 @@ fn register_and_send_multiple_tokens_v2() {
 				call: (
 					CreateAssetCall::get(),
 					token_location.clone(),
-					MultiAddress::<[u8; 32], ()>::Id(bridge_owner.into()),
+					MultiAddress::<[u8; 32], ()>::Id(bridge_owner.clone().into()),
 					1u128,
 				)
 					.encode()
@@ -476,7 +477,7 @@ fn register_and_send_multiple_tokens_v2() {
 				// Check that the token was created as a foreign asset on AssetHub
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { asset_id, owner, .. }) => {
 					asset_id: *asset_id == token_location.clone(),
-					owner: *owner == snowbridge_sovereign().into(),
+					owner: *owner == bridge_owner.clone().into(),
 				},
 				// Check that the token was received and issued as a foreign asset on AssetHub
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
@@ -837,7 +838,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 				) => {},
 				// Check that the native token burnt from some reserved account
 				RuntimeEvent::Assets(pallet_assets::Event::Burned { owner, .. }) => {
-					owner: *owner == snowbridge_sovereign().into(),
+					owner: *owner == ethereum_sovereign.clone().into(),
 				},
 				// Check that the token was minted to beneficiary
 				RuntimeEvent::Assets(pallet_assets::Event::Issued { owner, .. }) => {
@@ -942,6 +943,8 @@ fn invalid_claimer_does_not_fail_the_message() {
 		NativeTokenERC20 { token_id: WETH.into(), value: token_transfer_value },
 	];
 
+	let bridge_owner = snowbridge_sovereign();
+
 	let origin = H160::random();
 
 	BridgeHubWestend::execute_with(|| {
@@ -1000,7 +1003,7 @@ fn invalid_claimer_does_not_fail_the_message() {
 				// Leftover fees deposited into Snowbridge Sovereign
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
-					owner: *owner == snowbridge_sovereign().into(),
+					owner: *owner == bridge_owner.clone().into(),
 				},
 			]
 		);

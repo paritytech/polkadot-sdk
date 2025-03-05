@@ -212,8 +212,8 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 		initial_fund,
 		initial_liquidity,
 	);
+	let previous_owner = snowbridge_sovereign();
 	AssetHubWestend::execute_with(|| {
-		let previous_owner = snowbridge_sovereign();
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::start_destroy(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(previous_owner),
 			ethereum()

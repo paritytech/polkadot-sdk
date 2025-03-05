@@ -25,9 +25,9 @@ use rococo_westend_system_emulated_network::penpal_emulated_chain::{
 	PenpalAssetOwner,
 };
 use snowbridge_core::AssetMetadata;
-use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
 use sp_core::H160;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
 
 pub const CHAIN_ID: u64 = 11155111;
@@ -102,13 +102,14 @@ pub fn register_assets_on_penpal() {
 }
 
 pub fn register_foreign_asset(token_location: Location) {
+	let bridge_owner = snowbridge_sovereign();
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			token_location.clone().try_into().unwrap(),
-			snowbridge_sovereign().into(),
+			bridge_owner.into(),
 			true,
 			1000,
 		));
@@ -357,12 +358,20 @@ pub fn register_pal_on_bh() {
 }
 
 pub fn snowbridge_sovereign() -> sp_runtime::AccountId32 {
-	EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&xcm::v5::Location::new(
-		2,
-		[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
-	))
-	.unwrap()
-	.into()
+	use asset_hub_westend_runtime::xcm_config::UniversalLocation as AssetHubWestendUniversalLocation;
+	let ethereum_sovereign: AccountId = AssetHubWestend::execute_with(|| {
+		ExternalConsensusLocationsConverterFor::<
+			AssetHubWestendUniversalLocation,
+			[u8; 32],
+		>::convert_location(&Location::new(
+				2,
+				[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
+			))
+			.unwrap()
+			.into()
+	});
+
+	ethereum_sovereign
 }
 
 pub fn weth_location() -> Location {
