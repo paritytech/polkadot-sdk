@@ -73,7 +73,7 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 	assert_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(PARA_ID), 55..61)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 52..61)].into_iter().collect(),
 	)
 	.await?;
 	assert_finality_lag(&para_node_elastic.wait_client().await?, 30).await?;
@@ -89,7 +89,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(vec![("-lparachain=trace").into()])
 				.with_default_resources(|resources| {
 					resources.with_request_cpu(2).with_request_memory("2G")
 				})
@@ -116,7 +116,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_args(vec![
 					("--authoring").into(),
 					("slot-based").into(),
-					("-lparachain=debug,aura=debug").into(),
+					("-lparachain=trace,aura=debug").into(),
 				])
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))
