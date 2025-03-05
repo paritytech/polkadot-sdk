@@ -341,7 +341,10 @@ fn send_works() {
 /// Asserts that `send` fails with `Error::SendFailure`
 #[test]
 fn send_fails_when_xcm_router_blocks() {
-	use sp_tracing::{test_log_capture::init_log_capture_for_tests, tracing::subscriber};
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
 
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
@@ -354,7 +357,7 @@ fn send_fails_when_xcm_router_blocks() {
 			buy_execution((Parent, SEND_AMOUNT)),
 			DepositAsset { assets: AllCounted(1).into(), beneficiary: sender },
 		]);
-		let (log_capture, subscriber) = init_log_capture_for_tests();
+		let (log_capture, subscriber) = init_log_capture(Level::DEBUG, true);
 		subscriber::with_default(subscriber, || {
 			let result = XcmPallet::send(
 				RuntimeOrigin::signed(ALICE),
@@ -1467,9 +1470,12 @@ fn record_xcm_works() {
 #[test]
 fn execute_initiate_transfer_and_check_sent_event() {
 	use crate::Event;
-	use sp_tracing::{test_log_capture::init_log_capture_for_tests, tracing::subscriber};
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
 
-	let (log_capture, subscriber) = init_log_capture_for_tests();
+	let (log_capture, subscriber) = init_log_capture(Level::DEBUG, true);
 	subscriber::with_default(subscriber, || {
 		let balances = vec![(ALICE, INITIAL_BALANCE)];
 		new_test_ext_with_balances(balances).execute_with(|| {

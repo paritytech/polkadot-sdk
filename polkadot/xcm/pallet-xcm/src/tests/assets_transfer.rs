@@ -2030,7 +2030,10 @@ fn transfer_assets_with_filtered_teleported_fee_disallowed() {
 /// burn) effects are reverted.
 #[test]
 fn intermediary_error_reverts_side_effects() {
-	use sp_tracing::{test_log_capture::init_log_capture_for_tests, tracing::subscriber};
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
 
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -2062,7 +2065,7 @@ fn intermediary_error_reverts_side_effects() {
 		set_send_xcm_artificial_failure(true);
 
 		// do the transfer - extrinsic should completely fail on xcm send failure
-		let (log_capture, subscriber) = init_log_capture_for_tests();
+		let (log_capture, subscriber) = init_log_capture(Level::DEBUG, true);
 		subscriber::with_default(subscriber, || {
 			let result = XcmPallet::limited_reserve_transfer_assets(
 				RuntimeOrigin::signed(ALICE),
