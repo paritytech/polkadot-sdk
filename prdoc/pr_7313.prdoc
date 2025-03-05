@@ -11,5 +11,5 @@ doc:
 crates:
   - name: snowbridge-router-primitives
     bump: patch
-  - name: xcm-builder
+  - name: staging-xcm-builder
     bump: minor
