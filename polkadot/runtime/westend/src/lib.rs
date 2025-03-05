@@ -33,6 +33,7 @@ use frame_support::{
 	derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
+	pallet_prelude::PhantomData,
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
@@ -801,18 +802,69 @@ impl Get<Location> for AssetHubLocation {
 	}
 }
 
-pub struct XcmToAssetHub;
-impl ah_client::SendToAssetHub for XcmToAssetHub {
+#[derive(Encode, Decode)]
+enum AssetHubRuntimePallets<AccountId> {
+	#[codec(index = 50)]
+	RcClient(RcClientCalls<AccountId>),
+}
+
+/// Call encoding for the calls needed from the rc-client pallet.
+#[derive(Encode, Decode)]
+enum RcClientCalls<AccountId> {
+	/// A session with the given index has started.
+	#[codec(index = 0)]
+	RelaySessionReport(rc_client::SessionReport<AccountId>),
+	#[codec(index = 1)]
+	RelayNewOffence(SessionIndex, Vec<rc_client::Offence<AccountId>>),
+}
+
+pub struct XcmToAssetHub<T: SendXcm, AssetHubId: Get<u32>>(PhantomData<(T, AssetHubId)>);
+impl<T: SendXcm, AssetHubId: Get<u32>> ah_client::SendToAssetHub for XcmToAssetHub<T, AssetHubId> {
 	type AccountId = AccountId;
+
 	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
-		todo!()
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Self::mk_asset_hub_call(RcClientCalls::RelaySessionReport(session_report)),
+		]);
+		if let Err(err) =
+			send_xcm::<T>(Location::new(0, [Junction::Parachain(AssetHubId::get())]), message)
+		{
+			// TODO: log error
+		}
 	}
 
 	fn relay_new_offence(
 		session_index: SessionIndex,
 		offences: Vec<rc_client::Offence<Self::AccountId>>,
 	) {
-		todo!()
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Self::mk_asset_hub_call(RcClientCalls::RelayNewOffence(session_index, offences)),
+		]);
+		if let Err(err) =
+			send_xcm::<T>(Location::new(0, [Junction::Parachain(AssetHubId::get())]), message)
+		{
+			// TODO: log error``
+		}
+	}
+}
+
+impl<T: SendXcm, AssetHubId: Get<u32>> XcmToAssetHub<T, AssetHubId> {
+	fn mk_asset_hub_call(
+		call: RcClientCalls<<Self as ah_client::SendToAssetHub>::AccountId>,
+	) -> Instruction<()> {
+		Instruction::Transact {
+			origin_kind: OriginKind::Superuser,
+			fallback_max_weight: None,
+			call: AssetHubRuntimePallets::RcClient(call).encode().into(),
+		}
 	}
 }
 
@@ -821,7 +873,7 @@ impl pallet_staking_ah_client::Config for Runtime {
 		EnsureRoot<AccountId>,
 		EnsureXcm<Equals<AssetHubLocation>>,
 	>;
-	type SendToAssetHub = XcmToAssetHub;
+	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter, AssetHubId>;
 	type MinimumValidatorSetSize = MinimumElectedValidatorSetSize;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = RewardPointsPerBlock;
