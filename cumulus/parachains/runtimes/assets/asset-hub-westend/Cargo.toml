@@ -99,6 +99,7 @@ snowbridge-router-primitives.workspace = true
 [dev-dependencies]
 asset-test-utils = { default-features = true, path = "../test-utils" }
 parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
+sp-io = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
