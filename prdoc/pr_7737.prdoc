@@ -1,0 +1,15 @@
+title: 'Introduce filter to restrict accounts from staking'
+
+doc:
+- audience: Runtime Dev
+  description: |
+    Introduce an associated fn `filter` in pallet-staking to restrict some accounts from staking.
+    This is useful for restricting certain accounts from staking, for example, accounts staking via pools.
+
+crates:
+- name: pallet-staking
+  bump: patch
+- name: pallet-nomination-pools
+  bump: patch
+- name: pallet-delegated-staking
+  bump: patch

@@ -306,6 +306,16 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Determines whether a given account should be filtered out from staking operations.
+		///
+		/// This function provides a way to exclude certain accounts from bonding to staking. An
+		/// already bonded account is allowed to withdraw.
+		///
+		/// The default implementation does not filter out any accounts.
+		fn filter(_who: &Self::AccountId) -> bool {
+			false
+		}
 	}
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -1013,6 +1023,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
+			ensure!(!T::filter(&stash), Error::<T>::BoundNotMet);
+
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
@@ -1062,6 +1074,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+			ensure!(!T::filter(&stash), Error::<T>::BoundNotMet);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -1648,6 +1661,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
+
+			ensure!(!T::filter(&ledger.stash), Error::<T>::BoundNotMet);
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
@@ -2150,6 +2165,39 @@ pub mod pallet {
 				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
 				Error::<T>::BadState
 			);
+			Ok(())
+		}
+
+		/// Adjusts the staking ledger by withdrawing any excess staked amount.
+		///
+		/// This function corrects cases where a user's recorded stake in the ledger
+		/// exceeds their actual staked funds. This situation can arise due to cases such as
+		/// external slashing by another pallet, leading to an inconsistency between the ledger
+		/// and the actual stake.
+		#[pallet::call_index(32)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
+		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+
+			// Virtual stakers are controlled by some other pallet.
+			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
+
+			let ledger = Self::ledger(Stash(stash.clone()))?;
+			let stash_balance = T::Currency::free_balance(&stash);
+
+			// Ensure there is an overstake.
+			ensure!(ledger.total > stash_balance, Error::<T>::BoundNotMet);
+
+			let force_withdraw_amount = ledger.total.defensive_saturating_sub(stash_balance);
+
+			// Update the ledger by withdrawing excess stake.
+			ledger.update_total_stake(stash_balance).update()?;
+
+			// Ensure lock is updated.
+			debug_assert_eq!(T::Currency::balance_locked(crate::STAKING_ID, &stash), stash_balance);
+
+			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
+
 			Ok(())
 		}
 	}
