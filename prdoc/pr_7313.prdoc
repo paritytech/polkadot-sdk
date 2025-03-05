@@ -10,6 +10,6 @@ doc:
 
 crates:
   - name: snowbridge-router-primitives
-    bump: patch
+    bump: minor
   - name: staging-xcm-builder
     bump: minor
