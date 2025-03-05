@@ -33,12 +33,8 @@ impl<T: Config> Precompile<T> for Bn128Add {
 		let mut buf = [0u8; 64];
 		if let Some(sum) = AffineG1::from_jacobian(p1 + p2) {
 			// point not at infinity
-			sum.x()
-				.to_big_endian(&mut buf[0..32])
-				.map_err(|_| "Cannot fail since 0..32 is 32-byte length")?;
-			sum.y()
-				.to_big_endian(&mut buf[32..64])
-				.map_err(|_| "Cannot fail since 32..64 is 32-byte length")?;
+			sum.x().to_big_endian(&mut buf[0..32]).expect("0..32 is 32-byte length; qed");
+			sum.y().to_big_endian(&mut buf[32..64]).expect("32..64 is 32-byte length; qed");
 		}
 
 		Ok(ExecReturnValue { data: buf.to_vec(), flags: ReturnFlags::empty() })
@@ -58,13 +54,8 @@ impl<T: Config> Precompile<T> for Bn128Mul {
 		let mut buf = [0u8; 64];
 		if let Some(sum) = AffineG1::from_jacobian(p * fr) {
 			// point not at infinity
-			sum.x()
-				.to_big_endian(&mut buf[0..32])
-				.map_err(|_| "Cannot fail since 0..32 is 32-byte length")?;
-
-			sum.y()
-				.to_big_endian(&mut buf[32..64])
-				.map_err(|_| "Cannot fail since 32..64 is 32-byte length")?;
+			sum.x().to_big_endian(&mut buf[0..32]).expect("0..32 is 32-byte length; qed");
+			sum.y().to_big_endian(&mut buf[32..64]).expect("32..64 is 32-byte length; qed");
 		}
 
 		Ok(ExecReturnValue { data: buf.to_vec(), flags: ReturnFlags::empty() })
