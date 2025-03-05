@@ -36,7 +36,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
+		EitherOfDiverse, EnsureOriginWithArg, Equals, EverythingBut, FromContains, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
 		VariantCountOf, WithdrawReasons,
 	},
@@ -48,7 +48,10 @@ use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_nomination_pools::PoolId;
 use pallet_session::historical as session_historical;
+use pallet_staking_ah_client::{self as ah_client};
+use pallet_staking_rc_client::{self as rc_client};
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
+use pallet_xcm::EnsureXcm;
 use polkadot_primitives::{
 	slashing,
 	vstaging::{
@@ -745,6 +748,16 @@ parameter_types! {
 	pub const MaxNominators: u32 = 64;
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
+	pub const MinimumElectedValidatorSetSize: u32 = 28;	// atm there are 14 cores on Westend, minBackingVotes=2
+	pub const RewardPointsPerBlock: u32 = 20;
+}
+
+// Just to get the runtime compiling. Westend shouldn't have pallet staking at all.
+struct DummyRcClient;
+impl rc_client::RcClientInterface for DummyRcClient {
+	type AccountId = AccountId;
+
+	fn validator_set(_: Vec<Self::AccountId>, _: u32, _: u32) {}
 }
 
 impl pallet_staking::Config for Runtime {
@@ -752,7 +765,6 @@ impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type UnixTime = Timestamp;
 	type CurrencyToVote = CurrencyToVote;
 	type RewardRemainder = ();
 	type RuntimeEvent = RuntimeEvent;
@@ -762,7 +774,7 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type SessionInterface = (); // Should be pallet_staking_rc_client on ah-next
+	type RcClientInterface = DummyRcClient; // Should be pallet_staking_rc_client on ah-next.
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type NextNewSession = Session;
@@ -782,11 +794,39 @@ impl pallet_staking::Config for Runtime {
 	type MaxDisabledValidators = ConstU32<100>;
 }
 
+pub struct AssetHubLocation;
+impl Get<Location> for AssetHubLocation {
+	fn get() -> Location {
+		Location::new(0, [Junction::Parachain(AssetHubId::get())])
+	}
+}
+
+pub struct XcmToAssetHub;
+impl ah_client::SendToAssetHub for XcmToAssetHub {
+	type AccountId = AccountId;
+	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
+		todo!()
+	}
+
+	fn relay_new_offence(
+		session_index: SessionIndex,
+		offences: Vec<rc_client::Offence<Self::AccountId>>,
+	) {
+		todo!()
+	}
+}
+
 impl pallet_staking_ah_client::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type CurrencyBalance = Balance;
-	type AssetHubId = AssetHubId;
-	type SendXcm = crate::xcm_config::XcmRouter;
+	type AssetHubOrigin = frame_support::traits::EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		EnsureXcm<Equals<AssetHubLocation>>,
+	>;
+	type SendToAssetHub = XcmToAssetHub;
+	type MinimumValidatorSetSize = MinimumElectedValidatorSetSize;
+	type UnixTime = Timestamp;
+	type PointsPerBlock = RewardPointsPerBlock;
+	// type AssetHubId = AssetHubId;
+	// type SendXcm = crate::xcm_config::XcmRouter;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1377,13 +1417,13 @@ impl parachains_scheduler::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
-	pub const AssetHubId: u32 = ASSET_HUB_ID;	// TODO: replace with ASSET_HUB_NEXT_ID
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub const AssetHubId: u32 = ASSET_HUB_ID;	// TODO: replace with ASSET_HUB_NEXT_ID
 	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 
 pub struct BrokerPot;
-impl Get<InteriorLocation> for BrokerPot {
+impl Get<InteriorLocation> for AssetHubLocation {
 	fn get() -> InteriorLocation {
 		Junction::AccountId32 { network: None, id: BrokerPalletId::get().into_account_truncating() }
 			.into()
@@ -1394,7 +1434,7 @@ impl coretime::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type BrokerId = BrokerId;
-	type BrokerPotLocation = BrokerPot;
+	type BrokerPotLocation = AssetHubLocation;
 	type WeightInfo = weights::polkadot_runtime_parachains_coretime::WeightInfo<Runtime>;
 	type SendXcm = crate::xcm_config::XcmRouter;
 	type AssetTransactor = crate::xcm_config::LocalAssetTransactor;
