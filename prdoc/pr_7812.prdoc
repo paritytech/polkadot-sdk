@@ -1,0 +1,12 @@
+title: '`apply_authorized_upgrade`: Implement `feeless_if`'
+doc:
+- audience: Runtime User
+  description: |-
+    This pr implements the `feeless_if` feature for `apply_authorized_upgrade`. The call would be feeless if the given code is authorized.
+
+    Besides that the pr is doing some clean ups.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: frame-system
+  bump: major
