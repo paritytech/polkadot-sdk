@@ -15,10 +15,11 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use polkadot_node_network_protocol::PeerId;
+use polkadot_node_subsystem::CollatorProtocolSenderTrait;
 use polkadot_primitives::Id as ParaId;
 use std::collections::BTreeSet;
 
-use crate::validator_side::common::{DisconnectedPeers, PeerState, ReputationBump, Score};
+use crate::validator_side::common::{DisconnectedPeers, PeerState, ReputationUpdate, Score};
 use connected_peers::ConnectedPeers;
 use db::ReputationDb;
 
@@ -32,8 +33,9 @@ pub struct PeerManager {
 }
 
 impl PeerManager {
-	pub fn scheduled_paras_update(
+	pub async fn scheduled_paras_update<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
+		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
 	) -> DisconnectedPeers {
 		let old_scheduled_paras = self.connected_peers.assigned_paras().collect::<BTreeSet<_>>();
@@ -49,33 +51,27 @@ impl PeerManager {
 
 		let mut peers_to_disconnect = vec![];
 		// See which of the old peers we should keep.
-		// TODO: should we have them sorted or shuffle them at this point?
 		for peer_id in old_connected_peers.peer_ids() {
 			peers_to_disconnect
 				.extend(self.connected_peers.try_add(&self.reputation_db, *peer_id).into_iter());
-			if !self.connected_peers.contains(peer_id) {
-				peers_to_disconnect.push(*peer_id);
-			}
 		}
 
-		self.connected_peers.disconnect(peers_to_disconnect)
+		self.connected_peers.disconnect(sender, peers_to_disconnect).await
 	}
 
-	pub fn declared(&mut self, peer_id: PeerId, para_id: ParaId) {
-		self.connected_peers.declared(peer_id, para_id);
+	pub async fn declared<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		peer_id: PeerId,
+		para_id: ParaId,
+	) {
+		self.connected_peers.declared(sender, peer_id, para_id).await;
 	}
 
-	pub fn process_bumps(&mut self, rep_bumps: Vec<ReputationBump>) {
-		for bump in rep_bumps {
-			self.connected_peers.bump_rep(bump);
-			// TODO: also add bumps to reputation db
-		}
-	}
-
-	pub fn process_decrease(&mut self, rep_bumps: Vec<ReputationBump>) {
-		for bump in rep_bumps {
-			self.connected_peers.decrease_rep(bump);
-			// TODO: also add bumps to reputation db
+	pub fn update_reputations(&mut self, updates: Vec<ReputationUpdate>) {
+		for update in updates {
+			self.connected_peers.update_rep(&update);
+			self.reputation_db.modify_reputation(&update);
 		}
 	}
 
@@ -83,9 +79,13 @@ impl PeerManager {
 		self.connected_peers.disconnected(peer_id);
 	}
 
-	pub fn try_accept(&mut self, peer_id: PeerId) -> DisconnectedPeers {
+	pub async fn try_accept<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		peer_id: PeerId,
+	) -> DisconnectedPeers {
 		let peers_to_disconnect = self.connected_peers.try_add(&self.reputation_db, peer_id);
-		self.connected_peers.disconnect(peers_to_disconnect)
+		self.connected_peers.disconnect(sender, peers_to_disconnect).await
 	}
 
 	pub fn peer_state(&self, peer_id: &PeerId) -> Option<&PeerState> {

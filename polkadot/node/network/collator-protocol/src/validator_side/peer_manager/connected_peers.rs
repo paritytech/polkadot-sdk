@@ -15,9 +15,11 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::validator_side::common::{
-	DisconnectedPeers, PeerState, ReputationBump, Score, CONNECTED_PEERS_LIMIT,
+	DisconnectedPeers, PeerState, ReputationUpdate, ReputationUpdateKind, Score,
+	CONNECTED_PEERS_LIMIT,
 };
-use polkadot_node_network_protocol::PeerId;
+use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
+use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, CollatorProtocolSenderTrait};
 use polkadot_primitives::Id as ParaId;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -55,14 +57,24 @@ impl ConnectedPeers {
 		self.peers.contains_key(peer_id)
 	}
 
-	pub fn disconnect(&mut self, mut peers_to_disconnect: Vec<PeerId>) -> DisconnectedPeers {
+	pub async fn disconnect<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		mut peers_to_disconnect: Vec<PeerId>,
+	) -> DisconnectedPeers {
 		peers_to_disconnect.retain(|peer| !self.contains(&peer));
 		for peer in peers_to_disconnect.iter() {
 			self.peers.remove(peer);
 		}
 
+		sender
+			.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+				peers_to_disconnect.clone(),
+				PeerSet::Collation,
+			))
+			.await;
+
 		peers_to_disconnect
-		// TODO: send disconnect messages
 	}
 
 	pub fn disconnected(&mut self, peer_id: PeerId) {
@@ -105,7 +117,12 @@ impl ConnectedPeers {
 		peers_to_disconnect
 	}
 
-	pub fn declared(&mut self, peer_id: PeerId, para_id: ParaId) {
+	pub async fn declared<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		peer_id: PeerId,
+		para_id: ParaId,
+	) {
 		let Some(state) = self.peers.get_mut(&peer_id) else { return };
 
 		let mut kept = false;
@@ -135,7 +152,7 @@ impl ConnectedPeers {
 		}
 
 		if !kept {
-			self.disconnect(vec![peer_id]);
+			self.disconnect(sender, vec![peer_id]).await;
 		} else {
 			*state = PeerState::Collating(para_id);
 		}
@@ -145,17 +162,14 @@ impl ConnectedPeers {
 		self.peers.get(&peer_id)
 	}
 
-	pub fn bump_rep(&mut self, bump: ReputationBump) {
-		let Some(per_para) = self.per_paraid.get_mut(&bump.para_id) else { return };
-		let Some(score) = per_para.scores.get_mut(&bump.peer_id) else { return };
+	pub fn update_rep(&mut self, update: &ReputationUpdate) {
+		let Some(per_para) = self.per_paraid.get_mut(&update.para_id) else { return };
+		let Some(score) = per_para.scores.get_mut(&update.peer_id) else { return };
 
-		*score = score.saturating_add(bump.value);
-	}
-
-	pub fn decrease_rep(&mut self, bump: ReputationBump) {
-		let Some(per_para) = self.per_paraid.get_mut(&bump.para_id) else { return };
-		let Some(score) = per_para.scores.get_mut(&bump.peer_id) else { return };
-		*score = score.saturating_sub(bump.value);
+		*score = match update.kind {
+			ReputationUpdateKind::Slash => score.saturating_sub(update.value),
+			ReputationUpdateKind::Bump => score.saturating_add(update.value),
+		};
 	}
 
 	pub fn peer_rep(&self, para_id: &ParaId, peer_id: &PeerId) -> Option<Score> {
@@ -194,11 +208,13 @@ impl PerParaId {
 	}
 
 	fn min_score(&self) -> Option<Score> {
-		None
+		self.scores.values().min().copied()
 	}
 
 	fn pop_min_score(&mut self) -> Option<(PeerId, Score)> {
-		// TODO
-		None
+		self.scores
+			.iter()
+			.min_by_key(|(_peer_id, score)| **score)
+			.map(|(k, v)| (*k, *v))
 	}
 }

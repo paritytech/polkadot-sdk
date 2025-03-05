@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::validator_side::common::{ReputationBump, Score};
+use crate::validator_side::common::{ReputationUpdate, Score};
 use polkadot_node_network_protocol::PeerId;
 use polkadot_primitives::{Hash, Id as ParaId};
 
@@ -25,5 +25,5 @@ impl ReputationDb {
 	pub fn query(&self, peer_id: &PeerId, para_id: &ParaId) -> Option<Score> {
 		None
 	}
-	pub fn modify_reputation(&self, peer_id: PeerId, para_id: ParaId, score: Score) {}
+	pub fn modify_reputation(&self, update: &ReputationUpdate) {}
 }

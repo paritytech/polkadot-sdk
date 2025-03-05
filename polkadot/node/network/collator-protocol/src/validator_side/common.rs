@@ -26,14 +26,22 @@ pub const CONNECTED_PEERS_LIMIT: u8 = 300;
 
 pub const SCHEDULING_LOOKAHEAD: u32 = 3;
 
+pub const INSTANT_FETCH_REP_THRESHOLD: Score = 0;
+
 pub type Score = u8;
 
 pub type DisconnectedPeers = Vec<PeerId>;
 
-pub struct ReputationBump {
+pub struct ReputationUpdate {
 	pub peer_id: PeerId,
 	pub para_id: ParaId,
 	pub value: Score,
+	pub kind: ReputationUpdateKind,
+}
+
+pub enum ReputationUpdateKind {
+	Bump,
+	Slash,
 }
 
 pub enum PeerState {

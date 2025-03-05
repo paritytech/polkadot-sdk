@@ -17,23 +17,17 @@
 use crate::{
 	error::SecondingError,
 	validator_side::{
-		common::{Advertisement, CollationFetchError, CollationFetchOutcome, FetchedCollation},
+		common::{
+			Advertisement, CollationFetchError, CollationFetchOutcome, CollationFetchResponse,
+			FetchedCollation,
+		},
 		peer_manager::PeerManager,
 	},
 	LOG_TARGET,
 };
-use futures::{
-	channel::oneshot,
-	future::BoxFuture,
-	stream::{FusedStream, FuturesUnordered},
-	task::Poll,
-	FutureExt,
-};
+use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{
-	request_response::{
-		outgoing::{Recipient, RequestError},
-		v2 as request_v2, OutgoingRequest, OutgoingResult, Requests,
-	},
+	request_response::{outgoing::RequestError, v2 as request_v2, Requests},
 	OurView, PeerId,
 };
 use polkadot_node_subsystem::{
@@ -44,17 +38,15 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView, request_claim_queue,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CoreIndex, Hash, Id as ParaId,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, Id as ParaId,
 };
+use requests::PendingRequests;
 use sp_keystore::KeystorePtr;
-use std::{
-	collections::{BTreeSet, HashMap, HashSet, VecDeque},
-	future::Future,
-	pin::Pin,
-};
-use tokio_util::sync::CancellationToken;
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
-use super::common::CollationFetchResponse;
+use super::common::INSTANT_FETCH_REP_THRESHOLD;
+
+mod requests;
 
 #[derive(Default)]
 pub struct CollationManager {
@@ -63,11 +55,9 @@ pub struct CollationManager {
 	claim_queue_state: HashMap<Hash, ClaimQueueState>,
 
 	// One per relay parent
-	collations: HashMap<Hash, Collations>,
+	per_relay_parent: HashMap<Hash, PerRelayParent>,
 
 	fetching: PendingRequests,
-
-	core: CoreIndex,
 }
 
 impl CollationManager {
@@ -89,22 +79,20 @@ impl CollationManager {
 			.cloned()
 			.collect::<Vec<_>>();
 
+		for leaf in added.iter() {
+			self.implicit_view.activate_leaf(sender, *leaf).await.unwrap();
+		}
+
 		for leaf in removed {
-			let mut deactivated_ancestry = self.implicit_view.deactivate_leaf(leaf);
+			let deactivated_ancestry = self.implicit_view.deactivate_leaf(leaf);
 
-			deactivated_ancestry.push(leaf);
+			// Remove the fetched collations and advertisements for the deactivated RPs.
 			for deactivated in deactivated_ancestry.iter() {
-				self.collations.remove(deactivated);
-			}
-
-			for claim_queue_state in self.claim_queue_state.values_mut() {
-				claim_queue_state.removed_relay_parents(&deactivated_ancestry);
+				self.per_relay_parent.remove(deactivated);
 			}
 		}
 
 		for leaf in added.iter() {
-			self.implicit_view.activate_leaf(sender, *leaf).await.unwrap();
-
 			// TODO: cache them per session, as well as groups info. We can augment the cached
 			// rotation info with the block number easily.
 			let validators = polkadot_node_subsystem_util::request_validators(*leaf, sender)
@@ -134,34 +122,51 @@ impl CollationManager {
 			let scheduled =
 				claim_queue.remove(&core_now).unwrap_or_else(|| VecDeque::new()).into_iter();
 
-			if core_now != self.core {
-				// We rotated to a different core, we can purge everything.
-				self.core = core_now;
-				self.claim_queue_state.clear();
-				self.collations.clear();
-			}
-
 			let allowed_ancestry =
 				self.implicit_view.known_allowed_relay_parents_under(leaf, None).unwrap();
 
-			self.collations.insert(*leaf, Collations::default());
+			// Includes the leaf
+			for ancestor in allowed_ancestry {
+				self.per_relay_parent.insert(*ancestor, PerRelayParent::default());
+			}
 
 			let parent = allowed_ancestry.get(1).cloned();
-			self.init_claim_queue_state(*leaf, scheduled.collect(), parent);
+			self.inherit_claim_queue_state(*leaf, scheduled, parent);
 		}
+
+		// Cancel fetch requests for removed RPs.
+		self.fetching.cancellation_tokens.retain(|candidate_hash, cancel_handle| {
+			let keep = self
+				.claim_queue_state
+				.values()
+				.find(|cq_state| {
+					cq_state
+						.0
+						.iter()
+						.find(|claim| claim.state.candidate_hash() == Some(*candidate_hash))
+						.is_some()
+				})
+				.is_some();
+
+			if !keep {
+				cancel_handle.cancel();
+			}
+
+			keep
+		});
 
 		added
 	}
 
 	pub fn response_stream(&mut self) -> &mut impl FusedStream<Item = CollationFetchResponse> {
-		&mut self.fetching.futures
+		self.fetching.response_stream()
 	}
 
 	pub fn assignments(&self) -> BTreeSet<ParaId> {
 		let mut scheduled_paras = BTreeSet::new();
 
 		for state in self.claim_queue_state.values() {
-			scheduled_paras.extend(state.claim_queue.iter().map(|c| c.para));
+			scheduled_paras.extend(state.0.iter().map(|c| c.para));
 		}
 
 		scheduled_paras
@@ -172,26 +177,25 @@ impl CollationManager {
 		sender: &mut Sender,
 		peer_manager: &PeerManager,
 	) {
-		let threshold = 30;
 		// Advertisements and collations are up to date.
 		// Claim queue states for leaves are also up to date.
 		// Launch requests when it makes sense.
 		let mut requests = vec![];
 		for state in self.claim_queue_state.values_mut() {
-			for claim in state.claim_queue.iter_mut() {
+			for claim in state.0.iter_mut() {
 				if matches!(claim.state, ClaimState::Waiting) {
 					// Try picking an advertisement. I'd like this to be a separate method but
 					// compiler gets confused with ownership.
 					let mut over_threshold = None;
 					let mut has_some_advertisements = false;
-					'per_rp: for collations in self.collations.values() {
+					'per_rp: for collations in self.per_relay_parent.values() {
 						for (peer_id, advertisements) in collations.advertisements.iter() {
 							for advertisement in advertisements {
 								if advertisement.para_id == claim.para &&
 									!self.fetching.contains(
 										&advertisement.prospective_candidate.candidate_hash,
 									) && !collations
-									.collations
+									.fetched_collations
 									.contains(&advertisement.prospective_candidate.candidate_hash)
 								{
 									let peer_rep = peer_manager
@@ -199,7 +203,7 @@ impl CollationManager {
 										.unwrap();
 									has_some_advertisements = true;
 
-									if peer_rep >= threshold {
+									if peer_rep >= INSTANT_FETCH_REP_THRESHOLD {
 										over_threshold = Some(*advertisement);
 										break 'per_rp;
 									}
@@ -236,8 +240,18 @@ impl CollationManager {
 
 		let peers_to_remove = peers_to_remove.into_iter().collect::<HashSet<_>>();
 
-		for collations in self.collations.values_mut() {
-			collations.advertisements.retain(|peer, _| !peers_to_remove.contains(peer));
+		for collations in self.per_relay_parent.values_mut() {
+			collations.advertisements.retain(|peer, advertisements| {
+				let keep = !peers_to_remove.contains(peer);
+
+				if !keep {
+					for advertisement in advertisements.iter() {
+						self.fetching.cancel(&advertisement.prospective_candidate.candidate_hash);
+					}
+				}
+
+				keep
+			});
 		}
 	}
 
@@ -246,15 +260,14 @@ impl CollationManager {
 		sender: &mut Sender,
 		advertisement: Advertisement,
 	) -> std::result::Result<(), AdvertisementError> {
-		let Some(collations) = self.collations.get_mut(&advertisement.relay_parent) else {
-			return Err(AdvertisementError::Invalid(InsertAdvertisementError::OutOfOurView))
+		let Some(collations) = self.per_relay_parent.get_mut(&advertisement.relay_parent) else {
+			return Err(AdvertisementError::OutOfOurView)
 		};
 
 		let advertisements = collations
 			.advertisements
 			.entry(advertisement.peer_id)
 			.or_insert_with(|| Default::default());
-		// TODO: use claim queue len for the specific para
 
 		// Check if backing subsystem allows to second this candidate.
 		//
@@ -265,26 +278,30 @@ impl CollationManager {
 			return Err(AdvertisementError::BlockedByBacking)
 		}
 
-		if advertisements.len() >= 3 {
-			return Err(AdvertisementError::Invalid(InsertAdvertisementError::PeerLimitReached))
+		let max_assignments = self
+			.claim_queue_state
+			.values()
+			.map(|state| state.0.iter().filter(|claim| claim.para == advertisement.para_id).count())
+			.max()
+			.unwrap_or(0);
+		if advertisements.len() >= max_assignments {
+			return Err(AdvertisementError::PeerLimitReached)
 		}
 
 		if advertisements.contains(&advertisement) {
-			return Err(AdvertisementError::Invalid(InsertAdvertisementError::Duplicate))
+			return Err(AdvertisementError::Duplicate)
 		}
 
 		advertisements.insert(advertisement);
+
 		Ok(())
 	}
 
-	pub fn completed_fetch(
-		&mut self,
-		res: <CollationFetchRequest as Future>::Output,
-	) -> CollationFetchOutcome {
+	pub fn completed_fetch(&mut self, res: CollationFetchResponse) -> CollationFetchOutcome {
 		let (advertisement, res) = res;
 		self.fetching.completed(&advertisement.prospective_candidate.candidate_hash);
 
-		let collations = self.collations.entry(advertisement.relay_parent).or_default();
+		let collations = self.per_relay_parent.entry(advertisement.relay_parent).or_default();
 		if let Some(advertisements) = collations.advertisements.get_mut(&advertisement.peer_id) {
 			advertisements.remove(&advertisement);
 		}
@@ -396,7 +413,9 @@ impl CollationManager {
 
 				// It can't be a duplicate, because we check before initiating fetch. TODO: with the
 				// old protocol version, it can be.
-				collations.collations.insert(advertisement.prospective_candidate.candidate_hash);
+				collations
+					.fetched_collations
+					.insert(advertisement.prospective_candidate.candidate_hash);
 
 				CollationFetchOutcome::Success(fetched_collation)
 			},
@@ -405,43 +424,37 @@ impl CollationManager {
 	}
 
 	pub fn seconding_began(&mut self, relay_parent: Hash, candidate_hash: CandidateHash) {
-		for claim_queue_state in self.claim_queue_state.values_mut() {
-			for claim in claim_queue_state.claim_queue.iter_mut() {
-				if let ClaimState::Fetching(advertisement) = claim.state {
-					if relay_parent == advertisement.relay_parent &&
-						candidate_hash == advertisement.prospective_candidate.candidate_hash
-					{
-						claim.state = ClaimState::Validating(advertisement);
-						return
-					}
+		self.claim_state_transition(|claim_state| {
+			if let ClaimState::Fetching(advertisement) = claim_state {
+				if relay_parent == advertisement.relay_parent &&
+					candidate_hash == advertisement.prospective_candidate.candidate_hash
+				{
+					let peer_id = advertisement.peer_id;
+					*claim_state = ClaimState::Validating(*advertisement);
+					return Some(peer_id)
 				}
 			}
-		}
-
-		// TODO: log smth
+			None
+		});
 	}
 
-	// TODO: we can deduplicate common code with seconding_began and seconded
 	pub fn back_to_waiting(
 		&mut self,
 		relay_parent: Hash,
 		candidate_hash: CandidateHash,
 	) -> Option<PeerId> {
-		for claim_queue_state in self.claim_queue_state.values_mut() {
-			for claim in claim_queue_state.claim_queue.iter_mut() {
-				if let ClaimState::Fetching(advertisement) = claim.state {
-					if relay_parent == advertisement.relay_parent &&
-						candidate_hash == advertisement.prospective_candidate.candidate_hash
-					{
-						claim.state = ClaimState::Waiting;
-						return Some(advertisement.peer_id)
-					}
+		self.claim_state_transition(|claim_state| {
+			if let ClaimState::Fetching(advertisement) = claim_state {
+				if relay_parent == advertisement.relay_parent &&
+					candidate_hash == advertisement.prospective_candidate.candidate_hash
+				{
+					let peer_id = advertisement.peer_id;
+					*claim_state = ClaimState::Waiting;
+					return Some(peer_id)
 				}
 			}
-		}
-
-		// TODO: log smth
-		None
+			None
+		})
 	}
 
 	pub fn seconded(
@@ -449,15 +462,28 @@ impl CollationManager {
 		relay_parent: Hash,
 		candidate_hash: CandidateHash,
 	) -> Option<PeerId> {
+		self.claim_state_transition(|claim_state| {
+			if let ClaimState::Validating(advertisement) = claim_state {
+				if relay_parent == advertisement.relay_parent &&
+					candidate_hash == advertisement.prospective_candidate.candidate_hash
+				{
+					let peer_id = advertisement.peer_id;
+					*claim_state = ClaimState::Fulfilled(*advertisement);
+					return Some(peer_id)
+				}
+			}
+			None
+		})
+	}
+
+	fn claim_state_transition(
+		&mut self,
+		transition: impl Fn(&mut ClaimState) -> Option<PeerId>,
+	) -> Option<PeerId> {
 		for claim_queue_state in self.claim_queue_state.values_mut() {
-			for claim in claim_queue_state.claim_queue.iter_mut() {
-				if let ClaimState::Validating(advertisement) = claim.state {
-					if relay_parent == advertisement.relay_parent &&
-						candidate_hash == advertisement.prospective_candidate.candidate_hash
-					{
-						claim.state = ClaimState::Fulfilled(advertisement);
-						return Some(advertisement.peer_id)
-					}
+			for claim in claim_queue_state.0.iter_mut() {
+				if let Some(peer_id) = transition(&mut claim.state) {
+					return Some(peer_id)
 				}
 			}
 		}
@@ -466,33 +492,32 @@ impl CollationManager {
 		None
 	}
 
-	fn init_claim_queue_state(&mut self, leaf: Hash, cq: Vec<ParaId>, parent: Option<Hash>) {
-		let mut cq_state = ClaimQueueState {
-			leaf,
-			claim_queue: cq
-				.into_iter()
-				.map(|para| Claim { para, state: ClaimState::Waiting })
-				.collect(),
-		};
+	fn inherit_claim_queue_state(
+		&mut self,
+		leaf: Hash,
+		cq: impl Iterator<Item = ParaId>,
+		parent: Option<Hash>,
+	) {
+		let mut cq_state =
+			ClaimQueueState(cq.map(|para| Claim { para, state: ClaimState::Waiting }).collect());
 
 		if let Some(parent) = parent {
+			// Parent used to be an active leaf.
 			if let Some(parent_state) = self.claim_queue_state.remove(&parent) {
-				// We assume the claim queue always progresses by one (one candidate gets backed on
-				// the core). Technically, the claim queue can also stagnate, if the previous
-				// candidate is timed out during availability distribution. But it's not a case
-				// worth optimising for.
-				if parent_state.claim_queue.len() >= 2 {
-					let mut parent_state_iter = parent_state.claim_queue.into_iter();
-					// Skip the first item.
-					parent_state_iter.next();
-					for claim_state in cq_state.claim_queue.iter_mut() {
+				if !parent_state.0.is_empty() {
+					let mut parent_state_iter = parent_state.0.into_iter().peekable();
+					// Skip the first item if fulfilled.
+					if matches!(parent_state_iter.peek().unwrap().state, ClaimState::Fulfilled(_)) {
+						parent_state_iter.next();
+					}
+					for claim_state in cq_state.0.iter_mut() {
 						let Some(parent_claim_state) = parent_state_iter.next() else { break };
 						if parent_claim_state.para != claim_state.para {
 							break
 						}
 						if let Some(rp) = parent_claim_state.state.relay_parent() {
 							// Check if the RP is still in scope. If it is, inherit the state.
-							if self.collations.contains_key(&rp) {
+							if self.per_relay_parent.contains_key(&rp) {
 								*claim_state = parent_claim_state;
 							}
 						}
@@ -506,80 +531,14 @@ impl CollationManager {
 }
 
 #[derive(Default)]
-struct PendingRequests {
-	futures: FuturesUnordered<CollationFetchRequest>,
-	cancellation_tokens: HashMap<CandidateHash, CancellationToken>,
-}
-
-impl PendingRequests {
-	fn contains(&self, candidate_hash: &CandidateHash) -> bool {
-		self.cancellation_tokens.contains_key(candidate_hash)
-	}
-
-	fn launch(
-		&mut self,
-		advertisement: &Advertisement,
-	) -> OutgoingRequest<request_v2::CollationFetchingRequest> {
-		let cancellation_token = CancellationToken::new();
-		let (req, response_recv) = OutgoingRequest::new(
-			Recipient::Peer(advertisement.peer_id),
-			request_v2::CollationFetchingRequest {
-				relay_parent: advertisement.relay_parent,
-				para_id: advertisement.para_id,
-				candidate_hash: advertisement.prospective_candidate.candidate_hash,
-			},
-		);
-
-		self.futures.push(CollationFetchRequest {
-			advertisement: *advertisement,
-			from_collator: response_recv.boxed(),
-			cancellation_token: cancellation_token.clone(),
-		});
-
-		self.cancellation_tokens
-			.insert(advertisement.prospective_candidate.candidate_hash, cancellation_token);
-
-		req
-	}
-
-	fn cancel(&mut self, candidate_hash: &CandidateHash) {
-		if let Some(cancellation_token) = self.cancellation_tokens.remove(candidate_hash) {
-			cancellation_token.cancel();
-		}
-	}
-
-	fn completed(&mut self, candidate_hash: &CandidateHash) {
-		self.cancellation_tokens.remove(candidate_hash);
-	}
-}
-
-#[derive(Default)]
-struct Collations {
+struct PerRelayParent {
 	advertisements: HashMap<PeerId, HashSet<Advertisement>>,
 	// Only kept to make sure that we don't re-request the same collations.
-	// TODO: rename to fetched collations
-	collations: HashSet<CandidateHash>,
+	fetched_collations: HashSet<CandidateHash>,
 }
-
-impl Collations {}
 
 // One per active leaf.
-struct ClaimQueueState {
-	leaf: Hash,
-	claim_queue: Vec<Claim>,
-}
-
-impl ClaimQueueState {
-	fn removed_relay_parents(&mut self, removed_rps: &Vec<Hash>) {
-		for claim in self.claim_queue.iter_mut() {
-			if let Some(rp) = claim.state.relay_parent() {
-				if removed_rps.contains(&rp) {
-					claim.state = ClaimState::Waiting;
-				}
-			}
-		}
-	}
-}
+struct ClaimQueueState(Vec<Claim>);
 
 struct Claim {
 	para: ParaId,
@@ -604,39 +563,15 @@ impl ClaimState {
 			Self::BlockedByParent(a) => Some(a.relay_parent),
 		}
 	}
-}
 
-/// Future that concludes when the collator has responded to our collation fetch request
-/// or the request was cancelled by the validator.
-struct CollationFetchRequest {
-	/// Info about the requested collation.
-	pub advertisement: Advertisement,
-	/// Responses from collator.
-	pub from_collator: BoxFuture<'static, OutgoingResult<request_v2::CollationFetchingResponse>>,
-	/// Handle used for checking if this request was cancelled.
-	pub cancellation_token: CancellationToken,
-}
-
-impl Future for CollationFetchRequest {
-	type Output = CollationFetchResponse;
-
-	fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-		// First check if this fetch request was cancelled.
-		let cancelled = match std::pin::pin!(self.cancellation_token.cancelled()).poll(cx) {
-			Poll::Ready(()) => true,
-			Poll::Pending => false,
-		};
-
-		if cancelled {
-			return Poll::Ready((self.advertisement.clone(), Err(CollationFetchError::Cancelled)))
+	fn candidate_hash(&self) -> Option<CandidateHash> {
+		match self {
+			Self::Waiting => None,
+			Self::Fetching(a) |
+			Self::Validating(a) |
+			Self::Fulfilled(a) |
+			Self::BlockedByParent(a) => Some(a.prospective_candidate.candidate_hash),
 		}
-
-		let res = self
-			.from_collator
-			.poll_unpin(cx)
-			.map(|res| (self.advertisement.clone(), res.map_err(CollationFetchError::Request)));
-
-		res
 	}
 }
 
@@ -659,18 +594,6 @@ fn initial_fetched_collation_sanity_check(
 }
 
 #[derive(Debug)]
-enum InsertAdvertisementError {
-	/// Advertisement is already known.
-	Duplicate,
-	/// Collation relay parent is out of our view.
-	OutOfOurView,
-	/// No prior declare message received.
-	UndeclaredCollator,
-	/// A limit for announcements per peer is reached.
-	PeerLimitReached,
-}
-
-#[derive(Debug)]
 enum AdvertisementError {
 	/// Relay parent is unknown.
 	RelayParentUnknown,
@@ -685,9 +608,12 @@ enum AdvertisementError {
 	/// Collator trying to advertise a collation using V1 protocol for an async backing relay
 	/// parent.
 	ProtocolMisuse,
-	/// Advertisement is invalid.
-	#[allow(dead_code)]
-	Invalid(InsertAdvertisementError),
+	/// Advertisement is already known.
+	Duplicate,
+	/// Collation relay parent is out of our view.
+	OutOfOurView,
+	/// A limit for announcements per peer is reached.
+	PeerLimitReached,
 	/// Seconding not allowed by backing subsystem
 	BlockedByBacking,
 }
