@@ -4,6 +4,9 @@ LOG="runtime::multiblock-election=info,runtime::staking=info"
 
 RUST_LOG=${LOG} cargo build --release -p asset-hub-next-westend-runtime -p staging-chain-spec-builder
 
+echo "✅ removing any old chain-spec file"
+rm chain_spec.json
+
 echo "✅ creating chain spec"
 RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
     create \

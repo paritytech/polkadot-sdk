@@ -29,23 +29,11 @@ use polkadot_runtime_common::{prod_or_fast, BalanceToU256, CurrencyToVote, U256T
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
-use westend_runtime_constants::time::EPOCH_DURATION_IN_SLOTS;
 
 parameter_types! {
-	pub const EpochDuration: u64 = prod_or_fast!(
-		EPOCH_DURATION_IN_SLOTS as u64,
-		2 * MINUTES as u64
-	);
-
-	// phase durations. 1/4 of the last session for each.
-	pub SignedPhase: u32 = prod_or_fast!(
-		EPOCH_DURATION_IN_SLOTS / 4,
-		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
-	);
-	pub UnsignedPhase: u32 = prod_or_fast!(
-		EPOCH_DURATION_IN_SLOTS / 4,
-		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2)
-	);
+	/// Fixed 2 mins for each phase for now.
+	pub SignedPhase: u32 = 3 * MINUTES;
+	pub UnsignedPhase: u32 = 2 * MINUTES;
 
 	/// Compatible with Polkadot, we allow up to 22_500 nominators to be considered for election
 	pub const MaxElectingVoters: u32 = 22_500;
@@ -54,7 +42,7 @@ parameter_types! {
 	pub const MaxValidatorSet: u32 = 1000;
 
 	/// Number of election pages that we operate upon.
-	pub const Pages: u32 = 64;
+	pub const Pages: u32 = 8;
 
 	/// Number of nominators per page of the snapshot, and consequently number of backers in the solution.
 	pub const VoterSnapshotPerBlock: u32 = MaxElectingVoters::get() / Pages::get();
@@ -75,7 +63,7 @@ parameter_types! {
 	pub const MaxExposurePageSize: u32 = 64;
 
 	/// validate up to 4 signed solution.
-	pub const SignedValidationPhase: u32 = Pages::get() * 4;
+	pub const SignedValidationPhase: u32 = Pages::get() * 2;
 
 	/// Each solution is considered "better" if it is 0.01% better.
 	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
@@ -118,9 +106,7 @@ impl multi_block::Config for Runtime {
 	type SignedValidationPhase = SignedValidationPhase;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
-	// TODO: Donal/Kian revert this once we have sudo again.
-	// type AdminOrigin = EnsureRoot<AccountId>;
-	type AdminOrigin = EnsureSigned<AccountId>;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
 	type Fallback = multi_block::Continue<Self>;
 	type MinerConfig = Self;

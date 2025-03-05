@@ -34,7 +34,7 @@ pub use sp_runtime::traits::{
 use sp_runtime::{traits::Block as BlockT, DispatchError};
 
 #[doc(hidden)]
-pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues";
+pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/polkadot-sdk/issues";
 #[doc(hidden)]
 pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been triggered!";
 
@@ -210,7 +210,7 @@ impl<T> Defensive<T> for Option<T> {
 		match self {
 			Some(inner) => inner,
 			None => {
-				defensive!();
+				defensive!("defensive_unwrap_or triggered");
 				or
 			},
 		}
@@ -220,7 +220,7 @@ impl<T> Defensive<T> for Option<T> {
 		match self {
 			Some(inner) => inner,
 			None => {
-				defensive!();
+				defensive!("defensive_unwrap_or_else triggered");
 				f()
 			},
 		}
@@ -233,7 +233,7 @@ impl<T> Defensive<T> for Option<T> {
 		match self {
 			Some(inner) => inner,
 			None => {
-				defensive!();
+				defensive!("defensive_unwrap_or_default triggered");
 				Default::default()
 			},
 		}
@@ -243,7 +243,7 @@ impl<T> Defensive<T> for Option<T> {
 		match self {
 			Some(inner) => Some(inner),
 			None => {
-				defensive!();
+				defensive!("defensive triggered");
 				None
 			},
 		}
