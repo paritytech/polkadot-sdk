@@ -1,0 +1,34 @@
+title: Dynamic uncompressed code size limit
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/7664
+
+    The discussion in https://github.com/paritytech/polkadot-sdk/pull/7710 should provide the context for why this solution was picked.
+crates:
+- name: polkadot-node-primitives
+  bump: minor
+- name: polkadot-service
+  bump: minor
+- name: polkadot-node-subsystem-types
+  bump: minor
+- name: polkadot-primitives
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: polkadot-node-core-runtime-api
+  bump: minor
+- name: polkadot-node-subsystem-util
+  bump: minor
+- name: polkadot-node-core-candidate-validation
+  bump: minor
+- name: polkadot-node-core-pvf-common
+  bump: minor
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: minor
+- name: polkadot-node-core-pvf
+  bump: minor
