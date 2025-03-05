@@ -2243,9 +2243,8 @@ impl<T: Config> Pallet<T> {
 
 			cfg_if::cfg_if! {
 				if #[cfg(all(feature = "runtime-benchmarks", not(test)))] {
-						// Let's ensure the compiler doesn't optimize our fetching of the runtime version away.
-						core::hint::black_box((new_version, current_version));
-						Ok(())
+					// Let's ensure the compiler doesn't optimize our fetching of the runtime version away.
+					core::hint::black_box((new_version, current_version));
 				} else {
 					if new_version.spec_name != current_version.spec_name {
 						return Err(Error::<T>::InvalidSpecName.into())
