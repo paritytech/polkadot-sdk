@@ -411,7 +411,7 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 			use frame_support::{dispatch::RawOrigin, traits::fungible};
 			use sp_runtime::AccountId32;
 			use xcm::prelude::*;
-			use xcm_runtime_apis::dry_run::runtime_decl_for_dry_run_api::DryRunApiV1;
+			use xcm_runtime_apis::dry_run::runtime_decl_for_dry_run_api::DryRunApiV2;
 
 			let who = AccountId32::new([1u8; 32]);
 			let transfer_amount = 10_000_000_000_000u128;
@@ -441,7 +441,7 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 					fee_asset_item: 0,
 					weight_limit: Unlimited,
 				});
-				let result = Runtime::dry_run_call(OriginCaller::system(RawOrigin::Signed(who)), call).unwrap();
+				let result = Runtime::dry_run_call(OriginCaller::system(RawOrigin::Signed(who)), call, XCM_VERSION).unwrap();
 				// We assert the dry run succeeds and sends only one message to the local bridge hub.
 				assert!(result.execution_result.is_ok());
 				assert_eq!(result.forwarded_xcms.len(), 1);
