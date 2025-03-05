@@ -1192,7 +1192,8 @@ pub mod pallet {
 			let fetch_weight = Self::on_initialize_maybe_fetch_election_results();
 			if T::maybe_start_election() {
 				// this is best effort, not much we can do if it fails.
-				let res = T::ElectionProvider::start().defensive();
+				let res = T::ElectionProvider::start()
+					.defensive_proof("election provider could not start");
 				log::info!("Election started with result: {:?}", res);
 			}
 
@@ -1588,7 +1589,8 @@ pub mod pallet {
 
 				// update this staker in the sorted list, if they exist in it.
 				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
+					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash))
+						.defensive_proof("Failed to update voter in VoterList in unbond");
 				}
 
 				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
@@ -2096,7 +2098,8 @@ pub mod pallet {
 			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 			ledger.update()?;
 			if T::VoterList::contains(&stash) {
-				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
+				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash))
+					.defensive_proof("Failed to update voter in VoterList in rebond");
 			}
 
 			let removed_chunks = 1u32 // for the case where the last iterated chunk is not removed
