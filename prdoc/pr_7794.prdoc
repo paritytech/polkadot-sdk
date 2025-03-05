@@ -9,8 +9,10 @@ doc:
     2. The `CheckNonce` TxExtension also marked the extrinsic as invalid, as the account doesn't exist (because glutton has no balances pallet).
 
     This PR fixes both issues by setting sudo in the genesis config and removing the nonce check from the tx extension. I think this is valid as the `CheckNonce` was useless without the balances pallet or anything else that might create accounts. Additionally, this is safe, as the tx extension only allows sudo to send transactions anyhow.
+
+    An alternative solution to removing the nonce check would be to simply add the balances pallet. This might make sense too in order to have a more homogeneous `TxExtension` format. I am not sure if this is better.
 crates:
 - name: glutton-westend-runtime
-  bump: minor
+  bump: patch
 - name: polkadot-parachain-bin
-  bump: minor
+  bump: patch
