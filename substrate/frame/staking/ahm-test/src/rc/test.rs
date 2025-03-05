@@ -1,7 +1,7 @@
 use crate::rc::mock::*;
 use pallet_staking_rc_client::{self as rc_client, SessionReport};
 
-// Tests that are specific to RC.
+// Tests that are specific to Relay Chain.
 #[test]
 fn send_session_report_no_election_comes_in() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
@@ -110,4 +110,14 @@ fn upon_receiving_election_queue_and_activate_next_session() {
 }
 
 #[test]
-fn sends_offence_report() {}
+
+fn sends_offence_report() {
+	// todo(ank4n):
+	// Test
+	// - pre-verification of offence on RC.
+	// - disabling of validator in active era.
+	// - Dispatch validator offence to AH.
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+
+	});
+}

@@ -109,17 +109,9 @@ parameter_types! {
 	pub static Offset: BlockNumber = 0;
 }
 
-// TODO: tsvetimor/ankan to check this
-pub struct FullIdentificationOf;
-impl Convert<AccountId, Option<()>> for FullIdentificationOf {
-	fn convert(_: AccountId) -> Option<()> {
-		Some(Default::default())
-	}
-}
-
 impl pallet_session::historical::Config for Runtime {
 	type FullIdentification = ();
-	type FullIdentificationOf = FullIdentificationOf;
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 impl pallet_session::Config for Runtime {

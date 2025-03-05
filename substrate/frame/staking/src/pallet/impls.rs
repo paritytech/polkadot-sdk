@@ -1598,7 +1598,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
-		// TODO: handle reward points here -- no longer need of knowing that each
+		// TODO(ank4n 01): handle reward points here -- no longer need of knowing that each
 		// block author will be equal to 20 points. The input is the sum of all points.
 
 		let starting = end_index + 1;
@@ -1718,7 +1718,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 				offence_era,
 			});
 
-			// TODO: handled in ah_client. Verify it works correctly before removing the commented
+			// TODO(ank4n): handled in ah_client. Verify it works correctly before removing the commented
 			// out code. if offence_era == active_era.index {
 			// 	// offence is in the current active era. Report it to session to maybe disable the
 			// 	// validator.
@@ -1828,7 +1828,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	}
 }
 
-// TODO: is `new_session` still needed? If no - who sets `CurrentPlannedSession`
+// TODO(ank4n): is `new_session` still needed? If no - who sets `CurrentPlannedSession`
 /// In this implementation `new_session(session)` must be called before `end_session(session-1)`
 /// i.e. the new session must be planned before the ending of the previous session.
 ///

@@ -17,6 +17,7 @@ mod tests {
 
 	#[test]
 	fn rc_session_change_reported_to_ah() {
+		// sets up AH chain with current and active era.
 		shared::put_ah_state(ah::ExtBuilder::default().build());
 		// shared::RC_STATE.with(|state| *state.get_mut() = rc::ExtBuilder::default().build());
 

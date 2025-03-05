@@ -186,7 +186,6 @@ impl multi_block::unsigned::Config for Runtime {
 parameter_types! {
 	pub static DepositBase: Balance = 1;
 	pub static DepositPerPage: Balance = 1;
-	pub static EstimateCallFee: Balance = 1;
 	pub static MaxSubmissions: u32 = 2;
 	pub static RewardBase: Balance = 5;
 }
@@ -200,7 +199,7 @@ impl multi_block::signed::Config for Runtime {
 	type BailoutGraceRatio = ();
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
-	type EstimateCallFee = EstimateCallFee;
+	type EstimateCallFee = ConstU32<1>;
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
 	type WeightInfo = multi_block::weights::AllZeroWeights;

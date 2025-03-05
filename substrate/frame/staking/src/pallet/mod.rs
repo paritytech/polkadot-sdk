@@ -1222,7 +1222,7 @@ pub mod pallet {
 						);
 						Self::do_elect_paged(current_page);
 						NextElectionPage::<T>::set(next_page);
-						// TODO: Both `NextElectionPage` and `VoterSnapshotStatus` need be checked
+						// TODO(ank4n): Both `NextElectionPage` and `VoterSnapshotStatus` need be checked
 						// carefully again.
 
 						// if current page was `Some`, and next is `None`, we have
