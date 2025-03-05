@@ -447,7 +447,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					dest,
 					None, /* Avoid logging the full XCM message to prevent inconsistencies and
 					       * reduce storage usage. */
-					message_id.clone(),
+					message_id,
 				);
 				Ok(message_id)
 			},
@@ -851,7 +851,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						);
 						Config::XcmEventEmitter::emit_process_failure_event(
 							self.original_origin.clone(),
-							error.clone(),
+							error,
 							self.context.message_id,
 						);
 						*r = Err(ExecutorError {
