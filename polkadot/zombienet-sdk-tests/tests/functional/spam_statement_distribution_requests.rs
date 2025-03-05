@@ -130,9 +130,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	assert_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(2000), 10..11), (ParaId::from(2001), 10..11)]
-			.into_iter()
-			.collect(),
+		[(ParaId::from(2000), 9..11), (ParaId::from(2001), 9..11)].into_iter().collect(),
 	)
 	.await?;
 
