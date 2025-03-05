@@ -15,6 +15,8 @@ use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
 /// The `XCM::Transact` payload for calling arbitrary smart contracts on Ethereum.
+/// On Ethereum, this call will be dispatched by the agent contract acting as a proxy
+/// for the XCM origin.
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum ContractCall {
 	V1 {
@@ -22,7 +24,7 @@ pub enum ContractCall {
 		target: [u8; 20],
 		/// ABI-encoded calldata
 		calldata: Vec<u8>,
-		/// Include ether held by agent contract
+		/// Include ether held by the agent contract
 		value: u128,
 		/// Maximum gas to forward to target contract
 		gas: u64,
