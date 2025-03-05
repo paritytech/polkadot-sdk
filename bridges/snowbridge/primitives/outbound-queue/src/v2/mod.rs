@@ -14,6 +14,7 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
+/// The `XCM::Transact` payload for calling arbitrary smart contracts on Ethereum.
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum ContractCall {
 	V1 {
