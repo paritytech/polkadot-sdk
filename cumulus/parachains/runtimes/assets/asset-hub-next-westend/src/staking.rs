@@ -141,6 +141,7 @@ impl multi_block::verifier::Config for Runtime {
 
 parameter_types! {
 	pub BailoutGraceRatio: Perbill = Perbill::from_percent(50);
+	pub EjectGraceRatio: Perbill = Perbill::from_percent(50);
 	pub DepositBase: Balance = 5 * UNITS;
 	pub DepositPerPage: Balance = 1 * UNITS;
 	pub RewardBase: Balance = 10 * UNITS;
@@ -152,6 +153,7 @@ impl multi_block::signed::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
+	type EjectGraceRatio = EjectGraceRatio;
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
 	type RewardBase = RewardBase;

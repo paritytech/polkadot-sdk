@@ -215,26 +215,6 @@ pub struct SolutionOrSnapshotSize {
 	pub targets: u32,
 }
 
-// TODO: we are not using this anywhere.
-/// The type of `Computation` that provided this election data.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-pub enum ElectionCompute {
-	/// Election was computed on-chain.
-	OnChain,
-	/// Election was computed with a signed submission.
-	Signed,
-	/// Election was computed with an unsigned submission.
-	Unsigned,
-	/// Election was computed with emergency status.
-	Emergency,
-}
-
-impl Default for ElectionCompute {
-	fn default() -> Self {
-		ElectionCompute::OnChain
-	}
-}
-
 /// Current phase of the pallet.
 #[derive(
 	PartialEqNoBound,
@@ -321,11 +301,12 @@ impl<T: crate::Config> Phase<T> {
 			Self::Emergency => Self::Emergency,
 
 			// snapshot phase
-			Self::Snapshot(0) => if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one()) {
-				Self::Signed(signed_duration)
-			} else {
-				Self::Unsigned(T::UnsignedPhase::get().defensive_saturating_sub(One::one()))
-			},
+			Self::Snapshot(0) =>
+				if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one()) {
+					Self::Signed(signed_duration)
+				} else {
+					Self::Unsigned(T::UnsignedPhase::get().defensive_saturating_sub(One::one()))
+				},
 			Self::Snapshot(non_zero_remaining) =>
 				Self::Snapshot(non_zero_remaining.defensive_saturating_sub(One::one())),
 

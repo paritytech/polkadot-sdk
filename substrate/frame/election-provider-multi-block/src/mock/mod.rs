@@ -17,7 +17,6 @@
 
 mod signed;
 mod staking;
-mod weight_info;
 
 use super::*;
 use crate::{
@@ -118,10 +117,8 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 }
 
-#[allow(unused)]
 #[derive(Clone)]
 pub enum FallbackModes {
-	// TODO: test for this mode
 	Continue,
 	Emergency,
 	Onchain,
@@ -204,7 +201,7 @@ impl crate::Config for Runtime {
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type MinerConfig = Self;
-	type WeightInfo = weight_info::DualMockWeightInfo;
+	type WeightInfo = ();
 	type Verifier = VerifierPallet;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type Pages = Pages;
@@ -695,7 +692,6 @@ pub fn fake_solution(score: ElectionScore) -> PagedRawSolution<Runtime> {
 ///
 /// This is different from `solution_from_supports` in that it does not require the snapshot to
 /// exist.
-// TODO: probably deprecate this.
 pub fn raw_paged_solution_low_score() -> PagedRawSolution<Runtime> {
 	PagedRawSolution {
 		solution_pages: vec![TestNposSolution {

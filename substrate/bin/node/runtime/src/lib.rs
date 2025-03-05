@@ -960,9 +960,11 @@ pub(crate) mod multi_block_impls {
 
 	parameter_types! {
 		pub const BailoutGraceRatio: Perbill = Perbill::from_percent(50);
+		pub const EjectGraceRatio: Perbill = Perbill::from_percent(50);
 	}
 
 	impl multi_block::signed::Config for Runtime {
+		type EjectGraceRatio = EjectGraceRatio;
 		type BailoutGraceRatio = BailoutGraceRatio;
 		// TODO: we need an increase factor for this pallet as well.
 		type DepositBase = SignedFixedDeposit;
@@ -1040,10 +1042,7 @@ pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type Sort = ConstBool<true>;
 	type System = Runtime;
-	type Solver = SequentialPhragmen<
-		AccountId,
-		SolutionAccuracyOf<Runtime>,
-	>;
+	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type DataProvider = Staking;
 	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
 	type Bounds = ElectionBoundsOnChain;

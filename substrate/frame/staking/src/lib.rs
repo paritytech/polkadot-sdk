@@ -392,10 +392,11 @@ pub struct TestElectionProviderAtEraBoundary<T, SP>(core::marker::PhantomData<(T
 
 #[cfg(feature = "std")]
 impl<
-	T: Config,
-	// single page EP.
-	SP: ElectionProvider,
-> ElectionProvider for TestElectionProviderAtEraBoundary<T, SP> {
+		T: Config,
+		// single page EP.
+		SP: ElectionProvider,
+	> ElectionProvider for TestElectionProviderAtEraBoundary<T, SP>
+{
 	type AccountId = SP::AccountId;
 	type BlockNumber = SP::BlockNumber;
 	type MaxWinnersPerPage = SP::MaxWinnersPerPage;
@@ -404,7 +405,9 @@ impl<
 	type DataProvider = SP::DataProvider;
 	type Error = SP::Error;
 
-	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+	fn elect(
+		page: frame_election_provider_support::PageIndex,
+	) -> Result<frame_election_provider_support::BoundedSupportsOf<Self>, Self::Error> {
 		SP::elect(page)
 	}
 
@@ -416,10 +419,10 @@ impl<
 		SP::duration()
 	}
 
-	fn msp() -> PageIndex {
+	fn msp() -> frame_election_provider_support::PageIndex {
 		SP::msp()
 	}
-	fn lsp() -> PageIndex {
+	fn lsp() -> frame_election_provider_support::PageIndex {
 		SP::lsp()
 	}
 
@@ -437,7 +440,6 @@ impl<
 		}
 	}
 }
-
 
 /// Alias for a bounded set of exposures behind a validator, parameterized by this pallet's
 /// election provider.

@@ -495,9 +495,9 @@ pub trait ElectionProvider {
 
 	/// Indicate whether this election provider is currently ongoing an asynchronous election.
 	///
-	/// `Err(())` should signal that we are not doing anything, and `elect` should def. not be called.
-	/// `Ok(false)` means we are doing something, but work is still ongoing. `elect` should not be called.
-	/// `Ok(true)` means we are done and ready for a call to `elect`.
+	/// `Err(())` should signal that we are not doing anything, and `elect` should def. not be
+	/// called. `Ok(false)` means we are doing something, but work is still ongoing. `elect` should
+	/// not be called. `Ok(true)` means we are done and ready for a call to `elect`.
 	fn status() -> Result<bool, ()>;
 }
 

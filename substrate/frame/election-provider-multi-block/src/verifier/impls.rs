@@ -125,6 +125,8 @@ pub(crate) mod pallet {
 		/// Maximum number of backers, per winner, among all pages of an election.
 		///
 		/// This can only be checked at the very final step of verification.
+		///
+		/// NOTE: at the moment, we don't check this, and it is in place for future compatibility.
 		#[pallet::constant]
 		type MaxBackersPerWinnerFinal: Get<u32>;
 
@@ -164,11 +166,6 @@ pub(crate) mod pallet {
 		/// A solution with the given score has replaced our current best solution.
 		Queued(ElectionScore, Option<ElectionScore>),
 	}
-
-	// TODO this has to be entirely re-done to take into account that for lazy deletions. We store
-	// the queued solutions per round and account id. if a solution is invalid, we just mark it as
-	// garbage and delete it later.
-	// we keep a pointer to (round, who) which stores the current best solution.
 
 	/// A wrapper interface for the storage items related to the queued solution.
 	///
@@ -574,8 +571,9 @@ impl<T: Config> Pallet<T> {
 				T::SolutionDataProvider::report_result(VerificationResult::DataUnavailable);
 
 				Self::deposit_event(Event::<T>::VerificationDataUnavailable);
-				// TODO: weight
-				return Default::default();
+				// weight is a bit overestimate.
+				let wasted_pages = T::Pages::get().saturating_sub(current_page);
+				return VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages);
 			}
 
 			let page_solution = maybe_page_solution.expect("Option checked to not be None; qed");
@@ -632,7 +630,7 @@ impl<T: Config> Pallet<T> {
 					StatusStorage::<T>::put(Status::Nothing);
 					QueuedSolution::<T>::clear_invalid_and_backings();
 					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
-					let wasted_pages = T::Pages::get() - current_page;
+					let wasted_pages = T::Pages::get().saturating_sub(current_page);
 					VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages)
 				},
 			}
