@@ -27,7 +27,9 @@ use frame_system::{CheckNonce, CheckWeight};
 use sp_core::crypto::Pair as TraitPair;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
-	generic::Preamble, traits::TransactionExtension, transaction_validity::TransactionPriority,
+	generic::{Preamble, UncheckedExtrinsic},
+	traits::TransactionExtension,
+	transaction_validity::TransactionPriority,
 	Perbill,
 };
 
@@ -67,13 +69,15 @@ impl TryFrom<&Extrinsic> for TransferData {
 	type Error = ();
 	fn try_from(uxt: &Extrinsic) -> Result<Self, Self::Error> {
 		match uxt {
-			Extrinsic {
+			UncheckedExtrinsic {
 				function: RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }),
 				preamble: Preamble::Signed(from, _, ((CheckNonce(nonce), ..), ..)),
+				..
 			} => Ok(TransferData { from: *from, to: *dest, amount: *value, nonce: *nonce }),
-			Extrinsic {
+			UncheckedExtrinsic {
 				function: RuntimeCall::SubstrateTest(PalletCall::bench_call { transfer }),
 				preamble: Preamble::Bare(_),
+				..
 			} => Ok(transfer.clone()),
 			_ => Err(()),
 		}
