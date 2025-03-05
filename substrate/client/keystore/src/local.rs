@@ -20,7 +20,7 @@
 use parking_lot::RwLock;
 use sp_application_crypto::{AppCrypto, AppPair, IsWrappedBy};
 use sp_core::{
-	crypto::{ByteArray, ExposeSecret, KeyTypeId, Pair as CorePair, SecretString, VrfSecret, ProofOfPossessionGenerator},
+	crypto::{ByteArray, ExposeSecret, KeyTypeId, Pair as CorePair, SecretString, VrfSecret},
 	ecdsa, ed25519, sr25519,
 };
 use sp_keystore::{Error as TraitError, Keystore, KeystorePtr};
@@ -37,7 +37,7 @@ use sp_core::bandersnatch;
 }
 
 sp_keystore::bls_experimental_enabled! {
-use sp_core::{bls381, ecdsa_bls381, KeccakHasher};
+use sp_core::{bls381, ecdsa_bls381, KeccakHasher, ProofOfPossessionGenerator};
 }
 
 use crate::{Error, Result};
@@ -141,17 +141,19 @@ impl LocalKeystore {
 		Ok(pre_output)
 	}
 
-	fn generate_pop<T: CorePair + ProofOfPossessionGenerator>(
-		&self,
-		key_type: KeyTypeId,
-		public: &T::Public,
-	) -> std::result::Result<Option<T::Signature>, TraitError> {
-		let pop = self
-			.0
-			.read()
-			.key_pair_by_type::<T>(public, key_type)?
-			.map(|mut pair| pair.generate_proof_of_possession());
-		Ok(pop)
+	sp_keystore::bls_experimental_enabled! {
+		fn generate_pop<T: CorePair + ProofOfPossessionGenerator>(
+			&self,
+			key_type: KeyTypeId,
+			public: &T::Public,
+		) -> std::result::Result<Option<T::Signature>, TraitError> {
+			let pop = self
+				.0
+				.read()
+				.key_pair_by_type::<T>(public, key_type)?
+				.map(|mut pair| pair.generate_proof_of_possession());
+			Ok(pop)
+		}
 	}
 }
 
