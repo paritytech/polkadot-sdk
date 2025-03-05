@@ -39,7 +39,7 @@ crates:
 - name: pallet-xcm
   bump: minor
 - name: staging-xcm-builder
-  bump: minor
+  bump: patch
 - name: staging-xcm-executor
   bump: major
 - name: xcm-runtime-apis
@@ -51,8 +51,6 @@ crates:
 - name: pallet-contracts-mock-network
   bump: minor
 - name: pallet-revive-mock-network
-  bump: minor
-- name: bridge-runtime-common
   bump: minor
 - name: sp-tracing
   bump: minor
