@@ -2,21 +2,20 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Converts messages from Solidity ABI-encoding to XCM
 
-use crate::v2::LOG_TARGET;
+use super::{message::*, traits::*};
+use crate::{v2::LOG_TARGET, CallIndex, EthereumLocationsConverterFor};
 use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
+use frame_system::unique;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160};
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::MaybeEquivalence;
+use sp_runtime::{traits::MaybeEquivalence, MultiAddress};
 use sp_std::prelude::*;
 use xcm::{
 	prelude::{Junction::*, *},
 	MAX_XCM_DECODE_DEPTH,
 };
-use super::{message::*, traits::*};
-use crate::{CallIndex, EthereumLocationsConverterFor};
-use sp_runtime::MultiAddress;
 
 const MINIMUM_DEPOSIT: u128 = 1;
 
@@ -25,7 +24,7 @@ const INBOUND_QUEUE_TOPIC_PREFIX: &str = "SnowbridgeInboundQueueV2";
 
 /// Representation of an intermediate parsed message, before final
 /// conversion to XCM.
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, RuntimeDebug, Encode)]
 pub struct PreparedMessage {
 	/// Ethereum account that initiated this messaging operation
 	pub origin: H160,
@@ -42,7 +41,7 @@ pub struct PreparedMessage {
 }
 
 /// An asset transfer instruction
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, RuntimeDebug, Encode)]
 pub enum AssetTransfer {
 	ReserveDeposit(Asset),
 	ReserveWithdraw(Asset),
@@ -296,7 +295,7 @@ where
 	GlobalAssetHubLocation: Get<Location>,
 {
 	fn convert(message: Message) -> Result<Xcm<()>, ConvertMessageError> {
-		let message = Self::prepare(message)?;
+		let mut message = Self::prepare(message)?;
 
 		log::trace!(target: LOG_TARGET,"prepared message: {:?}", message);
 
@@ -310,15 +309,9 @@ where
 
 		let bridge_owner = Self::get_bridge_owner()?;
 		// Make the Snowbridge sovereign on AH the default claimer.
-		let default_claimer = Location::new(
-			0,
-			[AccountId32 {
-				network: None,
-				id: bridge_owner,
-			}],
-		);
+		let default_claimer = Location::new(0, [AccountId32 { network: None, id: bridge_owner }]);
 
-		let claimer = message.claimer.unwrap_or(default_claimer);
+		let claimer = message.claimer.take().unwrap_or(default_claimer);
 
 		// Set claimer before PayFees, in case the fees are not enough. Then the claimer will be
 		// able to claim the funds still.
@@ -333,7 +326,7 @@ where
 		let mut reserve_deposit_assets = vec![];
 		let mut reserve_withdraw_assets = vec![];
 
-		for asset in message.assets {
+		for asset in message.assets.clone() {
 			match asset {
 				AssetTransfer::ReserveDeposit(asset) => reserve_deposit_assets.push(asset),
 				AssetTransfer::ReserveWithdraw(asset) => reserve_withdraw_assets.push(asset),
@@ -353,14 +346,18 @@ where
 		}
 
 		// Add the XCM sent in the message to the end of the xcm instruction
-		instructions.extend(message.remote_xcm.0);
+		instructions.extend(message.remote_xcm.clone().0);
 		instructions.push(RefundSurplus);
 		// Refund excess fees to the claimer
 		instructions.push(DepositAsset {
-			assets: Wild(AllOf { id: message.execution_fee.id, fun: WildFungible }),
+			assets: Wild(AllOf { id: message.execution_fee.clone().id, fun: WildFungible }),
 			beneficiary: claimer,
 		});
-		instructions.push(SetTopic(message.topic));
+		// Only add SetTopic if the user didn't already add one
+		if !matches!(&message.remote_xcm.last(), Some(SetTopic(_))) {
+			println!("Adding topic");
+			instructions.push(SetTopic(unique(&message)));
+		}
 
 		Ok(instructions.into())
 	}
@@ -434,145 +431,150 @@ mod tests {
 
 	#[test]
 	fn test_successful_message() {
-		let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
-		let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
-		let foreign_token_id: H256 =
-			hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
-		let beneficiary: Location =
-			hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
-		let token_value = 3_000_000_000_000u128;
-		let assets = vec![
-			EthereumAsset::NativeTokenERC20 { token_id: native_token_id, value: token_value },
-			EthereumAsset::ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
-		];
-		let instructions = vec![
-			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary: beneficiary.clone() },
-		];
-		let xcm: Xcm<()> = instructions.into();
-		let versioned_xcm = VersionedXcm::V5(xcm);
-		let claimer_location =
-			Location::new(0, AccountId32 { network: None, id: H256::random().into() });
-		let claimer: Option<Vec<u8>> = Some(claimer_location.clone().encode());
-		let value = 6_000_000_000_000u128;
-		let execution_fee = 1_000_000_000_000u128;
-		let relayer_fee = 5_000_000_000_000u128;
+		sp_io::TestExternalities::default().execute_with(|| {
+			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
+			let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
+			let foreign_token_id: H256 =
+				hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
+			let beneficiary: Location =
+				hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
+			let token_value = 3_000_000_000_000u128;
+			let assets = vec![
+				EthereumAsset::NativeTokenERC20 { token_id: native_token_id, value: token_value },
+				EthereumAsset::ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
+			];
+			let instructions = vec![DepositAsset {
+				assets: Wild(AllCounted(1).into()),
+				beneficiary: beneficiary.clone(),
+			}];
+			let xcm: Xcm<()> = instructions.into();
+			let versioned_xcm = VersionedXcm::V5(xcm);
+			let claimer_location =
+				Location::new(0, AccountId32 { network: None, id: H256::random().into() });
+			let claimer: Option<Vec<u8>> = Some(claimer_location.clone().encode());
+			let value = 6_000_000_000_000u128;
+			let execution_fee = 1_000_000_000_000u128;
+			let relayer_fee = 5_000_000_000_000u128;
 
-		let message = Message {
-			gateway: H160::zero(),
-			nonce: 0,
-			origin: origin.clone(),
-			assets,
-			xcm: XcmPayload::Raw(versioned_xcm.encode()),
-			claimer,
-			value,
-			execution_fee,
-			relayer_fee,
-		};
+			let message = Message {
+				gateway: H160::zero(),
+				nonce: 0,
+				origin: origin.clone(),
+				assets,
+				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				claimer,
+				value,
+				execution_fee,
+				relayer_fee,
+			};
 
-		let result = Converter::convert(message);
+			let result = Converter::convert(message);
 
-		assert_ok!(result.clone());
+			assert_ok!(result.clone());
 
-		let xcm = result.unwrap();
+			let xcm = result.unwrap();
 
-		let mut instructions = xcm.into_iter();
+			let mut instructions = xcm.into_iter();
 
-		let mut asset_claimer_found = false;
-		let mut pay_fees_found = false;
-		let mut descend_origin_found = 0;
-		let mut reserve_deposited_found = 0;
-		let mut withdraw_assets_found = 0;
-		let mut refund_surplus_found = 0;
-		let mut deposit_asset_found = 0;
-		while let Some(instruction) = instructions.next() {
-			if let SetHints { ref hints } = instruction {
-				if let Some(AssetClaimer { ref location }) = hints.clone().into_iter().next() {
-					assert_eq!(claimer_location, location.clone());
-					asset_claimer_found = true;
+			let mut asset_claimer_found = false;
+			let mut pay_fees_found = false;
+			let mut descend_origin_found = 0;
+			let mut reserve_deposited_found = 0;
+			let mut withdraw_assets_found = 0;
+			let mut refund_surplus_found = 0;
+			let mut deposit_asset_found = 0;
+			while let Some(instruction) = instructions.next() {
+				if let SetHints { ref hints } = instruction {
+					if let Some(AssetClaimer { ref location }) = hints.clone().into_iter().next() {
+						assert_eq!(claimer_location, location.clone());
+						asset_claimer_found = true;
+					}
 				}
-			}
-			if let DescendOrigin(ref location) = instruction {
-				descend_origin_found = descend_origin_found + 1;
-				// The second DescendOrigin should be the message.origin (sender)
-				if descend_origin_found == 2 {
-					let junctions: Junctions =
-						AccountKey20 { key: origin.into(), network: None }.into();
-					assert_eq!(junctions, location.clone());
+				if let DescendOrigin(ref location) = instruction {
+					descend_origin_found = descend_origin_found + 1;
+					// The second DescendOrigin should be the message.origin (sender)
+					if descend_origin_found == 2 {
+						let junctions: Junctions =
+							AccountKey20 { key: origin.into(), network: None }.into();
+						assert_eq!(junctions, location.clone());
+					}
 				}
-			}
-			if let PayFees { ref asset } = instruction {
-				let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-				assert_eq!(asset.id, AssetId(fee_asset));
-				assert_eq!(asset.fun, Fungible(execution_fee));
-				pay_fees_found = true;
-			}
-			if let ReserveAssetDeposited(ref reserve_assets) = instruction {
-				reserve_deposited_found = reserve_deposited_found + 1;
-				if reserve_deposited_found == 1 {
+				if let PayFees { ref asset } = instruction {
 					let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-					let fee: Asset = (fee_asset, execution_fee).into();
-					let fee_assets: Assets = fee.into();
-					assert_eq!(fee_assets, reserve_assets.clone());
+					assert_eq!(asset.id, AssetId(fee_asset));
+					assert_eq!(asset.fun, Fungible(execution_fee));
+					pay_fees_found = true;
 				}
-				if reserve_deposited_found == 2 {
-					let token_asset = Location::new(
-						2,
-						[
-							GlobalConsensus(EthereumNetwork::get()),
-							AccountKey20 { network: None, key: native_token_id.into() },
-						],
-					);
+				if let ReserveAssetDeposited(ref reserve_assets) = instruction {
+					reserve_deposited_found = reserve_deposited_found + 1;
+					if reserve_deposited_found == 1 {
+						let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
+						let fee: Asset = (fee_asset, execution_fee).into();
+						let fee_assets: Assets = fee.into();
+						assert_eq!(fee_assets, reserve_assets.clone());
+					}
+					if reserve_deposited_found == 2 {
+						let token_asset = Location::new(
+							2,
+							[
+								GlobalConsensus(EthereumNetwork::get()),
+								AccountKey20 { network: None, key: native_token_id.into() },
+							],
+						);
+						let token: Asset = (token_asset, token_value).into();
+
+						let remaining_ether_asset: Asset =
+							(Location::new(2, [GlobalConsensus(EthereumNetwork::get())]), value)
+								.into();
+
+						let expected_assets: Assets = vec![token, remaining_ether_asset].into();
+						assert_eq!(expected_assets, reserve_assets.clone());
+					}
+				}
+				if let WithdrawAsset(ref withdraw_assets) = instruction {
+					withdraw_assets_found = withdraw_assets_found + 1;
+					let token_asset = Location::new(2, Here);
 					let token: Asset = (token_asset, token_value).into();
-
-					let remaining_ether_asset: Asset =
-						(Location::new(2, [GlobalConsensus(EthereumNetwork::get())]), value).into();
-
-					let expected_assets: Assets = vec![token, remaining_ether_asset].into();
-					assert_eq!(expected_assets, reserve_assets.clone());
+					let token_assets: Assets = token.into();
+					assert_eq!(token_assets, withdraw_assets.clone());
+				}
+				if let RefundSurplus = instruction {
+					refund_surplus_found = refund_surplus_found + 1;
+				}
+				if let DepositAsset { ref assets, beneficiary: deposit_beneficiary } = instruction {
+					deposit_asset_found = deposit_asset_found + 1;
+					if deposit_asset_found == 1 {
+						assert_eq!(AssetFilter::from(Wild(AllCounted(1).into())), assets.clone());
+						assert_eq!(deposit_beneficiary, beneficiary);
+					} else if deposit_asset_found == 2 {
+						let fee_asset_id =
+							Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
+						assert_eq!(
+							Wild(AllOf { id: AssetId(fee_asset_id.into()), fun: WildFungible }),
+							assets.clone()
+						);
+						assert_eq!(deposit_beneficiary, claimer_location);
+					}
 				}
 			}
-			if let WithdrawAsset(ref withdraw_assets) = instruction {
-				withdraw_assets_found = withdraw_assets_found + 1;
-				let token_asset = Location::new(2, Here);
-				let token: Asset = (token_asset, token_value).into();
-				let token_assets: Assets = token.into();
-				assert_eq!(token_assets, withdraw_assets.clone());
-			}
-			if let RefundSurplus = instruction {
-				refund_surplus_found = refund_surplus_found + 1;
-			}
-			if let DepositAsset { ref assets, beneficiary: deposit_beneficiary } = instruction {
-				deposit_asset_found = deposit_asset_found + 1;
-				if deposit_asset_found == 1 {
-					assert_eq!(AssetFilter::from(Wild(AllCounted(1).into())), assets.clone());
-					assert_eq!(deposit_beneficiary, beneficiary);
-				} else if deposit_asset_found == 2 {
-					let fee_asset_id = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-					assert_eq!(
-						Wild(AllOf { id: AssetId(fee_asset_id.into()), fun: WildFungible }),
-						assets.clone()
-					);
-					assert_eq!(deposit_beneficiary, claimer_location);
-				}
-			}
-		}
 
-		// SetAssetClaimer must be in the message.
-		assert!(asset_claimer_found);
-		// PayFees must be in the message.
-		assert!(pay_fees_found);
-		// The first DescendOrigin to descend into the InboundV2 pallet index and the DescendOrigin
-		// into the message.origin
-		assert!(descend_origin_found == 2);
-		// Expecting two ReserveAssetDeposited instructions, one for the fee and one for the token
-		// being transferred.
-		assert!(reserve_deposited_found == 2);
-		// Expecting one WithdrawAsset for the foreign ERC-20
-		assert!(withdraw_assets_found == 1);
-		// Appended to the message in the converter.
-		assert!(refund_surplus_found == 1);
-		// Deposit asset added by the converter and user
-		assert!(deposit_asset_found == 2);
+			// SetAssetClaimer must be in the message.
+			assert!(asset_claimer_found);
+			// PayFees must be in the message.
+			assert!(pay_fees_found);
+			// The first DescendOrigin to descend into the InboundV2 pallet index and the
+			// DescendOrigin into the message.origin
+			assert!(descend_origin_found == 2);
+			// Expecting two ReserveAssetDeposited instructions, one for the fee and one for the
+			// token being transferred.
+			assert!(reserve_deposited_found == 2);
+			// Expecting one WithdrawAsset for the foreign ERC-20
+			assert!(withdraw_assets_found == 1);
+			// Appended to the message in the converter.
+			assert!(refund_surplus_found == 1);
+			// Deposit asset added by the converter and user
+			assert!(deposit_asset_found == 2);
+		});
 	}
 
 	#[test]
@@ -671,124 +673,273 @@ mod tests {
 
 	#[test]
 	fn test_invalid_claimer() {
-		let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
-		let token_id: H256 =
-			hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
-		let beneficiary =
-			hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
-		let token_value = 3_000_000_000_000u128;
-		let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
-		let instructions = vec![
-			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary },
-		];
-		let xcm: Xcm<()> = instructions.into();
-		let versioned_xcm = VersionedXcm::V5(xcm);
-		// Invalid claimer location, cannot be decoded into a Location
-		let claimer: Option<Vec<u8>> = Some(vec![]);
-		let value = 6_000_000_000_000u128;
-		let execution_fee = 1_000_000_000_000u128;
-		let relayer_fee = 5_000_000_000_000u128;
+		sp_io::TestExternalities::default().execute_with(|| {
+			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
+			let token_id: H256 =
+				hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
+			let beneficiary =
+				hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
+			let token_value = 3_000_000_000_000u128;
+			let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
+			let instructions =
+				vec![DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary }];
+			let xcm: Xcm<()> = instructions.into();
+			let versioned_xcm = VersionedXcm::V5(xcm);
+			// Invalid claimer location, cannot be decoded into a Location
+			let claimer: Option<Vec<u8>> = Some(vec![]);
+			let value = 6_000_000_000_000u128;
+			let execution_fee = 1_000_000_000_000u128;
+			let relayer_fee = 5_000_000_000_000u128;
 
-		let message = Message {
-			gateway: H160::zero(),
-			nonce: 0,
-			origin,
-			assets,
-			xcm: XcmPayload::Raw(versioned_xcm.encode()),
-			claimer,
-			value,
-			execution_fee,
-			relayer_fee,
-		};
+			let message = Message {
+				gateway: H160::zero(),
+				nonce: 0,
+				origin,
+				assets,
+				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				claimer,
+				value,
+				execution_fee,
+				relayer_fee,
+			};
 
-		let result = Converter::convert(message.clone());
+			let result = Converter::convert(message.clone());
 
-		// Invalid claimer does not break the message conversion
-		assert_ok!(result.clone());
+			// Invalid claimer does not break the message conversion
+			assert_ok!(result.clone());
 
-		let xcm = result.unwrap();
+			let xcm = result.unwrap();
 
-		let mut result_instructions = xcm.clone().into_iter();
+			let mut result_instructions = xcm.clone().into_iter();
 
-		let mut actual_claimer: Option<Location> = None;
-		while let Some(instruction) = result_instructions.next() {
-			if let SetHints { ref hints } = instruction {
-				if let Some(AssetClaimer { location }) = hints.clone().into_iter().next() {
-					actual_claimer = Some(location);
-					break;
+			let mut actual_claimer: Option<Location> = None;
+			while let Some(instruction) = result_instructions.next() {
+				if let SetHints { ref hints } = instruction {
+					if let Some(AssetClaimer { location }) = hints.clone().into_iter().next() {
+						actual_claimer = Some(location);
+						break;
+					}
 				}
 			}
-		}
 
-		// actual claimer should default to Snowbridge sovereign account
-		let chain_id = match EthereumNetwork::get() {
-			NetworkId::Ethereum { chain_id } => chain_id,
-			_ => 0,
-		};
-		let bridge_owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
-		assert_eq!(
-			actual_claimer,
-			Some(Location::new(0, [AccountId32 { network: None, id: bridge_owner }]))
-		);
+			// actual claimer should default to Snowbridge sovereign account
+			let chain_id = match EthereumNetwork::get() {
+				NetworkId::Ethereum { chain_id } => chain_id,
+				_ => 0,
+			};
+			let bridge_owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
+			assert_eq!(
+				actual_claimer,
+				Some(Location::new(0, [AccountId32 { network: None, id: bridge_owner }]))
+			);
 
-		// Find the last two instructions to check the appendix is correct.
-		let mut second_last = None;
-		let mut last = None;
+			// Find the last two instructions to check the appendix is correct.
+			let mut second_last = None;
+			let mut last = None;
 
-		for instruction in xcm.into_iter() {
-			second_last = last;
-			last = Some(instruction);
-		}
+			for instruction in xcm.into_iter() {
+				second_last = last;
+				last = Some(instruction);
+			}
 
-		// Check if both instructions are found
-		assert!(last.is_some());
-		assert!(second_last.is_some());
+			// Check if both instructions are found
+			assert!(last.is_some());
+			assert!(second_last.is_some());
 
-		let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-		assert_eq!(
-			second_last,
-			Some(DepositAsset {
-				assets: Wild(AllOf { id: AssetId(fee_asset), fun: WildFungibility::Fungible }),
-				// beneficiary is the claimer (bridge owner)
-				beneficiary: Location::new(0, [AccountId32 { network: None, id: bridge_owner }])
-			})
-		);
-		assert_eq!(
-			last,
-			Some(SetTopic(blake2_256(&(INBOUND_QUEUE_TOPIC_PREFIX, message.nonce).encode())))
-		);
+			let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
+			assert_eq!(
+				second_last,
+				Some(DepositAsset {
+					assets: Wild(AllOf { id: AssetId(fee_asset), fun: WildFungibility::Fungible }),
+					// beneficiary is the claimer (bridge owner)
+					beneficiary: Location::new(
+						0,
+						[AccountId32 { network: None, id: bridge_owner }]
+					)
+				})
+			);
+			assert_eq!(
+				last,
+				Some(SetTopic(
+					hex!("a05572b60999c722477f58d1c3b33d8717f71bef66564453dca330b175186e17").into()
+				))
+			);
+		});
 	}
 
 	#[test]
 	fn test_invalid_xcm() {
-		let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
-		let token_id: H256 =
-			hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
-		let token_value = 3_000_000_000_000u128;
-		let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
-		// invalid xcm
-		let versioned_xcm = hex!("8b69c7e376e28114618e829a7ec7").to_vec();
-		let claimer_account = AccountId32 { network: None, id: H256::random().into() };
-		let claimer: Option<Vec<u8>> = Some(claimer_account.clone().encode());
-		let value = 6_000_000_000_000u128;
-		let execution_fee = 1_000_000_000_000u128;
-		let relayer_fee = 5_000_000_000_000u128;
+		sp_io::TestExternalities::default().execute_with(|| {
+			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
+			let token_id: H256 =
+				hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
+			let token_value = 3_000_000_000_000u128;
+			let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
+			// invalid xcm
+			let versioned_xcm = hex!("8b69c7e376e28114618e829a7ec7").to_vec();
+			let claimer_account = AccountId32 { network: None, id: H256::random().into() };
+			let claimer: Option<Vec<u8>> = Some(claimer_account.clone().encode());
+			let value = 6_000_000_000_000u128;
+			let execution_fee = 1_000_000_000_000u128;
+			let relayer_fee = 5_000_000_000_000u128;
 
-		let message = Message {
-			gateway: H160::zero(),
-			nonce: 0,
-			origin,
-			assets,
-			xcm: XcmPayload::Raw(versioned_xcm),
-			claimer: Some(claimer.encode()),
-			value,
-			execution_fee,
-			relayer_fee,
-		};
+			let message = Message {
+				gateway: H160::zero(),
+				nonce: 0,
+				origin,
+				assets,
+				xcm: XcmPayload::Raw(versioned_xcm),
+				claimer: Some(claimer.encode()),
+				value,
+				execution_fee,
+				relayer_fee,
+			};
 
-		let result = Converter::convert(message);
+			let result = Converter::convert(message);
 
-		// Invalid xcm does not break the message, allowing funds to be trapped on AH.
-		assert_ok!(result.clone());
+			// Invalid xcm does not break the message, allowing funds to be trapped on AH.
+			assert_ok!(result.clone());
+		});
+	}
+
+	#[test]
+	fn message_with_set_topic_respects_user_topic() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
+
+			// Create a custom topic ID that the user specifies
+			let user_topic: [u8; 32] =
+				hex!("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+
+			// User's XCM with a SetTopic as the last instruction
+			let instructions = vec![RefundSurplus, SetTopic(user_topic)];
+			let xcm: Xcm<()> = instructions.into();
+			let versioned_xcm = VersionedXcm::V5(xcm);
+
+			let execution_fee = 1_000_000_000_000u128;
+			let value = 0;
+
+			let message = Message {
+				gateway: H160::zero(),
+				nonce: 0,
+				origin,
+				assets: vec![],
+				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				claimer: None,
+				value,
+				execution_fee,
+				relayer_fee: 0,
+			};
+
+			let result = Converter::convert(message);
+			assert_ok!(result.clone());
+
+			let xcm = result.unwrap();
+			let mut instructions = xcm.into_iter();
+
+			let mut set_topic_found = false;
+			while let Some(instruction) = instructions.next() {
+				if let SetTopic(ref topic) = instruction {
+					assert_eq!(*topic, user_topic);
+					set_topic_found = true;
+				}
+			}
+
+			assert!(set_topic_found);
+		});
+	}
+
+	#[test]
+	fn message_with_generates_a_unique_topic_if_no_topic_is_present() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
+
+			let execution_fee = 1_000_000_000_000u128;
+			let value = 0;
+
+			let message = Message {
+				gateway: H160::zero(),
+				nonce: 0,
+				origin,
+				assets: vec![],
+				xcm: XcmPayload::Raw(vec![]),
+				claimer: None,
+				value,
+				execution_fee,
+				relayer_fee: 0,
+			};
+
+			let result = Converter::convert(message);
+			assert_ok!(result.clone());
+
+			let xcm = result.unwrap();
+			let mut instructions = xcm.into_iter();
+
+			let generated_topic: [u8; 32] =
+				hex!("66559e226e4c9acc809403329a08cfd77ff84ca330ca3fb7393b05b110a10553");
+			let mut set_topic_found = false;
+			while let Some(instruction) = instructions.next() {
+				if let SetTopic(ref topic) = instruction {
+					assert_eq!(*topic, generated_topic);
+					set_topic_found = true;
+				}
+			}
+
+			assert!(set_topic_found);
+		});
+	}
+
+	#[test]
+	fn message_with_generates_a_unique_topic_if_user_topic_not_last_instruction() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
+
+			let execution_fee = 1_000_000_000_000u128;
+			let value = 0;
+
+			let user_topic: [u8; 32] =
+				hex!("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+
+			// Add a set topic, but not as the last instruction.
+			let instructions = vec![SetTopic(user_topic), RefundSurplus];
+			let xcm: Xcm<()> = instructions.into();
+			let versioned_xcm = VersionedXcm::V5(xcm);
+
+			let message = Message {
+				gateway: H160::zero(),
+				nonce: 0,
+				origin,
+				assets: vec![],
+				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				claimer: None,
+				value,
+				execution_fee,
+				relayer_fee: 0,
+			};
+
+			let result = Converter::convert(message);
+			assert_ok!(result.clone());
+
+			let xcm = result.unwrap();
+			let mut instructions = xcm.into_iter();
+
+			let generated_topic: [u8; 32] =
+				hex!("c5beff8193e7eb317177749df3d70732ccd307f1e3e0a8758552e2fc7350a7b9");
+
+			let mut set_topic_found = false;
+			let mut counter = 0;
+			while let Some(instruction) = instructions.next() {
+				if let SetTopic(ref topic) = instruction {
+					counter = counter + 1;
+					// The second topic which the converter added is of interest here
+					if counter == 2 {
+						assert_eq!(*topic, generated_topic);
+						set_topic_found = true;
+					}
+				}
+			}
+
+			assert!(set_topic_found);
+		});
 	}
 }
