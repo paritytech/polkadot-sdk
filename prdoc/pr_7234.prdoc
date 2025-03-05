@@ -45,7 +45,7 @@ crates:
 - name: xcm-runtime-apis
   bump: minor
 - name: xcm-simulator-example
-  bump: minor
+  bump: patch
 - name: xcm-simulator-fuzzer
   bump: patch
 - name: pallet-contracts-mock-network
