@@ -110,14 +110,10 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-<<<<<<< HEAD
-use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
-=======
 use xcm::{
 	latest::prelude::*, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
 	VersionedLocation, VersionedXcm,
 };
->>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 use xcm_builder::PayOverXcm;
 
 pub use frame_system::Call as SystemCall;

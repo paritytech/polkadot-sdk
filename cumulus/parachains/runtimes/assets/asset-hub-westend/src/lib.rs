@@ -94,12 +94,8 @@ use assets_common::{
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::{
 	latest::prelude::AssetId,
-<<<<<<< HEAD
-	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
-=======
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 	Version as XcmVersion,
->>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 };
 
 #[cfg(feature = "runtime-benchmarks")]

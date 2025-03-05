@@ -104,12 +104,8 @@ use xcm::latest::prelude::{
 };
 use xcm::{
 	latest::prelude::{AssetId, BodyId},
-<<<<<<< HEAD
-	VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
-=======
 	Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation,
 	VersionedXcm,
->>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 };
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},

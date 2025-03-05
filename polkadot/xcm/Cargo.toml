@@ -1,11 +1,7 @@
 [package]
 name = "staging-xcm"
 description = "The basic XCM datastructures."
-<<<<<<< HEAD
 version = "14.2.0"
-=======
-version = "7.0.1"
->>>>>>> 963f0d73 (Fix DryRunApi client-facing XCM versions (#7438))
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
