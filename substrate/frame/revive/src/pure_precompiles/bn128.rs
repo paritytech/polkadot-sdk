@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use super::Precompile;
-use crate::{Config, Error, ExecReturnValue, GasMeter, RuntimeCosts};
+use crate::{Config, ExecReturnValue, GasMeter, RuntimeCosts};
 use bn::{pairing_batch, AffineG1, AffineG2, Fq, Fq2, Group, Gt, G1, G2};
 use pallet_revive_uapi::ReturnFlags;
 use sp_core::U256;
@@ -35,10 +35,10 @@ impl<T: Config> Precompile<T> for Bn128Add {
 			// point not at infinity
 			sum.x()
 				.to_big_endian(&mut buf[0..32])
-				.map_err(|_| Error::<T>::PrecompileFailure)?;
+				.map_err(|_| "Cannot fail since 0..32 is 32-byte length")?;
 			sum.y()
 				.to_big_endian(&mut buf[32..64])
-				.map_err(|_| Error::<T>::PrecompileFailure)?;
+				.map_err(|_| "Cannot fail since 32..64 is 32-byte length")?;
 		}
 
 		Ok(ExecReturnValue { data: buf.to_vec(), flags: ReturnFlags::empty() })
@@ -183,7 +183,7 @@ pub fn generate_random_ecpairs(_n: usize) -> Vec<u8> {
 	use bn::{Fr, Group, G1, G2};
 	use rand::{rngs::SmallRng, SeedableRng};
 	let n = 1;
-	let mut rng = SmallRng::from_seed([0; 32]);
+	let mut rng = rand::rngs::SmallRng::seed_from_u64(1);
 
 	let mut buffer = vec![0u8; n * 192];
 
