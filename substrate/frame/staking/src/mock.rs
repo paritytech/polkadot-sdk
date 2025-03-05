@@ -846,7 +846,11 @@ pub(crate) fn on_offence_in_era(
 	let bonded_eras = crate::BondedEras::<Test>::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			let _ = Staking::on_offence(offenders, slash_fraction, start_session);
+			let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
+				offenders,
+				slash_fraction,
+				start_session,
+			);
 			if advance_processing_blocks {
 				advance_blocks(process_blocks as u64);
 			}
@@ -857,7 +861,7 @@ pub(crate) fn on_offence_in_era(
 	}
 
 	if pallet_staking::ActiveEra::<Test>::get().unwrap().index == era {
-		let _ = Staking::on_offence(
+		let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
 			offenders,
 			slash_fraction,
 			pallet_staking::ErasStartSessionIndex::<Test>::get(era).unwrap(),
