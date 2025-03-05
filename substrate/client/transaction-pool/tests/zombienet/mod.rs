@@ -105,7 +105,8 @@ impl NetworkSpawner {
 			.subscribe_best()
 			.await
 			.map_err(|_| Error::FailedToGetBlocksStream)?;
-		loop {
+		// It should take at most two iterations to return with the best block, if any.
+		for _ in 0..=1 {
 			let Some(block) = stream.next().await else {
 				continue;
 			};
