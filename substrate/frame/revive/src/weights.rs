@@ -72,12 +72,18 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_revive`.
 pub trait WeightInfo {
+	fn blake2f(_r: u32) -> Weight { Default::default() }
+	fn bn128_add() -> Weight { Default::default() }
+	fn bn128_mul() -> Weight { Default::default() }
+	fn identity(_l: u32) -> Weight { Default::default() }
+	fn bn128_pairing(_p: u32) -> Weight { Default::default() }
 	fn on_process_deletion_queue_batch() -> Weight;
 	fn on_initialize_per_trie_key(k: u32, ) -> Weight;
 	fn call_with_code_per_byte(c: u32, ) -> Weight;
 	fn basic_block_compilation(b: u32, ) -> Weight;
 	fn instantiate_with_code(c: u32, i: u32, ) -> Weight;
 	fn instantiate(i: u32, ) -> Weight;
+	fn ripemd160(_i: u32) -> Weight { Default::default() }
 	fn call() -> Weight;
 	fn upload_code(c: u32, ) -> Weight;
 	fn remove_code() -> Weight;
@@ -142,7 +148,7 @@ pub trait WeightInfo {
 	fn seal_call(t: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_instantiate(i: u32, ) -> Weight;
-	fn seal_hash_sha2_256(n: u32, ) -> Weight;
+	fn sha2_256(n: u32, ) -> Weight;
 	fn seal_hash_keccak_256(n: u32, ) -> Weight;
 	fn seal_hash_blake2_256(n: u32, ) -> Weight;
 	fn seal_hash_blake2_128(n: u32, ) -> Weight;
@@ -968,7 +974,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// The range of component `n` is `[0, 262144]`.
-	fn seal_hash_sha2_256(n: u32, ) -> Weight {
+	fn sha2_256(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1877,7 +1883,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// The range of component `n` is `[0, 262144]`.
-	fn seal_hash_sha2_256(n: u32, ) -> Weight {
+	fn sha2_256(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

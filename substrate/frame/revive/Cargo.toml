@@ -59,6 +59,9 @@ subxt-signer = { workspace = true, optional = true, features = [
 ] }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
+ripemd = { version = "0.1.3", default-features = false }
+bn = { package = "substrate-bn", version = "0.6", default-features = false }
+
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -80,6 +83,7 @@ xcm-builder = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"ripemd/std",
 	"alloy-core/std",
 	"codec/std",
 	"environmental/std",

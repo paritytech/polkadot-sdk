@@ -15,17 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use super::Precompile;
-use crate::{exec::ExecResult, Config, ExecReturnValue, GasMeter, RuntimeCosts};
-use hex_literal::hex;
+use crate::{Config, ExecReturnValue, GasMeter, RuntimeCosts};
 use pallet_revive_uapi::ReturnFlags;
-use sp_core::H160;
-pub const ECRECOVER: H160 = H160(hex!("0000000000000000000000000000000000000001"));
 
 /// The ecrecover precompile.
 pub struct ECRecover;
 
 impl<T: Config> Precompile<T> for ECRecover {
-	fn execute(gas_meter: &mut GasMeter<T>, i: &[u8]) -> ExecResult {
+	fn execute(gas_meter: &mut GasMeter<T>, i: &[u8]) -> Result<ExecReturnValue, &'static str> {
 		gas_meter.charge(RuntimeCosts::EcdsaRecovery)?;
 
 		let mut input = [0u8; 128];
@@ -56,5 +53,17 @@ impl<T: Config> Precompile<T> for ECRecover {
 		};
 
 		Ok(ExecReturnValue { data, flags: ReturnFlags::empty() })
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::pure_precompiles::test::test_precompile_test_vectors;
+
+	#[test]
+	fn test_ecrecover() -> Result<(), String> {
+		test_precompile_test_vectors::<ECRecover>(include_str!("./testdata/1-ecRecover.json"))?;
+		Ok(())
 	}
 }

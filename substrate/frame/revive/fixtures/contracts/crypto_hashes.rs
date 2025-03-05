@@ -43,10 +43,9 @@ pub extern "C" fn deploy() {}
 ///
 /// | value | Algorithm | Bit Width |
 /// |-------|-----------|-----------|
-/// |     0 |      SHA2 |       256 |
-/// |     1 |    KECCAK |       256 |
-/// |     2 |    BLAKE2 |       256 |
-/// |     3 |    BLAKE2 |       128 |
+/// |     2 |    KECCAK |       256 |
+/// |     3 |    BLAKE2 |       256 |
+/// |     4 |    BLAKE2 |       128 |
 /// ---------------------------------
 
 #[no_mangle]
@@ -59,11 +58,6 @@ pub extern "C" fn call() {
 	);
 
 	match chosen_hash_fn {
-		1 => {
-			let mut output = [0u8; 32];
-			api::hash_sha2_256(input, &mut output);
-			api::return_value(uapi::ReturnFlags::empty(), &output);
-		},
 		2 => {
 			let mut output = [0u8; 32];
 			api::hash_keccak_256(input, &mut output);

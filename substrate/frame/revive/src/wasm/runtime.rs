@@ -38,7 +38,7 @@ use frame_support::{
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
-use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
+use sp_io::hashing::{blake2_128, blake2_256, keccak_256};
 use sp_runtime::{DispatchError, RuntimeDebug};
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
@@ -372,9 +372,11 @@ pub enum RuntimeCosts {
 	CallTransferSurcharge,
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
-	/// Weight of calling `seal_instantiate` for the given input lenth.
+	/// Weight of calling `seal_instantiate` for the given input length.
 	Instantiate { input_data_len: u32 },
-	/// Weight of calling `seal_hash_sha_256` for the given input size.
+	/// Weight of calling `Ripemd160` precompile for the given input size.
+	Ripemd160(u32),
+	/// Weight of calling `Sha256` precompile for the given input size.
 	HashSha256(u32),
 	/// Weight of calling `seal_hash_keccak_256` for the given input size.
 	HashKeccak256(u32),
@@ -382,7 +384,7 @@ pub enum RuntimeCosts {
 	HashBlake256(u32),
 	/// Weight of calling `seal_hash_blake2_128` for the given input size.
 	HashBlake128(u32),
-	/// Weight of calling `seal_ecdsa_recover`.
+	/// Weight of calling `ECERecover` precompile.
 	EcdsaRecovery,
 	/// Weight of calling `seal_sr25519_verify` for the given input size.
 	Sr25519Verify(u32),
@@ -400,6 +402,16 @@ pub enum RuntimeCosts {
 	GetImmutableData(u32),
 	/// Weight of calling `set_immutable_dependency`
 	SetImmutableData(u32),
+	/// Weight of calling `Bn128Add` precompile
+	Bn128Add,
+	/// Weight of calling `Bn128Add` precompile
+	Bn128Mul,
+	/// Weight of calling `Bn128Pairing` precompile for the given number of input pairs.
+	Bn128Pairing(u32),
+	/// Weight of calling `Identity` precompile for the given number of input length.
+	Identity(u32),
+	/// Weight of calling `Blake2F` precompile for the given number of rounds.
+	Blake2F(u32),
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -517,7 +529,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
 			CallInputCloned(len) => cost_args!(seal_call, 0, len),
 			Instantiate { input_data_len } => T::WeightInfo::seal_instantiate(input_data_len),
-			HashSha256(len) => T::WeightInfo::seal_hash_sha2_256(len),
+			HashSha256(len) => T::WeightInfo::sha2_256(len),
+			Ripemd160(len) => T::WeightInfo::ripemd160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
 			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
 			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
@@ -528,6 +541,11 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
 			SetImmutableData(len) => T::WeightInfo::seal_set_immutable_data(len),
+			Bn128Add => T::WeightInfo::bn128_add(),
+			Bn128Mul => T::WeightInfo::bn128_mul(),
+			Bn128Pairing(len) => T::WeightInfo::bn128_pairing(len),
+			Identity(len) => T::WeightInfo::identity(len),
+			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
 		}
 	}
 }
@@ -610,7 +628,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 					return Some(Ok(ExecReturnValue {
 						flags: ReturnFlags::empty(),
 						data: Vec::new(),
-					}))
+					}));
 				}
 				let Some(syscall_symbol) = module.imports().get(idx) else {
 					return Some(Err(<Error<E::T>>::InvalidSyscall.into()));
@@ -1920,21 +1938,6 @@ pub mod env {
 		self.charge_gas(RuntimeCosts::HashBlake256(input_len))?;
 		Ok(self.compute_hash_on_intermediate_buffer(
 			memory, blake2_256, input_ptr, input_len, output_ptr,
-		)?)
-	}
-
-	/// Computes the SHA2 256-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_sha2_256`].
-	fn hash_sha2_256(
-		&mut self,
-		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashSha256(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, sha2_256, input_ptr, input_len, output_ptr,
 		)?)
 	}
 

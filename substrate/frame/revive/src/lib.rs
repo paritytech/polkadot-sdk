@@ -495,6 +495,8 @@ pub mod pallet {
 		RefcountOverOrUnderflow,
 		/// Unsupported precompile address
 		UnsupportedPrecompileAddress,
+		/// Precompile Error
+		PrecompileFailure,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
