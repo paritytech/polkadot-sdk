@@ -45,6 +45,7 @@ jobs:
       JOB_NAME: "cmd"
       CMD: ${{ github.event.inputs.cmd }}
       PR_BRANCH: ${{ github.event.inputs.pr_branch }}
+      PR_NUM: ${{ github.event.inputs.pr_num }}
     outputs:
       job_url: ${{ steps.build-link.outputs.job_url }}
       run_url: ${{ steps.build-link.outputs.run_url }}
@@ -79,24 +80,33 @@ jobs:
             let job_url = ${{ steps.build-link.outputs.job_url }}
             let cmd = process.env.CMD;
             github.rest.issues.createComment({
-              issue_number: ${{ github.event.inputs.pr_num }},
+              issue_number: ${{ env.PR_NUM }},
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `Command "${cmd}" has started 🚀 [See logs here](${job_url})`
             })
 
       - name: Debug info
+        env:
+          CMD: ${{ github.event.inputs.cmd }}
+          PR_BRANCH: ${{ github.event.inputs.pr_branch }}
+          PR_NUM: ${{ github.event.inputs.pr_num }}
+          RUNNER: ${{ github.event.inputs.runner }}
+          IMAGE: ${{ github.event.inputs.image }}
+          IS_ORG_MEMBER: ${{ github.event.inputs.is_org_member }}
+          REPO: ${{ github.event.inputs.repo }}
+          COMMENT_ID: ${{ github.event.inputs.comment_id }}
+          IS_QUIET: ${{ github.event.inputs.is_quiet }}
         run: |
-          echo "Running command: ${{ github.event.inputs.cmd }}"
-          echo "PR number: ${{ github.event.inputs.pr_num }}"
-          echo "PR branch: ${{ github.event.inputs.pr_branch }}"
-          echo "Runner: ${{ github.event.inputs.runner }}"
-          echo "Image: ${{ github.event.inputs.image }}"
-          echo "Is org member: ${{ github.event.inputs.is_org_member }}"
-          echo "Repo: ${{ github.event.inputs.repo }}"
-          echo "Run URL: ${{ steps.build-link.outputs.job_url }}"
-          echo "Is quiet: ${{ github.event.inputs.is_quiet }}"
-          echo "Comment ID: ${{ github.event.inputs.comment_id }}"
+          echo "Running command: $CMD"
+          echo "PR number: $PR_NUM"
+          echo "PR branch: $PR_BRANCH"
+          echo "Runner: $RUNNER"
+          echo "Image: $IMAGE"
+          echo "Is org member: $IS_ORG_MEMBER"
+          echo "Repository: $REPO"
+          echo "Comment ID: $COMMENT_ID"
+          echo "Is quiet: $IS_QUIET"
 
   cmd:
     needs: [before-cmd]
@@ -104,6 +114,7 @@ jobs:
       CMD: ${{ github.event.inputs.cmd }}
       PR_BRANCH: ${{ github.event.inputs.pr_branch }}
       PR_NUM: ${{ github.event.inputs.pr_num }}
+      REPO: ${{ github.event.inputs.repo }}
     runs-on: ${{ github.event.inputs.runner }}
     container:
       image: ${{ github.event.inputs.image }}
@@ -121,8 +132,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.inputs.repo }}
-          ref: ${{ github.event.inputs.pr_branch }}
+          repository: ${{ env.REPO }}
+          ref: ${{ env.PR_BRANCH }}
 
       # In order to run prdoc without specifying the PR number, we need to add the PR number as an argument automatically
       - name: Prepare PR Number argument
@@ -140,17 +151,19 @@ jobs:
         env:
           PR_ARG: ${{ steps.pr-arg.outputs.arg }}
           IS_ORG_MEMBER: ${{ github.event.inputs.is_org_member }}
+          RUNNER: ${{ github.event.inputs.runner }}
+          IMAGE: ${{ github.event.inputs.image }}
         run: |
-          echo "Running command: '$CMD $PR_ARG' on '${{ github.event.inputs.runner }}' runner, container: '${{ github.event.inputs.image }}'"
-          echo "RUST_NIGHTLY_VERSION: $RUST_NIGHTLY_VERSION"
-          echo "IS_ORG_MEMBER: $IS_ORG_MEMBER"
+          echo "Running command: '${CMD} ${PR_ARG}' on '${RUNNER}' runner, container: '${IMAGE}'"
+          echo "RUST_NIGHTLY_VERSION: ${RUST_NIGHTLY_VERSION}"
+          echo "IS_ORG_MEMBER: ${IS_ORG_MEMBER}"
 
           git config --global --add safe.directory $GITHUB_WORKSPACE
           git config user.name "cmd[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # if the user is not an org member, we need to use the bot's path from master to avoid unwanted modifications
-          if [ "$IS_ORG_MEMBER" = "true" ]; then
+          if [ "${IS_ORG_MEMBER}" = "true" ]; then
             # safe to run commands from current branch
             BOT_PATH=.github
           else
@@ -230,6 +243,7 @@ jobs:
       CMD: ${{ github.event.inputs.cmd }}
       PR_BRANCH: ${{ github.event.inputs.pr_branch }}
       PR_NUM: ${{ github.event.inputs.pr_num }}
+      REPO: ${{ github.event.inputs.repo }}
     runs-on: ubuntu-latest
     steps:
       # needs to be able to trigger CI, as default token does not retrigger
@@ -243,8 +257,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ steps.generate_token.outputs.token }}
-          repository: ${{ github.event.inputs.repo }}
-          ref: ${{ github.event.inputs.pr_branch }}
+          repository: ${{ env.REPO }}
+          ref: ${{ env.PR_BRANCH }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -299,6 +313,7 @@ jobs:
         env:
           SUBWEIGHT: "${{ needs.cmd.outputs.subweight }}"
           CMD_OUTPUT: "${{ needs.cmd.outputs.cmd_output }}"
+          PR_NUM: ${{ github.event.inputs.pr_num }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -317,7 +332,7 @@ jobs:
               : '';
 
             github.rest.issues.createComment({
-              issue_number: ${{ github.event.inputs.pr_num }},
+              issue_number: ${{ env.PR_NUM }},
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `Command "${cmd}" has finished ✅ [See logs here](${runUrl})${subweightCollapsed}${cmdOutputCollapsed}`
@@ -330,6 +345,8 @@ jobs:
     env:
       CMD_OUTPUT: "${{ needs.cmd.outputs.cmd_output }}"
       CMD: ${{ github.event.inputs.cmd }}
+      PR_NUM: ${{ github.event.inputs.pr_num }}
+      COMMENT_ID: ${{ github.event.inputs.comment_id }}
     steps:
       - name: Comment PR (Failure)
         if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' || needs.before-cmd.result == 'failure' }}
@@ -346,7 +363,7 @@ jobs:
             }
 
             github.rest.issues.createComment({
-              issue_number: ${{ github.event.inputs.pr_num }},
+              issue_number: ${{ env.PR_NUM }},
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `Command "${cmd}" has failed ❌! [See logs here](${jobUrl})${cmdOutputCollapsed}`
@@ -359,7 +376,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             github.rest.reactions.createForIssueComment({
-              comment_id: ${{ github.event.inputs.comment_id }},
+              comment_id: ${{ env.COMMENT_ID }},
               owner: context.repo.owner,
               repo: context.repo.repo,
               content: 'confused'
@@ -372,7 +389,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             github.rest.reactions.createForIssueComment({
-              comment_id: ${{ github.event.inputs.comment_id }},
+              comment_id: ${{ env.COMMENT_ID }},
               owner: context.repo.owner,
               repo: context.repo.repo,
               content: '+1'
