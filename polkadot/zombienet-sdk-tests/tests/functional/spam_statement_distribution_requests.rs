@@ -29,6 +29,12 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 					// "Peer already being served, dropping request"
 					("-lparachain=debug,parachain::statement-distribution=trace").into(),
 				])
+				.with_default_resources(|r| {
+					r.with_limit_cpu("2")
+						.with_limit_memory("4G")
+						.with_request_cpu("1")
+						.with_request_memory("2G")
+				})
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -106,7 +112,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	assert_para_throughput(
 		&relay_client,
 		2,
-		[(ParaId::from(2000), 1..3), (ParaId::from(2001), 1..3)].into_iter().collect(),
+		[(ParaId::from(2000), 2..3), (ParaId::from(2001), 2..3)].into_iter().collect(),
 	)
 	.await?;
 
@@ -124,7 +130,9 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	assert_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(2000), 8..12), (ParaId::from(2001), 8..12)].into_iter().collect(),
+		[(ParaId::from(2000), 10..11), (ParaId::from(2001), 10..11)]
+			.into_iter()
+			.collect(),
 	)
 	.await?;
 
