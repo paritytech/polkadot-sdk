@@ -19,7 +19,10 @@
 
 use crate::dispatch::{DispatchResult, Parameter};
 use alloc::{vec, vec::Vec};
-use codec::{CompactLen, Decode, DecodeLimit, Encode, EncodeLike, Input, MaxEncodedLen};
+use codec::{
+	CompactLen, Decode, DecodeLimit, DecodeWithMemTracking, Encode, EncodeLike, Input,
+	MaxEncodedLen,
+};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 use sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating};
@@ -928,7 +931,7 @@ impl<Address, Call, Signature, Extra> InherentBuilder
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Address: TypeInfo,
-	Call: TypeInfo,
+	Call: Clone + DecodeWithMemTracking + TypeInfo,
 	Signature: TypeInfo,
 	Extra: TypeInfo,
 {
@@ -957,7 +960,7 @@ impl<Address, Call, Signature, Extension> SignedTransactionBuilder
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
 	Address: TypeInfo,
-	Call: TypeInfo,
+	Call: Clone + DecodeWithMemTracking + TypeInfo,
 	Signature: TypeInfo,
 	Extension: TypeInfo,
 {
