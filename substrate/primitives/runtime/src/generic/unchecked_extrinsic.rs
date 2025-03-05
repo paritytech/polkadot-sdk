@@ -203,6 +203,73 @@ where
 	}
 }
 
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum LazyCall<T, const MAX_HEAP_SIZE: usize> {
+	Encoded(Vec<u8>),
+	Decoded(T),
+}
+
+impl<T: DecodeWithMemLimit, const MAX_HEAP_SIZE: usize> LazyCall<T, MAX_HEAP_SIZE> {
+	fn from_call(call: T) -> Self {
+		Self::Decoded(call)
+	}
+
+	fn try_from_input<I: Input>(input: &mut I, len: u32) -> Result<Self, codec::Error> {
+		let mut bytes = vec![0u8; len as usize];
+		input.read(&mut bytes[..])?;
+		Ok(Self::Encoded(bytes))
+	}
+
+	/// Tries to get the decoded value as a reference.
+	///
+	/// If the value is not decoded yet, it will be decoded on the spot and cached.
+	pub fn try_get_or_decode(&mut self) -> Result<&T, codec::Error> {
+		if let LazyCall::Encoded(bytes) = self {
+			// Adds 1 byte to the `MAX_HEAP_SIZE` as the decoding fails exactly at the given value
+			// and the maximum should be allowed to fit in.
+			let call = T::decode_with_mem_limit(&mut &bytes[..], MAX_HEAP_SIZE.saturating_add(1))?;
+			*self = Self::Decoded(call);
+		}
+
+		Ok(match self {
+			LazyCall::Encoded(_) => unreachable!(),
+			LazyCall::Decoded(call) => call,
+		})
+	}
+
+	/// Takes `self` and tries to convert it into a decoded value.
+	///
+	/// If the value is not decoded yet, it will be decoded on the spot and cached.
+	pub fn try_into_decoded(mut self) -> Result<T, codec::Error> {
+		let _ = self.try_get_or_decode()?;
+		Ok(match self {
+			LazyCall::Encoded(_) => unreachable!(),
+			LazyCall::Decoded(call) => call,
+		})
+	}
+}
+
+impl<T: Clone + DecodeWithMemLimit, const MAX_HEAP_SIZE: usize> LazyCall<T, MAX_HEAP_SIZE> {
+	/// Tries to return the decoded value as an owned object.
+	///
+	/// This method doesn't cache the decoded value.
+	pub fn try_decode(&self) -> Result<T, codec::Error> {
+		Ok(match self {
+			LazyCall::Encoded(bytes) => T::decode_with_mem_limit(&mut &bytes[..], MAX_HEAP_SIZE)?,
+			LazyCall::Decoded(call) => call.clone(),
+		})
+	}
+}
+
+impl<T: Encode, const MAX_HEAP_SIZE: usize> Encode for LazyCall<T, MAX_HEAP_SIZE> {
+	fn encode(&self) -> Vec<u8> {
+		match self {
+			LazyCall::Encoded(bytes) => bytes.to_vec(),
+			LazyCall::Decoded(val) => val.encode(),
+		}
+	}
+}
+
 /// An extrinsic right from the external world. This is unchecked and so can contain a signature.
 ///
 /// An extrinsic is formally described as any external data that is originating from the outside of
@@ -228,7 +295,7 @@ where
 #[derive(DecodeWithMemTracking, PartialEq, Eq, Clone, Debug)]
 #[codec(decode_with_mem_tracking_bound(
 	Address: DecodeWithMemTracking,
-	Call: DecodeWithMemTracking,
+	Call: Clone + DecodeWithMemTracking,
 	Signature: DecodeWithMemTracking,
 	Extension: DecodeWithMemTracking)
 )]
@@ -244,6 +311,12 @@ pub struct UncheckedExtrinsic<
 	pub preamble: Preamble<Address, Signature, Extension>,
 	/// The function that should be called.
 	pub function: Call,
+	/// The function that should be called.
+	///
+	/// It is initially stored in the form that it is provided (encoded/decoded), and if needed,
+	/// it will be decoded and cached the first time it is accessed.
+	#[codec(skip)]
+	pub call: LazyCall<Call, MAX_CALL_SIZE>,
 }
 
 /// Manual [`TypeInfo`] implementation because of custom encoding. The data is a valid encoded
@@ -280,7 +353,9 @@ where
 	}
 }
 
-impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Signature, Extension> {
+impl<Address, Call: Clone + DecodeWithMemTracking, Signature, Extension>
+	UncheckedExtrinsic<Address, Call, Signature, Extension>
+{
 	/// New instance of a bare (ne unsigned) extrinsic. This could be used for an inherent or an
 	/// old-school "unsigned transaction" (which are new being deprecated in favour of general
 	/// transactions).
@@ -302,7 +377,7 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 
 	/// Create an `UncheckedExtrinsic` from a `Preamble` and the actual `Call`.
 	pub fn from_parts(function: Call, preamble: Preamble<Address, Signature, Extension>) -> Self {
-		Self { preamble, function }
+		Self { preamble, function: function.clone(), call: LazyCall::from_call(function) }
 	}
 
 	/// New instance of a bare (ne unsigned) extrinsic.
@@ -439,7 +514,7 @@ impl<Address, Call, Signature, Extension, const MAX_CALL_SIZE: usize> Decode
 where
 	Address: Decode,
 	Signature: Decode,
-	Call: DecodeWithMemTracking,
+	Call: Clone + DecodeWithMemTracking,
 	Extension: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
@@ -450,15 +525,11 @@ where
 		let mut input = CountedInput::new(input);
 
 		let preamble = Decode::decode(&mut input)?;
-		// Adds 1 byte to the `MAX_CALL_SIZE` as the decoding fails exactly at the given value and
-		// the maximum should be allowed to fit in.
-		let function = Call::decode_with_mem_limit(&mut input, MAX_CALL_SIZE.saturating_add(1))?;
 
-		if input.count() != expected_length.0 as u64 {
-			return Err("Invalid length prefix".into())
-		}
+		let encoded_call_size = expected_length.0.saturating_sub(input.count() as u32);
+		let call = LazyCall::try_from_input(&mut input, encoded_call_size)?;
 
-		Ok(Self { preamble, function })
+		Ok(Self { preamble, function: call.clone().try_into_decoded()?, call })
 	}
 }
 
@@ -509,8 +580,13 @@ impl<Address: Encode, Signature: Encode, Call: Encode, Extension: Encode> serde:
 }
 
 #[cfg(feature = "serde")]
-impl<'a, Address: Decode, Signature: Decode, Call: DecodeWithMemTracking, Extension: Decode>
-	serde::Deserialize<'a> for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<
+		'a,
+		Address: Decode,
+		Signature: Decode,
+		Call: Clone + DecodeWithMemTracking,
+		Extension: Decode,
+	> serde::Deserialize<'a> for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
 	where
@@ -1027,7 +1103,7 @@ mod tests {
 	#[test]
 	fn max_call_heap_size_should_be_checked() {
 		// Should be able to decode an `UncheckedExtrinsic` that contains a call with
-		// heap size < `MAX_CALL_HEAP_SIZE`
+		// heap size <= `MAX_CALL_SIZE`
 		let ux = Ex::new_bare(vec![0u8; DEFAULT_MAX_CALL_SIZE].into());
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
