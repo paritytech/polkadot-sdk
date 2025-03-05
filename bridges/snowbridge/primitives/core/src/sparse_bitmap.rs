@@ -3,7 +3,7 @@
 use frame_support::storage::StorageMap;
 use sp_std::marker::PhantomData;
 
-/// Sparse bitmap implementation.
+/// Sparse bitmap interface.
 pub trait SparseBitmap<BitMap>
 where
 	BitMap: StorageMap<u128, u128, Query = u128>,
@@ -12,6 +12,7 @@ where
 	fn set(index: u128);
 }
 
+/// Sparse bitmap implementation.
 pub struct SparseBitmapImpl<BitMap>(PhantomData<BitMap>);
 
 impl<BitMap> SparseBitmap<BitMap> for SparseBitmapImpl<BitMap>

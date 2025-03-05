@@ -1,5 +1,5 @@
 [package]
-name = "snowbridge-pallet-inbound-queue-fixtures-v2"
+name = "snowbridge-pallet-inbound-queue-v2-fixtures"
 description = "Snowbridge Inbound Queue Test Fixtures V2"
 version = "0.10.0"
 authors = ["Snowfork <contact@snowfork.com>"]

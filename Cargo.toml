@@ -1258,13 +1258,13 @@ snowbridge-inbound-queue-primitives = { path = "bridges/snowbridge/primitives/in
 snowbridge-merkle-tree = { path = "bridges/snowbridge/primitives/merkle-tree", default-features = false }
 snowbridge-outbound-queue-primitives = { path = "bridges/snowbridge/primitives/outbound-queue", default-features = false }
 snowbridge-outbound-queue-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false }
-snowbridge-outbound-queue-runtime-api-v2 = { path = "bridges/snowbridge/pallets/outbound-queue-v2/runtime-api", default-features = false }
+snowbridge-outbound-queue-v2-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue-v2/runtime-api", default-features = false }
 snowbridge-pallet-ethereum-client = { path = "bridges/snowbridge/pallets/ethereum-client", default-features = false }
 snowbridge-pallet-ethereum-client-fixtures = { path = "bridges/snowbridge/pallets/ethereum-client/fixtures", default-features = false }
 snowbridge-pallet-inbound-queue = { path = "bridges/snowbridge/pallets/inbound-queue", default-features = false }
 snowbridge-pallet-inbound-queue-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue/fixtures", default-features = false }
-snowbridge-pallet-inbound-queue-fixtures-v2 = { path = "bridges/snowbridge/pallets/inbound-queue-v2/fixtures", default-features = false }
 snowbridge-pallet-inbound-queue-v2 = { path = "bridges/snowbridge/pallets/inbound-queue-v2", default-features = false }
+snowbridge-pallet-inbound-queue-v2-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue-v2/fixtures", default-features = false }
 snowbridge-pallet-outbound-queue = { path = "bridges/snowbridge/pallets/outbound-queue", default-features = false }
 snowbridge-pallet-outbound-queue-v2 = { path = "bridges/snowbridge/pallets/outbound-queue-v2", default-features = false }
 snowbridge-pallet-system = { path = "bridges/snowbridge/pallets/system", default-features = false }
@@ -1273,7 +1273,7 @@ snowbridge-pallet-system-v2 = { path = "bridges/snowbridge/pallets/system-v2", d
 snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false }
 snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-common", default-features = false }
 snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false }
-snowbridge-system-runtime-api-v2 = { path = "bridges/snowbridge/pallets/system-v2/runtime-api", default-features = false }
+snowbridge-system-v2-runtime-api = { path = "bridges/snowbridge/pallets/system-v2/runtime-api", default-features = false }
 snowbridge-test-utils = { path = "bridges/snowbridge/test-utils" }
 snowbridge-verification-primitives = { path = "bridges/snowbridge/primitives/verification", default-features = false }
 soketto = { version = "0.8.0" }

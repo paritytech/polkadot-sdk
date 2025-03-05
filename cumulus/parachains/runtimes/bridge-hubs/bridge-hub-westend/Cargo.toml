@@ -115,7 +115,7 @@ snowbridge-inbound-queue-primitives = { workspace = true }
 snowbridge-merkle-tree = { workspace = true }
 snowbridge-outbound-queue-primitives = { workspace = true }
 snowbridge-outbound-queue-runtime-api = { workspace = true }
-snowbridge-outbound-queue-runtime-api-v2 = { workspace = true }
+snowbridge-outbound-queue-v2-runtime-api = { workspace = true }
 snowbridge-pallet-ethereum-client = { workspace = true }
 snowbridge-pallet-inbound-queue = { workspace = true }
 snowbridge-pallet-inbound-queue-v2 = { workspace = true }
@@ -125,7 +125,7 @@ snowbridge-pallet-system = { workspace = true }
 snowbridge-pallet-system-v2 = { workspace = true }
 snowbridge-runtime-common = { workspace = true }
 snowbridge-system-runtime-api = { workspace = true }
-snowbridge-system-runtime-api-v2 = { workspace = true }
+snowbridge-system-v2-runtime-api = { workspace = true }
 
 
 [dev-dependencies]
@@ -202,7 +202,7 @@ std = [
 	"snowbridge-inbound-queue-primitives/std",
 	"snowbridge-merkle-tree/std",
 	"snowbridge-outbound-queue-primitives/std",
-	"snowbridge-outbound-queue-runtime-api-v2/std",
+	"snowbridge-outbound-queue-v2-runtime-api/std",
 	"snowbridge-outbound-queue-runtime-api/std",
 	"snowbridge-pallet-ethereum-client/std",
 	"snowbridge-pallet-inbound-queue-v2/std",
@@ -212,7 +212,7 @@ std = [
 	"snowbridge-pallet-system-v2/std",
 	"snowbridge-pallet-system/std",
 	"snowbridge-runtime-common/std",
-	"snowbridge-system-runtime-api-v2/std",
+	"snowbridge-system-v2-runtime-api/std",
 	"snowbridge-system-runtime-api/std",
 	"sp-api/std",
 	"sp-block-builder/std",

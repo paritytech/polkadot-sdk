@@ -21,7 +21,7 @@ use xcm_builder::{
 
 pub type AgentId = H256;
 
-/// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
+/// Creates an AgentId from a Location. An AgentId is a unique mapping to an Agent contract on
 /// Ethereum which acts as the sovereign account for the Location.
 /// Resolves Polkadot locations (as seen by Ethereum) to unique `AgentId` identifiers.
 pub type AgentIdOf = HashedDescription<

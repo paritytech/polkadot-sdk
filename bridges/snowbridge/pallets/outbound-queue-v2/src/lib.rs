@@ -20,9 +20,9 @@
 //!    [`frame_support::traits::ProcessMessage::process_message`]
 //! 5. The message is processed in `Pallet::do_process_message`:
 //! 	a. Convert to `OutboundMessage`, and stored into the `Messages` vector storage
-//! 	b. ABI-encoded the OutboundMessage, with commited hash stored into the `MessageLeaves` storage
-//! 	c. Generate `PendingOrder` with assigned nonce and fee attach, stored into the `PendingOrders`
-//! 	   map storage, with nonce as the key
+//! 	b. ABI-encode the `OutboundMessage` and store the committed hash in `MessageLeaves`
+//! 	c. Generate `PendingOrder` with assigned nonce and fee attached, stored into the
+//! `PendingOrders` 	   map storage, with nonce as the key
 //! 	d. Increment nonce and update the `Nonce` storage
 //! 6. At the end of the block, a merkle root is constructed from all the leaves in `MessageLeaves`,
 //!    then `MessageLeaves` is dropped so that it is never committed to storage or included in PoV.
@@ -31,8 +31,9 @@
 //! 	a. Generating a merkle proof for the committed message using the `prove_message` runtime API
 //! 	b. Reading the actual message content from the `Messages` vector in storage
 //! 9. On the Ethereum side, the message root is ultimately the thing being verified by the Beefy
-//!    light client. When the message has been verified and executed, the relayer will call the
-//!    extrinsic `submit_delivery_proof` work the way as follows:
+//!    light client.
+//! 10. When the message has been verified and executed, the relayer will call the
+//!    extrinsic `submit_delivery_receipt` work the way as follows:
 //! 	a. Verify the message with proof for a transaction receipt containing the event log,
 //! 	   same as the inbound queue verification flow
 //! 	b. Fetch the pending order by nonce of the message, pay reward with fee attached in the order
@@ -41,12 +42,11 @@
 //!
 //! # Extrinsics
 //!
-//! * [`Call::submit_delivery_proof`]: Submit delivery proof
+//! * [`Call::submit_delivery_receipt`]: Submit delivery proof
 //!
 //! # Runtime API
 //!
 //! * `prove_message`: Generate a merkle proof for a committed message
-//! * `dry_run`: Convert xcm to InboundMessage
 #![cfg_attr(not(feature = "std"), no_std)]
 pub mod api;
 pub mod process_message_impl;
@@ -216,7 +216,6 @@ pub mod pallet {
 	/// `on_initialize`, so should never go into block PoV.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	#[pallet::getter(fn message_leaves)]
 	pub(super) type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
 
 	/// The current nonce for the messages

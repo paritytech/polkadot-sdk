@@ -3,7 +3,7 @@
 //!
 //! System frontend pallet that acts as the user-facing controlplane for Snowbridge.
 //!
-//! Some operations are delegated to a backend pallet installed a remote parachain.
+//! Some operations are delegated to a backend pallet installed on a remote parachain.
 //!
 //! # Extrinsics
 //!
@@ -120,7 +120,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A XCM message was sent
+		/// An XCM was sent
 		MessageSent {
 			origin: Location,
 			destination: Location,

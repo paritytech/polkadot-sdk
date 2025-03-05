@@ -8,7 +8,7 @@ doc:
 crates:
 - name: snowbridge-pallet-outbound-queue-v2
   bump: minor
-- name: snowbridge-outbound-queue-runtime-api-v2
+- name: snowbridge-outbound-queue-v2-runtime-api
   bump: minor
 - name: snowbridge-core
   bump: major

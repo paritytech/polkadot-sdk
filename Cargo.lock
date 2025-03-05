@@ -2657,7 +2657,7 @@ dependencies = [
  "snowbridge-merkle-tree",
  "snowbridge-outbound-queue-primitives",
  "snowbridge-outbound-queue-runtime-api",
- "snowbridge-outbound-queue-runtime-api-v2",
+ "snowbridge-outbound-queue-v2-runtime-api",
  "snowbridge-pallet-ethereum-client",
  "snowbridge-pallet-inbound-queue",
  "snowbridge-pallet-inbound-queue-v2",
@@ -2668,7 +2668,7 @@ dependencies = [
  "snowbridge-runtime-common",
  "snowbridge-runtime-test-common",
  "snowbridge-system-runtime-api",
- "snowbridge-system-runtime-api-v2",
+ "snowbridge-system-v2-runtime-api",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -21678,7 +21678,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-outbound-queue-runtime-api-v2"
+name = "snowbridge-outbound-queue-v2-runtime-api"
 version = "0.2.0"
 dependencies = [
  "frame-support",
@@ -21772,18 +21772,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-pallet-inbound-queue-fixtures-v2"
-version = "0.10.0"
-dependencies = [
- "hex-literal",
- "snowbridge-beacon-primitives",
- "snowbridge-core",
- "snowbridge-inbound-queue-primitives",
- "sp-core 28.0.0",
- "sp-std 14.0.0",
-]
-
-[[package]]
 name = "snowbridge-pallet-inbound-queue-v2"
 version = "0.2.0"
 dependencies = [
@@ -21803,7 +21791,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
  "snowbridge-pallet-ethereum-client",
- "snowbridge-pallet-inbound-queue-fixtures-v2",
+ "snowbridge-pallet-inbound-queue-v2-fixtures",
  "snowbridge-test-utils",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
@@ -21814,6 +21802,18 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "tracing",
+]
+
+[[package]]
+name = "snowbridge-pallet-inbound-queue-v2-fixtures"
+version = "0.10.0"
+dependencies = [
+ "hex-literal",
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "snowbridge-inbound-queue-primitives",
+ "sp-core 28.0.0",
+ "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -22007,7 +22007,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-system-runtime-api-v2"
+name = "snowbridge-system-v2-runtime-api"
 version = "0.2.0"
 dependencies = [
  "parity-scale-codec",

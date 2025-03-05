@@ -32,7 +32,7 @@ use rococo_westend_system_emulated_network::penpal_emulated_chain::PARA_ID_B;
 use snowbridge_core::{AssetMetadata, TokenIdOf};
 use snowbridge_inbound_queue_primitives::v2::{
 	EthereumAsset::{ForeignTokenERC20, NativeTokenERC20},
-	Message, XcmPayload,
+	Message, Network, XcmPayload,
 };
 use sp_core::{H160, H256};
 use sp_runtime::MultiAddress;
@@ -72,7 +72,7 @@ fn register_token_v2() {
 			nonce: 1,
 			origin,
 			assets: vec![],
-			xcm: XcmPayload::CreateAsset { token, network: 0 },
+			xcm: XcmPayload::CreateAsset { token, network: Network::Polkadot },
 			claimer: Some(claimer_bytes),
 			// Used to pay the asset creation deposit.
 			value: 9_000_000_000_000u128,
@@ -997,6 +997,11 @@ fn invalid_claimer_does_not_fail_the_message() {
 					asset_id: *asset_id == weth_location(),
 					owner: *owner == beneficiary_acc.into(),
 				},
+				// Leftover fees deposited into Snowbridge Sovereign
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == eth_location(),
+					owner: *owner == snowbridge_sovereign().into(),
+				},
 			]
 		);
 
@@ -1004,16 +1009,6 @@ fn invalid_claimer_does_not_fail_the_message() {
 		assert_eq!(
 			ForeignAssets::balance(weth_location(), AccountId::from(beneficiary_acc)),
 			token_transfer_value
-		);
-
-		let events = AssetHubWestend::events();
-		// Check that assets were trapped due to the invalid claimer.
-		assert!(
-			events.iter().any(|event| matches!(
-				event,
-				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
-			)),
-			"Assets were trapped, should not happen."
 		);
 	});
 }

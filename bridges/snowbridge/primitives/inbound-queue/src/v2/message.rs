@@ -85,7 +85,14 @@ pub enum XcmPayload {
 	/// Represents raw XCM bytes
 	Raw(Vec<u8>),
 	/// A token registration template
-	CreateAsset { token: H160, network: u8 },
+	CreateAsset { token: H160, network: Network },
+}
+
+/// Network enum for cross-chain message destination
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Encode, Decode, TypeInfo)]
+pub enum Network {
+	/// Polkadot network
+	Polkadot,
 }
 
 /// The ethereum side sends messages which are transcoded into XCM on BH. These messages are
@@ -177,10 +184,12 @@ impl TryFrom<&Log> for Message {
 			1 => {
 				let create_asset = IGatewayV2::XcmCreateAsset::abi_decode(&payload.xcm.data, true)
 					.map_err(|_| MessageDecodeError)?;
-				XcmPayload::CreateAsset {
-					token: H160::from(create_asset.token.as_ref()),
-					network: create_asset.network,
-				}
+				// Convert u8 network to Network enum
+				let network = match create_asset.network {
+					0 => Network::Polkadot,
+					_ => return Err(MessageDecodeError),
+				};
+				XcmPayload::CreateAsset { token: H160::from(create_asset.token.as_ref()), network }
 			},
 			_ => return Err(MessageDecodeError),
 		};

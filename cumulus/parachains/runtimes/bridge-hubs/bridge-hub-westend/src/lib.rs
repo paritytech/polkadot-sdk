@@ -953,7 +953,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl snowbridge_outbound_queue_runtime_api_v2::OutboundQueueV2Api<Block, Balance> for Runtime {
+	impl snowbridge_outbound_queue_v2_runtime_api::OutboundQueueV2Api<Block, Balance> for Runtime {
 		fn prove_message(leaf_index: u64) -> Option<snowbridge_merkle_tree::MerkleProof> {
 			snowbridge_pallet_outbound_queue_v2::api::prove_message::<Runtime>(leaf_index)
 		}
@@ -965,7 +965,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl snowbridge_system_runtime_api_v2::ControlV2Api<Block> for Runtime {
+	impl snowbridge_system_v2_runtime_api::ControlV2Api<Block> for Runtime {
 		fn agent_id(location: VersionedLocation) -> Option<AgentId> {
 			snowbridge_pallet_system_v2::api::agent_id::<Runtime>(location)
 		}

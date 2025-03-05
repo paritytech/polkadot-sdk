@@ -4,7 +4,7 @@ use super::*;
 
 use crate::{mock::*, Error};
 use codec::Encode;
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use snowbridge_inbound_queue_primitives::{EventProof, Proof};
 use snowbridge_test_utils::mock_xcm::{set_charge_fees_override, set_sender_override};
@@ -85,9 +85,9 @@ fn test_submit_verification_fails_with_invalid_proof() {
 			},
 		};
 		// The mock verifier will error once it matches this address.
-		event.event_log.address = hex!("0000000000000000000000000000000000000911").into();
+		event.event_log.address = ERROR_ADDRESS.into();
 
-		assert_err!(
+		assert_noop!(
 			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
 			Error::<Test>::Verification(VerificationError::InvalidProof)
 		);
@@ -110,7 +110,7 @@ fn test_submit_fails_with_malformed_message() {
 			},
 		};
 
-		assert_err!(
+		assert_noop!(
 			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
 			Error::<Test>::InvalidMessage
 		);
@@ -145,7 +145,7 @@ fn test_using_same_nonce_fails() {
 			"no event emitted."
 		);
 
-		assert_err!(
+		assert_noop!(
 			InboundQueue::submit(origin.clone(), Box::new(event.clone())),
 			Error::<Test>::InvalidNonce
 		);
@@ -216,7 +216,7 @@ fn test_xcm_send_failure() {
 			},
 		};
 
-		assert_err!(
+		assert_noop!(
 			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
 			Error::<Test>::SendFailure
 		);
@@ -246,7 +246,7 @@ fn test_xcm_send_validate_failure() {
 			},
 		};
 
-		assert_err!(
+		assert_noop!(
 			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
 			Error::<Test>::Unreachable
 		);
@@ -271,7 +271,7 @@ fn test_xcm_charge_fees_failure() {
 			},
 		};
 
-		assert_err!(
+		assert_noop!(
 			crate::test::InboundQueue::submit(origin.clone(), Box::new(event.clone())),
 			Error::<Test>::FeesNotMet
 		);

@@ -22,22 +22,20 @@
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
+use crate::{
+	bridge_to_ethereum_config::{AssetHubLocation, AssetHubXCMFee, InboundQueueLocation},
+	xcm_config::XcmConfig,
+	RuntimeCall, XcmRouter,
+};
 use bp_messages::LegacyLaneId;
 use bp_relayers::RewardsAccountParams;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::parameter_types;
 use scale_info::TypeInfo;
-use xcm::VersionedLocation;
 use snowbridge_core::reward::NoOpReward;
-use crate::bridge_to_ethereum_config::AssetHubXCMFee;
-use crate::xcm_config::XcmConfig;
-use xcm_executor::XcmExecutor;
-use crate::RuntimeCall;
-use crate::XcmRouter;
-use crate::bridge_to_ethereum_config::InboundQueueLocation;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
-use crate::bridge_to_ethereum_config::AssetHubLocation;
-use xcm::opaque::latest::Location;
+use xcm::{opaque::latest::Location, VersionedLocation};
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;

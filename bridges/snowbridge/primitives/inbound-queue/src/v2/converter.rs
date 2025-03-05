@@ -14,12 +14,14 @@ use xcm::{
 	prelude::{Junction::*, *},
 	MAX_XCM_DECODE_DEPTH,
 };
-
 use super::{message::*, traits::*};
 use crate::{CallIndex, EthereumLocationsConverterFor};
 use sp_runtime::MultiAddress;
 
 const MINIMUM_DEPOSIT: u128 = 1;
+
+/// Topic prefix used for generating unique identifiers for messages
+const INBOUND_QUEUE_TOPIC_PREFIX: &str = "SnowbridgeInboundQueueV2";
 
 /// Representation of an intermediate parsed message, before final
 /// conversion to XCM.
@@ -152,7 +154,7 @@ where
 			}
 		}
 
-		let topic = blake2_256(&("SnowbridgeInboundQueueV2", message.nonce).encode());
+		let topic = blake2_256(&(INBOUND_QUEUE_TOPIC_PREFIX, message.nonce).encode());
 
 		let prepared_message = PreparedMessage {
 			origin: message.origin.clone(),
@@ -166,18 +168,24 @@ where
 		Ok(prepared_message)
 	}
 
-    /// Construct the remote XCM needed to create a new asset in the `ForeignAssets` pallet
-    /// on AssetHub (Polkadot or Kusama).
-    fn make_create_asset_xcm(
-		token: &H160,
-		network: u8,
-		eth_value: u128,
-	) -> Result<Xcm<()>, ConvertMessageError> {
+	/// Get the bridge owner account ID from the current Ethereum network chain ID.
+	/// Returns an error if the network is not Ethereum.
+	fn get_bridge_owner() -> Result<[u8; 32], ConvertMessageError> {
 		let chain_id = match EthereumNetwork::get() {
 			NetworkId::Ethereum { chain_id } => chain_id,
 			_ => return Err(ConvertMessageError::InvalidNetwork),
 		};
-		let bridge_owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
+		Ok(EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id))
+	}
+
+	/// Construct the remote XCM needed to create a new asset in the `ForeignAssets` pallet
+	/// on AssetHub (Polkadot or Kusama).
+	fn make_create_asset_xcm(
+		token: &H160,
+		network: super::message::Network,
+		eth_value: u128,
+	) -> Result<Xcm<()>, ConvertMessageError> {
+		let bridge_owner = Self::get_bridge_owner()?;
 
 		let dot_asset = Location::new(1, Here);
 		let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
@@ -196,14 +204,13 @@ where
 		);
 
 		match network {
-			0 => Ok(Self::make_create_asset_xcm_for_polkadot(
+			super::message::Network::Polkadot => Ok(Self::make_create_asset_xcm_for_polkadot(
 				create_call_index,
 				asset_id,
 				bridge_owner,
 				dot_fee,
 				eth_asset,
 			)),
-			_ => Err(ConvertMessageError::InvalidNetwork),
 		}
 	}
 
@@ -299,28 +306,29 @@ where
 			DescendOrigin(InboundQueueLocation::get()),
 			UniversalOrigin(GlobalConsensus(network)),
 			ReserveAssetDeposited(message.execution_fee.clone().into()),
-			PayFees { asset: message.execution_fee.clone() },
 		];
 
-		// Make the origin account on AH the default claimer. This account can transact
-		// on AH once it gets full EVM support.
+		let bridge_owner = Self::get_bridge_owner()?;
+		// Make the Snowbridge sovereign on AH the default claimer.
 		let default_claimer = Location::new(
 			0,
-			[AccountKey20 {
-				// Set network to `None` to support future Plaza EVM chainid by default.
+			[AccountId32 {
 				network: None,
-				// Ethereum account ID
-				key: message.origin.as_fixed_bytes().clone(),
+				id: bridge_owner,
 			}],
 		);
 
 		let claimer = message.claimer.unwrap_or(default_claimer);
 
+		// Set claimer before PayFees, in case the fees are not enough. Then the claimer will be
+		// able to claim the funds still.
 		instructions.push(SetHints {
 			hints: vec![AssetClaimer { location: claimer.clone() }]
 				.try_into()
 				.expect("checked statically, qed"),
 		});
+
+		instructions.push(PayFees { asset: message.execution_fee.clone() });
 
 		let mut reserve_deposit_assets = vec![];
 		let mut reserve_withdraw_assets = vec![];
@@ -438,7 +446,6 @@ mod tests {
 			EthereumAsset::ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
 		];
 		let instructions = vec![
-			RefundSurplus,
 			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary: beneficiary.clone() },
 		];
 		let xcm: Xcm<()> = instructions.into();
@@ -562,8 +569,8 @@ mod tests {
 		assert!(reserve_deposited_found == 2);
 		// Expecting one WithdrawAsset for the foreign ERC-20
 		assert!(withdraw_assets_found == 1);
-		// One added by the user, one appended to the message in the converter.
-		assert!(refund_surplus_found == 2);
+		// Appended to the message in the converter.
+		assert!(refund_surplus_found == 1);
 		// Deposit asset added by the converter and user
 		assert!(deposit_asset_found == 2);
 	}
@@ -669,13 +676,10 @@ mod tests {
 			hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
 		let beneficiary =
 			hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
-		let message_id: H256 =
-			hex!("8b69c7e376e28114618e829a7ec768dbda28357d359ba417a3bd79b11215059d").into();
 		let token_value = 3_000_000_000_000u128;
 		let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
 		let instructions = vec![
 			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary },
-			SetTopic(message_id.into()),
 		];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_xcm = VersionedXcm::V5(xcm);
@@ -697,7 +701,7 @@ mod tests {
 			relayer_fee,
 		};
 
-		let result = Converter::convert(message);
+		let result = Converter::convert(message.clone());
 
 		// Invalid claimer does not break the message conversion
 		assert_ok!(result.clone());
@@ -716,10 +720,15 @@ mod tests {
 			}
 		}
 
-		// actual claimer should default to message origin
+		// actual claimer should default to Snowbridge sovereign account
+		let chain_id = match EthereumNetwork::get() {
+			NetworkId::Ethereum { chain_id } => chain_id,
+			_ => 0,
+		};
+		let bridge_owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
 		assert_eq!(
 			actual_claimer,
-			Some(Location::new(0, [AccountKey20 { network: None, key: origin.into() }]))
+			Some(Location::new(0, [AccountId32 { network: None, id: bridge_owner }]))
 		);
 
 		// Find the last two instructions to check the appendix is correct.
@@ -740,9 +749,13 @@ mod tests {
 			second_last,
 			Some(DepositAsset {
 				assets: Wild(AllOf { id: AssetId(fee_asset), fun: WildFungibility::Fungible }),
-				// beneficiary is the relayer
-				beneficiary: Location::new(0, [AccountKey20 { network: None, key: origin.into() }])
+				// beneficiary is the claimer (bridge owner)
+				beneficiary: Location::new(0, [AccountId32 { network: None, id: bridge_owner }])
 			})
+		);
+		assert_eq!(
+			last,
+			Some(SetTopic(blake2_256(&(INBOUND_QUEUE_TOPIC_PREFIX, message.nonce).encode())))
 		);
 	}
 

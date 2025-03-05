@@ -19,7 +19,7 @@
 //!
 //! ## Message Submission
 //!
-//! * [`Call::submit`]: Submit a message for verification and dispatch the final destination
+//! * [`Call::submit`]: Submit a message for verification and dispatch to the final destination
 //!   parachain.
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -283,9 +283,10 @@ pub mod pallet {
 		) -> Result<XcmHash, SendError> {
 			let (ticket, fee) = validate_send::<T::XcmSender>(dest, xcm)?;
 			let fee_payer = T::AccountToLocation::try_convert(&fee_payer).map_err(|err| {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"Failed to convert account to XCM location: {err:?}",
+					?err,
+					"Failed to convert account to XCM location",
 				);
 				SendError::NotApplicable
 			})?;

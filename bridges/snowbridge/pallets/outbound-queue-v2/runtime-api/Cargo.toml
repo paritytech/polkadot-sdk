@@ -1,5 +1,5 @@
 [package]
-name = "snowbridge-outbound-queue-runtime-api-v2"
+name = "snowbridge-outbound-queue-v2-runtime-api"
 description = "Snowbridge Outbound Queue Runtime API V2"
 version = "0.2.0"
 authors = ["Snowfork <contact@snowfork.com>"]

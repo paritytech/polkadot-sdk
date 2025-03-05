@@ -97,12 +97,7 @@ pub struct AllowFromAssetHub;
 impl Contains<Location> for AllowFromAssetHub {
 	fn contains(location: &Location) -> bool {
 		match location.unpack() {
-			(1, [Parachain(para_id)]) =>
-				if *para_id == 1000 {
-					true
-				} else {
-					false
-				},
+			(1, [Parachain(para_id)]) => return *para_id == 1000,
 			_ => false,
 		}
 	}

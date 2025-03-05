@@ -36,6 +36,8 @@ frame_support::construct_runtime!(
 	}
 );
 
+pub(crate) const ERROR_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000911");
+
 pub type AccountId = sp_runtime::AccountId32;
 type Balance = u128;
 
@@ -99,7 +101,7 @@ pub struct MockVerifier;
 
 impl Verifier for MockVerifier {
 	fn verify(log: &Log, _: &Proof) -> Result<(), VerificationError> {
-		if log.address == hex!("0000000000000000000000000000000000000911").into() {
+		if log.address == ERROR_ADDRESS.into() {
 			return Err(VerificationError::InvalidProof)
 		}
 		Ok(())

@@ -18,9 +18,12 @@ use xcm::{
 	prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *},
 };
 
+/// Error related to paying out relayer rewards.
 #[derive(Debug, Encode, Decode)]
 pub enum RewardPaymentError {
+	/// The XCM to mint the reward on AssetHub could not be sent.
 	XcmSendFailure,
+	/// The delivery fee to send the XCM could not be charged.
 	ChargeFeesFailure,
 }
 

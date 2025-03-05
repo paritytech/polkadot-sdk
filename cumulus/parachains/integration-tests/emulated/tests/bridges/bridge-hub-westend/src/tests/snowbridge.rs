@@ -954,7 +954,7 @@ fn send_token_from_ethereum_to_penpal() {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			weth_asset_location.clone().try_into().unwrap(),
-			asset_hub_sovereign.into(),
+			ethereum_sovereign.into(),
 			false,
 			1,
 		));
