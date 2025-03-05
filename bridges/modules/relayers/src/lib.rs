@@ -18,7 +18,6 @@
 //! coordinate relations between relayers.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![warn(missing_docs)]
 
 extern crate alloc;
 
@@ -367,6 +366,11 @@ pub mod pallet {
 					);
 				},
 			}
+
+			Self::deposit_event(Event::<T, I>::SlashedAndDeregistered {
+				relayer: relayer.clone(),
+				registration,
+			});
 		}
 
 		/// Register reward for given relayer.
@@ -553,6 +557,8 @@ mod tests {
 	use super::*;
 	use mock::{RuntimeEvent as TestEvent, *};
 
+	use bp_messages::{HashedLaneId, LaneIdType};
+	use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 	use frame_support::{assert_noop, assert_ok, traits::fungible::Mutate};
 	use frame_system::{EventRecord, Pallet as System, Phase};
 	use sp_runtime::DispatchError;
@@ -586,6 +592,43 @@ mod tests {
 					topics: vec![],
 				}),
 			);
+		});
+	}
+
+	#[test]
+	fn slash_and_deregister_works() {
+		run_test(|| {
+			get_ready_for_events();
+
+			// register
+			assert_ok!(Pallet::<TestRuntime>::register(
+				RuntimeOrigin::signed(REGISTER_RELAYER),
+				150,
+			));
+			// check if registered
+			let registration = Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER).unwrap();
+			assert_eq!(registration, Registration { valid_till: 150, stake: Stake::get() });
+
+			// slash and deregister
+			let slash_destination = RewardsAccountParams::new(
+				HashedLaneId::try_new(1, 2).unwrap(),
+				*b"test",
+				RewardsAccountOwner::ThisChain,
+			);
+			let slash_destination = bp_relayers::ExplicitOrAccountParams::Params(slash_destination);
+			Pallet::<TestRuntime>::slash_and_deregister(&REGISTER_RELAYER, slash_destination);
+			// check if event emitted
+			assert_eq!(
+				System::<TestRuntime>::events().last(),
+				Some(&EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::BridgeRelayers(Event::SlashedAndDeregistered {
+						relayer: REGISTER_RELAYER,
+						registration,
+					}),
+					topics: vec![],
+				})
+			)
 		});
 	}
 
