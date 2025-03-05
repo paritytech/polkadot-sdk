@@ -28,8 +28,8 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Inspect, Mutate, Mutate as FunMutate,
 		},
-		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, OnUnbalanced, UnixTime,
+		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		InspectLockableCurrency, Nothing, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedBTreeSet, BoundedVec,
@@ -71,6 +71,7 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 
 	use crate::{BenchmarkingConfig, PagedExposureMetadata, SnapshotStatus};
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
@@ -120,6 +121,8 @@ pub mod pallet {
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
 			+ codec::FullCodec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Copy
 			+ MaybeSerializeDeserialize
 			+ core::fmt::Debug
@@ -331,6 +334,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
+		#[pallet::no_default_bounds]
+		/// Filter some accounts from participating in staking.
+		///
+		/// This is useful for example to blacklist an account that is participating in staking in
+		/// another way (such as pools).
+		type Filter: Contains<Self::AccountId>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -390,6 +400,7 @@ pub mod pallet {
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxDisabledValidators = ConstU32<100>;
 			type EventListeners = ();
+			type Filter = Nothing;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -1145,6 +1156,9 @@ pub mod pallet {
 		AlreadyMigrated,
 		/// Era not yet started.
 		EraNotStarted,
+		/// Account is restricted from participation in staking. This may happen if the account is
+		/// staking in another way already, such as via pool.
+		Restricted,
 	}
 
 	#[pallet::hooks]
@@ -1402,6 +1416,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
@@ -1449,6 +1465,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -2032,6 +2049,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
+
+			ensure!(!T::Filter::contains(&ledger.stash), Error::<T>::Restricted);
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
@@ -2587,6 +2606,38 @@ pub mod pallet {
 			slashing::apply_slash::<T>(unapplied_slash, slash_era);
 
 			Ok(Pays::No.into())
+		}
+
+		/// Adjusts the staking ledger by withdrawing any excess staked amount.
+		///
+		/// This function corrects cases where a user's recorded stake in the ledger
+		/// exceeds their actual staked funds. This situation can arise due to cases such as
+		/// external slashing by another pallet, leading to an inconsistency between the ledger
+		/// and the actual stake.
+		#[pallet::call_index(32)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
+		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+
+			let ledger = Self::ledger(Stash(stash.clone()))?;
+			let actual_stake = asset::staked::<T>(&stash);
+			let force_withdraw_amount = ledger.total.defensive_saturating_sub(actual_stake);
+
+			// ensure there is something to force unstake.
+			ensure!(!force_withdraw_amount.is_zero(), Error::<T>::BoundNotMet);
+
+			// we ignore if active is 0. It implies the locked amount is not actively staked. The
+			// account can still get away from potential slash, but we can't do much better here.
+			StakingLedger {
+				total: actual_stake,
+				active: ledger.active.saturating_sub(force_withdraw_amount),
+				..ledger
+			}
+			.update()?;
+
+			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
+
+			Ok(())
 		}
 	}
 }
