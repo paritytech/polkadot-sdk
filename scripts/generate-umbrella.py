@@ -119,6 +119,30 @@ def main(path, version):
 		"tuples-96": [],
 	}
 
+	excluded_features = [
+		"default",
+		"std",
+		"runtime-benchmarks",
+		"try-runtime",
+		"serde",
+		"experimental",
+		"with-tracing",
+		"tuples-96",
+		"tuples-128",
+	]
+
+	for dep, _ in all_crates:
+		dep_path = os.path.dirname(dep.abs_path)
+		manifest_path = os.path.join(dep_path, "Cargo.toml")
+		with open(manifest_path, "r") as f:
+			manifest = toml.load(f)
+			if "features" in manifest:
+				dep_features = manifest["features"]
+				for feature_name in dep_features:
+					if feature_name not in excluded_features:
+						dep_feature_pair = f"{dep.name}_{feature_name}"
+						features[dep_feature_pair] = [f"{dep.name}?/{feature_name}"]
+
 	manifest = {
 		"package": {
 			"name": "polkadot-sdk",
