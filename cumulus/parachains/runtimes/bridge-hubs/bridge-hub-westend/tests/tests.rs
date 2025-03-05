@@ -40,7 +40,6 @@ use bridge_to_rococo_config::{
 	DeliveryRewardInBalance, WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
-use hex_literal::hex;
 use frame_support::{
 	assert_err, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -50,11 +49,15 @@ use frame_support::{
 		ConstU8,
 	},
 };
+use hex_literal::hex;
 use parachains_common::{AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_keyring::Sr25519Keyring::{Alice, Bob};
-use sp_runtime::{generic::{Era, SignedPayload}, AccountId32, BuildStorage, Either, Perbill};
+use sp_runtime::{
+	generic::{Era, SignedPayload},
+	AccountId32, BuildStorage, Either, Perbill,
+};
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -652,22 +655,19 @@ fn location_conversion_works() {
 	];
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	parachain_info::GenesisConfig::<Runtime> {
-		parachain_id: 1000.into(),
-		..Default::default()
-	}
+	parachain_info::GenesisConfig::<Runtime> { parachain_id: 1000.into(), ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| {
 		for tc in test_cases {
-			let expected =
-				AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+			let expected = AccountId::from_string(tc.expected_account_id_str)
+				.expect("Invalid AccountId string");
 
 			let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
 				tc.location.into(),
 			)
-				.unwrap();
+			.unwrap();
 
 			assert_eq!(got, expected, "{}", tc.description);
 		}
