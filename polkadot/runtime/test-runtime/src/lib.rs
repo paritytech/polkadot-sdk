@@ -1111,7 +1111,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn validation_code_bomb_limit() -> u32 {
-			parachains_staging_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
+			staging_runtime_impl::validation_code_bomb_limit::<Runtime>()
 		}
 	}
 
