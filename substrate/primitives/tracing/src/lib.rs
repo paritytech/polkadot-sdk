@@ -419,9 +419,6 @@ pub mod test_log_capture {
 		// Convert the max log level into LevelFilter
 		let level_filter = max_level.into();
 
-		// Convert the max log level into LevelFilter
-		let level_filter = max_level.into();
-
 		// Create a layer for capturing logs into LogCapture
 		let capture_layer = fmt::layer()
 			.with_writer(log_capture.writer()) // Use LogCapture as the writer
