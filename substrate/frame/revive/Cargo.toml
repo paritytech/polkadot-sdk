@@ -39,6 +39,7 @@ serde = { features = [
 ], workspace = true, default-features = false }
 
 # Polkadot SDK Dependencies
+bn = { package = "substrate-bn", version = "0.6", default-features = false }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -46,6 +47,7 @@ pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
 pallet-revive-uapi = { workspace = true, features = ["scale"] }
 pallet-transaction-payment = { workspace = true }
+ripemd = { version = "0.1.3", default-features = false }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-consensus-aura = { workspace = true, optional = true }
@@ -59,8 +61,6 @@ subxt-signer = { workspace = true, optional = true, features = [
 ] }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
-ripemd = { version = "0.1.3", default-features = false }
-bn = { package = "substrate-bn", version = "0.6", default-features = false }
 
 
 [dev-dependencies]
@@ -83,7 +83,6 @@ xcm-builder = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"ripemd/std",
 	"alloy-core/std",
 	"codec/std",
 	"environmental/std",
@@ -101,6 +100,7 @@ std = [
 	"polkavm-common?/std",
 	"polkavm/std",
 	"rand?/std",
+	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
 	"secp256k1/std",

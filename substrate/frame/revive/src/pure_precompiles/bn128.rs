@@ -180,9 +180,11 @@ fn read_input(source: &[u8], target: &mut [u8], offset: usize) {
 
 #[cfg(feature = "runtime-benchmarks")]
 pub fn generate_random_ecpairs(_n: usize) -> Vec<u8> {
-	let n = 1;
 	use bn::{Fr, Group, G1, G2};
-	let mut rng = rand::thread_rng();
+	use rand::{rngs::SmallRng, SeedableRng};
+	let n = 1;
+	let mut rng = SmallRng::from_seed([0; 32]);
+
 	let mut buffer = vec![0u8; n * 192];
 
 	let mut write = |element: &bn::Fq, offset: &mut usize| {
