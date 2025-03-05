@@ -1,0 +1,11 @@
+title: 'Add chain-spec-builder as a subcommand to the polkadot-omni-node'
+doc:
+- audience: Runtime Dev
+
+  description: |-
+    This PR add chain-spec-builder as a subcommand to the polkadot-omni-node
+crates:
+- name: polkadot-omni-node-lib
+  bump: major
+- name: staging-chain-spec-builder
+  bump: patch

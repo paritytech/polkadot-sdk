@@ -20,9 +20,10 @@
 
 use polkadot_sdk::*;
 
-use crate::chain_spec::{sc_service::Properties, sp_runtime::AccountId32};
+use crate::chain_spec::sc_service::Properties;
 use kitchensink_runtime::{
-	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
+	genesis_config_presets::{session_keys, Staker, StakingPlaygroundConfig, STASH},
+	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
@@ -33,20 +34,13 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{
-	crypto::{get_public_from_string_or_panic, UncheckedInto},
-	sr25519,
-};
-use sp_keyring::Sr25519Keyring;
+use sp_core::crypto::UncheckedInto;
 use sp_mixnet::types::AuthorityId as MixnetId;
-use sp_runtime::Perbill;
 
 pub use kitchensink_runtime::RuntimeGenesisConfig;
 pub use node_primitives::{AccountId, Balance, Signature};
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
-const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
-const STASH: Balance = ENDOWMENT / 1000;
 
 /// Node `ChainSpec` extensions.
 ///
@@ -68,17 +62,6 @@ pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 /// Flaming Fir testnet generator
 pub fn flaming_fir_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_json_bytes(&include_bytes!("../res/flaming-fir.json")[..])
-}
-
-fn session_keys(
-	grandpa: GrandpaId,
-	babe: BabeId,
-	im_online: ImOnlineId,
-	authority_discovery: AuthorityDiscoveryId,
-	mixnet: MixnetId,
-	beefy: BeefyId,
-) -> SessionKeys {
-	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet, beefy }
 }
 
 fn configure_accounts_for_staging_testnet() -> (
@@ -229,7 +212,7 @@ fn configure_accounts_for_staging_testnet() -> (
 fn staging_testnet_config_genesis() -> serde_json::Value {
 	let (initial_authorities, root_key, endowed_accounts) =
 		configure_accounts_for_staging_testnet();
-	testnet_genesis(initial_authorities, vec![], root_key, Some(endowed_accounts))
+	testnet_genesis(initial_authorities, vec![], root_key, endowed_accounts)
 }
 
 /// Staging testnet config.
@@ -246,23 +229,10 @@ pub fn staging_testnet_config() -> ChainSpec {
 		.build()
 }
 
-/// Helper function to generate stash, controller and session key from seed.
-pub fn authority_keys_from_seed(
-	seed: &str,
-) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId, BeefyId)
-{
-	(
-		get_public_from_string_or_panic::<sr25519::Public>(&format!("{}//stash", seed)).into(),
-		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
-		get_public_from_string_or_panic::<GrandpaId>(seed),
-		get_public_from_string_or_panic::<BabeId>(seed),
-		get_public_from_string_or_panic::<ImOnlineId>(seed),
-		get_public_from_string_or_panic::<AuthorityDiscoveryId>(seed),
-		get_public_from_string_or_panic::<MixnetId>(seed),
-		get_public_from_string_or_panic::<BeefyId>(seed),
-	)
-}
-
+/// Configure the accounts for the testnet.
+///
+/// * Adds `initial_authorities` and `initial_nominators` to endowed accounts if missing.
+/// * Sets up the stakers consisting of the `initial_authorities` and `initial_nominators`.
 fn configure_accounts(
 	initial_authorities: Vec<(
 		AccountId,
@@ -275,7 +245,7 @@ fn configure_accounts(
 		BeefyId,
 	)>,
 	initial_nominators: Vec<AccountId>,
-	endowed_accounts: Option<Vec<AccountId>>,
+	endowed_accounts: Vec<AccountId>,
 	stash: Balance,
 ) -> (
 	Vec<(
@@ -289,11 +259,9 @@ fn configure_accounts(
 		BeefyId,
 	)>,
 	Vec<AccountId>,
-	usize,
-	Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
+	Vec<Staker>,
 ) {
-	let mut endowed_accounts: Vec<AccountId> =
-		endowed_accounts.unwrap_or_else(default_endowed_accounts);
+	let mut endowed_accounts = endowed_accounts;
 	// endow all authorities and nominators.
 	initial_authorities
 		.iter()
@@ -324,9 +292,7 @@ fn configure_accounts(
 		}))
 		.collect::<Vec<_>>();
 
-	let num_endowed_accounts = endowed_accounts.len();
-
-	(initial_authorities, endowed_accounts, num_endowed_accounts, stakers)
+	(initial_authorities, endowed_accounts, stakers)
 }
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
@@ -343,126 +309,67 @@ pub fn testnet_genesis(
 	)>,
 	initial_nominators: Vec<AccountId>,
 	root_key: AccountId,
-	endowed_accounts: Option<Vec<AccountId>>,
+	endowed_accounts: Vec<AccountId>,
 ) -> serde_json::Value {
-	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
+	let (initial_authorities, endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
-	const MAX_COLLECTIVE_SIZE: usize = 50;
 
-	let dev_stakers = if cfg!(feature = "staking-playground") {
-		let random_validators =
-			std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
-		let random_nominators = std::option_env!("NOMINATORS")
-			.map(|s| s.parse::<u32>().unwrap())
-			.unwrap_or(3000);
-		Some((random_validators, random_nominators))
+	let staking_playground_config = if cfg!(feature = "staking-playground") {
+		Some(get_staking_playground_config())
 	} else {
 		None
 	};
 
-	let validator_count = if cfg!(feature = "staking-playground") {
-		std::option_env!("VALIDATOR_COUNT")
-			.map(|v| v.parse::<u32>().unwrap())
-			.unwrap_or(100)
-	} else {
-		initial_authorities.len() as u32
-	};
-
-	let minimum_validator_count =
-		if cfg!(feature = "staking-playground") { 10 } else { initial_authorities.len() as u32 };
-
-	serde_json::json!({
-		"balances": {
-			"balances": endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect::<Vec<_>>(),
-		},
-		"session": {
-			"keys": initial_authorities
-				.iter()
-				.map(|x| {
-					(
-						x.0.clone(),
-						x.0.clone(),
-						session_keys(
-							x.2.clone(),
-							x.3.clone(),
-							x.4.clone(),
-							x.5.clone(),
-							x.6.clone(),
-							x.7.clone(),
-						),
-					)
-				})
-				.collect::<Vec<_>>(),
-		},
-		"staking": {
-			"validatorCount": validator_count,
-			"minimumValidatorCount": minimum_validator_count,
-			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
-			"slashRewardFraction": Perbill::from_percent(10),
-			"stakers": stakers.clone(),
-			"devStakers": dev_stakers
-		},
-		"elections": {
-			"members": endowed_accounts
-				.iter()
-				.take(((num_endowed_accounts + 1) / 2).min(MAX_COLLECTIVE_SIZE))
-				.cloned()
-				.map(|member| (member, STASH))
-				.collect::<Vec<_>>(),
-		},
-		"technicalCommittee": {
-			"members": endowed_accounts
-				.iter()
-				.take(((num_endowed_accounts + 1) / 2).min(MAX_COLLECTIVE_SIZE))
-				.cloned()
-				.collect::<Vec<_>>(),
-		},
-		"sudo": { "key": Some(root_key.clone()) },
-		"babe": {
-			"epochConfig": Some(kitchensink_runtime::BABE_GENESIS_EPOCH_CONFIG),
-		},
-		"society": { "pot": 0 },
-		"assets": {
-			// This asset is used by the NIS pallet as counterpart currency.
-			"assets": vec![(9, Sr25519Keyring::Alice.to_account_id(), true, 1)],
-		},
-		"nominationPools": {
-			"minCreateBond": 10 * DOLLARS,
-			"minJoinBond": 1 * DOLLARS,
-		},
-	})
+	// Todo: After #7748 is done, we can refactor this to avoid
+	// calling into the native runtime.
+	kitchensink_runtime::genesis_config_presets::kitchensink_genesis(
+		initial_authorities
+			.iter()
+			.map(|x| {
+				(
+					x.0.clone(),
+					// stash account is controller
+					x.0.clone(),
+					session_keys(
+						x.2.clone(),
+						x.3.clone(),
+						x.4.clone(),
+						x.5.clone(),
+						x.6.clone(),
+						x.7.clone(),
+					),
+				)
+			})
+			.collect(),
+		root_key,
+		endowed_accounts,
+		stakers,
+		staking_playground_config,
+	)
 }
 
-fn development_config_genesis_json() -> serde_json::Value {
-	testnet_genesis(
-		vec![authority_keys_from_seed("Alice")],
-		vec![],
-		Sr25519Keyring::Alice.to_account_id(),
-		None,
-	)
+fn get_staking_playground_config() -> StakingPlaygroundConfig {
+	let random_validators =
+		std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
+	let random_nominators = std::option_env!("NOMINATORS")
+		.map(|s| s.parse::<u32>().unwrap())
+		.unwrap_or(3000);
+
+	let validator_count = std::option_env!("VALIDATOR_COUNT")
+		.map(|v| v.parse::<u32>().unwrap())
+		.unwrap_or(100);
+
+	StakingPlaygroundConfig {
+		dev_stakers: (random_validators, random_nominators),
+		validator_count,
+		minimum_validator_count: 10,
+	}
 }
 
 fn props() -> Properties {
 	let mut properties = Properties::new();
 	properties.insert("tokenDecimals".to_string(), 12.into());
 	properties
-}
-
-fn eth_account(from: subxt_signer::eth::Keypair) -> AccountId32 {
-	let mut account_id = AccountId32::new([0xEE; 32]);
-	<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
-		.copy_from_slice(&from.public_key().to_account_id().as_ref());
-	account_id
-}
-
-fn default_endowed_accounts() -> Vec<AccountId> {
-	Sr25519Keyring::well_known()
-		.map(|k| k.to_account_id())
-		.chain([
-			eth_account(subxt_signer::eth::dev::alith()),
-			eth_account(subxt_signer::eth::dev::baltathar()),
-		])
-		.collect()
 }
 
 /// Development config (single validator Alice).
@@ -472,17 +379,8 @@ pub fn development_config() -> ChainSpec {
 		.with_id("dev")
 		.with_chain_type(ChainType::Development)
 		.with_properties(props())
-		.with_genesis_config_patch(development_config_genesis_json())
+		.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
 		.build()
-}
-
-fn local_testnet_genesis() -> serde_json::Value {
-	testnet_genesis(
-		vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
-		vec![],
-		Sr25519Keyring::Alice.to_account_id(),
-		None,
-	)
 }
 
 /// Local testnet config (multivalidator Alice + Bob).
@@ -491,7 +389,7 @@ pub fn local_testnet_config() -> ChainSpec {
 		.with_name("Local Testnet")
 		.with_id("local_testnet")
 		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(local_testnet_genesis())
+		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 		.build()
 }
 
@@ -499,8 +397,9 @@ pub fn local_testnet_config() -> ChainSpec {
 pub(crate) mod tests {
 	use super::*;
 	use crate::service::{new_full_base, NewFullBase};
+	use kitchensink_runtime::genesis_config_presets::well_known_including_eth_accounts;
 	use sc_service_test;
-	use sp_runtime::BuildStorage;
+	use sp_runtime::{AccountId32, BuildStorage};
 
 	/// Local testnet config (single validator - Alice).
 	pub fn integration_test_config_with_single_authority() -> ChainSpec {
@@ -508,12 +407,7 @@ pub(crate) mod tests {
 			.with_name("Integration Test")
 			.with_id("test")
 			.with_chain_type(ChainType::Development)
-			.with_genesis_config_patch(testnet_genesis(
-				vec![authority_keys_from_seed("Alice")],
-				vec![],
-				Sr25519Keyring::Alice.to_account_id(),
-				None,
-			))
+			.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
 			.build()
 	}
 
@@ -522,9 +416,16 @@ pub(crate) mod tests {
 		ChainSpec::builder(wasm_binary_unwrap(), Default::default())
 			.with_name("Integration Test")
 			.with_id("test")
-			.with_chain_type(ChainType::Development)
-			.with_genesis_config_patch(local_testnet_genesis())
+			.with_chain_type(ChainType::Local)
+			.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 			.build()
+	}
+
+	fn eth_account(from: subxt_signer::eth::Keypair) -> AccountId32 {
+		let mut account_id = AccountId32::new([0xEE; 32]);
+		<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
+			.copy_from_slice(&from.public_key().to_account_id().as_ref());
+		account_id
 	}
 
 	#[test]
@@ -558,5 +459,16 @@ pub(crate) mod tests {
 	#[test]
 	fn test_staging_test_net_chain_spec() {
 		staging_testnet_config().build_storage().unwrap();
+	}
+
+	#[test]
+	fn ensure_eth_accounts_are_in_endowed() {
+		let alith = eth_account(subxt_signer::eth::dev::alith());
+		let baltathar = eth_account(subxt_signer::eth::dev::baltathar());
+
+		let endowed = well_known_including_eth_accounts();
+
+		assert!(endowed.contains(&alith), "Alith must be in endowed for integration tests");
+		assert!(endowed.contains(&baltathar), "Baltathar must be in endowed for integration tests");
 	}
 }
