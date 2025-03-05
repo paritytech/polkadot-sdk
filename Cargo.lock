@@ -29467,9 +29467,9 @@ version = "4.0.0-dev"
 
 [[package]]
 name = "substrate-txtesttool"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40513d5bd18520e92deacb76b9795e5f7bfabf2f42c120ca5186e53355f79be8"
+checksum = "0a33f44f08dceef8e7d5b01d65d753c6b5f05fcc7dcf2589e47990e358f1fcda"
 dependencies = [
  "async-trait",
  "average",
