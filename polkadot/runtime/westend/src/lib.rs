@@ -753,7 +753,7 @@ parameter_types! {
 }
 
 // Just to get the runtime compiling. Westend shouldn't have pallet staking at all.
-struct DummyRcClient;
+pub struct DummyRcClient;
 impl rc_client::RcClientInterface for DummyRcClient {
 	type AccountId = AccountId;
 
