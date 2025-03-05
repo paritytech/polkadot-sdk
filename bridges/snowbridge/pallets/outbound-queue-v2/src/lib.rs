@@ -38,15 +38,9 @@
 //! 	b. Fetch the pending order by nonce of the message, pay reward with fee attached in the order
 //!    	c. Remove the order from `PendingOrders` map storage by nonce
 //!
-//! # Message Priorities
-//!
-//! The processing of governance commands can never be halted. This effectively
-//! allows us to pause processing of normal user messages while still allowing
-//! governance commands to be sent to Ethereum.
 //!
 //! # Extrinsics
 //!
-//! * [`Call::set_operating_mode`]: Set the operating mode
 //! * [`Call::submit_delivery_proof`]: Submit delivery proof
 //!
 //! # Runtime API
