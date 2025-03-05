@@ -38,10 +38,6 @@ pub mod relaychain_rococo_local_network_spec {
 			"tests/zombienet/network-specs/asset-hub-low-pool-limit-fatp.toml";
 		pub const HIGH_POOL_LIMIT_FATP: &'static str =
 			"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp.toml";
-		pub const HIGH_POOL_LIMIT_SSTP_3_COLLATORS: &'static str =
-			"tests/zombienet/network-specs/asset-hub-high-pool-limit-sstp-3-collators.toml";
-		pub const HIGH_POOL_LIMIT_SSTP_4_COLLATORS: &'static str =
-			"tests/zombienet/network-specs/asset-hub-high-pool-limit-sstp-4-collators.toml";
 	}
 }
 
