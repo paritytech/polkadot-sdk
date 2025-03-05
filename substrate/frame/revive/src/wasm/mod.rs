@@ -110,8 +110,16 @@ struct CodeLoadToken(u32);
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
+		// the proof size impact is accounted for in the `call_with_code_per_byte`
+		// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
+		// instructions here. Let's consider this as a safety margin.
 		T::WeightInfo::call_with_code_per_byte(self.0)
 			.saturating_sub(T::WeightInfo::call_with_code_per_byte(0))
+			.saturating_add(
+				T::WeightInfo::basic_block_compilation(1)
+					.saturating_sub(T::WeightInfo::basic_block_compilation(0))
+					.set_proof_size(0),
+			)
 	}
 }
 
@@ -299,19 +307,50 @@ where
 		let _ = self.runtime.ext().gas_meter_mut().sync_from_executor(self.instance.gas())?;
 		exec_result
 	}
+
+	/// The guest memory address at which the aux data is located.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn aux_data_base(&self) -> u32 {
+		self.instance.module().memory_map().aux_data_address()
+	}
+
+	/// Copies `data` to the aux data at address `offset`.
+	///
+	/// It sets `a0` to the beginning of data inside the aux data.
+	/// It sets `a1` to the value passed.
+	///
+	/// Only used in benchmarking so far.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn setup_aux_data(&mut self, data: &[u8], offset: u32, a1: u64) -> DispatchResult {
+		let a0 = self.aux_data_base().saturating_add(offset);
+		self.instance.write_memory(a0, data).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to write aux data: {err:?}");
+			Error::<E::T>::CodeRejected
+		})?;
+		self.instance.set_reg(polkavm::Reg::A0, a0.into());
+		self.instance.set_reg(polkavm::Reg::A1, a1);
+		Ok(())
+	}
 }
 
 impl<T: Config> WasmBlob<T> {
+	/// Compile and instantiate contract.
+	///
+	/// `aux_data_size` is only used for runtime benchmarks. Real contracts
+	/// don't make use of this buffer. Hence this should not be set to anything
+	/// other than `0` when not used for benchmarking.
 	pub fn prepare_call<E: Ext<T = T>>(
 		self,
 		mut runtime: Runtime<E, polkavm::RawInstance>,
 		entry_point: ExportedFunction,
+		aux_data_size: u32,
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
 		config.set_backend(Some(polkavm::BackendKind::Interpreter));
 		config.set_cache_enabled(false);
 		#[cfg(feature = "std")]
 		if std::env::var_os("REVIVE_USE_COMPILER").is_some() {
+			log::warn!(target: LOG_TARGET, "Using PolkaVM compiler backend because env var REVIVE_USE_COMPILER is set");
 			config.set_backend(Some(polkavm::BackendKind::Compiler));
 		}
 		let engine = polkavm::Engine::new(&config).expect(
@@ -323,6 +362,7 @@ impl<T: Config> WasmBlob<T> {
 		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
 		module_config.set_allow_sbrk(false);
+		module_config.set_aux_data_size(aux_data_size);
 		let module = polkavm::Module::new(&engine, &module_config, self.code.into_inner().into())
 			.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
@@ -366,7 +406,7 @@ where
 		function: ExportedFunction,
 		input_data: Vec<u8>,
 	) -> ExecResult {
-		let prepared_call = self.prepare_call(Runtime::new(ext, input_data), function)?;
+		let prepared_call = self.prepare_call(Runtime::new(ext, input_data), function, 0)?;
 		prepared_call.call()
 	}
 
