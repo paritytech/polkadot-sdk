@@ -38,7 +38,6 @@ use codec::{Decode, Encode};
 use core::ops::Mul;
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
-	__private::sp_io,
 	assert_noop, assert_ok, parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},

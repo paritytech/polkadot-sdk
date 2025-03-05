@@ -101,6 +101,7 @@ pallet-xcm-bridge-hub-router = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
 
 [dev-dependencies]
+sp-io = { workspace = true, default-features = true }
 asset-test-utils = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
