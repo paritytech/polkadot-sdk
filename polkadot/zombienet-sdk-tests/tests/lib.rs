@@ -11,4 +11,6 @@ mod elastic_scaling;
 #[cfg(feature = "zombie-metadata")]
 mod functional;
 #[cfg(feature = "zombie-metadata")]
+mod parachains;
+#[cfg(feature = "zombie-metadata")]
 mod smoke;

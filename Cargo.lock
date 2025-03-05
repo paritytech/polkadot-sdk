@@ -16642,6 +16642,8 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
+ "pallet-revive",
+ "pallet-revive-mock-network",
  "parity-scale-codec",
  "polkadot-primitives",
  "serde",

@@ -9,6 +9,9 @@ use tokio::time::{sleep, Duration};
 #[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
 pub mod rococo {}
 
+#[subxt::subxt(runtime_metadata_path = "metadata-files/asset-hub-westend-local.scale")]
+pub mod asset_hub_westend {}
+
 // Helper function for asserting the throughput of parachains (total number of backed candidates in
 // a window of relay chain blocks), after the first session change.
 pub async fn assert_para_throughput(

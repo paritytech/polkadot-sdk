@@ -20,6 +20,8 @@ subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true, features = ["time"] }
 zombienet-sdk = { workspace = true }
+pallet-revive = { workspace = true, features = ["std"] }
+pallet-revive-mock-network = { workspace = true, features = ["std"] }
 
 [features]
 zombie-metadata = []
