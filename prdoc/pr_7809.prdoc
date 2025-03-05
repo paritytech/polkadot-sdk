@@ -14,6 +14,6 @@ crates:
   - name: asset-hub-westend-runtime
     bump: minor
   - name: bridge-hub-rococo-runtime
-      bump: minor
+    bump: minor
   - name: bridge-hub-westend-runtime
-      bump: minor
+    bump: minor
