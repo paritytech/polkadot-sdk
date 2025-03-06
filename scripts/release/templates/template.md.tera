@@ -10,6 +10,6 @@ This release contains the changes from `{{ env.REF1 | replace(from="refs/tags/",
 
 {% include "compiler.md.tera" -%}
 
-{% include "runtimes.md.tera" -%}
+{# {% include "runtimes.md.tera" -%}
 
-{% include "docker_image.md.tera" -%}
+{% include "docker_image.md.tera" -%} #}
