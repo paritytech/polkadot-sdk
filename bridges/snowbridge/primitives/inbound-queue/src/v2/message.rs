@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Converts messages from Ethereum to XCM messages
 
-use crate::Log;
+use crate::{v2::IGatewayV2::Payload, Log};
 use alloy_core::{
 	primitives::B256,
 	sol,
@@ -148,15 +148,43 @@ impl TryFrom<&Log> for Message {
 		// Convert to B256 for Alloy decoding
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
 
-		let mut substrate_assets = vec![];
-
 		// Decode the Solidity event from raw logs
 		let event = IGatewayV2::OutboundMessageAccepted::decode_raw_log(topics, &log.data, true)
 			.map_err(|_| MessageDecodeError)?;
 
 		let payload = event.payload;
 
-		for asset in payload.assets {
+		let substrate_assets = Self::extract_assets(&payload)?;
+
+		let xcm = XcmPayload::try_from(&payload)?;
+
+		let mut claimer = None;
+		if payload.claimer.len() > 0 {
+			claimer = Some(payload.claimer.to_vec());
+		}
+
+		let message = Message {
+			gateway: log.address,
+			nonce: event.nonce,
+			origin: H160::from(payload.origin.as_ref()),
+			assets: substrate_assets,
+			xcm,
+			claimer,
+			value: payload.value,
+			execution_fee: payload.executionFee,
+			relayer_fee: payload.relayerFee,
+		};
+
+		Ok(message)
+	}
+}
+
+impl Message {
+	fn extract_assets(
+		payload: &IGatewayV2::Payload,
+	) -> Result<Vec<EthereumAsset>, MessageDecodeError> {
+		let mut substrate_assets = vec![];
+		for asset in &payload.assets {
 			match asset.kind {
 				0 => {
 					let native_data = IGatewayV2::AsNativeTokenERC20::abi_decode(&asset.data, true)
@@ -178,7 +206,14 @@ impl TryFrom<&Log> for Message {
 				_ => return Err(MessageDecodeError),
 			}
 		}
+		Ok(substrate_assets)
+	}
+}
 
+impl TryFrom<&IGatewayV2::Payload> for XcmPayload {
+	type Error = MessageDecodeError;
+
+	fn try_from(payload: &Payload) -> Result<Self, Self::Error> {
 		let xcm = match payload.xcm.kind {
 			0 => XcmPayload::Raw(payload.xcm.data.to_vec()),
 			1 => {
@@ -193,25 +228,7 @@ impl TryFrom<&Log> for Message {
 			},
 			_ => return Err(MessageDecodeError),
 		};
-
-		let mut claimer = None;
-		if payload.claimer.len() > 0 {
-			claimer = Some(payload.claimer.to_vec());
-		}
-
-		let message = Message {
-			gateway: log.address,
-			nonce: event.nonce,
-			origin: H160::from(payload.origin.as_ref()),
-			assets: substrate_assets,
-			xcm,
-			claimer,
-			value: payload.value,
-			execution_fee: payload.executionFee,
-			relayer_fee: payload.relayerFee,
-		};
-
-		Ok(message)
+		Ok(xcm)
 	}
 }
 
