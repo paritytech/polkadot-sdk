@@ -58,3 +58,9 @@ pub fn candidates_pending_availability<T: initializer::Config>(
 ) -> Vec<CommittedCandidateReceipt<T::Hash>> {
 	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
 }
+
+/// Implementation for `validation_code_bomb_limit` function from the runtime API
+pub fn validation_code_bomb_limit<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().max_code_size *
+		configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO
+}

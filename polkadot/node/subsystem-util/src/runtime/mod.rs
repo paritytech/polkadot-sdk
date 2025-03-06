@@ -579,3 +579,147 @@ pub async fn request_node_features(
 		res.map(Some)
 	}
 }
+<<<<<<< HEAD
+=======
+
+/// A snapshot of the runtime claim queue at an arbitrary relay chain block.
+#[derive(Default)]
+pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
+
+impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {
+	fn from(claim_queue_snapshot: BTreeMap<CoreIndex, VecDeque<ParaId>>) -> Self {
+		ClaimQueueSnapshot(claim_queue_snapshot)
+	}
+}
+
+impl ClaimQueueSnapshot {
+	/// Returns the `ParaId` that has a claim for `core_index` at the specified `depth` in the
+	/// claim queue. A depth of `0` means the very next block.
+	pub fn get_claim_for(&self, core_index: CoreIndex, depth: usize) -> Option<ParaId> {
+		self.0.get(&core_index)?.get(depth).copied()
+	}
+
+	/// Returns an iterator over all claimed cores and the claiming `ParaId` at the specified
+	/// `depth` in the claim queue.
+	pub fn iter_claims_at_depth(
+		&self,
+		depth: usize,
+	) -> impl Iterator<Item = (CoreIndex, ParaId)> + '_ {
+		self.0
+			.iter()
+			.filter_map(move |(core_index, paras)| Some((*core_index, *paras.get(depth)?)))
+	}
+
+	/// Returns an iterator over all claims on the given core.
+	pub fn iter_claims_for_core(
+		&self,
+		core_index: &CoreIndex,
+	) -> impl Iterator<Item = &ParaId> + '_ {
+		self.0.get(core_index).map(|c| c.iter()).into_iter().flatten()
+	}
+
+	/// Returns an iterator over the whole claim queue.
+	pub fn iter_all_claims(&self) -> impl Iterator<Item = (&CoreIndex, &VecDeque<ParaId>)> + '_ {
+		self.0.iter()
+	}
+}
+
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
+/// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
+/// returns an empty vec.
+/// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this function and
+/// replace all usages with `request_disabled_validators`
+pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<RuntimeApiMessage>>(
+	sender: &mut Sender,
+	relay_parent: Hash,
+) -> Result<Vec<ValidatorIndex>> {
+	let disabled_validators = if has_required_runtime(
+		sender,
+		relay_parent,
+		RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
+	)
+	.await
+	{
+		request_disabled_validators(relay_parent, sender)
+			.await
+			.await
+			.map_err(Error::RuntimeRequestCanceled)??
+	} else {
+		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
+		vec![]
+	};
+
+	Ok(disabled_validators)
+}
+
+/// Fetch the claim queue and wrap it into a helpful `ClaimQueueSnapshot`
+pub async fn fetch_claim_queue(
+	sender: &mut impl SubsystemSender<RuntimeApiMessage>,
+	relay_parent: Hash,
+) -> Result<ClaimQueueSnapshot> {
+	let cq = request_claim_queue(relay_parent, sender)
+		.await
+		.await
+		.map_err(Error::RuntimeRequestCanceled)??;
+
+	Ok(cq.into())
+}
+
+/// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
+/// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
+pub async fn fetch_scheduling_lookahead(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<u32> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::SchedulingLookahead(session_index, tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the scheduling lookahead from the runtime is not supported by the current Runtime API, falling back to default value of {}",
+			DEFAULT_SCHEDULING_LOOKAHEAD
+		);
+
+		Ok(DEFAULT_SCHEDULING_LOOKAHEAD)
+	} else {
+		res
+	}
+}
+
+/// Fetch the validation code bomb limit from the runtime.
+pub async fn fetch_validation_code_bomb_limit(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<u32> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::ValidationCodeBombLimit(session_index, tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the validation code bomb limit from the runtime is not supported by the current Runtime API",
+		);
+
+		// TODO: Remove this once runtime API version 12 is released.
+		#[allow(deprecated)]
+		Ok(polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT as u32)
+	} else {
+		res
+	}
+}
+>>>>>>> f02134c (Dynamic uncompressed code size limit (#7760))

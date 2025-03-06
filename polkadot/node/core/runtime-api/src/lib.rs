@@ -183,6 +183,17 @@ where
 			ClaimQueue(relay_parent, sender) => {
 				self.requests_cache.cache_claim_queue(relay_parent, sender);
 			},
+<<<<<<< HEAD
+=======
+			BackingConstraints(relay_parent, para_id, constraints) => self
+				.requests_cache
+				.cache_backing_constraints((relay_parent, para_id), constraints),
+			SchedulingLookahead(session_index, scheduling_lookahead) => self
+				.requests_cache
+				.cache_scheduling_lookahead(session_index, scheduling_lookahead),
+			ValidationCodeBombLimit(session_index, limit) =>
+				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit),
+>>>>>>> f02134c (Dynamic uncompressed code size limit (#7760))
 		}
 	}
 
@@ -340,6 +351,29 @@ where
 			},
 			Request::ClaimQueue(sender) =>
 				query!(claim_queue(), sender).map(|sender| Request::ClaimQueue(sender)),
+<<<<<<< HEAD
+=======
+			Request::BackingConstraints(para, sender) => query!(backing_constraints(para), sender)
+				.map(|sender| Request::BackingConstraints(para, sender)),
+			Request::SchedulingLookahead(index, sender) => {
+				if let Some(value) = self.requests_cache.scheduling_lookahead(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value));
+					None
+				} else {
+					Some(Request::SchedulingLookahead(index, sender))
+				}
+			},
+			Request::ValidationCodeBombLimit(index, sender) => {
+				if let Some(value) = self.requests_cache.validation_code_bomb_limit(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value));
+					None
+				} else {
+					Some(Request::ValidationCodeBombLimit(index, sender))
+				}
+			},
+>>>>>>> f02134c (Dynamic uncompressed code size limit (#7760))
 		}
 	}
 
@@ -652,5 +686,30 @@ where
 			ver = Request::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
 			sender
 		),
+<<<<<<< HEAD
+=======
+		Request::BackingConstraints(para, sender) => {
+			query!(
+				BackingConstraints,
+				backing_constraints(para),
+				ver = Request::CONSTRAINTS_RUNTIME_REQUIREMENT,
+				sender
+			)
+		},
+		Request::SchedulingLookahead(index, sender) => query!(
+			SchedulingLookahead,
+			scheduling_lookahead(),
+			ver = Request::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
+		Request::ValidationCodeBombLimit(index, sender) => query!(
+			ValidationCodeBombLimit,
+			validation_code_bomb_limit(),
+			ver = Request::VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
+>>>>>>> f02134c (Dynamic uncompressed code size limit (#7760))
 	}
 }

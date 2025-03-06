@@ -77,6 +77,7 @@ impl TestHost {
 					executor_params,
 					TEST_PREPARATION_TIMEOUT,
 					PrepareJobKind::Prechecking,
+					16 * 1024 * 1024,
 				),
 				result_tx,
 			)
@@ -98,6 +99,7 @@ fn host_prepare_rococo_runtime(c: &mut Criterion) {
 			ExecutorParams::default(),
 			Duration::from_secs(360),
 			PrepareJobKind::Compilation,
+			64 * 1024 * 1024,
 		),
 		Err(e) => {
 			panic!("Cannot decompress blob: {:?}", e);

@@ -294,8 +294,21 @@ pub fn worker_entrypoint(
 	);
 }
 
+<<<<<<< HEAD
 fn prepare_artifact(pvf: PvfPrepData) -> Result<CompiledArtifact, PrepareError> {
 	let blob = match prevalidate(&pvf.code()) {
+=======
+fn prepare_artifact(pvf: PvfPrepData) -> Result<PrepareOutcome, PrepareError> {
+	let maybe_compressed_code = pvf.maybe_compressed_code();
+	let raw_validation_code = sp_maybe_compressed_blob::decompress(
+		&maybe_compressed_code,
+		pvf.validation_code_bomb_limit() as usize,
+	)
+	.map_err(|e| PrepareError::CouldNotDecompressCodeBlob(e.to_string()))?;
+	let observed_wasm_code_len = raw_validation_code.len() as u32;
+
+	let blob = match prevalidate(&raw_validation_code) {
+>>>>>>> f02134c (Dynamic uncompressed code size limit (#7760))
 		Err(err) => return Err(PrepareError::Prevalidation(format!("{:?}", err))),
 		Ok(b) => b,
 	};

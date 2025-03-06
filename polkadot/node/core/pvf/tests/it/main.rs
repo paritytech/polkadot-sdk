@@ -25,10 +25,25 @@ use polkadot_node_core_pvf::{
 	PossiblyInvalidError, PrepareError, PrepareJobKind, PvfPrepData, ValidationError,
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
+<<<<<<< HEAD
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
 
 use std::{io::Write, time::Duration};
+=======
+use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
+use polkadot_node_subsystem::messages::PvfExecKind;
+use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
+use polkadot_primitives::{
+	ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
+	PvfExecKind as RuntimePvfExecKind, PvfPrepKind,
+};
+use sp_core::H256;
+
+const VALIDATION_CODE_BOMB_LIMIT: u32 = 30 * 1024 * 1024;
+
+use std::{io::Write, sync::Arc, time::Duration};
+>>>>>>> f02134c (Dynamic uncompressed code size limit (#7760))
 use tokio::sync::Mutex;
 
 mod adder;
@@ -92,6 +107,7 @@ impl TestHost {
 					executor_params,
 					TEST_PREPARATION_TIMEOUT,
 					PrepareJobKind::Prechecking,
+					VALIDATION_CODE_BOMB_LIMIT,
 				),
 				result_tx,
 			)
@@ -120,6 +136,7 @@ impl TestHost {
 					executor_params,
 					TEST_PREPARATION_TIMEOUT,
 					PrepareJobKind::Compilation,
+					VALIDATION_CODE_BOMB_LIMIT,
 				),
 				TEST_EXECUTION_TIMEOUT,
 				params.encode(),
@@ -655,3 +672,78 @@ async fn artifact_does_reprepare_on_meaningful_exec_parameter_change() {
 
 	assert_eq!(cache_dir_contents.len(), 3); // new artifact has been added
 }
+<<<<<<< HEAD
+=======
+
+// Checks that we cannot prepare oversized compressed code
+#[tokio::test]
+async fn invalid_compressed_code_fails_prechecking() {
+	let host = TestHost::new().await;
+	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT as usize + 1];
+	let validation_code =
+		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT as usize + 1)
+			.unwrap();
+
+	let res = host.precheck_pvf(&validation_code, Default::default()).await;
+
+	assert_matches!(res, Err(PrepareError::CouldNotDecompressCodeBlob(_)));
+}
+
+// Checks that we cannot validate with oversized compressed code
+#[tokio::test]
+async fn invalid_compressed_code_fails_validation() {
+	let host = TestHost::new().await;
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let pov = PoV { block_data: BlockData(Vec::new()) };
+
+	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT as usize + 1];
+	let validation_code =
+		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT as usize + 1)
+			.unwrap();
+
+	let result = host
+		.validate_candidate(&validation_code, pvd, pov, Default::default(), H256::default())
+		.await;
+
+	assert_matches!(
+		result,
+		Err(ValidationError::Preparation(PrepareError::CouldNotDecompressCodeBlob(_)))
+	);
+}
+
+// Checks that we cannot validate with an oversized PoV
+#[tokio::test]
+async fn invalid_compressed_pov_fails_validation() {
+	let host = TestHost::new().await;
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let raw_block_data = vec![1u8; POV_BOMB_LIMIT + 1];
+	let block_data =
+		sp_maybe_compressed_blob::compress(&raw_block_data, POV_BOMB_LIMIT + 1).unwrap();
+	let pov = PoV { block_data: BlockData(block_data) };
+
+	let result = host
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			pvd,
+			pov,
+			Default::default(),
+			H256::default(),
+		)
+		.await;
+
+	assert_matches!(
+		result,
+		Err(ValidationError::Invalid(InvalidCandidate::PoVDecompressionFailure))
+	);
+}
+>>>>>>> f02134c (Dynamic uncompressed code size limit (#7760))
