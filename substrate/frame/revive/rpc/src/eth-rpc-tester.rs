@@ -51,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
 	let CliCommand { docker_bin, rpc_url, docker_image, .. } = CliCommand::parse();
 
 	let Some(docker_image) = docker_image else {
-		println!("No docker image specified, using: {rpc_url:?}");
+		println!("Docker image not specified, using: {rpc_url:?}");
 		return test_eth_rpc(&rpc_url).await;
 	};
 
