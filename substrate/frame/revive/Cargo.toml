@@ -29,7 +29,7 @@ log = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.21.0", default-features = false }
 polkavm-common = { version = "0.21.0", default-features = false, optional = true }
-rand = { workspace = true, optional = true, features = ["small_rng"] }
+rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -39,7 +39,7 @@ serde = { features = [
 ], workspace = true, default-features = false }
 
 # Polkadot SDK Dependencies
-bn = { package = "substrate-bn", version = "0.6", default-features = false }
+bn = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -47,7 +47,7 @@ pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
 pallet-revive-uapi = { workspace = true, features = ["scale"] }
 pallet-transaction-payment = { workspace = true }
-ripemd = { version = "0.1.3", default-features = false }
+ripemd = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-consensus-aura = { workspace = true, optional = true }
@@ -61,7 +61,6 @@ subxt-signer = { workspace = true, optional = true, features = [
 ] }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
-
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
