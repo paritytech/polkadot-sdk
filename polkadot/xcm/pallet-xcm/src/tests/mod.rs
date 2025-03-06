@@ -1556,8 +1556,8 @@ fn deliver_failure_with_expect_error() {
 			assert!(result.is_err());
 
 			// Check logs for send attempt and failure
-			assert!(log_capture.contains("Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented)))])"));
-			assert!(log_capture.contains("XCM execution failed with error error=Transport(\"Intentional deliver failure used in tests\")"));
+			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented)))])"));
+			assert!(log_capture.contains("xcm::send: XCM failed to deliver with error error=Transport(\"Intentional deliver failure used in tests\")"));
 		})
 	});
 }
