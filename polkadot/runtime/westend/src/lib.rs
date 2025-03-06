@@ -793,6 +793,7 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
+	type ElectionOffset = ConstU32<1>; // TODO @Ankan: Check this value
 }
 
 pub struct AssetHubLocation;
@@ -803,14 +804,14 @@ impl Get<Location> for AssetHubLocation {
 }
 
 #[derive(Encode, Decode)]
-enum AssetHubRuntimePallets<AccountId> {
+enum AssetHubRuntimePallets {
 	#[codec(index = 50)]
-	RcClient(RcClientCalls<AccountId>),
+	RcClient(RcClientCalls),
 }
 
 /// Call encoding for the calls needed from the rc-client pallet.
 #[derive(Encode, Decode)]
-enum RcClientCalls<AccountId> {
+enum RcClientCalls {
 	/// A session with the given index has started.
 	#[codec(index = 0)]
 	RelaySessionReport(rc_client::SessionReport<AccountId>),
@@ -861,9 +862,7 @@ impl<T: SendXcm> ah_client::SendToAssetHub for XcmToAssetHub<T> {
 }
 
 impl<T: SendXcm> XcmToAssetHub<T> {
-	fn mk_asset_hub_call(
-		call: RcClientCalls<<Self as ah_client::SendToAssetHub>::AccountId>,
-	) -> Instruction<()> {
+	fn mk_asset_hub_call(call: RcClientCalls) -> Instruction<()> {
 		Instruction::Transact {
 			origin_kind: OriginKind::Superuser,
 			fallback_max_weight: None,
