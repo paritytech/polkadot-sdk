@@ -41,7 +41,6 @@ parameter_types! {
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
 	pub const RelayerStakeLease: u32 = 8;
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
-	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 }
 
 /// Showcasing that we can handle multiple different rewards with the same pallet.
