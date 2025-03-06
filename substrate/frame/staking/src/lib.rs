@@ -339,7 +339,7 @@ pub mod migrations;
 pub mod slashing;
 pub mod weights;
 
-mod era_rotation;
+mod session;
 mod pallet;
 
 extern crate alloc;

@@ -18,7 +18,7 @@
 //! Implementations for the Staking FRAME Pallet.
 
 use crate::{
-	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
+	session, asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
@@ -1628,6 +1628,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 		// handle reward points - input is the sum of all points.
 		Self::reward_by_ids(validator_points.into_iter());
+
+		let rotator = session::Manager::<T>::from(end_index, activation_timestamp);
 
 		let starting = end_index + 1;
 		let planning = starting + 1;

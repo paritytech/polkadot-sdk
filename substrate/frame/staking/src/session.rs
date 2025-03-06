@@ -26,7 +26,7 @@ use sp_staking::SessionIndex;
 )]
 #[scale_info(skip_type_params(T))]
 /// Something that manages the rotation of eras.
-pub struct EraRotator<T: Config> {
+pub struct Manager<T: Config> {
 	/// The session that is ending.
 	pub end_session_index: SessionIndex,
 	/// If none, it means no new validator set was activated as a part of this session.
@@ -37,11 +37,11 @@ pub struct EraRotator<T: Config> {
 	_phantom_data: PhantomData<T>,
 }
 
-impl<T: Config> EraRotator<T> {
-	pub fn from(report: pallet_staking_rc_client::SessionReport<T::AccountId>) -> Self {
-		EraRotator {
-			end_session_index: report.end_index,
-			activation_timestamp: report.activation_timestamp,
+impl<T: Config> Manager<T> {
+	pub fn from(end_session_index: SessionIndex, activation_timestamp: Option<(u64, u32)>) -> Self {
+		Manager {
+			end_session_index,
+			activation_timestamp,
 			_phantom_data: Default::default(),
 		}
 	}
