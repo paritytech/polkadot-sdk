@@ -47,7 +47,8 @@ impl WeighAssets for AssetFilter {
 						weight.saturating_mul((MaxAssetsIntoHolding::get() * 2) as u64),
 				},
 				AllCounted(count) => weight.saturating_mul(MAX_ASSETS.min((*count as u64).max(1))),
-				AllOfCounted { count, .. } => weight.saturating_mul(MAX_ASSETS.min((*count as u64).max(1))),
+				AllOfCounted { count, .. } =>
+					weight.saturating_mul(MAX_ASSETS.min((*count as u64).max(1))),
 			},
 		}
 	}
