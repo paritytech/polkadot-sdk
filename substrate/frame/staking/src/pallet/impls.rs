@@ -1598,8 +1598,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
-		// TODO: handle reward points here -- no longer need of knowing that each
-		// block author will be equal to 20 points. The input is the sum of all points.
+		// handle reward points - input is the sum of all points.
+		Self::reward_by_ids(validator_points.into_iter());
 
 		let starting = end_index + 1;
 		let planning = starting + 1;
