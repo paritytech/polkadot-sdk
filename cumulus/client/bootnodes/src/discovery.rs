@@ -16,27 +16,26 @@
 
 //! Parachain bootnodes discovery.
 
-use codec::{Compact, CompactRef, Decode, Encode};
+use crate::schema::Response;
+use codec::{CompactRef, Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{Hash, Header},
 	ParaId,
 };
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
-use futures::{pin_mut, Stream, StreamExt};
-use ip_network::IpNetwork;
+use futures::{
+	channel::oneshot, future::BoxFuture, pin_mut, stream::FuturesUnordered, FutureExt, StreamExt,
+};
 use log::{debug, warn};
 use prost::Message;
 use sc_network::{
-	config::OutgoingResponse,
 	event::{DhtEvent, Event},
-	multiaddr::Protocol,
-	request_responses::{IfDisconnected, IncomingRequest},
+	request_responses::{IfDisconnected, RequestFailure},
 	service::traits::NetworkService,
 	KademliaKey, Multiaddr, PeerId, ProtocolName,
 };
-use sp_consensus_babe::{digests::CompatibleDigestItem, Epoch, Randomness};
-use sp_runtime::traits::Header as _;
-use std::{collections::HashSet, marker::Send, pin::Pin, sync::Arc};
+use sp_consensus_babe::{Epoch, Randomness};
+use std::sync::Arc;
 
 /// Log target for this file.
 const LOG_TARGET: &str = "bootnodes::discovery";
@@ -61,7 +60,6 @@ pub struct BootnodeDiscoveryParams {
 
 /// Parachain bootnode discovery service.
 pub struct BootnodeDiscovery {
-	para_id: ParaId,
 	para_id_scale_compact: Vec<u8>,
 	parachain_network: Arc<dyn NetworkService>,
 	parachain_genesis_hash: Vec<u8>,
@@ -70,6 +68,12 @@ pub struct BootnodeDiscovery {
 	relay_chain_network: Arc<dyn NetworkService>,
 	parachain_key: Option<KademliaKey>,
 	paranode_protocol_name: ProtocolName,
+	pending_responses: FuturesUnordered<
+		BoxFuture<
+			'static,
+			(PeerId, Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>),
+		>,
+	>,
 }
 
 impl BootnodeDiscovery {
@@ -86,7 +90,6 @@ impl BootnodeDiscovery {
 		}: BootnodeDiscoveryParams,
 	) -> Self {
 		Self {
-			para_id,
 			para_id_scale_compact: CompactRef(&para_id).encode(),
 			parachain_network,
 			parachain_genesis_hash,
@@ -95,10 +98,11 @@ impl BootnodeDiscovery {
 			relay_chain_network,
 			parachain_key: None,
 			paranode_protocol_name,
+			pending_responses: FuturesUnordered::default(),
 		}
 	}
 
-	async fn current_epoch(&self, hash: Hash) -> RelayChainResult<Epoch> {
+	async fn current_epoch(&mut self, hash: Hash) -> RelayChainResult<Epoch> {
 		let res = self
 			.relay_chain_interface
 			.call_runtime_api("BabeApi_current_epoch", hash, &[])
@@ -130,10 +134,10 @@ impl BootnodeDiscovery {
 		Ok(())
 	}
 
-	async fn handle_providers(&mut self, providers: Vec<PeerId>) {
+	fn handle_providers(&mut self, providers: Vec<PeerId>) {
 		debug!(
 			target: LOG_TARGET,
-			"Found parachain bootnode providers: {providers:?}",
+			"Found parachain bootnode providers on the relay chain: {providers:?}",
 		);
 
 		for peer_id in providers {
@@ -141,98 +145,116 @@ impl BootnodeDiscovery {
 				continue;
 			}
 
-			// TODO: query nodes asynchronously in parallel.
-			let res = self
-				.relay_chain_network
-				.request(
-					peer_id,
-					self.paranode_protocol_name.clone(),
-					self.para_id_scale_compact.clone(),
-					None,
-					IfDisconnected::TryConnect,
-				)
-				.await;
+			let (tx, rx) = oneshot::channel();
 
-			let payload = match res {
-				Ok((payload, _)) => payload,
-				Err(e) => {
-					warn!(
-						target: LOG_TARGET,
-						"Failed to query parachain bootnode from {peer_id:?}: {e}",
-					);
-					continue;
-				},
-			};
+			self.relay_chain_network.start_request(
+				peer_id,
+				self.paranode_protocol_name.clone(),
+				self.para_id_scale_compact.clone(),
+				None,
+				tx,
+				IfDisconnected::TryConnect,
+			);
 
-			let response = match crate::schema::Response::decode(payload.as_slice()) {
+			self.pending_responses.push(async move { (peer_id, rx.await) }.boxed());
+		}
+	}
+
+	fn handle_response(
+		&mut self,
+		peer_id: PeerId,
+		res: Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>,
+	) {
+		let response = match res {
+			Ok(Ok((payload, _))) => match Response::decode(payload.as_slice()) {
 				Ok(response) => response,
 				Err(e) => {
 					warn!(
 						target: LOG_TARGET,
 						"Failed to decode parachain bootnode response from {peer_id:?}: {e}",
 					);
-					continue;
+					return;
 				},
-			};
+			},
+			Ok(Err(e)) => {
+				warn!(
+					target: LOG_TARGET,
+					"Failed to query parachain bootnode from {peer_id:?}: {e}",
+				);
+				return;
+			},
+			Err(_) => {
+				debug!(
+					target: LOG_TARGET,
+					"Parachain bootnode request to {peer_id:?} canceled. \
+					 The node is likely terminating.",
+				);
+				return;
+			},
+		};
 
-			match (response.genesis_hash, response.fork_id) {
-				(genesis_hash, fork_id)
-					if genesis_hash == self.parachain_genesis_hash &&
-						fork_id == self.parachain_fork_id => {},
-				(genesis_hash, fork_id) => {
-					warn!(
-						target: LOG_TARGET,
-						"Received invalid parachain bootnode response from {peer_id:?}: \
-						 genesis hash {}, fork ID {:?} don't match expected genesis hash {}, fork ID {:?}",
-						hex::encode(genesis_hash),
-						fork_id,
-						hex::encode(self.parachain_genesis_hash.clone()),
-						self.parachain_fork_id,
-					);
-					continue;
-				},
-			}
-
-			let paranode_peer_id = match PeerId::from_bytes(response.peer_id.as_slice()) {
-				Ok(peer_id) => peer_id,
-				Err(e) => {
-					warn!(
-						target: LOG_TARGET,
-						"Failed to decode parachain peer ID in response from {peer_id:?}: {e}",
-					);
-					continue;
-				},
-			};
-
-			if paranode_peer_id == self.parachain_network.local_peer_id() {
-				continue;
-			}
-
-			let paranode_addresses = response
-				.addrs
-				.into_iter()
-				.map(Multiaddr::try_from)
-				.collect::<Result<Vec<_>, _>>();
-			let paranode_addresses = match paranode_addresses {
-				Ok(paranode_addresses) => paranode_addresses,
-				Err(e) => {
-					warn!(
-						target: LOG_TARGET,
-						"Failed to decode parachain addresses in response from {peer_id:?}: {e}",
-					);
-					continue;
-				},
-			};
-
-			debug!(
-				target: LOG_TARGET,
-				"Discovered parachain bootnode {paranode_peer_id:?} with addresses {paranode_addresses:?}",
-			);
-
-			paranode_addresses.into_iter().for_each(|addr| {
-				self.parachain_network.add_known_address(paranode_peer_id.clone(), addr);
-			});
+		match (response.genesis_hash, response.fork_id) {
+			(genesis_hash, fork_id)
+				if genesis_hash == self.parachain_genesis_hash &&
+					fork_id == self.parachain_fork_id => {},
+			(genesis_hash, fork_id) => {
+				warn!(
+					target: LOG_TARGET,
+					"Received invalid parachain bootnode response from {peer_id:?}: \
+					 genesis hash {}, fork ID {:?} don't match expected genesis hash {}, fork ID {:?}",
+					hex::encode(genesis_hash),
+					fork_id,
+					hex::encode(self.parachain_genesis_hash.clone()),
+					self.parachain_fork_id,
+				);
+				return;
+			},
 		}
+
+		let paranode_peer_id = match PeerId::from_bytes(response.peer_id.as_slice()) {
+			Ok(peer_id) => peer_id,
+			Err(e) => {
+				warn!(
+					target: LOG_TARGET,
+					"Failed to decode parachain peer ID in response from {peer_id:?}: {e}",
+				);
+				return;
+			},
+		};
+
+		if paranode_peer_id == self.parachain_network.local_peer_id() {
+			warn!(
+				target: LOG_TARGET,
+				"Received own parachain node peer ID in bootnode response from {peer_id:?}. \
+				 This should not happen as we don't request parachain bootnodes from self.",
+			);
+			return;
+		}
+
+		let paranode_addresses = response
+			.addrs
+			.into_iter()
+			.map(Multiaddr::try_from)
+			.collect::<Result<Vec<_>, _>>();
+		let paranode_addresses = match paranode_addresses {
+			Ok(paranode_addresses) => paranode_addresses,
+			Err(e) => {
+				warn!(
+					target: LOG_TARGET,
+					"Failed to decode parachain addresses in response from {peer_id:?}: {e}",
+				);
+				return;
+			},
+		};
+
+		debug!(
+			target: LOG_TARGET,
+			"Discovered parachain bootnode {paranode_peer_id:?} with addresses {paranode_addresses:?}",
+		);
+
+		paranode_addresses.into_iter().for_each(|addr| {
+			self.parachain_network.add_known_address(paranode_peer_id.clone(), addr);
+		});
 	}
 
 	/// Run the bootnode discovery service.
@@ -258,16 +280,12 @@ impl BootnodeDiscovery {
 
 		// Wait for matching `DhtEvent::ProvidersFound` and query `/paranode` protocol.
 		loop {
-			match dht_event_stream.select_next_some().await {
-				DhtEvent::ProvidersFound(key, providers) => {
-					if Some(key) == self.parachain_key {
-						self.handle_providers(providers).await;
-						break;
-						// TODO: libp2p may return found providers in multiple events.
-					}
-				},
-				DhtEvent::ProvidersNotFound(key) =>
-					if Some(key.clone()) == self.parachain_key {
+			tokio::select! {
+				event = dht_event_stream.select_next_some() => match event {
+					DhtEvent::ProvidersFound(key, providers)
+						if Some(key.clone()) == self.parachain_key =>
+							self.handle_providers(providers),
+					DhtEvent::ProvidersNotFound(key) if Some(key.clone()) == self.parachain_key => {
 						warn!(
 							target: LOG_TARGET,
 							"Parachain bootnode providers not found for current epoch key {}",
@@ -275,7 +293,11 @@ impl BootnodeDiscovery {
 						);
 						break;
 					},
-				_ => {},
+					_ => {},
+				},
+				(peer_id, res) = self.pending_responses.select_next_some(),
+					if !self.pending_responses.is_empty() =>
+						self.handle_response(peer_id, res),
 			}
 		}
 
