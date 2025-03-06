@@ -29,7 +29,7 @@ log = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.21.0", default-features = false }
 polkavm-common = { version = "0.21.0", default-features = false, optional = true }
-rand = { workspace = true, optional = true }
+rand = { workspace = true, optional = true, features = ["small_rng"] }
 rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
