@@ -1,6 +1,6 @@
 [package]
 name = "sp-tracing"
-version = "16.0.0"
+version = "17.0.1"
 license = "Apache-2.0"
 authors.workspace = true
 edition.workspace = true

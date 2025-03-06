@@ -1,6 +1,6 @@
 [package]
 name = "assets-common"
-version = "0.7.0"
+version = "0.20.0-rc1"
 authors.workspace = true
 edition.workspace = true
 description = "Assets common utilities"
@@ -16,26 +16,21 @@ codec = { features = ["derive"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-pallet-asset-conversion = { workspace = true }
-pallet-assets = { workspace = true }
-sp-api = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Polkadot
-pallet-xcm = { workspace = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
-
-# Cumulus
-cumulus-primitives-core = { workspace = true }
-parachains-common = { workspace = true }
+frame-support.workspace = true
+pallet-asset-conversion.workspace = true
+pallet-assets.workspace = true
+sp-api.workspace = true
+sp-runtime.workspace = true
+pallet-xcm.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+cumulus-primitives-core.workspace = true
+parachains-common.workspace = true
 
 [build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
+substrate-wasm-builder.workspace = true
+substrate-wasm-builder.default-features = true
 
 [features]
 default = ["std"]

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-insecure-randomness-collective-flip"
-version = "16.0.0"
+version = "28.0.0-rc1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"

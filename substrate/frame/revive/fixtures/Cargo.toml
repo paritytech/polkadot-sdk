@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive-fixtures"
-version = "0.1.0"
+version = "0.3.0-rc1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,8 +16,8 @@ workspace = true
 
 [dependencies]
 anyhow = { workspace = true, default-features = true, optional = true }
-sp-core = { workspace = true, default-features = true, optional = true }
-sp-io = { workspace = true, default-features = true, optional = true }
+sp-core = { workspace = true, optional = true, default-features = true }
+sp-io = { workspace = true, optional = true, default-features = true }
 
 [build-dependencies]
 anyhow = { workspace = true, default-features = true }

@@ -19,22 +19,22 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-staking = { workspace = true, default-features = true }
+sp-core = { default-features = true, path = "../../../primitives/core" }
+sp-io = { default-features = true, path = "../../../primitives/io" }
+sp-runtime = { default-features = true, path = "../../../primitives/runtime" }
+sp-staking = { default-features = true, path = "../../../primitives/staking" }
 
-frame-election-provider-support = { workspace = true, default-features = true }
-frame-support = { features = ["experimental"], workspace = true, default-features = true }
-frame-system = { workspace = true, default-features = true }
+frame-election-provider-support = { default-features = true, path = "../../election-provider-support" }
+frame-support = { features = ["experimental"], default-features = true, path = "../../support" }
+frame-system = { default-features = true, path = "../../system" }
 
-pallet-bags-list = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-pallet-delegated-staking = { workspace = true, default-features = true }
-pallet-nomination-pools = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
-pallet-staking-reward-curve = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
+pallet-bags-list = { default-features = true, path = "../../bags-list" }
+pallet-balances = { default-features = true, path = "../../balances" }
+pallet-delegated-staking = { default-features = true, path = "../../delegated-staking" }
+pallet-nomination-pools = { default-features = true, path = ".." }
+pallet-staking = { default-features = true, path = "../../staking" }
+pallet-staking-reward-curve = { default-features = true, path = "../../staking/reward-curve" }
+pallet-timestamp = { default-features = true, path = "../../timestamp" }
 
 log = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-tracing = { default-features = true, path = "../../../primitives/tracing" }

@@ -12,7 +12,8 @@ anyhow = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
 env_logger = { workspace = true }
 log = { workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 subxt = { workspace = true, features = ["substrate-compat"] }
@@ -25,5 +26,6 @@ zombienet-sdk = { workspace = true }
 zombie-metadata = []
 
 [build-dependencies]
-substrate-build-script-utils = { workspace = true, default-features = true }
+substrate-build-script-utils.workspace = true
+substrate-build-script-utils.default-features = true
 subwasmlib = { git = "https://github.com/chevdor/subwasm", rev = "v0.21.3" }
