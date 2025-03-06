@@ -286,7 +286,7 @@ pub mod pallet {
 
 			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
 			let activation_timestamp = NextSessionChangesValidators::<T>::take().map(|_| {
-				// TODO: not setting the id for now, not sure if needed.
+				// TODO(ank4n): not setting the id for now, not sure if needed.
 				(T::UnixTime::now().as_millis().saturated_into::<u64>(), 0)
 			});
 
