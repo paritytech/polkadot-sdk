@@ -109,17 +109,14 @@ impl<T: Config> Rotator<T> {
 
 		ErasStartSessionIndex::<T>::insert(&new_planned_era, &self.planning_session());
 
-		self.clean_up_old_era(new_planned_era);
 		Pallet::<T>::clear_election_metadata();
-
-		log!(debug, "planned new era: {:?}", new_planned_era);
-	}
-
-	fn clean_up_old_era(&self, new_planned_era: EraIndex) {
+		// discard the ancient era info.
 		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
 			log!(trace, "Removing era information for {:?}", old_era);
 			Pallet::<T>::clear_era_information(old_era);
 		}
+
+		log!(debug, "done planning new era: {:?}", new_planned_era);
 	}
 
 	/// Common work that needs to be done at the end of every session.
