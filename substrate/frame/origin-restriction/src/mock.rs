@@ -29,7 +29,7 @@ use pallet_transaction_payment::ConstFeeMultiplier;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
 	testing::UintAuthorityId,
-	traits::{Applyable, BlakeTwo256, Checkable, ConstUint, IdentityLookup},
+	traits::{Applyable, BlakeTwo256, Checkable, ConstUint, IdentityLookup, LazyExtrinsic},
 	transaction_validity::{InvalidTransaction, TransactionSource},
 	BuildStorage, DispatchError, FixedU128, TransactionOutcome,
 };
@@ -321,8 +321,8 @@ pub fn exec_signed_tx_disabled(
 }
 
 /// Execute a transaction with the given origin, call and transaction extension.
-pub fn exec_tx(tx: UncheckedExtrinsic) -> Result<(), TransactionExecutionError> {
-	let info = tx.get_dispatch_info();
+pub fn exec_tx(mut tx: UncheckedExtrinsic) -> Result<(), TransactionExecutionError> {
+	let info = tx.expect_as_ref().get_dispatch_info();
 	let len = tx.encoded_size();
 
 	let checked = Checkable::check(tx, &frame_system::ChainContext::<Test>::default())?;
