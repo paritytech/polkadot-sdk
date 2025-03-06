@@ -2643,7 +2643,7 @@ pub mod pallet {
 		/// This function allows governance to manually slash of a validator and is a
 		/// **fallback mechanism**.
 		///
-		/// The dispatch origin must be `Root`.
+		/// The dispatch origin must be `T::AdminOrigin`.
 		///
 		/// ## Parameters
 		/// - `validator_stash` - The stash account of the validator to slash.
@@ -2662,14 +2662,14 @@ pub mod pallet {
 		///   will be applied.
 		/// - The slash will be deferred by `SlashDeferDuration` eras before being enacted.
 		#[pallet::call_index(33)]
-		#[pallet::weight(T::WeightInfo::force_unstake(1))]
+		#[pallet::weight(T::WeightInfo::manual_slash())]
 		pub fn manual_slash(
 			origin: OriginFor<T>,
 			validator_stash: T::AccountId,
 			era: EraIndex,
 			slash_fraction: Perbill,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 
 			// Check era is valid
 			let current_era = CurrentEra::<T>::get().ok_or(Error::<T>::InvalidEraToReward)?;
