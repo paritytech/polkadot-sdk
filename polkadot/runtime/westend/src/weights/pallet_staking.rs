@@ -901,7 +901,7 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 		//  Estimated: `4175`
 		// Minimum execution time: 30_000_000 picoseconds.
 		Weight::from_parts(33_000_000, 4175)
-			.saturating_add(RocksDbWeight::get().reads(10_u64))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(T::DbWeight::get().reads(10_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 }
