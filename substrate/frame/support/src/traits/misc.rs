@@ -917,11 +917,6 @@ pub trait ExtrinsicCall: sp_runtime::traits::ExtrinsicLike {
 
 impl<Address, Call, Signature, Extra> ExtrinsicCall
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
-where
-	Address: TypeInfo,
-	Call: TypeInfo,
-	Signature: TypeInfo,
-	Extra: TypeInfo,
 {
 	type Call = Call;
 

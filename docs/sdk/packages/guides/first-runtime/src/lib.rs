@@ -25,6 +25,7 @@ use first_pallet::pallet_v2 as our_first_pallet;
 use frame::{
 	prelude::*,
 	runtime::{apis, prelude::*},
+	traits::LazyExtrinsic,
 };
 use pallet_transaction_payment_rpc_runtime_api::{FeeDetails, RuntimeDispatchInfo};
 
@@ -270,11 +271,11 @@ impl_runtime_apis! {
 		Block,
 		interface::Balance,
 	> for Runtime {
-		fn query_info(uxt: ExtrinsicFor<Runtime>, len: u32) -> RuntimeDispatchInfo<interface::Balance> {
-			TransactionPayment::query_info(uxt, len)
+		fn query_info(mut uxt: ExtrinsicFor<Runtime>, len: u32) -> RuntimeDispatchInfo<interface::Balance> {
+			TransactionPayment::query_info(uxt.expect_as_ref(), len)
 		}
-		fn query_fee_details(uxt: ExtrinsicFor<Runtime>, len: u32) -> FeeDetails<interface::Balance> {
-			TransactionPayment::query_fee_details(uxt, len)
+		fn query_fee_details(mut uxt: ExtrinsicFor<Runtime>, len: u32) -> FeeDetails<interface::Balance> {
+			TransactionPayment::query_fee_details(uxt.expect_as_ref(), len)
 		}
 		fn query_weight_to_fee(weight: Weight) -> interface::Balance {
 			TransactionPayment::weight_to_fee(weight)
