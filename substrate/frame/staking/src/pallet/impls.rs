@@ -1661,7 +1661,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		if let Some((this_era_start, _id)) = activation_timestamp {
 			// If an activation timestamp is present, it means a new validator set was applied.
 			// We need to finalize the previous era and start a new one.
-			log!(debug, "kicking off era rotation session");
+			log!(debug, "Activate next era with timestamp: {:?}", this_era_start);
 			session_rotator.activate_era(this_era_start);
 			return;
 		}
