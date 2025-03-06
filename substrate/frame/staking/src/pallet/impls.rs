@@ -1644,24 +1644,39 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 		let starting = session_rotator.starting_session();
 		let planning = session_rotator.planning_session();
+		let progress = session_rotator.planned_session_progress();
 
 		log!(
 			info,
-			"session report received -- ending session {:?}, starting {:?}, planning: {:?}",
+			"session report received -- ending session {:?}, starting {:?}, planning: {:?}, \
+			current_progress: {:?}",
 			end_index,
 			starting,
-			planning
+			planning,
+			progress
 		);
 
-		// If an activation timestamp is present, it means a new validator set was applied.
-		// We need to finalize the previous era and start a new one.
 		if let Some((this_era_start, _id)) = activation_timestamp {
+			// If an activation timestamp is present, it means a new validator set was applied.
+			// We need to finalize the previous era and start a new one.
+			log!(debug, "kicking off era rotation session");
 			session_rotator.start_rotation_era_session(this_era_start);
-		} else if session_rotator.should_start_election() {
-			// If there's no activation timestamp, but it's the right time to start an election.
+			return;
+		}
+
+		let last_session = T::SessionsPerEra::get().saturating_sub(1);
+		if progress == last_session {
+			// if this is the last session before planned era rotation, we plan new era.
+			session_rotator.plan_new_era();
+		}
+
+		if progress == session_rotator.election_session_index() {
+			// this seems a good time for elections.
+			log!(debug, "kicking off an election session.");
 			session_rotator.start_election_session();
 		} else {
-			// If neither a new era nor an election starts, proceed with a boring session.
+			// otherwise proceed with a boring session.
+			log!(debug, "kicking off an idle session.");
 			session_rotator.start_idle_session();
 		}
 	}

@@ -58,15 +58,11 @@ impl<T: Config> Rotator<T> {
 		self.planning_session() - era_start_session
 	}
 
-	/// Returns `true` if an election should be kicked off.
-	pub(crate) fn should_start_election(&self) -> bool {
-		let session_progress = self.planned_session_progress();
-		log!(debug, "RUNTIME IMPL: session progress: {:?}", session_progress);
-
+	/// Returns the session index relative to current planning session at which the election should
+	/// be started.
+	pub(crate) fn election_session_index(&self) -> SessionIndex {
 		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
-
-		// start the election `election_offset` sessions before the intended time.
-		session_progress == (T::SessionsPerEra::get() - election_offset)
+		T::SessionsPerEra::get().saturating_sub(election_offset)
 	}
 
 	/// Starts an idle session.
@@ -82,9 +78,6 @@ impl<T: Config> Rotator<T> {
 		log!(info, "sending election start signal");
 		// todo(ank4n): check if already kicked, and if so, don't send another signal.
 		let _ = T::ElectionProvider::start();
-
-		// we also plan the new era when we kick off the election.
-		self.plan_new_era();
 	}
 
 	/// Starts the next session that would rotate the era.
@@ -107,8 +100,8 @@ impl<T: Config> Rotator<T> {
 		}
 	}
 
-	/// Plan new era if this is the last session of the active era.
-	fn plan_new_era(&self) {
+	/// Plan new era and clean up old era information.
+	pub(crate) fn plan_new_era(&self) {
 		let new_planned_era = CurrentEra::<T>::mutate(|s| {
 			*s = Some(s.map(|s| s + 1).unwrap_or(0));
 			s.unwrap()
@@ -118,6 +111,8 @@ impl<T: Config> Rotator<T> {
 
 		self.clean_up_old_era(new_planned_era);
 		Pallet::<T>::clear_election_metadata();
+
+		log!(debug, "planned new era: {:?}", new_planned_era);
 	}
 
 	fn clean_up_old_era(&self, new_planned_era: EraIndex) {
