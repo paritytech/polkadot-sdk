@@ -295,8 +295,6 @@ fn custom_querier_works() {
 /// Asserts that the expected message is sent and the event is emitted
 #[test]
 fn send_works() {
-	sp_tracing::init_for_tests();
-
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
