@@ -29,16 +29,16 @@ use sp_staking::SessionIndex;
 	Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
-/// Something that manages the rotation of eras.
-pub struct Manager<T: Config> {
+/// Something that manages the rotation of sessions.
+pub struct Rotator<T: Config> {
 	/// The session that is ending.
 	pub end_session_index: SessionIndex,
 	_phantom_data: PhantomData<T>,
 }
 
-impl<T: Config> Manager<T> {
+impl<T: Config> Rotator<T> {
 	pub(crate) fn from(end_session_index: SessionIndex) -> Self {
-		Manager { end_session_index, _phantom_data: Default::default() }
+		Rotator { end_session_index, _phantom_data: Default::default() }
 	}
 
 	/// Returns the session that should be started.

@@ -18,7 +18,7 @@
 //! Implementations for the Staking FRAME Pallet.
 
 use crate::{
-	asset, election_size_tracker::StaticTracker, log, session, slashing, weights::WeightInfo,
+	asset, election_size_tracker::StaticTracker, log, session_rotation, slashing, weights::WeightInfo,
 	ActiveEraInfo, BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing,
 	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf,
 	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus,
@@ -1640,10 +1640,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		Self::reward_by_ids(validator_points.into_iter());
 
 		// Utilize a manager that will help you do some otherwise messy things.
-		let session_manager = session::Manager::<T>::from(end_index);
+		let session_rotator = session_rotation::Rotator::<T>::from(end_index);
 
-		let starting = session_manager.starting_session();
-		let planning = session_manager.planning_session();
+		let starting = session_rotator.starting_session();
+		let planning = session_rotator.planning_session();
 
 		log!(
 			info,
@@ -1656,13 +1656,13 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		// If an activation timestamp is present, it means a new validator set was applied.
 		// We need to finalize the previous era and start a new one.
 		if let Some((this_era_start, _id)) = activation_timestamp {
-			session_manager.start_rotation_era_session(this_era_start);
-		} else if session_manager.should_start_election() {
+			session_rotator.start_rotation_era_session(this_era_start);
+		} else if session_rotator.should_start_election() {
 			// If there's no activation timestamp, but it's the right time to start an election.
-			session_manager.start_election_session();
+			session_rotator.start_election_session();
 		} else {
 			// If neither a new era nor an election starts, proceed with a boring session.
-			session_manager.start_idle_session();
+			session_rotator.start_idle_session();
 		}
 	}
 
