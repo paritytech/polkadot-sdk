@@ -1627,12 +1627,14 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		debug_assert!(!leftover);
 
 		// handle reward points - input is the sum of all points.
+		// todo: make sure this is bounded.
 		Self::reward_by_ids(validator_points.into_iter());
 
-		let rotator = session::Manager::<T>::from(end_index, activation_timestamp);
+		let session_manager = session::Manager::<T>::from(end_index, activation_timestamp);
 
-		let starting = end_index + 1;
-		let planning = starting + 1;
+		let starting = session_manager.starting_session();
+		let planning = session_manager.planning_session();
+
 		log!(
 			info,
 			"session report received -- ending session {:?}, starting {:?}, planning: {:?}",
@@ -1641,23 +1643,15 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			planning
 		);
 
-		// first, handle planning a new session/era
-		CurrentPlannedSession::<T>::put(planning);
-		Self::new_session(planning, false);
-
 		let current_era = CurrentEra::<T>::get().unwrap_or_default();
 		let start_index = ErasStartSessionIndex::<T>::get(current_era).unwrap_or_default();
 
-		// todo(ank4n): if election not started, and session progressed enough, start election.
-		if Self::maybe_start_election(planning, start_index) {
-			log!(info, "sending election start signal");
-			let _ = T::ElectionProvider::start();
-		}
+		// first, handle planning a new session/era
+		CurrentPlannedSession::<T>::put(planning);
+		// Self::new_session(planning, false);
 
-		// then, handle starting/ending a session/era
-		if let Some((this_era_start, _id)) = activation_timestamp {
-			// If an activation timestamp is received, it indicates that a new era has started on
-			// RC. This means we need to finalize the current active era by computing payouts and
+		if let Some(this_era_start) = session_manager.should_rotate_era() {
+			// This means we need to finalize the current active era by computing payouts and
 			// rolling over to the next era to keep the staking system in sync.
 
 			if let Some(current_active_era) = ActiveEra::<T>::get() {
@@ -1669,6 +1663,26 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			} else {
 				defensive!("Active era must always be available.");
 			}
+
+			return;
+		}
+
+		// todo(ank4n): check if already kicked, and if so, don't send another signal.
+		if session_manager.should_start_election() {
+			log!(info, "sending election start signal");
+			let _ = T::ElectionProvider::start();
+
+			let new_planned_era = CurrentEra::<T>::mutate(|s| {
+				*s = Some(s.map(|s| s + 1).unwrap_or(0));
+				s.unwrap()
+			});
+			ErasStartSessionIndex::<T>::insert(&new_planned_era, &planning);
+			// Clean old era information.
+			if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
+				log!(trace, "Removing era information for {:?}", old_era);
+				Self::clear_era_information(old_era);
+			}
+			Self::clear_election_metadata();
 		}
 	}
 
