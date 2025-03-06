@@ -41,12 +41,12 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::{
-	traits::{Bounded, CheckedAdd, Convert, Saturating, StaticLookup, Zero},
+	traits::{Bounded, CheckedAdd, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchResult, Perbill, Percent,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	offence::{OffenceSeverity, OnOffenceHandler},
+	offence::OffenceSeverity,
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,

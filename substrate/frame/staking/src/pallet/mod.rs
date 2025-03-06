@@ -42,7 +42,7 @@ use rand_chacha::{
 };
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
-	traits::{SaturatedConversion, StaticLookup, Zero},
+	traits::{StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 

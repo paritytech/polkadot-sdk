@@ -363,8 +363,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
-	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
-	StakingAccount,
+	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
@@ -392,10 +391,11 @@ pub struct TestElectionProviderAtEraBoundary<T, SP>(core::marker::PhantomData<(T
 
 #[cfg(feature = "std")]
 impl<
-	T: Config,
-	// single page EP.
-	SP: ElectionProvider,
-> ElectionProvider for TestElectionProviderAtEraBoundary<T, SP> {
+		T: Config,
+		// single page EP.
+		SP: ElectionProvider,
+	> ElectionProvider for TestElectionProviderAtEraBoundary<T, SP>
+{
 	type AccountId = SP::AccountId;
 	type BlockNumber = SP::BlockNumber;
 	type MaxWinnersPerPage = SP::MaxWinnersPerPage;
@@ -437,7 +437,6 @@ impl<
 		}
 	}
 }
-
 
 /// Alias for a bounded set of exposures behind a validator, parameterized by this pallet's
 /// election provider.
