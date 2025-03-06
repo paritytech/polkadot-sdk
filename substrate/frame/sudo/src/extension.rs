@@ -31,7 +31,7 @@ use sp_runtime::{
 
 /// Ensure that signed transactions are only valid if they are signed by sudo account.
 ///
-/// In the initial phase of a chain without any tokens you can not prevent accounts from sending
+/// In the initial phase of a chain without any tokens you cannot prevent accounts from sending
 /// transactions.
 /// These transactions would enter the transaction pool as the succeed the validation, but would
 /// fail on applying them as they are not allowed/disabled/whatever. This would be some huge dos
@@ -89,7 +89,7 @@ where
 	fn validate(
 		&self,
 		origin: <<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin,
-		_call: &<T as frame_system::Config>::RuntimeCall,
+		call: &<T as frame_system::Config>::RuntimeCall,
 		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		_len: usize,
 		_self_implicit: Self::Implicit,
@@ -110,6 +110,7 @@ where
 		Ok((
 			ValidTransaction {
 				priority: info.total_weight().ref_time() as TransactionPriority,
+				provides: vec![(who, call).encode()],
 				..Default::default()
 			},
 			(),
