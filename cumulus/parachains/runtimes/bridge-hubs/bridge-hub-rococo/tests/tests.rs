@@ -984,7 +984,7 @@ fn location_conversion_works() {
 					AccountId,
 					bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
 				>::convert_location(tc.location.into())
-					.unwrap();
+				.unwrap();
 
 				assert_eq!(got, expected, "{}", tc.description);
 			}
