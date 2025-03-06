@@ -342,6 +342,7 @@ pub mod pallet {
 			type PreInherents = ();
 			type PostInherents = ();
 			type PostTransactions = ();
+			type EventSegmentSize = ();
 		}
 
 		/// Default configurations of this pallet in a solochain environment.
@@ -444,6 +445,9 @@ pub mod pallet {
 			type PreInherents = ();
 			type PostInherents = ();
 			type PostTransactions = ();
+
+			/// The number of event stored together in a segment.
+			type EventSegmentSize = ();
 		}
 
 		/// Default configurations of this pallet in a relay-chain environment.
@@ -657,6 +661,18 @@ pub mod pallet {
 		///
 		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
 		type PostTransactions: PostTransactions;
+
+		/// The number of events stored together in a segment.
+		///
+		/// When set to zero all the events are stored in a single storage value `Events` under one key,
+		/// when set to a non-zero value `N`, `N` number of events will be stored together in a segment
+		/// under one key in the storage map `EventSegments`.
+		///
+		/// Given the same amount of event, the smaller this value the smaller the segment and thus a smaller
+		/// storage proof for a specific event, but as the number of segment increases and there will be more
+		/// key-value added to the Trie and may impact the performance.
+		#[pallet::constant]
+		type EventSegmentSize: Get<u32>;
 	}
 
 	#[pallet::pallet]
@@ -998,6 +1014,26 @@ pub mod pallet {
 	#[pallet::whitelist_storage]
 	#[pallet::getter(fn event_count)]
 	pub(super) type EventCount<T: Config> = StorageValue<_, EventIndex, ValueQuery>;
+
+	/// Similar to `Events`, storing events deposited for the current block but `EventSegmentSize`
+	/// number of events are stored together in an item (under the same key) in the map.
+	///
+	/// For an event with event index `i`, it is stored in the segment under key `i / EventSegmentSize`
+	/// in the map and index `i % EventSegmentSize` in the segment.
+	///
+	/// NOTE: The event segment from the previous blocks is not cleared but instead overwritten
+	/// by event deposited later, only the first `EventCount` number of events in the map are
+	/// deposited by the current block.
+	#[pallet::storage]
+	#[pallet::disable_try_decode_storage]
+	#[pallet::unbounded]
+	pub(super) type EventSegments<T: Config> =
+		StorageMap<_, Identity, u32, Vec<Box<EventRecord<T::RuntimeEvent, T::Hash>>>, OptionQuery>;
+
+	/// The total number of uncleared events from the previous blocks.
+	#[pallet::storage]
+	#[pallet::getter(fn uncleared_event_count)]
+	pub(super) type UnclearedEventCount<T: Config> = StorageValue<_, EventIndex, ValueQuery>;
 
 	/// Mapping between a topic (represented by T::Hash) and a vector of indexes
 	/// of events in the `<Events<T>>` list.
@@ -1758,7 +1794,20 @@ impl<T: Config> Pallet<T> {
 			old_event_count
 		};
 
-		Events::<T>::append(event);
+		match T::EventSegmentSize::get() {
+			0u32 => Events::<T>::append(event),
+			segment_size => {
+				let event_segment_idx = event_idx / segment_size;
+				// For the first event in the segment, use `StorageMap::set` to clear events from
+				// the previous block. For the following event in the segment, use `StorageMap::append`
+				// which is more efficient.
+				if event_idx % segment_size == 0 {
+					EventSegments::<T>::set(event_segment_idx, Some(vec![event.into()]));
+				} else {
+					EventSegments::<T>::append(event_segment_idx, event);
+				}
+			},
+		}
 
 		for topic in topics {
 			<EventTopics<T>>::append(topic, &(block_number, event_idx));
@@ -1941,8 +1990,16 @@ impl<T: Config> Pallet<T> {
 	/// Should only be called if you know what you are doing and outside of the runtime block
 	/// execution else it can have a large impact on the PoV size of a block.
 	pub fn read_events_no_consensus(
-	) -> impl Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
-		Events::<T>::stream_iter()
+	) -> Box<dyn Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>>> {
+		if T::EventSegmentSize::get().is_zero() {
+			Box::new(Events::<T>::stream_iter())
+		} else {
+			Box::new(
+				EventSegments::<T>::iter_values()
+					.flatten()
+					.take(EventCount::<T>::get() as usize),
+			)
+		}
 	}
 
 	/// Read and return the events of a specific pallet, as denoted by `E`.
@@ -1953,11 +2010,20 @@ impl<T: Config> Pallet<T> {
 	where
 		T::RuntimeEvent: TryInto<E>,
 	{
-		Events::<T>::get()
-			.into_iter()
-			.map(|er| er.event)
-			.filter_map(|e| e.try_into().ok())
-			.collect::<_>()
+		if T::EventSegmentSize::get().is_zero() {
+			Events::<T>::get()
+				.into_iter()
+				.map(|er| er.event)
+				.filter_map(|e| e.try_into().ok())
+				.collect::<_>()
+		} else {
+			EventSegments::<T>::iter_values()
+				.flatten()
+				.take(EventCount::<T>::get() as usize)
+				.map(|er| er.event)
+				.filter_map(|e| e.try_into().ok())
+				.collect::<_>()
+		}
 	}
 
 	/// Set the block number to something in particular. Can be used as an alternative to
@@ -1994,7 +2060,14 @@ impl<T: Config> Pallet<T> {
 	/// This needs to be used in prior calling [`initialize`](Self::initialize) for each new block
 	/// to clear events from previous block.
 	pub fn reset_events() {
-		<Events<T>>::kill();
+		if T::EventSegmentSize::get().is_zero() {
+			<Events<T>>::kill();
+		} else {
+			let pre_uncleared_event_count = UnclearedEventCount::<T>::get();
+			let event_count = EventCount::<T>::get();
+			UnclearedEventCount::<T>::set(pre_uncleared_event_count.max(event_count));
+		}
+
 		EventCount::<T>::kill();
 		let _ = <EventTopics<T>>::clear(u32::max_value(), None);
 	}

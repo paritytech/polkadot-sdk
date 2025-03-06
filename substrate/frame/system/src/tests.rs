@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::*;
+use core::sync::atomic::Ordering;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::{Pays, PostDispatchInfo, WithPostDispatchInfo},
@@ -890,5 +891,140 @@ fn test_default_account_nonce() {
 
 		Account::<Test>::remove(&1);
 		assert_eq!(System::account_nonce(&1), 5u64.into());
+	});
+}
+
+#[test]
+fn test_event_segment() {
+	new_test_ext().execute_with(|| {
+		// Set the `EventSegmentSize` to 0, the event will store in `Events` instead of `EventSegments`
+		System::reset_events();
+		EVENT_SEGMENT_SIZE_VALUE.store(0u32, Ordering::SeqCst);
+		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::note_finished_extrinsics();
+		System::deposit_event(SysEvent::CodeUpdated);
+		System::finalize();
+		assert_eq!(
+			System::events(),
+			vec![EventRecord {
+				phase: Phase::Finalization,
+				event: SysEvent::CodeUpdated.into(),
+				topics: vec![],
+			}]
+		);
+		assert_eq!(Events::<Test>::get().len(), 1);
+		assert_eq!(EventSegments::<Test>::iter().count(), 0);
+
+		// Set the `EventSegmentSize` > 0, the event will store in `EventSegments` instead of `Events`
+		System::reset_events();
+		assert!(System::events().is_empty());
+		EVENT_SEGMENT_SIZE_VALUE.store(1u32, Ordering::SeqCst);
+		System::initialize(&2, &[0u8; 32].into(), &Default::default());
+		for i in 0..10 {
+			System::deposit_event(SysEvent::NewAccount { account: i as u64 + 1 });
+		}
+		System::note_finished_initialize();
+		System::note_finished_extrinsics();
+		System::finalize();
+		for (i, event) in System::events().into_iter().enumerate() {
+			assert_eq!(
+				event,
+				EventRecord {
+					phase: Phase::Initialization,
+					event: SysEvent::NewAccount { account: i as u64 + 1 }.into(),
+					topics: vec![]
+				}
+			);
+		}
+		assert_eq!(Events::<Test>::get().len(), 0);
+		assert_eq!(EventSegments::<Test>::iter().count(), 10);
+
+		// Set the `EventSegmentSize` to 2, each event segment will at most contains 2 events
+		System::reset_events();
+		assert!(System::events().is_empty());
+		EVENT_SEGMENT_SIZE_VALUE.store(2u32, Ordering::SeqCst);
+		System::initialize(&3, &[0u8; 32].into(), &Default::default());
+		System::note_finished_initialize();
+		System::note_finished_extrinsics();
+		for i in 10..15 {
+			System::deposit_event(SysEvent::NewAccount { account: i as u64 + 1 });
+		}
+		System::finalize();
+		assert_eq!(Events::<Test>::get().len(), 0);
+
+		// 5 events from the current block stored in the first 3 segments
+		assert_eq!(
+			EventSegments::<Test>::get(0).unwrap(),
+			vec![
+				EventRecord {
+					phase: Phase::Finalization,
+					event: SysEvent::NewAccount { account: 11 }.into(),
+					topics: vec![]
+				}
+				.into(),
+				EventRecord {
+					phase: Phase::Finalization,
+					event: SysEvent::NewAccount { account: 12 }.into(),
+					topics: vec![]
+				}
+				.into()
+			]
+		);
+		assert_eq!(
+			EventSegments::<Test>::get(1).unwrap(),
+			vec![
+				EventRecord {
+					phase: Phase::Finalization,
+					event: SysEvent::NewAccount { account: 13 }.into(),
+					topics: vec![]
+				}
+				.into(),
+				EventRecord {
+					phase: Phase::Finalization,
+					event: SysEvent::NewAccount { account: 14 }.into(),
+					topics: vec![]
+				}
+				.into()
+			]
+		);
+		assert_eq!(
+			EventSegments::<Test>::get(2).unwrap(),
+			vec![EventRecord {
+				phase: Phase::Finalization,
+				event: SysEvent::NewAccount { account: 15 }.into(),
+				topics: vec![]
+			}
+			.into()]
+		);
+
+		// The events from the previous block is not cleared in `EventSegments`
+		assert_eq!(EventSegments::<Test>::iter().count(), 10);
+		assert_eq!(UnclearedEventCount::<Test>::get(), 10);
+		for i in 3..10 {
+			assert_eq!(
+				EventSegments::<Test>::get(i).unwrap(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: SysEvent::NewAccount { account: i as u64 + 1 }.into(),
+					topics: vec![]
+				}
+				.into()]
+			);
+		}
+
+		// But also inaccessible by `System::events()`
+		for (i, event) in System::events().into_iter().enumerate() {
+			assert_eq!(
+				event,
+				EventRecord {
+					phase: Phase::Finalization,
+					event: SysEvent::NewAccount { account: i as u64 + 11 }.into(),
+					topics: vec![]
+				}
+			);
+		}
+
+		System::reset_events();
+		assert!(System::events().is_empty());
 	});
 }
