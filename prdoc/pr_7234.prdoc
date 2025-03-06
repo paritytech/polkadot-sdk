@@ -5,7 +5,7 @@ doc:
     This PR introduces the `EventEmitter` trait to the XCM executor, allowing configurable event emission.
 crates:
 - name: pallet-xcm-bridge-hub
-  bump: major
+  bump: Patch
 - name: asset-hub-rococo-runtime
   bump: minor
 - name: asset-hub-westend-runtime
@@ -37,7 +37,7 @@ crates:
 - name: pallet-xcm-benchmarks
   bump: patch
 - name: pallet-xcm
-  bump: minor
+  bump: major
 - name: staging-xcm-builder
   bump: patch
 - name: staging-xcm-executor
@@ -51,6 +51,4 @@ crates:
 - name: pallet-contracts-mock-network
   bump: minor
 - name: pallet-revive-mock-network
-  bump: minor
-- name: sp-tracing
   bump: minor
