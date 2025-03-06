@@ -8,9 +8,9 @@ doc:
     1. Alice was not set as sudo. Hence, the `CheckOnlySudoAccount` deemed the extrinsic as invalid.
     2. The `CheckNonce` TxExtension also marked the extrinsic as invalid, as the account doesn't exist (because glutton has no balances pallet).
 
-    This PR fixes both issues by setting sudo in the genesis config and removing the nonce check from the tx extension. I think this is valid as the `CheckNonce` was useless without the balances pallet or anything else that might create accounts. Additionally, this is safe, as the tx extension only allows sudo to send transactions anyhow.
+    This PR fixes the 1.) for now. I wanted to simply remove the `CheckNonce` in the TxExtension to fix 2., but it turns out that this is not possible, as the tx-pool needs the nonce tag to identify the transaction. https://github.com/paritytech/polkadot-sdk/pull/6884 will fix sending extrinsics on glutton.
 crates:
 - name: glutton-westend-runtime
-  bump: major
+  bump: minor
 - name: polkadot-parachain-bin
-  bump: major
+  bump: minor
