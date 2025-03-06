@@ -8,8 +8,6 @@ doc:
     compression ratio of 10. 
 crates:
 - name: polkadot-node-primitives
-  bump: minor
-- name: polkadot-service
   bump: patch
 - name: polkadot-node-subsystem-types
   bump: major
@@ -33,3 +31,9 @@ crates:
   bump: patch
 - name: polkadot-node-core-pvf
   bump: patch
+- name: cumulus-relay-chain-minimal-node
+  bump: minor
+- name: cumulus-relay-chain-rpc-interface
+  bump: minor
+- name: cumulus-pov-validator
+  bump: minor
