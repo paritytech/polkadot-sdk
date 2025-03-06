@@ -21,6 +21,7 @@ tracing = { workspace = true }
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { workspace = true }
+frame-proofs-primitives = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
@@ -35,6 +36,8 @@ pallet-collective = { workspace = true }
 pallet-core-fellowship = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-preimage = { workspace = true }
+pallet-proofs-storage = { workspace = true }
+pallet-proofs-voting = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-ranked-collective = { workspace = true }
 pallet-referenda = { workspace = true }
@@ -122,6 +125,8 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
+	"pallet-proofs-storage/runtime-benchmarks",
+	"pallet-proofs-voting/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-ranked-collective/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
@@ -166,6 +171,8 @@ try-runtime = [
 	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-preimage/try-runtime",
+	"pallet-proofs-storage/try-runtime",
+	"pallet-proofs-voting/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-ranked-collective/try-runtime",
 	"pallet-referenda/try-runtime",
@@ -196,6 +203,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
+	"frame-proofs-primitives/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -213,6 +221,8 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-multisig/std",
 	"pallet-preimage/std",
+	"pallet-proofs-storage/std",
+	"pallet-proofs-voting/std",
 	"pallet-proxy/std",
 	"pallet-ranked-collective/std",
 	"pallet-referenda/std",

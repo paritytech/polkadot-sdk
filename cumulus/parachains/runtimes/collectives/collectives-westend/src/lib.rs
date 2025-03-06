@@ -37,6 +37,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod ambassador;
+pub mod dday;
 mod genesis_config_presets;
 pub mod impls;
 mod weights;
@@ -733,6 +734,13 @@ construct_runtime!(
 		AmbassadorSalary: pallet_salary::<Instance2> = 74,
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 
+		// DDay feature.
+		DDayReferenda: pallet_referenda::<Instance3> = 81,
+		DDayVoting: pallet_proofs_voting::<Instance1> = 82,
+
+		// Storage of sibling parachain header or state roots.
+		ProofsStorage: pallet_proofs_storage = 83,
+
 		StateTrieMigration: pallet_state_trie_migration = 80,
 	}
 );
@@ -823,6 +831,7 @@ mod benches {
 		[pallet_collective_content, AmbassadorContent]
 		[pallet_core_fellowship, AmbassadorCore]
 		[pallet_salary, AmbassadorSalary]
+		[pallet_referenda, DDayReferenda]
 		[pallet_treasury, FellowshipTreasury]
 		[pallet_asset_rate, AssetRate]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]

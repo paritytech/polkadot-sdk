@@ -16,15 +16,34 @@
 
 #![cfg(test)]
 
+use codec::Encode;
 use collectives_westend_runtime::{
-	xcm_config::{GovernanceLocation, LocationToAccountId},
-	Block, Runtime, RuntimeCall, RuntimeOrigin,
+	dday::{
+		prover,
+		prover::{
+			types::{ProofsKey, ProofsValue},
+			AssetHubAccountProver, AssetHubStateProvider,
+		},
+		DDayReferendaInstance, DDayVotingInstance, IsAssetHubStalled, LastKnownAssetHubHead,
+		StalledAssetHubBlockThreshold, SubmissionDeposit,
+	},
+	fellowship::pallet_fellowship_origins::Origin,
+	xcm_config::{AssetHub, GovernanceLocation, LocationToAccountId},
+	AllPalletsWithoutSystem, Balances, Block, DDayReferenda, DDayVoting, ExistentialDeposit,
+	FellowshipCollective, Preimage, ProofsStorage, Runtime, RuntimeCall, RuntimeOrigin, System,
 };
-use frame_support::{assert_err, assert_ok};
+use frame_proofs_primitives::ProvideHash;
+use frame_support::{
+	assert_err, assert_ok,
+	traits::{fungible::Mutate, schedule::DispatchTime, Get, StorePreimage, VoteTally},
+	BoundedVec,
+};
+use pallet_proofs_voting::{AccountVote, Conviction, ProofBalanceOf, VerifyProof, Vote};
+use pallet_referenda::{ReferendumCount, ReferendumInfoFor};
 use parachains_common::AccountId;
-use parachains_runtimes_test_utils::GovernanceOrigin;
+use parachains_runtimes_test_utils::{GovernanceOrigin, RuntimeHelper};
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::Either;
+use sp_runtime::{Either, Perbill};
 use testnet_parachains_constants::westend::fee::WeightToFee;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -199,4 +218,215 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(GovernanceLocation::get())));
+}
+
+#[test]
+fn dday_feature_works() {
+	sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+		// create rank3+ fellow with some balance
+		let account_fellow_rank3 = AccountId::from([0; 32]);
+		assert_ok!(FellowshipCollective::do_add_member_to_rank(
+			account_fellow_rank3.clone(),
+			3,
+			false
+		));
+		assert_ok!(Balances::mint_into(
+			&account_fellow_rank3,
+			ExistentialDeposit::get() + SubmissionDeposit::get()
+		));
+
+		// create DDay referendum
+		assert_ok!(DDayReferenda::submit(
+			RuntimeOrigin::signed(account_fellow_rank3),
+			Box::new(Origin::Fellows.into()),
+			{
+				// random call executed when referendum passes
+				let c =
+					RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![] });
+				<Preimage as StorePreimage>::bound(c).unwrap()
+			},
+			DispatchTime::At(10),
+		));
+		assert_eq!(ReferendumCount::<Runtime, DDayReferendaInstance>::get(), 1);
+		let referenda_id = ReferendumCount::<Runtime, DDayReferendaInstance>::get() - 1;
+		assert!(ReferendumInfoFor::<Runtime, DDayReferendaInstance>::get(referenda_id).is_some());
+
+		// prepare sample proofs
+		let (asset_hub_header, proof, ss58_account, ..) = prover::tests::sample_proof();
+		let asset_hub_block_number = asset_hub_header.number;
+		let valid_asset_hub_account =
+			AccountId::from_ss58check(ss58_account).expect("valid accountId");
+		let account_voting_power = AssetHubAccountProver::query_voting_power_for(
+			&valid_asset_hub_account,
+			asset_hub_header.state_root,
+			proof.clone(),
+		)
+		.expect("valid proof");
+
+		// Err - no AssetHub data synced yet
+		assert_err!(
+			DDayVoting::vote(
+				RuntimeOrigin::signed(valid_asset_hub_account.clone()),
+				referenda_id,
+				AccountVote::Standard {
+					vote: Vote { aye: true, conviction: Conviction::Locked1x },
+					balance: account_voting_power.account_power
+				},
+				(asset_hub_block_number, proof.clone())
+			),
+			<pallet_proofs_voting::Error<Runtime, DDayVotingInstance>>::NotOngoing
+		);
+
+		// store/sync AssetHub data with state root and total issuace (as AssetHub would do)
+		System::set_block_number(13);
+		assert_ok!(ProofsStorage::submit(
+			cumulus_pallet_xcm::Origin::SiblingParachain(
+				westend_runtime_constants::system_parachain::ASSET_HUB_ID.into()
+			)
+			.into(),
+			ProofsKey::AssetHubHeader(asset_hub_block_number),
+			ProofsValue::AssetHubHeader(
+				BoundedVec::try_from(asset_hub_header.encode()).expect("valid header")
+			)
+		));
+		// make AssetHub as stalled
+		assert!(!IsAssetHubStalled::get());
+		System::set_block_number(13 + StalledAssetHubBlockThreshold::get() + 1);
+		assert!(IsAssetHubStalled::get());
+
+		// Err - vote by proof - random account cannot vote
+		assert_err!(
+			DDayVoting::vote(
+				RuntimeOrigin::signed(AccountId::from([1; 32])), // invalid account
+				referenda_id,
+				AccountVote::Standard {
+					vote: Vote { aye: true, conviction: Conviction::Locked1x },
+					balance: 1,
+				},
+				(asset_hub_block_number, proof.clone())
+			),
+			<pallet_proofs_voting::Error<Runtime, DDayVotingInstance>>::InvalidProof
+		);
+
+		// Err - when more vote.balance than proven voting power
+		assert_err!(
+			DDayVoting::vote(
+				RuntimeOrigin::signed(valid_asset_hub_account.clone()),
+				referenda_id,
+				AccountVote::Standard {
+					vote: Vote { aye: true, conviction: Conviction::Locked1x },
+					// more than proven
+					balance: account_voting_power.account_power + 1
+				},
+				(asset_hub_block_number, proof.clone())
+			),
+			<pallet_proofs_voting::Error<Runtime, DDayVotingInstance>>::InsufficientFunds
+		);
+
+		// check before
+		{
+			let status = DDayReferenda::ensure_ongoing(referenda_id).expect("ongoing referenda");
+			assert_eq!(status.tally.ayes(status.track), 0);
+			assert_eq!(status.tally.support(status.track), Perbill::zero());
+			assert_ok!(DDayReferenda::is_referendum_passing(referenda_id), false);
+
+			// sync AssetHub's total issuance
+			assert_ok!(ProofsStorage::submit(
+				cumulus_pallet_xcm::Origin::SiblingParachain(
+					westend_runtime_constants::system_parachain::ASSET_HUB_ID.into()
+				)
+				.into(),
+				ProofsKey::AssetHubTotalIssuance(asset_hub_block_number),
+				ProofsValue::AssetHubTotalIssuance(account_voting_power.total)
+			));
+
+			let status = DDayReferenda::ensure_ongoing(referenda_id).expect("ongoing referenda");
+			assert_eq!(status.tally.ayes(status.track), 0);
+			assert_eq!(status.tally.support(status.track), Perbill::zero());
+			assert_ok!(DDayReferenda::is_referendum_passing(referenda_id), false);
+		}
+
+		// Ok - vote by proof - generated for proving account `ss58_account`
+		assert_ok!(DDayVoting::vote(
+			RuntimeOrigin::signed(valid_asset_hub_account),
+			referenda_id,
+			AccountVote::Standard {
+				vote: Vote { aye: true, conviction: Conviction::Locked1x },
+				balance: account_voting_power.account_power
+			},
+			(asset_hub_block_number, proof)
+		));
+
+		// check after
+		{
+			let status = DDayReferenda::ensure_ongoing(referenda_id).expect("ongoing referenda");
+			assert_eq!(status.tally.ayes(status.track), account_voting_power.account_power);
+			assert_eq!(
+				status.tally.support(status.track),
+				Perbill::from_rational(
+					account_voting_power.account_power,
+					account_voting_power.total
+				)
+			);
+		}
+	})
+}
+
+#[test]
+pub fn asset_hub_can_sync_dday_data() {
+	// prepare sample proofs
+	let (asset_hub_header, ..) = prover::tests::sample_proof();
+	let asset_hub_block_number = asset_hub_header.number;
+
+	sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+		// check before
+		assert!(AssetHubStateProvider::<LastKnownAssetHubHead>::provide_hash_for(
+			asset_hub_block_number
+		)
+		.is_none());
+		assert_eq!(
+			AssetHubStateProvider::<LastKnownAssetHubHead>::get(),
+			ProofBalanceOf::<AssetHubAccountProver>::MAX
+		);
+
+		// execute XCM as source origin would do with `Transact -> Origin::Xcm`
+		assert_ok!(RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::execute_as_origin(
+			(AssetHub::get(), OriginKind::Xcm),
+			RuntimeCall::ProofsStorage(pallet_proofs_storage::Call::<Runtime>::submit {
+				key: ProofsKey::AssetHubHeader(asset_hub_block_number),
+				value: ProofsValue::AssetHubHeader(
+					BoundedVec::try_from(asset_hub_header.encode()).expect("valid header")
+				)
+			},),
+			None,
+		)
+		.ensure_complete());
+
+		// check after header data
+		assert_eq!(
+			AssetHubStateProvider::<LastKnownAssetHubHead>::provide_hash_for(
+				asset_hub_block_number
+			),
+			Some(asset_hub_header.state_root)
+		);
+		assert_eq!(LastKnownAssetHubHead::get().map(|h| h.head), Some(asset_hub_block_number));
+		assert_eq!(
+			AssetHubStateProvider::<LastKnownAssetHubHead>::get(),
+			ProofBalanceOf::<AssetHubAccountProver>::MAX
+		);
+
+		// execute XCM as source origin would do with `Transact -> Origin::Xcm`
+		assert_ok!(RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::execute_as_origin(
+			(AssetHub::get(), OriginKind::Xcm),
+			RuntimeCall::ProofsStorage(pallet_proofs_storage::Call::<Runtime>::submit {
+				key: ProofsKey::AssetHubTotalIssuance(asset_hub_block_number),
+				value: ProofsValue::AssetHubTotalIssuance(123456)
+			},),
+			None,
+		)
+		.ensure_complete());
+
+		// check after total issuance data
+		assert_eq!(AssetHubStateProvider::<LastKnownAssetHubHead>::get(), 123456_u128.into());
+	})
 }
