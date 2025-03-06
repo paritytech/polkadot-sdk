@@ -17,7 +17,7 @@
 use crate::{
 	bridge_common_config::BridgeReward,
 	xcm_config,
-	xcm_config::{RelayNetwork, TreasuryAccount, UniversalLocation, XcmConfig},
+	xcm_config::{RelayNetwork, RootLocation, TreasuryAccount, UniversalLocation, XcmConfig},
 	Balances, BridgeRelayers, EthereumInboundQueue, EthereumOutboundQueue, EthereumOutboundQueueV2,
 	EthereumSystem, EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
 };
@@ -44,6 +44,7 @@ use testnet_parachains_constants::westend::{
 		INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2,
 	},
 };
+use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, PalletInstance, Parachain};
 use xcm_executor::XcmExecutor;
 
@@ -82,14 +83,11 @@ parameter_types! {
 		rewards: Rewards { local: 1 * UNITS, remote: meth(1) },
 		multiplier: FixedU128::from_rational(1, 1),
 	};
-	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(RelayNetwork::get()),Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
-	pub AssetHubLocation: Location = Location::new(1,[Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
+	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(RelayNetwork::get()),Parachain(ASSET_HUB_ID)]);
+	pub AssetHubLocation: Location = Location::new(1,[Parachain(ASSET_HUB_ID)]);
 	pub EthereumUniversalLocation: InteriorLocation = [GlobalConsensus(EthereumNetwork::get())].into();
 	pub InboundQueueLocation: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
-	pub SnowbridgeFrontendLocation: Location = Location::new(1,[Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID),PalletInstance(FRONTEND_PALLET_INDEX)]);
-	pub AssethubLocation: Location = Location::new(1,[Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
-	pub RootLocation: Location = Location::new(0,[]);
-	pub EthereumGlobalLocation: Location = Location::new(2, [GlobalConsensus(RelayNetwork::get())]);
+	pub SnowbridgeFrontendLocation: Location = Location::new(1,[Parachain(ASSET_HUB_ID),PalletInstance(FRONTEND_PALLET_INDEX)]);
 	pub AssetHubXCMFee: u128 = 1_000_000_000_000u128;
 	pub const DefaultMyRewardKind: BridgeReward = BridgeReward::Snowbridge;
 }
@@ -135,7 +133,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
-	type AssetHubParaId = ConstU32<1000>;
+	type AssetHubParaId = ConstU32<ASSET_HUB_ID>;
 	type EthereumNetwork = EthereumNetwork;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type Token = Balances;
@@ -283,8 +281,7 @@ impl Contains<Location> for AllowFromEthereumFrontend {
 	fn contains(location: &Location) -> bool {
 		match location.unpack() {
 			(1, [Parachain(para_id), PalletInstance(index)]) =>
-				return *para_id == westend_runtime_constants::system_parachain::ASSET_HUB_ID &&
-					*index == FRONTEND_PALLET_INDEX,
+				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX,
 			_ => false,
 		}
 	}

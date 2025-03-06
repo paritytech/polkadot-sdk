@@ -76,7 +76,6 @@ where
 
 		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
 		let (local_net, local_sub) = universal_source.clone()
-			.take()
 			.ok_or_else(|| {
 				log::error!(target: "xcm::ethereum_blob_exporter", "universal source not provided.");
 				SendError::MissingArgument

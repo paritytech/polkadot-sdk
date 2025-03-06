@@ -22,18 +22,19 @@
 //! 	a. Convert to `OutboundMessage`, and stored into the `Messages` vector storage
 //! 	b. ABI-encode the `OutboundMessage` and store the committed hash in `MessageLeaves`
 //! 	c. Generate `PendingOrder` with assigned nonce and fee attached, stored into the
-//! `PendingOrders` 	   map storage, with nonce as the key
+//! 	   `PendingOrders` map storage, with nonce as the key
 //! 	d. Increment nonce and update the `Nonce` storage
-//! 6. At the end of the block, a merkle root is constructed from all the leaves in `MessageLeaves`,
-//!    then `MessageLeaves` is dropped so that it is never committed to storage or included in PoV.
+//! 6. At the end of the block, a merkle root is constructed from all the leaves in `MessageLeaves`.
+//!    At the beginning of the next block, both `Messages` and `MessageLeaves` are dropped so that
+//!    state at each block only holds the messages processed in that block.
 //! 7. This merkle root is inserted into the parachain header as a digest item
 //! 8. Offchain relayers are able to relay the message to Ethereum after:
 //! 	a. Generating a merkle proof for the committed message using the `prove_message` runtime API
 //! 	b. Reading the actual message content from the `Messages` vector in storage
 //! 9. On the Ethereum side, the message root is ultimately the thing being verified by the Beefy
 //!    light client.
-//! 10. When the message has been verified and executed, the relayer will call the
-//!    extrinsic `submit_delivery_receipt` work the way as follows:
+//! 10. When the message has been verified and executed, the relayer will call the extrinsic
+//!     `submit_delivery_receipt` to:
 //! 	a. Verify the message with proof for a transaction receipt containing the event log,
 //! 	   same as the inbound queue verification flow
 //! 	b. Fetch the pending order by nonce of the message, pay reward with fee attached in the order
@@ -212,8 +213,9 @@ pub mod pallet {
 	pub(super) type Messages<T: Config> = StorageValue<_, Vec<OutboundMessage>, ValueQuery>;
 
 	/// Hashes of the ABI-encoded messages in the [`Messages`] storage value. Used to generate a
-	/// merkle root during `on_finalize`. This storage value is killed in
-	/// `on_initialize`, so should never go into block PoV.
+	/// merkle root during `on_finalize`. This storage value is killed in `on_initialize`, so state
+	/// at each block contains only root hash of messages processed in that block. This also means
+	/// it doesn't have to be included in PoV.
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(super) type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
@@ -344,7 +346,7 @@ pub mod pallet {
 				nonce,
 				commands: commands.try_into().map_err(|_| Corrupt)?,
 			};
-			Messages::<T>::append(Box::new(outbound_message));
+			Messages::<T>::append(outbound_message);
 
 			// Generate `PendingOrder` with fee attached in the message, stored
 			// into the `PendingOrders` map storage, with assigned nonce as the key.

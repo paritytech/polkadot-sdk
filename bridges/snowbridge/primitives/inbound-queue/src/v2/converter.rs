@@ -2,29 +2,26 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Converts messages from Solidity ABI-encoding to XCM
 
-use crate::v2::LOG_TARGET;
+use super::{message::*, traits::*};
+use crate::{v2::LOG_TARGET, CallIndex, EthereumLocationsConverterFor};
 use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160};
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::MaybeEquivalence;
+use sp_runtime::{traits::MaybeEquivalence, MultiAddress};
 use sp_std::prelude::*;
 use xcm::{
 	prelude::{Junction::*, *},
 	MAX_XCM_DECODE_DEPTH,
 };
-use super::{message::*, traits::*};
-use crate::{CallIndex, EthereumLocationsConverterFor};
-use sp_runtime::MultiAddress;
 
 const MINIMUM_DEPOSIT: u128 = 1;
 
 /// Topic prefix used for generating unique identifiers for messages
 const INBOUND_QUEUE_TOPIC_PREFIX: &str = "SnowbridgeInboundQueueV2";
 
-/// Representation of an intermediate parsed message, before final
-/// conversion to XCM.
+/// Representation of an intermediate parsed message, before final conversion to XCM.
 #[derive(Clone, RuntimeDebug)]
 pub struct PreparedMessage {
 	/// Ethereum account that initiated this messaging operation
@@ -310,13 +307,7 @@ where
 
 		let bridge_owner = Self::get_bridge_owner()?;
 		// Make the Snowbridge sovereign on AH the default claimer.
-		let default_claimer = Location::new(
-			0,
-			[AccountId32 {
-				network: None,
-				id: bridge_owner,
-			}],
-		);
+		let default_claimer = Location::new(0, [AccountId32 { network: None, id: bridge_owner }]);
 
 		let claimer = message.claimer.unwrap_or(default_claimer);
 
@@ -445,9 +436,10 @@ mod tests {
 			EthereumAsset::NativeTokenERC20 { token_id: native_token_id, value: token_value },
 			EthereumAsset::ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
 		];
-		let instructions = vec![
-			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary: beneficiary.clone() },
-		];
+		let instructions = vec![DepositAsset {
+			assets: Wild(AllCounted(1).into()),
+			beneficiary: beneficiary.clone(),
+		}];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_xcm = VersionedXcm::V5(xcm);
 		let claimer_location =
@@ -678,9 +670,7 @@ mod tests {
 			hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
 		let token_value = 3_000_000_000_000u128;
 		let assets = vec![EthereumAsset::ForeignTokenERC20 { token_id, value: token_value }];
-		let instructions = vec![
-			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary },
-		];
+		let instructions = vec![DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary }];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_xcm = VersionedXcm::V5(xcm);
 		// Invalid claimer location, cannot be decoded into a Location
