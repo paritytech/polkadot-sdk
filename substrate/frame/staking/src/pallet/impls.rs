@@ -1415,7 +1415,7 @@ impl<T: Config> Pallet<T> {
 	/// * Increment `active_era.index`,
 	/// * reset `active_era.start`,
 	/// * update `BondedEras` and apply slashes.
-	fn start_era(start_session: SessionIndex, start_timestamp: u64) {
+	pub(crate) fn start_era(start_session: SessionIndex, start_timestamp: u64) {
 		let active_era = ActiveEra::<T>::mutate(|active_era| {
 			let new_index = active_era.as_ref().map(|info| info.index + 1).unwrap_or(0);
 			log!(
@@ -1449,7 +1449,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Compute payout for era.
-	fn compute_era_payout(active_era: ActiveEraInfo, era_duration: u64) {
+	pub(crate) fn compute_era_payout(active_era: ActiveEraInfo, era_duration: u64) {
 		let staked = ErasTotalStake::<T>::get(&active_era.index);
 		let issuance = asset::total_issuance::<T>();
 
@@ -1630,7 +1630,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		// todo: make sure this is bounded.
 		Self::reward_by_ids(validator_points.into_iter());
 
-		let session_manager = session::Manager::<T>::from(end_index, activation_timestamp);
+		let session_manager = session::Manager::<T>::from(end_index);
 
 		let starting = session_manager.starting_session();
 		let planning = session_manager.planning_session();
@@ -1643,14 +1643,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			planning
 		);
 
-		let current_era = CurrentEra::<T>::get().unwrap_or_default();
-		let start_index = ErasStartSessionIndex::<T>::get(current_era).unwrap_or_default();
-
 		// first, handle planning a new session/era
 		CurrentPlannedSession::<T>::put(planning);
-		// Self::new_session(planning, false);
 
-		if let Some(this_era_start) = session_manager.should_rotate_era() {
+		if let Some((this_era_start, _id)) = activation_timestamp {
 			// This means we need to finalize the current active era by computing payouts and
 			// rolling over to the next era to keep the staking system in sync.
 

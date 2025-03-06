@@ -17,8 +17,12 @@
 
 //! Manages all era rotation logic based on session increments.
 
-use crate::{log, Config, CurrentPlannedSession, ErasStartSessionIndex};
-use frame_support::{__private::sp_std, pallet_prelude::*};
+use crate::{
+	log, ActiveEra, Config, CurrentEra, CurrentPlannedSession, EraIndex, ErasStartSessionIndex,
+	Pallet,
+};
+use frame_election_provider_support::ElectionProvider;
+use frame_support::{pallet_prelude::*, traits::Defensive};
 use sp_staking::SessionIndex;
 
 #[derive(
@@ -29,21 +33,12 @@ use sp_staking::SessionIndex;
 pub struct Manager<T: Config> {
 	/// The session that is ending.
 	pub end_session_index: SessionIndex,
-	/// If none, it means no new validator set was activated as a part of this session.
-	///
-	/// If `Some((timestamp, id))`, it means that the new validator set was activated at the given
-	/// timestamp, and the id of the validator set is `id`.
-	pub activation_timestamp: Option<(u64, u32)>,
 	_phantom_data: PhantomData<T>,
 }
 
 impl<T: Config> Manager<T> {
-	pub fn from(end_session_index: SessionIndex, activation_timestamp: Option<(u64, u32)>) -> Self {
-		Manager {
-			end_session_index,
-			activation_timestamp,
-			_phantom_data: Default::default(),
-		}
+	pub fn from(end_session_index: SessionIndex) -> Self {
+		Manager { end_session_index, _phantom_data: Default::default() }
 	}
 
 	/// Returns the session that should be started.
@@ -74,13 +69,6 @@ impl<T: Config> Manager<T> {
 		session_progress == (T::SessionsPerEra::get() - election_offset)
 	}
 
-	/// Returns timestamp of era change if the era should be rotated. Otherwise, returns `None`.
-	pub(crate) fn should_rotate_era(&self) -> Option<u64> {
-		// If an activation timestamp is received, it indicates that a new era has started on
-		// RC.
-		self.activation_timestamp.map(|(timestamp, _)| timestamp)
-	}
-
 	/// Infallible. Ends the session `end_session_index` and starts the next session.
 	///
 	/// There are three types of sessions:
@@ -88,23 +76,7 @@ impl<T: Config> Manager<T> {
 	/// 2. Election kickoff session: We are about to start an election.
 	/// 3. Era Rotation session: Sessions in which an activation timestamp of validator set is
 	///   present.
-	pub(crate) fn end_session(&self) {
-		if self.activation_timestamp.is_some() {
-			// rotate era session.
-			self.rotate_era();
-			return;
-		}
-
-		let session_progress = self.planned_session_progress();
-		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
-		let election_start_session = T::SessionsPerEra::get() - election_offset;
-
-		if session_progress < election_start_session {
-			self.start_idle_session()
-		} else {
-			self.start_election_session()
-		}
-	}
+	pub(crate) fn end_session(&self) {}
 
 	/// Common work that needs to be done at the end of every session.
 	fn do_common_session_end_work(&self) {
@@ -113,11 +85,48 @@ impl<T: Config> Manager<T> {
 	}
 
 	/// Starts an idle session.
-	fn start_idle_session(&self) {}
+	fn start_idle_session(&self) {
+		self.do_common_session_end_work();
+	}
 
 	/// Starts the next session that will kick off an election.
-	fn start_election_session(&self) {}
+	pub(crate) fn start_election_session(&self) {
+		self.do_common_session_end_work();
+
+		// kick off the election.
+		log!(info, "sending election start signal");
+		let _ = T::ElectionProvider::start();
+		let new_planned_era = CurrentEra::<T>::mutate(|s| {
+			*s = Some(s.map(|s| s + 1).unwrap_or(0));
+			s.unwrap()
+		});
+		ErasStartSessionIndex::<T>::insert(&new_planned_era, &self.planning_session());
+
+		self.clean_up_old_era(new_planned_era);
+		Pallet::<T>::clear_election_metadata();
+	}
+
+	fn clean_up_old_era(&self, new_planned_era: EraIndex) {
+		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
+			log!(trace, "Removing era information for {:?}", old_era);
+			Pallet::<T>::clear_era_information(old_era);
+		}
+	}
 
 	/// Starts the next session that would rotate the era.
-	fn rotate_era(&self) {}
+	///
+	/// Receives the activation timestamp `new_era_start` of the new validator set, i.e. the era
+	/// start timestamp.
+	fn start_rotation_era_session(&self, new_era_start: u64) {
+		self.do_common_session_end_work();
+
+		if let Some(current_active_era) = ActiveEra::<T>::get() {
+			let previous_era_start = current_active_era.start.defensive_unwrap_or(new_era_start);
+			let era_duration = new_era_start.saturating_sub(previous_era_start);
+			Pallet::<T>::compute_era_payout(current_active_era, era_duration);
+			Pallet::<T>::start_era(self.starting_session(), new_era_start);
+		} else {
+			defensive!("Active era must always be available.");
+		}
+	}
 }
