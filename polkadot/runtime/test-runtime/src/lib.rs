@@ -1005,6 +1005,10 @@ sp_api::impl_runtime_apis! {
 		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
 			vstaging_parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
 		}
+
+		fn validation_code_bomb_limit() -> u32 {
+			staging_runtime_impl::validation_code_bomb_limit::<Runtime>()
+		}
 	}
 
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {

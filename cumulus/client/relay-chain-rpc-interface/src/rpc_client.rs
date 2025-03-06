@@ -668,6 +668,29 @@ impl RelayChainRpcClient {
 		.await
 	}
 
+<<<<<<< HEAD
+=======
+	pub async fn parachain_host_scheduling_lookahead(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_scheduling_lookahead", at, None::<()>)
+			.await
+	}
+
+	pub async fn parachain_host_validation_code_bomb_limit(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_validation_code_bomb_limit",
+			at,
+			None::<()>,
+		)
+		.await
+	}
+
+>>>>>>> f02134c8 (Dynamic uncompressed code size limit (#7760))
 	pub async fn validation_code_hash(
 		&self,
 		at: RelayHash,
