@@ -18,6 +18,8 @@
 use super::*;
 use crate as pallet_transaction_payment;
 
+use sp_runtime::traits::LazyExtrinsic;
+
 use codec::Encode;
 
 use sp_runtime::{
@@ -282,13 +284,13 @@ fn query_info_and_fee_details_works() {
 	let call = RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 2, value: 69 });
 	let origin = 111111;
 	let extra = ();
-	let xt = UncheckedExtrinsic::new_signed(call.clone(), origin, (), extra);
-	let info = xt.get_dispatch_info();
+	let mut xt = UncheckedExtrinsic::new_signed(call.clone(), origin, (), extra);
+	let info = xt.expect_as_ref().get_dispatch_info();
 	let ext = xt.encode();
 	let len = ext.len() as u32;
 
-	let unsigned_xt = UncheckedExtrinsic::<u64, _, (), ()>::new_bare(call);
-	let unsigned_xt_info = unsigned_xt.get_dispatch_info();
+	let mut unsigned_xt = UncheckedExtrinsic::<u64, _, (), ()>::new_bare(call);
+	let unsigned_xt_info = unsigned_xt.expect_as_ref().get_dispatch_info();
 
 	ExtBuilder::default()
 		.base_weight(Weight::from_parts(5, 0))

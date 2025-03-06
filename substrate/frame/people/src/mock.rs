@@ -28,7 +28,7 @@ use frame_system::{offchain::CreateTransactionBase, ChainContext};
 use sp_core::{ConstU16, ConstU32, ConstU64, H256};
 use sp_runtime::{
 	testing::UintAuthorityId,
-	traits::{Applyable, BlakeTwo256, Checkable, IdentityLookup},
+	traits::{Applyable, BlakeTwo256, Checkable, IdentityLookup, LazyExtrinsic},
 	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidityError},
 	BuildStorage, DispatchError, Weight,
 };
@@ -323,12 +323,12 @@ pub fn exec_tx(
 	tx_ext: TransactionExtension,
 	call: impl Into<RuntimeCall>,
 ) -> Result<(), TransactionExecutionError> {
-	let tx = match who {
+	let mut tx = match who {
 		Some(who) => UncheckedExtrinsic::new_signed(call.into(), who, UintAuthorityId(who), tx_ext),
 		None => UncheckedExtrinsic::new_transaction(call.into(), tx_ext),
 	};
 
-	let info = tx.get_dispatch_info();
+	let info = tx.expect_as_ref().get_dispatch_info();
 	let len = tx.encoded_size();
 
 	// Check and validate the extrinsic.

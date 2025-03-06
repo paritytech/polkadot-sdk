@@ -122,7 +122,9 @@ mod tests {
 	};
 	use sp_runtime::{
 		testing::UintAuthorityId,
-		traits::{Applyable, Checkable, TransactionExtension as _, TxBaseImplication},
+		traits::{
+			Applyable, Checkable, LazyExtrinsic, TransactionExtension as _, TxBaseImplication,
+		},
 		transaction_validity::{
 			InvalidTransaction, TransactionSource::External, TransactionValidityError,
 		},
@@ -225,9 +227,9 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let tx_ext = (frame_system::AuthorizeCall::<Runtime>::new(),);
 
-			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
+			let mut tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
-			let info = tx.get_dispatch_info();
+			let info = tx.expect_as_ref().get_dispatch_info();
 			let len = tx.using_encoded(|e| e.len());
 
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
@@ -258,9 +260,9 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let tx_ext = (frame_system::AuthorizeCall::<Runtime>::new(),);
 
-			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
+			let mut tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
-			let info = tx.get_dispatch_info();
+			let info = tx.expect_as_ref().get_dispatch_info();
 			let len = tx.using_encoded(|e| e.len());
 
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
@@ -287,9 +289,9 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let tx_ext = (frame_system::AuthorizeCall::<Runtime>::new(),);
 
-			let tx = UncheckedExtrinsic::new_signed(call, 42, 42.into(), tx_ext);
+			let mut tx = UncheckedExtrinsic::new_signed(call, 42, 42.into(), tx_ext);
 
-			let info = tx.get_dispatch_info();
+			let info = tx.expect_as_ref().get_dispatch_info();
 			let len = tx.using_encoded(|e| e.len());
 
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())

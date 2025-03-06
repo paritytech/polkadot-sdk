@@ -21,7 +21,8 @@ use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
 		self, transaction_extension::TransactionExtension, Checkable, Dispatchable, ExtrinsicCall,
-		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
+		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, LazyExtrinsic, MaybeDisplay, Member,
+		SignaturePayload,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -499,19 +500,6 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	type TransactionExtensions = Extension;
 }
 
-impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
-	UncheckedExtrinsic<Address, Call, Signature, Extension>
-{
-	/// Returns the weight of the extension of this transaction, if present. If the transaction
-	/// doesn't use any extension, the weight returned is equal to zero.
-	pub fn extension_weight(&self) -> Weight {
-		match &self.preamble {
-			Preamble::Bare(_) => Weight::zero(),
-			Preamble::Signed(_, _, ext) | Preamble::General(_, ext) => ext.weight(&self.function),
-		}
-	}
-}
-
 impl<Address, Call, Signature, Extension, const MAX_CALL_SIZE: usize> Decode
 	for UncheckedExtrinsic<Address, Call, Signature, Extension, MAX_CALL_SIZE>
 where
@@ -598,6 +586,56 @@ impl<
 		let r = sp_core::bytes::deserialize(de)?;
 		Self::decode(&mut &r[..])
 			.map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+	}
+}
+
+impl<'a, Address, Call: DecodeWithMemTracking, Signature, Extension> LazyExtrinsic<'a>
+	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+where
+	Self: 'a,
+{
+	type ExtrinsicRef = UncheckedExtrinsicRef<'a, Address, Call, Signature, Extension>;
+
+	fn try_as_ref(&'a mut self) -> Result<Self::ExtrinsicRef, codec::Error> {
+		Ok(UncheckedExtrinsicRef { preamble: &self.preamble, call: self.call.try_get_or_decode()? })
+	}
+}
+
+/// A shadow structure referencing the fields in an `UncheckedExtrinsic`.
+///
+/// While `UncheckedExtrinsic` can store the call either in an encoded or a decoded form,
+/// this structure will always reference the decoded call.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct UncheckedExtrinsicRef<'a, Address, Call, Signature, Extension> {
+	/// Information regarding the type of extrinsic this is (inherent or transaction) as well as
+	/// associated extension (`Extension`) data if it's a transaction and a possible signature.
+	pub preamble: &'a Preamble<Address, Signature, Extension>,
+	/// The function that should be called.
+	pub call: &'a Call,
+}
+
+impl<'a, Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
+	UncheckedExtrinsicRef<'a, Address, Call, Signature, Extension>
+{
+	/// Returns the weight of the extension of this transaction, if present. If the transaction
+	/// doesn't use any extension, the weight returned is equal to zero.
+	pub fn extension_weight(&self) -> Weight {
+		match &self.preamble {
+			Preamble::Bare(_) => Weight::zero(),
+			Preamble::Signed(_, _, ext) | Preamble::General(_, ext) => ext.weight(&self.call),
+		}
+	}
+}
+
+impl<'a, Address, Call, Signature, Extension> ExtrinsicLike
+	for UncheckedExtrinsicRef<'a, Address, Call, Signature, Extension>
+{
+	fn is_signed(&self) -> Option<bool> {
+		Some(matches!(self.preamble, Preamble::Signed(..)))
+	}
+
+	fn is_bare(&self) -> bool {
+		matches!(self.preamble, Preamble::Bare(_))
 	}
 }
 

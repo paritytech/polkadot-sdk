@@ -1411,6 +1411,22 @@ pub trait ExtrinsicCall: ExtrinsicLike {
 	fn call(&self) -> &Self::Call;
 }
 
+/// An extrinsic where the call will be lazily decoded.
+pub trait LazyExtrinsic<'a>: ExtrinsicLike {
+	/// A structure representing an extrinsic, but with all the fields referencing decoded values.
+	type ExtrinsicRef: ExtrinsicLike;
+
+	/// Tries to return an `ExtrinsicRef`.
+	fn try_as_ref(&'a mut self) -> Result<Self::ExtrinsicRef, codec::Error>;
+
+	/// Tries to return an `ExtrinsicRef`
+	///
+	/// In case of an error, it panics.
+	fn expect_as_ref(&'a mut self) -> Self::ExtrinsicRef {
+		self.try_as_ref().expect("Error while lazy decoding extrinsic")
+	}
+}
+
 /// Something that acts like a [`SignaturePayload`](Extrinsic::SignaturePayload) of an
 /// [`Extrinsic`].
 pub trait SignaturePayload {

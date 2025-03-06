@@ -23,7 +23,7 @@ use frame_support::{
 };
 use sp_runtime::{
 	testing::UintAuthorityId,
-	traits::{Applyable, Checkable},
+	traits::{Applyable, Checkable, LazyExtrinsic},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -407,9 +407,9 @@ fn valid_call_weight_test() {
 		new_test_ext().execute_with(|| {
 			let tx_ext = frame_system::AuthorizeCall::<Runtime>::new();
 
-			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
+			let mut tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
-			let info = tx.get_dispatch_info();
+			let info = tx.expect_as_ref().get_dispatch_info();
 			let len = tx.using_encoded(|e| e.len());
 
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
@@ -493,9 +493,9 @@ fn call_validity() {
 		new_test_ext().execute_with(|| {
 			let tx_ext = frame_system::AuthorizeCall::<Runtime>::new();
 
-			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
+			let mut tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
-			let info = tx.get_dispatch_info();
+			let info = tx.expect_as_ref().get_dispatch_info();
 			let len = tx.using_encoded(|e| e.len());
 
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
@@ -513,9 +513,9 @@ fn signed_is_valid_but_dispatch_error() {
 		let call = RuntimeCall::Pallet1(pallet1::Call::call1 {});
 		let tx_ext = frame_system::AuthorizeCall::<Runtime>::new();
 
-		let tx = UncheckedExtrinsic::new_signed(call, 1u64, 1.into(), tx_ext);
+		let mut tx = UncheckedExtrinsic::new_signed(call, 1u64, 1.into(), tx_ext);
 
-		let info = tx.get_dispatch_info();
+		let info = tx.expect_as_ref().get_dispatch_info();
 		let len = tx.using_encoded(|e| e.len());
 
 		let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
@@ -550,9 +550,9 @@ fn call_without_authorization() {
 		// tests for transaction extension implementation
 		let tx_ext = frame_system::AuthorizeCall::<Runtime>::new();
 
-		let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
+		let mut tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
-		let info = tx.get_dispatch_info();
+		let info = tx.expect_as_ref().get_dispatch_info();
 		let len = tx.using_encoded(|e| e.len());
 
 		let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
