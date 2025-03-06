@@ -88,7 +88,6 @@ parameter_types! {
 	pub InboundQueueLocation: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
 	pub SnowbridgeFrontendLocation: Location = Location::new(1,[Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID),PalletInstance(FRONTEND_PALLET_INDEX)]);
 	pub RootLocation: Location = Location::new(0,[]);
-	pub EthereumGlobalLocation: Location = Location::new(2, [GlobalConsensus(RelayNetwork::get())]);
 	pub AssetHubXCMFee: u128 = 1_000_000_000_000u128;
 	pub const DefaultMyRewardKind: BridgeReward = BridgeReward::Snowbridge;
 }
