@@ -139,12 +139,10 @@ parameter_types! {
 	pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
-	pub AssetHubLocation: InteriorLocation = Parachain(1000).into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
 	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
-	pub const InitialFund: u128 = 1_000_000_000_000;
-	pub DefaultMyRewardKind: BridgeReward = BridgeReward::Snowbridge;
+	pub SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
 }
@@ -203,7 +201,7 @@ impl inbound_queue_v2::Config for Test {
 	type Token = Balances;
 	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	type RewardKind = BridgeReward;
-	type DefaultRewardKind = DefaultMyRewardKind;
+	type DefaultRewardKind = SnowbridgeReward;
 }
 
 pub fn setup() {
