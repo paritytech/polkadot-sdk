@@ -26,4 +26,4 @@ project_name = "$CI_PROJECT_PATH"
 type = "gcs"
 
 [storage.gcs]
-bucketName = "parity-ci-forklift"
+bucketName = "parity-ci-forklift-regional"
