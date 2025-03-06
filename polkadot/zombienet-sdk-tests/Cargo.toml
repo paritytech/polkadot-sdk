@@ -20,6 +20,7 @@ subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true, features = ["time"] }
 zombienet-sdk = { workspace = true }
+cumulus-zombienet-sdk-helpers = { workspace = true }
 
 [features]
 zombie-metadata = []
