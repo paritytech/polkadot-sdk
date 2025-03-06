@@ -126,7 +126,7 @@ fn send_assets_from_penpal_westend_through_westend_ah_to_rococo_ah(
 /// - foreign asset / bridged asset (other bridge / Snowfork): wETH (bridged from Ethereum to
 ///   Westend over Snowbridge, then bridged over to Rococo through this bridge).
 fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
-	use sp_tracing::{capture_test_logs, tracing::Level};
+	use sp_tracing::capture_test_logs;
 
 	let amount = ASSET_HUB_WESTEND_ED * 1_000;
 	let sender = AssetHubWestendSender::get();
@@ -160,11 +160,13 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 		let destination = asset_hub_rococo_location();
 		let assets: Assets = (wnd_at_asset_hub_westend, amount).into();
 		let fee_idx = 0;
-		let log_capture = capture_test_logs!(Level::DEBUG, {
+		let expected_log =
+			format!("destination: {:?}, message: Xcm([ReserveAssetDeposited", destination.clone());
+		let log_capture = capture_test_logs!({
 			let result = send_assets_from_asset_hub_westend(destination, assets, fee_idx);
 			assert_ok!(result);
 		});
-		assert!(log_capture.contains("events::AssetHubWestend: PolkadotXcm(Event::Sent"));
+		assert!(log_capture.contains(&expected_log));
 	});
 
 	// verify expected events on final destination
@@ -546,6 +548,8 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo_t
 
 #[test]
 fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to_penpal_rococo() {
+	use sp_tracing::capture_test_logs;
+
 	let amount = WESTEND_ED * 1_000;
 	let sender = WestendSender::get();
 	let receiver = PenpalAReceiver::get();
@@ -618,7 +622,7 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 			SetFeesMode { jit_withdraw: true },
 			InitiateTeleport {
 				assets: Wild(AllCounted(1)),
-				dest: local_asset_hub,
+				dest: local_asset_hub.clone(),
 				// executes on Westend Asset Hub
 				xcm: Xcm::<()>(vec![
 					BuyExecution {
@@ -653,17 +657,24 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 		]);
 		send_assets_over_bridge(|| {
 			// send message over bridge
-			assert_ok!(Westend::execute_with(|| {
-				Dmp::<<Westend as Chain>::Runtime>::make_parachain_reachable(
-					AssetHubWestend::para_id(),
-				);
-				let signed_origin = <Westend as Chain>::RuntimeOrigin::signed(WestendSender::get());
-				<Westend as WestendPallet>::XcmPallet::execute(
-					signed_origin,
-					bx!(xcm::VersionedXcm::V5(kusama_xcm.into())),
-					Weight::MAX,
-				)
-			}));
+			let expected_log = format!("destination: {:?}, message: Xcm([])", local_asset_hub);
+			println!("expected_log: {:?}", expected_log);
+			let log_capture = capture_test_logs!({
+				let result = Westend::execute_with(|| {
+					Dmp::<<Westend as Chain>::Runtime>::make_parachain_reachable(
+						AssetHubWestend::para_id(),
+					);
+					let signed_origin =
+						<Westend as Chain>::RuntimeOrigin::signed(WestendSender::get());
+					<Westend as WestendPallet>::XcmPallet::execute(
+						signed_origin,
+						bx!(VersionedXcm::V5(kusama_xcm.into())),
+						Weight::MAX,
+					)
+				});
+				assert_ok!(result);
+			});
+			assert!(log_capture.contains(&expected_log));
 			AssetHubWestend::execute_with(|| {
 				type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 				assert_expected_events!(
