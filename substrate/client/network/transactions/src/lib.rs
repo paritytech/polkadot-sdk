@@ -220,19 +220,18 @@ pub struct TransactionsHandlerController<H: ExHashT> {
 }
 
 impl<H: ExHashT> TransactionsHandlerController<H> {
-	/// You may call this when new transactions are imported by the transaction pool.
+	/// Available transactions from the transaction pool will be propagated to peers.
 	///
-	/// All transactions will be fetched from the `TransactionPool` that was passed at
-	/// initialization as part of the configuration and propagated to peers.
-	pub fn propagate_transactions(&self) {
+	/// This operation also happens periodically and is controlled by the `PROPAGATE_TIMEOUT`.
+	pub fn propagate_pool_transactions(&self) {
 		let _ = self.to_handler.unbounded_send(ToHandler::PropagateTransactions);
 	}
 
-	/// You must call when new a transaction is imported by the transaction pool.
+	/// The provided transactions are propagated to peers.
 	///
-	/// This transaction will be fetched from the `TransactionPool` that was passed at
-	/// initialization as part of the configuration and propagated to peers.
-	pub fn propagate_transaction(&self, hash: H) {
+	/// The transactions are provided by the transaction pool import notification stream
+	/// (ie `import_notification_stream`).
+	pub fn propagate_imported_transactions(&self, hash: H) {
 		let _ = self.to_handler.unbounded_send(ToHandler::PropagateTransaction(hash));
 	}
 }
