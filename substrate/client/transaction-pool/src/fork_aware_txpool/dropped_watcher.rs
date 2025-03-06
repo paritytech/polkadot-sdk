@@ -431,7 +431,7 @@ where
 			.controller
 			.unbounded_send(Command::RemoveTransactions(xts.into_iter().collect()))
 			.map_err(|e| {
-				trace!(target: LOG_TARGET, "dropped_watcher: remove_finalized_txs send message failed: {e}");
+				trace!(target: LOG_TARGET, "dropped_watcher: remove_transactions send message failed: {e}");
 			});
 	}
 }
