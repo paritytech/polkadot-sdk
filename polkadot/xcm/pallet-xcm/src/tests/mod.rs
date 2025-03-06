@@ -1473,7 +1473,7 @@ fn execute_initiate_transfer_and_check_sent_event() {
 		tracing::{subscriber, Level},
 	};
 
-	let (log_capture, subscriber) = init_log_capture(Level::DEBUG, true);
+	let (log_capture, subscriber) = init_log_capture(Level::TRACE, true);
 	subscriber::with_default(subscriber, || {
 		let balances = vec![(ALICE, INITIAL_BALANCE)];
 		new_test_ext_with_balances(balances).execute_with(|| {
@@ -1490,11 +1490,12 @@ fn execute_initiate_transfer_and_check_sent_event() {
 				]),
 			}]);
 
-			assert_ok!(XcmPallet::execute(
+			let result = XcmPallet::execute(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(VersionedXcm::from(message.clone())),
 				BaseXcmWeight::get() * 3,
-			));
+			);
+			assert_ok!(result);
 
 			let sent_message: Xcm<()> = Xcm(vec![
 				WithdrawAsset(Assets::new()),
