@@ -42,7 +42,7 @@ use polkadot_primitives::{
 };
 use requests::PendingRequests;
 use sp_keystore::KeystorePtr;
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{hash_map::Entry, BTreeSet, HashMap, HashSet, VecDeque};
 
 use super::common::INSTANT_FETCH_REP_THRESHOLD;
 
@@ -84,11 +84,33 @@ impl CollationManager {
 		}
 
 		for leaf in removed {
+			if let Some(claim_queue_state) = self.claim_queue_state.remove(&leaf) {
+				self.per_relay_parent
+					.entry(leaf)
+					.and_modify(|per_rp| per_rp.deactivated_leaf_state = Some(claim_queue_state));
+			}
 			let deactivated_ancestry = self.implicit_view.deactivate_leaf(leaf);
 
-			// Remove the fetched collations and advertisements for the deactivated RPs.
+			// Remove the fetching collations and advertisements for the deactivated RPs.
 			for deactivated in deactivated_ancestry.iter() {
-				self.per_relay_parent.remove(deactivated);
+				if let Some(deactivated_rp) = self.per_relay_parent.remove(deactivated) {
+					for advertisement in deactivated_rp.all_advertisements() {
+						if self
+							.fetching
+							.contains(&advertisement.prospective_candidate.candidate_hash)
+						{
+							self.fetching
+								.cancel(&advertisement.prospective_candidate.candidate_hash);
+
+							// Also reset the statuses of claims that were pending fetch for these
+							// candidates.
+							self.back_to_waiting(
+								advertisement.relay_parent,
+								advertisement.prospective_candidate.candidate_hash,
+							);
+						}
+					}
+				}
 			}
 		}
 
@@ -127,33 +149,14 @@ impl CollationManager {
 
 			// Includes the leaf
 			for ancestor in allowed_ancestry {
-				self.per_relay_parent.insert(*ancestor, PerRelayParent::default());
+				if let Entry::Vacant(entry) = self.per_relay_parent.entry(*ancestor) {
+					entry.insert(PerRelayParent::default());
+				}
 			}
 
 			let parent = allowed_ancestry.get(1).cloned();
 			self.inherit_claim_queue_state(*leaf, scheduled, parent);
 		}
-
-		// Cancel fetch requests for removed RPs.
-		self.fetching.cancellation_tokens.retain(|candidate_hash, cancel_handle| {
-			let keep = self
-				.claim_queue_state
-				.values()
-				.find(|cq_state| {
-					cq_state
-						.0
-						.iter()
-						.find(|claim| claim.state.candidate_hash() == Some(*candidate_hash))
-						.is_some()
-				})
-				.is_some();
-
-			if !keep {
-				cancel_handle.cancel();
-			}
-
-			keep
-		});
 
 		added
 	}
@@ -240,18 +243,31 @@ impl CollationManager {
 
 		let peers_to_remove = peers_to_remove.into_iter().collect::<HashSet<_>>();
 
-		for collations in self.per_relay_parent.values_mut() {
-			collations.advertisements.retain(|peer, advertisements| {
-				let keep = !peers_to_remove.contains(peer);
-
-				if !keep {
-					for advertisement in advertisements.iter() {
-						self.fetching.cancel(&advertisement.prospective_candidate.candidate_hash);
+		let mut cancelled_fetches = vec![];
+		for peer in peers_to_remove {
+			for collations in self.per_relay_parent.values_mut() {
+				if let Some(removed_advertisements) = collations.advertisements.remove(&peer) {
+					for advertisement in removed_advertisements {
+						if self
+							.fetching
+							.contains(&advertisement.prospective_candidate.candidate_hash)
+						{
+							self.fetching
+								.cancel(&advertisement.prospective_candidate.candidate_hash);
+							cancelled_fetches.push(advertisement);
+						}
 					}
 				}
+			}
+		}
 
-				keep
-			});
+		for advertisement in cancelled_fetches {
+			// Also reset the statuses of claims that were pending fetch for these
+			// candidates.
+			self.back_to_waiting(
+				advertisement.relay_parent,
+				advertisement.prospective_candidate.candidate_hash,
+			);
 		}
 	}
 
@@ -480,16 +496,27 @@ impl CollationManager {
 		&mut self,
 		transition: impl Fn(&mut ClaimState) -> Option<PeerId>,
 	) -> Option<PeerId> {
+		let mut found_peer_id = None;
 		for claim_queue_state in self.claim_queue_state.values_mut() {
 			for claim in claim_queue_state.0.iter_mut() {
 				if let Some(peer_id) = transition(&mut claim.state) {
-					return Some(peer_id)
+					found_peer_id = Some(peer_id);
+				}
+			}
+		}
+
+		for per_rp in self.per_relay_parent.values_mut() {
+			if let Some(deactivated_state) = &mut per_rp.deactivated_leaf_state {
+				for claim in deactivated_state.0.iter_mut() {
+					if let Some(peer_id) = transition(&mut claim.state) {
+						found_peer_id = Some(peer_id);
+					}
 				}
 			}
 		}
 
 		// TODO: log smth
-		None
+		found_peer_id
 	}
 
 	fn inherit_claim_queue_state(
@@ -502,15 +529,30 @@ impl CollationManager {
 			ClaimQueueState(cq.map(|para| Claim { para, state: ClaimState::Waiting }).collect());
 
 		if let Some(parent) = parent {
-			// Parent used to be an active leaf.
-			if let Some(parent_state) = self.claim_queue_state.remove(&parent) {
+			// Parent cannot be an active leaf.
+			if let Some(parent_state) = self
+				.per_relay_parent
+				.get(&parent)
+				.and_then(|per_rp| per_rp.deactivated_leaf_state.as_ref())
+			{
 				if !parent_state.0.is_empty() {
-					let mut parent_state_iter = parent_state.0.into_iter().peekable();
-					// Skip the first item if fulfilled.
-					if matches!(parent_state_iter.peek().unwrap().state, ClaimState::Fulfilled(_)) {
-						parent_state_iter.next();
+					let mut parent_state_iter = parent_state.0.iter().peekable();
+					let mut state_iter = cq_state.0.iter_mut().peekable();
+
+					// We know that parent_state_iter is not empty, checked before.
+					let parent_claim_state = parent_state_iter.peek().unwrap();
+					if let Some(claim_state) = state_iter.peek() {
+						if claim_state.para == parent_claim_state.para {
+							if let ClaimState::Fulfilled(_) = parent_claim_state.state {
+								parent_state_iter.next();
+								state_iter.next();
+							}
+						} else {
+							parent_state_iter.next();
+						}
 					}
-					for claim_state in cq_state.0.iter_mut() {
+
+					for claim_state in state_iter {
 						let Some(parent_claim_state) = parent_state_iter.next() else { break };
 						if parent_claim_state.para != claim_state.para {
 							break
@@ -518,7 +560,7 @@ impl CollationManager {
 						if let Some(rp) = parent_claim_state.state.relay_parent() {
 							// Check if the RP is still in scope. If it is, inherit the state.
 							if self.per_relay_parent.contains_key(&rp) {
-								*claim_state = parent_claim_state;
+								*claim_state = parent_claim_state.clone();
 							}
 						}
 					}
@@ -535,16 +577,29 @@ struct PerRelayParent {
 	advertisements: HashMap<PeerId, HashSet<Advertisement>>,
 	// Only kept to make sure that we don't re-request the same collations.
 	fetched_collations: HashSet<CandidateHash>,
+	// This is populated for formerly active leafs with the old claim queue state.
+	deactivated_leaf_state: Option<ClaimQueueState>,
+	// Look here: We actually need to keep the different collation states here. When populating the
+	// state for a new leaf, we need to use these. When launching new advertisements, the per-leaf
+	// claim queue states will be already up to date.
+}
+
+impl PerRelayParent {
+	fn all_advertisements(&self) -> impl Iterator<Item = &Advertisement> {
+		self.advertisements.values().flatten()
+	}
 }
 
 // One per active leaf.
 struct ClaimQueueState(Vec<Claim>);
 
+#[derive(Clone)]
 struct Claim {
 	para: ParaId,
 	state: ClaimState,
 }
 
+#[derive(Clone)]
 enum ClaimState {
 	Waiting,
 	Fetching(Advertisement),

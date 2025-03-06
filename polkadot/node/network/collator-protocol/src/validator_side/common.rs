@@ -98,6 +98,12 @@ pub type CollationFetchResponse = (
 	std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
 );
 
+pub enum DeclarationOutcome {
+	Disconnected,
+	Switched(ParaId),
+	Accepted,
+}
+
 // Any error that can occur when awaiting a collation fetch response.
 #[derive(Debug, thiserror::Error)]
 pub enum CollationFetchError {

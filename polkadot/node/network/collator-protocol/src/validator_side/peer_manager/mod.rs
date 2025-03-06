@@ -14,14 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::validator_side::common::{
+	DeclarationOutcome, DisconnectedPeers, PeerState, ReputationUpdate, Score,
+};
+use connected_peers::ConnectedPeers;
+use db::ReputationDb;
 use polkadot_node_network_protocol::PeerId;
 use polkadot_node_subsystem::CollatorProtocolSenderTrait;
 use polkadot_primitives::Id as ParaId;
 use std::collections::BTreeSet;
-
-use crate::validator_side::common::{DisconnectedPeers, PeerState, ReputationUpdate, Score};
-use connected_peers::ConnectedPeers;
-use db::ReputationDb;
 
 mod connected_peers;
 mod db;
@@ -64,8 +65,8 @@ impl PeerManager {
 		sender: &mut Sender,
 		peer_id: PeerId,
 		para_id: ParaId,
-	) {
-		self.connected_peers.declared(sender, peer_id, para_id).await;
+	) -> DeclarationOutcome {
+		self.connected_peers.declared(sender, peer_id, para_id).await
 	}
 
 	pub fn update_reputations(&mut self, updates: Vec<ReputationUpdate>) {

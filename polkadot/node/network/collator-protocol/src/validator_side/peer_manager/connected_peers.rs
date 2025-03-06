@@ -15,8 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::validator_side::common::{
-	DisconnectedPeers, PeerState, ReputationUpdate, ReputationUpdateKind, Score,
-	CONNECTED_PEERS_LIMIT,
+	DeclarationOutcome, DisconnectedPeers, PeerState, ReputationUpdate, ReputationUpdateKind,
+	Score, CONNECTED_PEERS_LIMIT,
 };
 use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, CollatorProtocolSenderTrait};
@@ -122,10 +122,10 @@ impl ConnectedPeers {
 		sender: &mut Sender,
 		peer_id: PeerId,
 		para_id: ParaId,
-	) {
-		let Some(state) = self.peers.get_mut(&peer_id) else { return };
+	) -> DeclarationOutcome {
+		let mut outcome = DeclarationOutcome::Disconnected;
 
-		let mut kept = false;
+		let Some(state) = self.peers.get_mut(&peer_id) else { return outcome };
 
 		match state {
 			PeerState::Connected =>
@@ -133,11 +133,12 @@ impl ConnectedPeers {
 					if para != &para_id {
 						per_para_id.scores.remove(&peer_id);
 					} else {
-						kept = true;
+						outcome = DeclarationOutcome::Accepted;
 					}
 				},
 			PeerState::Collating(old_para_id) if old_para_id == &para_id => {
-				// Nothing to do.
+				// Redundant, already collating for this para.
+				outcome = DeclarationOutcome::Accepted;
 			},
 			PeerState::Collating(old_para_id) => {
 				if let Some(old_per_paraid) = self.per_paraid.get_mut(&old_para_id) {
@@ -145,17 +146,19 @@ impl ConnectedPeers {
 				}
 				if let Some(per_para_id) = self.per_paraid.get(&para_id) {
 					if per_para_id.scores.contains_key(&peer_id) {
-						kept = true;
+						outcome = DeclarationOutcome::Switched(*old_para_id);
 					}
 				}
 			},
 		}
 
-		if !kept {
+		if matches!(outcome, DeclarationOutcome::Disconnected) {
 			self.disconnect(sender, vec![peer_id]).await;
 		} else {
 			*state = PeerState::Collating(para_id);
 		}
+
+		outcome
 	}
 
 	pub fn peer_state(&self, peer_id: &PeerId) -> Option<&PeerState> {

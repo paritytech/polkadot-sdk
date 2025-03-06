@@ -20,8 +20,8 @@ use polkadot_node_subsystem_util::request_candidate_events;
 use sp_keystore::KeystorePtr;
 
 use common::{
-	Advertisement, CollationFetchOutcome, CollationFetchResponse, PeerState, ProspectiveCandidate,
-	ReputationUpdate, ReputationUpdateKind,
+	Advertisement, CollationFetchOutcome, CollationFetchResponse, DeclarationOutcome, PeerState,
+	ProspectiveCandidate, ReputationUpdate, ReputationUpdateKind,
 };
 use polkadot_node_network_protocol::{
 	self as net_protocol,
@@ -92,7 +92,8 @@ async fn run_inner<Context>(
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves
 		// (any of them are in Waiting state).
 		// TODO: we could optimise to not always re-run this code. Have the other functions return
-		// whether or not we should attempt launching fetch requests.
+		// whether or not we should attempt launching fetch requests. However, most messages could
+		// indeed trigger a new legitimate request so it's probably not worth optimising.
 		state.try_launch_fetch_requests(ctx.sender()).await;
 	}
 
@@ -168,7 +169,9 @@ async fn handle_network_msg<Context>(
 		NewGossipTopology { .. } => {
 			// impossible!
 		},
-		PeerViewChange(peer_id, view) => {},
+		PeerViewChange(_, _) => {
+			// We don't really care about a peer's view.
+		},
 		OurViewChange(view) => state.handle_our_view_change(ctx.sender(), view).await,
 		PeerMessage(remote, msg) => {
 			process_incoming_peer_message(ctx, state, remote, msg).await;
@@ -304,7 +307,12 @@ impl State {
 		origin: PeerId,
 		para_id: ParaId,
 	) {
-		self.peer_manager.declared(sender, origin, para_id).await
+		match self.peer_manager.declared(sender, origin, para_id).await {
+			DeclarationOutcome::Disconnected => self.collation_manager.remove_peers(vec![origin]),
+			DeclarationOutcome::Switched(_old_para_id) =>
+				self.collation_manager.remove_peers(vec![origin]),
+			DeclarationOutcome::Accepted => {},
+		};
 	}
 
 	fn handle_disconnected(&mut self, peer_id: PeerId) {
