@@ -201,7 +201,7 @@ impl inbound_queue_v2::Config for Test {
 	type Token = Balances;
 	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	type RewardKind = BridgeReward;
-	type DefaultRewardKind = DefaultRewardKind;
+	type DefaultRewardKind = SnowbridgeReward;
 }
 
 pub fn setup() {
