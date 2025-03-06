@@ -26,6 +26,7 @@ mod imports {
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v5,
 	};
+	pub use xcm_builder::ExternalConsensusLocationsConverterFor;
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
