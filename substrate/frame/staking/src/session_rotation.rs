@@ -69,7 +69,6 @@ impl<T: Config> Rotator<T> {
 		session_progress == (T::SessionsPerEra::get() - election_offset)
 	}
 
-
 	/// Starts an idle session.
 	pub(crate) fn start_idle_session(&self) {
 		self.do_common_session_end_work();

@@ -18,11 +18,11 @@
 //! Implementations for the Staking FRAME Pallet.
 
 use crate::{
-	asset, election_size_tracker::StaticTracker, log, session_rotation, slashing, weights::WeightInfo,
-	ActiveEraInfo, BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing,
-	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf,
-	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus,
-	StakingLedger, ValidatorPrefs, STAKING_ID,
+	asset, election_size_tracker::StaticTracker, log, session_rotation, slashing,
+	weights::WeightInfo, ActiveEraInfo, BalanceOf, BoundedExposuresOf, EraInfo, EraPayout,
+	Exposure, Forcing, IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf,
+	MaxWinnersPerPageOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
