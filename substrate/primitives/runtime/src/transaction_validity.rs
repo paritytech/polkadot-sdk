@@ -87,6 +87,8 @@ pub enum InvalidTransaction {
 	IndeterminateImplicit,
 	/// The transaction extension did not authorize any origin.
 	UnknownOrigin,
+	/// The call of the transaction could not be decoded correctly.
+	UnableToDecodeCall,
 }
 
 impl InvalidTransaction {
@@ -122,6 +124,8 @@ impl From<InvalidTransaction> for &'static str {
 				"The implicit data was unable to be calculated",
 			InvalidTransaction::UnknownOrigin =>
 				"The transaction extension did not authorize any origin",
+			InvalidTransaction::UnableToDecodeCall =>
+				"The transaction call could not be decoded correctly",
 		}
 	}
 }

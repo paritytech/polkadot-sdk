@@ -436,7 +436,7 @@ impl<LookupSource, AccountId, Call, Signature, Extension, Lookup> Checkable<Look
 	for UncheckedExtrinsic<LookupSource, Call, Signature, Extension>
 where
 	LookupSource: Member + MaybeDisplay,
-	Call: Encode + Member + Dispatchable,
+	Call: Encode + DecodeWithMemTracking + Member + Dispatchable,
 	Signature: Member + traits::Verify,
 	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountId>,
 	Extension: Encode + TransactionExtension<Call>,
@@ -446,11 +446,15 @@ where
 	type Checked = CheckedExtrinsic<AccountId, Call, Extension>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
+		let function = self
+			.call
+			.try_into_decoded()
+			.map_err(|_| InvalidTransaction::UnableToDecodeCall)?;
 		Ok(match self.preamble {
 			Preamble::Signed(signed, signature, tx_ext) => {
 				let signed = lookup.lookup(signed)?;
 				// The `Implicit` is "implicitly" included in the payload.
-				let raw_payload = SignedPayload::new(self.function, tx_ext)?;
+				let raw_payload = SignedPayload::new(function, tx_ext)?;
 				if !raw_payload.using_encoded(|payload| signature.verify(payload, &signed)) {
 					return Err(InvalidTransaction::BadProof.into())
 				}
@@ -459,10 +463,9 @@ where
 			},
 			Preamble::General(extension_version, tx_ext) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(extension_version, tx_ext),
-				function: self.function,
+				function,
 			},
-			Preamble::Bare(_) =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare(_) => CheckedExtrinsic { format: ExtrinsicFormat::Bare, function },
 		})
 	}
 
@@ -471,20 +474,20 @@ where
 		self,
 		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
+		let function = self
+			.call
+			.try_into_decoded()
+			.map_err(|_| InvalidTransaction::UnableToDecodeCall)?;
 		Ok(match self.preamble {
 			Preamble::Signed(signed, _, tx_ext) => {
 				let signed = lookup.lookup(signed)?;
-				CheckedExtrinsic {
-					format: ExtrinsicFormat::Signed(signed, tx_ext),
-					function: self.function,
-				}
+				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, tx_ext), function }
 			},
 			Preamble::General(extension_version, tx_ext) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(extension_version, tx_ext),
-				function: self.function,
+				function,
 			},
-			Preamble::Bare(_) =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare(_) => CheckedExtrinsic { format: ExtrinsicFormat::Bare, function },
 		})
 	}
 }
