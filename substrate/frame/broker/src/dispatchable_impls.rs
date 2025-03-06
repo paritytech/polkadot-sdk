@@ -91,6 +91,15 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_remove_lease(task: TaskId) -> DispatchResult {
+		let mut r = Leases::<T>::get();
+		let i = r.iter().position(|lease| lease.task == task).ok_or(Error::<T>::LeaseNotFound)?;
+		r.remove(i);
+		Leases::<T>::put(r);
+		Self::deposit_event(Event::<T>::LeaseRemoved { task });
+		Ok(())
+	}
+
 	pub(crate) fn do_start_sales(
 		end_price: BalanceOf<T>,
 		extra_cores: CoreIndex,
@@ -341,6 +350,14 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_remove_assignment(region_id: RegionId) -> DispatchResult {
+		let workplan_key = (region_id.begin, region_id.core);
+		ensure!(Workplan::<T>::contains_key(&workplan_key), Error::<T>::AssignmentNotFound);
+		Workplan::<T>::remove(&workplan_key);
+		Self::deposit_event(Event::<T>::AssignmentRemoved { region_id });
+		Ok(())
+	}
+
 	pub(crate) fn do_pool(
 		region_id: RegionId,
 		maybe_check_owner: Option<T::AccountId>,
@@ -426,6 +443,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		beneficiary: RelayAccountIdOf<T>,
 	) -> DispatchResult {
+		ensure!(amount >= T::MinimumCreditPurchase::get(), Error::<T>::CreditPurchaseTooSmall);
 		T::Currency::transfer(&who, &Self::account_id(), amount, Expendable)?;
 		let rc_amount = T::ConvertBalance::convert(amount);
 		T::Coretime::credit_account(beneficiary.clone(), rc_amount);

@@ -29,6 +29,10 @@ use sp_runtime::traits::Bounded;
 
 use crate::Pallet as Society;
 
+fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
+	<T as Config<I>>::BlockNumberProvider::set_block_number(n);
+}
+
 fn mock_balance_deposit<T: Config<I>, I: 'static>() -> BalanceOf<T, I> {
 	T::Currency::minimum_balance().saturating_mul(1_000u32.into())
 }
@@ -352,9 +356,7 @@ mod benchmarks {
 		let _ = Society::<T, I>::insert_member(&skeptic, 0u32.into());
 		Skeptic::<T, I>::put(&skeptic);
 		if let Period::Voting { more, .. } = Society::<T, I>::period() {
-			frame_system::Pallet::<T>::set_block_number(
-				frame_system::Pallet::<T>::block_number() + more,
-			);
+			set_block_number::<T, I>(T::BlockNumberProvider::current_block_number() + more)
 		}
 
 		#[extrinsic_call]

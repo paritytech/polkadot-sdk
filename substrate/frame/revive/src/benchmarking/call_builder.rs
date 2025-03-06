@@ -150,8 +150,11 @@ where
 		ext: &'a mut StackExt<'a, T>,
 		module: WasmBlob<T>,
 		input: Vec<u8>,
+		aux_data_size: u32,
 	) -> PreparedCall<'a, StackExt<'a, T>> {
-		module.prepare_call(Runtime::new(ext, input), ExportedFunction::Call).unwrap()
+		module
+			.prepare_call(Runtime::new(ext, input), ExportedFunction::Call, aux_data_size)
+			.unwrap()
 	}
 
 	/// Add transient_storage

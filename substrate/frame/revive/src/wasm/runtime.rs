@@ -24,6 +24,7 @@ use crate::{
 	gas::{ChargedAmount, Token},
 	limits,
 	primitives::ExecReturnValue,
+	pure_precompiles::is_precompile,
 	weights::WeightInfo,
 	Config, Error, LOG_TARGET, SENTINEL,
 };
@@ -339,8 +340,8 @@ pub enum RuntimeCosts {
 	GasLimit,
 	/// Weight of calling `seal_weight_to_fee`.
 	WeightToFee,
-	/// Weight of calling `seal_terminate`, passing the number of locked dependencies.
-	Terminate(u32),
+	/// Weight of calling `seal_terminate`.
+	Terminate,
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
@@ -395,10 +396,6 @@ pub enum RuntimeCosts {
 	SetCodeHash,
 	/// Weight of calling `ecdsa_to_eth_address`
 	EcdsaToEthAddress,
-	/// Weight of calling `lock_delegate_dependency`
-	LockDelegateDependency,
-	/// Weight of calling `unlock_delegate_dependency`
-	UnlockDelegateDependency,
 	/// Weight of calling `get_immutable_dependency`
 	GetImmutableData(u32),
 	/// Weight of calling `set_immutable_dependency`
@@ -491,7 +488,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Now => T::WeightInfo::seal_now(),
 			GasLimit => T::WeightInfo::seal_gas_limit(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
-			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
+			Terminate => T::WeightInfo::seal_terminate(),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
@@ -529,8 +526,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			ChainExtension(weight) | CallRuntime(weight) | CallXcmExecute(weight) => weight,
 			SetCodeHash => T::WeightInfo::seal_set_code_hash(),
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
-			LockDelegateDependency => T::WeightInfo::lock_delegate_dependency(),
-			UnlockDelegateDependency => T::WeightInfo::unlock_delegate_dependency(),
 			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
 			SetImmutableData(len) => T::WeightInfo::seal_set_immutable_data(len),
 		}
@@ -607,6 +602,16 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
 			Ok(Step) => None,
 			Ok(Ecalli(idx)) => {
+				// This is a special hard coded syscall index which is used by benchmarks
+				// to abort contract execution. It is used to terminate the execution without
+				// breaking up a basic block. The fixed index is used so that the benchmarks
+				// don't have to deal with import tables.
+				if cfg!(feature = "runtime-benchmarks") && idx == SENTINEL {
+					return Some(Ok(ExecReturnValue {
+						flags: ReturnFlags::empty(),
+						data: Vec::new(),
+					}))
+				}
 				let Some(syscall_symbol) = module.imports().get(idx) else {
 					return Some(Err(<Error<E::T>>::InvalidSyscall.into()));
 				};
@@ -1008,9 +1013,18 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(call_type.cost())?;
+		let callee = match memory.read_h160(callee_ptr) {
+			Ok(callee) if is_precompile(&callee) => callee,
+			Ok(callee) => {
+				self.charge_gas(call_type.cost())?;
+				callee
+			},
+			Err(err) => {
+				self.charge_gas(call_type.cost())?;
+				return Err(err.into());
+			},
+		};
 
-		let callee = memory.read_h160(callee_ptr)?;
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
@@ -1141,15 +1155,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
 		}
-	}
-
-	fn terminate(&mut self, memory: &M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
-		let count = self.ext.locked_delegate_dependencies_count() as _;
-		self.charge_gas(RuntimeCosts::Terminate(count))?;
-
-		let beneficiary = memory.read_h160(beneficiary_ptr)?;
-		self.ext.terminate(&beneficiary)?;
-		Err(TrapReason::Termination)
 	}
 }
 
@@ -1493,9 +1498,10 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		let charged = self.charge_gas(RuntimeCosts::GetImmutableData(limits::IMMUTABLE_BYTES))?;
+		// quering the length is free as it is stored with the contract metadata
+		let len = self.ext.immutable_data_len();
+		self.charge_gas(RuntimeCosts::GetImmutableData(len))?;
 		let data = self.ext.get_immutable_data()?;
-		self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
 		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
 		Ok(())
 	}
@@ -1866,36 +1872,6 @@ pub mod env {
 		self.contains_storage(memory, flags, key_ptr, key_len)
 	}
 
-	/// Recovers the ECDSA public key from the given message hash and signature.
-	/// See [`pallet_revive_uapi::HostFn::ecdsa_recover`].
-	fn ecdsa_recover(
-		&mut self,
-		memory: &mut M,
-		signature_ptr: u32,
-		message_hash_ptr: u32,
-		output_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::EcdsaRecovery)?;
-
-		let mut signature: [u8; 65] = [0; 65];
-		memory.read_into_buf(signature_ptr, &mut signature)?;
-		let mut message_hash: [u8; 32] = [0; 32];
-		memory.read_into_buf(message_hash_ptr, &mut message_hash)?;
-
-		let result = self.ext.ecdsa_recover(&signature, &message_hash);
-
-		match result {
-			Ok(pub_key) => {
-				// Write the recovered compressed ecdsa public key back into the sandboxed output
-				// buffer.
-				memory.write(output_ptr, pub_key.as_ref())?;
-
-				Ok(ReturnErrorCode::Success)
-			},
-			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
-		}
-	}
-
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// See [`pallet_revive_uapi::HostFn::ecdsa_to_eth_address`].
 	fn ecdsa_to_eth_address(
@@ -1970,20 +1946,6 @@ pub mod env {
 		Ok(self.ext.is_contract(&address) as u32)
 	}
 
-	/// Adds a new delegate dependency to the contract.
-	/// See [`pallet_revive_uapi::HostFn::lock_delegate_dependency`].
-	#[mutating]
-	fn lock_delegate_dependency(
-		&mut self,
-		memory: &mut M,
-		code_hash_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::LockDelegateDependency)?;
-		let code_hash = memory.read_h256(code_hash_ptr)?;
-		self.ext.lock_delegate_dependency(code_hash)?;
-		Ok(())
-	}
-
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
 	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
@@ -2051,20 +2013,6 @@ pub mod env {
 		}
 	}
 
-	/// Removes the delegate dependency from the contract.
-	/// see [`pallet_revive_uapi::HostFn::unlock_delegate_dependency`].
-	#[mutating]
-	fn unlock_delegate_dependency(
-		&mut self,
-		memory: &mut M,
-		code_hash_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::UnlockDelegateDependency)?;
-		let code_hash = memory.read_h256(code_hash_ptr)?;
-		self.ext.unlock_delegate_dependency(&code_hash)?;
-		Ok(())
-	}
-
 	/// Retrieve and remove the value under the given key from storage.
 	/// See [`pallet_revive_uapi::HostFn::take_storage`]
 	#[mutating]
@@ -2084,7 +2032,10 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
 	#[mutating]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
-		self.terminate(memory, beneficiary_ptr)
+		self.charge_gas(RuntimeCosts::Terminate)?;
+		let beneficiary = memory.read_h160(beneficiary_ptr)?;
+		self.ext.terminate(&beneficiary)?;
+		Err(TrapReason::Termination)
 	}
 
 	/// Stores the amount of weight left into the supplied buffer.

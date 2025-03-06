@@ -36,6 +36,7 @@ pallet-assets-freezer = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-migrations = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nft-fractionalization = { workspace = true }
 pallet-nfts = { workspace = true }
@@ -106,6 +107,7 @@ snowbridge-router-primitives = { workspace = true }
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -133,6 +135,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
@@ -177,6 +180,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
@@ -230,6 +234,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-multisig/std",
 	"pallet-nft-fractionalization/std",
 	"pallet-nfts-runtime-api/std",
