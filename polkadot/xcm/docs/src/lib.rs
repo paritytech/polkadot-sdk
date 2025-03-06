@@ -1,4 +1,5 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -49,6 +50,8 @@
 //!
 //! ## Docs structure
 #![doc = simple_mermaid::mermaid!("../mermaid/structure.mmd")]
+// Frame macros reference features which this crate does not have
+#![allow(unexpected_cfgs)]
 
 /// Fundamentals of the XCM language. The virtual machine, instructions, locations and assets.
 pub mod fundamentals;

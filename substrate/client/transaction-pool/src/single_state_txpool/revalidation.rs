@@ -18,26 +18,27 @@
 
 //! Pool periodic revalidation.
 
-use std::{
-	collections::{BTreeMap, HashMap, HashSet},
-	pin::Pin,
-	sync::Arc,
-};
-
-use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction};
+use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, ValidatedTransaction};
+use futures::prelude::*;
+use indexmap::IndexMap;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::{
 	generic::BlockId, traits::SaturatedConversion, transaction_validity::TransactionValidityError,
 };
-
-use futures::prelude::*;
-use std::time::Duration;
+use std::{
+	collections::{BTreeMap, HashMap, HashSet},
+	pin::Pin,
+	sync::Arc,
+	time::Duration,
+};
 
 const BACKGROUND_REVALIDATION_INTERVAL: Duration = Duration::from_millis(200);
 
 const MIN_BACKGROUND_REVALIDATION_BATCH_SIZE: usize = 20;
 
 const LOG_TARGET: &str = "txpool::revalidation";
+
+type Pool<Api> = crate::graph::Pool<Api, ()>;
 
 /// Payload from queue to worker.
 struct WorkerPayload<Api: ChainApi> {
@@ -84,7 +85,7 @@ async fn batch_revalidate<Api: ChainApi>(
 	};
 
 	let mut invalid_hashes = Vec::new();
-	let mut revalidated = HashMap::new();
+	let mut revalidated = IndexMap::new();
 
 	let validation_results = futures::future::join_all(batch.into_iter().filter_map(|ext_hash| {
 		pool.validated_pool().ready_by_hash(&ext_hash).map(|ext| {

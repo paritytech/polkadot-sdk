@@ -72,8 +72,8 @@ w3f-bls = { optional = true, workspace = true }
 sha2 = { workspace = true }
 
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "0fef826", default-features = false, features = [
-  "substrate-curves",
+bandersnatch_vrfs = { git = "https://github.com/davxy/ring-vrf", branch = "locked", default-features = false, features = [
+	"substrate-curves",
 ], optional = true }
 
 [dev-dependencies]

@@ -18,7 +18,7 @@
 
 //! Testing related primitives for internal usage in this crate.
 
-use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, Pool, RawExtrinsicFor};
+use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, RawExtrinsicFor};
 use codec::Encode;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::error;
@@ -35,6 +35,8 @@ use substrate_test_runtime::{
 	substrate_test_pallet::pallet::Call as PalletCall, BalancesCall, Block, BlockNumber, Extrinsic,
 	ExtrinsicBuilder, Hashing, RuntimeCall, Transfer, TransferData, H256,
 };
+
+type Pool<Api> = crate::graph::Pool<Api, ()>;
 
 pub(crate) const INVALID_NONCE: u64 = 254;
 
