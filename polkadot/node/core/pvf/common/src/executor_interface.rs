@@ -96,6 +96,12 @@ pub const DEFAULT_CONFIG: Config = Config {
 	},
 };
 
+fn prepare_externalities() -> ValidationExternalities {
+	let mut extensions = sp_externalities::Extensions::new();
+	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
+	ValidationExternalities(extensions)
+}
+
 /// Executes the given PVF in the form of a compiled artifact and returns the result of
 /// execution upon success.
 ///
@@ -106,19 +112,37 @@ pub const DEFAULT_CONFIG: Config = Config {
 ///   2) was not modified,
 ///
 /// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
-pub unsafe fn execute_artifact(
-	compiled_artifact_blob: &[u8],
+pub unsafe fn execute_wasm(
+	code: &[u8],
 	executor_params: &ExecutorParams,
 	params: &[u8],
 ) -> Result<Vec<u8>, ExecuteError> {
-	let mut extensions = sp_externalities::Extensions::new();
-
-	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
-
-	let mut ext = ValidationExternalities(extensions);
+	let mut ext = prepare_externalities();
 
 	match sc_executor::with_externalities_safe(&mut ext, || {
-		let runtime = create_runtime_from_artifact_bytes(compiled_artifact_blob, executor_params)?;
+		let runtime = create_runtime_from_artifact_bytes(code, executor_params)?;
+		runtime.new_instance()?.call("validate_block", params)
+	}) {
+		Ok(Ok(ok)) => Ok(ok),
+		Ok(Err(err)) | Err(err) => Err(err),
+	}
+}
+
+pub fn execute_pvm(
+	code: &[u8],
+	_executor_params: &ExecutorParams,
+	params: &[u8],
+) -> Result<Vec<u8>, ExecuteError> {
+	let mut ext = prepare_externalities();
+
+	match sc_executor::with_externalities_safe(&mut ext, || {
+		let blob = RuntimeBlob::new(code)?;
+		// TODO: Executor params
+		let runtime = sc_executor_polkavm::create_runtime::<HostFunctions>(
+			blob.as_polkavm_blob()
+				.ok_or(ExecuteError::Other("PVM blob creation failure".to_owned()))?,
+		)?;
+
 		runtime.new_instance()?.call("validate_block", params)
 	}) {
 		Ok(Ok(ok)) => Ok(ok),
@@ -190,6 +214,16 @@ pub fn prepare(
 	blob: RuntimeBlob,
 	executor_params: &ExecutorParams,
 ) -> Result<Vec<u8>, sc_executor_common::error::WasmError> {
+	if blob.as_polkavm_blob().is_some() {
+		// For PVM, actual compilation is done by execution worker for now, so just copy the blob
+		// over and pretend it's compiled
+		return Ok(blob.serialize())
+	}
+	// if let Some(pvm_blob) = blob.as_polkavm_blob() {
+	// 	// For PVM, actual compilation is done by execution worker for now, so just copy the blob
+	// 	// over and pretend it's compiled
+	// 	return Ok(pvm_blob);
+	// }
 	let (semantics, _) = params_to_wasmtime_semantics(executor_params);
 	sc_executor_wasmtime::prepare_runtime_artifact(blob, &semantics)
 }

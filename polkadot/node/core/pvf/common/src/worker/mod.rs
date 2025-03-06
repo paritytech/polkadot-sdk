@@ -57,7 +57,7 @@ macro_rules! decl_worker_main {
 
 		fn main() {
 			#[cfg(target_os = "linux")]
-			use $crate::worker::security;
+			use $crate::worker::{security, WorkerKind};
 
 			$crate::sp_tracing::try_init_simple();
 
@@ -66,6 +66,8 @@ macro_rules! decl_worker_main {
 				print_help($expected_command);
 				return
 			}
+
+			let mut worker_kind = WorkerKind::ExecuteWasm;
 
 			match args[1].as_ref() {
 				"--help" | "-h" => {
@@ -154,6 +156,10 @@ macro_rules! decl_worker_main {
 							$expected_command, subcommand
 						)
 					}
+
+					if subcommand == "prepare-worker" {
+						worker_kind = WorkerKind::Prepare;
+					}
 				},
 			}
 
@@ -176,6 +182,9 @@ macro_rules! decl_worker_main {
 						node_version = Some(args[i + 1].as_str());
 						i += 1
 					},
+					"--polkavm" => {
+						worker_kind = WorkerKind::ExecutePvm;
+					},
 					arg => panic!("Unexpected argument found: {}", arg),
 				}
 				i += 1;
@@ -187,7 +196,13 @@ macro_rules! decl_worker_main {
 			let socket_path = std::path::Path::new(socket_path).to_owned();
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
 
-			$entrypoint(socket_path, worker_dir_path, node_version, Some($worker_version));
+			$entrypoint(
+				worker_kind,
+				socket_path,
+				worker_dir_path,
+				node_version,
+				Some($worker_version),
+			);
 		}
 	};
 }
@@ -274,10 +289,11 @@ impl Write for PipeFd {
 /// child process.
 pub const JOB_TIMEOUT_OVERHEAD: Duration = Duration::from_millis(50);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WorkerKind {
 	Prepare,
-	Execute,
+	ExecuteWasm,
+	ExecutePvm,
 	CheckPivotRoot,
 }
 
@@ -285,7 +301,8 @@ impl fmt::Display for WorkerKind {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::Prepare => write!(f, "prepare"),
-			Self::Execute => write!(f, "execute"),
+			Self::ExecuteWasm => write!(f, "execute Wasm"),
+			Self::ExecutePvm => write!(f, "execute PVM"),
 			Self::CheckPivotRoot => write!(f, "check pivot root"),
 		}
 	}
@@ -375,7 +392,7 @@ pub fn run_worker<F>(
 	};
 
 	// Enable some security features.
-	{
+	if !matches!(worker_kind, WorkerKind::ExecutePvm) {
 		gum::trace!(target: LOG_TARGET, ?security_status, "Enabling security features");
 
 		// First, make sure env vars were cleared, to match the environment we perform the checks

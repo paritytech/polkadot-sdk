@@ -18,8 +18,8 @@
 
 use super::worker_interface::{Error as WorkerInterfaceError, Response as WorkerInterfaceResponse};
 use crate::{
-	artifacts::{ArtifactId, ArtifactPathId},
-	host::ResultSender,
+	artifacts::ArtifactId,
+	host::{Executable, ResultSender},
 	metrics::Metrics,
 	worker_interface::{IdleWorker, WorkerHandle},
 	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
@@ -32,6 +32,7 @@ use futures::{
 };
 use polkadot_node_core_pvf_common::{
 	execute::{JobResponse, WorkerError, WorkerResponse},
+	worker::WorkerKind,
 	SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
@@ -59,7 +60,7 @@ slotmap::new_key_type! { struct Worker; }
 #[derive(Debug)]
 pub enum ToQueue {
 	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Vec<Hash> },
-	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
+	Enqueue { executable: Executable, pending_execution_request: PendingExecutionRequest },
 }
 
 /// A response from queue.
@@ -81,7 +82,7 @@ pub struct PendingExecutionRequest {
 }
 
 struct ExecuteJob {
-	artifact: ArtifactPathId,
+	executable: Executable,
 	exec_timeout: Duration,
 	exec_kind: PvfExecKind,
 	pvd: Arc<PersistedValidationData>,
@@ -95,6 +96,7 @@ struct WorkerData {
 	idle: Option<IdleWorker>,
 	handle: WorkerHandle,
 	executor_params_hash: ExecutorParamsHash,
+	worker_kind: WorkerKind,
 }
 
 impl fmt::Debug for WorkerData {
@@ -119,9 +121,16 @@ impl Workers {
 		self.spawn_inflight + self.running.len() < self.capacity
 	}
 
-	fn find_available(&self, executor_params_hash: ExecutorParamsHash) -> Option<Worker> {
+	fn find_available(
+		&self,
+		executor_params_hash: ExecutorParamsHash,
+		worker_kind: WorkerKind,
+	) -> Option<Worker> {
 		self.running.iter().find_map(|d| {
-			if d.1.idle.is_some() && d.1.executor_params_hash == executor_params_hash {
+			if d.1.idle.is_some() &&
+				d.1.executor_params_hash == executor_params_hash &&
+				d.1.worker_kind == worker_kind
+			{
 				Some(d.0)
 			} else {
 				None
@@ -148,7 +157,7 @@ enum QueueEvent {
 	FinishWork(
 		Worker,
 		Result<WorkerInterfaceResponse, WorkerInterfaceError>,
-		ArtifactId,
+		Executable,
 		ResultSender,
 	),
 }
@@ -254,7 +263,9 @@ impl Queue {
 			if let Some(finished_worker) = finished_worker {
 				if let Some(worker_data) = self.workers.running.get(finished_worker) {
 					for (i, job) in queue.iter().enumerate() {
-						if worker_data.executor_params_hash == job.executor_params.hash() {
+						if worker_data.executor_params_hash == job.executor_params.hash() &&
+							worker_data.worker_kind == job.executable.worker_kind()
+						{
 							(worker, job_index) = (Some(finished_worker), i);
 							break
 						}
@@ -265,7 +276,10 @@ impl Queue {
 
 		if worker.is_none() {
 			// Try to obtain a worker for the job
-			worker = self.workers.find_available(queue[job_index].executor_params.hash());
+			worker = self.workers.find_available(
+				queue[job_index].executor_params.hash(),
+				queue[job_index].executable.worker_kind(),
+			);
 		}
 
 		if worker.is_none() {
@@ -372,7 +386,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 		ToQueue::UpdateActiveLeaves { update, ancestors } => {
 			queue.update_active_leaves(update, ancestors);
 		},
-		ToQueue::Enqueue { artifact, pending_execution_request } => {
+		ToQueue::Enqueue { executable, pending_execution_request } => {
 			let PendingExecutionRequest {
 				exec_timeout,
 				pvd,
@@ -383,13 +397,13 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 			} = pending_execution_request;
 			gum::debug!(
 				target: LOG_TARGET,
-				validation_code_hash = ?artifact.id.code_hash,
+				validation_code_hash = ?executable.code_hash(),
 				"enqueueing an artifact for execution",
 			);
 			queue.metrics.observe_pov_size(pov.block_data.0.len(), true);
 			queue.metrics.execute_enqueued();
 			let job = ExecuteJob {
-				artifact,
+				executable,
 				exec_timeout,
 				exec_kind,
 				pvd,
@@ -427,9 +441,10 @@ fn handle_worker_spawned(
 		idle: Some(idle),
 		handle,
 		executor_params_hash: job.executor_params.hash(),
+		worker_kind: job.executable.worker_kind(),
 	});
 
-	gum::debug!(target: LOG_TARGET, ?worker, "execute worker spawned");
+	gum::debug!(target: LOG_TARGET, ?worker, "execute worker spawned: {:?}", job.executable.worker_kind());
 
 	assign(queue, worker, job);
 }
@@ -440,7 +455,7 @@ async fn handle_job_finish(
 	queue: &mut Queue,
 	worker: Worker,
 	worker_result: Result<WorkerInterfaceResponse, WorkerInterfaceError>,
-	artifact_id: ArtifactId,
+	executable: Executable,
 	result_tx: ResultSender,
 ) {
 	let (idle_worker, result, duration, sync_channel, pov_size) = match worker_result {
@@ -483,25 +498,39 @@ async fn handle_job_finish(
 				WorkerResponse { job_response: JobResponse::RuntimeConstruction(err), .. },
 			idle_worker,
 		}) => {
-			// The task for artifact removal is executed concurrently with
-			// the message to the host on the execution result.
-			let (result_tx, result_rx) = oneshot::channel();
-			queue
-				.from_queue_tx
-				.unbounded_send(FromQueue::RemoveArtifact {
-					artifact: artifact_id.clone(),
-					reply_to: result_tx,
-				})
-				.expect("from execute queue receiver is listened by the host; qed");
-			(
-				Some(idle_worker),
-				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(
-					err,
-				))),
-				None,
-				Some(result_rx),
-				None,
-			)
+			if let Executable::Wasm { artifact } = &executable {
+				// The task for artifact removal is executed concurrently with
+				// the message to the host on the execution result.
+				let (result_tx, result_rx) = oneshot::channel();
+				queue
+					.from_queue_tx
+					.unbounded_send(FromQueue::RemoveArtifact {
+						artifact: artifact.id.clone(),
+						reply_to: result_tx,
+					})
+					.expect("from execute queue receiver is listened by the host; qed");
+				(
+					Some(idle_worker),
+					Err(ValidationError::PossiblyInvalid(
+						PossiblyInvalidError::RuntimeConstruction(err),
+					)),
+					None,
+					Some(result_rx),
+					None,
+				)
+			} else {
+				// Something went wrong: runtime construction should never fail for non-Wasm
+				// runtimes Treat as a job error and reap the worker
+				(
+					None,
+					Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(
+						"Runtime construction failed for non-Wasm runtime".to_string(),
+					))),
+					None,
+					None,
+					None,
+				)
+			}
 		},
 
 		Err(WorkerInterfaceError::InternalError(err)) |
@@ -543,7 +572,7 @@ async fn handle_job_finish(
 	if let Err(ref err) = result {
 		gum::warn!(
 			target: LOG_TARGET,
-			?artifact_id,
+			?executable,
 			?worker,
 			worker_rip = idle_worker.is_none(),
 			"execution worker concluded, error occurred: {}",
@@ -552,7 +581,7 @@ async fn handle_job_finish(
 	} else {
 		gum::trace!(
 			target: LOG_TARGET,
-			?artifact_id,
+			?executable,
 			?worker,
 			worker_rip = idle_worker.is_none(),
 			?duration,
@@ -629,6 +658,7 @@ async fn spawn_worker_task(
 
 	loop {
 		match super::worker_interface::spawn(
+			job.executable.worker_kind(),
 			&program_path,
 			&cache_path,
 			job.executor_params.clone(),
@@ -656,20 +686,20 @@ async fn spawn_worker_task(
 fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 	gum::debug!(
 		target: LOG_TARGET,
-		validation_code_hash = ?job.artifact.id,
+		validation_code_hash = ?job.executable.code_hash(),
 		?worker,
 		"assigning the execute worker",
 	);
 
-	debug_assert_eq!(
-		queue
+	debug_assert!({
+		let worker_data = queue
 			.workers
 			.running
 			.get(worker)
-			.expect("caller must provide existing worker; qed")
-			.executor_params_hash,
-		job.executor_params.hash()
-	);
+			.expect("caller must provide existing worker; qed");
+		worker_data.executor_params_hash == job.executor_params.hash() &&
+			worker_data.worker_kind == job.executable.worker_kind()
+	});
 
 	let idle = queue.workers.claim_idle(worker).expect(
 		"this caller must supply a worker which is idle and running;
@@ -685,13 +715,13 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 			let _timer = execution_timer;
 			let result = super::worker_interface::start_work(
 				idle,
-				job.artifact.clone(),
+				job.executable.clone(),
 				job.exec_timeout,
 				job.pvd,
 				job.pov,
 			)
 			.await;
-			QueueEvent::FinishWork(worker, result, job.artifact.id, job.result_tx)
+			QueueEvent::FinishWork(worker, result, job.executable, job.result_tx)
 		}
 		.boxed(),
 	);
@@ -893,7 +923,6 @@ mod tests {
 	use sp_core::H256;
 
 	use super::*;
-	use crate::testing::artifact_id;
 	use std::time::Duration;
 
 	fn create_execution_job() -> ExecuteJob {
@@ -906,7 +935,7 @@ mod tests {
 		});
 		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 		ExecuteJob {
-			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			executable: Executable::default(),
 			exec_timeout: Duration::from_secs(10),
 			exec_kind: PvfExecKind::Approval,
 			pvd,
@@ -1070,7 +1099,7 @@ mod tests {
 		let mut result_rxs = vec![];
 		let (result_tx, _result_rx) = oneshot::channel();
 		let relevant_job = ExecuteJob {
-			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			executable: Executable::default(),
 			exec_timeout: Duration::from_secs(1),
 			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
 			pvd: Arc::new(PersistedValidationData::default()),
@@ -1083,7 +1112,7 @@ mod tests {
 		for _ in 0..10 {
 			let (result_tx, result_rx) = oneshot::channel();
 			let expired_job = ExecuteJob {
-				artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+				executable: Executable::default(),
 				exec_timeout: Duration::from_secs(1),
 				exec_kind: PvfExecKind::Backing(old_relay_parent),
 				pvd: Arc::new(PersistedValidationData::default()),

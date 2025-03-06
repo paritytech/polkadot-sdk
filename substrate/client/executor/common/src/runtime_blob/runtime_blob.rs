@@ -18,6 +18,7 @@
 
 use crate::{error::WasmError, wasm_runtime::HeapAllocStrategy};
 use polkavm::ArcBytes;
+use sp_maybe_compressed_blob::{blob_type, decompress_as, CODE_BLOB_BOMB_LIMIT};
 use wasm_instrument::parity_wasm::elements::{
 	deserialize_buffer, serialize, ExportEntry, External, Internal, MemorySection, MemoryType,
 	Module, Section,
@@ -37,11 +38,14 @@ impl RuntimeBlob {
 	/// Create `RuntimeBlob` from the given WASM or PolkaVM compressed program blob.
 	///
 	/// See [`sp_maybe_compressed_blob`] for details about decompression.
-	pub fn uncompress_if_needed(wasm_code: &[u8]) -> Result<Self, WasmError> {
-		use sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT;
-		let wasm_code = sp_maybe_compressed_blob::decompress(wasm_code, CODE_BLOB_BOMB_LIMIT)
+	pub fn uncompress_if_needed(blob: &[u8]) -> Result<Self, WasmError> {
+		let blob_type = blob_type(blob).map_err(|_| WasmError::InvalidModule)?;
+		if !blob_type.is_code() {
+			return Err(WasmError::InvalidModule);
+		}
+		let code = decompress_as(blob_type, blob, CODE_BLOB_BOMB_LIMIT)
 			.map_err(|e| WasmError::Other(format!("Decompression error: {:?}", e)))?;
-		Self::new(&wasm_code)
+		Self::new(&code)
 	}
 
 	/// Create `RuntimeBlob` from the given WASM or PolkaVM program blob.
