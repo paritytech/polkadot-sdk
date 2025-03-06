@@ -41,12 +41,12 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::{
-	traits::{Bounded, CheckedAdd, Convert, Saturating, StaticLookup, Zero},
+	traits::{Bounded, CheckedAdd, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchResult, Perbill, Percent,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	offence::{OffenceSeverity, OnOffenceHandler},
+	offence::OffenceSeverity,
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
@@ -1619,18 +1619,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
-		// active era is expected to be set in genesis, hence should always be available.
-		let active_era = ActiveEra::<T>::get()
-			.map(|active_era| active_era.index)
-			.defensive_unwrap_or_default();
-
-		// accumulate era points to active era.
-		<ErasRewardPoints<T>>::mutate(active_era, |era_rewards| {
-			for (validator, points) in validator_points.into_iter() {
-				*era_rewards.individual.entry(validator).or_default() += points;
-				era_rewards.total += points;
-			}
-		});
+		// handle reward points - input is the sum of all points.
+		Self::reward_by_ids(validator_points.into_iter());
 
 		let starting = end_index + 1;
 		let planning = starting + 1;
