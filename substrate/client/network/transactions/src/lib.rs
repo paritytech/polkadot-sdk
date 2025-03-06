@@ -314,7 +314,11 @@ where
 				}
 				message = self.from_controller.select_next_some() => {
 					match message {
-						ToHandler::PropagateImportedTransaction(hashes) => self.propagate_imported_transactions(hashes),
+						ToHandler::PropagateImportedTransaction(hashes) => {
+							trace!(target: "sync", "Propagating transaction from controller num={}", hashes.len());
+
+							self.propagate_imported_transactions(hashes);
+						}
 						ToHandler::PropagatePoolTransactions => self.propagate_transactions(),
 					}
 				},
