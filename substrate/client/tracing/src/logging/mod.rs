@@ -96,7 +96,6 @@ where
 	f().await
 }
 
-
 /// Convert a `Option<LevelFilter>` to a [`log::LevelFilter`].
 ///
 /// `None` is interpreted as `Info`.

@@ -104,45 +104,45 @@ mod utils;
 
 #[proc_macro_attribute]
 pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
-    // Ensure an argument was provided.
-    if arg.is_empty() {
-        return Error::new(
-            proc_macro2::Span::call_site(),
-            "missing argument: prefix. Example: prefix_logs_with(\"Relaychain\")",
-        )
-            .to_compile_error()
-            .into();
-    }
+	// Ensure an argument was provided.
+	if arg.is_empty() {
+		return Error::new(
+			proc_macro2::Span::call_site(),
+			"missing argument: prefix. Example: prefix_logs_with(\"Relaychain\")",
+		)
+		.to_compile_error()
+		.into();
+	}
 
-    let prefix_expr = syn::parse_macro_input!(arg as Expr);
-    let item_fn = syn::parse_macro_input!(item as ItemFn);
+	let prefix_expr = syn::parse_macro_input!(arg as Expr);
+	let item_fn = syn::parse_macro_input!(item as ItemFn);
 
-    // Resolve the proper sc_tracing path.
-    let resolved_crate = match utils::resolve_sc_tracing() {
-        Ok(path) => path,
-        Err(err) => return err.to_compile_error().into(),
-    };
+	// Resolve the proper sc_tracing path.
+	let resolved_crate = match utils::resolve_sc_tracing() {
+		Ok(path) => path,
+		Err(err) => return err.to_compile_error().into(),
+	};
 
-    let syn::ItemFn { attrs, vis, sig, block } = item_fn;
+	let syn::ItemFn { attrs, vis, sig, block } = item_fn;
 
-    // Generate different output based on whether the function is async.
-    let output = if sig.asyncness.is_some() {
-        // Async branch: wrap the block in a closure that returns an async block.
-        quote! {
-            #(#attrs)*
-            #vis #sig {
-                #resolved_crate::logging::apply_prefix_async(#prefix_expr, || async { #block }).await
-            }
-        }
-    } else {
-        // Sync branch: call the synchronous logging helper.
-        quote! {
-            #(#attrs)*
-            #vis #sig {
-                #resolved_crate::logging::apply_prefix_sync(#prefix_expr, || { #block })
-            }
-        }
-    };
+	// Generate different output based on whether the function is async.
+	let output = if sig.asyncness.is_some() {
+		// Async branch: wrap the block in a closure that returns an async block.
+		quote! {
+			#(#attrs)*
+			#vis #sig {
+				#resolved_crate::logging::apply_prefix_async(#prefix_expr, || async { #block }).await
+			}
+		}
+	} else {
+		// Sync branch: call the synchronous logging helper.
+		quote! {
+			#(#attrs)*
+			#vis #sig {
+				#resolved_crate::logging::apply_prefix_sync(#prefix_expr, || { #block })
+			}
+		}
+	};
 
-    output.into()
+	output.into()
 }
