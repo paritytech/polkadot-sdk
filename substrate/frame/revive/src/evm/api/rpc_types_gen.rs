@@ -25,6 +25,7 @@ pub use ethereum_types::*;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize};
 
+/// Input of a `GenericTransaction`
 #[derive(
 	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
 )]
@@ -48,6 +49,7 @@ impl From<Vec<u8>> for InputOrData {
 }
 
 impl InputOrData {
+	/// Get the input as `Bytes`.
 	pub fn to_bytes(self) -> Bytes {
 		match self {
 			InputOrData { input: Some(input), data: _ } => input,
@@ -56,18 +58,9 @@ impl InputOrData {
 		}
 	}
 
+	/// Get the input as `Vec<u8>`.
 	pub fn to_vec(self) -> Vec<u8> {
 		self.to_bytes().0
-	}
-}
-
-impl GenericTransaction {
-	pub fn input(&self) -> Option<&Bytes> {
-		match &self.input {
-			InputOrData { input: Some(input), data: _ } => Some(input),
-			InputOrData { input: None, data: Some(data) } => Some(data),
-			_ => None,
-		}
 	}
 }
 
