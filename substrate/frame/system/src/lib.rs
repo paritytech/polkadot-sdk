@@ -712,7 +712,7 @@ pub mod pallet {
 		#[pallet::weight((T::SystemWeightInfo::set_code(), DispatchClass::Operational))]
 		pub fn set_code(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			Self::can_set_code(&code, true)?;
+			Self::can_set_code(&code, true).into_result()?;
 			T::OnSetCode::set_code(code)?;
 			// consume the rest of the block to prevent further transactions
 			Ok(Some(T::BlockWeights::get().max_block).into())
@@ -729,7 +729,7 @@ pub mod pallet {
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			Self::can_set_code(&code, false)?;
+			Self::can_set_code(&code, false).into_result()?;
 			T::OnSetCode::set_code(code)?;
 			Ok(Some(T::BlockWeights::get().max_block).into())
 		}
@@ -860,9 +860,6 @@ pub mod pallet {
 		/// All origins are allowed.
 		#[pallet::call_index(11)]
 		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade(), DispatchClass::Operational))]
-		#[pallet::feeless_if(|_: &OriginFor<T>, code: &Vec<u8>| -> bool {
-			Pallet::<T>::validate_code_is_authorized(&code).is_ok()
-	 	})]
 		pub fn apply_authorized_upgrade(
 			_: OriginFor<T>,
 			code: Vec<u8>,
@@ -870,7 +867,21 @@ pub mod pallet {
 			let res = Self::validate_code_is_authorized(&code)?;
 			AuthorizedUpgrade::<T>::kill();
 
-			Self::can_set_code(&code, res.check_version)?;
+			match Self::can_set_code(&code, res.check_version) {
+				CanSetCodeResult::Ok => {},
+				CanSetCodeResult::MultiBlockMigrationsOngoing =>
+					return Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+				CanSetCodeResult::InvalidVersion(error) => {
+					// The upgrade is invalid and there is no benefit in trying to apply this again.
+					Self::deposit_event(Event::RejectedInvalidAuthorizedUpgrade {
+						code_hash: res.code_hash,
+						error: error.into(),
+					});
+
+					// Not the fault of the caller of call.
+					return Ok(Pays::No.into())
+				},
+			};
 			T::OnSetCode::set_code(code)?;
 
 			Ok(PostDispatchInfo {
@@ -908,6 +919,8 @@ pub mod pallet {
 		TaskFailed { task: T::RuntimeTask, err: DispatchError },
 		/// An upgrade was authorized.
 		UpgradeAuthorized { code_hash: T::Hash, check_version: bool },
+		/// An invalid authorized upgrade was rejected while trying to apply it.
+		RejectedInvalidAuthorizedUpgrade { code_hash: T::Hash, error: DispatchError },
 	}
 
 	/// Error for the System pallet
@@ -1484,6 +1497,28 @@ pub enum DecRefStatus {
 	Reaped,
 	/// Account still exists.
 	Exists,
+}
+
+/// Result of [`Pallet::can_set_code`].
+pub enum CanSetCodeResult<T: Config> {
+	/// Everything is fine.
+	Ok,
+	/// Multi-block migrations are on-going.
+	MultiBlockMigrationsOngoing,
+	/// The runtime version is invalid or could not be fetched.
+	InvalidVersion(Error<T>),
+}
+
+impl<T: Config> CanSetCodeResult<T> {
+	/// Convert `Self` into a result.
+	pub fn into_result(self) -> Result<(), DispatchError> {
+		match self {
+			Self::Ok => Ok(()),
+			Self::MultiBlockMigrationsOngoing =>
+				Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+			Self::InvalidVersion(err) => Err(err.into()),
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -2230,16 +2265,18 @@ impl<T: Config> Pallet<T> {
 	/// Determine whether or not it is possible to update the code.
 	///
 	/// - `check_version`: Should the runtime version be checked?
-	pub fn can_set_code(code: &[u8], check_version: bool) -> Result<(), sp_runtime::DispatchError> {
+	pub fn can_set_code(code: &[u8], check_version: bool) -> CanSetCodeResult<T> {
 		if T::MultiBlockMigrator::ongoing() {
-			return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+			return CanSetCodeResult::MultiBlockMigrationsOngoing
 		}
 
 		if check_version {
 			let current_version = T::Version::get();
-			let new_version = sp_io::misc::runtime_version(code)
+			let Some(new_version) = sp_io::misc::runtime_version(code)
 				.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
-				.ok_or(Error::<T>::FailedToExtractRuntimeVersion)?;
+			else {
+				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion)
+			};
 
 			cfg_if::cfg_if! {
 				if #[cfg(all(feature = "runtime-benchmarks", not(test)))] {
@@ -2247,17 +2284,17 @@ impl<T: Config> Pallet<T> {
 					core::hint::black_box((new_version, current_version));
 				} else {
 					if new_version.spec_name != current_version.spec_name {
-						return Err(Error::<T>::InvalidSpecName.into())
+						return CanSetCodeResult::InvalidVersion( Error::<T>::InvalidSpecName)
 					}
 
 					if new_version.spec_version <= current_version.spec_version {
-						return Err(Error::<T>::SpecVersionNeedsToIncrease.into())
+						return CanSetCodeResult::InvalidVersion(Error::<T>::SpecVersionNeedsToIncrease)
 					}
 				}
 			}
 		}
 
-		Ok(())
+		CanSetCodeResult::Ok
 	}
 
 	/// Authorize the given `code_hash` as upgrade.
