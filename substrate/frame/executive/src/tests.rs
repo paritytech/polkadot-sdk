@@ -34,7 +34,7 @@ use sp_core::H256;
 use sp_runtime::{
 	generic::{DigestItem, Era},
 	testing::{Block, Digest, Header},
-	traits::{Block as BlockT, Header as HeaderT, TransactionExtension},
+	traits::{Block as BlockT, Header as HeaderT, LazyExtrinsic, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidityError, UnknownTransaction, ValidTransaction,
 	},
@@ -591,8 +591,8 @@ fn balance_transfer_dispatch_works() {
 	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 211)], ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
-	let xt = UncheckedXt::new_signed(call_transfer(2, 69), 1, 1.into(), tx_ext(0, 0));
-	let weight = xt.get_dispatch_info().total_weight() +
+	let mut xt = UncheckedXt::new_signed(call_transfer(2, 69), 1, 1.into(), tx_ext(0, 0));
+	let weight = xt.expect_as_ref().get_dispatch_info().total_weight() +
 		<Runtime as frame_system::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
@@ -777,7 +777,7 @@ fn block_weight_limit_enforced() {
 
 #[test]
 fn block_weight_and_size_is_stored_per_tx() {
-	let xt = UncheckedXt::new_signed(
+	let mut xt = UncheckedXt::new_signed(
 		RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
 		1,
 		1.into(),
@@ -795,8 +795,8 @@ fn block_weight_and_size_is_stored_per_tx() {
 		1.into(),
 		tx_ext(2, 0),
 	);
-	let len = xt.clone().encode().len() as u32;
-	let extension_weight = xt.extension_weight();
+	let len = xt.encode().len() as u32;
+	let extension_weight = xt.expect_as_ref().extension_weight();
 	let transfer_weight = <<Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_allow_death();
 	let mut t = new_test_ext(2);
 	t.execute_with(|| {
