@@ -1009,7 +1009,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 30.0.0",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
@@ -1150,7 +1149,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 30.0.0",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
@@ -23434,6 +23432,7 @@ name = "sp-tracing"
 version = "16.0.0"
 dependencies = [
  "parity-scale-codec",
+ "regex",
  "tracing",
  "tracing-core",
  "tracing-subscriber 0.3.18",
