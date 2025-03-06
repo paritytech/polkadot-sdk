@@ -7,4 +7,4 @@ doc:
     E.g. if the transaction extension is `SkipCheckIfFeeless::<Runtime, (Payment1, Payment2)>` then the metadata was wrong.
 crates:
 - name: pallet-skip-feeless-payment
-  bump: major
+  bump: patch
