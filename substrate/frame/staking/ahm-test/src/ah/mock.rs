@@ -42,6 +42,12 @@ pub fn roll_next() {
 	MultiBlockUnsigned::on_initialize(next);
 }
 
+pub fn roll_until_blocks(block_number: BlockNumber) {
+	while System::block_number() < block_number {
+		roll_next();
+	}
+}
+
 pub fn roll_until_matches(criteria: impl Fn() -> bool, with_rc: bool) {
 	while !criteria() {
 		roll_next();
@@ -212,8 +218,8 @@ impl multi_block::signed::Config for Runtime {
 parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
-	// TODO: I don't think we need this anymore -- staking should always use `ActiveEra`, and `CurrentEra` is active.index + 1??
 	pub static SessionsPerEra: u32 = 6;
+	pub static ElectionOffset: u32 = 1;
 }
 
 impl pallet_staking::Config for Runtime {
@@ -224,6 +230,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type BondingDuration = BondingDuration;
 	type SessionsPerEra = SessionsPerEra;
+	type ElectionOffset = ElectionOffset;
 
 	type Currency = Balances;
 	type OldCurrency = Balances;
@@ -254,21 +261,6 @@ impl pallet_staking::Config for Runtime {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 
 	type RcClientInterface = RcClient;
-
-	fn maybe_start_election(
-		current_planned_session: SessionIndex,
-		era_start_session: SessionIndex,
-	) -> bool {
-		let session_progress = current_planned_session - era_start_session;
-		log::info!(
-			target: "runtime::staking",
-			"RUNTIME IMPL: current_planned_session: {:?} era_start_session: {:?}",
-			current_planned_session,
-			era_start_session
-		);
-		// start the election 1 session before the intended time.
-		session_progress == (SessionsPerEra::get() - 1)
-	}
 
 	// TODO
 	type NextNewSession = ();
@@ -390,3 +382,21 @@ impl ExtBuilder {
 		state
 	}
 }
+
+pub(crate) fn staking_events() -> Vec<pallet_staking::Event<T>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::Staking(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
+pub(crate) fn election_events() -> Vec<pallet_election_provider_multi_block::Event<T>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::MultiBlock(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
+

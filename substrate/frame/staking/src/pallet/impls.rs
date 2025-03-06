@@ -1584,6 +1584,27 @@ impl<T: Config> Pallet<T> {
 			Self::clear_era_information(old_era);
 		}
 	}
+
+	fn maybe_start_election(
+		current_planned_session: SessionIndex,
+		era_start_session: SessionIndex,
+	) -> bool {
+		log::info!(
+			target: "runtime::staking",
+			"RUNTIME IMPL: current_planned_session: {:?} era_start_session: {:?}",
+			current_planned_session,
+			era_start_session
+		);
+
+		let election_offset = T::ElectionOffset::get()
+			.max(1)
+			.min(T::SessionsPerEra::get());
+
+		let session_progress = current_planned_session - era_start_session;
+
+		// start the election `election_offset` sessions before the intended time.
+		session_progress == (T::SessionsPerEra::get() - election_offset)
+	}
 }
 
 impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
@@ -1628,9 +1649,9 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		let current_era = CurrentEra::<T>::get().unwrap_or_default();
 		let start_index = ErasStartSessionIndex::<T>::get(current_era).unwrap_or_default();
 
-		if T::maybe_start_election(planning, start_index) {
+		if Self::maybe_start_election(planning, start_index) {
 			log!(info, "sending election start signal");
-			T::ElectionProvider::start();
+			let _ = T::ElectionProvider::start();
 		}
 
 		// then, handle starting/ending a session/era
@@ -1644,8 +1665,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 				let era_duration = this_era_start.saturating_sub(previous_era_start);
 				Self::compute_era_payout(current_active_era, era_duration);
 				Self::start_era(starting, this_era_start);
-			} else {
-				todo!("genesis era only, do something reasonable")
 			}
 		}
 	}

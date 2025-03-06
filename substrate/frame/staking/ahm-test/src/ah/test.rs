@@ -7,10 +7,6 @@ use pallet_staking_rc_client as rc_client;
 // Tests that are specific to Asset Hub.
 #[test]
 fn on_receive_session_report() {
-	// todo(ank4n):
-	// - Ensure some validator points are sent.
-	// - Ensure staking takes into account those validator points.
-	// - Ensure staking rewards can be claimed only after era change.
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		// GIVEN genesis state of ah
 		assert_eq!(System::block_number(), 0);
@@ -20,12 +16,12 @@ fn on_receive_session_report() {
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 
 		// WHEN session ends on RC and session report is received by AH.
-        let session_report = rc_client::SessionReport {
-            end_index: 0,
-            validator_points: (1..9).into_iter().map(|v| (v as AccountId, v*10)).collect(),
-            activation_timestamp: None,
-            leftover: false,
-        };
+		let session_report = rc_client::SessionReport {
+			end_index: 0,
+			validator_points: (1..9).into_iter().map(|v| (v as AccountId, v * 10)).collect(),
+			activation_timestamp: None,
+			leftover: false,
+		};
 
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
 			RuntimeOrigin::root(),
@@ -46,6 +42,29 @@ fn on_receive_session_report() {
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 
+		// elections will begin at end of session 4, so lets roll few more sessions.
+		for i in 1..5 {
+			// some random blocks we roll every session.
+			roll_until_blocks(10);
+
+			// send the session report.
+			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+				RuntimeOrigin::root(),
+				rc_client::SessionReport {
+					end_index: i,
+					validator_points: vec![(1, 10)],
+					activation_timestamp: None,
+					leftover: false,
+				}
+			));
+
+			let era_points = pallet_staking::ErasRewardPoints::<T>::get(&0);
+			assert_eq!(era_points.total, 360 + i * 10);
+			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
+		}
+
+		println!("Election Events {:?}", election_events());
+		println!("Staking Events {:?}", staking_events());
 
 		assert_eq!(LocalQueue::get().unwrap(), vec![]);
 	})
