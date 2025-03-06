@@ -185,26 +185,7 @@ impl Message {
 	) -> Result<Vec<EthereumAsset>, MessageDecodeError> {
 		let mut substrate_assets = vec![];
 		for asset in &payload.assets {
-			match asset.kind {
-				0 => {
-					let native_data = IGatewayV2::AsNativeTokenERC20::abi_decode(&asset.data, true)
-						.map_err(|_| MessageDecodeError)?;
-					substrate_assets.push(EthereumAsset::NativeTokenERC20 {
-						token_id: H160::from(native_data.token_id.as_ref()),
-						value: native_data.value,
-					});
-				},
-				1 => {
-					let foreign_data =
-						IGatewayV2::AsForeignTokenERC20::abi_decode(&asset.data, true)
-							.map_err(|_| MessageDecodeError)?;
-					substrate_assets.push(EthereumAsset::ForeignTokenERC20 {
-						token_id: H256::from(foreign_data.token_id.as_ref()),
-						value: foreign_data.value,
-					});
-				},
-				_ => return Err(MessageDecodeError),
-			}
+			substrate_assets.push(EthereumAsset::try_from(asset)?);
 		}
 		Ok(substrate_assets)
 	}
@@ -229,6 +210,33 @@ impl TryFrom<&IGatewayV2::Payload> for XcmPayload {
 			_ => return Err(MessageDecodeError),
 		};
 		Ok(xcm)
+	}
+}
+
+impl TryFrom<&IGatewayV2::EthereumAsset> for EthereumAsset {
+	type Error = MessageDecodeError;
+
+	fn try_from(asset: &IGatewayV2::EthereumAsset) -> Result<EthereumAsset, Self::Error> {
+		let asset = match asset.kind {
+			0 => {
+				let native_data = IGatewayV2::AsNativeTokenERC20::abi_decode(&asset.data, true)
+					.map_err(|_| MessageDecodeError)?;
+				EthereumAsset::NativeTokenERC20 {
+					token_id: H160::from(native_data.token_id.as_ref()),
+					value: native_data.value,
+				}
+			},
+			1 => {
+				let foreign_data = IGatewayV2::AsForeignTokenERC20::abi_decode(&asset.data, true)
+					.map_err(|_| MessageDecodeError)?;
+				EthereumAsset::ForeignTokenERC20 {
+					token_id: H256::from(foreign_data.token_id.as_ref()),
+					value: foreign_data.value,
+				}
+			},
+			_ => return Err(MessageDecodeError),
+		};
+		Ok(asset)
 	}
 }
 
