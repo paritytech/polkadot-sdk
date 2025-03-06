@@ -20639,7 +20639,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "16.0.3"
+version = "16.0.4"
 dependencies = [
  "assert_matches",
  "frame-support",
