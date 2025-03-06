@@ -131,7 +131,7 @@ where
 	const IDENTIFIER: &'static str = S::IDENTIFIER;
 	type Implicit = S::Implicit;
 
-	fn metadata() -> alloc::Vec<sp_runtime::traits::TransactionExtensionMetadata> {
+	fn metadata() -> alloc::vec::Vec<sp_runtime::traits::TransactionExtensionMetadata> {
 		S::metadata()
 	}
 
