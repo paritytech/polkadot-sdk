@@ -114,7 +114,12 @@ mod types;
 
 /// Try to init a simple tracing subscriber with log compatibility layer.
 ///
-/// Ignores any error. Useful for testing.
+/// Ignores any error. Useful for testing. Uses the default filter for logs.
+///
+/// Related functions:
+/// - [`init_for_tests()`]: Enables `TRACE` level.
+/// - [`test_log_capture::init_log_capture()`]: Captures logs for assertions and/or outputs logs.
+/// - [`capture_test_logs!()`]: A macro for capturing logs within test blocks.
 #[cfg(feature = "std")]
 pub fn try_init_simple() {
 	let _ = tracing_subscriber::fmt()
@@ -131,6 +136,11 @@ pub fn try_init_simple() {
 /// The logs are not shown by default, logs are only shown when the test fails
 /// or if [`nocapture`](https://doc.rust-lang.org/cargo/commands/cargo-test.html#display-options)
 /// is being used.
+///
+/// Related functions:
+/// - [`try_init_simple()`]: Uses the default filter.
+/// - [`test_log_capture::init_log_capture()`]: Captures logs for assertions and/or outputs logs.
+/// - [`capture_test_logs!()`]: A macro for capturing logs within test blocks.
 #[cfg(feature = "std")]
 pub fn init_for_tests() {
 	let _ = tracing_subscriber::fmt()
@@ -263,10 +273,7 @@ pub mod test_log_capture {
 		sync::{Arc, Mutex},
 	};
 	use tracing::level_filters::LevelFilter;
-	use tracing_subscriber::fmt::{
-		format::{DefaultFields, Format},
-		MakeWriter, Subscriber,
-	};
+	use tracing_subscriber::{fmt, fmt::MakeWriter, layer::SubscriberExt, Layer, Registry};
 
 	/// A reusable log capturing struct for unit tests.
 	/// Captures logs written during test execution for assertions.
@@ -327,7 +334,9 @@ pub mod test_log_capture {
 		/// assert_eq!(log_capture.get_logs().trim(), "Log entry");
 		/// ```
 		pub fn get_logs(&self) -> String {
-			String::from_utf8(self.buffer.lock().unwrap().clone()).unwrap()
+			let raw_logs = String::from_utf8(self.buffer.lock().unwrap().clone()).unwrap();
+			let ansi_escape = regex::Regex::new(r"\x1B\[[0-9;]*[mK]").unwrap(); // Regex to match ANSI codes
+			ansi_escape.replace_all(&raw_logs, "").to_string() // Remove ANSI codes
 		}
 
 		/// Returns a clone of the internal buffer for use in `MakeWriter`.
@@ -359,15 +368,18 @@ pub mod test_log_capture {
 		}
 	}
 
-	/// Initialises a log capture utility for testing.
+	/// Initialises a log capture utility for testing, with optional log printing.
 	///
 	/// This function sets up a `LogCapture` instance to capture logs during test execution.
 	/// It also configures a `tracing_subscriber` with the specified maximum log level
-	/// and a writer that directs logs to `LogCapture`.
+	/// and a writer that directs logs to `LogCapture`. If `print_logs` is enabled, logs
+	/// up to `max_level` are also printed to the test output.
 	///
 	/// # Arguments
 	///
-	/// * `max_level` - The maximum log level to capture, which can be converted into `LevelFilter`.
+	/// * `max_level` - The maximum log level to capture and print, which can be converted into
+	///   `LevelFilter`.
+	/// * `print_logs` - If `true`, logs up to `max_level` will also be printed to the test output.
 	///
 	/// # Returns
 	///
@@ -383,61 +395,114 @@ pub mod test_log_capture {
 	///     tracing::{info, subscriber, Level},
 	/// };
 	///
-	/// let (log_capture, subscriber) = init_log_capture(Level::INFO);
+	/// let (log_capture, subscriber) = init_log_capture(Level::INFO, false);
 	/// subscriber::with_default(subscriber, || {
 	///     info!("This log will be captured");
 	///     assert!(log_capture.contains("This log will be captured"));
 	/// });
 	/// ```
+	///
+	/// # Usage Guide
+	///
+	/// - If you only need to **capture logs for assertions** without printing them, use
+	///   `init_log_capture(max_level, false)`.
+	/// - If you need both **capturing and printing logs**, use `init_log_capture(max_level, true)`.
+	/// - If you only need to **print logs** but not capture them, use
+	///   `sp_tracing::init_for_tests()`.
 	pub fn init_log_capture(
 		max_level: impl Into<LevelFilter>,
-	) -> (LogCapture, Subscriber<DefaultFields, Format, LevelFilter, LogCapture>) {
+		print_logs: bool,
+	) -> (LogCapture, impl tracing::Subscriber + Send + Sync) {
 		// Create a new log capture instance
 		let log_capture = LogCapture::new();
 
-		// Configure a tracing subscriber to use the log capture as the writer
-		let subscriber = tracing_subscriber::fmt()
-			.with_max_level(max_level) // Set the max log level
-			.with_writer(log_capture.writer()) // Use LogCapture as the writer
-			.finish();
+		// Convert the max log level into LevelFilter
+		let level_filter = max_level.into();
 
-		(log_capture, subscriber)
+		// Create a layer for capturing logs into LogCapture
+		let capture_layer = fmt::layer()
+			.with_writer(log_capture.writer()) // Use LogCapture as the writer
+			.with_filter(level_filter); // Set the max log level
+
+		// Base subscriber with log capturing
+		let subscriber = Registry::default().with(capture_layer);
+
+		// If `print_logs` is enabled, add a layer that prints logs to test output up to `max_level`
+		let test_layer = if print_logs {
+			Some(
+				fmt::layer()
+					.with_test_writer() // Direct logs to test output
+					.with_filter(level_filter), // Apply the same max log level filter
+			)
+		} else {
+			None
+		};
+
+		// Combine the log capture subscriber with the test layer (if applicable)
+		let combined_subscriber = subscriber.with(test_layer);
+
+		(log_capture, combined_subscriber)
 	}
 
 	/// Macro for capturing logs during test execution.
 	///
-	/// It sets up a log subscriber with an optional maximum log level and captures the output.
+	/// This macro sets up a log subscriber with a specified maximum log level
+	/// and an option to print logs to the test output while capturing them.
+	///
+	/// # Arguments
+	///
+	/// - `$max_level`: The maximum log level to capture.
+	/// - `$print_logs`: Whether to also print logs to the test output.
+	/// - `$test`: The block of code where logs are captured.
 	///
 	/// # Examples
+	///
 	/// ```
 	/// use sp_tracing::{
 	///     capture_test_logs,
 	///     tracing::{info, warn, Level},
 	/// };
 	///
-	/// let log_capture = capture_test_logs!(Level::WARN, {
+	/// // Capture logs at WARN level without printing them
+	/// let log_capture = capture_test_logs!(Level::WARN, false, {
 	///     info!("Captured info message");
 	///     warn!("Captured warning");
 	/// });
 	///
-	/// assert!(!log_capture.contains("Captured log message"));
+	/// assert!(!log_capture.contains("Captured info message"));
 	/// assert!(log_capture.contains("Captured warning"));
+	///
+	/// // Capture logs at TRACE level and also print them
+	/// let log_capture = capture_test_logs!(Level::TRACE, true, {
+	///     info!("This will be captured and printed");
+	/// });
+	///
+	/// assert!(log_capture.contains("This will be captured and printed"));
 	/// ```
+	///
+	/// # Related functions:
+	/// - [`init_log_capture()`]: Captures logs for assertions.
+	/// - `sp_tracing::init_for_tests()`: Outputs logs but does not capture them.
 	#[macro_export]
 	macro_rules! capture_test_logs {
-		// Case when max_level is provided
-		($max_level:expr, $test:block) => {{
+		// Case when max_level and print_logs are provided
+		($max_level:expr, $print_logs:expr, $test:block) => {{
 			let (log_capture, subscriber) =
-				sp_tracing::test_log_capture::init_log_capture($max_level);
+				sp_tracing::test_log_capture::init_log_capture($max_level, $print_logs);
 
 			sp_tracing::tracing::subscriber::with_default(subscriber, || $test);
 
 			log_capture
 		}};
 
-		// Case when max_level is omitted (defaults to DEBUG)
+		// Case when only max_level is provided (defaults to not printing logs)
+		($max_level:expr, $test:block) => {{
+			capture_test_logs!($max_level, false, $test)
+		}};
+
+		// Case when max_level is omitted (defaults to DEBUG, no printing)
 		($test:block) => {{
-			capture_test_logs!(sp_tracing::tracing::Level::DEBUG, $test)
+			capture_test_logs!(sp_tracing::tracing::Level::DEBUG, false, $test)
 		}};
 	}
 }
