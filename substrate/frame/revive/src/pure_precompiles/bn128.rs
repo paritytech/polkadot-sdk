@@ -16,7 +16,7 @@
 // limitations under the License.
 use super::Precompile;
 use crate::{Config, ExecReturnValue, GasMeter, RuntimeCosts};
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use bn::{pairing_batch, AffineG1, AffineG2, Fq, Fq2, Group, Gt, G1, G2};
 use pallet_revive_uapi::ReturnFlags;
 use sp_core::U256;
