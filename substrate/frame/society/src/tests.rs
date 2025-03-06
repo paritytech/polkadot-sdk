@@ -1325,18 +1325,12 @@ fn drop_candidate_works() {
 #[test]
 fn poke_deposit_fails_for_non_bidder() {
 	EnvBuilder::new().execute(|| {
-		assert_noop!(
-			Society::poke_deposit(Origin::signed(20)),
-			Error::<Test>::NotBidder
-		);
+		assert_noop!(Society::poke_deposit(Origin::signed(20)), Error::<Test>::NotBidder);
 		assert_eq!(Balances::reserved_balance(20), 0);
 
 		// Also fails for vouched bid
 		assert_ok!(Society::vouch(Origin::signed(10), 20, 100, 0));
-		assert_noop!(
-			Society::poke_deposit(Origin::signed(20)),
-			Error::<Test>::NotBidder
-		);
+		assert_noop!(Society::poke_deposit(Origin::signed(20)), Error::<Test>::NotBidder);
 		assert_eq!(Balances::reserved_balance(20), 0);
 	});
 }
@@ -1380,11 +1374,9 @@ fn poke_deposit_works_when_deposit_increases() {
 		assert_eq!(bid.kind, BidKind::Deposit(new_deposit));
 
 		// Verify correct event was emitted
-		System::assert_has_event(Event::<Test>::DepositPoked { 
-			who: 20,
-			old_deposit,
-			new_deposit,
-		}.into());
+		System::assert_has_event(
+			Event::<Test>::DepositPoked { who: 20, old_deposit, new_deposit }.into(),
+		);
 	});
 }
 
@@ -1393,11 +1385,7 @@ fn poke_deposit_works_when_deposit_decreases() {
 	EnvBuilder::new().execute(|| {
 		// Set high initial deposit
 		let old_deposit = 30;
-		assert_ok!(Society::set_parameters(
-			Origin::signed(10),
-			10, 8, 3,
-			old_deposit,
-		));
+		assert_ok!(Society::set_parameters(Origin::signed(10), 10, 8, 3, old_deposit,));
 
 		// Place bid with high deposit
 		assert_ok!(Society::bid(Origin::signed(20), 0));
@@ -1410,11 +1398,7 @@ fn poke_deposit_works_when_deposit_decreases() {
 
 		// Change parameters to require lower deposit
 		let new_deposit = old_deposit - 25;
-		assert_ok!(Society::set_parameters(
-			Origin::signed(10),
-			10, 8, 3,
-			new_deposit,
-		));
+		assert_ok!(Society::set_parameters(Origin::signed(10), 10, 8, 3, new_deposit,));
 
 		// Poke deposit
 		let result = Society::poke_deposit(Origin::signed(20));
@@ -1430,11 +1414,9 @@ fn poke_deposit_works_when_deposit_decreases() {
 		assert_eq!(bid.kind, BidKind::Deposit(new_deposit));
 
 		// Verify event
-		System::assert_has_event(Event::<Test>::DepositPoked { 
-			who: 20,
-			old_deposit: old_deposit,
-			new_deposit,
-		}.into());
+		System::assert_has_event(
+			Event::<Test>::DepositPoked { who: 20, old_deposit, new_deposit }.into(),
+		);
 	});
 }
 
@@ -1478,11 +1460,7 @@ fn poke_deposit_handles_insufficient_balance() {
 		let initial_deposit = Parameters::<Test>::get().unwrap().candidate_deposit;
 
 		// Change parameters to require higher deposit
-		assert_ok!(Society::set_parameters(
-			Origin::signed(10),
-			10, 8, 3,
-			initial_deposit + 50,
-		));
+		assert_ok!(Society::set_parameters(Origin::signed(10), 10, 8, 3, initial_deposit + 50,));
 
 		// Should fail due to insufficient balance
 		assert_noop!(

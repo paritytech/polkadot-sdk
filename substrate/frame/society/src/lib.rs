@@ -1430,7 +1430,10 @@ pub mod pallet {
 				let excess = old_deposit.saturating_sub(new_deposit);
 				let remaining_unreserved = T::Currency::unreserve(&who, excess);
 				if !remaining_unreserved.is_zero() {
-					defensive!("Failed to unreserve for full amount for bid (Requested, Actual)", (excess, excess.saturating_sub(remaining_unreserved)));
+					defensive!(
+						"Failed to unreserve for full amount for bid (Requested, Actual)",
+						(excess, excess.saturating_sub(remaining_unreserved))
+					);
 				}
 			}
 
