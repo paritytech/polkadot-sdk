@@ -10,8 +10,7 @@ use crate::helpers::asset_hub_westend::{
 		sp_weights::weight_v2::Weight,
 	},
 };
-use pallet_revive::{AddressMapper, Config};
-use pallet_revive_mock_network::parachain::Runtime;
+use pallet_revive::AddressMapper;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
 use zombienet_sdk::NetworkConfigBuilder;
@@ -30,8 +29,8 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
+				.with_node(|node| node.with_name("validator-0"))
+				.with_node(|node| node.with_name("validator-1"))
 		})
 		.with_parachain(|p| {
 			p.with_id(2000)
@@ -43,7 +42,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 				)
 				.with_chain("asset-hub-westend-local")
 				.with_collator(|n| {
-					n.with_name("charlie").validator(true).with_args(vec![
+					n.with_name("collator").validator(true).with_args(vec![
 						("--force-authoring").into(),
 						("-ltxpool=trace").into(),
 						("--pool-type=fork-aware").into(),
@@ -59,25 +58,26 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;
 
-	let alice = network.get_node("alice")?;
-	let bob = network.get_node("bob")?;
-	let charlie = network.get_node("charlie")?;
+	let validator0 = network.get_node("validator-0")?;
+	let validator1 = network.get_node("validator-1")?;
+	let collator = network.get_node("collator")?;
 
-	let _relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
-	let para_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
+	let _relay_client: OnlineClient<PolkadotConfig> = validator0.wait_client().await?;
+	let para_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
 
-	alice.assert("node_roles", 4.0).await?;
-	bob.assert("node_roles", 4.0).await?;
-	charlie.assert("node_roles", 4.0).await?;
+	validator0.assert("node_roles", 4.0).await?;
+	validator1.assert("node_roles", 4.0).await?;
+	collator.assert("node_roles", 4.0).await?;
 
 	let alice_signer = dev::alice();
+	let alice_public = alice_signer.public_key();
+	let alice_account_id = alice_public.0.into();
+	let alice_public_bytes: &[u8] = alice_public.as_ref();
 	let alice_h160 =
-		<Runtime as Config>::AddressMapper::to_address(&alice_signer.public_key().0.into());
-
-	let nonce_call = asset_hub_westend::apis()
-		.account_nonce_api()
-		.account_nonce(alice_signer.public_key().into());
-	let nonce = para_client.runtime_api().at_latest().await?.call(nonce_call).await?;
+		<asset_hub_westend_runtime::Runtime as pallet_revive::Config>::AddressMapper::to_address(
+			&alice_account_id,
+		);
+	println!("alice_h160: {:?}", alice_h160);
 
 	para_client
 		.tx()
@@ -92,8 +92,9 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 	let code_path = std::env::current_dir().unwrap().join("tests/parachains/contract.polkavm");
 	let code = std::fs::read(code_path)?;
 
-	let dry_run_call = asset_hub_westend::apis().revive_api().instantiate(
-		alice_signer.public_key().into(),
+	let alice_public = alice_signer.public_key();
+	let contract_dry_run_call = asset_hub_westend::apis().revive_api().instantiate(
+		alice_public.into(),
 		0,
 		None,
 		None,
@@ -101,20 +102,21 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		b"0x".to_vec(),
 		None,
 	);
-	let dry_run = para_client.runtime_api().at_latest().await?.call(dry_run_call).await?;
-	let storage_deposit = match dry_run.storage_deposit {
+	let contract_dry_run =
+		para_client.runtime_api().at_latest().await?.call(contract_dry_run_call).await?;
+	let storage_deposit = match contract_dry_run.storage_deposit {
 		StorageDeposit::Charge(c) => c,
 		StorageDeposit::Refund(_) => 0,
 	};
 
-	let xxx = para_client
+	let contract = para_client
 		.tx()
 		.sign_and_submit_then_watch_default(
 			&asset_hub_westend::tx().revive().instantiate_with_code(
 				0,
 				Weight {
-					ref_time: dry_run.gas_required.ref_time,
-					proof_size: dry_run.gas_required.proof_size,
+					ref_time: contract_dry_run.gas_required.ref_time,
+					proof_size: contract_dry_run.gas_required.proof_size,
 				},
 				storage_deposit,
 				code,
@@ -127,17 +129,40 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		.wait_for_finalized_success()
 		.await?;
 
-	let contract_address = pallet_revive::create1(&alice_h160, nonce.into());
+	assert!(contract.find::<asset_hub_westend::system::events::NewAccount>().count() > 0);
 
-	let xxx = para_client
+	let alice_public = alice_signer.public_key();
+	let contract_address = pallet_revive::create1(&alice_h160, 1);
+	let contract_call_dry_run_call = asset_hub_westend::apis().revive_api().call(
+		alice_public.into(),
+		contract_address,
+		0,
+		None,
+		None,
+		b"0xa0712d680000000000000000000000000000000000000000000000000000000000000001".to_vec(),
+	);
+	let contract_call_dry_run = para_client
+		.runtime_api()
+		.at_latest()
+		.await?
+		.call(contract_call_dry_run_call)
+		.await?;
+	let storage_deposit = match contract_call_dry_run.storage_deposit {
+		StorageDeposit::Charge(c) => c,
+		StorageDeposit::Refund(_) => 0,
+	};
+	let contract_call = para_client
 		.tx()
 		.sign_and_submit_then_watch_default(
 			&asset_hub_westend::tx().revive().call(
 				contract_address,
 				0,
-				Weight { ref_time: 1000000000, proof_size: 100000 },
-				20032000000,
-				b"0xa0712d6800000000000000000000000000000000000000000000000000000000000003e8"
+				Weight {
+					ref_time: contract_call_dry_run.gas_required.ref_time,
+					proof_size: contract_call_dry_run.gas_required.proof_size,
+				},
+				storage_deposit,
+				b"0xa0712d680000000000000000000000000000000000000000000000000000000000000001"
 					.to_vec(),
 			),
 			&alice_signer,
@@ -146,12 +171,14 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		.wait_for_finalized_success()
 		.await?;
 
-	let events = xxx.all_events_in_block();
+	// Wait to interact with PolkadotJS
+	tokio::time::sleep(std::time::Duration::from_secs(600)).await;
 
-	// Example of finding specific events
-	let contract_events = events
-		.find::<asset_hub_westend::revive::events::ContractEmitted>()
-		.collect::<Vec<_>>();
+	assert!(
+		contract_call
+			.find::<asset_hub_westend::revive::events::ContractEmitted>()
+			.count() > 0
+	);
 
 	Ok(())
 }
