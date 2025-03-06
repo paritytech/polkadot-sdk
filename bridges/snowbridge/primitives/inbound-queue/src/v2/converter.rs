@@ -355,7 +355,6 @@ where
 		});
 		// Only add SetTopic if the user didn't already add one
 		if !matches!(&message.remote_xcm.last(), Some(SetTopic(_))) {
-			println!("Adding topic");
 			instructions.push(SetTopic(unique(&message)));
 		}
 
