@@ -1598,8 +1598,18 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
-		// TODO(ank4n 01): handle reward points here -- no longer need of knowing that each
-		// block author will be equal to 20 points. The input is the sum of all points.
+		// active era is expected to be set in genesis, hence should always be available.
+		let active_era = ActiveEra::<T>::get()
+			.map(|active_era| active_era.index)
+			.defensive_unwrap_or_default();
+
+		// accumulate era points to active era.
+		<ErasRewardPoints<T>>::mutate(active_era, |era_rewards| {
+			for (validator, points) in validator_points.into_iter() {
+				*era_rewards.individual.entry(validator).or_default() += points;
+				era_rewards.total += points;
+			}
+		});
 
 		let starting = end_index + 1;
 		let planning = starting + 1;
@@ -1718,8 +1728,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 				offence_era,
 			});
 
-			// TODO(ank4n): handled in ah_client. Verify it works correctly before removing the commented
-			// out code. if offence_era == active_era.index {
+			// TODO(ank4n): handled in ah_client. Verify it works correctly before removing the
+			// commented out code. if offence_era == active_era.index {
 			// 	// offence is in the current active era. Report it to session to maybe disable the
 			// 	// validator.
 			// 	add_db_reads_writes(2, 2);

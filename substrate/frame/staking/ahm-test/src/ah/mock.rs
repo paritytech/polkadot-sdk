@@ -26,7 +26,7 @@ construct_runtime! {
 
 
 // alias Runtime with T.
-type T = Runtime;
+pub type T = Runtime;
 
 pub fn roll_next() {
 	let now = System::block_number();

@@ -526,8 +526,6 @@ pub mod pallet {
 	///
 	/// Note: This tracks the starting session (i.e. session index when era start being active)
 	/// for the eras in `[CurrentEra - HISTORY_DEPTH, CurrentEra]`.
-	///
-	/// TODO: clarify what this is, and if it is still needed?
 	#[pallet::storage]
 	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
 
@@ -956,8 +954,9 @@ pub mod pallet {
 				})
 			}
 			let (active_era, session_index, timestamp) = self.active_era;
-			CurrentEra::<T>::put(active_era);
 			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
+			// at genesis, we do not have any new planned era.
+			CurrentEra::<T>::put(active_era);
 			ErasStartSessionIndex::<T>::insert(active_era, session_index);
 		}
 	}
