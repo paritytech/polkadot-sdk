@@ -1,0 +1,50 @@
+title: 'Snowbridge Unordered Message Delivery'
+doc:
+- audience: Node Dev
+  description: |-
+    The implementation of Snowbridge V2 for unordered message delivery, which is additive and does not affect the V1 protocol.
+    The original specification in https://github.com/paritytech/polkadot-sdk/blob/master/bridges/snowbridge/docs/v2.md FYI.
+
+crates:
+- name: snowbridge-core
+  bump: major
+- name: snowbridge-merkle-tree
+  bump: major
+- name: snowbridge-verification-primitives
+  bump: major
+- name: snowbridge-inbound-queue-primitives
+  bump: major
+- name: snowbridge-outbound-queue-primitives
+  bump: major
+- name: snowbridge-test-utils
+  bump: major
+- name: snowbridge-pallet-inbound-queue
+  bump: minor
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: major
+- name: snowbridge-pallet-inbound-queue-v2-fixtures
+  bump: major
+- name: snowbridge-pallet-outbound-queue
+  bump: minor
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: major
+- name: snowbridge-outbound-queue-v2-runtime-api
+  bump: major
+- name: snowbridge-pallet-system
+  bump: minor
+- name: snowbridge-pallet-system-v2
+  bump: major
+- name: snowbridge-pallet-system-v2-runtime-api
+  bump: major
+- name: snowbridge-pallet-system-frontend
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: bridge-hub-westend-integration-tests
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: major
