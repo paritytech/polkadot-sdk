@@ -36,7 +36,7 @@ pub struct CliCommand {
 
 	/// The parity docker image e.g eth-rpc:master-fb2e414f
 	/// When not specified, no eth-rpc docker image is started
-	/// and the test will be run against the provided rpc_url directly
+	/// and the test runs against the provided `rpc_url` directly.
 	#[clap(long)]
 	docker_image: Option<String>,
 
