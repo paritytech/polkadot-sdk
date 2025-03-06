@@ -65,31 +65,16 @@ impl<T: Config> Rotator<T> {
 		T::SessionsPerEra::get().saturating_sub(election_offset)
 	}
 
-	/// Starts an idle session.
-	pub(crate) fn start_idle_session(&self) {
-		self.do_common_session_end_work();
+	/// Plan the next session after start.
+	pub(crate) fn do_plan_session(&self) {
+		CurrentPlannedSession::<T>::put(self.planning_session());
 	}
 
-	/// Starts the next session that will kick off an election.
-	pub(crate) fn start_election_session(&self) {
-		self.do_common_session_end_work();
-
-		// kick off the election.
-		log!(info, "sending election start signal");
-		// todo(ank4n): check if already kicked, and if so, don't send another signal.
-		let _ = T::ElectionProvider::start();
-	}
-
-	/// Starts the next session that would rotate the era.
-	///
-	/// Receives the activation timestamp `new_era_start` of the new validator set, i.e. the era
-	/// start timestamp.
+	/// Activates a new era with the `new_era_start` timestamp.
 	///
 	/// This means we need to finalize the current active era by computing payouts and rolling over
 	/// to the next era to keep the staking system in sync.
-	pub(crate) fn start_rotation_era_session(&self, new_era_start: u64) {
-		self.do_common_session_end_work();
-
+	pub(crate) fn activate_era(&self, new_era_start: u64) {
 		if let Some(current_active_era) = ActiveEra::<T>::get() {
 			let previous_era_start = current_active_era.start.defensive_unwrap_or(new_era_start);
 			let era_duration = new_era_start.saturating_sub(previous_era_start);
@@ -117,11 +102,5 @@ impl<T: Config> Rotator<T> {
 		}
 
 		log!(debug, "done planning new era: {:?}", new_planned_era);
-	}
-
-	/// Common work that needs to be done at the end of every session.
-	fn do_common_session_end_work(&self) {
-		// update the current planned session.
-		CurrentPlannedSession::<T>::put(self.planning_session());
 	}
 }

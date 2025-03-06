@@ -1619,13 +1619,12 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 	/// When we receive a session report from the relay chain, it kicks off the next session.
 	///
-	/// These sessions can be of three types:
-	/// 1. Idle session: We are just waiting for enough sessions to pass.
-	/// 2. Election kickoff session: We are about to start an election.
-	/// 3. Era Rotation session: Sessions in which an activation timestamp of validator set is
-	///   present.
-	///
-	/// Additionally, we also accumulate era points for the validator.
+	/// There are three special types of things we can do in a session:
+	/// 1. Plan a new era: We do this one session before the expected era rotation.
+	/// 2. Kick off election: We do this based on the [`T::ElectionOffset`] configuration.
+	/// 3. Activate Next Era: When we receive an activation timestamp in the session report, it
+	/// implies a new validator set has been applied, and we must increment the active era to keep
+	/// the systems in sync.
 	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
 		let rc_client::SessionReport {
 			end_index,
@@ -1656,28 +1655,28 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			progress
 		);
 
+		// common logic for all session types.
+		session_rotator.do_plan_session();
+
 		if let Some((this_era_start, _id)) = activation_timestamp {
 			// If an activation timestamp is present, it means a new validator set was applied.
 			// We need to finalize the previous era and start a new one.
 			log!(debug, "kicking off era rotation session");
-			session_rotator.start_rotation_era_session(this_era_start);
+			session_rotator.activate_era(this_era_start);
 			return;
 		}
 
+		// if this is the last session before planned era rotation, we plan a new era that is
+		// expected to activate in the next session.
 		let last_session = T::SessionsPerEra::get().saturating_sub(1);
 		if progress == last_session {
-			// if this is the last session before planned era rotation, we plan new era.
 			session_rotator.plan_new_era();
 		}
 
 		if progress == session_rotator.election_session_index() {
 			// this seems a good time for elections.
-			log!(debug, "kicking off an election session.");
-			session_rotator.start_election_session();
-		} else {
-			// otherwise proceed with a boring session.
-			log!(debug, "kicking off an idle session.");
-			session_rotator.start_idle_session();
+			log!(info, "sending election start signal");
+			let _ = T::ElectionProvider::start();
 		}
 	}
 
