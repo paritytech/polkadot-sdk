@@ -600,7 +600,7 @@ pub async fn propagate_transaction_notifications<Block, ExPool>(
 					hashes.push(hash);
 				}
 
-				tx_handler_controller.propagate_imported_transactions(hash);
+				tx_handler_controller.propagate_imported_transactions(hashes);
 
 				tx_imported = true;
 			},

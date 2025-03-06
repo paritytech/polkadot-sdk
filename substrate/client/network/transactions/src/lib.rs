@@ -224,21 +224,21 @@ impl<H: ExHashT> TransactionsHandlerController<H> {
 	///
 	/// This operation also happens periodically and is controlled by the `PROPAGATE_TIMEOUT`.
 	pub fn propagate_pool_transactions(&self) {
-		let _ = self.to_handler.unbounded_send(ToHandler::PropagateTransactions);
+		let _ = self.to_handler.unbounded_send(ToHandler::PropagatePoolTransactions);
 	}
 
 	/// The provided transactions are propagated to peers.
 	///
 	/// The transactions are provided by the transaction pool import notification stream
 	/// (ie `import_notification_stream`).
-	pub fn propagate_imported_transactions(&self, hash: H) {
-		let _ = self.to_handler.unbounded_send(ToHandler::PropagateTransaction(hash));
+	pub fn propagate_imported_transactions(&self, hashes: Vec<H>) {
+		let _ = self.to_handler.unbounded_send(ToHandler::PropagateImportedTransaction(hashes));
 	}
 }
 
 enum ToHandler<H: ExHashT> {
-	PropagateTransactions,
-	PropagateTransaction(H),
+	PropagatePoolTransactions,
+	PropagateImportedTransaction(Vec<H>),
 }
 
 /// Handler for transactions. Call [`TransactionsHandler::run`] to start the processing.
@@ -314,8 +314,8 @@ where
 				}
 				message = self.from_controller.select_next_some() => {
 					match message {
-						ToHandler::PropagateTransaction(hash) => self.propagate_transaction(&hash),
-						ToHandler::PropagateTransactions => self.propagate_transactions(),
+						ToHandler::PropagateImportedTransaction(hashes) => self.propagate_imported_transactions(hashes),
+						ToHandler::PropagatePoolTransactions => self.propagate_transactions(),
 					}
 				},
 				event = self.notification_service.next_event().fuse() => {
@@ -450,20 +450,22 @@ where
 		}
 	}
 
-	/// Propagate one transaction.
-	pub fn propagate_transaction(&mut self, hash: &H) {
+	/// Propagate imported transactions.
+	pub fn propagate_imported_transactions(&mut self, hashes: Vec<H>) {
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
 			return
 		}
 
-		debug!(target: LOG_TARGET, "Propagating transaction [{:?}]", hash);
-		if let Some(transaction) = self.transaction_pool.transaction(hash) {
-			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
-			self.transaction_pool.on_broadcasted(propagated_to);
-		} else {
-			debug!(target: "sync", "Propagating transaction failure [{:?}]", hash);
-		}
+		debug!(target: LOG_TARGET, "Propagating transaction [{:?}]", hashes);
+
+		let transactions = hashes
+			.into_iter()
+			.filter_map(|hash| self.transaction_pool.transaction(&hash).map(|tx| (hash, tx)))
+			.collect::<Vec<_>>();
+
+		let propagated_to = self.do_propagate_transactions(&transactions);
+		self.transaction_pool.on_broadcasted(propagated_to);
 	}
 
 	fn do_propagate_transactions(
