@@ -92,6 +92,7 @@ pub trait WeightInfo {
 	fn drop_candidate() -> Weight;
 	fn cleanup_candidacy() -> Weight;
 	fn cleanup_challenge() -> Weight;
+	fn poke_deposit() -> Weight;
 }
 
 /// Weights for `pallet_society` using the Substrate node and recommended hardware.
@@ -461,6 +462,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn poke_deposit() -> Weight {
+		Weight::from_parts(10_097_000, 3522)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -825,6 +831,11 @@ impl WeightInfo for () {
 		//  Measured:  `349`
 		//  Estimated: `3522`
 		// Minimum execution time: 9_880_000 picoseconds.
+		Weight::from_parts(10_097_000, 3522)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn poke_deposit() -> Weight {
 		Weight::from_parts(10_097_000, 3522)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
