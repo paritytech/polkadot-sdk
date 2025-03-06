@@ -279,6 +279,7 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
+
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {
