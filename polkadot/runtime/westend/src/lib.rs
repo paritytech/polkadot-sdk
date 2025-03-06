@@ -1475,7 +1475,7 @@ parameter_types! {
 }
 
 pub struct BrokerPot;
-impl Get<InteriorLocation> for AssetHubLocation {
+impl Get<InteriorLocation> for BrokerPot {
 	fn get() -> InteriorLocation {
 		Junction::AccountId32 { network: None, id: BrokerPalletId::get().into_account_truncating() }
 			.into()
@@ -1486,7 +1486,7 @@ impl coretime::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type BrokerId = BrokerId;
-	type BrokerPotLocation = AssetHubLocation;
+	type BrokerPotLocation = BrokerPot;
 	type WeightInfo = weights::polkadot_runtime_parachains_coretime::WeightInfo<Runtime>;
 	type SendXcm = crate::xcm_config::XcmRouter;
 	type AssetTransactor = crate::xcm_config::LocalAssetTransactor;
