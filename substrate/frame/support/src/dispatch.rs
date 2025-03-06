@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-	generic::{CheckedExtrinsic, UncheckedExtrinsic},
+	generic::{CheckedExtrinsic, UncheckedExtrinsicRef},
 	traits::{
 		Dispatchable, ExtensionPostDispatchWeightHandler, RefundWeight, TransactionExtension,
 	},
@@ -407,13 +407,13 @@ where
 }
 
 /// Implementation for unchecked extrinsic.
-impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>> GetDispatchInfo
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<'a, Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
+	GetDispatchInfo for UncheckedExtrinsicRef<'a, Address, Call, Signature, Extension>
 where
 	Call: GetDispatchInfo + Dispatchable,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
-		let mut info = self.function.get_dispatch_info();
+		let mut info = self.call.get_dispatch_info();
 		info.extension_weight = self.extension_weight();
 		info
 	}
@@ -1356,7 +1356,9 @@ mod extension_weight_tests {
 	use sp_core::parameter_types;
 	use sp_runtime::{
 		generic::{self, ExtrinsicFormat},
-		traits::{Applyable, BlakeTwo256, DispatchTransaction, TransactionExtension},
+		traits::{
+			Applyable, BlakeTwo256, DispatchTransaction, LazyExtrinsic, TransactionExtension,
+		},
 	};
 	use sp_weights::RuntimeDbWeight;
 	use test_extensions::{ActualWeightIs, FreeIfUnder, HalfCostIf};
@@ -1424,8 +1426,8 @@ mod extension_weight_tests {
 		ExtBuilder::default().build_and_execute(|| {
 			let call = RuntimeCall::System(frame_system::Call::<ExtRuntime>::f99 {});
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(1500), ActualWeightIs(0));
-			let uxt = UncheckedExtrinsic::new_signed(call.clone(), 0, (), ext.clone());
-			assert_eq!(uxt.extension_weight(), Weight::from_parts(600, 0));
+			let mut uxt = UncheckedExtrinsic::new_signed(call.clone(), 0, (), ext.clone());
+			assert_eq!(uxt.expect_as_ref().extension_weight(), Weight::from_parts(600, 0));
 
 			let mut info = call.get_dispatch_info();
 			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
@@ -1450,8 +1452,8 @@ mod extension_weight_tests {
 		ExtBuilder::default().build_and_execute(|| {
 			let call = RuntimeCall::System(frame_system::Call::<ExtRuntime>::f99 {});
 			let ext: TxExtension = (HalfCostIf(true), FreeIfUnder(100), ActualWeightIs(0));
-			let uxt = UncheckedExtrinsic::new_signed(call.clone(), 0, (), ext.clone());
-			assert_eq!(uxt.extension_weight(), Weight::from_parts(600, 0));
+			let mut uxt = UncheckedExtrinsic::new_signed(call.clone(), 0, (), ext.clone());
+			assert_eq!(uxt.expect_as_ref().extension_weight(), Weight::from_parts(600, 0));
 
 			let mut info = call.get_dispatch_info();
 			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
@@ -1469,8 +1471,8 @@ mod extension_weight_tests {
 			let call = RuntimeCall::System(frame_system::Call::<ExtRuntime>::f100 {});
 			// First testcase
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(2000), ActualWeightIs(0));
-			let uxt = UncheckedExtrinsic::new_signed(call.clone(), 0, (), ext.clone());
-			assert_eq!(uxt.extension_weight(), Weight::from_parts(600, 0));
+			let mut uxt = UncheckedExtrinsic::new_signed(call.clone(), 0, (), ext.clone());
+			assert_eq!(uxt.expect_as_ref().extension_weight(), Weight::from_parts(600, 0));
 
 			let mut info = call.get_dispatch_info();
 			assert_eq!(info.call_weight, Weight::from_parts(1000, 0));
