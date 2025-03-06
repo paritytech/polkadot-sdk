@@ -658,7 +658,6 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 		send_assets_over_bridge(|| {
 			// send message over bridge
 			let expected_log = format!("destination: {:?}, message: Xcm([])", local_asset_hub);
-			println!("expected_log: {:?}", expected_log);
 			let log_capture = capture_test_logs!({
 				let result = Westend::execute_with(|| {
 					Dmp::<<Westend as Chain>::Runtime>::make_parachain_reachable(
