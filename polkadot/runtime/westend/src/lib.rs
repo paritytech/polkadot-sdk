@@ -2213,6 +2213,10 @@ sp_api::impl_runtime_apis! {
 		fn scheduling_lookahead() -> u32 {
 			parachains_staging_runtime_api_impl::scheduling_lookahead::<Runtime>()
 		}
+
+		fn validation_code_bomb_limit() -> u32 {
+			parachains_staging_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
+		}
 	}
 
 	#[api_version(5)]

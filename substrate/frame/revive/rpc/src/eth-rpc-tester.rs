@@ -35,8 +35,10 @@ pub struct CliCommand {
 	pub rpc_url: String,
 
 	/// The parity docker image e.g eth-rpc:master-fb2e414f
-	#[clap(long, default_value = "eth-rpc:master-fb2e414f")]
-	docker_image: String,
+	/// When not specified, no eth-rpc docker image is started
+	/// and the test runs against the provided `rpc_url` directly.
+	#[clap(long)]
+	docker_image: Option<String>,
 
 	/// The docker binary
 	/// Either docker or podman
@@ -48,9 +50,10 @@ pub struct CliCommand {
 async fn main() -> anyhow::Result<()> {
 	let CliCommand { docker_bin, rpc_url, docker_image, .. } = CliCommand::parse();
 
-	if std::env::var("SKIP_DOCKER").is_ok() {
+	let Some(docker_image) = docker_image else {
+		println!("Docker image not specified, using: {rpc_url:?}");
 		return test_eth_rpc(&rpc_url).await;
-	}
+	};
 
 	let mut docker_process = start_docker(&docker_bin, &docker_image)?;
 	let stderr = docker_process.stderr.take().unwrap();
@@ -129,6 +132,7 @@ async fn test_eth_rpc(rpc_url: &str) -> anyhow::Result<()> {
 
 	println!("Account:");
 	println!("- address: {:?}", account.address());
+	println!("- substrate address: {}", account.substrate_account());
 	let client = Arc::new(HttpClientBuilder::default().build(rpc_url)?);
 
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
