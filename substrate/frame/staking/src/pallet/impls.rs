@@ -18,11 +18,11 @@
 //! Implementations for the Staking FRAME Pallet.
 
 use crate::{
-	session, asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure,
-	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
-	ValidatorPrefs, STAKING_ID,
+	asset, election_size_tracker::StaticTracker, log, session, slashing, weights::WeightInfo,
+	ActiveEraInfo, BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing,
+	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf,
+	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus,
+	StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -1617,6 +1617,15 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	type AccountId = T::AccountId;
 
+	/// When we receive a session report from the relay chain, it kicks off the next session.
+	///
+	/// These sessions can be of three types:
+	/// 1. Idle session: We are just waiting for enough sessions to pass.
+	/// 2. Election kickoff session: We are about to start an election.
+	/// 3. Era Rotation session: Sessions in which an activation timestamp of validator set is
+	///   present.
+	///
+	/// Additionally, we also accumulate era points for the validator.
 	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
 		let rc_client::SessionReport {
 			end_index,
@@ -1626,10 +1635,11 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
-		// handle reward points - input is the sum of all points.
-		// todo: make sure this is bounded.
+		// Accumulate reward points for validators in the active era.
+		// todo: ensure this is bounded.
 		Self::reward_by_ids(validator_points.into_iter());
 
+		// Utilize a manager that will help you do some otherwise messy things.
 		let session_manager = session::Manager::<T>::from(end_index);
 
 		let starting = session_manager.starting_session();
@@ -1643,42 +1653,16 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			planning
 		);
 
-		// first, handle planning a new session/era
-		CurrentPlannedSession::<T>::put(planning);
-
+		// If an activation timestamp is present, it means a new validator set was applied.
+		// We need to finalize the previous era and start a new one.
 		if let Some((this_era_start, _id)) = activation_timestamp {
-			// This means we need to finalize the current active era by computing payouts and
-			// rolling over to the next era to keep the staking system in sync.
-
-			if let Some(current_active_era) = ActiveEra::<T>::get() {
-				let previous_era_start =
-					current_active_era.start.defensive_unwrap_or(this_era_start);
-				let era_duration = this_era_start.saturating_sub(previous_era_start);
-				Self::compute_era_payout(current_active_era, era_duration);
-				Self::start_era(starting, this_era_start);
-			} else {
-				defensive!("Active era must always be available.");
-			}
-
-			return;
-		}
-
-		// todo(ank4n): check if already kicked, and if so, don't send another signal.
-		if session_manager.should_start_election() {
-			log!(info, "sending election start signal");
-			let _ = T::ElectionProvider::start();
-
-			let new_planned_era = CurrentEra::<T>::mutate(|s| {
-				*s = Some(s.map(|s| s + 1).unwrap_or(0));
-				s.unwrap()
-			});
-			ErasStartSessionIndex::<T>::insert(&new_planned_era, &planning);
-			// Clean old era information.
-			if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
-				log!(trace, "Removing era information for {:?}", old_era);
-				Self::clear_era_information(old_era);
-			}
-			Self::clear_election_metadata();
+			session_manager.start_rotation_era_session(this_era_start);
+		} else if session_manager.should_start_election() {
+			// If there's no activation timestamp, but it's the right time to start an election.
+			session_manager.start_election_session();
+		} else {
+			// If neither a new era nor an election starts, proceed with a boring session.
+			session_manager.start_idle_session();
 		}
 	}
 
