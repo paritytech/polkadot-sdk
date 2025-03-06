@@ -34,7 +34,10 @@ use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
-	traits::{Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, TransactionExtension},
+	traits::{
+		Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic,
+		TransactionExtension,
+	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic, RuntimeDebug,
 };
@@ -85,9 +88,7 @@ impl<Address, Signature, E: EthExtra>
 	}
 }
 
-impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicLike
-	for UncheckedExtrinsic<Address, Signature, E>
-{
+impl<Address, Signature, E: EthExtra> ExtrinsicLike for UncheckedExtrinsic<Address, Signature, E> {
 	fn is_bare(&self) -> bool {
 		ExtrinsicLike::is_bare(&self.0)
 	}
@@ -105,9 +106,7 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 	type TransactionExtensions = E::Extension;
 }
 
-impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
-	for UncheckedExtrinsic<Address, Signature, E>
-{
+impl<Address, Signature, E: EthExtra> ExtrinsicCall for UncheckedExtrinsic<Address, Signature, E> {
 	type Call = CallOf<E::Config>;
 
 	fn call(&self) -> &Self::Call {
@@ -160,15 +159,6 @@ where
 		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
 		self.0.unchecked_into_checked_i_know_what_i_am_doing(lookup)
-	}
-}
-
-impl<Address, Signature, E: EthExtra> GetDispatchInfo for UncheckedExtrinsic<Address, Signature, E>
-where
-	CallOf<E::Config>: GetDispatchInfo + Dispatchable,
-{
-	fn get_dispatch_info(&self) -> DispatchInfo {
-		self.0.get_dispatch_info()
 	}
 }
 
@@ -243,6 +233,43 @@ where
 			"both OpaqueExtrinsic and UncheckedExtrinsic have encoding that is compatible with \
 				raw Vec<u8> encoding; qed",
 		)
+	}
+}
+
+impl<'a, Address, Signature, E: EthExtra> LazyExtrinsic<'a>
+	for UncheckedExtrinsic<Address, Signature, E>
+where
+	Self: 'a,
+{
+	type FullExtrinsicRef = FullUncheckedExtrinsicRef<'a, Address, Signature, E>;
+
+	fn try_as_full(&'a mut self) -> Result<Self::FullExtrinsicRef, codec::Error> {
+		Ok(FullUncheckedExtrinsicRef(self.0.try_as_full()?))
+	}
+}
+
+/// Wraps [`generic::FullUncheckedExtrinsicRef`] to support checking unsigned
+/// [`crate::Call::eth_transact`] extrinsic.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct FullUncheckedExtrinsicRef<'a, Address, Signature, E: EthExtra>(
+	pub generic::FullUncheckedExtrinsicRef<'a, Address, CallOf<E::Config>, Signature, E::Extension>,
+);
+
+impl<'a, Address, Signature, E: EthExtra> ExtrinsicLike
+	for FullUncheckedExtrinsicRef<'a, Address, Signature, E>
+{
+	fn is_bare(&self) -> bool {
+		ExtrinsicLike::is_bare(&self.0)
+	}
+}
+
+impl<'a, Address, Signature, E: EthExtra> GetDispatchInfo
+	for FullUncheckedExtrinsicRef<'a, Address, Signature, E>
+where
+	CallOf<E::Config>: GetDispatchInfo + Dispatchable,
+{
+	fn get_dispatch_info(&self) -> DispatchInfo {
+		self.0.get_dispatch_info()
 	}
 }
 
