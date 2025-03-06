@@ -1525,3 +1525,39 @@ fn execute_initiate_transfer_and_check_sent_event() {
 		})
 	});
 }
+
+#[test]
+fn deliver_failure_with_expect_error() {
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	let (log_capture, subscriber) = init_log_capture(Level::TRACE, true);
+	subscriber::with_default(subscriber, || {
+		let balances = vec![(ALICE, INITIAL_BALANCE)];
+
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let message = Xcm(vec![InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: Parent.into(),
+				xcm: Xcm(vec![
+					ExpectError(Some((1, xcm::latest::Error::Unimplemented)))
+				]),
+			}]);
+
+			let result = XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(message.clone())),
+				BaseXcmWeight::get() * 3,
+			);
+
+			// Expect an error from the send operation
+			assert!(result.is_err());
+
+			// Check logs for send attempt and failure
+			assert!(log_capture.contains("Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented)))])"));
+			assert!(log_capture.contains("XCM execution failed with error error=Transport(\"Intentional deliver failure used in tests\")"));
+		})
+	});
+}

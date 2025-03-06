@@ -179,7 +179,14 @@ impl SendXcm for TestSendXcm {
 		Ok((pair, Assets::new()))
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&pair.1);
+		let message = pair.1.clone();
+		if message
+			.iter()
+			.any(|instr| matches!(instr, ExpectError(Some((1, XcmError::Unimplemented)))))
+		{
+			return Err(SendError::Transport("Intentional deliver failure used in tests".into()));
+		}
+		let hash = fake_message_hash(&message);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}
