@@ -551,7 +551,8 @@ pub mod pallet {
 		}
 
 		/// Poke / Adjust deposits made for proxies and announcements based on current values.
-		///
+		/// This can be used by accounts to possibly lower their locked amount.
+		/// 
 		/// The dispatch origin for this call must be _Signed_.
 		///
 		/// The transaction fee is waived if the deposit amount has changed.
