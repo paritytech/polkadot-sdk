@@ -24,6 +24,10 @@ construct_runtime! {
 	}
 }
 
+
+// alias Runtime with T.
+type T = Runtime;
+
 pub fn roll_next() {
 	let now = System::block_number();
 	let next = now + 1;
@@ -371,6 +375,7 @@ impl ExtBuilder {
 			stakers,
 			validator_count: 4,
 			minimum_validator_count: 2,
+			active_era: (0, 0, 0),
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
@@ -379,8 +384,7 @@ impl ExtBuilder {
 		let mut state: TestState = t.into();
 
 		state.execute_with(|| {
-			pallet_staking::CurrentEra::<Runtime>::put(0);
-			pallet_staking::ActiveEra::<Runtime>::put(ActiveEraInfo { index: 0, start: Some(0) });
+			// todo: remove this
 		});
 
 		state

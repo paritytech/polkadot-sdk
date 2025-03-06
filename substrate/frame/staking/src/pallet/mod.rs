@@ -810,6 +810,8 @@ pub mod pallet {
 		///
 		/// Useful for testing genesis config.
 		pub dev_stakers: Option<(u32, u32)>,
+		/// initial active era, corresponding session index and start timestamp.
+		pub active_era: (u32, u32, u64),
 	}
 
 	impl<T: Config> GenesisConfig<T> {
@@ -953,6 +955,10 @@ pub mod pallet {
 					));
 				})
 			}
+			let (active_era, session_index, timestamp) = self.active_era;
+			CurrentEra::<T>::put(active_era);
+			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
+			ErasStartSessionIndex::<T>::insert(active_era, session_index);
 		}
 	}
 

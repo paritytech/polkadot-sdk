@@ -27,7 +27,7 @@ mod tests {
 			assert_eq!(pallet_staking::CurrentPlannedSession::<ah::Runtime>::get(), 0);
 			assert_eq!(pallet_staking::CurrentEra::<ah::Runtime>::get(), Some(0));
 			assert_eq!(
-				pallet_staking::ActiveEra::<ah::Runtime>::get(),
+				ActiveEra::<ah::Runtime>::get(),
 				Some(ActiveEraInfo { index: 0, start: Some(0) })
 			);
 		});
@@ -78,7 +78,7 @@ mod tests {
 		shared::in_ah(|| {
 			assert_eq!(pallet_staking::CurrentEra::<ah::Runtime>::get(), Some(1));
 			assert_eq!(
-				pallet_staking::ActiveEra::<ah::Runtime>::get(),
+				ActiveEra::<ah::Runtime>::get(),
 				Some(ActiveEraInfo { index: 0, start: Some(0) })
 			);
 		});
