@@ -36,6 +36,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
@@ -129,7 +131,7 @@ where
 	const IDENTIFIER: &'static str = S::IDENTIFIER;
 	type Implicit = S::Implicit;
 
-	fn metadata() -> Vec<sp_runtime::traits::TransactionExtensionMetadata> {
+	fn metadata() -> alloc::Vec<sp_runtime::traits::TransactionExtensionMetadata> {
 		S::metadata()
 	}
 
