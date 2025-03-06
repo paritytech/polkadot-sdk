@@ -1,0 +1,7 @@
+title: '`CheckOnlySudoAccount`: Provide some tags'
+doc:
+- audience: Runtime User
+  description: 'Close: https://github.com/paritytech/polkadot-sdk/issues/7816'
+crates:
+- name: pallet-sudo
+  bump: patch
