@@ -51,6 +51,7 @@ use frame_support::{
 };
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId, Balance};
+use parachains_runtimes_test_utils::ExtBuilder;
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_keyring::Sr25519Keyring::{Alice, Bob};
@@ -654,24 +655,25 @@ fn location_conversion_works() {
 		},
 	];
 
-	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	parachain_info::GenesisConfig::<Runtime> { parachain_id: 1000.into(), ..Default::default() }
-		.assimilate_storage(&mut t)
-		.unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| {
-		for tc in test_cases {
-			let expected = AccountId::from_string(tc.expected_account_id_str)
-				.expect("Invalid AccountId string");
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.with_para_id(1000.into())
+		.build()
+		.execute_with(|| {
+			for tc in test_cases {
+				let expected = AccountId::from_string(tc.expected_account_id_str)
+					.expect("Invalid AccountId string");
 
-			let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
-				tc.location.into(),
-			)
-			.unwrap();
+				let got =
+					LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+						tc.location.into(),
+					)
+					.unwrap();
 
-			assert_eq!(got, expected, "{}", tc.description);
-		}
-	});
+				assert_eq!(got, expected, "{}", tc.description);
+			}
+		});
 }
 
 #[test]
