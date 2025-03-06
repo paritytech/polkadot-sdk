@@ -493,21 +493,23 @@ where
 				for hash in hashes {
 					propagated_to.entry(hash).or_default().push(who.to_base58());
 				}
-				trace!(target: "sync", "Sending {} transactions to {}", to_send.len(), who);
-				// Historically, the format of a notification of the transactions protocol
-				// consisted in a (SCALE-encoded) `Vec<Transaction>`.
-				// After RFC 56, the format was modified in a backwards-compatible way to be
-				// a (SCALE-encoded) tuple `(Compact(1), Transaction)`, which is the same encoding
-				// as a `Vec` of length one. This is no coincidence, as the change was
-				// intentionally done in a backwards-compatible way.
-				// In other words, the `Vec` that is sent below **must** always have only a single
-				// element in it.
+
+				// Note: This does not entirely comply with the RFC 56. However, this is entirely
+				// compatible with substrate-based chains.
+				//
+				// The RFC 56 specifies that the transactions should be encoded over the wire as a
+				// scale-encoded vector of a single transaction. Therefore, submitting a vector
+				// of transactions is entirely compatible.
+				//
+				// One issue with this approach is that the receiving end of this message must know
+				// the runtime in order to decode the transactions. For example, the lightclient
+				// being runtime agnostic will not be able to properly decode the transactions,
+				// but full nodes (and authorities) will.
+				//
 				// See <https://github.com/polkadot-fellows/RFCs/blob/main/text/0056-one-transaction-per-notification.md>
-				for to_send in to_send {
-					let _ = self
-						.notification_service
-						.send_sync_notification(who, vec![to_send].encode());
-				}
+				let encoded = to_send.encode();
+				debug!(target: "sync", "Sending bytes={} tx={} to {}", encoded.len(), to_send.len(), who);
+				let _ = self.notification_service.send_sync_notification(who, encoded);
 			}
 		}
 
