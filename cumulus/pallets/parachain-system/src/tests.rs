@@ -1200,7 +1200,13 @@ fn upgrade_version_checks_should_work() {
 			let _authorize = System::authorize_upgrade(RawOrigin::Root.into(), new_code_hash);
 			assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), new_code));
 
-			System::assert_last_event(frame_system::Event::RejectedInvalidAuthorizedUpgrade { code_hash: new_code_hash, error: expected.into() }.into());
+			System::assert_last_event(
+				frame_system::Event::RejectedInvalidAuthorizedUpgrade {
+					code_hash: new_code_hash,
+					error: expected.into(),
+				}
+				.into(),
+			);
 		});
 	}
 }
