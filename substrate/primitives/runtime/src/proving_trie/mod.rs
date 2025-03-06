@@ -124,6 +124,7 @@ impl From<TrieError> for &'static str {
 	}
 }
 
+// TODO: FAIL-CI: split to: 1. generate/create proof 2. verify/query
 /// An interface for creating, interacting with, and creating proofs in a merkle trie.
 pub trait ProvingTrie<Hashing, Key, Value>
 where
