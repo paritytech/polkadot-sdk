@@ -619,7 +619,7 @@ impl<T: Config> Pallet<T> {
 
 /// Validate `attest` calls prior to execution. Needed to avoid a DoS attack since they are
 /// otherwise free to place on chain.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct PrevalidateAttests<T>(core::marker::PhantomData<fn(T)>);
 

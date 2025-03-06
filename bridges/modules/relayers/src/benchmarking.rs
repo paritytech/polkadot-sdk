@@ -20,9 +20,7 @@
 
 use crate::*;
 
-use frame_benchmarking::{
-	benchmarks_instance_pallet, whitelisted_caller, BenchmarkError, BenchmarkResult,
-};
+use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use sp_runtime::traits::One;
@@ -52,89 +50,107 @@ fn assert_last_event<T: Config<I>, I: 'static>(
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
-benchmarks_instance_pallet! {
-	where_clause { where
+#[instance_benchmarks(
+	where
 		BeneficiaryOf<T, I>: From<<T as frame_system::Config>::AccountId>,
-	}
+)]
+mod benchmarks {
+	use super::*;
 
-	// Benchmark `claim_rewards` call.
-	claim_rewards {
-		let reward_kind = T::bench_reward();
+	#[benchmark]
+	fn claim_rewards() {
 		let relayer: T::AccountId = whitelisted_caller();
+		let reward_kind = T::bench_reward();
 		let reward_balance = T::RewardBalance::from(REWARD_AMOUNT);
-
 		let _ = T::prepare_rewards_account(reward_kind, reward_balance);
 		RelayerRewards::<T, I>::insert(&relayer, reward_kind, reward_balance);
-	}: _(RawOrigin::Signed(relayer.clone()), reward_kind)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(relayer.clone()), reward_kind);
+
 		// we can't check anything here, because `PaymentProcedure` is responsible for
 		// payment logic, so we assume that if call has succeeded, the procedure has
 		// also completed successfully
-		assert_last_event::<T, I>(Event::RewardPaid {
-			relayer: relayer.clone(),
-			reward_kind,
-			reward_balance,
-			beneficiary: relayer.into(),
-		}.into());
+		assert_last_event::<T, I>(
+			Event::RewardPaid {
+				relayer: relayer.clone(),
+				reward_kind,
+				reward_balance,
+				beneficiary: relayer.into(),
+			}
+			.into(),
+		);
 	}
 
-	// Benchmark `claim_rewards_to` call.
-	claim_rewards_to {
-		let reward_kind = T::bench_reward();
+	#[benchmark]
+	fn claim_rewards_to() -> Result<(), BenchmarkError> {
 		let relayer: T::AccountId = whitelisted_caller();
+		let reward_kind = T::bench_reward();
 		let reward_balance = T::RewardBalance::from(REWARD_AMOUNT);
 
-		let Some(alternative_beneficiary) = T::prepare_rewards_account(reward_kind, reward_balance) else {
+		let Some(alternative_beneficiary) = T::prepare_rewards_account(reward_kind, reward_balance)
+		else {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		};
 		RelayerRewards::<T, I>::insert(&relayer, reward_kind, reward_balance);
-	}: _(RawOrigin::Signed(relayer.clone()), reward_kind, alternative_beneficiary.clone())
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(relayer.clone()), reward_kind, alternative_beneficiary.clone());
+
 		// we can't check anything here, because `PaymentProcedure` is responsible for
 		// payment logic, so we assume that if call has succeeded, the procedure has
 		// also completed successfully
-		assert_last_event::<T, I>(Event::RewardPaid {
-			relayer,
-			reward_kind,
-			reward_balance,
-			beneficiary: alternative_beneficiary,
-		}.into());
+		assert_last_event::<T, I>(
+			Event::RewardPaid {
+				relayer: relayer.clone(),
+				reward_kind,
+				reward_balance,
+				beneficiary: alternative_beneficiary,
+			}
+			.into(),
+		);
+
+		Ok(())
 	}
 
-	// Benchmark `register` call.
-	register {
+	#[benchmark]
+	fn register() {
 		let relayer: T::AccountId = whitelisted_caller();
 		let valid_till = frame_system::Pallet::<T>::block_number()
 			.saturating_add(crate::Pallet::<T, I>::required_registration_lease())
 			.saturating_add(One::one())
 			.saturating_add(One::one());
-
 		T::deposit_account(relayer.clone(), crate::Pallet::<T, I>::required_stake());
-	}: _(RawOrigin::Signed(relayer.clone()), valid_till)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(relayer.clone()), valid_till);
+
 		assert!(crate::Pallet::<T, I>::is_registration_active(&relayer));
 	}
 
-	// Benchmark `deregister` call.
-	deregister {
+	#[benchmark]
+	fn deregister() {
 		let relayer: T::AccountId = whitelisted_caller();
 		let valid_till = frame_system::Pallet::<T>::block_number()
 			.saturating_add(crate::Pallet::<T, I>::required_registration_lease())
 			.saturating_add(One::one())
 			.saturating_add(One::one());
 		T::deposit_account(relayer.clone(), crate::Pallet::<T, I>::required_stake());
-		crate::Pallet::<T, I>::register(RawOrigin::Signed(relayer.clone()).into(), valid_till).unwrap();
-
+		crate::Pallet::<T, I>::register(RawOrigin::Signed(relayer.clone()).into(), valid_till)
+			.unwrap();
 		frame_system::Pallet::<T>::set_block_number(valid_till.saturating_add(One::one()));
-	}: _(RawOrigin::Signed(relayer.clone()))
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(relayer.clone()));
+
 		assert!(!crate::Pallet::<T, I>::is_registration_active(&relayer));
 	}
 
 	// Benchmark `slash_and_deregister` method of the pallet. We are adding this weight to
 	// the weight of message delivery call if `BridgeRelayersTransactionExtension` signed extension
 	// is deployed at runtime level.
-	slash_and_deregister {
+	#[benchmark]
+	fn slash_and_deregister() {
 		// prepare and register relayer account
 		let relayer: T::AccountId = whitelisted_caller();
 		let valid_till = frame_system::Pallet::<T>::block_number()
@@ -142,31 +158,41 @@ benchmarks_instance_pallet! {
 			.saturating_add(One::one())
 			.saturating_add(One::one());
 		T::deposit_account(relayer.clone(), crate::Pallet::<T, I>::required_stake());
-		assert_ok!(crate::Pallet::<T, I>::register(RawOrigin::Signed(relayer.clone()).into(), valid_till));
+		assert_ok!(crate::Pallet::<T, I>::register(
+			RawOrigin::Signed(relayer.clone()).into(),
+			valid_till
+		));
 
 		// create slash destination account
 		let slash_destination: T::AccountId = whitelisted_caller();
 		T::deposit_account(slash_destination.clone(), Zero::zero());
-	}: {
-		crate::Pallet::<T, I>::slash_and_deregister(&relayer, bp_relayers::ExplicitOrAccountParams::Explicit::<_, ()>(slash_destination))
-	}
-	verify {
+
+		#[block]
+		{
+			crate::Pallet::<T, I>::slash_and_deregister(
+				&relayer,
+				bp_relayers::ExplicitOrAccountParams::Explicit::<_, ()>(slash_destination),
+			);
+		}
+
 		assert!(!crate::Pallet::<T, I>::is_registration_active(&relayer));
 	}
 
 	// Benchmark `register_relayer_reward` method of the pallet. We are adding this weight to
 	// the weight of message delivery call if `BridgeRelayersTransactionExtension` signed extension
 	// is deployed at runtime level.
-	register_relayer_reward {
+	#[benchmark]
+	fn register_relayer_reward() {
 		let reward_kind = T::bench_reward();
 		let relayer: T::AccountId = whitelisted_caller();
 
-	}: {
-		crate::Pallet::<T, I>::register_relayer_reward(reward_kind, &relayer, One::one());
-	}
-	verify {
+		#[block]
+		{
+			crate::Pallet::<T, I>::register_relayer_reward(reward_kind, &relayer, One::one());
+		}
+
 		assert_eq!(RelayerRewards::<T, I>::get(relayer, &reward_kind), Some(One::one()));
 	}
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime)
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime);
 }
