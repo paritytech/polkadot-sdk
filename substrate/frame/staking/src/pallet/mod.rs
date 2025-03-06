@@ -2640,7 +2640,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// This function allows governance to manually slash of a validator and is a
+		/// This function allows governance to manually slash a validator and is a
 		/// **fallback mechanism**.
 		///
 		/// The dispatch origin must be `T::AdminOrigin`.
