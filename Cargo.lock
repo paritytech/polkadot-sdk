@@ -24128,7 +24128,6 @@ dependencies = [
 name = "sc-tracing-proc-macro"
 version = "11.0.0"
 dependencies = [
- "frame-support-procedural-tools 10.0.0",
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.93",
  "quote 1.0.38",

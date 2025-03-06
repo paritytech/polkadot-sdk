@@ -15,9 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro::TokenStream;
-use proc_macro2::Span;
 use quote::quote;
 use syn::{Error, Expr, ItemFn};
 
@@ -102,39 +100,49 @@ use syn::{Error, Expr, ItemFn};
 /// 2020-10-16 08:12:58  [open-harbor-1619] 〽️ Prometheus server started at 127.0.0.1:9615
 /// 2020-10-16 08:12:58  [open-harbor-1619] Listening for new connections on 127.0.0.1:9944.
 /// ```
+mod utils;
+
 #[proc_macro_attribute]
 pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
-	let item_fn = syn::parse_macro_input!(item as ItemFn);
+    // Ensure an argument was provided.
+    if arg.is_empty() {
+        return Error::new(
+            proc_macro2::Span::call_site(),
+            "missing argument: prefix. Example: prefix_logs_with(\"Relaychain\")",
+        )
+            .to_compile_error()
+            .into();
+    }
 
-	if arg.is_empty() {
-		return Error::new(
-			Span::call_site(),
-			"missing argument: prefix. Example: sc_cli::prefix_logs_with(<expr>)",
-		)
-		.to_compile_error()
-		.into();
-	}
+    let prefix_expr = syn::parse_macro_input!(arg as Expr);
+    let item_fn = syn::parse_macro_input!(item as ItemFn);
 
-	let name = syn::parse_macro_input!(arg as Expr);
+    // Resolve the proper sc_tracing path.
+    let resolved_crate = match utils::resolve_sc_tracing() {
+        Ok(path) => path,
+        Err(err) => return err.to_compile_error().into(),
+    };
 
-	let crate_name = match generate_access_from_frame_or_crate("sc-tracing") {
-		Ok(ident) => ident,
-		Err(err) => return err.to_compile_error().into(),
-	};
+    let syn::ItemFn { attrs, vis, sig, block } = item_fn;
 
-	let ItemFn { attrs, vis, sig, block } = item_fn;
+    // Generate different output based on whether the function is async.
+    let output = if sig.asyncness.is_some() {
+        // Async branch: wrap the block in a closure that returns an async block.
+        quote! {
+            #(#attrs)*
+            #vis #sig {
+                #resolved_crate::logging::apply_prefix_async(#prefix_expr, || async { #block }).await
+            }
+        }
+    } else {
+        // Sync branch: call the synchronous logging helper.
+        quote! {
+            #(#attrs)*
+            #vis #sig {
+                #resolved_crate::logging::apply_prefix_sync(#prefix_expr, || { #block })
+            }
+        }
+    };
 
-	(quote! {
-		#(#attrs)*
-		#vis #sig {
-			let span = #crate_name::tracing::info_span!(
-				#crate_name::logging::PREFIX_LOG_SPAN,
-				name = #name,
-			);
-			let _enter = span.enter();
-
-			#block
-		}
-	})
-	.into()
+    output.into()
 }
