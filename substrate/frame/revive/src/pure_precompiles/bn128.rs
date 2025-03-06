@@ -16,7 +16,7 @@
 // limitations under the License.
 use super::Precompile;
 use crate::{Config, ExecReturnValue, GasMeter, RuntimeCosts};
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use bn::{pairing_batch, AffineG1, AffineG2, Fq, Fq2, Group, Gt, G1, G2};
 use pallet_revive_uapi::ReturnFlags;
 use sp_core::U256;
@@ -172,6 +172,7 @@ fn read_input(source: &[u8], target: &mut [u8], offset: usize) {
 
 #[cfg(feature = "runtime-benchmarks")]
 pub fn generate_random_ecpairs(_n: usize) -> Vec<u8> {
+	use alloc::vec;
 	use bn::{Fr, Group, G1, G2};
 	use rand::SeedableRng;
 	let n = 1;
