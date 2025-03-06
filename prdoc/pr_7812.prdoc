@@ -1,4 +1,4 @@
-title: '`apply_authorized_upgrade`: Implement `feeless_if`'
+title: '`apply_authorized_upgrade`: Remote authorization if the version check fails'
 doc:
 - audience: Runtime User
   description: |-
