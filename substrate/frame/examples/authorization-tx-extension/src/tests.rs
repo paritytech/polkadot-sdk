@@ -33,7 +33,7 @@ use pallet_verify_signature::VerifySignature;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	generic::ExtensionVersion,
-	traits::{Applyable, Checkable, IdentityLookup, TransactionExtension},
+	traits::{Applyable, Checkable, IdentityLookup, LazyExtrinsic, TransactionExtension},
 	MultiSignature, MultiSigner,
 };
 
@@ -73,9 +73,9 @@ fn create_asset_works() {
 			frame_system::CheckEra::<Runtime>::from(sp_runtime::generic::Era::immortal()),
 		);
 		// Create the transaction and we're ready for dispatch.
-		let uxt = UncheckedExtrinsic::new_transaction(create_asset_call, tx_ext);
+		let mut uxt = UncheckedExtrinsic::new_transaction(create_asset_call, tx_ext);
 		// Check Extrinsic validity and apply it.
-		let uxt_info = uxt.get_dispatch_info();
+		let uxt_info = uxt.expect_as_ref().get_dispatch_info();
 		let uxt_len = uxt.using_encoded(|e| e.len());
 		// Manually pay for Alice's nonce.
 		frame_system::Account::<Runtime>::mutate(&alice_account, |info| {
@@ -164,9 +164,9 @@ fn create_coowned_asset_works() {
 			frame_system::CheckEra::<Runtime>::from(sp_runtime::generic::Era::immortal()),
 		);
 		// Create the transaction and we're ready for dispatch.
-		let uxt = UncheckedExtrinsic::new_transaction(create_asset_call, tx_ext);
+		let mut uxt = UncheckedExtrinsic::new_transaction(create_asset_call, tx_ext);
 		// Check Extrinsic validity and apply it.
-		let uxt_info = uxt.get_dispatch_info();
+		let uxt_info = uxt.expect_as_ref().get_dispatch_info();
 		let uxt_len = uxt.using_encoded(|e| e.len());
 		// Manually pay for Charlie's nonce.
 		frame_system::Account::<Runtime>::mutate(&charlie_account, |info| {
@@ -255,9 +255,9 @@ fn inner_authorization_works() {
 			frame_system::CheckEra::<Runtime>::from(sp_runtime::generic::Era::immortal()),
 		);
 		// Create the transaction and we're ready for dispatch.
-		let uxt = UncheckedExtrinsic::new_transaction(create_asset_call, tx_ext);
+		let mut uxt = UncheckedExtrinsic::new_transaction(create_asset_call, tx_ext);
 		// Check Extrinsic validity and apply it.
-		let uxt_info = uxt.get_dispatch_info();
+		let uxt_info = uxt.expect_as_ref().get_dispatch_info();
 		let uxt_len = uxt.using_encoded(|e| e.len());
 		// Manually pay for Charlie's nonce.
 		frame_system::Account::<Runtime>::mutate(charlie_account, |info| {

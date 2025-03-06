@@ -534,13 +534,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Query the data that we know about the fee of a given `call` from a runtime API.
-	pub fn query_info_from_runtime_api<
-		Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo,
-	>(
-		unchecked_extrinsic: Extrinsic,
+	pub fn query_info_from_runtime_api<Extrinsic>(
+		mut unchecked_extrinsic: Extrinsic,
 		len: u32,
 	) -> RuntimeDispatchInfo<BalanceOf<T>>
 	where
+		Extrinsic: for<'a> sp_runtime::traits::LazyExtrinsic<'a>,
+		for<'a> <Extrinsic as sp_runtime::traits::LazyExtrinsic<'a>>::ExtrinsicRef:
+			sp_runtime::traits::ExtrinsicLike + GetDispatchInfo,
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	{
 		Self::query_info(unchecked_extrinsic.expect_as_ref(), len)
@@ -567,13 +568,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Query the detailed fee of a given `call` from a runtime API.
-	pub fn query_fee_details_from_runtime_api<
-		Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo,
-	>(
-		unchecked_extrinsic: Extrinsic,
+	pub fn query_fee_details_from_runtime_api<Extrinsic>(
+		mut unchecked_extrinsic: Extrinsic,
 		len: u32,
 	) -> FeeDetails<BalanceOf<T>>
 	where
+		Extrinsic: for<'a> sp_runtime::traits::LazyExtrinsic<'a>,
+		for<'a> <Extrinsic as sp_runtime::traits::LazyExtrinsic<'a>>::ExtrinsicRef:
+			sp_runtime::traits::ExtrinsicLike + GetDispatchInfo,
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	{
 		Self::query_fee_details(unchecked_extrinsic.expect_as_ref(), len)

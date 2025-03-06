@@ -26,7 +26,9 @@ use frame_system::{self, AccountInfo, DispatchEventInfo, EventRecord, Phase};
 use polkadot_sdk::*;
 use sp_core::{storage::well_known_keys, traits::Externalities};
 use sp_runtime::{
-	traits::Hash as HashT, transaction_validity::InvalidTransaction, ApplyExtrinsicResult,
+	traits::{Hash as HashT, LazyExtrinsic},
+	transaction_validity::InvalidTransaction,
+	ApplyExtrinsicResult,
 };
 
 use kitchensink_runtime::{
@@ -60,16 +62,16 @@ pub fn bloaty_code_unwrap() -> &'static [u8] {
 /// Note that reads the multiplier from storage directly, hence to get the fee of `extrinsic`
 /// at block `n`, it must be called prior to executing block `n` to do the calculation with the
 /// correct multiplier.
-fn transfer_fee(extrinsic: &UncheckedExtrinsic) -> Balance {
+fn transfer_fee(extrinsic: &mut UncheckedExtrinsic) -> Balance {
 	let mut info = default_transfer_call().get_dispatch_info();
-	info.extension_weight = extrinsic.0.extension_weight();
+	info.extension_weight = extrinsic.expect_as_ref().extension_weight();
 	TransactionPayment::compute_fee(extrinsic.encode().len() as u32, &info, 0)
 }
 
 /// Default transfer fee, same as `transfer_fee`, but with a weight refund factored in.
-fn transfer_fee_with_refund(extrinsic: &UncheckedExtrinsic, weight_refund: Weight) -> Balance {
+fn transfer_fee_with_refund(extrinsic: &mut UncheckedExtrinsic, weight_refund: Weight) -> Balance {
 	let mut info = default_transfer_call().get_dispatch_info();
-	info.extension_weight = extrinsic.0.extension_weight();
+	info.extension_weight = extrinsic.expect_as_ref().extension_weight();
 	let post_info = (Some(info.total_weight().saturating_sub(weight_refund)), info.pays_fee).into();
 	TransactionPayment::compute_actual_fee(extrinsic.encode().len() as u32, &info, &post_info, 0)
 }
@@ -265,7 +267,7 @@ fn successful_execution_with_native_equivalent_code_gives_ok() {
 	assert!(r.is_ok());
 
 	let weight_refund = Weight::zero();
-	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&mut xt(), weight_refund));
 
 	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt())).0;
 	assert!(r.is_ok());
@@ -306,7 +308,7 @@ fn successful_execution_with_foreign_code_gives_ok() {
 	assert!(r.is_ok());
 
 	let weight_refund = Weight::zero();
-	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&mut xt(), weight_refund));
 
 	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt())).0;
 	assert!(r.is_ok());
@@ -324,10 +326,10 @@ fn full_native_block_import_works() {
 	let (block1, block2) = blocks();
 
 	let mut alice_last_known_balance: Balance = Default::default();
-	let mut fees = t.execute_with(|| transfer_fee(&xt()));
-	let extension_weight = xt().0.extension_weight();
+	let mut fees = t.execute_with(|| transfer_fee(&mut xt()));
+	let extension_weight = xt().0.expect_as_ref().extension_weight();
 	let weight_refund = Weight::zero();
-	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&mut xt(), weight_refund));
 
 	let transfer_weight = default_transfer_call().get_dispatch_info().call_weight.saturating_add(
 		<Runtime as frame_system::Config>::BlockWeights::get()
@@ -438,11 +440,11 @@ fn full_native_block_import_works() {
 		assert_eq!(filtered_events, events);
 	});
 
-	fees = t.execute_with(|| transfer_fee(&xt()));
+	fees = t.execute_with(|| transfer_fee(&mut xt()));
 	let pot = t.execute_with(|| Treasury::pot());
-	let extension_weight = xt().0.extension_weight();
+	let extension_weight = xt().0.expect_as_ref().extension_weight();
 	let weight_refund = Weight::zero();
-	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&mut xt(), weight_refund));
 
 	executor_call(&mut t, "Core_execute_block", &block2.0).0.unwrap();
 
@@ -618,7 +620,7 @@ fn full_wasm_block_import_works() {
 
 	let mut alice_last_known_balance: Balance = Default::default();
 	let weight_refund = Weight::zero();
-	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&mut xt(), weight_refund));
 
 	executor_call(&mut t, "Core_execute_block", &block1.0).0.unwrap();
 
@@ -629,7 +631,7 @@ fn full_wasm_block_import_works() {
 	});
 
 	let weight_refund = Weight::zero();
-	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&mut xt(), weight_refund));
 
 	executor_call(&mut t, "Core_execute_block", &block2.0).0.unwrap();
 
@@ -881,7 +883,7 @@ fn successful_execution_gives_ok() {
 	});
 
 	let weight_refund = Weight::zero();
-	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&mut xt(), weight_refund));
 
 	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()))
 		.0

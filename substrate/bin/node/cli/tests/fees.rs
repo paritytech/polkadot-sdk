@@ -30,7 +30,10 @@ use kitchensink_runtime::{
 use node_primitives::Balance;
 use node_testing::keyring::*;
 use polkadot_sdk::*;
-use sp_runtime::{traits::One, Perbill};
+use sp_runtime::{
+	traits::{LazyExtrinsic, One},
+	Perbill,
+};
 
 pub mod common;
 use self::common::{sign, *};
@@ -148,7 +151,7 @@ fn transaction_fee_is_correct() {
 	t.insert(<frame_system::BlockHash<Runtime>>::hashed_key_for(0), vec![0u8; 32]);
 
 	let tip = 1_000_000;
-	let xt = sign(CheckedExtrinsic {
+	let mut xt = sign(CheckedExtrinsic {
 		format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, tip)),
 		function: RuntimeCall::Balances(default_transfer_call()),
 	});
@@ -176,7 +179,7 @@ fn transaction_fee_is_correct() {
 		balance_alice -= length_fee;
 
 		let mut info = default_transfer_call().get_dispatch_info();
-		info.extension_weight = xt.0.extension_weight();
+		info.extension_weight = xt.expect_as_ref().extension_weight();
 		let weight = info.total_weight();
 		let weight_fee = IdentityFee::<Balance>::weight_to_fee(&weight);
 
