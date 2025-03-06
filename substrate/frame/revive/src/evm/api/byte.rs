@@ -15,8 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Define Byte wrapper types for encoding and decoding hex strings
+
 use super::hex_serde::HexCodec;
 use alloc::{vec, vec::Vec};
+use alloy_core::hex;
 use codec::{Decode, Encode};
 use core::{
 	fmt::{Debug, Display, Formatter, Result as FmtResult},
