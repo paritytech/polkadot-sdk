@@ -301,11 +301,12 @@ impl<T: crate::Config> Phase<T> {
 			Self::Emergency => Self::Emergency,
 
 			// snapshot phase
-			Self::Snapshot(0) => if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one()) {
-				Self::Signed(signed_duration)
-			} else {
-				Self::Unsigned(T::UnsignedPhase::get().defensive_saturating_sub(One::one()))
-			},
+			Self::Snapshot(0) =>
+				if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one()) {
+					Self::Signed(signed_duration)
+				} else {
+					Self::Unsigned(T::UnsignedPhase::get().defensive_saturating_sub(One::one()))
+				},
 			Self::Snapshot(non_zero_remaining) =>
 				Self::Snapshot(non_zero_remaining.defensive_saturating_sub(One::one())),
 

@@ -63,6 +63,8 @@ fn on_receive_session_report() {
 			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
 		}
 
+		// on planning 5, start election
+		// by planning 6, we should have sent it.
 		println!("Election Events {:?}", election_events());
 		println!("Staking Events {:?}", staking_events());
 

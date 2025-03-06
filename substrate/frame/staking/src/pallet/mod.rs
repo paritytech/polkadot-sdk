@@ -343,13 +343,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
-		fn maybe_start_election_remove(
-			_current_planned_session: SessionIndex,
-			_era_start_session: SessionIndex,
-		) -> bool {
-			false
-		}
-
 		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
 		/// relay chain.
 		#[pallet::no_default]

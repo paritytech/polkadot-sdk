@@ -52,7 +52,9 @@ use sp_core::{
 };
 use sp_npos_elections::EvaluateSupport;
 use sp_runtime::{
-	bounded_vec, traits::{BlakeTwo256, IdentityLookup}, BuildStorage, PerU16, Perbill
+	bounded_vec,
+	traits::{BlakeTwo256, IdentityLookup},
+	BuildStorage, PerU16, Perbill,
 };
 pub use staking::*;
 use std::{sync::Arc, vec};
@@ -647,7 +649,6 @@ pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>
 	use sp_runtime::traits::Dispatchable;
 	let now = System::block_number();
 	for i in now + 1..=n {
-
 		// check the offchain transaction pool, and if anything's there, submit it.
 		if let Some(ref pool) = maybe_pool {
 			pool.read()

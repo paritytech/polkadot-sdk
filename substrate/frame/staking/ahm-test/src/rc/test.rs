@@ -105,9 +105,7 @@ fn send_session_report_no_election_comes_in() {
 }
 
 #[test]
-fn upon_receiving_election_queue_and_activate_next_session() {
-
-}
+fn upon_receiving_election_queue_and_activate_next_session() {}
 
 #[test]
 
@@ -117,7 +115,5 @@ fn sends_offence_report() {
 	// - pre-verification of offence on RC.
 	// - disabling of validator in active era.
 	// - Dispatch validator offence to AH.
-	ExtBuilder::default().local_queue().build().execute_with(|| {
-
-	});
+	ExtBuilder::default().local_queue().build().execute_with(|| {});
 }

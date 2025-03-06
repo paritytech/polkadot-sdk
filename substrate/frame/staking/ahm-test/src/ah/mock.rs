@@ -24,7 +24,6 @@ construct_runtime! {
 	}
 }
 
-
 // alias Runtime with T.
 pub type T = Runtime;
 
@@ -280,8 +279,7 @@ impl pallet_staking_rc_client::SendToRelayChain for DeliverToRelay {
 
 	fn validator_set(report: pallet_staking_rc_client::ValidatorSetReport<Self::AccountId>) {
 		if let Some(mut local_queue) = LocalQueue::get() {
-			local_queue
-				.push((System::block_number(), OutgoingMessages::ValidatorSet(report)));
+			local_queue.push((System::block_number(), OutgoingMessages::ValidatorSet(report)));
 			LocalQueue::set(Some(local_queue));
 		} else {
 			shared::in_rc(|| {
@@ -398,5 +396,3 @@ pub(crate) fn election_events() -> Vec<pallet_election_provider_multi_block::Eve
 		.filter_map(|e| if let RuntimeEvent::MultiBlock(inner) = e { Some(inner) } else { None })
 		.collect()
 }
-
-

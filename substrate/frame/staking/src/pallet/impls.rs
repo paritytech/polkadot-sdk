@@ -1369,6 +1369,8 @@ impl<T: Config> Pallet<T> {
 		session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
+		log!(debug, "Planning session: {:?}", session_index);
+
 		if let Some(current_era) = CurrentEra::<T>::get() {
 			// Initial era has been set.
 			let current_era_start_session_index = ErasStartSessionIndex::<T>::get(current_era)
@@ -1484,6 +1486,13 @@ impl<T: Config> Pallet<T> {
 		start_session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
+		log!(
+			debug,
+			"try_plan_new_era: is_genesis? {:?}, session_index: {:?}",
+			is_genesis,
+			start_session_index
+		);
+
 		// TODO: weights of this call path are rather crude, improve.
 		let validators: BoundedVec<T::AccountId, MaxWinnersOf<T>> = if is_genesis {
 			// genesis election only uses one election result page.
@@ -1596,14 +1605,12 @@ impl<T: Config> Pallet<T> {
 			era_start_session
 		);
 
-		let election_offset = T::ElectionOffset::get()
-			.max(1)
-			.min(T::SessionsPerEra::get());
+		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
 
 		let session_progress = current_planned_session - era_start_session;
 
 		// start the election `election_offset` sessions before the intended time.
-		session_progress == (T::SessionsPerEra::get() - election_offset)
+		session_progress >= (T::SessionsPerEra::get() - election_offset)
 	}
 }
 
@@ -1639,6 +1646,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		let current_era = CurrentEra::<T>::get().unwrap_or_default();
 		let start_index = ErasStartSessionIndex::<T>::get(current_era).unwrap_or_default();
 
+		// todo(ank4n): if election not started, and session progressed enough, start election.
 		if Self::maybe_start_election(planning, start_index) {
 			log!(info, "sending election start signal");
 			let _ = T::ElectionProvider::start();
@@ -1646,15 +1654,18 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 		// then, handle starting/ending a session/era
 		if let Some((this_era_start, _id)) = activation_timestamp {
-			/// If ^^^^^^ is None, it means we should not alter the era. If Some(_), we should, and
-			/// the inner value is the duration of the era. At genesis, this is always `None`
-			/// because we may not have an initial timestamp for the era.
+			// If an activation timestamp is received, it indicates that a new era has started on
+			// RC. This means we need to finalize the current active era by computing payouts and
+			// rolling over to the next era to keep the staking system in sync.
+
 			if let Some(current_active_era) = ActiveEra::<T>::get() {
 				let previous_era_start =
 					current_active_era.start.defensive_unwrap_or(this_era_start);
 				let era_duration = this_era_start.saturating_sub(previous_era_start);
 				Self::compute_era_payout(current_active_era, era_duration);
 				Self::start_era(starting, this_era_start);
+			} else {
+				defensive!("Active era must always be available.");
 			}
 		}
 	}
