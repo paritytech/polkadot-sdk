@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{Config, Key};
+use alloc::vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{fmt, marker::PhantomData};
 use frame_support::{dispatch::DispatchInfo, ensure, pallet_prelude::TransactionSource};
