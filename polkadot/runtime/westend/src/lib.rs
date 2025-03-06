@@ -818,11 +818,12 @@ enum RcClientCalls<AccountId> {
 	RelayNewOffence(SessionIndex, Vec<rc_client::Offence<AccountId>>),
 }
 
-pub struct XcmToAssetHub<T: SendXcm, AssetHubId: Get<u32>>(PhantomData<(T, AssetHubId)>);
-impl<T: SendXcm, AssetHubId: Get<u32>> ah_client::SendToAssetHub for XcmToAssetHub<T, AssetHubId> {
+pub struct XcmToAssetHub<T: SendXcm>(PhantomData<T>);
+impl<T: SendXcm> ah_client::SendToAssetHub for XcmToAssetHub<T> {
 	type AccountId = AccountId;
 
 	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
+		log::trace!(target: "runtime", "Sending  SessionReport. payload: {:?}", session_report);
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
@@ -830,10 +831,8 @@ impl<T: SendXcm, AssetHubId: Get<u32>> ah_client::SendToAssetHub for XcmToAssetH
 			},
 			Self::mk_asset_hub_call(RcClientCalls::RelaySessionReport(session_report)),
 		]);
-		if let Err(err) =
-			send_xcm::<T>(Location::new(0, [Junction::Parachain(AssetHubId::get())]), message)
-		{
-			// TODO: log error
+		if let Err(err) = send_xcm::<T>(AssetHubLocation::get(), message) {
+			log::error!(target: "runtime", "Unable to send SessionReport. err: {:?}", err);
 		}
 	}
 
@@ -841,6 +840,13 @@ impl<T: SendXcm, AssetHubId: Get<u32>> ah_client::SendToAssetHub for XcmToAssetH
 		session_index: SessionIndex,
 		offences: Vec<rc_client::Offence<Self::AccountId>>,
 	) {
+		log::trace!(
+			target: "runtime",
+			"Sending  NewOffence. session: {:?} payload: {:?}",
+			session_index,
+			offences
+		);
+
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
@@ -848,15 +854,13 @@ impl<T: SendXcm, AssetHubId: Get<u32>> ah_client::SendToAssetHub for XcmToAssetH
 			},
 			Self::mk_asset_hub_call(RcClientCalls::RelayNewOffence(session_index, offences)),
 		]);
-		if let Err(err) =
-			send_xcm::<T>(Location::new(0, [Junction::Parachain(AssetHubId::get())]), message)
-		{
-			// TODO: log error``
+		if let Err(err) = send_xcm::<T>(AssetHubLocation::get(), message) {
+			log::error!(target: "runtime", "Unable to send NewOffence. err: {:?}", err);
 		}
 	}
 }
 
-impl<T: SendXcm, AssetHubId: Get<u32>> XcmToAssetHub<T, AssetHubId> {
+impl<T: SendXcm> XcmToAssetHub<T> {
 	fn mk_asset_hub_call(
 		call: RcClientCalls<<Self as ah_client::SendToAssetHub>::AccountId>,
 	) -> Instruction<()> {
@@ -873,12 +877,10 @@ impl pallet_staking_ah_client::Config for Runtime {
 		EnsureRoot<AccountId>,
 		EnsureXcm<Equals<AssetHubLocation>>,
 	>;
-	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter, AssetHubId>;
+	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter>;
 	type MinimumValidatorSetSize = MinimumElectedValidatorSetSize;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = RewardPointsPerBlock;
-	// type AssetHubId = AssetHubId;
-	// type SendXcm = crate::xcm_config::XcmRouter;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
