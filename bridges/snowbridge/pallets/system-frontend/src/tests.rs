@@ -96,7 +96,7 @@ fn register_token_fails_unroutable() {
 }
 
 #[test]
-fn register_token_banned_when_set_operating_mode() {
+fn test_switch_operating_mode() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(EthereumSystemFrontend::set_operating_mode(
 			RawOrigin::Root.into(),
@@ -112,8 +112,17 @@ fn register_token_banned_when_set_operating_mode() {
 			decimals: 12,
 		};
 		assert_noop!(
-			EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata),
+			EthereumSystemFrontend::register_token(
+				origin.clone(),
+				asset_id.clone(),
+				asset_metadata.clone()
+			),
 			crate::Error::<Test>::Halted
 		);
+		assert_ok!(EthereumSystemFrontend::set_operating_mode(
+			RawOrigin::Root.into(),
+			BasicOperatingMode::Normal,
+		));
+		assert_ok!(EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata),);
 	});
 }
