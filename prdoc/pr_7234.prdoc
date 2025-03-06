@@ -2,10 +2,18 @@ title: Add EventEmitter to XCM Executor
 doc:
 - audience: Runtime Dev
   description: |-
-    This PR introduces the `EventEmitter` trait to the XCM executor, allowing configurable event emission.
+    Closes #6851
+
+    This PR adds an `EventEmitter` trait to the XCM Executor configuration, enabling event emission for XCM handling. The implementation introduces three dedicated functions to emit relevant events:
+
+    - `emit_sent_event`: Emits a `Sent` event when an XCM is successfully sent.
+    - `emit_send_failure_event`: Emits a `SendFailed` event when an XCM fails to send.
+    - `emit_process_failure_event`: Emits a `ProcessXcmError` event when an XCM fails during processing.
+
+    Kusama address: FkB6QEo8VnV3oifugNj5NeVG3Mvq1zFbrUu4P5YwRoe5mQN
 crates:
 - name: pallet-xcm-bridge-hub
-  bump: Patch
+  bump: minor
 - name: asset-hub-rococo-runtime
   bump: minor
 - name: asset-hub-westend-runtime
@@ -35,20 +43,26 @@ crates:
 - name: westend-runtime
   bump: minor
 - name: pallet-xcm-benchmarks
-  bump: patch
+  bump: minor
 - name: pallet-xcm
-  bump: major
+  bump: minor
 - name: staging-xcm-builder
-  bump: patch
+  bump: minor
 - name: staging-xcm-executor
-  bump: major
+  bump: minor
 - name: xcm-runtime-apis
-  bump: patch
+  bump: minor
 - name: xcm-simulator-example
-  bump: patch
-- name: xcm-simulator-fuzzer
-  bump: patch
+  bump: minor
 - name: pallet-contracts-mock-network
   bump: minor
 - name: pallet-revive-mock-network
+  bump: minor
+- name: bridge-runtime-common
+  bump: minor
+- name: pallet-bridge-grandpa
+  bump: minor
+- name: pallet-bridge-messages
+  bump: minor
+- name: sp-tracing
   bump: minor
