@@ -282,16 +282,6 @@ pub fn mock_execution_proof() -> ExecutionProof {
 	}
 }
 
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	fn submit() -> Weight {
-		Weight::from_parts(70_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3601))
-			.saturating_add(RocksDbWeight::get().reads(2))
-			.saturating_add(RocksDbWeight::get().writes(2))
-	}
-}
-
 // Generated from smoketests:
 //   cd smoketests
 //   ./make-bindings
