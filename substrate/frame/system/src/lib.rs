@@ -2132,6 +2132,10 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This needs to be used in prior calling [`initialize`](Self::initialize) for each new block
 	/// to clear events from previous block.
+	///
+	/// NOTE: when the event segment is used (i.e. `EventSegmentSize` > 0) the event is not really
+	/// cleared from the storage, it only resets the event counter and the event will be overwritten
+	/// by the new event from the next block.
 	pub fn reset_events() {
 		if T::EventSegmentSize::get().is_zero() {
 			<Events<T>>::kill();
