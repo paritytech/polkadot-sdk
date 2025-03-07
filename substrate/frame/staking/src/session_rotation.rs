@@ -16,6 +16,53 @@
 // limitations under the License.
 
 //! Manages all era rotation logic based on session increments.
+//!
+//! # Lifecycle:
+//!
+//! When a session ends in RC, a session report is sent to AH with the ending session index. Given
+//! there are 6 sessions per Era, and we configure the PlanningEraOffset to be 1, the following
+//! happens.
+//!
+//! ## Idle Sessions
+//! First 5 sessions are idle. Nothing much happens in these sessions.
+//!
+//! **Actions**
+//! - Increment the session index in `CurrentPlannedSession`.
+//!
+//! ## Planning Session
+//! We kick this off the planning session in the 6th planning session.
+//!
+//! **Triggers**
+//! 1. `SessionProgress == SessionsPerEra - PlanningEraOffset`
+//! 2. Forcing is set to `ForceNew` or `ForceAlways`
+//!
+//! **Actions**
+//! 1. Triggers the election process,
+//! 2. Updates the CurrentEra.
+//!
+//! **SkipIf**
+//! CurrentEra = ActiveEra + 1 // this implies planning session has already been triggered.
+//!
+//! ## Era Rotation Session
+//!
+//! **Triggers**
+//! When we receive an activation timestamp from RC.
+//!
+//! **Assertions**
+//! 1. CurrentEra must be ActiveEra + 1.
+//! 2. Id of the activation timestamp same as CurrentEra.
+//!
+//! **Actions**
+//! - Finalize the currently active era.
+//! - Increment ActiveEra by 1.
+//! - Cleanup the old era information.
+//! - Set ErasStartSessionIndex with the activating era index and starting session index.
+//!
+//! **Scenarios**
+//! - Happy Path: Triggered in the 7th session.
+//! - Delay in exporting validator set: Triggered in a session later than 7th.
+//! - Forcing Era: May triggered in a session earlier than 7th.
+//!
 
 use crate::{
 	log, ActiveEra, Config, CurrentEra, CurrentPlannedSession, EraIndex, ErasStartSessionIndex,
@@ -106,8 +153,6 @@ impl<T: Config> Rotator<T> {
 			*s = Some(s.map(|s| s + 1).unwrap_or(0));
 			s.unwrap()
 		});
-
-		ErasStartSessionIndex::<T>::insert(&new_planned_era, &self.planning_session());
 
 		// this seems a good time for elections.
 		log!(info, "sending election start signal");
