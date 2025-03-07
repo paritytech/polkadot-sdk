@@ -19,3 +19,18 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
     fn submit() -> Weight;
 }
+
+// For backwards compatibility and tests
+impl WeightInfo for () {
+    fn submit() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `309`
+        //  Estimated: `3774`
+        // Minimum execution time: 59_000_000 picoseconds.
+        Weight::from_parts(60_000_000, 0)
+            .saturating_add(Weight::from_parts(0, 3774))
+            .saturating_add(RocksDbWeight::get().reads(7))
+            .saturating_add(RocksDbWeight::get().writes(2))
+    }
+}
+
