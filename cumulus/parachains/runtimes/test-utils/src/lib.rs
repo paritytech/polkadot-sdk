@@ -34,7 +34,10 @@ use polkadot_parachain_primitives::primitives::{
 };
 use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};
 use sp_core::{Encode, U256};
-use sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem, SaturatedConversion};
+use sp_runtime::{
+	traits::{Dispatchable, Header},
+	BuildStorage, Digest, DigestItem, DispatchError, Either, SaturatedConversion,
+};
 use xcm::{
 	latest::{Asset, Location, XcmContext, XcmHash},
 	prelude::*,
@@ -47,6 +50,7 @@ pub mod test_cases;
 pub type BalanceOf<Runtime> = <Runtime as pallet_balances::Config>::Balance;
 pub type AccountIdOf<Runtime> = <Runtime as frame_system::Config>::AccountId;
 pub type RuntimeCallOf<Runtime> = <Runtime as frame_system::Config>::RuntimeCall;
+pub type RuntimeOriginOf<Runtime> = <Runtime as frame_system::Config>::RuntimeOrigin;
 pub type ValidatorIdOf<Runtime> = <Runtime as pallet_session::Config>::ValidatorId;
 pub type SessionKeysOf<Runtime> = <Runtime as pallet_session::Config>::Keys;
 
@@ -441,6 +445,10 @@ impl<
 		AllPalletsWithoutSystem,
 	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 {
+	#[deprecated(
+		note = "Will be removed after Aug 2025; It uses hard-coded `Location::parent()`, \
+		use `execute_as_governance_call` instead."
+	)]
 	pub fn execute_as_governance(call: Vec<u8>) -> Outcome {
 		// prepare xcm as governance will do
 		let xcm = Xcm(vec![
@@ -464,6 +472,47 @@ impl<
 		)
 	}
 
+	pub fn execute_as_governance_call<Call: Dispatchable + Encode>(
+		call: Call,
+		governance_origin: GovernanceOrigin<Call::RuntimeOrigin>,
+	) -> Result<(), Either<DispatchError, XcmError>> {
+		// execute xcm as governance would send
+		let execute_xcm = |call: Call, governance_location, descend_origin| {
+			// prepare xcm
+			let xcm = if let Some(descend_origin) = descend_origin {
+				Xcm::builder_unsafe().descend_origin(descend_origin)
+			} else {
+				Xcm::builder_unsafe()
+			}
+			.unpaid_execution(Unlimited, None)
+			.transact(OriginKind::Superuser, None, call.encode())
+			.expect_transact_status(MaybeErrorCode::Success)
+			.build();
+
+			let xcm_max_weight = Self::xcm_max_weight_for_location(&governance_location);
+			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+
+			<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
+				governance_location,
+				xcm,
+				&mut hash,
+				xcm_max_weight,
+				Weight::zero(),
+			)
+		};
+
+		match governance_origin {
+			GovernanceOrigin::Location(location) =>
+				execute_xcm(call, location, None).ensure_complete().map_err(Either::Right),
+			GovernanceOrigin::LocationAndDescendOrigin(location, descend_origin) =>
+				execute_xcm(call, location, Some(descend_origin))
+					.ensure_complete()
+					.map_err(Either::Right),
+			GovernanceOrigin::Origin(origin) =>
+				call.dispatch(origin).map(|_| ()).map_err(|e| Either::Left(e.error)),
+		}
+	}
+
 	pub fn execute_as_origin<Call: GetDispatchInfo + Encode>(
 		(origin, origin_kind): (Location, OriginKind),
 		call: Call,
@@ -484,21 +533,26 @@ impl<
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 		let xcm = Xcm(instructions);
+		let xcm_max_weight = Self::xcm_max_weight_for_location(&origin);
 
 		// execute xcm as parent origin
 		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 		<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
-			origin.clone(),
+			origin,
 			xcm,
 			&mut hash,
-			Self::xcm_max_weight(if origin == Location::parent() {
-				XcmReceivedFrom::Parent
-			} else {
-				XcmReceivedFrom::Sibling
-			}),
+			xcm_max_weight,
 			Weight::zero(),
 		)
 	}
+}
+
+/// Enum representing governance origin/location.
+#[derive(Clone)]
+pub enum GovernanceOrigin<RuntimeOrigin> {
+	Location(Location),
+	LocationAndDescendOrigin(Location, InteriorLocation),
+	Origin(RuntimeOrigin),
 }
 
 pub enum XcmReceivedFrom {
@@ -514,6 +568,14 @@ impl<ParachainSystem: cumulus_pallet_parachain_system::Config, AllPalletsWithout
 			XcmReceivedFrom::Parent => ParachainSystem::ReservedDmpWeight::get(),
 			XcmReceivedFrom::Sibling => ParachainSystem::ReservedXcmpWeight::get(),
 		}
+	}
+
+	pub fn xcm_max_weight_for_location(location: &Location) -> Weight {
+		Self::xcm_max_weight(if location == &Location::parent() {
+			XcmReceivedFrom::Parent
+		} else {
+			XcmReceivedFrom::Sibling
+		})
 	}
 }
 

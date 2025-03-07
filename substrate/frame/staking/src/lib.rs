@@ -345,12 +345,12 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
-use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
+use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
 		tokens::fungible::{Credit, Debt},
-		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+		ConstU32, Contains, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
@@ -404,7 +404,9 @@ impl<
 	type DataProvider = SP::DataProvider;
 	type Error = SP::Error;
 
-	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+	fn elect(
+		page: frame_election_provider_support::PageIndex,
+	) -> Result<frame_election_provider_support::BoundedSupportsOf<Self>, Self::Error> {
 		SP::elect(page)
 	}
 
@@ -416,10 +418,10 @@ impl<
 		SP::duration()
 	}
 
-	fn msp() -> PageIndex {
+	fn msp() -> frame_election_provider_support::PageIndex {
 		SP::msp()
 	}
-	fn lsp() -> PageIndex {
+	fn lsp() -> frame_election_provider_support::PageIndex {
 		SP::lsp()
 	}
 
@@ -1334,6 +1336,24 @@ impl<T: Config> EraInfo<T> {
 		<ErasTotalStake<T>>::mutate(era, |total_stake| {
 			*total_stake += stake;
 		});
+	}
+}
+
+/// A utility struct that provides a way to check if a given account is a staker.
+///
+/// This struct implements the `Contains` trait, allowing it to determine whether
+/// a particular account is currently staking by checking if the account exists in
+/// the staking ledger.
+pub struct AllStakers<T: Config>(core::marker::PhantomData<T>);
+
+impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
+	/// Checks if the given account ID corresponds to a staker.
+	///
+	/// # Returns
+	/// - `true` if the account has an entry in the staking ledger (indicating it is staking).
+	/// - `false` otherwise.
+	fn contains(account: &T::AccountId) -> bool {
+		Ledger::<T>::contains_key(account)
 	}
 }
 

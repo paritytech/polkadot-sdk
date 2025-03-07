@@ -70,6 +70,7 @@ parameter_types! {
 	pub static SignedRewardBase: Balance = 3;
 	pub static SignedPhaseSwitch: SignedSwitch = SignedSwitch::Real;
 	pub static BailoutGraceRatio: Perbill = Perbill::from_percent(20);
+	pub static EjectGraceRatio: Perbill = Perbill::from_percent(20);
 }
 
 impl crate::signed::Config for Runtime {
@@ -82,6 +83,7 @@ impl crate::signed::Config for Runtime {
 	type MaxSubmissions = SignedMaxSubmissions;
 	type RewardBase = SignedRewardBase;
 	type BailoutGraceRatio = BailoutGraceRatio;
+	type EjectGraceRatio = EjectGraceRatio;
 	type WeightInfo = ();
 }
 
@@ -116,6 +118,17 @@ impl SolutionDataProvider for DualSignedPhase {
 			SignedSwitch::Real => SignedPallet::report_result(result),
 		}
 	}
+}
+
+parameter_types! {
+	static SignedEventsIndex: u32 = 0;
+}
+
+pub fn singed_events_since_last_call() -> Vec<crate::signed::Event<Runtime>> {
+	let events = signed_events();
+	let already_seen = SignedEventsIndex::get();
+	SignedEventsIndex::set(events.len() as u32);
+	events.into_iter().skip(already_seen as usize).collect()
 }
 
 /// get the events of the verifier pallet.
@@ -178,7 +191,10 @@ pub fn load_signed_for_verification_and_start(
 				from: Phase::Snapshot(0),
 				to: Phase::Signed(SignedPhase::get() - 1)
 			},
-			Event::PhaseTransitioned { from: Phase::Signed(0), to: Phase::SignedValidation(SignedValidationPhase::get() - 1) }
+			Event::PhaseTransitioned {
+				from: Phase::Signed(0),
+				to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+			}
 		]
 	);
 	assert_eq!(verifier_events(), vec![]);
@@ -224,7 +240,7 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	assert_eq!(
 		verifier_events(),
 		vec![
-			// TODO: these are hardcoded for 3 page.
+			// NOTE: these are hardcoded for 3 page.
 			verifier::Event::Verified(2, 2),
 			verifier::Event::Verified(1, 2),
 			verifier::Event::Verified(0, 2),

@@ -1,0 +1,40 @@
+title: '[AHM] Multi-block election patches'
+doc:
+- audience: Todo
+  description: |-
+    - [x] Finalize weights
+    - [x] Lock voter list when snapshot being taken
+    - [x] push based election
+crates:
+- name: pallet-bags-list
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: pallet-election-provider-multi-block
+  bump: major
+- name: frame-election-provider-support
+  bump: major
+- name: polkadot-node-primitives
+  bump: major
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: pallet-fast-unstake
+  bump: major
+- name: pallet-babe
+  bump: major
+- name: pallet-beefy
+  bump: major
+- name: pallet-delegated-staking
+  bump: major
+- name: pallet-grandpa
+  bump: major
+- name: pallet-offences-benchmarking
+  bump: major
+- name: pallet-root-offences
+  bump: major
+- name: pallet-session-benchmarking
+  bump: major
+- name: pallet-staking-rc-client
+  bump: major
+- name: frame-support
+  bump: major

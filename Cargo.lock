@@ -7291,12 +7291,14 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
+ "serde_json",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -8747,6 +8749,7 @@ checksum = "c33070833c9ee02266356de0c43f723152bd38bd96ddf52c82b3af10c9138b28"
 name = "kitchensink-runtime"
 version = "3.0.0-dev"
 dependencies = [
+ "array-bytes",
  "log",
  "node-primitives",
  "pallet-example-mbm",
@@ -12447,16 +12450,11 @@ dependencies = [
 name = "pallet-nis"
 version = "28.0.0"
 dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
  "pallet-balances",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
- "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -12762,7 +12760,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex",
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
@@ -12779,6 +12776,8 @@ dependencies = [
  "polkavm 0.21.0",
  "polkavm-common 0.21.0",
  "pretty_assertions",
+ "rand 0.8.5",
+ "rand_pcg",
  "rlp 0.6.1",
  "scale-info",
  "secp256k1 0.28.2",
@@ -13922,6 +13921,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
+ "pallet-revive",
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
@@ -16221,6 +16221,7 @@ dependencies = [
  "pallet-examples",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-api 26.0.0",
  "sp-arithmetic 23.0.0",
  "sp-block-builder",

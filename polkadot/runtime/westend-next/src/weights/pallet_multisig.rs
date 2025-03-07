@@ -51,6 +51,21 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_multisig`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_multisig::WeightInfo for WeightInfo<T> {
+	/// Storage: `Multisig::Multisigs` (r:1 w:1)
+	/// Proof: `Multisig::Multisigs` (`max_values`: None, `max_size`: Some(3346), added: 5821, mode: `MaxEncodedLen`)
+	/// The range of component `s` is `[2, 100]`.
+	fn poke_deposit(s: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `420 + s * (1 ±0)`
+		//  Estimated: `6811`
+		// Minimum execution time: 30_328_000 picoseconds.
+		Weight::from_parts(34_135_440, 0)
+			.saturating_add(Weight::from_parts(0, 6811))
+			// Standard Error: 4_398
+			.saturating_add(Weight::from_parts(161_074, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// The range of component `z` is `[0, 10000]`.
 	fn as_multi_threshold_1(z: u32, ) -> Weight {
 		// Proof Size summary in bytes:
