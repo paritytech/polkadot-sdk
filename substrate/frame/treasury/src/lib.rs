@@ -489,6 +489,7 @@ pub mod pallet {
 		}
 	}
 
+	/// Temporarily tracks spending limits within the current block to prevent overspending.
 	#[derive(Default)]
 	struct SpendContext<Balance> {
 		spend_in_context: BTreeMap<Balance, Balance>,

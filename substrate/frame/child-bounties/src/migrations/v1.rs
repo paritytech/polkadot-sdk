@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
+use crate::*;
 use core::marker::PhantomData;
 use frame_support::{
 	storage_alias,
@@ -136,7 +136,7 @@ pub mod v1 {
 					);
 				}
 				if let Some(bounty_description) = bounty_description {
-					super::super::ChildBountyDescriptionsV1::<T>::insert(
+					crate::ChildBountyDescriptionsV1::<T>::insert(
 						parent_bounty_id,
 						new_child_bounty_id,
 						bounty_description,
