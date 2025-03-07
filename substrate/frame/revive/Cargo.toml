@@ -26,6 +26,9 @@ ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 hex-literal = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
+num-bigint = { workspace = true }
+num-integer = { workspace = true }
+num-traits = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.21.0", default-features = false }
 polkavm-common = { version = "0.21.0", default-features = false, optional = true }
@@ -117,6 +120,8 @@ std = [
 	"subxt-signer",
 	"xcm-builder/std",
 	"xcm/std",
+	"num-integer/std",
+	"num-traits/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

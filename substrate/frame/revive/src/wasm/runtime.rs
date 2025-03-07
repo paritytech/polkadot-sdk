@@ -412,6 +412,8 @@ pub enum RuntimeCosts {
 	Identity(u32),
 	/// Weight of calling `Blake2F` precompile for the given number of rounds.
 	Blake2F(u32),
+	/// Weight of calling `Modexp` precompile
+	Modexp(u64),
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -546,6 +548,20 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Bn128Pairing(len) => T::WeightInfo::bn128_pairing(len),
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
+			Modexp(gas) => {
+				use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
+				/// Current approximation of the gas/s consumption considering
+				/// EVM execution over compiled WASM (on 4.4Ghz CPU).
+				/// Given the 2000ms Weight, from which 75% only are used for transactions,
+				/// the total EVM execution gas limit is: GAS_PER_SECOND * 2 * 0.75 ~= 60_000_000.
+				const GAS_PER_SECOND: u64 = 40_000_000;
+
+				/// Approximate ratio of the amount of Weight per Gas.
+				/// u64 works for approximations because Weight is a very small unit compared to
+				/// gas.
+				const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
+				Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0)
+			},
 		}
 	}
 }

@@ -32,6 +32,9 @@ pub use identity::*;
 mod bn128;
 pub use bn128::*;
 
+mod modexp;
+pub use modexp::*;
+
 mod blake2f;
 pub use blake2f::*;
 
@@ -59,7 +62,7 @@ impl<T: Config> Precompiles<T> {
 			2u8 => Sha256::execute(gas_meter, input),
 			3u8 => Ripemd160::execute(gas_meter, input),
 			4u8 => Identity::execute(gas_meter, input),
-			// TODO support Modexp
+			5u8 => Modexp::execute(gas_meter, input),
 			6u8 => Bn128Add::execute(gas_meter, input),
 			7u8 => Bn128Mul::execute(gas_meter, input),
 			8u8 => Bn128Pairing::execute(gas_meter, input),
@@ -98,6 +101,16 @@ mod test {
 
 	/// Tests a precompile against the ethereum consensus tests defined in the given file at
 	/// filepath. The file is expected to be in JSON format and contain an array of test vectors,
+	/// where each vector can be deserialized into an "EthConsensusTest".
+	pub fn run_precompile<P: Precompile<crate::tests::Test>>(
+		input: Vec<u8>,
+	) -> Result<ExecReturnValue, &'static str> {
+		let mut gas_meter = GasMeter::<Test>::new(Weight::MAX);
+		P::execute(&mut gas_meter, &input)
+	}
+
+	/// Tests a precompile against the ethereum consensus tests defined in the given json
+	/// The  JSON format is expected to contain an array of test vectors,
 	/// where each vector can be deserialized into an "EthConsensusTest".
 	pub fn test_precompile_test_vectors<P: Precompile<crate::tests::Test>>(
 		json: &str,
