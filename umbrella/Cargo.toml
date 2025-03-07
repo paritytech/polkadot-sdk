@@ -1847,7 +1847,7 @@ version = "=41.0.0-rc1"
 default-features = false
 optional = true
 path = "../substrate/primitives/keystore"
-version = "0.41.0"
+version = "=0.41.1-rc1"
 
 [dependencies.sp-metadata-ir]
 default-features = false
