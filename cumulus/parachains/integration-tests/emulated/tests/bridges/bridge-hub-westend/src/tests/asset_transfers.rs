@@ -126,7 +126,7 @@ fn send_assets_from_penpal_westend_through_westend_ah_to_rococo_ah(
 /// - foreign asset / bridged asset (other bridge / Snowfork): wETH (bridged from Ethereum to
 ///   Westend over Snowbridge, then bridged over to Rococo through this bridge).
 fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
-	use sp_tracing::capture_test_logs;
+	use sp_tracing::{capture_test_logs, tracing::Level};
 	use std::{thread::sleep, time::Duration};
 
 	let amount = ASSET_HUB_WESTEND_ED * 1_000;
@@ -163,7 +163,7 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 		let fee_idx = 0;
 		let expected_log =
 			format!("destination: {:?}, message: Xcm([ReserveAssetDeposited", destination.clone());
-		let log_capture = capture_test_logs!({
+		let log_capture = capture_test_logs!(Level::INFO, false, {
 			let result = send_assets_from_asset_hub_westend(destination, assets, fee_idx);
 			assert_ok!(result);
 		});
@@ -551,7 +551,7 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo_t
 
 #[test]
 fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to_penpal_rococo() {
-	use sp_tracing::capture_test_logs;
+	use sp_tracing::{capture_test_logs, tracing::Level};
 	use std::{thread::sleep, time::Duration};
 
 	let amount = WESTEND_ED * 1_000;
@@ -662,7 +662,7 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 		send_assets_over_bridge(|| {
 			// send message over bridge
 			let expected_log = format!("destination: {:?}, message: Xcm([])", local_asset_hub);
-			let log_capture = capture_test_logs!({
+			let log_capture = capture_test_logs!(Level::INFO, false, {
 				let result = Westend::execute_with(|| {
 					Dmp::<<Westend as Chain>::Runtime>::make_parachain_reachable(
 						AssetHubWestend::para_id(),
