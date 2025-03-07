@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk"
-version = "0.13.0-rc1"
+version = "2503.0.0-rc1"
 description = "Polkadot SDK umbrella crate."
 license = "Apache-2.0"
 
@@ -1835,7 +1835,7 @@ version = "35.0.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/io"
-version = "39.0.0"
+version = "=39.0.1-rc1"
 
 [dependencies.sp-keyring]
 default-features = false
