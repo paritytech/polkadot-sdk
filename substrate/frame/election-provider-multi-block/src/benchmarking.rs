@@ -20,7 +20,7 @@ use crate::{
 	Config, CurrentPhase, Pallet, Phase, Snapshot,
 };
 use frame_benchmarking::v2::*;
-use frame_election_provider_support::ElectionDataProvider;
+use frame_election_provider_support::{ElectionDataProvider, ElectionProvider};
 use frame_support::pallet_prelude::*;
 
 const SNAPSHOT_NOT_BIG_ENOUGH: &'static str = "Snapshot page is not full, you should run this \
@@ -32,9 +32,8 @@ as per VoterSnapshotPerBlock and TargetSnapshotPerBlock. Generate at least \
 mod benchmarks {
 	use super::*;
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_nothing() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
 
 		#[block]
@@ -46,18 +45,15 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_into_snapshot_msp() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
 
-		// roll to next block until we are about to go into the snapshot.
-		Pallet::<T>::run_until_before_matches(|| {
-			matches!(CurrentPhase::<T>::get(), Phase::Snapshot(_))
-		});
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
-		// since we reverted the last page, we are still in phase Off.
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get()));
 
 		#[block]
 		{
@@ -65,7 +61,7 @@ mod benchmarks {
 		}
 
 		// we have collected the target snapshot only
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get()));
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get() - 1));
 		assert_eq!(
 			Snapshot::<T>::targets_decode_len().unwrap() as u32,
 			T::TargetSnapshotPerBlock::get(),
@@ -77,15 +73,19 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_into_snapshot_rest() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// roll to the first block of the snapshot.
-		Pallet::<T>::roll_until_matches(|| matches!(CurrentPhase::<T>::get(), Phase::Snapshot(_)));
+		Pallet::<T>::roll_until_matches(|| {
+			CurrentPhase::<T>::get() == Phase::Snapshot(T::Pages::get() - 1)
+		});
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get()));
 		// we have collected the target snapshot only
 		assert_eq!(
 			Snapshot::<T>::targets_decode_len().unwrap() as u32,
@@ -101,7 +101,7 @@ mod benchmarks {
 		}
 
 		// we have now collected the first page of voters.
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get() - 1));
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(T::Pages::get() - 2));
 		// it must be full
 		assert_eq!(
 			Snapshot::<T>::voters_decode_len(T::Pages::get() - 1).unwrap() as u32,
@@ -112,10 +112,15 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_into_signed() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
-		Pallet::<T>::run_until_before_matches(|| matches!(CurrentPhase::<T>::get(), Phase::Signed));
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
+		Pallet::<T>::roll_until_before_matches(|| {
+			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
+		});
 
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(0));
 
@@ -124,19 +129,22 @@ mod benchmarks {
 			Pallet::<T>::roll_next(true, false);
 		}
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Signed);
+		assert!(CurrentPhase::<T>::get().is_signed());
 
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_into_signed_validation() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
-		Pallet::<T>::run_until_before_matches(|| {
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
+		Pallet::<T>::roll_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
 		});
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Signed);
+		assert!(CurrentPhase::<T>::get().is_signed());
 
 		#[block]
 		{
@@ -146,10 +154,13 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_into_unsigned() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
-		Pallet::<T>::run_until_before_matches(|| {
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
+		Pallet::<T>::roll_until_before_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
 		assert!(matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_)));
@@ -163,9 +174,11 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn export_non_terminal() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// submit a full solution.
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
@@ -193,9 +206,11 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn export_terminal() -> Result<(), BenchmarkError> {
-		T::DataProvider::set_next_election(Pallet::<T>::reasonable_next_election());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// submit a full solution.
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
@@ -230,7 +245,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn manage() -> Result<(), BenchmarkError> {
 		#[block]
 		{}

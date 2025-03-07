@@ -23,6 +23,9 @@
 
 extern crate alloc;
 
+/// Export everything needed for the pallet to be used in the runtime.
+pub use pallet::*;
+
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
 use sp_core::crypto::AccountId32;

@@ -286,35 +286,26 @@ mod pallet {
 				"lock for offchain worker acquired. Phase = {:?}",
 				current_phase
 			);
-			match current_phase {
-				Phase::Unsigned(opened) if opened == now => {
-					// Mine a new solution, cache it, and attempt to submit it
-					let initial_output =
-						OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(now)
-							.and_then(|_| OffchainWorkerMiner::<T>::mine_check_save_submit());
-					sublog!(
-						debug,
-						"unsigned",
-						"initial offchain worker output: {:?}",
-						initial_output
-					);
-				},
-				Phase::Unsigned(opened) if opened < now => {
-					// Try and resubmit the cached solution, and recompute ONLY if it is not
-					// feasible.
-					let resubmit_output =
-						OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(now).and_then(
-							|_| OffchainWorkerMiner::<T>::restore_or_compute_then_maybe_submit(),
-						);
-					sublog!(
-						debug,
-						"unsigned",
-						"resubmit offchain worker output: {:?}",
-						resubmit_output
-					);
-				},
-				_ => {},
-			}
+			if current_phase.is_unsigned_opened_now() {
+				// Mine a new solution, cache it, and attempt to submit it
+				let initial_output =
+					OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(now)
+						.and_then(|_| OffchainWorkerMiner::<T>::mine_check_save_submit());
+				sublog!(debug, "unsigned", "initial offchain worker output: {:?}", initial_output);
+			} else if current_phase.is_unsigned() {
+				// Try and resubmit the cached solution, and recompute ONLY if it is not
+				// feasible.
+				let resubmit_output = OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(
+					now,
+				)
+				.and_then(|_| OffchainWorkerMiner::<T>::restore_or_compute_then_maybe_submit());
+				sublog!(
+					debug,
+					"unsigned",
+					"resubmit offchain worker output: {:?}",
+					resubmit_output
+				);
+			};
 		}
 
 		/// The checks that should happen in the `ValidateUnsigned`'s `pre_dispatch` and
@@ -517,8 +508,8 @@ mod validate_unsigned {
 			));
 
 			// signed
-			roll_to(20);
-			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
+			roll_to_signed_open();
+			assert!(MultiBlock::current_phase().is_signed());
 			assert!(matches!(
 				<UnsignedPallet as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -550,7 +541,7 @@ mod validate_unsigned {
 			.miner_tx_priority(20)
 			.desired_targets(0)
 			.build_and_execute(|| {
-				roll_to(25);
+				roll_to_unsigned_open();
 				assert!(MultiBlock::current_phase().is_unsigned());
 
 				let solution =
@@ -578,7 +569,7 @@ mod call {
 	fn unsigned_submission_e2e() {
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
-			roll_to_snapshot_created();
+			roll_to_unsigned_open();
 
 			// snapshot is created..
 			assert_full_snapshot();
@@ -606,7 +597,7 @@ mod call {
 	fn unfeasible_solution_panics() {
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
-			roll_to_snapshot_created();
+			roll_to_unsigned_open();
 
 			// snapshot is created..
 			assert_full_snapshot();
