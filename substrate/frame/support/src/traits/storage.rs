@@ -292,8 +292,7 @@ macro_rules! impl_incrementable {
 		$(
 			impl Incrementable for $type {
 				fn increment(&self) -> Option<Self> {
-					let val = self.clone();
-					val.checked_add(1)
+					self.checked_add(1)
 				}
 
 				fn initial_value() -> Option<Self> {
