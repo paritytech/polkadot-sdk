@@ -27,7 +27,9 @@ use bridge_hub_rococo_runtime::{
 use bridge_hub_test_utils::{GovernanceOrigin, SlotDurations};
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
+use hex_literal::hex;
 use parachains_common::{AccountId, AuraId, Balance};
+use parachains_runtimes_test_utils::ExtBuilder;
 use snowbridge_core::ChannelId;
 use sp_consensus_aura::SlotDuration;
 use sp_core::{crypto::Ss58Codec, H160};
@@ -37,7 +39,7 @@ use sp_runtime::{
 	AccountId32, Perbill,
 };
 use testnet_parachains_constants::rococo::{consensus::*, fee::WeightToFee};
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 parameter_types! {
@@ -851,20 +853,142 @@ fn location_conversion_works() {
 			),
 			expected_account_id_str: "5DBoExvojy8tYnHgLL97phNH975CyT45PWTZEeGoBZfAyRMH",
 		},
+		// ExternalConsensusLocationsConverterFor
+		TestCase {
+			description: "Describe Ethereum Location",
+			location: Location::new(2, [GlobalConsensus(Ethereum { chain_id: 11155111 })]),
+			expected_account_id_str: "5GjRnmh5o3usSYzVmsxBWzHEpvJyHK4tKNPhjpUR3ASrruBy",
+		},
+		TestCase {
+			description: "Describe Ethereum AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(Ethereum { chain_id: 11155111 }),
+					AccountKey20 {
+						network: None,
+						key: hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d"),
+					},
+				],
+			),
+			expected_account_id_str: "5HV4j4AsqT349oLRZmTjhGKDofPBWmWaPUfWGaRkuvzkjW9i",
+		},
+		TestCase {
+			description: "Describe Westend Location",
+			location: Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]),
+			expected_account_id_str: "5Fb4pyqFuYLZ43USEAcVUBhFTfTckG9zv9kUaVnmR79YgBCe",
+		},
+		TestCase {
+			description: "Describe Westend AccountID",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() },
+				],
+			),
+			expected_account_id_str: "5EEB1syXCCSEFk26ZYjH47WMp1QjYHf3q5zcnqWWY9Tr6gUc",
+		},
+		TestCase {
+			description: "Describe Westend AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					AccountKey20 { network: None, key: [0u8; 20] },
+				],
+			),
+			expected_account_id_str: "5FzaTcFwUMyX5Sfe7wRGuc3zw1cbpGAGZpmAsxS4tBX6x6U3",
+		},
+		TestCase {
+			description: "Describe Westend Treasury Plurality",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+				],
+			),
+			expected_account_id_str: "5CpdRCmCYwnxS1mifwEddYHDJR8ydDfTpi1gwAQKQvfAjjzu",
+		},
+		TestCase {
+			description: "Describe Westend Parachain Location",
+			location: Location::new(
+				2,
+				[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)],
+			),
+			expected_account_id_str: "5CkWf1L181BiSbvoofnzfSg8ZLiBK3i1U4sknzETHk8QS2mA",
+		},
+		TestCase {
+			description: "Describe Westend Parachain AccountID",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() },
+				],
+			),
+			expected_account_id_str: "5HBG915qTKYWzqEs4VocHLCa7ftC7JfJCpvSxk6LmXWJvhbU",
+		},
+		TestCase {
+			description: "Describe Westend Parachain AccountKey",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					AccountKey20 { network: None, key: [0u8; 20] },
+				],
+			),
+			expected_account_id_str: "5EFpSvq8BUAjdjY4tuGhGXZ66P16iQnX7nxsNoHy7TM6NhMa",
+		},
+		TestCase {
+			description: "Describe Westend Parachain Treasury Plurality",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+				],
+			),
+			expected_account_id_str: "5GfwA4qaz9wpQPPHmf5MSKqvsPyrfx1yYeeZB1SUkqDuRuZ1",
+		},
+		TestCase {
+			description: "Describe Westend USDT Location",
+			location: Location::new(
+				2,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(1000),
+					PalletInstance(50),
+					GeneralIndex(1984),
+				],
+			),
+			expected_account_id_str: "5Hd77ZjbVRrYiRXER8qo9DRDB8ZzaKtRswZoypMnMLdixzMs",
+		},
 	];
 
-	for tc in test_cases {
-		let expected =
-			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.with_para_id(1000.into())
+		.build()
+		.execute_with(|| {
+			for tc in test_cases {
+				let expected = AccountId::from_string(tc.expected_account_id_str)
+					.expect("Invalid AccountId string");
 
-		let got = LocationToAccountHelper::<
-			AccountId,
-			bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
-		>::convert_location(tc.location.into())
-		.unwrap();
+				let got = LocationToAccountHelper::<
+					AccountId,
+					bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
+				>::convert_location(tc.location.into())
+				.unwrap();
 
-		assert_eq!(got, expected, "{}", tc.description);
-	}
+				assert_eq!(got, expected, "{}", tc.description);
+			}
+		});
 }
 
 #[test]
