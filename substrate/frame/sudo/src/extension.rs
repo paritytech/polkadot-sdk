@@ -23,7 +23,7 @@ use frame_support::{dispatch::DispatchInfo, ensure, pallet_prelude::TransactionS
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension},
+	traits::{AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Hash, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, UnknownTransaction,
 		ValidTransaction,
@@ -111,7 +111,7 @@ where
 		Ok((
 			ValidTransaction {
 				priority: info.total_weight().ref_time() as TransactionPriority,
-				provides: vec![(who, call).encode()],
+				provides: vec![(who, T::Hashing::hash_of(call)).encode()],
 				..Default::default()
 			},
 			(),
