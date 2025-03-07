@@ -1662,6 +1662,7 @@ where
 							DhtEvent::ValuePut(_) => "value-put",
 							DhtEvent::ValuePutFailed(_) => "value-put-failed",
 							DhtEvent::PutRecordRequest(_, _, _, _) => "put-record-request",
+							DhtEvent::StartedProviding(_) => "started-providing",
 							DhtEvent::StartProvidingFailed(_) => "start-providing-failed",
 							DhtEvent::ProvidersFound(_, _) => "providers-found",
 							DhtEvent::NoMoreProviders(_) => "no-more-providers",

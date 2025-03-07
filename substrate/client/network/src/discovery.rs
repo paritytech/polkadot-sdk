@@ -469,7 +469,8 @@ impl DiscoveryBehaviour {
 		if let Some(kad) = self.kademlia.as_mut() {
 			if let Err(e) = kad.start_providing(key.clone()) {
 				warn!(target: LOG_TARGET, "Libp2p => Failed to start providing {key:?}: {e}.");
-				self.pending_events.push_back(DiscoveryOut::StartProvidingFailed(key));
+				self.pending_events
+					.push_back(DiscoveryOut::StartProvidingFailed(key, Duration::from_secs(0)));
 			}
 		}
 	}
@@ -604,8 +605,11 @@ pub enum DiscoveryOut {
 	/// Returning the corresponding key as well as the request duration.
 	ValuePutFailed(RecordKey, Duration),
 
+	/// The content provider for a given key was successfully published.
+	StartedProviding(RecordKey, Duration),
+
 	/// Starting providing a key failed.
-	StartProvidingFailed(RecordKey),
+	StartProvidingFailed(RecordKey, Duration),
 
 	/// The DHT yielded results for the providers request.
 	ProvidersFound(RecordKey, HashSet<PeerId>, Duration),
@@ -1088,12 +1092,19 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						..
 					} => {
 						let ev = match res {
-							Ok(ok) =>
-								DiscoveryOut::ValuePut(ok.key, stats.duration().unwrap_or_default()),
+							Ok(ok) => {
+								trace!(
+									target: LOG_TARGET,
+									"Libp2p => Put record for key: {:?}",
+									ok.key,
+								);
+								DiscoveryOut::ValuePut(ok.key, stats.duration().unwrap_or_default())
+							},
 							Err(e) => {
 								debug!(
 									target: LOG_TARGET,
-									"Libp2p => Failed to put record: {:?}",
+									"Libp2p => Failed to put record for key {:?}: {:?}",
+									e.key(),
 									e,
 								);
 								DiscoveryOut::ValuePutFailed(
@@ -1118,6 +1129,38 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							"Libp2p => Republishing of record {:?} failed with: {:?}",
 							e.key(), e,
 						),
+					},
+					KademliaEvent::OutboundQueryProgressed {
+						result: QueryResult::StartProviding(res),
+						stats,
+						..
+					} => {
+						let ev = match res {
+							Ok(ok) => {
+								trace!(
+									target: LOG_TARGET,
+									"Libp2p => Started providing key {:?}",
+									ok.key,
+								);
+								DiscoveryOut::StartedProviding(
+									ok.key,
+									stats.duration().unwrap_or_default(),
+								)
+							},
+							Err(e) => {
+								debug!(
+									target: LOG_TARGET,
+									"Libp2p => Failed to start providing key {:?}: {:?}",
+									e.key(),
+									e,
+								);
+								DiscoveryOut::StartProvidingFailed(
+									e.into_key(),
+									stats.duration().unwrap_or_default(),
+								)
+							},
+						};
+						return Poll::Ready(ToSwarm::GenerateEvent(ev))
 					},
 					KademliaEvent::OutboundQueryProgressed {
 						result: QueryResult::Bootstrap(res),

@@ -406,8 +406,10 @@ impl From<DiscoveryOut> for BehaviourOut {
 				),
 			DiscoveryOut::ValuePutFailed(key, duration) =>
 				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key.into()), Some(duration)),
-			DiscoveryOut::StartProvidingFailed(key) =>
-				BehaviourOut::Dht(DhtEvent::StartProvidingFailed(key.into()), None),
+			DiscoveryOut::StartedProviding(key, duration) =>
+				BehaviourOut::Dht(DhtEvent::StartedProviding(key.into()), Some(duration)),
+			DiscoveryOut::StartProvidingFailed(key, duration) =>
+				BehaviourOut::Dht(DhtEvent::StartProvidingFailed(key.into()), Some(duration)),
 			DiscoveryOut::ProvidersFound(key, providers, duration) => BehaviourOut::Dht(
 				DhtEvent::ProvidersFound(
 					key.into(),
