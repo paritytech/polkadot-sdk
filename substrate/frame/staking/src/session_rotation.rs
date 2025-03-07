@@ -64,9 +64,8 @@ impl<T: Config> Rotator<T> {
 		self.planning_session() - era_start_session
 	}
 
-	/// Returns the session index, relative to current planning session, at which the election
-	/// should be kicked off.
-	pub(crate) fn election_session_index(&self) -> SessionIndex {
+	/// Returns the session index at which we should start planning for the new era
+	pub(crate) fn next_planning_era(&self) -> SessionIndex {
 		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
 		T::SessionsPerEra::get().saturating_sub(election_offset)
 	}
@@ -87,6 +86,7 @@ impl<T: Config> Rotator<T> {
 	/// - Finalizing the current active era by computing staking payouts.
 	/// - Rolling over to the next era to maintain synchronization in the staking system.
 	pub(crate) fn activate_new_era(&self, new_era_start: u64) {
+		debug_assert!(CurrentEra::<T>::get().unwrap() == ActiveEra::<T>::get().unwrap().index + 1);
 		if let Some(current_active_era) = ActiveEra::<T>::get() {
 			let previous_era_start = current_active_era.start.defensive_unwrap_or(new_era_start);
 			let era_duration = new_era_start.saturating_sub(previous_era_start);
@@ -97,16 +97,21 @@ impl<T: Config> Rotator<T> {
 		}
 	}
 
-	/// Plans a new era and cleans up outdated era information.
+	/// Plans a new era by kicking off the election process.
 	///
 	/// The newly planned era is targeted to activate in the next session.
 	pub(crate) fn plan_new_era(&self) {
+		// todo: send this as id for the validator set.
 		let new_planned_era = CurrentEra::<T>::mutate(|s| {
 			*s = Some(s.map(|s| s + 1).unwrap_or(0));
 			s.unwrap()
 		});
 
 		ErasStartSessionIndex::<T>::insert(&new_planned_era, &self.planning_session());
+
+		// this seems a good time for elections.
+		log!(info, "sending election start signal");
+		let _ = T::ElectionProvider::start();
 
 		Pallet::<T>::clear_election_metadata();
 		// discard the ancient era info.

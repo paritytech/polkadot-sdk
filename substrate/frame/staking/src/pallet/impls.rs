@@ -1655,7 +1655,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			progress
 		);
 
-		// common logic for all session types.
+		// plan the next session.
 		session_rotator.plan_new_session();
 
 		if let Some((this_era_start, _id)) = activation_timestamp {
@@ -1666,17 +1666,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			return;
 		}
 
-		// if this is the last session before planned era rotation, we plan a new era that is
-		// expected to activate in the next session.
-		let last_session = T::SessionsPerEra::get().saturating_sub(1);
-		if progress == last_session {
+		if progress == session_rotator.next_planning_era() {
 			session_rotator.plan_new_era();
-		}
-
-		if progress == session_rotator.election_session_index() {
-			// this seems a good time for elections.
-			log!(info, "sending election start signal");
-			let _ = T::ElectionProvider::start();
 		}
 	}
 
