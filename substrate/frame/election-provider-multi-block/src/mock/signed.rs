@@ -178,10 +178,7 @@ pub fn load_signed_for_verification_and_start(
 				from: Phase::Snapshot(0),
 				to: Phase::Signed(SignedPhase::get() - 1)
 			},
-			Event::PhaseTransitioned {
-				from: Phase::Signed(0),
-				to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
-			}
+			Event::PhaseTransitioned { from: Phase::Signed(0), to: Phase::SignedValidation(SignedValidationPhase::get() - 1) }
 		]
 	);
 	assert_eq!(verifier_events(), vec![]);

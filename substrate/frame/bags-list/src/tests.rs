@@ -169,6 +169,7 @@ mod pallet {
 			// 5 is added
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1, 5]), (1_000, vec![2, 3, 4])]);
 		});
+
 	}
 
 	// Rebagging the tail of a bag results in the old bag having a new tail and an overall correct

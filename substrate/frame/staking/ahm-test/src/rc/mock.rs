@@ -134,6 +134,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutgoingMessages {
 	SessionReport(rc_client::SessionReport<AccountId>),

@@ -1825,10 +1825,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	}
 
 	fn start() -> Result<(), Self::Error> {
-		log!(
-			warn,
-			"we received signal, but this pallet works in the basis of legacy pull based election"
-		);
+		log!(warn, "we received signal, but this pallet works in the basis of legacy pull based election");
 		Ok(())
 	}
 

@@ -1041,7 +1041,10 @@ pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type Sort = ConstBool<true>;
 	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
+	type Solver = SequentialPhragmen<
+		AccountId,
+		SolutionAccuracyOf<Runtime>,
+	>;
 	type DataProvider = Staking;
 	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
 	type Bounds = ElectionBoundsOnChain;
