@@ -1288,7 +1288,7 @@ sp-runtime-interface-test-wasm = { path = "substrate/primitives/runtime-interfac
 sp-runtime-interface-test-wasm-deprecated = { path = "substrate/primitives/runtime-interface/test-wasm-deprecated", version = "2.0.0" }
 sp-session = { path = "substrate/primitives/session", default-features = false, version = "38.0.0-rc1" }
 sp-staking = { path = "substrate/primitives/staking", default-features = false, version = "38.0.0-rc1" }
-sp-state-machine = { path = "substrate/primitives/state-machine", default-features = false, version = "0.44.0" }
+sp-state-machine = { path = "substrate/primitives/state-machine", default-features = false, version = "0.44.1-rc1" }
 sp-statement-store = { path = "substrate/primitives/statement-store", default-features = false, version = "20.0.0-rc1" }
 sp-std = { path = "substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-storage = { path = "substrate/primitives/storage", default-features = false, version = "22.0.0" }

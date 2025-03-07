@@ -1913,7 +1913,7 @@ version = "=38.0.0-rc1"
 default-features = false
 optional = true
 path = "../substrate/primitives/state-machine"
-version = "0.44.0"
+version = "=0.44.1-rc1"
 
 [dependencies.sp-statement-store]
 default-features = false
