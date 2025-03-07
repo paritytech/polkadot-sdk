@@ -214,7 +214,7 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
 	type CongestionLimits = ();
 }
 
-/// XCM router instance to the local `pallet_xcm_bridge_hub::<XcmOverAssetHubWestendInstance>` with
+/// XCM router instance to the local `pallet_xcm_bridge::<XcmOverAssetHubWestendInstance>` with
 /// direct bridging capabilities for `Westend` global consensus with dynamic fees and back-pressure.
 pub type ToWestendOverAssetHubWestendXcmRouterInstance = pallet_xcm_bridge_router::Instance4;
 impl pallet_xcm_bridge_router::Config<ToWestendOverAssetHubWestendXcmRouterInstance> for Runtime {
@@ -232,7 +232,7 @@ impl pallet_xcm_bridge_router::Config<ToWestendOverAssetHubWestendXcmRouterInsta
 		LocalExporter<XcmOverAssetHubWestend, UniversalLocation>,
 	>;
 
-	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge_hub` on
+	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge` on
 	// the BH.
 	type BridgeIdResolver =
 		pallet_xcm_bridge_router::impls::EnsureIsRemoteBridgeIdResolver<UniversalLocation>;

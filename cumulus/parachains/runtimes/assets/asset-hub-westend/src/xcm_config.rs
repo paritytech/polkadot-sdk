@@ -463,8 +463,8 @@ impl xcm_executor::Config for XcmConfig {
 		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
 	type MessageExporter = (
-		// AH's permissionless lanes support exporting to Westend.
-		XcmOverAssetHubRococo,	
+		// AH's permissionless lanes support exporting to Rococo.
+		XcmOverAssetHubRococo,
 	);
 	type UniversalAliases =
 		(bridging::to_rococo::UniversalAliases, bridging::to_ethereum::UniversalAliases);

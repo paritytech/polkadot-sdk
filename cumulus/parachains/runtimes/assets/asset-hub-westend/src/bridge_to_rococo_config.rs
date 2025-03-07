@@ -48,7 +48,7 @@ use parachains_common::xcm_config::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::Convert;
-use testnet_parachains_constants::westend::currency::UNITS as ROC;
+use testnet_parachains_constants::westend::currency::UNITS as WND;
 use xcm::{
 	latest::{prelude::*, ROCOCO_GENESIS_HASH},
 	prelude::NetworkId,
@@ -76,7 +76,7 @@ parameter_types! {
 		]
 	);
 
-	pub storage BridgeDeposit: Balance = 5 * ROC;
+	pub storage BridgeDeposit: Balance = 5 * WND;
 }
 
 /// Transaction extension that refunds relayers that are delivering messages from the Rococo
@@ -214,9 +214,9 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubRococoInstance> for Runtime {
 	type CongestionLimits = ();
 }
 
-/// XCM router instance to the local `pallet_xcm_bridge_hub::<XcmOverAssetHubRococoInstance>` with
+/// XCM router instance to the local `pallet_xcm_bridge::<XcmOverAssetHubRococoInstance>` with
 /// direct bridging capabilities for `Rococo` global consensus with dynamic fees and back-pressure.
-pub type ToRococoOverAssetHubRococoXcmRouterInstance = pallet_xcm_bridge_router::Instance4;
+pub type ToRococoOverAssetHubRococoXcmRouterInstance = pallet_xcm_bridge_router::Instance2;
 impl pallet_xcm_bridge_router::Config<ToRococoOverAssetHubRococoXcmRouterInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo =
@@ -232,7 +232,7 @@ impl pallet_xcm_bridge_router::Config<ToRococoOverAssetHubRococoXcmRouterInstanc
 		LocalExporter<XcmOverAssetHubRococo, UniversalLocation>,
 	>;
 
-	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge_hub` on
+	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge` on
 	// the BH.
 	type BridgeIdResolver =
 		pallet_xcm_bridge_router::impls::EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
