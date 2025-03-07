@@ -137,8 +137,7 @@ parameter_types! {
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMax: Balance = 1_000;
 	pub const CuratorDepositMin: Balance = 3;
-	pub static BountyUpdatePeriod: Option<u64> = Some(20);
-
+	pub static BountyUpdatePeriod: u64 = 20;
 }
 
 impl Config for Test {
@@ -1446,8 +1445,8 @@ fn accept_curator_sets_update_due_correctly() {
 			BountyStatus::Active { curator, update_due: 24 }
 		);
 
-		// Given (BountyUpdatePeriod = None)
-		BountyUpdatePeriod::set(None);
+		// Given (BountyUpdatePeriod = BlockNumber::max_value())
+		BountyUpdatePeriod::set(BlockNumberFor::<Test>::max_value());
 		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
 		assert_ok!(Bounties1::propose_bounty(
 			RuntimeOrigin::signed(proposer),
