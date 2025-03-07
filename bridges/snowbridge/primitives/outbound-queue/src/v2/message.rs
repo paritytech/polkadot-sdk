@@ -5,7 +5,6 @@
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{pallet_prelude::ConstU32, BoundedVec};
 use scale_info::TypeInfo;
-use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::vec::Vec;
 
@@ -257,12 +256,10 @@ pub struct Initializer {
 pub trait SendMessage {
 	type Ticket: Clone + Encode + Decode;
 
-	type Balance: BaseArithmetic + Unsigned + Copy;
-
 	/// Validate an outbound message and return a tuple:
 	/// 1. Ticket for submitting the message
 	/// 2. Delivery fee
-	fn validate(message: &Message) -> Result<(Self::Ticket, Self::Balance), SendError>;
+	fn validate(message: &Message) -> Result<Self::Ticket, SendError>;
 
 	/// Submit the message ticket for eventual delivery to Ethereum
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError>;

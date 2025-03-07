@@ -24,7 +24,7 @@ fn submit_messages_and_commit() {
 	new_tester().execute_with(|| {
 		for para_id in 1000..1004 {
 			let message = mock_message(para_id);
-			let (ticket, _) = OutboundQueue::validate(&message).unwrap();
+			let ticket = OutboundQueue::validate(&message).unwrap();
 			assert_ok!(OutboundQueue::deliver(ticket));
 		}
 
@@ -154,7 +154,7 @@ fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_
 		for _ in 0..max_messages {
 			// submit low priority message
 			let message = mock_message(sibling_id);
-			let (ticket, _) = OutboundQueue::validate(&message).unwrap();
+			let ticket = OutboundQueue::validate(&message).unwrap();
 			OutboundQueue::deliver(ticket).unwrap();
 		}
 
@@ -163,7 +163,7 @@ fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_
 		assert_eq!(footprint.storage.count, (max_messages) as u64);
 
 		let message = mock_governance_message::<Test>();
-		let (ticket, _) = OutboundQueue::validate(&message).unwrap();
+		let ticket = OutboundQueue::validate(&message).unwrap();
 		OutboundQueue::deliver(ticket).unwrap();
 
 		// move to next block

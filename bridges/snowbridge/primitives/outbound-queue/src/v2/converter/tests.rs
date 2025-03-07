@@ -22,10 +22,8 @@ struct MockOkOutboundQueue;
 impl SendMessage for MockOkOutboundQueue {
 	type Ticket = ();
 
-	type Balance = u128;
-
-	fn validate(_: &Message) -> Result<(Self::Ticket, Self::Balance), SendError> {
-		Ok(((), 1_u128))
+	fn validate(_: &Message) -> Result<Self::Ticket, SendError> {
+		Ok(())
 	}
 
 	fn deliver(_: Self::Ticket) -> Result<H256, SendError> {
@@ -44,9 +42,7 @@ struct MockErrOutboundQueue;
 impl SendMessage for MockErrOutboundQueue {
 	type Ticket = ();
 
-	type Balance = u128;
-
-	fn validate(_: &Message) -> Result<(Self::Ticket, Self::Balance), SendError> {
+	fn validate(_: &Message) -> Result<Self::Ticket, SendError> {
 		Err(SendError::MessageTooLarge)
 	}
 

@@ -236,7 +236,7 @@ pub mod pallet {
 			let hash = sp_io::hashing::blake2_256(&message.encode());
 			message.id = hash.into();
 
-			let (ticket, _) = <T as pallet::Config>::OutboundQueue::validate(&message)
+			let ticket = <T as pallet::Config>::OutboundQueue::validate(&message)
 				.map_err(|err| Error::<T>::Send(err))?;
 
 			<T as pallet::Config>::OutboundQueue::deliver(ticket)

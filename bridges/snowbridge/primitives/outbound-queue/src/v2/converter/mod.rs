@@ -63,7 +63,7 @@ impl<
 where
 	UniversalLocation: Get<InteriorLocation>,
 	EthereumNetwork: Get<NetworkId>,
-	OutboundQueue: SendMessage<Balance = u128>,
+	OutboundQueue: SendMessage,
 	AgentHashedDescription: ConvertLocation<H256>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	AssetHubParaId: Get<ParaId>,
@@ -153,7 +153,7 @@ where
 		})?;
 
 		// validate the message
-		let (ticket, _) = OutboundQueue::validate(&message).map_err(|err| {
+		let ticket = OutboundQueue::validate(&message).map_err(|err| {
 			log::error!(target: TARGET, "OutboundQueue validation of message failed. {err:?}");
 			SendError::Unroutable
 		})?;
