@@ -89,7 +89,7 @@ parameter_types! {
 	pub InboundQueueLocation: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
 	pub SnowbridgeFrontendLocation: Location = Location::new(1,[Parachain(ASSET_HUB_ID),PalletInstance(FRONTEND_PALLET_INDEX)]);
 	pub AssetHubXCMFee: u128 = 1_000_000_000_000u128;
-	pub const DefaultMyRewardKind: BridgeReward = BridgeReward::Snowbridge;
+	pub const SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
 }
 
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
@@ -154,7 +154,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 		<Runtime as frame_system::Config>::AccountId,
 	>;
 	type RewardKind = BridgeReward;
-	type DefaultRewardKind = DefaultMyRewardKind;
+	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
 }
 
@@ -189,7 +189,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type EthereumNetwork = EthereumNetwork;
 	type RewardKind = BridgeReward;
 
-	type DefaultRewardKind = DefaultMyRewardKind;
+	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
 }
 

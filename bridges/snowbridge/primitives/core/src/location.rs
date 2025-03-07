@@ -27,7 +27,7 @@ pub type AgentId = H256;
 pub type AgentIdOf = HashedDescription<
 	AgentId,
 	(
-		DescribeHere,
+		DescribeTerminus,
 		DescribeFamily<DescribeAllTerminal>,
 		DescribeGlobalPrefix<(DescribeTerminus, DescribeFamily<DescribeTokenTerminal>)>,
 	),
