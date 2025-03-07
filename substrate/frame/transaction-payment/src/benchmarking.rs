@@ -45,20 +45,17 @@ mod benchmarks {
 	#[benchmark]
 	fn charge_transaction_payment() {
 		let caller: T::AccountId = account("caller", 0, 0);
-		let existential_deposit = <T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance();
-	
-		let (amount_to_endow, tip) =  if existential_deposit.is_zero() {
+		let existential_deposit =
+			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance();
+
+		let (amount_to_endow, tip) = if existential_deposit.is_zero() {
 			let min_tip: <<T as pallet::Config>::OnChargeTransaction as payment::OnChargeTransaction<T>>::Balance = 1_000_000_000u32.into();
 			(min_tip * 1000u32.into(), min_tip)
-		}
-		else {
+		} else {
 			(existential_deposit * 1000u32.into(), existential_deposit)
 		};
 
-		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(
-			&caller,
-			amount_to_endow,
-		);
+		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(&caller, amount_to_endow);
 
 		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(tip);
 		let inner = frame_system::Call::remark { remark: alloc::vec![] };
