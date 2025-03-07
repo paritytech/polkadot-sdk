@@ -1641,7 +1641,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		// Utilize a manager that will help you do some otherwise messy things.
 		let session_rotator = session_rotation::Rotator::<T>::from(end_index);
 
-		let starting = session_rotator.starting_session();
+		let starting = session_rotator.activating_session();
 		let planning = session_rotator.planning_session();
 		let progress = session_rotator.planned_session_progress();
 
@@ -1656,13 +1656,13 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		);
 
 		// common logic for all session types.
-		session_rotator.do_plan_session();
+		session_rotator.plan_new_session();
 
 		if let Some((this_era_start, _id)) = activation_timestamp {
 			// If an activation timestamp is present, it means a new validator set was applied.
 			// We need to finalize the previous era and start a new one.
 			log!(debug, "Activate next era with timestamp: {:?}", this_era_start);
-			session_rotator.activate_era(this_era_start);
+			session_rotator.activate_new_era(this_era_start);
 			return;
 		}
 

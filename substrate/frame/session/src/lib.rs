@@ -683,7 +683,7 @@ impl<T: Config> Pallet<T> {
 		let session_index = session_index + 1;
 		CurrentIndex::<T>::put(session_index);
 		T::SessionManager::start_session(session_index);
-		log::trace!(target: "runtime::session", "starting_session {:?}", session_index);
+		log::trace!(target: "runtime::session", "activating_session {:?}", session_index);
 
 		// Get next validator set.
 		let maybe_next_validators = T::SessionManager::new_session(session_index + 1);

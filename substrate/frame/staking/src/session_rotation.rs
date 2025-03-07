@@ -29,7 +29,13 @@ use sp_staking::SessionIndex;
 	Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
-/// Something that manages the rotation of sessions.
+/// Manages session rotation logic.
+///
+/// This struct handles the following operations:
+/// - `plan_new_session()`: Ends session `n`, activates session `n+1`, and plans session `n+2`.
+/// - `plan_new_era()`: Plan the next era, which is targeted to activate at the end of the next
+/// session.
+/// - `activate_new_era()`: Finalizes the previous era and activates the planned era.
 pub struct Rotator<T: Config> {
 	/// The session that is ending.
 	pub end_session_index: SessionIndex,
@@ -41,51 +47,59 @@ impl<T: Config> Rotator<T> {
 		Rotator { end_session_index, _phantom_data: Default::default() }
 	}
 
-	/// Returns the session that should be started.
-	pub(crate) fn starting_session(&self) -> SessionIndex {
+	/// Returns the session that should be activated.
+	pub(crate) fn activating_session(&self) -> SessionIndex {
 		self.end_session_index + 1
 	}
 
 	/// Returns the session that should be planned.
 	pub(crate) fn planning_session(&self) -> SessionIndex {
-		self.starting_session() + 1
+		self.activating_session() + 1
 	}
 
-	/// Returns the planned session progress relative to the start of the era.
+	/// Returns the planned session progress relative to the first planned session of the era.
 	pub(crate) fn planned_session_progress(&self) -> SessionIndex {
 		let era_start_session =
 			ErasStartSessionIndex::<T>::get(&self.planning_session()).unwrap_or(0);
 		self.planning_session() - era_start_session
 	}
 
-	/// Returns the session index relative to current planning session at which the election should
-	/// be started.
+	/// Returns the session index, relative to current planning session, at which the election
+	/// should be kicked off.
 	pub(crate) fn election_session_index(&self) -> SessionIndex {
 		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
 		T::SessionsPerEra::get().saturating_sub(election_offset)
 	}
 
-	/// Plan the next session after start.
-	pub(crate) fn do_plan_session(&self) {
+	/// Plans the next session that will begin after the starting session.
+	///
+	/// This means:
+	/// - The current session `n` is ending.
+	/// - The next session `n+1` is activating.
+	/// - The session after that, `n+2`, is now planned.
+	pub(crate) fn plan_new_session(&self) {
 		CurrentPlannedSession::<T>::put(self.planning_session());
 	}
 
-	/// Activates a new era with the `new_era_start` timestamp.
+	/// Activates a new era with the given `new_era_start` timestamp.
 	///
-	/// This means we need to finalize the current active era by computing payouts and rolling over
-	/// to the next era to keep the staking system in sync.
-	pub(crate) fn activate_era(&self, new_era_start: u64) {
+	/// This process includes:
+	/// - Finalizing the current active era by computing staking payouts.
+	/// - Rolling over to the next era to maintain synchronization in the staking system.
+	pub(crate) fn activate_new_era(&self, new_era_start: u64) {
 		if let Some(current_active_era) = ActiveEra::<T>::get() {
 			let previous_era_start = current_active_era.start.defensive_unwrap_or(new_era_start);
 			let era_duration = new_era_start.saturating_sub(previous_era_start);
 			Pallet::<T>::compute_era_payout(current_active_era, era_duration);
-			Pallet::<T>::start_era(self.starting_session(), new_era_start);
+			Pallet::<T>::start_era(self.activating_session(), new_era_start);
 		} else {
 			defensive!("Active era must always be available.");
 		}
 	}
 
-	/// Plan new era and clean up old era information.
+	/// Plans a new era and cleans up outdated era information.
+	///
+	/// The newly planned era is targeted to activate in the next session.
 	pub(crate) fn plan_new_era(&self) {
 		let new_planned_era = CurrentEra::<T>::mutate(|s| {
 			*s = Some(s.map(|s| s + 1).unwrap_or(0));
