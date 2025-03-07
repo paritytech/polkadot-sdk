@@ -6,6 +6,7 @@ exclude = [
 	"cumulus/zombienet/**",
 	"polkadot/node/malus/integrationtests/**",
 	"polkadot/zombienet_tests/**",
+	"substrate/client/transaction-pool/tests/zombienet/**",
 	"substrate/zombienet/**",
 	"target/**",
 ]
