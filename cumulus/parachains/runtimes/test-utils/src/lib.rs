@@ -15,7 +15,7 @@
 
 use core::marker::PhantomData;
 
-use codec::{Decode, DecodeLimit};
+use codec::Decode;
 use cumulus_primitives_core::{
 	relay_chain::Slot, AbridgedHrmpChannel, ParaId, PersistedValidationData,
 };
@@ -41,7 +41,7 @@ use sp_runtime::{
 use xcm::{
 	latest::{Asset, Location, XcmContext, XcmHash},
 	prelude::*,
-	VersionedXcm, MAX_XCM_DECODE_DEPTH,
+	VersionedXcm,
 };
 use xcm_executor::{traits::TransactAsset, AssetsInHolding};
 
@@ -734,12 +734,9 @@ impl<HrmpChannelSource: cumulus_primitives_core::XcmpMessageSource, AllPalletsWi
 				let mut xcm_message_data = &xcm_message_data[..];
 				// decode
 				let _ = XcmpMessageFormat::decode(&mut xcm_message_data).expect("valid format");
-				VersionedXcm::<()>::decode_with_depth_limit(
-					MAX_XCM_DECODE_DEPTH,
-					&mut xcm_message_data,
-				)
-				.map(|x| Some(x))
-				.expect("result with xcm")
+				VersionedXcm::<()>::decode(&mut xcm_message_data)
+					.map(|x| Some(x))
+					.expect("result with xcm")
 			},
 			_ => return None,
 		}

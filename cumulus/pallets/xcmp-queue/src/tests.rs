@@ -28,6 +28,7 @@ use frame_support::{
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
+use xcm::MAX_XCM_DECODE_DEPTH;
 use xcm_builder::InspectMessageQueues;
 
 #[test]

@@ -25,7 +25,8 @@
 extern crate alloc;
 
 use codec::{
-	Decode, DecodeLimit, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen,
+	Decode, DecodeAll, DecodeLimit, DecodeWithMemTracking, Encode, Error as CodecError, Input,
+	MaxEncodedLen,
 };
 use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
@@ -369,19 +370,17 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 }
 
 impl<C> VersionedXcm<C> {
-	/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`. Consequently, it also checks
-	/// all decode implementations and limits, such as MAX_ITEMS_IN_ASSETS or
-	/// MAX_INSTRUCTIONS_TO_DECODE.
+	/// Checks that the XCM is decodable. Consequently, it checks all decode implementations and
+	/// limits, such as `MAX_XCM_DECODE_DEPTH`, `MAX_ITEMS_IN_ASSETS` or
+	/// `MAX_INSTRUCTIONS_TO_DECODE`.
 	///
 	/// Note that this uses the limit of the sender - not the receiver. It is a best effort.
 	pub fn validate_xcm_nesting(&self) -> Result<(), ()> {
-		self.using_encoded(|mut enc| {
-			Self::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
-		})
-		.map_err(|e| {
-			log::error!(target: "xcm::validate_xcm_nesting", "Decode error: {e:?} for xcm: {self:?}!");
-			()
-		})
+		self.using_encoded(|mut enc| Self::decode_all(&mut enc).map(|_| ()))
+			.map_err(|e| {
+				log::error!(target: "xcm::validate_xcm_nesting", "Decode error: {e:?} for xcm: {self:?}!");
+				()
+			})
 	}
 }
 
