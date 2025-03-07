@@ -24,13 +24,14 @@
 //! happens.
 //!
 //! ## Idle Sessions
-//! First 5 sessions are idle. Nothing much happens in these sessions.
+//! In the happy path, first 5 sessions are idle. Nothing much happens in these sessions.
 //!
 //! **Actions**
 //! - Increment the session index in `CurrentPlannedSession`.
 //!
-//! ## Planning Session
-//! We kick this off the planning session in the 6th planning session.
+//! ## Planning New Era Session
+//! In the happy path, `planning new era` session is the 6th active, or the 7th planning session of
+//! the active era.
 //!
 //! **Triggers**
 //! 1. `SessionProgress == SessionsPerEra - PlanningEraOffset`
@@ -43,7 +44,12 @@
 //! **SkipIf**
 //! CurrentEra = ActiveEra + 1 // this implies planning session has already been triggered.
 //!
+//! **FollowUp**
+//! When the election process is over, we send the new validator set, with the CurrentEra index
+//! as the id of the validator set.
+//!
 //! ## Era Rotation Session
+//! In the happy path, this is the 7th activating session of the active era (before the era rotation).
 //!
 //! **Triggers**
 //! When we receive an activation timestamp from RC.
@@ -58,15 +64,14 @@
 //! - Cleanup the old era information.
 //! - Set ErasStartSessionIndex with the activating era index and starting session index.
 //!
-//! **Scenarios**
-//! - Happy Path: Triggered in the 7th session.
+//! **Exceptional Scenarios**
 //! - Delay in exporting validator set: Triggered in a session later than 7th.
 //! - Forcing Era: May triggered in a session earlier than 7th.
 //!
 
 use crate::{
 	log, ActiveEra, Config, CurrentEra, CurrentPlannedSession, EraIndex, ErasStartSessionIndex,
-	Pallet,
+	Pallet, ActiveEraInfo,
 };
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{pallet_prelude::*, traits::Defensive};
@@ -138,10 +143,27 @@ impl<T: Config> Rotator<T> {
 			let previous_era_start = current_active_era.start.defensive_unwrap_or(new_era_start);
 			let era_duration = new_era_start.saturating_sub(previous_era_start);
 			Pallet::<T>::compute_era_payout(current_active_era, era_duration);
-			Pallet::<T>::start_era(self.activating_session(), new_era_start);
+
 		} else {
 			defensive!("Active era must always be available.");
 		}
+	}
+
+	fn start_era(starting_session: SessionIndex, new_era_start: u64) {
+		debug_assert!(CurrentEra::<T>::get().unwrap() == ActiveEra::<T>::get().unwrap().index + 1);
+		if let Some(current_active_era) = ActiveEra::<T>::get() {
+			Rotator::<T>::finalise_era(&current_active_era, new_era_start);
+			Pallet::<T>::start_era(starting_session, new_era_start);
+			ErasStartSessionIndex::<T>::insert(current_active_era.index + 1, starting_session);
+		} else {
+			defensive!("Active era must always be available.");
+			return;
+		}
+	}
+	fn finalise_era(ending_era: &ActiveEraInfo, new_era_start: u64) {
+		let previous_era_start = ending_era.start.defensive_unwrap_or(new_era_start);
+		let era_duration = new_era_start.saturating_sub(previous_era_start);
+		Pallet::<T>::compute_era_payout(ending_era.clone(), era_duration);
 	}
 
 	/// Plans a new era by kicking off the election process.
@@ -158,13 +180,18 @@ impl<T: Config> Rotator<T> {
 		log!(info, "sending election start signal");
 		let _ = T::ElectionProvider::start();
 
+
+		log!(debug, "done planning new era: {:?}", new_planned_era);
+	}
+
+	fn cleanup_old_era(new_planned_era: EraIndex) {
 		Pallet::<T>::clear_election_metadata();
+
 		// discard the ancient era info.
 		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
 			log!(trace, "Removing era information for {:?}", old_era);
 			Pallet::<T>::clear_era_information(old_era);
 		}
 
-		log!(debug, "done planning new era: {:?}", new_planned_era);
 	}
 }
