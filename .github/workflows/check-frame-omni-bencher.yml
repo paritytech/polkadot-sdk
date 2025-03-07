@@ -92,7 +92,7 @@ jobs:
 
       - name: script (benchmark ${{ matrix.bench_cmd }})
         id: required
-        # Overhead command broken as we can't send extrinsics to glutton currently: #7816
+        # Overhead command is broken for glutton, as we can't send extrinsics to it: #7816
         if: ${{ (matrix.bench_cmd != 'overhead') && (matrix.runtime.package != 'glutton-westend') }}
         shell: bash
         run: |
