@@ -552,6 +552,7 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo_t
 #[test]
 fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to_penpal_rococo() {
 	use sp_tracing::capture_test_logs;
+	use std::{thread::sleep, time::Duration};
 
 	let amount = WESTEND_ED * 1_000;
 	let sender = WestendSender::get();
@@ -676,6 +677,8 @@ fn send_wnds_from_westend_relay_through_asset_hub_westend_to_asset_hub_rococo_to
 				});
 				assert_ok!(result);
 			});
+			// Add a small delay to ensure the log is captured
+			sleep(Duration::from_secs(1));
 			assert!(log_capture.contains(&expected_log));
 			AssetHubWestend::execute_with(|| {
 				type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
