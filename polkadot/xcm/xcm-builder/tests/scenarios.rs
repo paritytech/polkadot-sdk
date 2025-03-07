@@ -76,36 +76,31 @@ fn withdraw_and_deposit_works() {
 /// Asserts that the balances are updated correctly and the correct events are fired.
 #[test]
 fn transfer_asset_works() {
-	use sp_tracing::{capture_test_logs, tracing::Level};
-
 	let bob = AccountId::new([1u8; 32]);
 	let balances = vec![(ALICE, INITIAL_BALANCE), (bob.clone(), INITIAL_BALANCE)];
-	let log_capture = capture_test_logs!(Level::TRACE, {
-		kusama_like_with_balances(balances).execute_with(|| {
-			let amount = REGISTER_AMOUNT;
-			let weight = BaseXcmWeight::get();
-			let message = Xcm(vec![TransferAsset {
-				assets: (Here, amount).into(),
-				beneficiary: AccountId32 { network: None, id: bob.clone().into() }.into(),
-			}]);
-			let mut hash = fake_message_hash(&message);
-			// Use `prepare_and_execute` here to pass through the barrier
-			let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
-				AccountId32 { network: None, id: ALICE.into() },
-				message,
-				&mut hash,
-				weight,
-				weight,
-			);
-			System::assert_last_event(
-				pallet_balances::Event::Transfer { from: ALICE, to: bob.clone(), amount }.into(),
-			);
-			assert_eq!(r, Outcome::Complete { used: weight });
-			assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE - amount);
-			assert_eq!(Balances::free_balance(bob), INITIAL_BALANCE + amount);
-		})
+	kusama_like_with_balances(balances).execute_with(|| {
+		let amount = REGISTER_AMOUNT;
+		let weight = BaseXcmWeight::get();
+		let message = Xcm(vec![TransferAsset {
+			assets: (Here, amount).into(),
+			beneficiary: AccountId32 { network: None, id: bob.clone().into() }.into(),
+		}]);
+		let mut hash = fake_message_hash(&message);
+		// Use `prepare_and_execute` here to pass through the barrier
+		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			AccountId32 { network: None, id: ALICE.into() },
+			message,
+			&mut hash,
+			weight,
+			weight,
+		);
+		System::assert_last_event(
+			pallet_balances::Event::Transfer { from: ALICE, to: bob.clone(), amount }.into(),
+		);
+		assert_eq!(r, Outcome::Complete { used: weight });
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE - amount);
+		assert_eq!(Balances::free_balance(bob), INITIAL_BALANCE + amount);
 	});
-	assert!(log_capture.contains("`SetTopic` appended to message"));
 }
 
 /// Scenario:

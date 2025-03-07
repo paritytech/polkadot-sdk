@@ -281,13 +281,6 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		vm.message_weight = xcm_weight;
 
 		while !message.0.is_empty() {
-			if let Some(SetTopic(id)) = message.last() {
-				tracing::trace!(target: "xcm::execute", ?id, "Message already ends with `SetTopic`");
-			} else {
-				message.inner_mut().push(SetTopic(*id));
-				tracing::trace!(target: "xcm::execute", ?id, "`SetTopic` appended to message");
-			}
-
 			let result = vm.process(message);
 			tracing::trace!(target: "xcm::execute", ?result, "Message executed");
 			message = if let Err(error) = result {
