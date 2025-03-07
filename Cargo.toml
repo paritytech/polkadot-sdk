@@ -1307,9 +1307,15 @@ tracing-core = { version = "0.1.32", default-features = false }
 tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
+<<<<<<< HEAD
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator", version = "2.0.0" }
 trie-bench = { version = "0.39.0" }
 trie-db = { version = "0.29.0", default-features = false }
+=======
+tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
+trie-bench = { version = "0.40.0" }
+trie-db = { version = "0.30.0", default-features = false }
+>>>>>>> d532437 (Bump trie-db to latest version (#7847))
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.88" }
