@@ -700,10 +700,12 @@ where
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod secp_utils {
 	use super::*;
-	use secp256k1::{PublicKey, Secp256k1, SecretKey};
+	use secp256k1::Secp256k1;
+	use secp256k1::SECP256K1;
 
 	pub fn public(secret: &secp256k1::SecretKey) -> secp256k1::PublicKey {
-		secp256k1::PublicKey::from_secret_key(secret)
+		let secp = Secp256k1::new();
+		secp256k1::PublicKey::from_secret_key(&secp, &secret)
 	}
 	pub fn eth(secret: &secp256k1::SecretKey) -> EthereumAddress {
 		let mut res = EthereumAddress::default();
@@ -719,11 +721,15 @@ mod secp_utils {
 			&to_ascii_hex(what)[..],
 			extra,
 		));
-		let (sig, recovery_id) = libsecp256k1::sign(&libsecp256k1::Message::parse(&msg), secret);
-		let mut r = [0u8; 65];
-		r[0..64].copy_from_slice(&sig.serialize()[..]);
-		r[64] = recovery_id.serialize();
-		EcdsaSignature(r)
+		let (recovery_id, sig) =
+			SECP256K1.sign_ecdsa_recoverable(&msg, &secret).serialize_compact();
+		/*
+				let (sig, recovery_id) = libsecp256k1::sign(&libsecp256k1::Message::parse(&msg), secret);
+				let mut r = [0u8; 65];
+				r[0..64].copy_from_slice(&sig.serialize()[..]);
+				r[64] = recovery_id.serialize();
+		*/
+		EcdsaSignature(recovery_id)
 	}
 }
 

@@ -15639,7 +15639,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "rustc-hex",
  "scale-info",
- "secp256k1",
+ "secp256k1 0.28.2",
  "serde",
  "serde_derive",
  "serde_json",

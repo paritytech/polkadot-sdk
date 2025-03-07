@@ -27,6 +27,8 @@ use frame_support::{derive_impl, ord_parameter_types, parameter_types, traits::W
 use pallet_balances;
 use sp_runtime::{traits::Identity, BuildStorage};
 
+use secp256k1::{PublicKey, Secp256k1, SecretKey};
+
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
