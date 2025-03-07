@@ -415,6 +415,8 @@ impl From<DiscoveryOut> for BehaviourOut {
 				),
 				Some(duration),
 			),
+			DiscoveryOut::NoMoreProviders(key, duration) =>
+				BehaviourOut::Dht(DhtEvent::NoMoreProviders(key.into()), Some(duration)),
 			DiscoveryOut::ProvidersNotFound(key, duration) =>
 				BehaviourOut::Dht(DhtEvent::ProvidersNotFound(key.into()), Some(duration)),
 			DiscoveryOut::RandomKademliaStarted => BehaviourOut::RandomKademliaStarted,

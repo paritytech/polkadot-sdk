@@ -1664,6 +1664,7 @@ where
 							DhtEvent::PutRecordRequest(_, _, _, _) => "put-record-request",
 							DhtEvent::StartProvidingFailed(_) => "start-providing-failed",
 							DhtEvent::ProvidersFound(_, _) => "providers-found",
+							DhtEvent::NoMoreProviders(_) => "no-more-providers",
 							DhtEvent::ProvidersNotFound(_) => "providers-not-found",
 						};
 						metrics

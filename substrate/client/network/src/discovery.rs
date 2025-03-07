@@ -74,7 +74,7 @@ use libp2p::{
 	PeerId,
 };
 use linked_hash_set::LinkedHashSet;
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
 	cmp,
@@ -279,6 +279,7 @@ impl DiscoveryConfig {
 			),
 			records_to_publish: Default::default(),
 			kademlia_protocol,
+			provider_keys_requested: HashMap::new(),
 		}
 	}
 }
@@ -327,6 +328,8 @@ pub struct DiscoveryBehaviour {
 	/// Remove when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
 	/// <https://github.com/paritytech/polkadot-sdk/issues/504>.
 	kademlia_protocol: Option<StreamProtocol>,
+	/// Provider keys requested with `GET_PROVIDERS` queries.
+	provider_keys_requested: HashMap<QueryId, RecordKey>,
 }
 
 impl DiscoveryBehaviour {
@@ -481,7 +484,8 @@ impl DiscoveryBehaviour {
 	/// Get content providers for `key` from the DHT.
 	pub fn get_providers(&mut self, key: RecordKey) {
 		if let Some(kad) = self.kademlia.as_mut() {
-			kad.get_providers(key);
+			let query_id = kad.get_providers(key.clone());
+			self.provider_keys_requested.insert(query_id, key);
 		}
 	}
 
@@ -605,6 +609,9 @@ pub enum DiscoveryOut {
 
 	/// The DHT yielded results for the providers request.
 	ProvidersFound(RecordKey, HashSet<PeerId>, Duration),
+
+	/// The DHT yielded no more providers for the key (`GET_PROVIDERS` query finished).
+	NoMoreProviders(RecordKey, Duration),
 
 	/// Providers for the requested key were not found in the DHT.
 	ProvidersNotFound(RecordKey, Duration),
@@ -1046,13 +1053,26 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 									stats.duration().map(|val| val.as_millis())
 								);
 
-								continue
+								if let Some(key) = self.provider_keys_requested.remove(&id) {
+									DiscoveryOut::NoMoreProviders(
+										key,
+										stats.duration().unwrap_or_default(),
+									)
+								} else {
+									error!(
+										target: LOG_TARGET,
+										"No key found for `GET_PROVIDERS` query {id:?}. This is a bug.",
+									);
+									continue
+								}
 							},
 							Err(GetProvidersError::Timeout { key, closest_peers: _ }) => {
 								debug!(
 									target: LOG_TARGET,
 									"Libp2p => Failed to get providers for {key:?} due to timeout.",
 								);
+
+								self.provider_keys_requested.remove(&id);
 
 								DiscoveryOut::ProvidersNotFound(
 									key,

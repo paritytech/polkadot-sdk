@@ -897,9 +897,15 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 								self.event_streams.send(Event::Dht(
 									DhtEvent::ProvidersFound(
-										key.into(),
+										key.clone().into(),
 										providers.into_iter().map(|p| p.peer.into()).collect()
 									)
+								));
+
+								// litep2p returns all providers in a single event, so we let
+								// subscribers know no more providers will be yielded.
+								self.event_streams.send(Event::Dht(
+									DhtEvent::NoMoreProviders(key.into())
 								));
 
 								if let Some(ref metrics) = self.metrics {

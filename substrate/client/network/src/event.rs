@@ -51,10 +51,14 @@ pub enum DhtEvent {
 	/// The DHT received a put record request.
 	PutRecordRequest(Key, Vec<u8>, Option<sc_network_types::PeerId>, Option<std::time::Instant>),
 
-	/// The providers for [`Key`] were found.
+	/// The providers for [`Key`] were found. Multiple such events can be generated per provider
+	/// discovery request.
 	ProvidersFound(Key, Vec<PeerId>),
 
-	/// The providers for [`Key`] were not found.
+	/// `GET_PROVIDERS` query finished and won't yield any more providers.
+	NoMoreProviders(Key),
+
+	/// `GET_PROVIDERS` query failed and no providers for [`Key`] were found.
 	ProvidersNotFound(Key),
 }
 
