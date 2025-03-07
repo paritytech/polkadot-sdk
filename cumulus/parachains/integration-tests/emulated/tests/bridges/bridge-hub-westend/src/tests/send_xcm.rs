@@ -19,6 +19,8 @@ use crate::tests::*;
 
 #[test]
 fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable() {
+	use sp_tracing::{capture_test_logs, tracing::Level};
+
 	// Init tests variables
 	// XcmPallet send arguments
 	let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
@@ -42,11 +44,16 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable
 	Westend::execute_with(|| {
 		Dmp::make_parachain_reachable(BridgeHubWestend::para_id());
 
-		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
-			sudo_origin,
-			bx!(destination),
-			bx!(xcm),
-		));
+		let log_capture = capture_test_logs!(Level::TRACE, {
+			assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
+				sudo_origin,
+				bx!(destination),
+				bx!(xcm),
+			));
+		});
+
+		// Validate `WithUniqueTopic` appended `SetTopic`
+		assert!(log_capture.contains("`SetTopic` appended to message"));
 
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 
