@@ -236,3 +236,18 @@ pub fn mock_message(sibling_para_id: u32) -> Message {
 		.unwrap(),
 	}
 }
+
+pub fn mock_register_token_message(sibling_para_id: u32) -> Message {
+	Message {
+		origin: H256::from_low_u64_be(sibling_para_id as u64),
+		id: H256::from_low_u64_be(1),
+		fee: 1_000,
+		commands: BoundedVec::try_from(vec![Command::RegisterForeignToken {
+			token_id: H256::from_low_u64_be(1),
+			name: vec![],
+			symbol: vec![],
+			decimals: 12,
+		}])
+		.unwrap(),
+	}
+}

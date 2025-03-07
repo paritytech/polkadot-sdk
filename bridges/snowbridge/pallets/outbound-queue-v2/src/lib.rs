@@ -335,6 +335,7 @@ pub mod pallet {
 			let committed_message = OutboundMessageWrapper {
 				origin: FixedBytes::from(origin.as_fixed_bytes()),
 				nonce,
+				topic: FixedBytes::from(id.as_fixed_bytes()),
 				commands: abi_commands,
 			};
 			let message_abi_encoded_hash =
@@ -344,6 +345,7 @@ pub mod pallet {
 			let outbound_message = OutboundMessage {
 				origin,
 				nonce,
+				topic: id,
 				commands: commands.try_into().map_err(|_| Corrupt)?,
 			};
 			Messages::<T>::append(outbound_message);

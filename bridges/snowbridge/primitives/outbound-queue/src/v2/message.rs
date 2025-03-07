@@ -27,6 +27,8 @@ pub mod abi {
 			bytes32 origin;
 			// Message nonce
 			uint64 nonce;
+			// Topic
+			bytes32 topic;
 			// Commands
 			CommandWrapper[] commands;
 		}
@@ -110,6 +112,8 @@ pub struct OutboundMessage {
 	pub origin: H256,
 	/// Nonce
 	pub nonce: u64,
+	/// Topic
+	pub topic: H256,
 	/// Commands
 	pub commands: BoundedVec<OutboundCommandWrapper, ConstU32<MAX_COMMANDS>>,
 }
