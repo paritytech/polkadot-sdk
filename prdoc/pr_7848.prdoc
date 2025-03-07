@@ -1,0 +1,9 @@
+title: '[pallet-revive] Add support for eip1898 block notation'
+doc:
+- audience: Runtime Dev
+  description: |-
+    [pallet-revive] Add support for eip1898 block notation
+    https://eips.ethereum.org/EIPS/eip-1898
+crates:
+- name: pallet-revive
+  bump: patch
