@@ -1,0 +1,10 @@
+title: 'pallet revive: rpc build script should not panic'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix a build error in the pallet revive RPC build scrip that can occur when using `cargo remote`
+    or `cargo vendor`.
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

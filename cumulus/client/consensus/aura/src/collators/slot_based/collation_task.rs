@@ -16,6 +16,7 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Encode;
+use std::path::PathBuf;
 
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -25,8 +26,10 @@ use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId};
 
+use cumulus_primitives_core::relay_chain::BlockId;
 use futures::prelude::*;
 
+use crate::export_pov_to_path;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::{Block as BlockT, Header};
 
@@ -50,6 +53,8 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
 	/// The handle from the special slot based block import.
 	pub block_import_handle: super::SlotBasedBlockImportHandle<Block>,
+	/// When set, the collator will export every produced `POV` to this folder.
+	pub export_pov: Option<PathBuf>,
 }
 
 /// Asynchronously executes the collation task for a parachain.
@@ -67,6 +72,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 		collator_service,
 		mut collator_receiver,
 		mut block_import_handle,
+		export_pov,
 	}: Params<Block, RClient, CS>,
 ) where
 	Block: BlockT,
@@ -93,7 +99,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 					return;
 				};
 
-				handle_collation_message(message, &collator_service, &mut overseer_handle).await;
+				handle_collation_message(message, &collator_service, &mut overseer_handle,relay_client.clone(),export_pov.clone()).await;
 			},
 			block_import_msg = block_import_handle.next().fuse() => {
 				// TODO: Implement me.
@@ -107,10 +113,12 @@ pub async fn run_collation_task<Block, RClient, CS>(
 /// Handle an incoming collation message from the block builder task.
 /// This builds the collation from the [`CollatorMessage`] and submits it to
 /// the collation-generation subsystem of the relay chain.
-async fn handle_collation_message<Block: BlockT>(
+async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
 	message: CollatorMessage<Block>,
 	collator_service: &impl CollatorServiceInterface<Block>,
 	overseer_handle: &mut OverseerHandle,
+	relay_client: RClient,
+	export_pov: Option<PathBuf>,
 ) {
 	let CollatorMessage {
 		parent_header,
@@ -140,6 +148,24 @@ async fn handle_collation_message<Block: BlockT>(
 	);
 
 	if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
+		if let Some(pov_path) = export_pov {
+			if let Ok(Some(relay_parent_header)) =
+				relay_client.header(BlockId::Hash(relay_parent)).await
+			{
+				export_pov_to_path::<Block>(
+					pov_path.clone(),
+					pov.clone(),
+					block_data.header().hash(),
+					*block_data.header().number(),
+					parent_header.clone(),
+					relay_parent_header.state_root,
+					relay_parent_header.number,
+				);
+			} else {
+				tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {relay_parent:?}");
+			}
+		}
+
 		tracing::info!(
 			target: LOG_TARGET,
 			"Compressed PoV size: {}kb",
