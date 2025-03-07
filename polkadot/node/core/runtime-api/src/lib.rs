@@ -189,6 +189,8 @@ where
 			SchedulingLookahead(session_index, scheduling_lookahead) => self
 				.requests_cache
 				.cache_scheduling_lookahead(session_index, scheduling_lookahead),
+			ValidationCodeBombLimit(session_index, limit) =>
+				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit),
 		}
 	}
 
@@ -355,6 +357,15 @@ where
 					None
 				} else {
 					Some(Request::SchedulingLookahead(index, sender))
+				}
+			},
+			Request::ValidationCodeBombLimit(index, sender) => {
+				if let Some(value) = self.requests_cache.validation_code_bomb_limit(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value));
+					None
+				} else {
+					Some(Request::ValidationCodeBombLimit(index, sender))
 				}
 			},
 		}
@@ -681,6 +692,13 @@ where
 			SchedulingLookahead,
 			scheduling_lookahead(),
 			ver = Request::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
+		Request::ValidationCodeBombLimit(index, sender) => query!(
+			ValidationCodeBombLimit,
+			validation_code_bomb_limit(),
+			ver = Request::VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
 		),
