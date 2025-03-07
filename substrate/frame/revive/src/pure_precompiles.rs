@@ -99,9 +99,7 @@ mod test {
 		name: String,
 	}
 
-	/// Tests a precompile against the ethereum consensus tests defined in the given file at
-	/// filepath. The file is expected to be in JSON format and contain an array of test vectors,
-	/// where each vector can be deserialized into an "EthConsensusTest".
+	/// Run a precompile with the given input data.
 	pub fn run_precompile<P: Precompile<crate::tests::Test>>(
 		input: Vec<u8>,
 	) -> Result<ExecReturnValue, &'static str> {
