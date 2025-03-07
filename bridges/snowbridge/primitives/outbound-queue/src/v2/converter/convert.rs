@@ -96,20 +96,18 @@ where
 			.ok_or(WithdrawAssetExpected)?;
 		ensure!(reserved_fee_assets.len() == 1, AssetResolutionFailed);
 		let reserved_fee_asset =
-			reserved_fee_assets.clone().into_inner().pop().ok_or(AssetResolutionFailed)?;
+			reserved_fee_assets.inner().first().cloned().ok_or(AssetResolutionFailed)?;
 		let (reserved_fee_asset_id, reserved_fee_amount) = match reserved_fee_asset {
-			Asset { id: asset_id, fun: Fungible(amount) } => Some((asset_id, amount)),
-			_ => None,
-		}
-		.ok_or(AssetResolutionFailed)?;
+			Asset { id: asset_id, fun: Fungible(amount) } => Ok((asset_id, amount)),
+			_ => Err(AssetResolutionFailed),
+		}?;
 		let fee_asset =
 			match_expression!(self.next()?, PayFees { asset: fee }, fee).ok_or(InvalidFeeAsset)?;
 		let (fee_asset_id, fee_amount) = match fee_asset {
-			Asset { id: asset_id, fun: Fungible(amount) } => Some((asset_id, *amount)),
-			_ => None,
-		}
-		.ok_or(AssetResolutionFailed)?;
-		// Check the fee asset is Ether
+			Asset { id: asset_id, fun: Fungible(amount) } => Ok((asset_id, *amount)),
+			_ => Err(AssetResolutionFailed),
+		}?;
+		// Check the fee asset is Ether (XCM is evaluated in Ethereum context).
 		ensure!(fee_asset_id.0 == Here.into(), InvalidFeeAsset);
 		ensure!(reserved_fee_asset_id.0 == Here.into(), InvalidFeeAsset);
 		ensure!(reserved_fee_amount >= fee_amount, InvalidFeeAsset);
@@ -124,9 +122,9 @@ where
 		recipient: H160,
 	) -> Result<Vec<Command>, XcmConverterError> {
 		let mut commands: Vec<Command> = Vec::new();
-		for ena in enas.clone().inner().iter() {
+		for ena in enas.clone().into_inner().into_iter() {
 			// Check the the deposit asset filter matches what was reserved.
-			if !deposit_assets.matches(ena) {
+			if !deposit_assets.matches(&ena) {
 				return Err(FilterDoesNotConsumeAllAssets);
 			}
 
@@ -135,14 +133,13 @@ where
 				Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
 					match inner_location.unpack() {
 						(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
-							Some((H160(*key), *amount)),
+							Ok((H160(*key), amount)),
 						// To allow ether
-						(0, []) => Some((H160([0; 20]), *amount)),
-						_ => None,
+						(0, []) => Ok((H160([0; 20]), amount)),
+						_ => Err(AssetResolutionFailed),
 					},
-				_ => None,
-			}
-			.ok_or(AssetResolutionFailed)?;
+				_ => Err(AssetResolutionFailed),
+			}?;
 
 			// transfer amount must be greater than 0.
 			ensure!(amount > 0, ZeroAssetTransfer);
@@ -161,18 +158,15 @@ where
 	) -> Result<Vec<Command>, XcmConverterError> {
 		let mut commands: Vec<Command> = Vec::new();
 		ensure!(pnas.len() > 0, NoReserveAssets);
-		for pna in pnas.clone().inner().iter() {
-			if !deposit_assets.matches(pna) {
+		for pna in pnas.clone().into_inner().into_iter() {
+			if !deposit_assets.matches(&pna) {
 				return Err(FilterDoesNotConsumeAllAssets);
 			}
 
 			// Only fungible is allowed
-			let (asset_id, amount) = match pna {
-				Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
-					Some((inner_location.clone(), *amount)),
-				_ => None,
-			}
-			.ok_or(AssetResolutionFailed)?;
+			let Asset { id: AssetId(asset_id), fun: Fungible(amount) } = pna else {
+				return Err(AssetResolutionFailed);
+			};
 
 			// transfer amount must be greater than 0.
 			ensure!(amount > 0, ZeroAssetTransfer);
@@ -187,11 +181,13 @@ where
 		Ok(commands)
 	}
 
-	/// Convert the xcm into an outbound message which can be dispatched to
+	/// Convert the XCM into an outbound message which can be dispatched to
 	/// the Gateway contract on Ethereum
 	///
 	/// Assets being transferred can either be Polkadot-native assets (PNA)
 	/// or Ethereum-native assets (ENA).
+	///
+	/// The XCM is evaluated in Ethereum context.
 	///
 	/// Expected Input Syntax:
 	/// ```ignore

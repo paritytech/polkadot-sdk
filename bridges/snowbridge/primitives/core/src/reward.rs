@@ -30,20 +30,17 @@ pub enum RewardPaymentError {
 impl From<RewardPaymentError> for DispatchError {
 	fn from(e: RewardPaymentError) -> DispatchError {
 		match e {
-			RewardPaymentError::XcmSendFailure => DispatchError::Other("xcm send failure"),
-			RewardPaymentError::ChargeFeesFailure => DispatchError::Other("charge fees error"),
+			XcmSendFailure => DispatchError::Other("xcm send failure"),
+			ChargeFeesFailure => DispatchError::Other("charge fees error"),
 		}
 	}
 }
-
-pub struct NoOpReward;
 
 /// Reward payment procedure that sends a XCM to AssetHub to mint the reward (foreign asset)
 /// into the provided beneficiary account.
 pub struct PayAccountOnLocation<
 	Relayer,
 	RewardBalance,
-	NoOpReward,
 	EthereumNetwork,
 	AssetHubLocation,
 	AssetHubXCMFee,
@@ -55,7 +52,6 @@ pub struct PayAccountOnLocation<
 	PhantomData<(
 		Relayer,
 		RewardBalance,
-		NoOpReward,
 		EthereumNetwork,
 		AssetHubLocation,
 		AssetHubXCMFee,
@@ -69,7 +65,6 @@ pub struct PayAccountOnLocation<
 impl<
 		Relayer,
 		RewardBalance,
-		NoOpReward,
 		EthereumNetwork,
 		AssetHubLocation,
 		AssetHubXCMFee,
@@ -77,11 +72,10 @@ impl<
 		XcmSender,
 		XcmExecutor,
 		Call,
-	> PaymentProcedure<Relayer, NoOpReward, RewardBalance>
+	> PaymentProcedure<Relayer, (), RewardBalance>
 	for PayAccountOnLocation<
 		Relayer,
 		RewardBalance,
-		NoOpReward,
 		EthereumNetwork,
 		AssetHubLocation,
 		AssetHubXCMFee,
@@ -113,13 +107,13 @@ where
 
 	fn pay_reward(
 		relayer: &Relayer,
-		_reward_kind: NoOpReward,
+		_: (),
 		reward: RewardBalance,
 		beneficiary: Self::Beneficiary,
 	) -> Result<(), Self::Error> {
 		let ethereum_location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 
-		let total_amount: u128 = AssetHubXCMFee::get().saturating_add(reward.clone().into());
+		let total_amount: u128 = AssetHubXCMFee::get().saturating_add(reward.into());
 		let total_assets: Asset = (ethereum_location.clone(), total_amount).into();
 		let fee_asset: Asset = (ethereum_location, AssetHubXCMFee::get()).into();
 
@@ -135,7 +129,7 @@ where
 
 		let (ticket, fee) =
 			validate_send::<XcmSender>(AssetHubLocation::get(), xcm).map_err(|_| XcmSendFailure)?;
-		XcmExecutor::charge_fees(relayer.clone(), fee.clone()).map_err(|_| ChargeFeesFailure)?;
+		XcmExecutor::charge_fees(relayer.clone(), fee).map_err(|_| ChargeFeesFailure)?;
 		XcmSender::deliver(ticket).map_err(|_| XcmSendFailure)?;
 
 		Ok(())
@@ -243,7 +237,6 @@ mod tests {
 		type TestedPayAccountOnLocation = PayAccountOnLocation<
 			MockRelayer,
 			u128,
-			NoOpReward,
 			EthereumNetwork,
 			AssetHubLocation,
 			AssetHubXCMFee,
@@ -281,7 +274,6 @@ mod tests {
 		type FailingSenderPayAccount = PayAccountOnLocation<
 			MockRelayer,
 			u128,
-			NoOpReward,
 			EthereumNetwork,
 			AssetHubLocation,
 			AssetHubXCMFee,
@@ -329,7 +321,6 @@ mod tests {
 		type FailingExecutorPayAccount = PayAccountOnLocation<
 			MockRelayer,
 			u128,
-			NoOpReward,
 			EthereumNetwork,
 			AssetHubLocation,
 			AssetHubXCMFee,
@@ -376,7 +367,6 @@ mod tests {
 		type FailingDeliveryPayAccount = PayAccountOnLocation<
 			MockRelayer,
 			u128,
-			NoOpReward,
 			EthereumNetwork,
 			AssetHubLocation,
 			AssetHubXCMFee,
