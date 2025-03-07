@@ -25,7 +25,7 @@ use frame_support::ensure;
 use frame_system::RawOrigin;
 use pallet_bounties::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;
-use sp_runtime::traits::{BlockNumberProvider, Bounded};
+use sp_runtime::traits::BlockNumberProvider;
 
 use crate::*;
 
@@ -273,9 +273,11 @@ mod benchmarks {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
 		Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
-		let bounty_update_period =
-			T::BountyUpdatePeriod::get().unwrap_or(BlockNumberFor::<T>::max_value());
-		set_block_number::<T>(T::SpendPeriod::get() + bounty_update_period + 1u32.into());
+		set_block_number::<T>(
+			T::SpendPeriod::get()
+				.saturating_add(T::BountyUpdatePeriod::get())
+				.saturating_add(1u32.into()),
+		);
 		let caller = whitelisted_caller();
 
 		#[extrinsic_call]
