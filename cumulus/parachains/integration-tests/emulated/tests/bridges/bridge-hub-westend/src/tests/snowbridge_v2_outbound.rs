@@ -27,7 +27,7 @@ use xcm::v5::AssetTransferFilter;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemFrontendCall {
-	#[codec(index = 0)]
+	#[codec(index = 1)]
 	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata },
 }
 

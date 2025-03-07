@@ -26,7 +26,9 @@ pub use backend_weights::*;
 
 use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
 use frame_system::pallet_prelude::*;
-use snowbridge_core::{operating_mode::ExportPausedQuery, AssetMetadata, BasicOperatingMode};
+use snowbridge_core::{
+	operating_mode::ExportPausedQuery, AssetMetadata, BasicOperatingMode as OperatingMode,
+};
 use sp_std::prelude::*;
 use xcm::{
 	latest::{validate_send, XcmHash},
@@ -128,7 +130,7 @@ pub mod pallet {
 			message_id: XcmHash,
 		},
 		/// Set OperatingMode
-		ExportOperatingModeChanged { mode: BasicOperatingMode },
+		ExportOperatingModeChanged { mode: OperatingMode },
 	}
 
 	#[pallet::error]
@@ -163,10 +165,20 @@ pub mod pallet {
 	/// The current operating mode for exporting to Ethereum.
 	#[pallet::storage]
 	#[pallet::getter(fn export_operating_mode)]
-	pub type ExportOperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
+	pub type ExportOperatingMode<T: Config> = StorageValue<_, OperatingMode, ValueQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Set the operating mode for exporting messages to Ethereum.
+		#[pallet::call_index(0)]
+		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
+		pub fn set_operating_mode(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
+			ensure_root(origin)?;
+			ExportOperatingMode::<T>::put(mode);
+			Self::deposit_event(Event::ExportOperatingModeChanged { mode });
+			Ok(())
+		}
+
 		/// Initiates the registration for a Polkadot-native token as a wrapped ERC20 token on
 		/// Ethereum.
 		/// - `asset_id`: Location of the asset
@@ -174,7 +186,7 @@ pub mod pallet {
 		///
 		/// All origins are allowed, however `asset_id` must be a location nested within the origin
 		/// consensus system.
-		#[pallet::call_index(0)]
+		#[pallet::call_index(1)]
 		#[pallet::weight(
 			T::WeightInfo::register_token()
 				.saturating_add(T::BackendWeightInfo::transact_register_token())
@@ -205,19 +217,6 @@ pub mod pallet {
 				message_id,
 			});
 
-			Ok(())
-		}
-
-		/// Set the operating mode of the pallet, which can restrict messaging to Ethereum.
-		#[pallet::call_index(1)]
-		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
-		pub fn set_operating_mode(
-			origin: OriginFor<T>,
-			mode: BasicOperatingMode,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			ExportOperatingMode::<T>::put(mode);
-			Self::deposit_event(Event::ExportOperatingModeChanged { mode });
 			Ok(())
 		}
 	}
