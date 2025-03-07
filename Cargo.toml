@@ -1429,7 +1429,8 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-sdk = { version = "0.2.20" }
+zombienet-configuration = { version = "0.2.22" }
+zombienet-sdk = { version = "0.2.22" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
