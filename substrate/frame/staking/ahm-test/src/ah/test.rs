@@ -5,8 +5,8 @@ use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking::{
 	ActiveEra, ActiveEraInfo, CurrentEra, CurrentPlannedSession, Event as StakingEvent,
 };
-use pallet_staking_rc_client::ValidatorSetReport;
 use pallet_staking_rc_client as rc_client;
+use pallet_staking_rc_client::ValidatorSetReport;
 
 // Tests that are specific to Asset Hub.
 #[test]
@@ -115,16 +115,26 @@ fn on_receive_session_report() {
 
 		assert_eq!(
 			election_events_since_last_call(),
+			// Snapshot phase has started which will run for 3 blocks
 			vec![ElectionEvent::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) }]
 		);
 
-		// roll some blocks to finish election.
-		roll_many(31);
-		// todo: make sense of these phases!!
+		// roll 3 blocks for signed phase, and one for the transition.
+		roll_many(3 + 1);
+		assert_eq!(
+			election_events_since_last_call(),
+			// Signed phase has started which will run for 3 blocks.
+			vec![ElectionEvent::PhaseTransitioned {
+				from: Phase::Snapshot(0),
+				to: Phase::Signed(3)
+			}]
+		);
+
+		// roll some blocks until election result is exported.
+		roll_many(14);
 		assert_eq!(
 			election_events_since_last_call(),
 			vec![
-				ElectionEvent::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed(3) },
 				ElectionEvent::PhaseTransitioned {
 					from: Phase::Signed(0),
 					to: Phase::SignedValidation(5)
@@ -134,19 +144,43 @@ fn on_receive_session_report() {
 					to: Phase::Unsigned(3)
 				},
 				ElectionEvent::PhaseTransitioned { from: Phase::Unsigned(0), to: Phase::Done },
+			]
+		);
+
+		// no staking event while election ongoing.
+		assert_eq!(staking_events_since_last_call(), vec![]);
+		// no xcm message sent yet.
+		assert_eq!(LocalQueue::get().unwrap(), vec![]);
+
+		// next 3 block exports the election result to staking.
+		roll_many(3);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) },
+				StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) },
+				StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) }
+			]
+		);
+
+		assert_eq!(
+			election_events_since_last_call(),
+			vec![
 				ElectionEvent::PhaseTransitioned { from: Phase::Done, to: Phase::Export(2) },
 				ElectionEvent::PhaseTransitioned { from: Phase::Export(0), to: Phase::Off }
 			]
 		);
 
-
+		// New validator set xcm message is sent to RC.
 		assert_eq!(
 			LocalQueue::get().unwrap(),
 			vec![(
+				// this is the block number at which the message was sent.
 				42,
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
-					id: 0, // todo: ensure this is sent as CurrentEra.
+					id: 0,          // todo: ensure this is sent as CurrentEra.
 					prune_up_to: 0, // todo: Ensure this is sent.
 					leftover: false
 				})
