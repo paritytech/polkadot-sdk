@@ -50,7 +50,7 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_multisig`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_multisig::WeightInfo for WeightInfo<T> {
-	fn poke_deposit(s: u32, ) -> Weight {
+	fn poke_deposit(_s: u32, ) -> Weight {
 		Default::default()
 	}
 	/// The range of component `z` is `[0, 10000]`.

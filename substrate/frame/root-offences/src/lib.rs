@@ -48,7 +48,7 @@ pub mod pallet {
 		+ pallet_session::Config<ValidatorId = <Self as frame_system::Config>::AccountId>
 		+ pallet_session::historical::Config<
 			FullIdentification = (),
-			FullIdentificationOf = (),
+			FullIdentificationOf = pallet_staking::NullIdentity,
 		>
 	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
