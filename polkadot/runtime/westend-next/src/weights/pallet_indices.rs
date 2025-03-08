@@ -51,6 +51,22 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_indices`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_indices::WeightInfo for WeightInfo<T> {
+	/// Storage: `Proxy::Proxies` (r:1 w:1)
+	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Proxy::Announcements` (r:1 w:1)
+	/// Proof: `Proxy::Announcements` (`max_values`: None, `max_size`: Some(2233), added: 4708, mode: `MaxEncodedLen`)
+	fn poke_deposit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `487`
+		//  Estimated: `5698`
+		// Minimum execution time: 47_219_000 picoseconds.
+		Weight::from_parts(48_694_000, 0)
+			.saturating_add(Weight::from_parts(0, 5698))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 	/// Storage: `Indices::Accounts` (r:1 w:1)
 	/// Proof: `Indices::Accounts` (`max_values`: None, `max_size`: Some(69), added: 2544, mode: `MaxEncodedLen`)
 	fn claim() -> Weight {
@@ -111,18 +127,6 @@ impl<T: frame_system::Config> pallet_indices::WeightInfo for WeightInfo<T> {
 		//  Estimated: `3534`
 		// Minimum execution time: 30_839_000 picoseconds.
 		Weight::from_parts(31_621_000, 0)
-			.saturating_add(Weight::from_parts(0, 3534))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: `Indices::Accounts` (r:1 w:1)
-	/// Proof: `Indices::Accounts` (`max_values`: None, `max_size`: Some(69), added: 2544, mode: `MaxEncodedLen`)
-	fn poke_deposit() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `100`
-		//  Estimated: `3534`
-		// Minimum execution time: 27_731_000 picoseconds.
-		Weight::from_parts(28_393_000, 0)
 			.saturating_add(Weight::from_parts(0, 3534))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
