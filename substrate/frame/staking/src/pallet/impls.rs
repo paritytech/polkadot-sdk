@@ -1520,7 +1520,7 @@ impl<T: Config> Pallet<T> {
 			// note: exposures have already been processed and stored for each of the election
 			// solution page at the time of `elect_paged(page_index)`.
 			Self::register_weight(T::DbWeight::get().reads(1));
-			// todo: Make sure we don't drain if election not finished.
+			// todo(ank4n): Make sure we don't drain if election not finished.
 			// - NextElectingPage should be empty.
 			ElectableStashes::<T>::take()
 				.into_inner()
@@ -1628,6 +1628,12 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	/// implies a new validator set has been applied, and we must increment the active era to keep
 	/// the systems in sync.
 	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
+		log!(
+			info,
+			"session report received\n{:?}",
+			report,
+		);
+
 		let rc_client::SessionReport {
 			end_index,
 			activation_timestamp,
@@ -1639,38 +1645,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		// Accumulate reward points for validators in the active era.
 		// todo: ensure this is bounded.
 		Self::reward_by_ids(validator_points.into_iter());
-
-		// Utilize a manager that will help you do some otherwise messy things.
-		let session_rotator = session_rotation::Rotator::<T>::from(end_index);
-
-		let starting = session_rotator.activating_session();
-		let planning = session_rotator.planning_session();
-		let progress = session_rotator.planned_session_progress();
-
-		log!(
-			info,
-			"session report received -- ending session {:?}, starting {:?}, planning: {:?}, \
-			current_progress: {:?}",
-			end_index,
-			starting,
-			planning,
-			progress
-		);
-
-		// plan the next session.
-		session_rotator.plan_new_session();
-
-		if let Some((this_era_start, _id)) = activation_timestamp {
-			// If an activation timestamp is present, it means a new validator set was applied.
-			// We need to finalize the previous era and start a new one.
-			log!(debug, "Activate next era with timestamp: {:?}", this_era_start);
-			session_rotator.activate_new_era(this_era_start);
-			return;
-		}
-
-		if progress == session_rotator.next_planning_era() {
-			session_rotator.plan_new_era();
-		}
+		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp);
 	}
 
 	fn on_new_offences(

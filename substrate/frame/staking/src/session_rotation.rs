@@ -86,91 +86,66 @@ use crate::{
 };
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{pallet_prelude::*, traits::Defensive};
+use frame_support::traits::DefensiveSaturating;
 use sp_staking::SessionIndex;
 
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
+
 /// Manages session rotation logic.
-///
-/// This struct handles the following operations:
-/// - `plan_new_session()`: Ends session `n`, activates session `n+1`, and plans session `n+2`.
-/// - `plan_new_era()`: Plan the next era, which is targeted to activate at the end of the next
-/// session.
-/// - `activate_new_era()`: Finalizes the previous era and activates the planned era.
-pub struct Rotator<T: Config> {
-	/// The session that is ending.
-	pub end_session_index: SessionIndex,
-	_phantom_data: PhantomData<T>,
-}
+pub struct Rotator<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Rotator<T> {
-	pub(crate) fn from(end_session_index: SessionIndex) -> Self {
-		Rotator { end_session_index, _phantom_data: Default::default() }
-	}
-
-	/// Returns the session that should be activated.
-	pub(crate) fn activating_session(&self) -> SessionIndex {
-		self.end_session_index + 1
-	}
-
-	/// Returns the session that should be planned.
-	pub(crate) fn planning_session(&self) -> SessionIndex {
-		self.activating_session() + 1
-	}
-
-	/// Returns the planned session progress relative to the first planned session of the era.
-	pub(crate) fn planned_session_progress(&self) -> SessionIndex {
-		let era_start_session =
-			ErasStartSessionIndex::<T>::get(&self.planning_session()).unwrap_or(0);
-		self.planning_session() - era_start_session
-	}
-
-	/// Returns the session index at which we should start planning for the new era
-	pub(crate) fn next_planning_era(&self) -> SessionIndex {
-		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
-		T::SessionsPerEra::get().saturating_sub(election_offset)
-	}
-
-	/// Plans the next session that will begin after the starting session.
-	///
-	/// This means:
-	/// - The current session `n` is ending.
-	/// - The next session `n+1` is activating.
-	/// - The session after that, `n+2`, is now planned.
-	pub(crate) fn plan_new_session(&self) {
-		CurrentPlannedSession::<T>::put(self.planning_session());
-	}
-
-	/// Activates a new era with the given `new_era_start` timestamp.
-	///
-	/// This process includes:
-	/// - Finalizing the current active era by computing staking payouts.
-	/// - Rolling over to the next era to maintain synchronization in the staking system.
-	pub(crate) fn activate_new_era(&self, new_era_start: u64) {
-		debug_assert!(CurrentEra::<T>::get().unwrap() == ActiveEra::<T>::get().unwrap().index + 1);
-		if let Some(current_active_era) = ActiveEra::<T>::get() {
-			let previous_era_start = current_active_era.start.defensive_unwrap_or(new_era_start);
-			let era_duration = new_era_start.saturating_sub(previous_era_start);
-			Pallet::<T>::compute_era_payout(current_active_era, era_duration);
-		} else {
+	/// End the session and start the next one.
+	pub(crate) fn end_session(end_index: SessionIndex, activation_timestamp: Option<(u64, u32)>) {
+		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");
-		}
-	}
+			return
+		};
+		let planned_era = CurrentEra::<T>::get().unwrap_or(0);
+		let starting = end_index + 1;
+		// the session after the starting session.
+		let planning = starting + 1;
 
-	fn start_era(starting_session: SessionIndex, new_era_start: u64) {
-		debug_assert!(CurrentEra::<T>::get().unwrap() == ActiveEra::<T>::get().unwrap().index + 1);
-		if let Some(current_active_era) = ActiveEra::<T>::get() {
-			Rotator::<T>::finalise_era(&current_active_era, new_era_start);
-			Pallet::<T>::start_era(starting_session, new_era_start);
-			ErasStartSessionIndex::<T>::insert(current_active_era.index + 1, starting_session);
-		} else {
-			defensive!("Active era must always be available.");
+		log!(info, "end {:?}, start {:?}, plan {:?}", end_index, starting, planning);
+		log!(info, "active era {:?}, planned era {:?}", active_era, planned_era);
+
+		// Plan the next session after the start.
+		CurrentPlannedSession::<T>::put(planning);
+
+		// We rotate the era if we have the activation timestamp.
+		if let Some((time, id)) = activation_timestamp {
+			// If the activation timestamp is provided, we are starting a new era.
+			// fixme: debug_assert!(id == planned_era);
+			Self::start_era(&active_era, starting, time);
 			return;
 		}
+
+		Self::try_plan_new_era(&active_era, planned_era, starting);
 	}
-	fn finalise_era(ending_era: &ActiveEraInfo, new_era_start: u64) {
+
+	fn start_era(ending_era: &ActiveEraInfo, starting_session: SessionIndex, new_era_start: u64) {
+		// verify that a new era was planned
+		debug_assert!(CurrentEra::<T>::get().unwrap_or(0) == ending_era.index + 1);
+
+		let starting_era = ending_era.index + 1;
+
+		// finalize the ending era.
+		Self::end_era(&ending_era, new_era_start);
+
+		// start the next era.
+		Pallet::<T>::start_era(starting_session, new_era_start);
+
+		// add the index to starting session so later we can compute the era duration in sessions.
+		ErasStartSessionIndex::<T>::insert(starting_era, starting_session);
+
+		// discard old era information that is no longer needed.
+		Self::cleanup_old_era(starting_era);
+	}
+
+	fn end_era(ending_era: &ActiveEraInfo, new_era_start: u64) {
 		let previous_era_start = ending_era.start.defensive_unwrap_or(new_era_start);
 		let era_duration = new_era_start.saturating_sub(previous_era_start);
 		Pallet::<T>::compute_era_payout(ending_era.clone(), era_duration);
@@ -179,25 +154,47 @@ impl<T: Config> Rotator<T> {
 	/// Plans a new era by kicking off the election process.
 	///
 	/// The newly planned era is targeted to activate in the next session.
-	pub(crate) fn plan_new_era(&self) {
-		// todo: send this as id for the validator set.
-		let new_planned_era = CurrentEra::<T>::mutate(|s| {
-			*s = Some(s.map(|s| s + 1).unwrap_or(0));
-			s.unwrap()
-		});
+	// todo: handle `ForcingEra` scenario.
+	fn try_plan_new_era(active_era: &ActiveEraInfo, planned_era: EraIndex, starting_session: SessionIndex) {
+		if planned_era == active_era.index + 1 {
+			// era already planned, no need to plan again.
+			return;
+		}
 
-		// this seems a good time for elections.
-		log!(info, "sending election start signal");
-		let _ = T::ElectionProvider::start();
+		debug_assert!(planned_era == active_era.index);
 
-		log!(debug, "done planning new era: {:?}", new_planned_era);
+		// check if it's a good time to plan the new era.
+		if Self::should_plan_new_era(starting_session, active_era.index) {
+			// todo: send this as id for the validator set.
+			CurrentEra::<T>::put(planned_era + 1);
+
+			log!(info, "sending election start signal");
+			let _ = T::ElectionProvider::start();
+
+			log!(debug, "Planning new era: {:?}", planned_era);
+		}
 	}
 
-	fn cleanup_old_era(new_planned_era: EraIndex) {
+
+	/// Returns whether we are at the session where we should plan the new era.
+	fn should_plan_new_era(start_session: SessionIndex, active_era: EraIndex) -> bool {
+		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
+		// session at which we should plan the new era.
+		let plan_era_session = T::SessionsPerEra::get().saturating_sub(election_offset);
+		let era_start_session = ErasStartSessionIndex::<T>::get(&active_era).unwrap_or(0);
+
+		// progress of the active era in sessions.
+		let session_progress =
+			start_session.saturating_add(1).defensive_saturating_sub(era_start_session);
+
+		session_progress == plan_era_session
+	}
+
+	fn cleanup_old_era(starting_era: EraIndex) {
 		Pallet::<T>::clear_election_metadata();
 
 		// discard the ancient era info.
-		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
+		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
 			log!(trace, "Removing era information for {:?}", old_era);
 			Pallet::<T>::clear_era_information(old_era);
 		}
