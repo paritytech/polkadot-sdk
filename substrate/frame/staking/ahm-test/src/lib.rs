@@ -10,7 +10,6 @@ pub mod shared;
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use codec::Decode;
 	use frame::testing_prelude::*;
 	use pallet_election_provider_multi_block as multi_block;
 	use pallet_staking::{ActiveEra, ActiveEraInfo};
@@ -23,7 +22,7 @@ mod tests {
 
 		// initial state of ah
 		shared::in_ah(|| {
-			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 0);
+			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 1);
 			assert_eq!(pallet_staking::CurrentPlannedSession::<ah::Runtime>::get(), 0);
 			assert_eq!(pallet_staking::CurrentEra::<ah::Runtime>::get(), Some(0));
 			assert_eq!(
@@ -57,7 +56,7 @@ mod tests {
 
 		shared::in_ah(|| {
 			// ah's rc-client has also progressed some blocks, equal to 4 sessions
-			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 120);
+			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 121);
 			assert_eq!(pallet_staking::CurrentPlannedSession::<ah::Runtime>::get(), 5);
 			// election is ongoing, and has just started
 			assert!(matches!(

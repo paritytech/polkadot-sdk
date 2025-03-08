@@ -9,7 +9,7 @@ use pallet_staking_rc_client as rc_client;
 fn on_receive_session_report() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		// GIVEN genesis state of ah
-		assert_eq!(System::block_number(), 0);
+		assert_eq!(System::block_number(), 1);
 		assert_eq!(CurrentPlannedSession::<T>::get(), 0);
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(pallet_staking::ErasStartSessionIndex::<T>::get(0), Some(0));

@@ -631,10 +631,24 @@ impl<T: SendXcm, AssetHubId: Get<u32>> XcmToAssetHub<T, AssetHubId> {
 	}
 }
 
+// TODO: is this not equal to `EnsureXcm<Equals<AssetHubNextLocation>>`?
+pub struct EnsureAssetHub;
+impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
+	type Success = ();
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		match <RuntimeOrigin as Into<Result<parachains_origin::Origin, RuntimeOrigin>>>::into(o.clone()) {
+			Ok(parachains_origin::Origin::Parachain(id)) if id == 1100.into() => Ok(()),
+			_ => Err(o)
+		}
+	}
+}
+
 impl pallet_staking_ah_client::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type AssetHubOrigin = frame_support::traits::EitherOfDiverse<
 		EnsureRoot<AccountId>,
-		EnsureXcm<Equals<AssetHubNextLocation>>,
+		EnsureAssetHub
+		// EnsureXcm<Equals<AssetHubNextLocation>>,
 	>;
 	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter, AssetHubId>;
 	type MinimumValidatorSetSize = ConstU32<333>;

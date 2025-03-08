@@ -644,7 +644,7 @@ pub enum DispatchError {
 /// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
 /// the `Dispatchable` that is only known post dispatch.
 #[derive(
-	Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo,
+	Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
 )]
 pub struct DispatchErrorWithPostInfo<Info>
 where

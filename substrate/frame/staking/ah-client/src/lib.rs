@@ -111,6 +111,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// Overarching runtime event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// An origin type that ensures an incoming message is from asset hub.
 		type AssetHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -167,6 +170,20 @@ pub mod pallet {
 		MinimumValidatorSetSize,
 	}
 
+	#[pallet::event]
+	#[pallet::generate_deposit(fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// A new validator set has been received.
+		ValidatorSetReceived {
+			id: u32,
+			new_validator_set_count: u32,
+			prune_up_to: u32,
+			leftover: bool,
+		},
+		/// We could not merge, and therefore dropped a buffered message.
+		ValidatorSetDropped,
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
@@ -176,26 +193,52 @@ pub mod pallet {
 			report: rc_client::ValidatorSetReport<T::AccountId>,
 		) -> DispatchResult {
 			// Ensure the origin is one of Root or whatever is representing AssetHub.
-			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			log!(info, "Received new validator set report {:?}", report);
-			let rc_client::ValidatorSetReport { id, leftover, mut new_validator_set, prune_up_to } =
-				report;
-			debug_assert!(!leftover);
+			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 
-			// TODO: buffer in `IncompleteValidatorSetReport` if incomplete, similar to how
-			// rc-client does it.
+			let maybe_new_validator_set_report = match IncompleteValidatorSetReport::<T>::take() {
+				Some(old) => old.merge(report.clone()),
+				None => Ok(report),
+			};
 
-			// ensure the validator set, deduplicated, is not too big.
-			new_validator_set.sort();
-			new_validator_set.dedup();
+			if let Err(_) = maybe_new_validator_set_report {
+				Self::deposit_event(Event::ValidatorSetDropped);
+				// note -- if we return error the storage ops are reverted, so we do this instead.
+				return Ok(());
+			}
 
-			ensure!(
-				new_validator_set.len() as u32 >= T::MinimumValidatorSetSize::get(),
-				Error::<T>::MinimumValidatorSetSize
-			);
+			let new_validator_set_report =
+				maybe_new_validator_set_report.expect("checked above; qed");
 
-			// Save the validator set.
-			ValidatorSet::<T>::put((id, new_validator_set));
+			if new_validator_set_report.leftover {
+				// buffer it, and nothing further to do.
+				IncompleteValidatorSetReport::<T>::put(new_validator_set_report);
+			} else {
+				let rc_client::ValidatorSetReport {
+					id,
+					leftover,
+					mut new_validator_set,
+					prune_up_to,
+				} = new_validator_set_report;
+
+				// ensure the validator set, deduplicated, is not too big.
+				new_validator_set.sort();
+				new_validator_set.dedup();
+
+				ensure!(
+					new_validator_set.len() as u32 >= T::MinimumValidatorSetSize::get(),
+					Error::<T>::MinimumValidatorSetSize
+				);
+
+				// Save the validator set.
+				Self::deposit_event(Event::ValidatorSetReceived {
+					id,
+					new_validator_set_count: new_validator_set.len() as u32,
+					prune_up_to,
+					leftover,
+				});
+				ValidatorSet::<T>::put((id, new_validator_set));
+			}
 
 			Ok(())
 		}
