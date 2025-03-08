@@ -32,7 +32,6 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{BoundedVec, Perbill};
 use westend_runtime_constants::currency::UNITS as WND;
 
 /// Helper function to generate stash, controller and session key from seed
@@ -169,7 +168,6 @@ fn westend_testnet_genesis(
 	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
 
 	const ENDOWMENT: u128 = 1_000_000 * WND;
-	const STASH: u128 = 100 * WND;
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {

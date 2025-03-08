@@ -1,5 +1,3 @@
-// This file is part of Substrate.
-
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -15,8 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(unused)]
-pub mod measured;
-pub mod mel;
-pub mod zero;
-pub use zero::AllZeroWeights;
+#[cfg(all(not(feature = "metadata-hash"), feature = "std"))]
+fn main() {
+	substrate_wasm_builder::WasmBuilder::build_using_defaults();
+}
+
+#[cfg(all(feature = "metadata-hash", feature = "std"))]
+fn main() {
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.enable_metadata_hash("WND", 12)
+		.build();
+}
+
+#[cfg(not(feature = "std"))]
+fn main() {}

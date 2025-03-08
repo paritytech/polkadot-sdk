@@ -301,6 +301,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// Overarching runtime event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// An origin type that allows us to be sure a call is being dispatched by the relay chain.
 		///
 		/// It be can be configured to something like `Root` or relay chain or similar.
@@ -311,6 +314,24 @@ pub mod pallet {
 
 		/// Our communication handle to the relay chain.
 		type SendToRelayChain: SendToRelayChain<AccountId = Self::AccountId>;
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// A said session report was received.
+		SessionReportReceived {
+			end_index: SessionIndex,
+			activation_timestamp: Option<(u64, u32)>,
+			validator_points_counts: u32,
+			leftover: bool,
+		},
+
+		/// A new offence was reported.
+		OffenceReceived {
+			slash_session: SessionIndex,
+			offences_count: u32,
+		}
 	}
 
 	impl<T: Config> RcClientInterface for Pallet<T> {
@@ -334,6 +355,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			log!(info, "Received session report: {:?}", report);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
+
+			Self::deposit_event(Event::SessionReportReceived {
+				end_index: report.end_index,
+				activation_timestamp: report.activation_timestamp,
+				validator_points_counts: report.validator_points.len() as u32,
+				leftover: report.leftover,
+			});
 
 			// If we have anything previously buffered, then merge it.
 			let new_session_report = match IncompleteSessionReport::<T>::take() {
@@ -360,7 +388,14 @@ pub mod pallet {
 			slash_session: SessionIndex,
 			offences: Vec<Offence<T::AccountId>>,
 		) -> DispatchResult {
+			log!(info, "Received new offence at slash_session: {:?}", slash_session);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
+
+			Self::deposit_event(Event::OffenceReceived {
+				slash_session,
+				offences_count: offences.len() as u32,
+			});
+
 			T::AHStakingInterface::on_new_offences(slash_session, offences);
 			Ok(())
 		}
