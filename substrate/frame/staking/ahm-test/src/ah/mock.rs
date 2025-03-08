@@ -41,8 +41,9 @@ pub fn roll_next() {
 	MultiBlockUnsigned::on_initialize(next);
 }
 
-pub fn roll_until_blocks(block_number: BlockNumber) {
-	while System::block_number() < block_number {
+pub fn roll_many(blocks: BlockNumber) {
+	let current = System::block_number();
+	while System::block_number() < current + blocks {
 		roll_next();
 	}
 }

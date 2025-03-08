@@ -1,9 +1,11 @@
 use crate::ah::mock::*;
 
 use frame_support::{assert_noop, assert_ok};
+use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking::{
 	ActiveEra, ActiveEraInfo, CurrentEra, CurrentPlannedSession, Event as StakingEvent,
 };
+use pallet_staking_rc_client::ValidatorSetReport;
 use pallet_staking_rc_client as rc_client;
 
 // Tests that are specific to Asset Hub.
@@ -60,7 +62,7 @@ fn on_receive_session_report() {
 		// roll two more sessions...
 		for i in 1..3 {
 			// roll some random number of blocks.
-			roll_until_blocks(10);
+			roll_many(10);
 
 			// send the session report.
 			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
@@ -80,7 +82,7 @@ fn on_receive_session_report() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![StakingEvent::SessionRotated {
-					starting_session: i+1,
+					starting_session: i + 1,
 					active_era: 0,
 					planned_era: 0
 				}]
@@ -106,25 +108,50 @@ fn on_receive_session_report() {
 			vec![StakingEvent::SessionRotated {
 				starting_session: 4,
 				active_era: 0,
+				// planned era 1 indicates election start signal is sent.
 				planned_era: 1
 			}]
 		);
-		// on planning 5, start election
-		// by planning 6, we should have sent it.
 
-		assert_eq!(LocalQueue::get().unwrap(), vec![]);
-	})
-}
+		assert_eq!(
+			election_events_since_last_call(),
+			vec![ElectionEvent::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) }]
+		);
 
-#[test]
-fn start_election_prep() {
-	// todo(ank4n):
-	// - At session x, election prep should start.
-	// - roll until election finishes.
-	// - validator set should be sent to RC.
-	ExtBuilder::default().local_queue().build().execute_with(|| {
-		// roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 10, false);
-		assert_eq!(LocalQueue::get().unwrap(), vec![]);
+		// roll some blocks to finish election.
+		roll_many(31);
+		// todo: make sense of these phases!!
+		assert_eq!(
+			election_events_since_last_call(),
+			vec![
+				ElectionEvent::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed(3) },
+				ElectionEvent::PhaseTransitioned {
+					from: Phase::Signed(0),
+					to: Phase::SignedValidation(5)
+				},
+				ElectionEvent::PhaseTransitioned {
+					from: Phase::SignedValidation(0),
+					to: Phase::Unsigned(3)
+				},
+				ElectionEvent::PhaseTransitioned { from: Phase::Unsigned(0), to: Phase::Done },
+				ElectionEvent::PhaseTransitioned { from: Phase::Done, to: Phase::Export(2) },
+				ElectionEvent::PhaseTransitioned { from: Phase::Export(0), to: Phase::Off }
+			]
+		);
+
+
+		assert_eq!(
+			LocalQueue::get().unwrap(),
+			vec![(
+				42,
+				OutgoingMessages::ValidatorSet(ValidatorSetReport {
+					new_validator_set: vec![3, 5, 6, 8],
+					id: 0, // todo: ensure this is sent as CurrentEra.
+					prune_up_to: 0, // todo: Ensure this is sent.
+					leftover: false
+				})
+			)]
+		);
 	})
 }
 
