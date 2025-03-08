@@ -107,7 +107,36 @@ fn send_session_report_no_election_comes_in() {
 }
 
 #[test]
-fn prunes_validator_points_upon_session_report() {}
+fn prunes_validator_points_upon_session_report() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// given
+		ah_client::ValidatorPoints::<Runtime>::insert(1, 100);
+		ah_client::ValidatorPoints::<Runtime>::insert(2, 200);
+
+		// when
+		roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 1, false);
+
+		// then
+		assert_eq!(
+			LocalQueue::get().unwrap(),
+			vec![
+				(
+					30,
+					OutgoingMessages::SessionReport(SessionReport {
+						end_index: 0,
+						validator_points: vec![(1, 100), (2, 200)],
+						activation_timestamp: None,
+						leftover: false
+					})
+				),
+			]
+		);
+
+		// then it is drained.
+		assert!(!ah_client::ValidatorPoints::<Runtime>::contains_key(1));
+		assert!(!ah_client::ValidatorPoints::<Runtime>::contains_key(2));
+	})
+}
 
 #[test]
 fn can_handle_queued_validator_set() {

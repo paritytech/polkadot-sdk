@@ -193,8 +193,8 @@ pub mod pallet {
 			report: rc_client::ValidatorSetReport<T::AccountId>,
 		) -> DispatchResult {
 			// Ensure the origin is one of Root or whatever is representing AssetHub.
-			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			log!(info, "Received new validator set report {:?}", report);
+			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 
 			let maybe_new_validator_set_report = match IncompleteValidatorSetReport::<T>::take() {
 				Some(old) => old.merge(report.clone()),

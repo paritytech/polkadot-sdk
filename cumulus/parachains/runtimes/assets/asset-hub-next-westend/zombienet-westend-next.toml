@@ -11,7 +11,7 @@ rpc_port = 9944
 name = "bob"
 validator = true
 rpc_port = 9955
-args = [ "-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace"]
+args = [ "-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace,xcm=trace"]
 
 [[parachains]]
 id = 1100

@@ -182,6 +182,16 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 		self.leftover = other.leftover;
 		Ok(self)
 	}
+
+	/// Split self into `count` number of pieces.
+	pub fn split(self, count: usize) -> Vec<Self> where AccountId: Clone {
+		let chunk_size = self.new_validator_set.len().div_ceil(count.min(1));
+		let splitted_points = self.new_validator_set.chunks(chunk_size).map(|x| x.to_vec());
+		splitted_points.into_iter().map(|new_validator_set| Self {
+			new_validator_set,
+			..self
+		}).collect()
+	}
 }
 
 #[derive(
@@ -236,6 +246,16 @@ impl<AccountId> SessionReport<AccountId> {
 		self.validator_points.extend(other.validator_points);
 		self.leftover = other.leftover;
 		Ok(self)
+	}
+
+	/// Split oneself into `count` number of pieces.
+	pub fn split(self, count: usize) -> Vec<Self> where AccountId: Clone {
+		let chunk_size = self.validator_points.len().div_ceil(count.min(1));
+		let splitted_points = self.validator_points.chunks(chunk_size).map(|x| x.to_vec());
+		splitted_points.into_iter().map(|validator_points| Self {
+			validator_points,
+			..self
+		}).collect()
 	}
 }
 
@@ -338,7 +358,6 @@ pub mod pallet {
 		type AccountId = T::AccountId;
 
 		fn validator_set(new_validator_set: Vec<Self::AccountId>, id: u32, prune_up_tp: u32) {
-			// TODO: possibly chunk this up if needed, else send it one one go for now.
 			let report = ValidatorSetReport::new_terminal(new_validator_set, id, prune_up_tp);
 			T::SendToRelayChain::validator_set(report);
 		}

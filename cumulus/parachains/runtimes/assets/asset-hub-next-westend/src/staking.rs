@@ -312,7 +312,7 @@ impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
 				check_origin: None,
 			},
 			Instruction::Transact {
-				origin_kind: OriginKind::Superuser, // TODO: double check
+				origin_kind: OriginKind::Native,
 				fallback_max_weight: None,
 				call: RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode().into(),
 			}

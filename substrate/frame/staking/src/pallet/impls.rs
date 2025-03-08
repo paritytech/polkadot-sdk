@@ -1588,11 +1588,12 @@ impl<T: Config> Pallet<T> {
 		current_planned_session: SessionIndex,
 		era_start_session: SessionIndex,
 	) -> bool {
-		log::info!(
-			target: "runtime::staking",
-			"RUNTIME IMPL: current_planned_session: {:?} era_start_session: {:?}",
+		crate::log!(
+			debug,
+			"current_planned_session: {:?} era_start_session: {:?}, ElectionOffset: {:?}",
 			current_planned_session,
-			era_start_session
+			era_start_session,
+			T::ElectionOffset::get(),
 		);
 
 		let election_offset = T::ElectionOffset::get()
