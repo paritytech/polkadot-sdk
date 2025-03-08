@@ -153,9 +153,20 @@ benchmarks_instance_pallet! {
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let bounty_update_period = T::BountyUpdatePeriod::get();
-		set_block_number::<T, I>(T::SpendPeriod::get() + bounty_update_period + 2u32.into());
+		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
+		set_block_number::<T, I>(inactivity_timeout.saturating_add(2u32.into()));
 		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), bounty_id)
+	}: {
+		let res = Pallet::<T, I>::unassign_curator(RawOrigin::Signed(caller).into(), bounty_id);
+
+		// If `BountyUpdatePeriod` overflowed the inactivity timeout, the call will fail (which is fine)
+		// but we need to handle it.
+		if Pallet::<T, I>::treasury_block_number() <= inactivity_timeout {
+			  assert!(res.is_err());
+		} else {
+			  res?;
+		}
+	}
 
 	accept_curator {
 		setup_pot_account::<T, I>();

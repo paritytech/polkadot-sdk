@@ -21,7 +21,7 @@
 
 use alloc::vec;
 use frame_benchmarking::{v2::*, BenchmarkError};
-use frame_support::ensure;
+use frame_support::{assert_ok, ensure};
 use frame_system::RawOrigin;
 use pallet_bounties::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;
@@ -273,15 +273,27 @@ mod benchmarks {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
 		Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
-		set_block_number::<T>(
-			T::SpendPeriod::get()
-				.saturating_add(T::BountyUpdatePeriod::get())
-				.saturating_add(1u32.into()),
-		);
-		let caller = whitelisted_caller();
+		let bounty_update_period = T::BountyUpdatePeriod::get();
+		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
+		set_block_number::<T>(inactivity_timeout.saturating_add(1u32.into()));
+		let caller: T::AccountId = whitelisted_caller();
 
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), bounty_setup.bounty_id, bounty_setup.child_bounty_id);
+		#[block]
+		{
+			let res = Pallet::<T>::unassign_curator(
+				RawOrigin::Signed(caller).into(),
+				bounty_setup.bounty_id,
+				bounty_setup.child_bounty_id,
+			);
+
+			// If `BountyUpdatePeriod` overflowed the inactivity timeout, the call will fail (which
+			// is fine) but we need to handle it.
+			if Pallet::<T>::treasury_block_number() <= inactivity_timeout {
+				assert!(res.is_err());
+			} else {
+				assert_ok!(res);
+			}
+		}
 
 		Ok(())
 	}
