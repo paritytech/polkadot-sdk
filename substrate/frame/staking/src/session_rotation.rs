@@ -75,8 +75,8 @@
 //! * end 0, start 1, plan 2
 //! * end 1, start 2, plan 3
 //! * end 2, start 3, plan 4
-//! * end 3, start 4, plan 5 // `Plan new era` session. Current Era++. Election triggered.
-//! 						 // Somewhere here: Election set is sent to RC, keyed with Current Era
+//! * end 3, start 4, plan 5 // `Plan new era` session. Current Era++. Trigger Election.
+//! * **** Somewhere here: Election set is sent to RC, keyed with Current Era
 //! * end 4, start 5, plan 6 // RC::session receives and queues this set.
 //! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
@@ -85,8 +85,10 @@ use crate::{
 	ErasStartSessionIndex, Pallet,
 };
 use frame_election_provider_support::ElectionProvider;
-use frame_support::{pallet_prelude::*, traits::Defensive};
-use frame_support::traits::DefensiveSaturating;
+use frame_support::{
+	pallet_prelude::*,
+	traits::{Defensive, DefensiveSaturating},
+};
 use sp_staking::SessionIndex;
 
 #[derive(
@@ -155,7 +157,11 @@ impl<T: Config> Rotator<T> {
 	///
 	/// The newly planned era is targeted to activate in the next session.
 	// todo: handle `ForcingEra` scenario.
-	fn try_plan_new_era(active_era: &ActiveEraInfo, planned_era: EraIndex, starting_session: SessionIndex) {
+	fn try_plan_new_era(
+		active_era: &ActiveEraInfo,
+		planned_era: EraIndex,
+		starting_session: SessionIndex,
+	) {
 		if planned_era == active_era.index + 1 {
 			// era already planned, no need to plan again.
 			return;
@@ -174,7 +180,6 @@ impl<T: Config> Rotator<T> {
 			log!(debug, "Planning new era: {:?}", planned_era);
 		}
 	}
-
 
 	/// Returns whether we are at the session where we should plan the new era.
 	fn should_plan_new_era(start_session: SessionIndex, active_era: EraIndex) -> bool {
