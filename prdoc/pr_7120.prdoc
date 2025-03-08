@@ -11,3 +11,5 @@ crates:
     bump: major
   - name: pallet-bridge-relayers
     bump: major
+  - name: bp-runtime
+    bump: major
