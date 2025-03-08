@@ -190,11 +190,24 @@ fn on_receive_session_report() {
 }
 
 #[test]
+fn roll_many_eras() {
+	// todo(ank4n):
+	// - Roll upto 50 eras.
+	// - Ensure CurrentEra and Active Era are always in sync.
+	// - Ensure rewards can be claimed at correct era.
+	// - Ensure prune_upto value is correctly sent.
+	// - Check if offenders only one at a time!
+	ExtBuilder::default().local_queue().build().execute_with(|| {});
+}
+
+
+#[test]
 fn on_new_offence() {
 	// todo(ank4n):
 	// - Offence Report sent to AH.
 	// - Offence processed, and slashed.
 	// - Check if offenders only one at a time!
+	// - Mass slash triggers force era.
 	// Tests processing of offence and slashing
 	ExtBuilder::default().local_queue().build().execute_with(|| {});
 }
