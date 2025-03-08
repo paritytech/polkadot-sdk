@@ -78,7 +78,9 @@ pub enum Subcommand {
 	Sign(sc_cli::SignCmd),
 
 	/// Build a chain specification.
-	#[deprecated(note = "build-spec will be removed after 1/04/2026. Use export-chain-spec instead")]
+	#[deprecated(
+		note = "build-spec will be removed after 1/04/2026. Use export-chain-spec instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Export the chain specification.

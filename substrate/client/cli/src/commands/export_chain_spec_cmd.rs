@@ -16,15 +16,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use crate::{error::Result, BuildSpecCmd, CliConfiguration, NodeKeyParams, SharedParams};
 use clap::Parser;
 use sc_service::{chain_ops, ChainSpec};
 use std::{
 	fs,
 	io::{self, Write},
 	path::PathBuf,
+	thread::sleep,
 };
-use std::thread::sleep;
-use crate::{error::Result, BuildSpecCmd, CliConfiguration, NodeKeyParams, SharedParams};
 
 /// Export a chain-spec to a JSON file in plain or in raw storage format.
 ///
@@ -69,7 +69,6 @@ impl ExportChainSpecCmd {
 	}
 }
 impl CliConfiguration for ExportChainSpecCmd {
-
 	// If ExportChainSpecCmd doesn’t have shared_params, you must provide some implementation.
 	fn shared_params(&self) -> &SharedParams {
 		unimplemented!("ExportChainSpecCmd does not implement shared_params")
