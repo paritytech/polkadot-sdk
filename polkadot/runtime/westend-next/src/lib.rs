@@ -120,7 +120,7 @@ use sp_staking::SessionIndex;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
-	latest::prelude::*, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
+	latest::prelude::*, VersionedAsset, VersionedAssetId, VersionedAssets,
 	VersionedLocation, VersionedXcm,
 };
 use xcm_builder::PayOverXcm;
@@ -556,13 +556,21 @@ impl session_historical::Config for Runtime {
 pub struct AssetHubLocation;
 impl Get<Location> for AssetHubLocation {
 	fn get() -> Location {
-		Location::new(0, [Junction::Parachain(AssetHubId::get())])
+		Location::new(0, [Junction::Parachain(1000)])
+	}
+}
+
+pub struct AssetHubNextLocation;
+impl Get<Location> for AssetHubNextLocation {
+	fn get() -> Location {
+		// TODO: once we are done with AH-next, replace with original AH id.
+		Location::new(0, [Junction::Parachain(1100)])
 	}
 }
 
 #[derive(Encode, Decode)]
 enum AssetHubRuntimePallets<AccountId> {
-	#[codec(index = 50)]
+	#[codec(index = 89)]
 	RcClient(RcClientCalls<AccountId>),
 }
 
@@ -589,9 +597,9 @@ impl<T: SendXcm, AssetHubId: Get<u32>> ah_client::SendToAssetHub for XcmToAssetH
 			Self::mk_asset_hub_call(RcClientCalls::RelaySessionReport(session_report)),
 		]);
 		if let Err(err) =
-			send_xcm::<T>(Location::new(0, [Junction::Parachain(AssetHubId::get())]), message)
+			send_xcm::<T>(AssetHubNextLocation::get(), message)
 		{
-			// TODO: log error
+			log::error!(target: "runtime", "Failed to send relay session report message: {:?}", err);
 		}
 	}
 
@@ -607,9 +615,9 @@ impl<T: SendXcm, AssetHubId: Get<u32>> ah_client::SendToAssetHub for XcmToAssetH
 			Self::mk_asset_hub_call(RcClientCalls::RelayNewOffence(session_index, offences)),
 		]);
 		if let Err(err) =
-			send_xcm::<T>(Location::new(0, [Junction::Parachain(AssetHubId::get())]), message)
+			send_xcm::<T>(AssetHubNextLocation::get(), message)
 		{
-			// TODO: log error``
+			log::error!(target: "runtime", "Failed to send relay offence message: {:?}", err);
 		}
 	}
 }
@@ -629,7 +637,7 @@ impl<T: SendXcm, AssetHubId: Get<u32>> XcmToAssetHub<T, AssetHubId> {
 impl pallet_staking_ah_client::Config for Runtime {
 	type AssetHubOrigin = frame_support::traits::EitherOfDiverse<
 		EnsureRoot<AccountId>,
-		EnsureXcm<Equals<AssetHubLocation>>,
+		EnsureXcm<Equals<AssetHubNextLocation>>,
 	>;
 	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter, AssetHubId>;
 	type MinimumValidatorSetSize = ConstU32<333>;
@@ -1819,6 +1827,10 @@ sp_api::impl_runtime_apis! {
 			parachains_runtime_api_impl::validators::<Runtime>()
 		}
 
+		fn validation_code_bomb_limit() -> u32 {
+			parachains_staging_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
+		}
+
 		fn validator_groups() -> (Vec<Vec<ValidatorIndex>>, GroupRotationInfo<BlockNumber>) {
 			parachains_runtime_api_impl::validator_groups::<Runtime>()
 		}
@@ -2297,7 +2309,7 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: xcm::prelude::XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
 			XcmPallet::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
