@@ -82,7 +82,7 @@
 
 use crate::{
 	log, ActiveEra, ActiveEraInfo, Config, CurrentEra, CurrentPlannedSession, EraIndex,
-	ErasStartSessionIndex, Pallet,
+	ErasStartSessionIndex, Pallet, ForceEra, Forcing,
 };
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
@@ -104,7 +104,7 @@ impl<T: Config> Rotator<T> {
 	pub(crate) fn end_session(end_index: SessionIndex, activation_timestamp: Option<(u64, u32)>) {
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");
-			return
+			return;
 		};
 		let planned_era = CurrentEra::<T>::get().unwrap_or(0);
 		let starting = end_index + 1;
@@ -122,10 +122,26 @@ impl<T: Config> Rotator<T> {
 			// If the activation timestamp is provided, we are starting a new era.
 			// fixme: debug_assert!(id == planned_era);
 			Self::start_era(&active_era, starting, time);
-			return;
 		}
 
-		Self::try_plan_new_era(&active_era, planned_era, starting);
+		// check if we should plan new era.
+		let should_plan_era = match ForceEra::<T>::get() {
+			// see if it's good time to plan a new era.
+			Forcing::NotForcing => Self::is_plan_era_deadline(starting, active_era.index),
+			// Force plan new era only once.
+			Forcing::ForceNew => {
+				ForceEra::<T>::put(Forcing::NotForcing);
+				true
+			},
+			// always plan the new era.
+			Forcing::ForceAlways => true,
+			// never force.
+			Forcing::ForceNone => false,
+		};
+
+		if should_plan_era {
+			Self::plan_new_era(&active_era, planned_era, starting);
+		}
 	}
 
 	fn start_era(ending_era: &ActiveEraInfo, starting_session: SessionIndex, new_era_start: u64) {
@@ -157,7 +173,7 @@ impl<T: Config> Rotator<T> {
 	///
 	/// The newly planned era is targeted to activate in the next session.
 	// todo: handle `ForcingEra` scenario.
-	fn try_plan_new_era(
+	fn plan_new_era(
 		active_era: &ActiveEraInfo,
 		planned_era: EraIndex,
 		starting_session: SessionIndex,
@@ -169,20 +185,16 @@ impl<T: Config> Rotator<T> {
 
 		debug_assert!(planned_era == active_era.index);
 
-		// check if it's a good time to plan the new era.
-		if Self::should_plan_new_era(starting_session, active_era.index) {
-			// todo: send this as id for the validator set.
-			CurrentEra::<T>::put(planned_era + 1);
+		log!(debug, "Planning new era: {:?}", planned_era);
+		// todo: send this as id for the validator set.
+		CurrentEra::<T>::put(planned_era + 1);
 
-			log!(info, "sending election start signal");
-			let _ = T::ElectionProvider::start();
-
-			log!(debug, "Planning new era: {:?}", planned_era);
-		}
+		log!(info, "sending election start signal");
+		let _ = T::ElectionProvider::start();
 	}
 
 	/// Returns whether we are at the session where we should plan the new era.
-	fn should_plan_new_era(start_session: SessionIndex, active_era: EraIndex) -> bool {
+	fn is_plan_era_deadline(start_session: SessionIndex, active_era: EraIndex) -> bool {
 		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
 		// session at which we should plan the new era.
 		let plan_era_session = T::SessionsPerEra::get().saturating_sub(election_offset);
