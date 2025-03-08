@@ -23,7 +23,7 @@ pub use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible,
+		fungible, PollStatus,
 		fungible::{Inspect, InspectHold, Mutate, MutateHold},
 		fungibles,
 		schedule::{
@@ -40,6 +40,7 @@ pub use frame_support::{
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use scale_info::prelude::vec::Vec;
+pub use codec::HasCompact;
 pub use sp_runtime::{
 	traits::{
 		AccountIdConversion, BlockNumberProvider, Convert, Dispatchable, Hash, Saturating,

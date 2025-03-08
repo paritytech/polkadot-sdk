@@ -54,8 +54,10 @@
 pub use pallet::*;
 mod functions;
 mod types;
+mod traits;
 pub use pallet_democracy as Democracy;
 pub use types::*;
+pub use traits::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
