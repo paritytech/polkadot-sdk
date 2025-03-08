@@ -180,7 +180,7 @@ fn on_receive_session_report() {
 				42,
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
-					id: 0,          // todo: ensure this is sent as CurrentEra.
+					id: 1,
 					prune_up_to: 0, // todo: Ensure this is sent.
 					leftover: false
 				})

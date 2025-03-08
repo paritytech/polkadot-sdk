@@ -124,7 +124,7 @@ impl<T: Config> Rotator<T> {
 		// We rotate the era if we have the activation timestamp.
 		if let Some((time, id)) = activation_timestamp {
 			// If the activation timestamp is provided, we are starting a new era.
-			// fixme: debug_assert!(id == planned_era);
+			// fixme: RC is not sending correct id: debug_assert!(id == planned_era);
 			Self::start_era(&active_era, starting, time);
 		}
 

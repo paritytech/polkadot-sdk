@@ -900,9 +900,9 @@ pub mod pallet {
 					_ => Ok(()),
 				});
 				assert!(
-					ValidatorCount::<T>::get() <=
-						<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
-							<T::ElectionProvider as ElectionProvider>::Pages::get()
+					ValidatorCount::<T>::get()
+						<= <T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
+							* <T::ElectionProvider as ElectionProvider>::Pages::get()
 				);
 			}
 
@@ -1236,6 +1236,12 @@ pub mod pallet {
 					"Election provider is ready, our status is {:?}",
 					NextElectionPage::<T>::get()
 				);
+
+				debug_assert!(
+					CurrentEra::<T>::get().unwrap_or(0) == ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
+					"Next era must be already planned."
+				);
+
 				match NextElectionPage::<T>::get() {
 					Some(current_page) => {
 						let next_page = current_page.checked_sub(1);
@@ -1255,10 +1261,15 @@ pub mod pallet {
 						if next_page.is_none() {
 							crate::log!(info, "sending validator set report to RcClient");
 							use pallet_staking_rc_client::RcClientInterface;
+							// get the first session of the oldest era in the bonded eras.
+							let prune_up_to = BondedEras::<T>::get()
+								.first()
+								.map(|(_, first_session)| *first_session)
+								.unwrap_or(0);
 							T::RcClientInterface::validator_set(
 								ElectableStashes::<T>::get().into_iter().collect(),
-								0, // TODO: send ID, or we ignore for now.
-								0, // TODO: Send up to which era we should prune.
+								CurrentEra::<T>::get().defensive_unwrap_or(0),
+								prune_up_to, // TODO: Send up to which era we should prune.
 							);
 						}
 					},
@@ -1447,17 +1458,17 @@ pub mod pallet {
 			let stash = ensure_signed(origin)?;
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
-				return Err(Error::<T>::AlreadyBonded.into())
+				return Err(Error::<T>::AlreadyBonded.into());
 			}
 
 			// An existing controller cannot become a stash.
 			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
-				return Err(Error::<T>::AlreadyPaired.into())
+				return Err(Error::<T>::AlreadyPaired.into());
 			}
 
 			// Reject a bond which is considered to be _dust_.
 			if value < asset::existential_deposit::<T>() {
-				return Err(Error::<T>::InsufficientBond.into())
+				return Err(Error::<T>::InsufficientBond.into());
 			}
 
 			let stash_balance = asset::free_to_stake::<T>(&stash);
@@ -2140,10 +2151,10 @@ pub mod pallet {
 			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
-			let reapable = origin_balance < ed ||
-				origin_balance.is_zero() ||
-				ledger_total < ed ||
-				ledger_total.is_zero();
+			let reapable = origin_balance < ed
+				|| origin_balance.is_zero()
+				|| ledger_total < ed
+				|| ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.
@@ -2304,7 +2315,7 @@ pub mod pallet {
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
-				return Ok(())
+				return Ok(());
 			}
 
 			if caller != controller {
