@@ -476,8 +476,10 @@ sp_api::mock_impl_runtime_apis! {
 			}
 		}
 
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
-			XcmPallet::query_delivery_fees(destination, message, asset)
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset_id: VersionedAssetId) -> Result<VersionedAssets, XcmPaymentApiError> {
+			let delivery_fee_dot = XcmPallet::query_delivery_fees(destination, message)?;
+			quote_price_tokens_for_exact_tokens(delivery_fee_dot, asset_id)
+				.map_err(|_| XcmPaymentApiError::AssetNotFound)
 		}
 	}
 
