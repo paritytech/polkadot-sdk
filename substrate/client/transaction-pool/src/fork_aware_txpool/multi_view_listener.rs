@@ -22,8 +22,8 @@
 
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
-	fork_aware_txpool::stream_map_util::next_event,
-	graph::{self, BlockHash, ExtrinsicHash, TransactionStatusEvent},
+	fork_aware_txpool::{stream_map_util::next_event, view::TransactionStatusEvent},
+	graph::{self, BlockHash, ExtrinsicHash},
 	LOG_TARGET,
 };
 use futures::{Future, FutureExt, Stream, StreamExt};
@@ -84,22 +84,27 @@ enum TransactionStatusUpdate<ChainApi: graph::ChainApi> {
 	/// Marks a transaction as invalidated.
 	///
 	/// If all pre-conditions are met, an external invalid event will be sent out.
-	TransactionInvalidated(ExtrinsicHash<ChainApi>),
+	Invalidated(ExtrinsicHash<ChainApi>),
 
 	/// Notifies that a transaction was finalized in a specific block hash and transaction index.
 	///
 	/// Send out an external finalized event.
-	TransactionFinalized(ExtrinsicHash<ChainApi>, BlockHash<ChainApi>, TxIndex),
+	Finalized(ExtrinsicHash<ChainApi>, BlockHash<ChainApi>, TxIndex),
 
 	/// Notifies that a transaction was broadcasted with a list of peer addresses.
 	///
 	/// Sends out an external broadcasted event.
-	TransactionBroadcasted(ExtrinsicHash<ChainApi>, Vec<String>),
+	Broadcasted(ExtrinsicHash<ChainApi>, Vec<String>),
 
 	/// Notifies that a transaction was dropped from the pool.
 	///
 	/// If all preconditions are met, an external dropped event will be sent out.
-	TransactionDropped(ExtrinsicHash<ChainApi>, DroppedReason<ExtrinsicHash<ChainApi>>),
+	Dropped(ExtrinsicHash<ChainApi>, DroppedReason<ExtrinsicHash<ChainApi>>),
+
+	/// Notifies that a finality watcher timed out.
+	///
+	/// An external finality timed out event will be sent out.
+	FinalityTimeout(ExtrinsicHash<ChainApi>, BlockHash<ChainApi>),
 }
 
 impl<ChainApi> TransactionStatusUpdate<ChainApi>
@@ -108,10 +113,11 @@ where
 {
 	fn hash(&self) -> ExtrinsicHash<ChainApi> {
 		match self {
-			Self::TransactionInvalidated(hash) |
-			Self::TransactionFinalized(hash, _, _) |
-			Self::TransactionBroadcasted(hash, _) |
-			Self::TransactionDropped(hash, _) => *hash,
+			Self::Invalidated(hash) |
+			Self::Finalized(hash, _, _) |
+			Self::Broadcasted(hash, _) |
+			Self::Dropped(hash, _) => *hash,
+			Self::FinalityTimeout(hash, _) => *hash,
 		}
 	}
 }
@@ -123,15 +129,19 @@ where
 {
 	fn into(self) -> TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>> {
 		match self {
-			TransactionStatusUpdate::TransactionInvalidated(_) => TransactionStatus::Invalid,
-			TransactionStatusUpdate::TransactionFinalized(_, hash, index) =>
+			TransactionStatusUpdate::Invalidated(_) => TransactionStatus::Invalid,
+			TransactionStatusUpdate::Finalized(_, hash, index) =>
 				TransactionStatus::Finalized((*hash, *index)),
-			TransactionStatusUpdate::TransactionBroadcasted(_, peers) =>
+			TransactionStatusUpdate::Broadcasted(_, peers) =>
 				TransactionStatus::Broadcast(peers.clone()),
-			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Usurped(by)) =>
+			TransactionStatusUpdate::Dropped(_, DroppedReason::Usurped(by)) =>
 				TransactionStatus::Usurped(*by),
-			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::LimitsEnforced) =>
+			TransactionStatusUpdate::Dropped(_, DroppedReason::LimitsEnforced) =>
 				TransactionStatus::Dropped,
+			TransactionStatusUpdate::Dropped(_, DroppedReason::Invalid) =>
+				TransactionStatus::Invalid,
+			TransactionStatusUpdate::FinalityTimeout(_, block_hash) =>
+				TransactionStatus::FinalityTimeout(*block_hash),
 		}
 	}
 }
@@ -142,17 +152,20 @@ where
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::TransactionInvalidated(h) => {
-				write!(f, "TransactionInvalidated({h})")
+			Self::Invalidated(h) => {
+				write!(f, "Invalidated({h})")
 			},
-			Self::TransactionFinalized(h, b, i) => {
-				write!(f, "FinalizeTransaction({h},{b},{i})")
+			Self::Finalized(h, b, i) => {
+				write!(f, "Finalized({h},{b},{i})")
 			},
-			Self::TransactionBroadcasted(h, _) => {
-				write!(f, "TransactionBroadcasted({h})")
+			Self::Broadcasted(h, _) => {
+				write!(f, "Broadcasted({h})")
 			},
-			Self::TransactionDropped(h, r) => {
-				write!(f, "TransactionDropped({h},{r:?})")
+			Self::Dropped(h, r) => {
+				write!(f, "Dropped({h},{r:?})")
+			},
+			Self::FinalityTimeout(h, b) => {
+				write!(f, "FinalityTimeout({h},{b:?})")
 			},
 		}
 	}
@@ -172,43 +185,52 @@ where
 		}
 	}
 }
+
 impl<ChainApi> ControllerCommand<ChainApi>
 where
 	ChainApi: graph::ChainApi,
 {
 	/// Creates new instance of a command requesting [`TransactionStatus::Invalid`] transaction
 	/// status.
-	fn new_transaction_invalidated(tx_hash: ExtrinsicHash<ChainApi>) -> Self {
-		ControllerCommand::TransactionStatusRequest(
-			TransactionStatusUpdate::TransactionInvalidated(tx_hash),
-		)
+	fn new_invalidated(tx_hash: ExtrinsicHash<ChainApi>) -> Self {
+		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::Invalidated(tx_hash))
 	}
 	/// Creates new instance of a command requesting [`TransactionStatus::Broadcast`] transaction
 	/// status.
-	fn new_transaction_broadcasted(tx_hash: ExtrinsicHash<ChainApi>, peers: Vec<String>) -> Self {
-		ControllerCommand::TransactionStatusRequest(
-			TransactionStatusUpdate::TransactionBroadcasted(tx_hash, peers),
-		)
+	fn new_broadcasted(tx_hash: ExtrinsicHash<ChainApi>, peers: Vec<String>) -> Self {
+		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::Broadcasted(
+			tx_hash, peers,
+		))
 	}
 	/// Creates new instance of a command requesting [`TransactionStatus::Finalized`] transaction
 	/// status.
-	fn new_transaction_finalized(
+	fn new_finalized(
 		tx_hash: ExtrinsicHash<ChainApi>,
 		block_hash: BlockHash<ChainApi>,
 		index: TxIndex,
 	) -> Self {
-		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::TransactionFinalized(
+		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::Finalized(
 			tx_hash, block_hash, index,
 		))
 	}
 	/// Creates new instance of a command requesting [`TransactionStatus::Dropped`] transaction
 	/// status.
-	fn new_transaction_dropped(
+	fn new_dropped(
 		tx_hash: ExtrinsicHash<ChainApi>,
 		reason: DroppedReason<ExtrinsicHash<ChainApi>>,
 	) -> Self {
-		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::TransactionDropped(
+		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::Dropped(
 			tx_hash, reason,
+		))
+	}
+	/// Creates new instance of a command requesting [`TransactionStatus::FinalityTimeout`]
+	/// transaction status.
+	fn new_finality_timeout(
+		tx_hash: ExtrinsicHash<ChainApi>,
+		block_hash: BlockHash<ChainApi>,
+	) -> Self {
+		ControllerCommand::TransactionStatusRequest(TransactionStatusUpdate::FinalityTimeout(
+			tx_hash, block_hash,
 		))
 	}
 }
@@ -311,33 +333,9 @@ where
 		&mut self,
 		request: TransactionStatusUpdate<ChainApi>,
 	) -> Option<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>> {
-		match request {
-			TransactionStatusUpdate::TransactionInvalidated(..) =>
-				if self.handle_invalidate_transaction() {
-					log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Invalid", self.tx_hash);
-					return Some(TransactionStatus::Invalid)
-				},
-			TransactionStatusUpdate::TransactionFinalized(_, block, index) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Finalized", self.tx_hash);
-				self.terminate = true;
-				return Some(TransactionStatus::Finalized((block, index)))
-			},
-			TransactionStatusUpdate::TransactionBroadcasted(_, peers) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", self.tx_hash);
-				return Some(TransactionStatus::Broadcast(peers))
-			},
-			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::LimitsEnforced) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", self.tx_hash);
-				self.terminate = true;
-				return Some(TransactionStatus::Dropped)
-			},
-			TransactionStatusUpdate::TransactionDropped(_, DroppedReason::Usurped(by)) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Usurped({:?})", self.tx_hash, by);
-				self.terminate = true;
-				return Some(TransactionStatus::Usurped(by))
-			},
-		};
-		None
+		let status = Into::<TransactionStatus<_, _>>::into(&request);
+		status.is_final().then(|| self.terminate = true);
+		return Some(status);
 	}
 
 	/// Handles various transaction status updates from individual views and manages internal states
@@ -388,44 +386,16 @@ where
 					Some(status)
 				}
 			},
-			TransactionStatus::FinalityTimeout(_) => Some(status),
 			TransactionStatus::Finalized(_) => {
 				self.terminate = true;
 				Some(status)
 			},
+			TransactionStatus::FinalityTimeout(_) |
 			TransactionStatus::Retracted(_) |
 			TransactionStatus::Broadcast(_) |
 			TransactionStatus::Usurped(_) |
 			TransactionStatus::Dropped |
 			TransactionStatus::Invalid => None,
-		}
-	}
-
-	/// Handles transaction invalidation sent via side channel.
-	///
-	/// Function may set the context termination flag, which will close the stream.
-	///
-	/// Returns true if the event should be sent out, and false if the invalidation request should
-	/// be skipped.
-	fn handle_invalidate_transaction(&mut self) -> bool {
-		let keys = self.known_views.clone();
-		trace!(
-			target: LOG_TARGET,
-			tx_hash = ?self.tx_hash,
-			views = ?self.known_views.iter().collect::<Vec<_>>(),
-			"got invalidate_transaction"
-		);
-		if self.views_keeping_tx_valid.is_disjoint(&keys) {
-			self.terminate = true;
-			true
-		} else {
-			//todo [#5477]
-			// - handle corner case:  this may happen when tx is invalid for mempool, but somehow
-			//   some view still sees it as ready/future. In that case we don't send the invalid
-			//   event, as transaction can still be included. Probably we should set some flag here
-			//   and allow for invalid sent from the view.
-			// - add debug / metrics,
-			false
 		}
 	}
 
@@ -493,32 +463,31 @@ where
 				Some((view_hash, (tx_hash, status))) =  next_event(&mut aggregated_streams_map) => {
 					events_metrics_collector.report_status(tx_hash, status.clone());
 					if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
-						log::trace!(
+						trace!(
 							target: LOG_TARGET,
-							"[{:?}] aggregated_stream_map event: view:{} status:{:?}",
-							tx_hash,
-							view_hash,
-							status
+							?tx_hash,
+							?view_hash,
+							?status,
+							"aggregated_stream_map event",
 						);
-						if let Err(e) = ctrl
+						if let Err(error) = ctrl
 							.get_mut()
 							.unbounded_send(ExternalWatcherCommand::ViewTransactionStatus(view_hash, status))
 						{
-							trace!(target: LOG_TARGET, "[{:?}] send status failed: {:?}", tx_hash, e);
+							trace!(target: LOG_TARGET, ?tx_hash, ?error, "send status failed");
 							ctrl.remove();
 						}
 					}
 				},
 				cmd = command_receiver.next() => {
-					log::trace!(target: LOG_TARGET, "cmd {:?}", cmd);
 					match cmd {
 						Some(ControllerCommand::AddViewStream(h,stream)) => {
 							aggregated_streams_map.insert(h,stream);
 							// //todo: aysnc and join all?
 							external_watchers_tx_hash_map.write().retain(|tx_hash, ctrl| {
 								ctrl.unbounded_send(ExternalWatcherCommand::AddView(h))
-									.inspect_err(|e| {
-										trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
+									.inspect_err(|error| {
+										trace!(target: LOG_TARGET, ?tx_hash, ?error, "add_view: send message failed");
 									})
 									.is_ok()
 							})
@@ -528,8 +497,8 @@ where
 							//todo: aysnc and join all?
 							external_watchers_tx_hash_map.write().retain(|tx_hash, ctrl| {
 								ctrl.unbounded_send(ExternalWatcherCommand::RemoveView(h))
-									.inspect_err(|e| {
-										trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
+									.inspect_err(|error| {
+										trace!(target: LOG_TARGET, ?tx_hash, ?error, "remove_view: send message failed");
 									})
 									.is_ok()
 							})
@@ -539,11 +508,11 @@ where
 							let tx_hash = request.hash();
 							events_metrics_collector.report_status(tx_hash, (&request).into());
 							if let Entry::Occupied(mut ctrl) = external_watchers_tx_hash_map.write().entry(tx_hash) {
-								if let Err(e) = ctrl
+								if let Err(error) = ctrl
 									.get_mut()
 									.unbounded_send(ExternalWatcherCommand::PoolTransactionStatus(request))
 								{
-									trace!(target: LOG_TARGET, "[{:?}] send message failed: {:?}", tx_hash, e);
+									trace!(target: LOG_TARGET, ?tx_hash, ?error, "send message failed");
 									ctrl.remove();
 								}
 							}
@@ -621,7 +590,7 @@ where
 		Some(
 			futures::stream::unfold(external_ctx, |mut ctx| async move {
 				if ctx.terminate {
-					log::trace!(target: LOG_TARGET, "[{:?}] terminate", ctx.tx_hash);
+					trace!(target: LOG_TARGET, tx_hash = ?ctx.tx_hash, "terminate");
 					return None
 				}
 				loop {
@@ -718,9 +687,8 @@ where
 	pub(crate) fn transactions_invalidated(&self, invalid_hashes: &[ExtrinsicHash<ChainApi>]) {
 		log_xt_trace!(target: LOG_TARGET, invalid_hashes, "transactions_invalidated");
 		for tx_hash in invalid_hashes {
-			if let Err(error) = self
-				.controller
-				.unbounded_send(ControllerCommand::new_transaction_invalidated(*tx_hash))
+			if let Err(error) =
+				self.controller.unbounded_send(ControllerCommand::new_invalidated(*tx_hash))
 			{
 				trace!(
 					target: LOG_TARGET,
@@ -743,7 +711,7 @@ where
 		for (tx_hash, peers) in propagated {
 			if let Err(error) = self
 				.controller
-				.unbounded_send(ControllerCommand::new_transaction_broadcasted(tx_hash, peers))
+				.unbounded_send(ControllerCommand::new_broadcasted(tx_hash, peers))
 			{
 				trace!(
 					target: LOG_TARGET,
@@ -762,9 +730,8 @@ where
 	pub(crate) fn transaction_dropped(&self, dropped: DroppedTransaction<ExtrinsicHash<ChainApi>>) {
 		let DroppedTransaction { tx_hash, reason } = dropped;
 		trace!(target: LOG_TARGET, ?tx_hash, ?reason, "transaction_dropped");
-		if let Err(error) = self
-			.controller
-			.unbounded_send(ControllerCommand::new_transaction_dropped(tx_hash, reason))
+		if let Err(error) =
+			self.controller.unbounded_send(ControllerCommand::new_dropped(tx_hash, reason))
 		{
 			trace!(
 				target: LOG_TARGET,
@@ -787,7 +754,7 @@ where
 		trace!(target: LOG_TARGET, ?tx_hash, "transaction_finalized");
 		if let Err(error) = self
 			.controller
-			.unbounded_send(ControllerCommand::new_transaction_finalized(tx_hash, block, idx))
+			.unbounded_send(ControllerCommand::new_finalized(tx_hash, block, idx))
 		{
 			trace!(
 				target: LOG_TARGET,
@@ -796,6 +763,30 @@ where
 				"transaction_finalized: send message failed"
 			);
 		};
+	}
+
+	/// Send `FinalityTimeout` event for given transactions at given block.
+	///
+	/// This will trigger `FinalityTimeout` event to the external watcher.
+	pub(crate) fn transactions_finality_timeout(
+		&self,
+		tx_hashes: &[ExtrinsicHash<ChainApi>],
+		block: BlockHash<ChainApi>,
+	) {
+		for tx_hash in tx_hashes {
+			trace!(target: LOG_TARGET, ?tx_hash, "transaction_finality_timeout");
+			if let Err(error) = self
+				.controller
+				.unbounded_send(ControllerCommand::new_finality_timeout(*tx_hash, block))
+			{
+				trace!(
+					target: LOG_TARGET,
+					?tx_hash,
+					%error,
+					"transaction_finality_timeout: send message failed"
+				);
+			};
+		}
 	}
 
 	/// Removes stale controllers.

@@ -328,6 +328,10 @@ pub use pallet_assets;
 #[cfg(feature = "pallet-assets-freezer")]
 pub use pallet_assets_freezer;
 
+/// Provides holding features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-holder")]
+pub use pallet_assets_holder;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
@@ -442,6 +446,10 @@ pub use pallet_democracy;
 /// FRAME example pallet.
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
+
+/// PALLET multi phase+block election providers.
+#[cfg(feature = "pallet-election-provider-multi-block")]
+pub use pallet_election_provider_multi_block;
 
 /// PALLET two phase election providers.
 #[cfg(feature = "pallet-election-provider-multi-phase")]
@@ -648,6 +656,16 @@ pub use pallet_society;
 /// FRAME pallet staking.
 #[cfg(feature = "pallet-staking")]
 pub use pallet_staking;
+
+/// Pallet handling the communication with staking-rc-client. It's role is to glue the staking
+/// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
+#[cfg(feature = "pallet-staking-ah-client")]
+pub use pallet_staking_ah_client;
+
+/// Pallet handling the communication with staking-ah-client. It's role is to glue the staking
+/// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
+#[cfg(feature = "pallet-staking-rc-client")]
+pub use pallet_staking_rc_client;
 
 /// Reward Curve for FRAME staking pallet.
 #[cfg(feature = "pallet-staking-reward-curve")]

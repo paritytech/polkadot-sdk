@@ -88,6 +88,7 @@ pub enum IdentityField {
 	CloneNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	EqNoBound,
 	MaxEncodedLen,
 	PartialEqNoBound,
