@@ -24,14 +24,15 @@
 //! happens.
 //!
 //! ## Idle Sessions
-//! In the happy path, first 5 sessions are idle. Nothing much happens in these sessions.
+//! In the happy path, first 3 sessions are idle. Nothing much happens in these sessions.
 //!
 //! **Actions**
 //! - Increment the session index in `CurrentPlannedSession`.
 //!
+//!
 //! ## Planning New Era Session
-//! In the happy path, `planning new era` session is the 6th active, or the 7th planning session of
-//! the active era.
+//! In the happy path, `planning new era` session is initiated when 3rd session ends and the 4th
+//! starts in the active era.
 //!
 //! **Triggers**
 //! 1. `SessionProgress == SessionsPerEra - PlanningEraOffset`
@@ -48,8 +49,9 @@
 //! When the election process is over, we send the new validator set, with the CurrentEra index
 //! as the id of the validator set.
 //!
+//!
 //! ## Era Rotation Session
-//! In the happy path, this is the 7th activating session of the active era (before the era rotation).
+//! In the happy path, this happens when the 5th session ends and the 6th starts in the active era.
 //!
 //! **Triggers**
 //! When we receive an activation timestamp from RC.
@@ -68,10 +70,19 @@
 //! - Delay in exporting validator set: Triggered in a session later than 7th.
 //! - Forcing Era: May triggered in a session earlier than 7th.
 //!
+//! ## Example Flow of a happy path
+//!
+//! * end 0, start 1, plan 2
+//! * end 1, start 2, plan 3
+//! * end 2, start 3, plan 4
+//! * end 3, start 4, plan 5 // `Plan new era` session. Current Era++. Election triggered.
+//! 						 // Somewhere here: Election set is sent to RC, keyed with Current Era
+//! * end 4, start 5, plan 6 // RC::session receives and queues this set.
+//! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
 use crate::{
-	log, ActiveEra, Config, CurrentEra, CurrentPlannedSession, EraIndex, ErasStartSessionIndex,
-	Pallet, ActiveEraInfo,
+	log, ActiveEra, ActiveEraInfo, Config, CurrentEra, CurrentPlannedSession, EraIndex,
+	ErasStartSessionIndex, Pallet,
 };
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{pallet_prelude::*, traits::Defensive};
@@ -143,7 +154,6 @@ impl<T: Config> Rotator<T> {
 			let previous_era_start = current_active_era.start.defensive_unwrap_or(new_era_start);
 			let era_duration = new_era_start.saturating_sub(previous_era_start);
 			Pallet::<T>::compute_era_payout(current_active_era, era_duration);
-
 		} else {
 			defensive!("Active era must always be available.");
 		}
@@ -180,7 +190,6 @@ impl<T: Config> Rotator<T> {
 		log!(info, "sending election start signal");
 		let _ = T::ElectionProvider::start();
 
-
 		log!(debug, "done planning new era: {:?}", new_planned_era);
 	}
 
@@ -192,6 +201,5 @@ impl<T: Config> Rotator<T> {
 			log!(trace, "Removing era information for {:?}", old_era);
 			Pallet::<T>::clear_era_information(old_era);
 		}
-
 	}
 }
