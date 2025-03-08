@@ -562,6 +562,8 @@ pub mod token {
 ///
 /// This is already part of the [`prelude`].
 pub mod derive {
+	pub use frame_support::stored;
+	pub use codec;
 	pub use codec::{Decode, Encode};
 	pub use core::fmt::Debug;
 	pub use frame_support::{

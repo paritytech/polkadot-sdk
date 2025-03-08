@@ -1,12 +1,12 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, Data, DeriveInput, GenericParam, Ident, Meta, Token, TypeParamBound,
-    WherePredicate,
+    parse_macro_input, Data, DeriveInput, Ident, Meta, Token, TypeParamBound,
 };
 use syn::punctuated::Punctuated;
 use syn::parse::{Parse, ParseStream};
 
+#[derive(Default)]
 struct IdentList(Punctuated<Ident, Token![,]>);
 
 impl Parse for IdentList {
@@ -20,119 +20,156 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     let no_bound_params = parse_no_bounds_from_args(attr);
     let mut input = parse_macro_input!(input as DeriveInput);
 
-    if let Data::Struct(_) = &input.data {
-        let (has_config_bound, config_params) = has_config_bound(&input.generics);
-        let should_nobound_derive = has_config_bound || !no_bound_params.is_empty();
+    // Remove the #[stored] attribute so it isn’t re‑emitted.
+    input.attrs.retain(|attr| !attr.path().is_ident("stored"));
 
+    let should_nobound_derive = !no_bound_params.is_empty();
+    if should_nobound_derive {
+        add_normal_trait_bounds(&mut input.generics, &no_bound_params);
+    }
+
+    let span = input.ident.span();
+    let (default_i, ord_i, partial_ord_i, partial_eq_i, eq_i, clone_i, debug_i) =
         if should_nobound_derive {
-            add_normal_trait_bounds(&mut input.generics, &config_params, &no_bound_params);
-        }
-
-        let (default_i, ord_i, partial_ord_i, partial_eq_i, eq_i, clone_i, debug_i) =
-            if should_nobound_derive {
-                (
-                    Ident::new("DefaultNoBound", input.ident.span()),
-                    Ident::new("OrdNoBound", input.ident.span()),
-                    Ident::new("PartialOrdNoBound", input.ident.span()),
-                    Ident::new("PartialEqNoBound", input.ident.span()),
-                    Ident::new("EqNoBound", input.ident.span()),
-                    Ident::new("CloneNoBound", input.ident.span()),
-                    Ident::new("RuntimeDebugNoBound", input.ident.span()),
-                )
-            } else {
-                (
-                    Ident::new("Default", input.ident.span()),
-                    Ident::new("Ord", input.ident.span()),
-                    Ident::new("PartialOrd", input.ident.span()),
-                    Ident::new("PartialEq", input.ident.span()),
-                    Ident::new("Eq", input.ident.span()),
-                    Ident::new("Clone", input.ident.span()),
-                    Ident::new("RuntimeDebug", input.ident.span()),
-                )
-            };
-
-        let mut skip_list = config_params.clone();
-        for nb in &no_bound_params {
-            if !skip_list.contains(nb) {
-                skip_list.push(nb.clone());
-            }
-        }
-        let skip_type_params_attr = if should_nobound_derive && !skip_list.is_empty() {
-            quote! {
-                #[scale_info(skip_type_params(#(#skip_list),*))]
-            }
+            (
+                Ident::new("DefaultNoBound", span),
+                Ident::new("OrdNoBound", span),
+                Ident::new("PartialOrdNoBound", span),
+                Ident::new("PartialEqNoBound", span),
+                Ident::new("EqNoBound", span),
+                Ident::new("CloneNoBound", span),
+                Ident::new("RuntimeDebugNoBound", span),
+            )
         } else {
-            quote! {}
+            (
+                Ident::new("Default", span),
+                Ident::new("Ord", span),
+                Ident::new("PartialOrd", span),
+                Ident::new("PartialEq", span),
+                Ident::new("Eq", span),
+                Ident::new("Clone", span),
+                Ident::new("RuntimeDebug", span),
+            )
         };
 
-        let struct_ident = &input.ident;
-        let (impl_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
-        let attrs = &input.attrs;
-        let vis = &input.vis;
-        let fields = match &input.data {
-            Data::Struct(s) => &s.fields,
-            _ => unreachable!(),
-        };
+    let skip_list = if should_nobound_derive && !no_bound_params.is_empty() {
+        quote! {
+            #[scale_info(skip_type_params(#(#no_bound_params),*))]
+        }
+    } else {
+        quote! {}
+    };
 
-        // Only add a semicolon for tuple or unit structs.
-        let semicolon = match fields {
-            syn::Fields::Named(_) => quote! {},
-            _ => quote! {;},
-        };
+    let serde_attrs = if should_nobound_derive {
+        quote! {
+            #[serde(crate = "frame::derive::serde", bound(serialize = "", deserialize = ""))]
+        }
+    } else {
+        quote! {
+            #[serde(crate = "frame::derive::serde")]
+        }
+    };
 
-        let expanded = match fields {
-            // Named struct: place where clause before the fields block.
-            syn::Fields::Named(_) => {
+    let codec_path = quote! {
+        #[codec(crate = frame::derive::codec)]
+    };
+
+    let struct_ident = &input.ident;
+    let (impl_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
+    let attrs = &input.attrs;
+    let vis = &input.vis;
+
+    let is_enum = matches!(input.data, Data::Enum(_));
+    let common_derive = if is_enum {
+        quote! {
+            #[derive(
+                #default_i,
+                #partial_eq_i,
+                #eq_i,
+                #clone_i,
+                Encode,
+                Decode,
+                #debug_i,
+                TypeInfo,
+                MaxEncodedLen,
+                Serialize,
+                Deserialize
+            )]
+        }
+    } else {
+        quote! {
+            #[derive(
+                #default_i,
+                #ord_i,
+                #partial_ord_i,
+                #partial_eq_i,
+                #eq_i,
+                #clone_i,
+                Encode,
+                Decode,
+                #debug_i,
+                TypeInfo,
+                MaxEncodedLen,
+                Serialize,
+                Deserialize
+            )]
+        }
+    };
+
+    let common_attrs = quote! {
+        #common_derive
+        #skip_list
+        #serde_attrs
+        #codec_path
+        #(#attrs)*
+    };
+
+    let expanded = match input.data {
+        Data::Struct(ref data_struct) => match data_struct.fields {
+            syn::Fields::Named(ref fields) => {
                 quote! {
-                    #[derive(#default_i,
-                             #ord_i,
-                             #partial_ord_i,
-                             #partial_eq_i,
-                             #eq_i,
-                             #clone_i,
-                             Encode,
-                             Decode,
-                             #debug_i,
-                             TypeInfo,
-                             MaxEncodedLen)]
-                    #skip_type_params_attr
-                    #(#attrs)*
+                    #common_attrs
                     #vis struct #struct_ident #impl_generics #where_clause #fields
                 }
-            }
-            // Tuple or unit struct: place where clause after the fields.
-            syn::Fields::Unnamed(_) | syn::Fields::Unit => {
+            },
+            syn::Fields::Unnamed(ref fields) => {
                 quote! {
-                    #[derive(#default_i,
-                             #ord_i,
-                             #partial_ord_i,
-                             #partial_eq_i,
-                             #eq_i,
-                             #clone_i,
-                             Encode,
-                             Decode,
-                             #debug_i,
-                             TypeInfo,
-                             MaxEncodedLen)]
-                    #skip_type_params_attr
-                    #(#attrs)*
-                    #vis struct #struct_ident #impl_generics #fields #where_clause #semicolon
+                    #common_attrs
+                    #vis struct #struct_ident #impl_generics #fields #where_clause;
+                }
+            },
+            syn::Fields::Unit => {
+                quote! {
+                    #common_attrs
+                    #vis struct #struct_ident #impl_generics #where_clause;
+                }
+            },
+        },
+        Data::Enum(ref data_enum) => {
+            let variant_tokens: Vec<_> = data_enum.variants
+                .iter()
+                .map(|variant| quote! { #variant })
+                .collect();
+            quote! {
+                #common_attrs
+                #vis enum #struct_ident #impl_generics #where_clause {
+                    #(#variant_tokens),*
                 }
             }
-        };
+        },
+        Data::Union(_) => {
+            return syn::Error::new_spanned(
+                &input,
+                "The `#[stored]` attribute cannot be used on unions."
+            )
+            .to_compile_error()
+            .into()
+        },
+    };
 
-        expanded.into()
-    } else {
-        syn::Error::new_spanned(
-            &input,
-            "The `#[stored]` attribute can only be used on structs.",
-        )
-        .to_compile_error()
-        .into()
-    }
+    expanded.into()
 }
 
-/// Parse macro arguments expecting a meta item like: `no_bounds(T, U)`.
 fn parse_no_bounds_from_args(args: TokenStream) -> Vec<Ident> {
     if args.is_empty() {
         return Vec::new();
@@ -140,52 +177,15 @@ fn parse_no_bounds_from_args(args: TokenStream) -> Vec<Ident> {
     let meta = syn::parse::<Meta>(args).unwrap();
     if meta.path().is_ident("no_bounds") {
         if let Meta::List(meta_list) = meta {
-            let ident_list: IdentList =
-                syn::parse2(meta_list.tokens).unwrap_or_else(|_| IdentList(Punctuated::new()));
+            let ident_list: IdentList = syn::parse2(meta_list.tokens).unwrap_or_default();
             return ident_list.0.into_iter().collect();
         }
     }
     Vec::new()
 }
 
-/// Check if any generic has a bound of `Config`.
-fn has_config_bound(generics: &syn::Generics) -> (bool, Vec<Ident>) {
-    let mut config_params = Vec::new();
-    for param in &generics.params {
-        if let GenericParam::Type(type_param) = param {
-            if type_param.bounds.iter().any(|b| is_config_bound(b)) {
-                config_params.push(type_param.ident.clone());
-            }
-        }
-    }
-    if let Some(where_clause) = &generics.where_clause {
-        for predicate in &where_clause.predicates {
-            if let WherePredicate::Type(tp) = predicate {
-                if tp.bounds.iter().any(|b| is_config_bound(b)) {
-                    if let syn::Type::Path(path_ty) = &tp.bounded_ty {
-                        if let Some(seg) = path_ty.path.segments.last() {
-                            config_params.push(seg.ident.clone());
-                        }
-                    }
-                }
-            }
-        }
-    }
-    (!config_params.is_empty(), config_params)
-}
-
-/// Returns true if the bound contains `Config`.
-fn is_config_bound(bound: &TypeParamBound) -> bool {
-    matches!(
-        bound,
-        TypeParamBound::Trait(tb) if tb.path.segments.last().map_or(false, |seg| seg.ident == "Config")
-    )
-}
-
-/// For generics not bound by `Config` or marked in `no_bounds`, add normal trait bounds.
 fn add_normal_trait_bounds(
     generics: &mut syn::Generics,
-    config_params: &[Ident],
     no_bound_params: &[Ident],
 ) {
     let normal_bounds: &[&str] = &[
@@ -196,14 +196,16 @@ fn add_normal_trait_bounds(
         "PartialEq",
         "Eq",
         "core::fmt::Debug",
+        "Serialize",
+        "for<'a> Deserialize<'a>",
     ];
     for param in &mut generics.params {
-        if let GenericParam::Type(type_param) = param {
-            let this_ident = &type_param.ident;
-            if !config_params.contains(this_ident) && !no_bound_params.contains(this_ident) {
+        if let syn::GenericParam::Type(type_param) = param {
+            if !no_bound_params.contains(&type_param.ident) {
                 for bound_name in normal_bounds {
-                    let bound_ident = Ident::new(bound_name, this_ident.span());
-                    type_param.bounds.push(syn::parse_quote! { #bound_ident });
+                    let bound: TypeParamBound = syn::parse_str(bound_name)
+                        .unwrap_or_else(|_| panic!("Failed to parse bound: {}", bound_name));
+                    type_param.bounds.push(bound);
                 }
             }
         }
