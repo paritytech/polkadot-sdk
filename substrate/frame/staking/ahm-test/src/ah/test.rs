@@ -13,13 +13,11 @@ use pallet_staking_rc_client::ValidatorSetReport;
 fn on_receive_session_report() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		// GIVEN genesis state of ah
-		assert_eq!(System::block_number(), 0);
+		assert_eq!(System::block_number(), 1);
 		assert_eq!(CurrentPlannedSession::<T>::get(), 0);
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(pallet_staking::ErasStartSessionIndex::<T>::get(0), Some(0));
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
-		// initialise events.
-		roll_next();
 
 		// WHEN session ends on RC and session report is received by AH.
 		let session_report = rc_client::SessionReport {
@@ -192,14 +190,73 @@ fn on_receive_session_report() {
 #[test]
 fn roll_many_eras() {
 	// todo(ank4n):
-	// - Roll upto 50 eras.
 	// - Ensure CurrentEra and Active Era are always in sync.
 	// - Ensure rewards can be claimed at correct era.
 	// - Ensure prune_upto value is correctly sent.
 	// - Check if offenders only one at a time!
-	ExtBuilder::default().local_queue().build().execute_with(|| {});
-}
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		let mut session_counter: u32 = 0;
 
+		let mut roll_session = |activate: bool| {
+			let activation_timestamp = if activate {
+				let current_era = CurrentEra::<T>::get().unwrap();
+				Some((current_era as u64 * 1000, current_era as u32))
+			} else {
+				None
+			};
+
+			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+				RuntimeOrigin::root(),
+				rc_client::SessionReport {
+					end_index: session_counter,
+					validator_points: vec![(1, 10)],
+					activation_timestamp,
+					leftover: false,
+				}
+			));
+			// planned session is two ahead of end session.
+			assert_eq!(CurrentPlannedSession::<T>::get(), session_counter + 2);
+
+			// increment session for the next iteration.
+			session_counter += 1;
+
+			// run session blocks.
+			roll_many(60);
+		};
+
+		for era in 0..50 {
+			// --- first 3 idle session
+			for _ in 0..3 {
+				roll_session(false);
+				assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
+				assert_eq!(CurrentEra::<T>::get().unwrap(), era);
+			}
+
+			// ensure validator set not sent yet to RC.
+			// queue size same as in last iteration.
+			assert_eq!(LocalQueue::get().unwrap().len() as u32, era);
+
+			// --- plan era session
+			roll_session(false);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), era + 1);
+
+			// ensure new validator set sent to RC.
+			// length increases by 1.
+			assert_eq!(LocalQueue::get().unwrap().len() as u32, era + 1);
+
+			// --- 5th starting session, idle
+			roll_session(false);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), era + 1);
+
+			// --- 6th the era rotation session
+			roll_session(true);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), era + 1);
+		}
+	});
+}
 
 #[test]
 fn on_new_offence() {

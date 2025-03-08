@@ -147,13 +147,6 @@ impl<T: Config> Rotator<T> {
 			Self::plan_new_era(&active_era, planned_era, starting);
 		}
 
-		log!(debug,
-			"Session ended: {:?}, starting: {:?}, planned: {:?}",
-			end_index,
-			starting,
-			planning
-		);
-
 		Pallet::<T>::deposit_event(Event::SessionRotated {
 			starting_session: starting,
 			active_era: ActiveEra::<T>::get().map(|a| a.index).defensive_unwrap_or(0),

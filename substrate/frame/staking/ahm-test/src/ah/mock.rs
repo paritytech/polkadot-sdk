@@ -375,7 +375,8 @@ impl ExtBuilder {
 		let mut state: TestState = t.into();
 
 		state.execute_with(|| {
-			// todo: remove this
+			// initialises events
+			roll_next();
 		});
 
 		state
