@@ -82,7 +82,7 @@
 
 use crate::{
 	log, ActiveEra, ActiveEraInfo, Config, CurrentEra, CurrentPlannedSession, EraIndex,
-	ErasStartSessionIndex, Pallet, ForceEra, Forcing,
+	ErasStartSessionIndex, ForceEra, Forcing, Pallet,
 };
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
