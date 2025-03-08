@@ -181,23 +181,24 @@ mod mock;
 mod tests;
 pub mod weights;
 
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BalanceOf<T> =
+pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type BlockNumberFromProviderOf<T> =
+pub type BlockNumberFromProviderOf<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
-type FriendsOf<T> = BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
+pub type FriendsOf<T> =
+	BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
 
 /// An active recovery process.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
 	/// The block number when the recovery process started.
-	created: BlockNumber,
+	pub created: BlockNumber,
 	/// The amount held in reserve of the `depositor`,
 	/// to be returned once this recovery process is closed.
-	deposit: Balance,
+	pub deposit: Balance,
 	/// The friends which have vouched so far. Always sorted.
-	friends: Friends,
+	pub friends: Friends,
 }
 
 /// Configuration for recovering an account.
@@ -205,14 +206,14 @@ pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
 pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 	/// The minimum number of blocks since the start of the recovery process before the account
 	/// can be recovered.
-	delay_period: BlockNumber,
+	pub delay_period: BlockNumber,
 	/// The amount held in reserve of the `depositor`,
 	/// to be returned once this configuration is removed.
-	deposit: Balance,
+	pub deposit: Balance,
 	/// The list of friends which can help recover an account. Always sorted.
-	friends: Friends,
+	pub friends: Friends,
 	/// The number of approving friends needed to recover an account.
-	threshold: u16,
+	pub threshold: u16,
 }
 
 #[frame_support::pallet]

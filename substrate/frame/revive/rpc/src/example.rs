@@ -123,7 +123,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			.call(
 				GenericTransaction {
 					from: Some(from),
-					input: Some(input.clone()),
+					input: input.into(),
 					value: Some(value),
 					to,
 					..Default::default()
@@ -151,7 +151,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			.estimate_gas(
 				GenericTransaction {
 					from: Some(from),
-					input: Some(input.clone()),
+					input: input.clone().into(),
 					value: Some(value),
 					gas_price: Some(gas_price),
 					to,
