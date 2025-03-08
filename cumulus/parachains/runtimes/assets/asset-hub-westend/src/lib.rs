@@ -1495,7 +1495,6 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
-		[pallet_xcm_bridge_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		// Bridge pallets
 		[pallet_xcm_bridge_router, ToRococoOverBridgeHub]
