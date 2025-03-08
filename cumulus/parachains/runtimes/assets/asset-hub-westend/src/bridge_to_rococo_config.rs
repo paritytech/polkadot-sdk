@@ -267,7 +267,7 @@ mod tests {
 	///
 	/// We want this tip to be large enough (delivery transactions with more messages = less
 	/// operational costs and a faster bridge), so this value should be significant.
-	const FEE_BOOST_PER_MESSAGE: Balance = 2 * ROC;
+	const FEE_BOOST_PER_MESSAGE: Balance = 2 * WND;
 
 	#[test]
 	fn ensure_bridge_hub_westend_message_lane_weights_are_correct() {

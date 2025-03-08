@@ -18,8 +18,7 @@ use super::{
 	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
 	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	ToRococoOverAssetHubRococoXcmRouter, ToRococoXcmRouter, TransactionByteFee,
-	TrustBackedAssetsInstance, Uniques, WeightToFee, XcmOverAssetHubRococo, 
-	XcmpQueue,
+	TrustBackedAssetsInstance, Uniques, WeightToFee, XcmOverAssetHubRococo, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},

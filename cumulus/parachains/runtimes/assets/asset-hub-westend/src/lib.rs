@@ -1042,7 +1042,8 @@ impl pallet_nfts::Config for Runtime {
 pub type ToRococoXcmRouterInstance = pallet_xcm_bridge_router::Instance1;
 impl pallet_xcm_bridge_router::Config<ToRococoXcmRouterInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_xcm_bridge_router_to_rococo_over_bridge_hub::WeightInfo<Runtime>;
+	type WeightInfo =
+		weights::pallet_xcm_bridge_router_to_rococo_over_bridge_hub::WeightInfo<Runtime>;
 
 	type DestinationVersion = PolkadotXcm;
 
@@ -2221,7 +2222,7 @@ impl_runtime_apis! {
 							rococo,
 							[Parachain(5678)].into()
 						)
-					)	
+					)
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
