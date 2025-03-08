@@ -1096,6 +1096,15 @@ pub mod pallet {
 			slash_key: (T::AccountId, Perbill, u32),
 			payout: BalanceOf<T>,
 		},
+		/// Session change has been triggered.
+		///
+		/// If planned_era is one era ahead of active_era, it implies new era is being planned and
+		/// election is ongoing.
+		SessionRotated {
+			starting_session: SessionIndex,
+			active_era: EraIndex,
+			planned_era: EraIndex,
+		},
 	}
 
 	#[pallet::error]

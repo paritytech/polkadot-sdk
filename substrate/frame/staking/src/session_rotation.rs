@@ -82,7 +82,7 @@
 
 use crate::{
 	log, ActiveEra, ActiveEraInfo, Config, CurrentEra, CurrentPlannedSession, EraIndex,
-	ErasStartSessionIndex, ForceEra, Forcing, Pallet,
+	ErasStartSessionIndex, Event, ForceEra, Forcing, Pallet,
 };
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
@@ -111,11 +111,15 @@ impl<T: Config> Rotator<T> {
 		// the session after the starting session.
 		let planning = starting + 1;
 
-		log!(info, "end {:?}, start {:?}, plan {:?}", end_index, starting, planning);
-		log!(info, "active era {:?}, planned era {:?}", active_era, planned_era);
+		log!(info, "Session: end {:?}, start {:?}, plan {:?}", end_index, starting, planning);
+		log!(info, "Era: active {:?}, planned {:?}", active_era.index, planned_era);
 
-		// Plan the next session after the start.
-		CurrentPlannedSession::<T>::put(planning);
+		CurrentPlannedSession::<T>::mutate(|s| {
+			// For the genesis session, we don't have any planned session.
+			debug_assert!(*s == 0 || *s == starting, "Session must be sequential.");
+			// Plan the next session.
+			*s = planning
+		});
 
 		// We rotate the era if we have the activation timestamp.
 		if let Some((time, id)) = activation_timestamp {
@@ -142,6 +146,19 @@ impl<T: Config> Rotator<T> {
 		if should_plan_era {
 			Self::plan_new_era(&active_era, planned_era, starting);
 		}
+
+		log!(debug,
+			"Session ended: {:?}, starting: {:?}, planned: {:?}",
+			end_index,
+			starting,
+			planning
+		);
+
+		Pallet::<T>::deposit_event(Event::SessionRotated {
+			starting_session: starting,
+			active_era: ActiveEra::<T>::get().map(|a| a.index).defensive_unwrap_or(0),
+			planned_era: CurrentEra::<T>::get().defensive_unwrap_or(0),
+		});
 	}
 
 	fn start_era(ending_era: &ActiveEraInfo, starting_session: SessionIndex, new_era_start: u64) {

@@ -1,7 +1,9 @@
 use crate::ah::mock::*;
 
 use frame_support::{assert_noop, assert_ok};
-use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra, CurrentPlannedSession};
+use pallet_staking::{
+	ActiveEra, ActiveEraInfo, CurrentEra, CurrentPlannedSession, Event as StakingEvent,
+};
 use pallet_staking_rc_client as rc_client;
 
 // Tests that are specific to Asset Hub.
@@ -14,6 +16,8 @@ fn on_receive_session_report() {
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(pallet_staking::ErasStartSessionIndex::<T>::get(0), Some(0));
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
+		// initialise events.
+		roll_next();
 
 		// WHEN session ends on RC and session report is received by AH.
 		let session_report = rc_client::SessionReport {
@@ -28,7 +32,7 @@ fn on_receive_session_report() {
 			session_report.clone(),
 		));
 
-		// THEN session 1 starts and session 2 is planned.
+		// THEN end 0, start 1, plan 2
 		assert_eq!(CurrentPlannedSession::<T>::get(), 2);
 		let era_points = pallet_staking::ErasRewardPoints::<T>::get(&0);
 		assert_eq!(era_points.total, 360);
@@ -42,9 +46,20 @@ fn on_receive_session_report() {
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 
-		// elections will begin at end of session 4, so lets roll few more sessions.
-		for i in 1..5 {
-			// some random blocks we roll every session.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::SessionRotated {
+				starting_session: 1,
+				active_era: 0,
+				planned_era: 0
+			}]
+		);
+
+		assert_eq!(election_events_since_last_call(), vec![]);
+
+		// roll two more sessions...
+		for i in 1..3 {
+			// roll some random number of blocks.
 			roll_until_blocks(10);
 
 			// send the session report.
@@ -61,12 +76,41 @@ fn on_receive_session_report() {
 			let era_points = pallet_staking::ErasRewardPoints::<T>::get(&0);
 			assert_eq!(era_points.total, 360 + i * 10);
 			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![StakingEvent::SessionRotated {
+					starting_session: i+1,
+					active_era: 0,
+					planned_era: 0
+				}]
+			);
 		}
 
+		// current planned session is 4 (ongoing 3, last ended 2)
+		assert_eq!(CurrentPlannedSession::<T>::get(), 4);
+
+		// Next session we will begin election.
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 3,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::SessionRotated {
+				starting_session: 4,
+				active_era: 0,
+				planned_era: 1
+			}]
+		);
 		// on planning 5, start election
 		// by planning 6, we should have sent it.
-		println!("Election Events {:?}", election_events());
-		println!("Staking Events {:?}", staking_events());
 
 		assert_eq!(LocalQueue::get().unwrap(), vec![]);
 	})
