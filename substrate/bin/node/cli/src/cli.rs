@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use polkadot_sdk::{sc_cli::ExportChainSpecCmd, *};
+use polkadot_sdk::*;
 
 /// An overarching CLI command definition.
 #[derive(Debug, clap::Parser)]
@@ -78,10 +78,11 @@ pub enum Subcommand {
 	Sign(sc_cli::SignCmd),
 
 	/// Build a chain specification.
+	#[deprecated(note = "build-spec will be removed after 1/04/2026. Use export-chain-spec instead")]
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Export the chain specification.
-	ExportChainSpec(ExportChainSpecCmd),
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),

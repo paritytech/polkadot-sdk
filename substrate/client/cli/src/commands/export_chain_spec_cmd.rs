@@ -23,8 +23,8 @@ use std::{
 	io::{self, Write},
 	path::PathBuf,
 };
-
-use crate::{error::Result, SharedParams};
+use std::thread::sleep;
+use crate::{error::Result, BuildSpecCmd, CliConfiguration, NodeKeyParams, SharedParams};
 
 /// Export a chain-spec to a JSON file in plain or in raw storage format.
 ///
@@ -42,9 +42,8 @@ use crate::{error::Result, SharedParams};
 #[derive(Debug, Clone, Parser)]
 pub struct ExportChainSpecCmd {
 	/// The chain spec identifier to export.
-	#[allow(missing_docs)]
-	#[clap(flatten)]
-	pub shared_params: SharedParams,
+	#[arg(long, default_value = "local")]
+	pub chain: String,
 
 	/// `chain-spec` JSON file path. If omitted, prints to stdout.
 	#[arg(long)]
@@ -67,5 +66,17 @@ impl ExportChainSpecCmd {
 			io::stdout().write_all(json.as_bytes()).map_err(|e| format!("{}", e))?;
 		}
 		Ok(())
+	}
+}
+impl CliConfiguration for ExportChainSpecCmd {
+
+	// If ExportChainSpecCmd doesn’t have shared_params, you must provide some implementation.
+	fn shared_params(&self) -> &SharedParams {
+		unimplemented!("ExportChainSpecCmd does not implement shared_params")
+	}
+
+	// Implement the chain_id method to return the chain identifier.
+	fn chain_id(&self, _is_dev: bool) -> Result<String> {
+		Ok(self.chain.clone())
 	}
 }

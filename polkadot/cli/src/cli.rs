@@ -25,6 +25,7 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 pub enum Subcommand {
 	/// Build a chain specification.
+	#[deprecated(note = "build-spec will be removed after 1/04/2026. Use export-chain-spec instead")]
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Export the chain specification.

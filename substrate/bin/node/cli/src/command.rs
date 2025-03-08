@@ -95,8 +95,8 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::ExportChainSpec(cmd)) => {
 			// Directly load the embedded chain spec using the CLI’s load_spec method.
-			let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
-			cmd.run(spec)
+			let runner = cli.create_runner(cmd)?;
+			Ok(runner.sync_run(|config| cmd.run(config.chain_spec))?)
 		},
 		Some(Subcommand::Benchmark(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -178,6 +178,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Sign(cmd)) => cmd.run(),
 		Some(Subcommand::Verify(cmd)) => cmd.run(),
 		Some(Subcommand::Vanity(cmd)) => cmd.run(),
+		#[allow(deprecated)]
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
