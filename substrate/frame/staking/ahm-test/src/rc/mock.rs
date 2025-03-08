@@ -1,5 +1,4 @@
 use frame::{deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*};
-use pallet_staking::NullIdentity;
 use pallet_staking_ah_client as ah_client;
 use sp_staking::SessionIndex;
 
@@ -147,6 +146,7 @@ parameter_types! {
 }
 
 impl ah_client::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type SendToAssetHub = DeliverToAH;
 	type AssetHubOrigin = EnsureSigned<AccountId>;
 	type UnixTime = Timestamp;
@@ -217,7 +217,12 @@ impl ExtBuilder {
 
 	pub fn build(self) -> TestState {
 		let _ = sp_tracing::try_init_simple();
-		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-		t.into()
+		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		let mut state: TestState = t.into();
+		state.execute_with(|| {
+			// so events can be deposited.
+			frame_system::Pallet::<Runtime>::set_block_number(1);
+		});
+		state
 	}
 }

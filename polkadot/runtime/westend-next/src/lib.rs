@@ -632,6 +632,7 @@ impl<T: SendXcm, AssetHubId: Get<u32>> XcmToAssetHub<T, AssetHubId> {
 }
 
 impl pallet_staking_ah_client::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type AssetHubOrigin = frame_support::traits::EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		EnsureXcm<Equals<AssetHubNextLocation>>,

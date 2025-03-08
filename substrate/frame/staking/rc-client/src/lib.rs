@@ -365,6 +365,7 @@ pub mod pallet {
 
 			// If we have anything previously buffered, then merge it.
 			let new_session_report = match IncompleteSessionReport::<T>::take() {
+				// TODO: update this to be like the ah-client -- returning error will nullify the `::take()`.
 				Some(old) => old.merge(report.clone()).map_err(|_| "CouldNotMerge")?,
 				None => report,
 			};
