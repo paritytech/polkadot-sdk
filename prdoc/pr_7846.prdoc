@@ -1,0 +1,9 @@
+title: 'Incrementable: return None instead of saturating'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: 'Closes #7845 '
+crates:
+- name: frame-support
+  bump: patch
