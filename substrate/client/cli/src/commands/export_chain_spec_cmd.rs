@@ -23,7 +23,6 @@ use std::{
 	fs,
 	io::{self, Write},
 	path::PathBuf,
-	thread::sleep,
 };
 
 /// Export a chain-spec to a JSON file in plain or in raw storage format.
