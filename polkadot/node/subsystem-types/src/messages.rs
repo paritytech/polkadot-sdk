@@ -778,6 +778,9 @@ pub enum RuntimeApiRequest {
 	/// Get the lookahead from the scheduler params.
 	/// `V12`
 	SchedulingLookahead(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the maximum uncompressed code size.
+	/// `V12`
+	ValidationCodeBombLimit(SessionIndex, RuntimeApiSender<u32>),
 }
 
 impl RuntimeApiRequest {
@@ -824,6 +827,9 @@ impl RuntimeApiRequest {
 
 	/// `SchedulingLookahead`
 	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 12;
+
+	/// `ValidationCodeBombLimit`
+	pub const VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT: u32 = 12;
 }
 
 /// A message to the Runtime API subsystem.
