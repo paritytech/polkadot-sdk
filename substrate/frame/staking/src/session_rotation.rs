@@ -196,7 +196,6 @@ impl<T: Config> Rotator<T> {
 		debug_assert!(planned_era == active_era.index);
 
 		log!(debug, "Planning new era: {:?}", planned_era);
-		// todo: send this as id for the validator set.
 		CurrentEra::<T>::put(planned_era + 1);
 
 		log!(info, "sending election start signal");

@@ -179,7 +179,7 @@ fn on_receive_session_report() {
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
-					prune_up_to: 0, // todo: Ensure this is sent.
+					prune_up_to: 0,
 					leftover: false
 				})
 			)]
@@ -191,8 +191,7 @@ fn on_receive_session_report() {
 fn roll_many_eras() {
 	// todo(ank4n):
 	// - Ensure rewards can be claimed at correct era.
-	// - Ensure prune_upto value is correctly sent.
-	// - Check if offenders only one at a time!
+	// - assert outgoing messages, including id and prune_up_to.
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		let mut session_counter: u32 = 0;
 
@@ -264,6 +263,6 @@ fn on_new_offence() {
 	// - Offence processed, and slashed.
 	// - Check if offenders only one at a time!
 	// - Mass slash triggers force era.
-	// Tests processing of offence and slashing
+	// - Tests processing of offence and slashing
 	ExtBuilder::default().local_queue().build().execute_with(|| {});
 }

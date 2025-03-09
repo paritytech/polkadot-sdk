@@ -182,7 +182,7 @@ pub mod pallet {
 				report;
 			debug_assert!(!leftover);
 
-			// TODO: buffer in `IncompleteValidatorSetReport` if incomplete, similar to how
+			// TODO(ank4n): buffer in `IncompleteValidatorSetReport` if incomplete, similar to how
 			// rc-client does it.
 
 			// ensure the validator set, deduplicated, is not too big.
@@ -210,7 +210,7 @@ pub mod pallet {
 
 			// A new validator set is an indication for a new era. Clear
 			if maybe_new_validator_set.is_none() {
-				// TODO: historical sessions should be pruned. This used to happen after the bonding
+				// TODO(ank4n): historical sessions should be pruned. This used to happen after the bonding
 				// period for the session but it would be nice to avoid XCM messages for prunning
 				// and trigger it from RC directly.
 
@@ -250,7 +250,7 @@ pub mod pallet {
 
 			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
 			let activation_timestamp = NextSessionChangesValidators::<T>::take().map(|_| {
-				// TODO: not setting the id for now, not sure if needed.
+				// TODO(ank4n): not setting the id for now, not sure if needed.
 				(T::UnixTime::now().as_millis().saturated_into::<u64>(), 0)
 			});
 

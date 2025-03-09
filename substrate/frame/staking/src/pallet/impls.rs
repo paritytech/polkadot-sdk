@@ -1520,7 +1520,7 @@ impl<T: Config> Pallet<T> {
 			// note: exposures have already been processed and stored for each of the election
 			// solution page at the time of `elect_paged(page_index)`.
 			Self::register_weight(T::DbWeight::get().reads(1));
-			// todo(ank4n): Make sure we don't drain if election not finished.
+			// todo(ank4n): (this is never called anymore so remove) Make sure we don't drain if election not finished.
 			// - NextElectingPage should be empty.
 			ElectableStashes::<T>::take()
 				.into_inner()
