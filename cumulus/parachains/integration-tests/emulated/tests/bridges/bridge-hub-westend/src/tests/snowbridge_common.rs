@@ -19,9 +19,7 @@ use emulated_integration_tests_common::PenpalBTeleportableAssetLocation;
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::{
-	penpal_runtime::xcm_config::{
-		derived_from_here, AccountIdOf, CheckingAccount, TELEPORTABLE_ASSET_ID,
-	},
+	penpal_runtime::xcm_config::{CheckingAccount, TELEPORTABLE_ASSET_ID},
 	PenpalAssetOwner,
 };
 use snowbridge_core::AssetMetadata;
@@ -152,12 +150,18 @@ pub fn register_pal_on_ah() {
 	});
 }
 
+pub fn penpal_root_sovereign() -> sp_runtime::AccountId32 {
+	let penpal_root_sovereign: AccountId = PenpalB::execute_with(|| {
+		use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config;
+		xcm_config::LocationToAccountId::convert_location(&xcm_config::RootLocation::get())
+			.unwrap()
+			.into()
+	});
+	penpal_root_sovereign
+}
+
 pub fn fund_on_penpal() {
-	let sudo_account = derived_from_here::<
-		AccountIdOf<
-			rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::Runtime,
-		>,
-	>();
+	let sudo_account = penpal_root_sovereign();
 	PenpalB::fund_accounts(vec![
 		(PenpalBReceiver::get(), INITIAL_FUND),
 		(PenpalBSender::get(), INITIAL_FUND),

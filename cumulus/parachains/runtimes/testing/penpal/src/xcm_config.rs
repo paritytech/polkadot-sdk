@@ -42,7 +42,6 @@ use super::{
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
 use assets_common::TrustBackedAssetsAsLocation;
-use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
@@ -57,15 +56,13 @@ use pallet_xcm::XcmPassthrough;
 use parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, TREASURY_PALLET_ID};
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
-use sp_runtime::traits::{
-	AccountIdConversion, ConvertInto, Identity, TrailingZeroInput, TryConvertInto,
-};
+use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasOriginRootUsingFilter, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	AsPrefixedGeneralIndex, ConvertedConcreteId, DescribeAllTerminal, DescribeFamily,
-	EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
+	DescribeTerminus, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
 	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
@@ -73,10 +70,7 @@ use xcm_builder::{
 	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
 	UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
-use xcm_executor::{
-	traits::{ConvertLocation, JustTry},
-	XcmExecutor,
-};
+use xcm_executor::{traits::JustTry, XcmExecutor};
 
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
@@ -99,34 +93,10 @@ parameter_types! {
 		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
 }
 
-pub fn derived_from_here<AccountId>() -> AccountId
-where
-	AccountId: Decode + Eq + Clone,
-{
-	b"Here"
-		.using_encoded(|b| AccountId::decode(&mut TrailingZeroInput::new(b)))
-		.expect("infinite length input; no invalid inputs for type; qed")
-}
-
-/// A [`Location`] consisting of a single `Here` [`Junction`] will be converted to the
-///  here `AccountId`.
-pub struct HereIsPreset<AccountId>(PhantomData<AccountId>);
-impl<AccountId: Decode + Eq + Clone> ConvertLocation<AccountId> for HereIsPreset<AccountId> {
-	fn convert_location(location: &Location) -> Option<AccountId> {
-		if location.contains_parents_only(0) {
-			Some(derived_from_here::<AccountId>())
-		} else {
-			None
-		}
-	}
-}
-
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
-	// Here converts to `AccountId`.
-	HereIsPreset<AccountId>,
 	// The parent (Relay-chain) origin converts to the parent `AccountId`.
 	ParentIsPreset<AccountId>,
 	// Sibling parachain origins convert to AccountId via the `ParaId::into`.
@@ -134,7 +104,7 @@ pub type LocationToAccountId = (
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign locations alias into accounts according to a hash of their standard description.
-	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
+	HashedDescription<AccountId, (DescribeTerminus, DescribeFamily<DescribeAllTerminal>)>,
 	// Different global consensus locations sovereign accounts.
 	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
 );
