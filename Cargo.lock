@@ -5094,8 +5094,8 @@ dependencies = [
  "polkadot-primitives",
  "serde",
  "serde_json",
- "subxt",
- "subxt-signer",
+ "subxt 0.38.1",
+ "subxt-signer 0.38.0",
  "tokio",
 ]
 
@@ -5111,8 +5111,8 @@ dependencies = [
  "polkadot-primitives",
  "serde",
  "serde_json",
- "subxt",
- "subxt-signer",
+ "subxt 0.38.1",
+ "subxt-signer 0.38.0",
  "tokio",
  "zombienet-sdk",
 ]
