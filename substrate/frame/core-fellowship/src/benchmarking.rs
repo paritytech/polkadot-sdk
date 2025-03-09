@@ -21,7 +21,6 @@
 
 use super::*;
 use crate::Pallet as CoreFellowship;
-use sp_runtime::SaturatedConversion;
 
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;
@@ -57,7 +56,7 @@ mod benchmarks {
 	}
 
 	fn set_benchmark_params<T: Config<I>, I: 'static>() -> Result<(), BenchmarkError> {
-		let max_rank = T::MaxRank::get().try_into().unwrap();
+		let max_rank = T::MaxRank::get() as usize;
 		let params = ParamsType {
 			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
@@ -72,7 +71,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_params() -> Result<(), BenchmarkError> {
-		let max_rank = T::MaxRank::get().try_into().unwrap();
+		let max_rank = T::MaxRank::get() as usize;
 		let params = ParamsType {
 			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
@@ -90,7 +89,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_partial_params() -> Result<(), BenchmarkError> {
-		let max_rank = T::MaxRank::get().try_into().unwrap();
+		let max_rank = T::MaxRank::get() as usize;
 
 		// Set up the initial default state for the Params storage
 		let params = ParamsType {
@@ -150,10 +149,9 @@ mod benchmarks {
 	fn bump_demote() -> Result<(), BenchmarkError> {
 		set_benchmark_params::<T, I>()?;
 
-		let max_rank: RankOf<T, I> = T::MaxRank::get().try_into().unwrap();
-		let initial_rank = max_rank.saturated_into::<u16>();
+		let initial_rank = T::MaxRank::get();
 
-		let member = make_member::<T, I>(max_rank)?;
+		let member = make_member::<T, I>(initial_rank)?;
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
@@ -199,10 +197,11 @@ mod benchmarks {
 	fn promote() -> Result<(), BenchmarkError> {
 		// Ensure that the `min_promotion_period` wont get in our way.
 		let mut params = Params::<T, I>::get();
-		let max_rank = T::MaxRank::get().try_into().unwrap();
+		let max_rank = T::MaxRank::get();
 
 		// Get minimum promotion period.
-		params.min_promotion_period = BoundedVec::try_from(vec![Zero::zero(); max_rank]).unwrap();
+		params.min_promotion_period =
+			BoundedVec::try_from(vec![Zero::zero(); max_rank as usize]).unwrap();
 		Params::<T, I>::put(&params);
 
 		// Start at rank 0 to allow at least one promotion.
@@ -210,7 +209,7 @@ mod benchmarks {
 		let member = make_member::<T, I>(current_rank)?;
 
 		// Set `to_rank` dynamically based on `max_rank`.
-		let to_rank = (current_rank + 1).min(max_rank.try_into().unwrap()); // Ensure `to_rank` <= `max_rank`.
+		let to_rank = (current_rank + 1).min(max_rank); // Ensure `to_rank` <= `max_rank`.
 
 		// Set block number to avoid auto-demotion.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
@@ -227,10 +226,12 @@ mod benchmarks {
 
 	/// Benchmark the `promote_fast` extrinsic to promote someone up to `r`.
 	#[benchmark]
-	fn promote_fast(r: Linear<1, { T::MaxRank::get() as u32 }>) -> Result<(), BenchmarkError> {
+	fn promote_fast(
+		r: Linear<1, { ConvertU16ToU32::<T::MaxRank>::get() }>,
+	) -> Result<(), BenchmarkError> {
 		// Get target rank for promotion.
 		let max_rank = T::MaxRank::get();
-		let target_rank = r.min(max_rank).try_into().unwrap();
+		let target_rank = (r as u16).min(max_rank);
 
 		// Begin with Candidate.
 		let member = make_member::<T, I>(0)?;

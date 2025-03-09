@@ -27,7 +27,7 @@ use frame_support::{
 };
 use frame_system::EnsureSignedBy;
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
-use sp_core::{ConstU32, Get};
+use sp_core::Get;
 use sp_runtime::{
 	bounded_vec,
 	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
@@ -82,7 +82,7 @@ impl Config for Test {
 	type PromoteOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = EvidenceSize;
-	type MaxRank = ConstU32<9>;
+	type MaxRank = ConstU16<9>;
 }
 
 /// Convert the tally class into the minimum rank required to vote on the poll.
