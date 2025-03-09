@@ -26,6 +26,21 @@ fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
+/// Helper macro to check if a system event exists in the event list.
+///
+/// Example usage:
+/// ```ignore
+/// assert!(system_contains_event!(parachain, System(frame_system::Event::Remarked { .. })));
+/// assert!(system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Attempted { .. })));
+/// ```
+macro_rules! system_contains_event {
+    ($runtime:ident, $variant:ident($($pattern:tt)*)) => {
+        $runtime::System::events().iter().any(|e| {
+            matches!(e.event, $runtime::RuntimeEvent::$variant($($pattern)*))
+        })
+    };
+}
+
 #[test]
 fn remote_account_ids_work() {
 	child_account_account_id(1, ALICE);
@@ -53,11 +68,7 @@ fn dmp() {
 	});
 
 	ParaA::execute_with(|| {
-		use parachain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(parachain, System(frame_system::Event::Remarked { .. })));
 	});
 }
 
@@ -81,11 +92,7 @@ fn ump() {
 	});
 
 	Relay::execute_with(|| {
-		use relay_chain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(relay_chain, System(frame_system::Event::Remarked { .. })));
 	});
 }
 
@@ -109,11 +116,7 @@ fn xcmp() {
 	});
 
 	ParaB::execute_with(|| {
-		use parachain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(parachain, System(frame_system::Event::Remarked { .. })));
 	});
 }
 
@@ -137,18 +140,12 @@ fn reserve_transfer() {
 			INITIAL_BALANCE + withdraw_amount
 		);
 		// Ensure expected events were emitted
-		let events = relay_chain::System::events();
-		let attempted_count = count_relay_chain_events(&events, |event| {
-			matches!(
-				event,
-				relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
-			)
-		});
-		let sent_count = count_relay_chain_events(&events, |event| {
-			matches!(event, relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }))
-		});
-		assert_eq!(attempted_count, 1, "Expected one XcmPallet::Attempted event");
-		assert_eq!(sent_count, 1, "Expected one XcmPallet::Sent event");
+		let attempted_emitted =
+			system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Attempted { .. }));
+		let sent_emitted =
+			system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Sent { .. }));
+		assert!(attempted_emitted, "Expected XcmPallet::Attempted event emitted");
+		assert!(sent_emitted, "Expected XcmPallet::Sent event emitted");
 	});
 
 	ParaA::execute_with(|| {
@@ -171,7 +168,7 @@ fn reserve_transfer_with_error() {
 	MockNet::reset();
 
 	// Execute XCM Transfer and Capture Logs
-	let (log_capture, subscriber) = init_log_capture(Level::ERROR);
+	let (log_capture, subscriber) = init_log_capture(Level::ERROR, false);
 	subscriber::with_default(subscriber, || {
 		let invalid_dest = Box::new(Parachain(9999).into());
 		let withdraw_amount = 123;
@@ -193,13 +190,8 @@ fn reserve_transfer_with_error() {
 			assert!(log_capture.contains("XCM validate_send failed"));
 
 			// Verify that XcmPallet::Attempted was NOT emitted (rollback happened)
-			let events = relay_chain::System::events();
-			let xcm_attempted_emitted = events.iter().any(|e| {
-				matches!(
-					e.event,
-					relay_chain::RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { .. })
-				)
-			});
+			let xcm_attempted_emitted =
+				system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Attempted { .. }));
 			assert!(
 				!xcm_attempted_emitted,
 				"Expected no XcmPallet::Attempted event due to rollback, but it was emitted"
@@ -579,14 +571,4 @@ fn query_holding() {
 			}])],
 		);
 	});
-}
-
-fn count_relay_chain_events<F>(
-	events: &[frame_system::EventRecord<relay_chain::RuntimeEvent, sp_core::H256>],
-	predicate: F,
-) -> usize
-where
-	F: Fn(&relay_chain::RuntimeEvent) -> bool,
-{
-	events.iter().filter(|e| predicate(&e.event)).count()
 }

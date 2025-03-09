@@ -111,6 +111,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// Overarching runtime event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// An origin type that ensures an incoming message is from asset hub.
 		type AssetHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -167,6 +170,20 @@ pub mod pallet {
 		MinimumValidatorSetSize,
 	}
 
+	#[pallet::event]
+	#[pallet::generate_deposit(fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// A new validator set has been received.
+		ValidatorSetReceived {
+			id: u32,
+			new_validator_set_count: u32,
+			prune_up_to: u32,
+			leftover: bool,
+		},
+		/// We could not merge, and therefore dropped a buffered message.
+		ValidatorSetDropped,
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
@@ -176,26 +193,52 @@ pub mod pallet {
 			report: rc_client::ValidatorSetReport<T::AccountId>,
 		) -> DispatchResult {
 			// Ensure the origin is one of Root or whatever is representing AssetHub.
-			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			log!(info, "Received new validator set report {:?}", report);
-			let rc_client::ValidatorSetReport { id, leftover, mut new_validator_set, prune_up_to } =
-				report;
-			debug_assert!(!leftover);
+			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 
-			// TODO(ank4n): buffer in `IncompleteValidatorSetReport` if incomplete, similar to how
-			// rc-client does it.
+			let maybe_new_validator_set_report = match IncompleteValidatorSetReport::<T>::take() {
+				Some(old) => old.merge(report.clone()),
+				None => Ok(report),
+			};
 
-			// ensure the validator set, deduplicated, is not too big.
-			new_validator_set.sort();
-			new_validator_set.dedup();
+			if let Err(_) = maybe_new_validator_set_report {
+				Self::deposit_event(Event::ValidatorSetDropped);
+				// note -- if we return error the storage ops are reverted, so we do this instead.
+				return Ok(());
+			}
 
-			ensure!(
-				new_validator_set.len() as u32 >= T::MinimumValidatorSetSize::get(),
-				Error::<T>::MinimumValidatorSetSize
-			);
+			let new_validator_set_report =
+				maybe_new_validator_set_report.expect("checked above; qed");
 
-			// Save the validator set.
-			ValidatorSet::<T>::put((id, new_validator_set));
+			if new_validator_set_report.leftover {
+				// buffer it, and nothing further to do.
+				IncompleteValidatorSetReport::<T>::put(new_validator_set_report);
+			} else {
+				let rc_client::ValidatorSetReport {
+					id,
+					leftover,
+					mut new_validator_set,
+					prune_up_to,
+				} = new_validator_set_report;
+
+				// ensure the validator set, deduplicated, is not too big.
+				new_validator_set.sort();
+				new_validator_set.dedup();
+
+				ensure!(
+					new_validator_set.len() as u32 >= T::MinimumValidatorSetSize::get(),
+					Error::<T>::MinimumValidatorSetSize
+				);
+
+				// Save the validator set.
+				Self::deposit_event(Event::ValidatorSetReceived {
+					id,
+					new_validator_set_count: new_validator_set.len() as u32,
+					prune_up_to,
+					leftover,
+				});
+				ValidatorSet::<T>::put((id, new_validator_set));
+			}
 
 			Ok(())
 		}
@@ -203,32 +246,14 @@ pub mod pallet {
 
 	impl<T: Config> historical::SessionManager<T::AccountId, ()> for Pallet<T> {
 		fn new_session(
-			_: sp_staking::SessionIndex,
+			new_index: sp_staking::SessionIndex,
 		) -> Option<Vec<(<T as frame_system::Config>::AccountId, ())>> {
-			let maybe_new_validator_set = ValidatorSet::<T>::take()
-				.map(|(session, validators)| validators.into_iter().map(|v| (v, ())).collect());
-
-			// A new validator set is an indication for a new era. Clear
-			if maybe_new_validator_set.is_none() {
-				// TODO(ank4n): historical sessions should be pruned. This used to happen after the bonding
-				// period for the session but it would be nice to avoid XCM messages for prunning
-				// and trigger it from RC directly.
-
-				// <pallet_session::historical::Pallet<T>>::prune_up_to(up_to); // TODO!!!
-			}
-
-			// TODO: move this to the normal impl
-			if maybe_new_validator_set.is_some() {
-				NextSessionChangesValidators::<T>::put(());
-			}
-
-			return maybe_new_validator_set
+			<Self as pallet_session::SessionManager<_>>::new_session(new_index)
+				.map(|v| v.into_iter().map(|v| (v, ())).collect())
 		}
 
-		fn new_session_genesis(_: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
-			ValidatorSet::<T>::take()
-				.map(|(_, validators)| validators.into_iter().map(|v| (v, ())).collect())
-		}
+		// We don't implement `new_session_genesis` because we rely on the default implementation
+		// which calls `new_session`
 
 		fn start_session(start_index: SessionIndex) {
 			<Self as pallet_session::SessionManager<_>>::start_session(start_index)
@@ -241,9 +266,17 @@ pub mod pallet {
 
 	impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
 		fn new_session(_: u32) -> Option<Vec<T::AccountId>> {
-			// TODO return if we have a queued validator set.
-			None
+			let maybe_new_validator_set =
+				ValidatorSet::<T>::take().map(|(_, validators)| validators);
+
+			if maybe_new_validator_set.is_some() {
+				NextSessionChangesValidators::<T>::put(());
+			}
+
+			maybe_new_validator_set
 		}
+
+		fn start_session(_: u32) {}
 
 		fn end_session(session_index: u32) {
 			use sp_runtime::SaturatedConversion;
@@ -264,8 +297,6 @@ pub mod pallet {
 			log!(info, "Sending session report {:?}", session_report);
 			T::SendToAssetHub::relay_session_report(session_report);
 		}
-
-		fn start_session(_: u32) {}
 	}
 
 	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {

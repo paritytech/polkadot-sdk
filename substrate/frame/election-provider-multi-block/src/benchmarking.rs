@@ -82,7 +82,9 @@ mod benchmarks {
 		crate::Pallet::<T>::start().unwrap();
 
 		// roll to the first block of the snapshot.
-		Pallet::<T>::roll_until_matches(|| CurrentPhase::<T>::get() == Phase::Snapshot(T::Pages::get() - 1));
+		Pallet::<T>::roll_until_matches(|| {
+			CurrentPhase::<T>::get() == Phase::Snapshot(T::Pages::get() - 1)
+		});
 
 		// we have collected the target snapshot only
 		assert_eq!(
@@ -112,7 +114,6 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_into_signed() -> Result<(), BenchmarkError> {
-
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
 		crate::Pallet::<T>::start().unwrap();

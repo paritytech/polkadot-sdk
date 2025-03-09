@@ -2,11 +2,10 @@ use crate::shared;
 use frame::testing_prelude::*;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	ElectionProvider, SequentialPhragmen,
+	SequentialPhragmen,
 };
 use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
-use pallet_staking::{ActiveEra, ActiveEraInfo};
 use sp_staking::SessionIndex;
 
 construct_runtime! {
@@ -206,6 +205,7 @@ impl multi_block::signed::Config for Runtime {
 
 	type Currency = Balances;
 
+	type EjectGraceRatio = ();
 	type BailoutGraceRatio = ();
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
@@ -223,6 +223,7 @@ parameter_types! {
 }
 
 impl pallet_staking::Config for Runtime {
+	type Filter = ();
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 
@@ -269,6 +270,7 @@ impl pallet_staking::Config for Runtime {
 }
 
 impl pallet_staking_rc_client::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
 	type RelayChainOrigin = EnsureRoot<AccountId>;

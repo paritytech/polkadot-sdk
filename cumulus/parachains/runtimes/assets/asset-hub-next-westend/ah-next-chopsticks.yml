@@ -1,0 +1,16 @@
+mock-signature-host: true
+block: ${env.AH_NEXT_BLOCK_NUMBER}
+db: ./ah-next-westend.sqlite
+runtime-log-level: 5
+
+# Specify this on the command line with --genesis ./path/to/chain-spec.json or uncomment below
+#genesis: ./chain_spec.json
+
+import-storage:
+  Balances:
+    TotalIssuance:
+      - 2000000000000000
+  System:
+    Account:
+      - [[5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY], {providers: 1, data: {free: 1000000000000000}}]
+      - [[5F6h8PQC5eak9iKnFUHvTpy8YYqZtE69fGDpSBWbD8Wf2YoL], {providers: 1, data: {free: 1000000000000000}}]

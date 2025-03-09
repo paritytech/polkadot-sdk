@@ -36,10 +36,7 @@ use frame_support::{
 	pallet_prelude::PhantomData,
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, Equals, EverythingBut, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, Equals, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -793,6 +790,8 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
+	type ElectionOffset = ConstU32<1>; // TODO @Ankan: Check this value
+	type Filter = Nothing;
 }
 
 pub struct AssetHubLocation;
@@ -803,14 +802,14 @@ impl Get<Location> for AssetHubLocation {
 }
 
 #[derive(Encode, Decode)]
-enum AssetHubRuntimePallets<AccountId> {
+enum AssetHubRuntimePallets {
 	#[codec(index = 50)]
-	RcClient(RcClientCalls<AccountId>),
+	RcClient(RcClientCalls),
 }
 
 /// Call encoding for the calls needed from the rc-client pallet.
 #[derive(Encode, Decode)]
-enum RcClientCalls<AccountId> {
+enum RcClientCalls {
 	/// A session with the given index has started.
 	#[codec(index = 0)]
 	RelaySessionReport(rc_client::SessionReport<AccountId>),
@@ -861,9 +860,7 @@ impl<T: SendXcm> ah_client::SendToAssetHub for XcmToAssetHub<T> {
 }
 
 impl<T: SendXcm> XcmToAssetHub<T> {
-	fn mk_asset_hub_call(
-		call: RcClientCalls<<Self as ah_client::SendToAssetHub>::AccountId>,
-	) -> Instruction<()> {
+	fn mk_asset_hub_call(call: RcClientCalls) -> Instruction<()> {
 		Instruction::Transact {
 			origin_kind: OriginKind::Superuser,
 			fallback_max_weight: None,
@@ -1666,6 +1663,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type BlockNumberProvider = System;
+	type Filter = Nothing;
 }
 
 parameter_types! {
@@ -2331,6 +2329,10 @@ sp_api::impl_runtime_apis! {
 
 		fn scheduling_lookahead() -> u32 {
 			parachains_staging_runtime_api_impl::scheduling_lookahead::<Runtime>()
+		}
+
+		fn validation_code_bomb_limit() -> u32 {
+			parachains_staging_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
 		}
 	}
 

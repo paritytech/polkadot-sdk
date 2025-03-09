@@ -46,7 +46,6 @@ use sp_runtime::{
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	offence::OffenceSeverity,
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
@@ -961,7 +960,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
 		let outcome = if Nominators::<T>::contains_key(who) {
 			Nominators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).defensive();
+			let _ = T::VoterList::on_remove(who).defensive_proof("Nominator must be present in the voter list");
 			true
 		} else {
 			false
@@ -1006,7 +1005,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_remove_validator(who: &T::AccountId) -> bool {
 		let outcome = if Validators::<T>::contains_key(who) {
 			Validators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).defensive();
+			let _ = T::VoterList::on_remove(who).defensive_proof("Validaot must be in VoterList");
 			true
 		} else {
 			false
@@ -1600,11 +1599,12 @@ impl<T: Config> Pallet<T> {
 		current_planned_session: SessionIndex,
 		era_start_session: SessionIndex,
 	) -> bool {
-		log::info!(
-			target: "runtime::staking",
-			"RUNTIME IMPL: current_planned_session: {:?} era_start_session: {:?}",
+		crate::log!(
+			debug,
+			"current_planned_session: {:?} era_start_session: {:?}, ElectionOffset: {:?}",
 			current_planned_session,
-			era_start_session
+			era_start_session,
+			T::ElectionOffset::get(),
 		);
 
 		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
@@ -1801,11 +1801,11 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 						log!(debug, "🦹 inserting offence era {} into existing queue", offence_era);
 						eras.binary_search(&offence_era)
 							.err()
-							.map(|idx| eras.try_insert(idx, offence_era).defensive());
+							.map(|idx| eras.try_insert(idx, offence_era).defensive_proof("Offence era must be present in the existing queue"));
 					} else {
 						let mut eras = BoundedVec::default();
 						log!(debug, "🦹 inserting offence era {} into empty queue", offence_era);
-						let _ = eras.try_push(offence_era).defensive();
+						let _ = eras.try_push(offence_era).defensive_proof("Failed to push offence era into empty queue");
 						*q = Some(eras);
 					}
 				});

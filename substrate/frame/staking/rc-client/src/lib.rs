@@ -182,6 +182,16 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 		self.leftover = other.leftover;
 		Ok(self)
 	}
+
+	/// Split self into `count` number of pieces.
+	pub fn split(self, count: usize) -> Vec<Self> where AccountId: Clone {
+		let chunk_size = self.new_validator_set.len().div_ceil(count.min(1));
+		let splitted_points = self.new_validator_set.chunks(chunk_size).map(|x| x.to_vec());
+		splitted_points.into_iter().map(|new_validator_set| Self {
+			new_validator_set,
+			..self
+		}).collect()
+	}
 }
 
 #[derive(
@@ -236,6 +246,16 @@ impl<AccountId> SessionReport<AccountId> {
 		self.validator_points.extend(other.validator_points);
 		self.leftover = other.leftover;
 		Ok(self)
+	}
+
+	/// Split oneself into `count` number of pieces.
+	pub fn split(self, count: usize) -> Vec<Self> where AccountId: Clone {
+		let chunk_size = self.validator_points.len().div_ceil(count.min(1));
+		let splitted_points = self.validator_points.chunks(chunk_size).map(|x| x.to_vec());
+		splitted_points.into_iter().map(|validator_points| Self {
+			validator_points,
+			..self
+		}).collect()
 	}
 }
 
@@ -301,6 +321,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// Overarching runtime event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// An origin type that allows us to be sure a call is being dispatched by the relay chain.
 		///
 		/// It be can be configured to something like `Root` or relay chain or similar.
@@ -313,11 +336,28 @@ pub mod pallet {
 		type SendToRelayChain: SendToRelayChain<AccountId = Self::AccountId>;
 	}
 
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// A said session report was received.
+		SessionReportReceived {
+			end_index: SessionIndex,
+			activation_timestamp: Option<(u64, u32)>,
+			validator_points_counts: u32,
+			leftover: bool,
+		},
+
+		/// A new offence was reported.
+		OffenceReceived {
+			slash_session: SessionIndex,
+			offences_count: u32,
+		}
+	}
+
 	impl<T: Config> RcClientInterface for Pallet<T> {
 		type AccountId = T::AccountId;
 
 		fn validator_set(new_validator_set: Vec<Self::AccountId>, id: u32, prune_up_tp: u32) {
-			// TODO: possibly chunk this up if needed, else send it one one go for now.
 			let report = ValidatorSetReport::new_terminal(new_validator_set, id, prune_up_tp);
 			T::SendToRelayChain::validator_set(report);
 		}
@@ -335,8 +375,16 @@ pub mod pallet {
 			log!(info, "Received session report: {:?}", report);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
 
+			Self::deposit_event(Event::SessionReportReceived {
+				end_index: report.end_index,
+				activation_timestamp: report.activation_timestamp,
+				validator_points_counts: report.validator_points.len() as u32,
+				leftover: report.leftover,
+			});
+
 			// If we have anything previously buffered, then merge it.
 			let new_session_report = match IncompleteSessionReport::<T>::take() {
+				// TODO: update this to be like the ah-client -- returning error will nullify the `::take()`.
 				Some(old) => old.merge(report.clone()).map_err(|_| "CouldNotMerge")?,
 				None => report,
 			};
@@ -360,7 +408,14 @@ pub mod pallet {
 			slash_session: SessionIndex,
 			offences: Vec<Offence<T::AccountId>>,
 		) -> DispatchResult {
+			log!(info, "Received new offence at slash_session: {:?}", slash_session);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
+
+			Self::deposit_event(Event::OffenceReceived {
+				slash_session,
+				offences_count: offences.len() as u32,
+			});
+
 			T::AHStakingInterface::on_new_offences(slash_session, offences);
 			Ok(())
 		}

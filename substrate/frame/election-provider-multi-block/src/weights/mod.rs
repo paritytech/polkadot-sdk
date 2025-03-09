@@ -16,7 +16,7 @@
 // limitations under the License.
 
 #![allow(unused)]
-pub(crate) mod measured;
-pub(crate) mod mel;
-pub(crate) mod zero;
+pub mod measured;
+pub mod mel;
+pub mod zero;
 pub use zero::AllZeroWeights;

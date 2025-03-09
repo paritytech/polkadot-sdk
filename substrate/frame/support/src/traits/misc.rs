@@ -1017,6 +1017,13 @@ impl<Call, Balance: From<u32>, const T: u32> EstimateCallFee<Call, Balance> for 
 	}
 }
 
+#[cfg(feature = "std")]
+impl<Call, Balance: From<u32>, const T: u64> EstimateCallFee<Call, Balance> for ConstU64<T> {
+	fn estimate_call_fee(_: &Call, _: crate::dispatch::PostDispatchInfo) -> Balance {
+		(T as u32).into()
+	}
+}
+
 /// A wrapper for any type `T` which implement encode/decode in a way compatible with `Vec<u8>`.
 ///
 /// The encoding is the encoding of `T` prepended with the compact encoding of its size in bytes.

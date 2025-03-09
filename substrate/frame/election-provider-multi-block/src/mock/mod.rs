@@ -17,7 +17,6 @@
 
 mod signed;
 mod staking;
-mod weight_info;
 
 use super::*;
 use crate::{
@@ -52,7 +51,9 @@ use sp_core::{
 };
 use sp_npos_elections::EvaluateSupport;
 use sp_runtime::{
-	bounded_vec, traits::{BlakeTwo256, IdentityLookup}, BuildStorage, PerU16, Perbill
+	bounded_vec,
+	traits::{BlakeTwo256, IdentityLookup},
+	BuildStorage, PerU16, Perbill,
 };
 pub use staking::*;
 use std::{sync::Arc, vec};
@@ -118,10 +119,8 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 }
 
-#[allow(unused)]
 #[derive(Clone)]
 pub enum FallbackModes {
-	// TODO: test for this mode
 	Continue,
 	Emergency,
 	Onchain,
@@ -204,7 +203,7 @@ impl crate::Config for Runtime {
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type MinerConfig = Self;
-	type WeightInfo = weight_info::DualMockWeightInfo;
+	type WeightInfo = ();
 	type Verifier = VerifierPallet;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type Pages = Pages;
@@ -647,7 +646,6 @@ pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>
 	use sp_runtime::traits::Dispatchable;
 	let now = System::block_number();
 	for i in now + 1..=n {
-
 		// check the offchain transaction pool, and if anything's there, submit it.
 		if let Some(ref pool) = maybe_pool {
 			pool.read()
@@ -695,7 +693,6 @@ pub fn fake_solution(score: ElectionScore) -> PagedRawSolution<Runtime> {
 ///
 /// This is different from `solution_from_supports` in that it does not require the snapshot to
 /// exist.
-// TODO: probably deprecate this.
 pub fn raw_paged_solution_low_score() -> PagedRawSolution<Runtime> {
 	PagedRawSolution {
 		solution_pages: vec![TestNposSolution {

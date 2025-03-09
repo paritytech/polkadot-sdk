@@ -405,6 +405,7 @@ impl pallet_staking::Config for Runtime {
 	type MaxValidatorSet = MaxAuthorities;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
+	type Filter = frame_support::traits::Nothing;
 }
 
 parameter_types! {
@@ -1108,6 +1109,10 @@ sp_api::impl_runtime_apis! {
 
 		fn scheduling_lookahead() -> u32 {
 			staging_runtime_impl::scheduling_lookahead::<Runtime>()
+		}
+
+		fn validation_code_bomb_limit() -> u32 {
+			staging_runtime_impl::validation_code_bomb_limit::<Runtime>()
 		}
 	}
 
