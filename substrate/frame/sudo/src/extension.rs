@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{Config, Key};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{fmt, marker::PhantomData};
 use frame_support::{dispatch::DispatchInfo, ensure, pallet_prelude::TransactionSource};
 use scale_info::TypeInfo;
@@ -37,7 +37,7 @@ use sp_runtime::{
 /// fail on applying them as they are not allowed/disabled/whatever. This would be some huge dos
 /// vector to any kind of chain. This extension solves the dos vector by preventing any kind of
 /// transaction entering the pool as long as it is not signed by the sudo account.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckOnlySudoAccount<T: Config + Send + Sync>(PhantomData<T>);
 

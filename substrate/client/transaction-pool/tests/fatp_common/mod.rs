@@ -70,6 +70,7 @@ pub struct TestPoolBuilder {
 	ready_limits: sc_transaction_pool::PoolLimit,
 	future_limits: sc_transaction_pool::PoolLimit,
 	mempool_max_transactions_count: usize,
+	finality_timeout_threshold: Option<usize>,
 }
 
 impl Default for TestPoolBuilder {
@@ -80,6 +81,7 @@ impl Default for TestPoolBuilder {
 			ready_limits: PoolLimit { count: 8192, total_bytes: 20 * 1024 * 1024 },
 			future_limits: PoolLimit { count: 512, total_bytes: 1 * 1024 * 1024 },
 			mempool_max_transactions_count: usize::MAX,
+			finality_timeout_threshold: None,
 		}
 	}
 }
@@ -124,6 +126,11 @@ impl TestPoolBuilder {
 		self
 	}
 
+	pub fn with_finality_timeout_threshold(mut self, threshold: usize) -> Self {
+		self.finality_timeout_threshold = Some(threshold);
+		self
+	}
+
 	pub fn build(
 		self,
 	) -> (ForkAwareTxPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
@@ -140,7 +147,12 @@ impl TestPoolBuilder {
 			.expect("there is block 0. qed");
 
 		let (pool, txpool_task) = if self.use_default_limits {
-			ForkAwareTxPool::new_test(api.clone(), genesis_hash, genesis_hash)
+			ForkAwareTxPool::new_test(
+				api.clone(),
+				genesis_hash,
+				genesis_hash,
+				self.finality_timeout_threshold,
+			)
 		} else {
 			ForkAwareTxPool::new_test_with_limits(
 				api.clone(),
@@ -149,6 +161,7 @@ impl TestPoolBuilder {
 				self.ready_limits,
 				self.future_limits,
 				self.mempool_max_transactions_count,
+				self.finality_timeout_threshold,
 			)
 		};
 
