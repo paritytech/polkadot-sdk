@@ -235,7 +235,6 @@ mod benchmarks {
 
 		// Begin with Candidate.
 		let member = make_member::<T, I>(0)?;
-		log::info!("Benchmark promote_fast: r={} MaxRank={}", r, T::MaxRank::get());
 
 		ensure_evidence::<T, I>(&member)?;
 
