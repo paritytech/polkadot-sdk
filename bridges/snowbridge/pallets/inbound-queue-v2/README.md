@@ -23,7 +23,7 @@ This event is emitted when the `v2_registerToken` and `v2_sendMessage` is called
 
 ### Key Components
 #### Verifier
-A trait-based component (snowbridge_inbound_queue_primitives::Verifier) responsible for verifying Ethereum events and proofs. The implementation for the verifier is the Ethereum client. 
+A trait-based component (snowbridge_inbound_queue_primitives::Verifier) responsible for verifying Ethereum events and proofs. The implementation for the verifier is the Ethereum client.
 
 #### Message Converter
 Translates the Ethereum-provided message data (Message) into XCM instructions. The default implementation uses logic in MessageToXcm.
