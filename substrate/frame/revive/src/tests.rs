@@ -4282,7 +4282,7 @@ fn skip_transfer_works() {
 			Pallet::<Test>::bare_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
-					input: Some(code.clone().into()),
+					input: code.clone().into(),
 					gas: Some(1u32.into()),
 					..Default::default()
 				},
@@ -4298,7 +4298,7 @@ fn skip_transfer_works() {
 		assert_ok!(Pallet::<Test>::bare_eth_transact(
 			GenericTransaction {
 				from: Some(ALICE_ADDR),
-				input: Some(code.clone().into()),
+				input: code.clone().into(),
 				..Default::default()
 			},
 			Weight::MAX,
@@ -4333,7 +4333,7 @@ fn skip_transfer_works() {
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
-				input: Some((0u32, &addr).encode().into()),
+				input: (0u32, &addr).encode().into(),
 				gas: Some(1u32.into()),
 				..Default::default()
 			},
@@ -4354,7 +4354,7 @@ fn skip_transfer_works() {
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
-				input: Some((0u32, &addr).encode().into()),
+				input: (0u32, &addr).encode().into(),
 				..Default::default()
 			},
 			Weight::MAX,
