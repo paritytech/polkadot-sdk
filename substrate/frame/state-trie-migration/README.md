@@ -66,7 +66,7 @@ To run the automatic migration, you need to use the `ControlOrigin` to set 1 sto
 > `on_initialize` might go over the limits provided, because we can never know the real size of a key before reading it, at which point it is actually too late. Thus, it should NOT be used in a parachain.
 > If you are sure you want to do the migration this way, you should set `SignedFilter` such that no account can call the manual signed migrations, just in case.
 
-Let's look at `substrate-node --dev --execution Native -lruntime::state-trie-migration=debug` chain that includes this pallet. Initially, the logs don't show anything relevant.
+Let's look at `staging-node-cli --dev --execution Native -lruntime::state-trie-migration=debug` chain that includes this pallet. Initially, the logs don't show anything relevant.
 
 Here is an example of a sudo transaction that kicks of the migration with a maximum of 8 items and 4kb of data per block:
 
