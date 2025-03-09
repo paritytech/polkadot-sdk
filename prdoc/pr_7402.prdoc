@@ -34,7 +34,7 @@ crates:
   bump: minor
 - name: snowbridge-pallet-system-v2
   bump: major
-- name: snowbridge-pallet-system-v2-runtime-api
+- name: snowbridge-system-v2-runtime-api
   bump: major
 - name: snowbridge-pallet-system-frontend
   bump: major
