@@ -1363,8 +1363,8 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.39.0" }
-trie-db = { version = "0.29.1", default-features = false }
+trie-bench = { version = "0.40.0" }
+trie-db = { version = "0.30.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.103" }
@@ -1397,7 +1397,8 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-sdk = { version = "0.2.20" }
+zombienet-configuration = { version = "0.2.22" }
+zombienet-sdk = { version = "0.2.22" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
