@@ -400,7 +400,9 @@ pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking::Event<T>> 
 pub(crate) fn election_events_since_last_call() -> Vec<multi_block::Event<T>> {
 	let all: Vec<_> = System::events()
 		.into_iter()
-		.filter_map(|r| if let RuntimeEvent::MultiBlock(inner) = r.event { Some(inner) } else { None })
+		.filter_map(
+			|r| if let RuntimeEvent::MultiBlock(inner) = r.event { Some(inner) } else { None },
+		)
 		.collect();
 	let seen = ElectionEventsIndex::get();
 	ElectionEventsIndex::set(all.len());

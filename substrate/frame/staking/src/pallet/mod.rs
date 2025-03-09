@@ -900,9 +900,9 @@ pub mod pallet {
 					_ => Ok(()),
 				});
 				assert!(
-					ValidatorCount::<T>::get()
-						<= <T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
-							* <T::ElectionProvider as ElectionProvider>::Pages::get()
+					ValidatorCount::<T>::get() <=
+						<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
+							<T::ElectionProvider as ElectionProvider>::Pages::get()
 				);
 			}
 
@@ -1238,7 +1238,8 @@ pub mod pallet {
 				);
 
 				debug_assert!(
-					CurrentEra::<T>::get().unwrap_or(0) == ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
+					CurrentEra::<T>::get().unwrap_or(0) ==
+						ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
 					"Next era must be already planned."
 				);
 
@@ -2151,10 +2152,10 @@ pub mod pallet {
 			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
-			let reapable = origin_balance < ed
-				|| origin_balance.is_zero()
-				|| ledger_total < ed
-				|| ledger_total.is_zero();
+			let reapable = origin_balance < ed ||
+				origin_balance.is_zero() ||
+				ledger_total < ed ||
+				ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.
