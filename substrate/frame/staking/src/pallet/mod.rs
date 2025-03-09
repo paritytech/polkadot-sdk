@@ -346,13 +346,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
-		fn maybe_start_election_remove(
-			_current_planned_session: SessionIndex,
-			_era_start_session: SessionIndex,
-		) -> bool {
-			false
-		}
-
 		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
 		/// relay chain.
 		#[pallet::no_default]
@@ -1114,6 +1107,15 @@ pub mod pallet {
 			slash_key: (T::AccountId, Perbill, u32),
 			payout: BalanceOf<T>,
 		},
+		/// Session change has been triggered.
+		///
+		/// If planned_era is one era ahead of active_era, it implies new era is being planned and
+		/// election is ongoing.
+		SessionRotated {
+			starting_session: SessionIndex,
+			active_era: EraIndex,
+			planned_era: EraIndex,
+		},
 	}
 
 	#[pallet::error]
@@ -1248,6 +1250,13 @@ pub mod pallet {
 					"Election provider is ready, our status is {:?}",
 					NextElectionPage::<T>::get()
 				);
+
+				debug_assert!(
+					CurrentEra::<T>::get().unwrap_or(0) ==
+						ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
+					"Next era must be already planned."
+				);
+
 				match NextElectionPage::<T>::get() {
 					Some(current_page) => {
 						let next_page = current_page.checked_sub(1);
@@ -1265,12 +1274,31 @@ pub mod pallet {
 						// if current page was `Some`, and next is `None`, we have
 						// finished an election and we can report it now.
 						if next_page.is_none() {
-							crate::log!(info, "sending validator set report to RcClient");
 							use pallet_staking_rc_client::RcClientInterface;
+							let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
+							let bonded_eras = BondedEras::<T>::get();
+							// get the first session of the oldest era in the bonded eras.
+							let prune_up_to =
+								if (bonded_eras.len() as u32) < T::BondingDuration::get() {
+									0
+								} else {
+									bonded_eras
+										.first()
+										.map(|(_, first_session)| *first_session)
+										.unwrap_or(0)
+								};
+
+							crate::log!(
+								info,
+								"Send new validator set to RC. ID: {:?}, prune_up_to: {:?}",
+								id,
+								prune_up_to
+							);
+
 							T::RcClientInterface::validator_set(
 								ElectableStashes::<T>::get().into_iter().collect(),
-								0, // TODO: send ID, or we ignore for now.
-								0, // TODO: Send up to which era we should prune.
+								id,
+								prune_up_to,
 							);
 						}
 					},
@@ -1461,17 +1489,17 @@ pub mod pallet {
 			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
-				return Err(Error::<T>::AlreadyBonded.into())
+				return Err(Error::<T>::AlreadyBonded.into());
 			}
 
 			// An existing controller cannot become a stash.
 			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
-				return Err(Error::<T>::AlreadyPaired.into())
+				return Err(Error::<T>::AlreadyPaired.into());
 			}
 
 			// Reject a bond which is considered to be _dust_.
 			if value < asset::existential_deposit::<T>() {
-				return Err(Error::<T>::InsufficientBond.into())
+				return Err(Error::<T>::InsufficientBond.into());
 			}
 
 			let stash_balance = asset::free_to_stake::<T>(&stash);
@@ -2323,7 +2351,7 @@ pub mod pallet {
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
-				return Ok(())
+				return Ok(());
 			}
 
 			if caller != controller {

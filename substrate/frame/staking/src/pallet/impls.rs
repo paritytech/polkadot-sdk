@@ -18,11 +18,11 @@
 //! Implementations for the Staking FRAME Pallet.
 
 use crate::{
-	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure,
-	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
-	ValidatorPrefs, STAKING_ID,
+	asset, election_size_tracker::StaticTracker, log, session_rotation, slashing,
+	weights::WeightInfo, ActiveEraInfo, BalanceOf, BoundedExposuresOf, EraInfo, EraPayout,
+	Exposure, Forcing, IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf,
+	MaxWinnersPerPageOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -1368,6 +1368,8 @@ impl<T: Config> Pallet<T> {
 		session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
+		log!(debug, "Planning session: {:?}", session_index);
+
 		if let Some(current_era) = CurrentEra::<T>::get() {
 			// Initial era has been set.
 			let current_era_start_session_index = ErasStartSessionIndex::<T>::get(current_era)
@@ -1412,7 +1414,7 @@ impl<T: Config> Pallet<T> {
 	/// * Increment `active_era.index`,
 	/// * reset `active_era.start`,
 	/// * update `BondedEras` and apply slashes.
-	fn start_era(start_session: SessionIndex, start_timestamp: u64) {
+	pub(crate) fn start_era(start_session: SessionIndex, start_timestamp: u64) {
 		let active_era = ActiveEra::<T>::mutate(|active_era| {
 			let new_index = active_era.as_ref().map(|info| info.index + 1).unwrap_or(0);
 			log!(
@@ -1446,7 +1448,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Compute payout for era.
-	fn compute_era_payout(active_era: ActiveEraInfo, era_duration: u64) {
+	pub(crate) fn compute_era_payout(active_era: ActiveEraInfo, era_duration: u64) {
 		let staked = ErasTotalStake::<T>::get(&active_era.index);
 		let issuance = asset::total_issuance::<T>();
 
@@ -1483,6 +1485,13 @@ impl<T: Config> Pallet<T> {
 		start_session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
+		log!(
+			debug,
+			"try_plan_new_era: is_genesis? {:?}, session_index: {:?}",
+			is_genesis,
+			start_session_index
+		);
+
 		// TODO: weights of this call path are rather crude, improve.
 		let validators: BoundedVec<T::AccountId, MaxWinnersOf<T>> = if is_genesis {
 			// genesis election only uses one election result page.
@@ -1510,6 +1519,8 @@ impl<T: Config> Pallet<T> {
 			// note: exposures have already been processed and stored for each of the election
 			// solution page at the time of `elect_paged(page_index)`.
 			Self::register_weight(T::DbWeight::get().reads(1));
+			// todo(ank4n): (this is never called anymore so remove) Make sure we don't drain if election not finished.
+			// - NextElectingPage should be empty.
 			ElectableStashes::<T>::take()
 				.into_inner()
 				.into_iter()
@@ -1596,21 +1607,29 @@ impl<T: Config> Pallet<T> {
 			T::ElectionOffset::get(),
 		);
 
-		let election_offset = T::ElectionOffset::get()
-			.max(1)
-			.min(T::SessionsPerEra::get());
+		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
 
 		let session_progress = current_planned_session - era_start_session;
 
 		// start the election `election_offset` sessions before the intended time.
-		session_progress == (T::SessionsPerEra::get() - election_offset)
+		session_progress >= (T::SessionsPerEra::get() - election_offset)
 	}
 }
 
 impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	type AccountId = T::AccountId;
 
+	/// When we receive a session report from the relay chain, it kicks off the next session.
+	///
+	/// There are three special types of things we can do in a session:
+	/// 1. Plan a new era: We do this one session before the expected era rotation.
+	/// 2. Kick off election: We do this based on the [`T::ElectionOffset`] configuration.
+	/// 3. Activate Next Era: When we receive an activation timestamp in the session report, it
+	/// implies a new validator set has been applied, and we must increment the active era to keep
+	/// the systems in sync.
 	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
+		log!(info, "session report received\n{:?}", report,);
+
 		let rc_client::SessionReport {
 			end_index,
 			activation_timestamp,
@@ -1619,44 +1638,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
-		// handle reward points - input is the sum of all points.
+		// Accumulate reward points for validators in the active era.
+		// todo: ensure this is bounded.
 		Self::reward_by_ids(validator_points.into_iter());
-
-		let starting = end_index + 1;
-		let planning = starting + 1;
-		log!(
-			info,
-			"session report received -- ending session {:?}, starting {:?}, planning: {:?}",
-			end_index,
-			starting,
-			planning
-		);
-
-		// first, handle planning a new session/era
-		CurrentPlannedSession::<T>::put(planning);
-		Self::new_session(planning, false);
-
-		let current_era = CurrentEra::<T>::get().unwrap_or_default();
-		let start_index = ErasStartSessionIndex::<T>::get(current_era).unwrap_or_default();
-
-		if Self::maybe_start_election(planning, start_index) {
-			log!(info, "sending election start signal");
-			let _ = T::ElectionProvider::start();
-		}
-
-		// then, handle starting/ending a session/era
-		if let Some((this_era_start, _id)) = activation_timestamp {
-			// If ^^^^^^ is None, it means we should not alter the era. If Some(_), we should, and
-			// the inner value is the duration of the era. At genesis, this is always `None`
-			// because we may not have an initial timestamp for the era.
-			if let Some(current_active_era) = ActiveEra::<T>::get() {
-				let previous_era_start =
-					current_active_era.start.defensive_unwrap_or(this_era_start);
-				let era_duration = this_era_start.saturating_sub(previous_era_start);
-				Self::compute_era_payout(current_active_era, era_duration);
-				Self::start_era(starting, this_era_start);
-			}
-		}
+		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp);
 	}
 
 	fn on_new_offences(

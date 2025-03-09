@@ -23,7 +23,6 @@ construct_runtime! {
 	}
 }
 
-
 // alias Runtime with T.
 pub type T = Runtime;
 
@@ -41,8 +40,9 @@ pub fn roll_next() {
 	MultiBlockUnsigned::on_initialize(next);
 }
 
-pub fn roll_until_blocks(block_number: BlockNumber) {
-	while System::block_number() < block_number {
+pub fn roll_many(blocks: BlockNumber) {
+	let current = System::block_number();
+	while System::block_number() < current + blocks {
 		roll_next();
 	}
 }
@@ -282,8 +282,7 @@ impl pallet_staking_rc_client::SendToRelayChain for DeliverToRelay {
 
 	fn validator_set(report: pallet_staking_rc_client::ValidatorSetReport<Self::AccountId>) {
 		if let Some(mut local_queue) = LocalQueue::get() {
-			local_queue
-				.push((System::block_number(), OutgoingMessages::ValidatorSet(report)));
+			local_queue.push((System::block_number(), OutgoingMessages::ValidatorSet(report)));
 			LocalQueue::set(Some(local_queue));
 		} else {
 			shared::in_rc(|| {
@@ -378,28 +377,36 @@ impl ExtBuilder {
 		let mut state: TestState = t.into();
 
 		state.execute_with(|| {
-			// so events can be deposited.
-			frame_system::Pallet::<Runtime>::set_block_number(1);
+			// initialises events
+			roll_next();
 		});
 
 		state
 	}
 }
 
-pub(crate) fn staking_events() -> Vec<pallet_staking::Event<T>> {
-	System::events()
+parameter_types! {
+	static StakingEventsIndex: usize = 0;
+	static ElectionEventsIndex: usize = 0;
+}
+pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking::Event<T>> {
+	let all: Vec<_> = System::events()
 		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| if let RuntimeEvent::Staking(inner) = e { Some(inner) } else { None })
-		.collect()
+		.filter_map(|r| if let RuntimeEvent::Staking(inner) = r.event { Some(inner) } else { None })
+		.collect();
+	let seen = StakingEventsIndex::get();
+	StakingEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
 }
 
-pub(crate) fn election_events() -> Vec<pallet_election_provider_multi_block::Event<T>> {
-	System::events()
+pub(crate) fn election_events_since_last_call() -> Vec<multi_block::Event<T>> {
+	let all: Vec<_> = System::events()
 		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| if let RuntimeEvent::MultiBlock(inner) = e { Some(inner) } else { None })
-		.collect()
+		.filter_map(
+			|r| if let RuntimeEvent::MultiBlock(inner) = r.event { Some(inner) } else { None },
+		)
+		.collect();
+	let seen = ElectionEventsIndex::get();
+	ElectionEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
 }
-
-

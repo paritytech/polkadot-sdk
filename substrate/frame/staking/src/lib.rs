@@ -340,6 +340,7 @@ pub mod slashing;
 pub mod weights;
 
 mod pallet;
+mod session_rotation;
 
 extern crate alloc;
 
