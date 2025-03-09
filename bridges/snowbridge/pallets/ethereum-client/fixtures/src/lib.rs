@@ -9,9 +9,7 @@ use snowbridge_beacon_primitives::{
 	types::deneb, AncestryProof, BeaconHeader, ExecutionProof, NextSyncCommitteeUpdate,
 	SyncAggregate, SyncCommittee, VersionedExecutionPayloadHeader,
 };
-use snowbridge_inbound_queue_primitives::{
-	Log, EventProof, Proof, InboundQueueFixture,
-};
+use snowbridge_inbound_queue_primitives::{EventProof, InboundQueueFixture, Log, Proof};
 use sp_core::U256;
 use sp_std::{boxed::Box, vec};
 

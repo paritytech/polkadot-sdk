@@ -61,8 +61,8 @@ use snowbridge_core::{
 	StaticLookup,
 };
 use snowbridge_inbound_queue_primitives::{
-	EventProof, VerificationError, Verifier,
 	v1::{ConvertMessage, ConvertMessageError, VersionedMessage},
+	EventProof, VerificationError, Verifier,
 };
 
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
@@ -208,8 +208,10 @@ pub mod pallet {
 				XcmpSendError::NotApplicable => Error::<T>::Send(SendError::NotApplicable),
 				XcmpSendError::Unroutable => Error::<T>::Send(SendError::NotRoutable),
 				XcmpSendError::Transport(_) => Error::<T>::Send(SendError::Transport),
-				XcmpSendError::DestinationUnsupported => Error::<T>::Send(SendError::DestinationUnsupported),
-				XcmpSendError::ExceedsMaxMessageSize => Error::<T>::Send(SendError::ExceedsMaxMessageSize),
+				XcmpSendError::DestinationUnsupported =>
+					Error::<T>::Send(SendError::DestinationUnsupported),
+				XcmpSendError::ExceedsMaxMessageSize =>
+					Error::<T>::Send(SendError::ExceedsMaxMessageSize),
 				XcmpSendError::MissingArgument => Error::<T>::Send(SendError::MissingArgument),
 				XcmpSendError::Fees => Error::<T>::Send(SendError::Fees),
 			}

@@ -5,11 +5,11 @@ use frame_support::ensure;
 use snowbridge_beacon_primitives::ExecutionProof;
 
 use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
+use snowbridge_ethereum::Receipt;
 use snowbridge_inbound_queue_primitives::{
 	VerificationError::{self, *},
 	*,
 };
-use snowbridge_ethereum::Receipt;
 
 impl<T: Config> Verifier for Pallet<T> {
 	/// Verify a message by verifying the existence of the corresponding
