@@ -20,7 +20,7 @@
 //!    [`frame_support::traits::ProcessMessage::process_message`]
 //! 5. The message is processed in `Pallet::do_process_message`:
 //! 	a. Convert to `OutboundMessage`, and stored into the `Messages` vector storage
-//! 	b. ABI-encode the `OutboundMessage` and store the committed hash in `MessageLeaves`
+//! 	b. ABI-encode the `OutboundMessage` and store the committed Keccak256 hash in `MessageLeaves`
 //! 	c. Generate `PendingOrder` with assigned nonce and fee attached, stored into the
 //! 	   `PendingOrders` map storage, with nonce as the key
 //! 	d. Increment nonce and update the `Nonce` storage
@@ -307,13 +307,11 @@ pub mod pallet {
 
 			let nonce = Nonce::<T>::get();
 
-			// Decode bytes into Message and
-			// a. Convert to OutboundMessage and save into Messages
-			// b. Convert to committed hash and save into MessageLeaves
-			// c. Save nonce&fee into PendingOrders
+			// Decode bytes into Message
 			let Message { origin, id, fee, commands } =
 				Message::decode(&mut message).map_err(|_| Corrupt)?;
 
+			// Convert it to OutboundMessage and save into Messages storage
 			let commands: Vec<OutboundCommandWrapper> = commands
 				.into_iter()
 				.map(|command| OutboundCommandWrapper {
@@ -322,9 +320,18 @@ pub mod pallet {
 					payload: command.abi_encode(),
 				})
 				.collect();
+			let outbound_message = OutboundMessage {
+				origin,
+				nonce,
+				topic: id,
+				commands: commands.clone().try_into().map_err(|_| Corrupt)?,
+			};
+			Messages::<T>::append(outbound_message);
 
+			// Convert it to an OutboundMessageWrapper (in ABI format), hash it using Keccak256 to
+			// generate a committed hash, and store it in MessageLeaves storage which can be
+			// verified on Ethereum later.
 			let abi_commands: Vec<CommandWrapper> = commands
-				.clone()
 				.into_iter()
 				.map(|command| CommandWrapper {
 					kind: command.kind,
@@ -341,14 +348,6 @@ pub mod pallet {
 			let message_abi_encoded_hash =
 				<T as Config>::Hashing::hash(&committed_message.abi_encode());
 			MessageLeaves::<T>::append(message_abi_encoded_hash);
-
-			let outbound_message = OutboundMessage {
-				origin,
-				nonce,
-				topic: id,
-				commands: commands.try_into().map_err(|_| Corrupt)?,
-			};
-			Messages::<T>::append(outbound_message);
 
 			// Generate `PendingOrder` with fee attached in the message, stored
 			// into the `PendingOrders` map storage, with assigned nonce as the key.
