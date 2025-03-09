@@ -4,11 +4,7 @@ use super::*;
 
 use crate::{self as inbound_queue_v2};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::ConstU32,
-	weights::{constants::RocksDbWeight, IdentityFee},
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
 use hex_literal::hex;
 use scale_info::TypeInfo;
 use snowbridge_beacon_primitives::{

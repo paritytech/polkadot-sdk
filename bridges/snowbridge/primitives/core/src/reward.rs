@@ -110,7 +110,7 @@ where
 		let assets: Asset = (ethereum_location.clone(), reward.into()).into();
 
 		let xcm: Xcm<()> = alloc::vec![
-			UnpaidExecution{ weight_limit: Unlimited, check_origin: None},
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			DescendOrigin(InboundQueueLocation::get().into()),
 			UniversalOrigin(GlobalConsensus(EthereumNetwork::get())),
 			ReserveAssetDeposited(assets.into()),
@@ -156,7 +156,6 @@ mod tests {
 	parameter_types! {
 		pub AssetHubLocation: Location = Location::new(1,[Parachain(1000)]);
 		pub InboundQueueLocation: InteriorLocation = [PalletInstance(84)].into();
-		pub AssetHubXCMFee: u128 = 1_000_000_000u128;
 		pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 		pub const DefaultMyRewardKind: BridgeReward = BridgeReward::Snowbridge;
 	}
@@ -230,15 +229,13 @@ mod tests {
 			u128,
 			EthereumNetwork,
 			AssetHubLocation,
-			AssetHubXCMFee,
 			InboundQueueLocation,
 			MockXcmSender,
 			MockXcmExecutor,
 			MockCall,
 		>;
 
-		let result =
-			TestedPayAccountOnLocation::pay_reward(&relayer, (), reward, beneficiary);
+		let result = TestedPayAccountOnLocation::pay_reward(&relayer, (), reward, beneficiary);
 
 		assert!(result.is_ok());
 	}
@@ -267,7 +264,6 @@ mod tests {
 			u128,
 			EthereumNetwork,
 			AssetHubLocation,
-			AssetHubXCMFee,
 			InboundQueueLocation,
 			FailingXcmValidator,
 			MockXcmExecutor,
@@ -314,7 +310,6 @@ mod tests {
 			u128,
 			EthereumNetwork,
 			AssetHubLocation,
-			AssetHubXCMFee,
 			InboundQueueLocation,
 			MockXcmSender,
 			FailingXcmExecutor,
@@ -324,8 +319,7 @@ mod tests {
 		let relayer = MockRelayer(AccountId32::new([3u8; 32]));
 		let beneficiary = Location::new(1, Here);
 		let reward = 500u128;
-		let result =
-			FailingExecutorPayAccount::pay_reward(&relayer, (), reward, beneficiary);
+		let result = FailingExecutorPayAccount::pay_reward(&relayer, (), reward, beneficiary);
 
 		assert!(result.is_err());
 		let err_str = format!("{:?}", result.err().unwrap());
@@ -360,7 +354,6 @@ mod tests {
 			u128,
 			EthereumNetwork,
 			AssetHubLocation,
-			AssetHubXCMFee,
 			InboundQueueLocation,
 			FailingDeliveryXcmSender,
 			MockXcmExecutor,
@@ -370,8 +363,7 @@ mod tests {
 		let relayer = MockRelayer(AccountId32::new([4u8; 32]));
 		let beneficiary = Location::new(1, Here);
 		let reward = 123u128;
-		let result =
-			FailingDeliveryPayAccount::pay_reward(&relayer, (), reward, beneficiary);
+		let result = FailingDeliveryPayAccount::pay_reward(&relayer, (), reward, beneficiary);
 
 		assert!(result.is_err());
 		let err_str = format!("{:?}", result.err().unwrap());
