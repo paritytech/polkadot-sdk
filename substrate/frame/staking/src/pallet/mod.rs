@@ -1260,17 +1260,31 @@ pub mod pallet {
 						// if current page was `Some`, and next is `None`, we have
 						// finished an election and we can report it now.
 						if next_page.is_none() {
-							crate::log!(info, "sending validator set report to RcClient");
 							use pallet_staking_rc_client::RcClientInterface;
+							let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
+							let bonded_eras = BondedEras::<T>::get();
 							// get the first session of the oldest era in the bonded eras.
-							let prune_up_to = BondedEras::<T>::get()
-								.first()
-								.map(|(_, first_session)| *first_session)
-								.unwrap_or(0);
+							let prune_up_to =
+								if (bonded_eras.len() as u32) < T::BondingDuration::get() {
+									0
+								} else {
+									bonded_eras
+										.first()
+										.map(|(_, first_session)| *first_session)
+										.unwrap_or(0)
+								};
+
+							crate::log!(
+								info,
+								"Send new validator set to RC. ID: {:?}, prune_up_to: {:?}",
+								id,
+								prune_up_to
+							);
+
 							T::RcClientInterface::validator_set(
 								ElectableStashes::<T>::get().into_iter().collect(),
-								CurrentEra::<T>::get().defensive_unwrap_or(0),
-								prune_up_to, // TODO: Send up to which era we should prune.
+								id,
+								prune_up_to,
 							);
 						}
 					},

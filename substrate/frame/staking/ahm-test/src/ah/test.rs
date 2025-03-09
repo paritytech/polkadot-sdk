@@ -190,7 +190,6 @@ fn on_receive_session_report() {
 #[test]
 fn roll_many_eras() {
 	// todo(ank4n):
-	// - Ensure CurrentEra and Active Era are always in sync.
 	// - Ensure rewards can be claimed at correct era.
 	// - Ensure prune_upto value is correctly sent.
 	// - Check if offenders only one at a time!
