@@ -1,0 +1,23 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix XCM decoding inconsistencies
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adjusts the XCM decoding logic in order to use `decode_with_depth_limit()` consistently for `VersionedXcm`
+      and to deduplicate the logic used for decoding `v3::Xcm`, `v4::Xcm` and `v5::Xcm`.
+      Also `VersionedXcm::validate_xcm_nesting()` is renamed to `VersionedXcm::validate_xcm_decoding()`.
+
+crates:
+  - name: staging-xcm
+    bump: minor
+  - name: staging-xcm-builder
+    bump: minor
+  - name: cumulus-pallet-xcmp-queue
+    bump: minor
+  - name: cumulus-primitives-utility
+    bump: minor
+  - name: parachains-runtimes-test-utils
+    bump: minor
