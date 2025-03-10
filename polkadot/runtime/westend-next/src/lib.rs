@@ -68,8 +68,7 @@ use polkadot_primitives::{
 	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_runtime_common::{
-	assigned_slots, auctions, crowdloan,
-	identity_migrator, impl_runtime_weights,
+	assigned_slots, auctions, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
 		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
 		VersionedLocationConverter,
@@ -117,8 +116,8 @@ use sp_staking::SessionIndex;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
-	latest::prelude::*, VersionedAsset, VersionedAssetId, VersionedAssets,
-	VersionedLocation, VersionedXcm,
+	latest::prelude::*, VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation,
+	VersionedXcm,
 };
 use xcm_builder::PayOverXcm;
 use xcm_runtime_apis::{
@@ -524,13 +523,45 @@ impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValid
 	}
 }
 
+/// A testing type that implements SessionManager, it receives a new validator set from
+/// `AssetHubStakingClient`, but it prevents them from being passed over to the session pallet and
+/// just uses the previous session keys.
+#[deprecated(note = "this is a warning to remind you this can only be used in testing!")]
+pub struct AckButPreviousSessionValidatorsPersist<I>(core::marker::PhantomData<(I)>);
+
+impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManager<AccountId>
+	for AckButPreviousSessionValidatorsPersist<I>
+{
+	fn end_session(end_index: SessionIndex) {
+		<I as pallet_session::SessionManager<_>>::end_session(end_index);
+	}
+	fn new_session(new_index: SessionIndex) -> Option<Vec<AccountId>> {
+		match <I as pallet_session::SessionManager<_>>::new_session(new_index) {
+			Some(_new_ignored) => {
+				let current_validators = pallet_session::Validators::<Runtime>::get();
+				log::info!(target: "runtime", ">> received {} validators, but overriding with {} old ones", _new_ignored.len(), current_validators.len());
+				Some(current_validators)
+			},
+			None => None,
+		}
+	}
+	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<AccountId>> {
+		<I as pallet_session::SessionManager<_>>::new_session_genesis(new_index)
+	}
+	fn start_session(start_index: SessionIndex) {
+		<I as pallet_session::SessionManager<_>>::start_session(start_index);
+	}
+}
+
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = IdentityValidatorIdeOf;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = session_historical::NoteHistoricalRoot<Self, AssetHubStakingClient>;
+	type SessionManager = AckButPreviousSessionValidatorsPersist<
+		session_historical::NoteHistoricalRoot<Self, AssetHubStakingClient>,
+	>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
@@ -593,9 +624,7 @@ impl<T: SendXcm, AssetHubId: Get<u32>> ah_client::SendToAssetHub for XcmToAssetH
 			},
 			Self::mk_asset_hub_call(RcClientCalls::RelaySessionReport(session_report)),
 		]);
-		if let Err(err) =
-			send_xcm::<T>(AssetHubNextLocation::get(), message)
-		{
+		if let Err(err) = send_xcm::<T>(AssetHubNextLocation::get(), message) {
 			log::error!(target: "runtime", "Failed to send relay session report message: {:?}", err);
 		}
 	}
@@ -611,9 +640,7 @@ impl<T: SendXcm, AssetHubId: Get<u32>> ah_client::SendToAssetHub for XcmToAssetH
 			},
 			Self::mk_asset_hub_call(RcClientCalls::RelayNewOffence(session_index, offences)),
 		]);
-		if let Err(err) =
-			send_xcm::<T>(AssetHubNextLocation::get(), message)
-		{
+		if let Err(err) = send_xcm::<T>(AssetHubNextLocation::get(), message) {
 			log::error!(target: "runtime", "Failed to send relay offence message: {:?}", err);
 		}
 	}
@@ -636,9 +663,11 @@ pub struct EnsureAssetHub;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	type Success = ();
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		match <RuntimeOrigin as Into<Result<parachains_origin::Origin, RuntimeOrigin>>>::into(o.clone()) {
+		match <RuntimeOrigin as Into<Result<parachains_origin::Origin, RuntimeOrigin>>>::into(
+			o.clone(),
+		) {
 			Ok(parachains_origin::Origin::Parachain(id)) if id == 1100.into() => Ok(()),
-			_ => Err(o)
+			_ => Err(o),
 		}
 	}
 }
@@ -647,8 +676,7 @@ impl pallet_staking_ah_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetHubOrigin = frame_support::traits::EitherOfDiverse<
 		EnsureRoot<AccountId>,
-		EnsureAssetHub
-		// EnsureXcm<Equals<AssetHubNextLocation>>,
+		EnsureAssetHub, // EnsureXcm<Equals<AssetHubNextLocation>>,
 	>;
 	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter, AssetHubId>;
 	type MinimumValidatorSetSize = ConstU32<333>;

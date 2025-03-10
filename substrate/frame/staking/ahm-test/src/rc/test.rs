@@ -107,6 +107,9 @@ fn send_session_report_no_election_comes_in() {
 }
 
 #[test]
+fn upon_receiving_election_queue_and_activate_next_session() {}
+
+#[test]
 fn prunes_validator_points_upon_session_report() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		// given
@@ -238,8 +241,6 @@ fn incomplete_wrong_id_dropped() {
 	})
 }
 
-#[test]
-fn upon_receiving_election_queue_and_activate_next_session() {}
 
 #[test]
 

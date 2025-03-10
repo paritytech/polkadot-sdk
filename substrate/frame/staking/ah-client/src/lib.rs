@@ -271,9 +271,6 @@ pub mod pallet {
 
 			if maybe_new_validator_set.is_some() {
 				NextSessionChangesValidators::<T>::put(());
-
-				// TODO: prune historical
-				// <pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
 			}
 
 			maybe_new_validator_set
