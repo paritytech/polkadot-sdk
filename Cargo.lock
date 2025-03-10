@@ -2489,7 +2489,7 @@ dependencies = [
  "sp-state-machine 0.43.0",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 37.0.0",
- "trie-db",
+ "trie-db 0.29.1",
 ]
 
 [[package]]
@@ -5023,15 +5023,9 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
-<<<<<<< HEAD
  "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
- "trie-db",
-=======
- "staging-xcm",
- "staging-xcm-builder",
  "trie-db 0.30.0",
->>>>>>> d532437a (Bump trie-db to latest version (#7847))
  "trie-standardmap",
 ]
 
@@ -5069,7 +5063,7 @@ dependencies = [
  "sp-version 37.0.0",
  "staging-xcm 14.2.0",
  "staging-xcm-builder 17.0.1",
- "trie-db",
+ "trie-db 0.29.1",
 ]
 
 [[package]]
@@ -27840,7 +27834,7 @@ dependencies = [
  "sp-trie 37.0.0",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.29.1",
 ]
 
 [[package]]
@@ -28164,7 +28158,7 @@ dependencies = [
  "sp-externalities 0.29.0",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.29.1",
  "trie-root",
 ]
 
