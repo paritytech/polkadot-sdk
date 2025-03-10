@@ -313,7 +313,7 @@ versioned_type! {
 }
 
 /// A single XCM message, together with its version code.
-#[derive(Encode, DecodeWithMemTracking, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
@@ -326,26 +326,6 @@ pub enum VersionedXcm<RuntimeCall> {
 	V4(v4::Xcm<RuntimeCall>),
 	#[codec(index = 5)]
 	V5(v5::Xcm<RuntimeCall>),
-}
-
-impl<RuntimeCall> Decode for VersionedXcm<RuntimeCall> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
-		fn decode_variant<T: Decode, I: Input>(input: &mut I) -> Result<T, CodecError> {
-			T::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, input)
-		}
-
-		Ok(
-			match input.read_byte().map_err(|e| {
-				e.chain("Could not decode `VersionedXcm`, failed to read variant byte")
-			})? as u32
-			{
-				v3::VERSION => Self::V3(decode_variant(input)?),
-				v4::VERSION => Self::V4(decode_variant(input)?),
-				v5::VERSION => Self::V5(decode_variant(input)?),
-				_ => return Err("Could not decode `VersionedXcm`, variant doesn't exist".into()),
-			},
-		)
-	}
 }
 
 impl<C: Decode + GetDispatchInfo> IntoVersion for VersionedXcm<C> {
