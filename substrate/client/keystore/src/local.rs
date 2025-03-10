@@ -38,7 +38,7 @@ use sp_core::bandersnatch;
 }
 
 sp_keystore::bls_experimental_enabled! {
-use sp_core::{bls381, ecdsa_bls381, KeccakHasher, ProofOfPossessionGenerator};
+use sp_core::{bls381, ecdsa_bls381, KeccakHasher, crypto::ProofOfPossessionGenerator};
 }
 
 use crate::{Error, Result};
