@@ -19,7 +19,7 @@ use crate::{
 	validator_side::{
 		common::{
 			Advertisement, CollationFetchError, CollationFetchOutcome, CollationFetchResponse,
-			FetchedCollation,
+			FetchedCollation, FAILED_FETCH_SLASH,
 		},
 		peer_manager::PeerManager,
 	},
@@ -305,7 +305,7 @@ impl CollationManager {
 		let outcome = match res {
 			Err(CollationFetchError::Cancelled) => {
 				// Was cancelled by the subsystem.
-				CollationFetchOutcome::TryNew(Some(0))
+				CollationFetchOutcome::TryNew(0)
 			},
 			Err(CollationFetchError::Request(RequestError::InvalidResponse(err))) => {
 				gum::warn!(
@@ -316,7 +316,7 @@ impl CollationManager {
 					err = ?err,
 					"Collator provided response that could not be decoded"
 				);
-				CollationFetchOutcome::TryNew(Some(10))
+				CollationFetchOutcome::TryNew(0)
 			},
 			Err(CollationFetchError::Request(err)) if err.is_timed_out() => {
 				gum::debug!(
@@ -326,9 +326,7 @@ impl CollationManager {
 					peer_id = ?advertisement.peer_id,
 					"Request timed out"
 				);
-				// For now we don't want to change reputation on timeout, to mitigate issues like
-				// this: https://github.com/paritytech/polkadot/issues/4617
-				CollationFetchOutcome::TryNew(Some(10))
+				CollationFetchOutcome::TryNew(FAILED_FETCH_SLASH)
 			},
 			Err(CollationFetchError::Request(RequestError::NetworkError(err))) => {
 				gum::warn!(
@@ -339,11 +337,7 @@ impl CollationManager {
 					err = ?err,
 					"Fetching collation failed due to network error"
 				);
-				// A minor decrease in reputation for any network failure seems
-				// sensible. In theory this could be exploited, by DoSing this node,
-				// which would result in reduced reputation for proper nodes, but the
-				// same can happen for penalties on timeouts, which we also have.
-				CollationFetchOutcome::TryNew(Some(10))
+				CollationFetchOutcome::TryNew(0)
 			},
 			Err(CollationFetchError::Request(RequestError::Canceled(err))) => {
 				gum::warn!(
@@ -354,7 +348,7 @@ impl CollationManager {
 					err = ?err,
 					"Canceled should be handled by `is_timed_out` above - this is a bug!"
 				);
-				CollationFetchOutcome::TryNew(Some(10))
+				CollationFetchOutcome::TryNew(FAILED_FETCH_SLASH)
 			},
 			Ok(request_v2::CollationFetchingResponse::Collation(candidate_receipt, pov)) => {
 				gum::debug!(
@@ -410,7 +404,7 @@ impl CollationManager {
 						"Invalid fetched collation: {}",
 						err
 					);
-					return CollationFetchOutcome::TryNew(Some(10))
+					return CollationFetchOutcome::TryNew(FAILED_FETCH_SLASH)
 				}
 
 				// It can't be a duplicate, because we check before initiating fetch. TODO: with the

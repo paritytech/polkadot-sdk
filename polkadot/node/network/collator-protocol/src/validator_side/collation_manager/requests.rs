@@ -90,6 +90,8 @@ struct CollationFetchRequest {
 	/// Handle used for checking if this request was cancelled.
 	cancellation_token: CancellationToken,
 }
+// TODO: we could augment this with a duration witness, so that once the request finishes, we could
+// punish only collators that waste more than X amount of our time.
 
 impl Future for CollationFetchRequest {
 	type Output = CollationFetchResponse;

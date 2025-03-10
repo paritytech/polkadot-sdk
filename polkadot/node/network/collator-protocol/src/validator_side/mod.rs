@@ -25,7 +25,8 @@ use sp_keystore::KeystorePtr;
 
 use common::{
 	Advertisement, CollationFetchOutcome, CollationFetchResponse, DeclarationOutcome, PeerState,
-	ProspectiveCandidate, Score,
+	ProspectiveCandidate, Score, FAILED_FETCH_SLASH, INVALID_COLLATION_SLASH,
+	VALID_INCLUDED_CANDIDATE_BUMP,
 };
 use polkadot_node_network_protocol::{
 	self as net_protocol, peer_set::CollationVersion, v1 as protocol_v1, v2 as protocol_v2,
@@ -448,7 +449,7 @@ impl State {
 
 		let outcome = self.collation_manager.completed_fetch(res);
 
-		let try_again = match outcome {
+		let rep_slash = match outcome {
 			CollationFetchOutcome::Success(fetched_collation) => {
 				let pvd = request_prospective_validation_data(
 					sender,
@@ -478,7 +479,8 @@ impl State {
 						err
 					);
 
-					None
+					// TOOD: this slash is not ok
+					FAILED_FETCH_SLASH
 				} else {
 					sender
 						.send_message(CandidateBackingMessage::Second(
@@ -501,13 +503,11 @@ impl State {
 			CollationFetchOutcome::TryNew(update) => update,
 		};
 
-		if let Some(rep_update) = try_again {
-			self.peer_manager.slash_reputation(
-				&advertisement.peer_id,
-				&advertisement.para_id,
-				rep_update,
-			);
-		}
+		self.peer_manager.slash_reputation(
+			&advertisement.peer_id,
+			&advertisement.para_id,
+			rep_slash,
+		);
 
 		// reset collation status
 		self.collation_manager
@@ -568,7 +568,11 @@ impl State {
 		);
 
 		if let Some(peer_id) = self.collation_manager.release_slot(&relay_parent, &candidate_hash) {
-			self.peer_manager.slash_reputation(&peer_id, &receipt.descriptor.para_id(), 100);
+			self.peer_manager.slash_reputation(
+				&peer_id,
+				&receipt.descriptor.para_id(),
+				INVALID_COLLATION_SLASH,
+			);
 		}
 	}
 
@@ -623,7 +627,8 @@ async fn extract_reputation_updates_from_new_leaves<Sender: CollatorProtocolSend
 				if included_candidates.contains(&candidate.hash()) {
 					if let Some(approved_peer) = candidate.commitments.approved_peer() {
 						if let Ok(peer_id) = PeerId::from_bytes(&approved_peer.0) {
-							*(updates.entry(para_id).or_default().entry(peer_id).or_default()) = 10;
+							*(updates.entry(para_id).or_default().entry(peer_id).or_default()) +=
+								VALID_INCLUDED_CANDIDATE_BUMP;
 						}
 					}
 				}

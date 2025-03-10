@@ -24,7 +24,17 @@ use polkadot_primitives::{
 
 pub const CONNECTED_PEERS_LIMIT: u8 = 255;
 
+pub const VALID_INCLUDED_CANDIDATE_BUMP: u8 = 10;
+
+pub const INACTIVITY_SLASH: u8 = 1;
+
 pub const INSTANT_FETCH_REP_THRESHOLD: Score = 0;
+
+pub const INVALID_COLLATION_SLASH: Score = 100;
+
+pub const MAX_REPUTATION: Score = 255;
+
+pub const FAILED_FETCH_SLASH: Score = 10;
 
 pub type Score = u8;
 
@@ -78,7 +88,7 @@ pub struct Advertisement {
 	pub peer_id: PeerId,
 	/// Optional candidate hash and parent head-data hash if were
 	/// supplied in advertisement.
-	/// TODO: this needs to be optional
+	/// TODO: this needs to be optional (for collator protocol V1)
 	pub prospective_candidate: ProspectiveCandidate,
 }
 
@@ -96,8 +106,7 @@ pub struct FetchedCollation {
 }
 
 pub enum CollationFetchOutcome {
-	//  TODO: The option can just always be Some
-	TryNew(Option<Score>),
+	TryNew(Score),
 	Success(FetchedCollation),
 }
 

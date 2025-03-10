@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::validator_side::common::{ReputationUpdate, ReputationUpdateKind, Score};
+use crate::validator_side::common::{
+	ReputationUpdate, ReputationUpdateKind, Score, INACTIVITY_SLASH,
+};
 use polkadot_node_network_protocol::PeerId;
 use polkadot_primitives::Id as ParaId;
 use std::collections::{BTreeMap, HashMap};
@@ -63,7 +65,7 @@ impl ReputationDb {
 						reported_updates.push(ReputationUpdate {
 							peer_id: *peer_id,
 							para_id: para,
-							value: 1,
+							value: INACTIVITY_SLASH,
 							kind: ReputationUpdateKind::Slash,
 						});
 					}
