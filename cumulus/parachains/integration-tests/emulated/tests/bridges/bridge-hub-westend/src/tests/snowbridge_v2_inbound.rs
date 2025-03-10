@@ -160,13 +160,20 @@ fn send_token_v2() {
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		let instructions = vec![DepositAsset {
-			assets: Wild(AllOf {
-				id: AssetId(token_location.clone()),
-				fun: WildFungibility::Fungible,
-			}),
-			beneficiary,
-		}];
+		let instructions = vec![
+			RefundSurplus,
+			DepositAsset {
+				assets: Wild(AllOf {
+					id: AssetId(token_location.clone()),
+					fun: WildFungibility::Fungible,
+				}),
+				beneficiary,
+			},
+			DepositAsset {
+				assets: Wild(AllOf { id: AssetId(eth_location()), fun: WildFungibility::Fungible }),
+				beneficiary: claimer,
+			},
+		];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
 		let origin = H160::random();
@@ -214,7 +221,7 @@ fn send_token_v2() {
 					asset_id: *asset_id == token_location,
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
-				// Check that excess fees were paid to the claimer
+				// Check that excess fees were paid to the claimer, which was set by the UX
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == receiver.clone().into(),
@@ -253,7 +260,6 @@ fn send_weth_v2() {
 		Location::new(0, AccountId32 { network: None, id: beneficiary_acc_id.into() });
 
 	let claimer_acc_id = H256::random();
-	let claimer_acc_id_bytes: [u8; 32] = claimer_acc_id.into();
 	let claimer = Location::new(0, AccountId32 { network: None, id: claimer_acc_id.into() });
 	let claimer_bytes = claimer.encode();
 
@@ -266,13 +272,10 @@ fn send_weth_v2() {
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		let instructions = vec![DepositAsset {
-			assets: Wild(AllOf {
-				id: AssetId(weth_location().clone()),
-				fun: WildFungibility::Fungible,
-			}),
-			beneficiary,
-		}];
+		let instructions = vec![
+			RefundSurplus,
+			DepositAsset { assets: Wild(AllCounted(2)), beneficiary: beneficiary.clone() },
+		];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
 		let origin = EthereumGatewayAddress::get();
@@ -320,10 +323,10 @@ fn send_weth_v2() {
 					asset_id: *asset_id == weth_location(),
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
-				// Check that excess fees were paid to the claimer
+				// Check that excess fees were paid to the beneficiary
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
-					owner: *owner == claimer_acc_id_bytes.clone().into(),
+					owner: *owner == beneficiary_acc_bytes.clone().into(),
 				},
 			]
 		);
@@ -335,7 +338,7 @@ fn send_weth_v2() {
 		);
 
 		// Claimer received eth refund for fees paid
-		assert!(ForeignAssets::balance(eth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
+		assert!(ForeignAssets::balance(eth_location(), AccountId::from(beneficiary_acc_bytes)) > 0);
 
 		let events = AssetHubWestend::events();
 		// Check that no assets were trapped
@@ -371,7 +374,6 @@ fn register_and_send_multiple_tokens_v2() {
 	)]);
 
 	let claimer_acc_id = H256::random();
-	let claimer_acc_id_bytes: [u8; 32] = claimer_acc_id.into();
 	let claimer = Location::new(0, AccountId32 { network: None, id: claimer_acc_id.into() });
 	let claimer_bytes = claimer.encode();
 
@@ -415,22 +417,9 @@ fn register_and_send_multiple_tokens_v2() {
 					.into(),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
-			// deposit new token to beneficiary
-			DepositAsset {
-				assets: Wild(AllOf {
-					id: AssetId(token_location.clone()),
-					fun: WildFungibility::Fungible,
-				}),
-				beneficiary: beneficiary.clone(),
-			},
-			// deposit weth to beneficiary
-			DepositAsset {
-				assets: Wild(AllOf {
-					id: AssetId(weth_location()),
-					fun: WildFungibility::Fungible,
-				}),
-				beneficiary: beneficiary.clone(),
-			},
+			RefundSurplus,
+			// deposit new token, weth and leftover ether fees to beneficiary.
+			DepositAsset { assets: Wild(AllCounted(3)), beneficiary: beneficiary.clone() },
 		];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
@@ -484,10 +473,10 @@ fn register_and_send_multiple_tokens_v2() {
 					asset_id: *asset_id == token_location,
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
-				// Check that excess fees were paid to the claimer
+				// Check that excess fees were paid to the beneficiary
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
-					owner: *owner == claimer_acc_id_bytes.clone().into(),
+					owner: *owner == beneficiary_acc_bytes.into(),
 				},
 			]
 		);
@@ -514,8 +503,8 @@ fn register_and_send_multiple_tokens_v2() {
 			"Assets were trapped, should not happen."
 		);
 
-		// Claimer received eth refund for fees paid
-		assert!(ForeignAssets::balance(eth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
+		// Beneficiary received eth refund for fees paid
+		assert!(ForeignAssets::balance(eth_location(), AccountId::from(beneficiary_acc_bytes)) > 0);
 	});
 }
 
@@ -611,10 +600,15 @@ fn send_token_to_penpal_v2() {
 					// Refund unspent fees
 					RefundSurplus,
 					// Deposit assets to beneficiary.
-					DepositAsset { assets: Wild(AllCounted(2)), beneficiary: beneficiary.clone() },
+					DepositAsset { assets: Wild(AllCounted(3)), beneficiary: beneficiary.clone() },
 					SetTopic(H256::random().into()),
 				]
 				.into(),
+			},
+			RefundSurplus,
+			DepositAsset {
+				assets: Wild(AllOf { id: AssetId(eth_location()), fun: WildFungibility::Fungible }),
+				beneficiary,
 			},
 		];
 		let xcm: Xcm<()> = instructions.into();
@@ -943,19 +937,15 @@ fn invalid_claimer_does_not_fail_the_message() {
 		NativeTokenERC20 { token_id: WETH.into(), value: token_transfer_value },
 	];
 
-	let bridge_owner = snowbridge_sovereign();
-
 	let origin = H160::random();
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		let instructions = vec![DepositAsset {
-			assets: Wild(AllOf {
-				id: AssetId(weth_location().clone()),
-				fun: WildFungibility::Fungible,
-			}),
-			beneficiary,
-		}];
+		let instructions = vec![
+			RefundSurplus,
+			// Deposit weth and leftover ether fees to beneficiary.
+			DepositAsset { assets: Wild(AllCounted(2)), beneficiary: beneficiary.clone() },
+		];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
 
@@ -1000,10 +990,10 @@ fn invalid_claimer_does_not_fail_the_message() {
 					asset_id: *asset_id == weth_location(),
 					owner: *owner == beneficiary_acc.into(),
 				},
-				// Leftover fees deposited into Snowbridge Sovereign
+				// Leftover fees deposited to beneficiary
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
-					owner: *owner == bridge_owner.clone().into(),
+					owner: *owner == beneficiary_acc.clone().into(),
 				},
 			]
 		);
@@ -1012,6 +1002,16 @@ fn invalid_claimer_does_not_fail_the_message() {
 		assert_eq!(
 			ForeignAssets::balance(weth_location(), AccountId::from(beneficiary_acc)),
 			token_transfer_value
+		);
+
+		let events = AssetHubWestend::events();
+		// Check that no assets were trapped
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
+			"Assets were trapped, should not happen."
 		);
 	});
 }
