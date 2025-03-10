@@ -22,11 +22,11 @@ use codec::DecodeAll;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Hooks;
 use frame_system::RawOrigin;
+use xcm::MAX_INSTRUCTIONS_TO_DECODE;
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
-	use xcm::MAX_INSTRUCTIONS_TO_DECODE;
 
 	/// Modify any of the `QueueConfig` fields with a new `u32` value.
 	///
