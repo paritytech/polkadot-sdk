@@ -54,7 +54,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use bounded_collections::BoundedBTreeSet;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
 	ParaId, XcmpMessageFormat, XcmpMessageHandler, XcmpMessageSource,
@@ -72,7 +72,10 @@ use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{FixedU128, RuntimeDebug, Saturating, WeakBoundedVec};
-use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion};
+use xcm::{
+	latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_INSTRUCTIONS_TO_DECODE,
+	MAX_XCM_DECODE_DEPTH,
+};
 use xcm_builder::InspectMessageQueues;
 use xcm_executor::traits::ConvertOrigin;
 
@@ -676,7 +679,8 @@ impl<T: Config> Pallet<T> {
 			return Err(())
 		}
 
-		let xcm = VersionedXcm::<()>::decode(data).map_err(|_| ())?;
+		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data)
+			.map_err(|_| ())?;
 		xcm.encode().try_into().map_err(|_| ())
 	}
 
@@ -1026,7 +1030,11 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 				}
 				let mut decoded_messages = Vec::new();
 				while !data.is_empty() {
-					let decoded_message = VersionedXcm::<()>::decode(&mut data).unwrap();
+					let decoded_message = VersionedXcm::<()>::decode_with_depth_limit(
+						MAX_XCM_DECODE_DEPTH,
+						&mut data,
+					)
+					.unwrap();
 					decoded_messages.push(decoded_message);
 				}
 

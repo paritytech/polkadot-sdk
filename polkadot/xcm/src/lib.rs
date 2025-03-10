@@ -25,8 +25,7 @@
 extern crate alloc;
 
 use codec::{
-	Decode, DecodeAll, DecodeLimit, DecodeWithMemTracking, Encode, Error as CodecError, Input,
-	MaxEncodedLen,
+	Decode, DecodeLimit, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen,
 };
 use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
@@ -376,7 +375,7 @@ impl<C> VersionedXcm<C> {
 	///
 	/// Note that this uses the limit of the sender - not the receiver. It is a best effort.
 	pub fn check_is_decodable(&self) -> Result<(), ()> {
-		self.using_encoded(|mut enc| Self::decode_all(&mut enc).map(|_| ()))
+		self.using_encoded(|mut enc| Self::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ()))
 			.map_err(|e| {
 				log::error!(target: "xcm::check_is_decodable", "Decode error: {e:?} for xcm: {self:?}!");
 				()

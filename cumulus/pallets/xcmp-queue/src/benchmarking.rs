@@ -22,12 +22,10 @@ use codec::DecodeAll;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Hooks;
 use frame_system::RawOrigin;
-use xcm::MAX_INSTRUCTIONS_TO_DECODE;
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
-	use xcm::MAX_XCM_DECODE_DEPTH;
 
 	/// Modify any of the `QueueConfig` fields with a new `u32` value.
 	///
@@ -107,6 +105,17 @@ mod benchmarks {
 
 		let data = VersionedXcm::<T>::from(xcm).encode();
 		assert!(data.len() < max_downward_message_size, "Page size is too small");
+		// Verify that decoding works with the exact recursion limit:
+		VersionedXcm::<T::RuntimeCall>::decode_with_depth_limit(
+			MAX_XCM_DECODE_DEPTH,
+			&mut &data[..],
+		)
+		.unwrap();
+		VersionedXcm::<T::RuntimeCall>::decode_with_depth_limit(
+			MAX_XCM_DECODE_DEPTH - 1,
+			&mut &data[..],
+		)
+		.unwrap_err();
 
 		#[block]
 		{
