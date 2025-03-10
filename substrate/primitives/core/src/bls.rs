@@ -32,10 +32,12 @@ use alloc::vec::Vec;
 
 use w3f_bls::{
 	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
-	NuggetBLSnCPPoP, ProofOfPossession as BlsProofOfPossession,
-	ProofOfPossessionGenerator as BlsProofOfPossessionGenerator, SecretKey, SerializableToBytes,
+	NuggetBLSnCPPoP, ProofOfPossession as BlsProofOfPossession, SecretKey, SerializableToBytes,
 	TinyBLS381,
 };
+
+#[cfg(feature = "full_crypto")]
+use w3f_bls::ProofOfPossessionGenerator as BlsProofOfPossessionGenerator;
 
 /// Required to generate PoP
 use sha2::Sha256;
