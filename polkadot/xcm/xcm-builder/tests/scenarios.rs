@@ -372,6 +372,7 @@ fn recursive_xcm_execution_fail() {
 	impl xcm_executor::Config for XcmTestConfig {
 		type RuntimeCall = RuntimeCall;
 		type XcmSender = TestXcmRouter;
+		type XcmEventEmitter = ();
 		type AssetTransactor = LocalAssetTransactor;
 		type OriginConverter = ();
 		type IsReserve = ();

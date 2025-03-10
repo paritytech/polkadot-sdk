@@ -34,7 +34,7 @@ use xcm::latest::{prelude::*, AssetTransferFilter};
 pub mod traits;
 use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
+	DropAssets, Enact, EventEmitter, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
 	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 	XcmAssetTransfers,
@@ -443,9 +443,30 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			reason = ?reason,
 			"Sending msg",
 		);
-		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
+		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
 		self.take_fee(fee, reason)?;
-		Config::XcmSender::deliver(ticket).map_err(Into::into)
+		match Config::XcmSender::deliver(ticket) {
+			Ok(message_id) => {
+				Config::XcmEventEmitter::emit_sent_event(
+					self.original_origin.clone(),
+					dest,
+					None, /* Avoid logging the full XCM message to prevent inconsistencies and
+					       * reduce storage usage. */
+					message_id,
+				);
+				Ok(message_id)
+			},
+			Err(error) => {
+				tracing::debug!(target: "xcm::send", ?error, "XCM failed to deliver with error");
+				Config::XcmEventEmitter::emit_send_failure_event(
+					self.original_origin.clone(),
+					dest,
+					error.clone(),
+					self.context.message_id,
+				);
+				Err(error.into())
+			},
+		}
 	}
 
 	/// Remove the registered error handler and return it. Do not refund its weight.
@@ -828,11 +849,19 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 						self.process_instruction(instr)
 					});
-					if let Err(e) = inst_res {
-						tracing::trace!(target: "xcm::execute", "!!! ERROR: {:?}", e);
+					if let Err(error) = inst_res {
+						tracing::debug!(
+							target: "xcm::process",
+							?error, "XCM execution failed at instruction index={i}"
+						);
+						Config::XcmEventEmitter::emit_process_failure_event(
+							self.original_origin.clone(),
+							error,
+							self.context.message_id,
+						);
 						*r = Err(ExecutorError {
 							index: i as u32,
-							xcm_error: e,
+							xcm_error: error,
 							weight: Weight::zero(),
 						});
 					}
