@@ -27,10 +27,12 @@ impl<T: Config> Pallet<T> {
 		conviction: Democracy::Conviction,
 	) -> Option<BalanceOf<T>> {
 		let conviction_amount: BalanceOf<T> = match conviction {
-			Democracy::Conviction::None =>
-				amount.checked_div(&10u8.into()).unwrap_or_else(Zero::zero),
-			_ =>
-				amount.saturating_mul(<u8 as From<Democracy::Conviction>>::from(conviction).into()),
+			Democracy::Conviction::None => {
+				amount.checked_div(&10u8.into()).unwrap_or_else(Zero::zero)
+			},
+			_ => {
+				amount.saturating_mul(<u8 as From<Democracy::Conviction>>::from(conviction).into())
+			},
 		};
 		Some(conviction_amount)
 	}
@@ -268,7 +270,7 @@ impl<T: Config> Pallet<T> {
 	pub fn calculate_rewards(total_reward: BalanceOf<T>) -> DispatchResult {
 		let projects: Vec<ProjectId<T>> = WhiteListedProjectAccounts::<T>::iter_keys().collect();
 		if projects.is_empty() {
-			return Ok(())
+			return Ok(());
 		}
 		let round_number = NextVotingRoundNumber::<T>::get().saturating_sub(1);
 		let round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;

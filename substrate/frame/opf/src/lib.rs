@@ -53,11 +53,11 @@
 
 pub use pallet::*;
 mod functions;
-mod types;
 mod traits;
+mod types;
 pub use pallet_democracy as Democracy;
-pub use types::*;
 pub use traits::*;
+pub use types::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -569,8 +569,9 @@ pub mod pallet {
 							project_id: infos.project_id.clone(),
 						});
 					},
-					Democracy::ReferendumInfo::Finished { approved: false, .. } =>
-						Self::deposit_event(Event::ProjectFundingRejected { project_id }),
+					Democracy::ReferendumInfo::Finished { approved: false, .. } => {
+						Self::deposit_event(Event::ProjectFundingRejected { project_id })
+					},
 					Democracy::ReferendumInfo::Ongoing(_) => (),
 				}
 				Ok(())
