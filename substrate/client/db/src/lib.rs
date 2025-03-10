@@ -1193,6 +1193,16 @@ impl<Block: BlockT> Backend<Block> {
 		self.storage.clone()
 	}
 
+	/// Expose the shared trie cache that is used by this backend.
+	///
+	/// Should only be needed for benchmarking.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn expose_shared_trie_cache(
+		&self,
+	) -> Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>> {
+		self.shared_trie_cache.clone()
+	}
+
 	fn from_database(
 		db: Arc<dyn Database<DbHash>>,
 		canonicalization_delay: u64,
