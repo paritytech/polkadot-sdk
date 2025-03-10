@@ -170,4 +170,16 @@ pub trait EthRpc {
 	/// The string value of the current client version
 	#[method(name = "web3_clientVersion")]
 	async fn web3_client_version(&self) -> RpcResult<String>;
+
+	/// Returns transaction base fee per gas and effective priority fee per gas for the
+	/// requested/supported block range.
+	///
+	/// Transaction fee history, which is introduced in EIP-1159.
+	#[method(name = "feeHistory")]
+	async fn fee_history(
+		&self,
+		block_count: U256,
+		newest_block: BlockNumberOrTag,
+		reward_percentiles: Option<Vec<f64>>,
+	) -> RpcResult<FeeHistoryResult>;
 }

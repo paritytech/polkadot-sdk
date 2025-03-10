@@ -359,4 +359,14 @@ impl EthRpcServer for EthRpcServerImpl {
 		let target = env!("TARGET");
 		Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
 	}
+
+	async fn fee_history(
+		&self,
+		block_count: U256,
+		newest_block: BlockNumberOrTag,
+		reward_percentiles: Option<Vec<f64>>,
+	) -> RpcResult<FeeHistoryResult> {
+		// /home/pg/github/frontier/client/rpc/src/eth/fee.rs
+		todo!()
+	}
 }

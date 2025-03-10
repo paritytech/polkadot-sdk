@@ -838,3 +838,31 @@ pub struct TransactionLegacySigned {
 	/// v
 	pub v: U256,
 }
+
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct FeeHistoryResult {
+	/// Lowest number block of the returned range.
+	pub oldest_block: U256,
+
+	/// An array of block base fees per gas.
+	///
+	/// This includes the next block after the newest of the returned range, because this value can
+	/// be derived from the newest block. Zeroes are returned for pre-EIP-1559 blocks.
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub base_fee_per_gas: Vec<U256>,
+
+	/// An array of block gas used ratios.
+	/// These are calculated as the ratio of `gasUsed` and `gasLimit`.
+	pub gas_used_ratio: Vec<f64>,
+
+	/// A two-dimensional array of effective priority fees per gas at the requested block
+	/// percentiles.
+	///
+	/// A given percentile sample of effective priority fees per gas from a single block in
+	/// ascending order, weighted by gas used. Zeroes are returned if the block is empty.
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub reward: Vec<Vec<U256>>,
+}
