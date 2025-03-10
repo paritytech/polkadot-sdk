@@ -72,6 +72,19 @@ pub enum Subcommand {
 	Key(sc_cli::KeySubcommand),
 
 	/// Build a chain specification.
+	///
+	/// The `build-spec` command relies on the chain specification built (hard-coded) into the node
+	/// binary, and may utilize the genesis presets of the runtimes  also embedded in the nodes
+	/// that support  this command. Since `polkadot-omni-node` does not contain any embedded
+	/// runtime, and requires a `chain-spec` path to be passed to its `--chain` flag, the command
+	/// isn't bringing significant value as it does for other node binaries (e.g. the
+	///  `polkadot` binary).
+	///
+	/// For a more versatile `chain-spec` manipulation experience please check out the
+	/// `polkadot-omni-node chain-spec-builder` subcommand.
+	#[deprecated(
+		note = "build-spec will be removed after 1/06/2025. Use chain-spec-builder instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Validate blocks.
@@ -91,10 +104,15 @@ pub enum Subcommand {
 
 	/// Subcommand for generating and managing chain specifications.
 	///
-	/// Unlike `build-spec`, which generates a chain specification based on existing
-	/// configurations, `chain-spec-builder` provides a more interactive and customizable approach
-	/// to defining a chain spec. It allows users to create specifications with additional
-	/// parameters and validation steps before finalizing the output.
+	/// A `chain-spec-builder` subcommand corresponds to the existing `chain-spec-builder` tool
+	/// (<https://crates.io/crates/staging-chain-spec-builder>), which can be used already standalone.
+	/// It provides the same functionality as the tool but bundled with `polkadot-omni-node` to
+	/// enable easier access to chain-spec generation, patching, converting to raw or validation,
+	/// from a single binary, which can be used as a parachain node tool
+	/// For a detailed usage guide please check out the standalone tool's crates.io or docs.rs
+	/// pages:
+	/// - <https://crates.io/crates/staging-chain-spec-builder>
+	/// - <https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/>
 	ChainSpecBuilder(ChainSpecBuilder),
 
 	/// Remove the whole chain.

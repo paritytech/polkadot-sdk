@@ -103,6 +103,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 	let mut cli = Cli::<CliConfig>::from_args();
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
+	#[allow(deprecated)]
 	match &cli.subcommand {
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
