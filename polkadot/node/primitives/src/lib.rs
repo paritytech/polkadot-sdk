@@ -73,7 +73,7 @@ const MERKLE_PROOF_MAX_DEPTH: usize = 8;
 	note = "`VALIDATION_CODE_BOMB_LIMIT` will be removed. Use `validation_code_bomb_limit`
 	runtime API to retrieve the value from the runtime"
 )]
-pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 8u32) as usize;
+pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 4u32) as usize;
 
 /// The bomb limit for decompressing PoV blobs.
 pub const POV_BOMB_LIMIT: usize = (MAX_POV_SIZE * 4u32) as usize;
