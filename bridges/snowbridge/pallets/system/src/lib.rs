@@ -52,10 +52,7 @@ use snowbridge_outbound_queue_primitives::{
 };
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	traits::MaybeEquivalence,
-	DispatchError, SaturatedConversion,
-};
+use sp_runtime::{traits::MaybeEquivalence, DispatchError, SaturatedConversion};
 use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
