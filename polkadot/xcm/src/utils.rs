@@ -20,9 +20,8 @@ use crate::MAX_INSTRUCTIONS_TO_DECODE;
 
 use alloc::vec::Vec;
 use codec::{decode_vec_with_len, Compact, Decode};
-use sp_runtime::SaturatedConversion;
 
-environmental::environmental!(instructions_count: u8);
+environmental::environmental!(instructions_count: u32);
 
 /// Decode a `vec` of XCM instructions.
 ///
@@ -34,8 +33,8 @@ pub fn decode_xcm_instructions<I: codec::Input, T: Decode>(
 	instructions_count::using_once(&mut 0, || {
 		let vec_len: u32 = <Compact<u32>>::decode(input)?.into();
 		instructions_count::with(|count| {
-			*count = count.saturating_add(vec_len.saturated_into());
-			if *count > MAX_INSTRUCTIONS_TO_DECODE {
+			*count = count.saturating_add(vec_len);
+			if *count > MAX_INSTRUCTIONS_TO_DECODE as u32 {
 				return Err(codec::Error::from("Max instructions exceeded"))
 			}
 			Ok(())
