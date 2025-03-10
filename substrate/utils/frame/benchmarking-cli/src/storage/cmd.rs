@@ -118,23 +118,19 @@ pub struct StorageParams {
 	#[arg(long)]
 	pub include_child_trees: bool,
 
-	/// Disable PoV recorder.
+	/// Enable PoV recorder.
 	///
 	/// The recorder has impact on performance when benchmarking with the TrieCache enabled.
-	/// If the chain is recording a proof while building/importing a block, the pov recorder
-	/// should be activated.
-	///
-	/// Hence, when generating weights for a parachain this should be activated and when generating
-	/// weights for a standalone chain this should be deactivated.
-	#[arg(long, default_value = "false")]
-	pub disable_pov_recorder: bool,
+	/// It should be used for the final results for parachains.
+	#[arg(long)]
+	pub enable_pov_recorder: bool,
 
 	/// The batch size for the write benchmark.
 	///
 	/// Since the write size needs to also include the cost of computing the storage root, which is
 	/// done once at the end of the block, the batch size is used to simulate multiple writes in a
 	/// block.
-	#[arg(long, default_value_t = 100_000)]
+	#[arg(long, default_value_t = 1)]
 	pub batch_size: usize,
 }
 
