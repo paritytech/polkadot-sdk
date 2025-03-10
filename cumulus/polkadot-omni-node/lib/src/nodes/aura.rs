@@ -35,13 +35,10 @@ use cumulus_client_collator::service::{
 };
 #[docify::export(slot_based_colator_import)]
 use cumulus_client_consensus_aura::collators::slot_based::{
-	self as slot_based, Params as SlotBasedParams,
+	self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport, SlotBasedBlockImportHandle,
 };
 use cumulus_client_consensus_aura::{
-	collators::{
-		lookahead::{self as aura, Params as AuraParams},
-		slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
-	},
+	collators::lookahead::{self as aura, Params as AuraParams},
 	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
 use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
