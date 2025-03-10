@@ -58,7 +58,10 @@ extern crate alloc;
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
 use pallet_staking_rc_client::{self as rc_client};
-use sp_staking::{offence::OffenceDetails, SessionIndex};
+use sp_staking::{
+	offence::{OffenceDetails, OffenceSeverity},
+	SessionIndex,
+};
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";
 
@@ -94,8 +97,45 @@ pub trait SendToAssetHub {
 	);
 }
 
+/// Interface to talk to the local session pallet.
+pub trait SessionInterface {
+	/// The validator id type of the session pallet
+	type ValidatorId: Clone;
+
+	/// prune up to the given session index.
+	fn prune_up_to(index: SessionIndex);
+
+	/// Report an offence.
+	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity);
+}
+
+impl<T: Config + pallet_session::Config + pallet_session::historical::Config> SessionInterface
+	for T
+{
+	type ValidatorId = <T as pallet_session::Config>::ValidatorId;
+
+	fn prune_up_to(index: SessionIndex) {
+		pallet_session::historical::Pallet::<T>::prune_up_to(index)
+	}
+	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity) {
+		pallet_session::Pallet::<T>::report_offence(offender, severity)
+	}
+}
+
 /// Means to force this pallet to be partially blocked. This is useful for governance intervention.
-#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Default)]
+#[derive(
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	PartialEq,
+	Eq,
+	Default,
+	Clone,
+	Copy,
+)]
 pub enum Blocked {
 	/// Normal working operations.
 	#[default]
@@ -125,7 +165,7 @@ pub mod pallet {
 	use frame_support::traits::UnixTime;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
-	use sp_runtime::{traits::Saturating, Perbill};
+	use sp_runtime::Perbill;
 	use sp_staking::{
 		offence::{OffenceSeverity, OnOffenceHandler},
 		SessionIndex,
@@ -141,6 +181,9 @@ pub mod pallet {
 		/// An origin type that ensures an incoming message is from asset hub.
 		type AssetHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+		/// The origin that can control this pallet's operations.
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Our communication interface to AssetHub.
 		type SendToAssetHub: SendToAssetHub<AccountId = Self::AccountId>;
 
@@ -152,6 +195,9 @@ pub mod pallet {
 
 		/// Number of points to award a validator per block authored.
 		type PointsPerBlock: Get<u32>;
+
+		/// Interface to talk to the local Session pallet.
+		type SessionInterface: SessionInterface<ValidatorId = Self::AccountId>;
 	}
 
 	#[pallet::pallet]
@@ -193,9 +239,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The validator set received is way too small, as per
-		/// [`Config::MinimumValidatorSetSize`].
-		MinimumValidatorSetSize,
 		/// Could not process incoming message because incoming messages are blocked.
 		Blocked,
 	}
@@ -207,17 +250,31 @@ pub mod pallet {
 		ValidatorSetReceived {
 			id: u32,
 			new_validator_set_count: u32,
-			prune_up_to: u32,
+			prune_up_to: Option<SessionIndex>,
 			leftover: bool,
 		},
 		/// We could not merge, and therefore dropped a buffered message.
-		ValidatorSetDropped,
+		///
+		/// Note that this event is more resembling an error, but we use an event because in this
+		/// pallet we need to mutate storage upon some failures.
+		CouldNotMergeAndDropped,
+		/// The validator set received is way too small, as per
+		/// [`Config::MinimumValidatorSetSize`].
+		SetTooSmallAndDropped,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(0)]
+		#[pallet::weight(
+			// Reads:
+			// - IsBlocked
+			// - IncompleteValidatorSetReport
+			// Writes:
+			// - IncompleteValidatorSetReport or ValidatorSet
+			// ignoring `T::SessionInterface::prune_up_to`
+			T::DbWeight::get().reads_writes(2, 1)
+		)]
 		pub fn validator_set(
 			origin: OriginFor<T>,
 			report: rc_client::ValidatorSetReport<T::AccountId>,
@@ -227,50 +284,75 @@ pub mod pallet {
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			ensure!(IsBlocked::<T>::get().allows_incoming(), Error::<T>::Blocked);
 
-			let maybe_new_validator_set_report = match IncompleteValidatorSetReport::<T>::take() {
+			let maybe_merged_report = match IncompleteValidatorSetReport::<T>::take() {
 				Some(old) => old.merge(report.clone()),
 				None => Ok(report),
 			};
 
-			if let Err(_) = maybe_new_validator_set_report {
-				Self::deposit_event(Event::ValidatorSetDropped);
-				// note -- if we return error the storage ops are reverted, so we do this instead.
+			if let Err(_) = maybe_merged_report {
+				Self::deposit_event(Event::CouldNotMergeAndDropped);
+				debug_assert!(
+					IncompleteValidatorSetReport::<T>::get().is_none(),
+					"we have ::take() it above, we don't want to keep the old data"
+				);
 				return Ok(());
 			}
 
-			let new_validator_set_report =
-				maybe_new_validator_set_report.expect("checked above; qed");
+			let report = maybe_merged_report.expect("checked above; qed");
 
-			if new_validator_set_report.leftover {
+			if report.leftover {
 				// buffer it, and nothing further to do.
-				IncompleteValidatorSetReport::<T>::put(new_validator_set_report);
+				Self::deposit_event(Event::ValidatorSetReceived {
+					id: report.id,
+					new_validator_set_count: report.new_validator_set.len() as u32,
+					prune_up_to: report.prune_up_to,
+					leftover: report.leftover,
+				});
+				IncompleteValidatorSetReport::<T>::put(report);
 			} else {
+				// message is complete, process it.
 				let rc_client::ValidatorSetReport {
 					id,
 					leftover,
 					mut new_validator_set,
 					prune_up_to,
-				} = new_validator_set_report;
+				} = report;
 
 				// ensure the validator set, deduplicated, is not too big.
 				new_validator_set.sort();
 				new_validator_set.dedup();
 
-				ensure!(
-					new_validator_set.len() as u32 >= T::MinimumValidatorSetSize::get(),
-					Error::<T>::MinimumValidatorSetSize
-				);
+				if (new_validator_set.len() as u32) < T::MinimumValidatorSetSize::get() {
+					Self::deposit_event(Event::SetTooSmallAndDropped);
+					debug_assert!(
+						IncompleteValidatorSetReport::<T>::get().is_none(),
+						"we have ::take() it above, we don't want to keep the old data"
+					);
+					return Ok(());
+				}
 
-				// Save the validator set.
 				Self::deposit_event(Event::ValidatorSetReceived {
 					id,
 					new_validator_set_count: new_validator_set.len() as u32,
 					prune_up_to,
 					leftover,
 				});
+
+				// Save the validator set.
 				ValidatorSet::<T>::put((id, new_validator_set));
+				if let Some(index) = prune_up_to {
+					T::SessionInterface::prune_up_to(index);
+				}
 			}
 
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn set_block(origin: OriginFor<T>, block: Blocked) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			IsBlocked::<T>::put(block);
 			Ok(())
 		}
 	}
@@ -334,26 +416,13 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
-		fn note_author(author: T::AccountId) {
-			ValidatorPoints::<T>::mutate(author, |points| {
-				points.saturating_accrue(T::PointsPerBlock::get());
-			});
-		}
-	}
-
-	impl<T: Config, I: sp_runtime::traits::Convert<T::AccountId, Option<()>>>
-		OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight>
-		for Pallet<T>
-	where
-		T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-		T: pallet_session::historical::Config<FullIdentification = (), FullIdentificationOf = I>,
-		T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
+	impl<T: Config>
+		OnOffenceHandler<T::AccountId, (T::AccountId, pallet_staking::NullIdentity), Weight> for Pallet<T>
 	{
 		fn on_offence(
 			offenders: &[OffenceDetails<
 				T::AccountId,
-				pallet_session::historical::IdentificationTuple<T>,
+				(T::AccountId, pallet_staking::NullIdentity),
 			>],
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
@@ -362,15 +431,15 @@ pub mod pallet {
 
 			// notify pallet-session about the offences
 			for (offence, fraction) in offenders.iter().cloned().zip(slash_fraction) {
-				<pallet_session::Pallet<T>>::report_offence(
+				T::SessionInterface::report_offence(
 					offence.offender.0.clone(),
 					OffenceSeverity(*fraction),
 				);
 
 				// prepare an `Offence` instance for the XCM message
 				offenders_and_slashes.push(rc_client::Offence {
-					offender: offence.offender.0.into(),
-					reporters: offence.reporters.into_iter().map(|r| r.into()).collect(),
+					offender: offence.offender.0,
+					reporters: offence.reporters,
 					slash_fraction: *fraction,
 				});
 			}
@@ -381,28 +450,6 @@ pub mod pallet {
 			} else {
 				log!(warn, "offence report is blocked and not sent")
 			}
-
-			Weight::zero()
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		pub fn handle_parachain_rewards(
-			validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
-		) -> Weight {
-			// Accumulate this in our pending points, which is sent off in the next session.
-			//
-			// Note: The input is the number of ACTUAL points which should be added to
-			// validator's balance!
-			for (validator_id, points) in validators_points {
-				ValidatorPoints::<T>::mutate(validator_id, |balance| {
-					balance.saturating_accrue(points);
-				});
-			}
-
-			// TODO: if we move this trait `RewardsReporter` somewhere more easy to access, we can
-			// implement it directly and not need a custom type on the runtime. We can do it now
-			// too, but it would pull all of the polkadot-parachain pallets.
 
 			Weight::zero()
 		}

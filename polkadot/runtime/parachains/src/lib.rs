@@ -78,13 +78,6 @@ pub trait FeeTracker {
 	fn decrease_fee_factor(id: Self::Id) -> FixedU128;
 }
 
-/// Trait for reporting rewards for processing parachains blocks
-pub trait RewardsReporter<C> {
-	/// The input is an iterator of tuples of validator account IDs and the amount of points they
-	/// should be rewarded.
-	fn reward_by_ids(validators_points: impl IntoIterator<Item = (C, u32)>);
-}
-
 /// Schedule a para to be initialized at the start of the next session with the given genesis data.
 pub fn schedule_para_initialize<T: paras::Config>(
 	id: ParaId,

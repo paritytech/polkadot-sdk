@@ -1086,6 +1086,7 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	}
 }
 
+#[derive(Clone)]
 pub struct NullIdentity;
 impl<T> Convert<T, Option<()>> for NullIdentity {
 	fn convert(_: T) -> Option<()> {

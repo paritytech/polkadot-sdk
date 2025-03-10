@@ -1,6 +1,6 @@
 use crate::ah::mock::*;
 
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking::{
 	ActiveEra, ActiveEraInfo, CurrentEra, CurrentPlannedSession, Event as StakingEvent,
@@ -179,7 +179,7 @@ fn on_receive_session_report() {
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
-					prune_up_to: 0,
+					prune_up_to: Some(0),
 					leftover: false
 				})
 			)]

@@ -1,9 +1,12 @@
-use frame::{deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*};
-use frame::traits::fungible::Mutate;
+use frame::{
+	deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*, traits::fungible::Mutate,
+};
 use pallet_staking_ah_client as ah_client;
 use sp_staking::SessionIndex;
 
 use crate::shared;
+
+pub type T = Runtime;
 
 construct_runtime! {
 	pub enum Runtime {
@@ -110,6 +113,7 @@ parameter_types! {
 }
 
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
 	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
@@ -143,15 +147,30 @@ pub enum OutgoingMessages {
 parameter_types! {
 	pub static MinimumValidatorSetSize: u32 = 4;
 	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
+	pub static LocalQueueLastIndex: usize = 0;
+}
+
+impl LocalQueue {
+	pub fn get_since_last_call() -> Vec<(BlockNumber, OutgoingMessages)> {
+		if let Some(all) = Self::get() {
+			let last = LocalQueueLastIndex::get();
+			LocalQueueLastIndex::set(all.len());
+			all.into_iter().skip(last).collect()
+		} else {
+			panic!("Must set local_queue()!")
+		}
+	}
 }
 
 impl ah_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type SendToAssetHub = DeliverToAH;
 	type AssetHubOrigin = EnsureSigned<AccountId>;
 	type UnixTime = Timestamp;
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
 	type PointsPerBlock = ConstU32<20>;
+	type SessionInterface = Self;
 }
 
 use pallet_staking_rc_client as rc_client;
@@ -199,13 +218,45 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 	}
 }
 
+parameter_types! {
+	pub static SessionEventsIndex: usize = 0;
+	pub static HistoricalEventsIndex: usize = 0;
+	pub static AhClientEventsIndex: usize = 0;
+}
+
+pub fn historical_events_since_last_call() -> Vec<pallet_session::historical::Event<Runtime>> {
+	let all = frame_system::Pallet::<Runtime>::read_events_for_pallet::<
+		pallet_session::historical::Event<Runtime>,
+	>();
+	let seen = HistoricalEventsIndex::get();
+	HistoricalEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
+}
+
+pub fn session_events_since_last_call() -> Vec<pallet_session::Event<Runtime>> {
+	let all =
+		frame_system::Pallet::<Runtime>::read_events_for_pallet::<pallet_session::Event<Runtime>>();
+	let seen = SessionEventsIndex::get();
+	SessionEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
+}
+
+pub fn ah_client_events_since_last_call() -> Vec<ah_client::Event<Runtime>> {
+	let all =
+		frame_system::Pallet::<Runtime>::read_events_for_pallet::<ah_client::Event<Runtime>>();
+	let seen = AhClientEventsIndex::get();
+	AhClientEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
+}
+
 pub struct ExtBuilder {
-	session_keys: Vec<AccountId>
+	session_keys: Vec<AccountId>,
+	blocked: ah_client::Blocked,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self { session_keys: vec![] }
+		Self { session_keys: vec![], blocked: ah_client::Blocked::default() }
 	}
 }
 
@@ -223,24 +274,32 @@ impl ExtBuilder {
 		self
 	}
 
+	/// Set the blocked status.
+	pub fn blocked(mut self, blocked: ah_client::Blocked) -> Self {
+		self.blocked = blocked;
+		self
+	}
+
 	pub fn build(self) -> TestState {
 		let _ = sp_tracing::try_init_simple();
-		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		let t = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
 		let mut state: TestState = t.into();
 		state.execute_with(|| {
 			// so events can be deposited.
-			frame_system::Pallet::<Runtime>::set_block_number(1);
+			frame_system::Pallet::<T>::set_block_number(1);
 
 			for v in self.session_keys {
 				// min some funds, create account and ref counts
-				pallet_balances::Pallet::<Runtime>::mint_into(&v, 1).unwrap();
-				pallet_session::Pallet::<Runtime>::set_keys(
+				pallet_balances::Pallet::<T>::mint_into(&v, 1).unwrap();
+				pallet_session::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(v),
 					SessionKeys { other: UintAuthorityId(v) },
 					vec![],
 				)
 				.unwrap();
 			}
+
+			ah_client::IsBlocked::<T>::put(self.blocked);
 		});
 
 		state

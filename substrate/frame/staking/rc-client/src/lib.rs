@@ -156,7 +156,7 @@ pub struct ValidatorSetReport<AccountId> {
 	///
 	/// This can always have a safety buffer. For example, whatever is a sane value, it can be
 	/// `value - 5`.
-	pub prune_up_to: SessionIndex,
+	pub prune_up_to: Option<SessionIndex>,
 	/// Same semantics as [`SessionReport::leftover`].
 	pub leftover: bool,
 }
@@ -167,7 +167,7 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 	pub fn new_terminal(
 		new_validator_set: Vec<AccountId>,
 		id: u32,
-		prune_up_to: SessionIndex,
+		prune_up_to: Option<SessionIndex>,
 	) -> Self {
 		Self { new_validator_set, id, prune_up_to, leftover: false }
 	}
@@ -189,10 +189,12 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 		AccountId: Clone,
 	{
 		let splitted_points = self.new_validator_set.chunks(chunk_size.max(1)).map(|x| x.to_vec());
-		splitted_points
+		let mut parts = splitted_points
 			.into_iter()
 			.map(|new_validator_set| Self { new_validator_set, leftover: true, ..self })
-			.collect()
+			.collect::<Vec<_>>();
+		parts.last_mut().map(|x| x.leftover = false);
+		parts
 	}
 }
 
@@ -256,10 +258,12 @@ impl<AccountId> SessionReport<AccountId> {
 		AccountId: Clone,
 	{
 		let splitted_points = self.validator_points.chunks(chunk_size.max(1)).map(|x| x.to_vec());
-		splitted_points
+		let mut parts = splitted_points
 			.into_iter()
 			.map(|validator_points| Self { validator_points, leftover: true, ..self })
-			.collect()
+			.collect::<Vec<_>>();
+		parts.last_mut().map(|x| x.leftover = false);
+		parts
 	}
 }
 
@@ -289,12 +293,11 @@ pub trait RcClientInterface {
 	type AccountId;
 
 	/// Report a new validator set.
-	fn validator_set(new_validator_set: Vec<Self::AccountId>, id: u32, prune_up_tp: u32);
+	fn validator_set(new_validator_set: Vec<Self::AccountId>, id: u32, prune_up_tp: Option<u32>);
 }
 
-// An offence on the relay chain. Based on [`sp_staking::offence::OffenceDetails`].
+/// An offence on the relay chain. Based on [`sp_staking::offence::OffenceDetails`].
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
-// TODO: double check: one or many offenders/reporters?
 pub struct Offence<AccountId> {
 	/// The offender.
 	pub offender: AccountId,
@@ -358,7 +361,7 @@ pub mod pallet {
 	impl<T: Config> RcClientInterface for Pallet<T> {
 		type AccountId = T::AccountId;
 
-		fn validator_set(new_validator_set: Vec<Self::AccountId>, id: u32, prune_up_tp: u32) {
+		fn validator_set(new_validator_set: Vec<Self::AccountId>, id: u32, prune_up_tp: Option<u32>) {
 			let report = ValidatorSetReport::new_terminal(new_validator_set, id, prune_up_tp);
 			T::SendToRelayChain::validator_set(report);
 		}

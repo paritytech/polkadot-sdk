@@ -21,9 +21,9 @@
 //! which doesn't currently mention availability bitfields. As such, we don't reward them
 //! for the time being, although we will build schemes to do so in the future.
 
-use crate::{session_info, shared, RewardsReporter};
+use crate::{session_info, shared};
 use alloc::collections::btree_set::BTreeSet;
-use frame_support::traits::{Defensive, ValidatorSet};
+use frame_support::traits::{Defensive, ValidatorSet, RewardsReporter};
 use polkadot_primitives::{SessionIndex, ValidatorIndex};
 
 /// The amount of era points given by backing a candidate that is included.

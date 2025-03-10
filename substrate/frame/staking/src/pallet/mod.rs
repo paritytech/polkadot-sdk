@@ -1274,6 +1274,7 @@ pub mod pallet {
 							use pallet_staking_rc_client::RcClientInterface;
 							let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 							let bonded_eras = BondedEras::<T>::get();
+
 							// get the first session of the oldest era in the bonded eras.
 							let prune_up_to =
 								if (bonded_eras.len() as u32) < T::BondingDuration::get() {
@@ -1295,7 +1296,7 @@ pub mod pallet {
 							T::RcClientInterface::validator_set(
 								ElectableStashes::<T>::get().into_iter().collect(),
 								id,
-								prune_up_to,
+								Some(prune_up_to),
 							);
 						}
 					},

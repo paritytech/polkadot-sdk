@@ -1357,18 +1357,11 @@ impl parachains_session_info::Config for Runtime {
 	type ValidatorSet = Historical;
 }
 
-pub struct RewardsHandler;
-impl polkadot_runtime_parachains::RewardsReporter<AccountId> for RewardsHandler {
-	fn reward_by_ids(validators_points: impl IntoIterator<Item = (AccountId, u32)>) {
-		<pallet_staking_ah_client::Pallet<Runtime>>::handle_parachain_rewards(validators_points);
-	}
-}
-
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, RewardsHandler>;
+		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
