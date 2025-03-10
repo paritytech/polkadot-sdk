@@ -215,13 +215,6 @@ where
 			],
 		);
 
-		// If the claimer is an AccountId32 on AH, use it to refund excess fees.
-		// Otherwise, use the bridge owner.
-		let claimer_account = match claimer.unpack() {
-			(0, [AccountId32 { id, .. }]) => *id,
-			_ => bridge_owner,
-		};
-
 		match network {
 			super::message::Network::Polkadot => Ok(Self::make_create_asset_xcm_for_polkadot(
 				create_call_index,
@@ -229,7 +222,7 @@ where
 				bridge_owner,
 				dot_fee,
 				eth_asset,
-				claimer_account,
+				claimer,
 			)),
 		}
 	}
@@ -241,7 +234,7 @@ where
 		bridge_owner: [u8; 32],
 		dot_fee_asset: xcm::prelude::Asset,
 		eth_asset: xcm::prelude::Asset,
-		claimer_account: [u8; 32],
+		claimer: Location,
 	) -> Xcm<()> {
 		vec![
 			// Exchange eth for dot to pay the asset creation deposit.
@@ -271,7 +264,7 @@ where
 			},
 			RefundSurplus,
 			// Deposit leftover funds to Snowbridge sovereign
-			DepositAsset { assets: Wild(AllCounted(2)), beneficiary: claimer_account.into() },
+			DepositAsset { assets: Wild(AllCounted(2)), beneficiary: claimer },
 		]
 		.into()
 	}
