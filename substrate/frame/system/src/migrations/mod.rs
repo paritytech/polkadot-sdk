@@ -18,11 +18,12 @@
 //! Migrate the reference counting state.
 
 use super::LOG_TARGET;
-use crate::{Config, Pallet};
+use crate::{Config, Events, Pallet, UnclearedEventCount};
 use codec::{Decode, Encode, FullCodec};
 use frame_support::{
 	pallet_prelude::ValueQuery, traits::PalletInfoAccess, weights::Weight, Blake2_128Concat,
 };
+use sp_core::Get;
 use sp_runtime::RuntimeDebug;
 
 /// Type used to encode the number of references an account has.
@@ -118,4 +119,11 @@ pub fn migrate_from_dual_to_triple_ref_count<V: V2ToV3, T: Config>() -> Weight {
 	);
 	<UpgradedToTripleRefCount<T>>::put(true);
 	Weight::MAX
+}
+
+/// Migrate from `Events` to `EventSegments` when `T::EventSegmentSize > 0`
+pub fn migrate_from_events_to_event_segments<T: Config>() -> Weight {
+	Events::<T>::kill();
+	UnclearedEventCount::<T>::set(0);
+	T::DbWeight::get().writes(2u64)
 }
