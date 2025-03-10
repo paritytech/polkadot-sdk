@@ -1631,7 +1631,7 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
 			.iter()
 			.map(|encoded_message| {
-				VersionedXcm::<()>::decode_with_depth_limit(
+				VersionedXcm::<()>::decode_all_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
 					&mut &encoded_message[..],
 				)

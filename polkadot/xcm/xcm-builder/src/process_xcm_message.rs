@@ -47,17 +47,19 @@ impl<
 		meter: &mut WeightMeter,
 		id: &mut XcmHash,
 	) -> Result<bool, ProcessMessageError> {
-		let versioned_message =
-			VersionedXcm::<Call>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &message[..])
-				.map_err(|e| {
-					tracing::trace!(
-						target: LOG_TARGET,
-						?e,
-						"`VersionedXcm` failed to decode",
-					);
+		let versioned_message = VersionedXcm::<Call>::decode_all_with_depth_limit(
+			MAX_XCM_DECODE_DEPTH,
+			&mut &message[..],
+		)
+		.map_err(|e| {
+			tracing::trace!(
+				target: LOG_TARGET,
+				?e,
+				"`VersionedXcm` failed to decode",
+			);
 
-					ProcessMessageError::Corrupt
-				})?;
+			ProcessMessageError::Corrupt
+		})?;
 		let message = Xcm::<Call>::try_from(versioned_message).map_err(|_| {
 			tracing::trace!(
 				target: LOG_TARGET,
