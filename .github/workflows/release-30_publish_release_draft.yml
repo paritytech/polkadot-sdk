@@ -47,7 +47,7 @@ jobs:
     steps:
       - id: get-rust-versions
         run: |
-          RUST_STABLE_VERSION=$(curl -sS https://raw.githubusercontent.com/paritytech/scripts/master/dockerfiles/ci-unified/Dockerfile | grep -oP 'ARG RUST_STABLE_VERSION=\K[^ ]+')
+          RUST_STABLE_VERSION=$(curl -sS https://raw.githubusercontent.com/paritytech/dockerfiles/refs/heads/main/ci-unified/Dockerfile | grep -oP 'ARG RUST_STABLE_VERSION=\K[^ ]+')
           echo "stable=$RUST_STABLE_VERSION" >> $GITHUB_OUTPUT
 
   build-runtimes:
