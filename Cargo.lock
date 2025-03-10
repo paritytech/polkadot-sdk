@@ -9688,9 +9688,8 @@ checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 
 [[package]]
 name = "litep2p"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e5a3d13ee6af6f01bb2093aa6d5f29b79ede7de6277e5d0394e8f5d8eaa5a86"
+version = "0.9.2"
+source = "git+https://github.com/paritytech/litep2p.git?branch=lexnv/0.9.2#7daa6a4a32b136097b060085c7937b5940654103"
 dependencies = [
  "async-trait",
  "bs58",
