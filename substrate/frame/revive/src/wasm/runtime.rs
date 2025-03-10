@@ -2152,4 +2152,49 @@ pub mod env {
 			already_charged,
 		)?)
 	}
+
+	/// Sets the storage at a fixed 256-bit key with a fixed 256-bit value.
+	/// If the provided value is all zeros then the key is cleared (i.e. deleted),
+	/// similar to Ethereum’s SSTORE semantics.
+	#[stable]
+	#[mutating]
+	fn set_storage_or_clear(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		key_ptr: u32,
+		value_ptr: u32,
+	) -> Result<u32, TrapReason> {
+		let value = memory.read(value_ptr, 32)?;
+		if value.iter().all(|&b| b == 0) {
+			self.clear_storage(memory, flags, key_ptr, 32)
+		} else {
+			self.set_storage(memory, flags, key_ptr, 32, value_ptr, 32)
+		}
+	}
+
+	/// Reads the storage at a fixed 256-bit key and writes back a fixed 256-bit value.
+	/// If the key does not exist, writes back 32 bytes of zero.
+	#[stable]
+	fn get_storage_or_zero(
+		&mut self,
+		memory: &mut M,
+		key_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		let key = self.decode_key(memory, key_ptr, 32)?;
+		let value_opt = self.ext.get_storage(&key);
+		let value = match value_opt {
+			Some(v) => v,
+			None => vec![0u8; 32],
+		};
+		let mut fixed_value = [0u8; 32];
+		if value.len() >= 32 {
+			fixed_value.copy_from_slice(&value[..32]);
+		} else {
+			fixed_value[..value.len()].copy_from_slice(&value);
+		}
+		memory.write(out_ptr, &fixed_value)?;
+		Ok(())
+	}
 }

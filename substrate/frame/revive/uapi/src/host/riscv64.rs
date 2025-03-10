@@ -43,6 +43,11 @@ mod sys {
 			value_ptr: *const u8,
 			value_len: u32,
 		) -> ReturnCode;
+		pub fn set_storage_or_clear(
+			flags: u32,
+			key_ptr: *const u8,
+			value_ptr: *const u8,
+		) -> ReturnCode;
 		pub fn clear_storage(flags: u32, key_ptr: *const u8, key_len: u32) -> ReturnCode;
 		pub fn get_storage(
 			flags: u32,
@@ -51,6 +56,7 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
+		pub fn get_storage_or_zero(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn contains_storage(flags: u32, key_ptr: *const u8, key_len: u32) -> ReturnCode;
 		pub fn take_storage(
 			flags: u32,
@@ -309,6 +315,31 @@ impl HostFn for HostFnImpl {
 				key.len() as u32,
 				encoded_value.as_ptr(),
 				encoded_value.len() as u32,
+			)
+		};
+		ret_code.into()
+	}
+
+	fn set_storage_or_clear(
+		flags: StorageFlags,
+		key: &[u8; 32],
+		encoded_value: &[u8; 32],
+	) -> Option<u32> {
+		let ret_code = unsafe {
+			sys::set_storage_or_clear(
+				flags.bits(),
+				key.as_ptr(),           // key is expected to be 32 bytes
+				encoded_value.as_ptr(), // value is expected to be 32 bytes
+			)
+		};
+		ret_code.into()
+	}
+
+	fn get_storage_or_zero(_flags: StorageFlags, key: &[u8; 32], output: &mut [u8; 32]) -> Result {
+		let ret_code = unsafe {
+			sys::get_storage_or_zero(
+				key.as_ptr(),        // key (32 bytes)
+				output.as_mut_ptr(), // pointer where 32 bytes are written
 			)
 		};
 		ret_code.into()
