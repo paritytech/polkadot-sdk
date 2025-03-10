@@ -1119,13 +1119,15 @@ pub mod pallet {
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::apply_authorized_upgrade { ref code } = call {
 				if let Ok(res) = Self::validate_code_is_authorized(&code[..]) {
-					return Ok(ValidTransaction {
-						priority: u64::max_value(),
-						requires: Vec::new(),
-						provides: vec![res.code_hash.encode()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
+					if Self::can_set_code(&code, false).is_ok() {
+						return Ok(ValidTransaction {
+							priority: u64::max_value(),
+							requires: Vec::new(),
+							provides: vec![res.code_hash.encode()],
+							longevity: TransactionLongevity::max_value(),
+							propagate: true,
+						})
+					}
 				}
 			}
 
@@ -1518,6 +1520,11 @@ impl<T: Config> CanSetCodeResult<T> {
 				Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
 			Self::InvalidVersion(err) => Err(err.into()),
 		}
+	}
+
+	/// Is this `Ok`?
+	pub fn is_ok(&self) -> bool {
+		matches!(self, Self::Ok)
 	}
 }
 
