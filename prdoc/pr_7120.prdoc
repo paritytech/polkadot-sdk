@@ -13,3 +13,7 @@ crates:
     bump: minor
   - name: bp-runtime
     bump: minor
+  - name: pallet-bridge-beefy
+    bump: minor
+  - name: pallet-xcm-bridge-hub-router
+    bump: minor
