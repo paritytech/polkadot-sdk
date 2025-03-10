@@ -62,16 +62,10 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     let serde_attrs = if should_nobound_derive {
         quote! {
-            #[serde(crate = "frame::derive::serde", bound(serialize = "", deserialize = ""))]
+            #[serde(bound(serialize = "", deserialize = ""))]
         }
     } else {
-        quote! {
-            #[serde(crate = "frame::derive::serde")]
-        }
-    };
-
-    let codec_path = quote! {
-        #[codec(crate = frame::derive::codec)]
+        quote! {}
     };
 
     let struct_ident = &input.ident;
@@ -120,7 +114,6 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         #common_derive
         #skip_list
         #serde_attrs
-        #codec_path
         #(#attrs)*
     };
 
