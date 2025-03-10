@@ -338,10 +338,11 @@ impl<RuntimeCall> Decode for VersionedXcm<RuntimeCall> {
 		Ok(
 			match input.read_byte().map_err(|e| {
 				e.chain("Could not decode `VersionedXcm`, failed to read variant byte")
-			})? {
-				3 => Self::V3(decode_variant(input)?),
-				4 => Self::V4(decode_variant(input)?),
-				5 => Self::V5(decode_variant(input)?),
+			})? as u32
+			{
+				v3::VERSION => Self::V3(decode_variant(input)?),
+				v4::VERSION => Self::V4(decode_variant(input)?),
+				v5::VERSION => Self::V5(decode_variant(input)?),
 				_ => return Err("Could not decode `VersionedXcm`, variant doesn't exist".into()),
 			},
 		)

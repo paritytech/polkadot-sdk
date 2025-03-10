@@ -24,20 +24,24 @@ use sp_runtime::SaturatedConversion;
 
 environmental::environmental!(instructions_count: u8);
 
+/// Decode a `vec` of XCM instructions.
+///
+/// This function keeps track of nested XCM instructions and enforces a total limit of
+/// `MAX_INSTRUCTIONS_TO_DECODE`.
 pub fn decode_xcm_instructions<I: codec::Input, T: Decode>(
 	input: &mut I,
 ) -> Result<Vec<T>, codec::Error> {
 	instructions_count::using_once(&mut 0, || {
-		let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
+		let vec_len: u32 = <Compact<u32>>::decode(input)?.into();
 		instructions_count::with(|count| {
-			*count = count.saturating_add(number_of_instructions.saturated_into());
+			*count = count.saturating_add(vec_len.saturated_into());
 			if *count > MAX_INSTRUCTIONS_TO_DECODE {
 				return Err(codec::Error::from("Max instructions exceeded"))
 			}
 			Ok(())
 		})
-		.expect("Called in `using` context and thus can not return `None`; qed")?;
-		let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
+		.unwrap_or(Err(codec::Error::from("Error calling `instructions_count::with()`")))?;
+		let decoded_instructions = decode_vec_with_len(input, vec_len as usize)?;
 		Ok(decoded_instructions)
 	})
 }
