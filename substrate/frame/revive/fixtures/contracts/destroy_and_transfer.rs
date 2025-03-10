@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::{input, u256_bytes};
+use uapi::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api, StorageFlags};
 
 const ADDRESS_KEY: [u8; 32] = [0u8; 32];

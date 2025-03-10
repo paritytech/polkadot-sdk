@@ -17,10 +17,7 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
-
-use common::input;
-use uapi::HostFn;
+use uapi::{input, HostFn};
 
 #[polkavm_derive::polkavm_import]
 extern "C" {

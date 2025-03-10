@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::{input, u256_bytes};
+use uapi::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]

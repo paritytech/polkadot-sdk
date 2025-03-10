@@ -22,8 +22,6 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
-
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
 static mut BUFFER: [u8; 2 * 1025 * 1024] = [0; 2 * 1025 * 1024];

@@ -17,7 +17,7 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
+extern crate uapi;
 
 #[polkavm_derive::polkavm_import]
 extern "C" {

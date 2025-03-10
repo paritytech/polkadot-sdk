@@ -20,7 +20,7 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
+extern crate uapi;
 
 // Export that is never called. We can put code here that should be in the binary
 // but is never supposed to be run.

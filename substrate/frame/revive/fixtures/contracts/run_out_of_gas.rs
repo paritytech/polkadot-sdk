@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
+extern crate uapi;
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

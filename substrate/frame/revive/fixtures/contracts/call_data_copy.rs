@@ -21,7 +21,6 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
 use uapi::{HostFn, HostFnImpl as api};
 
 const TEST_DATA: [u8; 32] = [

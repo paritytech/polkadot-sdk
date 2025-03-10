@@ -18,8 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -28,13 +27,13 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-    input!(
-        address: &[u8; 20],
-        expected_account_id: &[u8; 32],
-    );
+	input!(
+		address: &[u8; 20],
+		expected_account_id: &[u8; 32],
+	);
 
-    let mut account_id = [0u8; 32];
-    api::to_account_id(address, &mut account_id);
+	let mut account_id = [0u8; 32];
+	api::to_account_id(address, &mut account_id);
 
-    assert!(&account_id == expected_account_id);
+	assert!(&account_id == expected_account_id);
 }

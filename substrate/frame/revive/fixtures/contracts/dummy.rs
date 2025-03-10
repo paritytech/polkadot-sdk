@@ -17,8 +17,6 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
-
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
 // Export that is never called. We can put code here that should be in the binary

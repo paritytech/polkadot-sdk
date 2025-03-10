@@ -26,8 +26,7 @@
 #![no_std]
 #![no_main]
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api};
 
 const INPUT_BUF_SIZE: usize = 128;
 static INPUT_DATA: [u8; INPUT_BUF_SIZE] = [0xFF; INPUT_BUF_SIZE];

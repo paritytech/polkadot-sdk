@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::{u256_bytes, u64_output};
+use uapi::{u256_bytes, u64_output};
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]

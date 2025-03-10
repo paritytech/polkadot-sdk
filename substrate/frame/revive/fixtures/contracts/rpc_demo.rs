@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::{input, u64_output};
+use uapi::{input, u64_output};
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]

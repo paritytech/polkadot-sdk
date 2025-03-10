@@ -22,6 +22,8 @@
 mod flags;
 pub use flags::*;
 mod host;
+mod utils;
+pub use utils::*;
 
 pub use host::{HostFn, HostFnImpl};
 

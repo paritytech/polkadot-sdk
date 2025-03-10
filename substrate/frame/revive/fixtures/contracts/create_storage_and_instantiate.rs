@@ -19,8 +19,7 @@
 #![no_std]
 #![no_main]
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api, StorageFlags};
 
 static BUFFER: [u8; 16 * 1024 + 1] = [0u8; 16 * 1024 + 1];
 

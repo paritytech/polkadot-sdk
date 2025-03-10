@@ -23,7 +23,6 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
 #[no_mangle]

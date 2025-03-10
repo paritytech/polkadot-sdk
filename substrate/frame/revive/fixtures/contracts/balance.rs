@@ -18,8 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::u64_output;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{u64_output, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

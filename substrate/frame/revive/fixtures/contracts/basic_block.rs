@@ -20,7 +20,7 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
+extern crate uapi;
 
 use core::arch::asm;
 

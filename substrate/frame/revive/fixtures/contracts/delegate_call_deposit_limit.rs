@@ -18,8 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -41,7 +40,7 @@ pub extern "C" fn call() {
 		u64::MAX,
 		&u256_bytes(deposit_limit),
 		&input,
-		None
+		None,
 	);
 
 	if let Err(code) = ret {
@@ -53,6 +52,6 @@ pub extern "C" fn call() {
 
 	let mut value = [0u8; 32];
 
-	api::get_storage(StorageFlags::empty(), &key,  &mut &mut value[..]).unwrap();
+	api::get_storage(StorageFlags::empty(), &key, &mut &mut value[..]).unwrap();
 	assert!(value[0] == 1u8);
 }
