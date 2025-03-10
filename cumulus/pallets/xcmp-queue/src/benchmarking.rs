@@ -26,6 +26,7 @@ use frame_system::RawOrigin;
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+	use xcm::MAX_INSTRUCTIONS_TO_DECODE;
 
 	/// Modify any of the `QueueConfig` fields with a new `u32` value.
 	///
