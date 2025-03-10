@@ -29,8 +29,8 @@ use polkadot_primitives::{Balance, CollatorPair, HeadData, Id as ParaId, Validat
 use polkadot_runtime_common::BlockHashCount;
 use polkadot_runtime_parachains::paras::{ParaGenesisArgs, ParaKind};
 use polkadot_service::{
-	Error, FullClient, IdentifyNetworkBackend, IdentifyVariant, IsParachainNode, NewFull,
-	OverseerGen, PrometheusConfig,
+	Error, FullClient, IdentifyNetworkBackend, IsParachainNode, NewFull, OverseerGen,
+	PrometheusConfig,
 };
 use polkadot_test_runtime::{
 	ParasCall, ParasSudoWrapperCall, Runtime, SignedPayload, SudoCall, TxExtension,
