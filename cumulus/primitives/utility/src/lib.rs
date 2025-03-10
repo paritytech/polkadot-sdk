@@ -73,7 +73,7 @@ where
 			let versioned_xcm =
 				W::wrap_version(&d, xcm).map_err(|()| SendError::DestinationUnsupported)?;
 			versioned_xcm
-				.validate_xcm_nesting()
+				.validate_xcm_decoding()
 				.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 			let data = versioned_xcm.encode();
 
