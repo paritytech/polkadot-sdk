@@ -61,9 +61,9 @@ use xcm_builder::{
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
-		DropAssets, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
-		RecordXcm, TransactAsset, TransferType, VersionChangeNotifier, WeightBounds,
-		XcmAssetTransfers,
+		DropAssets, EventEmitter, MatchesFungible, OnResponse, Properties, QueryHandler,
+		QueryResponseStatus, RecordXcm, TransactAsset, TransferType, VersionChangeNotifier,
+		WeightBounds, XcmAssetTransfers,
 	},
 	AssetsInHolding,
 };
@@ -402,13 +402,51 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> EventEmitter for Pallet<T> {
+		fn emit_sent_event(
+			origin: Location,
+			destination: Location,
+			message: Option<Xcm<()>>,
+			message_id: XcmHash,
+		) {
+			Self::deposit_event(Event::Sent {
+				origin,
+				destination,
+				message: message.unwrap_or_default(),
+				message_id,
+			});
+		}
+
+		fn emit_send_failure_event(
+			origin: Location,
+			destination: Location,
+			error: SendError,
+			message_id: XcmHash,
+		) {
+			Self::deposit_event(Event::SendFailed { origin, destination, error, message_id });
+		}
+
+		fn emit_process_failure_event(origin: Location, error: XcmError, message_id: XcmHash) {
+			Self::deposit_event(Event::ProcessXcmError { origin, error, message_id });
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Execution of an XCM message was attempted.
 		Attempted { outcome: xcm::latest::Outcome },
-		/// A XCM message was sent.
+		/// An XCM message was sent.
 		Sent { origin: Location, destination: Location, message: Xcm<()>, message_id: XcmHash },
+		/// An XCM message failed to send.
+		SendFailed {
+			origin: Location,
+			destination: Location,
+			error: SendError,
+			message_id: XcmHash,
+		},
+		/// An XCM message failed to process.
+		ProcessXcmError { origin: Location, error: XcmError, message_id: XcmHash },
 		/// Query response received which does not match a registered query. This may be because a
 		/// matching query was never registered, it may be because it is a duplicate response, or
 		/// because the query timed out.
