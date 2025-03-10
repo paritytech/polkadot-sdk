@@ -92,8 +92,6 @@ jobs:
 
       - name: script (benchmark ${{ matrix.bench_cmd }})
         id: required
-        # Overhead command is broken for glutton, as we can't send extrinsics to it: #7816
-        if: ${{ (matrix.bench_cmd != 'overhead') && (matrix.runtime.package != 'glutton-westend') }}
         shell: bash
         run: |
           RUNTIME_BLOB_NAME=$(echo $PACKAGE_NAME | sed 's/-/_/g').compact.compressed.wasm
