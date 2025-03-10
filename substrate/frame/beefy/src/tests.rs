@@ -39,6 +39,8 @@ use crate::{self as beefy, mock::*, Call, Config, Error, WeightInfoExt};
 
 fn init_block(block: u64) {
 	System::set_block_number(block);
+	// Staking has to also be initialized, and be the first, to have the new validator set ready.
+	Staking::on_initialize(block);
 	Session::on_initialize(block);
 }
 

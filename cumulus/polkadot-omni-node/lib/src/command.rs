@@ -103,6 +103,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 	let mut cli = Cli::<CliConfig>::from_args();
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
+	#[allow(deprecated)]
 	match &cli.subcommand {
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -148,6 +149,9 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
+		Some(Subcommand::ChainSpecBuilder(cmd)) =>
+			cmd.run().map_err(|err| sc_cli::Error::Application(err.into())),
+
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			let polkadot_cli =

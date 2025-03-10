@@ -103,7 +103,6 @@ pub type OnBridgeHubRococoRefundRococoBulletinMessages = BridgeRelayersTransacti
 		RelayersForPermissionlessLanesInstance,
 		PriorityBoostPerMessage,
 	>,
-	LaneIdOf<Runtime, WithRococoBulletinMessagesInstance>,
 >;
 bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundRococoBulletinMessages);
 

@@ -16,9 +16,11 @@ permissions:
   contents: read
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
-
   build:
     timeout-minutes: 80
     needs: [preflight]

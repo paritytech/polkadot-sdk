@@ -51,6 +51,10 @@ pub struct CliCommand {
 	#[clap(long, default_value = "256")]
 	pub cache_size: usize,
 
+	/// Earliest block number to consider when searching for transaction receipts.
+	#[clap(long)]
+	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
+
 	/// The database used to store Ethereum transaction hashes.
 	/// This is only useful if the node needs to act as an archive node and respond to Ethereum RPC
 	/// queries for transactions that are not in the in memory cache.
@@ -98,6 +102,7 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 fn build_client(
 	tokio_handle: &tokio::runtime::Handle,
 	cache_size: usize,
+	earliest_receipt_block: Option<SubstrateBlockNumber>,
 	node_rpc_url: &str,
 	database_url: &str,
 	abort_signal: Signals,
@@ -112,7 +117,10 @@ fn build_client(
 			log::info!( target: LOG_TARGET, "Using in-memory database, keeping only {cache_size} blocks in memory");
 		}
 
-		let receipt_extractor = ReceiptExtractor::new(native_to_eth_ratio(&api).await?);
+		let receipt_extractor = ReceiptExtractor::new(
+			native_to_eth_ratio(&api).await?,
+			earliest_receipt_block);
+
 		let receipt_provider: Arc<dyn ReceiptProvider> = Arc::new((
 			CacheReceiptProvider::default(),
 			DBReceiptProvider::new(
@@ -148,6 +156,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		node_rpc_url,
 		cache_size,
 		database_url,
+		earliest_receipt_block,
 		index_until_block,
 		shared_params,
 		..
@@ -188,6 +197,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let client = build_client(
 		tokio_handle,
 		cache_size,
+		earliest_receipt_block,
 		&node_rpc_url,
 		&database_url,
 		tokio_runtime.block_on(async { Signals::capture() })?,

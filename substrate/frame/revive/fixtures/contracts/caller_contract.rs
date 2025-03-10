@@ -31,7 +31,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(code_hash: &[u8; 32], load_code_ref_time: u64,);
+	input!(code_hash: &[u8; 32], load_code_ref_time: u64, load_code_proof_size: u64,);
 
 	// The value to transfer on instantiation and calls. Chosen to be greater than existential
 	// deposit.
@@ -122,9 +122,8 @@ pub extern "C" fn call() {
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee,
-		load_code_ref_time, // Too little ref_time weight.
-		u64::MAX,           /* How much proof_size weight to devote for the execution. u64::MAX
-		                     * = use all. */
+		load_code_ref_time, // just enough to load the contract
+		load_code_proof_size, // just enough to load the contract
 		&[u8::MAX; 32], // No deposit limit.
 		&value,
 		&INPUT,
@@ -137,7 +136,7 @@ pub extern "C" fn call() {
 		uapi::CallFlags::empty(),
 		&callee,
 		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
-		1u64,     // too little proof_size weight
+		load_code_proof_size, //just enough to load the contract
 		&[u8::MAX; 32], // No deposit limit.
 		&value,
 		&INPUT,

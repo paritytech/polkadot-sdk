@@ -637,3 +637,32 @@ pub async fn fetch_scheduling_lookahead(
 		res
 	}
 }
+
+/// Fetch the validation code bomb limit from the runtime.
+pub async fn fetch_validation_code_bomb_limit(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<u32> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::ValidationCodeBombLimit(session_index, tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the validation code bomb limit from the runtime is not supported by the current Runtime API",
+		);
+
+		// TODO: Remove this once runtime API version 12 is released.
+		#[allow(deprecated)]
+		Ok(polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT as u32)
+	} else {
+		res
+	}
+}

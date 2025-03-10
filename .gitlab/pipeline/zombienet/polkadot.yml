@@ -187,14 +187,6 @@ zombienet-polkadot-functional-0015-coretime-shared-core:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0015-coretime-shared-core.zndsl"
 
-.zombienet-polkadot-functional-0016-approval-voting-parallel:
-  extends:
-    - .zombienet-polkadot-common
-  script:
-    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-      --local-dir="${LOCAL_DIR}/functional"
-      --test="0016-approval-voting-parallel.zndsl"
-
 zombienet-polkadot-functional-0018-shared-core-idle-parachain:
   extends:
     - .zombienet-polkadot-common

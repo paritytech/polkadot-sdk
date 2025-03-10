@@ -410,7 +410,7 @@ mod tests {
 		DBReceiptProvider {
 			pool,
 			block_provider: Arc::new(MockBlockInfoProvider {}),
-			receipt_extractor: ReceiptExtractor::new(1_000_000),
+			receipt_extractor: ReceiptExtractor::new(1_000_000, None),
 			prune_old_blocks: true,
 		}
 	}

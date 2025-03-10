@@ -60,7 +60,13 @@ pub struct FeesMode {
 	pub jit_withdraw: bool,
 }
 
-const RECURSION_LIMIT: u8 = 10;
+/// The maximum recursion depth allowed when executing nested XCM instructions.
+///
+/// Exceeding this limit results in `XcmError::ExceedsStackLimit` or
+/// `ProcessMessageError::StackLimitReached`.
+///
+/// Also used in the `DenyRecursively` barrier.
+pub const RECURSION_LIMIT: u8 = 10;
 
 environmental::environmental!(recursion_count: u8);
 
@@ -93,6 +99,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	/// Stores the current message's weight.
 	message_weight: Weight,
 	asset_claimer: Option<Location>,
+	already_paid_fees: bool,
 	_config: PhantomData<Config>,
 }
 
@@ -199,6 +206,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 	pub fn set_message_weight(&mut self, weight: Weight) {
 		self.message_weight = weight;
+	}
+	pub fn already_paid_fees(&self) -> bool {
+		self.already_paid_fees
 	}
 }
 
@@ -356,6 +366,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			asset_used_in_buy_execution: None,
 			message_weight: Weight::zero(),
 			asset_claimer: None,
+			already_paid_fees: false,
 			_config: PhantomData,
 		}
 	}
@@ -794,13 +805,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
-								return Err(XcmError::ExceedsStackLimit)
+								return None
 							}
 							*count = count.saturating_add(1);
-							Ok(())
+							Some(())
 						})
-						// This should always return `Some`, but let's play it safe.
-						.unwrap_or(Ok(()))?;
+						.flatten()
+						.ok_or(XcmError::ExceedsStackLimit)?;
 
 						// Ensure that we always decrement the counter whenever we finish processing
 						// the instruction.
@@ -1194,7 +1205,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// transferring the other assets. This is required to satisfy the
 					// `MAX_ASSETS_FOR_BUY_EXECUTION` limit in the `AllowTopLevelPaidExecutionFrom`
 					// barrier.
-					if let Some(remote_fees) = remote_fees {
+					let remote_fees_paid = if let Some(remote_fees) = remote_fees {
 						let reanchored_fees = match remote_fees {
 							AssetTransferFilter::Teleport(fees_filter) => {
 								let teleport_fees = self
@@ -1239,11 +1250,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						// move these assets to the fees register for covering execution and paying
 						// any subsequent fees
 						message.push(PayFees { asset: fees });
+						true
 					} else {
-						// unpaid execution
-						message
-							.push(UnpaidExecution { weight_limit: Unlimited, check_origin: None });
-					}
+						false
+					};
 
 					// add any extra asset transfers
 					for asset_filter in assets {
@@ -1270,23 +1280,36 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								)?,
 						};
 					}
+
 					if preserve_origin {
-						// preserve current origin for subsequent user-controlled instructions on
-						// remote chain
-						let original_origin = self
+						// We alias the origin if it's not a noop (origin != `Here`).
+						if let Some(original_origin) = self
 							.origin_ref()
+							.filter(|origin| *origin != &Location::here())
 							.cloned()
-							.and_then(|origin| {
-								Self::try_reanchor(origin, &destination)
-									.map(|(reanchored, _)| reanchored)
-									.ok()
-							})
-							.ok_or(XcmError::BadOrigin)?;
-						message.push(AliasOrigin(original_origin));
+						{
+							// preserve current origin for subsequent user-controlled instructions on
+							// remote chain
+							let reanchored_origin = Self::try_reanchor(original_origin, &destination)?.0;
+							message.push(AliasOrigin(reanchored_origin));
+						}
 					} else {
 						// clear origin for subsequent user-controlled instructions on remote chain
 						message.push(ClearOrigin);
 					}
+
+					// If not intending to pay for fees then we append the `UnpaidExecution`
+					// _AFTER_ origin altering instructions.
+					// When origin is not preserved, it's probably going to fail on the receiver.
+					if !remote_fees_paid {
+						// We push the UnpaidExecution instruction to notify we do not intend to pay
+						// for fees.
+						// The receiving chain must decide based on the origin of the message if they
+						// accept this.
+						message
+							.push(UnpaidExecution { weight_limit: Unlimited, check_origin: None });
+					}
+
 					// append custom instructions
 					message.extend(remote_xcm.0.into_iter());
 					// send the onward XCM
@@ -1343,14 +1366,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				result
 			},
 			PayFees { asset } => {
-				// Message was not weighed, there is nothing to pay.
-				if self.message_weight == Weight::zero() {
-					tracing::warn!(
-						target: "xcm::executor::PayFees",
-						"Message was not weighed or weight was 0. Nothing will be charged.",
-					);
+				// If we've already paid for fees, do nothing.
+				if self.already_paid_fees {
 					return Ok(());
 				}
+				// Make sure `PayFees` won't be processed again.
+				self.already_paid_fees = true;
 				// Record old holding in case we need to rollback.
 				let old_holding = self.holding.clone();
 				// The max we're willing to pay for fees is decided by the `asset` operand.
@@ -1359,19 +1380,21 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					asset_for_fees = ?asset,
 					message_weight = ?self.message_weight,
 				);
-				let max_fee =
-					self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				// Pay for execution fees.
 				let result = Config::TransactionalProcessor::process(|| {
+					let max_fee =
+						self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
 					let unspent =
 						self.trader.buy_weight(self.message_weight, max_fee, &self.context)?;
-					// Move unspent to the `fees` register.
+					// Move unspent to the `fees` register, it can later be moved to holding
+					// by calling `RefundSurplus`.
 					self.fees.subsume_assets(unspent);
 					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					// Rollback.
+					// Rollback on error.
 					self.holding = old_holding;
+					self.already_paid_fees = false;
 				}
 				result
 			},

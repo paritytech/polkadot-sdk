@@ -37,7 +37,18 @@ impl IntoWeight for u64 {
 }
 
 /// Mocked message origin for testing.
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, Debug)]
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Debug,
+)]
 pub enum MessageOrigin {
 	Here,
 	There,
