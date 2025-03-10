@@ -324,7 +324,8 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
-      RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      # sdk tests are looking for POLKADOT_IMAGE
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
@@ -352,7 +353,7 @@ jobs:
 
       - name: script
         run: |
-          echo "RELAY_IMAGE: $RELAY_IMAGE"
+          echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
           echo "CUMULUS_IMAGE: $CUMULUS_IMAGE"
           ls -ltr ./artifacts
           # use spot by default

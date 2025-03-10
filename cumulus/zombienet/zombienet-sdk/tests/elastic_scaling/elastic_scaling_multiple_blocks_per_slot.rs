@@ -85,6 +85,7 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
+	log::info!("Using images: {images:?}");
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			let r = r
