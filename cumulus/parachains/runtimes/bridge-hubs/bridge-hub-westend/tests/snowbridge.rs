@@ -20,17 +20,16 @@ use bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID;
 use bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID;
 use bp_polkadot_core::Signature;
 use bridge_hub_westend_runtime::{
-	bridge_to_ethereum_config::EthereumGatewayAddress, bridge_to_rococo_config,
-	xcm_config::XcmConfig, AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages,
-	Executive, MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
-	TxExtension, UncheckedExtrinsic,
+	bridge_to_rococo_config, xcm_config::XcmConfig, AllPalletsWithoutSystem,
+	BridgeRejectObsoleteHeadersAndMessages, Executive, MessageQueueServiceWeight, Runtime,
+	RuntimeCall, RuntimeEvent, SessionKeys, TxExtension, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
 use frame_support::parameter_types;
 use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_pallet_ethereum_client::WeightInfo;
-use sp_core::{bytes::to_hex, H160};
+use sp_core::H160;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32,
