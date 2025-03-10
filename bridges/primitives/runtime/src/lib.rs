@@ -431,13 +431,13 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 	/// may still be used to do that (i.e. democracy::referendum to update halt flag directly
 	/// or call the `set_operating_mode`).
 	fn module_owner() -> Option<T::AccountId> {
-	   Self::OwnerStorage::get()
+		Self::OwnerStorage::get()
 	}
 
 	/// The current operating mode of the module.
 	/// Depending on the mode either all, some, or no transactions will be allowed.
 	fn operating_mode() -> Self::OperatingMode {
-	   Self::OperatingModeStorage::get()
+		Self::OperatingModeStorage::get()
 	}
 }
 

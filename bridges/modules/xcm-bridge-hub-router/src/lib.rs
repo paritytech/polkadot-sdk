@@ -292,9 +292,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 		) {
 			Some((bridge_hub_location, maybe_payment))
 				if bridge_hub_location.eq(&T::SiblingBridgeHubLocation::get()) =>
-			{
-				(bridge_hub_location, maybe_payment)
-			},
+				(bridge_hub_location, maybe_payment),
 			_ => {
 				log::trace!(
 					target: LOG_TARGET,
@@ -636,10 +634,10 @@ mod tests {
 			let factor = FixedU128::from_rational(125, 100);
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(factor));
 			let expected_fee =
-				(FixedU128::saturating_from_integer(BASE_FEE + BYTE_FEE * (msg_size as u128))
-					* factor)
-					.into_inner() / FixedU128::DIV
-					+ HRMP_FEE;
+				(FixedU128::saturating_from_integer(BASE_FEE + BYTE_FEE * (msg_size as u128)) *
+					factor)
+					.into_inner() / FixedU128::DIV +
+					HRMP_FEE;
 			assert_eq!(
 				XcmBridgeHubRouter::validate(&mut Some(dest), &mut Some(xcm)).unwrap().1.get(0),
 				Some(&(BridgeFeeAsset::get(), expected_fee).into()),
