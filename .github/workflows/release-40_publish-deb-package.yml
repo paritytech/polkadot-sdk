@@ -46,7 +46,7 @@ jobs:
       REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ needs.validate-inputs.outputs.release_tag }}
     outputs:
-      VERSION: ${{ steps.fetch_artifacts_from_s3.outputs.VERSION }}
+      NODE_VERSION: ${{ steps.fetch_artifacts_from_s3.outputs.NODE_VERSION }}
 
     steps:
       - name: Checkout sources
@@ -57,8 +57,8 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION="$(get_polkadot_node_version_from_code)"
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          NODE_VERSION="$(get_polkadot_node_version_from_code)"
+          echo "NODE_VERSION=${NODE_VERSION}" >> $GITHUB_OUTPUT
 
           fetch_debian_package_from_s3 polkadot
 
@@ -76,7 +76,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_DEB_PATH: "s3://releases-package-repos/deb"
       LOCAL_DEB_REPO_PATH: ${{ github.workspace }}/deb
-      VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.VERSION }}
+      NODE_VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.NODE_VERSION }}
 
     steps:
       - name: Install pgpkkms
@@ -135,7 +135,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           # Add the new deb to the repo
-          reprepro -b "$LOCAL_DEB_REPO_PATH" includedeb "${{ inputs.distribution }}" "release-artifacts/polkadot_${VERSION}_amd64.deb"
+          reprepro -b "$LOCAL_DEB_REPO_PATH" includedeb "${{ inputs.distribution }}" "release-artifacts/polkadot_${NODE_VERSION}_amd64.deb"
 
       - name: Upload updated deb repo
         env:
