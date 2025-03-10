@@ -433,6 +433,8 @@ pub enum UMPSignal {
 	/// Relay chain validators, in particular backers, use the `CoreSelector` and
 	/// `ClaimQueueOffset` to compute the index of the core the candidate has committed to.
 	SelectCore(CoreSelector, ClaimQueueOffset),
+	/// TODO
+	ApprovedPeer(OpaquePeerId),
 }
 /// Separator between `XCM` and `UMPSignal`.
 pub const UMP_SEPARATOR: Vec<u8> = vec![];
@@ -450,29 +452,32 @@ impl CandidateCommitments {
 	pub fn core_selector(
 		&self,
 	) -> Result<Option<(CoreSelector, ClaimQueueOffset)>, CommittedCandidateReceiptError> {
-		let mut signals_iter =
+		let signals_iter =
 			self.upward_messages.iter().skip_while(|message| *message != &UMP_SEPARATOR);
 
-		if signals_iter.next().is_some() {
-			let Some(core_selector_message) = signals_iter.next() else { return Ok(None) };
-			// We should have exactly one signal beyond the separator
-			if signals_iter.next().is_some() {
-				return Err(CommittedCandidateReceiptError::TooManyUMPSignals)
-			}
-
-			match UMPSignal::decode(&mut core_selector_message.as_slice())
-				.map_err(|_| CommittedCandidateReceiptError::UmpSignalDecode)?
+		for signal in signals_iter {
+			if let Ok(UMPSignal::SelectCore(core_index_selector, cq_offset)) =
+				UMPSignal::decode(&mut signal.as_slice())
 			{
-				UMPSignal::SelectCore(core_index_selector, cq_offset) =>
-					Ok(Some((core_index_selector, cq_offset))),
+				return Ok(Some((core_index_selector, cq_offset)))
 			}
-		} else {
-			Ok(None)
 		}
+
+		Ok(None)
 	}
 
 	/// TODO
 	pub fn approved_peer(&self) -> Option<OpaquePeerId> {
+		let signals_iter =
+			self.upward_messages.iter().skip_while(|message| *message != &UMP_SEPARATOR);
+
+		for signal in signals_iter {
+			if let Ok(UMPSignal::ApprovedPeer(peer_id)) = UMPSignal::decode(&mut signal.as_slice())
+			{
+				return Some(peer_id)
+			}
+		}
+
 		None
 	}
 }
@@ -509,10 +514,6 @@ pub enum CommittedCandidateReceiptError {
 	/// Unknown version.
 	#[cfg_attr(feature = "std", error("Unknown internal version"))]
 	UnknownVersion(InternalVersion),
-	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
-	/// Currenly only one such message is allowed.
-	#[cfg_attr(feature = "std", error("Too many UMP signals"))]
-	TooManyUMPSignals,
 	/// If the parachain runtime started sending core selectors, v1 descriptors are no longer
 	/// allowed.
 	#[cfg_attr(feature = "std", error("Version 1 receipt does not support core selectors"))]
