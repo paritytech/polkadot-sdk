@@ -700,9 +700,10 @@ where
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod secp_utils {
 	use super::*;
-	use secp256k1::Secp256k1;
-	use secp256k1::SECP256K1;
+	use secp256k1::{Message, Secp256k1, SECP256K1};
 
+	// Does this function require the static SECP256K1 instead ?
+	// in other places, SECP256K1 is used in favor of secp256k1
 	pub fn public(secret: &secp256k1::SecretKey) -> secp256k1::PublicKey {
 		let secp = Secp256k1::new();
 		secp256k1::PublicKey::from_secret_key(&secp, &secret)
@@ -721,15 +722,16 @@ mod secp_utils {
 			&to_ascii_hex(what)[..],
 			extra,
 		));
+
+		let message = Message::from_digest_slice(&msg).unwrap();
 		let (recovery_id, sig) =
-			SECP256K1.sign_ecdsa_recoverable(&msg, &secret).serialize_compact();
-		/*
-				let (sig, recovery_id) = libsecp256k1::sign(&libsecp256k1::Message::parse(&msg), secret);
-				let mut r = [0u8; 65];
-				r[0..64].copy_from_slice(&sig.serialize()[..]);
-				r[64] = recovery_id.serialize();
-		*/
-		EcdsaSignature(recovery_id)
+			SECP256K1.sign_ecdsa_recoverable(&message, &secret).serialize_compact();
+		//let id = ecdsa::RecoveryId::try_from(recovery_id);
+		//let sig = ecdsa::RecoverableSignature::from_compact(&sig);
+		let mut r = [0u8; 65];
+		r[0..64].copy_from_slice(&sig[..]);
+		r[64] = recovery_id as u8;
+		EcdsaSignature(r)
 	}
 }
 

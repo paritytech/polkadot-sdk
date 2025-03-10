@@ -27,7 +27,7 @@ use frame_support::{derive_impl, ord_parameter_types, parameter_types, traits::W
 use pallet_balances;
 use sp_runtime::{traits::Identity, BuildStorage};
 
-use secp256k1::{PublicKey, Secp256k1, SecretKey};
+use secp256k1::SecretKey;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -89,19 +89,19 @@ impl Config for Test {
 }
 
 pub fn alice() -> secp256k1::SecretKey {
-	secp256k1::SecretKey::parse(&keccak_256(b"Alice")).unwrap()
+	SecretKey::from_byte_array(&keccak_256(b"Alice")).expect("32 bytes, within curve order")
 }
 pub fn bob() -> secp256k1::SecretKey {
-	secp256k1::SecretKey::parse(&keccak_256(b"Bob")).unwrap()
+	SecretKey::from_byte_array(&keccak_256(b"Bob")).expect("32 bytes, within curve order")
 }
 pub fn dave() -> secp256k1::SecretKey {
-	secp256k1::SecretKey::parse(&keccak_256(b"Dave")).unwrap()
+	SecretKey::from_byte_array(&keccak_256(b"Dave")).expect("32 bytes, within curve order")
 }
 pub fn eve() -> secp256k1::SecretKey {
-	secp256k1::SecretKey::parse(&keccak_256(b"Eve")).unwrap()
+	SecretKey::from_byte_array(&keccak_256(b"Eve")).expect("32 bytes, within curve order")
 }
 pub fn frank() -> secp256k1::SecretKey {
-	secp256k1::SecretKey::parse(&keccak_256(b"Frank")).unwrap()
+	SecretKey::from_byte_array(&keccak_256(b"Frank")).expect("32 bytes, within curve order")
 }
 
 // This function basically just builds a genesis storage key/value store according to
