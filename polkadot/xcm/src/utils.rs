@@ -20,7 +20,6 @@ use crate::MAX_INSTRUCTIONS_TO_DECODE;
 
 use alloc::vec::Vec;
 use codec::{decode_vec_with_len, Compact, Decode};
-use sp_runtime::SaturatedConversion;
 
 environmental::environmental!(instructions_count: u8);
 
