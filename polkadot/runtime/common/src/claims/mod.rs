@@ -107,16 +107,14 @@ impl StatementKind {
 	/// Convert this to the (English) statement it represents.
 	fn to_text(self) -> &'static [u8] {
 		match self {
-			StatementKind::Regular => {
+			StatementKind::Regular =>
 				&b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
 				Qmc1XYqT6S39WNp2UeiRUrZichUWUPpGEThDE6dAb3f6Ny. (This may be found at the URL: \
-				https://statement.polkadot.network/regular.html)"[..]
-			},
-			StatementKind::Saft => {
+				https://statement.polkadot.network/regular.html)"[..],
+			StatementKind::Saft =>
 				&b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
 				QmXEkMahfhHJPzT3RjkXiZVFi77ZeVeuxtAjhojGRNYckz. (This may be found at the URL: \
-				https://statement.polkadot.network/saft.html)"[..]
-			},
+				https://statement.polkadot.network/saft.html)"[..],
 		}
 	}
 }
@@ -702,8 +700,6 @@ mod secp_utils {
 	use super::*;
 	use secp256k1::{Message, Secp256k1, SECP256K1};
 
-	// Does this function require the static SECP256K1 instead ?
-	// in other places, SECP256K1 is used in favor of secp256k1
 	pub fn public(secret: &secp256k1::SecretKey) -> secp256k1::PublicKey {
 		let secp = Secp256k1::new();
 		secp256k1::PublicKey::from_secret_key(&secp, &secret)
@@ -726,8 +722,6 @@ mod secp_utils {
 		let message = Message::from_digest_slice(&msg).unwrap();
 		let (recovery_id, sig) =
 			SECP256K1.sign_ecdsa_recoverable(&message, &secret).serialize_compact();
-		//let id = ecdsa::RecoveryId::try_from(recovery_id);
-		//let sig = ecdsa::RecoverableSignature::from_compact(&sig);
 		let mut r = [0u8; 65];
 		r[0..64].copy_from_slice(&sig[..]);
 		r[64] = recovery_id as u8;
