@@ -94,6 +94,30 @@ pub trait SendToAssetHub {
 	);
 }
 
+/// Means to force this pallet to be partially blocked. This is useful for governance intervention.
+#[derive(Debug, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Default)]
+pub enum Blocked {
+	/// Normal working operations.
+	#[default]
+	Not,
+	/// Block all incoming messages.
+	Incoming,
+	/// Block all outgoing messages.
+	Outgoing,
+	/// Block both incoming and outgoing messages.
+	Both,
+}
+
+impl Blocked {
+	pub(crate) fn allows_incoming(&self) -> bool {
+		matches!(self, Self::Not | Self::Outgoing)
+	}
+
+	pub(crate) fn allows_outgoing(&self) -> bool {
+		matches!(self, Self::Not | Self::Incoming)
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::*;
@@ -155,6 +179,10 @@ pub mod pallet {
 	pub type ValidatorPoints<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, u32, ValueQuery>;
 
+	/// Stores whether this pallet is blocked in any way or not.
+	#[pallet::storage]
+	pub type IsBlocked<T: Config> = StorageValue<_, Blocked, ValueQuery>;
+
 	/// A storage value that is set when a `new_session` gives a new validator set to the session
 	/// pallet, and is cleared on the next call.
 	///
@@ -168,6 +196,8 @@ pub mod pallet {
 		/// The validator set received is way too small, as per
 		/// [`Config::MinimumValidatorSetSize`].
 		MinimumValidatorSetSize,
+		/// Could not process incoming message because incoming messages are blocked.
+		Blocked,
 	}
 
 	#[pallet::event]
@@ -195,6 +225,7 @@ pub mod pallet {
 			// Ensure the origin is one of Root or whatever is representing AssetHub.
 			log!(info, "Received new validator set report {:?}", report);
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
+			ensure!(IsBlocked::<T>::get().allows_incoming(), Error::<T>::Blocked);
 
 			let maybe_new_validator_set_report = match IncompleteValidatorSetReport::<T>::take() {
 				Some(old) => old.merge(report.clone()),
@@ -294,8 +325,12 @@ pub mod pallet {
 				leftover: false,
 			};
 
-			log!(info, "Sending session report {:?}", session_report);
-			T::SendToAssetHub::relay_session_report(session_report);
+			if IsBlocked::<T>::get().allows_outgoing() {
+				log!(info, "Sending session report {:?}", session_report);
+				T::SendToAssetHub::relay_session_report(session_report);
+			} else {
+				log!(warn, "Session report is blocked and not sent.");
+			}
 		}
 	}
 
@@ -340,7 +375,13 @@ pub mod pallet {
 				});
 			}
 
-			T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
+			if IsBlocked::<T>::get().allows_outgoing() {
+				log!(info, "sending offence report to AH");
+				T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
+			} else {
+				log!(warn, "offence report is blocked and not sent")
+			}
+
 			Weight::zero()
 		}
 	}

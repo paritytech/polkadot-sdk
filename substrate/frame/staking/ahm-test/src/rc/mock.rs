@@ -1,4 +1,5 @@
 use frame::{deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*};
+use frame::traits::fungible::Mutate;
 use pallet_staking_ah_client as ah_client;
 use sp_staking::SessionIndex;
 
@@ -198,11 +199,13 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 	}
 }
 
-pub struct ExtBuilder;
+pub struct ExtBuilder {
+	session_keys: Vec<AccountId>
+}
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self
+		Self { session_keys: vec![] }
 	}
 }
 
@@ -214,6 +217,12 @@ impl ExtBuilder {
 		self
 	}
 
+	/// Set the session keys for the given accounts.
+	pub fn session_keys(mut self, session_keys: Vec<AccountId>) -> Self {
+		self.session_keys = session_keys;
+		self
+	}
+
 	pub fn build(self) -> TestState {
 		let _ = sp_tracing::try_init_simple();
 		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
@@ -221,7 +230,19 @@ impl ExtBuilder {
 		state.execute_with(|| {
 			// so events can be deposited.
 			frame_system::Pallet::<Runtime>::set_block_number(1);
+
+			for v in self.session_keys {
+				// min some funds, create account and ref counts
+				pallet_balances::Pallet::<Runtime>::mint_into(&v, 1).unwrap();
+				pallet_session::Pallet::<Runtime>::set_keys(
+					RuntimeOrigin::signed(v),
+					SessionKeys { other: UintAuthorityId(v) },
+					vec![],
+				)
+				.unwrap();
+			}
 		});
+
 		state
 	}
 }

@@ -26,7 +26,7 @@ use frame_support::{
 	traits::{
 		fungible::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
-			Inspect, Mutate, Mutate as FunMutate,
+			Mutate, Mutate as FunMutate,
 		},
 		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
 		InspectLockableCurrency, Nothing, OnUnbalanced,

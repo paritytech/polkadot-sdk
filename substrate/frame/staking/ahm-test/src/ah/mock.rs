@@ -6,7 +6,6 @@ use frame_election_provider_support::{
 };
 use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
-use sp_staking::SessionIndex;
 
 construct_runtime! {
 	pub enum Runtime {

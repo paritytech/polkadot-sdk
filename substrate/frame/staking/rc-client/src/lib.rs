@@ -184,13 +184,15 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 	}
 
 	/// Split self into `count` number of pieces.
-	pub fn split(self, count: usize) -> Vec<Self> where AccountId: Clone {
-		let chunk_size = self.new_validator_set.len().div_ceil(count.min(1));
-		let splitted_points = self.new_validator_set.chunks(chunk_size).map(|x| x.to_vec());
-		splitted_points.into_iter().map(|new_validator_set| Self {
-			new_validator_set,
-			..self
-		}).collect()
+	pub fn split(self, chunk_size: usize) -> Vec<Self>
+	where
+		AccountId: Clone,
+	{
+		let splitted_points = self.new_validator_set.chunks(chunk_size.max(1)).map(|x| x.to_vec());
+		splitted_points
+			.into_iter()
+			.map(|new_validator_set| Self { new_validator_set, leftover: true, ..self })
+			.collect()
 	}
 }
 
@@ -249,13 +251,15 @@ impl<AccountId> SessionReport<AccountId> {
 	}
 
 	/// Split oneself into `count` number of pieces.
-	pub fn split(self, count: usize) -> Vec<Self> where AccountId: Clone {
-		let chunk_size = self.validator_points.len().div_ceil(count.min(1));
-		let splitted_points = self.validator_points.chunks(chunk_size).map(|x| x.to_vec());
-		splitted_points.into_iter().map(|validator_points| Self {
-			validator_points,
-			..self
-		}).collect()
+	pub fn split(self, chunk_size: usize) -> Vec<Self>
+	where
+		AccountId: Clone,
+	{
+		let splitted_points = self.validator_points.chunks(chunk_size.max(1)).map(|x| x.to_vec());
+		splitted_points
+			.into_iter()
+			.map(|validator_points| Self { validator_points, leftover: true, ..self })
+			.collect()
 	}
 }
 
@@ -348,10 +352,7 @@ pub mod pallet {
 		},
 
 		/// A new offence was reported.
-		OffenceReceived {
-			slash_session: SessionIndex,
-			offences_count: u32,
-		}
+		OffenceReceived { slash_session: SessionIndex, offences_count: u32 },
 	}
 
 	impl<T: Config> RcClientInterface for Pallet<T> {
@@ -384,7 +385,8 @@ pub mod pallet {
 
 			// If we have anything previously buffered, then merge it.
 			let new_session_report = match IncompleteSessionReport::<T>::take() {
-				// TODO: update this to be like the ah-client -- returning error will nullify the `::take()`.
+				// TODO: update this to be like the ah-client -- returning error will nullify the
+				// `::take()`.
 				Some(old) => old.merge(report.clone()).map_err(|_| "CouldNotMerge")?,
 				None => report,
 			};
