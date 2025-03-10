@@ -22,10 +22,35 @@
 mod flags;
 pub use flags::*;
 mod host;
-mod utils;
-pub use utils::*;
+mod macros;
 
 pub use host::{HostFn, HostFnImpl};
+
+#[cfg(feature = "fixtures")]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+	// Safety: The unimp instruction is guaranteed to trap
+	unsafe {
+		core::arch::asm!("unimp");
+		core::hint::unreachable_unchecked();
+	}
+}
+
+/// Convert a u64 into a [u8; 32].
+pub const fn u256_bytes(value: u64) -> [u8; 32] {
+	let mut buffer = [0u8; 32];
+	let bytes = value.to_le_bytes();
+
+	buffer[0] = bytes[0];
+	buffer[1] = bytes[1];
+	buffer[2] = bytes[2];
+	buffer[3] = bytes[3];
+	buffer[4] = bytes[4];
+	buffer[5] = bytes[5];
+	buffer[6] = bytes[6];
+	buffer[7] = bytes[7];
+	buffer
+}
 
 macro_rules! define_error_codes {
     (

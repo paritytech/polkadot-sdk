@@ -15,18 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use crate::HostFnImpl as api;
-
-#[cfg(feature = "fixtures")]
-#[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-	// Safety: The unimp instruction is guaranteed to trap
-	unsafe {
-		core::arch::asm!("unimp");
-		core::hint::unreachable_unchecked();
-	}
-}
-
 /// Utility macro to read input passed to a contract.
 ///
 /// Example:
@@ -121,9 +109,9 @@ macro_rules! input {
 	// e.g input!(buffer, 512, var1: u32, var2: [u8], );
 	($buffer:ident, $size:expr, $($rest:tt)*) => {
 		let mut $buffer = [0u8; $size];
-		let input_size = $crate::api::call_data_size();
+		let input_size = $crate::HostFnImpl::call_data_size();
 		let $buffer = &mut &mut $buffer[..$size.min(input_size as usize)];
-		$crate::api::call_data_copy($buffer, 0);
+		$crate::HostFnImpl::call_data_copy($buffer, 0);
 		input!(@inner $buffer, 0, $($rest)*);
 	};
 
@@ -178,20 +166,4 @@ macro_rules! u64_output {
 		assert!(buffer[8..].iter().all(|&x| x == 0));
 		u64::from_le_bytes(buffer[..8].try_into().unwrap())
 	}};
-}
-
-/// Convert a u64 into a [u8; 32].
-pub const fn u256_bytes(value: u64) -> [u8; 32] {
-	let mut buffer = [0u8; 32];
-	let bytes = value.to_le_bytes();
-
-	buffer[0] = bytes[0];
-	buffer[1] = bytes[1];
-	buffer[2] = bytes[2];
-	buffer[3] = bytes[3];
-	buffer[4] = bytes[4];
-	buffer[5] = bytes[5];
-	buffer[6] = bytes[6];
-	buffer[7] = bytes[7];
-	buffer
 }
