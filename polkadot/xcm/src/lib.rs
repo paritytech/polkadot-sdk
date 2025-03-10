@@ -378,7 +378,7 @@ impl<C> VersionedXcm<C> {
 	pub fn check_is_decodable(&self) -> Result<(), ()> {
 		self.using_encoded(|mut enc| Self::decode_all(&mut enc).map(|_| ()))
 			.map_err(|e| {
-				log::error!(target: "xcm::validate_xcm_decoding", "Decode error: {e:?} for xcm: {self:?}!");
+				log::error!(target: "xcm::check_is_decodable", "Decode error: {e:?} for xcm: {self:?}!");
 				()
 			})
 	}
