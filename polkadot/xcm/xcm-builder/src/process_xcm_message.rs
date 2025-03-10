@@ -16,7 +16,7 @@
 
 //! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
-use codec::{Decode, FullCodec, MaxEncodedLen};
+use codec::{Decode, DecodeLimit, FullCodec, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::GetDispatchInfo,
@@ -24,7 +24,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_weights::{Weight, WeightMeter};
-use xcm::prelude::*;
+use xcm::{prelude::*, MAX_XCM_DECODE_DEPTH};
 
 const LOG_TARGET: &str = "xcm::process-message";
 
@@ -47,15 +47,17 @@ impl<
 		meter: &mut WeightMeter,
 		id: &mut XcmHash,
 	) -> Result<bool, ProcessMessageError> {
-		let versioned_message = VersionedXcm::<Call>::decode(&mut &message[..]).map_err(|e| {
-			tracing::trace!(
-				target: LOG_TARGET,
-				?e,
-				"`VersionedXcm` failed to decode",
-			);
+		let versioned_message =
+			VersionedXcm::<Call>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut &message[..])
+				.map_err(|e| {
+					tracing::trace!(
+						target: LOG_TARGET,
+						?e,
+						"`VersionedXcm` failed to decode",
+					);
 
-			ProcessMessageError::Corrupt
-		})?;
+					ProcessMessageError::Corrupt
+				})?;
 		let message = Xcm::<Call>::try_from(versioned_message).map_err(|_| {
 			tracing::trace!(
 				target: LOG_TARGET,
