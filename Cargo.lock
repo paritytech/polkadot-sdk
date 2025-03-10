@@ -17107,7 +17107,6 @@ dependencies = [
 name = "polkadot-availability-bitfield-distribution"
 version = "7.0.0"
 dependencies = [
- "always-assert",
  "assert_matches",
  "bitvec",
  "futures",
@@ -17379,7 +17378,6 @@ dependencies = [
  "always-assert",
  "assert_matches",
  "async-trait",
- "bitvec",
  "bytes",
  "fatality",
  "futures",

@@ -22,7 +22,6 @@
 
 #![deny(unused_crate_dependencies)]
 
-use always_assert::never;
 use futures::{channel::oneshot, FutureExt};
 
 use net_protocol::filter_by_peer_version;
@@ -97,8 +96,6 @@ impl BitfieldGossipMessage {
 					self.signed_availability.into(),
 				)),
 			None => {
-				never!("Peers should only have supported protocol versions.");
-
 				gum::warn!(
 					target: LOG_TARGET,
 					version = ?recipient_version,

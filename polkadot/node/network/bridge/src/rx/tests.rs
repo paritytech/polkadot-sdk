@@ -15,15 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use bitvec::prelude::Lsb0;
 use futures::{channel::oneshot, executor};
-use polkadot_node_network_protocol::{
-	self as net_protocol,
-	v3::{BackedCandidateManifest, StatementFilter},
-	OurView,
-};
+use polkadot_node_network_protocol::{self as net_protocol, OurView};
 use polkadot_node_subsystem::messages::NetworkBridgeEvent;
-use polkadot_primitives::Id as ParaId;
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
@@ -57,7 +51,7 @@ use polkadot_node_subsystem_test_helpers::{
 	mock::new_leaf, SingleItemSink, SingleItemStream, TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::metered;
-use polkadot_primitives::{AuthorityDiscoveryId, GroupIndex, Hash};
+use polkadot_primitives::{AuthorityDiscoveryId, Hash};
 
 use sp_keyring::Sr25519Keyring;
 
@@ -1658,7 +1652,6 @@ fn network_new_topology_update() {
 
 #[test]
 fn network_protocol_versioning_subsystem_msg() {
-	use polkadot_primitives::CandidateHash;
 	use std::task::Poll;
 
 	let (oracle, _handle) = make_sync_oracle(false);
@@ -1668,98 +1661,58 @@ fn network_protocol_versioning_subsystem_msg() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(
-				peer,
-				ValidationVersion::V3.into(),
-				PeerSet::Validation,
-				ObservedRole::Full,
-			)
+			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
-		await_peer_connections(&shared, 1, 0).await;
+		await_peer_connections(&shared, 0, 1).await;
 
 		// bridge will inform about all connected peers.
 		{
-			assert_sends_validation_event_to_all(
+			assert_sends_collation_event_to_all(
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::V3.into(),
+					CollationVersion::V1.into(),
 					None,
 				),
 				&mut virtual_overseer,
 			)
 			.await;
 
-			assert_sends_validation_event_to_all(
+			assert_sends_collation_event_to_all(
 				NetworkBridgeEvent::PeerViewChange(peer, View::default()),
 				&mut virtual_overseer,
 			)
 			.await;
 
-			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 0);
 		}
 
-		let approval_distribution_message =
-			protocol_v3::ApprovalDistributionMessage::Approvals(Vec::new());
-
-		let msg = protocol_v3::ValidationProtocol::ApprovalDistribution(
-			approval_distribution_message.clone(),
+		let collator_protocol_message = protocol_v1::CollatorProtocolMessage::Declare(
+			Sr25519Keyring::Alice.public().into(),
+			Default::default(),
+			sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64]),
 		);
+
+		let msg =
+			protocol_v1::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
 		network_handle
 			.peer_message(
 				peer,
-				PeerSet::Validation,
+				PeerSet::Collation,
 				WireMessage::ProtocolMessage(msg.clone()).encode(),
 			)
 			.await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::ApprovalDistribution(
-				ApprovalDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::V3(m))
+			AllMessages::CollatorProtocol(
+				CollatorProtocolMessage::NetworkBridgeUpdate(
+					NetworkBridgeEvent::PeerMessage(p, Versioned::V1(m))
 				)
 			) => {
 				assert_eq!(p, peer);
-				assert_eq!(m, approval_distribution_message);
-			}
-		);
-
-		let manifest = BackedCandidateManifest {
-			relay_parent: Hash::zero(),
-			candidate_hash: CandidateHash::default(),
-			group_index: GroupIndex::from(0),
-			para_id: ParaId::from(0),
-			parent_head_data_hash: Hash::zero(),
-			statement_knowledge: StatementFilter {
-				seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 1, 1],
-				validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
-			},
-		};
-		let statement_distribution_message =
-			protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest);
-		let msg = protocol_v3::ValidationProtocol::StatementDistribution(
-			statement_distribution_message.clone(),
-		);
-
-		network_handle
-			.peer_message(
-				peer,
-				PeerSet::Validation,
-				WireMessage::ProtocolMessage(msg.clone()).encode(),
-			)
-			.await;
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::StatementDistribution(
-				StatementDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::V3(m))
-				)
-			) => {
-				assert_eq!(p, peer);
-				assert_eq!(m, statement_distribution_message);
+				assert_eq!(m, collator_protocol_message);
 			}
 		);
 

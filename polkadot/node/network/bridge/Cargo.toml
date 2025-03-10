@@ -31,7 +31,6 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-bitvec = { features = ["alloc"], workspace = true }
 futures-timer = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }

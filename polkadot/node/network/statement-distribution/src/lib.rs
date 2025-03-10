@@ -24,13 +24,12 @@
 use error::FatalResult;
 use std::time::Duration;
 
-use polkadot_node_network_protocol::{
-	request_response::{v2::AttestedCandidateRequest, IncomingRequestReceiver},
-	Versioned,
+use polkadot_node_network_protocol::request_response::{
+	v2::AttestedCandidateRequest, IncomingRequestReceiver,
 };
 use polkadot_node_subsystem::{
-	messages::{NetworkBridgeEvent, StatementDistributionMessage},
-	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+	messages::StatementDistributionMessage, overseer, ActiveLeavesUpdate, FromOrchestra,
+	OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL};
 
@@ -252,49 +251,14 @@ impl StatementDistributionSubsystem {
 					.await?;
 				},
 				StatementDistributionMessage::NetworkBridgeUpdate(event) => {
-					// pass all events to all protocols except for messages,
-					// which are filtered.
-					enum VersionTarget {
-						None,
-						Current,
-						All,
-					}
-
-					impl VersionTarget {
-						fn targets_current(&self) -> bool {
-							match self {
-								&VersionTarget::Current | &VersionTarget::All => true,
-								_ => false,
-							}
-						}
-					}
-
-					let target = match &event {
-						NetworkBridgeEvent::PeerMessage(peer_id, message) => match message {
-							Versioned::V3(_) => VersionTarget::Current,
-							_ => {
-								gum::warn!(
-									target: LOG_TARGET,
-									peer_id = %peer_id,
-									"Received statement distribution message with unsupported protocol version",
-								);
-								VersionTarget::None
-							},
-						},
-						_ => VersionTarget::All,
-					};
-
-					if target.targets_current() {
-						// pass to v2.
-						v2::handle_network_update(
-							ctx,
-							state,
-							event,
-							&mut self.reputation,
-							&self.metrics,
-						)
-						.await;
-					}
+					v2::handle_network_update(
+						ctx,
+						state,
+						event,
+						&mut self.reputation,
+						&self.metrics,
+					)
+					.await;
 				},
 				StatementDistributionMessage::Backed(candidate_hash) => {
 					crate::v2::handle_backed_candidate_message(

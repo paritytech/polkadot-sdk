@@ -532,6 +532,9 @@ mod tests {
 			Some((PeerSet::Validation, TestVersion(3).into())),
 		);
 
+		let validation_legacy = "/polkadot/validation/1";
+		assert!(protocol_names.try_get_protocol(&validation_legacy.into()).is_none());
+
 		let collation_main =
 			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/collation/1";
 		assert_eq!(
