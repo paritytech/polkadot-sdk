@@ -371,12 +371,11 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 }
 
 impl<C> VersionedXcm<C> {
-	/// Checks that the XCM is decodable. Consequently, it checks all decode implementations and
-	/// limits, such as `MAX_XCM_DECODE_DEPTH`, `MAX_ITEMS_IN_ASSETS` or
-	/// `MAX_INSTRUCTIONS_TO_DECODE`.
+	/// Checks if the XCM is decodable. Consequently, it checks all decoding constraints,
+	/// such as `MAX_XCM_DECODE_DEPTH`, `MAX_ITEMS_IN_ASSETS` or `MAX_INSTRUCTIONS_TO_DECODE`.
 	///
 	/// Note that this uses the limit of the sender - not the receiver. It is a best effort.
-	pub fn validate_xcm_decoding(&self) -> Result<(), ()> {
+	pub fn check_is_decodable(&self) -> Result<(), ()> {
 		self.using_encoded(|mut enc| Self::decode_all(&mut enc).map(|_| ()))
 			.map_err(|e| {
 				log::error!(target: "xcm::validate_xcm_decoding", "Decode error: {e:?} for xcm: {self:?}!");
@@ -638,7 +637,7 @@ fn size_limits() {
 }
 
 #[test]
-fn validate_xcm_decoding_works() {
+fn check_is_decodable_works() {
 	use crate::{
 		latest::{
 			prelude::{GeneralIndex, ReserveAssetDeposited, SetAppendix},
@@ -670,46 +669,46 @@ fn validate_xcm_decoding_works() {
 		ReserveAssetDeposited(assets(1));
 		(MAX_INSTRUCTIONS_TO_DECODE - 1) as usize
 	]))
-	.validate_xcm_decoding()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![
 		ReserveAssetDeposited(assets(1));
 		MAX_INSTRUCTIONS_TO_DECODE as usize
 	]))
-	.validate_xcm_decoding()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![
 		ReserveAssetDeposited(assets(1));
 		(MAX_INSTRUCTIONS_TO_DECODE + 1) as usize
 	]))
-	.validate_xcm_decoding()
+	.check_is_decodable()
 	.is_err());
 
 	// `MAX_XCM_DECODE_DEPTH` check
 	assert!(VersionedXcm::<()>::from(with_instr(MAX_XCM_DECODE_DEPTH - 1))
-		.validate_xcm_decoding()
+		.check_is_decodable()
 		.is_ok());
 	assert!(VersionedXcm::<()>::from(with_instr(MAX_XCM_DECODE_DEPTH))
-		.validate_xcm_decoding()
+		.check_is_decodable()
 		.is_ok());
 	assert!(VersionedXcm::<()>::from(with_instr(MAX_XCM_DECODE_DEPTH + 1))
-		.validate_xcm_decoding()
+		.check_is_decodable()
 		.is_err());
 
 	// `MAX_ITEMS_IN_ASSETS` check
 	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS
 	))]))
-	.validate_xcm_decoding()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS - 1
 	))]))
-	.validate_xcm_decoding()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS + 1
 	))]))
-	.validate_xcm_decoding()
+	.check_is_decodable()
 	.is_err());
 }

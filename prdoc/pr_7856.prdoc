@@ -8,7 +8,7 @@ doc:
     description: |
       This PR adjusts the XCM decoding logic in order to use `decode_with_depth_limit()` consistently for `VersionedXcm`
       and to deduplicate the logic used for decoding `v3::Xcm`, `v4::Xcm` and `v5::Xcm`.
-      Also `VersionedXcm::validate_xcm_nesting()` is renamed to `VersionedXcm::validate_xcm_decoding()`.
+      Also `VersionedXcm::validate_xcm_nesting()` is renamed to `VersionedXcm::check_is_decodable()`.
 
 crates:
   - name: staging-xcm

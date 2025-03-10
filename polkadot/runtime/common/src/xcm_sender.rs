@@ -122,7 +122,7 @@ where
 		let para = id.into();
 		let price = P::price_for_delivery(para, &xcm);
 		let versioned_xcm = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?;
-		versioned_xcm.validate_xcm_decoding().map_err(|()| ExceedsMaxMessageSize)?;
+		versioned_xcm.check_is_decodable().map_err(|()| ExceedsMaxMessageSize)?;
 		let blob = versioned_xcm.encode();
 		dmp::Pallet::<T>::can_queue_downward_message(&config, &para, &blob)
 			.map_err(Into::<SendError>::into)?;
