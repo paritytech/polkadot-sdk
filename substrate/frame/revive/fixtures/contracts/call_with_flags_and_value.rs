@@ -18,6 +18,7 @@
 //! This fixture calls the account_id with the flags and value.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
 use uapi::{input, u256_bytes, HostFn, HostFnImpl as api};
 

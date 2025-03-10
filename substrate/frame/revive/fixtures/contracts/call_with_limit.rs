@@ -19,6 +19,7 @@
 //! It returns the result of the call as output data.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
 use uapi::{input, HostFn, HostFnImpl as api};
 

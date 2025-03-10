@@ -18,6 +18,7 @@
 // This fixture tests if read-only call works as expected.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
 use uapi::{input, HostFn, HostFnImpl as api};
 

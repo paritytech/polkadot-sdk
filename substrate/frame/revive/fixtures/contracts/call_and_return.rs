@@ -18,6 +18,7 @@
 //! This calls another contract as passed as its account id.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
 use uapi::{input, u256_bytes, HostFn, HostFnImpl as api, ReturnErrorCode, ReturnFlags};
 

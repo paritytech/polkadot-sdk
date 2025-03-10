@@ -26,16 +26,6 @@ mod macros;
 
 pub use host::{HostFn, HostFnImpl};
 
-#[cfg(feature = "fixtures")]
-#[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-	// Safety: The unimp instruction is guaranteed to trap
-	unsafe {
-		core::arch::asm!("unimp");
-		core::hint::unreachable_unchecked();
-	}
-}
-
 /// Convert a u64 into a [u8; 32].
 pub const fn u256_bytes(value: u64) -> [u8; 32] {
 	let mut buffer = [0u8; 32];

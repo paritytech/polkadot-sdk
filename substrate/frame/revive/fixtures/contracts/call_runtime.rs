@@ -18,9 +18,9 @@
 //! This passes its input to `call_runtime` and returns the return value to its caller.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use uapi::input;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

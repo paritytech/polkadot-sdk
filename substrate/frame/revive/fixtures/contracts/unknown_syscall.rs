@@ -16,8 +16,7 @@
 // limitations under the License.
 #![no_std]
 #![no_main]
-
-extern crate uapi;
+include!("../panic_handler.rs");
 
 #[polkavm_derive::polkavm_import]
 extern "C" {

@@ -16,6 +16,7 @@
 // limitations under the License.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
 use uapi::{input, HostFn};
 

@@ -17,6 +17,7 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
 use uapi::{u256_bytes, HostFn, HostFnImpl as api};
 

@@ -19,6 +19,7 @@
 //! versions of the storage APIs.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
 use uapi::{unwrap_output, HostFn, HostFnImpl as api, StorageFlags};
 

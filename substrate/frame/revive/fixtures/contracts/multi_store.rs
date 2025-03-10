@@ -18,6 +18,7 @@
 //! Does two stores to two separate storage items
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
 use uapi::{input, HostFn, HostFnImpl as api, StorageFlags};
 

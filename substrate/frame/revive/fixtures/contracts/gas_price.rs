@@ -19,6 +19,7 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
