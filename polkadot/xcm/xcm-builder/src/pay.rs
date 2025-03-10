@@ -106,7 +106,8 @@ impl<
 		let beneficiary = BeneficiaryRefToLocation::try_convert(&who)
 			.map_err(|_| xcm::latest::Error::InvalidLocation)?;
 
-		let query_id = Querier::new_query(asset_location.clone(), None, Timeout::get(), Interior::get());
+		let query_id =
+			Querier::new_query(asset_location.clone(), None, Timeout::get(), Interior::get());
 
 		let message = Xcm(vec![
 			DescendOrigin(Interior::get()),

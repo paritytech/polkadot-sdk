@@ -620,7 +620,12 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn new_query(responder: &[u8], maybe_notify: &[u8], timeout: &[u8], output: &mut [u8; 32]) -> Result {
+	fn new_query(
+		responder: &[u8],
+		maybe_notify: &[u8],
+		timeout: &[u8],
+		output: &mut [u8; 32],
+	) -> Result {
 		let ret_code = unsafe {
 			sys::new_query(
 				responder.as_ptr(),

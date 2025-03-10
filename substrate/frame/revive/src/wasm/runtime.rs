@@ -595,8 +595,9 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 				log::error!(target: LOG_TARGET, "polkavm execution error: {error}");
 				Some(Err(Error::<E::T>::ExecutionFailed.into()))
 			},
-			Ok(Finished) =>
-				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
+			Ok(Finished) => {
+				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }))
+			},
 			Ok(Trap) => Some(Err(Error::<E::T>::ContractTrapped.into())),
 			Ok(Segfault(_)) => Some(Err(Error::<E::T>::ExecutionFailed.into())),
 			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
@@ -610,7 +611,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 					return Some(Ok(ExecReturnValue {
 						flags: ReturnFlags::empty(),
 						data: Vec::new(),
-					}))
+					}));
 				}
 				let Some(syscall_symbol) = module.imports().get(idx) else {
 					return Some(Err(<Error<E::T>>::InvalidSyscall.into()));
@@ -621,11 +622,12 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 						instance.write_output(return_value);
 						None
 					},
-					Err(TrapReason::Return(ReturnData { flags, data })) =>
+					Err(TrapReason::Return(ReturnData { flags, data })) => {
 						match ReturnFlags::from_bits(flags) {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
-						},
+						}
+					},
 					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
@@ -1807,8 +1809,9 @@ pub mod env {
 			Environment::new(self, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
 		let ret = match chain_extension.call(env)? {
 			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } =>
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
+			RetVal::Diverging { flags, data } => {
+				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data }))
+			},
 		};
 		self.chain_extension = Some(chain_extension);
 		ret
@@ -2132,7 +2135,7 @@ pub mod env {
 		}
 	}
 
-	/// Create a new query 
+	/// Create a new query
 	/// See [`pallet_revive_uapi::HostFn::new_query`].
 	#[mutating]
 	fn new_query(
@@ -2145,9 +2148,9 @@ pub mod env {
 		timeout_ptr: u32,
 		output_ptr: u32,
 	) -> Result<(), TrapReason> {
-		use xcm_builder::QueryHandler;
 		use xcm::v5::{Junction, Location};
-		
+		use xcm_builder::QueryHandler;
+
 		self.charge_gas(RuntimeCosts::CopyFromContract(responder_len))?;
 		let responder: Location = memory.read_as_unbounded(responder_ptr, responder_len)?;
 
@@ -2161,28 +2164,20 @@ pub mod env {
 
 		let timeout_u256 = memory.read_u256(timeout_ptr)?;
 		let timeout = <<E::T as Config>::Xcm as QueryHandler>::BlockNumber::try_from(timeout_u256)
-    		.map_err(|_err| Error::<E::T>::DecodingFailed)?;
+			.map_err(|_err| Error::<E::T>::DecodingFailed)?;
 
-		let account_bytes: [u8; 32] = self.ext.account_id().using_encoded(|b| {
-			b.try_into().expect("AccountId must be 32 bytes; qed")
-		});
-		
-		// TODO: Convert AccountId to a Location (Q: [pallet_instance: pallet_revive_id, accountid20: h160_address)] ?)
-		let querier = Location::new(
-			0,
-			[Junction::AccountId32 {
-				network: None,
-				id: account_bytes,
-			}],
-		);
-		
+		let account_bytes: [u8; 32] = self
+			.ext
+			.account_id()
+			.using_encoded(|b| b.try_into().expect("AccountId must be 32 bytes; qed"));
+
+		// TODO: Convert AccountId to a Location (Q: [pallet_instance: pallet_revive_id, AccountId20: h160_address)] ?)
+		let querier =
+			Location::new(0, [Junction::AccountId32 { network: None, id: account_bytes }]);
+
 		// TODO: Charge weight for the `new_query` call
-		let query_id = <<E::T as Config>::Xcm>::new_query(
-			responder,
-			maybe_notify,
-			timeout,
-			querier,
-		);
+		let query_id =
+			<<E::T as Config>::Xcm>::new_query(responder, maybe_notify, timeout, querier);
 
 		Ok(self.write_fixed_sandbox_output(
 			memory,
