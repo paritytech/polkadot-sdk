@@ -14,7 +14,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn register_token() -> Result<(), BenchmarkError> {
-		let origin_location = Location::new(1, [Parachain(1000)]);
+		let origin_location = Location::new(1, [Parachain(1000), PalletInstance(80)]);
 		let origin = <T as Config>::Helper::make_xcm_origin(origin_location.clone());
 		let creator = Box::new(VersionedLocation::from(origin_location.clone()));
 		let relay_token_asset_id: Location = Location::parent();

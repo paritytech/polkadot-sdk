@@ -299,8 +299,12 @@ impl snowbridge_pallet_system_v2::Config for Runtime {
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
-	use crate::{EthereumBeaconClient, Runtime, RuntimeOrigin};
+	use crate::{
+		bridge_to_ethereum_config::EthereumGatewayAddress, vec, EthereumBeaconClient, Runtime,
+		RuntimeOrigin, System,
+	};
 	use codec::Encode;
+	use hex_literal::hex;
 	use snowbridge_beacon_primitives::BeaconHeader;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as BenchmarkHelperV2;
@@ -310,6 +314,14 @@ pub mod benchmark_helpers {
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
 		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
 			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+			System::set_storage(
+				RuntimeOrigin::root(),
+				vec![(
+					EthereumGatewayAddress::key().to_vec(),
+					hex!("EDa338E4dC46038493b885327842fD3E301CaB39").to_vec(),
+				)],
+			)
+			.unwrap();
 		}
 	}
 

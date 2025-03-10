@@ -8,7 +8,7 @@ use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 #[test]
 fn register_tokens_succeeds() {
 	new_test_ext(true).execute_with(|| {
-		let origin = make_xcm_origin(Location::new(1, [Parachain(1000)]));
+		let origin = make_xcm_origin(FrontendLocation::get());
 		let versioned_location: VersionedLocation = Location::parent().into();
 
 		assert_ok!(EthereumSystemV2::register_token(
@@ -121,7 +121,7 @@ fn register_all_tokens_succeeds() {
 	];
 	for tc in test_cases.iter() {
 		new_test_ext(true).execute_with(|| {
-			let origin = make_xcm_origin(Location::new(1, [Parachain(1000)]));
+			let origin = make_xcm_origin(FrontendLocation::get());
 			let versioned_location: VersionedLocation = tc.native.clone().into();
 
 			assert_ok!(EthereumSystemV2::register_token(
@@ -157,7 +157,7 @@ fn register_all_tokens_succeeds() {
 #[test]
 fn register_ethereum_native_token_fails() {
 	new_test_ext(true).execute_with(|| {
-		let origin = make_xcm_origin(Location::new(1, [Parachain(1000)]));
+		let origin = make_xcm_origin(FrontendLocation::get());
 		let location = Location::new(2, [GlobalConsensus(Ethereum { chain_id: 11155111 })]);
 		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
 		assert_noop!(
