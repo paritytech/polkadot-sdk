@@ -420,7 +420,10 @@ fn recursive_xcm_execution_fail() {
 
 		assert_eq!(
 			outcome,
-			Outcome::Incomplete { used: Weight::from_parts(3000000000, 3072), error: XcmError::Barrier }
+			Outcome::Incomplete {
+				used: Weight::from_parts(3000000000, 3072),
+				error: XcmError::Barrier
+			}
 		);
 	});
 }
