@@ -759,7 +759,7 @@ impl TestNodeBuilder {
 
 		let multiaddr = parachain_config.network.listen_addresses[0].clone();
 		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
-			match relay_chain_config.network.network_backend {
+			match relay_chain_config.network.network_backend.unwrap_or_default() {
 				sc_network::config::NetworkBackendType::Libp2p =>
 					start_node_impl::<_, sc_network::NetworkWorker<_, _>>(
 						parachain_config,

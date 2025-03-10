@@ -105,7 +105,7 @@ fn main() -> Result<(), sc_cli::Error> {
 
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
-					match relay_chain_config.network.network_backend {
+					match relay_chain_config.network.network_backend.unwrap_or_default() {
 						sc_network::config::NetworkBackendType::Libp2p =>
 							cumulus_test_service::start_node_impl::<
 								_,

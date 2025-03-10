@@ -98,7 +98,7 @@ async fn build_interface(
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let collator_pair = CollatorPair::generate().0;
 	let blockchain_rpc_client = Arc::new(BlockChainRpcClient::new(client.clone()));
-	let collator_node = match polkadot_config.network.network_backend {
+	let collator_node = match polkadot_config.network.network_backend.unwrap_or_default() {
 		sc_network::config::NetworkBackendType::Libp2p =>
 			new_minimal_relay_chain::<RelayBlock, sc_network::NetworkWorker<RelayBlock, RelayHash>>(
 				polkadot_config,

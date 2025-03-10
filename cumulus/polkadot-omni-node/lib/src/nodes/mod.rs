@@ -52,7 +52,7 @@ where
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager> {
 		let node = ManualSealNode::<T>::new();
-		match config.network.network_backend {
+		match config.network.network_backend.unwrap_or_default() {
 			sc_network::config::NetworkBackendType::Libp2p =>
 				node.start_node::<sc_network::NetworkWorker<_, _>>(config, para_id, block_time),
 			sc_network::config::NetworkBackendType::Litep2p =>

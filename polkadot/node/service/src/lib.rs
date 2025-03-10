@@ -443,7 +443,15 @@ pub fn build_full<OverseerGenerator: OverseerGen>(
 			capacity
 		});
 
-	match config.network.network_backend {
+	let chain_default = if config.chain_spec.is_kusama() {
+		sc_network::config::NetworkBackendType::Litep2p
+	} else {
+		sc_network::config::NetworkBackendType::Libp2p
+	};
+	// Kusama uses `litep2p` as default if the backend is unspecified.
+	let network_backend = config.network.network_backend.unwrap_or(chain_default);
+
+	match network_backend {
 		sc_network::config::NetworkBackendType::Libp2p =>
 			new_full::<_, sc_network::NetworkWorker<Block, Hash>>(config, params),
 		sc_network::config::NetworkBackendType::Litep2p =>
