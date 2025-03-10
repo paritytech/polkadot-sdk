@@ -26,8 +26,6 @@ anyhow = { workspace = true, default-features = true }
 polkavm-linker = { version = "0.21.0" }
 toml = { workspace = true }
 pallet-revive-uapi = { workspace = true }
-# pallet-revive-fixtures-common = { workspace = true }
-
 
 [features]
 default = ["std"]
