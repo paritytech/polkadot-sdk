@@ -12,12 +12,14 @@ doc:
 
 crates:
   - name: staging-xcm
-    bump: minor
+    bump: major
   - name: staging-xcm-builder
-    bump: minor
+    bump: patch
   - name: cumulus-pallet-xcmp-queue
-    bump: minor
+    bump: patch
   - name: cumulus-primitives-utility
-    bump: minor
+    bump: patch
   - name: parachains-runtimes-test-utils
-    bump: minor
+    bump: patch
+  - name: polkadot-runtime-common
+    bump: patch
