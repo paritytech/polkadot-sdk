@@ -178,11 +178,10 @@ pub struct NetworkParams {
 		long,
 		value_enum,
 		value_name = "NETWORK_BACKEND",
-		default_value_t = NetworkBackendType::Libp2p,
 		ignore_case = true,
 		verbatim_doc_comment
 	)]
-	pub network_backend: NetworkBackendType,
+	pub network_backend: Option<NetworkBackendType>,
 }
 
 impl NetworkParams {
@@ -246,6 +245,18 @@ impl NetworkParams {
 				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development),
 		};
 
+		// `IdentifyVariant` trait is defined in polkadot, however we need this bit of information
+		// in the network configuration.
+		let is_kusama = chain_spec.id().starts_with("kusama") || chain_spec.id().starts_with("ksm");
+
+		// If the network backend was specified, nothing is changed.
+		// Kusama defaults to litep2p, while other chains to libp2p.
+		let network_backend = if is_kusama {
+			self.network_backend.unwrap_or(NetworkBackendType::Litep2p)
+		} else {
+			self.network_backend.unwrap_or(NetworkBackendType::Libp2p)
+		};
+
 		NetworkConfiguration {
 			boot_nodes,
 			net_config_path,
@@ -277,7 +288,7 @@ impl NetworkParams {
 			kademlia_replication_factor: self.kademlia_replication_factor,
 			ipfs_server: self.ipfs_server,
 			sync_mode: self.sync.into(),
-			network_backend: self.network_backend.into(),
+			network_backend: network_backend.into(),
 		}
 	}
 }
