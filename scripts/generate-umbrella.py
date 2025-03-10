@@ -119,9 +119,10 @@ def main(path, version):
 		"tuples-96": [],
 	}
 
-	excluded_features = [
+	SKIP_FEATURES = [
 		"default",
 		"std",
+		"no_std",
 		"runtime-benchmarks",
 		"try-runtime",
 		"serde",
@@ -130,18 +131,23 @@ def main(path, version):
 		"tuples-96",
 		"tuples-128",
 	]
+	SKIP_PATTERNS = ["bench", "fuzz", "rococo", "test"]
 
+	should_skip = lambda feature: feature in SKIP_FEATURES or any(
+		pattern in feature for pattern in SKIP_PATTERNS
+	)
+
+	# Add features <DEP-NAME>_<DEP-FEATURE> to enable specific feature of dependency
 	for dep, _ in all_crates:
 		dep_path = os.path.dirname(dep.abs_path)
 		manifest_path = os.path.join(dep_path, "Cargo.toml")
 		with open(manifest_path, "r") as f:
 			manifest = toml.load(f)
-			if "features" in manifest:
-				dep_features = manifest["features"]
-				for feature_name in dep_features:
-					if feature_name not in excluded_features:
-						dep_feature_pair = f"{dep.name}_{feature_name}"
-						features[dep_feature_pair] = [f"{dep.name}?/{feature_name}"]
+			for feature in manifest.get("features", {}):
+				if should_skip(feature):
+					continue
+				dep_feature_pair = f"{dep.name}_{feature}"
+				features[dep_feature_pair] = [f"{dep.name}?/{feature}"]
 
 	manifest = {
 		"package": {
