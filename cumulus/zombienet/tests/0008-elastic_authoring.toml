@@ -9,7 +9,7 @@ num_cores = 4
 max_approval_coalesce_count = 5
 
 [relaychain]
-default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
+default_image = "{{RELAY_IMAGE}}"
 chain = "rococo-local"
 command = "polkadot"
 
