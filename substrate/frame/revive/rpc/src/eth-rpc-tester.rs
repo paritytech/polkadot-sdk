@@ -30,9 +30,15 @@ const DOCKER_CONTAINER_NAME: &str = "eth-rpc-test";
 #[derive(Parser, Debug)]
 #[clap(author, about, version)]
 pub struct CliCommand {
+	/// The eth-rpc url to connect to
+	#[clap(long, default_value = "http://127.0.0.1:8545")]
+	pub rpc_url: String,
+
 	/// The parity docker image e.g eth-rpc:master-fb2e414f
-	#[clap(long, default_value = "eth-rpc:master-fb2e414f")]
-	docker_image: String,
+	/// When not specified, no eth-rpc docker image is started
+	/// and the test runs against the provided `rpc_url` directly.
+	#[clap(long)]
+	docker_image: Option<String>,
 
 	/// The docker binary
 	/// Either docker or podman
@@ -42,7 +48,12 @@ pub struct CliCommand {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	let CliCommand { docker_bin, docker_image, .. } = CliCommand::parse();
+	let CliCommand { docker_bin, rpc_url, docker_image, .. } = CliCommand::parse();
+
+	let Some(docker_image) = docker_image else {
+		println!("Docker image not specified, using: {rpc_url:?}");
+		return test_eth_rpc(&rpc_url).await;
+	};
 
 	let mut docker_process = start_docker(&docker_bin, &docker_image)?;
 	let stderr = docker_process.stderr.take().unwrap();
@@ -54,7 +65,7 @@ async fn main() -> anyhow::Result<()> {
 		_ = interrupt() => {
 			kill_docker().await?;
 		}
-		_ = test_eth_rpc(stderr) => {
+		_ = wait_and_test_eth_rpc(stderr, &rpc_url) => {
 			kill_docker().await?;
 		}
 	}
@@ -101,7 +112,7 @@ async fn kill_docker() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
+async fn wait_and_test_eth_rpc(stderr: ChildStderr, rpc_url: &str) -> anyhow::Result<()> {
 	let mut reader = BufReader::new(stderr).lines();
 	while let Some(line) = reader.next_line().await? {
 		println!("{line}");
@@ -110,6 +121,10 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 		}
 	}
 
+	test_eth_rpc(rpc_url).await
+}
+
+async fn test_eth_rpc(rpc_url: &str) -> anyhow::Result<()> {
 	let account = Account::default();
 	let data = vec![];
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
@@ -117,7 +132,8 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 
 	println!("Account:");
 	println!("- address: {:?}", account.address());
-	let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
+	println!("- substrate address: {}", account.substrate_account());
+	let client = Arc::new(HttpClientBuilder::default().build(rpc_url)?);
 
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
 	let balance = client.get_balance(account.address(), BlockTag::Latest.into()).await?;
@@ -136,8 +152,8 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 	println!("\nReceipt:");
 	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{:?}", tx.hash());
 	println!("- Block number: {block_number}");
-	println!("- Gas used: {gas_used}");
-	println!("- Address: {contract_address:?}");
+	println!("- Gas used:     {gas_used}");
+	println!("- Address:      {contract_address:?}");
 
 	println!("\n\n=== Calling dummy contract ===\n\n");
 	let tx = TransactionBuilder::new(&client).to(contract_address).send().await?;
@@ -149,7 +165,7 @@ async fn test_eth_rpc(stderr: ChildStderr) -> anyhow::Result<()> {
 	println!("\nReceipt:");
 	println!("Block explorer: https://westend-asset-hub-eth-explorer.parity.io/{:?}", tx.hash());
 	println!("- Block number: {block_number}");
-	println!("- Gas used: {gas_used}");
-	println!("- To: {to:?}");
+	println!("- Gas used:     {gas_used}");
+	println!("- To:           {to:?}");
 	Ok(())
 }

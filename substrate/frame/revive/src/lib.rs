@@ -27,6 +27,7 @@ mod exec;
 mod gas;
 mod limits;
 mod primitives;
+mod pure_precompiles;
 mod storage;
 mod transient_storage;
 mod wasm;
@@ -41,7 +42,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	evm::{runtime::GAS_PRICE, GasEncoder, GenericTransaction},
+	evm::{runtime::GAS_PRICE, CallTrace, GasEncoder, GenericTransaction, TracerConfig},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -74,7 +75,7 @@ use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
-	DispatchError,
+	AccountId32, DispatchError,
 };
 
 pub use crate::{
@@ -492,6 +493,8 @@ pub mod pallet {
 		InvalidGenericTransaction,
 		/// The refcount of a code either over or underflowed.
 		RefcountOverOrUnderflow,
+		/// Unsupported precompile address
+		UnsupportedPrecompileAddress,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -501,7 +504,7 @@ pub mod pallet {
 		CodeUploadDepositReserve,
 		/// The Pallet has reserved it for storage deposit.
 		StorageDepositReserve,
-		/// Deposit for creating an address mapping in [`AddressSuffix`].
+		/// Deposit for creating an address mapping in [`OriginalAccount`].
 		AddressMapping,
 	}
 
@@ -536,11 +539,12 @@ pub mod pallet {
 
 	/// Map a Ethereum address to its original `AccountId32`.
 	///
-	/// Stores the last 12 byte for addresses that were originally an `AccountId32` instead
-	/// of an `H160`. Register your `AccountId32` using [`Pallet::map_account`] in order to
+	/// When deriving a `H160` from an `AccountId32` we use a hash function. In order to
+	/// reconstruct the original account we need to store the reverse mapping here.
+	/// Register your `AccountId32` using [`Pallet::map_account`] in order to
 	/// use it with this pallet.
 	#[pallet::storage]
-	pub(crate) type AddressSuffix<T: Config> = StorageMap<_, Identity, H160, [u8; 12]>;
+	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -654,6 +658,7 @@ pub mod pallet {
 					num_topic: 0,
 					len: max_payload_size,
 				})
+				.saturating_add(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::HostFn))
 				.ref_time()))
 			.saturating_mul(max_payload_size as u64))
 			.try_into()
@@ -723,7 +728,6 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			log::info!(target: LOG_TARGET, "Call: {:?} {:?} {:?}", dest, value, data);
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1018,7 +1022,7 @@ where
 			storage_deposit = storage_meter
 				.try_into_deposit(&origin, storage_deposit_limit.is_unchecked())
 				.inspect_err(|err| {
-					log::error!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
+					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
 				})?;
 			Ok(result)
 		};
@@ -1155,7 +1159,7 @@ where
 			Err(_) => return Err(EthTransactError::Message("Failed to convert value".into())),
 		};
 
-		let input = tx.input.clone().unwrap_or_default().0;
+		let input = tx.input.clone().to_vec();
 
 		let extract_error = |err| {
 			if err == Error::<T>::TransferFailed.into() ||
@@ -1328,6 +1332,12 @@ where
 		Self::convert_evm_to_native(fee, ConversionPrecision::RoundUp)
 	}
 
+	/// Convert a weight to a gas value.
+	pub fn evm_gas_from_weight(weight: Weight) -> U256 {
+		let fee = T::WeightPrice::convert(weight);
+		Self::evm_fee_to_gas(fee)
+	}
+
 	/// Get the block gas limit.
 	pub fn evm_block_gas_limit() -> U256 {
 		let max_block_weight = T::BlockWeights::get()
@@ -1335,8 +1345,7 @@ where
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		let fee = T::WeightPrice::convert(max_block_weight);
-		Self::evm_fee_to_gas(fee)
+		Self::evm_gas_from_weight(max_block_weight)
 	}
 
 	/// Get the gas price.
@@ -1509,5 +1518,35 @@ sp_api::decl_runtime_apis! {
 			address: H160,
 			key: [u8; 32],
 		) -> GetStorageResult;
+
+
+		/// Traces the execution of an entire block and returns call traces.
+		///
+		/// This is intended to be called through `state_call` to replay the block from the
+		/// parent block.
+		///
+		/// See eth-rpc `debug_traceBlockByNumber` for usage.
+		fn trace_block(
+			block: Block,
+			config: TracerConfig
+		) -> Vec<(u32, CallTrace)>;
+
+		/// Traces the execution of a specific transaction within a block.
+		///
+		/// This is intended to be called through `state_call` to replay the block from the
+		/// parent hash up to the transaction.
+		///
+		/// See eth-rpc `debug_traceTransaction` for usage.
+		fn trace_tx(
+			block: Block,
+			tx_index: u32,
+			config: TracerConfig
+		) -> Option<CallTrace>;
+
+		/// Dry run and return the trace of the given call.
+		///
+		/// See eth-rpc `debug_traceCall` for usage.
+		fn trace_call(tx: GenericTransaction, config: TracerConfig) -> Result<CallTrace, EthTransactError>;
+
 	}
 }

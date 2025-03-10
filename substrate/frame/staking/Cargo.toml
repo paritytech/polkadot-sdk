@@ -27,16 +27,18 @@ pallet-authorship = { workspace = true }
 pallet-session = { features = [
 	"historical",
 ], workspace = true }
+rand = { features = ["alloc"], workspace = true }
+rand_chacha = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
+sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
-rand_chacha = { optional = true, workspace = true }
 
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
@@ -47,7 +49,6 @@ pallet-balances = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 sp-npos-elections = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
@@ -66,9 +67,12 @@ std = [
 	"pallet-balances/std",
 	"pallet-session/std",
 	"pallet-timestamp/std",
+	"rand/std",
+	"rand_chacha/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-application-crypto/std",
+	"sp-core/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-npos-elections/std",
@@ -84,7 +88,6 @@ runtime-benchmarks = [
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]

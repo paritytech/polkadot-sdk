@@ -44,11 +44,8 @@ pub use receipt_provider::*;
 mod receipt_extractor;
 pub use receipt_extractor::*;
 
-mod rpc_health;
-pub use rpc_health::*;
-
-mod rpc_methods_gen;
-pub use rpc_methods_gen::*;
+mod apis;
+pub use apis::*;
 
 pub const LOG_TARGET: &str = "eth-rpc";
 
@@ -251,10 +248,10 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_block_by_number(
 		&self,
-		block: BlockNumberOrTag,
+		block_number: BlockNumberOrTag,
 		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
-		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
+		let Some(block) = self.client.block_by_number_or_tag(&block_number).await? else {
 			return Ok(None);
 		};
 		let block = self.client.evm_block(block, hydrated_transactions).await;
@@ -285,6 +282,11 @@ impl EthRpcServer for EthRpcServerImpl {
 		};
 
 		Ok(self.client.receipts_count_per_block(&block.hash).await.map(U256::from))
+	}
+
+	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults> {
+		let logs = self.client.logs(filter).await?;
+		Ok(FilterResults::Logs(logs))
 	}
 
 	async fn get_storage_at(
@@ -349,5 +351,12 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<U256> {
 		let nonce = self.client.nonce(address, block).await?;
 		Ok(nonce)
+	}
+
+	async fn web3_client_version(&self) -> RpcResult<String> {
+		let git_revision = env!("GIT_REVISION");
+		let rustc_version = env!("RUSTC_VERSION");
+		let target = env!("TARGET");
+		Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
 	}
 }

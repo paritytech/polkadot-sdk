@@ -316,23 +316,16 @@ where
 			})?;
 		{
 			let common = self.mut_base().mut_common();
-			crate::messages::metrics::add_relay_balances_metrics::<
-				_,
-				Self::Right,
-				MessagesLaneIdOf<Self::L2R>,
-			>(
-				common.left.client.clone(), &common.metrics_params, &common.left.accounts, &lanes_l2r
+			crate::messages::metrics::add_relay_balances_metrics::<_>(
+				common.left.client.clone(),
+				&common.metrics_params,
+				&common.left.accounts,
 			)
 			.await?;
-			crate::messages::metrics::add_relay_balances_metrics::<
-				_,
-				Self::Left,
-				MessagesLaneIdOf<Self::R2L>,
-			>(
+			crate::messages::metrics::add_relay_balances_metrics::<_>(
 				common.right.client.clone(),
 				&common.metrics_params,
 				&common.right.accounts,
-				&lanes_r2l,
 			)
 			.await?;
 		}
@@ -422,30 +415,22 @@ mod tests {
 
 		let res = BridgeHubKusamaBridgeHubPolkadotHeadersAndMessages::from_iter(vec![
 			"bridge-hub-kusama-bridge-hub-polkadot-headers-and-messages",
-			"--bridge-hub-kusama-host",
-			"bridge-hub-kusama-node-collator1",
-			"--bridge-hub-kusama-port",
-			"9944",
+			"--bridge-hub-kusama-uri",
+			"ws://bridge-hub-kusama-node-collator1:9944",
 			"--bridge-hub-kusama-signer",
 			"//Iden",
 			"--bridge-hub-kusama-transactions-mortality",
 			"64",
-			"--kusama-host",
-			"kusama-alice",
-			"--kusama-port",
-			"9944",
-			"--bridge-hub-polkadot-host",
-			"bridge-hub-polkadot-collator1",
-			"--bridge-hub-polkadot-port",
-			"9944",
+			"--kusama-uri",
+			"ws://kusama-alice:9944",
+			"--bridge-hub-polkadot-uri",
+			"ws://bridge-hub-polkadot-collator1:9944",
 			"--bridge-hub-polkadot-signer",
 			"//George",
 			"--bridge-hub-polkadot-transactions-mortality",
 			"64",
-			"--polkadot-host",
-			"polkadot-alice",
-			"--polkadot-port",
-			"9944",
+			"--polkadot-uri",
+			"ws://polkadot-alice:9944",
 			"--lane",
 			"0000000000000000000000000000000000000000000000000000000000000000",
 			"--prometheus-host",
@@ -467,11 +452,7 @@ mod tests {
 					},
 				},
 				left: BridgeHubKusamaConnectionParams {
-					bridge_hub_kusama_uri: None,
-					bridge_hub_kusama_host: "bridge-hub-kusama-node-collator1".into(),
-					bridge_hub_kusama_port: 9944,
-					bridge_hub_kusama_path: None,
-					bridge_hub_kusama_secure: false,
+					bridge_hub_kusama_uri: "ws://bridge-hub-kusama-node-collator1:9944".into(),
 					bridge_hub_kusama_runtime_version: BridgeHubKusamaRuntimeVersionParams {
 						bridge_hub_kusama_version_mode: RuntimeVersionType::Bundle,
 						bridge_hub_kusama_spec_version: None,
@@ -486,11 +467,7 @@ mod tests {
 					bridge_hub_kusama_transactions_mortality: Some(64),
 				},
 				left_relay: KusamaConnectionParams {
-					kusama_uri: None,
-					kusama_host: "kusama-alice".into(),
-					kusama_port: 9944,
-					kusama_path: None,
-					kusama_secure: false,
+					kusama_uri: "ws://kusama-alice:9944".into(),
 					kusama_runtime_version: KusamaRuntimeVersionParams {
 						kusama_version_mode: RuntimeVersionType::Bundle,
 						kusama_spec_version: None,
@@ -498,11 +475,7 @@ mod tests {
 					},
 				},
 				right: BridgeHubPolkadotConnectionParams {
-					bridge_hub_polkadot_uri: None,
-					bridge_hub_polkadot_host: "bridge-hub-polkadot-collator1".into(),
-					bridge_hub_polkadot_port: 9944,
-					bridge_hub_polkadot_path: None,
-					bridge_hub_polkadot_secure: false,
+					bridge_hub_polkadot_uri: "ws://bridge-hub-polkadot-collator1:9944".into(),
 					bridge_hub_polkadot_runtime_version: BridgeHubPolkadotRuntimeVersionParams {
 						bridge_hub_polkadot_version_mode: RuntimeVersionType::Bundle,
 						bridge_hub_polkadot_spec_version: None,
@@ -517,11 +490,7 @@ mod tests {
 					bridge_hub_polkadot_transactions_mortality: Some(64),
 				},
 				right_relay: PolkadotConnectionParams {
-					polkadot_uri: None,
-					polkadot_host: "polkadot-alice".into(),
-					polkadot_port: 9944,
-					polkadot_path: None,
-					polkadot_secure: false,
+					polkadot_uri: "ws://polkadot-alice:9944".into(),
 					polkadot_runtime_version: PolkadotRuntimeVersionParams {
 						polkadot_version_mode: RuntimeVersionType::Bundle,
 						polkadot_spec_version: None,

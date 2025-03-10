@@ -133,11 +133,6 @@ mod sys {
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
 		pub fn call_runtime(call_ptr: *const u8, call_len: u32) -> ReturnCode;
-		pub fn ecdsa_recover(
-			signature_ptr: *const u8,
-			message_hash_ptr: *const u8,
-			out_ptr: *mut u8,
-		) -> ReturnCode;
 		pub fn sr25519_verify(
 			signature_ptr: *const u8,
 			pub_key_ptr: *const u8,
@@ -507,18 +502,6 @@ impl HostFn for HostFnImpl {
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
 		let ret_code =
 			unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn ecdsa_recover(
-		signature: &[u8; 65],
-		message_hash: &[u8; 32],
-		output: &mut [u8; 33],
-	) -> Result {
-		let ret_code = unsafe {
-			sys::ecdsa_recover(signature.as_ptr(), message_hash.as_ptr(), output.as_mut_ptr())
-		};
 		ret_code.into()
 	}
 

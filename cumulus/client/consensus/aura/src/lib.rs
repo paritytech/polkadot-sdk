@@ -23,13 +23,15 @@
 //!
 //! For more information about AuRa, the Substrate crate should be checked.
 
-use codec::Codec;
+use codec::{Codec, Encode};
 use cumulus_client_consensus_common::{
 	ParachainBlockImportMarker, ParachainCandidate, ParachainConsensus,
 };
 use cumulus_primitives_core::{relay_chain::Hash as PHash, PersistedValidationData};
 
+use cumulus_primitives_core::relay_chain::HeadData;
 use futures::lock::Mutex;
+use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash};
 use sc_client_api::{backend::AuxStore, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SlotInfo};
@@ -45,7 +47,10 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
 use std::{
 	convert::TryFrom,
+	fs,
+	fs::File,
 	marker::PhantomData,
+	path::PathBuf,
 	sync::{
 		atomic::{AtomicU64, Ordering},
 		Arc,
@@ -55,6 +60,7 @@ use std::{
 mod import_queue;
 
 pub use import_queue::{build_verifier, import_queue, BuildVerifierParams, ImportQueueParams};
+use polkadot_node_primitives::PoV;
 pub use sc_consensus_aura::{
 	slot_duration, standalone::slot_duration_at, AuraVerifier, BuildAuraWorkerParams,
 	SlotProportion,
@@ -251,4 +257,38 @@ where
 
 		Some(ParachainCandidate { block: res.block, proof: res.storage_proof })
 	}
+}
+
+/// Export the given `pov` to the file system at `path`.
+///
+/// The file will be named `block_hash_block_number.pov`.
+///
+/// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
+/// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
+pub(crate) fn export_pov_to_path<Block: BlockT>(
+	path: PathBuf,
+	pov: PoV,
+	block_hash: Block::Hash,
+	block_number: NumberFor<Block>,
+	parent_header: Block::Header,
+	relay_parent_storage_root: RHash,
+	relay_parent_number: RBlockNumber,
+) {
+	if let Err(error) = fs::create_dir_all(&path) {
+		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
+		return
+	}
+
+	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
+		Ok(f) => f,
+		Err(error) => {
+			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
+			return
+		},
+	};
+
+	pov.encode_to(&mut file);
+	HeadData(parent_header.encode()).encode_to(&mut file);
+	relay_parent_storage_root.encode_to(&mut file);
+	relay_parent_number.encode_to(&mut file);
 }

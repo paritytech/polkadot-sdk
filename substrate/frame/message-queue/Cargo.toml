@@ -29,6 +29,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 
 [dev-dependencies]
+frame-support = { workspace = true, features = ["experimental"] }
 rand = { workspace = true, default-features = true }
 rand_distr = { workspace = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
