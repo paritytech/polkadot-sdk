@@ -170,7 +170,7 @@ where
 		}
 
 		let prepared_message = PreparedMessage {
-			origin: message.origin.clone(),
+			origin: message.origin,
 			claimer,
 			assets,
 			remote_xcm,

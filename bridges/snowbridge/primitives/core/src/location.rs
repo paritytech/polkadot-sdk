@@ -46,7 +46,6 @@ pub type TokenIdOf = HashedDescription<
 /// `encode` to the Vector producing a different output to DescribeTerminus. `DescribeHere`
 /// should NOT be used for new code. This is left here for backwards compatibility of channels and
 /// agents.
-#[deprecated(note = "Use DescribeTerminus from xcm-builder instead.")]
 pub struct DescribeHere;
 #[allow(deprecated)]
 impl DescribeLocation for DescribeHere {
