@@ -19,9 +19,11 @@ subxt = { workspace = true }
 subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true, features = ["time"] }
+futures = { workspace = true }
 zombienet-sdk = { workspace = true }
 pallet-revive = { workspace = true, features = ["std"] }
 asset-hub-westend-runtime = { workspace = true }
+sp-core = { workspace = true }
 
 [features]
 zombie-metadata = []
