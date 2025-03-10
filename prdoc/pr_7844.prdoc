@@ -1,9 +1,0 @@
-title: '[pallet-revive] fixture as dev dep'
-doc:
-- audience: Runtime Dev
-  description: 'Make pallet-revive-fixtures a dev dependency
-
-    '
-crates:
-- name: pallet-revive-eth-rpc
-  bump: patch
