@@ -72,10 +72,7 @@ use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{FixedU128, RuntimeDebug, Saturating, WeakBoundedVec};
-use xcm::{
-	latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_INSTRUCTIONS_TO_DECODE,
-	MAX_XCM_DECODE_DEPTH,
-};
+use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 use xcm_executor::traits::ConvertOrigin;
 
