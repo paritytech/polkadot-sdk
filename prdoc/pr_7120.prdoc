@@ -8,7 +8,7 @@ crates:
   - name: pallet-bridge-grandpa
     bump: patch
   - name: pallet-bridge-messages
-    bump: minor
+    bump: major
   - name: pallet-bridge-relayers
     bump: minor
   - name: bp-runtime
@@ -16,4 +16,4 @@ crates:
   - name: pallet-bridge-beefy
     bump: minor
   - name: pallet-xcm-bridge-hub-router
-    bump: minor
+    bump: patch
