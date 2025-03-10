@@ -1293,9 +1293,135 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
+	// v9420
+	pallet_nfts::migration::v1::MigrateToV1<Runtime>,
+	// unreleased
+	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
+	// unreleased
+	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+	// unreleased
+	InitStorageVersions,
+	// unreleased
+	DeleteUndecodableStorage,
+	// unreleased
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+	// unreleased
+	pallet_assets::migration::next_asset_id::SetNextAssetId<
+		ConstU32<50_000_000>,
+		Runtime,
+		TrustBackedAssetsInstance,
+	>,
+	pallet_session::migrations::v1::MigrateV0ToV1<
+		Runtime,
+		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 );
+
+/// Asset Hub Westend has some undecodable storage, delete it.
+/// See <https://github.com/paritytech/polkadot-sdk/issues/2241> for more info.
+///
+/// First we remove the bad Hold, then the bad NFT collection.
+pub struct DeleteUndecodableStorage;
+
+impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
+	fn on_runtime_upgrade() -> Weight {
+		use sp_core::crypto::Ss58Codec;
+
+		let mut writes = 0;
+
+		// Remove Holds for account with undecodable hold
+		// Westend doesn't have any HoldReasons implemented yet, so it's safe to just blanket remove
+		// any for this account.
+		match AccountId::from_ss58check("5GCCJthVSwNXRpbeg44gysJUx9vzjdGdfWhioeM7gCg6VyXf") {
+			Ok(a) => {
+				log::info!("Removing holds for account with bad hold");
+				pallet_balances::Holds::<Runtime, ()>::remove(a);
+				writes.saturating_inc();
+			},
+			Err(_) => {
+				log::error!("CleanupUndecodableStorage: Somehow failed to convert valid SS58 address into an AccountId!");
+			},
+		};
+
+		// Destroy undecodable NFT item 1
+		writes.saturating_inc();
+		match pallet_nfts::Pallet::<Runtime, ()>::do_burn(3, 1, |_| Ok(())) {
+			Ok(_) => {
+				log::info!("Destroyed undecodable NFT item 1");
+			},
+			Err(e) => {
+				log::error!("Failed to destroy undecodable NFT item: {:?}", e);
+				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes);
+			},
+		}
+
+		// Destroy undecodable NFT item 2
+		writes.saturating_inc();
+		match pallet_nfts::Pallet::<Runtime, ()>::do_burn(3, 2, |_| Ok(())) {
+			Ok(_) => {
+				log::info!("Destroyed undecodable NFT item 2");
+			},
+			Err(e) => {
+				log::error!("Failed to destroy undecodable NFT item: {:?}", e);
+				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes);
+			},
+		}
+
+		// Finally, we can destroy the collection
+		writes.saturating_inc();
+		match pallet_nfts::Pallet::<Runtime, ()>::do_destroy_collection(
+			3,
+			DestroyWitness { attributes: 0, item_metadatas: 1, item_configs: 0 },
+			None,
+		) {
+			Ok(_) => {
+				log::info!("Destroyed undecodable NFT collection");
+			},
+			Err(e) => {
+				log::error!("Failed to destroy undecodable NFT collection: {:?}", e);
+			},
+		};
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
+	}
+}
+
+/// Migration to initialize storage versions for pallets added after genesis.
+///
+/// Ideally this would be done automatically (see
+/// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
+/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
+/// doing it manually.
+pub struct InitStorageVersions;
+
+impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
+	fn on_runtime_upgrade() -> Weight {
+		use frame_support::traits::{GetStorageVersion, StorageVersion};
+
+		let mut writes = 0;
+
+		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
+			PolkadotXcm::in_code_storage_version().put::<PolkadotXcm>();
+			writes.saturating_inc();
+		}
+
+		if ForeignAssets::on_chain_storage_version() == StorageVersion::new(0) {
+			ForeignAssets::in_code_storage_version().put::<ForeignAssets>();
+			writes.saturating_inc();
+		}
+
+		if PoolAssets::on_chain_storage_version() == StorageVersion::new(0) {
+			PoolAssets::in_code_storage_version().put::<PoolAssets>();
+			writes.saturating_inc();
+		}
+
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(3, writes)
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -1352,10 +1478,11 @@ impl
 			u64::MAX.into()
 		));
 
-		let token_native = alloc::boxed::Box::new(cumulus_primitives_core::Location::new(
-			1,
-			cumulus_primitives_core::Junctions::Here,
-		));
+		let token_native = al /
+			dry_loc::boxed::Box::new(cumulus_primitives_core::Location::new(
+				1,
+				cumulus_primitives_core::Junctions::Here,
+			));
 		let token_second = alloc::boxed::Box::new(asset_id);
 
 		assert_ok!(AssetConversion::create_pool(
@@ -1667,8 +1794,8 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
