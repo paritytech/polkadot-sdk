@@ -2132,10 +2132,10 @@ pub mod env {
 		}
 	}
 
-	/// 
+	/// Create a new query 
 	/// See [`pallet_revive_uapi::HostFn::new_query`].
 	#[mutating]
-	fn xcm_new_query(
+	fn new_query(
 		&mut self,
 		memory: &mut M,
 		responder_ptr: u32,
@@ -2144,15 +2144,13 @@ pub mod env {
 		maybe_notify_len: u32,
 		timeout_ptr: u32,
 		output_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		use xcm::VersionedLocation;
+	) -> Result<(), TrapReason> {
 		use xcm_builder::QueryHandler;
-
-		// Read responder from contract memory and convert it to the expected Location type.
+		use xcm::v5::{Junction, Location};
+		
 		self.charge_gas(RuntimeCosts::CopyFromContract(responder_len))?;
-		let responder: VersionedLocation = memory.read_as_unbounded(responder_ptr, responder_len)?;
+		let responder: Location = memory.read_as_unbounded(responder_ptr, responder_len)?;
 
-		// Read maybe_notify bytes. If length is zero, treat as None; otherwise decode as a (u8, u8) tuple.
 		let maybe_notify: Option<(u8, u8)> = if maybe_notify_len > 0 {
 			self.charge_gas(RuntimeCosts::CopyFromContract(maybe_notify_len))?;
 			let notify = memory.read_as_unbounded(maybe_notify_ptr, maybe_notify_len)?;
@@ -2165,17 +2163,34 @@ pub mod env {
 		let timeout = <<E::T as Config>::Xcm as QueryHandler>::BlockNumber::try_from(timeout_u256)
     		.map_err(|_err| Error::<E::T>::DecodingFailed)?;
 
-		let querier = crate::RawOrigin::Signed(self.ext.account_id().clone()).into();
-
-		// Call pallet-xcm's new_query with the converted parameters.
+		let account_bytes: [u8; 32] = self.ext.account_id().using_encoded(|b| {
+			b.try_into().expect("AccountId must be 32 bytes; qed")
+		});
+		
+		// TODO: Convert AccountId to a Location (Q: [pallet_instance: pallet_revive_id, accountid20: h160_address)] ?)
+		let querier = Location::new(
+			0,
+			[Junction::AccountId32 {
+				network: None,
+				id: account_bytes,
+			}],
+		);
+		
+		// TODO: Charge weight for the `new_query` call
 		let query_id = <<E::T as Config>::Xcm>::new_query(
-			responder.into(),
+			responder,
 			maybe_notify,
 			timeout,
 			querier,
 		);
-		memory.write(output_ptr, &query_id.encode())?;
-		Ok(ReturnErrorCode::Success)
+
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			output_ptr,
+			&query_id.encode(),
+			false,
+			already_charged,
+		)?)
 	}
 
 	/// Retrieves the account id for a specified contract address.

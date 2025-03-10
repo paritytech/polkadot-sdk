@@ -736,16 +736,17 @@ pub trait HostFn: private::Sealed {
 	#[unstable_hostfn]
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
 
-	/// Create a new query
+	/// Create a new query that's been stored on the `Queries` map in `pallet_revive`
 	/// 
 	/// # Parameters
 	/// 
-	/// - `responder`:  
-	/// - `maybe_notify`:  
-	/// - `timeout`:  
+	/// - `responder`: The Location of the responder.
+	/// - `maybe_notify`: The callback to be called when the query is responded to (Optional).
+	/// - `timeout`: The timeout for the query to be responded to.
+	/// - `output`: The output buffer to write the query id.  
 	/// 
 	#[unstable_hostfn]
-	fn new_query(responder: &[u8], maybe_notify: &[u8], timeout: &[u8], output: &mut [u8; 32]) -> Result;
+	fn new_query(responder: &[u8], maybe_notify: &[u8], timeout: &[u8; 32], output: &mut [u8; 32]);
 }
 
 mod private {
