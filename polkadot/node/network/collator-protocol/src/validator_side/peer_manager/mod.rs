@@ -22,7 +22,9 @@ use db::ReputationDb;
 use polkadot_node_network_protocol::PeerId;
 use polkadot_node_subsystem::CollatorProtocolSenderTrait;
 use polkadot_primitives::Id as ParaId;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+
+use super::common::ReputationUpdateKind;
 
 mod connected_peers;
 mod db;
@@ -73,10 +75,24 @@ impl PeerManager {
 		self.connected_peers.declared(sender, peer_id, para_id).await
 	}
 
-	pub fn update_reputations(&mut self, updates: Vec<ReputationUpdate>) {
+	pub fn slash_reputation(&mut self, peer_id: &PeerId, para_id: &ParaId, value: Score) {
+		let update = ReputationUpdate {
+			peer_id: *peer_id,
+			para_id: *para_id,
+			value,
+			kind: ReputationUpdateKind::Slash,
+		};
+		self.reputation_db.slash_reputation(peer_id, para_id, value);
+		self.connected_peers.update_rep(&update);
+	}
+
+	pub fn update_reputations_on_new_leaf(
+		&mut self,
+		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
+	) {
+		let updates = self.reputation_db.bump_reputations(bumps);
 		for update in updates {
 			self.connected_peers.update_rep(&update);
-			self.reputation_db.modify_reputation(&update);
 		}
 	}
 

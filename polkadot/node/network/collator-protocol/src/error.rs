@@ -116,23 +116,6 @@ pub enum SecondingError {
 	InvalidReceiptVersion(CandidateDescriptorVersion),
 }
 
-impl SecondingError {
-	/// Returns true if an error indicates that a peer is malicious.
-	pub fn is_malicious(&self) -> bool {
-		use SecondingError::*;
-		matches!(
-			self,
-			PersistedValidationDataMismatch |
-				CandidateHashMismatch |
-				RelayParentMismatch |
-				ParentHeadDataMismatch |
-				InvalidCoreIndex(_, _) |
-				InvalidSessionIndex(_, _) |
-				InvalidReceiptVersion(_)
-		)
-	}
-}
-
 /// A validator failed to request a collation due to an error.
 #[derive(Debug, thiserror::Error)]
 pub enum FetchError {

@@ -21,7 +21,7 @@
 #![deny(unused_crate_dependencies)]
 #![recursion_limit = "256"]
 
-use futures::{stream::StreamExt, FutureExt, TryFutureExt};
+use futures::{FutureExt, TryFutureExt};
 
 use polkadot_node_subsystem_util::reputation::ReputationAggregator;
 use sp_keystore::KeystorePtr;

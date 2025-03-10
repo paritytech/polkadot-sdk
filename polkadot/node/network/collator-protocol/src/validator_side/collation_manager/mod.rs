@@ -162,7 +162,7 @@ impl CollationManager {
 	pub async fn try_launch_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		peer_manager: &PeerManager,
+		_peer_manager: &PeerManager,
 	) {
 		// Advertisements and collations are up to date.
 		// Claim queue states for leaves are also up to date.

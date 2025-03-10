@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use futures::{channel::oneshot, select, FutureExt, StreamExt};
 
@@ -25,7 +25,7 @@ use sp_keystore::KeystorePtr;
 
 use common::{
 	Advertisement, CollationFetchOutcome, CollationFetchResponse, DeclarationOutcome, PeerState,
-	ProspectiveCandidate, ReputationUpdate, ReputationUpdateKind, Score,
+	ProspectiveCandidate, Score,
 };
 use polkadot_node_network_protocol::{
 	self as net_protocol, peer_set::CollationVersion, v1 as protocol_v1, v2 as protocol_v2,
@@ -34,7 +34,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
 	messages::{
-		CandidateBackingMessage, CollatorProtocolMessage, NetworkBridgeEvent,
+		CandidateBackingMessage, ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent,
 		NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
 		ProspectiveValidationDataRequest,
 	},
@@ -151,7 +151,7 @@ async fn handle_network_msg<Context>(
 	use NetworkBridgeEvent::*;
 
 	match bridge_message {
-		PeerConnected(peer_id, observed_role, protocol_version, _) => {
+		PeerConnected(peer_id, _observed_role, _protocol_version, _) => {
 			// let version = match protocol_version.try_into() {
 			// 	Ok(version) => version,
 			// 	Err(err) => {
@@ -200,9 +200,9 @@ async fn process_incoming_peer_message<Context>(
 	use protocol_v2::CollatorProtocolMessage as V2;
 
 	match msg {
-		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
-		Versioned::V2(V2::Declare(collator_id, para_id, signature)) |
-		Versioned::V3(V2::Declare(collator_id, para_id, signature)) => {
+		Versioned::V1(V1::Declare(_collator_id, para_id, _signature)) |
+		Versioned::V2(V2::Declare(_collator_id, para_id, _signature)) |
+		Versioned::V3(V2::Declare(_collator_id, para_id, _signature)) => {
 			state.handle_declare(ctx.sender(), origin, para_id).await;
 		},
 		Versioned::V1(V1::CollationSeconded(..)) |
@@ -271,7 +271,7 @@ impl State {
 		let old_assignments = self.collation_manager.assignments();
 		let new_leaves = self.collation_manager.view_update(sender, &self.keystore, new_view).await;
 
-		self.peer_manager.update_reputations(
+		self.peer_manager.update_reputations_on_new_leaf(
 			extract_reputation_updates_from_new_leaves(sender, &new_leaves[..]).await,
 		);
 
@@ -502,12 +502,11 @@ impl State {
 		};
 
 		if let Some(rep_update) = try_again {
-			self.peer_manager.update_reputations(vec![ReputationUpdate {
-				peer_id: advertisement.peer_id,
-				para_id: advertisement.para_id,
-				value: rep_update,
-				kind: ReputationUpdateKind::Slash,
-			}]);
+			self.peer_manager.slash_reputation(
+				&advertisement.peer_id,
+				&advertisement.para_id,
+				rep_update,
+			);
 		}
 
 		// reset collation status
@@ -569,12 +568,7 @@ impl State {
 		);
 
 		if let Some(peer_id) = self.collation_manager.release_slot(&relay_parent, &candidate_hash) {
-			self.peer_manager.update_reputations(vec![ReputationUpdate {
-				peer_id,
-				para_id: receipt.descriptor.para_id(),
-				value: 10,
-				kind: ReputationUpdateKind::Slash,
-			}]);
+			self.peer_manager.slash_reputation(&peer_id, &receipt.descriptor.para_id(), 100);
 		}
 	}
 
@@ -613,13 +607,13 @@ async fn extract_reputation_updates_from_new_leaves<Sender: CollatorProtocolSend
 		}
 	}
 
-	let mut updates = BTreeMap::new();
+	let mut updates: BTreeMap<ParaId, HashMap<PeerId, Score>> = BTreeMap::new();
 	for (rp, per_para) in included_candidates_per_rp {
-		let parent = get_parent();
+		let parent = get_parent(sender, rp).await;
 
 		for (para_id, included_candidates) in per_para {
 			let candidates_pending_availability =
-				request_candidates_pending_availability(parent, para, sender)
+				request_candidates_pending_availability(parent, para_id, sender)
 					.await
 					.await
 					.unwrap()
@@ -628,8 +622,8 @@ async fn extract_reputation_updates_from_new_leaves<Sender: CollatorProtocolSend
 			for candidate in candidates_pending_availability {
 				if included_candidates.contains(&candidate.hash()) {
 					if let Some(approved_peer) = candidate.commitments.approved_peer() {
-						if let Some(peer_id) = PeerId::from_bytes(&approved_peer.0) {
-							updates.entry(para_id).or_default().entry(peer_id).or_default() = 10;
+						if let Ok(peer_id) = PeerId::from_bytes(&approved_peer.0) {
+							*(updates.entry(para_id).or_default().entry(peer_id).or_default()) = 10;
 						}
 					}
 				}
@@ -688,6 +682,14 @@ where
 		.await;
 
 	rx.await.map_err(SecondingError::CancelledProspectiveValidationData)
+}
+
+async fn get_parent<Sender: CollatorProtocolSenderTrait>(sender: &mut Sender, hash: Hash) -> Hash {
+	// TODO: we could use the implicit view for this info.
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockHeader(hash, tx)).await;
+
+	rx.await.unwrap().unwrap().unwrap().parent_hash
 }
 
 fn persisted_validation_data_sanity_check(
