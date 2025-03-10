@@ -838,17 +838,15 @@ pub mod pallet {
 		fn generate_endowed_bonded_account(
 			derivation: &str,
 			rng: &mut ChaChaRng,
-			min_validator_bond: BalanceOf<T>,
 		) -> T::AccountId {
 			let pair: SrPair = Pair::from_string(&derivation, None)
 				.expect(&format!("Failed to parse derivation string: {derivation}"));
 			let who = T::AccountId::decode(&mut &pair.public().encode()[..])
 				.expect(&format!("Failed to decode public key from pair: {:?}", pair.public()));
 
-			let stake = BalanceOf::<T>::from(rng.next_u64())
-				.max(T::Currency::minimum_balance())
-				.max(min_validator_bond);
-			let two: BalanceOf<T> = 2u64.into();
+			let (min, max) = T::VoterList::range();
+			let stake = BalanceOf::<T>::from(rng.next_u64().min(max).max(min));
+			let two: BalanceOf<T> = 2u32.into();
 
 			assert_ok!(T::Currency::mint_into(&who, stake * two));
 			assert_ok!(<Pallet<T>>::bond(
@@ -946,7 +944,6 @@ pub mod pallet {
 						let who = Self::generate_endowed_bonded_account(
 							&derivation,
 							&mut rng,
-							self.min_validator_bond,
 						);
 						assert_ok!(<Pallet<T>>::validate(
 							T::RuntimeOrigin::from(Some(who.clone()).into()),
@@ -961,7 +958,6 @@ pub mod pallet {
 					let who = Self::generate_endowed_bonded_account(
 						&derivation,
 						&mut rng,
-						self.min_validator_bond,
 					);
 
 					let random_nominations = validators
@@ -975,6 +971,7 @@ pub mod pallet {
 					));
 				})
 			}
+
 			let (active_era, session_index, timestamp) = self.active_era;
 			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
 			// at genesis, we do not have any new planned era.

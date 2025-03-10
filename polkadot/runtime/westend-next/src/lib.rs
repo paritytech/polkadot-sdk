@@ -36,7 +36,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, Equals, EverythingBut, FromContains, InstanceFilter,
+		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
 		VariantCountOf, WithdrawReasons,
 	},
@@ -54,7 +54,6 @@ use pallet_staking_ah_client::{self as ah_client};
 use pallet_staking_rc_client::{self as rc_client};
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
-use pallet_xcm::EnsureXcm;
 use polkadot_primitives::{
 	slashing,
 	vstaging::{
@@ -527,7 +526,7 @@ impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValid
 /// `AssetHubStakingClient`, but it prevents them from being passed over to the session pallet and
 /// just uses the previous session keys.
 #[deprecated(note = "this is a warning to remind you this can only be used in testing!")]
-pub struct AckButPreviousSessionValidatorsPersist<I>(core::marker::PhantomData<(I)>);
+pub struct AckButPreviousSessionValidatorsPersist<I>(core::marker::PhantomData<I>);
 
 impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManager<AccountId>
 	for AckButPreviousSessionValidatorsPersist<I>
@@ -658,7 +657,6 @@ impl<T: SendXcm, AssetHubId: Get<u32>> XcmToAssetHub<T, AssetHubId> {
 	}
 }
 
-// TODO: is this not equal to `EnsureXcm<Equals<AssetHubNextLocation>>`?
 pub struct EnsureAssetHub;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	type Success = ();
@@ -676,7 +674,7 @@ impl pallet_staking_ah_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetHubOrigin = frame_support::traits::EitherOfDiverse<
 		EnsureRoot<AccountId>,
-		EnsureAssetHub, // EnsureXcm<Equals<AssetHubNextLocation>>,
+		EnsureAssetHub,
 	>;
 	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter, AssetHubId>;
 	type MinimumValidatorSetSize = ConstU32<333>;
