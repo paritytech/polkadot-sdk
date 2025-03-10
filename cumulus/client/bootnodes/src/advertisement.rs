@@ -24,7 +24,7 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::StreamExt;
 use ip_network::IpNetwork;
-use log::{debug, warn};
+use log::{debug, trace, warn};
 use prost::Message;
 use sc_network::{
 	config::OutgoingResponse, multiaddr::Protocol, request_responses::IncomingRequest,
@@ -406,7 +406,7 @@ impl BootnodeAdvertisement {
 
 	fn handle_request(&mut self, req: IncomingRequest) {
 		if req.payload == self.para_id_scale_compact {
-			debug!(
+			trace!(
 				target: LOG_TARGET,
 				"Serving paranode addresses request from {:?} for parachain ID {}",
 				req.peer,
@@ -429,7 +429,7 @@ impl BootnodeAdvertisement {
 			let payload = req.payload;
 			match Compact::<ParaId>::decode(&mut &payload[..]) {
 				Ok(para_id) => {
-					debug!(
+					trace!(
 						target: LOG_TARGET,
 						"Ignoring request for parachain ID {} != self parachain ID {} from {:?}",
 						para_id.0,
@@ -438,7 +438,7 @@ impl BootnodeAdvertisement {
 					);
 				},
 				Err(e) => {
-					debug!(
+					trace!(
 						target: LOG_TARGET,
 						"Cannot decode parachain ID in a request from {:?}: {e}",
 						req.peer,

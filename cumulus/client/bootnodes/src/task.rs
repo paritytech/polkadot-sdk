@@ -149,8 +149,10 @@ async fn bootnode_discovery(
 		paranode_protocol_name,
 	});
 
-	if let Err(e) = bootnode_discovery.run().await {
-		error!(target: LOG_TARGET, "Bootnode discovery terminated with error: {e}");
+	match bootnode_discovery.run().await {
+		// Do not terminate the essentil task if bootnode discovery succeeded.
+		Ok(()) => std::future::pending().await,
+		Err(e) => error!(target: LOG_TARGET, "Bootnode discovery terminated with error: {e}"),
 	}
 }
 

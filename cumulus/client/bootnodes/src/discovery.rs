@@ -18,15 +18,12 @@
 
 use crate::schema::Response;
 use codec::{CompactRef, Decode, Encode};
-use cumulus_primitives_core::{
-	relay_chain::{Hash, Header},
-	ParaId,
-};
-use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
+use cumulus_primitives_core::{relay_chain::Hash, ParaId};
+use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{
 	channel::oneshot, future::BoxFuture, pin_mut, stream::FuturesUnordered, FutureExt, StreamExt,
 };
-use log::{debug, warn};
+use log::{debug, error, info, warn};
 use prost::Message;
 use sc_network::{
 	event::{DhtEvent, Event},
@@ -39,6 +36,9 @@ use std::sync::Arc;
 
 /// Log target for this file.
 const LOG_TARGET: &str = "bootnodes::discovery";
+
+/// Number of discovery attempts before giving up.
+const MAX_DISCOVERY_ATTEMPTS: u32 = 3;
 
 /// Parachain bootnode discovery parameters.
 pub struct BootnodeDiscoveryParams {
@@ -66,7 +66,8 @@ pub struct BootnodeDiscovery {
 	parachain_fork_id: Option<String>,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	relay_chain_network: Arc<dyn NetworkService>,
-	parachain_key: Option<KademliaKey>,
+	latest_relay_chain_hash: Option<Hash>,
+	key_being_discovered: Option<KademliaKey>,
 	paranode_protocol_name: ProtocolName,
 	pending_responses: FuturesUnordered<
 		BoxFuture<
@@ -74,6 +75,8 @@ pub struct BootnodeDiscovery {
 			(PeerId, Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>),
 		>,
 	>,
+	attempts_left: u32,
+	succeeded: bool,
 }
 
 impl BootnodeDiscovery {
@@ -96,9 +99,12 @@ impl BootnodeDiscovery {
 			parachain_fork_id,
 			relay_chain_interface,
 			relay_chain_network,
-			parachain_key: None,
+			latest_relay_chain_hash: None,
+			key_being_discovered: None,
 			paranode_protocol_name,
 			pending_responses: FuturesUnordered::default(),
+			attempts_left: MAX_DISCOVERY_ATTEMPTS,
+			succeeded: false,
 		}
 	}
 
@@ -119,10 +125,20 @@ impl BootnodeDiscovery {
 			.into()
 	}
 
-	async fn request_providers(&mut self, header: Header) -> RelayChainResult<()> {
-		let current_epoch = self.current_epoch(header.hash()).await?;
+	/// Start bootnode discovery.
+	async fn start_discovery(&mut self) -> RelayChainResult<()> {
+		let Some(hash) = self.latest_relay_chain_hash else {
+			error!(
+				target: LOG_TARGET,
+				"Failed to start bootnode discovery: no relay chain hash available. This is a bug.",
+			);
+			// This is a graceful panic via the failure of essential task.
+			return Err(RelayChainError::GenericError("no relay chain hash available".to_string()));
+		};
+
+		let current_epoch = self.current_epoch(hash).await?;
 		let current_epoch_key = self.epoch_key(current_epoch.randomness);
-		self.parachain_key = Some(current_epoch_key.clone());
+		self.key_being_discovered = Some(current_epoch_key.clone());
 		self.relay_chain_network.get_providers(current_epoch_key.clone());
 
 		debug!(
@@ -132,6 +148,38 @@ impl BootnodeDiscovery {
 		);
 
 		Ok(())
+	}
+
+	/// Start bootnode discovery if needed. Returns `false` if the discovery event loop should be
+	/// terminated.
+	async fn maybe_start_discovery(&mut self) -> RelayChainResult<bool> {
+		// Start discovery if it is not currently in progress.
+		if self.key_being_discovered.is_none() && self.pending_responses.is_empty() {
+			// No need to start discovey again if the previous attempt succeeded.
+			if self.succeeded {
+				info!(
+					target: LOG_TARGET,
+					"Parachain bootnode discovery on the relay chain DHT succeeded",
+				);
+				Ok(false)
+			} else if self.attempts_left > 0 {
+				// No discovery in progress and we have attempts left, start discovery.
+				self.attempts_left -= 1;
+				self.start_discovery().await?;
+				Ok(true)
+			} else {
+				warn!(
+					target: LOG_TARGET,
+					"Failed to discover parachain bootnodes on the relay chain DHT after {} attempts, \
+					 giving up",
+					MAX_DISCOVERY_ATTEMPTS,
+				);
+				Ok(false)
+			}
+		} else {
+			// Discovery is already in progress, just continue the event loop.
+			Ok(true)
+		}
 	}
 
 	fn handle_providers(&mut self, providers: Vec<PeerId>) {
@@ -254,6 +302,7 @@ impl BootnodeDiscovery {
 
 		paranode_addresses.into_iter().for_each(|addr| {
 			self.parachain_network.add_known_address(paranode_peer_id.clone(), addr);
+			self.succeeded = true;
 		});
 	}
 
@@ -273,25 +322,43 @@ impl BootnodeDiscovery {
 			.fuse();
 		pin_mut!(dht_event_stream);
 
-		// Get the first imported block to derive the provider key and request providers.
+		// Make sure the relay chain hash is always available before starting the discovery.
 		let header = import_notification_stream.select_next_some().await;
-		drop(import_notification_stream);
-		self.request_providers(header).await?;
+		self.latest_relay_chain_hash = Some(header.hash());
 
-		// Wait for matching `DhtEvent::ProvidersFound` and query `/paranode` protocol.
 		loop {
+			if !self.maybe_start_discovery().await? {
+				return Ok(());
+			}
+
 			tokio::select! {
+				header = import_notification_stream.select_next_some() => {
+					self.latest_relay_chain_hash = Some(header.hash());
+				},
 				event = dht_event_stream.select_next_some() => match event {
 					DhtEvent::ProvidersFound(key, providers)
-						if Some(key.clone()) == self.parachain_key =>
+						// libp2p generates empty events, so also check if `providers` is not empty.
+						if Some(key.clone()) == self.key_being_discovered && !providers.is_empty() =>
 							self.handle_providers(providers),
-					DhtEvent::ProvidersNotFound(key) if Some(key.clone()) == self.parachain_key => {
-						warn!(
+					DhtEvent::NoMoreProviders(key)
+						if Some(key.clone()) == self.key_being_discovered =>
+					{
+						debug!(
 							target: LOG_TARGET,
-							"Parachain bootnode providers not found for current epoch key {}",
+							"Parachain bootnode providers discovery finished for key {}",
 							hex::encode(key),
 						);
-						break;
+						self.key_being_discovered = None;
+					},
+					DhtEvent::ProvidersNotFound(key)
+						if Some(key.clone()) == self.key_being_discovered =>
+					{
+						debug!(
+							target: LOG_TARGET,
+							"Parachain bootnode providers not found for key {}",
+							hex::encode(key),
+						);
+						self.key_being_discovered = None;
 					},
 					_ => {},
 				},
@@ -300,10 +367,5 @@ impl BootnodeDiscovery {
 						self.handle_response(peer_id, res),
 			}
 		}
-
-		drop(dht_event_stream);
-
-		// Do not terminate the essential task.
-		std::future::pending().await
 	}
 }
