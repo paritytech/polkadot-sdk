@@ -34,7 +34,7 @@ use bitvec::prelude::*;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::ByteArray;
-use sp_core::RuntimeDebug;
+use sp_core::{OpaquePeerId, RuntimeDebug};
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
 /// Async backing primitives
@@ -469,6 +469,11 @@ impl CandidateCommitments {
 		} else {
 			Ok(None)
 		}
+	}
+
+	/// TODO
+	pub fn approved_peer(&self) -> Option<OpaquePeerId> {
+		None
 	}
 }
 

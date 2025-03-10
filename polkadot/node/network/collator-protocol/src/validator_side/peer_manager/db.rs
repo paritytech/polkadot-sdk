@@ -16,7 +16,7 @@
 
 use crate::validator_side::common::{ReputationUpdate, Score};
 use polkadot_node_network_protocol::PeerId;
-use polkadot_primitives::{Hash, Id as ParaId};
+use polkadot_primitives::Id as ParaId;
 
 #[derive(Default)]
 pub struct ReputationDb {}

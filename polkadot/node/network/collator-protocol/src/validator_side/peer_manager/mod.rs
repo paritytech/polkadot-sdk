@@ -52,9 +52,13 @@ impl PeerManager {
 
 		let mut peers_to_disconnect = vec![];
 		// See which of the old peers we should keep.
-		for peer_id in old_connected_peers.peer_ids() {
-			peers_to_disconnect
-				.extend(self.connected_peers.try_add(&self.reputation_db, *peer_id).into_iter());
+		for (peer_id, peer_state) in old_connected_peers.peers() {
+			let already_collating = peer_state.para_id();
+			peers_to_disconnect.extend(
+				self.connected_peers
+					.try_add(&self.reputation_db, *peer_id, already_collating)
+					.into_iter(),
+			);
 		}
 
 		self.connected_peers.disconnect(sender, peers_to_disconnect).await
@@ -85,7 +89,7 @@ impl PeerManager {
 		sender: &mut Sender,
 		peer_id: PeerId,
 	) -> DisconnectedPeers {
-		let peers_to_disconnect = self.connected_peers.try_add(&self.reputation_db, peer_id);
+		let peers_to_disconnect = self.connected_peers.try_add(&self.reputation_db, peer_id, None);
 		self.connected_peers.disconnect(sender, peers_to_disconnect).await
 	}
 

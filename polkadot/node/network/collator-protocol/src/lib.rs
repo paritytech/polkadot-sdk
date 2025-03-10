@@ -21,12 +21,7 @@
 #![deny(unused_crate_dependencies)]
 #![recursion_limit = "256"]
 
-use std::time::{Duration, Instant};
-
-use futures::{
-	stream::{FusedStream, StreamExt},
-	FutureExt, TryFutureExt,
-};
+use futures::{stream::StreamExt, FutureExt, TryFutureExt};
 
 use polkadot_node_subsystem_util::reputation::ReputationAggregator;
 use sp_keystore::KeystorePtr;
@@ -90,7 +85,7 @@ impl CollatorProtocolSubsystem {
 impl<Context> CollatorProtocolSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = match self.protocol_side {
-			ProtocolSide::Validator { keystore, metrics } => validator_side::run(ctx, keystore)
+			ProtocolSide::Validator { keystore, metrics: _ } => validator_side::run(ctx, keystore)
 				.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 				.boxed(),
 			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } =>
@@ -119,24 +114,4 @@ async fn modify_reputation(
 	);
 
 	reputation.modify(sender, peer, rep).await;
-}
-
-/// Wait until tick and return the timestamp for the following one.
-async fn wait_until_next_tick(last_poll: Instant, period: Duration) -> Instant {
-	let now = Instant::now();
-	let next_poll = last_poll + period;
-
-	if next_poll > now {
-		futures_timer::Delay::new(next_poll - now).await
-	}
-
-	Instant::now()
-}
-
-/// Returns an infinite stream that yields with an interval of `period`.
-fn tick_stream(period: Duration) -> impl FusedStream<Item = ()> {
-	futures::stream::unfold(Instant::now(), move |next_check| async move {
-		Some(((), wait_until_next_tick(next_check, period).await))
-	})
-	.fuse()
 }

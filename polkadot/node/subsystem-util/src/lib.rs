@@ -79,6 +79,8 @@ pub mod availability_chunks;
 /// leaves and the minimum allowed relay-parents that parachain candidates can have
 /// and be backed in those leaves' children.
 pub mod backing_implicit_view;
+/// Utility for tracking claims from the claim queue.
+pub mod claim_queue_state;
 /// Database trait for subsystem.
 pub mod database;
 /// An emulator for node-side code to predict the results of on-chain parachain inclusion

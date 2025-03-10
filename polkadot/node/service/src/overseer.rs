@@ -305,7 +305,6 @@ where
 					))),
 				IsParachainNode::No => ProtocolSide::Validator {
 					keystore: keystore.clone(),
-					eviction_policy: Default::default(),
 					metrics: Metrics::register(registry)?,
 				},
 			};
@@ -529,7 +528,6 @@ where
 					))),
 				IsParachainNode::No => ProtocolSide::Validator {
 					keystore: keystore.clone(),
-					eviction_policy: Default::default(),
 					metrics: Metrics::register(registry)?,
 				},
 			};

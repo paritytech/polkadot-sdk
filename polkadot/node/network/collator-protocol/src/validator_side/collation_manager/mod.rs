@@ -35,7 +35,8 @@ use polkadot_node_subsystem::{
 	CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
-	backing_implicit_view::View as ImplicitView, request_claim_queue,
+	backing_implicit_view::View as ImplicitView, claim_queue_state::PerLeafClaimQueueState,
+	request_claim_queue,
 };
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, Id as ParaId,
@@ -44,15 +45,13 @@ use requests::PendingRequests;
 use sp_keystore::KeystorePtr;
 use std::collections::{hash_map::Entry, BTreeSet, HashMap, HashSet, VecDeque};
 
-use super::common::INSTANT_FETCH_REP_THRESHOLD;
-
 mod requests;
 
 #[derive(Default)]
 pub struct CollationManager {
 	implicit_view: ImplicitView,
 	// One per active leaf
-	claim_queue_state: HashMap<Hash, ClaimQueueState>,
+	claim_queue_state: PerLeafClaimQueueState,
 
 	// One per relay parent
 	per_relay_parent: HashMap<Hash, PerRelayParent>,
@@ -84,11 +83,6 @@ impl CollationManager {
 		}
 
 		for leaf in removed {
-			if let Some(claim_queue_state) = self.claim_queue_state.remove(&leaf) {
-				self.per_relay_parent
-					.entry(leaf)
-					.and_modify(|per_rp| per_rp.deactivated_leaf_state = Some(claim_queue_state));
-			}
 			let deactivated_ancestry = self.implicit_view.deactivate_leaf(leaf);
 
 			// Remove the fetching collations and advertisements for the deactivated RPs.
@@ -101,17 +95,13 @@ impl CollationManager {
 						{
 							self.fetching
 								.cancel(&advertisement.prospective_candidate.candidate_hash);
-
-							// Also reset the statuses of claims that were pending fetch for these
-							// candidates.
-							self.back_to_waiting(
-								advertisement.relay_parent,
-								advertisement.prospective_candidate.candidate_hash,
-							);
 						}
 					}
 				}
 			}
+
+			self.claim_queue_state
+				.remove_pruned_ancestors(&deactivated_ancestry.into_iter().collect());
 		}
 
 		for leaf in added.iter() {
@@ -141,8 +131,7 @@ impl CollationManager {
 			};
 
 			let mut claim_queue = request_claim_queue(*leaf, sender).await.await.unwrap().unwrap();
-			let scheduled =
-				claim_queue.remove(&core_now).unwrap_or_else(|| VecDeque::new()).into_iter();
+			let scheduled = claim_queue.remove(&core_now).unwrap_or_else(|| VecDeque::new());
 
 			let allowed_ancestry =
 				self.implicit_view.known_allowed_relay_parents_under(leaf, None).unwrap();
@@ -154,8 +143,9 @@ impl CollationManager {
 				}
 			}
 
-			let parent = allowed_ancestry.get(1).cloned();
-			self.inherit_claim_queue_state(*leaf, scheduled, parent);
+			let maybe_parent = allowed_ancestry.get(1);
+
+			self.claim_queue_state.add_leaf(leaf, &scheduled, maybe_parent);
 		}
 
 		added
@@ -166,13 +156,7 @@ impl CollationManager {
 	}
 
 	pub fn assignments(&self) -> BTreeSet<ParaId> {
-		let mut scheduled_paras = BTreeSet::new();
-
-		for state in self.claim_queue_state.values() {
-			scheduled_paras.extend(state.0.iter().map(|c| c.para));
-		}
-
-		scheduled_paras
+		self.claim_queue_state.all_assignments()
 	}
 
 	pub async fn try_launch_fetch_requests<Sender: CollatorProtocolSenderTrait>(
@@ -184,43 +168,44 @@ impl CollationManager {
 		// Claim queue states for leaves are also up to date.
 		// Launch requests when it makes sense.
 		let mut requests = vec![];
-		for state in self.claim_queue_state.values_mut() {
-			for claim in state.0.iter_mut() {
-				if matches!(claim.state, ClaimState::Waiting) {
-					// Try picking an advertisement. I'd like this to be a separate method but
-					// compiler gets confused with ownership.
-					let mut over_threshold = None;
-					let mut has_some_advertisements = false;
-					'per_rp: for collations in self.per_relay_parent.values() {
-						for (peer_id, advertisements) in collations.advertisements.iter() {
-							for advertisement in advertisements {
-								if advertisement.para_id == claim.para &&
-									!self.fetching.contains(
-										&advertisement.prospective_candidate.candidate_hash,
-									) && !collations
-									.fetched_collations
-									.contains(&advertisement.prospective_candidate.candidate_hash)
-								{
-									let peer_rep = peer_manager
-										.connected_peer_rep(&claim.para, peer_id)
-										.unwrap();
-									has_some_advertisements = true;
+		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
 
-									if peer_rep >= INSTANT_FETCH_REP_THRESHOLD {
-										over_threshold = Some(*advertisement);
-										break 'per_rp;
-									}
-								}
-							}
+		for leaf in leaves {
+			let free_slots = self.claim_queue_state.free_slots(&leaf);
+			let Some(parents) = self.implicit_view.known_allowed_relay_parents_under(&leaf, None)
+			else {
+				continue
+			};
+
+			'per_slot: for para_id in free_slots {
+				// Try picking an advertisement. I'd like this to be a separate method but
+				// compiler gets confused with ownership.
+				for parent in parents {
+					let Some(per_rp) = self.per_relay_parent.get(parent) else { continue };
+
+					for advertisement in per_rp.eligible_advertisements(&para_id).filter(|adv| {
+						!self.fetching.contains(&adv.prospective_candidate.candidate_hash)
+					}) {
+						// This here may also claim a slot of another leaf if eligible.
+						if self.claim_queue_state.claim_pending_slot(
+							&advertisement.prospective_candidate.candidate_hash,
+							&advertisement.relay_parent,
+							&para_id,
+						) {
+							let req = self.fetching.launch(&advertisement);
+							requests.push(Requests::CollationFetchingV2(req));
+							continue 'per_slot
 						}
-					}
 
-					if let Some(advertisement) = over_threshold {
-						let req = self.fetching.launch(&advertisement);
-						requests.push(Requests::CollationFetchingV2(req));
-						claim.state = ClaimState::Fetching(advertisement);
-					} else if has_some_advertisements {
-						// TODO: we need to arm some timer.
+						// let peer_rep =
+						// 	peer_manager.connected_peer_rep(&para_id, peer_id).unwrap();
+
+						// if peer_rep >= INSTANT_FETCH_REP_THRESHOLD {
+						// 	over_threshold = Some(*advertisement);
+						// 	break 'per_rp;
+						// } else {
+						// we need to arm some timer
+						// }
 					}
 				}
 			}
@@ -264,10 +249,8 @@ impl CollationManager {
 		for advertisement in cancelled_fetches {
 			// Also reset the statuses of claims that were pending fetch for these
 			// candidates.
-			self.back_to_waiting(
-				advertisement.relay_parent,
-				advertisement.prospective_candidate.candidate_hash,
-			);
+			self.claim_queue_state
+				.release_claims_for_candidate(&advertisement.prospective_candidate.candidate_hash);
 		}
 	}
 
@@ -296,10 +279,7 @@ impl CollationManager {
 
 		let max_assignments = self
 			.claim_queue_state
-			.values()
-			.map(|state| state.0.iter().filter(|claim| claim.para == advertisement.para_id).count())
-			.max()
-			.unwrap_or(0);
+			.get_all_slots_for_para_at(&advertisement.relay_parent, &advertisement.para_id);
 		if advertisements.len() >= max_assignments {
 			return Err(AdvertisementError::PeerLimitReached)
 		}
@@ -424,14 +404,21 @@ impl CollationManager {
 					&advertisement,
 					&fetched_collation.candidate_receipt,
 				) {
+					gum::warn!(
+						target: LOG_TARGET,
+						?advertisement,
+						"Invalid fetched collation: {}",
+						err
+					);
 					return CollationFetchOutcome::TryNew(Some(10))
 				}
 
 				// It can't be a duplicate, because we check before initiating fetch. TODO: with the
 				// old protocol version, it can be.
-				collations
-					.fetched_collations
-					.insert(advertisement.prospective_candidate.candidate_hash);
+				collations.fetched_collations.insert(
+					advertisement.prospective_candidate.candidate_hash,
+					advertisement.peer_id,
+				);
 
 				CollationFetchOutcome::Success(fetched_collation)
 			},
@@ -439,194 +426,65 @@ impl CollationManager {
 		}
 	}
 
-	pub fn seconding_began(&mut self, relay_parent: Hash, candidate_hash: CandidateHash) {
-		self.claim_state_transition(|claim_state| {
-			if let ClaimState::Fetching(advertisement) = claim_state {
-				if relay_parent == advertisement.relay_parent &&
-					candidate_hash == advertisement.prospective_candidate.candidate_hash
-				{
-					let peer_id = advertisement.peer_id;
-					*claim_state = ClaimState::Validating(*advertisement);
-					return Some(peer_id)
-				}
-			}
-			None
-		});
-	}
-
-	pub fn back_to_waiting(
+	pub fn release_slot(
 		&mut self,
-		relay_parent: Hash,
-		candidate_hash: CandidateHash,
+		relay_parent: &Hash,
+		candidate_hash: &CandidateHash,
 	) -> Option<PeerId> {
-		self.claim_state_transition(|claim_state| {
-			if let ClaimState::Fetching(advertisement) = claim_state {
-				if relay_parent == advertisement.relay_parent &&
-					candidate_hash == advertisement.prospective_candidate.candidate_hash
-				{
-					let peer_id = advertisement.peer_id;
-					*claim_state = ClaimState::Waiting;
-					return Some(peer_id)
-				}
-			}
-			None
-		})
+		let peer_id = self
+			.per_relay_parent
+			.get(relay_parent)
+			.and_then(|per_rp| per_rp.fetched_collations.get(candidate_hash));
+
+		self.claim_queue_state.release_claims_for_candidate(candidate_hash);
+
+		peer_id.copied()
 	}
 
 	pub fn seconded(
 		&mut self,
-		relay_parent: Hash,
-		candidate_hash: CandidateHash,
+		relay_parent: &Hash,
+		candidate_hash: &CandidateHash,
+		para_id: &ParaId,
 	) -> Option<PeerId> {
-		self.claim_state_transition(|claim_state| {
-			if let ClaimState::Validating(advertisement) = claim_state {
-				if relay_parent == advertisement.relay_parent &&
-					candidate_hash == advertisement.prospective_candidate.candidate_hash
-				{
-					let peer_id = advertisement.peer_id;
-					*claim_state = ClaimState::Fulfilled(*advertisement);
-					return Some(peer_id)
-				}
-			}
-			None
-		})
-	}
+		let peer_id = self
+			.per_relay_parent
+			.get(relay_parent)
+			.and_then(|per_rp| per_rp.fetched_collations.get(candidate_hash));
 
-	fn claim_state_transition(
-		&mut self,
-		transition: impl Fn(&mut ClaimState) -> Option<PeerId>,
-	) -> Option<PeerId> {
-		let mut found_peer_id = None;
-		for claim_queue_state in self.claim_queue_state.values_mut() {
-			for claim in claim_queue_state.0.iter_mut() {
-				if let Some(peer_id) = transition(&mut claim.state) {
-					found_peer_id = Some(peer_id);
-				}
-			}
-		}
+		self.claim_queue_state
+			.claim_seconded_slot(candidate_hash, relay_parent, para_id);
 
-		for per_rp in self.per_relay_parent.values_mut() {
-			if let Some(deactivated_state) = &mut per_rp.deactivated_leaf_state {
-				for claim in deactivated_state.0.iter_mut() {
-					if let Some(peer_id) = transition(&mut claim.state) {
-						found_peer_id = Some(peer_id);
-					}
-				}
-			}
-		}
-
-		// TODO: log smth
-		found_peer_id
-	}
-
-	fn inherit_claim_queue_state(
-		&mut self,
-		leaf: Hash,
-		cq: impl Iterator<Item = ParaId>,
-		parent: Option<Hash>,
-	) {
-		let mut cq_state =
-			ClaimQueueState(cq.map(|para| Claim { para, state: ClaimState::Waiting }).collect());
-
-		if let Some(parent) = parent {
-			// Parent cannot be an active leaf.
-			if let Some(parent_state) = self
-				.per_relay_parent
-				.get(&parent)
-				.and_then(|per_rp| per_rp.deactivated_leaf_state.as_ref())
-			{
-				if !parent_state.0.is_empty() {
-					let mut parent_state_iter = parent_state.0.iter().peekable();
-					let mut state_iter = cq_state.0.iter_mut().peekable();
-
-					// We know that parent_state_iter is not empty, checked before.
-					let parent_claim_state = parent_state_iter.peek().unwrap();
-					if let Some(claim_state) = state_iter.peek() {
-						if claim_state.para == parent_claim_state.para {
-							if let ClaimState::Fulfilled(_) = parent_claim_state.state {
-								parent_state_iter.next();
-								state_iter.next();
-							}
-						} else {
-							parent_state_iter.next();
-						}
-					}
-
-					for claim_state in state_iter {
-						let Some(parent_claim_state) = parent_state_iter.next() else { break };
-						if parent_claim_state.para != claim_state.para {
-							break
-						}
-						if let Some(rp) = parent_claim_state.state.relay_parent() {
-							// Check if the RP is still in scope. If it is, inherit the state.
-							if self.per_relay_parent.contains_key(&rp) {
-								*claim_state = parent_claim_state.clone();
-							}
-						}
-					}
-				}
-			}
-		}
-
-		self.claim_queue_state.insert(leaf, cq_state);
+		peer_id.copied()
 	}
 }
 
 #[derive(Default)]
 struct PerRelayParent {
 	advertisements: HashMap<PeerId, HashSet<Advertisement>>,
-	// Only kept to make sure that we don't re-request the same collations.
-	fetched_collations: HashSet<CandidateHash>,
-	// This is populated for formerly active leafs with the old claim queue state.
-	deactivated_leaf_state: Option<ClaimQueueState>,
-	// Look here: We actually need to keep the different collation states here. When populating the
-	// state for a new leaf, we need to use these. When launching new advertisements, the per-leaf
-	// claim queue states will be already up to date.
+	// Only kept to make sure that we don't re-request the same collations and so that we know who
+	// to punish for supplying an invalid collation.
+	fetched_collations: HashMap<CandidateHash, PeerId>,
 }
 
 impl PerRelayParent {
 	fn all_advertisements(&self) -> impl Iterator<Item = &Advertisement> {
 		self.advertisements.values().flatten()
 	}
-}
 
-// One per active leaf.
-struct ClaimQueueState(Vec<Claim>);
-
-#[derive(Clone)]
-struct Claim {
-	para: ParaId,
-	state: ClaimState,
-}
-
-#[derive(Clone)]
-enum ClaimState {
-	Waiting,
-	Fetching(Advertisement),
-	Validating(Advertisement),
-	BlockedByParent(Advertisement),
-	Fulfilled(Advertisement),
-}
-
-impl ClaimState {
-	fn relay_parent(&self) -> Option<Hash> {
-		match self {
-			Self::Waiting => None,
-			Self::Fetching(a) |
-			Self::Validating(a) |
-			Self::Fulfilled(a) |
-			Self::BlockedByParent(a) => Some(a.relay_parent),
-		}
-	}
-
-	fn candidate_hash(&self) -> Option<CandidateHash> {
-		match self {
-			Self::Waiting => None,
-			Self::Fetching(a) |
-			Self::Validating(a) |
-			Self::Fulfilled(a) |
-			Self::BlockedByParent(a) => Some(a.prospective_candidate.candidate_hash),
-		}
+	fn eligible_advertisements<'a>(
+		&'a self,
+		para_id: &'a ParaId,
+	) -> impl Iterator<Item = &'a Advertisement> + 'a {
+		self.advertisements
+			.values()
+			.map(|list| list.iter())
+			.flatten()
+			.filter(move |adv| {
+				(&adv.para_id == para_id) &&
+				// We can be pretty sure that this is true
+				!self.fetched_collations.contains_key(&adv.prospective_candidate.candidate_hash)
+			})
 	}
 }
 
@@ -649,7 +507,7 @@ fn initial_fetched_collation_sanity_check(
 }
 
 #[derive(Debug)]
-enum AdvertisementError {
+pub enum AdvertisementError {
 	/// Relay parent is unknown.
 	RelayParentUnknown,
 	/// Peer is not present in the subsystem state.

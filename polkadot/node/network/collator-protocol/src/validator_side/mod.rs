@@ -14,19 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::collections::{HashMap, HashSet};
+
 use futures::{channel::oneshot, select, FutureExt, StreamExt};
 
-use polkadot_node_subsystem_util::request_candidate_events;
+use polkadot_node_subsystem_util::{
+	request_candidate_events, request_candidates_pending_availability,
+};
 use sp_keystore::KeystorePtr;
 
 use common::{
 	Advertisement, CollationFetchOutcome, CollationFetchResponse, DeclarationOutcome, PeerState,
-	ProspectiveCandidate, ReputationUpdate, ReputationUpdateKind,
+	ProspectiveCandidate, ReputationUpdate, ReputationUpdateKind, Score,
 };
 use polkadot_node_network_protocol::{
-	self as net_protocol,
-	peer_set::{CollationVersion, PeerSet, ProtocolVersion},
-	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, Versioned,
+	self as net_protocol, peer_set::CollationVersion, v1 as protocol_v1, v2 as protocol_v2,
+	OurView, PeerId, Versioned,
 };
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
@@ -38,18 +41,20 @@ use polkadot_node_subsystem::{
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, Hash, HeadData, Id as ParaId,
-	PersistedValidationData,
+	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
+	CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData,
 };
 
 use crate::error::{Result, SecondingError};
 use collation_manager::CollationManager;
+pub use metrics::Metrics;
 use peer_manager::PeerManager;
 
 use super::LOG_TARGET;
 
 mod collation_manager;
 mod common;
+mod metrics;
 mod peer_manager;
 
 /// The main run loop.
@@ -131,7 +136,7 @@ async fn process_msg<Context>(ctx: &mut Context, msg: CollatorProtocolMessage, s
 			state.handle_collation_seconded(ctx.sender(), parent, stmt).await;
 		},
 		Invalid(_parent, candidate_receipt) => {
-			state.handle_invalid_collation(candidate_receipt);
+			state.handle_invalid_collation(candidate_receipt).await;
 		},
 	}
 }
@@ -258,16 +263,36 @@ impl State {
 		sender: &mut Sender,
 		new_view: OurView,
 	) {
+		gum::trace!(
+			target: LOG_TARGET,
+			?new_view,
+			"Handling our view change",
+		);
+		let old_assignments = self.collation_manager.assignments();
 		let new_leaves = self.collation_manager.view_update(sender, &self.keystore, new_view).await;
 
 		self.peer_manager.update_reputations(
 			extract_reputation_updates_from_new_leaves(sender, &new_leaves[..]).await,
 		);
 
-		let maybe_disconnected_peers = self
-			.peer_manager
-			.scheduled_paras_update(sender, self.collation_manager.assignments())
-			.await;
+		let new_assignments = self.collation_manager.assignments();
+		gum::trace!(
+			target: LOG_TARGET,
+			?old_assignments,
+			?new_assignments,
+			"Old assignments vs new assignments",
+		);
+
+		let maybe_disconnected_peers =
+			self.peer_manager.scheduled_paras_update(sender, new_assignments.clone()).await;
+
+		if !maybe_disconnected_peers.is_empty() {
+			gum::trace!(
+				target: LOG_TARGET,
+				?maybe_disconnected_peers,
+				"Disconnecting peers due to our view change",
+			);
+		}
 
 		self.collation_manager.remove_peers(maybe_disconnected_peers);
 	}
@@ -282,13 +307,23 @@ impl State {
 		let Some(peer_state) = self.peer_manager.peer_state(&origin) else { return };
 
 		// Advertised without being declared. Not a big waste of our time, so ignore it
-		let PeerState::Collating(para_id) = peer_state else { return };
+		let PeerState::Collating(para_id) = peer_state else {
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?maybe_prospective_candidate,
+				peer_id = ?origin,
+				"Received advertisement for undeclared peer",
+			);
+			return
+		};
 
 		// TODO: we'll later need to handle maybe_prospective_candidate being None.
 
 		// We have a result here but it's not worth affecting reputations, because advertisements
 		// are cheap and quickly triaged.
-		self.collation_manager
+		match self
+			.collation_manager
 			.try_accept_advertisement(
 				sender,
 				Advertisement {
@@ -298,7 +333,28 @@ impl State {
 					prospective_candidate: maybe_prospective_candidate.unwrap(),
 				},
 			)
-			.await;
+			.await
+		{
+			Err(err) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?maybe_prospective_candidate,
+					peer_id = ?origin,
+					?err,
+					"Advertisement rejected",
+				);
+			},
+			Ok(()) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?maybe_prospective_candidate,
+					peer_id = ?origin,
+					"Advertisement accepted",
+				);
+			},
+		}
 	}
 
 	async fn handle_declare<Sender: CollatorProtocolSenderTrait>(
@@ -308,14 +364,43 @@ impl State {
 		para_id: ParaId,
 	) {
 		match self.peer_manager.declared(sender, origin, para_id).await {
-			DeclarationOutcome::Disconnected => self.collation_manager.remove_peers(vec![origin]),
-			DeclarationOutcome::Switched(_old_para_id) =>
-				self.collation_manager.remove_peers(vec![origin]),
-			DeclarationOutcome::Accepted => {},
+			DeclarationOutcome::Disconnected => {
+				self.collation_manager.remove_peers(vec![origin]);
+				gum::trace!(
+					target: LOG_TARGET,
+					?para_id,
+					peer_id = ?origin,
+					"Peer declared but rejected",
+				);
+			},
+			DeclarationOutcome::Switched(old_para_id) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?para_id,
+					?old_para_id,
+					peer_id = ?origin,
+					"Peer switched collating paraid",
+				);
+				self.collation_manager.remove_peers(vec![origin]);
+			},
+			DeclarationOutcome::Accepted => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?para_id,
+					peer_id = ?origin,
+					"Peer declared",
+				);
+			},
 		};
 	}
 
 	fn handle_disconnected(&mut self, peer_id: PeerId) {
+		gum::trace!(
+			target: LOG_TARGET,
+			?peer_id,
+			"Peer disconnected",
+		);
+
 		self.peer_manager.handle_disconnected(peer_id);
 
 		self.collation_manager.remove_peers(vec![peer_id]);
@@ -328,6 +413,21 @@ impl State {
 	) {
 		let disconnected = self.peer_manager.try_accept(sender, peer_id).await;
 
+		let accepted = !disconnected.contains(&peer_id);
+		if accepted {
+			gum::trace!(
+				target: LOG_TARGET,
+				?peer_id,
+				"Peer connection accepted",
+			);
+		} else {
+			gum::trace!(
+				target: LOG_TARGET,
+				?peer_id,
+				"Peer connection rejected",
+			);
+		}
+
 		self.collation_manager.remove_peers(disconnected);
 	}
 
@@ -339,9 +439,16 @@ impl State {
 		let advertisement = res.0;
 		let relay_parent = advertisement.relay_parent;
 		let candidate_hash = advertisement.prospective_candidate.candidate_hash;
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?advertisement,
+			"Collation fetch attempt finished"
+		);
+
 		let outcome = self.collation_manager.completed_fetch(res);
 
-		match outcome {
+		let try_again = match outcome {
 			CollationFetchOutcome::Success(fetched_collation) => {
 				let pvd = request_prospective_validation_data(
 					sender,
@@ -356,40 +463,56 @@ impl State {
 				// TODO: handle collations whose parent we don't know yet.
 				let pvd = pvd.unwrap();
 
-				persisted_validation_data_sanity_check(
+				if let Err(err) = persisted_validation_data_sanity_check(
 					&pvd,
 					&fetched_collation.candidate_receipt,
 					fetched_collation
 						.maybe_parent_head_data
 						.as_ref()
 						.and_then(|head| Some((head, &fetched_collation.parent_head_data_hash))),
-				);
+				) {
+					gum::warn!(
+						target: LOG_TARGET,
+						?advertisement,
+						"Invalid fetched collation: {}",
+						err
+					);
 
-				sender
-					.send_message(CandidateBackingMessage::Second(
-						relay_parent,
-						fetched_collation.candidate_receipt,
-						pvd,
-						fetched_collation.pov,
-					))
-					.await;
+					None
+				} else {
+					sender
+						.send_message(CandidateBackingMessage::Second(
+							relay_parent,
+							fetched_collation.candidate_receipt,
+							pvd,
+							fetched_collation.pov,
+						))
+						.await;
 
-				self.collation_manager.seconding_began(relay_parent, candidate_hash);
-			},
-			CollationFetchOutcome::TryNew(maybe_rep_update) => {
-				if let Some(rep_update) = maybe_rep_update {
-					self.peer_manager.update_reputations(vec![ReputationUpdate {
-						peer_id: advertisement.peer_id,
-						para_id: advertisement.para_id,
-						value: rep_update,
-						kind: ReputationUpdateKind::Slash,
-					}]);
+					gum::trace!(
+						target: LOG_TARGET,
+						?advertisement,
+						"Started seconding"
+					);
+
+					return
 				}
-
-				// reset collation status
-				self.collation_manager.back_to_waiting(relay_parent, candidate_hash);
 			},
+			CollationFetchOutcome::TryNew(update) => update,
+		};
+
+		if let Some(rep_update) = try_again {
+			self.peer_manager.update_reputations(vec![ReputationUpdate {
+				peer_id: advertisement.peer_id,
+				para_id: advertisement.para_id,
+				value: rep_update,
+				kind: ReputationUpdateKind::Slash,
+			}]);
 		}
+
+		// reset collation status
+		self.collation_manager
+			.release_slot(&advertisement.relay_parent, &candidate_hash);
 	}
 
 	async fn handle_collation_seconded<Sender: CollatorProtocolSenderTrait>(
@@ -411,7 +534,19 @@ impl State {
 			},
 		};
 
-		let Some(peer_id) = self.collation_manager.seconded(relay_parent, receipt.hash()) else {
+		gum::debug!(
+			target: LOG_TARGET,
+			para_id = ?receipt.descriptor.para_id(),
+			?relay_parent,
+			candidate_hash = ?receipt.hash(),
+			"Collation seconded",
+		);
+
+		let Some(peer_id) = self.collation_manager.seconded(
+			&relay_parent,
+			&receipt.hash(),
+			&receipt.descriptor.para_id(),
+		) else {
 			return
 		};
 
@@ -425,8 +560,15 @@ impl State {
 		let relay_parent = receipt.descriptor.relay_parent();
 		let candidate_hash = receipt.hash();
 
-		if let Some(peer_id) = self.collation_manager.back_to_waiting(relay_parent, candidate_hash)
-		{
+		gum::debug!(
+			target: LOG_TARGET,
+			para_id = ?receipt.descriptor.para_id(),
+			?relay_parent,
+			?candidate_hash,
+			"Invalid collation",
+		);
+
+		if let Some(peer_id) = self.collation_manager.release_slot(&relay_parent, &candidate_hash) {
 			self.peer_manager.update_reputations(vec![ReputationUpdate {
 				peer_id,
 				para_id: receipt.descriptor.para_id(),
@@ -449,14 +591,49 @@ impl State {
 async fn extract_reputation_updates_from_new_leaves<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
 	leaves: &[Hash],
-) -> Vec<ReputationUpdate> {
-	let mut updates = vec![];
+) -> BTreeMap<ParaId, HashMap<PeerId, Score>> {
+	// TODO: this could be much easier if we added a new CandidateEvent variant that includes the
+	// info we need (the approved peer)
+	let mut included_candidates_per_rp: HashMap<Hash, HashMap<ParaId, HashSet<CandidateHash>>> =
+		HashMap::new();
+
 	for leaf in leaves {
 		let candidate_events =
 			request_candidate_events(*leaf, sender).await.await.unwrap().unwrap();
 
 		for event in candidate_events {
-			// TODO: process ApprovedPeer events
+			if let CandidateEvent::CandidateIncluded(receipt, _, _, _) = event {
+				included_candidates_per_rp
+					.entry(*leaf)
+					.or_default()
+					.entry(receipt.descriptor.para_id())
+					.or_default()
+					.insert(receipt.hash());
+			}
+		}
+	}
+
+	let mut updates = BTreeMap::new();
+	for (rp, per_para) in included_candidates_per_rp {
+		let parent = get_parent();
+
+		for (para_id, included_candidates) in per_para {
+			let candidates_pending_availability =
+				request_candidates_pending_availability(parent, para, sender)
+					.await
+					.await
+					.unwrap()
+					.unwrap();
+
+			for candidate in candidates_pending_availability {
+				if included_candidates.contains(&candidate.hash()) {
+					if let Some(approved_peer) = candidate.commitments.approved_peer() {
+						if let Some(peer_id) = PeerId::from_bytes(&approved_peer.0) {
+							updates.entry(para_id).or_default().entry(peer_id).or_default() = 10;
+						}
+					}
+				}
+			}
 		}
 	}
 

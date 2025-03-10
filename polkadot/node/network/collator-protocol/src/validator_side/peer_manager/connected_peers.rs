@@ -14,9 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::validator_side::common::{
-	DeclarationOutcome, DisconnectedPeers, PeerState, ReputationUpdate, ReputationUpdateKind,
-	Score, CONNECTED_PEERS_LIMIT,
+use crate::{
+	validator_side::common::{
+		DeclarationOutcome, DisconnectedPeers, PeerState, ReputationUpdate, ReputationUpdateKind,
+		Score, CONNECTED_PEERS_LIMIT,
+	},
+	LOG_TARGET,
 };
 use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, CollatorProtocolSenderTrait};
@@ -49,8 +52,8 @@ impl ConnectedPeers {
 		Self { per_paraid: per_para, peers: Default::default() }
 	}
 
-	pub fn peer_ids<'a>(&'a self) -> impl Iterator<Item = &'a PeerId> + 'a {
-		self.peers.keys()
+	pub fn peers<'a>(&'a self) -> impl Iterator<Item = (&'a PeerId, &'a PeerState)> + 'a {
+		self.peers.iter()
 	}
 
 	pub fn contains(&self, peer_id: &PeerId) -> bool {
@@ -67,6 +70,11 @@ impl ConnectedPeers {
 			self.peers.remove(peer);
 		}
 
+		gum::trace!(
+			target: LOG_TARGET,
+			?peers_to_disconnect,
+			"Disconnecting peers",
+		);
 		sender
 			.send_message(NetworkBridgeTxMessage::DisconnectPeers(
 				peers_to_disconnect.clone(),
@@ -89,29 +97,55 @@ impl ConnectedPeers {
 		self.per_paraid.keys().copied()
 	}
 
-	pub fn try_add(&mut self, reputation_db: &ReputationDb, peer_id: PeerId) -> DisconnectedPeers {
+	pub fn try_add(
+		&mut self,
+		reputation_db: &ReputationDb,
+		peer_id: PeerId,
+		already_declared: Option<ParaId>,
+	) -> DisconnectedPeers {
 		if self.contains(&peer_id) {
 			return vec![]
 		}
 
 		let mut kept = false;
 		let mut peers_to_disconnect = vec![];
-		for (para_id, per_para_id) in self.per_paraid.iter_mut() {
-			let past_reputation = reputation_db.query(&peer_id, para_id).unwrap_or(0);
-			let res = per_para_id.try_add(peer_id, past_reputation);
-			if res.0 {
-				kept = true;
 
-				if let Some(to_disconnect) = res.1 {
-					peers_to_disconnect.push(to_disconnect);
+		match already_declared {
+			Some(para_id) => {
+				let past_reputation = reputation_db.query(&peer_id, &para_id).unwrap_or(0);
+				if let Some(per_para_id) = self.per_paraid.get_mut(&para_id) {
+					let res = per_para_id.try_add(peer_id, past_reputation);
+					if res.0 {
+						kept = true;
+
+						if let Some(to_disconnect) = res.1 {
+							peers_to_disconnect.push(to_disconnect);
+						}
+					}
 				}
-			}
+			},
+			None =>
+				for (para_id, per_para_id) in self.per_paraid.iter_mut() {
+					let past_reputation = reputation_db.query(&peer_id, para_id).unwrap_or(0);
+					let res = per_para_id.try_add(peer_id, past_reputation);
+					if res.0 {
+						kept = true;
+
+						if let Some(to_disconnect) = res.1 {
+							peers_to_disconnect.push(to_disconnect);
+						}
+					}
+				},
 		}
 
 		if !kept {
 			peers_to_disconnect.push(peer_id);
 		} else {
-			self.peers.insert(peer_id, PeerState::Connected);
+			let peer_state = match already_declared {
+				Some(para_id) => PeerState::Collating(para_id),
+				None => PeerState::Connected,
+			};
+			self.peers.insert(peer_id, peer_state);
 		}
 
 		peers_to_disconnect
@@ -188,10 +222,7 @@ struct PerParaId {
 }
 
 impl PerParaId {
-	fn new(limit: usize) -> Self {
-		Self { limit, scores: Default::default() }
-	}
-
+	// TODO: this should return some custom Outcome type
 	fn try_add(&mut self, peer_id: PeerId, reputation: Score) -> (bool, Option<PeerId>) {
 		// If we've got enough room, add it. Otherwise, see if it has a higher reputation than any
 		// other connected peer.

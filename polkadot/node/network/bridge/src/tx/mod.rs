@@ -186,6 +186,20 @@ where
 			let protocol = peerset_protocol_names.get_main_name(peer_set);
 			network_service.disconnect_peer(peer, protocol);
 		},
+		NetworkBridgeTxMessage::DisconnectPeers(peers, peer_set) => {
+			gum::trace!(
+				target: LOG_TARGET,
+				action = "DisconnectPeers",
+				?peers,
+				peer_set = ?peer_set,
+			);
+
+			// [`NetworkService`] keeps track of the protocols by their main name.
+			let protocol = peerset_protocol_names.get_main_name(peer_set);
+			for peer in peers {
+				network_service.disconnect_peer(peer, protocol.clone());
+			}
+		},
 		NetworkBridgeTxMessage::SendValidationMessage(peers, msg) => {
 			gum::trace!(
 				target: LOG_TARGET,

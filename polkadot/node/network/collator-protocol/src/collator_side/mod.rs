@@ -480,11 +480,8 @@ async fn distribute_collation<Context>(
 		state.collation_result_senders.insert(candidate_hash, result_sender);
 	}
 
-	let parent_head_data = if elastic_scaling {
-		ParentHeadData::WithData { hash: parent_head_data_hash, head_data: parent_head_data }
-	} else {
-		ParentHeadData::OnlyHash(parent_head_data_hash)
-	};
+	let parent_head_data =
+		ParentHeadData::WithData { hash: parent_head_data_hash, head_data: parent_head_data };
 
 	per_relay_parent.collations.insert(
 		candidate_hash,

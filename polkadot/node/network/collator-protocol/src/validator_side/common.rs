@@ -22,9 +22,7 @@ use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, HeadData, Id as ParaId,
 };
 
-pub const CONNECTED_PEERS_LIMIT: u8 = 300;
-
-pub const SCHEDULING_LOOKAHEAD: u32 = 3;
+pub const CONNECTED_PEERS_LIMIT: u8 = 255;
 
 pub const INSTANT_FETCH_REP_THRESHOLD: Score = 0;
 
@@ -49,6 +47,15 @@ pub enum PeerState {
 	Connected,
 	/// Peer has declared.
 	Collating(ParaId),
+}
+
+impl PeerState {
+	pub fn para_id(&self) -> Option<ParaId> {
+		match self {
+			Self::Collating(para_id) => Some(*para_id),
+			_ => None,
+		}
+	}
 }
 
 /// Candidate supplied with a para head it's built on top of.
@@ -89,6 +96,7 @@ pub struct FetchedCollation {
 }
 
 pub enum CollationFetchOutcome {
+	//  TODO: The option can just always be Some
 	TryNew(Option<Score>),
 	Success(FetchedCollation),
 }
