@@ -20,7 +20,7 @@
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -32,6 +32,18 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(calls_left: u32, callee_addr: &[u8; 20],);
 	if calls_left == 0 {
+		// transfer some value to BOB
+		let _ = api::call(
+			uapi::CallFlags::empty(),
+			&[2u8; 20],
+			u64::MAX, // How much ref_time to devote for the execution. u64::MAX = use all.
+			u64::MAX, /* How much proof_size to devote for the execution. u64::MAX = use
+			           * all. */
+			&[u8::MAX; 32],   // No deposit limit.
+			&u256_bytes(100), // Value transferred
+			&[],
+			None,
+		);
 		return
 	}
 

@@ -22,7 +22,6 @@ use crate::{
 	protocol_controller::{self, SetId},
 	service::{metrics::NotificationMetrics, traits::Direction},
 	types::ProtocolName,
-	MAX_RESPONSE_SIZE,
 };
 
 use codec::Encode;
@@ -55,10 +54,6 @@ pub mod message;
 
 // Log target for this file.
 const LOG_TARGET: &str = "sub-libp2p";
-
-/// Maximum size used for notifications in the block announce and transaction protocols.
-// Must be equal to `max(MAX_BLOCK_ANNOUNCE_SIZE, MAX_TRANSACTIONS_SIZE)`.
-pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Identifier of the peerset for the block announces protocol.
 const HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);

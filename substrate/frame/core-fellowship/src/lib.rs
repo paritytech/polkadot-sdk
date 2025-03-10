@@ -62,7 +62,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
@@ -91,7 +91,18 @@ pub use pallet::*;
 pub use weights::*;
 
 /// The desired outcome for which evidence is presented.
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	Copy,
+	Clone,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebug,
+)]
 pub enum Wish {
 	/// Member wishes only to retain their current rank.
 	Retention,
@@ -109,6 +120,7 @@ pub type Evidence<T, I> = BoundedVec<u8, <T as Config<I>>::EvidenceSize>;
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	CloneNoBound,
 	EqNoBound,
 	PartialEqNoBound,
@@ -241,17 +253,16 @@ pub mod pallet {
 
 	/// The overall status of the system.
 	#[pallet::storage]
-	pub(super) type Params<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, ParamsOf<T, I>, ValueQuery>;
+	pub type Params<T: Config<I>, I: 'static = ()> = StorageValue<_, ParamsOf<T, I>, ValueQuery>;
 
 	/// The status of a claimant.
 	#[pallet::storage]
-	pub(super) type Member<T: Config<I>, I: 'static = ()> =
+	pub type Member<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, MemberStatusOf<T>, OptionQuery>;
 
 	/// Some evidence together with the desired outcome for which it was presented.
 	#[pallet::storage]
-	pub(super) type MemberEvidence<T: Config<I>, I: 'static = ()> =
+	pub type MemberEvidence<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, (Wish, Evidence<T, I>), OptionQuery>;
 
 	#[pallet::event]

@@ -22,7 +22,7 @@ use alloc::{format, str, vec::Vec};
 #[cfg(any(feature = "serde", test))]
 use alloc::{string::String, vec};
 use bip39::{Language, Mnemonic};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::hash::Hash;
 #[doc(hidden)]
 pub use core::ops::Deref;
@@ -500,7 +500,18 @@ pub trait Public: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync 
 pub trait Signature: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync {}
 
 /// An opaque 32-byte cryptographic identifier.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct AccountId32([u8; 32]);
 

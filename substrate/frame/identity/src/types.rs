@@ -17,7 +17,7 @@
 
 use super::*;
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, iter::once, ops::Add};
 use frame_support::{
 	traits::{ConstU32, Get},
@@ -39,7 +39,7 @@ pub type RegistrarIndex = u32;
 /// than 32-bytes then it will be truncated when encoding.
 ///
 /// Can also be `None`.
-#[derive(Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
+#[derive(Clone, DecodeWithMemTracking, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
 pub enum Data {
 	/// No data here.
 	None,
@@ -190,7 +190,18 @@ impl Default for Data {
 ///
 /// NOTE: Registrars may pay little attention to some fields. Registrars may want to make clear
 /// which fields their attestation is relevant for by off-chain means.
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub enum Judgement<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq>
 {
 	/// The default value; no opinion is held.

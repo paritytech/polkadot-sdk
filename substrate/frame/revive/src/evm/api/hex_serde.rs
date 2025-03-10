@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use alloc::{format, string::String, vec::Vec};
+use alloy_core::hex;
 use serde::{Deserialize, Deserializer, Serializer};
 
 pub trait HexCodec: Sized {

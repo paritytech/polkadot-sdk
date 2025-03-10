@@ -74,7 +74,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 		);
 		quote! {
 			#compact_impl
-			#[derive(Default, PartialEq, Eq, Clone, Debug, PartialOrd, Ord)]
+			#[derive(Default, PartialEq, Eq, Clone, Debug, PartialOrd, Ord, _fepsp::codec::DecodeWithMemTracking)]
 		}
 	} else {
 		// automatically derived.
@@ -84,8 +84,11 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 			Eq,
 			Clone,
 			Debug,
+			Ord,
+			PartialOrd,
 			_fepsp::codec::Encode,
 			_fepsp::codec::Decode,
+			_fepsp::codec::DecodeWithMemTracking,
 			_fepsp::scale_info::TypeInfo,
 		)])
 	};
@@ -96,6 +99,8 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 	let from_impl = from_impl(&struct_name, count);
 	let into_impl = into_impl(&assignment_name, count, weight_type.clone());
 	let from_index_impl = crate::index_assignment::from_impl(&struct_name, count);
+	let sort_impl = sort_impl(count);
+	let remove_weakest_sorted_impl = remove_weakest_sorted_impl(count);
 
 	Ok(quote! (
 		/// A struct to encode a election assignment in a compact way.
@@ -178,6 +183,29 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 
 				all_targets.into_iter().collect()
 			}
+
+			fn sort<F>(&mut self, mut voter_stake: F)
+			where
+				F: FnMut(&Self::VoterIndex) -> _feps::VoteWeight
+			{
+				#sort_impl
+			}
+
+			fn remove_weakest_sorted<F>(&mut self, mut voter_stake: F) -> Option<Self::VoterIndex>
+			where
+				F: FnMut(&Self::VoterIndex) -> _feps::VoteWeight
+			{
+				#remove_weakest_sorted_impl
+			}
+
+			fn corrupt(&mut self) {
+				self.votes1.push(
+					(
+						_fepsp::sp_arithmetic::traits::Bounded::max_value(),
+						_fepsp::sp_arithmetic::traits::Bounded::max_value()
+					)
+				)
+			}
 		}
 
 		type __IndexAssignment = _feps::IndexAssignment<
@@ -185,11 +213,12 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 			<#ident as _feps::NposSolution>::TargetIndex,
 			<#ident as _feps::NposSolution>::Accuracy,
 		>;
+
 		impl _fepsp::codec::MaxEncodedLen for #ident {
 			fn max_encoded_len() -> usize {
 				use frame_support::traits::Get;
 				use _fepsp::codec::Encode;
-				let s: u32 = #max_voters::get();
+				let s: u32 = <#max_voters as _feps::Get<u32>>::get();
 				let max_element_size =
 					// the first voter..
 					#voter_type::max_encoded_len()
@@ -206,6 +235,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 					.saturating_add((s as usize).saturating_mul(max_element_size))
 			}
 		}
+
 		impl<'a> core::convert::TryFrom<&'a [__IndexAssignment]> for #ident {
 			type Error = _feps::Error;
 			fn try_from(index_assignments: &'a [__IndexAssignment]) -> Result<Self, Self::Error> {
@@ -225,6 +255,65 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 			}
 		}
 	))
+}
+
+fn sort_impl(count: usize) -> TokenStream2 {
+	(1..=count)
+		.map(|c| {
+			let field = vote_field(c);
+			quote! {
+				// NOTE: self.filed here is sometimes `Vec<(voter, weight)>` and sometimes
+				// `Vec<(voter, weights, last_weight)>`, but Rust's great patter matching makes it
+				// all work super nice.
+				self.#field.sort_by(|(a, ..), (b, ..)| voter_stake(&b).cmp(&voter_stake(&a)));
+				// ---------------------------------^^ in all fields, the index 0 is the voter id.
+			}
+		})
+		.collect::<TokenStream2>()
+}
+
+fn remove_weakest_sorted_impl(count: usize) -> TokenStream2 {
+	// check minium from field 2 onwards. We assume 0 is minimum
+	let check_minimum = (2..=count).map(|c| {
+		let filed = vote_field(c);
+		quote! {
+			let filed_value = self.#filed
+				.last()
+				.map(|(x, ..)| voter_stake(x))
+				.unwrap_or_else(|| _fepsp::sp_arithmetic::traits::Bounded::max_value());
+			if filed_value < minimum {
+				minimum = filed_value;
+				minimum_filed = #c
+			}
+		}
+	});
+
+	let remove_minimum_match = (1..=count).map(|c| {
+		let filed = vote_field(c);
+		quote! {
+			#c => self.#filed.pop().map(|(x, ..)| x),
+		}
+	});
+
+	let first_filed = vote_field(1);
+	quote! {
+		// we assume first one is the minimum. No problem if it is empty.
+		let mut minimum_filed = 1;
+		let mut minimum = self.#first_filed
+			.last()
+			.map(|(x, ..)| voter_stake(x))
+			.unwrap_or_else(|| _fepsp::sp_arithmetic::traits::Bounded::max_value());
+
+		#( #check_minimum )*
+
+		match minimum_filed {
+			#( #remove_minimum_match )*
+			_ => {
+				debug_assert!(false);
+				None
+			}
+		}
+	}
 }
 
 fn remove_voter_impl(count: usize) -> TokenStream2 {

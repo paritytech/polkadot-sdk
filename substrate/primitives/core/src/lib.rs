@@ -35,7 +35,7 @@ macro_rules! map {
 
 use alloc::vec::Vec;
 #[doc(hidden)]
-pub use codec::{Decode, Encode, MaxEncodedLen};
+pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::Deref;
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
@@ -170,7 +170,17 @@ impl Deref for OpaqueMetadata {
 
 /// Simple blob to hold a `PeerId` without committing to its format.
 #[derive(
-	Default, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, TypeInfo,
+	Default,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct OpaquePeerId(pub Vec<u8>);
@@ -355,7 +365,17 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 
 /// The void type - it cannot exist.
 // Oh rust, you crack me up...
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum Void {}
 
 /// Macro for creating `Maybe*` marker traits.
@@ -501,16 +521,17 @@ macro_rules! generate_feature_enabled_macro {
 mod tests {
 	use super::*;
 
+	generate_feature_enabled_macro!(if_test, test, $);
+	generate_feature_enabled_macro!(if_not_test, not(test), $);
+
 	#[test]
 	#[should_panic]
 	fn generate_feature_enabled_macro_panics() {
-		generate_feature_enabled_macro!(if_test, test, $);
 		if_test!(panic!("This should panic"));
 	}
 
 	#[test]
 	fn generate_feature_enabled_macro_works() {
-		generate_feature_enabled_macro!(if_not_test, not(test), $);
 		if_not_test!(panic!("This should not panic"));
 	}
 }

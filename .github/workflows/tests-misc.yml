@@ -14,7 +14,10 @@ concurrency:
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   # more information about this job can be found here:

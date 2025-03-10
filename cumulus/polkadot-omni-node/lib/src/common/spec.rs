@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::common::{
 	command::NodeCommandRunner,
@@ -30,9 +30,11 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::{BlockT, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
+use futures::FutureExt;
 use parachains_common::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
+use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
@@ -41,6 +43,7 @@ use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
@@ -302,6 +305,27 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					sybil_resistance_level: Self::SYBIL_RESISTANCE,
 				})
 				.await?;
+
+			if parachain_config.offchain_worker.enabled {
+				let offchain_workers =
+					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+						runtime_api_provider: client.clone(),
+						keystore: Some(params.keystore_container.keystore()),
+						offchain_db: backend.offchain_storage(),
+						transaction_pool: Some(OffchainTransactionPoolFactory::new(
+							transaction_pool.clone(),
+						)),
+						network_provider: Arc::new(network.clone()),
+						is_validator: parachain_config.role.is_authority(),
+						enable_http_requests: false,
+						custom_extensions: move |_| vec![],
+					})?;
+				task_manager.spawn_handle().spawn(
+					"offchain-workers-runner",
+					"offchain-work",
+					offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
+				);
+			}
 
 			let rpc_builder = {
 				let client = client.clone();
