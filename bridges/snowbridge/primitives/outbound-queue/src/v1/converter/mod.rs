@@ -9,7 +9,7 @@ use core::slice::Iter;
 
 use codec::{Decode, Encode};
 
-use super::message::{AgentExecuteCommand, Command, Message, SendMessage};
+use super::message::{Command, Message, SendMessage};
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{AgentId, ChannelId, ParaId, TokenId, TokenIdOf};
 use sp_core::{H160, H256};
@@ -309,10 +309,7 @@ where
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
 		Ok((
-			Command::AgentExecute {
-				agent_id: self.agent_id,
-				command: AgentExecuteCommand::TransferToken { token, recipient, amount },
-			},
+			Command::UnlockNativeToken { agent_id: self.agent_id, token, recipient, amount },
 			*topic_id,
 		))
 	}

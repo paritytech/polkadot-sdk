@@ -4,37 +4,12 @@
 //!
 //! # Extrinsics
 //!
-//! ## Agents
-//!
-//! Agents are smart contracts on Ethereum that act as proxies for consensus systems on Polkadot
-//! networks.
-//!
-//! * [`Call::create_agent`]: Create agent for a sibling parachain
-//! * [`Call::transfer_native_from_agent`]: Withdraw ether from an agent
-//!
-//! The `create_agent` extrinsic should be called via an XCM `Transact` instruction from the sibling
-//! parachain.
-//!
-//! ## Channels
-//!
-//! Each sibling parachain has its own dedicated messaging channel for sending and receiving
-//! messages. As a prerequisite to creating a channel, the sibling should have already created
-//! an agent using the `create_agent` extrinsic.
-//!
-//! * [`Call::create_channel`]: Create channel for a sibling
-//! * [`Call::update_channel`]: Update a channel for a sibling
-//!
 //! ## Governance
 //!
 //! Only Polkadot governance itself can call these extrinsics. Delivery fees are waived.
 //!
 //! * [`Call::upgrade`]`: Upgrade the gateway contract
 //! * [`Call::set_operating_mode`]: Update the operating mode of the gateway contract
-//! * [`Call::force_update_channel`]: Allow root to update a channel for a sibling
-//! * [`Call::force_transfer_native_from_agent`]: Allow root to withdraw ether from an agent
-//!
-//! Typically, Polkadot governance will use the `force_transfer_native_from_agent` and
-//! `force_update_channel` and extrinsics to manage agents and channels for system parachains.
 //!
 //! ## Polkadot-native tokens on Ethereum
 //!
@@ -67,7 +42,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use snowbridge_core::{
-	meth, sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
+	meth, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
 	PricingParameters as PricingParametersRecord, TokenId, TokenIdOf, PRIMARY_GOVERNANCE_CHANNEL,
 	SECONDARY_GOVERNANCE_CHANNEL,
 };
@@ -78,7 +53,7 @@ use snowbridge_outbound_queue_primitives::{
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, MaybeEquivalence},
+	traits::MaybeEquivalence,
 	DispatchError, SaturatedConversion,
 };
 use sp_std::prelude::*;
@@ -94,20 +69,6 @@ pub type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type PricingParametersOf<T> = PricingParametersRecord<BalanceOf<T>>;
-
-/// Ensure origin location is a sibling
-fn ensure_sibling<T>(location: &Location) -> Result<(ParaId, H256), DispatchError>
-where
-	T: Config,
-{
-	match location.unpack() {
-		(1, [Parachain(para_id)]) => {
-			let agent_id = agent_id_of::<T>(location)?;
-			Ok(((*para_id).into(), agent_id))
-		},
-		_ => Err(BadOrigin.into()),
-	}
-}
 
 /// Hash the location to produce an agent id
 pub fn agent_id_of<T: Config>(location: &Location) -> Result<H256, DispatchError> {
@@ -378,193 +339,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Sends a command to the Gateway contract to instantiate a new agent contract representing
-		/// `origin`.
-		///
-		/// Fee required: Yes
-		///
-		/// - `origin`: Must be `Location` of a sibling parachain
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::create_agent())]
-		pub fn create_agent(origin: OriginFor<T>) -> DispatchResult {
-			let origin_location: Location = T::SiblingOrigin::ensure_origin(origin)?;
-
-			// Ensure that origin location is some consensus system on a sibling parachain
-			let (para_id, agent_id) = ensure_sibling::<T>(&origin_location)?;
-
-			// Record the agent id or fail if it has already been created
-			ensure!(!Agents::<T>::contains_key(agent_id), Error::<T>::AgentAlreadyCreated);
-			Agents::<T>::insert(agent_id, ());
-
-			let command = Command::CreateAgent { agent_id };
-			let pays_fee = PaysFee::<T>::Yes(sibling_sovereign_account::<T>(para_id));
-			Self::send(SECONDARY_GOVERNANCE_CHANNEL, command, pays_fee)?;
-
-			Self::deposit_event(Event::<T>::CreateAgent {
-				location: Box::new(origin_location),
-				agent_id,
-			});
-			Ok(())
-		}
-
-		/// Sends a message to the Gateway contract to create a new channel representing `origin`
-		///
-		/// Fee required: Yes
-		///
-		/// This extrinsic is permissionless, so a fee is charged to prevent spamming and pay
-		/// for execution costs on the remote side.
-		///
-		/// The message is sent over the bridge on BridgeHub's own channel to the Gateway.
-		///
-		/// - `origin`: Must be `Location`
-		/// - `mode`: Initial operating mode of the channel
-		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::create_channel())]
-		pub fn create_channel(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
-			let origin_location: Location = T::SiblingOrigin::ensure_origin(origin)?;
-
-			// Ensure that origin location is a sibling parachain
-			let (para_id, agent_id) = ensure_sibling::<T>(&origin_location)?;
-
-			let channel_id: ChannelId = para_id.into();
-
-			ensure!(Agents::<T>::contains_key(agent_id), Error::<T>::NoAgent);
-			ensure!(!Channels::<T>::contains_key(channel_id), Error::<T>::ChannelAlreadyCreated);
-
-			let channel = Channel { agent_id, para_id };
-			Channels::<T>::insert(channel_id, channel);
-
-			let command = Command::CreateChannel { channel_id, agent_id, mode };
-			let pays_fee = PaysFee::<T>::Yes(sibling_sovereign_account::<T>(para_id));
-			Self::send(SECONDARY_GOVERNANCE_CHANNEL, command, pays_fee)?;
-
-			Self::deposit_event(Event::<T>::CreateChannel { channel_id, agent_id });
-			Ok(())
-		}
-
-		/// Sends a message to the Gateway contract to update a channel configuration
-		///
-		/// The origin must already have a channel initialized, as this message is sent over it.
-		///
-		/// A partial fee will be charged for local processing only.
-		///
-		/// - `origin`: Must be `Location`
-		/// - `mode`: Initial operating mode of the channel
-		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::update_channel())]
-		pub fn update_channel(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
-			let origin_location: Location = T::SiblingOrigin::ensure_origin(origin)?;
-
-			// Ensure that origin location is a sibling parachain
-			let (para_id, _) = ensure_sibling::<T>(&origin_location)?;
-
-			let channel_id: ChannelId = para_id.into();
-
-			ensure!(Channels::<T>::contains_key(channel_id), Error::<T>::NoChannel);
-
-			let command = Command::UpdateChannel { channel_id, mode };
-			let pays_fee = PaysFee::<T>::Partial(sibling_sovereign_account::<T>(para_id));
-
-			// Parachains send the update message on their own channel
-			Self::send(channel_id, command, pays_fee)?;
-
-			Self::deposit_event(Event::<T>::UpdateChannel { channel_id, mode });
-			Ok(())
-		}
-
-		/// Sends a message to the Gateway contract to update an arbitrary channel
-		///
-		/// Fee required: No
-		///
-		/// - `origin`: Must be root
-		/// - `channel_id`: ID of channel
-		/// - `mode`: Initial operating mode of the channel
-		/// - `outbound_fee`: Fee charged to users for sending outbound messages to Polkadot
-		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::force_update_channel())]
-		pub fn force_update_channel(
-			origin: OriginFor<T>,
-			channel_id: ChannelId,
-			mode: OperatingMode,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-
-			ensure!(Channels::<T>::contains_key(channel_id), Error::<T>::NoChannel);
-
-			let command = Command::UpdateChannel { channel_id, mode };
-			Self::send(PRIMARY_GOVERNANCE_CHANNEL, command, PaysFee::<T>::No)?;
-
-			Self::deposit_event(Event::<T>::UpdateChannel { channel_id, mode });
-			Ok(())
-		}
-
-		/// Sends a message to the Gateway contract to transfer ether from an agent to `recipient`.
-		///
-		/// A partial fee will be charged for local processing only.
-		///
-		/// - `origin`: Must be `Location`
-		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::transfer_native_from_agent())]
-		pub fn transfer_native_from_agent(
-			origin: OriginFor<T>,
-			recipient: H160,
-			amount: u128,
-		) -> DispatchResult {
-			let origin_location: Location = T::SiblingOrigin::ensure_origin(origin)?;
-
-			// Ensure that origin location is some consensus system on a sibling parachain
-			let (para_id, agent_id) = ensure_sibling::<T>(&origin_location)?;
-
-			// Since the origin is also the owner of the channel, they only need to pay
-			// the local processing fee.
-			let pays_fee = PaysFee::<T>::Partial(sibling_sovereign_account::<T>(para_id));
-
-			Self::do_transfer_native_from_agent(
-				agent_id,
-				para_id.into(),
-				recipient,
-				amount,
-				pays_fee,
-			)
-		}
-
-		/// Sends a message to the Gateway contract to transfer ether from an agent to `recipient`.
-		///
-		/// Privileged. Can only be called by root.
-		///
-		/// Fee required: No
-		///
-		/// - `origin`: Must be root
-		/// - `location`: Location used to resolve the agent
-		/// - `recipient`: Recipient of funds
-		/// - `amount`: Amount to transfer
-		#[pallet::call_index(8)]
-		#[pallet::weight(T::WeightInfo::force_transfer_native_from_agent())]
-		pub fn force_transfer_native_from_agent(
-			origin: OriginFor<T>,
-			location: Box<VersionedLocation>,
-			recipient: H160,
-			amount: u128,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-
-			// Ensure that location is some consensus system on a sibling parachain
-			let location: Location =
-				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
-			let (_, agent_id) =
-				ensure_sibling::<T>(&location).map_err(|_| Error::<T>::InvalidLocation)?;
-
-			let pays_fee = PaysFee::<T>::No;
-
-			Self::do_transfer_native_from_agent(
-				agent_id,
-				PRIMARY_GOVERNANCE_CHANNEL,
-				recipient,
-				amount,
-				pays_fee,
-			)
-		}
-
 		/// Sends a message to the Gateway contract to update fee related parameters for
 		/// token transfers.
 		///
@@ -662,28 +436,6 @@ pub mod pallet {
 			}
 
 			T::OutboundQueue::deliver(ticket).map_err(|err| Error::<T>::Send(err))?;
-			Ok(())
-		}
-
-		/// Issue a `Command::TransferNativeFromAgent` command. The command will be sent on the
-		/// channel `channel_id`
-		pub fn do_transfer_native_from_agent(
-			agent_id: H256,
-			channel_id: ChannelId,
-			recipient: H160,
-			amount: u128,
-			pays_fee: PaysFee<T>,
-		) -> DispatchResult {
-			ensure!(Agents::<T>::contains_key(agent_id), Error::<T>::NoAgent);
-
-			let command = Command::TransferNativeFromAgent { agent_id, recipient, amount };
-			Self::send(channel_id, command, pays_fee)?;
-
-			Self::deposit_event(Event::<T>::TransferNativeFromAgent {
-				agent_id,
-				recipient,
-				amount,
-			});
 			Ok(())
 		}
 

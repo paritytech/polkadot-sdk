@@ -57,6 +57,8 @@ pub struct Message {
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum Command {
 	/// Execute a sub-command within an agent for a consensus system in Polkadot
+	/// DEPRECATED in favour of `UnlockNativeToken`. We still have to keep it around in
+	/// case buffered and uncommitted messages are using this variant.
 	AgentExecute {
 		/// The ID of the agent
 		agent_id: H256,
@@ -72,41 +74,10 @@ pub enum Command {
 		/// Optionally invoke an initializer in the implementation contract
 		initializer: Option<Initializer>,
 	},
-	/// Create an agent representing a consensus system on Polkadot
-	CreateAgent {
-		/// The ID of the agent, derived from the `MultiLocation` of the consensus system on
-		/// Polkadot
-		agent_id: H256,
-	},
-	/// Create bidirectional messaging channel to a parachain
-	CreateChannel {
-		/// The ID of the channel
-		channel_id: ChannelId,
-		/// The agent ID of the parachain
-		agent_id: H256,
-		/// Initial operating mode
-		mode: OperatingMode,
-	},
-	/// Update the configuration of a channel
-	UpdateChannel {
-		/// The ID of the channel
-		channel_id: ChannelId,
-		/// The new operating mode
-		mode: OperatingMode,
-	},
 	/// Set the global operating mode of the Gateway contract
 	SetOperatingMode {
 		/// The new operating mode
 		mode: OperatingMode,
-	},
-	/// Transfer ether from an agent contract to a recipient account
-	TransferNativeFromAgent {
-		/// The agent ID
-		agent_id: H256,
-		/// The recipient of the ether
-		recipient: H160,
-		/// The amount to transfer
-		amount: u128,
 	},
 	/// Set token fees of the Gateway contract
 	SetTokenTransferFees {
@@ -127,7 +98,7 @@ pub enum Command {
 		multiplier: UD60x18,
 	},
 	/// Transfer ERC20 tokens
-	TransferNativeToken {
+	UnlockNativeToken {
 		/// ID of the agent
 		agent_id: H256,
 		/// Address of the ERC20 token
@@ -165,16 +136,12 @@ impl Command {
 		match self {
 			Command::AgentExecute { .. } => 0,
 			Command::Upgrade { .. } => 1,
-			Command::CreateAgent { .. } => 2,
-			Command::CreateChannel { .. } => 3,
-			Command::UpdateChannel { .. } => 4,
-			Command::SetOperatingMode { .. } => 5,
-			Command::TransferNativeFromAgent { .. } => 6,
-			Command::SetTokenTransferFees { .. } => 7,
-			Command::SetPricingParameters { .. } => 8,
-			Command::TransferNativeToken { .. } => 9,
-			Command::RegisterForeignToken { .. } => 10,
-			Command::MintForeignToken { .. } => 11,
+			Command::SetOperatingMode { .. } => 2,
+			Command::SetTokenTransferFees { .. } => 3,
+			Command::SetPricingParameters { .. } => 4,
+			Command::UnlockNativeToken { .. } => 5,
+			Command::RegisterForeignToken { .. } => 6,
+			Command::MintForeignToken { .. } => 7,
 		}
 	}
 
@@ -191,28 +158,8 @@ impl Command {
 					Token::FixedBytes(impl_code_hash.as_bytes().to_owned()),
 					initializer.clone().map_or(Token::Bytes(vec![]), |i| Token::Bytes(i.params)),
 				])]),
-			Command::CreateAgent { agent_id } =>
-				ethabi::encode(&[Token::Tuple(vec![Token::FixedBytes(
-					agent_id.as_bytes().to_owned(),
-				)])]),
-			Command::CreateChannel { channel_id, agent_id, mode } =>
-				ethabi::encode(&[Token::Tuple(vec![
-					Token::FixedBytes(channel_id.as_ref().to_owned()),
-					Token::FixedBytes(agent_id.as_bytes().to_owned()),
-					Token::Uint(U256::from((*mode) as u64)),
-				])]),
-			Command::UpdateChannel { channel_id, mode } => ethabi::encode(&[Token::Tuple(vec![
-				Token::FixedBytes(channel_id.as_ref().to_owned()),
-				Token::Uint(U256::from((*mode) as u64)),
-			])]),
 			Command::SetOperatingMode { mode } =>
 				ethabi::encode(&[Token::Tuple(vec![Token::Uint(U256::from((*mode) as u64))])]),
-			Command::TransferNativeFromAgent { agent_id, recipient, amount } =>
-				ethabi::encode(&[Token::Tuple(vec![
-					Token::FixedBytes(agent_id.as_bytes().to_owned()),
-					Token::Address(*recipient),
-					Token::Uint(U256::from(*amount)),
-				])]),
 			Command::SetTokenTransferFees {
 				create_asset_xcm,
 				transfer_asset_xcm,
@@ -228,7 +175,7 @@ impl Command {
 					Token::Uint(U256::from(*delivery_cost)),
 					Token::Uint(multiplier.clone().into_inner()),
 				])]),
-			Command::TransferNativeToken { agent_id, token, recipient, amount } =>
+			Command::UnlockNativeToken { agent_id, token, recipient, amount } =>
 				ethabi::encode(&[Token::Tuple(vec![
 					Token::FixedBytes(agent_id.as_bytes().to_owned()),
 					Token::Address(*token),
@@ -394,10 +341,6 @@ impl GasMeter for ConstantGasMeter {
 
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64 {
 		match command {
-			Command::CreateAgent { .. } => 275_000,
-			Command::CreateChannel { .. } => 100_000,
-			Command::UpdateChannel { .. } => 50_000,
-			Command::TransferNativeFromAgent { .. } => 60_000,
 			Command::SetOperatingMode { .. } => 40_000,
 			Command::AgentExecute { command, .. } => match command {
 				// Execute IERC20.transferFrom
@@ -419,7 +362,7 @@ impl GasMeter for ConstantGasMeter {
 			},
 			Command::SetTokenTransferFees { .. } => 60_000,
 			Command::SetPricingParameters { .. } => 60_000,
-			Command::TransferNativeToken { .. } => 100_000,
+			Command::UnlockNativeToken { .. } => 100_000,
 			Command::RegisterForeignToken { .. } => 1_200_000,
 			Command::MintForeignToken { .. } => 100_000,
 		}

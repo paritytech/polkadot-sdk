@@ -282,17 +282,7 @@ parameter_types! {
 
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
-	fn contains(call: &RuntimeCall) -> bool {
-		// Disallow these Snowbridge system calls.
-		if matches!(
-			call,
-			RuntimeCall::EthereumSystem(snowbridge_pallet_system::Call::create_agent { .. })
-		) || matches!(
-			call,
-			RuntimeCall::EthereumSystem(snowbridge_pallet_system::Call::create_channel { .. })
-		) {
-			return false;
-		}
+	fn contains(_: &RuntimeCall) -> bool {
 		return true;
 	}
 }

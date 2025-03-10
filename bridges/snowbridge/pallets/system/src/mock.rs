@@ -256,10 +256,6 @@ pub fn new_test_ext(genesis_build: bool) -> sp_io::TestExternalities {
 
 // Test helpers
 
-pub fn make_xcm_origin(location: Location) -> RuntimeOrigin {
-	pallet_xcm_origin::Origin(location).into()
-}
-
 pub fn make_agent_id(location: Location) -> AgentId {
 	<Test as snowbridge_system::Config>::AgentIdOf::convert_location(&location)
 		.expect("convert location")

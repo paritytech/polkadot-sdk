@@ -164,7 +164,7 @@ pub fn mock_message(sibling_para_id: u32) -> Message {
 	Message {
 		id: None,
 		channel_id: ParaId::from(sibling_para_id).into(),
-		command: Command::TransferNativeToken {
+		command: Command::UnlockNativeToken {
 			agent_id: Default::default(),
 			token: Default::default(),
 			recipient: Default::default(),

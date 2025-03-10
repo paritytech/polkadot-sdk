@@ -73,63 +73,6 @@ pub fn send_inbound_message(fixture: InboundQueueFixture) -> DispatchResult {
 	)
 }
 
-/// Create an agent on Ethereum. An agent is a representation of an entity in the Polkadot
-/// ecosystem (like a parachain) on Ethereum.
-#[test]
-#[ignore]
-fn create_agent() {
-	let origin_para: u32 = 1001;
-	// Fund the origin parachain sovereign account so that it can pay execution fees.
-	BridgeHubWestend::fund_para_sovereign(origin_para.into(), INITIAL_FUND);
-
-	let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
-	let destination = Westend::child_location_of(BridgeHubWestend::para_id()).into();
-
-	let create_agent_call = SnowbridgeControl::Control(ControlCall::CreateAgent {});
-	// Construct XCM to create an agent for para 1001
-	let remote_xcm = VersionedXcm::from(Xcm(vec![
-		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-		DescendOrigin(Parachain(origin_para).into()),
-		Transact {
-			origin_kind: OriginKind::Xcm,
-			call: create_agent_call.encode().into(),
-			fallback_max_weight: None,
-		},
-	]));
-
-	// Westend Global Consensus
-	// Send XCM message from Relay Chain to Bridge Hub source Parachain
-	Westend::execute_with(|| {
-		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
-			sudo_origin,
-			bx!(destination),
-			bx!(remote_xcm),
-		));
-
-		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
-		// Check that the Transact message was sent
-		assert_expected_events!(
-			Westend,
-			vec![
-				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-			]
-		);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		// Check that a message was sent to Ethereum to create the agent
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![
-				RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateAgent {
-					..
-				}) => {},
-			]
-		);
-	});
-}
-
 /// Tests the registering of a token as an asset on AssetHub.
 #[test]
 fn register_weth_token_from_ethereum_to_asset_hub() {

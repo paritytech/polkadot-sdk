@@ -1,4 +1,8 @@
-use crate::{v1::Fee, SendError, SendMessageFeeProvider};
+use super::*;
+use crate::{
+	v1::{Command::UnlockNativeToken, Fee},
+	SendError, SendMessageFeeProvider,
+};
 use frame_support::parameter_types;
 use hex_literal::hex;
 use snowbridge_core::AgentIdOf;
@@ -7,8 +11,6 @@ use xcm::{
 	latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 	prelude::SendError as XcmSendError,
 };
-
-use super::*;
 
 parameter_types! {
 	const MaxMessageSize: u32 = u32::MAX;
@@ -425,13 +427,11 @@ fn xcm_converter_convert_success() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::AgentExecute {
+	let expected_payload = UnlockNativeToken {
 		agent_id: Default::default(),
-		command: AgentExecuteCommand::TransferToken {
-			token: token_address.into(),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		},
+		token: token_address.into(),
+		recipient: beneficiary_address.into(),
+		amount: 1000,
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -462,13 +462,11 @@ fn xcm_converter_convert_without_buy_execution_yields_success() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::AgentExecute {
+	let expected_payload = UnlockNativeToken {
 		agent_id: Default::default(),
-		command: AgentExecuteCommand::TransferToken {
-			token: token_address.into(),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		},
+		token: token_address.into(),
+		recipient: beneficiary_address.into(),
+		amount: 1000,
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -501,13 +499,11 @@ fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::AgentExecute {
+	let expected_payload = UnlockNativeToken {
 		agent_id: Default::default(),
-		command: AgentExecuteCommand::TransferToken {
-			token: token_address.into(),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		},
+		token: token_address.into(),
+		recipient: beneficiary_address.into(),
+		amount: 1000,
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -541,13 +537,11 @@ fn xcm_converter_convert_with_native_eth_succeeds() {
 	// The token address that is expected to be sent should be
 	// `0x0000000000000000000000000000000000000000`. The solidity will
 	// interpret this as a transfer of ETH.
-	let expected_payload = Command::AgentExecute {
+	let expected_payload = UnlockNativeToken {
 		agent_id: Default::default(),
-		command: AgentExecuteCommand::TransferToken {
-			token: H160([0; 20]),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		},
+		token: H160([0; 20]),
+		recipient: beneficiary_address.into(),
+		amount: 1000,
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
@@ -580,13 +574,11 @@ fn xcm_converter_convert_with_fees_less_than_reserve_yields_success() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::AgentExecute {
+	let expected_payload = UnlockNativeToken {
 		agent_id: Default::default(),
-		command: AgentExecuteCommand::TransferToken {
-			token: token_address.into(),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		},
+		token: token_address.into(),
+		recipient: beneficiary_address.into(),
+		amount: 1000,
 	};
 	let result = converter.convert();
 	assert_eq!(result, Ok((expected_payload, [0; 32])));
