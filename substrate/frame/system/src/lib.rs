@@ -712,7 +712,7 @@ pub mod pallet {
 		#[pallet::weight((T::SystemWeightInfo::set_code(), DispatchClass::Operational))]
 		pub fn set_code(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			Self::can_set_code(&code)?;
+			Self::can_set_code(&code, true).into_result()?;
 			T::OnSetCode::set_code(code)?;
 			// consume the rest of the block to prevent further transactions
 			Ok(Some(T::BlockWeights::get().max_block).into())
@@ -729,6 +729,7 @@ pub mod pallet {
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
+			Self::can_set_code(&code, false).into_result()?;
 			T::OnSetCode::set_code(code)?;
 			Ok(Some(T::BlockWeights::get().max_block).into())
 		}
@@ -863,8 +864,32 @@ pub mod pallet {
 			_: OriginFor<T>,
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			let post = Self::do_apply_authorize_upgrade(code)?;
-			Ok(post)
+			let res = Self::validate_code_is_authorized(&code)?;
+			AuthorizedUpgrade::<T>::kill();
+
+			match Self::can_set_code(&code, res.check_version) {
+				CanSetCodeResult::Ok => {},
+				CanSetCodeResult::MultiBlockMigrationsOngoing =>
+					return Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+				CanSetCodeResult::InvalidVersion(error) => {
+					// The upgrade is invalid and there is no benefit in trying to apply this again.
+					Self::deposit_event(Event::RejectedInvalidAuthorizedUpgrade {
+						code_hash: res.code_hash,
+						error: error.into(),
+					});
+
+					// Not the fault of the caller of call.
+					return Ok(Pays::No.into())
+				},
+			};
+			T::OnSetCode::set_code(code)?;
+
+			Ok(PostDispatchInfo {
+				// consume the rest of the block to prevent further transactions
+				actual_weight: Some(T::BlockWeights::get().max_block),
+				// no fee for valid upgrade
+				pays_fee: Pays::No,
+			})
 		}
 	}
 
@@ -894,6 +919,8 @@ pub mod pallet {
 		TaskFailed { task: T::RuntimeTask, err: DispatchError },
 		/// An upgrade was authorized.
 		UpgradeAuthorized { code_hash: T::Hash, check_version: bool },
+		/// An invalid authorized upgrade was rejected while trying to apply it.
+		RejectedInvalidAuthorizedUpgrade { code_hash: T::Hash, error: DispatchError },
 	}
 
 	/// Error for the System pallet
@@ -1091,16 +1118,17 @@ pub mod pallet {
 		type Call = Call<T>;
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::apply_authorized_upgrade { ref code } = call {
-				if let Ok(hash) = Self::validate_authorized_upgrade(&code[..]) {
+				if let Ok(res) = Self::validate_code_is_authorized(&code[..]) {
 					return Ok(ValidTransaction {
-						priority: 100,
+						priority: u64::max_value(),
 						requires: Vec::new(),
-						provides: vec![hash.as_ref().to_vec()],
+						provides: vec![res.code_hash.encode()],
 						longevity: TransactionLongevity::max_value(),
 						propagate: true,
 					})
 				}
 			}
+
 			#[cfg(feature = "experimental")]
 			if let Call::do_task { ref task } = call {
 				if task.is_valid() {
@@ -1113,6 +1141,7 @@ pub mod pallet {
 					})
 				}
 			}
+
 			Err(InvalidTransaction::Call.into())
 		}
 	}
@@ -1468,6 +1497,28 @@ pub enum DecRefStatus {
 	Reaped,
 	/// Account still exists.
 	Exists,
+}
+
+/// Result of [`Pallet::can_set_code`].
+pub enum CanSetCodeResult<T: Config> {
+	/// Everything is fine.
+	Ok,
+	/// Multi-block migrations are on-going.
+	MultiBlockMigrationsOngoing,
+	/// The runtime version is invalid or could not be fetched.
+	InvalidVersion(Error<T>),
+}
+
+impl<T: Config> CanSetCodeResult<T> {
+	/// Convert `Self` into a result.
+	pub fn into_result(self) -> Result<(), DispatchError> {
+		match self {
+			Self::Ok => Ok(()),
+			Self::MultiBlockMigrationsOngoing =>
+				Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+			Self::InvalidVersion(err) => Err(err.into()),
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -2213,71 +2264,55 @@ impl<T: Config> Pallet<T> {
 
 	/// Determine whether or not it is possible to update the code.
 	///
-	/// Checks the given code if it is a valid runtime wasm blob by instantiating
-	/// it and extracting the runtime version of it. It checks that the runtime version
-	/// of the old and new runtime has the same spec name and that the spec version is increasing.
-	pub fn can_set_code(code: &[u8]) -> Result<(), sp_runtime::DispatchError> {
+	/// - `check_version`: Should the runtime version be checked?
+	pub fn can_set_code(code: &[u8], check_version: bool) -> CanSetCodeResult<T> {
 		if T::MultiBlockMigrator::ongoing() {
-			return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+			return CanSetCodeResult::MultiBlockMigrationsOngoing
 		}
 
-		let current_version = T::Version::get();
-		let new_version = sp_io::misc::runtime_version(code)
-			.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
-			.ok_or(Error::<T>::FailedToExtractRuntimeVersion)?;
+		if check_version {
+			let current_version = T::Version::get();
+			let Some(new_version) = sp_io::misc::runtime_version(code)
+				.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
+			else {
+				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion)
+			};
 
-		cfg_if::cfg_if! {
-			if #[cfg(all(feature = "runtime-benchmarks", not(test)))] {
+			cfg_if::cfg_if! {
+				if #[cfg(all(feature = "runtime-benchmarks", not(test)))] {
 					// Let's ensure the compiler doesn't optimize our fetching of the runtime version away.
 					core::hint::black_box((new_version, current_version));
-					Ok(())
-			} else {
-				if new_version.spec_name != current_version.spec_name {
-					return Err(Error::<T>::InvalidSpecName.into())
-				}
+				} else {
+					if new_version.spec_name != current_version.spec_name {
+						return CanSetCodeResult::InvalidVersion( Error::<T>::InvalidSpecName)
+					}
 
-				if new_version.spec_version <= current_version.spec_version {
-					return Err(Error::<T>::SpecVersionNeedsToIncrease.into())
+					if new_version.spec_version <= current_version.spec_version {
+						return CanSetCodeResult::InvalidVersion(Error::<T>::SpecVersionNeedsToIncrease)
+					}
 				}
-
-				Ok(())
 			}
 		}
+
+		CanSetCodeResult::Ok
 	}
 
-	/// To be called after any origin/privilege checks. Put the code upgrade authorization into
-	/// storage and emit an event. Infallible.
+	/// Authorize the given `code_hash` as upgrade.
 	pub fn do_authorize_upgrade(code_hash: T::Hash, check_version: bool) {
 		AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
 		Self::deposit_event(Event::UpgradeAuthorized { code_hash, check_version });
 	}
 
-	/// Apply an authorized upgrade, performing any validation checks, and remove the authorization.
-	/// Whether or not the code is set directly depends on the `OnSetCode` configuration of the
-	/// runtime.
-	pub fn do_apply_authorize_upgrade(code: Vec<u8>) -> Result<PostDispatchInfo, DispatchError> {
-		Self::validate_authorized_upgrade(&code[..])?;
-		T::OnSetCode::set_code(code)?;
-		AuthorizedUpgrade::<T>::kill();
-		let post = PostDispatchInfo {
-			// consume the rest of the block to prevent further transactions
-			actual_weight: Some(T::BlockWeights::get().max_block),
-			// no fee for valid upgrade
-			pays_fee: Pays::No,
-		};
-		Ok(post)
-	}
-
-	/// Check that provided `code` can be upgraded to. Namely, check that its hash matches an
-	/// existing authorization and that it meets the specification requirements of `can_set_code`.
-	pub fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
+	/// Check that provided `code` is authorized as an upgrade.
+	///
+	/// Returns the [`CodeUpgradeAuthorization`].
+	fn validate_code_is_authorized(
+		code: &[u8],
+	) -> Result<CodeUpgradeAuthorization<T>, DispatchError> {
 		let authorization = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
 		let actual_hash = T::Hashing::hash(code);
 		ensure!(actual_hash == authorization.code_hash, Error::<T>::Unauthorized);
-		if authorization.check_version {
-			Self::can_set_code(code)?
-		}
-		Ok(actual_hash)
+		Ok(authorization)
 	}
 
 	/// Reclaim the weight for the extrinsic given info and post info.

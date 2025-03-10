@@ -328,7 +328,7 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		let data = input.unwrap_or_default().0;
+		let data = input.to_vec();
 
 		let (gas_limit, storage_deposit_limit) =
 			<Self::Config as Config>::EthGasEncoder::decode(gas).ok_or_else(|| {
@@ -508,7 +508,7 @@ mod test {
 		/// Create a new builder with an instantiate call.
 		fn instantiate_with(code: Vec<u8>, data: Vec<u8>) -> Self {
 			let mut builder = Self::new();
-			builder.tx.input = Some(Bytes(code.into_iter().chain(data.into_iter()).collect()));
+			builder.tx.input = Bytes(code.into_iter().chain(data.into_iter()).collect()).into();
 			builder
 		}
 
@@ -580,7 +580,7 @@ mod test {
 			crate::Call::call::<Test> {
 				dest: tx.to.unwrap(),
 				value: tx.value.unwrap_or_default().as_u64(),
-				data: tx.input.unwrap_or_default().0,
+				data: tx.input.to_vec(),
 				gas_limit,
 				storage_deposit_limit
 			}
@@ -649,7 +649,7 @@ mod test {
 
 		// Fail because the tx input fail to get the blob length
 		assert_eq!(
-			builder.mutate_estimate_and_check(Box::new(|tx| tx.input = Some(Bytes(vec![1, 2, 3])))),
+			builder.mutate_estimate_and_check(Box::new(|tx| tx.input = vec![1, 2, 3].into())),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		);
 	}
