@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate as snowbridge_system_frontend;
+#[cfg(feature = "runtime-benchmarks")]
 use crate::BenchmarkHelper;
 use frame_support::{
 	derive_impl, parameter_types,
