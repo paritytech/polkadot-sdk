@@ -276,7 +276,7 @@ impl NetworkParams {
 			kademlia_replication_factor: self.kademlia_replication_factor,
 			ipfs_server: self.ipfs_server,
 			sync_mode: self.sync.into(),
-			network_backend: self.network_backend,
+			network_backend: self.network_backend.map(Into::into),
 		}
 	}
 }
