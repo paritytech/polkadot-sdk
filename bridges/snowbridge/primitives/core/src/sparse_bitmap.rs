@@ -19,15 +19,10 @@ impl<BitMap> SparseBitmapImpl<BitMap>
 where
 	BitMap: StorageMap<u128, u128, Query = u128>,
 {
-	/// Computes the bucket index for a given bit index.
+	/// Computes the bucket index and the bit mask for a given bit index.
 	/// Each bucket contains 128 bits.
-	fn compute_bucket(index: u128) -> u128 {
-		index >> 7 // Divide by 2^7 (128 bits)
-	}
-
-	/// Computes the bit mask within a bucket for a given bit index.
-	fn compute_mask(index: u128) -> u128 {
-		1u128 << (index & 127) // Mask for the bit in the bucket
+	fn compute_bucket_and_mask(index: u128) -> (u128, u128) {
+		(index >> 7, 1u128 << (index & 127))
 	}
 }
 
@@ -37,8 +32,7 @@ where
 {
 	fn get(index: u128) -> bool {
 		// Calculate bucket and mask
-		let bucket = Self::compute_bucket(index);
-		let mask = Self::compute_mask(index);
+		let (bucket, mask) = Self::compute_bucket_and_mask(index);
 
 		// Retrieve bucket and check bit
 		let bucket_value = BitMap::get(bucket);
@@ -47,8 +41,7 @@ where
 
 	fn set(index: u128) {
 		// Calculate bucket and mask
-		let bucket = Self::compute_bucket(index);
-		let mask = Self::compute_mask(index);
+		let (bucket, mask) = Self::compute_bucket_and_mask(index);
 
 		// Mutate the storage to set the bit
 		BitMap::mutate(bucket, |value| {
@@ -97,8 +90,7 @@ mod tests {
 	fn test_sparse_bitmap_set_and_get() {
 		TestExternalities::default().execute_with(|| {
 			let index = 300;
-			let bucket = TestSparseBitmap::compute_bucket(index);
-			let mask = TestSparseBitmap::compute_mask(index);
+			let (bucket, mask) = TestSparseBitmap::compute_bucket_and_mask(index);
 
 			// Test initial state
 			assert_eq!(MockStorageMap::get(bucket), 0);
@@ -118,10 +110,10 @@ mod tests {
 		TestExternalities::default().execute_with(|| {
 			let index1 = 300;
 			let index2 = 305; // Same bucket, different bit
-			let bucket = TestSparseBitmap::compute_bucket(index1);
+			let (bucket, _) = TestSparseBitmap::compute_bucket_and_mask(index1);
 
-			let mask1 = TestSparseBitmap::compute_mask(index1);
-			let mask2 = TestSparseBitmap::compute_mask(index2);
+			let (_, mask1) = TestSparseBitmap::compute_bucket_and_mask(index1);
+			let (_, mask2) = TestSparseBitmap::compute_bucket_and_mask(index2);
 
 			// Test initial state
 			assert_eq!(MockStorageMap::get(bucket), 0);
@@ -152,11 +144,11 @@ mod tests {
 			let index1 = 300; // Bucket 1
 			let index2 = 300 + (1 << 7); // Bucket 2 (128 bits apart)
 
-			let bucket1 = TestSparseBitmap::compute_bucket(index1);
-			let bucket2 = TestSparseBitmap::compute_bucket(index2);
+			let (bucket1, _) = TestSparseBitmap::compute_bucket_and_mask(index1);
+			let (bucket2, _) = TestSparseBitmap::compute_bucket_and_mask(index2);
 
-			let mask1 = TestSparseBitmap::compute_mask(index1);
-			let mask2 = TestSparseBitmap::compute_mask(index2);
+			let (_, mask1) = TestSparseBitmap::compute_bucket_and_mask(index1);
+			let (_, mask2) = TestSparseBitmap::compute_bucket_and_mask(index2);
 
 			// Test initial state
 			assert_eq!(MockStorageMap::get(bucket1), 0);
