@@ -245,10 +245,7 @@ where
 			},
 			// Deposit the dot deposit into the bridge sovereign account (where the asset
 			// creation fee will be deducted from).
-			DepositAsset {
-				assets: dot_fee_asset.clone().into(),
-				beneficiary: bridge_owner.clone().into(),
-			},
+			DepositAsset { assets: dot_fee_asset.clone().into(), beneficiary: bridge_owner.into() },
 			// Call to create the asset.
 			Transact {
 				origin_kind: OriginKind::Xcm,
@@ -274,8 +271,9 @@ where
 	/// to proceed so assets can still be trapped on AH rather than the funds being locked on
 	/// Ethereum but not accessible on AH.
 	fn decode_raw_xcm(raw: &[u8]) -> Xcm<()> {
+		let mut data = raw;
 		if let Ok(versioned_xcm) =
-			VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut raw.as_ref())
+			VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut data)
 		{
 			if let Ok(decoded_xcm) = versioned_xcm.try_into() {
 				return decoded_xcm;
