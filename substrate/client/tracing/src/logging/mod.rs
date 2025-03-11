@@ -77,25 +77,6 @@ macro_rules! enable_log_reloading {
 	}};
 }
 
-/// Synchronous helper: applies the log prefix for the duration of the function call.
-pub fn apply_prefix_sync<F, R>(prefix: impl AsRef<str>, f: F) -> R
-where
-	F: FnOnce() -> R,
-{
-	::log::info!("Applying log prefix (sync): {}", prefix.as_ref());
-	f()
-}
-
-/// Asynchronous helper: applies the log prefix for the duration of the async function call.
-pub async fn apply_prefix_async<F, Fut, R>(prefix: impl AsRef<str>, f: F) -> R
-where
-	F: FnOnce() -> Fut,
-	Fut: std::future::Future<Output = R>,
-{
-	::log::info!("Applying log prefix (async): {}", prefix.as_ref());
-	f().await
-}
-
 /// Convert a `Option<LevelFilter>` to a [`log::LevelFilter`].
 ///
 /// `None` is interpreted as `Info`.

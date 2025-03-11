@@ -118,31 +118,24 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 	let item_fn = syn::parse_macro_input!(item as ItemFn);
 
 	// Resolve the proper sc_tracing path.
-	let resolved_crate = match utils::resolve_sc_tracing() {
+	let crate_name = match utils::resolve_sc_tracing() {
 		Ok(path) => path,
 		Err(err) => return err.to_compile_error().into(),
 	};
 
 	let syn::ItemFn { attrs, vis, sig, block } = item_fn;
 
-	// Generate different output based on whether the function is async.
-	let output = if sig.asyncness.is_some() {
-		// Async branch: wrap the block in a closure that returns an async block.
-		quote! {
-			#(#attrs)*
-			#vis #sig {
-				#resolved_crate::logging::apply_prefix_async(#prefix_expr, || async { #block }).await
-			}
-		}
-	} else {
-		// Sync branch: call the synchronous logging helper.
-		quote! {
-			#(#attrs)*
-			#vis #sig {
-				#resolved_crate::logging::apply_prefix_sync(#prefix_expr, || { #block })
-			}
-		}
-	};
+	(quote! {
+		#(#attrs)*
+		#vis #sig {
+			let span = #crate_name::tracing::info_span!(
+				#crate_name::logging::PREFIX_LOG_SPAN,
+				name = #prefix_expr,
+			);
+			let _enter = span.enter();
 
-	output.into()
+			#block
+		}
+	})
+	.into()
 }
