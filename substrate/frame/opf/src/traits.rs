@@ -5,7 +5,7 @@ pub trait ReferendumTrait {
 	type Proposal: Parameter + Member + MaxEncodedLen;
 	type ProposalOrigin: Parameter + Member + MaxEncodedLen;
 	type OriginFor;
-    type ReferendumInfo: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone;
+	type ReferendumInfo: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone;
 	type Moment;
 
 	fn submit_proposal(
@@ -15,28 +15,53 @@ pub trait ReferendumTrait {
 		enactment_moment: DispatchTime<Self::Moment>,
 	) -> Self::Index;
 
-    fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo>;
+	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo>;
 }
 
-pub trait ConvictionVotingTrait {
+pub trait ConvictionVotingTrait<AccountId> {
 	type Vote;
 	type AccountVote;
 	type Conviction: Parameter + Member + Ord + PartialOrd + Copy + MaxEncodedLen;
 	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
+	type Balance;
 	type Moment;
 
-	/*fn try_vote(ref_index: Self::Index, vote: Self::AccountVote) -> Result<(), ()>;
-	fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()>;*/
+	fn vote_data(aye:bool, conviction: Self::Conviction, balance: Self::Balance) -> Self::AccountVote;
+	fn try_vote(
+		caller: &AccountId,
+		ref_index: Self::Index,
+		vote: Self::AccountVote,
+	) -> DispatchResult;
+	/*fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()>;*/
 }
 
-impl<T:pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait
-	for pallet_conviction_voting::Pallet<T, I>{
-		type Vote = pallet_conviction_voting::VotingOf<T, I>;
-		type AccountVote = pallet_conviction_voting::AccountVote<pallet_conviction_voting::BalanceOf<T,I>> ;
-		type Conviction = pallet_conviction_voting::Conviction;
-		type Index = pallet_conviction_voting::PollIndexOf<T, I>;
-		type Moment = <T::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<AccountIdOf<T>>
+	for pallet_conviction_voting::Pallet<T, I>
+{
+	type Vote = pallet_conviction_voting::VotingOf<T, I>;
+	type AccountVote =
+		pallet_conviction_voting::AccountVote<Self::Balance>;
+	type Conviction = pallet_conviction_voting::Conviction;
+	type Index = pallet_conviction_voting::PollIndexOf<T, I>;
+	type Balance = pallet_conviction_voting::BalanceOf<T, I>;
+	type Moment = <T::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+
+	fn vote_data(aye:bool, conviction: Self::Conviction, balance: Self::Balance) -> Self::AccountVote {
+		pallet_conviction_voting::AccountVote::Standard {
+			vote: pallet_conviction_voting::Vote { aye, conviction },
+			balance,
+		}
 	}
+	fn try_vote(
+		caller: &AccountIdOf<T>,
+		ref_index: Self::Index,
+		vote: Self::AccountVote,
+	) -> DispatchResult {
+		let origin = RawOrigin::Signed(caller.clone());
+		pallet_conviction_voting::Pallet::<T, I>::vote(origin.into(), ref_index, vote)?;
+		Ok(())
+	}
+}
 
 impl<T: frame_system::Config + pallet_referenda::Config<I>, I: 'static> ReferendumTrait
 	for pallet_referenda::Pallet<T, I>
@@ -51,7 +76,7 @@ where
 	type ProposalOrigin =
 		<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
 	type OriginFor = OriginFor<T>;
-    type ReferendumInfo = pallet_referenda::ReferendumInfoOf<T, I>;
+	type ReferendumInfo = pallet_referenda::ReferendumInfoOf<T, I>;
 	type Moment = <T::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 	fn submit_proposal(
@@ -69,7 +94,7 @@ where
 		pallet_referenda::ReferendumCount::<T, I>::get()
 	}
 
-    fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo> {    
-        pallet_referenda::ReferendumInfoFor::<T, I>::get(index)
-    } 
+	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo> {
+		pallet_referenda::ReferendumInfoFor::<T, I>::get(index)
+	}
 }

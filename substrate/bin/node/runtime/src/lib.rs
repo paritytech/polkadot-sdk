@@ -1848,6 +1848,7 @@ impl pallet_offences::Config for Runtime {
 	type OnOffenceHandler = Staking;
 }
 
+pub type Gov = UnionOf<Referenda, ConvictionVoting>;
 parameter_types! {
 	// Id of the treasury
 	pub const PotId: PalletId = PalletId(*b"py/potid");
@@ -1860,6 +1861,7 @@ parameter_types! {
 
 
 }
+
 impl pallet_opf::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -1894,6 +1896,9 @@ impl pallet_opf::Config for Runtime {
 
 	/// This should be calculated as a percentage of inflation.
 	type TemporaryRewards = TemporaryRewards;
+
+
+	//type Governance = Gov;
 
 	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
 }
