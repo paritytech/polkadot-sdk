@@ -44,7 +44,7 @@ jobs:
     needs: [validate-inputs]
     env:
       REPO: ${{ github.repository }}
-      RELEASE_TAG: ${{ needs.validate-inputs.outputs.release_tag }}
+      VERSION: ${{ needs.validate-inputs.outputs.release_tag }}
     outputs:
       NODE_VERSION: ${{ steps.fetch_artifacts_from_s3.outputs.NODE_VERSION }}
 
