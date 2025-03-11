@@ -39,17 +39,6 @@ jobs:
           RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
-  get-rust-versions:
-    needs: [ validate-inputs ]
-    runs-on: ubuntu-latest
-    outputs:
-      rustc-stable: ${{ steps.get-rust-versions.outputs.stable }}
-    steps:
-      - id: get-rust-versions
-        run: |
-          RUST_STABLE_VERSION=$(grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)' .github/env)
-          echo "stable=$RUST_STABLE_VERSION" >> $GITHUB_OUTPUT
-
   build-runtimes:
     needs: [ validate-inputs ]
     uses: "./.github/workflows/release-srtool.yml"
@@ -65,7 +54,7 @@ jobs:
   publish-release-draft:
     runs-on: ubuntu-latest
     environment: release
-    needs: [ validate-inputs, get-rust-versions, build-runtimes ]
+    needs: [ validate-inputs, build-runtimes ]
     outputs:
       release_url: ${{ steps.create-release.outputs.html_url }}
       asset_upload_url: ${{ steps.create-release.outputs.upload_url }}
@@ -86,7 +75,6 @@ jobs:
       - name: Prepare draft
         id: draft
         env:
-          RUSTC_STABLE: ${{ needs.get-rust-versions.outputs.rustc-stable }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ASSET_HUB_WESTEND_DIGEST: ${{ github.workspace}}/asset-hub-westend-runtime/asset-hub-westend-srtool-digest.json
           BRIDGE_HUB_WESTEND_DIGEST: ${{ github.workspace}}/bridge-hub-westend-runtime/bridge-hub-westend-srtool-digest.json
@@ -99,6 +87,8 @@ jobs:
         shell: bash
         run: |
           . ./.github/scripts/common/lib.sh
+
+          export RUSTC_STABLE=$(grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)' .github/env)
 
           export REF1=$(get_latest_release_tag)
           if [[ -z "$RELEASE_TAG" ]]; then
