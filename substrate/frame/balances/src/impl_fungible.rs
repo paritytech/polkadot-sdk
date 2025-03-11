@@ -350,20 +350,6 @@ impl<T: Config<I>, I: 'static> fungible::MutateFreeze<T::AccountId> for Pallet<T
 	}
 }
 
-impl<T: Config<I>, I: 'static> HandleImbalanceDrop<T::Balance> for fungible::DecreaseIssuance<T::AccountId, Pallet<T, I>> {
-	fn done_handle(amount: <Pallet<T, I> as fungible::Inspect<T::AccountId>>::Balance) {
-		// Todo: Create new event 
-		Pallet<T, I>::deposit_event(Event::<T, I>::Rescinded { amount }); 
-	}
-}
-
-impl<T: Config<I>, I: 'static> HandleImbalanceDrop<T::Balance> for fungible::InactiveIssuancee<T::AccountId, Pallet<T, I>> {
-	fn done_handle(amount: <Pallet<T, I> as fungible::Inspect<T::AccountId>>::Balance) {
-		// Todo: Create new event 
-		Pallet<T, I>::deposit_event(Event::<T, I>::Issued { amount }); 
-	}
-}
-
 impl<T: Config<I>, I: 'static> fungible::Balanced<T::AccountId> for Pallet<T, I> {
 	type OnDropCredit = fungible::DecreaseIssuance<T::AccountId, Self>;
 	type OnDropDebt = fungible::IncreaseIssuance<T::AccountId, Self>;
