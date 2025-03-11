@@ -107,7 +107,7 @@ fn main() -> Result<(), sc_cli::Error> {
 			// If the network backend is unspecified, use the default for the given chain.
 			let default_backend = relay_chain_config.chain_spec.network_backend();
 			let network_backend =
-				relay_chain_config.network.network_backend.clone().unwrap_or(default_backend);
+				relay_chain_config.network.network_backend.unwrap_or(default_backend);
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
 					match network_backend {
