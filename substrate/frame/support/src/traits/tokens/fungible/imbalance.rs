@@ -35,8 +35,6 @@ use sp_runtime::traits::Zero;
 pub trait HandleImbalanceDrop<Balance> {
 	/// Some something with the imbalance's value which is being dropped.
 	fn handle(amount: Balance);
-
-	fn done_handle(_amount: Balance) {}
 }
 
 impl<Balance> HandleImbalanceDrop<Balance> for () {
