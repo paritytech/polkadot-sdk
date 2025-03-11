@@ -309,7 +309,7 @@ pub enum Event {
 	/// This event is generated for statistics purposes.
 	RequestFinished {
 		/// Peer that we send a request to.
-		peer: PeerId,
+		peer: Option<PeerId>,
 		/// Name of the protocol in question.
 		protocol: ProtocolName,
 		/// Duration the request took.
@@ -469,7 +469,7 @@ impl RequestResponsesBehaviour {
 			Self::send_request_inner(
 				behaviour,
 				&mut self.pending_requests,
-				target,
+				target.into(),
 				protocol_name,
 				request,
 				fallback_request,
@@ -854,7 +854,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 							};
 
 							let out = Event::RequestFinished {
-								peer,
+								peer: Some(peer),
 								protocol: protocol.clone(),
 								duration: started.elapsed(),
 								result: delivered,
@@ -883,8 +883,8 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									// Try using the fallback request if the protocol was not
 									// supported.
 									if matches!(error, OutboundFailure::UnsupportedProtocols) {
-										if let Some((fallback_request, fallback_protocol)) =
-											fallback_request
+										if let (Some((fallback_request, fallback_protocol)), Some(peer)) =
+											(fallback_request, peer)
 										{
 											log::trace!(
 												target: "sub-libp2p",
