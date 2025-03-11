@@ -17,8 +17,8 @@
 
 use super::*;
 use crate::{
-	Address, AddressOrAddresses, BlockInfoProvider, Bytes, FilterTopic, ReceiptExtractor,
-	LOG_TARGET,
+	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, Bytes, FilterTopic,
+	ReceiptExtractor, LOG_TARGET,
 };
 use jsonrpsee::core::async_trait;
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
@@ -192,7 +192,21 @@ impl ReceiptProvider for DBReceiptProvider {
 		let latest_block =
 			U256::from(self.block_provider.latest_block_number().await.unwrap_or_default());
 
-		match (filter.from_block, filter.to_block, filter.block_hash) {
+		let from_block = match filter.from_block {
+			// Only latest tag supported
+			Some(BlockNumberOrTag::BlockTag(_)) => Some(latest_block),
+			Some(BlockNumberOrTag::U256(v)) => Some(v),
+			None => None,
+		};
+
+		let to_block = match filter.to_block {
+			// Only latest tag supported
+			Some(BlockNumberOrTag::BlockTag(_)) => Some(latest_block),
+			Some(BlockNumberOrTag::U256(v)) => Some(v),
+			None => None,
+		};
+
+		match (from_block, to_block, filter.block_hash) {
 			(Some(_), _, Some(_)) | (_, Some(_), Some(_)) => {
 				anyhow::bail!("block number and block hash cannot be used together");
 			},
@@ -530,13 +544,13 @@ mod tests {
 
 		// from_block filter
 		let logs = provider
-			.logs(Some(Filter { from_block: Some(log2.block_number), ..Default::default() }))
+			.logs(Some(Filter { from_block: Some(log2.block_number.into()), ..Default::default() }))
 			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// to_block filter
 		let logs = provider
-			.logs(Some(Filter { to_block: Some(log1.block_number), ..Default::default() }))
+			.logs(Some(Filter { to_block: Some(log1.block_number.into()), ..Default::default() }))
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
@@ -549,7 +563,7 @@ mod tests {
 		// single address
 		let logs = provider
 			.logs(Some(Filter {
-				from_block: Some(U256::from(0)),
+				from_block: Some(U256::from(0).into()),
 				address: Some(log1.address.into()),
 				..Default::default()
 			}))
@@ -559,7 +573,7 @@ mod tests {
 		// multiple addresses
 		let logs = provider
 			.logs(Some(Filter {
-				from_block: Some(U256::from(0)),
+				from_block: Some(U256::from(0).into()),
 				address: Some(vec![log1.address, log2.address].into()),
 				..Default::default()
 			}))
@@ -569,7 +583,7 @@ mod tests {
 		// single topic
 		let logs = provider
 			.logs(Some(Filter {
-				from_block: Some(U256::from(0)),
+				from_block: Some(U256::from(0).into()),
 				topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
 				..Default::default()
 			}))
@@ -579,7 +593,7 @@ mod tests {
 		// multiple topic
 		let logs = provider
 			.logs(Some(Filter {
-				from_block: Some(U256::from(0)),
+				from_block: Some(U256::from(0).into()),
 				topics: Some(vec![
 					FilterTopic::Single(log1.topics[0]),
 					FilterTopic::Single(log1.topics[1]),
@@ -592,7 +606,7 @@ mod tests {
 		// multiple topic for topic_0
 		let logs = provider
 			.logs(Some(Filter {
-				from_block: Some(U256::from(0)),
+				from_block: Some(U256::from(0).into()),
 				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
 				..Default::default()
 			}))
@@ -602,8 +616,8 @@ mod tests {
 		// Altogether
 		let logs = provider
 			.logs(Some(Filter {
-				from_block: Some(log1.block_number),
-				to_block: Some(log2.block_number),
+				from_block: Some(log1.block_number.into()),
+				to_block: Some(log2.block_number.into()),
 				block_hash: None,
 				address: Some(vec![log1.address, log2.address].into()),
 				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
