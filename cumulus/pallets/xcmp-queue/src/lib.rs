@@ -528,11 +528,7 @@ impl<T: Config> Pallet<T> {
 					recipient,
 					channel_details.last_index - 1,
 					|page| {
-						if XcmpMessageFormat::decode_with_depth_limit(
-							MAX_XCM_DECODE_DEPTH,
-							&mut &page[..],
-						) != Ok(format)
-						{
+						if XcmpMessageFormat::decode(&mut &page[..]) != Ok(format) {
 							defensive!("Bad format in outbound queue; dropping message");
 							return Err(())
 						}
@@ -977,7 +973,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
 				versioned_xcm
-					.validate_xcm_nesting()
+					.check_is_decodable()
 					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 
 				Ok(((id, versioned_xcm), price))
@@ -1025,9 +1021,7 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 		OutboundXcmpMessages::<T>::iter()
 			.map(|(para_id, _, messages)| {
 				let mut data = &messages[..];
-				let decoded_format =
-					XcmpMessageFormat::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut data)
-						.unwrap();
+				let decoded_format = XcmpMessageFormat::decode(&mut data).unwrap();
 				if decoded_format != XcmpMessageFormat::ConcatenatedVersionedXcm {
 					panic!("Unexpected format.")
 				}

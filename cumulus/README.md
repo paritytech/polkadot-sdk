@@ -207,10 +207,6 @@ CHAIN=asset-hub-westend # or asset-hub-kusama
 
 Refer to the [setup instructions](#manual-setup) to run a local network for development.
 
-## Contracts 📝
-
-See [the `contracts-rococo` readme](parachains/runtimes/contracts/contracts-rococo/README.md) for details.
-
 ## Bridge-hub 📝
 
 See [the `bridge-hubs` readme](parachains/runtimes/bridge-hubs/README.md) for details.

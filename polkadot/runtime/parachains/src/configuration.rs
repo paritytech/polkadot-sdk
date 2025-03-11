@@ -50,6 +50,9 @@ const LOG_TARGET: &str = "runtime::configuration";
 // `polkadot_node_network_protocol::POV_RESPONSE_SIZE`.
 const POV_SIZE_HARD_LIMIT: u32 = 16 * 1024 * 1024;
 
+// The maximum compression ratio that we use to compute the maximum uncompressed code size.
+pub(crate) const MAX_VALIDATION_CODE_COMPRESSION_RATIO: u32 = 10;
+
 /// All configuration of the runtime with respect to paras.
 #[derive(
 	Clone,

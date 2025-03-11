@@ -264,6 +264,9 @@ pub enum NotifsHandlerIn {
 	Open {
 		/// Index of the protocol in the list of protocols passed at initialization.
 		protocol_index: usize,
+
+		/// The peer id of the remote.
+		peer_id: PeerId,
 	},
 
 	/// Instruct the handler to close the notification substreams, or reject any pending incoming
@@ -632,7 +635,7 @@ impl ConnectionHandler for NotifsHandler {
 
 	fn on_behaviour_event(&mut self, message: NotifsHandlerIn) {
 		match message {
-			NotifsHandlerIn::Open { protocol_index } => {
+			NotifsHandlerIn::Open { protocol_index, peer_id } => {
 				let protocol_info = &mut self.protocols[protocol_index];
 				match &mut protocol_info.state {
 					State::Closed { pending_opening } => {
@@ -642,6 +645,7 @@ impl ConnectionHandler for NotifsHandler {
 								protocol_info.config.fallback_names.clone(),
 								protocol_info.config.handshake.read().clone(),
 								protocol_info.config.max_notification_size,
+								peer_id,
 							);
 
 							self.events_queue.push_back(
@@ -663,6 +667,7 @@ impl ConnectionHandler for NotifsHandler {
 								protocol_info.config.fallback_names.clone(),
 								handshake_message.clone(),
 								protocol_info.config.max_notification_size,
+								peer_id,
 							);
 
 							self.events_queue.push_back(
@@ -1202,7 +1207,10 @@ pub mod tests {
 		.await;
 
 		// move the handler state to 'Opening'
-		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		handler.on_behaviour_event(NotifsHandlerIn::Open {
+			protocol_index: 0,
+			peer_id: PeerId::random(),
+		});
 		assert!(std::matches!(
 			handler.protocols[0].state,
 			State::Opening { in_substream: Some(_), .. }
@@ -1273,7 +1281,10 @@ pub mod tests {
 		.await;
 
 		// move the handler state to 'Opening'
-		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		handler.on_behaviour_event(NotifsHandlerIn::Open {
+			protocol_index: 0,
+			peer_id: PeerId::random(),
+		});
 		assert!(std::matches!(
 			handler.protocols[0].state,
 			State::Opening { in_substream: Some(_), .. }
@@ -1362,7 +1373,10 @@ pub mod tests {
 
 		// first instruct the handler to open a connection and then close it right after
 		// so the handler is in state `Closed { pending_opening: true }`
-		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		handler.on_behaviour_event(NotifsHandlerIn::Open {
+			protocol_index: 0,
+			peer_id: PeerId::random(),
+		});
 		assert!(std::matches!(
 			handler.protocols[0].state,
 			State::Opening { in_substream: Some(_), .. }
@@ -1421,7 +1435,10 @@ pub mod tests {
 
 		// first instruct the handler to open a connection and then close it right after
 		// so the handler is in state `Closed { pending_opening: true }`
-		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		handler.on_behaviour_event(NotifsHandlerIn::Open {
+			protocol_index: 0,
+			peer_id: PeerId::random(),
+		});
 		assert!(std::matches!(
 			handler.protocols[0].state,
 			State::Opening { in_substream: Some(_), .. }
@@ -1502,7 +1519,10 @@ pub mod tests {
 
 		// first instruct the handler to open a connection and then close it right after
 		// so the handler is in state `Closed { pending_opening: true }`
-		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		handler.on_behaviour_event(NotifsHandlerIn::Open {
+			protocol_index: 0,
+			peer_id: PeerId::random(),
+		});
 		assert!(std::matches!(
 			handler.protocols[0].state,
 			State::Opening { in_substream: Some(_), .. }
@@ -1550,7 +1570,10 @@ pub mod tests {
 
 		// first instruct the handler to open a connection and then close it right after
 		// so the handler is in state `Closed { pending_opening: true }`
-		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		handler.on_behaviour_event(NotifsHandlerIn::Open {
+			protocol_index: 0,
+			peer_id: PeerId::random(),
+		});
 		assert!(std::matches!(
 			handler.protocols[0].state,
 			State::Opening { in_substream: Some(_), .. }

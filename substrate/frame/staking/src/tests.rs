@@ -49,7 +49,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	SessionIndex, StakingInterface,
+	SessionIndex, Stake, StakingInterface,
 };
 use substrate_test_utils::assert_eq_uvec;
 
@@ -5038,6 +5038,131 @@ fn on_finalize_weight_is_nonzero() {
 		let on_finalize_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
 		assert!(<Staking as Hooks<u64>>::on_initialize(1).all_gte(on_finalize_weight));
 	})
+}
+
+#[test]
+fn restricted_accounts_can_only_withdraw() {
+	ExtBuilder::default().build_and_execute(|| {
+		start_active_era(1);
+		// alice is a non blacklisted account.
+		let alice = 301;
+		let _ = Balances::make_free_balance_be(&alice, 500);
+		// alice can bond
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), 100, RewardDestination::Staked));
+		// and bob is a blacklisted account
+		let bob = 302;
+		let _ = Balances::make_free_balance_be(&bob, 500);
+		restrict(&bob);
+
+		// Bob cannot bond
+		assert_noop!(
+			Staking::bond(RuntimeOrigin::signed(bob), 100, RewardDestination::Staked,),
+			Error::<Test>::Restricted
+		);
+
+		// alice is blacklisted now and cannot bond anymore
+		restrict(&alice);
+		assert_noop!(
+			Staking::bond_extra(RuntimeOrigin::signed(alice), 100),
+			Error::<Test>::Restricted
+		);
+		// but she can unbond her existing bond
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
+
+		// she cannot rebond the unbonded amount
+		start_active_era(2);
+		assert_noop!(Staking::rebond(RuntimeOrigin::signed(alice), 50), Error::<Test>::Restricted);
+
+		// move to era when alice fund can be withdrawn
+		start_active_era(4);
+		// alice can withdraw now
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice), 0));
+		// she still cannot bond
+		assert_noop!(
+			Staking::bond(RuntimeOrigin::signed(alice), 100, RewardDestination::Staked,),
+			Error::<Test>::Restricted
+		);
+
+		// bob is removed from restrict list
+		remove_from_restrict_list(&bob);
+		// bob can bond now
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(bob), 100, RewardDestination::Staked));
+		// and bond extra
+		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(bob), 100));
+
+		start_active_era(6);
+		// unbond also works.
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(bob), 100));
+		// bob can withdraw as well.
+		start_active_era(9);
+		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(bob), 0));
+	})
+}
+
+#[test]
+fn permissionless_withdraw_overstake() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given Alice, Bob and Charlie with some stake.
+		let alice = 301;
+		let bob = 302;
+		let charlie = 303;
+		let _ = Balances::make_free_balance_be(&alice, 500);
+		let _ = Balances::make_free_balance_be(&bob, 500);
+		let _ = Balances::make_free_balance_be(&charlie, 500);
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), 100, RewardDestination::Staked));
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(bob), 100, RewardDestination::Staked));
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(charlie), 100, RewardDestination::Staked));
+
+		// WHEN: charlie is partially unbonding.
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(charlie), 90));
+		let charlie_ledger = StakingLedger::<Test>::get(StakingAccount::Stash(charlie)).unwrap();
+
+		// AND: alice and charlie ledger having higher value than actual stake.
+		Ledger::<Test>::insert(alice, StakingLedger::<Test>::new(alice, 200));
+		Ledger::<Test>::insert(
+			charlie,
+			StakingLedger { stash: charlie, total: 200, active: 200 - 90, ..charlie_ledger },
+		);
+
+		// THEN overstake can be permissionlessly withdrawn.
+		System::reset_events();
+
+		// Alice stake is corrected.
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&alice).unwrap(),
+			Stake { total: 200, active: 200 }
+		);
+		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), alice));
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&alice).unwrap(),
+			Stake { total: 100, active: 100 }
+		);
+
+		// Charlie who is partially withdrawing also gets their stake corrected.
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&charlie).unwrap(),
+			Stake { total: 200, active: 110 }
+		);
+		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), charlie));
+		assert_eq!(
+			<Staking as StakingInterface>::stake(&charlie).unwrap(),
+			Stake { total: 200 - 100, active: 110 - 100 }
+		);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::Withdrawn { stash: alice, amount: 200 - 100 },
+				Event::Withdrawn { stash: charlie, amount: 200 - 100 }
+			]
+		);
+
+		// but Bob ledger is fine and that cannot be withdrawn.
+		assert_noop!(
+			Staking::withdraw_overstake(RuntimeOrigin::signed(1), bob),
+			Error::<Test>::BoundNotMet
+		);
+	});
 }
 
 mod election_data_provider {
