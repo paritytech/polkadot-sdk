@@ -35,8 +35,8 @@ use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		Checkable, Dispatchable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic,
-		TransactionExtension,
+		BaseExtrinsicCall, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata,
+		LazyExtrinsic, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic, RuntimeDebug,
@@ -106,12 +106,10 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 	type TransactionExtensions = E::Extension;
 }
 
-impl<Address, Signature, E: EthExtra> ExtrinsicCall for UncheckedExtrinsic<Address, Signature, E> {
+impl<Address, Signature, E: EthExtra> BaseExtrinsicCall
+	for UncheckedExtrinsic<Address, Signature, E>
+{
 	type Call = CallOf<E::Config>;
-
-	fn call(&self) -> &Self::Call {
-		self.0.call()
-	}
 }
 
 impl<LookupSource, Signature, E, Lookup> Checkable<Lookup>

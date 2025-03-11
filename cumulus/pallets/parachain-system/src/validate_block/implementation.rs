@@ -38,7 +38,8 @@ use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
-	Block as BlockT, ExtrinsicCall, ExtrinsicLike, HashingFor, Header as HeaderT,
+	BaseExtrinsicCall, Block as BlockT, ExtrinsicCall, ExtrinsicLike, HashingFor,
+	Header as HeaderT, LazyExtrinsic,
 };
 
 use sp_state_machine::OverlayedChanges;
@@ -96,8 +97,9 @@ pub fn validate_block<
 	}: MemoryOptimizedValidationParams,
 ) -> ValidationResult
 where
-	B::Extrinsic: ExtrinsicCall,
-	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
+	for<'a> B::Extrinsic: LazyExtrinsic<'a>,
+	for<'a> <<B::Extrinsic as LazyExtrinsic<'a>>::ExtrinsicRef as BaseExtrinsicCall>::Call:
+		IsSubType<crate::Call<PSC>>,
 {
 	let _guard = (
 		// Replace storage calls with our own implementations
@@ -204,9 +206,9 @@ where
 	// directly accessible without going to the db.
 	let mut overlay = OverlayedChanges::default();
 
-	for (block_index, block) in blocks.into_iter().enumerate() {
+	for (block_index, mut block) in blocks.into_iter().enumerate() {
 		parent_header = block.header().clone();
-		let inherent_data = extract_parachain_inherent_data(&block);
+		let inherent_data = extract_parachain_inherent_data(&mut block);
 
 		validate_validation_data(
 			&inherent_data.validation_data,
@@ -215,6 +217,8 @@ where
 			&parachain_head,
 		);
 
+		let relay_parent_storage_root = inherent_data.validation_data.relay_parent_storage_root;
+		let relay_chain_state = inherent_data.relay_chain_state.clone();
 		// We don't need the recorder or the overlay in here.
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
@@ -223,8 +227,8 @@ where
 			|| {
 				let relay_chain_proof = crate::RelayChainStateProof::new(
 					PSC::SelfParaId::get(),
-					inherent_data.validation_data.relay_parent_storage_root,
-					inherent_data.relay_chain_state.clone(),
+					relay_parent_storage_root,
+					relay_chain_state,
 				)
 				.expect("Invalid relay chain state proof");
 
@@ -363,18 +367,25 @@ where
 
 /// Extract the [`BasicParachainInherentData`].
 fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
-	block: &B,
+	block: &mut B,
 ) -> &BasicParachainInherentData
 where
-	B::Extrinsic: ExtrinsicCall,
-	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
+	for<'a> B::Extrinsic: LazyExtrinsic<'a>,
+	for<'a> <<B::Extrinsic as LazyExtrinsic<'a>>::ExtrinsicRef as BaseExtrinsicCall>::Call:
+		IsSubType<crate::Call<PSC>>,
 {
 	block
-		.extrinsics()
-		.iter()
+		.extrinsics_mut()
+		.iter_mut()
 		// Inherents are at the front of the block and are unsigned.
 		.take_while(|e| e.is_bare())
-		.filter_map(|e| e.call().is_sub_type())
+		.filter_map(|e| {
+			let e = e.try_as_ref().expect(
+				"Could not lazy decode extrinsic \
+					while searching for `set_validation_data` inherent",
+			);
+			e.into_call_ref().is_sub_type()
+		})
 		.find_map(|c| match c {
 			crate::Call::set_validation_data { data: validation_data, .. } => Some(validation_data),
 			_ => None,

@@ -35,7 +35,7 @@ pub use sp_runtime::traits::{
 	ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect, TypedGet,
 };
 use sp_runtime::{
-	traits::{Block as BlockT, ExtrinsicCall},
+	traits::{BaseExtrinsicCall, Block as BlockT, LazyExtrinsic},
 	DispatchError,
 };
 
@@ -916,13 +916,13 @@ pub trait GetBacking {
 }
 
 /// A trait to check if an extrinsic is an inherent.
-pub trait IsInherent<Extrinsic> {
+pub trait IsInherent<Extrinsic: for<'a> LazyExtrinsic<'a>> {
 	/// Whether this extrinsic is an inherent.
-	fn is_inherent(ext: &Extrinsic) -> bool;
+	fn is_inherent(ext: &<Extrinsic as LazyExtrinsic<'_>>::ExtrinsicRef) -> bool;
 }
 
 /// Interface for types capable of constructing an inherent extrinsic.
-pub trait InherentBuilder: ExtrinsicCall {
+pub trait InherentBuilder: BaseExtrinsicCall {
 	/// Create a new inherent from a given call.
 	fn new_inherent(call: Self::Call) -> Self;
 }
@@ -941,7 +941,7 @@ where
 }
 
 /// Interface for types capable of constructing a signed transaction.
-pub trait SignedTransactionBuilder: ExtrinsicCall {
+pub trait SignedTransactionBuilder: BaseExtrinsicCall {
 	type Address;
 	type Signature;
 	type Extension;
