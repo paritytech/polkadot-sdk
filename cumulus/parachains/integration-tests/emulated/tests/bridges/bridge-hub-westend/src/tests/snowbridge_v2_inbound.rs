@@ -35,6 +35,7 @@ use snowbridge_inbound_queue_primitives::v2::{
 	Message, Network, XcmPayload,
 };
 use sp_core::{H160, H256};
+use sp_io::hashing::blake2_256;
 use sp_runtime::MultiAddress;
 use xcm::opaque::latest::AssetTransferFilter::ReserveDeposit;
 use xcm_executor::traits::ConvertLocation;
@@ -158,7 +159,7 @@ fn send_token_v2() {
 		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value },
 	];
 
-	BridgeHubWestend::execute_with(|| {
+	let topic_id = BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let instructions = vec![
 			RefundSurplus,
@@ -190,8 +191,9 @@ fn send_token_v2() {
 			relayer_fee: relayer_reward,
 		};
 
-		EthereumInboundQueueV2::process_message(relayer_account.clone(), message).unwrap();
+		EthereumInboundQueueV2::process_message(relayer_account.clone(), message.clone()).unwrap();
 
+		let topic_id = blake2_256(&("SnowbridgeInboundQueueV2", message.nonce).encode());
 		assert_expected_events!(
 			BridgeHubWestend,
 			vec![
@@ -202,8 +204,12 @@ fn send_token_v2() {
 					reward_kind: *reward_kind == BridgeReward::Snowbridge,
 					reward_balance: *reward_balance == relayer_reward,
 				},
+				RuntimeEvent::EthereumInboundQueueV2(snowbridge_pallet_inbound_queue_v2::Event::MessageReceived { message_id, .. }) => {
+					message_id: *message_id == topic_id,
+				},
 			]
 		);
+		topic_id
 	});
 
 	AssetHubWestend::execute_with(|| {
@@ -214,8 +220,10 @@ fn send_token_v2() {
 			vec![
 				// message processed successfully
 				RuntimeEvent::MessageQueue(
-					pallet_message_queue::Event::Processed { success: true, .. }
-				) => {},
+					pallet_message_queue::Event::Processed { success: true, id, .. }
+				) => {
+					id: *id == topic_id.into(),
+				},
 				// Check that the token was received and issued as a foreign asset on AssetHub
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == token_location,
