@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Version 4 of the Cross-Consensus Message format data structures.
+//! Version 5 of the Cross-Consensus Message format data structures.
 
 pub use super::v3::GetWeight;
-use super::v3::{
+use super::v4::{
 	Instruction as OldInstruction, PalletInfo as OldPalletInfo,
 	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
 };
@@ -25,15 +25,11 @@ use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use codec::{
-<<<<<<< HEAD
-	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
-=======
 	self, Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input as CodecInput,
->>>>>>> 2a239206 (Fix XCM decoding inconsistencies (#7856))
 	MaxEncodedLen,
 };
 use core::{fmt::Debug, result};
-use derivative::Derivative;
+use derive_where::derive_where;
 use scale_info::TypeInfo;
 
 mod asset;
@@ -43,27 +39,28 @@ mod location;
 mod traits;
 
 pub use asset::{
-	Asset, AssetFilter, AssetId, AssetInstance, Assets, Fungibility, WildAsset, WildFungibility,
-	MAX_ITEMS_IN_ASSETS,
+	Asset, AssetFilter, AssetId, AssetInstance, AssetTransferFilter, Assets, Fungibility,
+	WildAsset, WildFungibility, MAX_ITEMS_IN_ASSETS,
 };
-pub use junction::{BodyId, BodyPart, Junction, NetworkId};
+pub use junction::{
+	BodyId, BodyPart, Junction, NetworkId, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH,
+};
 pub use junctions::Junctions;
 pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Reanchorable, Result,
 	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
-// These parts of XCM v3 are unchanged in XCM v4, and are re-imported here.
-pub use super::v3::{MaybeErrorCode, OriginKind, WeightLimit};
+// These parts of XCM v4 are unchanged in XCM v5, and are re-imported here.
+pub use super::v4::{MaxDispatchErrorLen, MaybeErrorCode, OriginKind, WeightLimit};
 
-/// This module's XCM version.
-pub const VERSION: super::Version = 4;
+pub const VERSION: super::Version = 5;
 
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Derivative, Default, Encode, TypeInfo)]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive(Default, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
@@ -183,6 +180,8 @@ pub mod prelude {
 			AssetInstance::{self, *},
 			Assets, BodyId, BodyPart, Error as XcmError, ExecuteXcm,
 			Fungibility::{self, *},
+			Hint::{self, *},
+			HintNumVariants,
 			Instruction::*,
 			InteriorLocation,
 			Junction::{self, *},
@@ -210,13 +209,12 @@ pub mod prelude {
 
 parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
-	/// Maximum size of the encoded error code coming from a `Dispatch` result, used for
-	/// `MaybeErrorCode`. This is not (yet) enforced, so it's just an indication of expectation.
-	pub MaxDispatchErrorLen: u32 = 128;
 	pub MaxPalletsInfo: u32 = 64;
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct PalletInfo {
 	#[codec(compact)]
 	pub index: u32,
@@ -263,7 +261,9 @@ impl PalletInfo {
 }
 
 /// Response data to a query.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
@@ -293,8 +293,12 @@ impl TryFrom<OldResponse> for Response {
 		Ok(match old {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) =>
-				Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into()))),
+			ExecutionResult(result) => Self::ExecutionResult(
+				result
+					.map(|(num, old_error)| (num, old_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()?,
+			),
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
 				let inner = pallet_info
@@ -311,7 +315,7 @@ impl TryFrom<OldResponse> for Response {
 }
 
 /// Information regarding the composition of a query response.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct QueryResponseInfo {
 	/// The destination to which the query response message should be send.
 	pub destination: Location,
@@ -363,16 +367,17 @@ impl XcmContext {
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
 #[derive(
-	Derivative,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	xcm_procedural::XcmWeightInfoTrait,
 	xcm_procedural::Builder,
 )]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
+#[codec(decode_with_mem_tracking_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
@@ -478,16 +483,22 @@ pub enum Instruction<Call> {
 	/// The Transact Status Register is set according to the result of dispatching the call.
 	///
 	/// - `origin_kind`: The means of expressing the message origin as a dispatch origin.
-	/// - `require_weight_at_most`: The weight of `call`; this should be at least the chain's
-	///   calculated weight and will be used in the weight determination arithmetic.
 	/// - `call`: The encoded transaction to be applied.
+	/// - `fallback_max_weight`: Used for compatibility with previous versions. Corresponds to the
+	///   `require_weight_at_most` parameter in previous versions. If you don't care about
+	///   compatibility you can just put `None`. WARNING: If you do, your XCM might not work with
+	///   older versions. Make sure to dry-run and validate.
 	///
 	/// Safety: No concerns.
 	///
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	Transact { origin_kind: OriginKind, require_weight_at_most: Weight, call: DoubleEncoded<Call> },
+	Transact {
+		origin_kind: OriginKind,
+		fallback_max_weight: Option<Weight>,
+		call: DoubleEncoded<Call>,
+	},
 
 	/// A message to notify about a new incoming HRMP channel. This message is meant to be sent by
 	/// the relay-chain to a para.
@@ -678,6 +689,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(pays_fees)]
 	BuyExecution { fees: Asset, weight_limit: WeightLimit },
 
 	/// Refund any surplus weight previously bought with `BuyExecution`.
@@ -1026,6 +1038,116 @@ pub enum Instruction<Call> {
 	///
 	/// Errors: If the given origin is `Some` and not equal to the current Origin register.
 	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<Location> },
+
+	/// Takes an asset, uses it to pay for execution and puts the rest in the fees register.
+	///
+	/// Successor to `BuyExecution`.
+	/// Defined in [Fellowship RFC 105](https://github.com/polkadot-fellows/RFCs/pull/105).
+	/// Subsequent `PayFees` after the first one are noops.
+	#[builder(pays_fees)]
+	PayFees { asset: Asset },
+
+	/// Initiates cross-chain transfer as follows:
+	///
+	/// Assets in the holding register are matched using the given list of `AssetTransferFilter`s,
+	/// they are then transferred based on their specified transfer type:
+	///
+	/// - teleport: burn local assets and append a `ReceiveTeleportedAsset` XCM instruction to the
+	///   XCM program to be sent onward to the `destination` location,
+	///
+	/// - reserve deposit: place assets under the ownership of `destination` within this consensus
+	///   system (i.e. its sovereign account), and append a `ReserveAssetDeposited` XCM instruction
+	///   to the XCM program to be sent onward to the `destination` location,
+	///
+	/// - reserve withdraw: burn local assets and append a `WithdrawAsset` XCM instruction to the
+	///   XCM program to be sent onward to the `destination` location,
+	///
+	/// The onward XCM is then appended a `ClearOrigin` to allow safe execution of any following
+	/// custom XCM instructions provided in `remote_xcm`.
+	///
+	/// The onward XCM also contains either a `PayFees` or `UnpaidExecution` instruction based
+	/// on the presence of the `remote_fees` parameter (see below).
+	///
+	/// If an XCM program requires going through multiple hops, it can compose this instruction to
+	/// be used at every chain along the path, describing that specific leg of the flow.
+	///
+	/// Parameters:
+	/// - `destination`: The location of the program next hop.
+	/// - `remote_fees`: If set to `Some(asset_xfer_filter)`, the single asset matching
+	///   `asset_xfer_filter` in the holding register will be transferred first in the remote XCM
+	///   program, followed by a `PayFees(fee)`, then rest of transfers follow. This guarantees
+	///   `remote_xcm` will successfully pass a `AllowTopLevelPaidExecutionFrom` barrier. If set to
+	///   `None`, a `UnpaidExecution` instruction is appended instead. Please note that these
+	///   assets are **reserved** for fees, they are sent to the fees register rather than holding.
+	///   Best practice is to only add here enough to cover fees, and transfer the rest through the
+	///   `assets` parameter.
+	/// - `preserve_origin`: Specifies whether the original origin should be preserved or cleared,
+	///   using the instructions `AliasOrigin` or `ClearOrigin` respectively.
+	/// - `assets`: List of asset filters matched against existing assets in holding. These are
+	///   transferred over to `destination` using the specified transfer type, and deposited to
+	///   holding on `destination`.
+	/// - `remote_xcm`: Custom instructions that will be executed on the `destination` chain. Note
+	///   that these instructions will be executed after a `ClearOrigin` so their origin will be
+	///   `None`.
+	///
+	/// Safety: No concerns.
+	///
+	/// Kind: *Command*
+	InitiateTransfer {
+		destination: Location,
+		remote_fees: Option<AssetTransferFilter>,
+		preserve_origin: bool,
+		assets: Vec<AssetTransferFilter>,
+		remote_xcm: Xcm<()>,
+	},
+
+	/// Executes inner `xcm` with origin set to the provided `descendant_origin`. Once the inner
+	/// `xcm` is executed, the original origin (the one active for this instruction) is restored.
+	///
+	/// Parameters:
+	/// - `descendant_origin`: The origin that will be used during the execution of the inner
+	///   `xcm`. If set to `None`, the inner `xcm` is executed with no origin. If set to `Some(o)`,
+	///   the inner `xcm` is executed as if there was a `DescendOrigin(o)` executed before it, and
+	///   runs the inner xcm with origin: `original_origin.append_with(o)`.
+	/// - `xcm`: Inner instructions that will be executed with the origin modified according to
+	///   `descendant_origin`.
+	///
+	/// Safety: No concerns.
+	///
+	/// Kind: *Command*
+	///
+	/// Errors:
+	/// - `BadOrigin`
+	ExecuteWithOrigin { descendant_origin: Option<InteriorLocation>, xcm: Xcm<Call> },
+
+	/// Set hints for XCM execution.
+	///
+	/// These hints change the behaviour of the XCM program they are present in.
+	///
+	/// Parameters:
+	///
+	/// - `hints`: A bounded vector of `ExecutionHint`, specifying the different hints that will
+	/// be activated.
+	SetHints { hints: BoundedVec<Hint, HintNumVariants> },
+}
+
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	Debug,
+	PartialEq,
+	Eq,
+	Clone,
+	xcm_procedural::NumVariants,
+)]
+pub enum Hint {
+	/// Set asset claimer for all the trapped assets during the execution.
+	///
+	/// - `location`: The claimer of any assets potentially trapped during the execution of current
+	///   XCM. It can be an arbitrary location, not necessarily the caller or origin.
+	AssetClaimer { location: Location },
 }
 
 impl<Call> Xcm<Call> {
@@ -1057,8 +1179,8 @@ impl<Call> Instruction<Call> {
 			HrmpChannelAccepted { recipient } => HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } =>
-				Transact { origin_kind, require_weight_at_most, call: call.into() },
+			Transact { origin_kind, call, fallback_max_weight } =>
+				Transact { origin_kind, call: call.into(), fallback_max_weight },
 			ReportError(response_info) => ReportError(response_info),
 			DepositAsset { assets, beneficiary } => DepositAsset { assets, beneficiary },
 			DepositReserveAsset { assets, dest, xcm } => DepositReserveAsset { assets, dest, xcm },
@@ -1074,6 +1196,7 @@ impl<Call> Instruction<Call> {
 			SetErrorHandler(xcm) => SetErrorHandler(xcm.into()),
 			SetAppendix(xcm) => SetAppendix(xcm.into()),
 			ClearError => ClearError,
+			SetHints { hints } => SetHints { hints },
 			ClaimAsset { assets, ticket } => ClaimAsset { assets, ticket },
 			Trap(code) => Trap(code),
 			SubscribeVersion { query_id, max_response_weight } =>
@@ -1103,6 +1226,11 @@ impl<Call> Instruction<Call> {
 			AliasOrigin(location) => AliasOrigin(location),
 			UnpaidExecution { weight_limit, check_origin } =>
 				UnpaidExecution { weight_limit, check_origin },
+			PayFees { asset } => PayFees { asset },
+			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
+				InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm },
+			ExecuteWithOrigin { descendant_origin, xcm } =>
+				ExecuteWithOrigin { descendant_origin, xcm: xcm.into() },
 		}
 	}
 }
@@ -1120,8 +1248,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			TransferAsset { assets, beneficiary } => W::transfer_asset(assets, beneficiary),
 			TransferReserveAsset { assets, dest, xcm } =>
 				W::transfer_reserve_asset(&assets, dest, xcm),
-			Transact { origin_kind, require_weight_at_most, call } =>
-				W::transact(origin_kind, require_weight_at_most, call),
+			Transact { origin_kind, fallback_max_weight, call } =>
+				W::transact(origin_kind, fallback_max_weight, call),
 			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
 				W::hrmp_new_channel_open_request(sender, max_message_size, max_capacity),
 			HrmpChannelAccepted { recipient } => W::hrmp_channel_accepted(recipient),
@@ -1143,6 +1271,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			SetErrorHandler(xcm) => W::set_error_handler(xcm),
 			SetAppendix(xcm) => W::set_appendix(xcm),
 			ClearError => W::clear_error(),
+			SetHints { hints } => W::set_hints(hints),
 			ClaimAsset { assets, ticket } => W::claim_asset(assets, ticket),
 			Trap(code) => W::trap(code),
 			SubscribeVersion { query_id, max_response_weight } =>
@@ -1172,6 +1301,11 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			AliasOrigin(location) => W::alias_origin(location),
 			UnpaidExecution { weight_limit, check_origin } =>
 				W::unpaid_execution(weight_limit, check_origin),
+			PayFees { asset } => W::pay_fees(asset),
+			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
+				W::initiate_transfer(destination, remote_fees, preserve_origin, assets, remote_xcm),
+			ExecuteWithOrigin { descendant_origin, xcm } =>
+				W::execute_with_origin(descendant_origin, xcm),
 		}
 	}
 }
@@ -1186,7 +1320,7 @@ pub mod opaque {
 	pub type Instruction = super::Instruction<()>;
 }
 
-// Convert from a v3 XCM to a v4 XCM
+// Convert from a v4 XCM to a v5 XCM
 impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 	type Error = ();
 	fn try_from(old_xcm: OldXcm<Call>) -> result::Result<Self, Self::Error> {
@@ -1194,7 +1328,7 @@ impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 	}
 }
 
-// Convert from a v3 instruction to a v4 instruction
+// Convert from a v4 instruction to a v5 instruction
 impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 	type Error = ();
 	fn try_from(old_instruction: OldInstruction<Call>) -> result::Result<Self, Self::Error> {
@@ -1231,8 +1365,11 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } =>
-				Self::Transact { origin_kind, require_weight_at_most, call: call.into() },
+			Transact { origin_kind, require_weight_at_most, call } => Self::Transact {
+				origin_kind,
+				call: call.into(),
+				fallback_max_weight: Some(require_weight_at_most),
+			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,
@@ -1300,7 +1437,11 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				maybe_location.map(|location| location.try_into()).transpose().map_err(|_| ())?,
 			),
 			ExpectError(maybe_error) => Self::ExpectError(
-				maybe_error.map(|error| error.try_into()).transpose().map_err(|_| ())?,
+				maybe_error
+					.map(|(num, old_error)| (num, old_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()
+					.map_err(|_| ())?,
 			),
 			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
 			QueryPallet { module_name, response_info } => Self::QueryPallet {
@@ -1354,9 +1495,8 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 mod tests {
 	use super::{prelude::*, *};
 	use crate::{
-		v3::{
-			Junctions::Here as OldHere, MultiAssetFilter as OldMultiAssetFilter,
-			WildMultiAsset as OldWildMultiAsset,
+		v4::{
+			AssetFilter as OldAssetFilter, Junctions::Here as OldHere, WildAsset as OldWildAsset,
 		},
 		MAX_INSTRUCTIONS_TO_DECODE,
 	};
@@ -1387,7 +1527,7 @@ mod tests {
 			OldInstruction::ReceiveTeleportedAsset((OldHere, 1u128).into()),
 			OldInstruction::ClearOrigin,
 			OldInstruction::DepositAsset {
-				assets: crate::v3::MultiAssetFilter::Wild(crate::v3::WildMultiAsset::AllCounted(1)),
+				assets: crate::v4::AssetFilter::Wild(crate::v4::WildAsset::AllCounted(1)),
 				beneficiary: OldHere.into(),
 			},
 		]);
@@ -1415,7 +1555,7 @@ mod tests {
 				weight_limit: WeightLimit::Limited(Weight::from_parts(1, 1)),
 			},
 			OldInstruction::DepositAsset {
-				assets: crate::v3::MultiAssetFilter::Wild(crate::v3::WildMultiAsset::AllCounted(1)),
+				assets: crate::v4::AssetFilter::Wild(crate::v4::WildAsset::AllCounted(1)),
 				beneficiary: OldHere.into(),
 			},
 		]);
@@ -1433,7 +1573,7 @@ mod tests {
 		let old_xcm = OldXcm::<()>(vec![
 			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
 			OldInstruction::DepositAsset {
-				assets: OldMultiAssetFilter::Wild(OldWildMultiAsset::AllCounted(1)),
+				assets: OldAssetFilter::Wild(OldWildAsset::AllCounted(1)),
 				beneficiary: OldHere.into(),
 			},
 		]);
@@ -1455,7 +1595,7 @@ mod tests {
 		let old_xcm = OldXcm::<()>(vec![
 			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
 			OldInstruction::DepositReserveAsset {
-				assets: OldMultiAssetFilter::Wild(OldWildMultiAsset::AllCounted(1)),
+				assets: OldAssetFilter::Wild(OldWildAsset::AllCounted(1)),
 				dest: OldHere.into(),
 				xcm: OldXcm::<()>(vec![]),
 			},
@@ -1463,6 +1603,59 @@ mod tests {
 		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
 		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
 		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn transact_roundtrip_works() {
+		// We can convert as long as there's a fallback.
+		let xcm = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000, 1_024)),
+			},
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+			OldInstruction::Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				require_weight_at_most: Weight::from_parts(1_000_000, 1_024),
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		assert_eq!(new_xcm, xcm);
+
+		// If we have no fallback the resulting message won't know the weight.
+		let xcm_without_fallback = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				fallback_max_weight: None,
+			},
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+			OldInstruction::Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				require_weight_at_most: Weight::MAX,
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm_without_fallback.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		let xcm_with_max_weight_fallback = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				fallback_max_weight: Some(Weight::MAX),
+			},
+		]);
+		assert_eq!(new_xcm, xcm_with_max_weight_fallback);
 	}
 
 	#[test]
