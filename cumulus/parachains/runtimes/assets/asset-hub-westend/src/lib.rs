@@ -65,7 +65,7 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_nfts::PalletFeatures;
+use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_xcm::EnsureXcm;
@@ -83,7 +83,7 @@ use sp_runtime::{
 		Verify,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
+	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug, Saturating,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -108,7 +108,10 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
-	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+	prelude::{
+		VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+		XcmVersion,
+	},
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1478,11 +1481,10 @@ impl
 			u64::MAX.into()
 		));
 
-		let token_native = al /
-			dry_loc::boxed::Box::new(cumulus_primitives_core::Location::new(
-				1,
-				cumulus_primitives_core::Junctions::Here,
-			));
+		let token_native = alloc::boxed::Box::new(cumulus_primitives_core::Location::new(
+			1,
+			cumulus_primitives_core::Junctions::Here,
+		));
 		let token_second = alloc::boxed::Box::new(asset_id);
 
 		assert_ok!(AssetConversion::create_pool(

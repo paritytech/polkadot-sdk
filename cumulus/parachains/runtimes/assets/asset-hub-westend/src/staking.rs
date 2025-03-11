@@ -126,6 +126,8 @@ impl multi_block::Config for Runtime {
 	type MinerConfig = Self;
 	type Verifier = MultiBlockVerifier;
 	type WeightInfo = measured::pallet_election_provider_multi_block::SubstrateWeight<Self>;
+	// Random low number as it is removed on a branch.
+	type Lookahead = ConstU32<100>;
 }
 
 impl multi_block::verifier::Config for Runtime {
@@ -287,6 +289,7 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
+	type Filter = Nothing;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -323,6 +326,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type Filter = Nothing;
 }
 
 parameter_types! {
