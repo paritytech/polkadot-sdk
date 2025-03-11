@@ -220,6 +220,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = ();
+	type XcmEventEmitter = ();
 	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();

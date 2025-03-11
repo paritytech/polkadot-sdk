@@ -23,7 +23,55 @@ use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// Input of a `GenericTransaction`
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct InputOrData {
+	#[serde(skip_serializing_if = "Option::is_none")]
+	input: Option<Bytes>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	data: Option<Bytes>,
+}
+
+impl From<Bytes> for InputOrData {
+	fn from(value: Bytes) -> Self {
+		InputOrData { input: Some(value), data: None }
+	}
+}
+
+impl From<Vec<u8>> for InputOrData {
+	fn from(value: Vec<u8>) -> Self {
+		InputOrData { input: Some(Bytes(value)), data: None }
+	}
+}
+
+impl InputOrData {
+	/// Get the input as `Bytes`.
+	pub fn to_bytes(self) -> Bytes {
+		match self {
+			InputOrData { input: Some(input), data: _ } => input,
+			InputOrData { input: None, data: Some(data) } => data,
+			_ => Default::default(),
+		}
+	}
+
+	/// Get the input as `Vec<u8>`.
+	pub fn to_vec(self) -> Vec<u8> {
+		self.to_bytes().0
+	}
+}
+
+fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrData, D::Error> {
+	let value = InputOrData::deserialize(d)?;
+	match &value {
+        InputOrData { input: Some(input), data: Some(data) } if input != data =>
+            Err(serde::de::Error::custom("Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data")),
+        _ => Ok(value),
+    }
+}
 
 /// Block object
 #[derive(
@@ -207,8 +255,8 @@ pub struct GenericTransaction {
 	#[serde(rename = "gasPrice", skip_serializing_if = "Option::is_none")]
 	pub gas_price: Option<U256>,
 	/// input data
-	#[serde(alias = "data", skip_serializing_if = "Option::is_none")]
-	pub input: Option<Bytes>,
+	#[serde(flatten, deserialize_with = "deserialize_input_or_data")]
+	pub input: InputOrData,
 	/// max fee per blob gas
 	/// The maximum total fee per gas the sender is willing to pay for blob gas in wei
 	#[serde(rename = "maxFeePerBlobGas", skip_serializing_if = "Option::is_none")]
