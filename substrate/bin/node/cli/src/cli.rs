@@ -79,7 +79,7 @@ pub enum Subcommand {
 
 	/// Build a chain specification.
 	#[deprecated(
-		note = "build-spec will be removed after 1/04/2026. Use export-chain-spec instead"
+		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
 	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
 
