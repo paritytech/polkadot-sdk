@@ -78,7 +78,7 @@ fn add_caller_and_generate_friends<T: Config>(
 	friends
 }
 
-fn insert_recovery_account<T: Config>(caller: &T::AccountId, account: &T::AccountId) {
+fn insert_recovery_config<T: Config>(account: &T::AccountId) {
 	T::Currency::make_free_balance_be(&account, BalanceOf::<T>::max_value());
 
 	let n = T::MaxFriends::get();
@@ -98,12 +98,13 @@ fn insert_recovery_account<T: Config>(caller: &T::AccountId, account: &T::Accoun
 	};
 
 	// Reserve deposit for recovery
-	T::Currency::reserve(&caller, total_deposit).unwrap();
+	T::Currency::reserve(&account, total_deposit).unwrap();
 
 	<Recoverable<T>>::insert(&account, recovery_config);
 }
 
 fn setup_active_recovery<T: Config>(caller: &T::AccountId, lost_account: &T::AccountId) {
+	insert_recovery_config::<T>(&lost_account);
 	let n = T::MaxFriends::get();
 	let friends = generate_friends::<T>(n);
 	let bounded_friends: FriendsOf<T> = friends.try_into().unwrap();
@@ -174,7 +175,7 @@ mod benchmarks {
 		let lost_account: T::AccountId = account("lost_account", 0, SEED);
 		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
 
-		insert_recovery_account::<T>(&caller, &lost_account);
+		insert_recovery_config::<T>(&lost_account);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), lost_account_lookup);
@@ -377,12 +378,14 @@ mod benchmarks {
 		// Fund caller account
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
-		// 1. Setup recovery config and active recovery with maximum friends for worst case
-		insert_recovery_account::<T>(&caller, &lost_account);
+		// 1. Setup recovery config for caller
+		insert_recovery_config::<T>(&caller);
+
+		// 2. Setup active recovery for lost account
 		setup_active_recovery::<T>(&caller, &lost_account);
 
-		// 2. Get initial deposits
-		let initial_config = <Recoverable<T>>::get(&lost_account).unwrap();
+		// 3. Get initial deposits
+		let initial_config = <Recoverable<T>>::get(&caller).unwrap();
 		let initial_config_deposit = initial_config.deposit;
 		let initial_recovery_deposit = T::RecoveryDeposit::get();
 		assert_eq!(
@@ -390,12 +393,11 @@ mod benchmarks {
 			initial_config_deposit.saturating_add(initial_recovery_deposit)
 		);
 
-		// 3. Artificially increase deposits
+		// 4. Artificially increase deposits
 		let increased_config_deposit = initial_config_deposit.saturating_add(2u32.into());
 		let increased_recovery_deposit = initial_recovery_deposit.saturating_add(2u32.into());
 
-		// Update storages with increased deposits
-		<Recoverable<T>>::try_mutate(&lost_account, |maybe_config| -> Result<(), BenchmarkError> {
+		<Recoverable<T>>::try_mutate(&caller, |maybe_config| -> Result<(), BenchmarkError> {
 			let config = maybe_config.as_mut().unwrap();
 			T::Currency::reserve(
 				&caller,
@@ -421,7 +423,7 @@ mod benchmarks {
 		)
 		.map_err(|_| BenchmarkError::Stop("Failed to mutate storage"))?;
 
-		// Verify increased deposits
+		// 5. Verify increased deposits
 		assert_eq!(
 			T::Currency::reserved_balance(&caller),
 			increased_config_deposit.saturating_add(increased_recovery_deposit)
@@ -430,7 +432,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
 
-		// 4. Assert final state
+		// 6. Assert final state
 		assert_eq!(
 			T::Currency::reserved_balance(&caller),
 			initial_config_deposit.saturating_add(initial_recovery_deposit)
