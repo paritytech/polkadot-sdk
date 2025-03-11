@@ -671,7 +671,7 @@ dependencies = [
  "nom",
  "num-traits",
  "rusticata-macros",
- "thiserror",
+ "thiserror 1.0.65",
  "time",
 ]
 
@@ -1769,7 +1769,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68534a48cbf63a4b1323c433cf21238c9ec23711e0df13b08c33e5c2082663ce"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -2636,7 +2636,7 @@ dependencies = [
  "semver 1.0.18",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -4105,7 +4105,7 @@ dependencies = [
  "sp-inherents",
  "sp-runtime 40.1.0",
  "sp-state-machine 0.44.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -4585,7 +4585,7 @@ dependencies = [
  "sp-blockchain",
  "sp-state-machine 0.44.0",
  "sp-version 38.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -4656,7 +4656,7 @@ dependencies = [
  "sp-storage 22.0.0",
  "sp-version 38.0.0",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-util",
  "tracing",
@@ -5845,7 +5845,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec6f82451ff7f0568c6181287189126d492b5654e30a788add08027b6363d019"
 dependencies = [
  "fatality-proc-macro",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -5869,7 +5869,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e182f7dbc2ef73d9ef67351c5fbbea084729c48362d3ce9dd44c28e32e277fe5"
 dependencies = [
  "libc",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -6071,7 +6071,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8835f84f38484cc86f110a805655697908257fb9a7af005234060891557198e9"
 dependencies = [
  "nonempty",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -6175,7 +6175,7 @@ dependencies = [
  "substrate-test-runtime",
  "subxt",
  "subxt-signer",
- "thiserror",
+ "thiserror 1.0.65",
  "thousands",
  "westend-runtime",
 ]
@@ -6908,7 +6908,7 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -7068,7 +7068,7 @@ dependencies = [
  "pest_derive",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -7196,7 +7196,7 @@ dependencies = [
  "once_cell",
  "rand",
  "socket2 0.5.7",
- "thiserror",
+ "thiserror 1.0.65",
  "tinyvec",
  "tokio",
  "tracing",
@@ -7219,7 +7219,7 @@ dependencies = [
  "rand",
  "resolv-conf",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -7581,16 +7581,18 @@ dependencies = [
 
 [[package]]
 name = "igd-next"
-version = "0.14.3"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "064d90fec10d541084e7b39ead8875a5a80d9114a2b18791565253bae25f49e4"
+checksum = "76b0d7d4541def58a37bf8efc559683f21edce7c82f0d866c93ac21f7e098f93"
 dependencies = [
  "async-trait",
  "attohttpc",
  "bytes",
  "futures",
- "http 0.2.9",
- "hyper 0.14.29",
+ "http 1.1.0",
+ "http-body-util",
+ "hyper 1.3.1",
+ "hyper-util",
  "log",
  "rand",
  "tokio",
@@ -7803,7 +7805,7 @@ version = "0.21.3"
 source = "git+https://github.com/chevdor/subwasm?rev=v0.21.3#aa8acb6fdfb34144ac51ab95618a9b37fa251295"
 dependencies = [
  "ipfs-unixfs",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -7933,7 +7935,7 @@ dependencies = [
  "combine",
  "jni-sys",
  "log",
- "thiserror",
+ "thiserror 1.0.65",
  "walkdir",
 ]
 
@@ -7975,7 +7977,7 @@ checksum = "ec9ad60d674508f3ca8f380a928cfe7b096bc729c4e2dbfe3852bc45da3ab30b"
 dependencies = [
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -7988,7 +7990,7 @@ dependencies = [
  "pest_derive",
  "regex",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -8056,7 +8058,7 @@ dependencies = [
  "rustls-native-certs 0.7.0",
  "rustls-pki-types",
  "soketto 0.7.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-rustls 0.25.0",
  "tokio-util",
@@ -8079,7 +8081,7 @@ dependencies = [
  "rustls-pki-types",
  "rustls-platform-verifier",
  "soketto 0.8.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-rustls 0.26.0",
  "tokio-util",
@@ -8104,7 +8106,7 @@ dependencies = [
  "rustls-pki-types",
  "rustls-platform-verifier",
  "soketto 0.8.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-rustls 0.26.0",
  "tokio-util",
@@ -8129,7 +8131,7 @@ dependencies = [
  "rustc-hash 1.1.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -8151,7 +8153,7 @@ dependencies = [
  "rustc-hash 1.1.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -8177,7 +8179,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -8197,7 +8199,7 @@ dependencies = [
  "jsonrpsee-types 0.22.5",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tower",
  "tracing",
@@ -8222,7 +8224,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tower",
  "tracing",
@@ -8261,7 +8263,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soketto 0.8.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -8279,7 +8281,7 @@ dependencies = [
  "beef",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -8292,7 +8294,7 @@ dependencies = [
  "http 1.1.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -8304,7 +8306,7 @@ dependencies = [
  "http 1.1.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -8467,7 +8469,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-tungstenite",
  "tokio-util",
@@ -8490,7 +8492,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -8513,7 +8515,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-util",
  "tracing",
@@ -8578,7 +8580,7 @@ checksum = "1530c5b973eeed4ac216af7e24baf5737645a6272e361f1fb95710678b67d9cc"
 dependencies = [
  "enumflags2",
  "libc",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -8681,24 +8683,23 @@ dependencies = [
  "libp2p-swarm 0.43.7",
  "multiaddr 0.18.1",
  "pin-project",
- "rw-stream-sink",
- "thiserror",
+ "rw-stream-sink 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
 name = "libp2p"
-version = "0.54.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbbe80f9c7e00526cd6b838075b9c171919404a4732cb2fa8ece0a093223bfc4"
+version = "0.54.2"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "bytes",
  "either",
  "futures",
  "futures-timer",
  "getrandom",
- "libp2p-allow-block-list 0.4.0",
- "libp2p-connection-limits 0.4.0",
- "libp2p-core 0.42.0",
+ "libp2p-allow-block-list 0.4.2",
+ "libp2p-connection-limits 0.4.1",
+ "libp2p-core 0.42.1",
  "libp2p-dns",
  "libp2p-identify",
  "libp2p-identity",
@@ -8709,15 +8710,15 @@ dependencies = [
  "libp2p-ping",
  "libp2p-quic",
  "libp2p-request-response",
- "libp2p-swarm 0.45.1",
+ "libp2p-swarm 0.45.2",
  "libp2p-tcp",
  "libp2p-upnp",
  "libp2p-websocket",
  "libp2p-yamux",
  "multiaddr 0.18.1",
  "pin-project",
- "rw-stream-sink",
- "thiserror",
+ "rw-stream-sink 0.4.0 (git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48)",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -8734,14 +8735,12 @@ dependencies = [
 
 [[package]]
 name = "libp2p-allow-block-list"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1027ccf8d70320ed77e984f273bc8ce952f623762cb9bf2d126df73caef8041"
+version = "0.4.2"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
- "libp2p-swarm 0.45.1",
- "void",
+ "libp2p-swarm 0.45.2",
 ]
 
 [[package]]
@@ -8758,14 +8757,12 @@ dependencies = [
 
 [[package]]
 name = "libp2p-connection-limits"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d003540ee8baef0d254f7b6bfd79bac3ddf774662ca0abf69186d517ef82ad8"
+version = "0.4.1"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
- "libp2p-swarm 0.45.1",
- "void",
+ "libp2p-swarm 0.45.2",
 ]
 
 [[package]]
@@ -8783,24 +8780,23 @@ dependencies = [
  "log",
  "multiaddr 0.18.1",
  "multihash 0.19.1",
- "multistream-select",
+ "multistream-select 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell",
  "parking_lot 0.12.3",
  "pin-project",
  "quick-protobuf 0.8.1",
  "rand",
- "rw-stream-sink",
+ "rw-stream-sink 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "unsigned-varint 0.7.2",
  "void",
 ]
 
 [[package]]
 name = "libp2p-core"
-version = "0.42.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a61f26c83ed111104cd820fe9bc3aaabbac5f1652a1d213ed6e900b7918a1298"
+version = "0.42.1"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "either",
  "fnv",
@@ -8809,31 +8805,29 @@ dependencies = [
  "libp2p-identity",
  "multiaddr 0.18.1",
  "multihash 0.19.1",
- "multistream-select",
+ "multistream-select 0.13.0 (git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48)",
  "once_cell",
  "parking_lot 0.12.3",
  "pin-project",
  "quick-protobuf 0.8.1",
  "rand",
- "rw-stream-sink",
+ "rw-stream-sink 0.4.0 (git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48)",
  "smallvec",
- "thiserror",
+ "thiserror 2.0.12",
  "tracing",
  "unsigned-varint 0.8.0",
- "void",
  "web-time",
 ]
 
 [[package]]
 name = "libp2p-dns"
 version = "0.42.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97f37f30d5c7275db282ecd86e54f29dd2176bd3ac656f06abf43bedb21eb8bd"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "async-trait",
  "futures",
  "hickory-resolver",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
  "parking_lot 0.12.3",
  "smallvec",
@@ -8842,32 +8836,29 @@ dependencies = [
 
 [[package]]
 name = "libp2p-identify"
-version = "0.45.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1711b004a273be4f30202778856368683bd9a83c4c7dcc8f848847606831a4e3"
+version = "0.46.0"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "asynchronous-codec 0.7.0",
  "either",
  "futures",
  "futures-bounded",
  "futures-timer",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
- "libp2p-swarm 0.45.1",
+ "libp2p-swarm 0.45.2",
  "lru 0.12.3",
  "quick-protobuf 0.8.1",
  "quick-protobuf-codec",
  "smallvec",
- "thiserror",
+ "thiserror 2.0.12",
  "tracing",
- "void",
 ]
 
 [[package]]
 name = "libp2p-identity"
-version = "0.2.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55cca1eb2bc1fd29f099f3daaab7effd01e1a54b7c577d0ed082521034d912e8"
+version = "0.2.10"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "bs58",
  "ed25519-dalek",
@@ -8876,16 +8867,15 @@ dependencies = [
  "quick-protobuf 0.8.1",
  "rand",
  "sha2 0.10.8",
- "thiserror",
+ "thiserror 2.0.12",
  "tracing",
  "zeroize",
 ]
 
 [[package]]
 name = "libp2p-kad"
-version = "0.46.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ced237d0bd84bbebb7c2cad4c073160dacb4fe40534963c32ed6d4c6bb7702a3"
+version = "0.47.0"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "arrayvec 0.7.4",
  "asynchronous-codec 0.7.0",
@@ -8895,55 +8885,51 @@ dependencies = [
  "futures",
  "futures-bounded",
  "futures-timer",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
- "libp2p-swarm 0.45.1",
+ "libp2p-swarm 0.45.2",
  "quick-protobuf 0.8.1",
  "quick-protobuf-codec",
  "rand",
  "sha2 0.10.8",
  "smallvec",
- "thiserror",
+ "thiserror 2.0.12",
  "tracing",
  "uint 0.9.5",
- "void",
  "web-time",
 ]
 
 [[package]]
 name = "libp2p-mdns"
 version = "0.46.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14b8546b6644032565eb29046b42744aee1e9f261ed99671b2c93fb140dba417"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "data-encoding",
  "futures",
  "hickory-proto",
  "if-watch",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
- "libp2p-swarm 0.45.1",
+ "libp2p-swarm 0.45.2",
  "rand",
  "smallvec",
  "socket2 0.5.7",
  "tokio",
  "tracing",
- "void",
 ]
 
 [[package]]
 name = "libp2p-metrics"
 version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77ebafa94a717c8442d8db8d3ae5d1c6a15e30f2d347e0cd31d057ca72e42566"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "futures",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identify",
  "libp2p-identity",
  "libp2p-kad",
  "libp2p-ping",
- "libp2p-swarm 0.45.1",
+ "libp2p-swarm 0.45.2",
  "pin-project",
  "prometheus-client",
  "web-time",
@@ -8952,14 +8938,13 @@ dependencies = [
 [[package]]
 name = "libp2p-noise"
 version = "0.45.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36b137cb1ae86ee39f8e5d6245a296518912014eaa87427d24e6ff58cfc1b28c"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "asynchronous-codec 0.7.0",
  "bytes",
  "curve25519-dalek 4.1.3",
  "futures",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
  "multiaddr 0.18.1",
  "multihash 0.19.1",
@@ -8969,7 +8954,7 @@ dependencies = [
  "sha2 0.10.8",
  "snow",
  "static_assertions",
- "thiserror",
+ "thiserror 2.0.12",
  "tracing",
  "x25519-dalek",
  "zeroize",
@@ -8977,33 +8962,30 @@ dependencies = [
 
 [[package]]
 name = "libp2p-ping"
-version = "0.45.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "005a34420359223b974ee344457095f027e51346e992d1e0dcd35173f4cdd422"
+version = "0.45.1"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "either",
  "futures",
  "futures-timer",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
- "libp2p-swarm 0.45.1",
+ "libp2p-swarm 0.45.2",
  "rand",
  "tracing",
- "void",
  "web-time",
 ]
 
 [[package]]
 name = "libp2p-quic"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46352ac5cd040c70e88e7ff8257a2ae2f891a4076abad2c439584a31c15fd24e"
+version = "0.11.2"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "bytes",
  "futures",
  "futures-timer",
  "if-watch",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
  "libp2p-tls",
  "parking_lot 0.12.3",
@@ -9012,28 +8994,26 @@ dependencies = [
  "ring 0.17.8",
  "rustls 0.23.14",
  "socket2 0.5.7",
- "thiserror",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "libp2p-request-response"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1356c9e376a94a75ae830c42cdaea3d4fe1290ba409a22c809033d1b7dcab0a6"
+version = "0.28.0"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "async-trait",
  "futures",
  "futures-bounded",
  "futures-timer",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
- "libp2p-swarm 0.45.1",
+ "libp2p-swarm 0.45.2",
  "rand",
  "smallvec",
  "tracing",
- "void",
  "web-time",
 ]
 
@@ -9051,7 +9031,7 @@ dependencies = [
  "libp2p-core 0.40.1",
  "libp2p-identity",
  "log",
- "multistream-select",
+ "multistream-select 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell",
  "rand",
  "smallvec",
@@ -9060,33 +9040,30 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm"
-version = "0.45.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7dd6741793d2c1fb2088f67f82cf07261f25272ebe3c0b0c311e0c6b50e851a"
+version = "0.45.2"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "either",
  "fnv",
  "futures",
  "futures-timer",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
  "libp2p-swarm-derive",
  "lru 0.12.3",
- "multistream-select",
+ "multistream-select 0.13.0 (git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48)",
  "once_cell",
  "rand",
  "smallvec",
  "tokio",
  "tracing",
- "void",
  "web-time",
 ]
 
 [[package]]
 name = "libp2p-swarm-derive"
 version = "0.35.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "206e0aa0ebe004d778d79fb0966aa0de996c19894e2c0605ba2f8524dd4443d8"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2 1.0.86",
@@ -9097,14 +9074,13 @@ dependencies = [
 [[package]]
 name = "libp2p-tcp"
 version = "0.42.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad964f312c59dcfcac840acd8c555de8403e295d39edf96f5240048b5fcaa314"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "futures",
  "futures-timer",
  "if-watch",
  "libc",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
  "socket2 0.5.7",
  "tokio",
@@ -9114,54 +9090,50 @@ dependencies = [
 [[package]]
 name = "libp2p-tls"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47b23dddc2b9c355f73c1e36eb0c3ae86f7dc964a3715f0731cfad352db4d847"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "futures",
  "futures-rustls",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
  "rcgen 0.11.3",
  "ring 0.17.8",
  "rustls 0.23.14",
  "rustls-webpki 0.101.4",
- "thiserror",
+ "thiserror 2.0.12",
  "x509-parser",
  "yasna",
 ]
 
 [[package]]
 name = "libp2p-upnp"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01bf2d1b772bd3abca049214a3304615e6a36fa6ffc742bdd1ba774486200b8f"
+version = "0.3.1"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "futures",
  "futures-timer",
  "igd-next",
- "libp2p-core 0.42.0",
- "libp2p-swarm 0.45.1",
+ "libp2p-core 0.42.1",
+ "libp2p-swarm 0.45.2",
  "tokio",
  "tracing",
- "void",
 ]
 
 [[package]]
 name = "libp2p-websocket"
-version = "0.44.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "888b2ff2e5d8dcef97283daab35ad1043d18952b65e05279eecbe02af4c6e347"
+version = "0.44.1"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "either",
  "futures",
  "futures-rustls",
- "libp2p-core 0.42.0",
+ "libp2p-core 0.42.1",
  "libp2p-identity",
  "parking_lot 0.12.3",
  "pin-project-lite",
- "rw-stream-sink",
+ "rw-stream-sink 0.4.0 (git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48)",
  "soketto 0.8.0",
- "thiserror",
+ "thiserror 2.0.12",
  "tracing",
  "url",
  "webpki-roots 0.25.2",
@@ -9170,13 +9142,12 @@ dependencies = [
 [[package]]
 name = "libp2p-yamux"
 version = "0.46.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "788b61c80789dba9760d8c669a5bedb642c8267555c803fabd8396e4ca5c5882"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "either",
  "futures",
- "libp2p-core 0.42.0",
- "thiserror",
+ "libp2p-core 0.42.1",
+ "thiserror 2.0.12",
  "tracing",
  "yamux 0.12.1",
  "yamux 0.13.4",
@@ -9375,7 +9346,7 @@ dependencies = [
  "snow",
  "socket2 0.5.7",
  "static_assertions",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite",
@@ -9762,7 +9733,7 @@ dependencies = [
  "rand_chacha",
  "rand_distr",
  "subtle 2.5.0",
- "thiserror",
+ "thiserror 1.0.65",
  "zeroize",
 ]
 
@@ -10017,6 +9988,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "multistream-select"
+version = "0.13.0"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
+dependencies = [
+ "bytes",
+ "futures",
+ "pin-project",
+ "smallvec",
+ "tracing",
+ "unsigned-varint 0.8.0",
+]
+
+[[package]]
 name = "nalgebra"
 version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10111,7 +10095,7 @@ dependencies = [
  "anyhow",
  "byteorder",
  "paste",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -10125,7 +10109,7 @@ dependencies = [
  "log",
  "netlink-packet-core",
  "netlink-sys",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -10150,7 +10134,7 @@ checksum = "ae72fd9dbd7f55dda80c00d66acc3b2130436fcba9ea89118fc508eaae48dfb0"
 dependencies = [
  "cc",
  "libc",
- "thiserror",
+ "thiserror 1.0.65",
  "winapi",
 ]
 
@@ -10666,7 +10650,7 @@ dependencies = [
  "orchestra-proc-macro",
  "pin-project",
  "prioritized-metered-channel",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -12500,7 +12484,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "subxt",
  "subxt-signer",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -13784,7 +13768,7 @@ version = "2.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1acb4a4365a13f749a93f1a094a7805e5cfa0955373a9de860d962eaa3a5fe5a"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
  "ucd-trie",
 ]
 
@@ -14018,7 +14002,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14050,7 +14034,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing-gum",
 ]
@@ -14091,7 +14075,7 @@ dependencies = [
  "sp-maybe-compressed-blob 11.0.0",
  "sp-runtime 40.1.0",
  "substrate-build-script-utils",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -14120,7 +14104,7 @@ dependencies = [
  "sp-keystore 0.41.0",
  "sp-runtime 40.1.0",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio-util",
  "tracing-gum",
 ]
@@ -14163,7 +14147,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14179,7 +14163,7 @@ dependencies = [
  "reed-solomon-novelpoly",
  "sp-core 35.0.0",
  "sp-trie 38.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -14237,7 +14221,7 @@ dependencies = [
  "sp-consensus",
  "sp-core 35.0.0",
  "sp-keyring",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14260,7 +14244,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-maybe-compressed-blob 11.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14304,7 +14288,7 @@ dependencies = [
  "sp-keystore 0.41.0",
  "sp-runtime 40.1.0",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14346,7 +14330,7 @@ dependencies = [
  "sp-keystore 0.41.0",
  "sp-runtime 40.1.0",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14375,7 +14359,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-keyring",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14404,7 +14388,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14419,7 +14403,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "sp-keystore 0.41.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
  "wasm-timer",
 ]
@@ -14489,7 +14473,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "sp-core 35.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14517,7 +14501,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14533,7 +14517,7 @@ dependencies = [
  "polkadot-primitives",
  "sp-blockchain",
  "sp-inherents",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14553,7 +14537,7 @@ dependencies = [
  "rstest",
  "sp-core 35.0.0",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14575,7 +14559,7 @@ dependencies = [
  "schnellru",
  "sp-application-crypto 39.0.0",
  "sp-keystore 0.41.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14619,7 +14603,7 @@ dependencies = [
  "tempfile",
  "test-parachain-adder",
  "test-parachain-halt",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing-gum",
 ]
@@ -14643,7 +14627,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.41.0",
  "sp-runtime 40.1.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14670,7 +14654,7 @@ dependencies = [
  "sp-io 39.0.0",
  "sp-tracing 17.0.1",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14785,7 +14769,7 @@ dependencies = [
  "sc-network-types",
  "sp-runtime 40.1.0",
  "strum 0.26.3",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -14811,7 +14795,7 @@ dependencies = [
  "sp-keystore 0.41.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-runtime 40.1.0",
- "thiserror",
+ "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
 
@@ -14869,7 +14853,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-runtime 40.1.0",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -14909,7 +14893,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-keystore 0.41.0",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -15097,7 +15081,7 @@ dependencies = [
  "sp-runtime 40.1.0",
  "sp-staking",
  "sp-std 14.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -15926,7 +15910,7 @@ dependencies = [
  "staging-xcm",
  "substrate-prometheus-endpoint",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
  "westend-runtime",
  "westend-runtime-constants",
@@ -15965,7 +15949,7 @@ dependencies = [
  "sp-keystore 0.41.0",
  "sp-staking",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -16556,7 +16540,7 @@ dependencies = [
  "smallvec",
  "symbolic-demangle",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -16681,7 +16665,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "nanorand",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -16822,7 +16806,7 @@ dependencies = [
  "lazy_static",
  "memchr",
  "parking_lot 0.12.3",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -17001,7 +16985,7 @@ dependencies = [
  "names",
  "prost 0.11.9",
  "reqwest 0.11.20",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
  "winapi",
 ]
@@ -17015,7 +16999,7 @@ dependencies = [
  "log",
  "pprof",
  "pyroscope",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -17061,13 +17045,12 @@ dependencies = [
 [[package]]
 name = "quick-protobuf-codec"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15a0580ab32b169745d7a39db2ba969226ca16738931be152a3209b409de2474"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
 dependencies = [
  "asynchronous-codec 0.7.0",
  "bytes",
  "quick-protobuf 0.8.1",
- "thiserror",
+ "thiserror 2.0.12",
  "unsigned-varint 0.8.0",
 ]
 
@@ -17107,7 +17090,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls 0.23.14",
  "socket2 0.5.7",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -17124,7 +17107,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls 0.23.14",
  "slab",
- "thiserror",
+ "thiserror 1.0.65",
  "tinyvec",
  "tracing",
 ]
@@ -17320,7 +17303,7 @@ dependencies = [
  "futures",
  "jsonrpsee 0.23.2",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -17360,7 +17343,7 @@ checksum = "b033d837a7cf162d7993aded9304e30a83213c648b6e389db233191f891e5c2b"
 dependencies = [
  "getrandom",
  "redox_syscall 0.2.16",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -17372,7 +17355,7 @@ dependencies = [
  "derive_more",
  "fs-err",
  "static_init",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -17512,7 +17495,7 @@ dependencies = [
  "sp-trie 38.0.0",
  "sp-version 38.0.0",
  "staging-xcm",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -17537,7 +17520,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "substrate-prometheus-endpoint",
  "sysinfo",
- "thiserror",
+ "thiserror 1.0.65",
  "time",
  "tokio",
 ]
@@ -18011,7 +17994,7 @@ dependencies = [
  "netlink-packet-route",
  "netlink-proto",
  "nix 0.24.3",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -18371,6 +18354,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rw-stream-sink"
+version = "0.4.0"
+source = "git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48#04c2e649b1f5482b8c3466b0fdbd1815b3126a48"
+dependencies = [
+ "futures",
+ "pin-project",
+ "static_assertions",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18412,7 +18405,7 @@ dependencies = [
  "log",
  "sp-core 33.0.1",
  "sp-wasm-interface 21.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -18422,7 +18415,7 @@ dependencies = [
  "log",
  "sp-core 35.0.0",
  "sp-wasm-interface 21.0.1",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -18433,7 +18426,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "ip_network",
- "libp2p 0.54.1",
+ "libp2p 0.54.2",
  "linked_hash_set",
  "log",
  "multihash 0.19.1",
@@ -18454,7 +18447,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -18580,7 +18573,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "sp-version 38.0.0",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -18610,7 +18603,7 @@ dependencies = [
  "sp-trie 38.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -18667,7 +18660,7 @@ dependencies = [
  "sp-state-machine 0.44.0",
  "sp-test-primitives",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -18704,7 +18697,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -18746,7 +18739,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -18774,7 +18767,7 @@ dependencies = [
  "sp-keystore 0.41.0",
  "sp-runtime 40.1.0",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -18817,7 +18810,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "wasm-timer",
 ]
@@ -18840,7 +18833,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-runtime 40.1.0",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -18902,7 +18895,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -18926,7 +18919,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime 40.1.0",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -18964,7 +18957,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -18989,7 +18982,7 @@ dependencies = [
  "sp-inherents",
  "sp-runtime 40.1.0",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -19088,7 +19081,7 @@ dependencies = [
  "sc-allocator 28.0.0",
  "sp-maybe-compressed-blob 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-wasm-interface 21.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-instrument",
 ]
 
@@ -19100,7 +19093,7 @@ dependencies = [
  "sc-allocator 30.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-wasm-interface 21.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-instrument",
 ]
 
@@ -19196,7 +19189,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-keystore 0.41.0",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -19224,7 +19217,7 @@ dependencies = [
  "sp-keystore 0.41.0",
  "sp-mixnet",
  "sp-runtime 40.1.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -19244,12 +19237,12 @@ dependencies = [
  "futures",
  "futures-timer",
  "ip_network",
- "libp2p 0.54.1",
+ "libp2p 0.54.2",
  "linked_hash_set",
  "litep2p",
  "log",
  "mockall 0.11.4",
- "multistream-select",
+ "multistream-select 0.13.0 (git+https://github.com/autonomys/rust-libp2p?rev=04c2e649b1f5482b8c3466b0fdbd1815b3126a48)",
  "once_cell",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -19282,7 +19275,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tokio-test",
@@ -19351,7 +19344,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core 35.0.0",
  "sp-runtime 40.1.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -19408,7 +19401,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
 ]
@@ -19420,7 +19413,7 @@ dependencies = [
  "async-trait",
  "futures",
  "futures-timer",
- "libp2p 0.54.1",
+ "libp2p 0.54.2",
  "log",
  "parking_lot 0.12.3",
  "rand",
@@ -19475,7 +19468,7 @@ dependencies = [
  "multihash 0.19.1",
  "quickcheck",
  "rand",
- "thiserror",
+ "thiserror 1.0.65",
  "zeroize",
 ]
 
@@ -19587,7 +19580,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 40.1.0",
  "sp-version 38.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -19652,7 +19645,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
 ]
@@ -19727,7 +19720,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "tracing-futures",
@@ -19807,7 +19800,7 @@ dependencies = [
  "fs4",
  "log",
  "sp-core 35.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -19826,7 +19819,7 @@ dependencies = [
  "serde_json",
  "sp-blockchain",
  "sp-runtime 40.1.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -19856,7 +19849,7 @@ version = "28.0.0"
 dependencies = [
  "chrono",
  "futures",
- "libp2p 0.54.1",
+ "libp2p 0.54.2",
  "log",
  "parking_lot 0.12.3",
  "pin-project",
@@ -19865,7 +19858,7 @@ dependencies = [
  "sc-utils",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-timer",
 ]
 
@@ -19892,7 +19885,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 40.1.0",
  "sp-tracing 17.0.1",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "tracing-log 0.2.0",
  "tracing-subscriber 0.3.18",
@@ -19941,7 +19934,7 @@ dependencies = [
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
 ]
@@ -19959,7 +19952,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core 35.0.0",
  "sp-runtime 40.1.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -20089,7 +20082,7 @@ dependencies = [
  "quote 1.0.37",
  "scale-info",
  "syn 2.0.87",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -21416,7 +21409,7 @@ dependencies = [
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 35.0.0",
  "sp-version 35.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -21438,7 +21431,7 @@ dependencies = [
  "sp-test-primitives",
  "sp-trie 38.0.0",
  "sp-version 38.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -21650,7 +21643,7 @@ dependencies = [
  "sp-database",
  "sp-runtime 40.1.0",
  "sp-state-machine 0.44.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -21666,7 +21659,7 @@ dependencies = [
  "sp-runtime 40.1.0",
  "sp-state-machine 0.44.0",
  "sp-test-primitives",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -21799,7 +21792,7 @@ dependencies = [
  "sp-storage 20.0.0",
  "ss58-registry",
  "substrate-bip39 0.5.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -21846,7 +21839,7 @@ dependencies = [
  "sp-storage 21.0.0",
  "ss58-registry",
  "substrate-bip39 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -21893,7 +21886,7 @@ dependencies = [
  "sp-storage 21.0.0",
  "ss58-registry",
  "substrate-bip39 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -21941,7 +21934,7 @@ dependencies = [
  "sp-storage 22.0.0",
  "ss58-registry",
  "substrate-bip39 0.6.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -22118,7 +22111,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 40.1.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -22288,7 +22281,7 @@ dependencies = [
 name = "sp-maybe-compressed-blob"
 version = "11.0.0"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
 
@@ -22298,7 +22291,7 @@ version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0c768c11afbe698a090386876911da4236af199cd38a5866748df4d8628aeff"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
 
@@ -22346,7 +22339,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-debug-derive 14.0.0",
  "sp-runtime 40.1.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -22691,7 +22684,7 @@ dependencies = [
  "sp-panic-handler 13.0.0",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 32.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db 0.28.0",
 ]
@@ -22712,7 +22705,7 @@ dependencies = [
  "sp-externalities 0.28.0",
  "sp-panic-handler 13.0.0",
  "sp-trie 34.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db 0.29.1",
 ]
@@ -22733,7 +22726,7 @@ dependencies = [
  "sp-externalities 0.28.0",
  "sp-panic-handler 13.0.0",
  "sp-trie 35.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db 0.29.1",
 ]
@@ -22757,7 +22750,7 @@ dependencies = [
  "sp-panic-handler 13.0.1",
  "sp-runtime 40.1.0",
  "sp-trie 38.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db 0.29.1",
 ]
@@ -22781,7 +22774,7 @@ dependencies = [
  "sp-externalities 0.30.0",
  "sp-runtime 40.1.0",
  "sp-runtime-interface 29.0.0",
- "thiserror",
+ "thiserror 1.0.65",
  "x25519-dalek",
 ]
 
@@ -22853,7 +22846,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-inherents",
  "sp-runtime 40.1.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -22931,7 +22924,7 @@ dependencies = [
  "sp-core 31.0.0",
  "sp-externalities 0.27.0",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db 0.28.0",
  "trie-root",
@@ -22955,7 +22948,7 @@ dependencies = [
  "schnellru",
  "sp-core 32.0.0",
  "sp-externalities 0.28.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db 0.29.1",
  "trie-root",
@@ -22979,7 +22972,7 @@ dependencies = [
  "schnellru",
  "sp-core 33.0.1",
  "sp-externalities 0.28.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db 0.29.1",
  "trie-root",
@@ -23003,7 +22996,7 @@ dependencies = [
  "sp-core 35.0.0",
  "sp-externalities 0.30.0",
  "sp-runtime 40.1.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-bench",
  "trie-db 0.29.1",
@@ -23026,7 +23019,7 @@ dependencies = [
  "sp-runtime 37.0.0",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-version-proc-macro 14.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23042,7 +23035,7 @@ dependencies = [
  "sp-runtime 40.1.0",
  "sp-std 14.0.0",
  "sp-version-proc-macro 15.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23297,7 +23290,7 @@ dependencies = [
  "sp-io 39.0.0",
  "sp-runtime 40.1.0",
  "sp-statement-store",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23631,7 +23624,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-testbed",
 ]
 
@@ -23685,7 +23678,7 @@ dependencies = [
  "hyper-util",
  "log",
  "prometheus",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -23729,7 +23722,7 @@ dependencies = [
  "sp-trie 38.0.0",
  "structopt",
  "strum 0.26.3",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23759,7 +23752,7 @@ dependencies = [
  "sp-io 35.0.0",
  "sp-runtime 36.0.0",
  "sp-wasm-interface 21.0.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23887,7 +23880,7 @@ dependencies = [
  "sp-blockchain",
  "sp-runtime 40.1.0",
  "substrate-test-runtime-client",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -23966,7 +23959,7 @@ dependencies = [
  "serde_json",
  "sp-version 35.0.0",
  "substrate-differ",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
  "uuid",
  "wasm-loader",
@@ -24003,7 +23996,7 @@ dependencies = [
  "subxt-lightclient",
  "subxt-macro",
  "subxt-metadata",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio-util",
  "tracing",
  "url",
@@ -24026,7 +24019,7 @@ dependencies = [
  "scale-typegen",
  "subxt-metadata",
  "syn 2.0.87",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -24070,7 +24063,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smoldot-light 0.14.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -24564,7 +24557,16 @@ version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d11abd9594d9b38965ef50805c5e469ca9cc6f197f883f717e0269a3057b3d5"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 1.0.65",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "567b8a2dae586314f7be2a752ec7474332959c6460e02bde30d702a66d488708"
+dependencies = [
+ "thiserror-impl 2.0.12",
 ]
 
 [[package]]
@@ -24592,6 +24594,17 @@ name = "thiserror-impl"
 version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae71770322cbd277e69d762a16c444af02aa0575ac0d174f0b9562d3b37f8602"
+dependencies = [
+ "proc-macro2 1.0.86",
+ "quote 1.0.37",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f7cf42b4507d8ea322120659672cf1b9dbb93f8f2d4ecfd6e51350ff5b17a1d"
 dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
@@ -25256,7 +25269,7 @@ dependencies = [
  "rand",
  "rustls 0.21.7",
  "sha1",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
  "utf-8",
 ]
@@ -25278,7 +25291,7 @@ dependencies = [
  "rustls-native-certs 0.7.0",
  "rustls-pki-types",
  "sha1",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
  "utf-8",
 ]
@@ -25587,7 +25600,7 @@ dependencies = [
  "rand_core 0.6.4",
  "sha2 0.10.8",
  "sha3 0.10.8",
- "thiserror",
+ "thiserror 1.0.65",
  "zeroize",
 ]
 
@@ -25755,7 +25768,7 @@ dependencies = [
  "serde_json",
  "sp-maybe-compressed-blob 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "subrpcer",
- "thiserror",
+ "thiserror 1.0.65",
  "tungstenite 0.21.0",
  "ureq",
  "url",
@@ -25772,7 +25785,7 @@ dependencies = [
  "strum 0.24.1",
  "strum_macros 0.24.3",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-opt-cxx-sys",
  "wasm-opt-sys",
 ]
@@ -25820,7 +25833,7 @@ dependencies = [
  "sp-version 35.0.0",
  "sp-wasm-interface 21.0.0",
  "substrate-runtime-proposal-hash",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-loader",
 ]
 
@@ -26002,7 +26015,7 @@ dependencies = [
  "log",
  "object 0.30.4",
  "target-lexicon",
- "thiserror",
+ "thiserror 1.0.65",
  "wasmparser",
  "wasmtime-cranelift-shared",
  "wasmtime-environ",
@@ -26037,7 +26050,7 @@ dependencies = [
  "object 0.30.4",
  "serde",
  "target-lexicon",
- "thiserror",
+ "thiserror 1.0.65",
  "wasmparser",
  "wasmtime-types",
 ]
@@ -26120,7 +26133,7 @@ checksum = "a4f6fffd2a1011887d57f07654dd112791e872e3ff4a2e626aee8059ee17f06f"
 dependencies = [
  "cranelift-entity",
  "serde",
- "thiserror",
+ "thiserror 1.0.65",
  "wasmparser",
 ]
 
@@ -26733,7 +26746,7 @@ dependencies = [
  "nom",
  "oid-registry",
  "rusticata-macros",
- "thiserror",
+ "thiserror 1.0.65",
  "time",
 ]
 
@@ -27054,7 +27067,7 @@ dependencies = [
  "reqwest 0.11.20",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-tungstenite",
  "tracing-gum",
@@ -27074,7 +27087,7 @@ dependencies = [
  "reqwest 0.11.20",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "toml 0.7.8",
  "url",
@@ -27104,7 +27117,7 @@ dependencies = [
  "sp-core 31.0.0",
  "subxt",
  "subxt-signer",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "uuid",
@@ -27122,7 +27135,7 @@ checksum = "7203390ab88919240da3a3eb06b625b6e300e94f98e04ba5141e9138dc663b7d"
 dependencies = [
  "pest",
  "pest_derive",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -27146,7 +27159,7 @@ dependencies = [
  "serde_yaml",
  "sha2 0.10.8",
  "tar",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-util",
  "tracing",
@@ -27186,7 +27199,7 @@ dependencies = [
  "rand",
  "regex",
  "reqwest 0.11.20",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "uuid",
