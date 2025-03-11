@@ -299,11 +299,9 @@ mod benchmarks {
 		let xcm = Xcm(vec![instruction]);
 		#[block]
 		{
-			executor.bench_process(xcm).map_err(|_| {
-				BenchmarkError::Override(
-					BenchmarkResult::from_weight(Weight::MAX)
-				)
-			})?;
+			executor
+				.bench_process(xcm)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		}
 		assert_eq!(executor.origin(), &Some(Location { parents: 0, interior: Here }),);
 
