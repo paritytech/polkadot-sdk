@@ -964,7 +964,7 @@ fn expand_benchmark(
 					}
 				},
 				_ => quote! {
-					#origin.into();
+					<<T as #frame_system::Config>::RuntimeOrigin as From<_>>::from(#origin);
 				},
 			};
 
