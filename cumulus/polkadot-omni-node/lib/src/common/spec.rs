@@ -463,7 +463,7 @@ where
 		// If the network backend is unspecified, use the default for the given chain.
 		let default_backend = parachain_config.chain_spec.network_backend();
 		let network_backend =
-			parachain_config.network.network_backend.clone().unwrap_or(default_backend);
+			parachain_config.network.network_backend.unwrap_or(default_backend);
 		match network_backend {
 			sc_network::config::NetworkBackendType::Libp2p =>
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
