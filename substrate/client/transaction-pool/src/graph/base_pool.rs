@@ -453,27 +453,29 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 
 		while ready.is_exceeded(self.ready.len(), self.ready.bytes()) {
 			// find the worst transaction
-			let worst = self.ready.fold::<TransactionRef<Hash, Ex>, _>(|worst, current| {
-				let transaction = &current.transaction;
-				worst
-					.map(|worst| {
-						// Here we don't use `TransactionRef`'s ordering implementation because
-						// while it prefers priority like need here, it also prefers older
-						// transactions for inclusion purposes and limit enforcement needs to prefer
-						// newer transactions instead and drop the older ones.
-						match worst.transaction.priority.cmp(&transaction.transaction.priority) {
-							Ordering::Less => worst,
-							Ordering::Equal =>
-								if worst.insertion_id > transaction.insertion_id {
-									transaction.clone()
-								} else {
-									worst
-								},
-							Ordering::Greater => transaction.clone(),
-						}
-					})
-					.or_else(|| Some(transaction.clone()))
-			});
+			let worst =
+				self.ready.fold::<Option<TransactionRef<Hash, Ex>>, _>(None, |worst, current| {
+					let transaction = &current.transaction;
+					worst
+						.map(|worst| {
+							// Here we don't use `TransactionRef`'s ordering implementation because
+							// while it prefers priority like need here, it also prefers older
+							// transactions for inclusion purposes and limit enforcement needs to
+							// prefer newer transactions instead and drop the older ones.
+							match worst.transaction.priority.cmp(&transaction.transaction.priority)
+							{
+								Ordering::Less => worst,
+								Ordering::Equal =>
+									if worst.insertion_id > transaction.insertion_id {
+										transaction.clone()
+									} else {
+										worst
+									},
+								Ordering::Greater => transaction.clone(),
+							}
+						})
+						.or_else(|| Some(transaction.clone()))
+				});
 
 			if let Some(worst) = worst {
 				removed.append(&mut self.remove_subtree(&[worst.transaction.hash.clone()]))

@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! CLI options of the omni-node. See [`Command`].
 
@@ -23,6 +23,7 @@ use crate::{
 		NodeExtraArgs,
 	},
 };
+use chain_spec_builder::ChainSpecBuilder;
 use clap::{Command, CommandFactory, FromArgMatches};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
@@ -31,7 +32,6 @@ use sc_cli::{
 };
 use sc_service::{config::PrometheusConfig, BasePath};
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
-
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
 ///
@@ -72,6 +72,19 @@ pub enum Subcommand {
 	Key(sc_cli::KeySubcommand),
 
 	/// Build a chain specification.
+	///
+	/// The `build-spec` command relies on the chain specification built (hard-coded) into the node
+	/// binary, and may utilize the genesis presets of the runtimes  also embedded in the nodes
+	/// that support  this command. Since `polkadot-omni-node` does not contain any embedded
+	/// runtime, and requires a `chain-spec` path to be passed to its `--chain` flag, the command
+	/// isn't bringing significant value as it does for other node binaries (e.g. the
+	///  `polkadot` binary).
+	///
+	/// For a more versatile `chain-spec` manipulation experience please check out the
+	/// `polkadot-omni-node chain-spec-builder` subcommand.
+	#[deprecated(
+		note = "build-spec will be removed after 1/06/2025. Use chain-spec-builder instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Validate blocks.
@@ -89,9 +102,21 @@ pub enum Subcommand {
 	/// Revert the chain to a previous state.
 	Revert(sc_cli::RevertCmd),
 
+	/// Subcommand for generating and managing chain specifications.
+	///
+	/// A `chain-spec-builder` subcommand corresponds to the existing `chain-spec-builder` tool
+	/// (<https://crates.io/crates/staging-chain-spec-builder>), which can be used already standalone.
+	/// It provides the same functionality as the tool but bundled with `polkadot-omni-node` to
+	/// enable easier access to chain-spec generation, patching, converting to raw or validation,
+	/// from a single binary, which can be used as a parachain node tool
+	/// For a detailed usage guide please check out the standalone tool's crates.io or docs.rs
+	/// pages:
+	/// - <https://crates.io/crates/staging-chain-spec-builder>
+	/// - <https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/>
+	ChainSpecBuilder(ChainSpecBuilder),
+
 	/// Remove the whole chain.
 	PurgeChain(cumulus_client_cli::PurgeChainCmd),
-
 	/// Export the genesis state of the parachain.
 	#[command(alias = "export-genesis-state")]
 	ExportGenesisHead(cumulus_client_cli::ExportGenesisHeadCommand),

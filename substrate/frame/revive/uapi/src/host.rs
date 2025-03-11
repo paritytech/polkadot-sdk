@@ -113,7 +113,7 @@ pub trait HostFn: private::Sealed {
 		callee: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit: Option<&[u8; 32]>,
+		deposit: &[u8; 32],
 		value: &[u8; 32],
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
@@ -202,7 +202,7 @@ pub trait HostFn: private::Sealed {
 		address: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8; 32]>,
+		deposit_limit: &[u8; 32],
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
@@ -288,14 +288,14 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `code_hash`: The hash of the code to be instantiated.
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
 	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
 	///   specific limit for the call, which implies storage usage up to the limit of the parent
 	///   call.
 	/// - `value`: The value to transfer into the contract.
-	/// - `input`: The input data buffer.
+	/// - `input`: The code hash and constructor input data buffer. The first 32 bytes are the code
+	///   hash of the code to be instantiated. The remaining bytes are the constructor call data.
 	/// - `address`: A reference to the address buffer to write the address of the contract. If
 	///   `None` is provided then the output buffer is not copied.
 	/// - `output`: A reference to the return value buffer to write the constructor output buffer.
@@ -315,10 +315,9 @@ pub trait HostFn: private::Sealed {
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn instantiate(
-		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit: Option<&[u8; 32]>,
+		deposit: &[u8; 32],
 		value: &[u8; 32],
 		input: &[u8],
 		address: Option<&mut [u8; 20]>,
@@ -326,7 +325,7 @@ pub trait HostFn: private::Sealed {
 		salt: Option<&[u8; 32]>,
 	) -> Result;
 
-	/// Load the latest block timestamp into the supplied buffer
+	/// Load the latest block timestamp in seconds into the supplied buffer
 	///
 	/// # Parameters
 	///
@@ -398,13 +397,32 @@ pub trait HostFn: private::Sealed {
 	/// Returns the amount of ref_time left.
 	fn ref_time_left() -> u64;
 
+	/// Stores the current block author of into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the block author.
+	fn block_author(output: &mut [u8; 20]);
+
 	/// Stores the current block number of the current contract into the supplied buffer.
 	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the block number.
-	#[unstable_hostfn]
 	fn block_number(output: &mut [u8; 32]);
+
+	/// Retrieve the account id for a specified address.
+	///
+	/// # Parameters
+	///
+	/// - `addr`: A `H160` address.
+	/// - `output`: A reference to the output data buffer to write the account id.
+	///
+	/// # Note
+	///
+	/// If no mapping exists for `addr`, the fallback account id will be returned.
+	#[unstable_hostfn]
+	fn to_account_id(addr: &[u8; 20], output: &mut [u8]);
 
 	/// Stores the block hash of the given block number into the supplied buffer.
 	///
@@ -488,7 +506,7 @@ pub trait HostFn: private::Sealed {
 	/// A return value of `true` indicates that this contract is being called by a root origin,
 	/// and `false` indicates that the caller is a signed origin.
 	#[unstable_hostfn]
-	fn caller_is_root() -> u32;
+	fn caller_is_root() -> bool;
 
 	/// Clear the value at the given key in the contract storage.
 	///
@@ -514,47 +532,6 @@ pub trait HostFn: private::Sealed {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	#[unstable_hostfn]
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
-
-	/// Emit a custom debug message.
-	///
-	/// No newlines are added to the supplied message.
-	/// Specifying invalid UTF-8 just drops the message with no trap.
-	///
-	/// This is a no-op if debug message recording is disabled which is always the case
-	/// when the code is executing on-chain. The message is interpreted as UTF-8 and
-	/// appended to the debug buffer which is then supplied to the calling RPC client.
-	///
-	/// # Note
-	///
-	/// Even though no action is taken when debug message recording is disabled there is still
-	/// a non trivial overhead (and weight cost) associated with calling this function. Contract
-	/// languages should remove calls to this function (either at runtime or compile time) when
-	/// not being executed as an RPC. For example, they could allow users to disable logging
-	/// through compile time flags (cargo features) for on-chain deployment. Additionally, the
-	/// return value of this function can be cached in order to prevent further calls at runtime.
-	#[unstable_hostfn]
-	fn debug_message(str: &[u8]) -> Result;
-
-	/// Recovers the ECDSA public key from the given message hash and signature.
-	///
-	/// Writes the public key into the given output buffer.
-	/// Assumes the secp256k1 curve.
-	///
-	/// # Parameters
-	///
-	/// - `signature`: The signature bytes.
-	/// - `message_hash`: The message hash bytes.
-	/// - `output`: A reference to the output data buffer to write the public key.
-	///
-	/// # Errors
-	///
-	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
-	#[unstable_hostfn]
-	fn ecdsa_recover(
-		signature: &[u8; 65],
-		message_hash: &[u8; 32],
-		output: &mut [u8; 33],
-	) -> Result;
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// it into the supplied buffer.
@@ -622,18 +599,6 @@ pub trait HostFn: private::Sealed {
 	/// Returns `true` if the address belongs to a contract.
 	#[unstable_hostfn]
 	fn is_contract(address: &[u8; 20]) -> bool;
-
-	/// Lock a new delegate dependency to the contract.
-	///
-	/// Traps if the maximum number of delegate_dependencies is reached or if
-	/// the delegate dependency already exists.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
-	///   otherwise.
-	#[unstable_hostfn]
-	fn lock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	///
@@ -724,17 +689,6 @@ pub trait HostFn: private::Sealed {
 	/// - The deletion queue is full.
 	#[unstable_hostfn]
 	fn terminate(beneficiary: &[u8; 20]) -> !;
-
-	/// Removes the delegate dependency from the contract.
-	///
-	/// Traps if the delegate dependency does not exist.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
-	///   otherwise.
-	#[unstable_hostfn]
-	fn unlock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Stores the amount of weight left into the supplied buffer.
 	/// The data is encoded as Weight.

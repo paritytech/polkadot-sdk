@@ -29,7 +29,7 @@ use futures::{
 use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
-use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
+use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxInvalidityReportMap};
 use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
@@ -413,7 +413,7 @@ where
 		let soft_deadline =
 			now + time::Duration::from_micros(self.soft_deadline_percent.mul_floor(left_micros));
 		let mut skipped = 0;
-		let mut unqueue_invalid = Vec::new();
+		let mut unqueue_invalid = TxInvalidityReportMap::new();
 
 		let delay = deadline.saturating_duration_since((self.now)()) / 8;
 		let mut pending_iterator =
@@ -512,7 +512,13 @@ where
 						target: LOG_TARGET,
 						"[{:?}] Invalid transaction: {} at: {}", pending_tx_hash, e, self.parent_hash
 					);
-					unqueue_invalid.push(pending_tx_hash);
+
+					let error_to_report = match e {
+						ApplyExtrinsicFailed(Validity(e)) => Some(e),
+						_ => None,
+					};
+
+					unqueue_invalid.insert(pending_tx_hash, error_to_report);
 				},
 			}
 		};
@@ -524,7 +530,7 @@ where
 			);
 		}
 
-		self.transaction_pool.remove_invalid(&unqueue_invalid);
+		self.transaction_pool.report_invalid(Some(self.parent_hash), unqueue_invalid);
 		Ok(end_reason)
 	}
 

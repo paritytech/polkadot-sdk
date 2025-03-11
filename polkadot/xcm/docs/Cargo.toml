@@ -18,7 +18,7 @@ xcm-simulator = { workspace = true, default-features = true }
 
 # For building FRAME runtimes
 codec = { workspace = true, default-features = true }
-frame = { features = ["experimental", "runtime"], workspace = true, default-features = true }
+frame = { features = ["runtime"], workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }

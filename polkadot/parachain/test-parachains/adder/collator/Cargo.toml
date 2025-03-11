@@ -39,6 +39,5 @@ polkadot-test-service = { workspace = true }
 
 sc-service = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
-substrate-test-utils = { workspace = true }
 
 tokio = { features = ["macros"], workspace = true, default-features = true }

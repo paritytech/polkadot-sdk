@@ -167,7 +167,17 @@ pub mod pallet_with_custom_origin {
 	#[docify::export(custom_origin)]
 	/// A dummy custom origin.
 	#[pallet::origin]
-	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		RuntimeDebug,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum Origin {
 		/// If all holders of a particular NFT have agreed upon this.
 		AllNftHolders,

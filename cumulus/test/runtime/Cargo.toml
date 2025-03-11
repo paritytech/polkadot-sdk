@@ -47,7 +47,6 @@ cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-weight-reclaim = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
-pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
 
 [build-dependencies]
@@ -69,7 +68,6 @@ std = [
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
-	"pallet-collator-selection/std",
 	"pallet-glutton/std",
 	"pallet-message-queue/std",
 	"pallet-session/std",
@@ -96,4 +94,5 @@ std = [
 ]
 increment-spec-version = []
 elastic-scaling = []
+elastic-scaling-500ms = []
 experimental-ump-signals = ["cumulus-pallet-parachain-system/experimental-ump-signals"]

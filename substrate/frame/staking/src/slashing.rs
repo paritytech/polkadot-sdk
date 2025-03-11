@@ -50,22 +50,22 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	asset, BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure,
-	NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash,
-	UnappliedSlash, ValidatorSlashInEra,
+	asset, log, BalanceOf, Config, EraInfo, Error, NegativeImbalanceOf, NominatorSlashInEra,
+	OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill, ProcessingOffence,
+	SlashRewardFraction, SpanSlash, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	traits::{Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
+	traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchResult, RuntimeDebug,
+	DispatchResult, RuntimeDebug, WeakBoundedVec, Weight,
 };
-use sp_staking::{offence::OffenceSeverity, EraIndex, StakingInterface};
+use sp_staking::{EraIndex, StakingInterface};
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -209,8 +209,12 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 	pub(crate) stash: &'a T::AccountId,
 	/// The proportion of the slash.
 	pub(crate) slash: Perbill,
+	/// The prior slash proportion of the validator if the validator has been reported multiple
+	/// times in the same era, and a new greater slash replaces the old one.
+	/// Invariant: slash > prior_slash
+	pub(crate) prior_slash: Perbill,
 	/// The exposure of the stash and all nominators.
-	pub(crate) exposure: &'a Exposure<T::AccountId, BalanceOf<T>>,
+	pub(crate) exposure: &'a PagedExposure<T::AccountId, BalanceOf<T>>,
 	/// The era where the offence occurred.
 	pub(crate) slash_era: EraIndex,
 	/// The first era in the current bonding period.
@@ -222,78 +226,248 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 	pub(crate) reward_proportion: Perbill,
 }
 
+/// Represents an offence record within the staking system, capturing details about a slashing
+/// event.
+#[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, RuntimeDebug)]
+pub struct OffenceRecord<AccountId> {
+	/// The account ID of the entity that reported the offence.
+	pub reporter: Option<AccountId>,
+
+	/// Era at which the offence was reported.
+	pub reported_era: EraIndex,
+
+	/// The specific page of the validator's exposure currently being processed.
+	///
+	/// Since a validator's total exposure can span multiple pages, this field serves as a pointer
+	/// to the current page being evaluated. The processing order starts from the last page
+	/// and moves backward, decrementing this value with each processed page.
+	///
+	/// This ensures that all pages are systematically handled, and it helps track when
+	/// the entire exposure has been processed.
+	pub exposure_page: u32,
+
+	/// The fraction of the validator's stake to be slashed for this offence.
+	pub slash_fraction: Perbill,
+
+	/// The previous slash fraction of the validator's stake before being updated.
+	/// If a new, higher slash fraction is reported, this field stores the prior fraction
+	/// that was overwritten. This helps in tracking changes in slashes across multiple reports for
+	/// the same era.
+	pub prior_slash_fraction: Perbill,
+}
+
+/// Loads next offence in the processing offence and returns the offense record to be processed.
+///
+/// Note: this can mutate the following storage
+/// - `ProcessingOffence`
+/// - `OffenceQueue`
+/// - `OffenceQueueEras`
+fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T::AccountId>)> {
+	let processing_offence = ProcessingOffence::<T>::get();
+
+	if let Some((offence_era, offender, offence_record)) = processing_offence {
+		// If the exposure page is 0, then the offence has been processed.
+		if offence_record.exposure_page == 0 {
+			ProcessingOffence::<T>::kill();
+			return Some((offence_era, offender, offence_record))
+		}
+
+		// Update the next page.
+		ProcessingOffence::<T>::put((
+			offence_era,
+			&offender,
+			OffenceRecord {
+				// decrement the page index.
+				exposure_page: offence_record.exposure_page.defensive_saturating_sub(1),
+				..offence_record.clone()
+			},
+		));
+
+		return Some((offence_era, offender, offence_record))
+	}
+
+	// Nothing in processing offence. Try to enqueue the next offence.
+	let Some(mut eras) = OffenceQueueEras::<T>::get() else { return None };
+	let Some(&oldest_era) = eras.first() else { return None };
+
+	let mut offence_iter = OffenceQueue::<T>::iter_prefix(oldest_era);
+	let next_offence = offence_iter.next();
+
+	if let Some((ref validator, ref offence_record)) = next_offence {
+		// Update the processing offence if the offence is multi-page.
+		if offence_record.exposure_page > 0 {
+			// update processing offence with the next page.
+			ProcessingOffence::<T>::put((
+				oldest_era,
+				validator.clone(),
+				OffenceRecord {
+					exposure_page: offence_record.exposure_page.defensive_saturating_sub(1),
+					..offence_record.clone()
+				},
+			));
+		}
+
+		// Remove from `OffenceQueue`
+		OffenceQueue::<T>::remove(oldest_era, &validator);
+	}
+
+	// If there are no offences left for the era, remove the era from `OffenceQueueEras`.
+	if offence_iter.next().is_none() {
+		if eras.len() == 1 {
+			// If there is only one era left, remove the entire queue.
+			OffenceQueueEras::<T>::kill();
+		} else {
+			// Remove the oldest era
+			eras.remove(0);
+			OffenceQueueEras::<T>::put(eras);
+		}
+	}
+
+	next_offence.map(|(v, o)| (oldest_era, v, o))
+}
+
+/// Infallible function to process an offence.
+pub(crate) fn process_offence<T: Config>() -> Weight {
+	// todo(ank4n): this needs to be properly benched.
+	let mut consumed_weight = Weight::from_parts(0, 0);
+	let mut add_db_reads_writes = |reads, writes| {
+		consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
+	};
+
+	add_db_reads_writes(1, 1);
+	let Some((offence_era, offender, offence_record)) = next_offence::<T>() else {
+		return consumed_weight
+	};
+
+	log!(
+		debug,
+		"🦹 Processing offence for {:?} in era {:?} with slash fraction {:?}",
+		offender,
+		offence_era,
+		offence_record.slash_fraction,
+	);
+
+	add_db_reads_writes(1, 0);
+	let reward_proportion = SlashRewardFraction::<T>::get();
+
+	add_db_reads_writes(2, 0);
+	let Some(exposure) =
+		EraInfo::<T>::get_paged_exposure(offence_era, &offender, offence_record.exposure_page)
+	else {
+		// this can only happen if the offence was valid at the time of reporting but became too old
+		// at the time of computing and should be discarded.
+		return consumed_weight
+	};
+
+	let slash_page = offence_record.exposure_page;
+	let slash_defer_duration = T::SlashDeferDuration::get();
+	let slash_era = offence_era.saturating_add(slash_defer_duration);
+	let window_start = offence_record.reported_era.saturating_sub(T::BondingDuration::get());
+
+	add_db_reads_writes(3, 3);
+	let Some(mut unapplied) = compute_slash::<T>(SlashParams {
+		stash: &offender,
+		slash: offence_record.slash_fraction,
+		prior_slash: offence_record.prior_slash_fraction,
+		exposure: &exposure,
+		slash_era: offence_era,
+		window_start,
+		now: offence_record.reported_era,
+		reward_proportion,
+	}) else {
+		log!(
+			debug,
+			"🦹 Slash of {:?}% happened in {:?} (reported in {:?}) is discarded, as could not compute slash",
+			offence_record.slash_fraction,
+			offence_era,
+			offence_record.reported_era,
+		);
+		// No slash to apply. Discard.
+		return consumed_weight
+	};
+
+	<Pallet<T>>::deposit_event(super::Event::<T>::SlashComputed {
+		offence_era,
+		slash_era,
+		offender: offender.clone(),
+		page: slash_page,
+	});
+
+	log!(
+		debug,
+		"🦹 Slash of {:?}% happened in {:?} (reported in {:?}) is computed",
+		offence_record.slash_fraction,
+		offence_era,
+		offence_record.reported_era,
+	);
+
+	// add the reporter to the unapplied slash.
+	unapplied.reporter = offence_record.reporter;
+
+	if slash_defer_duration == 0 {
+		// Apply right away.
+		log!(
+			debug,
+			"🦹 applying slash instantly of {:?}% happened in {:?} (reported in {:?}) to {:?}",
+			offence_record.slash_fraction,
+			offence_era,
+			offence_record.reported_era,
+			offender,
+		);
+
+		let accounts_slashed = unapplied.others.len() as u64 + 1;
+		add_db_reads_writes(3 * accounts_slashed, 3 * accounts_slashed);
+		apply_slash::<T>(unapplied, offence_era);
+	} else {
+		// Historical Note: Previously, with BondingDuration = 28 and SlashDeferDuration = 27,
+		// slashes were applied at the start of the 28th era from `offence_era`.
+		// However, with paged slashing, applying slashes now takes multiple blocks.
+		// To account for this delay, slashes are now applied at the start of the 27th era from
+		// `offence_era`.
+		log!(
+			debug,
+			"🦹 deferring slash of {:?}% happened in {:?} (reported in {:?}) to {:?}",
+			offence_record.slash_fraction,
+			offence_era,
+			offence_record.reported_era,
+			slash_era,
+		);
+
+		add_db_reads_writes(0, 1);
+		UnappliedSlashes::<T>::insert(
+			slash_era,
+			(offender, offence_record.slash_fraction, slash_page),
+			unapplied,
+		);
+	}
+
+	consumed_weight
+}
+
 /// Computes a slash of a validator and nominators. It returns an unapplied
 /// record to be applied at some later point. Slashing metadata is updated in storage,
 /// since unapplied records are only rarely intended to be dropped.
 ///
 /// The pending slash record returned does not have initialized reporters. Those have
 /// to be set at a higher level, if any.
-pub(crate) fn compute_slash<T: Config>(
-	params: SlashParams<T>,
-) -> Option<UnappliedSlash<T::AccountId, BalanceOf<T>>> {
-	let mut reward_payout = Zero::zero();
-	let mut val_slashed = Zero::zero();
-
-	// is the slash amount here a maximum for the era?
-	let own_slash = params.slash * params.exposure.own;
-	if params.slash * params.exposure.total == Zero::zero() {
-		// kick out the validator even if they won't be slashed,
-		// as long as the misbehavior is from their most recent slashing span.
-		kick_out_if_recent::<T>(params);
-		return None
-	}
-
-	let prior_slash_p = ValidatorSlashInEra::<T>::get(&params.slash_era, params.stash)
-		.map_or(Zero::zero(), |(prior_slash_proportion, _)| prior_slash_proportion);
-
-	// compare slash proportions rather than slash values to avoid issues due to rounding
-	// error.
-	if params.slash.deconstruct() > prior_slash_p.deconstruct() {
-		ValidatorSlashInEra::<T>::insert(
-			&params.slash_era,
-			params.stash,
-			&(params.slash, own_slash),
-		);
-	} else {
-		// we slash based on the max in era - this new event is not the max,
-		// so neither the validator or any nominators will need an update.
-		//
-		// this does lead to a divergence of our system from the paper, which
-		// pays out some reward even if the latest report is not max-in-era.
-		// we opt to avoid the nominator lookups and edits and leave more rewards
-		// for more drastic misbehavior.
-		return None
-	}
-
-	// apply slash to validator.
-	{
-		let mut spans = fetch_spans::<T>(
-			params.stash,
-			params.window_start,
-			&mut reward_payout,
-			&mut val_slashed,
-			params.reward_proportion,
-		);
-
-		let target_span = spans.compare_and_update_span_slash(params.slash_era, own_slash);
-
-		if target_span == Some(spans.span_index()) {
-			// misbehavior occurred within the current slashing span - end current span.
-			// Check <https://github.com/paritytech/polkadot-sdk/issues/2650> for details.
-			spans.end_span(params.now);
-		}
-	}
-
-	add_offending_validator::<T>(&params);
+///
+/// If `nomintors_only` is set to `true`, only the nominator slashes will be computed.
+pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<UnappliedSlash<T>> {
+	let (val_slashed, mut reward_payout) = slash_validator::<T>(params.clone());
 
 	let mut nominators_slashed = Vec::new();
-	reward_payout += slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
+	let (nom_slashed, nom_reward_payout) =
+		slash_nominators::<T>(params.clone(), &mut nominators_slashed);
+	reward_payout += nom_reward_payout;
 
-	Some(UnappliedSlash {
+	(nom_slashed + val_slashed > Zero::zero()).then_some(UnappliedSlash {
 		validator: params.stash.clone(),
 		own: val_slashed,
-		others: nominators_slashed,
-		reporters: Vec::new(),
+		others: WeakBoundedVec::force_from(
+			nominators_slashed,
+			Some("slashed nominators not expected to be larger than the bounds"),
+		),
+		reporter: None,
 		payout: reward_payout,
 	})
 }
@@ -316,80 +490,72 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 		// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
 		spans.end_span(params.now);
 	}
-
-	add_offending_validator::<T>(&params);
 }
 
-/// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
-/// validators provided by [`decision`].
-fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
-	DisabledValidators::<T>::mutate(|disabled| {
-		let new_severity = OffenceSeverity(params.slash);
-		let decision =
-			T::DisablingStrategy::decision(params.stash, new_severity, params.slash_era, &disabled);
+/// Compute the slash for a validator. Returns the amount slashed and the reward payout.
+fn slash_validator<T: Config>(params: SlashParams<T>) -> (BalanceOf<T>, BalanceOf<T>) {
+	let own_slash = params.slash * params.exposure.exposure_metadata.own;
+	log!(
+		warn,
+		"🦹 slashing validator {:?} of stake: {:?} with {:?}% for {:?} in era {:?}",
+		params.stash,
+		params.exposure.exposure_metadata.own,
+		params.slash,
+		own_slash,
+		params.slash_era,
+	);
 
-		if let Some(offender_idx) = decision.disable {
-			// Check if the offender is already disabled
-			match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
-				// Offender is already disabled, update severity if the new one is higher
-				Ok(index) => {
-					let (_, old_severity) = &mut disabled[index];
-					if new_severity > *old_severity {
-						*old_severity = new_severity;
-					}
-				},
-				Err(index) => {
-					// Offender is not disabled, add to `DisabledValidators` and disable it
-					disabled.insert(index, (offender_idx, new_severity));
-					// Propagate disablement to session level
-					T::SessionInterface::disable_validator(offender_idx);
-					// Emit event that a validator got disabled
-					<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled {
-						stash: params.stash.clone(),
-					});
-				},
-			}
+	if own_slash == Zero::zero() {
+		// kick out the validator even if they won't be slashed,
+		// as long as the misbehavior is from their most recent slashing span.
+		kick_out_if_recent::<T>(params);
+		return (Zero::zero(), Zero::zero())
+	}
+
+	// apply slash to validator.
+	let mut reward_payout = Zero::zero();
+	let mut val_slashed = Zero::zero();
+
+	{
+		let mut spans = fetch_spans::<T>(
+			params.stash,
+			params.window_start,
+			&mut reward_payout,
+			&mut val_slashed,
+			params.reward_proportion,
+		);
+
+		let target_span = spans.compare_and_update_span_slash(params.slash_era, own_slash);
+
+		if target_span == Some(spans.span_index()) {
+			// misbehavior occurred within the current slashing span - end current span.
+			// Check <https://github.com/paritytech/polkadot-sdk/issues/2650> for details.
+			spans.end_span(params.now);
 		}
+	}
 
-		if let Some(reenable_idx) = decision.reenable {
-			// Remove the validator from `DisabledValidators` and re-enable it.
-			if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
-				disabled.remove(index);
-				// Propagate re-enablement to session level
-				T::SessionInterface::enable_validator(reenable_idx);
-				// Emit event that a validator got re-enabled
-				let reenabled_stash =
-					T::SessionInterface::validators()[reenable_idx as usize].clone();
-				<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorReenabled {
-					stash: reenabled_stash,
-				});
-			}
-		}
-	});
-
-	// `DisabledValidators` should be kept sorted
-	debug_assert!(DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] < pair[1]));
+	(val_slashed, reward_payout)
 }
 
 /// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.
 ///
-/// Returns the amount of reward to pay out.
+/// Returns the total amount slashed and amount of reward to pay out.
 fn slash_nominators<T: Config>(
 	params: SlashParams<T>,
-	prior_slash_p: Perbill,
 	nominators_slashed: &mut Vec<(T::AccountId, BalanceOf<T>)>,
-) -> BalanceOf<T> {
-	let mut reward_payout = Zero::zero();
+) -> (BalanceOf<T>, BalanceOf<T>) {
+	let mut reward_payout = BalanceOf::<T>::zero();
+	let mut total_slashed = BalanceOf::<T>::zero();
 
-	nominators_slashed.reserve(params.exposure.others.len());
-	for nominator in &params.exposure.others {
+	nominators_slashed.reserve(params.exposure.exposure_page.others.len());
+	for nominator in &params.exposure.exposure_page.others {
 		let stash = &nominator.who;
 		let mut nom_slashed = Zero::zero();
 
-		// the era slash of a nominator always grows, if the validator
-		// had a new max slash for the era.
+		// the era slash of a nominator always grows, if the validator had a new max slash for the
+		// era.
 		let era_slash = {
-			let own_slash_prior = prior_slash_p * nominator.value;
+			let own_slash_prior = params.prior_slash * nominator.value;
 			let own_slash_by_validator = params.slash * nominator.value;
 			let own_slash_difference = own_slash_by_validator.saturating_sub(own_slash_prior);
 
@@ -419,9 +585,10 @@ fn slash_nominators<T: Config>(
 			}
 		}
 		nominators_slashed.push((stash.clone(), nom_slashed));
+		total_slashed.saturating_accrue(nom_slashed);
 	}
 
-	reward_payout
+	(total_slashed, reward_payout)
 }
 
 // helper struct for managing a set of spans we are currently inspecting.
@@ -635,22 +802,25 @@ pub fn do_slash<T: Config>(
 }
 
 /// Apply a previously-unapplied slash.
-pub(crate) fn apply_slash<T: Config>(
-	unapplied_slash: UnappliedSlash<T::AccountId, BalanceOf<T>>,
-	slash_era: EraIndex,
-) {
+pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlash<T>, slash_era: EraIndex) {
 	let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
 	let mut reward_payout = unapplied_slash.payout;
 
-	do_slash::<T>(
-		&unapplied_slash.validator,
-		unapplied_slash.own,
-		&mut reward_payout,
-		&mut slashed_imbalance,
-		slash_era,
-	);
+	if unapplied_slash.own > Zero::zero() {
+		do_slash::<T>(
+			&unapplied_slash.validator,
+			unapplied_slash.own,
+			&mut reward_payout,
+			&mut slashed_imbalance,
+			slash_era,
+		);
+	}
 
 	for &(ref nominator, nominator_slash) in &unapplied_slash.others {
+		if nominator_slash.is_zero() {
+			continue
+		}
+
 		do_slash::<T>(
 			nominator,
 			nominator_slash,
@@ -660,7 +830,11 @@ pub(crate) fn apply_slash<T: Config>(
 		);
 	}
 
-	pay_reporters::<T>(reward_payout, slashed_imbalance, &unapplied_slash.reporters);
+	pay_reporters::<T>(
+		reward_payout,
+		slashed_imbalance,
+		&unapplied_slash.reporter.map(|v| crate::vec![v]).unwrap_or_default(),
+	);
 }
 
 /// Apply a reward payout to some reporters, paying the rewards out of the slashed imbalance.

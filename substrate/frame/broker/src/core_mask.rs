@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
@@ -25,7 +25,17 @@ pub const CORE_MASK_BITS: usize = 80;
 
 // TODO: Use BitArr instead; for this, we'll need to ensure Codec is impl'ed for `BitArr`.
 #[derive(
-	Encode, Decode, Default, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub struct CoreMask([u8; 10]);
 impl CoreMask {

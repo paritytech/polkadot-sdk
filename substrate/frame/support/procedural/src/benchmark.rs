@@ -30,7 +30,7 @@ use syn::{
 	token::{Comma, Gt, Lt, PathSep},
 	Attribute, Error, Expr, ExprBlock, ExprCall, ExprPath, FnArg, Item, ItemFn, ItemMod, Pat, Path,
 	PathArguments, PathSegment, Result, ReturnType, Signature, Stmt, Token, Type, TypePath,
-	Visibility, WhereClause,
+	Visibility, WhereClause, WherePredicate,
 };
 
 mod keywords {
@@ -481,8 +481,25 @@ pub fn benchmarks(
 	let module: ItemMod = syn::parse(tokens)?;
 	let mod_span = module.span();
 	let where_clause = match syn::parse::<Nothing>(attrs.clone()) {
-		Ok(_) => quote!(),
-		Err(_) => syn::parse::<WhereClause>(attrs)?.predicates.to_token_stream(),
+		Ok(_) =>
+			if instance {
+				quote!(T: Config<I>, I: 'static)
+			} else {
+				quote!(T: Config)
+			},
+		Err(_) => {
+			let mut where_clause_predicates = syn::parse::<WhereClause>(attrs)?.predicates;
+
+			// Ensure the where clause contains the Config trait bound
+			if instance {
+				where_clause_predicates.push(syn::parse_str::<WherePredicate>("T: Config<I>")?);
+				where_clause_predicates.push(syn::parse_str::<WherePredicate>("I:'static")?);
+			} else {
+				where_clause_predicates.push(syn::parse_str::<WherePredicate>("T: Config")?);
+			}
+
+			where_clause_predicates.to_token_stream()
+		},
 	};
 	let mod_vis = module.vis;
 	let mod_name = module.ident;
@@ -568,10 +585,6 @@ pub fn benchmarks(
 		false => quote!(T),
 		true => quote!(T, I),
 	};
-	let type_impl_generics = match instance {
-		false => quote!(T: Config),
-		true => quote!(T: Config<I>, I: 'static),
-	};
 
 	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 
@@ -640,7 +653,7 @@ pub fn benchmarks(
 				*
 			}
 
-			impl<#type_impl_generics> #krate::BenchmarkingSetup<#type_use_generics> for SelectedBenchmark where #where_clause {
+			impl<#type_use_generics> #krate::BenchmarkingSetup<#type_use_generics> for SelectedBenchmark where #where_clause {
 				fn components(&self) -> #krate::__private::Vec<(#krate::BenchmarkParameter, u32, u32)> {
 					match self {
 						#(
@@ -671,8 +684,8 @@ pub fn benchmarks(
 				}
 			}
 			#[cfg(any(feature = "runtime-benchmarks", test))]
-			impl<#type_impl_generics> #krate::Benchmarking for Pallet<#type_use_generics>
-			where T: #frame_system::Config, #where_clause
+			impl<#type_use_generics> #krate::Benchmarking for Pallet<#type_use_generics>
+			where T: #frame_system::Config,#where_clause
 			{
 				fn benchmarks(
 					extra: bool,
@@ -837,7 +850,7 @@ pub fn benchmarks(
 			}
 
 			#[cfg(test)]
-			impl<#type_impl_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
+			impl<#type_use_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
 				/// Test a particular benchmark by name.
 				///
 				/// This isn't called `test_benchmark_by_name` just in case some end-user eventually
@@ -928,11 +941,6 @@ fn expand_benchmark(
 	let type_use_generics = match is_instance {
 		false => quote!(T),
 		true => quote!(T, I),
-	};
-
-	let type_impl_generics = match is_instance {
-		false => quote!(T: Config),
-		true => quote!(T: Config<I>, I: 'static),
 	};
 
 	// used in the benchmarking impls
@@ -1030,13 +1038,11 @@ fn expand_benchmark(
 
 	// modify signature generics, ident, and inputs, e.g:
 	// before: `fn bench(u: Linear<1, 100>) -> Result<(), BenchmarkError>`
-	// after: `fn _bench <T: Config<I>, I: 'static>(u: u32, verify: bool) -> Result<(),
+	// after: `fn _bench <T, I>(u: u32, verify: bool) where T: Config<I>, I: 'static -> Result<(),
 	// BenchmarkError>`
 	let mut sig = benchmark_def.fn_sig;
-	sig.generics = parse_quote!(<#type_impl_generics>);
-	if !where_clause.is_empty() {
-		sig.generics.where_clause = parse_quote!(where #where_clause);
-	}
+	sig.generics = parse_quote!(<#type_use_generics>);
+	sig.generics.where_clause = parse_quote!(where #where_clause);
 	sig.ident =
 		Ident::new(format!("_{}", name.to_token_stream().to_string()).as_str(), Span::call_site());
 	let mut fn_param_inputs: Vec<TokenStream2> =
@@ -1081,7 +1087,7 @@ fn expand_benchmark(
 		struct #name;
 
 		#[allow(unused_variables)]
-		impl<#type_impl_generics> #krate::BenchmarkingSetup<#type_use_generics>
+		impl<#type_use_generics> #krate::BenchmarkingSetup<#type_use_generics>
 		for #name where #where_clause {
 			fn components(&self) -> #krate::__private::Vec<(#krate::BenchmarkParameter, u32, u32)> {
 				#krate::__private::vec! [
@@ -1123,7 +1129,7 @@ fn expand_benchmark(
 		}
 
 		#[cfg(test)]
-		impl<#type_impl_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
+		impl<#type_use_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
 			#[allow(unused)]
 			fn #test_ident() -> Result<(), #krate::BenchmarkError> {
 				let selected_benchmark = SelectedBenchmark::#name;

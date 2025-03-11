@@ -27,6 +27,10 @@ pub mod wasm_spec_version_incremented {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
+pub mod elastic_scaling_500ms {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
+}
 pub mod elastic_scaling_mvp {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_mvp.rs"));
@@ -98,20 +102,20 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(not(feature = "elastic-scaling"))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 4;
-#[cfg(not(feature = "elastic-scaling"))]
-const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-
-#[cfg(feature = "elastic-scaling")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 7;
-#[cfg(feature = "elastic-scaling")]
-const BLOCK_PROCESSING_VELOCITY: u32 = 4;
-
-#[cfg(not(feature = "elastic-scaling"))]
+#[cfg(not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms")))]
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
-#[cfg(feature = "elastic-scaling")]
+
+#[cfg(all(feature = "elastic-scaling", not(feature = "elastic-scaling-500ms")))]
 pub const MILLISECS_PER_BLOCK: u64 = 2000;
+
+#[cfg(feature = "elastic-scaling-500ms")]
+pub const MILLISECS_PER_BLOCK: u64 = 500;
+
+const BLOCK_PROCESSING_VELOCITY: u32 =
+	RELAY_CHAIN_SLOT_DURATION_MILLIS / (MILLISECS_PER_BLOCK as u32);
+
+// The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 2 + 2;
 
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 

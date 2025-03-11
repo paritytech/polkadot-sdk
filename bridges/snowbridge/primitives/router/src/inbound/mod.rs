@@ -3,9 +3,11 @@
 //! Converts messages from Ethereum to XCM messages
 
 #[cfg(test)]
+mod mock;
+#[cfg(test)]
 mod tests;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::marker::PhantomData;
 use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
 use scale_info::TypeInfo;
@@ -125,7 +127,9 @@ pub struct MessageToXcm<
 }
 
 /// Reason why a message conversion failed.
-#[derive(Copy, Clone, TypeInfo, PalletError, Encode, Decode, RuntimeDebug)]
+#[derive(
+	Copy, Clone, TypeInfo, PalletError, Encode, Decode, DecodeWithMemTracking, RuntimeDebug,
+)]
 pub enum ConvertMessageError {
 	/// The message version is not supported for conversion.
 	UnsupportedVersion,
@@ -394,10 +398,16 @@ where
 
 	// Convert ERC20 token address to a location that can be understood by Assets Hub.
 	fn convert_token_address(network: NetworkId, token: H160) -> Location {
-		Location::new(
-			2,
-			[GlobalConsensus(network), AccountKey20 { network: None, key: token.into() }],
-		)
+		// If the token is `0x0000000000000000000000000000000000000000` then return the location of
+		// native Ether.
+		if token == H160([0; 20]) {
+			Location::new(2, [GlobalConsensus(network)])
+		} else {
+			Location::new(
+				2,
+				[GlobalConsensus(network), AccountKey20 { network: None, key: token.into() }],
+			)
+		}
 	}
 
 	/// Constructs an XCM message destined for AssetHub that withdraws assets from the sovereign
@@ -456,6 +466,7 @@ where
 	}
 }
 
+/// DEPRECATED in favor of [xcm_builder::ExternalConsensusLocationsConverterFor]
 pub struct EthereumLocationsConverterFor<AccountId>(PhantomData<AccountId>);
 impl<AccountId> ConvertLocation<AccountId> for EthereumLocationsConverterFor<AccountId>
 where

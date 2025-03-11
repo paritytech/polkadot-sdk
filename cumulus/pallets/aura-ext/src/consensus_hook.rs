@@ -1,24 +1,23 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! The definition of a [`FixedVelocityConsensusHook`] for consensus logic to manage
 //! block velocity.
 //!
 //! The velocity `V` refers to the rate of block processing by the relay chain.
-
 use super::{pallet, Aura};
 use core::{marker::PhantomData, num::NonZeroU32};
 use cumulus_pallet_parachain_system::{
@@ -54,8 +53,23 @@ where
 		let velocity = V.max(1);
 		let relay_chain_slot = state_proof.read_slot().expect("failed to read relay chain slot");
 
-		let (slot, authored) =
-			pallet::SlotInfo::<T>::get().expect("slot info is inserted on block initialization");
+		let (relay_chain_slot, authored_in_relay) = match pallet::RelaySlotInfo::<T>::get() {
+			Some((slot, authored)) if slot == relay_chain_slot => (slot, authored),
+			Some((slot, _)) if slot < relay_chain_slot => (relay_chain_slot, 0),
+			Some((slot, _)) => {
+				panic!("Slot moved backwards: stored_slot={slot:?}, relay_chain_slot={relay_chain_slot:?}")
+			},
+			None => (relay_chain_slot, 0),
+		};
+
+		// We need to allow one additional block to be built to fill the unincluded segment.
+		if authored_in_relay > velocity {
+			panic!("authored blocks limit is reached for the slot: relay_chain_slot={relay_chain_slot:?}, authored={authored_in_relay:?}, velocity={velocity:?}");
+		}
+
+		pallet::RelaySlotInfo::<T>::put((relay_chain_slot, authored_in_relay + 1));
+
+		let para_slot = pallet_aura::CurrentSlot::<T>::get();
 
 		// Convert relay chain timestamp.
 		let relay_chain_timestamp =
@@ -67,19 +81,16 @@ where
 
 		// Check that we are not too far in the future. Since we expect `V` parachain blocks
 		// during the relay chain slot, we can allow for `V` parachain slots into the future.
-		if *slot > *para_slot_from_relay + u64::from(velocity) {
+		if *para_slot > *para_slot_from_relay + u64::from(velocity) {
 			panic!(
-				"Parachain slot is too far in the future: parachain_slot: {:?}, derived_from_relay_slot: {:?} velocity: {:?}",
-				slot,
+				"Parachain slot is too far in the future: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
+				para_slot,
 				para_slot_from_relay,
-				velocity
+				velocity,
+				relay_chain_slot
 			);
 		}
 
-		// We need to allow authoring multiple blocks in the same slot.
-		if slot != para_slot_from_relay && authored > velocity {
-			panic!("authored blocks limit is reached for the slot")
-		}
 		let weight = T::DbWeight::get().reads(1);
 
 		(
@@ -110,7 +121,7 @@ impl<
 	/// is more recent than the included block itself.
 	pub fn can_build_upon(included_hash: T::Hash, new_slot: Slot) -> bool {
 		let velocity = V.max(1);
-		let (last_slot, authored_so_far) = match pallet::SlotInfo::<T>::get() {
+		let (last_slot, authored_so_far) = match pallet::RelaySlotInfo::<T>::get() {
 			None => return true,
 			Some(x) => x,
 		};
@@ -123,11 +134,8 @@ impl<
 			return false
 		}
 
-		// TODO: This logic needs to be adjusted.
-		// It checks that we have not authored more than `V + 1` blocks in the slot.
-		// As a slot however, we take the parachain slot here. Velocity should
-		// be measured in relation to the relay chain slot.
-		// https://github.com/paritytech/polkadot-sdk/issues/3967
+		// Check that we have not authored more than `V + 1` parachain blocks in the current relay
+		// chain slot.
 		if last_slot == new_slot {
 			authored_so_far < velocity + 1
 		} else {

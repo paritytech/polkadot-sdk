@@ -230,8 +230,8 @@ pub mod pallet {
 			// why do we need to know the weight of this (`receive_messages_proof`) call? Because
 			// we may want to return some funds for not-dispatching (or partially dispatching) some
 			// messages to the call origin (relayer). And this is done by returning actual weight
-			// from the call. But we only know dispatch weight of every messages. So to refund
-			// relayer because we have not dispatched Message, we need to:
+			// from the call. But we only know dispatch weight of every message. So to refund
+			// relayer because we have not dispatched message, we need to:
 			//
 			// ActualWeight = DeclaredWeight - Message.DispatchWeight
 			//
