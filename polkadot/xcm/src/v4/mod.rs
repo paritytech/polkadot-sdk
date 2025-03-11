@@ -27,11 +27,15 @@ use super::{
 		QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
 	},
 };
-use crate::DoubleEncoded;
+use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use codec::{
+<<<<<<< HEAD
 	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
+=======
+	self, Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input as CodecInput,
+>>>>>>> 2a239206 (Fix XCM decoding inconsistencies (#7856))
 	MaxEncodedLen,
 };
 use core::{fmt::Debug, result};
@@ -72,25 +76,9 @@ pub type QueryId = u64;
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
-
-environmental::environmental!(instructions_count: u8);
-
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		instructions_count::using_once(&mut 0, || {
-			let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
-			instructions_count::with(|count| {
-				*count = count.saturating_add(number_of_instructions as u8);
-				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"))
-				}
-				Ok(())
-			})
-			.expect("Called in `using` context and thus can not return `None`; qed")?;
-			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
-			Ok(Self(decoded_instructions))
-		})
+		Ok(Xcm(decode_xcm_instructions(input)?))
 	}
 }
 
@@ -1598,9 +1586,12 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 #[cfg(test)]
 mod tests {
 	use super::{prelude::*, *};
-	use crate::v3::{
-		Junctions::Here as OldHere, MultiAssetFilter as OldMultiAssetFilter,
-		WildMultiAsset as OldWildMultiAsset,
+	use crate::{
+		v3::{
+			Junctions::Here as OldHere, MultiAssetFilter as OldMultiAssetFilter,
+			WildMultiAsset as OldWildMultiAsset,
+		},
+		MAX_INSTRUCTIONS_TO_DECODE,
 	};
 
 	#[test]
