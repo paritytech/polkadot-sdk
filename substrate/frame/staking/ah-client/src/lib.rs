@@ -57,6 +57,7 @@ pub use pallet::*;
 extern crate alloc;
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
+use pallet_session::historical::PruningHandler;
 use pallet_staking_rc_client::{self as rc_client};
 use sp_staking::{
 	offence::{OffenceDetails, OffenceSeverity},
@@ -198,6 +199,9 @@ pub mod pallet {
 
 		/// Interface to talk to the local Session pallet.
 		type SessionInterface: SessionInterface<ValidatorId = Self::AccountId>;
+
+		/// Handler for pruning historical sessions.
+		type PruningHandler: historical::PruningHandler;
 	}
 
 	#[pallet::pallet]
@@ -283,6 +287,11 @@ pub mod pallet {
 			log!(info, "Received new validator set report {:?}", report);
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			ensure!(IsBlocked::<T>::get().allows_incoming(), Error::<T>::Blocked);
+
+			// First prune historical data, if needed
+			if let Some(prune_up_to) = report.prune_up_to {
+				T::PruningHandler::prune_up_to(prune_up_to);
+			}
 
 			let maybe_merged_report = match IncompleteValidatorSetReport::<T>::take() {
 				Some(old) => old.merge(report.clone()),
@@ -417,7 +426,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config>
-		OnOffenceHandler<T::AccountId, (T::AccountId, pallet_staking::NullIdentity), Weight> for Pallet<T>
+		OnOffenceHandler<T::AccountId, (T::AccountId, pallet_staking::NullIdentity), Weight>
+		for Pallet<T>
 	{
 		fn on_offence(
 			offenders: &[OffenceDetails<
@@ -452,6 +462,12 @@ pub mod pallet {
 			}
 
 			Weight::zero()
+		}
+	}
+
+	impl<T: Config> frame_support::traits::misc::RewardsReporter<T::AccountId> for Pallet<T> {
+		fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+			Self::handle_parachain_rewards(validators_points);
 		}
 	}
 }

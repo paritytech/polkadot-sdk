@@ -102,7 +102,7 @@ pub mod pallet {
 		/// The merkle root of the validators of the said session were stored
 		RootStored { index: SessionIndex },
 		/// The merkle roots of up to this session index were pruned
-		RootsPruned { up_to: SessionIndex }
+		RootsPruned { up_to: SessionIndex },
 	}
 }
 
@@ -179,6 +179,17 @@ pub trait SessionManager<ValidatorId, FullIdentification>:
 	}
 	fn start_session(start_index: SessionIndex);
 	fn end_session(end_index: SessionIndex);
+}
+
+/// Trigger pruning of sessions outside the pallet
+pub trait PruningHandler {
+	fn prune_up_to(up_to: SessionIndex);
+}
+
+impl<T: Config> PruningHandler for Pallet<T> {
+	fn prune_up_to(up_to: SessionIndex) {
+		Pallet::<T>::prune_up_to(up_to)
+	}
 }
 
 /// An `SessionManager` implementation that wraps an inner `I` and also
