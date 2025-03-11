@@ -25,6 +25,7 @@ use frame_support::{
 	traits::UnfilteredDispatchable,
 };
 use frame_system::RawOrigin;
+use secp256k1::SecretKey;
 use secp_utils::*;
 use sp_runtime::{
 	traits::{DispatchTransaction, ValidateUnsigned},
@@ -37,7 +38,8 @@ const MAX_CLAIMS: u32 = 10_000;
 const VALUE: u32 = 1_000_000;
 
 fn create_claim<T: Config>(input: u32) -> DispatchResult {
-	let secret_key = secp256k1::SecretKey::parse(&keccak_256(&input.encode())).unwrap();
+	let secret_key = SecretKey::from_byte_array(&keccak_256(&input.encode()))
+		.expect("32 bytes, within curve order");
 	let eth_address = eth(&secret_key);
 	let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 	super::Pallet::<T>::mint_claim(
@@ -51,7 +53,8 @@ fn create_claim<T: Config>(input: u32) -> DispatchResult {
 }
 
 fn create_claim_attest<T: Config>(input: u32) -> DispatchResult {
-	let secret_key = secp256k1::SecretKey::parse(&keccak_256(&input.encode())).unwrap();
+	let secret_key = SecretKey::from_byte_array(&keccak_256(&input.encode()))
+		.expect("32 bytes, within curve order");
 	let eth_address = eth(&secret_key);
 	let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 	super::Pallet::<T>::mint_claim(
@@ -82,7 +85,8 @@ mod benchmarks {
 			create_claim::<T>(c)?;
 			create_claim_attest::<T>(u32::MAX - c)?;
 		}
-		let secret_key = secp256k1::SecretKey::parse(&keccak_256(&c.encode())).unwrap();
+		let secret_key = SecretKey::from_byte_array(&keccak_256(&c.encode()))
+			.expect("32 bytes, within curve order");
 		let eth_address = eth(&secret_key);
 		let account: T::AccountId = account("user", c, SEED);
 		let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
@@ -142,7 +146,8 @@ mod benchmarks {
 		}
 		// Crate signature
 		let attest_c = u32::MAX - c;
-		let secret_key = secp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+		let secret_key = SecretKey::from_byte_array(&keccak_256(&attest_c.encode()))
+			.expect("32 bytes, within curve order");
 		let eth_address = eth(&secret_key);
 		let account: T::AccountId = account("user", c, SEED);
 		let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
@@ -186,7 +191,8 @@ mod benchmarks {
 			create_claim_attest::<T>(u32::MAX - c)?;
 		}
 		let attest_c = u32::MAX - c;
-		let secret_key = secp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+		let secret_key = SecretKey::from_byte_array(&keccak_256(&attest_c.encode()))
+			.expect("32 bytes, within curve order");
 		let eth_address = eth(&secret_key);
 		let account: T::AccountId = account("user", c, SEED);
 		let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
@@ -218,11 +224,13 @@ mod benchmarks {
 			create_claim_attest::<T>(u32::MAX - c)?;
 		}
 		let attest_c = u32::MAX - c;
-		let secret_key = secp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+		let secret_key = SecretKey::from_byte_array(&keccak_256(&attest_c.encode()))
+			.expect("32 bytes, within curve order");
 		let eth_address = eth(&secret_key);
 
 		let new_secret_key =
-			secp256k1::SecretKey::parse(&keccak_256(&(u32::MAX / 2).encode())).unwrap();
+			secp256k1::SecretKey::from_byte_array(&keccak_256(&(u32::MAX / 2).encode()))
+				.expect("32 bytes, within curve order");
 		let new_eth_address = eth(&new_secret_key);
 
 		let account: T::AccountId = account("user", c, SEED);
@@ -256,7 +264,8 @@ mod benchmarks {
 	#[benchmark(extra)]
 	fn eth_recover(i: Linear<0, 1_000>) {
 		// Crate signature
-		let secret_key = secp256k1::SecretKey::parse(&keccak_256(&i.encode())).unwrap();
+		let secret_key = SecretKey::from_byte_array(&keccak_256(&i.encode()))
+			.expect("32 bytes, within curve order");
 		let account: T::AccountId = account("user", i, SEED);
 		let signature = sig::<T>(&secret_key, &account.encode(), &[][..]);
 		let data = account.using_encoded(to_ascii_hex);
@@ -282,7 +291,8 @@ mod benchmarks {
 		let call: <T as frame_system::Config>::RuntimeCall = call.into();
 		let info = call.get_dispatch_info();
 		let attest_c = u32::MAX - c;
-		let secret_key = secp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+		let secret_key = SecretKey::from_byte_array(&keccak_256(&attest_c.encode()))
+			.expect("32 bytes, within curve order");
 		let eth_address = eth(&secret_key);
 		let account: T::AccountId = account("user", c, SEED);
 		let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
