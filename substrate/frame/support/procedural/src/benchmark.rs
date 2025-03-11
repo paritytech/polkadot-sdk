@@ -960,10 +960,12 @@ fn expand_benchmark(
 				Expr::Cast(t) => {
 					let ty = t.ty.clone();
 					quote_spanned! { origin.span() =>
+						#[allow(clippy::useless_conversion)]
 						<<T as #frame_system::Config>::RuntimeOrigin as From<#ty>>::from(#origin);
 					}
 				},
 				_ => quote_spanned! { origin.span() =>
+					#[allow(clippy::useless_conversion)]
 					Into::<<T as #frame_system::Config>::RuntimeOrigin>::into(#origin);
 				},
 			};
