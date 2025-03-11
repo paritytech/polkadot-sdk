@@ -1,0 +1,29 @@
+title: add poke_deposit extrinsic to pallet-recovery
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    * This PR adds a new extrinsic `poke_deposit` to `pallet-recovery`. This extrinsic will be used to re-adjust the deposits made in the pallet to create a bid after AHM.
+    * Part of #5591
+
+    ## Review Notes
+
+    * Added a new extrinsic `poke_deposit` in `pallet-recovery`.
+    * Added a new event `DepositPoked` to be emitted upon a successful call of the extrinsic.
+    * Added a new enum `DepositKind` to differentiate between the 2 kinds of deposits in the pallet.
+    * Although the immediate use of the extrinsic will be to give back some of the deposit after the AH-migration, the extrinsic is written such that it can work if the deposit decreases or increases (both).
+    * The call to the extrinsic would be `free` if an actual adjustment is made to the deposit and `paid` otherwise.
+    * Added tests to test all scenarios.
+    * Added benchmark
+    * Minor refactoring to avoid code duplication.
+
+    ## TO-DOs
+    * [ ] Run CI cmd bot to benchmark
+crates:
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-recovery
+  bump: major
