@@ -332,12 +332,7 @@ impl HostFn for HostFnImpl {
 	}
 
 	fn get_storage_or_zero(_flags: StorageFlags, key: &[u8; 32], output: &mut [u8; 32]) {
-		unsafe {
-			sys::get_storage_or_zero(
-				key.as_ptr(),        // key (32 bytes)
-				output.as_mut_ptr(), // pointer where 32 bytes are written
-			)
-		};
+		unsafe { sys::get_storage_or_zero(key.as_ptr(), output.as_mut_ptr()) };
 	}
 
 	fn get_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
