@@ -1,0 +1,9 @@
+title: Remove execute_with_origin implementation in the XCM executor
+doc:
+- audience: Runtime Dev
+  description: null
+crates:
+- name: pallet-xcm-benchmarks
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch
