@@ -39,8 +39,8 @@
 //!
 //! ## Usage
 //!
-//! This pallet provides several implementations, such as `ViaLocalBridgeHubExporter` and
-//! `ViaRemoteBridgeHubExporter`, which can expose or access these features.
+//! This pallet provides several implementations, such as `ViaLocalBridgeExporter` and
+//! `ViaRemoteBridgeExporter`, which can expose or access these features.
 //!
 //! This router can be used in two main scenarios, depending on where the router and message
 //! exporter (e.g., `pallet_xcm_bridge_hub` or another pallet with an `ExportXcm` implementation)
@@ -48,12 +48,12 @@
 //!
 //! ### On the Same Chain as the Message Exporter
 //! In this setup, the router directly calls an `ExportXcm` implementation. In this case,
-//! `ViaLocalBridgeHubExporter` can be used as a wrapper with `T::MessageExporter`.
+//! `ViaLocalBridgeExporter` can be used as a wrapper with `T::MessageExporter`.
 //!
 //! ### On a Different Chain than the Message Exporter
 //! In this setup, we need to provide a `SendXcm` implementation for `T::MessageExporter`, which
 //! sends `ExportMessage`. For example, `SovereignPaidRemoteExporter` can be used with
-//! `ViaRemoteBridgeHubExporter`.
+//! `ViaRemoteBridgeExporter`.
 //!
 //! **Note on Terminology**: When we refer to the bridge hub, we mean the chain that has the
 //! `pallet-bridge-messages` with an `ExportXcm` implementation deployed, such as

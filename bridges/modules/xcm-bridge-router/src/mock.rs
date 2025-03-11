@@ -99,7 +99,7 @@ impl pallet_xcm_bridge_router::Config<()> for TestRuntime {
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
 	type MessageExporter = SovereignPaidRemoteExporter<
-		pallet_xcm_bridge_router::impls::ViaRemoteBridgeHubExporter<
+		pallet_xcm_bridge_router::impls::ViaRemoteBridgeExporter<
 			TestRuntime,
 			(),
 			NetworkExportTable<BridgeTable>,

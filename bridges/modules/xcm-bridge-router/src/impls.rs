@@ -74,9 +74,9 @@ impl<T: Config<I>, I: 'static> bp_xcm_bridge::LocalXcmChannelManager<BridgeIdOf<
 /// `E` exporter supports bridging. This adapter acts as an [`ExporterFor`], for example, for the
 /// [`xcm_builder::SovereignPaidRemoteExporter`], enabling it to compute message and/or dynamic fees
 /// using a fee factor.
-pub struct ViaRemoteBridgeHubExporter<T, I, E, BNF, BHLF>(PhantomData<(T, I, E, BNF, BHLF)>);
+pub struct ViaRemoteBridgeExporter<T, I, E, BNF, BHLF>(PhantomData<(T, I, E, BNF, BHLF)>);
 impl<T: Config<I>, I: 'static, E, BridgedNetworkIdFilter, BridgeHubLocationFilter> ExporterFor
-	for ViaRemoteBridgeHubExporter<T, I, E, BridgedNetworkIdFilter, BridgeHubLocationFilter>
+	for ViaRemoteBridgeExporter<T, I, E, BridgedNetworkIdFilter, BridgeHubLocationFilter>
 where
 	E: ExporterFor,
 	BridgedNetworkIdFilter: Get<Option<NetworkId>>,
@@ -193,8 +193,8 @@ where
 /// supports routing. This adapter can be used, for example, as a wrapper over
 /// [`xcm_builder::LocalExporter`], enabling it to compute message and/or dynamic fees using a
 /// fee factor.
-pub struct ViaLocalBridgeHubExporter<T, I, E>(PhantomData<(T, I, E)>);
-impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeHubExporter<T, I, E> {
+pub struct ViaLocalBridgeExporter<T, I, E>(PhantomData<(T, I, E)>);
+impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeExporter<T, I, E> {
 	type Ticket = E::Ticket;
 
 	fn validate(

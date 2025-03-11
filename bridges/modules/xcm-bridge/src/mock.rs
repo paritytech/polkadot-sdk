@@ -256,7 +256,7 @@ impl pallet_xcm_bridge_router::Config<XcmOverBridgeWrappedWithExportMessageRoute
 	// produced by `pallet_xcm_bridge_hub_router` is compatible with the `ExportXcm` implementation
 	// of `pallet_xcm_bridge_hub`.
 	type MessageExporter = SovereignPaidRemoteExporter<
-		pallet_xcm_bridge_router::impls::ViaRemoteBridgeHubExporter<
+		pallet_xcm_bridge_router::impls::ViaRemoteBridgeExporter<
 			TestRuntime,
 			// () - means `pallet_xcm_bridge_router::Config<()>`
 			(),
@@ -283,9 +283,9 @@ impl pallet_xcm_bridge_router::Config<XcmOverBridgeWrappedWithExportMessageRoute
 pub type XcmOverBridgeByExportXcmRouterInstance = pallet_xcm_bridge_router::Instance2;
 #[derive_impl(pallet_xcm_bridge_router::config_preludes::TestDefaultConfig)]
 impl pallet_xcm_bridge_router::Config<XcmOverBridgeByExportXcmRouterInstance> for TestRuntime {
-	// We use `LocalExporter` with `ViaLocalBridgeHubExporter` here to test and ensure that
+	// We use `LocalExporter` with `ViaLocalBridgeExporter` here to test and ensure that
 	// `pallet_xcm_bridge_hub_router` can trigger directly `pallet_xcm_bridge_hub` as exporter.
-	type MessageExporter = pallet_xcm_bridge_router::impls::ViaLocalBridgeHubExporter<
+	type MessageExporter = pallet_xcm_bridge_router::impls::ViaLocalBridgeExporter<
 		TestRuntime,
 		XcmOverBridgeByExportXcmRouterInstance,
 		LocalExporter<XcmOverBridge, UniversalLocation>,
