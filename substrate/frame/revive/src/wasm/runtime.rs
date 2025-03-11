@@ -2166,10 +2166,8 @@ pub mod env {
 	) -> Result<u32, TrapReason> {
 		let value = memory.read_h256(value_ptr)?;
 		if value.as_bytes().iter().all(|&b| b == 0) {
-			// If using 32 directly in clear_storage, should change to SENTINEL
 			self.clear_storage(memory, flags, key_ptr, SENTINEL)
 		} else {
-			// If using 32 directly in set_storage, should change to SENTINEL
 			self.set_storage(memory, flags, key_ptr, SENTINEL, value_ptr, 32)
 		}
 	}

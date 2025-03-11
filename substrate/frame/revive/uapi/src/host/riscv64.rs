@@ -326,11 +326,7 @@ impl HostFn for HostFnImpl {
 		encoded_value: &[u8; 32],
 	) -> Option<u32> {
 		let ret_code = unsafe {
-			sys::set_storage_or_clear(
-				flags.bits(),
-				key.as_ptr(),           // key is expected to be 32 bytes
-				encoded_value.as_ptr(), // value is expected to be 32 bytes
-			)
+			sys::set_storage_or_clear(flags.bits(), key.as_ptr(), encoded_value.as_ptr())
 		};
 		ret_code.into()
 	}

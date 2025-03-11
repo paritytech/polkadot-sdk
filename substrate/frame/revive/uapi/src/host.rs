@@ -368,13 +368,26 @@ pub trait HostFn: private::Sealed {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn set_storage(flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32>;
 
-	/// Sets the storage for a fixed 256‑bit key with a fixed 256‑bit value.
-	/// If the provided 32‑byte value is all zeros then the key is cleared (i.e. deleted)
+	/// Sets the storage entry for a fixed 256‑bit key with a fixed 256‑bit value.
+	///
+	/// If the provided 32‑byte value is all zeros then the key is cleared (i.e. deleted),
 	/// mimicking Ethereum’s SSTORE behavior.
+	///
+	/// # Parameters
+	/// - `key`: The fixed 256‑bit storage key (32 bytes).
+	/// - `value`: The fixed 256‑bit storage value (32 bytes).
+	///
+	/// # Return
+	/// Returns the size (in bytes) of the pre‑existing value at the specified key, if any.
 	fn set_storage_or_clear(flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32>;
 
-	/// Retrieves the storage value for a fixed 256‑bit key.
+	/// Retrieves the storage entry for a fixed 256‑bit key.
+	///
 	/// If the key does not exist, the output buffer is filled with 32 zero bytes.
+	///
+	/// # Parameters
+	/// - `key`: The fixed 256‑bit storage key (32 bytes).
+	/// - `output`: A mutable output buffer (32 bytes) where the storage entry is written.
 	fn get_storage_or_zero(flags: StorageFlags, key: &[u8; 32], output: &mut [u8; 32]);
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
