@@ -47,7 +47,7 @@ mod benches {
 
 	#[benchmark]
 	fn call_1() {
-		let origin: T::RuntimeOrigin = T::RuntimeOrigin::root();
+		let origin = 3u8;
 		#[extrinsic_call]
 		_(origin);
 	}
