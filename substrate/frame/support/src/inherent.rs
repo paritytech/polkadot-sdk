@@ -19,6 +19,11 @@ pub use sp_inherents::{
 	CheckInherentsResult, InherentData, InherentIdentifier, IsFatalError, MakeFatalError,
 };
 
+#[derive(Debug)]
+pub enum CheckExtrinsicsError {
+	UnableToDecodeCall,
+}
+
 /// A pallet that provides or verifies an inherent extrinsic will implement this trait.
 ///
 /// The pallet may provide an inherent, verify an inherent, or both provide and verify.

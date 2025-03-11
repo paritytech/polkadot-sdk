@@ -1327,6 +1327,8 @@ pub trait Block:
 	fn header(&self) -> &Self::Header;
 	/// Returns a reference to the list of extrinsics.
 	fn extrinsics(&self) -> &[Self::Extrinsic];
+	/// Returns a mutable reference to the list of extrinsics.
+	fn extrinsics_mut(&mut self) -> &mut [Self::Extrinsic];
 	/// Split the block into header and list of extrinsics.
 	fn deconstruct(self) -> (Self::Header, Vec<Self::Extrinsic>);
 	/// Creates new block from header and extrinsics.
@@ -1339,6 +1341,12 @@ pub trait Block:
 	/// creation of an instance.
 	fn encode_from(header: &Self::Header, extrinsics: &[Self::Extrinsic]) -> Vec<u8>;
 }
+
+/// The extrinsic associated to a block.
+pub type ExtrinsicOf<B> = <B as Block>::Extrinsic;
+
+/// The decoded extrinsic ref associated to a block.
+pub type ExtrinsicRefOf<'a, B> = <ExtrinsicOf<B> as LazyExtrinsic<'a>>::ExtrinsicRef;
 
 /// Something that acts like an `Extrinsic`.
 #[deprecated = "Use `ExtrinsicLike` along with the `CreateTransaction` trait family instead"]
@@ -1402,19 +1410,25 @@ where
 	}
 }
 
-/// An extrinsic on which we can get access to call.
-pub trait ExtrinsicCall: ExtrinsicLike {
+/// An extrinsic on which we can get access to the call.
+pub trait BaseExtrinsicCall: ExtrinsicLike {
 	/// The type of the call.
 	type Call;
+}
 
+/// An extrinsic on which we can get access to the call.
+pub trait ExtrinsicCall<'a>: BaseExtrinsicCall {
 	/// Get the call of the extrinsic.
 	fn call(&self) -> &Self::Call;
+
+	/// Get the call of the extrinsic, consuming `self`.
+	fn into_call_ref(self) -> &'a Self::Call;
 }
 
 /// An extrinsic where the call will be lazily decoded.
 pub trait LazyExtrinsic<'a>: ExtrinsicLike {
 	/// A structure representing an extrinsic, but with all the fields referencing decoded values.
-	type ExtrinsicRef: ExtrinsicLike;
+	type ExtrinsicRef: ExtrinsicCall<'a>;
 
 	/// Tries to return an `ExtrinsicRef`.
 	fn try_as_ref(&'a mut self) -> Result<Self::ExtrinsicRef, codec::Error>;
