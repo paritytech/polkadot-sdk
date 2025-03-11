@@ -6,6 +6,7 @@ use super::{message::*, traits::*};
 use crate::{v2::LOG_TARGET, CallIndex, EthereumLocationsConverterFor};
 use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
+use frame_support::ensure;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160};
 use sp_io::hashing::blake2_256;
@@ -140,6 +141,7 @@ where
 		for asset in &message.assets {
 			match asset {
 				EthereumAsset::NativeTokenERC20 { token_id, value } => {
+					ensure!(token_id.clone() != H160::zero(), ConvertMessageError::InvalidAsset);
 					let token_location: Location = Location::new(
 						2,
 						[
