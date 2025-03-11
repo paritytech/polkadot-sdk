@@ -110,9 +110,15 @@ where
 	fn header(&self) -> &Self::Header {
 		&self.header
 	}
+
 	fn extrinsics(&self) -> &[Self::Extrinsic] {
 		&self.extrinsics[..]
 	}
+
+	fn extrinsics_mut(&mut self) -> &mut [Self::Extrinsic] {
+		&mut self.extrinsics[..]
+	}
+
 	fn deconstruct(self) -> (Self::Header, Vec<Self::Extrinsic>) {
 		(self.header, self.extrinsics)
 	}

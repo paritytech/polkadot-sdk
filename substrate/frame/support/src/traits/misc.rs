@@ -29,12 +29,16 @@ use sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating}
 use sp_core::bounded::bounded_vec::TruncateFrom;
 
 use core::cmp::Ordering;
+pub use sp_runtime::traits::{BaseExtrinsicCall, ExtrinsicCall, LazyExtrinsicCall};
 #[doc(hidden)]
 pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt, ConstU128, ConstU16,
 	ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect, TypedGet,
 };
-use sp_runtime::{traits::Block as BlockT, DispatchError};
+use sp_runtime::{
+	traits::{Block as BlockT, LazyExtrinsic},
+	DispatchError,
+};
 
 #[doc(hidden)]
 pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues";
@@ -902,31 +906,13 @@ pub trait GetBacking {
 }
 
 /// A trait to check if an extrinsic is an inherent.
-pub trait IsInherent<Extrinsic> {
+pub trait IsInherent<Extrinsic: for<'a> LazyExtrinsic<'a>> {
 	/// Whether this extrinsic is an inherent.
-	fn is_inherent(ext: &Extrinsic) -> bool;
-}
-
-/// An extrinsic on which we can get access to call.
-pub trait ExtrinsicCall: sp_runtime::traits::ExtrinsicLike {
-	type Call;
-
-	/// Get the call of the extrinsic.
-	fn call(&self) -> &Self::Call;
-}
-
-impl<Address, Call, Signature, Extra> ExtrinsicCall
-	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
-{
-	type Call = Call;
-
-	fn call(&self) -> &Call {
-		&self.function
-	}
+	fn is_inherent(ext: &<Extrinsic as LazyExtrinsic<'_>>::ExtrinsicRef) -> bool;
 }
 
 /// Interface for types capable of constructing an inherent extrinsic.
-pub trait InherentBuilder: ExtrinsicCall {
+pub trait InherentBuilder: BaseExtrinsicCall {
 	/// Create a new inherent from a given call.
 	fn new_inherent(call: Self::Call) -> Self;
 }
@@ -945,7 +931,7 @@ where
 }
 
 /// Interface for types capable of constructing a signed transaction.
-pub trait SignedTransactionBuilder: ExtrinsicCall {
+pub trait SignedTransactionBuilder: BaseExtrinsicCall {
 	type Address;
 	type Signature;
 	type Extension;
