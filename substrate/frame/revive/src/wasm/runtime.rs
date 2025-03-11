@@ -2154,8 +2154,7 @@ pub mod env {
 	}
 
 	/// Sets the storage at a fixed 256-bit key with a fixed 256-bit value.
-	/// If the provided value is all zeros then the key is cleared (i.e. deleted),
-	/// similar to Ethereum’s SSTORE semantics.
+	/// See [`pallet_revive_uapi::HostFn::set_storage_or_clear`].
 	#[stable]
 	#[mutating]
 	fn set_storage_or_clear(
@@ -2165,16 +2164,18 @@ pub mod env {
 		key_ptr: u32,
 		value_ptr: u32,
 	) -> Result<u32, TrapReason> {
-		let value = memory.read(value_ptr, 32)?;
-		if value.iter().all(|&b| b == 0) {
-			self.clear_storage(memory, flags, key_ptr, 32)
+		let value = memory.read_h256(value_ptr)?;
+		if value.as_bytes().iter().all(|&b| b == 0) {
+			// If using 32 directly in clear_storage, should change to SENTINEL
+			self.clear_storage(memory, flags, key_ptr, SENTINEL)
 		} else {
-			self.set_storage(memory, flags, key_ptr, 32, value_ptr, 32)
+			// If using 32 directly in set_storage, should change to SENTINEL
+			self.set_storage(memory, flags, key_ptr, SENTINEL, value_ptr, 32)
 		}
 	}
 
 	/// Reads the storage at a fixed 256-bit key and writes back a fixed 256-bit value.
-	/// If the key does not exist, writes back 32 bytes of zero.
+	/// See [`pallet_revive_uapi::HostFn::get_storage_or_zero`].
 	#[stable]
 	fn get_storage_or_zero(
 		&mut self,
@@ -2182,12 +2183,8 @@ pub mod env {
 		key_ptr: u32,
 		out_ptr: u32,
 	) -> Result<(), TrapReason> {
-		let key = self.decode_key(memory, key_ptr, 32)?;
-		let value_opt = self.ext.get_storage(&key);
-		let value = match value_opt {
-			Some(v) => v,
-			None => vec![0u8; 32],
-		};
+		let key = self.decode_key(memory, key_ptr, SENTINEL)?;
+		let value = self.ext.get_storage(&key).unwrap_or_else(|| vec![0u8; 32]);
 		let mut fixed_value = [0u8; 32];
 		if value.len() >= 32 {
 			fixed_value.copy_from_slice(&value[..32]);

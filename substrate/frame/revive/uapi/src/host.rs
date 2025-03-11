@@ -375,7 +375,7 @@ pub trait HostFn: private::Sealed {
 
 	/// Retrieves the storage value for a fixed 256‑bit key.
 	/// If the key does not exist, the output buffer is filled with 32 zero bytes.
-	fn get_storage_or_zero(flags: StorageFlags, key: &[u8; 32], output: &mut [u8; 32]) -> Result;
+	fn get_storage_or_zero(flags: StorageFlags, key: &[u8; 32], output: &mut [u8; 32]);
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	///

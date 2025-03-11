@@ -947,6 +947,21 @@ fn storage_max_value_limit() {
 }
 
 #[test]
+fn storage_clear() {
+	let (code, _code_hash) = compile_module("storage_clear").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_contract();
+
+		builder::bare_call(addr).build_and_unwrap_result();
+	});
+}
+
+#[test]
 fn transient_storage_work() {
 	let (code, _code_hash) = compile_module("transient_storage").unwrap();
 
