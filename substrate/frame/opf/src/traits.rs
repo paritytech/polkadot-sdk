@@ -19,14 +19,24 @@ pub trait ReferendumTrait {
 }
 
 pub trait ConvictionVotingTrait {
-	type AccountVote: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
+	type Vote;
+	type AccountVote;
+	type Conviction: Parameter + Member + Ord + PartialOrd + Copy + MaxEncodedLen;
 	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
 	type Moment;
 
-	fn try_vote(ref_index: Self::Index, vote: Self::AccountVote) -> Result<(), ()>;
-	fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()>;
-	fn access_poll<R>(_index: Self::Index, f: impl FnOnce(&mut Self::Index) -> R) -> R;
+	/*fn try_vote(ref_index: Self::Index, vote: Self::AccountVote) -> Result<(), ()>;
+	fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()>;*/
 }
+
+impl<T:pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait
+	for pallet_conviction_voting::Pallet<T, I>{
+		type Vote = pallet_conviction_voting::VotingOf<T, I>;
+		type AccountVote = pallet_conviction_voting::AccountVote<pallet_conviction_voting::BalanceOf<T,I>> ;
+		type Conviction = pallet_conviction_voting::Conviction;
+		type Index = pallet_conviction_voting::PollIndexOf<T, I>;
+		type Moment = <T::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	}
 
 impl<T: frame_system::Config + pallet_referenda::Config<I>, I: 'static> ReferendumTrait
 	for pallet_referenda::Pallet<T, I>
