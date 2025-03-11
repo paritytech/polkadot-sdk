@@ -233,6 +233,41 @@ pub trait SolutionDataProvider {
 	fn report_result(result: VerificationResult);
 }
 
+pub struct DualSolutionDataProvider<T>(sp_std::marker::PhantomData<T>);
+impl<T: crate::Config + crate::signed::Config + crate::unsigned::Config> SolutionDataProvider
+	for DualSolutionDataProvider<T>
+where
+	crate::signed::Pallet<T>: SolutionDataProvider<
+		Solution = <crate::unsigned::Pallet<T> as SolutionDataProvider>::Solution,
+	>,
+{
+	type Solution = <crate::unsigned::Pallet<T> as SolutionDataProvider>::Solution;
+
+	fn get_page(page: PageIndex) -> Option<Self::Solution> {
+		match crate::CurrentPhase::<T>::get() {
+			crate::Phase::Unsigned(_) | crate::Phase::UnsignedValidation(_) =>
+				crate::unsigned::Pallet::<T>::get_page(page),
+			_ => crate::signed::Pallet::<T>::get_page(page)
+		}
+	}
+
+	fn get_score() -> Option<ElectionScore> {
+		match crate::CurrentPhase::<T>::get() {
+			crate::Phase::Unsigned(_) | crate::Phase::UnsignedValidation(_) =>
+				crate::unsigned::Pallet::<T>::get_score(),
+			_ => crate::signed::Pallet::<T>::get_score()
+		}
+	}
+
+	fn report_result(result: VerificationResult) {
+		match crate::CurrentPhase::<T>::get() {
+			crate::Phase::Unsigned(_) | crate::Phase::UnsignedValidation(_) =>
+				crate::unsigned::Pallet::<T>::report_result(result),
+			_ => crate::signed::Pallet::<T>::report_result(result)
+		}
+	}
+}
+
 /// Something that can do the verification asynchronously.
 pub trait AsynchronousVerifier: Verifier {
 	/// The data provider that can provide the candidate solution, and to whom we report back the

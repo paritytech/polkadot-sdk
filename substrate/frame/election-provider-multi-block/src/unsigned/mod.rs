@@ -93,6 +93,8 @@ mod pallet {
 	use sp_runtime::traits::SaturatedConversion;
 	use sp_std::prelude::*;
 
+	pub(crate) type UnsignedWeightsOf<T> = <T as Config>::WeightInfo;
+
 	/// convert a [`crate::CommonError`] to a custom InvalidTransaction with the inner code being
 	/// the index of the variant.
 	fn base_error_to_invalid(error: CommonError) -> InvalidTransaction {
@@ -100,7 +102,27 @@ mod pallet {
 		InvalidTransaction::Custom(index)
 	}
 
-	pub(crate) type UnsignedWeightsOf<T> = <T as Config>::WeightInfo;
+	#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+	/// Modes of execution for the offchain worker miner
+	pub enum OffchainModes {
+		/// Submit just a single page.
+		SinglePage,
+		/// Coordinated multi-page submission.
+		///
+		/// This works on the basis of the following assumption:
+		///
+		/// All validator/collators will mine all of the pages, and submit all of the pages to
+		/// their local queue. At each consecutive block, one page is included by a validator as an
+		/// inherent. A next validator will only submit if the submitted page adds up to what they
+		/// have computed. If honest validators detect that any of the other validators have
+		/// submitted a different page compared to what we have calculated, then they will not
+		/// participate.
+		///
+		/// By the end of the unsigned phase, if all miners have participated and submitted a page,
+		/// then this page undergoes verification. If determined to be invalid, all of the
+		/// participants are slashed.
+		MultiPage,
+	}
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
@@ -116,12 +138,52 @@ mod pallet {
 			AccountId = Self::AccountId,
 		>;
 
+		/// The modes of the offchain miner worker execution.
+		type OffchainMode: Get<OffchainModes>;
+
 		/// The priority of the unsigned transaction submitted in the unsigned-phase
 		type MinerTxPriority: Get<TransactionPriority>;
 
 		/// Runtime weight information of this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Something that can give us the current block author.
+		type BlockAuthor: Get<Self::AccountId>;
 	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// The submission is in the wrong mode.
+		WrongMode,
+		/// The submission is in the wrong phase.
+		WrongPhase,
+		/// Page already exists -- is duplicate.
+		Duplicate,
+		/// Scores don't match
+		BadScore,
+		/// Page index is bad
+		BadPageIndex,
+	}
+
+	/// Offchain submission contest. Only set in [`OffchainModes::MultiPage`].
+	#[pallet::storage]
+	pub type OffchainSubmissions<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		SolutionOf<T::MinerConfig>,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	pub type OffchainSubmissionAuthors<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::AccountId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type OffchainSubmissionsScore<T: Config> =
+		StorageMap<_, Twox64Concat, u32, ElectionScore, OptionQuery>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -149,7 +211,7 @@ mod pallet {
 
 			// phase, round, claimed score, page-count and hash are checked in pre-dispatch. we
 			// don't check them here anymore.
-			debug_assert!(Self::validate_unsigned_checks(&paged_solution).is_ok());
+			debug_assert!(Self::validate_unsigned_single_page_checks(&paged_solution).is_ok());
 
 			let only_page = paged_solution
 				.solution_pages
@@ -177,6 +239,46 @@ mod pallet {
 
 			Ok(None.into())
 		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(0)]
+		pub fn queue_unsigned(
+			origin: OriginFor<T>,
+			page_index: PageIndex,
+			solution_page: Box<SolutionOf<T::MinerConfig>>,
+			claimed_score: ElectionScore,
+		) -> DispatchResult {
+			let _ = ensure_none(origin)?;
+			ensure!(T::OffchainMode::get() == OffchainModes::MultiPage, Error::<T>::WrongMode);
+			ensure!(crate::Pallet::<T>::current_phase().is_unsigned(), Error::<T>::WrongPhase);
+			ensure!(page_index < T::Pages::get(), Error::<T>::BadPageIndex);
+
+			let current_round = crate::Round::<T>::get();
+			ensure!(
+				!OffchainSubmissions::<T>::contains_key(crate::Round::<T>::get(), page_index) &&
+					!OffchainSubmissionAuthors::<T>::contains_key(
+						crate::Round::<T>::get(),
+						page_index
+					),
+				Error::<T>::Duplicate
+			);
+			ensure!(
+				OffchainSubmissionsScore::<T>::get(current_round).map_or_else(
+					|| {
+						OffchainSubmissionsScore::<T>::insert(current_round, claimed_score);
+						true
+					},
+					|score| claimed_score == score,
+				),
+				Error::<T>::BadScore
+			);
+
+			let block_author = T::BlockAuthor::get();
+			OffchainSubmissions::<T>::insert(current_round, page_index, *solution_page);
+			OffchainSubmissionAuthors::<T>::insert(current_round, page_index, block_author);
+
+			Ok(())
+		}
 	}
 
 	#[pallet::validate_unsigned]
@@ -189,7 +291,7 @@ mod pallet {
 					_ => return InvalidTransaction::Call.into(),
 				}
 
-				let _ = Self::validate_unsigned_checks(paged_solution.as_ref())
+				let _ = Self::validate_unsigned_single_page_checks(paged_solution.as_ref())
 					.map_err(|err| {
 						sublog!(
 							debug,
@@ -222,7 +324,7 @@ mod pallet {
 
 		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
 			if let Call::submit_unsigned { paged_solution, .. } = call {
-				Self::validate_unsigned_checks(paged_solution.as_ref())
+				Self::validate_unsigned_single_page_checks(paged_solution.as_ref())
 					.map_err(base_error_to_invalid)
 					.map_err(Into::into)
 			} else {
@@ -231,8 +333,37 @@ mod pallet {
 		}
 	}
 
+	impl<T: Config> crate::verifier::SolutionDataProvider for Pallet<T> {
+		type Solution = SolutionOf<T::MinerConfig>;
+
+		fn get_page(page: PageIndex) -> Option<Self::Solution> {
+			OffchainSubmissions::<T>::get(crate::Round::<T>::get(), page)
+		}
+
+		fn get_score() -> Option<ElectionScore> {
+			OffchainSubmissionsScore::<T>::get(crate::Round::<T>::get())
+		}
+
+		fn report_result(result: crate::verifier::VerificationResult) {
+			todo!()
+		}
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			use crate::verifier::{AsynchronousVerifier, Verifier};
+
+			if crate::CurrentPhase::<T>::get().is_unsigned_validation_open_now() &&
+				OffchainSubmissionAuthors::<T>::iter_prefix(crate::Round::<T>::get()).count() ==
+					T::Pages::get() as usize
+			{
+				<T as crate::Config>::Verifier::start();
+			};
+
+			Default::default()
+		}
+
 		fn integrity_test() {
 			assert!(
 				UnsignedWeightsOf::<T>::submit_unsigned().all_lte(T::BlockWeights::get().max_block),
@@ -313,10 +444,10 @@ mod pallet {
 		///
 		/// These check both for snapshot independent checks, and some checks that are specific to
 		/// the unsigned phase.
-		pub(crate) fn validate_unsigned_checks(
+		pub(crate) fn validate_unsigned_single_page_checks(
 			paged_solution: &PagedRawSolution<T::MinerConfig>,
 		) -> Result<(), CommonError> {
-			Self::unsigned_specific_checks(paged_solution)
+			Self::unsigned_single_page_specific_checks(paged_solution)
 				.and(crate::Pallet::<T>::snapshot_independent_checks(paged_solution, None))
 				.map_err(Into::into)
 		}
@@ -324,7 +455,7 @@ mod pallet {
 		/// The checks that are specific to the (this) unsigned pallet.
 		///
 		/// ensure solution has the correct phase, and it has only 1 page.
-		pub fn unsigned_specific_checks(
+		pub fn unsigned_single_page_specific_checks(
 			paged_solution: &PagedRawSolution<T::MinerConfig>,
 		) -> Result<(), CommonError> {
 			ensure!(

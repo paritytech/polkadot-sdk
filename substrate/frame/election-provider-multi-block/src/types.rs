@@ -257,6 +257,7 @@ pub enum Phase<T: crate::Config> {
 	/// and always compute their own solution. However, by default, when the unsigned phase is
 	/// passive, the offchain workers will not bother running.
 	Unsigned(BlockNumberFor<T>),
+	UnsignedValidation(BlockNumberFor<T>),
 	/// Snapshot is being created. No other operation is allowed. This can be one or more blocks.
 	/// The inner value should be read as "`remaining` number of pages are left to be fetched".
 	/// Thus, if inner value is `0` if the snapshot is complete and we are ready to move on.
@@ -275,6 +276,11 @@ pub enum Phase<T: crate::Config> {
 	/// `T::ElectionProvider::elect`.
 	Emergency,
 }
+
+/// TODO: sanity checks for phases:
+/// If signed phase is set, signed validation phase is at least Pages
+/// If MinerMode is single page, unsigned verification is zero
+/// If MinerMode is multi page, unsigned verification is at least Pages
 
 impl<T: crate::Config> Copy for Phase<T> {}
 
@@ -302,13 +308,43 @@ impl<T: crate::Config> Phase<T> {
 
 			// snapshot phase
 			Self::Snapshot(0) =>
-				if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one()) {
+				if let Some(unsigned_duration) = T::UnsignedPhase::get().checked_sub(&One::one()) {
+					Self::Unsigned(unsigned_duration)
+				} else if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one())
+				{
 					Self::Signed(signed_duration)
 				} else {
-					Self::Unsigned(T::UnsignedPhase::get().defensive_saturating_sub(One::one()))
+					Self::Done
 				},
 			Self::Snapshot(non_zero_remaining) =>
 				Self::Snapshot(non_zero_remaining.defensive_saturating_sub(One::one())),
+
+			// unsigned phase
+			Self::Unsigned(zero) if zero == BlockNumberFor::<T>::zero() =>
+				if let Some(unsigned_validation_duration) =
+					T::UnsignedValidationPhase::get().checked_sub(&One::one())
+				{
+					Self::UnsignedValidation(unsigned_validation_duration)
+				} else if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one())
+				{
+					Self::Signed(signed_duration)
+				} else {
+					Self::Done
+				},
+			Self::Unsigned(non_zero_left) =>
+				Self::Unsigned(non_zero_left.defensive_saturating_sub(One::one())),
+
+			// unsigned validation
+			Self::UnsignedValidation(zero) if zero == BlockNumberFor::<T>::zero() =>
+				if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one())
+				{
+					Self::Signed(signed_duration)
+				} else {
+					Self::Done
+				},
+			Self::UnsignedValidation(non_zero_left) => {
+				Self::UnsignedValidation(non_zero_left.defensive_saturating_sub(One::one()))
+			}
 
 			// signed phase
 			Self::Signed(zero) if zero == BlockNumberFor::<T>::zero() =>
@@ -317,19 +353,9 @@ impl<T: crate::Config> Phase<T> {
 				Self::Signed(non_zero_left.defensive_saturating_sub(One::one())),
 
 			// signed validation
-			Self::SignedValidation(zero) if zero == BlockNumberFor::<T>::zero() =>
-				if let Some(unsigned_duration) = T::UnsignedPhase::get().checked_sub(&One::one()) {
-					Self::Unsigned(unsigned_duration)
-				} else {
-					Self::Done
-				},
+			Self::SignedValidation(zero) if zero == BlockNumberFor::<T>::zero() => Self::Done,
 			Self::SignedValidation(non_zero_left) =>
 				Self::SignedValidation(non_zero_left.defensive_saturating_sub(One::one())),
-
-			// unsigned phase -- at this phase we will
-			Self::Unsigned(zero) if zero == BlockNumberFor::<T>::zero() => Self::Done,
-			Self::Unsigned(non_zero_left) =>
-				Self::Unsigned(non_zero_left.defensive_saturating_sub(One::one())),
 
 			// Done
 			Self::Done => Self::Done,
@@ -386,14 +412,28 @@ impl<T: crate::Config> Phase<T> {
 		matches!(self, Phase::SignedValidation(_))
 	}
 
-	/// Whether the signed phase is opened now.
+	/// Whether the signed phase has opened now.
 	pub fn is_signed_validation_opened_now(&self) -> bool {
-		self == &Phase::SignedValidation(T::SignedValidationPhase::get().saturating_sub(One::one()))
+		match T::SignedValidationPhase::get().checked_sub(&One::one()) {
+			Some(start) => self == &Phase::SignedValidation(start),
+			None => false,
+		}
 	}
 
-	/// Whether the unsigned phase is opened now.
+	/// Whether the unsigned phase has opened now.
 	pub fn is_unsigned_opened_now(&self) -> bool {
-		self == &Phase::Unsigned(T::UnsignedPhase::get().saturating_sub(One::one()))
+		match T::UnsignedPhase::get().checked_sub(&One::one()) {
+			Some(start) => self == &Phase::Unsigned(start),
+			None => false,
+		}
+	}
+
+	/// Whether the unsigned validation phase has opened now.
+	pub fn is_unsigned_validation_open_now(&self) -> bool {
+		match T::UnsignedValidationPhase::get().checked_sub(&One::one()) {
+			Some(start) => self == &Phase::UnsignedValidation(start),
+			None => false,
+		}
 	}
 }
 

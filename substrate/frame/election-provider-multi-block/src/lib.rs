@@ -387,9 +387,11 @@ pub mod pallet {
 		/// Duration of the unsigned phase.
 		#[pallet::constant]
 		type UnsignedPhase: Get<BlockNumberFor<Self>>;
+
 		/// Duration of the signed phase.
 		#[pallet::constant]
 		type SignedPhase: Get<BlockNumberFor<Self>>;
+
 		/// Duration of the singed validation phase.
 		///
 		/// The duration of this should not be less than `T::Pages`, and there is no point in it
@@ -397,6 +399,9 @@ pub mod pallet {
 		/// it.
 		#[pallet::constant]
 		type SignedValidationPhase: Get<BlockNumberFor<Self>>;
+
+		#[pallet::constant]
+		type UnsignedValidationPhase: Get<BlockNumberFor<Self>>;
 
 		/// The number of snapshot voters to fetch per block.
 		#[pallet::constant]
@@ -1381,6 +1386,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			Phase::Signed(_) |
 			Phase::SignedValidation(_) |
 			Phase::Unsigned(_) |
+			Phase::UnsignedValidation(_) |
 			Phase::Snapshot(_) |
 			Phase::Emergency => Ok(false),
 

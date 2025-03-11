@@ -715,7 +715,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		do_feasibility: bool,
 	) -> Result<(), OffchainMinerError<T>> {
 		// NOTE: we prefer cheap checks first, so first run unsigned checks.
-		Pallet::<T>::unsigned_specific_checks(paged_solution)?;
+		Pallet::<T>::unsigned_single_page_specific_checks(paged_solution)?;
 		Self::base_check_solution(paged_solution, maybe_snapshot_fingerprint, do_feasibility)
 	}
 
