@@ -27,8 +27,8 @@ doc:
     \ prove my fix is effective or that my feature works (if applicable)"
 crates:
 - name: pallet-revive-fixtures
-  bump: minor
+  bump: patch
 - name: pallet-revive
-  bump: minor
+  bump: patch
 - name: pallet-revive-uapi
   bump: minor
