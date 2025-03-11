@@ -165,7 +165,7 @@ pub mod pallet {
 	use frame_support::traits::UnixTime;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
-	use sp_runtime::Perbill;
+	use sp_runtime::{Perbill, Saturating};
 	use sp_staking::{
 		offence::{OffenceSeverity, OnOffenceHandler},
 		SessionIndex,
