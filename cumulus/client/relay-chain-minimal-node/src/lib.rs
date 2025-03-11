@@ -102,7 +102,7 @@ async fn build_interface(
 	// If the network backend is unspecified, use the default for the given chain.
 	let default_backend = polkadot_config.chain_spec.network_backend();
 	let network_backend =
-		polkadot_config.network.network_backend.clone().unwrap_or(default_backend);
+		polkadot_config.network.network_backend.unwrap_or(default_backend);
 
 	let collator_node = match network_backend {
 		sc_network::config::NetworkBackendType::Libp2p =>
