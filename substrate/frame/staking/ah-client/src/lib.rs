@@ -454,4 +454,22 @@ pub mod pallet {
 			Weight::zero()
 		}
 	}
+
+	impl<T: Config> frame_support::traits::RewardsReporter<T::AccountId> for Pallet<T> {
+		fn reward_by_ids(rewards: impl IntoIterator<Item = (T::AccountId, u32)>) {
+			for (validator_id, points) in rewards {
+				ValidatorPoints::<T>::mutate(validator_id, |balance| {
+					balance.saturating_accrue(points);
+				});
+			}
+		}
+	}
+
+	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
+		fn note_author(author: T::AccountId) {
+			ValidatorPoints::<T>::mutate(author, |points| {
+				points.saturating_accrue(T::PointsPerBlock::get());
+			});
+		}
+	}
 }
