@@ -1176,6 +1176,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
+			unlimited_local_cache: false,
 		};
 
 		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
