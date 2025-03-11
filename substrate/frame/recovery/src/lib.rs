@@ -153,12 +153,13 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen, DecodeWithMemTracking};
 use scale_info::TypeInfo;
 use sp_runtime::{
+	ArithmeticError, DispatchError,
 	traits::{
 		BlockNumberProvider, CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion,
-		StaticLookup,
+		StaticLookup, Get,
 	},
 	RuntimeDebug,
 };
@@ -216,12 +217,21 @@ pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 	pub threshold: u16,
 }
 
+/// The type of deposit
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, DecodeWithMemTracking)]
+pub enum DepositKind {
+	/// Recovery configuration deposit
+	RecoveryConfig,
+	/// Active recovery deposit
+	ActiveRecovery,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::ArithmeticError;
+use sp_runtime::traits::Saturating;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -323,6 +333,13 @@ pub mod pallet {
 		AccountRecovered { lost_account: T::AccountId, rescuer_account: T::AccountId },
 		/// A recovery process has been removed for an account.
 		RecoveryRemoved { lost_account: T::AccountId },
+		/// A deposit has been updated.
+		DepositPoked {
+			who: T::AccountId,
+			kind: DepositKind,
+			old_deposit: BalanceOf<T>,
+			new_deposit: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -486,13 +503,8 @@ pub mod pallet {
 			let bounded_friends: FriendsOf<T> =
 				friends.try_into().map_err(|_| Error::<T>::MaxFriends)?;
 			ensure!(Self::is_sorted_and_unique(&bounded_friends), Error::<T>::NotSorted);
-			// Total deposit is base fee + number of friends * factor fee
-			let friend_deposit = T::FriendDepositFactor::get()
-				.checked_mul(&bounded_friends.len().saturated_into())
-				.ok_or(ArithmeticError::Overflow)?;
-			let total_deposit = T::ConfigDepositBase::get()
-				.checked_add(&friend_deposit)
-				.ok_or(ArithmeticError::Overflow)?;
+			// Calculate total deposit required
+			let total_deposit = Self::get_recovery_config_deposit(bounded_friends.len())?;
 			// Reserve the deposit
 			T::Currency::reserve(&who, total_deposit)?;
 			// Create the recovery configuration
@@ -733,6 +745,97 @@ pub mod pallet {
 			frame_system::Pallet::<T>::dec_consumers(&who);
 			Ok(())
 		}
+
+		/// Poke / update deposits for recovery configurations and active recoveries.
+		/// This can be used by accounts to possibly lower their locked amount.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// This function checks both recovery configuration deposit and active recovery deposits
+		/// of the caller:
+		/// - If the caller has created a recovery configuration, checks and adjusts its deposit
+		/// - If the caller has initiated any active recoveries, checks and adjusts those deposits
+		///
+		/// If any deposit is updated, the difference will be reserved/unreserved from the caller's
+		/// account. The transaction is made free if any deposit is updated and paid otherwise.
+		///
+		/// Emits `DepositPoked` if any deposit is updated.
+		/// Multiple events may be emitted in case both types of deposits are updated.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::poke_deposit(T::MaxFriends::get()))]
+		pub fn poke_deposit(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let mut deposit_updated = false;
+
+			// Check recovery configuration deposit
+			<Recoverable<T>>::try_mutate(&who, |maybe_config| -> DispatchResult {
+				if let Some(config) = maybe_config.as_mut() {
+					let old_deposit = config.deposit;
+					let new_deposit = Self::get_recovery_config_deposit(config.friends.len())?;
+
+					if old_deposit != new_deposit {
+						if new_deposit > old_deposit {
+							let extra = new_deposit.saturating_sub(old_deposit);
+							T::Currency::reserve(&who, extra)?;
+						} else {
+							let excess = old_deposit.saturating_sub(new_deposit);
+							let remaining_unreserved = T::Currency::unreserve(&who, excess);
+							if !remaining_unreserved.is_zero() {
+								defensive!("Failed to unreserve full amount. (Requested, Actual)", (excess, excess.saturating_sub(remaining_unreserved)));
+							}
+						}
+						config.deposit = new_deposit;
+						deposit_updated = true;
+
+						Self::deposit_event(Event::<T>::DepositPoked { 
+							who: who.clone(),
+							kind: DepositKind::RecoveryConfig,
+							old_deposit,
+							new_deposit,
+						});
+					}
+				}
+				Ok(())
+			})?;
+
+			// Check active recovery deposits. Get the deposit required for active recovery.
+			let new_deposit = T::RecoveryDeposit::get();
+			// Iterate through all active recoveries and check those where who is the rescuer
+			<ActiveRecoveries<T>>::iter()
+				.filter(|(_, rescuer, _)| rescuer == &who)
+				.try_for_each(|(lost_account, _, _)| -> DispatchResult {
+					<ActiveRecoveries<T>>::try_mutate(&lost_account, &who, |maybe_recovery| -> DispatchResult {
+						let recovery = maybe_recovery.as_mut().ok_or(Error::<T>::NotStarted)?;
+
+						if recovery.deposit != new_deposit {
+							let old_deposit = recovery.deposit;
+							if new_deposit > old_deposit {
+								let extra = new_deposit.saturating_sub(old_deposit);
+								T::Currency::reserve(&who, extra)?;
+							} else {
+								let excess = old_deposit.saturating_sub(new_deposit);
+								let remaining_unreserved = T::Currency::unreserve(&who, excess);
+								if !remaining_unreserved.is_zero() {
+									defensive!("Failed to unreserve full amount. (Requested, Actual)", (excess, excess.saturating_sub(remaining_unreserved)));
+								}
+							}
+							recovery.deposit = new_deposit;
+							deposit_updated = true;
+
+							Self::deposit_event(Event::<T>::DepositPoked { 
+								who: who.clone(),
+								kind: DepositKind::ActiveRecovery,
+								old_deposit,
+								new_deposit,
+							});
+						}
+						Ok(())
+					})?;
+					Ok(())
+				})?;
+
+			Ok(if deposit_updated { Pays::No } else { Pays::Yes }.into())
+		}
 	}
 }
 
@@ -745,5 +848,16 @@ impl<T: Config> Pallet<T> {
 	/// Check that a user is a friend in the friends list.
 	fn is_friend(friends: &Vec<T::AccountId>, friend: &T::AccountId) -> bool {
 		friends.binary_search(&friend).is_ok()
+	}
+
+	/// Helper function to calculate recovery config deposit
+	/// Total deposit is base fee + number of friends * factor fee
+	fn get_recovery_config_deposit(friends_count: usize) -> Result<BalanceOf<T>, DispatchError> {
+		let friend_deposit = T::FriendDepositFactor::get()
+			.checked_mul(&friends_count.saturated_into())
+			.ok_or(ArithmeticError::Overflow)?;
+		T::ConfigDepositBase::get()
+			.checked_add(&friend_deposit)
+			.ok_or(ArithmeticError::Overflow.into())
 	}
 }

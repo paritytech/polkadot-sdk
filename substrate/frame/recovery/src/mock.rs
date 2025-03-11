@@ -52,9 +52,9 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ConfigDepositBase: u64 = 10;
+	pub static ConfigDepositBase: u64 = 10;
 	pub const FriendDepositFactor: u64 = 1;
-	pub const RecoveryDeposit: u64 = 10;
+	pub static RecoveryDeposit: u64 = 10;
 	// Large number of friends for benchmarking.
 	pub const MaxFriends: u32 = 128;
 }
@@ -82,5 +82,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

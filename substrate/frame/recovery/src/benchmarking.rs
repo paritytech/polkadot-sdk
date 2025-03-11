@@ -24,7 +24,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use frame_benchmarking::v2::*;
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
-use sp_runtime::traits::Bounded;
+use sp_runtime::{Saturating, traits::Bounded};
 
 const SEED: u32 = 0;
 const DEFAULT_DELAY: u32 = 0;
@@ -101,6 +101,22 @@ fn insert_recovery_account<T: Config>(caller: &T::AccountId, account: &T::Accoun
 	T::Currency::reserve(&caller, total_deposit).unwrap();
 
 	<Recoverable<T>>::insert(&account, recovery_config);
+}
+
+fn setup_active_recovery<T: Config>(caller: &T::AccountId, lost_account: &T::AccountId) {
+	let n = T::MaxFriends::get();
+	let friends = generate_friends::<T>(n);
+	let bounded_friends: FriendsOf<T> = friends.try_into().unwrap();
+	
+	let initial_recovery_deposit = T::RecoveryDeposit::get();
+	T::Currency::reserve(caller, initial_recovery_deposit).unwrap();
+
+	let active_recovery = ActiveRecovery {
+		created: DEFAULT_DELAY.into(),
+		deposit: initial_recovery_deposit,
+		friends: bounded_friends,
+	};
+	<ActiveRecoveries<T>>::insert(lost_account, caller, active_recovery);
 }
 
 #[benchmarks]
@@ -350,6 +366,63 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), account_lookup);
 
+		Ok(())
+	}
+
+	#[benchmark]
+	fn poke_deposit(n: Linear<1, { T::MaxFriends::get() }>) -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let lost_account: T::AccountId = account("lost_account", 0, SEED);
+
+		// Fund caller account
+		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+
+		// 1. Setup recovery config and active recovery with maximum friends for worst case
+		insert_recovery_account::<T>(&caller, &lost_account);
+		setup_active_recovery::<T>(&caller, &lost_account);
+
+		// 2. Get initial deposits
+		let initial_config = <Recoverable<T>>::get(&lost_account).unwrap();
+		let initial_config_deposit = initial_config.deposit;
+		let initial_recovery_deposit = T::RecoveryDeposit::get();
+		assert_eq!(
+			T::Currency::reserved_balance(&caller),
+			initial_config_deposit.saturating_add(initial_recovery_deposit)
+		);
+
+		// 3. Artificially increase deposits
+		let increased_config_deposit = initial_config_deposit.saturating_add(2u32.into());
+		let increased_recovery_deposit = initial_recovery_deposit.saturating_add(2u32.into());
+
+		// Update storages with increased deposits
+		<Recoverable<T>>::try_mutate(&lost_account, |maybe_config| -> Result<(), BenchmarkError> {
+			let config = maybe_config.as_mut().unwrap();
+			T::Currency::reserve(&caller, increased_config_deposit.saturating_sub(initial_config_deposit))?;
+			config.deposit = increased_config_deposit;
+			Ok(())
+		}).map_err(|_| BenchmarkError::Stop("Failed to mutate storage"))?;
+
+		<ActiveRecoveries<T>>::try_mutate(&lost_account, &caller, |maybe_recovery| -> Result<(), BenchmarkError> {
+			let recovery = maybe_recovery.as_mut().unwrap();
+			T::Currency::reserve(&caller, increased_recovery_deposit.saturating_sub(initial_recovery_deposit))?;
+			recovery.deposit = increased_recovery_deposit;
+			Ok(())
+		}).map_err(|_| BenchmarkError::Stop("Failed to mutate storage"))?;
+
+		// Verify increased deposits
+		assert_eq!(
+			T::Currency::reserved_balance(&caller),
+			increased_config_deposit.saturating_add(increased_recovery_deposit)
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()));
+
+		// 4. Assert final state
+		assert_eq!(
+			T::Currency::reserved_balance(&caller),
+			initial_config_deposit.saturating_add(initial_recovery_deposit)
+		);
 		Ok(())
 	}
 

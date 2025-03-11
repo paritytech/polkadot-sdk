@@ -81,6 +81,7 @@ pub trait WeightInfo {
 	fn close_recovery(n: u32, ) -> Weight;
 	fn remove_recovery(n: u32, ) -> Weight;
 	fn cancel_recovered() -> Weight;
+	fn poke_deposit(n: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_recovery` using the Substrate node and recommended hardware.
@@ -212,6 +213,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn poke_deposit(n: u32, ) -> Weight {
+		Weight::from_parts(25_560_527, 3854)
+			// Standard Error: 5_637
+			.saturating_add(Weight::from_parts(4_082, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(n.into()))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -341,5 +349,11 @@ impl WeightInfo for () {
 		Weight::from_parts(9_103_000, 3545)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn poke_deposit(n: u32, ) -> Weight {
+		Weight::from_parts(25_560_527, 3854)
+			.saturating_add(Weight::from_parts(4_082, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(n.into()))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }
