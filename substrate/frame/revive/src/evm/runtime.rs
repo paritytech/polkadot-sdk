@@ -27,7 +27,9 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::{ExtrinsicCall, InherentBuilder, IsSubType, SignedTransactionBuilder},
+	traits::{
+		BaseExtrinsicCall, ExtrinsicCall, InherentBuilder, IsSubType, SignedTransactionBuilder,
+	},
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::{StaticTypeInfo, TypeInfo};
@@ -106,12 +108,10 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 	type TransactionExtensions = E::Extension;
 }
 
-impl<Address, Signature, E: EthExtra> ExtrinsicCall for UncheckedExtrinsic<Address, Signature, E> {
+impl<Address, Signature, E: EthExtra> BaseExtrinsicCall
+	for UncheckedExtrinsic<Address, Signature, E>
+{
 	type Call = CallOf<E::Config>;
-
-	fn call(&self) -> &Self::Call {
-		self.0.call()
-	}
 }
 
 type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
@@ -243,6 +243,10 @@ where
 {
 	type FullExtrinsicRef = FullUncheckedExtrinsicRef<'a, Address, Signature, E>;
 
+	fn try_get_or_decode_call(&mut self) -> Result<&Self::Call, codec::Error> {
+		self.0.call.try_get_or_decode()
+	}
+
 	fn try_as_full(&'a mut self) -> Result<Self::FullExtrinsicRef, codec::Error> {
 		Ok(FullUncheckedExtrinsicRef(self.0.try_as_full()?))
 	}
@@ -260,6 +264,20 @@ impl<'a, Address, Signature, E: EthExtra> ExtrinsicLike
 {
 	fn is_bare(&self) -> bool {
 		ExtrinsicLike::is_bare(&self.0)
+	}
+}
+
+impl<'a, Address, Signature, E: EthExtra> BaseExtrinsicCall
+	for FullUncheckedExtrinsicRef<'a, Address, Signature, E>
+{
+	type Call = CallOf<E::Config>;
+}
+
+impl<'a, Address, Signature, E: EthExtra> ExtrinsicCall
+	for FullUncheckedExtrinsicRef<'a, Address, Signature, E>
+{
+	fn call(&self) -> &Self::Call {
+		self.0.call
 	}
 }
 

@@ -20,8 +20,9 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, transaction_extension::TransactionExtension, Checkable, Dispatchable, ExtrinsicLike,
-		ExtrinsicMetadata, IdentifyAccount, LazyExtrinsic, MaybeDisplay, Member, SignaturePayload,
+		self, transaction_extension::TransactionExtension, BaseExtrinsicCall, Checkable,
+		Dispatchable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount,
+		LazyExtrinsic, MaybeDisplay, Member, SignaturePayload,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -407,6 +408,12 @@ impl<Address, Call, Signature, Extension> ExtrinsicLike
 	}
 }
 
+impl<Address, Call, Signature, Extra> BaseExtrinsicCall
+	for UncheckedExtrinsic<Address, Call, Signature, Extra>
+{
+	type Call = Call;
+}
+
 // TODO: Migrate existing extension pipelines to support current `Signed` transactions as `General`
 // transactions by adding an extension to validate signatures, as they are currently validated in
 // the `Checkable` implementation for `Signed` transactions.
@@ -576,6 +583,10 @@ where
 {
 	type FullExtrinsicRef = FullUncheckedExtrinsicRef<'a, Address, Call, Signature, Extension>;
 
+	fn try_get_or_decode_call(&mut self) -> Result<&Self::Call, codec::Error> {
+		self.call.try_get_or_decode()
+	}
+
 	fn try_as_full(&'a mut self) -> Result<Self::FullExtrinsicRef, codec::Error> {
 		Ok(FullUncheckedExtrinsicRef {
 			preamble: &self.preamble,
@@ -619,6 +630,20 @@ impl<'a, Address, Call, Signature, Extension> ExtrinsicLike
 
 	fn is_bare(&self) -> bool {
 		matches!(self.preamble, Preamble::Bare(_))
+	}
+}
+
+impl<'a, Address, Call, Signature, Extra> BaseExtrinsicCall
+	for FullUncheckedExtrinsicRef<'a, Address, Call, Signature, Extra>
+{
+	type Call = Call;
+}
+
+impl<'a, Address, Call, Signature, Extra> ExtrinsicCall
+	for FullUncheckedExtrinsicRef<'a, Address, Call, Signature, Extra>
+{
+	fn call(&self) -> &Call {
+		self.call
 	}
 }
 

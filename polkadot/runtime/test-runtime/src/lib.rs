@@ -913,7 +913,8 @@ sp_api::impl_runtime_apis! {
 			block: Block,
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
-			data.check_extrinsics(&block)
+			let mut block = block;
+			data.expect_decode_and_check_extrinsics(&mut block)
 		}
 	}
 
