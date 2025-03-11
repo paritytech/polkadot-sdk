@@ -76,11 +76,14 @@ members = [
 	"cumulus/client/relay-chain-minimal-node",
 	"cumulus/client/relay-chain-rpc-interface",
 	"cumulus/client/service",
+	"cumulus/pallets/ah-migrator",
+	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
 	"cumulus/pallets/dmp-queue",
 	"cumulus/pallets/parachain-system",
 	"cumulus/pallets/parachain-system/proc-macro",
+	"cumulus/pallets/rc-migrator",
 	"cumulus/pallets/session-benchmarking",
 	"cumulus/pallets/solo-to-para",
 	"cumulus/pallets/weight-reclaim",
@@ -895,6 +898,8 @@ num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.19.0" }
 orchestra = { version = "0.4.0", default-features = false }
+pallet-ah-migrator = { path = "cumulus/pallets/ah-migrator", default-features = false }
+pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
 pallet-asset-conversion-ops = { path = "substrate/frame/asset-conversion/ops", default-features = false }
@@ -982,6 +987,7 @@ pallet-parameters = { path = "substrate/frame/parameters", default-features = fa
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
+pallet-rc-migrator = { path = "cumulus/pallets/rc-migrator", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
 pallet-remark = { default-features = false, path = "substrate/frame/remark" }
