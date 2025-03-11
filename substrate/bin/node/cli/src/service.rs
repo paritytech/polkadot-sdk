@@ -818,7 +818,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 	let mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	let database_path = config.database.path().map(Path::to_path_buf);
 
-	let task_manager = match config.network.network_backend.clone().unwrap_or_default() {
+	let task_manager = match config.network.network_backend.unwrap_or_default() {
 		sc_network::config::NetworkBackendType::Libp2p => {
 			let task_manager = new_full_base::<sc_network::NetworkWorker<_, _>>(
 				config,
