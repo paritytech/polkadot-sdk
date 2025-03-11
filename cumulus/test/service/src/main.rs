@@ -18,7 +18,7 @@ mod cli;
 
 use std::sync::Arc;
 
-use cli::{RelayChainCli, Subcommand, TestCollatorCli};
+use cli::{AuthoringPolicy, RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_primitives_core::relay_chain::CollatorPair;
 use cumulus_test_service::{chain_spec, new_partial, AnnounceBlockFn};
 use polkadot_service::IdentifyNetworkBackend;
@@ -56,7 +56,7 @@ fn main() -> Result<(), sc_cli::Error> {
 		None => {
 			let log_filters = cli.run.normalize().log_filters();
 			let mut builder = sc_cli::LoggerBuilder::new(log_filters.unwrap_or_default());
-			builder.with_colors(true);
+			builder.with_colors(false);
 			let _ = builder.init();
 
 			let collator_options = cli.run.collator_options();
@@ -108,6 +108,7 @@ fn main() -> Result<(), sc_cli::Error> {
 			let default_backend = relay_chain_config.chain_spec.network_backend();
 			let network_backend =
 				relay_chain_config.network.network_backend.unwrap_or(default_backend);
+			let use_slot_based_collator = cli.authoring == AuthoringPolicy::SlotBased;
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
 					match network_backend {
@@ -126,7 +127,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
-								cli.experimental_use_slot_based,
+								use_slot_based_collator,
 							)
 							.await,
 						sc_network::config::NetworkBackendType::Litep2p =>
@@ -144,7 +145,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
-								cli.experimental_use_slot_based,
+								use_slot_based_collator,
 							)
 							.await,
 					}

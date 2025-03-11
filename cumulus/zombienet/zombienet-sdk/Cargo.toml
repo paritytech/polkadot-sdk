@@ -1,7 +1,7 @@
 [package]
-name = "polkadot-zombienet-sdk-tests"
+name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
-description = "Zomebienet-sdk tests."
+description = "Zomebienet-sdk tests for cumulus."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 anyhow = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
-cumulus-zombienet-sdk-helpers = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
@@ -19,12 +18,8 @@ serde_json = { workspace = true }
 subxt = { workspace = true }
 subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-tokio-util = { workspace = true, features = ["time"] }
 zombienet-sdk = { workspace = true }
+cumulus-zombienet-sdk-helpers = { workspace = true }
 
 [features]
-zombie-metadata = []
-
-[build-dependencies]
-substrate-build-script-utils = { workspace = true, default-features = true }
-subwasmlib = { git = "https://github.com/chevdor/subwasm", rev = "v0.21.3" }
+zombie-ci = []
