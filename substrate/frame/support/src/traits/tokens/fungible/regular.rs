@@ -368,7 +368,6 @@ impl<AccountId, U: Unbalanced<AccountId>> HandleImbalanceDrop<U::Balance>
 	for IncreaseIssuance<AccountId, U>
 {
 	fn handle(amount: U::Balance) {
-		Self::done_handle(amount);
 		U::set_total_issuance(U::total_issuance().saturating_add(amount))
 	}
 }
@@ -380,7 +379,6 @@ impl<AccountId, U: Unbalanced<AccountId>> HandleImbalanceDrop<U::Balance>
 	for DecreaseIssuance<AccountId, U>
 {
 	fn handle(amount: U::Balance) {
-		Self::done_handle(amount);
 		U::set_total_issuance(U::total_issuance().saturating_sub(amount))
 	}
 }

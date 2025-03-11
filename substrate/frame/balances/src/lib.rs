@@ -363,8 +363,12 @@ pub mod pallet {
 		Slashed { who: T::AccountId, amount: T::Balance },
 		/// Some amount was minted into an account.
 		Minted { who: T::AccountId, amount: T::Balance },
+		/// Some credit was balanced and added to the TotalIssuance.
+		MintedCredit { amount: T::Balance },
 		/// Some amount was burned from an account.
 		Burned { who: T::AccountId, amount: T::Balance },
+		/// Some debt has been dropped from the Total Issuance.
+		BurnedDebt { amount: T::Balance }, 
 		/// Some amount was suspended from an account (it can be restored later).
 		Suspended { who: T::AccountId, amount: T::Balance },
 		/// Some amount was restored into an account.
