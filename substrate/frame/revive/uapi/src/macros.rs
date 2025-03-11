@@ -18,16 +18,15 @@
 /// Utility macro to read input passed to a contract.
 ///
 /// Example:
-///
-/// ```
-/// input$!(
+/// ```ignore
+/// input!(
 /// 		var1: u32,      // [0, 4)   var1 decoded as u32
 /// 		var2: [u8; 32], // [4, 36)  var2 decoded as a [u8] slice
 /// 		var3: u8,       // [36, 37) var3 decoded as a u8
 /// );
 ///
 /// // Input and size can be specified as well:
-/// input$!(
+/// input!(
 /// 		input,      // input buffer (optional)
 /// 		512,        // input size (optional)
 /// 		var4: u32,  // [0, 4)  var4 decoded as u32
@@ -131,7 +130,9 @@ macro_rules! input {
 /// Utility macro to invoke a host function that expect a `output: &mut &mut [u8]` as last argument.
 ///
 /// Example:
-/// ```
+/// ```ignore
+/// use pallet_revive_uapi::{output, HostFn, HostFnImpl as api};
+///
 /// // call `api::caller` and store the output in `caller`
 /// output!(caller, [0u8; 32], api::caller,);
 ///
