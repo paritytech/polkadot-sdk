@@ -21,6 +21,7 @@ use std::sync::Arc;
 use cli::{RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_primitives_core::relay_chain::CollatorPair;
 use cumulus_test_service::{chain_spec, new_partial, AnnounceBlockFn};
+use polkadot_service::IdentifyNetworkBackend;
 use sc_cli::{CliConfiguration, SubstrateCli};
 use sp_core::Pair;
 
@@ -103,9 +104,13 @@ fn main() -> Result<(), sc_cli::Error> {
 				})
 				.unwrap_or(cumulus_test_service::Consensus::Aura);
 
+			// If the network backend is unspecified, use the default for the given chain.
+			let default_backend = relay_chain_config.chain_spec.network_backend();
+			let network_backend =
+				relay_chain_config.network.network_backend.unwrap_or(default_backend);
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
-					match relay_chain_config.network.network_backend {
+					match network_backend {
 						sc_network::config::NetworkBackendType::Libp2p =>
 							cumulus_test_service::start_node_impl::<
 								_,
