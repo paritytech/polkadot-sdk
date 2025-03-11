@@ -255,12 +255,19 @@ impl<
 	fn header(&self) -> &Self::Header {
 		&self.header
 	}
+
 	fn extrinsics(&self) -> &[Self::Extrinsic] {
 		&self.extrinsics[..]
 	}
+
+	fn extrinsics_mut(&mut self) -> &mut [Self::Extrinsic] {
+		&mut self.extrinsics[..]
+	}
+
 	fn deconstruct(self) -> (Self::Header, Vec<Self::Extrinsic>) {
 		(self.header, self.extrinsics)
 	}
+
 	fn new(header: Self::Header, extrinsics: Vec<Self::Extrinsic>) -> Self {
 		Block { header, extrinsics }
 	}

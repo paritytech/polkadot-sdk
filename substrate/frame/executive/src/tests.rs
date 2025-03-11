@@ -1553,16 +1553,19 @@ fn post_inherent_called_after_all_optional_inherents() {
 
 #[test]
 fn is_inherent_works() {
-	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
-	assert!(Runtime::is_inherent(&ext));
-	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::optional_inherent {}));
-	assert!(Runtime::is_inherent(&ext));
+	let mut ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
+	assert!(Runtime::is_inherent(&ext.expect_as_ref()));
+	let mut ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::optional_inherent {}));
+	assert!(Runtime::is_inherent(&ext.expect_as_ref()));
 
-	let ext = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
-	assert!(!Runtime::is_inherent(&ext));
+	let mut ext = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
+	assert!(!Runtime::is_inherent(&ext.expect_as_ref()));
 
-	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::allowed_unsigned {}));
-	assert!(!Runtime::is_inherent(&ext), "Unsigned ext are not automatically inherents");
+	let mut ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::allowed_unsigned {}));
+	assert!(
+		!Runtime::is_inherent(&ext.expect_as_ref()),
+		"Unsigned ext are not automatically inherents"
+	);
 }
 
 #[test]

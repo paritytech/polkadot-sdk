@@ -3106,8 +3106,8 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			data.create_extrinsics()
 		}
 
-		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
-			data.check_extrinsics(&block)
+		fn check_inherents(mut block: Block, data: InherentData) -> CheckInherentsResult {
+			data.expect_decode_and_check_extrinsics(&mut block)
 		}
 	}
 
