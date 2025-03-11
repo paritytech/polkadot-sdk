@@ -21,7 +21,7 @@ use derive_syn_parse::Parse;
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::{
 	parse::{Nothing, ParseStream},
 	parse_quote,
@@ -959,11 +959,11 @@ fn expand_benchmark(
 			let origin = match origin {
 				Expr::Cast(t) => {
 					let ty = t.ty.clone();
-					quote! {
+					quote_spanned! { origin.span() =>
 						<<T as #frame_system::Config>::RuntimeOrigin as From<#ty>>::from(#origin);
 					}
 				},
-				_ => quote! {
+				_ => quote_spanned! { origin.span() =>
 					<<T as #frame_system::Config>::RuntimeOrigin as From<_>>::from(#origin);
 				},
 			};
