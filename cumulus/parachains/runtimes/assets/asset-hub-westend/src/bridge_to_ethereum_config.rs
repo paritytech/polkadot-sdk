@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate::{
-	xcm_config,
+	weights, xcm_config,
 	xcm_config::{AssetTransactors, XcmConfig},
 	Runtime, RuntimeEvent,
 };
@@ -79,7 +79,7 @@ parameter_types! {
 
 impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = weights::snowbridge_pallet_system_frontend::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 	type RegisterTokenOrigin = EitherOf<
@@ -102,7 +102,7 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type BridgeHubLocation = BridgeHubLocation;
 	type UniversalLocation = UniversalLocation;
 	type PalletLocation = SystemFrontendPalletLocation;
-	type BackendWeightInfo = ();
+	type BackendWeightInfo = weights::snowbridge_pallet_system_backend::WeightInfo<Runtime>;
 }
 
 /// `EnsureOriginWithArg` impl for `ForeignTokenCreator` that allows only XCM origins that are
