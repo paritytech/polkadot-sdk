@@ -398,3 +398,10 @@ impl From<void::Void> for BehaviourOut {
 		void::unreachable(e)
 	}
 }
+
+// Infallible instances can never actually be created.
+impl From<std::convert::Infallible> for BehaviourOut {
+	fn from(_: std::convert::Infallible) -> Self {
+		unreachable!()
+	}
+}
