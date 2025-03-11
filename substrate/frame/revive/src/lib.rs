@@ -1159,7 +1159,7 @@ where
 			Err(_) => return Err(EthTransactError::Message("Failed to convert value".into())),
 		};
 
-		let input = tx.input.clone().unwrap_or_default().0;
+		let input = tx.input.clone().to_vec();
 
 		let extract_error = |err| {
 			if err == Error::<T>::TransferFailed.into() ||
