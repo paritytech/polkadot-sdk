@@ -245,8 +245,8 @@ pub mod pallet {
 
 		/// Map of the relayer => accumulated reward.
 		pub fn relayer_reward(
-			key1: <RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key1,
-			key2: <RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key2,
+			key1: &<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key1,
+			key2: &<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key2,
 		) -> Option<<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Value> {
 			RelayerRewards::<T, I>::get(key1, key2)
 		}
