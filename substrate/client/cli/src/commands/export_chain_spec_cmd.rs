@@ -55,7 +55,6 @@ pub struct ExportChainSpecCmd {
 
 impl ExportChainSpecCmd {
 	/// Run the export-chain-spec command
-
 	pub fn run(&self, spec: Box<dyn ChainSpec>) -> Result<()> {
 		let json = chain_ops::build_spec(spec.as_ref(), self.raw)?;
 		if let Some(ref path) = self.output {
