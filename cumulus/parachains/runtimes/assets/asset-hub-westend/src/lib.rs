@@ -1208,6 +1208,12 @@ construct_runtime!(
 	}
 );
 
+bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
+	RuntimeCall, AccountId,
+	// Messages
+	BridgeRococoMessages
+}
+
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 /// Block type as expected by this runtime.
@@ -1253,6 +1259,8 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			BridgeRejectObsoleteHeadersAndMessages,
+			(bridge_to_rococo_config::OnAssetHubWestendRefundAssetHubRococoMessages::default(),),
 		)
 			.into()
 	}
