@@ -44,7 +44,6 @@ pub mod pallet_uniques;
 pub mod pallet_utility;
 pub mod pallet_xcm;
 pub mod pallet_xcm_bridge;
-pub mod pallet_xcm_bridge_router;
 pub mod pallet_xcm_bridge_router_to_rococo_over_asset_hub_rococo;
 pub mod pallet_xcm_bridge_router_to_rococo_over_bridge_hub;
 pub mod paritydb_weights;
