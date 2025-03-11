@@ -45,11 +45,9 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 				)
 				.with_chain("asset-hub-westend-local")
 				.with_collator(|n| {
-					n.with_name("collator").validator(true).with_args(vec![
-						("--force-authoring").into(),
-						("-lerror,runtime=trace").into(),
-						("--pool-type=fork-aware").into(),
-					])
+					n.with_name("collator")
+						.validator(true)
+						.with_args(vec![("-lerror,runtime=trace").into()])
 				})
 		})
 		.build()
@@ -74,21 +72,103 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 	log::info!("Network is ready");
 
 	let alice = dev::alice();
-
 	let alice_account_id = alice.public_key().to_account_id();
 	let alice_h160 =
 		<asset_hub_westend_runtime::Runtime as pallet_revive::Config>::AddressMapper::to_address(
 			&alice.public_key().0.into(),
 		);
-	log::info!("alice_h160: {:?}", alice_h160);
+
+	para_client
+		.tx()
+		.sign_and_submit_then_watch_default(&asset_hub_westend::tx().revive().map_account(), &alice)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	let code_path = std::env::current_dir().unwrap().join("tests/parachains/contract.polkavm");
+	let code = std::fs::read(code_path)?;
+	let contract_data = sp_core::hex2array!(
+		"a0712d680000000000000000000000000000000000000000000000000000000000000064"
+	)
+	.to_vec();
+
+	let upload_dry_run = para_client
+		.runtime_api()
+		.at_latest()
+		.await?
+		.call(asset_hub_westend::apis().revive_api().upload_code(
+			alice_account_id.clone(),
+			code.clone(),
+			None,
+		))
+		.await?
+		.unwrap();
+	let code_hash = upload_dry_run.code_hash;
+	let deposit = upload_dry_run.deposit;
+
+	para_client
+		.tx()
+		.sign_and_submit_then_watch_default(
+			&asset_hub_westend::tx().revive().upload_code(code.clone(), deposit),
+			&alice,
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	let contract_dry_run = para_client
+		.runtime_api()
+		.at_latest()
+		.await?
+		.call(asset_hub_westend::apis().revive_api().instantiate(
+			alice_account_id.clone(),
+			0,
+			None,
+			None,
+			Code::Existing(code_hash),
+			vec![],
+			None,
+		))
+		.await?;
+
+	// We need a nonce before instantiating the contract
+	let alice_revive_nonce = para_client
+		.runtime_api()
+		.at_latest()
+		.await?
+		.call(asset_hub_westend::apis().revive_api().nonce(alice_h160))
+		.await?;
+	let contract_address = pallet_revive::create1(&alice_h160, alice_revive_nonce.into());
+	let weight = Weight {
+		ref_time: contract_dry_run.gas_required.ref_time,
+		proof_size: contract_dry_run.gas_required.proof_size,
+	};
+	let deposit = match contract_dry_run.storage_deposit {
+		StorageDeposit::Charge(c) => c,
+		StorageDeposit::Refund(_) => 0,
+	};
+
+	para_client
+		.tx()
+		.sign_and_submit_then_watch_default(
+			&asset_hub_westend::tx().revive().instantiate(
+				0,
+				weight,
+				deposit,
+				code_hash,
+				vec![],
+				None,
+			),
+			&alice,
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
 	let keys = (0..10)
 		.map(|i| {
 			let uri = SecretUri::from_str(&format!("//key{}", i)).unwrap();
-			let key = Keypair::from_uri(&uri).unwrap();
-			log::info!("key {i}: {:?}", <asset_hub_westend_runtime::Runtime as pallet_revive::Config>::AddressMapper::to_address(
-				&key.public_key().0.into(),
-			));
-			key
+			Keypair::from_uri(&uri).unwrap()
 		})
 		.collect::<Vec<_>>();
 
@@ -113,7 +193,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Accounts ready");
 
-	let mut mapping_txs = keys
+	let mapping_txs = keys
 		.iter()
 		.map(|key| {
 			let params =
@@ -125,100 +205,42 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 			)
 		})
 		.collect::<Result<Vec<_>, _>>()?;
-	let alice_nonce = para_client.tx().account_nonce(&alice_account_id).await?;
-	let params = subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new()
-		.nonce(alice_nonce)
-		.build();
-	mapping_txs.push(para_client.tx().create_signed_offline(
-		&asset_hub_westend::tx().revive().map_account(),
-		&alice,
-		params,
-	)?);
 	submit_txs(mapping_txs).await?;
 
 	log::info!("Accounts mapped");
 
-	let code_path = std::env::current_dir().unwrap().join("tests/parachains/contract.polkavm");
-	let code = std::fs::read(code_path)?;
-	let contract_data = sp_core::hex2array!(
-		"6057361d0000000000000000000000000000000000000000000000000000000000000002"
-	)
-	.to_vec();
-
-	let contract_dry_run_call = asset_hub_westend::apis().revive_api().instantiate(
-		alice_account_id.clone(),
-		0,
-		None,
-		None,
-		Code::Upload(code.clone()),
-		vec![],
-		None,
-	);
-	let contract_dry_run =
-		para_client.runtime_api().at_latest().await?.call(contract_dry_run_call).await?;
-	log::info!("Contract dry run: {:?}", contract_dry_run);
-	let storage_deposit = match contract_dry_run.storage_deposit {
-		StorageDeposit::Charge(c) => c,
-		StorageDeposit::Refund(_) => 0,
-	};
-	para_client
-		.tx()
-		.sign_and_submit_then_watch_default(
-			&asset_hub_westend::tx().revive().instantiate_with_code(
-				0,
-				Weight {
-					ref_time: contract_dry_run.gas_required.ref_time,
-					proof_size: contract_dry_run.gas_required.proof_size,
-				},
-				storage_deposit,
-				code,
-				vec![],
-				None,
-			),
-			&alice,
-		)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-	let contract_address = pallet_revive::create1(
-		&alice_h160,
-		para_client.tx().account_nonce(&alice_account_id).await? - 1,
-	);
-
-	log::info!("Contract instantiated: {:?}", contract_address);
-
-	let contract_call_dry_run_call = asset_hub_westend::apis().revive_api().call(
-		alice_account_id.clone(),
-		contract_address,
-		0,
-		None,
-		None,
-		contract_data.clone(),
-	);
 	let contract_call_dry_run = para_client
 		.runtime_api()
 		.at_latest()
 		.await?
-		.call(contract_call_dry_run_call)
+		.call(asset_hub_westend::apis().revive_api().call(
+			alice_account_id.clone(),
+			contract_address,
+			0,
+			None,
+			None,
+			contract_data.clone(),
+		))
 		.await?;
 	let storage_deposit = match contract_call_dry_run.storage_deposit {
 		StorageDeposit::Charge(c) => c,
 		StorageDeposit::Refund(_) => 0,
 	};
 
-	let mut call_txs = keys
+	let call_txs = keys
 		.iter()
 		.map(|key| {
+			let weight = Weight {
+				ref_time: contract_call_dry_run.gas_required.ref_time,
+				proof_size: contract_call_dry_run.gas_required.proof_size,
+			};
 			let params =
 				subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new().nonce(1).build();
 			para_client.tx().create_signed_offline(
 				&asset_hub_westend::tx().revive().call(
 					contract_address,
 					0,
-					Weight {
-						ref_time: contract_call_dry_run.gas_required.ref_time,
-						proof_size: contract_call_dry_run.gas_required.proof_size,
-					},
+					weight,
 					storage_deposit,
 					contract_data.clone(),
 				),
@@ -227,27 +249,9 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 			)
 		})
 		.collect::<Result<Vec<_>, _>>()?;
-	let alice_nonce = para_client.tx().account_nonce(&alice_account_id).await?;
-	let params = subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new()
-		.nonce(alice_nonce)
-		.build();
-	call_txs.push(para_client.tx().create_signed_offline(
-		&asset_hub_westend::tx().revive().call(
-			contract_address,
-			0,
-			Weight {
-				ref_time: contract_call_dry_run.gas_required.ref_time,
-				proof_size: contract_call_dry_run.gas_required.proof_size,
-			},
-			storage_deposit,
-			contract_data.clone(),
-		),
-		&alice,
-		params,
-	)?);
 	submit_txs(call_txs).await?;
 
-	log::info!("Test finished, sleeping for 600 seconds to allow for manual inspection");
+	log::info!("Test finished, sleeping for 6000 seconds to allow for manual inspection");
 
 	// Wait to interact with PolkadotJS
 	tokio::time::sleep(std::time::Duration::from_secs(6000)).await;
