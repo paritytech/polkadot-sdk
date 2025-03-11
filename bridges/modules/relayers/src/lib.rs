@@ -247,9 +247,15 @@ pub mod pallet {
 		pub fn relayer_reward<EncodeLikeAccountId, EncodeLikeReward>(
 			key1: EncodeLikeAccountId,
 			key2: EncodeLikeReward,
-		) -> Option<<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Value> where EncodeLikeAccountId: codec::EncodeLike<<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key1>, EncodeLikeReward: codec::EncodeLike<
-                <RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key2,
-            > {
+		) -> Option<<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Value>
+		where
+			EncodeLikeAccountId: codec::EncodeLike<
+				<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key1,
+			>,
+			EncodeLikeReward: codec::EncodeLike<
+				<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key2,
+			>,
+		{
 			RelayerRewards::<T, I>::get(key1, key2)
 		}
 
