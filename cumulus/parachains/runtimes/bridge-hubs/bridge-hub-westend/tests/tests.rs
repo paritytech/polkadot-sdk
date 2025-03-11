@@ -721,19 +721,19 @@ pub fn bridge_rewards_works() {
 
 			// check stored rewards
 			assert_eq!(
-				BridgeRelayers::relayer_reward(account1.clone(), BridgeReward::from(reward1_for)),
+				BridgeRelayers::relayer_reward(&account1, BridgeReward::from(reward1_for)),
 				Some(reward1)
 			);
 			assert_eq!(
-				BridgeRelayers::relayer_reward(account1.clone(), BridgeReward::Snowbridge),
+				BridgeRelayers::relayer_reward(&account1, BridgeReward::Snowbridge),
 				None,
 			);
 			assert_eq!(
-				BridgeRelayers::relayer_reward(account2.clone(), BridgeReward::Snowbridge),
+				BridgeRelayers::relayer_reward(&account2, BridgeReward::Snowbridge),
 				Some(reward2),
 			);
 			assert_eq!(
-				BridgeRelayers::relayer_reward(account2.clone(), BridgeReward::from(reward1_for)),
+				BridgeRelayers::relayer_reward(&account2, BridgeReward::from(reward1_for)),
 				None,
 			);
 
@@ -744,7 +744,7 @@ pub fn bridge_rewards_works() {
 			));
 			assert_eq!(Balances::total_balance(&account1), ExistentialDeposit::get() + reward1);
 			assert_eq!(
-				BridgeRelayers::relayer_reward(account1.clone(), BridgeReward::from(reward1_for)),
+				BridgeRelayers::relayer_reward(&account1, BridgeReward::from(reward1_for)),
 				None,
 			);
 
