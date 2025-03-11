@@ -18,7 +18,7 @@
 //! Tests for the module.
 
 use crate::{mock::*, *};
-use frame_support::{assert_noop, assert_ok, traits::Currency, pallet_prelude::Pays};
+use frame_support::{assert_noop, assert_ok, pallet_prelude::Pays, traits::Currency};
 use sp_runtime::{bounded_vec, traits::BadOrigin};
 
 #[test]
@@ -495,10 +495,7 @@ fn remove_recovery_works() {
 #[test]
 fn poke_deposit_handles_unsigned_origin() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(
-			Recovery::poke_deposit(RuntimeOrigin::none()),
-			DispatchError::BadOrigin
-		);
+		assert_noop!(Recovery::poke_deposit(RuntimeOrigin::none()), DispatchError::BadOrigin);
 	});
 }
 
@@ -506,12 +503,7 @@ fn poke_deposit_handles_unsigned_origin() {
 fn poke_deposit_works_for_recovery_config_deposits() {
 	new_test_ext().execute_with(|| {
 		// Create initial recovery config
-		assert_ok!(Recovery::create_recovery(
-			RuntimeOrigin::signed(5),
-			vec![2, 3, 4],
-			3,
-			10
-		));
+		assert_ok!(Recovery::create_recovery(RuntimeOrigin::signed(5), vec![2, 3, 4], 3, 10));
 
 		// Verify initial state
 		let old_deposit = Balances::reserved_balance(5);
@@ -536,12 +528,15 @@ fn poke_deposit_works_for_recovery_config_deposits() {
 		assert_eq!(updated_config.deposit, new_deposit);
 
 		// Check event was emitted
-		System::assert_has_event(Event::<Test>::DepositPoked { 
-			who: 5,
-			kind: DepositKind::RecoveryConfig,
-			old_deposit,
-			new_deposit,
-		}.into());
+		System::assert_has_event(
+			Event::<Test>::DepositPoked {
+				who: 5,
+				kind: DepositKind::RecoveryConfig,
+				old_deposit,
+				new_deposit,
+			}
+			.into(),
+		);
 	});
 }
 
@@ -549,15 +544,10 @@ fn poke_deposit_works_for_recovery_config_deposits() {
 fn poke_deposit_works_for_active_recovery_deposits() {
 	new_test_ext().execute_with(|| {
 		// Setup recovery config
-		assert_ok!(Recovery::create_recovery(
-			RuntimeOrigin::signed(5),
-			vec![2, 3, 4],
-			3,
-			10
-		));
+		assert_ok!(Recovery::create_recovery(RuntimeOrigin::signed(5), vec![2, 3, 4], 3, 10));
 		// Account 1 initiates recovery
 		assert_ok!(Recovery::initiate_recovery(RuntimeOrigin::signed(1), 5));
-		
+
 		// Verify initial state
 		let old_deposit = Balances::reserved_balance(1);
 		assert_eq!(old_deposit, 10);
@@ -580,12 +570,15 @@ fn poke_deposit_works_for_active_recovery_deposits() {
 		assert_eq!(updated_recovery.friends, recovery.friends);
 
 		// Check event was emitted
-		System::assert_has_event(Event::<Test>::DepositPoked { 
-			who: 1,
-			kind: DepositKind::ActiveRecovery,
-			old_deposit,
-			new_deposit: new_deposit.into(),
-		}.into());
+		System::assert_has_event(
+			Event::<Test>::DepositPoked {
+				who: 1,
+				kind: DepositKind::ActiveRecovery,
+				old_deposit,
+				new_deposit: new_deposit.into(),
+			}
+			.into(),
+		);
 	});
 }
 
@@ -593,20 +586,10 @@ fn poke_deposit_works_for_active_recovery_deposits() {
 fn poke_deposit_works_for_both_deposits() {
 	new_test_ext().execute_with(|| {
 		// Setup recovery config for account 5
-		assert_ok!(Recovery::create_recovery(
-			RuntimeOrigin::signed(5),
-			vec![2, 3, 4],
-			3,
-			10
-		));
+		assert_ok!(Recovery::create_recovery(RuntimeOrigin::signed(5), vec![2, 3, 4], 3, 10));
 
 		// Account 5 also initiates recovery for another account
-		assert_ok!(Recovery::create_recovery(
-			RuntimeOrigin::signed(1),
-			vec![2, 3, 4],
-			3,
-			10
-		));
+		assert_ok!(Recovery::create_recovery(RuntimeOrigin::signed(1), vec![2, 3, 4], 3, 10));
 		assert_ok!(Recovery::initiate_recovery(RuntimeOrigin::signed(5), 1));
 
 		// Verify initial storage state
@@ -614,11 +597,11 @@ fn poke_deposit_works_for_both_deposits() {
 		let initial_recovery_deposit = 10;
 		assert_eq!(Recovery::recovery_config(5).unwrap().deposit, initial_config_deposit);
 		assert_eq!(
-			<ActiveRecoveries<Test>>::get(&1, &5).unwrap().deposit, 
+			<ActiveRecoveries<Test>>::get(&1, &5).unwrap().deposit,
 			initial_recovery_deposit
 		);
 		assert_eq!(
-			Balances::reserved_balance(5), 
+			Balances::reserved_balance(5),
 			initial_config_deposit + initial_recovery_deposit
 		);
 
@@ -635,28 +618,28 @@ fn poke_deposit_works_for_both_deposits() {
 		let new_config_deposit = 23;
 		let new_recovery_deposit = 15;
 		assert_eq!(Recovery::recovery_config(5).unwrap().deposit, new_config_deposit);
-		assert_eq!(
-			<ActiveRecoveries<Test>>::get(&1, &5).unwrap().deposit, 
-			new_recovery_deposit
-		);
-		assert_eq!(
-			Balances::reserved_balance(5), 
-			new_config_deposit + new_recovery_deposit
-		);
+		assert_eq!(<ActiveRecoveries<Test>>::get(&1, &5).unwrap().deposit, new_recovery_deposit);
+		assert_eq!(Balances::reserved_balance(5), new_config_deposit + new_recovery_deposit);
 
 		// Check both events were emitted
-		System::assert_has_event(Event::<Test>::DepositPoked { 
-			who: 5,
-			kind: DepositKind::RecoveryConfig,
-			old_deposit: initial_config_deposit,
-			new_deposit: new_config_deposit,
-		}.into());
-		System::assert_has_event(Event::<Test>::DepositPoked { 
-			who: 5,
-			kind: DepositKind::ActiveRecovery,
-			old_deposit: initial_recovery_deposit,
-			new_deposit: new_recovery_deposit,
-		}.into());
+		System::assert_has_event(
+			Event::<Test>::DepositPoked {
+				who: 5,
+				kind: DepositKind::RecoveryConfig,
+				old_deposit: initial_config_deposit,
+				new_deposit: new_config_deposit,
+			}
+			.into(),
+		);
+		System::assert_has_event(
+			Event::<Test>::DepositPoked {
+				who: 5,
+				kind: DepositKind::ActiveRecovery,
+				old_deposit: initial_recovery_deposit,
+				new_deposit: new_recovery_deposit,
+			}
+			.into(),
+		);
 	});
 }
 
@@ -678,12 +661,7 @@ fn poke_deposit_charges_fee_for_no_deposits() {
 #[test]
 fn poke_deposit_charges_fee_for_unchanged_deposits() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Recovery::create_recovery(
-			RuntimeOrigin::signed(5),
-			vec![2, 3, 4],
-			3,
-			10
-		));
+		assert_ok!(Recovery::create_recovery(RuntimeOrigin::signed(5), vec![2, 3, 4], 3, 10));
 
 		// Verify initial state
 		let old_deposit = Balances::reserved_balance(5);
@@ -715,12 +693,7 @@ fn poke_deposit_works_with_multiple_active_recoveries() {
 	new_test_ext().execute_with(|| {
 		// Setup multiple accounts with recovery
 		for i in 1..=3 {
-			assert_ok!(Recovery::create_recovery(
-				RuntimeOrigin::signed(i),
-				vec![2, 3, 4],
-				3,
-				10
-			));
+			assert_ok!(Recovery::create_recovery(RuntimeOrigin::signed(i), vec![2, 3, 4], 3, 10));
 		}
 
 		// Account 5 initiates recovery for all of them
@@ -758,10 +731,8 @@ fn poke_deposit_works_with_multiple_active_recoveries() {
 		// Should emit three events with correct old and new deposits
 		let events: Vec<_> = System::events()
 			.into_iter()
-			.filter(|r| matches!(
-				r.event,
-				RuntimeEvent::Recovery(Event::DepositPoked { .. })
-			)).collect();
+			.filter(|r| matches!(r.event, RuntimeEvent::Recovery(Event::DepositPoked { .. })))
+			.collect();
 		assert_eq!(events.len(), 3);
 	});
 }
@@ -770,12 +741,7 @@ fn poke_deposit_works_with_multiple_active_recoveries() {
 fn poke_deposit_handles_insufficient_balance() {
 	new_test_ext().execute_with(|| {
 		// Setup recovery config
-		assert_ok!(Recovery::create_recovery(
-			RuntimeOrigin::signed(5),
-			vec![2, 3, 4],
-			3,
-			10
-		));
+		assert_ok!(Recovery::create_recovery(RuntimeOrigin::signed(5), vec![2, 3, 4], 3, 10));
 		assert_eq!(Balances::reserved_balance(5), 13);
 
 		// Increase required deposit

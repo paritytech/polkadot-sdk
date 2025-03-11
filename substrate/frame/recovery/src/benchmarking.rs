@@ -24,7 +24,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use frame_benchmarking::v2::*;
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
-use sp_runtime::{Saturating, traits::Bounded};
+use sp_runtime::{traits::Bounded, Saturating};
 
 const SEED: u32 = 0;
 const DEFAULT_DELAY: u32 = 0;
@@ -107,7 +107,7 @@ fn setup_active_recovery<T: Config>(caller: &T::AccountId, lost_account: &T::Acc
 	let n = T::MaxFriends::get();
 	let friends = generate_friends::<T>(n);
 	let bounded_friends: FriendsOf<T> = friends.try_into().unwrap();
-	
+
 	let initial_recovery_deposit = T::RecoveryDeposit::get();
 	T::Currency::reserve(caller, initial_recovery_deposit).unwrap();
 
@@ -397,17 +397,29 @@ mod benchmarks {
 		// Update storages with increased deposits
 		<Recoverable<T>>::try_mutate(&lost_account, |maybe_config| -> Result<(), BenchmarkError> {
 			let config = maybe_config.as_mut().unwrap();
-			T::Currency::reserve(&caller, increased_config_deposit.saturating_sub(initial_config_deposit))?;
+			T::Currency::reserve(
+				&caller,
+				increased_config_deposit.saturating_sub(initial_config_deposit),
+			)?;
 			config.deposit = increased_config_deposit;
 			Ok(())
-		}).map_err(|_| BenchmarkError::Stop("Failed to mutate storage"))?;
+		})
+		.map_err(|_| BenchmarkError::Stop("Failed to mutate storage"))?;
 
-		<ActiveRecoveries<T>>::try_mutate(&lost_account, &caller, |maybe_recovery| -> Result<(), BenchmarkError> {
-			let recovery = maybe_recovery.as_mut().unwrap();
-			T::Currency::reserve(&caller, increased_recovery_deposit.saturating_sub(initial_recovery_deposit))?;
-			recovery.deposit = increased_recovery_deposit;
-			Ok(())
-		}).map_err(|_| BenchmarkError::Stop("Failed to mutate storage"))?;
+		<ActiveRecoveries<T>>::try_mutate(
+			&lost_account,
+			&caller,
+			|maybe_recovery| -> Result<(), BenchmarkError> {
+				let recovery = maybe_recovery.as_mut().unwrap();
+				T::Currency::reserve(
+					&caller,
+					increased_recovery_deposit.saturating_sub(initial_recovery_deposit),
+				)?;
+				recovery.deposit = increased_recovery_deposit;
+				Ok(())
+			},
+		)
+		.map_err(|_| BenchmarkError::Stop("Failed to mutate storage"))?;
 
 		// Verify increased deposits
 		assert_eq!(

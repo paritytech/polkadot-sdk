@@ -153,15 +153,14 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen, DecodeWithMemTracking};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	ArithmeticError, DispatchError,
 	traits::{
-		BlockNumberProvider, CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion,
-		StaticLookup, Get,
+		BlockNumberProvider, CheckedAdd, CheckedMul, Dispatchable, Get, SaturatedConversion,
+		StaticLookup,
 	},
-	RuntimeDebug,
+	ArithmeticError, DispatchError, RuntimeDebug,
 };
 
 use frame_support::{
@@ -218,7 +217,17 @@ pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 }
 
 /// The type of deposit
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, DecodeWithMemTracking)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+)]
 pub enum DepositKind {
 	/// Recovery configuration deposit
 	RecoveryConfig,
@@ -231,7 +240,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-use sp_runtime::traits::Saturating;
+	use sp_runtime::traits::Saturating;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -781,13 +790,16 @@ use sp_runtime::traits::Saturating;
 							let excess = old_deposit.saturating_sub(new_deposit);
 							let remaining_unreserved = T::Currency::unreserve(&who, excess);
 							if !remaining_unreserved.is_zero() {
-								defensive!("Failed to unreserve full amount. (Requested, Actual)", (excess, excess.saturating_sub(remaining_unreserved)));
+								defensive!(
+									"Failed to unreserve full amount. (Requested, Actual)",
+									(excess, excess.saturating_sub(remaining_unreserved))
+								);
 							}
 						}
 						config.deposit = new_deposit;
 						deposit_updated = true;
 
-						Self::deposit_event(Event::<T>::DepositPoked { 
+						Self::deposit_event(Event::<T>::DepositPoked {
 							who: who.clone(),
 							kind: DepositKind::RecoveryConfig,
 							old_deposit,
@@ -804,33 +816,40 @@ use sp_runtime::traits::Saturating;
 			<ActiveRecoveries<T>>::iter()
 				.filter(|(_, rescuer, _)| rescuer == &who)
 				.try_for_each(|(lost_account, _, _)| -> DispatchResult {
-					<ActiveRecoveries<T>>::try_mutate(&lost_account, &who, |maybe_recovery| -> DispatchResult {
-						let recovery = maybe_recovery.as_mut().ok_or(Error::<T>::NotStarted)?;
+					<ActiveRecoveries<T>>::try_mutate(
+						&lost_account,
+						&who,
+						|maybe_recovery| -> DispatchResult {
+							let recovery = maybe_recovery.as_mut().ok_or(Error::<T>::NotStarted)?;
 
-						if recovery.deposit != new_deposit {
-							let old_deposit = recovery.deposit;
-							if new_deposit > old_deposit {
-								let extra = new_deposit.saturating_sub(old_deposit);
-								T::Currency::reserve(&who, extra)?;
-							} else {
-								let excess = old_deposit.saturating_sub(new_deposit);
-								let remaining_unreserved = T::Currency::unreserve(&who, excess);
-								if !remaining_unreserved.is_zero() {
-									defensive!("Failed to unreserve full amount. (Requested, Actual)", (excess, excess.saturating_sub(remaining_unreserved)));
+							if recovery.deposit != new_deposit {
+								let old_deposit = recovery.deposit;
+								if new_deposit > old_deposit {
+									let extra = new_deposit.saturating_sub(old_deposit);
+									T::Currency::reserve(&who, extra)?;
+								} else {
+									let excess = old_deposit.saturating_sub(new_deposit);
+									let remaining_unreserved = T::Currency::unreserve(&who, excess);
+									if !remaining_unreserved.is_zero() {
+										defensive!(
+											"Failed to unreserve full amount. (Requested, Actual)",
+											(excess, excess.saturating_sub(remaining_unreserved))
+										);
+									}
 								}
-							}
-							recovery.deposit = new_deposit;
-							deposit_updated = true;
+								recovery.deposit = new_deposit;
+								deposit_updated = true;
 
-							Self::deposit_event(Event::<T>::DepositPoked { 
-								who: who.clone(),
-								kind: DepositKind::ActiveRecovery,
-								old_deposit,
-								new_deposit,
-							});
-						}
-						Ok(())
-					})?;
+								Self::deposit_event(Event::<T>::DepositPoked {
+									who: who.clone(),
+									kind: DepositKind::ActiveRecovery,
+									old_deposit,
+									new_deposit,
+								});
+							}
+							Ok(())
+						},
+					)?;
 					Ok(())
 				})?;
 
