@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{
-	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, Bytes, FilterTopic,
+	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, FilterTopic,
 	ReceiptExtractor, LOG_TARGET,
 };
 use jsonrpsee::core::async_trait;
@@ -192,19 +192,15 @@ impl ReceiptProvider for DBReceiptProvider {
 		let latest_block =
 			U256::from(self.block_provider.latest_block_number().await.unwrap_or_default());
 
-		let from_block = match filter.from_block {
-			// Only latest tag supported
-			Some(BlockNumberOrTag::BlockTag(_)) => Some(latest_block),
-			Some(BlockNumberOrTag::U256(v)) => Some(v),
-			None => None,
+		let as_block_number = |block_param| match block_param {
+			None => Ok(None),
+			Some(BlockNumberOrTag::U256(v)) => Ok(Some(v)),
+			Some(BlockNumberOrTag::BlockTag(BlockTag::Latest)) => Ok(Some(latest_block)),
+			Some(BlockNumberOrTag::BlockTag(tag)) => anyhow::bail!("Unsupported tag: {tag:?}"),
 		};
 
-		let to_block = match filter.to_block {
-			// Only latest tag supported
-			Some(BlockNumberOrTag::BlockTag(_)) => Some(latest_block),
-			Some(BlockNumberOrTag::U256(v)) => Some(v),
-			None => None,
-		};
+		let from_block = as_block_number(filter.from_block)?;
+		let to_block = as_block_number(filter.to_block)?;
 
 		match (from_block, to_block, filter.block_hash) {
 			(Some(_), _, Some(_)) | (_, Some(_), Some(_)) => {
@@ -545,6 +541,12 @@ mod tests {
 		// from_block filter
 		let logs = provider
 			.logs(Some(Filter { from_block: Some(log2.block_number.into()), ..Default::default() }))
+			.await?;
+		assert_eq!(logs, vec![log2.clone()]);
+
+		// from_block filter (using latest block)
+		let logs = provider
+			.logs(Some(Filter { from_block: Some(BlockTag::Latest.into()), ..Default::default() }))
 			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
