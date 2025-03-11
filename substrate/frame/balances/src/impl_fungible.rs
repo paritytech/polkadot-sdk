@@ -211,7 +211,7 @@ impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> fungible::MutateHold<T::AccountId> for Pallet<T, I> {
-	fn done_hold(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
+    fn done_hold(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
         Self::deposit_event(Event::<T, I>::Held { reason: *reason, who: who.clone(), amount });
     }
     fn done_release(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
