@@ -909,7 +909,7 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 }
 
 /// Network backend type.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Copy)]
 pub enum NetworkBackendType {
 	/// Use libp2p for P2P networking.
 	#[default]
