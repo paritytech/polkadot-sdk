@@ -4265,6 +4265,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
  "polkadot-primitives",
+ "rstest",
  "sc-client-api",
  "sc-consensus",
  "sc-consensus-aura",
@@ -4500,6 +4501,7 @@ dependencies = [
  "pallet-aura",
  "pallet-timestamp",
  "parity-scale-codec",
+ "rstest",
  "scale-info",
  "sp-application-crypto 30.0.0",
  "sp-consensus-aura",
@@ -5080,6 +5082,39 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "cumulus-zombienet-sdk-helpers"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "serde",
+ "serde_json",
+ "subxt 0.38.1",
+ "subxt-signer 0.38.0",
+ "tokio",
+]
+
+[[package]]
+name = "cumulus-zombienet-sdk-tests"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cumulus-zombienet-sdk-helpers",
+ "env_logger 0.11.3",
+ "log",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "serde",
+ "serde_json",
+ "subxt 0.38.1",
+ "subxt-signer 0.38.0",
+ "tokio",
+ "zombienet-sdk",
 ]
 
 [[package]]
@@ -16715,6 +16750,7 @@ name = "polkadot-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
  "log",
  "parity-scale-codec",
