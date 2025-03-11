@@ -724,10 +724,7 @@ pub fn bridge_rewards_works() {
 				BridgeRelayers::relayer_reward(&account1, BridgeReward::from(reward1_for)),
 				Some(reward1)
 			);
-			assert_eq!(
-				BridgeRelayers::relayer_reward(&account1, BridgeReward::Snowbridge),
-				None,
-			);
+			assert_eq!(BridgeRelayers::relayer_reward(&account1, BridgeReward::Snowbridge), None,);
 			assert_eq!(
 				BridgeRelayers::relayer_reward(&account2, BridgeReward::Snowbridge),
 				Some(reward2),
