@@ -20,9 +20,9 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, transaction_extension::TransactionExtension, Checkable, Dispatchable, ExtrinsicCall,
-		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, LazyExtrinsic, MaybeDisplay, Member,
-		SignaturePayload,
+		self, transaction_extension::TransactionExtension, BaseExtrinsicCall, Checkable,
+		Dispatchable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount,
+		LazyExtrinsic, LazyExtrinsicCall, MaybeDisplay, Member, SignaturePayload,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -416,13 +416,17 @@ impl<Address, Call, Signature, Extension> ExtrinsicLike
 	}
 }
 
-impl<Address, Call, Signature, Extra> ExtrinsicCall
+impl<Address, Call, Signature, Extra> BaseExtrinsicCall
 	for UncheckedExtrinsic<Address, Call, Signature, Extra>
 {
 	type Call = Call;
+}
 
-	fn call(&self) -> &Call {
-		&self.function
+impl<Address, Call: DecodeWithMemTracking, Signature, Extra> LazyExtrinsicCall
+	for UncheckedExtrinsic<Address, Call, Signature, Extra>
+{
+	fn try_get_or_decode_call(&mut self) -> Result<&Self::Call, codec::Error> {
+		self.call.try_get_or_decode()
 	}
 }
 
@@ -635,6 +639,20 @@ impl<'a, Address, Call, Signature, Extension> ExtrinsicLike
 
 	fn is_bare(&self) -> bool {
 		matches!(self.preamble, Preamble::Bare(_))
+	}
+}
+
+impl<'a, Address, Call, Signature, Extra> BaseExtrinsicCall
+	for UncheckedExtrinsicRef<'a, Address, Call, Signature, Extra>
+{
+	type Call = Call;
+}
+
+impl<'a, Address, Call, Signature, Extra> ExtrinsicCall
+	for UncheckedExtrinsicRef<'a, Address, Call, Signature, Extra>
+{
+	fn call(&self) -> &Call {
+		self.call
 	}
 }
 

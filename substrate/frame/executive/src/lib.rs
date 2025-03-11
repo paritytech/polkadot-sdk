@@ -170,8 +170,8 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	generic::Digest,
 	traits::{
-		self, Applyable, CheckEqual, Checkable, Dispatchable, Header, NumberFor, One,
-		ValidateUnsigned, Zero,
+		self, Applyable, CheckEqual, Checkable, Dispatchable, Header, LazyExtrinsic, NumberFor,
+		One, ValidateUnsigned, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode,
@@ -268,7 +268,7 @@ impl<
 	> ExecuteBlock<Block>
 	for Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
 where
-	Block::Extrinsic: Checkable<Context> + Codec,
+	Block::Extrinsic: Codec + for<'a> traits::LazyExtrinsic<'a> + Checkable<Context>,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
 		Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -308,7 +308,7 @@ impl<
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
 where
-	Block::Extrinsic: Checkable<Context> + Codec,
+	Block::Extrinsic: Codec + for<'a> traits::LazyExtrinsic<'a> + Checkable<Context>,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
 		Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -505,7 +505,7 @@ impl<
 		COnRuntimeUpgrade: OnRuntimeUpgrade,
 	> Executive<System, Block, Context, UnsignedValidator, AllPalletsWithSystem, COnRuntimeUpgrade>
 where
-	Block::Extrinsic: Checkable<Context> + Codec,
+	Block::Extrinsic: Codec + for<'a> traits::LazyExtrinsic<'a> + Checkable<Context>,
 	CheckedOf<Block::Extrinsic, Context>: Applyable + GetDispatchInfo,
 	CallOf<Block::Extrinsic, Context>:
 		Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -676,8 +676,11 @@ where
 		mut apply_extrinsic: impl FnMut(Block::Extrinsic, bool) -> ApplyExtrinsicResult,
 	) -> Result<(), ExecutiveError> {
 		let mut first_non_inherent_idx = 0;
-		for (idx, uxt) in extrinsics.into_iter().enumerate() {
-			let is_inherent = System::is_inherent(&uxt);
+		for (idx, mut uxt) in extrinsics.into_iter().enumerate() {
+			let is_inherent = match Self::check_is_inherent(&mut uxt) {
+				Ok(is_inherent) => is_inherent,
+				Err(e) => return Err(ExecutiveError::ApplyExtrinsic(e)),
+			};
 			if is_inherent {
 				// Check if inherents are first
 				if first_non_inherent_idx != idx {
@@ -776,6 +779,13 @@ where
 		<AllPalletsWithSystem as OnFinalize<BlockNumberFor<System>>>::on_finalize(block_number);
 	}
 
+	fn check_is_inherent(uxt: &mut Block::Extrinsic) -> Result<bool, TransactionValidityError> {
+		let decoded_uxt = uxt.try_as_ref().map_err(|_| {
+			TransactionValidityError::Invalid(InvalidTransaction::UnableToDecodeCall)
+		})?;
+		Ok(System::is_inherent(&decoded_uxt))
+	}
+
 	/// Apply extrinsic outside of the block execution function.
 	///
 	/// This doesn't attempt to validate anything regarding the block, but it builds a list of uxt
@@ -829,8 +839,8 @@ where
 	///
 	/// This doesn't attempt to validate anything regarding the block, but it builds a list of uxt
 	/// hashes.
-	pub fn apply_extrinsic(uxt: Block::Extrinsic) -> ApplyExtrinsicResult {
-		let is_inherent = System::is_inherent(&uxt);
+	pub fn apply_extrinsic(mut uxt: Block::Extrinsic) -> ApplyExtrinsicResult {
+		let is_inherent = Self::check_is_inherent(&mut uxt)?;
 		Self::do_apply_extrinsic(uxt, is_inherent, Block::Extrinsic::check)
 	}
 

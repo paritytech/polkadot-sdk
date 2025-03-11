@@ -896,4 +896,28 @@ error[E0282]: type annotations needed
    |
    = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
+error[E0308]: mismatched types
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+   |
+20 | / construct_runtime! {
+21 | |     pub struct Runtime where
+22 | |         Block = Block,
+23 | |         NodeBlock = Block,
+...  |
+27 | |     }
+28 | | }
+   | | ^
+   | | |
+   | |_types differ in mutability
+   |   arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut _`
+                      found reference `&_`
+note: method defined here
+  --> $WORKSPACE/substrate/primitives/runtime/src/traits/mod.rs
+   |
+   |     fn try_get_or_decode_call(&mut self) -> Result<&Self::Call, codec::Error>;
+   |        ^^^^^^^^^^^^^^^^^^^^^^
+   = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error: internal compiler error: compiler/rustc_middle/src/ty/normalize_erasing_regions.rs:168:90: Failed to normalize std::rc::Rc<std::boxed::Box<dyn [Binder { value: Trait(std::ops::Fn<(&<Runtime as frame_system::Config>::RuntimeCall,)>), bound_vars: [Region(BrAnon)] }, Binder { value: Projection(Output = bool), bound_vars: [Region(BrAnon)] }] + '{erased}, std::alloc::Global>, std::alloc::Global>, maybe try to call `try_normalize_erasing_regions` instead
