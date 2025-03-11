@@ -960,12 +960,10 @@ fn expand_benchmark(
 				Expr::Cast(t) => {
 					let ty = t.ty.clone();
 					quote_spanned! { origin.span() =>
-						#[allow(clippy::useless_conversion)]
 						<<T as #frame_system::Config>::RuntimeOrigin as From<#ty>>::from(#origin);
 					}
 				},
 				_ => quote_spanned! { origin.span() =>
-					#[allow(clippy::useless_conversion)]
 					Into::<<T as #frame_system::Config>::RuntimeOrigin>::into(#origin);
 				},
 			};
@@ -1010,6 +1008,7 @@ fn expand_benchmark(
 				let __call_decoded = <Call<#type_use_generics> as #codec::Decode>
 					::decode(&mut &__benchmarked_call_encoded[..])
 					.expect("call is encoded above, encoding must be correct");
+				#[allow(clippy::useless_conversion)]
 				let __origin = #origin;
 				<Call<#type_use_generics> as #traits::UnfilteredDispatchable>::dispatch_bypass_filter(
 					__call_decoded,
