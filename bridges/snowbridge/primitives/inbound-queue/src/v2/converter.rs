@@ -462,7 +462,7 @@ mod tests {
 			let message = Message {
 				gateway: H160::zero(),
 				nonce: 0,
-				origin: origin.clone(),
+				origin,
 				assets,
 				xcm: XcmPayload::Raw(versioned_xcm.encode()),
 				claimer,
@@ -603,7 +603,7 @@ mod tests {
 		let message = Message {
 			gateway: H160::zero(),
 			nonce: 0,
-			origin: origin.clone(),
+			origin,
 			assets,
 			xcm: XcmPayload::Raw(versioned_xcm.encode()),
 			claimer,
