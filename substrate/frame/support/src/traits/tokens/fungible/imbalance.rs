@@ -64,7 +64,7 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 {
 	fn drop(&mut self) {
 		if !self.amount.is_zero() {
-			OnDrop::handle(self.amount) // here.
+			OnDrop::handle(self.amount)
 		}
 	}
 }
