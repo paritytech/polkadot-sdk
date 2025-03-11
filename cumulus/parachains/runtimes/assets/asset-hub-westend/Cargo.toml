@@ -105,6 +105,7 @@ bp-header-chain = { workspace = true }
 bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
 bridge-hub-common = { workspace = true }
+bridge-runtime-common = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 pallet-bridge-relayers = { workspace = true }
 pallet-xcm-bridge = { workspace = true }
