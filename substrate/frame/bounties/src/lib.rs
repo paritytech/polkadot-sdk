@@ -200,9 +200,6 @@ impl<
 /// The status of a bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>
-where
-	Beneficiary: Clone,
-	PaymentId: Clone,
 {
 	/// The bounty is proposed and waiting for approval.
 	Proposed,
