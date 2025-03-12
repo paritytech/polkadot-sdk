@@ -1236,7 +1236,7 @@ pub mod pallet {
 			// no need to ensure, anybody can do this
 
 			// Ensure `new_code` is authorized
-			let _ = Self::validate_authorization_for(&para, &new_code)?;
+			let _ = Self::validate_code_is_authorized(&new_code, &para)?;
 			// Remove authorization
 			AuthorizedCodeHash::<T>::remove(para);
 
@@ -1307,12 +1307,12 @@ pub mod pallet {
 						.build()
 				},
 				Call::apply_authorized_force_set_current_code { para, new_code } => {
-					match Self::validate_authorization_for(para, new_code) {
+					match Self::validate_code_is_authorized(new_code, para) {
 						Ok((authorized_code_hash, expire_at)) => {
 							let now = frame_system::Pallet::<T>::block_number();
 							if expire_at < now {
 								// this should not happen, because
-								// `Self::validate_authorization_for` validates `expire_at`.
+								// `Self::validate_code_is_authorized` validates `expire_at`.
 								return InvalidTransaction::Stale.into();
 							}
 							let longevity =
@@ -2489,9 +2489,9 @@ impl<T: Config> Pallet<T> {
 	/// of authorized code hashes for a para. If found, it verifies that the associated code
 	/// matches the provided `code`. If the validation is successful, it returns tuple as the
 	/// authorized `ValidationCodeHash` with `expire_at`.
-	pub(crate) fn validate_authorization_for(
-		para: &ParaId,
+	pub(crate) fn validate_code_is_authorized(
 		code: &ValidationCode,
+		para: &ParaId,
 	) -> Result<(ValidationCodeHash, BlockNumberFor<T>), Error<T>> {
 		let Some((authorized_code_hash, expire_at)) = AuthorizedCodeHash::<T>::get(para) else {
 			return Err(Error::<T>::NothingAuthorized);
