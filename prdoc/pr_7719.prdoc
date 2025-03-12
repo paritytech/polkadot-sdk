@@ -9,6 +9,6 @@ doc:
 
 crates:
 - name: sc-cli
-  bump: patch
+  bump: minor
 - name: polkadot-cli
-  bump: patch
+  bump: major
