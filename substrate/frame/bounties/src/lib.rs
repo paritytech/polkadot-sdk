@@ -154,9 +154,7 @@ pub struct Bounty<
 	AssetKind,
 	PaymentId,
 	Beneficiary,
-> where
-	Beneficiary: Clone,
-	PaymentId: Clone,
+>
 {
 	/// The account proposing it.
 	proposer: AccountId,
