@@ -52,6 +52,3 @@ snowbridge-pallet-inbound-queue-fixtures = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
-
-[dev-dependencies]
-sp-tracing = { features = ["test-utils"], workspace = true, default-features = true }

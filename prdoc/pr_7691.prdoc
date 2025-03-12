@@ -1,16 +1,8 @@
 title: Ensure SetTopic is Always Applied in XCM Execution
 doc:
 - audience: Runtime Dev
-  description: "This PR addresses issue #6119 by ensuring that every XCM processed\
-    \ in `xcm::execute` consistently applies the `SetTopic` instruction. Specifically,\
-    \ it integrates two mechanisms\u2014`WithUniqueTopic` and `TrailingSetTopicAsId`\u2014\
-    to guarantee that no message is missing a topic.\n\n- [**`WithUniqueTopic`**](https://paritytech.github.io/polkadot-sdk/master/staging_xcm_builder/struct.WithUniqueTopic.html)\
-    \ ensures that a unique topic is always appended to the message if it is absent.\n\
-    - [**`TrailingSetTopicAsId`**](https://paritytech.github.io/polkadot-sdk/master/staging_xcm_builder/struct.TrailingSetTopicAsId.html)\
-    \ ensures that the message ID is properly set to the last `SetTopic` ID if one\
-    \ already exists.\n\nThese mechanisms enhance message traceability across the\
-    \ XCM flow, ensuring that every message processed through the system has an associated\
-    \ topic, thereby improving debugging and observability."
+  description: |-
+    This PR ensures every XCM processed in `xcm::execute` applies the `SetTopic` instruction to improve traceability.
 crates:
 - name: staging-xcm-builder
   bump: patch

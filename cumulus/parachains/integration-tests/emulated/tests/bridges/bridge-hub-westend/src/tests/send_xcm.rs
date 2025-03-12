@@ -205,10 +205,8 @@ fn xcm_persists_set_topic_across_hops_without_topic_id() {
 	let mut topic_id = None;
 
 	// No SetTopic initially
-	let xcm = VersionedXcm::from(Xcm(vec![
-		UnpaidExecution { weight_limit, check_origin },
-		ClearOrigin,
-	]));
+	let xcm =
+		VersionedXcm::from(Xcm(vec![UnpaidExecution { weight_limit, check_origin }, ClearOrigin]));
 
 	// Step 1: Send XCM from Westend Relay to BridgeHubWestend
 	Westend::execute_with(|| {
