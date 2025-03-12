@@ -37,9 +37,9 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		EitherOfDiverse, EnsureOriginWithArg, FromContains, InstanceFilter, KeyOwnerProofSystem,
+		LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError, VariantCountOf,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -50,6 +50,7 @@ use pallet_identity::legacy::IdentityInfo;
 use pallet_nomination_pools::PoolId;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
+use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_primitives::{
 	slashing,
 	vstaging::{
@@ -116,7 +117,7 @@ use xcm::{
 	VersionedLocation, VersionedXcm,
 };
 use xcm_builder::PayOverXcm;
-use xcm_config::{AssetHubLocation, CollectivesLocation, FellowsBodyId};
+use xcm_config::{AssetHub, Collectives, FellowsBodyId};
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -1636,7 +1637,7 @@ parameter_types! {
 pub struct ContainsAssetHub;
 impl Contains<Location> for ContainsAssetHub {
 	fn contains(loc: &Location) -> bool {
-		*loc == AssetHubLocation::get()
+		*loc == AssetHub::get()
 	}
 }
 
@@ -1645,7 +1646,7 @@ impl pallet_rc_migrator::Config for Runtime {
 	type ManagerOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		EitherOfDiverse<
-			EnsureXcm<IsVoiceOfBody<CollectivesLocation, FellowsBodyId>>,
+			EnsureXcm<IsVoiceOfBody<Collectives, FellowsBodyId>>,
 			EnsureXcm<ContainsAssetHub, Location>,
 		>,
 	>;

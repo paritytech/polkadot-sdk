@@ -90,18 +90,18 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		Referenda(..) => (OFF, OFF),
 		// Origins has no calls
 		Whitelist(..) => (OFF, OFF),
-		Claims(..) => (OFF, OFF),
+		// Claims(..) => (OFF, OFF), // Not on Westend.
 		Vesting(..) => (OFF, OFF),
 		Utility(..) => (OFF, ON), // batching etc
 		Proxy(..) => (OFF, ON),
 		Multisig(..) => (OFF, ON),
-		Bounties(..) => (OFF, OFF),
-		ChildBounties(..) => (OFF, OFF),
+		// Bounties(..) => (OFF, OFF), // Not on Westend.
+		// ChildBounties(..) => (OFF, OFF), // Not on Westend.
 		ElectionProviderMultiPhase(..) => (OFF, OFF),
 		VoterList(..) => (OFF, OFF),
 		NominationPools(..) => (OFF, OFF),
 		FastUnstake(..) => (OFF, OFF),
-		// DelegatedStaking has on calls
+		// DelegatedStaking has no calls
 		// ParachainsOrigin has no calls
 		Configuration(..) => (ON, ON), /* TODO allow this to be called by fellow origin during the migration https://github.com/polkadot-fellows/runtimes/pull/559#discussion_r1928794490 */
 		ParasShared(..) => (OFF, OFF), /* Has no calls but a call enum https://github.com/paritytech/polkadot-sdk/blob/ee803b74056fac5101c06ec5998586fa6eaac470/polkadot/runtime/parachains/src/shared.rs#L185-L186 */
@@ -115,7 +115,7 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		// ParaSessionInfo has no calls
 		ParasDisputes(..) => (OFF, ON), // TODO check with security
 		ParasSlashing(..) => (OFF, ON), // TODO check with security
-		OnDemand(..) => (OFF, ON),
+		OnDemandAssignmentProvider(..) => (OFF, ON),
 		// CoretimeAssignmentProvider has no calls
 		Registrar(..) => (OFF, ON),
 		Slots(..) => (OFF, OFF),
@@ -128,14 +128,13 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		Crowdloan(..) => (OFF, OFF),
 		Coretime(coretime::Call::<Runtime>::request_revenue_at { .. }) => (OFF, ON),
 		Coretime(..) => (ON, ON),
-		StateTrieMigration(..) => (OFF, OFF), // Deprecated
+		// StateTrieMigration(..) => (OFF, OFF), // Not on Westend.
 		XcmPallet(..) => (OFF, ON), /* TODO allow para origins and root to call this during the migration, see https://github.com/polkadot-fellows/runtimes/pull/559#discussion_r1928789463 */
 		MessageQueue(..) => (ON, ON), // TODO think about this
 		AssetRate(..) => (OFF, OFF),
-		Beefy(..) => (OFF, ON), /* TODO @claravanstaden @bkontur */
+		Beefy(..) => (OFF, ON),     /* TODO @claravanstaden @bkontur */
+		Identity(..) => (OFF, OFF), // Identity pallet is still hanging around filtered on westend.
 		RcMigrator(..) => (ON, ON),
-		Identity(..) => (OFF, OFF), /* Identity pallet is still hanging around on westend.
-		                             * Exhaustive match. Compiler ensures that we did not miss
-		                             * any. */
+		// Exhaustive match. Compiler ensures that we did not miss any.
 	}
 }
