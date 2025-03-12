@@ -986,7 +986,7 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 				destination: t.args.dest,
 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(fees.into())),
 				preserve_origin: false,
-				assets: vec![AssetTransferFilter::Teleport(assets.into())],
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::Teleport(assets.into())]),
 				remote_xcm: xcm_on_dest,
 			},
 		]);
@@ -1022,7 +1022,7 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 				destination: t.args.dest,
 				remote_fees: Some(AssetTransferFilter::ReserveDeposit(fees.into())),
 				preserve_origin: false,
-				assets: vec![AssetTransferFilter::Teleport(assets.into())],
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::Teleport(assets.into())]),
 				remote_xcm: xcm_on_dest,
 			},
 		]);

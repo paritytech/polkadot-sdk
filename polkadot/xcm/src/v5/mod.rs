@@ -182,6 +182,7 @@ pub mod prelude {
 			Fungibility::{self, *},
 			Hint::{self, *},
 			HintNumVariants,
+			MaxAssetTransferFilters,
 			Instruction::*,
 			InteriorLocation,
 			Junction::{self, *},
@@ -210,6 +211,7 @@ pub mod prelude {
 parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
 	pub MaxPalletsInfo: u32 = 64;
+	pub MaxAssetTransferFilters: u32 = 6;
 }
 
 #[derive(
@@ -1097,7 +1099,7 @@ pub enum Instruction<Call> {
 		destination: Location,
 		remote_fees: Option<AssetTransferFilter>,
 		preserve_origin: bool,
-		assets: Vec<AssetTransferFilter>,
+		assets: BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 		remote_xcm: Xcm<()>,
 	},
 

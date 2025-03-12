@@ -141,7 +141,7 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 		_dest: &Location,
 		remote_fees: &Option<AssetTransferFilter>,
 		_preserve_origin: &bool,
-		assets: &Vec<AssetTransferFilter>,
+		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 		_xcm: &Xcm<()>,
 	) -> Weight {
 		let base_weight = XcmFungibleWeight::<Runtime>::initiate_transfer();
