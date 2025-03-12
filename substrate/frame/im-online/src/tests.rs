@@ -26,7 +26,7 @@ use sp_core::offchain::{
 	testing::{TestOffchainExt, TestTransactionPoolExt},
 	OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 };
-use sp_runtime::testing::UintAuthorityId;
+use sp_runtime::{testing::UintAuthorityId, traits::LazyExtrinsic};
 
 #[test]
 fn test_unresponsiveness_slash_fraction() {
@@ -224,8 +224,8 @@ fn should_generate_heartbeats() {
 		assert_eq!(state.read().transactions.len(), 2);
 
 		// check stuff about the transaction.
-		let ex: Extrinsic = Decode::decode(&mut &*transaction).unwrap();
-		let heartbeat = match ex.function {
+		let mut ex: Extrinsic = Decode::decode(&mut &*transaction).unwrap();
+		let heartbeat = match ex.expect_as_ref().call {
 			crate::mock::RuntimeCall::ImOnline(crate::Call::heartbeat { heartbeat, .. }) =>
 				heartbeat,
 			e => panic!("Unexpected call: {:?}", e),
@@ -233,7 +233,7 @@ fn should_generate_heartbeats() {
 
 		assert_eq!(
 			heartbeat,
-			Heartbeat {
+			&Heartbeat {
 				block_number: block,
 				session_index: 2,
 				authority_index: 2,
@@ -338,8 +338,8 @@ fn should_not_send_a_report_if_already_online() {
 		// All validators have `0` as their session key, but we should only produce 1 heartbeat.
 		assert_eq!(pool_state.read().transactions.len(), 0);
 		// check stuff about the transaction.
-		let ex: Extrinsic = Decode::decode(&mut &*transaction).unwrap();
-		let heartbeat = match ex.function {
+		let mut ex: Extrinsic = Decode::decode(&mut &*transaction).unwrap();
+		let heartbeat = match ex.expect_as_ref().call {
 			crate::mock::RuntimeCall::ImOnline(crate::Call::heartbeat { heartbeat, .. }) =>
 				heartbeat,
 			e => panic!("Unexpected call: {:?}", e),
@@ -347,7 +347,7 @@ fn should_not_send_a_report_if_already_online() {
 
 		assert_eq!(
 			heartbeat,
-			Heartbeat { block_number: 4, session_index: 2, authority_index: 0, validators_len: 3 }
+			&Heartbeat { block_number: 4, session_index: 2, authority_index: 0, validators_len: 3 }
 		);
 	});
 }

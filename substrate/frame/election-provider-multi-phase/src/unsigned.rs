@@ -1109,7 +1109,7 @@ mod tests {
 	use sp_runtime::{
 		bounded_vec,
 		offchain::storage_lock::{BlockAndTime, StorageLock},
-		traits::{Dispatchable, ValidateUnsigned, Zero},
+		traits::{Dispatchable, LazyExtrinsic, ValidateUnsigned, Zero},
 		ModuleError, PerU16,
 	};
 
@@ -1898,9 +1898,9 @@ mod tests {
 			// OCW must have submitted now
 
 			let encoded = pool.read().transactions[0].clone();
-			let extrinsic: Extrinsic = codec::Decode::decode(&mut &*encoded).unwrap();
-			let call = extrinsic.function;
-			assert!(matches!(call, RuntimeCall::MultiPhase(Call::submit_unsigned { .. })));
+			let mut extrinsic: Extrinsic = codec::Decode::decode(&mut &*encoded).unwrap();
+			let call = extrinsic.expect_as_ref().call;
+			assert!(matches!(call, &RuntimeCall::MultiPhase(Call::submit_unsigned { .. })));
 		})
 	}
 
@@ -1915,8 +1915,8 @@ mod tests {
 			crate::Round::<Runtime>::mutate(|round| *round += 1);
 
 			let encoded = pool.read().transactions[0].clone();
-			let extrinsic = Extrinsic::decode(&mut &*encoded).unwrap();
-			let call = match extrinsic.function {
+			let mut extrinsic = Extrinsic::decode(&mut &*encoded).unwrap();
+			let call = match extrinsic.expect_as_ref().call {
 				RuntimeCall::MultiPhase(call @ Call::submit_unsigned { .. }) => call,
 				_ => panic!("bad call: unexpected submission"),
 			};
