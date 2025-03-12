@@ -24,7 +24,7 @@ use parking_lot::RwLock;
 
 use sp_api::CallContext;
 use sp_consensus::BlockOrigin;
-use sp_core::offchain::OffchainStorage;
+use sp_core::{offchain::OffchainStorage, traits::SpawnNamed};
 use sp_runtime::{
 	traits::{Block as BlockT, HashingFor, NumberFor},
 	Justification, Justifications, StateVersion, Storage,
@@ -642,5 +642,10 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	fn requires_full_sync(&self) -> bool;
 }
 
+pub trait ManualTrieCacheFlush {
+	/// Flush the trie cache.
+	fn flush_cache(&self, spawn_handle: Box<dyn SpawnNamed>);
+}
+
 /// Mark for all Backend implementations, that are making use of state data, stored locally.
-pub trait LocalBackend<Block: BlockT>: Backend<Block> {}
+pub trait LocalBackend<Block: BlockT>: Backend<Block> + ManualTrieCacheFlush {}

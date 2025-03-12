@@ -23,6 +23,7 @@ use sp_api::CallContext;
 use sp_blockchain::{CachedHeaderMetadata, HeaderMetadata};
 use sp_core::{
 	offchain::storage::InMemOffchainStorage as OffchainStorage, storage::well_known_keys,
+	traits::SpawnNamed,
 };
 use sp_runtime::{
 	generic::BlockId,
@@ -43,7 +44,7 @@ use crate::{
 	backend::{self, NewBlockState},
 	blockchain::{self, BlockStatus, HeaderBackend},
 	leaves::LeafSet,
-	UsageInfo,
+	ManualTrieCacheFlush, UsageInfo,
 };
 
 struct PendingBlock<B: BlockT> {
@@ -784,6 +785,10 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 }
 
 impl<Block: BlockT> backend::LocalBackend<Block> for Backend<Block> {}
+
+impl<Block: BlockT> ManualTrieCacheFlush for Backend<Block> {
+	fn flush_cache(&self, spawn_handle: Box<dyn SpawnNamed>) {}
+}
 
 /// Check that genesis storage is valid.
 pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {

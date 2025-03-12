@@ -29,6 +29,7 @@ use hash_db::Hasher;
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
 use schnellru::LruMap;
+use sp_core::traits::SpawnNamed;
 use std::{
 	collections::{hash_map::Entry as SetEntry, HashMap},
 	hash::{BuildHasher, Hasher as _},
@@ -583,21 +584,22 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 }
 
 /// The inner of [`SharedTrieCache`].
-pub(super) struct SharedTrieCacheInner<H: Hasher> {
+pub(super) struct SharedTrieCacheInner<H: Hasher + 'static> {
 	node_cache: SharedNodeCache<H::Out>,
 	value_cache: SharedValueCache<H::Out>,
 	stats: TrieHitStats,
+	queued_work: Option<Vec<LocalCacheDataToWriteBack<H>>>,
 }
 
 /// Holds the `TrieLocalCache` data that needs to be propagated back
 /// to the shared_cache by the worker thread.
+#[derive(Clone)]
 pub(super) struct LocalCacheDataToWriteBack<H: Hasher + 'static> {
 	node_cache: Arc<Mutex<NodeCacheMap<H::Out>>>,
 	value_cache: Arc<Mutex<ValueCacheMap<H::Out>>>,
 	shared_value_cache_access: Arc<Mutex<ValueAccessSet>>,
 	value_cache_config: LocalValueCacheConfig,
 	node_cache_config: LocalNodeCacheConfig,
-	shared_cache: SharedTrieCache<H>,
 	stats: TrieHitStatsSnapshot,
 }
 
@@ -627,6 +629,26 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 	pub(super) fn stats(&mut self) -> &TrieHitStats {
 		&self.stats
 	}
+
+	pub(super) fn write_back(&mut self, write_back_work: LocalCacheDataToWriteBack<H>) {
+		let start = Instant::now();
+		self.stats().add_snapshot(&write_back_work.stats);
+		self.node_cache_mut()
+			.update(write_back_work.node_cache.lock().drain(), &write_back_work.node_cache_config);
+
+		self.value_cache_mut().update(
+			write_back_work.value_cache.lock().drain(),
+			write_back_work.shared_value_cache_access.lock().drain().map(|(key, ())| key),
+			&write_back_work.value_cache_config,
+		);
+		if start.elapsed().as_millis() > 100 {
+			tracing::warn!(
+				target: LOG_TARGET,
+				"Writing back the shared cache took a lot of time: {} ms hits: {:?}",
+				start.elapsed().as_millis(), write_back_work.stats
+			);
+		}
+	}
 }
 
 /// The shared trie cache.
@@ -638,20 +660,20 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 /// The instance of this object can be shared between multiple threads.
 pub struct SharedTrieCache<H: Hasher + 'static> {
 	inner: Arc<RwLock<SharedTrieCacheInner<H>>>,
-	/// Channel to send the TrieLocalCache data that needs to be propagated back to the
-	/// shared_cache by the worker thread.
-	write_back_work_tx: std::sync::mpsc::Sender<LocalCacheDataToWriteBack<H>>,
+	rx_worker: Arc<Mutex<Option<std::sync::mpsc::Receiver<bool>>>>,
+
+	tx: Option<std::sync::mpsc::Sender<bool>>,
 }
 
 impl<H: Hasher> Clone for SharedTrieCache<H> {
 	fn clone(&self) -> Self {
-		Self { inner: self.inner.clone(), write_back_work_tx: self.write_back_work_tx.clone() }
+		Self { inner: self.inner.clone(), tx: self.tx.clone(), rx_worker: self.rx_worker.clone() }
 	}
 }
 
 impl<H: Hasher + 'static> SharedTrieCache<H> {
 	/// Create a new [`SharedTrieCache`].
-	pub fn new(cache_size: CacheSize) -> Self {
+	pub fn new(cache_size: CacheSize, update_cache_in_background: bool) -> Self {
 		let total_budget = cache_size.0;
 
 		// Split our memory budget between the two types of caches.
@@ -685,19 +707,12 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 			value_cache_max_inline_size,
 			value_cache_max_heap_size,
 		);
-
-		let (tx, rx) = std::sync::mpsc::channel();
-		/// Worker thread that writes back the local cache data to the shared cache.
-		std::thread::spawn(move || loop {
-			match rx.recv() {
-				Ok(work) => Self::write_back(work),
-				Err(err) => {
-					warn!("Error receiving write back work: {:?}", err);
-					break;
-				},
-			}
-		});
-
+		let (tx, rx) = if update_cache_in_background {
+			let (tx, rx) = std::sync::mpsc::channel();
+			(Some(tx), Some(rx))
+		} else {
+			(None, None)
+		};
 		Self {
 			inner: Arc::new(RwLock::new(SharedTrieCacheInner {
 				node_cache: SharedNodeCache::new(
@@ -709,8 +724,10 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 					value_cache_max_heap_size,
 				),
 				stats: Default::default(),
+				queued_work: if update_cache_in_background { Some(Vec::new()) } else { None },
 			})),
-			write_back_work_tx: tx,
+			rx_worker: Arc::new(Mutex::new(rx)),
+			tx,
 		}
 	}
 
@@ -842,39 +859,6 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 		self.inner.try_write_for(super::SHARED_CACHE_WRITE_LOCK_TIMEOUT)
 	}
 
-	/// Write back the local cache data to the shared cache.
-	pub(super) fn write_back(write_back_work: LocalCacheDataToWriteBack<H>) {
-		let start = Instant::now();
-		let mut shared_inner = match write_back_work.shared_cache.write_lock_inner() {
-			Some(inner) => inner,
-			None => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					"Timeout while trying to acquire a write lock for the shared trie cache"
-				);
-				return
-			},
-		};
-
-		shared_inner.stats().add_snapshot(&write_back_work.stats);
-		shared_inner
-			.node_cache_mut()
-			.update(write_back_work.node_cache.lock().drain(), &write_back_work.node_cache_config);
-
-		shared_inner.value_cache_mut().update(
-			write_back_work.value_cache.lock().drain(),
-			write_back_work.shared_value_cache_access.lock().drain().map(|(key, ())| key),
-			&write_back_work.value_cache_config,
-		);
-		if start.elapsed().as_millis() > 100 {
-			tracing::warn!(
-				target: LOG_TARGET,
-				"Writing back the shared cache took a lot of time: {} ms hits: {:?}",
-				start.elapsed().as_millis(), write_back_work.stats
-			);
-		}
-	}
-
 	pub(super) fn queue_local_cache_data(
 		&self,
 		node_cache: Arc<Mutex<NodeCacheMap<H::Out>>>,
@@ -884,7 +868,6 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 		node_cache_config: LocalNodeCacheConfig,
 		stats: TrieHitStatsSnapshot,
 	) {
-		let shared_cache = self.clone();
 		let write_back_work = LocalCacheDataToWriteBack {
 			node_cache,
 			value_cache,
@@ -892,10 +875,70 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 			value_cache_config,
 			node_cache_config,
 			stats,
-			shared_cache,
 		};
-		if let Err(err) = self.write_back_work_tx.send(write_back_work) {
-			warn!("Failed to send write back work {:}", err);
+		let mut shared_inner = match self.write_lock_inner() {
+			Some(inner) => inner,
+			None => {
+				tracing::warn!(
+					target: LOG_TARGET,
+					"Timeout while trying to acquire a write lock for the shared trie cache"
+				);
+				return
+			},
+		};
+		if let Some(queued_work) = &mut shared_inner.queued_work {
+			queued_work.push(write_back_work);
+		} else {
+			shared_inner.write_back(write_back_work);
+		}
+	}
+
+	pub fn flush_cache(&self, spawn_handle: Box<dyn SpawnNamed>) {
+		if let Some(tx) = self.tx.as_ref() {
+			let writeback_receiver = self.rx_worker.lock().take();
+
+			// Kick the writeback thread.
+			if let Err(err) = tx.send(true) {
+				tracing::error!(target: LOG_TARGET, "Failed to kick trie-cache writeback thread: {:?}", err);
+			};
+
+			// Spawn the writeback thread if the first time this function gets called.
+			if let Some(writeback_receiver) = writeback_receiver {
+				let shared_cache = self.clone();
+				spawn_handle.spawn_blocking(
+					"flush_local_cache_trie",
+					Some("shared_cache_trie"),
+					Box::pin(async move {
+						while let Ok(_) = writeback_receiver.recv() {
+							tracing::info!(target: LOG_TARGET, "Flushing the local cache to the shared cache");
+							// Drain the queue and update the shared cache data.
+							loop {
+								let mut shared_inner = match shared_cache.write_lock_inner() {
+									Some(inner) => inner,
+									None => {
+										tracing::warn!(
+											target: LOG_TARGET,
+											"Timeout while trying to acquire a write lock for the shared trie cache"
+										);
+										return
+									},
+								};
+
+								if let Some(work) = shared_inner
+									.queued_work
+									.as_mut()
+									.and_then(|mut queued_work| queued_work.pop())
+								{
+									shared_inner.write_back(work);
+								} else {
+									break;
+								}
+							}
+						}
+						tracing::info!(target: LOG_TARGET, "Writeback thread stopped, this is expected at shutdown");
+					}),
+				);
+			}
 		}
 	}
 }

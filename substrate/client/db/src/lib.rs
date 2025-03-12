@@ -75,7 +75,7 @@ use sp_blockchain::{
 use sp_core::{
 	offchain::OffchainOverlayedChange,
 	storage::{well_known_keys, ChildInfo},
-	traits::CallContext,
+	traits::{CallContext, SpawnNamed},
 };
 use sp_database::Transaction;
 use sp_runtime::{
@@ -1242,7 +1242,10 @@ impl<Block: BlockT> Backend<Block> {
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
 			shared_trie_cache: config.trie_cache_maximum_size.map(|maximum_size| {
-				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
+				SharedTrieCache::new(
+					sp_trie::cache::CacheSize::new(maximum_size),
+					config.unlimited_local_cache,
+				)
 			}),
 			unlimited_local_cache: config.unlimited_local_cache,
 		};
@@ -2104,6 +2107,14 @@ where
 
 	fn get_aux(&self, key: &[u8]) -> ClientResult<Option<Vec<u8>>> {
 		Ok(self.storage.db.get(columns::AUX, key))
+	}
+}
+
+impl<Block: BlockT> sc_client_api::backend::ManualTrieCacheFlush for Backend<Block> {
+	fn flush_cache(&self, spawn_handle: Box<dyn SpawnNamed>) {
+		if let Some(cache) = self.shared_trie_cache.as_ref() {
+			cache.flush_cache(spawn_handle);
+		}
 	}
 }
 
