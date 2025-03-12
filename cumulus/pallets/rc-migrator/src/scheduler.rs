@@ -19,7 +19,18 @@ use frame_support::traits::schedule::v3::TaskName;
 use pallet_scheduler::{RetryConfig, TaskAddress};
 
 /// Stage of the scheduler pallet migration.
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	DecodeWithMemTracking,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+)]
 pub enum SchedulerStage<BlockNumber> {
 	#[default]
 	IncompleteSince,

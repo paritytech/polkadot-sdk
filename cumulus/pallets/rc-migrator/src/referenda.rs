@@ -18,7 +18,18 @@ use crate::*;
 use pallet_referenda::{DecidingCount, MetadataOf, ReferendumCount, ReferendumInfoFor, TrackQueue};
 
 /// The stages of the referenda pallet migration.
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	DecodeWithMemTracking,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+)]
 pub enum ReferendaStage {
 	#[default]
 	StorageValues,

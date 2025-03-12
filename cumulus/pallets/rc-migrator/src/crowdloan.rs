@@ -78,7 +78,17 @@ pub enum RcCrowdloanMessage<BlockNumber, AccountId, Balance> {
 pub type RcCrowdloanMessageOf<T> =
 	RcCrowdloanMessage<BlockNumberFor<T>, AccountIdOf<T>, crate::BalanceOf<T>>;
 
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebug, Clone, PartialEq, Eq)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebug,
+	Clone,
+	PartialEq,
+	Eq,
+)]
 pub enum CrowdloanStage {
 	Setup,
 	LeaseReserve { last_key: Option<ParaId> },

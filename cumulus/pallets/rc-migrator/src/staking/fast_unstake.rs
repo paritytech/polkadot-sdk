@@ -19,7 +19,17 @@
 use crate::{types::*, *};
 use alias::UnstakeRequest;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum FastUnstakeStage<AccountId> {
 	StorageValues,
 	Queue(Option<AccountId>),

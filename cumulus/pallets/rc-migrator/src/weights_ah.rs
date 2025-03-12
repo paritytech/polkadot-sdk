@@ -53,7 +53,6 @@ pub trait WeightInfo {
 	fn receive_multisigs(n: u32, ) -> Weight;
 	fn receive_accounts(n: u32, ) -> Weight;
 	fn receive_liquid_accounts(n: u32, ) -> Weight;
-	fn receive_claims(n: u32, ) -> Weight;
 	fn receive_proxy_proxies(n: u32, ) -> Weight;
 	fn receive_proxy_announcements(n: u32, ) -> Weight;
 }
@@ -111,21 +110,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2603).saturating_mul(n.into()))
-	}
-	/// Storage: `Claims::Vesting` (r:255 w:255)
-	/// Proof: `Claims::Vesting` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `n` is `[1, 255]`.
-	fn receive_claims(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `43`
-		//  Estimated: `1033 + n * (2475 ±0)`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(13_351_744, 1033)
-			// Standard Error: 6_895
-			.saturating_add(Weight::from_parts(2_020_140, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 2475).saturating_mul(n.into()))
 	}
 	/// Storage: `Proxy::Proxies` (r:0 w:255)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)
@@ -209,21 +193,6 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2603).saturating_mul(n.into()))
-	}
-	/// Storage: `Claims::Vesting` (r:255 w:255)
-	/// Proof: `Claims::Vesting` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `n` is `[1, 255]`.
-	fn receive_claims(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `43`
-		//  Estimated: `1033 + n * (2475 ±0)`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(13_351_744, 1033)
-			// Standard Error: 6_895
-			.saturating_add(Weight::from_parts(2_020_140, 0).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
-			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 2475).saturating_mul(n.into()))
 	}
 	/// Storage: `Proxy::Proxies` (r:0 w:255)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(1241), added: 3716, mode: `MaxEncodedLen`)

@@ -132,9 +132,18 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		XcmPallet(..) => (OFF, ON), /* TODO allow para origins and root to call this during the migration, see https://github.com/polkadot-fellows/runtimes/pull/559#discussion_r1928789463 */
 		MessageQueue(..) => (ON, ON), // TODO think about this
 		AssetRate(..) => (OFF, OFF),
-		Beefy(..) => (OFF, ON),     /* TODO @claravanstaden @bkontur */
-		Identity(..) => (OFF, OFF), // Identity pallet is still hanging around filtered on westend.
+		Beefy(..) => (OFF, ON), /* TODO @claravanstaden @bkontur */
 		RcMigrator(..) => (ON, ON),
+		// Westend-specific.
+		Identity(..) => (OFF, OFF), // Filtered already on Westend.
+		Parameters(..) => (ON, ON),
+		Recovery(..) => (ON, ON),
+		Sudo(..) => (ON, ON),
+		ParasSudoWrapper(..) => (ON, ON),
+		AssignedSlots(..) => (ON, ON),
+		MultiBlockMigrations(..) => (ON, ON),
+		RootTesting(..) => (ON, ON),
+		IdentityMigrator(..) => (ON, ON),
 		// Exhaustive match. Compiler ensures that we did not miss any.
 	}
 }

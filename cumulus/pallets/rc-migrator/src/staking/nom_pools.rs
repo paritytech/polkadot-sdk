@@ -25,7 +25,17 @@ use sp_runtime::Perbill;
 /// The stages of the nomination pools pallet migration.
 ///
 /// They advance in a linear fashion.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum NomPoolsStage<AccountId> {
 	/// Migrate the storage values.
 	StorageValues,

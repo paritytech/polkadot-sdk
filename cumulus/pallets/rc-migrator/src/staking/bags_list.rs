@@ -18,7 +18,17 @@
 
 use crate::{types::*, *};
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum BagsListStage<AccountId, Score> {
 	ListNodes(Option<AccountId>),
 	ListBags(Option<Score>),

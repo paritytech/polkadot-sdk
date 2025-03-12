@@ -32,7 +32,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod accounts;
-pub mod claims;
 pub mod crowdloan;
 pub mod indices;
 pub mod multisig;
@@ -46,12 +45,10 @@ pub mod weights;
 pub mod weights_ah;
 pub use pallet::*;
 pub mod asset_rate;
-pub mod bounties;
 pub mod conviction_voting;
 pub mod scheduler;
 
 use accounts::AccountsMigrator;
-use claims::{ClaimsMigrator, ClaimsStage};
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::traits::AccountIdConversion,
@@ -69,7 +66,7 @@ use multisig::MultisigMigrator;
 use pallet_balances::AccountData;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_common::{
-	claims as pallet_claims, crowdloan as pallet_crowdloan, paras_registrar, slots as pallet_slots,
+	crowdloan as pallet_crowdloan, paras_registrar, slots as pallet_slots,
 };
 use polkadot_runtime_parachains::hrmp;
 use preimage::{
@@ -127,7 +124,18 @@ pub enum PalletEventName {
 
 pub type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	DecodeWithMemTracking,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+)]
 pub enum MigrationStage<AccountId, BlockNumber, BagsListScore, VotingClass, AssetKind> {
 	/// The migration has not yet started but will start in the future.
 	#[default]
@@ -159,12 +167,6 @@ pub enum MigrationStage<AccountId, BlockNumber, BagsListScore, VotingClass, Asse
 		last_key: Option<(AccountId, [u8; 32])>,
 	},
 	MultisigMigrationDone,
-
-	ClaimsMigrationInit,
-	ClaimsMigrationOngoing {
-		current_key: Option<ClaimsStage<AccountId>>,
-	},
-	ClaimsMigrationDone,
 
 	ProxyMigrationInit,
 	/// Currently migrating the proxies of the proxy pallet.
@@ -240,12 +242,6 @@ pub enum MigrationStage<AccountId, BlockNumber, BagsListScore, VotingClass, Asse
 	},
 	ConvictionVotingMigrationDone,
 
-	BountiesMigrationInit,
-	BountiesMigrationOngoing {
-		last_key: Option<bounties::BountiesStage>,
-	},
-	BountiesMigrationDone,
-
 	AssetRateMigrationInit,
 	AssetRateMigrationOngoing {
 		last_key: Option<AssetKind>,
@@ -298,7 +294,6 @@ impl<AccountId, BlockNumber, BagsListScore, VotingClass, AssetKind> std::str::Fr
 			"referenda" => MigrationStage::ReferendaMigrationInit,
 			"multisig" => MigrationStage::MultisigMigrationInit,
 			"voting" => MigrationStage::ConvictionVotingMigrationInit,
-			"bounties" => MigrationStage::BountiesMigrationInit,
 			"asset_rate" => MigrationStage::AssetRateMigrationInit,
 			"indices" => MigrationStage::IndicesMigrationInit,
 			other => return Err(format!("Unknown migration stage: {}", other)),
@@ -327,7 +322,6 @@ pub mod pallet {
 		+ hrmp::Config
 		+ paras_registrar::Config
 		+ pallet_multisig::Config
-		+ pallet_claims::Config
 		+ pallet_proxy::Config<BlockNumberProvider = frame_system::Pallet<Self>>
 		+ pallet_preimage::Config<Hash = H256>
 		+ pallet_referenda::Config<Votes = u128>
@@ -338,7 +332,6 @@ pub mod pallet {
 		+ pallet_vesting::Config
 		+ pallet_indices::Config
 		+ pallet_conviction_voting::Config
-		+ pallet_bounties::Config
 		+ pallet_treasury::Config<BlockNumberProvider = frame_system::Pallet<Self>>
 		+ pallet_asset_rate::Config
 		+ pallet_slots::Config
@@ -581,35 +574,6 @@ pub mod pallet {
 					}
 				},
 				MigrationStage::MultisigMigrationDone => {
-					Self::transition(MigrationStage::ClaimsMigrationInit);
-				},
-				MigrationStage::ClaimsMigrationInit => {
-					Self::transition(MigrationStage::ClaimsMigrationOngoing { current_key: None });
-				},
-				MigrationStage::ClaimsMigrationOngoing { current_key } => {
-					let res = with_transaction_opaque_err::<Option<_>, Error<T>, _>(|| {
-						match ClaimsMigrator::<T>::migrate_many(current_key, &mut weight_counter) {
-							Ok(current_key) => TransactionOutcome::Commit(Ok(current_key)),
-							Err(e) => TransactionOutcome::Rollback(Err(e)),
-						}
-					})
-					.expect("Always returning Ok; qed");
-
-					match res {
-						Ok(None) => {
-							Self::transition(MigrationStage::ClaimsMigrationDone);
-						},
-						Ok(Some(current_key)) => {
-							Self::transition(MigrationStage::ClaimsMigrationOngoing {
-								current_key: Some(current_key),
-							});
-						},
-						e => {
-							defensive!("Error while migrating claims: {:?}", e);
-						},
-					}
-				},
-				MigrationStage::ClaimsMigrationDone => {
 					Self::transition(MigrationStage::ProxyMigrationInit);
 				},
 				MigrationStage::ProxyMigrationInit => {
@@ -1031,38 +995,6 @@ pub mod pallet {
 					}
 				},
 				MigrationStage::ConvictionVotingMigrationDone => {
-					Self::transition(MigrationStage::BountiesMigrationInit);
-				},
-				MigrationStage::BountiesMigrationInit => {
-					Self::transition(MigrationStage::BountiesMigrationOngoing { last_key: None });
-				},
-				MigrationStage::BountiesMigrationOngoing { last_key } => {
-					let res = with_transaction_opaque_err::<Option<_>, Error<T>, _>(|| {
-						match bounties::BountiesMigrator::<T>::migrate_many(
-							last_key,
-							&mut weight_counter,
-						) {
-							Ok(last_key) => TransactionOutcome::Commit(Ok(last_key)),
-							Err(e) => TransactionOutcome::Rollback(Err(e)),
-						}
-					})
-					.expect("Always returning Ok; qed");
-
-					match res {
-						Ok(None) => {
-							Self::transition(MigrationStage::BountiesMigrationDone);
-						},
-						Ok(Some(last_key)) => {
-							Self::transition(MigrationStage::BountiesMigrationOngoing {
-								last_key: Some(last_key),
-							});
-						},
-						e => {
-							defensive!("Error while migrating bounties: {:?}", e);
-						},
-					}
-				},
-				MigrationStage::BountiesMigrationDone => {
 					Self::transition(MigrationStage::AssetRateMigrationInit);
 				},
 				MigrationStage::AssetRateMigrationInit => {

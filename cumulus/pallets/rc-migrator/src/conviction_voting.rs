@@ -20,7 +20,17 @@ use pallet_conviction_voting::{ClassLocksFor, TallyOf, Voting};
 use sp_runtime::traits::Zero;
 
 /// Stage of the scheduler pallet migration.
-#[derive(Encode, Decode, Clone, RuntimeDebug, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+)]
 pub enum ConvictionVotingStage<AccountId, Class> {
 	VotingFor(Option<(AccountId, Class)>),
 	ClassLocksFor(Option<AccountId>),

@@ -60,8 +60,9 @@ pub enum AhMigratorCall<T: Config> {
 	},
 	#[codec(index = 11)]
 	ReceiveReferendums { referendums: Vec<(u32, ReferendumInfoOf<T, ()>)> },
-	#[codec(index = 12)]
-	ReceiveClaimsMessages { messages: Vec<claims::RcClaimsMessageOf<T>> },
+	// Claims pallet not on Westend.
+	// #[codec(index = 12)]
+	// ReceiveClaimsMessages { messages: Vec<claims::RcClaimsMessageOf<T>> },
 	#[codec(index = 13)]
 	ReceiveBagsListMessages { messages: Vec<staking::bags_list::RcBagsListMessage<T>> },
 	#[codec(index = 14)]
@@ -72,8 +73,9 @@ pub enum AhMigratorCall<T: Config> {
 	ReceiveConvictionVotingMessages {
 		messages: Vec<conviction_voting::RcConvictionVotingMessageOf<T>>,
 	},
-	#[codec(index = 17)]
-	ReceiveBountiesMessages { messages: Vec<bounties::RcBountiesMessageOf<T>> },
+	// Bounties pallet not on Westend.
+	// #[codec(index = 17)]
+	// ReceiveBountiesMessages { messages: Vec<bounties::RcBountiesMessageOf<T>> },
 	#[codec(index = 18)]
 	ReceiveAssetRates { asset_rates: Vec<(<T as pallet_asset_rate::Config>::AssetKind, FixedU128)> },
 	#[codec(index = 19)]
