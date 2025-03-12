@@ -1573,7 +1573,7 @@ mod bridge_to_westend_tests {
 		bridge_hub_test_utils::test_cases::change_bridge_messages_pallet_mode_by_governance_works::<
 			Runtime,
 			WithAssetHubWestendMessagesInstance,
-		>(collator_session_keys(), bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)
+		>(collator_session_keys(), RUNTIME_PARA_ID)
 	}
 
 	#[test]
