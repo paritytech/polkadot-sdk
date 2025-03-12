@@ -258,7 +258,7 @@ impl<T: Config> Pallet<T> {
 	pub fn initializer_on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
 		let old_core_count = notification.prev_config.scheduler_params.num_cores;
 		let new_core_count = notification.new_config.scheduler_params.num_cores;
-		log::info!("{old_core_count} -- {new_core_count}");
+		log::info!("Initializing coretime old:{old_core_count} -- new:{new_core_count}");
 		if new_core_count != old_core_count {
 			let core_count: u16 = new_core_count.saturated_into();
 			let message = Xcm(vec![

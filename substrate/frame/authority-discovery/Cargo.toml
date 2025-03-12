@@ -28,6 +28,7 @@ scale-info = { features = ["derive"], workspace = true }
 sp-application-crypto = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-runtime = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true, default-features = true }

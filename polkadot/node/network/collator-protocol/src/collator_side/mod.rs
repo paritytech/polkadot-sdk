@@ -566,7 +566,7 @@ async fn determine_our_validators<Context>(
 
 	let validators = &info.discovery_keys;
 
-	gum::info!(target: "skunert", "session_info: {info:?}, discovery_keys: {}", validators.len());
+	gum::info!(target: "skunert", "session_info: {info:?}, discovery_keys: {}, num_cores: {num_cores}", validators.len());
 
 	let current_validators = if !validators.is_empty() {
 		current_validators.iter().map(|i| validators[i.0 as usize].clone()).collect()

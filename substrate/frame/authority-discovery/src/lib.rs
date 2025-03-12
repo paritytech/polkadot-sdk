@@ -107,6 +107,7 @@ impl<T: Config> Pallet<T> {
 				WeakBoundedVec::<AuthorityId, T::MaxAuthorities>::try_from((*keys).clone())
 					.expect("Keys vec too big");
 
+			log::info!("Initial keys: {:?}", bounded_keys.len());
 			Keys::<T>::put(&bounded_keys);
 			NextKeys::<T>::put(&bounded_keys);
 		}
@@ -124,7 +125,10 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
-		Self::initialize_keys(&authorities.map(|x| x.1).collect::<Vec<_>>());
+		log::info!("Initializing authority-discovery");
+		let auth = &authorities.map(|x| x.1).collect::<Vec<_>>();
+		log::info!("Initializing authority-discovery: {:?}", auth.len());
+		Self::initialize_keys(auth);
 	}
 
 	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, queued_validators: I)
