@@ -1027,10 +1027,12 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn phase_transition(to: Phase<T>) {
 		let from = Self::current_phase();
-		log!(debug, "transitioning phase from {:?} to {:?}", from, to);
 		use sp_std::mem::discriminant;
 		if discriminant(&from) != discriminant(&to) {
+			log!(debug, "transitioning phase from {:?} to {:?}", from, to);
 			Self::deposit_event(Event::PhaseTransitioned { from, to });
+		} else {
+			log!(trace, "transitioning phase from {:?} to {:?}", from, to);
 		}
 		<CurrentPhase<T>>::put(to);
 	}

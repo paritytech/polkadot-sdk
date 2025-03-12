@@ -1271,6 +1271,13 @@ pub trait AccountTouch<AssetId, AccountId> {
 	fn touch(asset: AssetId, who: &AccountId, depositor: &AccountId) -> DispatchResult;
 }
 
+/// Trait for reporting additional validator reward points
+pub trait RewardsReporter<ValidatorId> {
+	/// The input is an iterator of tuples of validator account IDs and the amount of points they
+	/// should be rewarded.
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (ValidatorId, u32)>);
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;

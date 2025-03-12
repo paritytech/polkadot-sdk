@@ -117,6 +117,7 @@ members = [
 	"cumulus/parachains/pallets/ping",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo",
 	"cumulus/parachains/runtimes/assets/asset-hub-westend",
+	"cumulus/parachains/runtimes/assets/asset-hub-next-westend",
 	"cumulus/parachains/runtimes/assets/common",
 	"cumulus/parachains/runtimes/assets/test-utils",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo",
@@ -224,6 +225,8 @@ members = [
 	"polkadot/runtime/test-runtime/constants",
 	"polkadot/runtime/westend",
 	"polkadot/runtime/westend/constants",
+	"polkadot/runtime/westend-next",
+	"polkadot/runtime/westend-next/constants",
 	"polkadot/statement-table",
 	"polkadot/utils/generate-bags",
 	"polkadot/utils/remote-ext-tests/bags-list",
@@ -422,6 +425,7 @@ members = [
 	"substrate/frame/society",
 	"substrate/frame/staking",
 	"substrate/frame/staking/ah-client",
+	"substrate/frame/staking/ahm-test",
 	"substrate/frame/staking/rc-client",
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",
@@ -1390,6 +1394,8 @@ wat = { version = "1.0.0" }
 westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/westend", default-features = false }
 westend-runtime = { path = "polkadot/runtime/westend" }
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false }
+westend-next-runtime = { path = "polkadot/runtime/westend-next" }
+westend-next-runtime-constants = { path = "polkadot/runtime/westend-next/constants", default-features = false }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system" }
 x25519-dalek = { version = "2.0" }
 xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm" }

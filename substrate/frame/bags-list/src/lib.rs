@@ -441,6 +441,14 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		Box::new(List::<T, I>::iter().map(|n| n.id().clone()))
 	}
 
+	fn range() -> (Self::Score, Self::Score) {
+		use frame_support::traits::Get;
+		(
+			T::BagThresholds::get().first().cloned().unwrap_or_default(),
+			T::BagThresholds::get().last().cloned().unwrap_or_default()
+		)
+	}
+
 	fn iter_from(
 		start: &T::AccountId,
 	) -> Result<Box<dyn Iterator<Item = T::AccountId>>, Self::Error> {

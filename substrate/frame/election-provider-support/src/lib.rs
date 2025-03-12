@@ -488,7 +488,18 @@ pub trait ElectionProvider {
 	}
 
 	/// Return the duration of your election.
+	///
+	/// This excludes the duration of the export. For that, use [`duration_with_export`].
 	fn duration() -> Self::BlockNumber;
+
+	/// Return the duration of your election, including the export.
+	fn duration_with_export() -> Self::BlockNumber
+	where
+		Self::BlockNumber: From<PageIndex> + core::ops::Add<Output = Self::BlockNumber>,
+	{
+		let export: Self::BlockNumber = Self::Pages::get().into();
+		Self::duration() + export
+	}
 
 	/// Signal that the election should start
 	fn start() -> Result<(), Self::Error>;
@@ -592,7 +603,19 @@ pub trait SortedListProvider<AccountId> {
 	type Error: core::fmt::Debug;
 
 	/// The type used by the list to compare nodes for ordering.
-	type Score: Bounded + Saturating + Zero;
+	type Score: Bounded + Saturating + Zero + Default;
+
+	/// A typical range for this list.
+	///
+	/// By default, this would be implemented as `Bounded` impl of `Self::Score`.
+	///
+	/// If this is implemented by a bags-list instance, it will be the smallest and largest bags.
+	///
+	/// This is useful to help another pallet that consumes this trait generate an even distribution
+	/// of nodes for testing/genesis.
+	fn range() -> (Self::Score, Self::Score) {
+		(Self::Score::min_value(), Self::Score::max_value())
+	}
 
 	/// An iterator over the list, which can have `take` called on it.
 	fn iter() -> Box<dyn Iterator<Item = AccountId>>;

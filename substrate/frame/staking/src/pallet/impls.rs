@@ -17,6 +17,14 @@
 
 //! Implementations for the Staking FRAME Pallet.
 
+use crate::{
+	asset, election_size_tracker::StaticTracker, log, session_rotation, slashing,
+	weights::WeightInfo, ActiveEraInfo, BalanceOf, BoundedExposuresOf, EraInfo, EraPayout,
+	Exposure, Forcing, IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf,
+	MaxWinnersPerPageOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+};
+use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
 	bounds::CountBound, data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider,
 	ElectionProvider, PageIndex, ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
@@ -27,32 +35,21 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
+		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect,
 	},
 	weights::Weight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use pallet_session::historical;
 use sp_runtime::{
-	traits::{Bounded, CheckedAdd, Convert, SaturatedConversion, Saturating, StaticLookup, Zero},
+	traits::{Bounded, CheckedAdd, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchResult, Perbill, Percent,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	offence::{OffenceDetails, OffenceSeverity, OnOffenceHandler},
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
-
-use crate::{
-	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure,
-	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, SnapshotStatus,
-	StakingLedger, ValidatorPrefs, STAKING_ID,
-};
-use alloc::{boxed::Box, vec, vec::Vec};
 
 use super::pallet::*;
 
@@ -451,172 +448,6 @@ impl<T: Config> Pallet<T> {
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
 	}
 
-	/// Plan a new session potentially trigger a new era.
-	///
-	/// Subsequent function calls in the happy path are as follows:
-	/// 1. `try_plan_new_era`
-	/// 2. `plan_new_era`
-	fn new_session(
-		session_index: SessionIndex,
-		is_genesis: bool,
-	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
-		if let Some(current_era) = CurrentEra::<T>::get() {
-			// Initial era has been set.
-			let current_era_start_session_index = ErasStartSessionIndex::<T>::get(current_era)
-				.unwrap_or_else(|| {
-					frame_support::print("Error: start_session_index must be set for current_era");
-					0
-				});
-
-			let era_length = session_index.saturating_sub(current_era_start_session_index); // Must never happen.
-
-			match ForceEra::<T>::get() {
-				// Will be set to `NotForcing` again if a new era has been triggered.
-				Forcing::ForceNew => (),
-				// Short circuit to `try_plan_new_era`.
-				Forcing::ForceAlways => (),
-				// Only go to `try_plan_new_era` if deadline reached.
-				Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
-				_ => {
-					// Either `Forcing::ForceNone`,
-					// or `Forcing::NotForcing if era_length >= T::SessionsPerEra::get()`.
-					return None
-				},
-			}
-
-			// New era.
-			let maybe_new_era_validators = Self::try_plan_new_era(session_index, is_genesis);
-			if maybe_new_era_validators.is_some() &&
-				matches!(ForceEra::<T>::get(), Forcing::ForceNew)
-			{
-				Self::set_force_era(Forcing::NotForcing);
-			}
-
-			maybe_new_era_validators
-		} else {
-			// Set initial era.
-			log!(debug, "Starting the first era.");
-			Self::try_plan_new_era(session_index, is_genesis)
-		}
-	}
-
-	// 1. hardcode it here
-	// 2. semi hardcode it type ElectionStartLookaheadSession: Get<u32>;
-	// 3. fully flexible.
-
-	/// Start a session potentially starting an era.
-	fn start_session(start_session: SessionIndex) {
-		let next_active_era = ActiveEra::<T>::get().map(|e| e.index + 1).unwrap_or(0);
-		// This is only `Some` when current era has already progressed to the next era, while the
-		// active era is one behind (i.e. in the *last session of the active era*, or *first session
-		// of the new current era*, depending on how you look at it).
-		if let Some(next_active_era_start_session_index) =
-			ErasStartSessionIndex::<T>::get(next_active_era)
-		{
-			if next_active_era_start_session_index == start_session {
-				Self::start_era(start_session);
-			} else if next_active_era_start_session_index < start_session {
-				// This arm should never happen, but better handle it than to stall the staking
-				// pallet.
-				frame_support::print("Warning: A session appears to have been skipped.");
-				Self::start_era(start_session);
-			}
-
-			// trigger election in the last session of the era
-			if start_session + 1 == next_active_era_start_session_index {
-				// TODO: trigger election
-				// Self::trigger_election();
-			}
-		}
-	}
-
-	/// End a session potentially ending an era.
-	fn end_session(session_index: SessionIndex) {
-		if let Some(active_era) = ActiveEra::<T>::get() {
-			if let Some(next_active_era_start_session_index) =
-				ErasStartSessionIndex::<T>::get(active_era.index + 1)
-			{
-				if next_active_era_start_session_index == session_index + 1 {
-					Self::end_era(active_era, session_index);
-				}
-			}
-		}
-	}
-
-	/// Start a new era. It does:
-	/// * Increment `active_era.index`,
-	/// * reset `active_era.start`,
-	/// * update `BondedEras` and apply slashes.
-	fn start_era(start_session: SessionIndex) {
-		let active_era = ActiveEra::<T>::mutate(|active_era| {
-			let new_index = active_era.as_ref().map(|info| info.index + 1).unwrap_or(0);
-			log!(debug, "starting active era {:?}", new_index);
-			*active_era = Some(ActiveEraInfo {
-				index: new_index,
-				// Set new active era start in next `on_finalize`. To guarantee usage of `Time`
-				start: None,
-			});
-			new_index
-		});
-
-		let bonding_duration = T::BondingDuration::get();
-
-		BondedEras::<T>::mutate(|bonded| {
-			bonded.push((active_era, start_session));
-
-			if active_era > bonding_duration {
-				let first_kept = active_era.defensive_saturating_sub(bonding_duration);
-
-				// Prune out everything that's from before the first-kept index.
-				let n_to_prune =
-					bonded.iter().take_while(|&&(era_idx, _)| era_idx < first_kept).count();
-
-				// Kill slashing metadata.
-				for (pruned_era, _) in bonded.drain(..n_to_prune) {
-					slashing::clear_era_metadata::<T>(pruned_era);
-				}
-
-				if let Some(&(_, first_session)) = bonded.first() {
-					T::SessionInterface::prune_historical_up_to(first_session);
-				}
-			}
-		});
-	}
-
-	/// Compute payout for era.
-	fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
-		// Note: active_era_start can be None if end era is called during genesis config.
-		if let Some(active_era_start) = active_era.start {
-			let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
-
-			let era_duration = (now_as_millis_u64.defensive_saturating_sub(active_era_start))
-				.saturated_into::<u64>();
-			let staked = ErasTotalStake::<T>::get(&active_era.index);
-			let issuance = asset::total_issuance::<T>();
-
-			let (validator_payout, remainder) =
-				T::EraPayout::era_payout(staked, issuance, era_duration);
-
-			let total_payout = validator_payout.saturating_add(remainder);
-			let max_staked_rewards =
-				MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
-
-			// apply cap to validators payout and add difference to remainder.
-			let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
-			let remainder = total_payout.saturating_sub(validator_payout);
-
-			Self::deposit_event(Event::<T>::EraPaid {
-				era_index: active_era.index,
-				validator_payout,
-				remainder,
-			});
-
-			// Set ending era reward.
-			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
-			T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
-		}
-	}
-
 	/// Helper function provided to other pallets that want to rely on pallet-stkaing for
 	/// testing/benchmarking, and wish to populate `ElectableStashes`, such that a next call (post
 	/// genesis) to `try_plan_new_era` works.
@@ -630,121 +461,6 @@ impl<T: Config> Pallet<T> {
 		})?;
 		Self::do_elect_paged_inner(supports).map_err(|_| "do_elect_paged_inner")?;
 		Ok(())
-	}
-
-	/// Potentially plan a new era.
-	///
-	/// The election results are either fetched directly from an election provider if it is the
-	/// "genesis" election or from a cached set of winners.
-	///
-	/// In case election result has more than [`MinimumValidatorCount`] validator trigger a new era.
-	///
-	/// In case a new era is planned, the new validator set is returned.
-	pub(crate) fn try_plan_new_era(
-		start_session_index: SessionIndex,
-		is_genesis: bool,
-	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
-		// TODO: weights of this call path are rather crude, improve.
-		let validators: BoundedVec<T::AccountId, MaxWinnersOf<T>> = if is_genesis {
-			// genesis election only uses one election result page.
-			let result = <T::GenesisElectionProvider>::elect(Zero::zero()).map_err(|e| {
-				log!(warn, "genesis election provider failed due to {:?}", e);
-				Self::deposit_event(Event::StakingElectionFailed);
-			});
-
-			let exposures = Self::collect_exposures(result.ok().unwrap_or_default());
-
-			let validators = exposures
-				.iter()
-				.map(|(validator, _)| validator)
-				.cloned()
-				.try_collect()
-				.unwrap_or_default();
-
-			// set stakers info for genesis era (0).
-			let _ = Self::store_stakers_info(exposures, Zero::zero());
-
-			// consume full block weight to be safe.
-			Self::register_weight(sp_runtime::traits::Bounded::max_value());
-			validators
-		} else {
-			// note: exposures have already been processed and stored for each of the election
-			// solution page at the time of `elect_paged(page_index)`.
-			Self::register_weight(T::DbWeight::get().reads(1));
-			// TODO: here we should ensure that wea re not in the middle of importing election
-			// result.
-			ElectableStashes::<T>::take()
-				.into_inner()
-				.into_iter()
-				.collect::<Vec<_>>()
-				.try_into()
-				.expect("same bounds, will fit; qed.")
-		};
-
-		log!(
-			info,
-			"try_plan_new_era: (is_genesis?: {:?}) electable validators count for session starting {:?}, era {:?}: {:?}",
-			is_genesis,
-			start_session_index,
-			CurrentEra::<T>::get().unwrap_or_default() + 1,
-			validators.len()
-		);
-
-		if (validators.len() as u32) < MinimumValidatorCount::<T>::get().max(1) {
-			// Session will panic if we ever return an empty validator set, thus max(1) ^^.
-			match CurrentEra::<T>::get() {
-				Some(current_era) if current_era > 0 => log!(
-					warn,
-					"chain does not have enough staking candidates to operate for era {:?} ({} \
-					elected, minimum is {})",
-					CurrentEra::<T>::get().unwrap_or(0),
-					validators.len(),
-					MinimumValidatorCount::<T>::get(),
-				),
-				None => {
-					// The initial era is allowed to have no exposures.
-					// In this case the SessionManager is expected to choose a sensible validator
-					// set.
-					// TODO: this should be simplified #8911
-					CurrentEra::<T>::put(0);
-					ErasStartSessionIndex::<T>::insert(&0, &start_session_index);
-				},
-				_ => {},
-			}
-			// election failed, clear election prep metadata.
-			Self::deposit_event(Event::StakingElectionFailed);
-			Self::clear_election_metadata();
-
-			None
-		} else {
-			Self::deposit_event(Event::StakersElected);
-			Self::clear_election_metadata();
-			Self::plan_new_era(start_session_index);
-
-			Some(validators)
-		}
-	}
-
-	/// Plan a new era.
-	///
-	/// * Bump the current era storage (which holds the latest planned era).
-	/// * Store start session index for the new planned era.
-	/// * Clean old era information.
-	///
-	/// The new validator set for this era is stored under `ElectableStashes`.
-	pub fn plan_new_era(start_session_index: SessionIndex) {
-		// Increment or set current era.
-		let new_planned_era = CurrentEra::<T>::mutate(|s| {
-			*s = Some(s.map(|s| s + 1).unwrap_or(0));
-			s.unwrap()
-		});
-		ErasStartSessionIndex::<T>::insert(&new_planned_era, &start_session_index);
-
-		// Clean old era information.
-		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
-			log!(trace, "Removing era information for {:?}", old_era);
-			Self::clear_era_information(old_era);
-		}
 	}
 
 	/// Paginated elect.
@@ -1641,158 +1357,299 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 	}
 }
 
-/// In this implementation `new_session(session)` must be called before `end_session(session-1)`
-/// i.e. the new session must be planned before the ending of the previous session.
-///
-/// Once the first new_session is planned, all session must start and then end in order, though
-/// some session can lag in between the newest session planned and the latest session started.
-impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
-	// └── Self::new_session(new_index, false)
-	//	└── Self::try_plan_new_era(session_index, is_genesis)
-	//    └── T::GenesisElectionProvider::elect() OR ElectableStashes::<T>::take()
-	//    └── Self::collect_exposures()
-	//    └── Self::store_stakers_info()
-	//    └── Self::plan_new_era()
-	//        └── CurrentEra increment
-	//        └── ErasStartSessionIndex update
-	//        └── Self::clear_era_information()
-	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-		log!(trace, "planning new session {}", new_index);
-		CurrentPlannedSession::<T>::put(new_index);
-		Self::new_session(new_index, false).map(|v| v.into_inner())
-	}
-	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-		log!(trace, "planning new session {} at genesis", new_index);
-		CurrentPlannedSession::<T>::put(new_index);
-		Self::new_session(new_index, true).map(|v| v.into_inner())
-	}
-	// start_session(start_session: SessionIndex)
-	//	└── Check if this is the start of next active era
-	//	└── Self::start_era(start_session)
-	//		└── Update active era index
-	//		└── Set active era start timestamp
-	//		└── Update BondedEras
-	//		└── Self::apply_unapplied_slashes()
-	//			└── Get slashes for era from UnappliedSlashes
-	//			└── Apply each slash
-	//			└── Clear slashes metadata
-	//	└── Process disabled validators
-	//	└── Get all disabled validators
-	//	└── Call T::SessionInterface::disable_validator() for each
-	fn start_session(start_index: SessionIndex) {
-		log!(trace, "starting session {}", start_index);
-		Self::start_session(start_index)
-	}
-	fn end_session(end_index: SessionIndex) {
-		log!(trace, "ending session {}", end_index);
-		Self::end_session(end_index)
-	}
-}
+use pallet_staking_rc_client::{self as rc_client};
 
-impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
-	for Pallet<T>
-{
+impl<T: Config> Pallet<T> {
+	/// Plan a new session potentially trigger a new era.
+	///
+	/// Subsequent function calls in the happy path are as follows:
+	/// 1. `try_plan_new_era`
+	/// 2. `plan_new_era`
 	fn new_session(
-		new_index: SessionIndex,
-	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-		<Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
-			let current_era = CurrentEra::<T>::get()
-				// Must be some as a new era has been created.
-				.unwrap_or(0);
+		session_index: SessionIndex,
+		is_genesis: bool,
+	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
+		log!(debug, "Planning session: {:?}", session_index);
 
-			validators
-				.into_iter()
-				.map(|v| {
-					let exposure = Self::eras_stakers(current_era, &v);
-					(v, exposure)
-				})
-				.collect()
-		})
-	}
-	fn new_session_genesis(
-		new_index: SessionIndex,
-	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index).map(
-			|validators| {
-				let current_era = CurrentEra::<T>::get()
-					// Must be some as a new era has been created.
-					.unwrap_or(0);
+		if let Some(current_era) = CurrentEra::<T>::get() {
+			// Initial era has been set.
+			let current_era_start_session_index = ErasStartSessionIndex::<T>::get(current_era)
+				.unwrap_or_else(|| {
+					frame_support::print("Error: start_session_index must be set for current_era");
+					0
+				});
 
-				validators
-					.into_iter()
-					.map(|v| {
-						let exposure = Self::eras_stakers(current_era, &v);
-						(v, exposure)
-					})
-					.collect()
-			},
-		)
-	}
-	fn start_session(start_index: SessionIndex) {
-		<Self as pallet_session::SessionManager<_>>::start_session(start_index)
-	}
-	fn end_session(end_index: SessionIndex) {
-		<Self as pallet_session::SessionManager<_>>::end_session(end_index)
-	}
-}
+			let era_length = session_index.saturating_sub(current_era_start_session_index); // Must never happen.
 
-impl<T: Config> historical::SessionManager<T::AccountId, ()> for Pallet<T> {
-	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
-		<Self as pallet_session::SessionManager<_>>::new_session(new_index)
-			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
-	}
-	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
-		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index)
-			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
-	}
-	fn start_session(start_index: SessionIndex) {
-		<Self as pallet_session::SessionManager<_>>::start_session(start_index)
-	}
-	fn end_session(end_index: SessionIndex) {
-		<Self as pallet_session::SessionManager<_>>::end_session(end_index)
-	}
-}
+			match ForceEra::<T>::get() {
+				// Will be set to `NotForcing` again if a new era has been triggered.
+				Forcing::ForceNew => (),
+				// Short circuit to `try_plan_new_era`.
+				Forcing::ForceAlways => (),
+				// Only go to `try_plan_new_era` if deadline reached.
+				Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
+				_ => {
+					// Either `Forcing::ForceNone`,
+					// or `Forcing::NotForcing if era_length >= T::SessionsPerEra::get()`.
+					return None
+				},
+			}
 
-/// Add reward points to block authors:
-/// * 20 points to the block producer for producing a (non-uncle) block,
-impl<T> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T>
-where
-	T: Config + pallet_authorship::Config + pallet_session::Config,
-{
-	fn note_author(author: T::AccountId) {
-		Self::reward_by_ids(vec![(author, 20)])
-	}
-}
+			// New era.
+			let maybe_new_era_validators = Self::try_plan_new_era(session_index, is_genesis);
+			if maybe_new_era_validators.is_some() &&
+				matches!(ForceEra::<T>::get(), Forcing::ForceNew)
+			{
+				Self::set_force_era(Forcing::NotForcing);
+			}
 
-/// This is intended to be used with `FilterHistoricalOffences`.
-impl<T: Config>
-	OnOffenceHandler<T::AccountId, pallet_session::historical::IdentificationTuple<T>, Weight>
-	for Pallet<T>
-where
-	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-	T: pallet_session::historical::Config,
-	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
-	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
-	T::ValidatorIdOf: Convert<
-		<T as frame_system::Config>::AccountId,
-		Option<<T as frame_system::Config>::AccountId>,
-	>,
-{
-	/// When an offence is reported, it is split into pages and put in the offence queue.
-	/// As offence queue is processed, computed slashes are queued to be applied after the
-	/// `SlashDeferDuration`.
-	fn on_offence(
-		offenders: &[OffenceDetails<T::AccountId, historical::IdentificationTuple<T>>],
-		slash_fractions: &[Perbill],
-		slash_session: SessionIndex,
-	) -> Weight {
+			maybe_new_era_validators
+		} else {
+			// Set initial era.
+			log!(debug, "Starting the first era.");
+			Self::try_plan_new_era(session_index, is_genesis)
+		}
+	}
+
+	/// Start a new era. It does:
+	/// * Increment `active_era.index`,
+	/// * reset `active_era.start`,
+	/// * update `BondedEras` and apply slashes.
+	pub(crate) fn start_era(start_session: SessionIndex, start_timestamp: u64) {
+		let active_era = ActiveEra::<T>::mutate(|active_era| {
+			let new_index = active_era.as_ref().map(|info| info.index + 1).unwrap_or(0);
+			log!(
+				debug,
+				"starting active era {:?} with RC-provided timestamp {:?}",
+				new_index,
+				start_timestamp
+			);
+			*active_era = Some(ActiveEraInfo { index: new_index, start: Some(start_timestamp) });
+			new_index
+		});
+
+		let bonding_duration = T::BondingDuration::get();
+
+		BondedEras::<T>::mutate(|bonded| {
+			bonded.push((active_era, start_session));
+
+			if active_era > bonding_duration {
+				let first_kept = active_era.defensive_saturating_sub(bonding_duration);
+
+				// Prune out everything that's from before the first-kept index.
+				let n_to_prune =
+					bonded.iter().take_while(|&&(era_idx, _)| era_idx < first_kept).count();
+
+				// Kill slashing metadata.
+				for (pruned_era, _) in bonded.drain(..n_to_prune) {
+					slashing::clear_era_metadata::<T>(pruned_era);
+				}
+			}
+		});
+	}
+
+	/// Compute payout for era.
+	pub(crate) fn compute_era_payout(active_era: ActiveEraInfo, era_duration: u64) {
+		let staked = ErasTotalStake::<T>::get(&active_era.index);
+		let issuance = asset::total_issuance::<T>();
+
+		let (validator_payout, remainder) =
+			T::EraPayout::era_payout(staked, issuance, era_duration);
+
+		let total_payout = validator_payout.saturating_add(remainder);
+		let max_staked_rewards = MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+
+		// apply cap to validators payout and add difference to remainder.
+		let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
+		let remainder = total_payout.saturating_sub(validator_payout);
+
+		Self::deposit_event(Event::<T>::EraPaid {
+			era_index: active_era.index,
+			validator_payout,
+			remainder,
+		});
+
+		// Set ending era reward.
+		<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
+		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
+	}
+
+	/// Potentially plan a new era.
+	///
+	/// The election results are either fetched directly from an election provider if it is the
+	/// "genesis" election or from a cached set of winners.
+	///
+	/// In case election result has more than [`MinimumValidatorCount`] validator trigger a new era.
+	///
+	/// In case a new era is planned, the new validator set is returned.
+	pub(crate) fn try_plan_new_era(
+		start_session_index: SessionIndex,
+		is_genesis: bool,
+	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
 		log!(
 			debug,
-			"🦹 on_offence: offenders={:?}, slash_fractions={:?}, slash_session={}",
-			offenders,
-			slash_fractions,
-			slash_session,
+			"try_plan_new_era: is_genesis? {:?}, session_index: {:?}",
+			is_genesis,
+			start_session_index
 		);
+
+		// TODO: weights of this call path are rather crude, improve.
+		let validators: BoundedVec<T::AccountId, MaxWinnersOf<T>> = if is_genesis {
+			// genesis election only uses one election result page.
+			let result = <T::GenesisElectionProvider>::elect(Zero::zero()).map_err(|e| {
+				log!(warn, "genesis election provider failed due to {:?}", e);
+				Self::deposit_event(Event::StakingElectionFailed);
+			});
+
+			let exposures = Self::collect_exposures(result.ok().unwrap_or_default());
+
+			let validators = exposures
+				.iter()
+				.map(|(validator, _)| validator)
+				.cloned()
+				.try_collect()
+				.unwrap_or_default();
+
+			// set stakers info for genesis era (0).
+			let _ = Self::store_stakers_info(exposures, Zero::zero());
+
+			// consume full block weight to be safe.
+			Self::register_weight(sp_runtime::traits::Bounded::max_value());
+			validators
+		} else {
+			// note: exposures have already been processed and stored for each of the election
+			// solution page at the time of `elect_paged(page_index)`.
+			Self::register_weight(T::DbWeight::get().reads(1));
+			// todo(ank4n): (this is never called anymore so remove) Make sure we don't drain if election not finished.
+			// - NextElectingPage should be empty.
+			ElectableStashes::<T>::take()
+				.into_inner()
+				.into_iter()
+				.collect::<Vec<_>>()
+				.try_into()
+				.expect("same bounds, will fit; qed.")
+		};
+
+		log!(
+			info,
+			"try_plan_new_era: (is_genesis?: {:?}) electable validators count for session starting {:?}, era {:?}: {:?}",
+			is_genesis,
+			start_session_index,
+			CurrentEra::<T>::get().unwrap_or_default() + 1,
+			validators.len()
+		);
+
+		if (validators.len() as u32) < MinimumValidatorCount::<T>::get().max(1) {
+			// Session will panic if we ever return an empty validator set, thus max(1) ^^.
+			match CurrentEra::<T>::get() {
+				Some(current_era) if current_era > 0 => log!(
+					warn,
+					"chain does not have enough staking candidates to operate for era {:?} ({} \
+					elected, minimum is {})",
+					CurrentEra::<T>::get().unwrap_or(0),
+					validators.len(),
+					MinimumValidatorCount::<T>::get(),
+				),
+				None => {
+					// The initial era is allowed to have no exposures.
+					// In this case the SessionManager is expected to choose a sensible validator
+					// set.
+					// TODO: this should be simplified #8911
+					CurrentEra::<T>::put(0);
+					ErasStartSessionIndex::<T>::insert(&0, &start_session_index);
+				},
+				_ => {},
+			}
+			// election failed, clear election prep metadata.
+			Self::deposit_event(Event::StakingElectionFailed);
+			Self::clear_election_metadata();
+
+			None
+		} else {
+			Self::deposit_event(Event::StakersElected);
+			Self::clear_election_metadata();
+			Self::plan_new_era(start_session_index);
+
+			Some(validators)
+		}
+	}
+
+	/// Plan a new era.
+	///
+	/// * Bump the current era storage (which holds the latest planned era).
+	/// * Store start session index for the new planned era.
+	/// * Clean old era information.
+	///
+	/// The new validator set for this era is stored under `ElectableStashes`.
+	pub fn plan_new_era(start_session_index: SessionIndex) {
+		// Increment or set current era.
+		let new_planned_era = CurrentEra::<T>::mutate(|s| {
+			*s = Some(s.map(|s| s + 1).unwrap_or(0));
+			s.unwrap()
+		});
+		ErasStartSessionIndex::<T>::insert(&new_planned_era, &start_session_index);
+
+		// Clean old era information.
+		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
+			log!(trace, "Removing era information for {:?}", old_era);
+			Self::clear_era_information(old_era);
+		}
+	}
+
+	fn maybe_start_election(
+		current_planned_session: SessionIndex,
+		era_start_session: SessionIndex,
+	) -> bool {
+		crate::log!(
+			debug,
+			"current_planned_session: {:?} era_start_session: {:?}, ElectionOffset: {:?}",
+			current_planned_session,
+			era_start_session,
+			T::ElectionOffset::get(),
+		);
+
+		let election_offset = T::ElectionOffset::get().max(1).min(T::SessionsPerEra::get());
+
+		let session_progress = current_planned_session - era_start_session;
+
+		// start the election `election_offset` sessions before the intended time.
+		session_progress >= (T::SessionsPerEra::get() - election_offset)
+	}
+}
+
+impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
+	type AccountId = T::AccountId;
+
+	/// When we receive a session report from the relay chain, it kicks off the next session.
+	///
+	/// There are three special types of things we can do in a session:
+	/// 1. Plan a new era: We do this one session before the expected era rotation.
+	/// 2. Kick off election: We do this based on the [`T::ElectionOffset`] configuration.
+	/// 3. Activate Next Era: When we receive an activation timestamp in the session report, it
+	/// implies a new validator set has been applied, and we must increment the active era to keep
+	/// the systems in sync.
+	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
+		log!(info, "session report received\n{:?}", report,);
+
+		let rc_client::SessionReport {
+			end_index,
+			activation_timestamp,
+			validator_points,
+			leftover,
+		} = report;
+		debug_assert!(!leftover);
+
+		// Accumulate reward points for validators in the active era.
+		// todo: ensure this is bounded.
+		Self::reward_by_ids(validator_points.into_iter());
+		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp);
+	}
+
+	fn on_new_offences(
+		slash_session: SessionIndex,
+		offences: Vec<rc_client::Offence<T::AccountId>>,
+	) -> Weight {
+		log!(debug, "🦹 on_new_offences: {:?}", offences);
 
 		// todo(ank4n): Needs to be properly benched.
 		let mut consumed_weight = Weight::zero();
@@ -1803,7 +1660,7 @@ where
 		// Find the era to which offence belongs.
 		add_db_reads_writes(1, 0);
 		let Some(active_era) = ActiveEra::<T>::get() else {
-			log!(warn, "🦹 on_offence: no active era; ignoring offence");
+			log!(warn, "🦹 on_new_offences: no active era; ignoring offence");
 			return consumed_weight
 		};
 
@@ -1837,8 +1694,9 @@ where
 		add_db_reads_writes(1, 0);
 		let invulnerables = Invulnerables::<T>::get();
 
-		for (details, slash_fraction) in offenders.iter().zip(slash_fractions) {
-			let (validator, _) = &details.offender;
+		for o in offences {
+			let slash_fraction = o.slash_fraction;
+			let validator: <T as frame_system::Config>::AccountId = o.offender.into();
 			// Skip if the validator is invulnerable.
 			if invulnerables.contains(&validator) {
 				log!(debug, "🦹 on_offence: {:?} is invulnerable; ignoring offence", validator);
@@ -1846,7 +1704,7 @@ where
 			}
 
 			add_db_reads_writes(1, 0);
-			let Some(exposure_overview) = <ErasStakersOverview<T>>::get(&offence_era, validator)
+			let Some(exposure_overview) = <ErasStakersOverview<T>>::get(&offence_era, &validator)
 			else {
 				// defensive: this implies offence is for a discarded era, and should already be
 				// filtered out.
@@ -1861,34 +1719,35 @@ where
 
 			Self::deposit_event(Event::<T>::OffenceReported {
 				validator: validator.clone(),
-				fraction: *slash_fraction,
+				fraction: slash_fraction,
 				offence_era,
 			});
 
-			if offence_era == active_era.index {
-				// offence is in the current active era. Report it to session to maybe disable the
-				// validator.
-				add_db_reads_writes(2, 2);
-				T::SessionInterface::report_offence(
-					validator.clone(),
-					OffenceSeverity(*slash_fraction),
-				);
-			}
+			// TODO(ank4n): handled in ah_client. Verify it works correctly before removing the
+			// commented out code. if offence_era == active_era.index {
+			// 	// offence is in the current active era. Report it to session to maybe disable the
+			// 	// validator.
+			// 	add_db_reads_writes(2, 2);
+			// 	T::SessionInterface::report_offence(
+			// 		validator.clone(),
+			// 		OffenceSeverity(slash_fraction),
+			// 	);
+			// }
 			add_db_reads_writes(1, 0);
-			let prior_slash_fraction = ValidatorSlashInEra::<T>::get(offence_era, validator)
+			let prior_slash_fraction = ValidatorSlashInEra::<T>::get(offence_era, &validator)
 				.map_or(Zero::zero(), |(f, _)| f);
 
 			add_db_reads_writes(1, 0);
-			if let Some(existing) = OffenceQueue::<T>::get(offence_era, validator) {
+			if let Some(existing) = OffenceQueue::<T>::get(offence_era, &validator) {
 				if slash_fraction.deconstruct() > existing.slash_fraction.deconstruct() {
 					add_db_reads_writes(0, 2);
 					OffenceQueue::<T>::insert(
 						offence_era,
-						validator,
+						&validator,
 						OffenceRecord {
-							reporter: details.reporters.first().cloned(),
+							reporter: o.reporters.first().cloned(),
 							reported_era: active_era.index,
-							slash_fraction: *slash_fraction,
+							slash_fraction,
 							..existing
 						},
 					);
@@ -1896,7 +1755,7 @@ where
 					// update the slash fraction in the `ValidatorSlashInEra` storage.
 					ValidatorSlashInEra::<T>::insert(
 						offence_era,
-						validator,
+						&validator,
 						(slash_fraction, exposure_overview.own),
 					);
 
@@ -1920,20 +1779,20 @@ where
 				add_db_reads_writes(0, 3);
 				ValidatorSlashInEra::<T>::insert(
 					offence_era,
-					validator,
+					&validator,
 					(slash_fraction, exposure_overview.own),
 				);
 
 				OffenceQueue::<T>::insert(
 					offence_era,
-					validator,
+					&validator,
 					OffenceRecord {
-						reporter: details.reporters.first().cloned(),
+						reporter: o.reporters.first().cloned(),
 						reported_era: active_era.index,
 						// there are cases of validator with no exposure, hence 0 page, so we
 						// saturate to avoid underflow.
 						exposure_page: exposure_overview.page_count.saturating_sub(1),
-						slash_fraction: *slash_fraction,
+						slash_fraction,
 						prior_slash_fraction,
 					},
 				);
@@ -1977,6 +1836,34 @@ where
 		consumed_weight
 	}
 }
+
+// TODO(ank4n): is `new_session` still needed? If no - who sets `CurrentPlannedSession`
+/// In this implementation `new_session(session)` must be called before `end_session(session-1)`
+/// i.e. the new session must be planned before the ending of the previous session.
+///
+/// Once the first new_session is planned, all session must start and then end in order, though
+/// some session can lag in between the newest session planned and the latest session started.
+// impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
+// 	// └── Self::new_session(new_index, false)
+// 	//	└── Self::try_plan_new_era(session_index, is_genesis)
+// 	//    └── T::GenesisElectionProvider::elect() OR ElectableStashes::<T>::take()
+// 	//    └── Self::collect_exposures()
+// 	//    └── Self::store_stakers_info()
+// 	//    └── Self::plan_new_era()
+// 	//        └── CurrentEra increment
+// 	//        └── ErasStartSessionIndex update
+// 	//        └── Self::clear_era_information()
+// 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+// 		log!(trace, "planning new session {}", new_index);
+// 		CurrentPlannedSession::<T>::put(new_index);
+// 		Self::new_session(new_index, false).map(|v| v.into_inner())
+// 	}
+// 	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
+// 		log!(trace, "planning new session {} at genesis", new_index);
+// 		CurrentPlannedSession::<T>::put(new_index);
+// 		Self::new_session(new_index, true).map(|v| v.into_inner())
+// 	}
+// }
 
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
