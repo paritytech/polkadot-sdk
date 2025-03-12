@@ -1161,6 +1161,96 @@ impl<T: Config> Pallet<T> {
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
+<<<<<<< HEAD
+=======
+
+	pub(super) fn do_migrate_currency(stash: &T::AccountId) -> DispatchResult {
+		if Self::is_virtual_staker(stash) {
+			return Self::do_migrate_virtual_staker(stash);
+		}
+
+		let ledger = Self::ledger(Stash(stash.clone()))?;
+		let staked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
+		ensure!(!staked.is_zero(), Error::<T>::AlreadyMigrated);
+		ensure!(ledger.total == staked, Error::<T>::BadState);
+
+		// remove old staking lock
+		T::OldCurrency::remove_lock(STAKING_ID, &stash);
+
+		// check if we can hold all stake.
+		let max_hold = asset::free_to_stake::<T>(&stash);
+		let force_withdraw = if max_hold >= staked {
+			// this means we can hold all stake. yay!
+			asset::update_stake::<T>(&stash, staked)?;
+			Zero::zero()
+		} else {
+			// if we are here, it means we cannot hold all user stake. We will do a force withdraw
+			// from ledger, but that's okay since anyways user do not have funds for it.
+
+			let old_total = ledger.total;
+			// update ledger with total stake as max_hold.
+			let updated_ledger = ledger.update_total_stake(max_hold);
+
+			// new total stake in ledger.
+			let new_total = updated_ledger.total;
+			debug_assert_eq!(new_total, max_hold);
+
+			// update ledger in storage.
+			updated_ledger.update()?;
+
+			// return the diff
+			old_total.defensive_saturating_sub(new_total)
+		};
+
+		// Get rid of the extra consumer we used to have with OldCurrency.
+		frame_system::Pallet::<T>::dec_consumers(&stash);
+
+		Self::deposit_event(Event::<T>::CurrencyMigrated { stash: stash.clone(), force_withdraw });
+		Ok(())
+	}
+
+	// These are system accounts and don’t normally hold funds, so migration isn’t strictly
+	// necessary. However, this is a good opportunity to clean up the extra consumer/providers that
+	// were previously used.
+	fn do_migrate_virtual_staker(stash: &T::AccountId) -> DispatchResult {
+		let consumer_count = frame_system::Pallet::<T>::consumers(stash);
+		// fail early if no consumers.
+		ensure!(consumer_count > 0, Error::<T>::AlreadyMigrated);
+
+		// provider/consumer ref count has been a mess (inconsistent), and some of these accounts
+		// accumulated upto 2 consumers. But if it's more than 2, we simply fail to not allow
+		// this migration to be called multiple times.
+		ensure!(consumer_count <= 2, Error::<T>::BadState);
+
+		// get rid of the consumers
+		for _ in 0..consumer_count {
+			frame_system::Pallet::<T>::dec_consumers(&stash);
+		}
+
+		// get the current count of providers
+		let actual_providers = frame_system::Pallet::<T>::providers(stash);
+
+		let expected_providers =
+			// We expect these accounts to have only one provider, and hold no balance. However, if
+			// someone mischievously sends some funds to these accounts, they may have an additional
+			// provider, which we can safely ignore.
+			if asset::free_to_stake::<T>(&stash) >= asset::existential_deposit::<T>() {
+				2
+			} else {
+				1
+			};
+
+		// We should never have more than expected providers.
+		ensure!(actual_providers <= expected_providers, Error::<T>::BadState);
+
+		// if actual provider is less than expected, it is already migrated.
+		ensure!(actual_providers == expected_providers, Error::<T>::AlreadyMigrated);
+
+		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
+
+		Ok(())
+	}
+>>>>>>> f540d2b3 ([staking] Currency Migration and Overstake fix (#7763))
 }
 
 impl<T: Config> Pallet<T> {

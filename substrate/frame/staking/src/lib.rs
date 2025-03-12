@@ -539,6 +539,52 @@ impl<T: Config> StakingLedger<T> {
 		}
 	}
 
+	/// Sets ledger total to the `new_total`.
+	///
+	/// Removes entries from `unlocking` upto `amount` starting from the oldest first.
+	fn update_total_stake(mut self, new_total: BalanceOf<T>) -> Self {
+		let old_total = self.total;
+		self.total = new_total;
+		debug_assert!(
+			new_total <= old_total,
+			"new_total {:?} must be <= old_total {:?}",
+			new_total,
+			old_total
+		);
+
+		let to_withdraw = old_total.defensive_saturating_sub(new_total);
+		// accumulator to keep track of how much is withdrawn.
+		// First we take out from active.
+		let mut withdrawn = BalanceOf::<T>::zero();
+
+		// first we try to remove stake from active
+		if self.active >= to_withdraw {
+			self.active -= to_withdraw;
+			return self
+		} else {
+			withdrawn += self.active;
+			self.active = BalanceOf::<T>::zero();
+		}
+
+		// start removing from the oldest chunk.
+		while let Some(last) = self.unlocking.last_mut() {
+			if withdrawn.defensive_saturating_add(last.value) <= to_withdraw {
+				withdrawn += last.value;
+				self.unlocking.pop();
+			} else {
+				let diff = to_withdraw.defensive_saturating_sub(withdrawn);
+				withdrawn += diff;
+				last.value -= diff;
+			}
+
+			if withdrawn >= to_withdraw {
+				break
+			}
+		}
+
+		self
+	}
+
 	/// Re-bond funds that were scheduled for unlocking.
 	///
 	/// Returns the updated ledger, and the amount actually rebonded.
