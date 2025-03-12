@@ -56,7 +56,7 @@ exclude = [
 	"https://subscan.io/",
 	"https://substrate.stackexchange.com/.*",
 	# Broken for link-checker CI, but works in browser and local machine
-	"https://www.gnu.org/licenses/",
+	"http://www.gnu.org/licenses/",
 	# Exclude strings which contain templates like {} and {:?}
 	"%7B%7D",
 	"%7B:\\?}",
