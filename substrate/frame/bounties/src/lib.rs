@@ -270,7 +270,11 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>
 	},
 }
 
-/// The state of the payment claim.
+/// The state of payments associated with each bounty and its `BountyStatus`.
+/// 
+/// When a payment is initiated using `Paymaster::pay`, an asynchronous task is triggered.
+/// The call `check_payment_status` updates the payment state and advances the bounty lifecycle.
+/// The `process_payment` can be called to retry a payment in `Failed` state.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 pub enum PaymentState<Id> {
 	/// Pending claim.
