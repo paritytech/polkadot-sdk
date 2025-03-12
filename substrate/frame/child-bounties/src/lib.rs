@@ -128,10 +128,7 @@ pub struct ChildBounty<
 	AssetKind,
 	PaymentId,
 	Beneficiary,
-> where
-	Beneficiary: Clone,
-	PaymentId: Clone,
-{
+> {
 	/// The parent of this child-bounty.
 	parent_bounty: BountyIndex,
 	// TODO: new filed, migration required.
