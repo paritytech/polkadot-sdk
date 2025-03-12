@@ -272,9 +272,14 @@ impl State {
 		let old_assignments = self.collation_manager.assignments();
 		let new_leaves = self.collation_manager.view_update(sender, &self.keystore, new_view).await;
 
-		self.peer_manager.update_reputations_on_new_leaf(
-			extract_reputation_updates_from_new_leaves(sender, &new_leaves[..]).await,
+		let updates = extract_reputation_updates_from_new_leaves(sender, &new_leaves[..]).await;
+		gum::trace!(
+			target: LOG_TARGET,
+			?new_leaves,
+			"Rep updates: {:#?}",
+			updates
 		);
+		self.peer_manager.update_reputations_on_new_leaf(updates);
 
 		let new_assignments = self.collation_manager.assignments();
 		gum::trace!(
@@ -580,6 +585,12 @@ impl State {
 		&mut self,
 		sender: &mut Sender,
 	) {
+		gum::debug!(
+			target: LOG_TARGET,
+			"Peer reputations: {:#?}",
+			self.peer_manager.reputation_db.0
+		);
+
 		self.collation_manager
 			.try_launch_fetch_requests(sender, &self.peer_manager)
 			.await;

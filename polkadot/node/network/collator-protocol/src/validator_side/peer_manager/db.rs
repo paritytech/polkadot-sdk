@@ -23,10 +23,11 @@ use std::collections::{BTreeMap, HashMap};
 
 // TODO: this needs to be a proper DB, but for prototyping purposes it's fine to keep it in memory.
 #[derive(Default)]
-pub struct ReputationDb(BTreeMap<ParaId, HashMap<PeerId, Score>>);
+pub struct ReputationDb(pub BTreeMap<ParaId, HashMap<PeerId, Score>>);
 
 // TODO: we need a maximum capacity for per paraid storage that is ideally larger than the maximum
 // number of connected peers for a para.
+// TODO: we need to handle outdated paras (that are no longer registered in the runtime).
 impl ReputationDb {
 	pub fn query(&self, peer_id: &PeerId, para_id: &ParaId) -> Option<Score> {
 		self.0.get(para_id).and_then(|per_para| per_para.get(peer_id).copied())
@@ -46,9 +47,14 @@ impl ReputationDb {
 
 		for (para, bumps_per_para) in bumps {
 			for (peer_id, bump) in bumps_per_para.iter() {
-				self.0.get_mut(&para).and_then(|per_para| {
-					per_para.get_mut(peer_id).map(|score| *score = score.saturating_add(*bump))
-				});
+				self.0
+					.entry(para)
+					.or_default()
+					.entry(*peer_id)
+					.and_modify(|score| {
+						*score = score.saturating_add(*bump);
+					})
+					.or_insert(*bump);
 				reported_updates.push(ReputationUpdate {
 					peer_id: *peer_id,
 					para_id: para,
@@ -60,7 +66,7 @@ impl ReputationDb {
 			if let Some(per_para) = self.0.get_mut(&para) {
 				for (peer_id, value) in per_para {
 					if !bumps_per_para.contains_key(peer_id) {
-						*value = value.saturating_sub(1);
+						*value = value.saturating_sub(INACTIVITY_SLASH);
 
 						reported_updates.push(ReputationUpdate {
 							peer_id: *peer_id,

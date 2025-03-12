@@ -31,7 +31,7 @@ mod db;
 
 #[derive(Default)]
 pub struct PeerManager {
-	reputation_db: ReputationDb,
+	pub reputation_db: ReputationDb,
 	connected_peers: ConnectedPeers,
 }
 
