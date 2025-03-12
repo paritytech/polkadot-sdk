@@ -1152,7 +1152,7 @@ mod tests {
 	use sp_consensus::BlockOrigin;
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_runtime::{
-		traits::{DispatchTransaction, Hash as _},
+		traits::{DispatchTransaction, Hash as _, LazyExtrinsic},
 		transaction_validity::{InvalidTransaction, TransactionSource::External, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
@@ -1316,7 +1316,7 @@ mod tests {
 				CheckSubstrateCall {}
 					.validate_only(
 						Some(x).into(),
-						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
+						&ExtrinsicBuilder::new_call_with_priority(16).build().expect_as_ref().call,
 						&info,
 						len,
 						External,
@@ -1332,7 +1332,7 @@ mod tests {
 				CheckSubstrateCall {}
 					.validate_only(
 						Some(x).into(),
-						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
+						&ExtrinsicBuilder::new_call_do_not_propagate().build().expect_as_ref().call,
 						&info,
 						len,
 						External,

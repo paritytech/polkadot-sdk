@@ -733,7 +733,8 @@ pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>
 				.into_iter()
 				.map(|uxt| <Extrinsic as codec::Decode>::decode(&mut &*uxt).unwrap())
 				.for_each(|xt| {
-					xt.function.dispatch(frame_system::RawOrigin::None.into()).unwrap();
+					let call = xt.call.try_decode().unwrap();
+					call.dispatch(frame_system::RawOrigin::None.into()).unwrap();
 				});
 			pool.try_write().unwrap().transactions.clear();
 		}

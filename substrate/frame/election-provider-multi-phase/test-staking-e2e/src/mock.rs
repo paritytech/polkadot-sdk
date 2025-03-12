@@ -32,7 +32,7 @@ use sp_runtime::{
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
 	testing,
-	traits::Zero,
+	traits::{LazyExtrinsic, Zero},
 	transaction_validity, BuildStorage, PerU16, Perbill, Percent,
 };
 use sp_staking::{
@@ -734,14 +734,16 @@ pub fn roll_to_with_ocw(n: BlockNumber, pool: Arc<RwLock<PoolState>>, delay_solu
 			// decode submit_unsigned callable that may be queued in the pool by ocw. skip all
 			// other extrinsics in the pool.
 			for encoded in &pool.read().transactions {
-				let extrinsic = Extrinsic::decode(&mut &encoded[..]).unwrap();
+				let mut extrinsic = Extrinsic::decode(&mut &encoded[..]).unwrap();
 
-				let _ = match extrinsic.function {
+				let _ = match extrinsic.expect_as_ref().call {
 					RuntimeCall::ElectionProviderMultiPhase(
 						call @ Call::submit_unsigned { .. },
 					) => {
 						// call submit_unsigned callable in OCW pool.
-						crate::assert_ok!(call.dispatch_bypass_filter(RuntimeOrigin::none()));
+						crate::assert_ok!(call
+							.clone()
+							.dispatch_bypass_filter(RuntimeOrigin::none()));
 					},
 					_ => (),
 				};
