@@ -2595,9 +2595,8 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				} else {
-					assert_eq!(
-						Self::inspect_bond_state(&stash),
-						Ok(LedgerIntegrityState::Ok),
+					ensure!(
+						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
 						"bond, ledger and/or staking hold inconsistent for a bonded stash."
 					);
 				}
