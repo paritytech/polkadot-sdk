@@ -920,7 +920,7 @@ impl<Address, Call, Signature, Extra> InherentBuilder
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Address: TypeInfo,
-	Call: Clone + DecodeWithMemTracking + TypeInfo,
+	Call: DecodeWithMemTracking + TypeInfo,
 	Signature: TypeInfo,
 	Extra: TypeInfo,
 {
@@ -949,7 +949,7 @@ impl<Address, Call, Signature, Extension> SignedTransactionBuilder
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
 	Address: TypeInfo,
-	Call: Clone + DecodeWithMemTracking + TypeInfo,
+	Call: DecodeWithMemTracking + TypeInfo,
 	Signature: TypeInfo,
 	Extension: TypeInfo,
 {

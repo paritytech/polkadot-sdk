@@ -3783,17 +3783,19 @@ pub(crate) mod tests {
 				assert_eq!(None, bc.body(blocks[1]).unwrap());
 				assert_eq!(None, bc.body(blocks[2]).unwrap());
 				assert_eq!(
-					Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
+					Some(vec![UncheckedXt::new_transaction(3.into(), ()).with_encoded_call()]),
 					bc.body(blocks[3]).unwrap()
 				);
 				assert_eq!(
-					Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+					Some(vec![UncheckedXt::new_transaction(4.into(), ()).with_encoded_call()]),
 					bc.body(blocks[4]).unwrap()
 				);
 			} else {
 				for i in 0..5 {
 					assert_eq!(
-						Some(vec![UncheckedXt::new_transaction((i as u64).into(), ())]),
+						Some(vec![
+							UncheckedXt::new_transaction((i as u64).into(), ()).with_encoded_call()
+						]),
 						bc.body(blocks[i]).unwrap()
 					);
 				}
@@ -3858,7 +3860,7 @@ pub(crate) mod tests {
 
 			let bc = backend.blockchain();
 			assert_eq!(
-				Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
+				Some(vec![UncheckedXt::new_transaction(2.into(), ()).with_encoded_call()]),
 				bc.body(fork_hash_root).unwrap()
 			);
 
@@ -3875,17 +3877,19 @@ pub(crate) mod tests {
 				assert_eq!(None, bc.body(blocks[2]).unwrap());
 
 				assert_eq!(
-					Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
+					Some(vec![UncheckedXt::new_transaction(3.into(), ()).with_encoded_call()]),
 					bc.body(blocks[3]).unwrap()
 				);
 				assert_eq!(
-					Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+					Some(vec![UncheckedXt::new_transaction(4.into(), ()).with_encoded_call()]),
 					bc.body(blocks[4]).unwrap()
 				);
 			} else {
 				for i in 0..5 {
 					assert_eq!(
-						Some(vec![UncheckedXt::new_transaction((i as u64).into(), ())]),
+						Some(vec![
+							UncheckedXt::new_transaction((i as u64).into(), ()).with_encoded_call()
+						]),
 						bc.body(blocks[i]).unwrap()
 					);
 				}
@@ -3893,7 +3897,7 @@ pub(crate) mod tests {
 
 			if matches!(pruning, BlocksPruning::KeepAll) {
 				assert_eq!(
-					Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
+					Some(vec![UncheckedXt::new_transaction(2.into(), ()).with_encoded_call()]),
 					bc.body(fork_hash_root).unwrap()
 				);
 			} else {
@@ -3954,19 +3958,19 @@ pub(crate) mod tests {
 		assert_eq!(None, bc.body(block_1b).unwrap());
 		assert_eq!(None, bc.body(block_2b).unwrap());
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0x00.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(0x00.into(), ()).with_encoded_call()]),
 			bc.body(block_0).unwrap()
 		);
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0x1a.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(0x1a.into(), ()).with_encoded_call()]),
 			bc.body(block_1a).unwrap()
 		);
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0x2a.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(0x2a.into(), ()).with_encoded_call()]),
 			bc.body(block_2a).unwrap()
 		);
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0x3a.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(0x3a.into(), ()).with_encoded_call()]),
 			bc.body(block_3a).unwrap()
 		);
 	}
@@ -4635,7 +4639,7 @@ pub(crate) mod tests {
 		// Check that we can properly access values when there is reference count
 		// but no value.
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(1.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(1.into(), ()).with_encoded_call()]),
 			bc.body(blocks[1]).unwrap()
 		);
 
@@ -4655,12 +4659,12 @@ pub(crate) mod tests {
 		// Block 0, 1, 2, 3 are pinned, so all values should be cached.
 		// Block 4 is inside the pruning window, its value is in db.
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(0.into(), ()).with_encoded_call()]),
 			bc.body(blocks[0]).unwrap()
 		);
 
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(1.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(1.into(), ()).with_encoded_call()]),
 			bc.body(blocks[1]).unwrap()
 		);
 		assert_eq!(
@@ -4669,7 +4673,7 @@ pub(crate) mod tests {
 		);
 
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(2.into(), ()).with_encoded_call()]),
 			bc.body(blocks[2]).unwrap()
 		);
 		assert_eq!(
@@ -4678,7 +4682,7 @@ pub(crate) mod tests {
 		);
 
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(3.into(), ()).with_encoded_call()]),
 			bc.body(blocks[3]).unwrap()
 		);
 		assert_eq!(
@@ -4687,7 +4691,7 @@ pub(crate) mod tests {
 		);
 
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(4.into(), ()).with_encoded_call()]),
 			bc.body(blocks[4]).unwrap()
 		);
 		assert_eq!(
@@ -4721,7 +4725,7 @@ pub(crate) mod tests {
 
 		// Block 4 is inside the pruning window and still kept
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(4.into(), ()).with_encoded_call()]),
 			bc.body(blocks[4]).unwrap()
 		);
 		assert_eq!(
@@ -4756,7 +4760,7 @@ pub(crate) mod tests {
 		assert!(bc.body(blocks[3]).unwrap().is_none());
 
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(4.into(), ()).with_encoded_call()]),
 			bc.body(blocks[4]).unwrap()
 		);
 		assert_eq!(
@@ -4764,7 +4768,7 @@ pub(crate) mod tests {
 			bc.justifications(blocks[4]).unwrap()
 		);
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(5.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(5.into(), ()).with_encoded_call()]),
 			bc.body(blocks[5]).unwrap()
 		);
 		assert!(bc.header(blocks[5]).ok().flatten().is_some());
@@ -4799,7 +4803,7 @@ pub(crate) mod tests {
 		backend.commit_operation(op).unwrap();
 
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(5.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(5.into(), ()).with_encoded_call()]),
 			bc.body(blocks[5]).unwrap()
 		);
 		assert!(bc.header(blocks[5]).ok().flatten().is_some());
@@ -4880,31 +4884,31 @@ pub(crate) mod tests {
 
 		let bc = backend.blockchain();
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(0.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(0.into(), ()).with_encoded_call()]),
 			bc.body(blocks[0]).unwrap()
 		);
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(1.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(1.into(), ()).with_encoded_call()]),
 			bc.body(blocks[1]).unwrap()
 		);
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(2.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(2.into(), ()).with_encoded_call()]),
 			bc.body(blocks[2]).unwrap()
 		);
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(3.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(3.into(), ()).with_encoded_call()]),
 			bc.body(blocks[3]).unwrap()
 		);
 		assert_eq!(
-			Some(vec![UncheckedXt::new_transaction(4.into(), ())]),
+			Some(vec![UncheckedXt::new_transaction(4.into(), ()).with_encoded_call()]),
 			bc.body(blocks[4]).unwrap()
 		);
 		// Check the fork hashes.
 		assert_eq!(None, bc.body(fork_hash_root).unwrap());
 		assert_eq!(
 			Some(vec![
-				UncheckedXt::new_transaction(3.into(), ()),
-				UncheckedXt::new_transaction(11.into(), ())
+				UncheckedXt::new_transaction(3.into(), ()).with_encoded_call(),
+				UncheckedXt::new_transaction(11.into(), ()).with_encoded_call()
 			]),
 			bc.body(fork_hash_3).unwrap()
 		);
