@@ -33,7 +33,7 @@ use std::{
 /// node and is a prerequisite to enable this command.
 ///
 /// Same functionality can be achieved currently via
-/// [`crate::commands::build_spec_cmd::BuildSpec`]  but we recommend
+/// [`crate::commands::build_spec_cmd::BuildSpecCmd`]  but we recommend
 /// `export-chain-spec` in its stead. `build-spec` is known
 ///  to be a legacy mix of exporting chain specs to JSON files or
 ///  converting them to raw, which will be better
