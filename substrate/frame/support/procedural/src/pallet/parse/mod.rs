@@ -22,6 +22,7 @@
 pub mod call;
 pub mod composite;
 pub mod config;
+pub mod donkey;
 pub mod error;
 pub mod event;
 pub mod extra_constants;
@@ -64,6 +65,7 @@ pub struct Def {
 	pub inherent: Option<inherent::InherentDef>,
 	pub genesis_config: Option<genesis_config::GenesisConfigDef>,
 	pub genesis_build: Option<genesis_build::GenesisBuildDef>,
+	pub donkey_field: Option<donkey::DonkeyDef>,
 	pub validate_unsigned: Option<validate_unsigned::ValidateUnsignedDef>,
 	pub extra_constants: Option<extra_constants::ExtraConstantsDef>,
 	pub composites: Vec<composite::CompositeDef>,
@@ -98,6 +100,7 @@ impl Def {
 		let mut event = None;
 		let mut origin = None;
 		let mut inherent = None;
+		let mut donkey_field = None;
 		let mut genesis_config = None;
 		let mut genesis_build = None;
 		let mut validate_unsigned = None;
@@ -166,6 +169,10 @@ impl Def {
 				Some(PalletAttr::GenesisBuild(span)) if genesis_build.is_none() => {
 					let g = genesis_build::GenesisBuildDef::try_from(span, item)?;
 					genesis_build = Some(g);
+				},
+				Some(PalletAttr::Donkey(span)) if donkey_field.is_none() => {
+					let d = donkey::DonkeyDef::try_from(span, item)?;
+					donkey_field = Some(d);
 				},
 				Some(PalletAttr::RuntimeOrigin(_)) if origin.is_none() =>
 					origin = Some(origin::OriginDef::try_from(item)?),
@@ -245,6 +252,7 @@ impl Def {
 			extra_constants,
 			genesis_config,
 			genesis_build,
+			donkey_field,
 			validate_unsigned,
 			error,
 			event,
@@ -550,6 +558,7 @@ mod keyword {
 	syn::custom_keyword!(origin);
 	syn::custom_keyword!(call);
 	syn::custom_keyword!(tasks_experimental);
+	syn::custom_keyword!(donkey);
 	syn::custom_keyword!(task_enum);
 	syn::custom_keyword!(task_list);
 	syn::custom_keyword!(task_condition);
@@ -656,6 +665,7 @@ enum PalletAttr {
 	Storage(proc_macro2::Span),
 	GenesisConfig(proc_macro2::Span),
 	GenesisBuild(proc_macro2::Span),
+	Donkey(proc_macro2::Span),
 	ValidateUnsigned(proc_macro2::Span),
 	TypeValue(proc_macro2::Span),
 	ExtraConstants(proc_macro2::Span),
@@ -682,6 +692,7 @@ impl PalletAttr {
 			Self::Storage(span) => *span,
 			Self::GenesisConfig(span) => *span,
 			Self::GenesisBuild(span) => *span,
+			Self::Donkey(span) => *span,
 			Self::ValidateUnsigned(span) => *span,
 			Self::TypeValue(span) => *span,
 			Self::ExtraConstants(span) => *span,
@@ -758,6 +769,8 @@ impl syn::parse::Parse for PalletAttr {
 			Ok(PalletAttr::RuntimeCall(attr, span))
 		} else if lookahead.peek(keyword::tasks_experimental) {
 			Ok(PalletAttr::Tasks(content.parse::<keyword::tasks_experimental>()?.span()))
+		} else if lookahead.peek(keyword::donkey) {
+			Ok(PalletAttr::Donkey(content.parse::<keyword::donkey>()?.span()))
 		} else if lookahead.peek(keyword::task_enum) {
 			Ok(PalletAttr::RuntimeTask(content.parse::<keyword::task_enum>()?.span()))
 		} else if lookahead.peek(keyword::task_condition) {

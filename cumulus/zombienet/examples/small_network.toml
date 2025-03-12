@@ -3,13 +3,16 @@ default_image = "parity/polkadot:latest"
 default_command = "polkadot"
 chain = "rococo-local"
 
+
 [[relaychain.nodes]]
 name = "alice"
 validator = true
+args = ["-lparachain=debug"]
 
 [[relaychain.nodes]]
 name = "bob"
 validator = true
+args = ["-lparachain=debug"]
 
 [[parachains]]
 id = 2000

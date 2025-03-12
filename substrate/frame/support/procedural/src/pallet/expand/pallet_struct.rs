@@ -168,6 +168,18 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			)
 		};
 
+	let on_genesis_custom = if let Some(donkey) = def.donkey_field.as_ref() {
+		let item = donkey.ident.clone();
+		let gen = donkey.generics.clone();
+		let replacement = quote::quote! {
+			<#item <T> as #frame_support::CustomOnGenesis>::custom_on_genesis();
+		};
+		eprintln!("TOKEN: {replacement}");
+		replacement
+	} else {
+		quote::quote! {}
+	};
+
 	let whitelisted_storage_idents: Vec<syn::Ident> = def
 		.storages
 		.iter()
@@ -225,6 +237,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			fn on_genesis() {
 				let storage_version: #frame_support::traits::StorageVersion = #storage_version;
 				storage_version.put::<Self>();
+				#on_genesis_custom
 			}
 		}
 

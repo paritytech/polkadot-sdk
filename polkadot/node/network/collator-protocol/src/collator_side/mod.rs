@@ -564,11 +564,16 @@ async fn determine_our_validators<Context>(
 	let current_validators =
 		groups.get(current_group_index).map(|v| v.as_slice()).unwrap_or_default();
 
-	gum::info!(target: "skunert", "session_info: {info:?}");
 	let validators = &info.discovery_keys;
 
-	let current_validators =
-		current_validators.iter().map(|i| validators[i.0 as usize].clone()).collect();
+	gum::info!(target: "skunert", "session_info: {info:?}, discovery_keys: {}", validators.len());
+
+	let current_validators = if !validators.is_empty() {
+		current_validators.iter().map(|i| validators[i.0 as usize].clone()).collect()
+	} else {
+		gum::warn!(target: "skunert", "Validators empty");
+		Default::default()
+	};
 
 	let current_validators = GroupValidators {
 		validators: current_validators,

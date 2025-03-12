@@ -1119,6 +1119,11 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+#[proc_macro_attribute]
+pub fn donkey(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
 /// Allows you to define some service work that can be recognized by a script or an
 /// off-chain worker.
 ///

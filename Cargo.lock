@@ -6830,6 +6830,7 @@ dependencies = [
  "frame-support-procedural-tools",
  "frame-system",
  "itertools 0.11.0",
+ "log",
  "macro_magic",
  "parity-scale-codec",
  "pretty_assertions",

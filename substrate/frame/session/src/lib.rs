@@ -484,15 +484,47 @@ pub mod pallet {
 					frame_system::Pallet::<T>::inc_providers(&account);
 				}
 			}
+			let initial_keys: Vec<T::ValidatorId> = self.keys.iter().map(|x| x.1.clone()).collect();
+			OnGenesisTmpStorage::<T>::put(initial_keys);
+			// let initial_validators_0 =
+			// 	T::SessionManager::new_session_genesis(0).unwrap_or_else(|| {
+			// 		frame_support::print(
+			// 			"No initial validator provided by `SessionManager`, use \
+			// 			session config keys to generate initial validator set.",
+			// 		);
+			// 		self.keys.iter().map(|x| x.1.clone()).collect()
+			// 	});
+			//
+			// let initial_validators_1 = T::SessionManager::new_session_genesis(1)
+			// 	.unwrap_or_else(|| initial_validators_0.clone());
+			//
+			// let queued_keys: Vec<_> = initial_validators_1
+			// 	.into_iter()
+			// 	.filter_map(|v| Pallet::<T>::load_keys(&v).map(|k| (v, k)))
+			// 	.collect();
+			//
+			// // Tell everyone about the genesis session keys
+			// log::info!(target: "skunert", "doing the session initialization");
+			// T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);
+			//
+			// Validators::<T>::put(initial_validators_0);
+			// QueuedKeys::<T>::put(queued_keys);
+			//
+			// T::SessionManager::start_session(0);
+		}
+	}
 
+	#[pallet::donkey]
+	pub struct Bla<T: Config> {
+		field: PhantomData<T>,
+	}
+
+	impl<T: Config> frame_support::CustomOnGenesis for Bla<T> {
+		fn custom_on_genesis() {
+			let initial_backup_keys = OnGenesisTmpStorage::<T>::get();
+			log::info!(target: "skunert", "Using keys: {}", initial_backup_keys.len());
 			let initial_validators_0 =
-				T::SessionManager::new_session_genesis(0).unwrap_or_else(|| {
-					frame_support::print(
-						"No initial validator provided by `SessionManager`, use \
-						session config keys to generate initial validator set.",
-					);
-					self.keys.iter().map(|x| x.1.clone()).collect()
-				});
+				T::SessionManager::new_session_genesis(0).unwrap_or(initial_backup_keys);
 
 			let initial_validators_1 = T::SessionManager::new_session_genesis(1)
 				.unwrap_or_else(|| initial_validators_0.clone());
@@ -505,6 +537,7 @@ pub mod pallet {
 			// Tell everyone about the genesis session keys
 			log::info!(target: "skunert", "doing the session initialization");
 			T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);
+			log::info!(target: "skunert", "after session initialization");
 
 			Validators::<T>::put(initial_validators_0);
 			QueuedKeys::<T>::put(queued_keys);
@@ -526,6 +559,8 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type QueuedChanged<T> = StorageValue<_, bool, ValueQuery>;
 
+	#[pallet::storage]
+	pub type OnGenesisTmpStorage<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 	/// The queued keys for the next session. When the next session begins, these keys
 	/// will be used to determine the validator's session keys.
 	#[pallet::storage]

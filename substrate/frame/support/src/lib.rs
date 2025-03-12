@@ -189,6 +189,11 @@ pub use frame_support_procedural::storage_alias;
 
 pub use frame_support_procedural::derive_impl;
 
+pub trait CustomOnGenesis {
+	/// Something that should happen at genesis.
+	fn custom_on_genesis() {}
+}
+
 /// Experimental macros for defining dynamic params that can be used in pallet configs.
 #[cfg(feature = "experimental")]
 pub mod dynamic_params {
