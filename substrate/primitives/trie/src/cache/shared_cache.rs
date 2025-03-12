@@ -893,7 +893,7 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 		}
 	}
 
-	pub fn flush_cache(&self, spawn_handle: Box<dyn SpawnNamed>) {
+	pub fn flush_cache(&self, spawn_handle: &Box<dyn SpawnNamed>) {
 		if let Some(tx) = self.tx.as_ref() {
 			let writeback_receiver = self.rx_worker.lock().take();
 

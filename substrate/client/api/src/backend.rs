@@ -644,7 +644,7 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 pub trait ManualTrieCacheFlush {
 	/// Flush the trie cache.
-	fn flush_cache(&self, spawn_handle: Box<dyn SpawnNamed>);
+	fn flush_cache(&self, spawn_handle: &Box<dyn SpawnNamed>);
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

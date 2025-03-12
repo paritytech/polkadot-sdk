@@ -114,6 +114,7 @@ where
 	telemetry: Option<TelemetryHandle>,
 	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	code_provider: CodeProvider<Block, B, E>,
+	spawn_handle: Box<dyn SpawnNamed>,
 	_phantom: PhantomData<RA>,
 }
 
@@ -421,6 +422,7 @@ where
 			telemetry,
 			unpin_worker_sender,
 			code_provider,
+			spawn_handle,
 			_phantom: Default::default(),
 		})
 	}
@@ -850,6 +852,8 @@ where
 				let gen_storage_changes = runtime_api
 					.into_storage_changes(&state, *parent_hash)
 					.map_err(sp_blockchain::Error::Storage)?;
+
+				self.backend.flush_cache(&self.spawn_handle);
 
 				if import_block.header.state_root() != &gen_storage_changes.transaction_storage_root
 				{
@@ -1659,7 +1663,7 @@ where
 	Block: BlockT,
 	RA: ConstructRuntimeApi<Block, Self> + Send + Sync,
 {
-	fn flush_cache(&self, spawn_handle: Box<dyn SpawnNamed>) {
+	fn flush_cache(&self, spawn_handle: &Box<dyn SpawnNamed>) {
 		self.backend.flush_cache(spawn_handle)
 	}
 }

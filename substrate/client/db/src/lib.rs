@@ -2111,7 +2111,7 @@ where
 }
 
 impl<Block: BlockT> sc_client_api::backend::ManualTrieCacheFlush for Backend<Block> {
-	fn flush_cache(&self, spawn_handle: Box<dyn SpawnNamed>) {
+	fn flush_cache(&self, spawn_handle: &Box<dyn SpawnNamed>) {
 		if let Some(cache) = self.shared_trie_cache.as_ref() {
 			cache.flush_cache(spawn_handle);
 		}
