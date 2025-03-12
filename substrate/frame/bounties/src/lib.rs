@@ -454,14 +454,6 @@ pub mod pallet {
 	pub type BountyDescriptions<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, BoundedVec<u8, T::MaximumReasonLength>>;
 
-	// Tiago: how to remove if it is used in migrations/v4.rs?
-	// TODO: most probably wont be needed, review and remove if not needed.
-	/// Bounty indices that have been approved but not yet funded.
-	#[pallet::storage]
-	#[allow(deprecated)]
-	pub type BountyApprovals<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, BoundedVec<BountyIndex, T::MaxApprovals>, ValueQuery>;
-
 	#[derive(Default)]
 	struct SpendContext<Balance> {
 		spend_in_context: BTreeMap<Balance, Balance>,
