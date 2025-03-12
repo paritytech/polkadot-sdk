@@ -11,7 +11,7 @@ requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.nodes]]
   # Use an image that doesn't use validation v3 protocol.
-  image = "{{POLKADOT_IMAGE}}:master-4ac9c4a"
+  image = "{{POLKADOT_IMAGE}}:master-4ac9c4a3"
   name = "alice"
   args = [ "--alice", "-lparachain=debug,runtime=debug" ]
 
