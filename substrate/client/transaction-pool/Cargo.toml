@@ -43,6 +43,7 @@ tokio-stream = { workspace = true }
 tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
@@ -51,6 +52,12 @@ sp-consensus = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing-subscriber = { workspace = true }
+txtesttool = { version = "0.4.0", package = "substrate-txtesttool" }
+zombienet-configuration = { workspace = true }
+zombienet-sdk = { workspace = true }
 
 [[bench]]
 name = "basics"
