@@ -214,8 +214,8 @@ mod tests {
 		let v0 = ParachainBlockDataV0::<TestBlock> {
 			header: Header::new_from_number(10),
 			extrinsics: vec![
-				TestExtrinsic::new_bare(MockCallU64(10)),
-				TestExtrinsic::new_bare(MockCallU64(100)),
+				TestExtrinsic::new_bare(MockCallU64(10)).with_encoded_call(),
+				TestExtrinsic::new_bare(MockCallU64(100)).with_encoded_call(),
 			],
 			storage_proof: CompactProof { encoded_nodes: vec![vec![10u8; 200], vec![20u8; 30]] },
 		};
@@ -244,8 +244,8 @@ mod tests {
 			blocks: vec![TestBlock::new(
 				Header::new_from_number(10),
 				vec![
-					TestExtrinsic::new_bare(MockCallU64(10)),
-					TestExtrinsic::new_bare(MockCallU64(100)),
+					TestExtrinsic::new_bare(MockCallU64(10)).with_encoded_call(),
+					TestExtrinsic::new_bare(MockCallU64(100)).with_encoded_call(),
 				],
 			)],
 			proof: CompactProof { encoded_nodes: vec![vec![10u8; 200], vec![20u8; 30]] },
