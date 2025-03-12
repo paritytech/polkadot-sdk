@@ -25,5 +25,15 @@ fn assets_can_be_claimed() {
 	let amount = AssetHubWestendExistentialDeposit::get();
 	let assets: Assets = (Parent, amount).into();
 
+<<<<<<< HEAD
 	test_chain_can_claim_assets!(AssetHubWestend, RuntimeCall, NetworkId::Westend, assets, amount);
+=======
+	test_chain_can_claim_assets!(
+		AssetHubWestend,
+		RuntimeCall,
+		NetworkId::ByGenesis(WESTEND_GENESIS_HASH),
+		assets,
+		amount
+	);
+>>>>>>> f323814d (Remove execute_with_origin implementation in the XCM executor (#7889))
 }

@@ -200,7 +200,32 @@ benchmarks! {
 		);
 	}
 
+<<<<<<< HEAD
 	clear_origin {
+=======
+	#[benchmark]
+	fn execute_with_origin() -> Result<(), BenchmarkError> {
+		let mut executor = new_executor::<T>(Default::default());
+		let who: Junctions = Junctions::from([AccountId32 { id: [0u8; 32], network: None }]);
+		let instruction = Instruction::ExecuteWithOrigin {
+			descendant_origin: Some(who.clone()),
+			xcm: Xcm(vec![]),
+		};
+		let xcm = Xcm(vec![instruction]);
+		#[block]
+		{
+			executor
+				.bench_process(xcm)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		}
+		assert_eq!(executor.origin(), &Some(Location { parents: 0, interior: Here }),);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn clear_origin() -> Result<(), BenchmarkError> {
+>>>>>>> f323814d (Remove execute_with_origin implementation in the XCM executor (#7889))
 		let mut executor = new_executor::<T>(Default::default());
 		let instruction = Instruction::ClearOrigin;
 		let xcm = Xcm(vec![instruction]);

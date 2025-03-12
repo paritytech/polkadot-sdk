@@ -16,6 +16,7 @@
 
 //! Test error when the `BuyExecution` instruction doesn't take named fields.
 
+<<<<<<< HEAD:polkadot/xcm/procedural/tests/ui/builder_pattern/buy_execution_named_fields.rs
 use xcm_procedural::Builder;
 
 struct Xcm<Call>(pub Vec<Instruction<Call>>);
@@ -28,3 +29,9 @@ enum Instruction<Call> {
 }
 
 fn main() {}
+=======
+mod initiate_transfer;
+mod mock;
+mod pay_fees;
+mod set_asset_claimer;
+>>>>>>> f323814d (Remove execute_with_origin implementation in the XCM executor (#7889)):polkadot/xcm/xcm-executor/src/tests/mod.rs

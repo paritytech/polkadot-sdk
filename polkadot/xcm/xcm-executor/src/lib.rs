@@ -917,6 +917,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				);
 				Ok(())
 			},
+<<<<<<< HEAD
 			DescendOrigin(who) => self
 				.context
 				.origin
@@ -928,6 +929,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.context.origin = None;
 				Ok(())
 			},
+=======
+			DescendOrigin(who) => self.do_descend_origin(who),
+			ClearOrigin => self.do_clear_origin(),
+			ExecuteWithOrigin { .. } => Err(XcmError::Unimplemented),
+>>>>>>> f323814d (Remove execute_with_origin implementation in the XCM executor (#7889))
 			ReportError(response_info) => {
 				// Report the given result by sending a QueryResponse XCM to a previously given
 				// outcome destination if one was registered.
