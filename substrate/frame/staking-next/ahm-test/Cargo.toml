@@ -1,0 +1,53 @@
+[package]
+name = "pallet-staking-next-e2e-test"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "e2e unit tests for staking in AHM"
+publish = false
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dev-dependencies]
+codec = { features = ["derive"], workspace = true, default-features = true }
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true, default-features = true }
+frame = { package = "polkadot-sdk-frame", workspace = true, default-features = true }
+frame-support = { workspace = true, default-features = true }
+sp-session = { workspace = true, default-features = true }
+sp-staking = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+
+# pallets we need in both
+pallet-balances = { workspace = true, default-features = true }
+
+# pallets that we need in AH
+pallet-staking-next ={ workspace = true, default-features = true }
+pallet-staking-next-rc-client ={ workspace = true, default-features = true }
+pallet-election-provider-multi-block = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true, default-features = true }
+
+# pallets we need in the RC
+pallet-session = { workspace = true, default-features = true }
+pallet-staking-next-ah-client = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+
+[features]
+std = []
+try-runtime = [
+	"pallet-balances/try-runtime",
+
+	"pallet-staking-next/try-runtime",
+	"pallet-staking-next-rc-client/try-runtime",
+
+	"pallet-session/try-runtime",
+	"pallet-staking-next-ah-client/try-runtime",
+]
