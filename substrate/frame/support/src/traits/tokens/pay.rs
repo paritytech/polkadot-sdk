@@ -20,7 +20,7 @@
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use core::fmt::Debug;
 use scale_info::TypeInfo;
-use sp_core::RuntimeDebug;
+use sp_core::{RuntimeDebug, TypedGet};
 use sp_runtime::DispatchError;
 
 use super::{fungible, fungibles, Balance, Preservation::Expendable};
@@ -81,6 +81,39 @@ pub enum PaymentStatus {
 	Success,
 	/// Payment failed. It may safely be retried.
 	Failure,
+}
+
+/// Simple implementation of `Pay` which makes a payment from a "pot" - i.e. a single account.
+pub struct PayFromAccount<F, A>(core::marker::PhantomData<(F, A)>);
+impl<A, F> Pay for PayFromAccount<F, A>
+where
+	A: TypedGet,
+	F: fungible::Mutate<A::Type>,
+	A::Type: Eq,
+{
+	type Balance = F::Balance;
+	type Beneficiary = A::Type;
+	type AssetKind = ();
+	type Id = ();
+	type Error = DispatchError;
+	fn pay(
+		_: &Self::Beneficiary,
+		who: &Self::Beneficiary,
+		_: Self::AssetKind,
+		amount: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {
+		<F as fungible::Mutate<_>>::transfer(&A::get(), who, amount, Expendable)?;
+		Ok(())
+	}
+	fn check_payment(_: ()) -> PaymentStatus {
+		PaymentStatus::Success
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, amount: Self::Balance) {
+		<F as fungible::Mutate<_>>::mint_into(&A::get(), amount).unwrap();
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(_: Self::Id) {}
 }
 
 /// Simple implementation of `Pay` for native balance
