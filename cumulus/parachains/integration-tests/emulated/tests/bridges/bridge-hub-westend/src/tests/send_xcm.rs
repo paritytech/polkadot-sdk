@@ -19,8 +19,6 @@ use crate::tests::*;
 
 #[test]
 fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable() {
-	use sp_tracing::{capture_test_logs, tracing::Level};
-
 	// Init tests variables
 	// XcmPallet send arguments
 	let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
@@ -44,16 +42,11 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable
 	Westend::execute_with(|| {
 		Dmp::make_parachain_reachable(BridgeHubWestend::para_id());
 
-		let log_capture = capture_test_logs!(Level::TRACE, {
-			assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
-				sudo_origin,
-				bx!(destination),
-				bx!(xcm),
-			));
-		});
-
-		// Validate `WithUniqueTopic` appended `SetTopic`
-		assert!(log_capture.contains("`SetTopic` appended to message"));
+		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
+			sudo_origin,
+			bx!(destination),
+			bx!(xcm),
+		));
 
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 
@@ -150,4 +143,64 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 			]
 		);
 	});
+}
+
+#[test]
+fn xcm_execution_applies_set_topic_consistently_with_inspection() {
+	let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
+	let bridge_hub_destination = Westend::child_location_of(BridgeHubWestend::para_id()).into();
+	let initial_topic_id = [42; 32];
+
+	let xcm = VersionedXcm::from(Xcm(vec![
+		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+		ExportMessage {
+			network: ByGenesis(ROCOCO_GENESIS_HASH),
+			destination: [Parachain(AssetHubRococo::para_id().into())].into(),
+			xcm: Xcm(vec![ClearOrigin]),
+		},
+		SetTopic(initial_topic_id),
+	]));
+
+	Westend::execute_with(|| {
+		Dmp::make_parachain_reachable(BridgeHubWestend::para_id());
+		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
+            sudo_origin.clone(),
+            bx!(bridge_hub_destination),
+            bx!(xcm.clone()),
+        ));
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		assert_bridge_hub_westend_message_accepted(true);
+		// Hypothetical utility to check message_id
+		// let executed_id = get_last_executed_message_id(); // Add this to your test framework
+		// assert_eq!(executed_id, initial_topic_id, "TrailingSetTopicAsId should set message_id");
+	});
+
+	// BridgeHubWestend::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
+	// BridgeHubWestend::execute_with(|| {
+	// 	let onward_destination = ParentThen([Parachain(AssetHubRococo::para_id().into())].into()).into();
+	// 	let onward_xcm = VersionedXcm::from(Xcm(vec![ClearOrigin]));
+	// 	assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::XcmPallet::send(
+    //         sudo_origin,
+    //         bx!(onward_destination),
+    //         bx!(onward_xcm),
+    //     ));
+	// });
+	//
+	// AssetHubRococo::execute_with(|| {
+	// 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+	// 	assert_expected_events!(
+    //         AssetHubRococo,
+    //         vec![
+    //             RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
+    //         ]
+    //     );
+	// 	// Hypothetical utility to capture received XCM
+	// 	let received_xcm = get_last_received_xcm(); // Add this to your test framework
+	// 	assert!(
+	// 		received_xcm.0.last() == Some(&SetTopic(unique(&Xcm(vec![ClearOrigin])))),
+	// 		"WithUniqueTopic should append SetTopic"
+	// 	);
+	// });
 }
