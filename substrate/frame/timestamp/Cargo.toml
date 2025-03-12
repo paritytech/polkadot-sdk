@@ -28,8 +28,6 @@ sp-io = { optional = true, workspace = true }
 sp-runtime = { workspace = true }
 sp-storage = { workspace = true }
 sp-timestamp = { workspace = true }
-my_macros = { path = "../../../../macro_test/my_macros" }
-serde = { workspace = true, default-features = true }
 
 docify = { workspace = true }
 
