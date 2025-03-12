@@ -296,11 +296,19 @@ impl HitStats {
 }
 
 impl std::fmt::Display for HitStats {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		let snapshot = self.snapshot();
+		write!(f, "{}", snapshot)
+	}
+}
+
+impl std::fmt::Display for HitStatsSnapshot {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		let shared_hits = self.shared_hits.load(Ordering::Relaxed);
-		let shared_fetch_attempts = self.shared_fetch_attempts.load(Ordering::Relaxed);
-		let local_hits = self.local_hits.load(Ordering::Relaxed);
-		let local_fetch_attempts = self.local_fetch_attempts.load(Ordering::Relaxed);
+		let shared_hits = self.shared_hits;
+		let shared_fetch_attempts = self.shared_fetch_attempts;
+		let local_hits = self.local_hits;
+		let local_fetch_attempts = self.local_fetch_attempts;
+
 		if shared_fetch_attempts == 0 && local_hits == 0 {
 			write!(fmt, "empty")
 		} else {

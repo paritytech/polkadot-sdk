@@ -816,9 +816,6 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 	pub fn used_memory_size(&self) -> usize {
 		let mut inner = self.inner.read();
 
-		tracing::info!(target: LOG_TARGET, "Node cache stats {:}", inner.stats.node_cache);
-		tracing::info!(target: LOG_TARGET, "Value cache stats {:}", inner.stats.value_cache);
-
 		let value_cache_size =
 			inner.value_cache.lru.memory_usage() + inner.value_cache.lru.limiter().heap_size;
 		let node_cache_size =
@@ -910,8 +907,9 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 					Some("shared_cache_trie"),
 					Box::pin(async move {
 						while let Ok(_) = writeback_receiver.recv() {
-							tracing::info!(target: LOG_TARGET, "Flushing the local cache to the shared cache");
+							let start = Instant::now();
 							// Drain the queue and update the shared cache data.
+							let mut stats = TrieHitStatsSnapshot::default();
 							loop {
 								let mut shared_inner = match shared_cache.write_lock_inner() {
 									Some(inner) => inner,
@@ -930,10 +928,16 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 									.and_then(|mut queued_work| queued_work.pop())
 								{
 									shared_inner.write_back(work);
+									stats = shared_inner.stats.snapshot();
 								} else {
 									break;
 								}
 							}
+
+							tracing::info!(target: LOG_TARGET, "Flushing the local cache to the shared cache took {:} ms", start.elapsed().as_millis());
+							tracing::info!(target: LOG_TARGET, "Node cache stats {:}", stats.node_cache);
+							tracing::info!(target: LOG_TARGET, "Value cache stats {:}",stats.value_cache);
+
 						}
 						tracing::info!(target: LOG_TARGET, "Writeback thread stopped, this is expected at shutdown");
 					}),
