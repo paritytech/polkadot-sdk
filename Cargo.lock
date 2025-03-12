@@ -13171,7 +13171,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "28.0.0"
+version = "39.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -13185,7 +13185,6 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-timestamp",
  "parity-scale-codec",
- "rand 0.8.5",
  "rand_chacha 0.3.1",
  "scale-info",
  "serde",
@@ -13200,44 +13199,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-ah-client"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "log",
- "pallet-authorship",
- "pallet-session",
- "pallet-staking",
- "pallet-staking-rc-client",
- "parity-scale-codec",
- "polkadot-primitives",
- "polkadot-runtime-parachains",
- "scale-info",
- "sp-core 28.0.0",
- "sp-runtime 31.0.1",
- "sp-staking",
- "staging-xcm",
-]
-
-[[package]]
-name = "pallet-staking-rc-client"
-version = "0.1.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-core 28.0.0",
- "sp-runtime 31.0.1",
- "sp-staking",
- "staging-xcm",
-]
-
-[[package]]
 name = "pallet-staking-reward-curve"
-version = "11.0.0"
+version = "12.0.0"
 dependencies = [
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.93",
@@ -13248,7 +13211,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-reward-fn"
-version = "19.0.0"
+version = "22.0.0"
 dependencies = [
  "log",
  "sp-arithmetic 23.0.0",
@@ -13256,7 +13219,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-runtime-api"
-version = "14.0.0"
+version = "25.0.0"
 dependencies = [
  "parity-scale-codec",
  "sp-api 26.0.0",
@@ -15927,8 +15890,6 @@ dependencies = [
  "pallet-skip-feeless-payment",
  "pallet-society",
  "pallet-staking",
- "pallet-staking-ah-client",
- "pallet-staking-rc-client",
  "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
  "pallet-staking-runtime-api",
