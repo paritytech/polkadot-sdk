@@ -423,7 +423,6 @@ members = [
 	"substrate/frame/society",
 	"substrate/frame/staking",
 	"substrate/frame/staking/ah-client",
-	"substrate/frame/staking/ahm-test",
 	"substrate/frame/staking/rc-client",
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",

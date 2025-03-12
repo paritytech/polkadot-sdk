@@ -11217,9 +11217,9 @@ dependencies = [
  "pallet-balances",
  "pallet-election-provider-multi-block",
  "pallet-session",
- "pallet-staking",
- "pallet-staking-ah-client",
- "pallet-staking-rc-client",
+ "pallet-staking-next",
+ "pallet-staking-next-ah-client",
+ "pallet-staking-next-rc-client",
  "pallet-timestamp",
  "parity-scale-codec",
  "polkadot-runtime-parachains",
@@ -13282,7 +13282,6 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-session",
- "pallet-staking-rc-client",
  "pallet-staking-reward-curve",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -13318,6 +13317,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -13372,29 +13372,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-next-e2e-test"
-version = "1.0.0"
-dependencies = [
- "frame-election-provider-support",
- "frame-support",
- "log",
- "pallet-balances",
- "pallet-election-provider-multi-block",
- "pallet-session",
- "pallet-staking-next",
- "pallet-staking-next-ah-client",
- "pallet-staking-next-rc-client",
- "pallet-timestamp",
- "parity-scale-codec",
- "polkadot-runtime-parachains",
- "polkadot-sdk-frame",
- "scale-info",
- "sp-session",
- "sp-staking",
- "sp-tracing 16.0.0",
-]
-
-[[package]]
 name = "pallet-staking-next-rc-client"
 version = "0.1.0"
 dependencies = [
@@ -13443,13 +13420,13 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",
+ "staging-xcm",
 ]
 
 [[package]]

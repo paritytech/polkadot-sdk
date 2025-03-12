@@ -1,5 +1,5 @@
 [package]
-name = "pallet-staking-next-e2e-test"
+name = "pallet-ahm-test"
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
