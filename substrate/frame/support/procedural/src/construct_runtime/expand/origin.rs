@@ -107,7 +107,6 @@ pub fn expand_outer_origin(
 			filter: #scrate::__private::Rc<#scrate::__private::Box<dyn Fn(&<#runtime as #system_path::Config>::RuntimeCall) -> bool>>,
 		}
 
-		// #[cfg(feature = "std")]
 		impl core::fmt::Debug for RuntimeOrigin {
 			fn fmt(
 				&self,
