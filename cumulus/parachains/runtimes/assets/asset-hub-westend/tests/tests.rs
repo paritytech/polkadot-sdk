@@ -1517,7 +1517,7 @@ fn xcm_payment_api_works() {
 
 mod bridge_to_rococo_tests {
 	use super::{collator_session_keys, slot_durations, AccountId, ExtBuilder, RuntimeHelper};
-	use asset_hub_rococo_runtime::{
+	use asset_hub_westend_runtime::{
 		bridge_common_config::DeliveryRewardInBalance,
 		bridge_to_rococo_config::{
 			AssetHubRococoLocation, RococoGlobalConsensusNetwork,
