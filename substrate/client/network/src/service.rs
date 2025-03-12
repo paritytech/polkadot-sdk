@@ -1657,6 +1657,7 @@ where
 				match (self.metrics.as_ref(), duration) {
 					(Some(metrics), Some(duration)) => {
 						let query_type = match event {
+							DhtEvent::AddressesFound(_, _) => "addresses-found",
 							DhtEvent::ValueFound(_) => "value-found",
 							DhtEvent::ValueNotFound(_) => "value-not-found",
 							DhtEvent::ValuePut(_) => "value-put",

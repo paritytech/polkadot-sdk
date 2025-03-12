@@ -26,6 +26,7 @@ use bytes::Bytes;
 use sc_network_common::role::ObservedRole;
 use sc_network_types::{
 	kad::{Key, PeerRecord},
+	multiaddr::Multiaddr,
 	PeerId,
 };
 
@@ -33,6 +34,9 @@ use sc_network_types::{
 #[derive(Debug, Clone)]
 #[must_use]
 pub enum DhtEvent {
+	/// Peer addresses were found.
+	AddressesFound(PeerId, Vec<Multiaddr>),
+
 	/// The value was found.
 	ValueFound(PeerRecord),
 
@@ -63,7 +67,8 @@ pub enum DhtEvent {
 	/// `GET_PROVIDERS` query finished and won't yield any more providers.
 	NoMoreProviders(Key),
 
-	/// `GET_PROVIDERS` query failed and no providers for [`Key`] were found.
+	/// `GET_PROVIDERS` query failed and no providers for [`Key`] were found. libp2p also emits
+	/// this event after already yielding some results via [`DhtEvent::ProvidersFound`].
 	ProvidersNotFound(Key),
 }
 

@@ -677,11 +677,7 @@ where
 					metrics.dht_event_received.with_label_values(&["put_record_req"]).inc();
 				}
 			},
-			DhtEvent::StartedProviding(..) => {},
-			DhtEvent::StartProvidingFailed(..) => {},
-			DhtEvent::ProvidersFound(..) => {},
-			DhtEvent::NoMoreProviders(..) => {},
-			DhtEvent::ProvidersNotFound(..) => {},
+			_ => {},
 		}
 	}
 

@@ -337,7 +337,7 @@ impl BootnodeDiscovery {
 				},
 				event = dht_event_stream.select_next_some() => match event {
 					DhtEvent::ProvidersFound(key, providers)
-						// libp2p generates empty events, so also check if `providers` is not empty.
+						// libp2p generates empty events, so also check if `providers` are not empty.
 						if Some(key.clone()) == self.key_being_discovered && !providers.is_empty() =>
 							self.handle_providers(providers),
 					DhtEvent::NoMoreProviders(key)
