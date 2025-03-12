@@ -23,7 +23,7 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, ConstU8, VariantCountOf},
+	traits::{ConstU64, ConstU8, Nothing, VariantCountOf},
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -102,7 +102,7 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type ElectionProvider =
-		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, ())>;
+		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
@@ -269,6 +269,8 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type BlockNumberProvider = System;
+	type Filter = Nothing;
 }
 
 parameter_types! {
@@ -314,6 +316,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 	let _ = pallet_balances::GenesisConfig::<Runtime> {
 		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();

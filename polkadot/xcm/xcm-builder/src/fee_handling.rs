@@ -1,4 +1,4 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -127,7 +127,7 @@ pub fn deposit_or_burn_fee<AssetTransactor: TransactAsset>(
 ) {
 	for asset in fee.into_inner() {
 		if let Err(e) = AssetTransactor::deposit_asset(&asset, &dest, context) {
-			log::trace!(
+			tracing::trace!(
 				target: "xcm::fees",
 				"`AssetTransactor::deposit_asset` returned error: {e:?}. Burning fee: {asset:?}. \
 				They might be burned.",

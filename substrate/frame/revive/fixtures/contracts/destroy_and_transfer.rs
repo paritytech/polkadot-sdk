@@ -29,17 +29,15 @@ const VALUE: [u8; 32] = u256_bytes(65536);
 pub extern "C" fn deploy() {
 	input!(code_hash: &[u8; 32],);
 
-	let input = [0u8; 0];
 	let mut address = [0u8; 20];
 	let salt = [47u8; 32];
 
 	api::instantiate(
-		code_hash,
 		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
 		&VALUE,
-		&input,
+		code_hash,
 		Some(&mut address),
 		None,
 		Some(&salt),

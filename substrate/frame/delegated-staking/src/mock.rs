@@ -24,7 +24,7 @@ use frame_support::{
 	PalletId,
 };
 
-use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
+use sp_runtime::{traits::IdentityLookup, BoundedVec, BuildStorage, Perbill};
 
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -32,7 +32,7 @@ use frame_election_provider_support::{
 };
 use frame_support::dispatch::RawOrigin;
 use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra};
-use sp_core::U256;
+use sp_core::{ConstBool, U256};
 use sp_runtime::traits::Convert;
 use sp_staking::{Agent, Stake, StakingInterface};
 
@@ -96,7 +96,9 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<Balance, sp_runtime::Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type MaxBackersPerWinner = ConstU32<100>;
+	type Sort = ConstBool<true>;
 	type Bounds = ElectionsBoundsOnChain;
 }
 
@@ -112,6 +114,7 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
+	type Filter = pallet_nomination_pools::AllPoolMembers<Self>;
 }
 
 parameter_types! {
@@ -161,6 +164,8 @@ impl pallet_nomination_pools::Config for Runtime {
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type BlockNumberProvider = System;
+	type Filter = pallet_staking::AllStakers<Runtime>;
 }
 
 frame_support::construct_runtime!(
@@ -189,6 +194,7 @@ impl ExtBuilder {
 				(GENESIS_NOMINATOR_ONE, 1000),
 				(GENESIS_NOMINATOR_TWO, 2000),
 			],
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
@@ -218,7 +224,7 @@ impl ExtBuilder {
 			// ideal validator count
 			validator_count: 2,
 			minimum_validator_count: 1,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),

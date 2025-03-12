@@ -75,9 +75,6 @@ const TOMBSTONE_VALUE: &[u8] = b" ";
 /// Unavailable blocks are kept for 1 hour.
 const KEEP_UNAVAILABLE_FOR: Duration = Duration::from_secs(60 * 60);
 
-/// Finalized data is kept for 25 hours.
-const KEEP_FINALIZED_FOR: Duration = Duration::from_secs(25 * 60 * 60);
-
 /// The pruning interval.
 const PRUNING_INTERVAL: Duration = Duration::from_secs(60 * 5);
 
@@ -423,16 +420,6 @@ struct PruningConfig {
 	pruning_interval: Duration,
 }
 
-impl Default for PruningConfig {
-	fn default() -> Self {
-		Self {
-			keep_unavailable_for: KEEP_UNAVAILABLE_FOR,
-			keep_finalized_for: KEEP_FINALIZED_FOR,
-			pruning_interval: PRUNING_INTERVAL,
-		}
-	}
-}
-
 /// Configuration for the availability store.
 #[derive(Debug, Clone, Copy)]
 pub struct Config {
@@ -440,6 +427,8 @@ pub struct Config {
 	pub col_data: u32,
 	/// The column family for availability store meta information.
 	pub col_meta: u32,
+	/// How long finalized data should be kept (in hours).
+	pub keep_finalized_for: u32,
 }
 
 trait Clock: Send + Sync {
@@ -475,10 +464,16 @@ impl AvailabilityStoreSubsystem {
 		sync_oracle: Box<dyn SyncOracle + Send + Sync>,
 		metrics: Metrics,
 	) -> Self {
+		let pruning_config = PruningConfig {
+			keep_unavailable_for: KEEP_UNAVAILABLE_FOR,
+			keep_finalized_for: Duration::from_secs(config.keep_finalized_for as u64 * 3600),
+			pruning_interval: PRUNING_INTERVAL,
+		};
+
 		Self::with_pruning_config_and_clock(
 			db,
 			config,
-			PruningConfig::default(),
+			pruning_config,
 			Box::new(SystemClock),
 			sync_oracle,
 			metrics,

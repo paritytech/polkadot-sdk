@@ -18,13 +18,17 @@
 
 use clap::Parser;
 use codec::{Decode, Encode};
-use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
+use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT};
 use polkadot_parachain_primitives::primitives::ValidationParams;
 use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash, HeadData};
 use sc_executor::WasmExecutor;
 use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
 use std::{fs, path::PathBuf, time::Instant};
 use tracing::level_filters::LevelFilter;
+
+// This is now determined by the chain, call `validation_code_bomb_limit` API.
+// max_code_size * 10 = 30MB currently. Update constant if needed.
+const VALIDATION_CODE_BOMB_LIMIT: usize = 30 * 1024 * 1024;
 
 /// Tool for validating a `PoV` locally.
 #[derive(Parser)]

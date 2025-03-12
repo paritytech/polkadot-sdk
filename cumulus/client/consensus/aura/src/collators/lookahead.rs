@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! A collator for Aura that looks ahead of the most recently included parachain block
 //! when determining what to build upon.
@@ -39,14 +40,14 @@ use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{ClaimQueueOffset, CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_node_primitives::{PoV, SubmitCollationParams};
+use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, BlockNumber as RBlockNumber, CollatorPair, Hash as RHash,
-	HeadData, Id as ParaId, OccupiedCoreAssumption,
+	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, Id as ParaId, OccupiedCoreAssumption,
 };
 
+use crate::{collator as collator_util, export_pov_to_path};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
@@ -57,49 +58,8 @@ use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
-use std::{
-	fs::{self, File},
-	path::PathBuf,
-	sync::Arc,
-	time::Duration,
-};
-
-use crate::{collator as collator_util, LOG_TARGET};
-
-/// Export the given `pov` to the file system at `path`.
-///
-/// The file will be named `block_hash_block_number.pov`.
-///
-/// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
-/// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
-fn export_pov_to_path<Block: BlockT>(
-	path: PathBuf,
-	pov: PoV,
-	block_hash: Block::Hash,
-	block_number: NumberFor<Block>,
-	parent_header: Block::Header,
-	relay_parent_storage_root: RHash,
-	relay_parent_number: RBlockNumber,
-) {
-	if let Err(error) = fs::create_dir_all(&path) {
-		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
-		return
-	}
-
-	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
-		Ok(f) => f,
-		Err(error) => {
-			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
-			return
-		},
-	};
-
-	pov.encode_to(&mut file);
-	HeadData(parent_header.encode()).encode_to(&mut file);
-	relay_parent_storage_root.encode_to(&mut file);
-	relay_parent_number.encode_to(&mut file);
-}
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
 pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {

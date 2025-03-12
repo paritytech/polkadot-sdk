@@ -34,16 +34,6 @@ pub extern "C" fn call() {
 	api::value_transferred(&mut value);
 
 	// Deploy the contract with no salt (equivalent to create1).
-	let ret = api::instantiate(
-		code_hash,
-		u64::MAX,
-		u64::MAX,
-		&[u8::MAX; 32],
-		&value,
-		&[],
-		None,
-		None,
-		None
-	);
-	assert!(ret.is_ok());
+	api::instantiate(u64::MAX, u64::MAX, &[u8::MAX; 32], &value, code_hash, None, None, None)
+		.unwrap();
 }

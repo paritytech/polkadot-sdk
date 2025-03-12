@@ -66,12 +66,11 @@ fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
 	let output_buf_capped = &mut &mut output_buf[..N];
 
 	api::instantiate(
-		&code_hash,
 		u64::MAX,
 		u64::MAX,
 		&[u8::MAX; 32],
 		&[0; 32],
-		&[0; 32],
+		&code_hash,
 		None,
 		Some(output_buf_capped),
 		None,

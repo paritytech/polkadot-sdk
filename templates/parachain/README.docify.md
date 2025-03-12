@@ -144,10 +144,17 @@ export PATH="$PATH:<path/to/binaries>"
 
 #### Update `zombienet-omni-node.toml` with a valid chain spec path
 
+To simplify the process of using the parachain-template with zombienet and Omni Node, we've added a pre-configured
+development chain spec (dev_chain_spec.json) to the parachain template. The zombienet-omni-node.toml file of this
+template points to it, but you can update it to an updated chain spec generated on your machine. To generate a
+chain spec refer to [staging-chain-spec-builder](https://crates.io/crates/staging-chain-spec-builder)
+
+Then make the changes in the network specification like so:
+
 ```toml
 # ...
 [[parachains]]
-id = {{PARACHAIN_ID}}
+id = "<PARACHAIN_ID>"
 chain_spec_path = "<TO BE UPDATED WITH A VALID PATH>"
 # ...
 ```

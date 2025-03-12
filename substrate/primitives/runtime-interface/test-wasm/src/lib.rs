@@ -83,7 +83,7 @@ pub trait TestApi {
 	/// Copy `hello` into the given mutable reference
 	fn return_value_into_mutable_reference(&self, data: &mut [u8]) {
 		let res = "hello";
-		data[..res.as_bytes().len()].copy_from_slice(res.as_bytes());
+		data[..res.len()].copy_from_slice(res.as_bytes());
 	}
 
 	/// Returns the input data wrapped in an `Option` as result.

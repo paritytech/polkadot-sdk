@@ -45,6 +45,8 @@ use substrate_test_runtime_client::{
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 
+type Pool<Api> = sc_transaction_pool::Pool<Api, ()>;
+
 const LOG_TARGET: &str = "txpool";
 
 fn pool() -> (Pool<TestApi>, Arc<TestApi>) {
