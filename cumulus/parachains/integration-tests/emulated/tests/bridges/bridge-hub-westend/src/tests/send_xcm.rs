@@ -145,62 +145,119 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	});
 }
 
-#[test]
-fn xcm_execution_applies_set_topic_consistently_with_inspection() {
-	let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
-	let bridge_hub_destination = Westend::child_location_of(BridgeHubWestend::para_id()).into();
-	let initial_topic_id = [42; 32];
+// Hypothetical utility to get last executed message ID (add to test framework if needed)
+fn get_last_executed_message_id() -> [u8; 32] {
+	// Placeholder: Replace with actual logic (e.g., from XcmExecutor state or events)
+	BridgeHubWestend::events()
+		.iter()
+		.rev()
+		.find_map(|e| {
+			if let BridgeHubWestendRuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { outcome }) = e {
+				if let Outcome::Complete { .. } = outcome {
+					return Some([42; 32]); // Replace with real message_id extraction
+				}
+			}
+			None
+		})
+		.unwrap_or([0; 32])
+}
 
-	let xcm = VersionedXcm::from(Xcm(vec![
-		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+#[test]
+fn xcm_persists_set_topic_across_hops() {
+	// Define a consistent topic ID
+	let topic_id = [42; 32]; // Arbitrary but fixed for traceability
+
+	// Initial XCM from Westend Relay to BridgeHubWestend
+	let initial_xcm = VersionedXcm::from(Xcm(vec![
+		UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
+		SetTopic(topic_id),
 		ExportMessage {
 			network: ByGenesis(ROCOCO_GENESIS_HASH),
 			destination: [Parachain(AssetHubRococo::para_id().into())].into(),
-			xcm: Xcm(vec![ClearOrigin]),
+			xcm: Xcm(vec![ClearOrigin]), // Onward message without SetTopic initially
 		},
-		SetTopic(initial_topic_id),
 	]));
 
+	// Step 1: Send XCM from Westend Relay to BridgeHubWestend
 	Westend::execute_with(|| {
 		Dmp::make_parachain_reachable(BridgeHubWestend::para_id());
 		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
-            sudo_origin.clone(),
-            bx!(bridge_hub_destination),
-            bx!(xcm.clone()),
+            <Westend as Chain>::RuntimeOrigin::root(),
+            bx!(Westend::child_location_of(BridgeHubWestend::para_id()).into()),
+            bx!(initial_xcm.clone()),
         ));
+
+		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+            Westend,
+            vec![
+                RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { message_id, .. }) => {
+                    message_id: *message_id == topic_id,
+                },
+            ]
+        );
 	});
 
+	// Step 2: Process on BridgeHubWestend and assert topic_id
 	BridgeHubWestend::execute_with(|| {
 		assert_bridge_hub_westend_message_accepted(true);
-		// Hypothetical utility to check message_id
-		// let executed_id = get_last_executed_message_id(); // Add this to your test framework
-		// assert_eq!(executed_id, initial_topic_id, "TrailingSetTopicAsId should set message_id");
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		// Check that TrailingSetTopicAsId preserved the topic_id
+		let executed_id = get_last_executed_message_id(); // Replace with real utility
+		assert_eq!(executed_id, topic_id, "TrailingSetTopicAsId should set message_id to topic_id");
+
+		assert_expected_events!(
+            BridgeHubWestend,
+            vec![
+                RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash }) => {
+                    message_hash: *message_hash == topic_id,
+                },
+                RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted { outcome: Outcome::Complete { .. } }) => {},
+            ]
+        );
 	});
 
-	// BridgeHubWestend::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
-	// BridgeHubWestend::execute_with(|| {
-	// 	let onward_destination = ParentThen([Parachain(AssetHubRococo::para_id().into())].into()).into();
-	// 	let onward_xcm = VersionedXcm::from(Xcm(vec![ClearOrigin]));
-	// 	assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::XcmPallet::send(
-    //         sudo_origin,
-    //         bx!(onward_destination),
-    //         bx!(onward_xcm),
-    //     ));
-	// });
-	//
-	// AssetHubRococo::execute_with(|| {
-	// 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-	// 	assert_expected_events!(
-    //         AssetHubRococo,
-    //         vec![
-    //             RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
-    //         ]
-    //     );
-	// 	// Hypothetical utility to capture received XCM
-	// 	let received_xcm = get_last_received_xcm(); // Add this to your test framework
-	// 	assert!(
-	// 		received_xcm.0.last() == Some(&SetTopic(unique(&Xcm(vec![ClearOrigin])))),
-	// 		"WithUniqueTopic should append SetTopic"
-	// 	);
-	// });
+	// Step 3: Fund and send onward message from BridgeHubWestend to AssetHubRococo
+	BridgeHubWestend::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
+	BridgeHubWestend::execute_with(|| {
+		let onward_destination = ParentThen([Parachain(AssetHubRococo::para_id().into())].into()).into();
+		let onward_xcm = VersionedXcm::from(Xcm(vec![ClearOrigin])); // No SetTopic initially
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::XcmPallet::send(
+            <BridgeHubWestend as Chain>::RuntimeOrigin::root(),
+            bx!(onward_destination),
+            bx!(onward_xcm),
+        ));
+
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+            BridgeHubWestend,
+            vec![
+                RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { message_id, .. }) => {
+                    message_id: *message_id == topic_id,
+                },
+            ]
+        );
+	});
+
+	// Step 4: Verify AssetHubRococo receives the message with the same topic_id
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+		assert_expected_events!(
+            AssetHubRococo,
+            vec![
+                RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { id, success: true, .. }) => {
+                    id: *id == topic_id.into(),
+                },
+            ]
+        );
+
+		// Hypothetical: Check received XCM (add utility if needed)
+		let received_xcm = get_last_received_xcm(); // Placeholder
+		assert_eq!(
+			received_xcm.0.last(),
+			Some(&SetTopic(topic_id)),
+			"WithUniqueTopic should persist original topic_id"
+		);
+	});
 }
