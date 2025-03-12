@@ -53,7 +53,7 @@ pub type AssignmentOf<T> =
 ///
 /// This is the representation of a stored, unverified solution.
 ///
-/// After feasibility, it is convered into `Supports`.
+/// After feasibility, it is converted into `Supports`.
 #[derive(
 	TypeInfo,
 	Encode,
@@ -71,7 +71,7 @@ pub type AssignmentOf<T> =
 pub struct PagedRawSolution<T: MinerConfig> {
 	/// The individual pages.
 	pub solution_pages: BoundedVec<SolutionOf<T>, <T as MinerConfig>::Pages>,
-	/// The final claimed score post feasibility and concatenation of all apges.
+	/// The final claimed score post feasibility and concatenation of all pages.
 	pub score: ElectionScore,
 	/// The designated round.
 	pub round: u32,

@@ -19,7 +19,7 @@ use super::*;
 use crate::{
 	helpers,
 	types::VoterOf,
-	unsigned::miner::{MinerConfig, SupportsOfMiner},
+	unsigned::miner::{MinerConfig, PageSupportsOfMiner},
 	verifier::Verifier,
 	SolutionOf,
 };
@@ -34,7 +34,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet::*;
-use sp_npos_elections::{evaluate_support, ElectionScore, EvaluateSupport};
+use sp_npos_elections::{evaluate_support, ElectionScore};
 use sp_runtime::Perbill;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
@@ -315,6 +315,32 @@ pub(crate) mod pallet {
 				// write the score.
 				QueuedSolutionScore::<T>::put(score);
 			})
+		}
+
+		pub(crate) fn force_set_multi_page_valid(
+			pages: Vec<PageIndex>,
+			supports: Vec<SupportsOfVerifier<Pallet<T>>>,
+			score: ElectionScore,
+		) {
+			debug_assert_eq!(pages.len(), supports.len());
+			// queue it in our valid queue
+			Self::mutate_checked(|| {
+				// clear everything about valid solutions.
+				match Self::valid() {
+					ValidSolution::X => clear_paged_map!(QueuedSolutionX::<T>),
+					ValidSolution::Y => clear_paged_map!(QueuedSolutionY::<T>),
+				};
+				QueuedSolutionScore::<T>::kill();
+
+				// store the valid pages
+				for (support, page) in supports.into_iter().zip(pages.iter()) {
+					match Self::valid() {
+						ValidSolution::X => QueuedSolutionX::<T>::insert(page, support),
+						ValidSolution::Y => QueuedSolutionY::<T>::insert(page, support),
+					}
+				}
+				QueuedSolutionScore::<T>::put(score);
+			});
 		}
 
 		/// Clear all storage items.
@@ -639,31 +665,76 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	fn do_verify_synchronous(
-		partial_solution: SolutionOf<T::MinerConfig>,
+	fn do_verify_synchronous_multi(
+		partial_solutions: Vec<SolutionOf<T::MinerConfig>>,
+		solution_pages: Vec<PageIndex>,
 		claimed_score: ElectionScore,
-		page: PageIndex,
-	) -> Result<SupportsOfVerifier<Self>, FeasibilityError> {
+	) -> Result<(), (PageIndex, FeasibilityError)> {
+		let first_page = solution_pages.first().cloned().unwrap_or_default();
+		let last_page = solution_pages.last().cloned().unwrap_or_default();
 		// first, ensure this score will be good enough, even if valid..
-		let _ = Self::ensure_score_quality(claimed_score)?;
+		let _ = Self::ensure_score_quality(claimed_score).map_err(|fe| (first_page, fe))?;
+		ensure!(
+			partial_solutions.len() == solution_pages.len(),
+			(first_page, FeasibilityError::Incomplete)
+		);
 
-		// then actually check feasibility...
-		// NOTE: `MaxBackersPerWinnerFinal` is also already checked here.
-		let supports = Self::feasibility_check_page_inner(partial_solution, page)?;
+		// verify each page, and amalgamate into a final support.
+		let mut backings =
+			sp_std::collections::btree_map::BTreeMap::<T::AccountId, PartialBackings>::new();
+		let mut linked_supports = Vec::with_capacity(partial_solutions.len());
+
+		for (solution_page, page) in partial_solutions.into_iter().zip(solution_pages.iter()) {
+			let page_supports = Self::feasibility_check_page_inner(solution_page, *page)
+				.map_err(|fe| (*page, fe))?;
+
+			linked_supports.push(page_supports.clone());
+			let support_len = page_supports.len() as u32;
+			for (who, support) in page_supports.into_iter() {
+				let entry = backings.entry(who).or_default();
+				entry.total = entry.total.saturating_add(support.total);
+				// Note we assume snapshots are always disjoint, and therefore we can easily extend
+				// here.
+				entry.backers = entry.backers.saturating_add(support.voters.len() as u32);
+				if entry.backers > T::MaxBackersPerWinnerFinal::get() {
+					return Err((*page, FeasibilityError::FailedToBoundSupport))
+				}
+			}
+
+			Self::deposit_event(Event::<T>::Verified(*page, support_len));
+		}
 
 		// then check that the number of winners was exactly enough..
-		let desired_targets =
-			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
-		ensure!(supports.len() as u32 == desired_targets, FeasibilityError::WrongWinnerCount);
+		let desired_targets = crate::Snapshot::<T>::desired_targets()
+			.ok_or(FeasibilityError::SnapshotUnavailable)
+			.map_err(|fe| (last_page, fe))?;
+		ensure!(
+			backings.len() as u32 == desired_targets,
+			(last_page, FeasibilityError::WrongWinnerCount)
+		);
 
 		// then check the score was truth..
-		let truth_score = supports.evaluate();
-		ensure!(truth_score == claimed_score, FeasibilityError::InvalidScore);
+		let truth_score = evaluate_support(backings.into_values());
+		ensure!(truth_score == claimed_score, (last_page, FeasibilityError::InvalidScore));
 
-		// and finally queue the solution.
-		QueuedSolution::<T>::force_set_single_page_valid(page, supports.clone(), truth_score);
+		let maybe_current_score = QueuedSolution::<T>::queued_score();
 
-		Ok(supports)
+		// then store it.
+		sublog!(
+			info,
+			"verifier",
+			"queued sync solution with score {:?} for pages {:?}",
+			truth_score,
+			solution_pages
+		);
+		QueuedSolution::<T>::force_set_multi_page_valid(
+			solution_pages,
+			linked_supports,
+			truth_score,
+		);
+		Self::deposit_event(Event::<T>::Queued(truth_score, maybe_current_score));
+
+		Ok(())
 	}
 
 	/// Finalize an asynchronous verification. Checks the final score for correctness, and ensures
@@ -717,9 +788,9 @@ impl<T: Config> Pallet<T> {
 		});
 		ensure!(is_improvement, FeasibilityError::ScoreTooLow);
 
-		let is_greater_than_min_trusted = Self::minimum_score()
+		let is_greater_than_min_untrusted = Self::minimum_score()
 			.map_or(true, |min_score| score.strict_threshold_better(min_score, Perbill::zero()));
-		ensure!(is_greater_than_min_trusted, FeasibilityError::ScoreTooLow);
+		ensure!(is_greater_than_min_untrusted, FeasibilityError::ScoreTooLow);
 
 		Ok(())
 	}
@@ -769,7 +840,7 @@ pub fn feasibility_check_page_inner_with_snapshot<T: MinerConfig>(
 	snapshot_voters: &BoundedVec<VoterOf<T>, T::VoterSnapshotPerBlock>,
 	snapshot_targets: &BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
 	desired_targets: u32,
-) -> Result<SupportsOfMiner<T>, FeasibilityError> {
+) -> Result<PageSupportsOfMiner<T>, FeasibilityError> {
 	// ----- Start building. First, we need some closures.
 	let cache = helpers::generate_voter_cache::<T, _>(snapshot_voters);
 	let voter_at = helpers::voter_at_fn::<T>(snapshot_voters);
@@ -858,37 +929,24 @@ impl<T: Config> Verifier for Pallet<T> {
 		QueuedSolution::<T>::get_queued_solution_page(page)
 	}
 
-	fn verify_synchronous(
-		partial_solution: Self::Solution,
+	fn verify_synchronous_multi(
+		partial_solutions: Vec<Self::Solution>,
+		solution_pages: Vec<PageIndex>,
 		claimed_score: ElectionScore,
-		page: PageIndex,
-	) -> Result<SupportsOfVerifier<Self>, FeasibilityError> {
-		let maybe_current_score = Self::queued_score();
-		match Self::do_verify_synchronous(partial_solution, claimed_score, page) {
-			Ok(supports) => {
-				sublog!(
-					info,
-					"verifier",
-					"queued a sync solution with score {:?} for page {}",
-					claimed_score,
-					page
-				);
-				Self::deposit_event(Event::<T>::Verified(page, supports.len() as u32));
-				Self::deposit_event(Event::<T>::Queued(claimed_score, maybe_current_score));
-				Ok(supports)
-			},
-			Err(fe) => {
+	) -> Result<(), FeasibilityError> {
+		Self::do_verify_synchronous_multi(partial_solutions, solution_pages, claimed_score).map_err(
+			|(page, fe)| {
 				sublog!(
 					warn,
 					"verifier",
-					"sync verification of page {} failed due to {:?}.",
+					"sync verification of page {:?} failed due to {:?}.",
 					page,
 					fe
 				);
 				Self::deposit_event(Event::<T>::VerificationFailed(page, fe.clone()));
-				Err(fe)
+				fe
 			},
-		}
+		)
 	}
 
 	fn force_set_single_page_valid(

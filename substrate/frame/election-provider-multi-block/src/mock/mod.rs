@@ -143,6 +143,7 @@ parameter_types! {
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
 	pub static MinerMaxLength: u32 = 256;
+	pub static MinerPages: u32 = 1;
 	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
 
 	// by default we stick to 3 pages to host our 12 voters.
@@ -172,6 +173,7 @@ impl crate::verifier::Config for Runtime {
 }
 
 impl crate::unsigned::Config for Runtime {
+	type MinerPages = MinerPages;
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainSolver = SequentialPhragmen<Self::AccountId, Perbill>;
@@ -372,6 +374,10 @@ impl ExtBuilder {
 	}
 	pub(crate) fn signed_validation_phase(self, d: BlockNumber) -> Self {
 		SignedValidationPhase::set(d);
+		self
+	}
+	pub(crate) fn miner_pages(self, p: u32) -> Self {
+		MinerPages::set(p);
 		self
 	}
 	#[allow(unused)]

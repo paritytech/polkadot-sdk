@@ -896,7 +896,8 @@ pub(crate) mod multi_block_impls {
 	);
 
 	parameter_types! {
-		pub const Pages: u32 = 64;
+		pub const Pages: u32 = 16;
+		pub const MinerPages: u32 = 4;
 		// nominators snapshot size
 		pub VoterSnapshotPerBlock: u32 = 22500 / Pages::get();
 		// validator snapshot size
@@ -994,8 +995,8 @@ pub(crate) mod multi_block_impls {
 			SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, OffchainRandomBalancing>;
 		// offchain usage of miner configs
 		type MinerTxPriority = MinerTxPriority;
-		// TODO: this needs to be an educated number: "estimate mining time per page * pages"
 		type OffchainRepeat = ConstU32<5>;
+		type MinerPages = MinerPages;
 
 		type WeightInfo = multi_block::weights::AllZeroWeights;
 	}

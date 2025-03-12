@@ -1016,6 +1016,15 @@ impl<T: Config> Pallet<T> {
 		Zero::zero()
 	}
 
+	/// Return the `length` most significant pages.
+	///
+	/// For example, if `Pages = 4`, and `length = 2`, our full snapshot range would be [0,
+	/// 1, 2, 3], with 3 being msp. But, in this case, then this returns `[2, 3]` two most
+	/// significant pages, in the old order.
+	pub(crate) fn msp_range_for(length: usize) -> Vec<PageIndex> {
+		(Self::lsp()..Self::msp() + 1).rev().take(length).rev().collect::<Vec<_>>()
+	}
+
 	pub(crate) fn phase_transition(to: Phase<T>) {
 		let from = Self::current_phase();
 		log!(debug, "transitioning phase from {:?} to {:?}", from, to);

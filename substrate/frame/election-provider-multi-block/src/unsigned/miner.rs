@@ -34,6 +34,9 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
+// TODO: we should have a fuzzer for miner that ensures no matter the parameters, it generates a
+// valid solution. Esp. for the trimming.
+
 /// The type of the snapshot.
 ///
 /// Used to express errors.
@@ -199,10 +202,24 @@ pub trait MinerConfig {
 pub struct BaseMiner<T: MinerConfig>(sp_std::marker::PhantomData<T>);
 
 /// Parameterized `BoundedSupports` for the miner.
-pub type SupportsOfMiner<T> = frame_election_provider_support::BoundedSupports<
+///
+/// The bounds of this are set such to only encapsulate a single page of a snapshot. The other
+/// counterpart is [`FullSupportsOfMiner`].
+pub type PageSupportsOfMiner<T> = frame_election_provider_support::BoundedSupports<
 	<T as MinerConfig>::AccountId,
 	<T as MinerConfig>::MaxWinnersPerPage,
 	<T as MinerConfig>::MaxBackersPerWinner,
+>;
+
+/// The full version of [`PageSupportsOfMiner`].
+///
+/// This should be used on a support instance that is encapsulating the full solution.
+///
+/// Another way to look at it, this is never wrapped in a `Vec<_>`
+pub type FullSupportsOfMiner<T> = frame_election_provider_support::BoundedSupports<
+	<T as MinerConfig>::AccountId,
+	<T as MinerConfig>::MaxWinnersPerPage,
+	<T as MinerConfig>::MaxBackersPerWinnerFinal,
 >;
 
 /// Aggregator for inputs to [`BaseMiner`].
@@ -299,7 +316,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 				(count, staked)
 			};
 
-			// 2. trim the supports by backing.
+			// 2. trim the supports by FINAL backing.
 			let (_pre_score, final_trimmed_assignments, winners_removed, backers_removed) = {
 				// these supports could very well be invalid for SCORE purposes. The reason is that
 				// you might trim out half of an account's stake, but we don't look for this
@@ -308,7 +325,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 
 				let pre_score = (&supports_invalid_score).evaluate();
 				let (bounded_invalid_score, winners_removed, backers_removed) =
-					SupportsOfMiner::<T>::sorted_truncate_from(supports_invalid_score);
+					FullSupportsOfMiner::<T>::sorted_truncate_from(supports_invalid_score);
 
 				// now recreated the staked assignments
 				let staked = supports_to_staked_assignment(bounded_invalid_score.into());
@@ -319,7 +336,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 
 			miner_log!(
 				debug,
-				"initial score = {:?}, reduced {} edges, trimmed {} winners from supports, trimmed {} backers from support",
+				"initial score = {:?}, reduced {} edges, trimmed {} winners and {} backers due to global support limits",
 				_pre_score,
 				reduced_count,
 				winners_removed,
@@ -333,6 +350,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 		let mut paged_assignments: BoundedVec<Vec<AssignmentOf<T>>, T::Pages> =
 			BoundedVec::with_bounded_capacity(pages as usize);
 		paged_assignments.bounded_resize(pages as usize, Default::default());
+
 		for assignment in trimmed_assignments {
 			// NOTE: this `page` index is LOCAL. It does not correspond to the actual page index of
 			// the snapshot map, but rather the index in the `voter_pages`.
@@ -342,7 +360,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 			assignment_page.push(assignment);
 		}
 
-		// convert each page to a compact struct
+		// convert each page to a compact struct -- no more change allowed.
 		let solution_pages: BoundedVec<SolutionOf<T>, T::Pages> = paged_assignments
 			.into_iter()
 			.enumerate()
@@ -353,12 +371,21 @@ impl<T: MinerConfig> BaseMiner<T> {
 					.get(page as usize)
 					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))?;
 
+				// one last trimming -- `MaxBackersPerWinner`, the per-page variant.
+				let trimmed_assignment_page =
+					Self::trim_supports_max_backers_per_winner_per_page(
+						assignment_page,
+						voter_snapshot_page,
+						page_index as u32,
+					)?;
+
 				let voter_index_fn = {
 					let cache = helpers::generate_voter_cache::<T, _>(&voter_snapshot_page);
 					helpers::voter_index_fn_owned::<T>(cache)
 				};
+
 				<SolutionOf<T>>::from_assignment(
-					&assignment_page,
+					&trimmed_assignment_page,
 					&voter_index_fn,
 					&target_index_fn,
 				)
@@ -368,7 +395,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 			.try_into()
 			.expect("`paged_assignments` is bound by `T::Pages`; length cannot change in iter chain; qed");
 
-		// now do the weight and length trim.
+		// now do the length trim.
 		let mut solution_pages_unbounded = solution_pages.into_inner();
 		let _trim_length_weight =
 			Self::maybe_trim_weight_and_len(&mut solution_pages_unbounded, &voter_pages)?;
@@ -408,25 +435,37 @@ impl<T: MinerConfig> BaseMiner<T> {
 		paged_voters: &AllVoterPagesOf<T>,
 		snapshot_targets: &BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
 		desired_targets: u32,
-	) -> Result<Vec<SupportsOfMiner<T>>, MinerError<T>> {
+	) -> Result<Vec<PageSupportsOfMiner<T>>, MinerError<T>> {
 		// check every solution page for feasibility.
 		let padded_voters = paged_voters.clone().pad_solution_pages(T::Pages::get());
 		paged_solution
 			.solution_pages
 			.pagify(T::Pages::get())
 			.map(|(page_index, page_solution)| {
-				verifier::feasibility_check_page_inner_with_snapshot::<T>(
+				match verifier::feasibility_check_page_inner_with_snapshot::<T>(
 					page_solution.clone(),
 					&padded_voters[page_index as usize],
 					snapshot_targets,
 					desired_targets,
-				)
+				) {
+					Ok(x) => {
+						miner_log!(debug, "feasibility check of page {:?} was okay", page_index,);
+						Ok(x)
+					},
+					Err(e) => {
+						miner_log!(
+							warn,
+							"feasibility check of page {:?} {:?} failed for solution because: {:?}",
+							page_index,
+							page_solution,
+							e,
+						);
+						Err(e)
+					},
+				}
 			})
 			.collect::<Result<Vec<_>, _>>()
-			.map_err(|err| {
-				miner_log!(warn, "feasibility check failed for solution at: {:?}", err);
-				MinerError::from(err)
-			})
+			.map_err(|err| MinerError::from(err))
 			.and_then(|supports| {
 				// If we someday want to check `MaxBackersPerWinnerFinal`, it would be here.
 				Ok(supports)
@@ -458,29 +497,45 @@ impl<T: MinerConfig> BaseMiner<T> {
 		Ok((&all_supports).evaluate())
 	}
 
-	/// Trim the given supports so that the count of backings in none of them exceeds
-	/// [`crate::verifier::Config::MaxBackersPerWinner`].
-	///
-	/// Note that this should only be called on the *global, non-paginated* supports. Calling this
-	/// on a single page of supports is essentially pointless and does not guarantee anything in
-	/// particular.
-	///
-	/// Returns the count of supports trimmed.
-	pub fn trim_supports(supports: &mut sp_npos_elections::Supports<T::AccountId>) -> u32 {
-		let limit = T::MaxBackersPerWinner::get() as usize;
-		let mut count = 0;
-		supports
-			.iter_mut()
-			.filter_map(
-				|(_, support)| if support.voters.len() > limit { Some(support) } else { None },
-			)
-			.for_each(|support| {
-				support.voters.sort_unstable_by(|(_, b1), (_, b2)| b1.cmp(&b2).reverse());
-				support.voters.truncate(limit);
-				support.total = support.voters.iter().fold(0, |acc, (_, x)| acc.saturating_add(*x));
-				count.saturating_inc();
-			});
-		count
+	fn trim_supports_max_backers_per_winner_per_page(
+		untrimmed_assignments: Vec<AssignmentOf<T>>,
+		page_voters: &VoterPageOf<T>,
+		page: PageIndex,
+	) -> Result<Vec<AssignmentOf<T>>, MinerError<T>> {
+		use sp_npos_elections::{
+			assignment_ratio_to_staked_normalized, assignment_staked_to_ratio_normalized,
+			supports_to_staked_assignment, to_supports,
+		};
+		// convert to staked
+		let cache = helpers::generate_voter_cache::<T, _>(page_voters);
+		let stake_of = helpers::stake_of_fn::<T, _>(&page_voters, &cache);
+		let untrimmed_staked_assignments =
+			assignment_ratio_to_staked_normalized(untrimmed_assignments, &stake_of)?;
+
+		// convert to supports
+		let supports = to_supports(&untrimmed_staked_assignments);
+		drop(untrimmed_staked_assignments);
+
+		// Convert it to our desired bounds, which will truncate the smallest backers if need
+		// be.
+		let (bounded, winners_removed, backers_removed) =
+			PageSupportsOfMiner::<T>::sorted_truncate_from(supports);
+
+		miner_log!(
+			debug,
+			"trimmed {} winners and {} backers from page {} due to per-page limits",
+			winners_removed,
+			backers_removed,
+			page
+		);
+
+		// convert back to staked
+		let trimmed_staked_assignments = supports_to_staked_assignment(bounded.into());
+		// and then ratio assignments
+		let trimmed_assignments =
+			assignment_staked_to_ratio_normalized(trimmed_staked_assignments)?;
+
+		Ok(trimmed_assignments)
 	}
 
 	/// Maybe tim the weight and length of the given multi-page solution.
@@ -609,8 +664,6 @@ impl<T: Config> OffchainWorkerMiner<T> {
 	const OFFCHAIN_LAST_BLOCK: &'static [u8] = b"parity/multi-block-unsigned-election";
 	/// Storage key used to cache the solution `call` and its snapshot fingerprint.
 	const OFFCHAIN_CACHED_CALL: &'static [u8] = b"parity/multi-block-unsigned-election/call";
-	/// The number of pages that the offchain worker miner will try and mine.
-	const MINING_PAGES: PageIndex = 1;
 
 	pub(crate) fn fetch_snapshot(
 		pages: PageIndex,
@@ -624,25 +677,22 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		let all_targets = crate::Snapshot::<T>::targets()
 			.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets))?;
 
-		// This is the range of voters that we are interested in. Mind the second `.rev`, it is
-		// super critical.
-		let voter_pages_range = (crate::Pallet::<T>::lsp()..crate::Pallet::<T>::msp() + 1)
-			.rev()
-			.take(pages as usize)
-			.rev();
+		// This is the range of voters that we are interested in.
+		let voter_pages_range = crate::Pallet::<T>::msp_range_for(pages as usize);
 
 		sublog!(
 			debug,
 			"unsigned::base-miner",
 			"mining a solution with {} pages, voter snapshot range will be: {:?}",
 			pages,
-			voter_pages_range.clone().collect::<Vec<_>>()
+			voter_pages_range
 		);
 
 		// NOTE: if `pages (2) < T::Pages (3)`, at this point this vector will have length 2,
 		// with a layout of `[snapshot(1), snapshot(2)]`, namely the two most significant pages
 		//  of the snapshot.
 		let voter_pages: BoundedVec<_, T::Pages> = voter_pages_range
+			.into_iter()
 			.map(|p| {
 				crate::Snapshot::<T>::voters(p)
 					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(p)))
@@ -651,7 +701,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 			.try_into()
 			.expect(
 				"`voter_pages_range` has `.take(pages)`; it must have length less than pages; it
-		must convert to `BoundedVec`; qed",
+				must convert to `BoundedVec`; qed",
 			);
 
 		Ok((voter_pages, all_targets, desired_targets))
@@ -682,7 +732,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 
 		// NOTE: we don't run any checks in the base miner, and run all of them via
 		// `Self::full_checks`.
-		let paged_solution = Self::mine_solution(Self::MINING_PAGES, reduce)
+		let paged_solution = Self::mine_solution(T::MinerPages::get(), reduce)
 			.map_err::<OffchainMinerError<T>, _>(Into::into)?;
 		// check the call fully, no fingerprinting.
 		let _ = Self::check_solution(&paged_solution, None, true)?;
@@ -937,26 +987,24 @@ impl<T: Config> OffchainWorkerMiner<T> {
 
 // This will only focus on testing the internals of `maybe_trim_weight_and_len_works`.
 #[cfg(test)]
-mod trim_weight_length {
+mod trimming {
 	use super::*;
 	use crate::{mock::*, verifier::Verifier};
 	use frame_election_provider_support::TryFromUnboundedPagedSupports;
 	use sp_npos_elections::Support;
 
 	#[test]
-	fn trim_length() {
-		// This is just demonstration to show the normal election result with new votes, without any
-		// trimming.
+	fn solution_without_any_trimming() {
 		ExtBuilder::unsigned().build_and_execute(|| {
+			// adjust the voters a bit, such that they are all different backings
 			let mut current_voters = Voters::get();
 			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
 			Voters::set(current_voters);
 
 			roll_to_snapshot_created();
-			ensure_voters(3, 12);
 
+			// now we let the miner mine something for us..
 			let solution = mine_full_solution().unwrap();
-
 			assert_eq!(
 				solution.solution_pages.iter().map(|page| page.voter_count()).sum::<usize>(),
 				8
@@ -973,7 +1021,6 @@ mod trim_weight_length {
 			assert_eq!(
 				supports,
 				vec![
-					// if we set any limit less than 105, 30 will be the first to leave.
 					vec![
 						(30, Support { total: 30, voters: vec![(30, 30)] }),
 						(40, Support { total: 40, voters: vec![(40, 40)] })
@@ -987,9 +1034,13 @@ mod trim_weight_length {
 				.try_from_unbounded_paged()
 				.unwrap()
 			);
-		});
+		})
+	}
 
+	#[test]
+	fn trim_length() {
 		ExtBuilder::unsigned().miner_max_length(104).build_and_execute(|| {
+			// adjust the voters a bit, such that they are all different backings
 			let mut current_voters = Voters::get();
 			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
 			Voters::set(current_voters);
@@ -1015,7 +1066,8 @@ mod trim_weight_length {
 			assert_eq!(
 				supports,
 				vec![
-					// 30 is gone!
+					// 30 is gone! Note that length trimming starts from lsp, so we trim from this
+					// page only.
 					vec![(40, Support { total: 40, voters: vec![(40, 40)] })],
 					vec![
 						(30, Support { total: 11, voters: vec![(7, 7), (5, 2), (6, 2)] }),
@@ -1027,6 +1079,255 @@ mod trim_weight_length {
 				.unwrap()
 			);
 		});
+	}
+
+	#[test]
+	fn trim_length_2() {
+		ExtBuilder::unsigned().miner_max_length(98).build_and_execute(|| {
+			// adjust the voters a bit, such that they are all different backings
+			let mut current_voters = Voters::get();
+			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+			Voters::set(current_voters);
+
+			roll_to_snapshot_created();
+			ensure_voters(3, 12);
+
+			let solution = mine_full_solution().unwrap();
+
+			assert_eq!(
+				solution.solution_pages.iter().map(|page| page.voter_count()).sum::<usize>(),
+				6
+			);
+
+			assert_eq!(solution.solution_pages.encoded_size(), 93);
+
+			load_mock_signed_and_start(solution);
+			let supports = roll_to_full_verification();
+
+			// a solution is queued.
+			assert!(VerifierPallet::queued_score().is_some());
+
+			assert_eq!(
+				supports,
+				vec![
+					vec![],
+					vec![
+						(30, Support { total: 11, voters: vec![(7, 7), (5, 2), (6, 2)] }),
+						(40, Support { total: 7, voters: vec![(5, 3), (6, 4)] })
+					],
+					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
+				]
+				.try_from_unbounded_paged()
+				.unwrap()
+			);
+		});
+	}
+
+	#[test]
+	fn trim_length_3() {
+		ExtBuilder::unsigned().miner_max_length(92).build_and_execute(|| {
+			// adjust the voters a bit, such that they are all different backings
+			let mut current_voters = Voters::get();
+			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+			Voters::set(current_voters);
+
+			roll_to_snapshot_created();
+			ensure_voters(3, 12);
+
+			let solution = mine_full_solution().unwrap();
+
+			assert_eq!(
+				solution.solution_pages.iter().map(|page| page.voter_count()).sum::<usize>(),
+				5
+			);
+
+			assert_eq!(solution.solution_pages.encoded_size(), 83);
+
+			load_mock_signed_and_start(solution);
+			let supports = roll_to_full_verification();
+
+			// a solution is queued.
+			assert!(VerifierPallet::queued_score().is_some());
+
+			assert_eq!(
+				dbg!(supports),
+				vec![
+					vec![],
+					vec![
+						(30, Support { total: 9, voters: vec![(7, 7), (6, 2)] }),
+						(40, Support { total: 4, voters: vec![(6, 4)] })
+					],
+					vec![(40, Support { total: 9, voters: vec![(2, 2), (3, 3), (4, 4)] })]
+				]
+				.try_from_unbounded_paged()
+				.unwrap()
+			);
+		});
+	}
+
+	#[test]
+	fn trim_backers_per_page_works() {
+		ExtBuilder::unsigned().max_backers_per_winner(2).build_and_execute(|| {
+			// adjust the voters a bit, such that they are all different backings
+			let mut current_voters = Voters::get();
+			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+			Voters::set(current_voters);
+
+			roll_to_snapshot_created();
+			ensure_voters(3, 12);
+
+			let solution = mine_full_solution().unwrap();
+
+			load_mock_signed_and_start(solution);
+			let supports = roll_to_full_verification();
+
+			// a solution is queued.
+			assert!(VerifierPallet::queued_score().is_some());
+
+			// each page is trimmed individually, based on `solution_without_any_trimming`.
+			assert_eq!(
+				supports,
+				vec![
+					vec![
+						(30, Support { total: 30, voters: vec![(30, 30)] }),
+						(40, Support { total: 40, voters: vec![(40, 40)] })
+					],
+					vec![
+						(30, Support { total: 9, voters: vec![(7, 7), (6, 2)] }),
+						(40, Support { total: 9, voters: vec![(5, 5), (6, 4)] }) /* notice how
+						                                                          * 5's stake is
+						                                                          * re-distributed
+						                                                          * all here ^^ */
+					],
+					vec![(40, Support { total: 7, voters: vec![(3, 3), (4, 4)] })]
+				]
+				.try_from_unbounded_paged()
+				.unwrap()
+			);
+		})
+	}
+
+	#[test]
+	fn trim_backers_per_page_works_2() {
+		// This one is more interesting, as it also shows that as we trim backers, we re-distribute
+		// their weight elsewhere.
+		ExtBuilder::unsigned().max_backers_per_winner(1).build_and_execute(|| {
+			// adjust the voters a bit, such that they are all different backings
+			let mut current_voters = Voters::get();
+			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+			Voters::set(current_voters);
+
+			roll_to_snapshot_created();
+			ensure_voters(3, 12);
+
+			let solution = mine_full_solution().unwrap();
+
+			load_mock_signed_and_start(solution);
+			let supports = roll_to_full_verification();
+
+			// a solution is queued.
+			assert!(VerifierPallet::queued_score().is_some());
+
+			// each page is trimmed individually, based on `solution_without_any_trimming`.
+			assert_eq!(
+				supports,
+				vec![
+					vec![
+						(30, Support { total: 30, voters: vec![(30, 30)] }),
+						(40, Support { total: 40, voters: vec![(40, 40)] })
+					],
+					vec![
+						(30, Support { total: 7, voters: vec![(7, 7)] }),
+						(40, Support { total: 6, voters: vec![(6, 6)] })
+					],
+					vec![(40, Support { total: 4, voters: vec![(4, 4)] })]
+				]
+				.try_from_unbounded_paged()
+				.unwrap()
+			);
+		})
+	}
+
+	#[test]
+	fn trim_backers_final_works() {
+		ExtBuilder::unsigned().max_backers_per_winner_final(4).build_and_execute(|| {
+			// adjust the voters a bit, such that they are all different backings
+			let mut current_voters = Voters::get();
+			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+			Voters::set(current_voters);
+
+			roll_to_snapshot_created();
+			ensure_voters(3, 12);
+
+			let solution = mine_full_solution().unwrap();
+
+			load_mock_signed_and_start(solution);
+			let supports = roll_to_full_verification();
+
+			// a solution is queued.
+			assert!(VerifierPallet::queued_score().is_some());
+
+			// 30 has 1 + 3 = 4 backers -- all good
+			// 40 has 1 + 2 + 3 = 6 backers -- needs to lose 2
+			assert_eq!(
+				supports,
+				vec![
+					vec![
+						(30, Support { total: 30, voters: vec![(30, 30)] }),
+						(40, Support { total: 40, voters: vec![(40, 40)] })
+					],
+					vec![
+						(30, Support { total: 14, voters: vec![(5, 5), (7, 7), (6, 2)] }),
+						(40, Support { total: 4, voters: vec![(6, 4)] })
+					],
+					vec![(40, Support { total: 7, voters: vec![(3, 3), (4, 4)] })]
+				]
+				.try_from_unbounded_paged()
+				.unwrap()
+			);
+		})
+	}
+
+	#[test]
+	fn trim_backers_per_page_and_final_works() {
+		ExtBuilder::unsigned()
+			.max_backers_per_winner_final(4)
+			.max_backers_per_winner(2)
+			.build_and_execute(|| {
+				// adjust the voters a bit, such that they are all different backings
+				let mut current_voters = Voters::get();
+				current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+				Voters::set(current_voters);
+
+				roll_to_snapshot_created();
+				ensure_voters(3, 12);
+
+				let solution = mine_full_solution().unwrap();
+
+				load_mock_signed_and_start(solution);
+				let supports = roll_to_full_verification();
+
+				// a solution is queued.
+				assert!(VerifierPallet::queued_score().is_some());
+
+				// each page is trimmed individually, based on `solution_without_any_trimming`.
+				assert_eq!(
+					supports,
+					vec![
+						vec![
+							(30, Support { total: 30, voters: vec![(30, 30)] }),
+							(40, Support { total: 40, voters: vec![(40, 40)] })
+						],
+						vec![
+							(30, Support { total: 12, voters: vec![(5, 5), (7, 7)] }),
+							(40, Support { total: 6, voters: vec![(6, 6)] })
+						],
+						vec![(40, Support { total: 7, voters: vec![(3, 3), (4, 4)] })]
+					]
+					.try_from_unbounded_paged()
+					.unwrap()
+				);
+			})
 	}
 }
 
@@ -1488,57 +1789,6 @@ mod base_miner {
 			assert!(reduced_edges < full_edges, "{} < {} not fulfilled", reduced_edges, full_edges);
 		})
 	}
-
-	#[test]
-	fn trim_backers_per_page_works() {
-		ExtBuilder::unsigned()
-			.max_backers_per_winner(5)
-			.voter_per_page(8)
-			.build_and_execute(|| {
-				// 10 and 40 are the default winners, we add a lot more votes to them.
-				for i in 100..105 {
-					VOTERS.with(|v| v.borrow_mut().push((i, i - 96, vec![10].try_into().unwrap())));
-				}
-				roll_to_snapshot_created();
-
-				ensure_voters(3, 17);
-
-				// now we let the miner mine something for us..
-				let paged = mine_full_solution().unwrap();
-				load_mock_signed_and_start(paged.clone());
-
-				// this must be correct
-				let supports = roll_to_full_verification();
-
-				// 10 has no more than 5 backings, and from the new voters that we added in this
-				// test, the most staked ones stayed (103, 104) and the rest trimmed.
-				assert_eq!(
-					supports,
-					vec![
-						// 1 backing for 10
-						vec![(10, Support { total: 8, voters: vec![(104, 8)] })],
-						// 2 backings for 10
-						vec![
-							(10, Support { total: 17, voters: vec![(10, 10), (103, 7)] }),
-							(40, Support { total: 40, voters: vec![(40, 40)] })
-						],
-						// 20 backings for 10
-						vec![
-							(10, Support { total: 20, voters: vec![(1, 10), (8, 10)] }),
-							(
-								40,
-								Support {
-									total: 40,
-									voters: vec![(2, 10), (3, 10), (5, 10), (6, 10)]
-								}
-							)
-						]
-					]
-					.try_from_unbounded_paged()
-					.unwrap()
-				);
-			})
-	}
 }
 
 #[cfg(test)]
@@ -1841,7 +2091,7 @@ mod offchain_worker_miner {
 	}
 
 	#[test]
-	fn multi_page_ocw_e2e_submits_and_queued_msp_only() {
+	fn ocw_e2e_submits_and_queued_msp_only() {
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
 			// roll to mine
@@ -1880,6 +2130,87 @@ mod offchain_worker_miner {
 	}
 
 	#[test]
+	fn multi_page_ocw_e2e_submits_and_queued_msp_only() {
+		let (mut ext, pool) = ExtBuilder::unsigned().miner_pages(2).build_offchainify();
+		ext.execute_with_sanity_checks(|| {
+			// roll to mine
+			roll_to_unsigned_open_with_ocw(None);
+			// one block to verify and submit.
+			roll_next_with_ocw(Some(pool.clone()));
+
+			assert_eq!(
+				multi_block_events(),
+				vec![
+					crate::Event::PhaseTransitioned {
+						from: Phase::Off,
+						to: Phase::Snapshot(Pages::get())
+					},
+					crate::Event::PhaseTransitioned {
+						from: Phase::Snapshot(0),
+						to: Phase::Unsigned(UnsignedPhase::get() - 1)
+					}
+				]
+			);
+			assert_eq!(
+				verifier_events(),
+				vec![
+					crate::verifier::Event::Verified(1, 2),
+					crate::verifier::Event::Verified(2, 2),
+					crate::verifier::Event::Queued(
+						ElectionScore { minimal_stake: 30, sum_stake: 70, sum_stake_squared: 2500 },
+						None
+					)
+				]
+			);
+			assert!(VerifierPallet::queued_score().is_some());
+
+			// pool is empty
+			assert_eq!(pool.read().transactions.len(), 0);
+		})
+	}
+
+	#[test]
+	fn full_multi_page_ocw_e2e_submits_and_queued_msp_only() {
+		let (mut ext, pool) = ExtBuilder::unsigned().miner_pages(3).build_offchainify();
+		ext.execute_with_sanity_checks(|| {
+			// roll to mine
+			roll_to_unsigned_open_with_ocw(None);
+			// one block to verify and submit.
+			roll_next_with_ocw(Some(pool.clone()));
+
+			assert_eq!(
+				multi_block_events(),
+				vec![
+					crate::Event::PhaseTransitioned {
+						from: Phase::Off,
+						to: Phase::Snapshot(Pages::get())
+					},
+					crate::Event::PhaseTransitioned {
+						from: Phase::Snapshot(0),
+						to: Phase::Unsigned(UnsignedPhase::get() - 1)
+					}
+				]
+			);
+			assert_eq!(
+				verifier_events(),
+				vec![
+					crate::verifier::Event::Verified(0, 2),
+					crate::verifier::Event::Verified(1, 2),
+					crate::verifier::Event::Verified(2, 2),
+					crate::verifier::Event::Queued(
+						ElectionScore { minimal_stake: 55, sum_stake: 130, sum_stake_squared: 8650 },
+						None
+					)
+				]
+			);
+			assert!(VerifierPallet::queued_score().is_some());
+
+			// pool is empty
+			assert_eq!(pool.read().transactions.len(), 0);
+		})
+	}
+
+	#[test]
 	fn will_not_mine_if_not_enough_winners() {
 		// also see `trim_weight_too_much_makes_solution_invalid`.
 		let (mut ext, _) = ExtBuilder::unsigned().desired_targets(77).build_offchainify();
@@ -1893,5 +2224,11 @@ mod offchain_worker_miner {
 				OffchainMinerError::Common(CommonError::WrongWinnerCount)
 			);
 		});
+	}
+
+	#[test]
+	#[ignore]
+	fn multi_page_miner_on_remote_state() {
+		todo!();
 	}
 }
