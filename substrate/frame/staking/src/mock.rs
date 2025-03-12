@@ -139,7 +139,6 @@ sp_runtime::impl_opaque_keys! {
 		pub other: OtherSessionHandler,
 	}
 }
-
 impl pallet_session::Config for Test {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
 	type Keys = SessionKeys;
@@ -231,13 +230,13 @@ parameter_types! {
 	pub static Pages: PageIndex = 1;
 	// Should be large enough to pass all tests, but not too big to cause benchmarking tests to be too slow.
 	pub static MaxBackersPerWinner: u32 = 256;
-	// If set, the `SingleOrMultiPageElectionProvider` will return these exact values, per page
+	// If set, the `SingleOrMultipageElectionProvider` will return these exact values, per page
 	// index. If not, it will behave is per the code.
 	pub static CustomElectionSupports: Option<Vec<Result<BoundedSupportsOf<<Test as Config>::ElectionProvider>, onchain::Error>>> = None;
 }
 
 // An election provider wrapper that allows testing with single and multi page modes.
-pub struct SingleOrMultiPageElectionProvider<SP: ElectionProvider>(core::marker::PhantomData<SP>);
+pub struct SingleOrMultipageElectionProvider<SP: ElectionProvider>(core::marker::PhantomData<SP>);
 impl<
 		// single page EP.
 		SP: ElectionProvider<
@@ -245,9 +244,8 @@ impl<
 			MaxWinnersPerPage = MaxWinnersPerPage,
 			MaxBackersPerWinner = MaxBackersPerWinner,
 			Error = onchain::Error,
-			BlockNumber = BlockNumber,
 		>,
-	> ElectionProvider for SingleOrMultiPageElectionProvider<SP>
+	> ElectionProvider for SingleOrMultipageElectionProvider<SP>
 {
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
@@ -286,29 +284,14 @@ impl<
 			}
 		}
 	}
-	fn start() -> Result<(), Self::Error> {
-		SP::start()
-	}
-	fn duration() -> Self::BlockNumber {
-		SP::duration()
-	}
 	fn msp() -> PageIndex {
 		SP::msp()
 	}
 	fn lsp() -> PageIndex {
 		SP::lsp()
 	}
-
-	fn status() -> Result<bool, ()> {
-		use frame_election_provider_support::ElectionDataProvider;
-		let now = System::block_number();
-		// TODO: reword this prediction as a standalone helper to use in other pallets.
-		let prediction = Staking::next_election_prediction(now);
-		if now + Pages::get() as BlockNumber >= prediction {
-			Ok(true)
-		} else {
-			Err(())
-		}
+	fn ongoing() -> bool {
+		SP::ongoing()
 	}
 }
 
@@ -381,7 +364,7 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxValidatorSet = MaxValidatorSet;
 	type ElectionProvider =
-		SingleOrMultiPageElectionProvider<onchain::OnChainExecution<OnChainSeqPhragmen>>;
+		SingleOrMultipageElectionProvider<onchain::OnChainExecution<OnChainSeqPhragmen>>;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterBagsList;
 	type TargetList = UseValidatorsMap<Self>;
@@ -779,7 +762,6 @@ pub(crate) fn advance_session() {
 /// Progress until the given era.
 pub(crate) fn start_active_era(era_index: EraIndex) {
 	start_session((era_index * <SessionsPerEra as Get<u32>>::get()).into());
-
 	assert_eq!(active_era(), era_index);
 	// One way or another, current_era must have changed before the active era, so they must match
 	// at this point.

@@ -26,10 +26,10 @@ use frame_support::{
 	traits::{
 		fungible::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
-			Mutate, Mutate as FunMutate,
+			Inspect, Mutate, Mutate as FunMutate,
 		},
 		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, Nothing, OnUnbalanced,
+		InspectLockableCurrency, Nothing, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedBTreeSet, BoundedVec,
@@ -42,8 +42,8 @@ use rand_chacha::{
 };
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
-	traits::{StaticLookup, Zero},
-	ArithmeticError, Perbill, Percent,
+	traits::{SaturatedConversion, StaticLookup, Zero},
+	ArithmeticError, Perbill, Percent, Saturating,
 };
 
 use sp_staking::{
@@ -60,7 +60,7 @@ use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
 	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
 	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -132,6 +132,12 @@ pub mod pallet {
 			+ Send
 			+ Sync
 			+ MaxEncodedLen;
+		/// Time used for computing era duration.
+		///
+		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
+		/// genesis is not used.
+		#[pallet::no_default]
+		type UnixTime: UnixTime;
 
 		/// Convert a balance into a number used for election calculation. This must fit into a
 		/// `u64` but is allowed to be sensibly lossy. The `u64` is used to communicate with the
@@ -209,23 +215,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type SessionsPerEra: Get<SessionIndex>;
 
-		/// Number of sessions before the end of an era when the election for the next era will
-		/// start.
-		///
-		/// - This determines how many sessions **before** the last session of the era the staking
-		///   election process should begin.
-		/// - The value is bounded between **1** (election starts at the beginning of the last
-		///   session) and `SessionsPerEra` (election starts at the beginning of the first session
-		///   of the era).
-		///
-		/// ### Example:
-		/// - If `SessionsPerEra = 6` and `ElectionOffset = 1`, the election starts at the beginning
-		///   of session `6 - 1 = 5`.
-		/// - If `ElectionOffset = 6`, the election starts at the beginning of session `6 - 6 = 0`,
-		///   meaning it starts at the very beginning of the era.
-		#[pallet::constant]
-		type ElectionOffset: Get<SessionIndex>;
-
 		/// Number of eras that staked funds must remain bonded for.
 		#[pallet::constant]
 		type BondingDuration: Get<EraIndex>;
@@ -244,8 +233,7 @@ pub mod pallet {
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Interface for interacting with a session pallet.
-		/// TODO: this is not needed anymore -- there is no session pallet for us to talk to.
-		// type SessionInterface: SessionInterface<Self::AccountId>;
+		type SessionInterface: SessionInterface<Self::AccountId>;
 
 		/// The payout for validators and the system for the current era.
 		/// See [Era payout](./index.html#era-payout).
@@ -346,13 +334,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
-		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
-		/// relay chain.
-		#[pallet::no_default]
-		type RcClientInterface: pallet_staking_rc_client::RcClientInterface<
-			AccountId = Self::AccountId,
-		>;
-
 		#[pallet::no_default_bounds]
 		/// Filter some accounts from participating in staking.
 		///
@@ -409,8 +390,8 @@ pub mod pallet {
 			type Reward = ();
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
-			type ElectionOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
+			type SessionInterface = ();
 			type NextNewSession = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
@@ -830,23 +811,23 @@ pub mod pallet {
 		///
 		/// Useful for testing genesis config.
 		pub dev_stakers: Option<(u32, u32)>,
-		/// initial active era, corresponding session index and start timestamp.
-		pub active_era: (u32, u32, u64),
 	}
 
 	impl<T: Config> GenesisConfig<T> {
 		fn generate_endowed_bonded_account(
 			derivation: &str,
 			rng: &mut ChaChaRng,
+			min_validator_bond: BalanceOf<T>,
 		) -> T::AccountId {
 			let pair: SrPair = Pair::from_string(&derivation, None)
 				.expect(&format!("Failed to parse derivation string: {derivation}"));
 			let who = T::AccountId::decode(&mut &pair.public().encode()[..])
 				.expect(&format!("Failed to decode public key from pair: {:?}", pair.public()));
 
-			let (min, max) = T::VoterList::range();
-			let stake = BalanceOf::<T>::from(rng.next_u64().min(max).max(min));
-			let two: BalanceOf<T> = 2u32.into();
+			let stake = BalanceOf::<T>::from(rng.next_u64())
+				.max(T::Currency::minimum_balance())
+				.max(min_validator_bond);
+			let two: BalanceOf<T> = 2u64.into();
 
 			assert_ok!(T::Currency::mint_into(&who, stake * two));
 			assert_ok!(<Pallet<T>>::bond(
@@ -944,6 +925,7 @@ pub mod pallet {
 						let who = Self::generate_endowed_bonded_account(
 							&derivation,
 							&mut rng,
+							self.min_validator_bond,
 						);
 						assert_ok!(<Pallet<T>>::validate(
 							T::RuntimeOrigin::from(Some(who.clone()).into()),
@@ -958,6 +940,7 @@ pub mod pallet {
 					let who = Self::generate_endowed_bonded_account(
 						&derivation,
 						&mut rng,
+						self.min_validator_bond,
 					);
 
 					let random_nominations = validators
@@ -971,12 +954,6 @@ pub mod pallet {
 					));
 				})
 			}
-
-			let (active_era, session_index, timestamp) = self.active_era;
-			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
-			// at genesis, we do not have any new planned era.
-			CurrentEra::<T>::put(active_era);
-			ErasStartSessionIndex::<T>::insert(active_era, session_index);
 		}
 	}
 
@@ -1104,15 +1081,6 @@ pub mod pallet {
 			slash_key: (T::AccountId, Perbill, u32),
 			payout: BalanceOf<T>,
 		},
-		/// Session change has been triggered.
-		///
-		/// If planned_era is one era ahead of active_era, it implies new era is being planned and
-		/// election is ongoing.
-		SessionRotated {
-			starting_session: SessionIndex,
-			active_era: EraIndex,
-			planned_era: EraIndex,
-		},
 	}
 
 	#[pallet::error]
@@ -1195,7 +1163,10 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+		/// Start fetching the election pages `Pages` blocks before the election prediction, so
+		/// that the `ElectableStashes` has been populated with all validators from all pages at
+		/// the time of the election.
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			// todo(ank4n): Hacky bench. Do it properly.
 			let mut consumed_weight = slashing::process_offence::<T>();
 
@@ -1211,9 +1182,50 @@ pub mod pallet {
 				Self::apply_unapplied_slashes(active_era.index);
 			}
 
-			let fetch_weight = Self::on_initialize_maybe_fetch_election_results();
+			let pages = Self::election_pages();
 
-			consumed_weight.saturating_add(fetch_weight)
+			// election ongoing, fetch the next page.
+			let inner_weight = if let Some(next_page) = NextElectionPage::<T>::get() {
+				let next_next_page = next_page.checked_sub(1);
+				NextElectionPage::<T>::set(next_next_page);
+				Self::do_elect_paged(next_page)
+			} else {
+				// election isn't ongoing yet, check if it should start.
+				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
+
+				if now == (next_election.saturating_sub(pages.into())) {
+					crate::log!(
+						debug,
+						"elect(): start fetching solution pages. expected pages: {:?}",
+						pages
+					);
+
+					let current_page = pages.saturating_sub(1);
+					let next_page = current_page.checked_sub(1);
+					NextElectionPage::<T>::set(next_page);
+					Self::do_elect_paged(current_page)
+				} else {
+					Weight::default()
+				}
+			};
+
+			consumed_weight.saturating_accrue(inner_weight);
+
+			consumed_weight
+		}
+
+		fn on_finalize(_n: BlockNumberFor<T>) {
+			// Set the start of the first era.
+			if let Some(mut active_era) = ActiveEra::<T>::get() {
+				if active_era.start.is_none() {
+					let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
+					active_era.start = Some(now_as_millis_u64);
+					// This write only ever happens once, we don't include it in the weight in
+					// general
+					ActiveEra::<T>::put(active_era);
+				}
+			}
+			// `on_finalize` weight is tracked in `on_initialize`
 		}
 
 		fn integrity_test() {
@@ -1240,86 +1252,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub(crate) fn on_initialize_maybe_fetch_election_results() -> Weight {
-			if let Ok(true) = T::ElectionProvider::status() {
-				crate::log!(
-					debug,
-					"Election provider is ready, our status is {:?}",
-					NextElectionPage::<T>::get()
-				);
-
-				debug_assert!(
-					CurrentEra::<T>::get().unwrap_or(0) ==
-						ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
-					"Next era must be already planned."
-				);
-
-				match NextElectionPage::<T>::get() {
-					Some(current_page) => {
-						let next_page = current_page.checked_sub(1);
-						crate::log!(
-							debug,
-							"fetching page {:?}, next {:?}",
-							current_page,
-							next_page
-						);
-						Self::do_elect_paged(current_page);
-						NextElectionPage::<T>::set(next_page);
-						// TODO(ank4n): Both `NextElectionPage` and `VoterSnapshotStatus` need be
-						// checked carefully again.
-
-						// if current page was `Some`, and next is `None`, we have
-						// finished an election and we can report it now.
-						if next_page.is_none() {
-							use pallet_staking_rc_client::RcClientInterface;
-							let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
-							let bonded_eras = BondedEras::<T>::get();
-
-							// get the first session of the oldest era in the bonded eras.
-							let prune_up_to =
-								if (bonded_eras.len() as u32) < T::BondingDuration::get() {
-									0
-								} else {
-									bonded_eras
-										.first()
-										.map(|(_, first_session)| *first_session)
-										.unwrap_or(0)
-								};
-
-							crate::log!(
-								info,
-								"Send new validator set to RC. ID: {:?}, prune_up_to: {:?}",
-								id,
-								prune_up_to
-							);
-
-							T::RcClientInterface::validator_set(
-								ElectableStashes::<T>::get().into_iter().collect(),
-								id,
-								Some(prune_up_to),
-							);
-						}
-					},
-					None => {
-						let pages = Self::election_pages();
-						let current_page = pages.saturating_sub(1);
-						let next_page = current_page.checked_sub(1);
-						crate::log!(
-							debug,
-							"fetching page {:?}, next {:?}",
-							current_page,
-							next_page
-						);
-						Self::do_elect_paged(current_page);
-						NextElectionPage::<T>::set(next_page);
-					},
-				};
-				T::DbWeight::get().reads_writes(1, 1)
-			} else {
-				T::DbWeight::get().reads(1)
-			}
-		}
-
 		/// Get the ideal number of active validators.
 		pub fn validator_count() -> u32 {
 			ValidatorCount::<T>::get()
@@ -1487,17 +1419,17 @@ pub mod pallet {
 			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
-				return Err(Error::<T>::AlreadyBonded.into());
+				return Err(Error::<T>::AlreadyBonded.into())
 			}
 
 			// An existing controller cannot become a stash.
 			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
-				return Err(Error::<T>::AlreadyPaired.into());
+				return Err(Error::<T>::AlreadyPaired.into())
 			}
 
 			// Reject a bond which is considered to be _dust_.
 			if value < asset::existential_deposit::<T>() {
-				return Err(Error::<T>::InsufficientBond.into());
+				return Err(Error::<T>::InsufficientBond.into())
 			}
 
 			let stash_balance = asset::free_to_stake::<T>(&stash);
@@ -1632,8 +1564,7 @@ pub mod pallet {
 
 				// update this staker in the sorted list, if they exist in it.
 				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash))
-						.defensive_proof("Failed to update voter in VoterList in unbond");
+					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
 				}
 
 				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
@@ -2141,8 +2072,7 @@ pub mod pallet {
 			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 			ledger.update()?;
 			if T::VoterList::contains(&stash) {
-				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash))
-					.defensive_proof("Failed to update voter in VoterList in rebond");
+				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
 			}
 
 			let removed_chunks = 1u32 // for the case where the last iterated chunk is not removed
@@ -2349,7 +2279,7 @@ pub mod pallet {
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
-				return Ok(());
+				return Ok(())
 			}
 
 			if caller != controller {
@@ -2687,7 +2617,6 @@ pub mod pallet {
 		#[pallet::call_index(32)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
 		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
-			use sp_runtime::Saturating;
 			let _ = ensure_signed(origin)?;
 
 			let ledger = Self::ledger(Stash(stash.clone()))?;

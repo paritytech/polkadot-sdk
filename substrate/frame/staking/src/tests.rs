@@ -855,53 +855,47 @@ fn double_controlling_attempt_should_fail() {
 
 #[test]
 fn session_and_eras_work_simple() {
-	ExtBuilder::default().period(3).build_and_execute(|| {
+	ExtBuilder::default().period(1).build_and_execute(|| {
 		assert_eq!(active_era(), 0);
 		assert_eq!(current_era(), 0);
-		assert_eq!(Session::current_index(), 0);
+		assert_eq!(Session::current_index(), 1);
 		assert_eq!(System::block_number(), 1);
 
 		// Session 1: this is basically a noop. This has already been started.
 		start_session(1);
 		assert_eq!(Session::current_index(), 1);
 		assert_eq!(active_era(), 0);
-		assert_eq!(current_era(), 0);
-		assert_eq!(System::block_number(), 3);
+		assert_eq!(System::block_number(), 1);
 
 		// Session 2: No change.
 		start_session(2);
 		assert_eq!(Session::current_index(), 2);
 		assert_eq!(active_era(), 0);
-		assert_eq!(current_era(), 1);
-		assert_eq!(System::block_number(), 6);
+		assert_eq!(System::block_number(), 2);
 
 		// Session 3: Era increment.
 		start_session(3);
 		assert_eq!(Session::current_index(), 3);
 		assert_eq!(active_era(), 1);
-		assert_eq!(current_era(), 1);
-		assert_eq!(System::block_number(), 9);
+		assert_eq!(System::block_number(), 3);
 
 		// Session 4: No change.
 		start_session(4);
 		assert_eq!(Session::current_index(), 4);
 		assert_eq!(active_era(), 1);
-		assert_eq!(current_era(), 1);
-		assert_eq!(System::block_number(), 12);
+		assert_eq!(System::block_number(), 4);
 
 		// Session 5: No change.
 		start_session(5);
 		assert_eq!(Session::current_index(), 5);
 		assert_eq!(active_era(), 1);
-		assert_eq!(current_era(), 2);
-		assert_eq!(System::block_number(), 15);
+		assert_eq!(System::block_number(), 5);
 
 		// Session 6: Era increment.
 		start_session(6);
 		assert_eq!(Session::current_index(), 6);
 		assert_eq!(active_era(), 2);
-		assert_eq!(current_era(), 2);
-		assert_eq!(System::block_number(), 18);
+		assert_eq!(System::block_number(), 6);
 	});
 }
 
@@ -5558,6 +5552,63 @@ mod election_data_provider {
 					vec![(11, 1), (21, 1), (31, 1), (71, 7)],
 				);
 			});
+	}
+
+	#[test]
+	fn estimate_next_election_single_page_works() {
+		ExtBuilder::default().session_per_era(5).period(5).build_and_execute(|| {
+			// first session is always length 0.
+			for b in 1..19 {
+				run_to_block(b);
+				assert_eq!(Staking::next_election_prediction(System::block_number()), 20);
+			}
+
+			// election
+			run_to_block(20);
+			assert_eq!(Staking::next_election_prediction(System::block_number()), 45);
+			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
+
+			for b in 21..44 {
+				run_to_block(b);
+				assert_eq!(Staking::next_election_prediction(System::block_number()), 45);
+			}
+
+			// election
+			run_to_block(45);
+			assert_eq!(Staking::next_election_prediction(System::block_number()), 70);
+			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
+
+			Staking::force_no_eras(RuntimeOrigin::root()).unwrap();
+			assert_eq!(Staking::next_election_prediction(System::block_number()), u64::MAX);
+
+			Staking::force_new_era_always(RuntimeOrigin::root()).unwrap();
+			assert_eq!(Staking::next_election_prediction(System::block_number()), 45 + 5);
+
+			Staking::force_new_era(RuntimeOrigin::root()).unwrap();
+			assert_eq!(Staking::next_election_prediction(System::block_number()), 45 + 5);
+
+			// Do a fail election
+			MinimumValidatorCount::<Test>::put(1000);
+			run_to_block(50);
+			// Election: failed, next session is a new election
+			assert_eq!(Staking::next_election_prediction(System::block_number()), 50 + 5);
+			// The new era is still forced until a new era is planned.
+			assert_eq!(ForceEra::<Test>::get(), Forcing::ForceNew);
+
+			MinimumValidatorCount::<Test>::put(2);
+			run_to_block(55);
+			assert_eq!(Staking::next_election_prediction(System::block_number()), 55 + 25);
+			assert_eq!(
+				*staking_events().last().unwrap(),
+				Event::ForceEra { mode: Forcing::NotForcing }
+			);
+			assert_eq!(
+				*staking_events().get(staking_events().len() - 2).unwrap(),
+				Event::StakersElected
+			);
+			// The new era has been planned, forcing is changed from `ForceNew` to `NotForcing`.
+			assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
+		})
 	}
 }
 

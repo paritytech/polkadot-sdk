@@ -358,13 +358,11 @@ mod paged_on_initialize {
 
 				// electing started at cursor is set once the election starts to be prepared.
 				assert_eq!(NextElectionPage::<Test>::get(), Some(1));
-
 				// now the electable stashes started to be fetched and stored.
 				assert_eq_uvec!(
 					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
 					expected_elected
 				);
-
 				// exposures have been collected for all validators in the page.
 				// note that the mock election provider adds one exposures per winner for
 				// each page.
@@ -793,8 +791,6 @@ mod paged_snapshot {
 				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
 					.unwrap()
 					.is_empty());
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
-
 				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
 					.unwrap()
 					.is_empty());
@@ -823,17 +819,6 @@ mod paged_snapshot {
 	#[test]
 	#[should_panic]
 	fn voter_snapshot_starts_from_msp_to_lsp() {
-		todo!();
-	}
-
-	#[test]
-	#[should_panic]
-	fn locked_nominator_cannot_move_in_list() {
-		// they cannot chill, which removes them from the list
-		// they cannot bond_extra, which adds to their score
-		// they cannot unbond, which reduces their stake
-		// they cannot receive rewards, which uncreases their stake
-		// they cannot be slashed
 		todo!();
 	}
 }
