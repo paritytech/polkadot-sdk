@@ -1418,7 +1418,7 @@ pub trait ExtrinsicCall: BaseExtrinsicCall {
 
 /// An extrinsic that will be lazily decoded.
 pub trait LazyExtrinsic<'a>: ExtrinsicLike + BaseExtrinsicCall {
-    /// A structure similar to this one, but with all the fields referencing decoded values.
+	/// A structure similar to this one, but with all the fields referencing decoded values.
 	type FullExtrinsicRef: ExtrinsicLike + ExtrinsicCall;
 
 	/// Get the call of the extrinsic. Decode on the spot if needed.

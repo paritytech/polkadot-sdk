@@ -37,7 +37,7 @@ use sp_core::{
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use sp_runtime::{
 	testing::TestXt,
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, LazyExtrinsic, Verify},
 	RuntimeAppPublic,
 };
 
@@ -245,9 +245,12 @@ fn should_submit_signed_transaction_on_chain() {
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
-		let tx = Extrinsic::decode(&mut &*tx).unwrap();
+		let mut tx = Extrinsic::decode(&mut &*tx).unwrap();
 		assert!(matches!(tx.preamble, sp_runtime::generic::Preamble::Signed(0, (), (),)));
-		assert_eq!(tx.function, RuntimeCall::Example(crate::Call::submit_price { price: 15523 }));
+		assert_eq!(
+			tx.expect_as_full().call,
+			&RuntimeCall::Example(crate::Call::submit_price { price: 15523 })
+		);
 	});
 }
 
@@ -285,12 +288,12 @@ fn should_submit_unsigned_transaction_on_chain_for_any_account() {
 		Example::fetch_price_and_send_unsigned_for_any_account(1).unwrap();
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
-		let tx = Extrinsic::decode(&mut &*tx).unwrap();
+		let mut tx = Extrinsic::decode(&mut &*tx).unwrap();
 		assert!(tx.is_inherent());
 		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
 			price_payload: body,
 			signature,
-		}) = tx.function
+		}) = tx.expect_as_full().call.clone()
 		{
 			assert_eq!(body, price_payload);
 
@@ -340,12 +343,12 @@ fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
 		Example::fetch_price_and_send_unsigned_for_all_accounts(1).unwrap();
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
-		let tx = Extrinsic::decode(&mut &*tx).unwrap();
+		let mut tx = Extrinsic::decode(&mut &*tx).unwrap();
 		assert!(tx.is_inherent());
 		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
 			price_payload: body,
 			signature,
-		}) = tx.function
+		}) = tx.expect_as_full().call.clone()
 		{
 			assert_eq!(body, price_payload);
 
@@ -381,10 +384,10 @@ fn should_submit_raw_unsigned_transaction_on_chain() {
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
-		let tx = Extrinsic::decode(&mut &*tx).unwrap();
+		let mut tx = Extrinsic::decode(&mut &*tx).unwrap();
 		assert!(tx.is_inherent());
 		assert_eq!(
-			tx.function,
+			tx.expect_as_full().call.clone(),
 			RuntimeCall::Example(crate::Call::submit_price_unsigned {
 				block_number: 1,
 				price: 15523
