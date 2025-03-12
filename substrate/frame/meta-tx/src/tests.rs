@@ -76,7 +76,7 @@ fn force_set_balance(account: AccountId) -> Balance {
 
 fn apply_extrinsic(mut uxt: UncheckedExtrinsic) -> DispatchResultWithPostInfo {
 	let uxt_len = uxt.using_encoded(|e| e.len());
-	let uxt_info = uxt.expect_as_full().get_dispatch_info();
+	let uxt_info = uxt.expect_as_ref().get_dispatch_info();
 	let xt = <UncheckedExtrinsic as Checkable<IdentityLookup<AccountId>>>::check(
 		uxt,
 		&Default::default(),
