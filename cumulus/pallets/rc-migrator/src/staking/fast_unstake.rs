@@ -138,11 +138,9 @@ impl<T: Config> PalletMigration for FastUnstakeMigrator<T> {
 		}
 
 		if !messages.is_empty() {
-			Pallet::<T>::send_chunked_xcm(
-				messages,
-				|messages| types::AhMigratorCall::<T>::ReceiveFastUnstakeMessages { messages },
-				|_| Weight::from_all(1), // TODO
-			)?;
+			Pallet::<T>::send_chunked_xcm(messages, |messages| {
+				types::AhMigratorCall::<T>::ReceiveFastUnstakeMessages { messages }
+			})?;
 		}
 
 		if inner_key == FastUnstakeStage::Finished {

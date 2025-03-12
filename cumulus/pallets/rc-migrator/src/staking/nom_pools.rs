@@ -273,11 +273,9 @@ impl<T: Config> PalletMigration for NomPoolsMigrator<T> {
 		}
 
 		if !messages.is_empty() {
-			Pallet::<T>::send_chunked_xcm(
-				messages,
-				|messages| types::AhMigratorCall::<T>::ReceiveNomPoolsMessages { messages },
-				|_| Weight::from_all(1), // TODO
-			)?;
+			Pallet::<T>::send_chunked_xcm(messages, |messages| {
+				types::AhMigratorCall::<T>::ReceiveNomPoolsMessages { messages }
+			})?;
 		}
 
 		if inner_key == NomPoolsStage::Finished {

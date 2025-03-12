@@ -160,11 +160,9 @@ impl<T: Config, W: AhWeightInfo> PalletMigration for MultisigMigrator<T, W> {
 		let (batch, last_key) = Self::migrate_out_many(last_key, weight_counter, &mut ah_weight)?;
 
 		if !batch.is_empty() {
-			Pallet::<T>::send_chunked_xcm(
-				batch,
-				|batch| types::AhMigratorCall::<T>::ReceiveMultisigs { multisigs: batch },
-				|len| T::AhWeightInfo::receive_multisigs(len),
-			)?;
+			Pallet::<T>::send_chunked_xcm(batch, |batch| {
+				types::AhMigratorCall::<T>::ReceiveMultisigs { multisigs: batch }
+			})?;
 		}
 
 		Ok(last_key)

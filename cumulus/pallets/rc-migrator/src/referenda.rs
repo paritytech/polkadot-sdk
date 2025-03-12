@@ -75,14 +75,11 @@ impl<T: Config> ReferendaMigrator<T> {
 			.collect::<Vec<_>>();
 		defensive_assert!(track_queue.len() <= TRACKS_COUNT, "Track queue unexpectedly large");
 
-		Pallet::<T>::send_xcm(
-			types::AhMigratorCall::<T>::ReceiveReferendaValues {
-				referendum_count,
-				deciding_count,
-				track_queue,
-			},
-			Weight::from_all(1),
-		)?;
+		Pallet::<T>::send_xcm(types::AhMigratorCall::<T>::ReceiveReferendaValues {
+			referendum_count,
+			deciding_count,
+			track_queue,
+		})?;
 
 		Ok(())
 	}
@@ -146,11 +143,9 @@ impl<T: Config> ReferendaMigrator<T> {
 		};
 
 		if !batch.is_empty() {
-			Pallet::<T>::send_chunked_xcm(
-				batch,
-				|batch| types::AhMigratorCall::<T>::ReceiveReferendums { referendums: batch },
-				|_| Weight::from_all(1), // TODO
-			)?;
+			Pallet::<T>::send_chunked_xcm(batch, |batch| {
+				types::AhMigratorCall::<T>::ReceiveReferendums { referendums: batch }
+			})?;
 		}
 
 		Ok(last_key)

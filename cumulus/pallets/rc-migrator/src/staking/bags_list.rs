@@ -120,11 +120,9 @@ impl<T: Config> PalletMigration for BagsListMigrator<T> {
 		}
 
 		if !messages.is_empty() {
-			Pallet::<T>::send_chunked_xcm(
-				messages,
-				|messages| types::AhMigratorCall::<T>::ReceiveBagsListMessages { messages },
-				|_| Weight::from_all(1), // TODO
-			)?;
+			Pallet::<T>::send_chunked_xcm(messages, |messages| {
+				types::AhMigratorCall::<T>::ReceiveBagsListMessages { messages }
+			})?;
 		}
 
 		if inner_key == BagsListStage::Finished {

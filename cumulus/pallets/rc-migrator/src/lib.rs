@@ -71,12 +71,12 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_common::{
 	claims as pallet_claims, crowdloan as pallet_crowdloan, paras_registrar, slots as pallet_slots,
 };
+use polkadot_runtime_parachains::hrmp;
 use preimage::{
 	PreimageChunkMigrator, PreimageLegacyRequestStatusMigrator, PreimageRequestStatusMigrator,
 };
 use proxy::*;
 use referenda::ReferendaStage;
-use runtime_parachains::hrmp;
 use sp_core::{crypto::Ss58Codec, H256};
 use sp_runtime::AccountId32;
 use sp_std::prelude::*;
@@ -492,7 +492,7 @@ pub mod pallet {
 				},
 				MigrationStage::Scheduled { block_number } =>
 					if now >= block_number {
-						match Self::send_xcm(types::AhMigratorCall::<T>::StartMigration, Weight::from_all(1)) {
+						match Self::send_xcm(types::AhMigratorCall::<T>::StartMigration) {
 							Ok(_) => {
 								Self::transition(MigrationStage::Initializing);
 							},
@@ -1151,15 +1151,12 @@ pub mod pallet {
 		/// ### Parameters:
 		/// - items - data items to batch and send with the `create_call`
 		/// - create_call - function to create the call from the items
-		/// - weight_at_most - function to calculate the weight limit on AH for the call with `n`
-		///   elements from `items`
 		///
 		/// Will modify storage in the error path.
 		/// This is done to avoid exceeding the XCM message size limit.
 		pub fn send_chunked_xcm<E: Encode>(
 			mut items: Vec<E>,
 			create_call: impl Fn(Vec<E>) -> types::AhMigratorCall<T>,
-			weight_at_most: impl Fn(u32) -> Weight,
 		) -> Result<(), Error<T>> {
 			log::info!(target: LOG_TARGET, "Received {} items to batch send via XCM", items.len());
 			items.reverse();
@@ -1191,17 +1188,7 @@ pub mod pallet {
 					},
 					Instruction::Transact {
 						origin_kind: OriginKind::Superuser,
-						// The `require_weight_at_most` parameter is used by the XCM executor to
-						// verify if the available weight is sufficient to process this call. If
-						// sufficient, the executor will execute the call and use the actual weight
-						// from the dispatchable result to adjust the meter limit. The weight meter
-						// limit on the Asset Hub is [Config::MaxAhWeight], which applies not only
-						// to process the calls passed with XCM messages but also to some base work
-						// required to process an XCM message.
-						// Additionally the call will not be executed if `require_weight_at_most` is
-						// lower than the actual weight of the call.
-						// TODO: we can remove ths with XCMv5
-						require_weight_at_most: weight_at_most(batch_len),
+						fallback_max_weight: None,
 						call: call.encode().into(),
 					},
 				]);
@@ -1222,11 +1209,7 @@ pub mod pallet {
 		///
 		/// ### Parameters:
 		/// - call - the call to send
-		/// - weight_at_most - the weight limit for the call on AH
-		pub fn send_xcm(
-			call: types::AhMigratorCall<T>,
-			weight_at_most: Weight,
-		) -> Result<(), Error<T>> {
+		pub fn send_xcm(call: types::AhMigratorCall<T>) -> Result<(), Error<T>> {
 			log::info!(target: LOG_TARGET, "Sending XCM message");
 
 			let call = types::AssetHubPalletConfig::<T>::AhmController(call);
@@ -1238,17 +1221,7 @@ pub mod pallet {
 				},
 				Instruction::Transact {
 					origin_kind: OriginKind::Superuser,
-					// The `require_weight_at_most` parameter is used by the XCM executor to verify
-					// if the available weight is sufficient to process this call. If sufficient,
-					// the executor will execute the call and use the actual weight from the
-					// dispatchable result to adjust the meter limit. The weight meter limit on the
-					// Asset Hub is [Config::MaxAhWeight], which applies not only to process the
-					// calls passed with XCM messages but also to some base work required to process
-					// an XCM message.
-					// Additionally the call will not be executed if `require_weight_at_most` is
-					// lower than the actual weight of the call.
-					// TODO: we can remove ths with XCMv5
-					require_weight_at_most: weight_at_most,
+					fallback_max_weight: None,
 					call: call.encode().into(),
 				},
 			]);

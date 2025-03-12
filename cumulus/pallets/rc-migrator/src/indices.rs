@@ -84,11 +84,9 @@ impl<T: Config> PalletMigration for IndicesMigrator<T> {
 		}
 
 		if !messages.is_empty() {
-			Pallet::<T>::send_chunked_xcm(
-				messages,
-				|batch| types::AhMigratorCall::<T>::ReceiveIndices { indices: batch },
-				|_| Weight::from_all(1), // TODO
-			)?;
+			Pallet::<T>::send_chunked_xcm(messages, |batch| {
+				types::AhMigratorCall::<T>::ReceiveIndices { indices: batch }
+			})?;
 		}
 
 		Ok(inner_key)

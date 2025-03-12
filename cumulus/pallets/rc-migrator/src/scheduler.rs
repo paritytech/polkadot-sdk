@@ -128,11 +128,9 @@ impl<T: Config> PalletMigration for SchedulerMigrator<T> {
 			};
 		}
 
-		Pallet::<T>::send_chunked_xcm(
-			messages,
-			|messages| types::AhMigratorCall::<T>::ReceiveSchedulerMessages { messages },
-			|_| Weight::from_all(1), // TODO
-		)?;
+		Pallet::<T>::send_chunked_xcm(messages, |messages| {
+			types::AhMigratorCall::<T>::ReceiveSchedulerMessages { messages }
+		})?;
 
 		if last_key == SchedulerStage::Finished {
 			Ok(None)

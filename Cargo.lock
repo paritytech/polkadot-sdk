@@ -27608,6 +27608,7 @@ dependencies = [
  "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
+ "pallet-rc-migrator",
  "pallet-recovery",
  "pallet-referenda",
  "pallet-root-testing",
