@@ -138,7 +138,6 @@ pub struct ChildBounty<
 	value: BountyBalance,
 	/// The child-bounty curator fee in the `asset_kind`. Included in value.
 	fee: BountyBalance,
-	// TODO: use consideration
 	/// The deposit of child-bounty curator.
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
@@ -497,7 +496,6 @@ pub mod pallet {
 							asset_kind,
 						)?;
 
-						// TODO: use consideration here
 						T::Currency::reserve(curator, deposit)?;
 						child_bounty.curator_deposit = deposit;
 
@@ -565,7 +563,6 @@ pub mod pallet {
 
 					let slash_curator =
 						|curator: &T::AccountId, curator_deposit: &mut DepositBalanceOf<T, I>| {
-							// TODO: use consideration
 							let imbalance =
 								T::Currency::slash_reserved(curator, *curator_deposit).0;
 							T::OnSlash::on_unbalanced(imbalance);
@@ -626,7 +623,6 @@ pub mod pallet {
 								Some(sender) if sender == *curator => {
 									// This is the child-bounty curator, willingly giving up their
 									// role. Give back their deposit.
-									// TODO: use consideration here
 									T::Currency::unreserve(curator, child_bounty.curator_deposit);
 									// Reset curator deposit.
 									child_bounty.curator_deposit = Zero::zero();
@@ -1140,7 +1136,6 @@ pub mod pallet {
 								// Unreserve the curator deposit when payment succeeds. Should not
 								// fail because the deposit is always reserved when curator
 								// is assigned.
-								// TODO: use consideration here
 								let err_amount =
 									T::Currency::unreserve(&curator, child_bounty.curator_deposit);
 

@@ -311,10 +311,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
-		// TODO: since we break the API with this iteration it may be reasonable to migrate to
-		// `Considerations` and remove old config parameters relater to deposits. This is optional
-		// for current PR.
-
 		/// The amount held on deposit for placing a bounty proposal.
 		#[pallet::constant]
 		type BountyDepositBase: Get<DepositBalanceOf<Self, I>>;
