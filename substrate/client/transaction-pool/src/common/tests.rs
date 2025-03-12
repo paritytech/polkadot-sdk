@@ -28,8 +28,8 @@ use parking_lot::Mutex;
 use sc_transaction_pool_api::error;
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Hash},
+	generic::{BlockId, UncheckedExtrinsicRef},
+	traits::{Block as BlockT, Hash, LazyExtrinsic},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
@@ -83,14 +83,14 @@ impl ChainApi for TestApi {
 		uxt: ExtrinsicFor<Self>,
 		_: ValidateTransactionPriority,
 	) -> Result<TransactionValidity, Self::Error> {
-		let uxt = (*uxt).clone();
+		let mut uxt = (*uxt).clone();
 		self.validation_requests.lock().push(uxt.clone());
 		let hash = self.hash_and_length(&uxt).0;
 		let block_number = self.block_id_to_number(&BlockId::Hash(at)).unwrap().unwrap();
 
-		let res = match uxt {
-			Extrinsic {
-				function: RuntimeCall::Balances(BalancesCall::transfer_allow_death { .. }),
+		let res = match uxt.expect_as_ref() {
+			UncheckedExtrinsicRef {
+				call: &RuntimeCall::Balances(BalancesCall::transfer_allow_death { .. }),
 				..
 			} => {
 				let TransferData { nonce, .. } = (&uxt).try_into().unwrap();
@@ -136,8 +136,8 @@ impl ChainApi for TestApi {
 					Ok(transaction)
 				}
 			},
-			Extrinsic {
-				function: RuntimeCall::SubstrateTest(PalletCall::include_data { .. }),
+			UncheckedExtrinsicRef {
+				call: &RuntimeCall::SubstrateTest(PalletCall::include_data { .. }),
 				..
 			} => Ok(ValidTransaction {
 				priority: 9001,
@@ -146,8 +146,8 @@ impl ChainApi for TestApi {
 				longevity: 9001,
 				propagate: false,
 			}),
-			Extrinsic {
-				function: RuntimeCall::SubstrateTest(PalletCall::indexed_call { .. }),
+			UncheckedExtrinsicRef {
+				call: &RuntimeCall::SubstrateTest(PalletCall::indexed_call { .. }),
 				..
 			} => Ok(ValidTransaction {
 				priority: 9001,
