@@ -10374,14 +10374,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "my_macros"
-version = "0.1.0"
-dependencies = [
- "quote 1.0.38",
- "syn 2.0.98",
-]
-
-[[package]]
 name = "nalgebra"
 version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13315,10 +13307,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "my_macros",
  "parity-scale-codec",
  "scale-info",
- "serde",
  "sp-core 28.0.0",
  "sp-inherents",
  "sp-io 30.0.0",
