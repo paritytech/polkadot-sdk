@@ -466,6 +466,7 @@ where
 	}
 }
 
+/// DEPRECATED in favor of [xcm_builder::ExternalConsensusLocationsConverterFor]
 pub struct EthereumLocationsConverterFor<AccountId>(PhantomData<AccountId>);
 impl<AccountId> ConvertLocation<AccountId> for EthereumLocationsConverterFor<AccountId>
 where

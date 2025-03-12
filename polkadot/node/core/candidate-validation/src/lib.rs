@@ -195,9 +195,43 @@ where
 			let relay_parent = candidate_receipt.descriptor.relay_parent();
 
 			let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
+			let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
+				let error = "cannot fetch session index from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				let _ = response_sender
+					.send(Err(ValidationFailed("Session index not found".to_string())));
+				return
+			};
+
+			// This will return a default value for the limit if runtime API is not available.
+			// however we still error out if there is a weird runtime API error.
+			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
+				relay_parent,
+				session_index,
+				&mut sender,
+			)
+			.await
+			else {
+				let error = "cannot fetch validation code bomb limit from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				let _ = response_sender.send(Err(ValidationFailed(
+					"Validation code bomb limit not available".to_string(),
+				)));
+				return
+			};
 
 			let res = validate_candidate_exhaustive(
-				get_session_index(&mut sender, relay_parent).await,
+				session_index,
 				validation_host,
 				validation_data,
 				validation_code,
@@ -207,6 +241,7 @@ where
 				exec_kind,
 				&metrics,
 				maybe_claim_queue,
+				validation_code_bomb_limit,
 			)
 			.await;
 
@@ -220,9 +255,46 @@ where
 			response_sender,
 			..
 		} => async move {
-			let precheck_result =
-				precheck_pvf(&mut sender, validation_host, relay_parent, validation_code_hash)
-					.await;
+			let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
+				let error = "cannot fetch session index from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				let _ = response_sender.send(PreCheckOutcome::Failed);
+				return
+			};
+
+			// This will return a default value for the limit if runtime API is not available.
+			// however we still error out if there is a weird runtime API error.
+			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
+				relay_parent,
+				session_index,
+				&mut sender,
+			)
+			.await
+			else {
+				let error = "cannot fetch validation code bomb limit from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				let _ = response_sender.send(PreCheckOutcome::Failed);
+				return
+			};
+
+			let precheck_result = precheck_pvf(
+				&mut sender,
+				validation_host,
+				relay_parent,
+				validation_code_hash,
+				validation_code_bomb_limit,
+			)
+			.await;
 
 			let _ = response_sender.send(precheck_result);
 		}
@@ -533,11 +605,33 @@ where
 			continue;
 		};
 
+		let Some(session_index) = get_session_index(sender, relay_parent).await else { continue };
+
+		let validation_code_bomb_limit = match util::runtime::fetch_validation_code_bomb_limit(
+			relay_parent,
+			session_index,
+			sender,
+		)
+		.await
+		{
+			Ok(limit) => limit,
+			Err(err) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?err,
+					"cannot fetch validation code bomb limit from runtime API",
+				);
+				continue;
+			},
+		};
+
 		let pvf = PvfPrepData::from_code(
 			validation_code.0,
 			executor_params.clone(),
 			timeout,
 			PrepareJobKind::Prechecking,
+			validation_code_bomb_limit,
 		);
 
 		active_pvfs.push(pvf);
@@ -690,6 +784,7 @@ async fn precheck_pvf<Sender>(
 	mut validation_backend: impl ValidationBackend,
 	relay_parent: Hash,
 	validation_code_hash: ValidationCodeHash,
+	validation_code_bomb_limit: u32,
 ) -> PreCheckOutcome
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -739,6 +834,7 @@ where
 		executor_params,
 		timeout,
 		PrepareJobKind::Prechecking,
+		validation_code_bomb_limit,
 	);
 
 	match validation_backend.precheck_pvf(pvf).await {
@@ -753,7 +849,7 @@ where
 }
 
 async fn validate_candidate_exhaustive(
-	maybe_expected_session_index: Option<SessionIndex>,
+	expected_session_index: SessionIndex,
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -763,6 +859,7 @@ async fn validate_candidate_exhaustive(
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
 	maybe_claim_queue: Option<ClaimQueueSnapshot>,
+	validation_code_bomb_limit: u32,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
 	let validation_code_hash = validation_code.hash();
@@ -778,22 +875,10 @@ async fn validate_candidate_exhaustive(
 
 	// We only check the session index for backing.
 	match (exec_kind, candidate_receipt.descriptor.session_index()) {
-		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) => {
-			let Some(expected_session_index) = maybe_expected_session_index else {
-				let error = "cannot fetch session index from the runtime";
-				gum::warn!(
-					target: LOG_TARGET,
-					?relay_parent,
-					error,
-				);
-
-				return Err(ValidationFailed(error.into()))
-			};
-
+		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) =>
 			if session_index != expected_session_index {
 				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex))
-			}
-		},
+			},
 		(_, _) => {},
 	};
 
@@ -819,6 +904,7 @@ async fn validate_candidate_exhaustive(
 				executor_params,
 				prep_timeout,
 				PrepareJobKind::Compilation,
+				validation_code_bomb_limit,
 			);
 
 			validation_backend
@@ -843,6 +929,7 @@ async fn validate_candidate_exhaustive(
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
 					exec_kind.into(),
 					exec_kind,
+					validation_code_bomb_limit,
 				)
 				.await,
 	};
@@ -1005,6 +1092,7 @@ trait ValidationBackend {
 		prepare_priority: polkadot_node_core_pvf::Priority,
 		// The kind for the execution job.
 		exec_kind: PvfExecKind,
+		validation_code_bomb_limit: u32,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
@@ -1013,6 +1101,7 @@ trait ValidationBackend {
 			executor_params,
 			prep_timeout,
 			PrepareJobKind::Compilation,
+			validation_code_bomb_limit,
 		);
 		// We keep track of the total time that has passed and stop retrying if we are taking too
 		// long.
