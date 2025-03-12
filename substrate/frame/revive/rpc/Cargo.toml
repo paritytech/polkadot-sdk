@@ -8,6 +8,9 @@ homepage.workspace = true
 repository.workspace = true
 description = "An Ethereum JSON-RPC server for pallet-revive."
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [[bin]]
 name = "eth-rpc"
 path = "src/main.rs"

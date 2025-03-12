@@ -8,6 +8,9 @@ homepage.workspace = true
 repository.workspace = true
 description = "Procedural macros used in pallet_revive"
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [lints]
 workspace = true
 
