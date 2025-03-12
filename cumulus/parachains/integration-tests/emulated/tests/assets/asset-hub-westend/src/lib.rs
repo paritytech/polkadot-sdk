@@ -20,10 +20,10 @@ mod imports {
 	// Substrate
 	pub use frame_support::{
 		assert_err, assert_ok,
-		BoundedVec,
 		pallet_prelude::Weight,
 		sp_runtime::{DispatchError, DispatchResult, ModuleError},
 		traits::fungibles::Inspect,
+		BoundedVec,
 	};
 
 	// Polkadot

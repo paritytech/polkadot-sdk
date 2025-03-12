@@ -17,7 +17,7 @@
 mod imports {
 	// Substrate
 	pub use codec::Encode;
-	pub use frame_support::{assert_err, assert_ok, BoundedVec, pallet_prelude::DispatchResult};
+	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult, BoundedVec};
 	pub use sp_runtime::DispatchError;
 
 	// Polkadot

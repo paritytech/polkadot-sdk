@@ -20,8 +20,8 @@ use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
-	Data, DataEnum, DeriveInput, Error, Expr, ExprLit, Field, Fields, GenericArgument, Ident, Lit, Meta,
-	MetaNameValue, PathArguments, Result, Type, TypePath, Variant,
+	Data, DataEnum, DeriveInput, Error, Expr, ExprLit, Field, Fields, GenericArgument, Ident, Lit,
+	Meta, MetaNameValue, PathArguments, Result, Type, TypePath, Variant,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
@@ -329,16 +329,19 @@ fn convert_variant_to_method(
 					}
 				})
 				.collect();
-			let arg_names: Vec<_> = fields.iter().map(|field| {
-				match field {
+			let arg_names: Vec<_> = fields
+				.iter()
+				.map(|field| match field {
 					BoundedOrNormal::Bounded(field) => &field.ident,
 					BoundedOrNormal::Normal(field) => &field.ident,
-				}
-			}).collect();
-			let arg_types: Vec<_> = fields.iter().map(|field| {
-				match field {
+				})
+				.collect();
+			let arg_types: Vec<_> = fields
+				.iter()
+				.map(|field| match field {
 					BoundedOrNormal::Bounded(field) => {
-						let inner_type = extract_generic_argument(&field.ty, 0, "BoundedVec's inner type")?;
+						let inner_type =
+							extract_generic_argument(&field.ty, 0, "BoundedVec's inner type")?;
 						Ok(quote! {
 							Vec<#inner_type>
 						})
@@ -349,13 +352,13 @@ fn convert_variant_to_method(
 							impl Into<#inner_type>
 						})
 					},
-				}
-			}).collect::<Result<Vec<_>>>()?;
+				})
+				.collect::<Result<Vec<_>>>()?;
 			let bounded_names: Vec<_> = fields
 				.iter()
 				.filter_map(|field| match field {
 					BoundedOrNormal::Bounded(field) => Some(&field.ident),
-					BoundedOrNormal::Normal(_) => None
+					BoundedOrNormal::Normal(_) => None,
 				})
 				.collect();
 			let normal_names: Vec<_> = fields
