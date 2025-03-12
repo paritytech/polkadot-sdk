@@ -28,7 +28,7 @@ use emulated_integration_tests_common::{
 	impl_assets_helpers_for_parachain, impl_foreign_assets_helpers_for_parachain,
 	impl_xcm_helpers_for_parachain,
 	impls::{NetworkId, Parachain},
-	xcm_emulator::decl_test_parachains,
+	xcm_emulator::{Convert, decl_test_parachains},
 };
 
 // Polkadot
@@ -51,6 +51,7 @@ decl_test_parachains! {
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
+			DigestProvider: (),
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
@@ -75,6 +76,7 @@ decl_test_parachains! {
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
+			DigestProvider: (),
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
