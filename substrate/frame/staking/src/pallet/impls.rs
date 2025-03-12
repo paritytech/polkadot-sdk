@@ -108,9 +108,13 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
-		// look at any old unmigrated lock as well.
-		let hold_or_lock = asset::staked::<T>(&stash)
-			.max(T::OldCurrency::balance_locked(STAKING_ID, &stash).into());
+		let hold_or_lock = match asset::staked::<T>(&stash) {
+			x if x.is_zero() => {
+				let locked = T::OldCurrency::balance_locked(STAKING_ID, &stash).into();
+				locked
+			},
+			held => held,
+		};
 
 		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
 			if hold_or_lock == Zero::zero() {
@@ -2591,8 +2595,9 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				} else {
-					ensure!(
-						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
+					assert_eq!(
+						Self::inspect_bond_state(&stash),
+						Ok(LedgerIntegrityState::Ok),
 						"bond, ledger and/or staking hold inconsistent for a bonded stash."
 					);
 				}
@@ -2698,7 +2703,7 @@ impl<T: Config> Pallet<T> {
 			.map(|nominator| -> Result<(), TryRuntimeError> {
 				// must be bonded.
 				Self::ensure_is_stash(&nominator)?;
-				let mut sum = BalanceOf::<T>::zero();
+				let mut sum_exposed = BalanceOf::<T>::zero();
 				era_exposures
 					.iter()
 					.map(|e| -> Result<(), TryRuntimeError> {
@@ -2707,7 +2712,7 @@ impl<T: Config> Pallet<T> {
 						let len = individual.len();
 						match len {
 							0 => { /* not supporting this validator at all. */ },
-							1 => sum += individual[0].value,
+							1 => sum_exposed += individual[0].value,
 							_ =>
 								return Err(
 									"nominator cannot back a validator more than once.".into()
@@ -2719,9 +2724,15 @@ impl<T: Config> Pallet<T> {
 
 				// We take total instead of active as the nominator might have requested to unbond
 				// some of their stake that is still exposed in the current era.
-				if sum <= Self::ledger(Stash(nominator.clone()))?.total {
+				if sum_exposed > Self::ledger(Stash(nominator.clone()))?.total {
 					// This can happen when there is a slash in the current era so we only warn.
-					log!(warn, "nominator stake exceeds what is bonded.");
+					log!(
+						warn,
+						"nominator {:?} stake {:?} exceeds the sum_exposed of exposures {:?}.",
+						nominator,
+						Self::ledger(Stash(nominator.clone()))?.total,
+						sum_exposed,
+					);
 				}
 
 				Ok(())
