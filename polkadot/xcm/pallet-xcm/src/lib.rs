@@ -3344,7 +3344,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 			},
 			(
 				response,
-				Some(QueryStatus::Pending { responder, maybe_notify, maybe_match_querier, .. }),
+				Some(QueryStatus::Pending { responder, maybe_notify, maybe_match_querier, timeout }),
 			) => {
 				if let Some(match_querier) = maybe_match_querier {
 					let match_querier = match Location::try_from(match_querier) {
@@ -3385,8 +3385,11 @@ impl<T: Config> OnResponse for Pallet<T> {
 					});
 					return Weight::zero()
 				}
-				match maybe_notify {
-					Some((pallet_index, call_index)) => {
+				// Check if the timeout has been reached
+				let current_block = frame_system::Pallet::<T>::current_block_number();
+				let timeout_reached = current_block > timeout;
+				match (maybe_notify, timeout_reached) {
+					(Some((pallet_index, call_index)), false) => {
 						// This is a bit horrible, but we happen to know that the `Call` will
 						// be built by `(pallet_index: u8, call_index: u8, QueryId, Response)`.
 						// So we just encode that and then re-encode to a real Call.
@@ -3434,7 +3437,9 @@ impl<T: Config> OnResponse for Pallet<T> {
 							Weight::zero()
 						}
 					},
-					None => {
+					_ => {
+						// For all other cases (no callback OR timeout reached)
+						// Just mark the query as ready without executing callback
 						let e = Event::ResponseReady { query_id, response: response.clone() };
 						Self::deposit_event(e);
 						let at = frame_system::Pallet::<T>::current_block_number();
