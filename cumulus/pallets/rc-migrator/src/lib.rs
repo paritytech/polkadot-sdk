@@ -328,18 +328,18 @@ pub mod pallet {
 		+ paras_registrar::Config
 		+ pallet_multisig::Config
 		+ pallet_claims::Config
-		+ pallet_proxy::Config
+		+ pallet_proxy::Config<BlockNumberProvider = frame_system::Pallet<Self>>
 		+ pallet_preimage::Config<Hash = H256>
 		+ pallet_referenda::Config<Votes = u128>
 		+ pallet_nomination_pools::Config
 		+ pallet_fast_unstake::Config
 		+ pallet_bags_list::Config<pallet_bags_list::Instance1>
-		+ pallet_scheduler::Config
+		+ pallet_scheduler::Config<BlockNumberProvider = frame_system::Pallet<Self>>
 		+ pallet_vesting::Config
 		+ pallet_indices::Config
 		+ pallet_conviction_voting::Config
 		+ pallet_bounties::Config
-		+ pallet_treasury::Config
+		+ pallet_treasury::Config<BlockNumberProvider = frame_system::Pallet<Self>>
 		+ pallet_asset_rate::Config
 		+ pallet_slots::Config
 		+ pallet_crowdloan::Config

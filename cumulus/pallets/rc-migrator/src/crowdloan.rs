@@ -156,6 +156,7 @@ impl<T: Config> PalletMigration for CrowdloanMigrator<T>
 								continue;
 							};
 
+							#[allow(unused)]
 							let Some((lease_acc, lease_amount)) = last_lease else {
 								// See https://github.com/paritytech/polkadot-sdk/blob/db3ff60b5af2a9017cb968a4727835f3d00340f0/polkadot/runtime/common/src/slots/mod.rs#L115
 								defensive!("Last lease cannot be None");
