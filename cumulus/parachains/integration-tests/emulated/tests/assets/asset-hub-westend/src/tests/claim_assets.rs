@@ -17,9 +17,7 @@
 
 use crate::imports::*;
 
-use assets_common::runtime_api::runtime_decl_for_fungibles_api::FungiblesApiV2;
 use emulated_integration_tests_common::test_chain_can_claim_assets;
-use frame_support::traits::fungible::Mutate;
 use xcm_executor::traits::DropAssets;
 
 #[test]
