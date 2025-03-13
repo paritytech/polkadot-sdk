@@ -74,7 +74,7 @@ pub fn replace_wild_card_parameter_names(input: &mut Signature) {
 	let mut generated_pattern_counter = 0;
 	input.inputs.iter_mut().for_each(|arg| {
 		if let FnArg::Typed(arg) = arg {
-			arg.pat = Box::new(generate_unique_pattern(
+			arg.pat = Box::new(sanitize_pattern(
 				(*arg.pat).clone(),
 				&mut generated_pattern_counter,
 			));
@@ -101,8 +101,11 @@ pub fn fold_fn_decl_for_client_side(
 	};
 }
 
-/// Generate an unique pattern based on the given counter, if the given pattern is a `_`.
-pub fn generate_unique_pattern(pat: Pat, counter: &mut u32) -> Pat {
+/// Sanitize the given pattern.
+///
+/// - `_` patterns are changed to a variable based on `counter`.
+/// - `mut something` removes the `mut`.
+pub fn sanitize_pattern(pat: Pat, counter: &mut u32) -> Pat {
 	match pat {
 		Pat::Wild(_) => {
 			let generated_name =
@@ -111,6 +114,10 @@ pub fn generate_unique_pattern(pat: Pat, counter: &mut u32) -> Pat {
 
 			parse_quote!( #generated_name )
 		},
+		Pat::Ident(mut pat) => {
+			pat.mutability = None;	
+			pat.into()
+		}
 		_ => pat,
 	}
 }
@@ -139,7 +146,7 @@ pub fn extract_parameter_names_types_and_borrows(
 				};
 
 				let name =
-					generate_unique_pattern((*arg.pat).clone(), &mut generated_pattern_counter);
+					sanitize_pattern((*arg.pat).clone(), &mut generated_pattern_counter);
 				result.push((name, ty, borrow));
 			},
 			FnArg::Receiver(_) if matches!(allow_self, AllowSelfRefInParameters::No) =>
