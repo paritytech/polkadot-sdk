@@ -68,6 +68,11 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    // Add cfg_attr for DecodeWithMemTracking
+    let mem_tracking_derive = quote! {
+        #[cfg_attr(test, derive(DecodeWithMemTracking))]
+    };
+
     // Input extraction.
     let struct_ident = &input.ident;
     let (impl_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
@@ -83,7 +88,6 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
                 #debug_i,
                 Encode,
                 Decode,
-                DecodeWithMemTracking,
                 TypeInfo,
                 MaxEncodedLen
             )]
@@ -92,6 +96,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     // Combination.
     let common_attrs = quote! {
         #common_derives
+        #mem_tracking_derive
         #skip_list
         #(#attrs)*
     };
