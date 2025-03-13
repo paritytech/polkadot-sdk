@@ -148,6 +148,8 @@ struct ConnectionContext {
 /// Kademlia query we are tracking.
 #[derive(Debug)]
 enum KadQuery {
+	/// `FIND_NODE` query for target and when it was initiated.
+	FindNode(PeerId, Instant),
 	/// `GET_VALUE` query for key and when it was initiated.
 	GetValue(RecordKey, Instant),
 	/// `PUT_VALUE` query for key and when it was initiated.
@@ -795,6 +797,45 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.peerstore_handle.add_known_peer(peer.into());
 						}
 					}
+					Some(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::FindNode(_, started)) => {
+								log::trace!(
+									target: LOG_TARGET,
+									"`FIND_NODE` for {target:?} ({query_id:?}) succeeded",
+								);
+
+								self.event_streams.send(
+									Event::Dht(
+										DhtEvent::ClosestPeersFound(
+											target.into(),
+											peers
+												.into_iter()
+												.map(|(peer, addrs)| (
+													peer.into(),
+													addrs.into_iter().map(Into::into).collect(),
+												))
+												.collect(),
+										)
+									)
+								);
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["node-find"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							query => {
+								log::error!(
+									target: LOG_TARGET,
+									"Missing/invalid pending query for `FIND_NODE`: {query:?}"
+								);
+								debug_assert!(false);
+							}
+						}
+					},
 					Some(DiscoveryEvent::GetRecordPartialResult { query_id, record }) => {
 						if !self.pending_queries.contains_key(&query_id) {
 							log::error!(
@@ -926,6 +967,23 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					}
 					Some(DiscoveryEvent::QueryFailed { query_id }) => {
 						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::FindNode(peer_id, started)) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"`FIND_NODE` ({query_id:?}) failed for target {peer_id:?}",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ClosestPeersNotFound(peer_id.into())
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["node-find-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
 							Some(KadQuery::GetValue(key, started)) => {
 								log::debug!(
 									target: LOG_TARGET,

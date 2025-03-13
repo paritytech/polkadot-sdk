@@ -574,11 +574,13 @@ pub enum DiscoveryOut {
 	/// the `identify` protocol.
 	UnroutablePeer(PeerId),
 
-	/// We discovered peer's addresses via `FIND_NODE` query, which could have been part of
-	/// a more complex query like `GET_PROVIDERS` of `GET_VALUE`. Such addresses are not
-	/// automatically added to the routing table or the ephemeral addresses list. In order
-	/// to connect to such peer, call [`DiscoveryBehaviour::add_known_address] first.
-	AddressesFound(PeerId, Vec<Multiaddr>, Duration),
+	/// `FIND_NODE` query yielded closest peers with their addresses. This event also delivers
+	/// a partial result in case the query timed out, because it can contain the target peer's
+	/// address.
+	ClosestPeersFound(PeerId, Vec<(PeerId, Vec<Multiaddr>)>, Duration),
+
+	/// The closest peers to the target `PeerId` have not been found.
+	ClosestPeersNotFound(PeerId, Duration),
 
 	/// The DHT yielded results for the record request.
 	///
@@ -892,9 +894,8 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						return Poll::Ready(ToSwarm::GenerateEvent(ev))
 					},
 					KademliaEvent::RoutablePeer { peer, address } => {
-						let ev =
-							DiscoveryOut::AddressesFound(peer, vec![address], Duration::default());
-						return Poll::Ready(ToSwarm::GenerateEvent(ev))
+						// Generate nothing, because the address was not added to the routing table,
+						// so we will not be able to connect to the peer.
 					},
 					KademliaEvent::PendingRoutablePeer { .. } => {
 						// We are not interested in this event at the moment.
@@ -916,36 +917,52 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						stats,
 						..
 					} => {
-						let peers = match res {
-							Err(GetClosestPeersError::Timeout { key, peers }) => {
-								debug!(
+						let (key, peers, timeout) = match res {
+							Ok(GetClosestPeersOk { key, peers }) => (key, peers, false),
+							Err(GetClosestPeersError::Timeout { key, peers }) => (key, peers, true),
+						};
+
+						let target = match PeerId::from_bytes(&key.clone()) {
+							Ok(peer_id) => peer_id,
+							Err(_) => {
+								warn!(
 									target: LOG_TARGET,
-									"Libp2p => Query for key {:?} timed out and yielded {} peers",
-									HexDisplay::from(&key), peers.len(),
+									"Libp2p => FIND_NODE query finished for target that is not \
+									 a peer ID: {:?}",
+									HexDisplay::from(&key),
 								);
-								peers
-							},
-							Ok(GetClosestPeersOk { key, peers }) => {
-								trace!(
-									target: LOG_TARGET,
-									"Libp2p => Query for key {:?} yielded {} peers",
-									HexDisplay::from(&key), peers.len(),
-								);
-								peers
+								continue
 							},
 						};
-						for peer in peers {
-							if !peer.addrs.is_empty() {
-								self.pending_events.push_back(DiscoveryOut::AddressesFound(
-									peer.peer_id,
-									peer.addrs,
-									stats.duration().unwrap_or_default(),
-								));
-							}
+
+						if timeout {
+							debug!(
+								target: LOG_TARGET,
+								"Libp2p => Query for target {target:?} timed out and yielded {} peers",
+								peers.len(),
+							);
+						} else {
+							debug!(
+								target: LOG_TARGET,
+								"Libp2p => Query for target {target:?} yielded {} peers",
+								peers.len(),
+							);
 						}
-						if let Some(ev) = self.pending_events.pop_front() {
-							return Poll::Ready(ToSwarm::GenerateEvent(ev))
-						}
+
+						let ev = if peers.is_empty() {
+							DiscoveryOut::ClosestPeersNotFound(
+								target,
+								stats.duration().unwrap_or_default(),
+							)
+						} else {
+							DiscoveryOut::ClosestPeersFound(
+								target,
+								peers.into_iter().map(|p| (p.peer_id, p.addrs)).collect(),
+								stats.duration().unwrap_or_default(),
+							)
+						};
+
+						return Poll::Ready(ToSwarm::GenerateEvent(ev))
 					},
 					KademliaEvent::OutboundQueryProgressed {
 						result: QueryResult::GetRecord(res),

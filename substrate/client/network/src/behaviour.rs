@@ -393,13 +393,18 @@ impl From<DiscoveryOut> for BehaviourOut {
 				BehaviourOut::None
 			},
 			DiscoveryOut::Discovered(peer_id) => BehaviourOut::Discovered(peer_id),
-			DiscoveryOut::AddressesFound(peer_id, addresses, duration) => BehaviourOut::Dht(
-				DhtEvent::AddressesFound(
-					peer_id.into(),
-					addresses.into_iter().map(Into::into).collect(),
+			DiscoveryOut::ClosestPeersFound(target, peers, duration) => BehaviourOut::Dht(
+				DhtEvent::ClosestPeersFound(
+					target.into(),
+					peers
+						.into_iter()
+						.map(|(p, addrs)| (p.into(), addrs.into_iter().map(Into::into).collect()))
+						.collect(),
 				),
 				Some(duration),
 			),
+			DiscoveryOut::ClosestPeersNotFound(target, duration) =>
+				BehaviourOut::Dht(DhtEvent::ClosestPeersNotFound(target.into()), Some(duration)),
 			DiscoveryOut::ValueFound(results, duration) =>
 				BehaviourOut::Dht(DhtEvent::ValueFound(results.into()), Some(duration)),
 			DiscoveryOut::ValueNotFound(key, duration) =>

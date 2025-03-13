@@ -34,8 +34,12 @@ use sc_network_types::{
 #[derive(Debug, Clone)]
 #[must_use]
 pub enum DhtEvent {
-	/// Peer addresses were found.
-	AddressesFound(PeerId, Vec<Multiaddr>),
+	/// Found closest peers to the target `PeerId`. With libp2p also delivers a partial result
+	/// in case the query timed out, because it can contain the target peer's address.
+	ClosestPeersFound(PeerId, Vec<(PeerId, Vec<Multiaddr>)>),
+
+	/// Closest peers to the target `PeerId` has not been found.
+	ClosestPeersNotFound(PeerId),
 
 	/// The value was found.
 	ValueFound(PeerRecord),
@@ -58,7 +62,7 @@ pub enum DhtEvent {
 	StartProvidingFailed(Key),
 
 	/// The DHT received a put record request.
-	PutRecordRequest(Key, Vec<u8>, Option<sc_network_types::PeerId>, Option<std::time::Instant>),
+	PutRecordRequest(Key, Vec<u8>, Option<PeerId>, Option<std::time::Instant>),
 
 	/// The providers for [`Key`] were found. Multiple such events can be generated per provider
 	/// discovery request.
