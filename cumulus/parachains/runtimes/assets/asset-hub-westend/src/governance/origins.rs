@@ -18,6 +18,7 @@
 
 pub use pallet_custom_origins::*;
 
+// From https://github.com/polkadot-fellows/runtimes/blob/7bbf00566d86d51fcd5582779e7e9c37a814405e/relay/polkadot/src/governance/origins.rs#L21-L154
 #[frame_support::pallet]
 pub mod pallet_custom_origins {
 	use crate::{Balance, CENTS, GRAND};
@@ -42,13 +43,14 @@ pub mod pallet_custom_origins {
 	)]
 	#[pallet::origin]
 	pub enum Origin {
-		/// Origin for cancelling slashes.
+		/// Origin able to cancel slashes and manage minimum commission.
 		StakingAdmin,
-		/// Origin for spending (any amount of) funds.
+		/// Origin for spending up to $10,000,000 DOT from the treasury as well as generally
+		/// administering it.
 		Treasurer,
 		/// Origin for managing the composition of the fellowship.
 		FellowshipAdmin,
-		/// Origin for managing the registrar.
+		/// Origin for managing the registrar and permissioned HRMP channel operations.
 		GeneralAdmin,
 		/// Origin for starting auctions.
 		AuctionAdmin,
@@ -58,15 +60,15 @@ pub mod pallet_custom_origins {
 		ReferendumCanceller,
 		/// Origin able to kill referenda.
 		ReferendumKiller,
-		/// Origin able to spend up to 1 KSM from the treasury at once.
+		/// Origin able to spend around $250 from the treasury at once.
 		SmallTipper,
-		/// Origin able to spend up to 5 KSM from the treasury at once.
+		/// Origin able to spend around $1,000 from the treasury at once.
 		BigTipper,
-		/// Origin able to spend up to 50 KSM from the treasury at once.
+		/// Origin able to spend around $10,000 from the treasury at once.
 		SmallSpender,
-		/// Origin able to spend up to 500 KSM from the treasury at once.
+		/// Origin able to spend around $100,000 from the treasury at once.
 		MediumSpender,
-		/// Origin able to spend up to 5,000 KSM from the treasury at once.
+		/// Origin able to spend up to $1,000,000 DOT from the treasury at once.
 		BigSpender,
 		/// Origin able to dispatch a whitelisted call.
 		WhitelistedCaller,

@@ -28,6 +28,8 @@ frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
+pallet-ah-migrator = { workspace = true }
+pallet-ah-ops = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-asset-conversion-ops = { workspace = true }
 pallet-asset-conversion-tx-payment = { workspace = true }
@@ -146,6 +148,8 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-ah-migrator/runtime-benchmarks",
+	"pallet-ah-ops/runtime-benchmarks",
 	"pallet-asset-conversion-ops/runtime-benchmarks",
 	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
@@ -205,6 +209,8 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-ah-migrator/try-runtime",
+	"pallet-ah-ops/try-runtime",
 	"pallet-asset-conversion-ops/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-conversion/try-runtime",
@@ -274,6 +280,8 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime?/std",
 	"log/std",
+	"pallet-ah-migrator/std",
+	"pallet-ah-ops/std",
 	"pallet-asset-conversion-ops/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",

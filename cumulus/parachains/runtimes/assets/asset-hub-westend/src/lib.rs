@@ -91,6 +91,7 @@ use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, fee::WeightToFee, snowbridge::EthereumNetwork, time::*,
 };
+use westend_runtime_constants::time::DAYS as RC_DAYS;
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
 	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
@@ -1154,6 +1155,78 @@ impl pallet_migrations::Config for Runtime {
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub MaximumSchedulerWeight: frame_support::weights::Weight = Perbill::from_percent(80) *
+		RuntimeBlockWeights::get().max_block;
+	pub const MaxScheduledPerBlock: u32 = 50;
+	pub const NoPreimagePostponement: Option<u32> = Some(10);
+}
+
+impl pallet_scheduler::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = pallet_ah_migrator::ZeroWeightOr<AhMigrator, MaximumSchedulerWeight>;
+	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
+	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+	type Preimages = Preimage;
+	type BlockNumberProvider = RelayChainBlockNumberProvider;
+}
+
+parameter_types! {
+	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
+	pub const PreimageByteDeposit: Balance = deposit(0, 1);
+	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
+}
+
+impl pallet_preimage::Config for Runtime {
+	type WeightInfo = weights::pallet_preimage::WeightInfo<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+	>;
+}
+
+impl pallet_ah_ops::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RcBlockNumberProvider = RelaychainDataProvider<Runtime>;
+}
+
+impl pallet_ah_migrator::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ManagerOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		EnsureXcm<IsVoiceOfBody<FellowshipLocation, FellowsBodyId>>,
+	>;
+	type Currency = Balances;
+	type CheckingAccount = xcm_config::CheckingAccount;
+	type RcHoldReason = migration::RcHoldReason;
+	type RcFreezeReason = migration::RcFreezeReason;
+	type RcToAhHoldReason = RcToAhHoldReason;
+	type RcToAhFreezeReason = RcToAhFreezeReason;
+	type RcProxyType = migration::RcProxyType;
+	type RcToProxyType = migration::RcToProxyType;
+	type RcToAhDelay = migration::RcToAhDelay;
+	type RcBlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type RcToAhCall = migration::RcToAhCall;
+	type RcPalletsOrigin = migration::RcPalletsOrigin;
+	type RcToAhPalletsOrigin = migration::RcToAhPalletsOrigin;
+	type Preimage = Preimage;
+	type SendXcm = xcm_config::XcmRouter;
+	type AhWeightInfo = (); // TODO: weights::pallet_ah_migrator::WeightInfo;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = pallet_ah_migrator::benchmarking::BenchmarkFactory<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1166,12 +1239,15 @@ construct_runtime!(
 		ParachainInfo: parachain_info = 4,
 		WeightReclaim: cumulus_pallet_weight_reclaim = 5,
 		MultiBlockMigrations: pallet_migrations = 6,
+		Preimage: pallet_preimage = 7,
+		Scheduler: pallet_scheduler = 8,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
 		// AssetTxPayment: pallet_asset_tx_payment = 12,
 		AssetTxPayment: pallet_asset_conversion_tx_payment = 13,
+		Vesting: pallet_vesting = 14,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -1192,6 +1268,7 @@ construct_runtime!(
 		Utility: pallet_utility = 40,
 		Multisig: pallet_multisig = 41,
 		Proxy: pallet_proxy = 42,
+		Indices: pallet_indices = 43,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,
@@ -1218,28 +1295,26 @@ construct_runtime!(
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
 
-		// Election apparatus.
+		// Staking election apparatus.
 		MultiBlock: pallet_election_provider_multi_block = 85,
 		MultiBlockVerifier: pallet_election_provider_multi_block::verifier = 86,
 		MultiBlockUnsigned: pallet_election_provider_multi_block::unsigned = 87,
 		MultiBlockSigned: pallet_election_provider_multi_block::signed = 88,
 
 		// Governance.
-		Preimage: pallet_preimage = 90,
-		Scheduler: pallet_scheduler = 91,
-		ConvictionVoting: pallet_conviction_voting = 92,
-		Referenda: pallet_referenda = 93,
-		Origins: pallet_custom_origins = 94,
-		Whitelist: pallet_whitelist = 95,
-		Treasury: pallet_treasury = 96,
-		AssetRate: pallet_asset_rate = 97,
-
-		// Balances.
-		Vesting: pallet_vesting = 100,
+		ConvictionVoting: pallet_conviction_voting = 90,
+		Referenda: pallet_referenda = 91,
+		Origins: pallet_custom_origins = 92,
+		Whitelist: pallet_whitelist = 93,
+		Treasury: pallet_treasury = 94,
+		AssetRate: pallet_asset_rate = 95,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,
+
+		AhOps: pallet_ah_ops = 254,
+		AhMigrator: pallet_ah_migrator = 255,
 	}
 );
 
@@ -1548,6 +1623,7 @@ mod benches {
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_revive, Revive]
+		[pallet_ah_migrator, AhMigrator]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot. If not, see <http://www.gnu.org/licenses/>.
 
-//! New governance configurations for the Kusama runtime.
+//! Governance configurations for the Asset Hub runtime.
 
 use super::*;
 use crate::xcm_config::Collectives;
@@ -27,8 +27,11 @@ use frame_support::{
 };
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use polkadot_runtime_common::impls::{
-	ContainsParts, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
+use polkadot_runtime_common::{
+	impls::{
+		ContainsParts, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
+	},
+	prod_or_fast,
 };
 use sp_runtime::{traits::IdentityLookup, Percent};
 use xcm::latest::{
@@ -44,9 +47,8 @@ pub use origins::{
 mod tracks;
 pub use tracks::TracksInfo;
 use xcm_builder::PayOverXcm;
-
 parameter_types! {
-	pub const VoteLockingPeriod: BlockNumber = 7 * DAYS;
+	pub const VoteLockingPeriod: BlockNumber = prod_or_fast!(7 * RC_DAYS, 1);
 }
 
 impl pallet_conviction_voting::Config for Runtime {
@@ -54,7 +56,8 @@ impl pallet_conviction_voting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type VoteLockingPeriod = VoteLockingPeriod;
-	type MaxVotes = ConstU32<512>;
+	type MaxVotes = ConstU32<512>; // TODO check with weight
+							   // TODO: review
 	type MaxTurnout =
 		frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;
@@ -64,7 +67,7 @@ impl pallet_conviction_voting::Config for Runtime {
 parameter_types! {
 	pub const AlarmInterval: BlockNumber = 1;
 	pub const SubmissionDeposit: Balance = 1 * 3 * CENTS;
-	pub const UndecidingTimeout: BlockNumber = 14 * DAYS;
+	pub const UndecidingTimeout: BlockNumber = 14 * RC_DAYS;
 }
 
 impl origins::pallet_custom_origins::Config for Runtime {}
@@ -168,6 +171,7 @@ impl pallet_treasury::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
+
 impl pallet_asset_rate::Config for Runtime {
 	type WeightInfo = weights::pallet_asset_rate::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
@@ -178,44 +182,4 @@ impl pallet_asset_rate::Config for Runtime {
 	type AssetKind = <Runtime as pallet_treasury::Config>::AssetKind;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
-}
-
-parameter_types! {
-	pub MaximumSchedulerWeight: frame_support::weights::Weight = Perbill::from_percent(80) *
-		RuntimeBlockWeights::get().max_block;
-	pub const MaxScheduledPerBlock: u32 = 50;
-	pub const NoPreimagePostponement: Option<u32> = Some(10);
-}
-
-impl pallet_scheduler::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeEvent = RuntimeEvent;
-	type PalletsOrigin = OriginCaller;
-	type RuntimeCall = RuntimeCall;
-	type MaximumWeight = MaximumSchedulerWeight;
-	type ScheduleOrigin = EnsureRoot<AccountId>;
-	type MaxScheduledPerBlock = MaxScheduledPerBlock;
-	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
-	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
-	type Preimages = Preimage;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
-}
-
-parameter_types! {
-	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
-	pub const PreimageByteDeposit: Balance = deposit(0, 1);
-	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
-}
-
-impl pallet_preimage::Config for Runtime {
-	type WeightInfo = weights::pallet_preimage::WeightInfo<Runtime>;
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type ManagerOrigin = EnsureRoot<AccountId>;
-	type Consideration = HoldConsideration<
-		AccountId,
-		Balances,
-		PreimageHoldReason,
-		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
-	>;
 }
