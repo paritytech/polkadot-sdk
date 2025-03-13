@@ -843,4 +843,20 @@ mod tests {
 			Err("The tracks that were returned by `tracks` were not sorted by `Id`")
 		);
 	}
+
+	#[test]
+	fn encoding_and_decoding_of_string_like_structure_works() {
+		let string_like = StringLike::<13>(*b"hello, world!");
+		let encoded: Vec<u8> = string_like.encode();
+
+		let decoded_as_vec: Vec<u8> =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as Vec<u8> should work");
+		assert_eq!(decoded_as_vec.len(), 13);
+		let decoded_as_str: alloc::string::String =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as str should work");
+		assert_eq!(decoded_as_str.len(), 13);
+		let decoded_as_string_like: StringLike<13> =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as StringLike should work");
+		assert_eq!(decoded_as_string_like.0.len(), 13);
+	}
 }
