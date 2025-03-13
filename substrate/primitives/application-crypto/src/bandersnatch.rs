@@ -22,7 +22,8 @@ use alloc::vec::Vec;
 pub use sp_core::bandersnatch::*;
 
 use sp_core::{
-	crypto::{CryptoType, ProofOfPossessionVerifier, POP_CONTEXT_TAG},
+	crypto::{CryptoType, ProofOfPossessionVerifier},
+	pop::POP_CONTEXT_TAG,
 	Pair as TraitPair,
 };
 

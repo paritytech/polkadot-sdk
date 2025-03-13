@@ -24,9 +24,9 @@
 //! curve.
 
 use crate::crypto::{
-	CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, ProofOfPossessionGenerator,
-	ProofOfPossessionVerifier, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
+	CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
 };
+use crate::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 
 use alloc::vec::Vec;
 

@@ -18,9 +18,10 @@
 //! Simple ECDSA secp256k1 API.
 
 use crate::crypto::{
-	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable, Pair as TraitPair,
+	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
 	PublicBytes, SecretStringError, SignatureBytes,
 };
+use crate::pop::NonAggregatable;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;

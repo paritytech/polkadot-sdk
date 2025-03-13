@@ -19,7 +19,8 @@
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::{RuntimePublic, ecdsa::AppPair};
 use sp_core::{
-	crypto::{ByteArray, Pair, ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	crypto::{ByteArray, Pair},
+	pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	testing::ECDSA,
 };
 use sp_core::ecdsa::Pair as ECDSAPair;

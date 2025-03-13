@@ -22,7 +22,7 @@ use crate::{Error, Keystore, KeystorePtr};
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381, KeccakHasher, crypto::ProofOfPossessionGenerator};
+use sp_core::{bls381, ecdsa_bls381, KeccakHasher, pop::ProofOfPossessionGenerator};
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ed25519, sr25519,

@@ -62,6 +62,7 @@ pub use paste;
 mod address_uri;
 pub mod defer;
 pub mod hash;
+pub mod pop;
 #[cfg(feature = "std")]
 mod hasher;
 pub mod offchain;

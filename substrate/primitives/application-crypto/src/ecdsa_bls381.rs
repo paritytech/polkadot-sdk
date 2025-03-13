@@ -23,8 +23,9 @@ use alloc::vec::Vec;
 pub use sp_core::paired_crypto::ecdsa_bls381::*;
 use sp_core::{
 	bls381,
-	crypto::{CryptoType, ProofOfPossessionVerifier, POP_CONTEXT_TAG},
+	crypto::CryptoType,
 	ecdsa, ecdsa_bls381,
+	pop::{ProofOfPossessionVerifier, POP_CONTEXT_TAG},
 	testing::{BLS381, ECDSA, ECDSA_BLS381},
 };
 

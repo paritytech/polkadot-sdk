@@ -18,9 +18,10 @@
 //! Simple Ed25519 API.
 
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable,
+	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction,
 	Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes,
 };
+use crate::pop::NonAggregatable;
 
 use ed25519_zebra::{SigningKey, VerificationKey};
 

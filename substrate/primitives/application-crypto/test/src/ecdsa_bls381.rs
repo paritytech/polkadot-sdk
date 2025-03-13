@@ -5,7 +5,7 @@ use substrate_test_runtime_client::{
 	runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };
 use sp_application_crypto::{RuntimePublic, ecdsa_bls381::AppPair};
-use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+use sp_core::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 use sp_core::{Pair, ecdsa_bls381::Pair as EcdsaBls381Pair};
 
 #[test]

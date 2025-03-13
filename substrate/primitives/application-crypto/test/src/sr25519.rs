@@ -28,7 +28,7 @@ use substrate_test_runtime_client::{
 	runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };
 use sp_application_crypto::{RuntimePublic, sr25519::AppPair};
-use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+use sp_core::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 use sp_core::sr25519::Pair as Sr25519Pair;
 
 #[test]

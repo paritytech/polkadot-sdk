@@ -23,8 +23,9 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoBytes, DeriveError, DeriveJunction, NonAggregatable, Pair as TraitPair, SecretStringError,
+	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError,
 };
+use crate::pop::NonAggregatable;
 
 use alloc::vec::Vec;
 #[cfg(feature = "full_crypto")]

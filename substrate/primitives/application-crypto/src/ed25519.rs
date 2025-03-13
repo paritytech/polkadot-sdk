@@ -21,7 +21,7 @@ use crate::{KeyTypeId, RuntimePublic};
 
 use alloc::vec::Vec;
 
-use sp_core::crypto::POP_CONTEXT_TAG;
+use sp_core::pop::POP_CONTEXT_TAG;
 pub use sp_core::ed25519::*;
 
 mod app {
