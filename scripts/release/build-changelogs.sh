@@ -66,50 +66,51 @@ echo "Changelog ready in $OUTPUT/relnote_commits.md"
 # Show the files
 tree -s -h -c $OUTPUT/
 
-ASSET_HUB_ROCOCO_DIGEST=${ASSET_HUB_ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/asset-hub-rococo-srtool-digest.json"}
-ASSET_HUB_WESTEND_DIGEST=${ASSET_HUB_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/asset-hub-westend-srtool-digest.json"}
-BRIDGE_HUB_ROCOCO_DIGEST=${BRIDGE_HUB_ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/bridge-hub-rococo-srtool-digest.json"}
-BRIDGE_HUB_WESTEND_DIGEST=${BRIDGE_HUB_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/bridge-hub-westend-srtool-digest.json"}
-COLLECTIVES_WESTEND_DIGEST=${COLLECTIVES_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/collectives-westend-srtool-digest.json"}
-CONTRACTS_ROCOCO_DIGEST=${CONTRACTS_ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/contracts-rococo-srtool-digest.json"}
-CORETIME_ROCOCO_DIGEST=${CORETIME_ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/coretime-rococo-srtool-digest.json"}
-CORETIME_WESTEND_DIGEST=${CORETIME_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/coretime-westend-srtool-digest.json"}
-GLUTTON_WESTEND_DIGEST=${GLUTTON_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/glutton-westend-srtool-digest.json"}
-PEOPLE_ROCOCO_DIGEST=${PEOPLE_ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/people-rococo-srtool-digest.json"}
-PEOPLE_WESTEND_DIGEST=${PEOPLE_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/people-westend-srtool-digest.json"}
-ROCOCO_DIGEST=${ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/rococo-srtool-digest.json"}
-WESTEND_DIGEST=${WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/westend-srtool-digest.json"}
+# ASSET_HUB_ROCOCO_DIGEST=${ASSET_HUB_ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/asset-hub-rococo-srtool-digest.json"}
+# ASSET_HUB_WESTEND_DIGEST=${ASSET_HUB_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/asset-hub-westend-srtool-digest.json"}
+# BRIDGE_HUB_ROCOCO_DIGEST=${BRIDGE_HUB_ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/bridge-hub-rococo-srtool-digest.json"}
+# BRIDGE_HUB_WESTEND_DIGEST=${BRIDGE_HUB_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/bridge-hub-westend-srtool-digest.json"}
+# COLLECTIVES_WESTEND_DIGEST=${COLLECTIVES_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/collectives-westend-srtool-digest.json"}
+# CONTRACTS_ROCOCO_DIGEST=${CONTRACTS_ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/contracts-rococo-srtool-digest.json"}
+# CORETIME_ROCOCO_DIGEST=${CORETIME_ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/coretime-rococo-srtool-digest.json"}
+# CORETIME_WESTEND_DIGEST=${CORETIME_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/coretime-westend-srtool-digest.json"}
+# GLUTTON_WESTEND_DIGEST=${GLUTTON_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/glutton-westend-srtool-digest.json"}
+# PEOPLE_ROCOCO_DIGEST=${PEOPLE_ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/people-rococo-srtool-digest.json"}
+# PEOPLE_WESTEND_DIGEST=${PEOPLE_WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/people-westend-srtool-digest.json"}
+# ROCOCO_DIGEST=${ROCOCO_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/rococo-srtool-digest.json"}
+# WESTEND_DIGEST=${WESTEND_DIGEST:-"$PROJECT_ROOT/scripts/release/digests/westend-srtool-digest.json"}
 
-jq \
-      --slurpfile srtool_asset_hub_rococo $ASSET_HUB_ROCOCO_DIGEST \
-      --slurpfile srtool_asset_hub_westend $ASSET_HUB_WESTEND_DIGEST \
-      --slurpfile srtool_bridge_hub_rococo $BRIDGE_HUB_ROCOCO_DIGEST \
-      --slurpfile srtool_bridge_hub_westend $BRIDGE_HUB_WESTEND_DIGEST \
-      --slurpfile srtool_collectives_westend $COLLECTIVES_WESTEND_DIGEST \
-      --slurpfile srtool_contracts_rococo $CONTRACTS_ROCOCO_DIGEST \
-      --slurpfile srtool_coretime_rococo $CORETIME_ROCOCO_DIGEST\
-      --slurpfile srtool_coretime_westend $CORETIME_WESTEND_DIGEST \
-      --slurpfile srtool_glutton_westend $GLUTTON_WESTEND_DIGEST \
-      --slurpfile srtool_people_rococ $PEOPLE_ROCOCO_DIGEST \
-      --slurpfile srtool_people_westend $PEOPLE_WESTEND_DIGEST \
-      --slurpfile srtool_rococo $ROCOCO_DIGEST \
-      --slurpfile srtool_westend $WESTEND_DIGEST \
-      -n '{
-          srtool: [
-            { order: 10, name: "Westend", data: $srtool_westend[0] },
-            { order: 11, name: "Westend AssetHub", data: $srtool_asset_hub_westend[0] },
-            { order: 12, name: "Westend BridgeHub", data: $srtool_bridge_hub_westend[0] },
-            { order: 13, name: "Westend Collectives", data: $srtool_collectives_westend[0] },
-            { order: 14, name: "Westend Coretime", data: $srtool_coretime_westend[0] },
-            { order: 15, name: "Westend Glutton", data: $srtool_glutton_westend[0] },
-            { order: 16, name: "Westend People", data: $srtool_people_westend[0] },
-            { order: 17, name: "Rococo", data: $srtool_rococo[0] },
-            { order: 18, name: "Rococo AssetHub", data: $srtool_asset_hub_rococo[0] },
-            { order: 19, name: "Rococo BridgeHub", data: $srtool_bridge_hub_rococo[0] },
-            { order: 20, name: "Rococo Contracts", data: $srtool_contracts_rococo[0] },
-            { order: 21, name: "Rococo Coretime", data: $srtool_coretime_rococo[0] },
-            { order: 22, name: "Rococo People", data: $srtool_people_rococ[0] }
-      ] }' > "$PROJECT_ROOT/scripts/release/context.json"
+# jq \
+#       --slurpfile srtool_asset_hub_rococo $ASSET_HUB_ROCOCO_DIGEST \
+#       --slurpfile srtool_asset_hub_westend $ASSET_HUB_WESTEND_DIGEST \
+#       --slurpfile srtool_bridge_hub_rococo $BRIDGE_HUB_ROCOCO_DIGEST \
+#       --slurpfile srtool_bridge_hub_westend $BRIDGE_HUB_WESTEND_DIGEST \
+#       --slurpfile srtool_collectives_westend $COLLECTIVES_WESTEND_DIGEST \
+#       --slurpfile srtool_contracts_rococo $CONTRACTS_ROCOCO_DIGEST \
+#       --slurpfile srtool_coretime_rococo $CORETIME_ROCOCO_DIGEST\
+#       --slurpfile srtool_coretime_westend $CORETIME_WESTEND_DIGEST \
+#       --slurpfile srtool_glutton_westend $GLUTTON_WESTEND_DIGEST \
+#       --slurpfile srtool_people_rococ $PEOPLE_ROCOCO_DIGEST \
+#       --slurpfile srtool_people_westend $PEOPLE_WESTEND_DIGEST \
+#       --slurpfile srtool_rococo $ROCOCO_DIGEST \
+#       --slurpfile srtool_westend $WESTEND_DIGEST \
+#       -n '{
+#           srtool: [
+#             { order: 10, name: "Westend", data: $srtool_westend[0] },
+#             { order: 11, name: "Westend AssetHub", data: $srtool_asset_hub_westend[0] },
+#             { order: 12, name: "Westend BridgeHub", data: $srtool_bridge_hub_westend[0] },
+#             { order: 13, name: "Westend Collectives", data: $srtool_collectives_westend[0] },
+#             { order: 14, name: "Westend Coretime", data: $srtool_coretime_westend[0] },
+#             { order: 15, name: "Westend Glutton", data: $srtool_glutton_westend[0] },
+#             { order: 16, name: "Westend People", data: $srtool_people_westend[0] },
+#             { order: 17, name: "Rococo", data: $srtool_rococo[0] },
+#             { order: 18, name: "Rococo AssetHub", data: $srtool_asset_hub_rococo[0] },
+#             { order: 19, name: "Rococo BridgeHub", data: $srtool_bridge_hub_rococo[0] },
+#             { order: 20, name: "Rococo Contracts", data: $srtool_contracts_rococo[0] },
+#             { order: 21, name: "Rococo Coretime", data: $srtool_coretime_rococo[0] },
+#             { order: 22, name: "Rococo People", data: $srtool_people_rococ[0] }
+#       ] }'
+      echo "{}" > "$PROJECT_ROOT/scripts/release/context.json"
 
 RELEASE_DIR="$PROJECT_ROOT/scripts/release/"
 pushd $RELEASE_DIR >/dev/null
