@@ -42,12 +42,9 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     let span = input.ident.span();
-    let (default_i, ord_i, partial_ord_i, partial_eq_i, eq_i, clone_i, debug_i) =
+    let (partial_eq_i, eq_i, clone_i, debug_i) =
         if should_nobound_derive {
             (
-                Ident::new("DefaultNoBound", span),
-                Ident::new("OrdNoBound", span),
-                Ident::new("PartialOrdNoBound", span),
                 Ident::new("PartialEqNoBound", span),
                 Ident::new("EqNoBound", span),
                 Ident::new("CloneNoBound", span),
@@ -55,9 +52,6 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             )
         } else {
             (
-                Ident::new("Default", span),
-                Ident::new("Ord", span),
-                Ident::new("PartialOrd", span),
                 Ident::new("PartialEq", span),
                 Ident::new("Eq", span),
                 Ident::new("Clone", span),
@@ -74,70 +68,31 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    // Adjust serde bounds if necessary.
-    let serde_attrs = if should_nobound_derive {
-        quote! {
-            #[serde(bound(serialize = "", deserialize = ""))]
-        }
-    } else {
-        quote! {}
-    };
-
     // Input extraction.
     let struct_ident = &input.ident;
     let (impl_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
     let attrs = &input.attrs;
     let vis = &input.vis;
 
-    // Switch behaviour depending on Struct or Enum.
-    let is_enum = matches!(input.data, Data::Enum(_));
-    let common_derive = if is_enum {
+    let common_derives =
         quote! {
             #[derive(
-                #default_i,
-                #ord_i,
-                #partial_ord_i,
                 #partial_eq_i,
-                #eq_i,
                 #clone_i,
+                #eq_i,
+                #debug_i,
                 Encode,
                 Decode,
                 DecodeWithMemTracking,
-                #debug_i,
                 TypeInfo,
                 MaxEncodedLen
             )]
-        }
-    } else {
-        quote! {
-            #[derive(
-                #default_i,
-                #ord_i,
-                #partial_ord_i,
-                #partial_eq_i,
-                #eq_i,
-                #clone_i,
-                Encode,
-                Decode,
-                DecodeWithMemTracking,
-                #debug_i,
-                TypeInfo,
-                MaxEncodedLen
-            )]
-        }
-    };
-
-    // Add cfg_attr for Serialize and Deserialize.
-    let std_derive = quote! {
-        #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    };
+        };
 
     // Combination.
     let common_attrs = quote! {
-        #common_derive
-        #std_derive
+        #common_derives
         #skip_list
-        #serde_attrs
         #(#attrs)*
     };
 
@@ -219,21 +174,12 @@ fn add_normal_trait_bounds(
     generics: &mut syn::Generics,
     no_bound_params: &[Ident],
 ) {
-    let mut normal_bounds: Vec<&str> = vec![
-        "Default",
+    let normal_bounds: Vec<&str> = vec![
         "Clone",
-        "Ord",
-        "PartialOrd",
         "PartialEq",
         "Eq",
         "core::fmt::Debug",
     ];
-
-    // Conditionally add Serialize and Deserialize bounds when std is enabled.
-    if cfg!(feature = "std") {
-        normal_bounds.push("Serialize");
-        normal_bounds.push("for<'a> Deserialize<'a>");
-    }
 
     // For each type parameter.
     for param in &mut generics.params {
