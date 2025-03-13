@@ -2607,5 +2607,63 @@ pub mod pallet {
 
 			Ok(Pays::No.into())
 		}
+
+		/// This function allows governance to manually slash a validator and is a
+		/// **fallback mechanism**.
+		///
+		/// The dispatch origin must be `T::AdminOrigin`.
+		///
+		/// ## Parameters
+		/// - `validator_stash` - The stash account of the validator to slash.
+		/// - `era` - The era in which the validator was in the active set.
+		/// - `slash_fraction` - The percentage of the stake to slash, expressed as a Perbill.
+		///
+		/// ## Behavior
+		///
+		/// The slash will be applied using the standard slashing mechanics, respecting the
+		/// configured `SlashDeferDuration`.
+		///
+		/// This means:
+		/// - If the validator was already slashed by a higher percentage for the same era, this
+		///   slash will have no additional effect.
+		/// - If the validator was previously slashed by a lower percentage, only the difference
+		///   will be applied.
+		/// - The slash will be deferred by `SlashDeferDuration` eras before being enacted.
+		#[pallet::call_index(33)]
+		#[pallet::weight(T::WeightInfo::manual_slash())]
+		pub fn manual_slash(
+			origin: OriginFor<T>,
+			validator_stash: T::AccountId,
+			era: EraIndex,
+			slash_fraction: Perbill,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			// Check era is valid
+			let current_era = CurrentEra::<T>::get().ok_or(Error::<T>::InvalidEraToReward)?;
+			let history_depth = T::HistoryDepth::get();
+			ensure!(
+				era <= current_era && era >= current_era.saturating_sub(history_depth),
+				Error::<T>::InvalidEraToReward
+			);
+
+			let offence_details = sp_staking::offence::OffenceDetails {
+				offender: validator_stash.clone(),
+				reporters: Vec::new(),
+			};
+
+			// Get the session index for the era
+			let session_index =
+				ErasStartSessionIndex::<T>::get(era).ok_or(Error::<T>::InvalidEraToReward)?;
+
+			// Create the offence and report it through on_offence system
+			let _ = Self::on_offence(
+				core::iter::once(offence_details),
+				&[slash_fraction],
+				session_index,
+			);
+
+			Ok(())
+		}
 	}
 }
