@@ -457,22 +457,6 @@ zombienet-polkadot-functional-duplicate-collations:
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::duplicate_collations::duplicate_collations_test
 
-zombienet-polkadot-functional-spam-statement-distribution-requests:
-  extends:
-    - .zombienet-polkadot-common
-  needs:
-    - job: build-polkadot-zombienet-tests
-      artifacts: true
-  before_script:
-    - !reference [".zombienet-polkadot-common", "before_script"]
-    - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
-    - export X_INFRA_INSTANCE=spot # use spot by default
-  script:
-    # we want to use `--no-capture` in zombienet tests.
-    - unset NEXTEST_FAILURE_OUTPUT
-    - unset NEXTEST_SUCCESS_OUTPUT
-    - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test
-
 zombienet-polkadot-disputes-slashing:
   extends:
     - .zombienet-polkadot-common
@@ -488,19 +472,3 @@ zombienet-polkadot-disputes-slashing:
     - unset NEXTEST_FAILURE_OUTPUT
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- disabling::slashing
-
-zombienet-polkadot-functional-spam-statement-distribution-requests:
-  extends:
-    - .zombienet-polkadot-common
-  needs:
-    - job: build-polkadot-zombienet-tests
-      artifacts: true
-  before_script:
-    - !reference [".zombienet-polkadot-common", "before_script"]
-    - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
-    - export X_INFRA_INSTANCE=spot # use spot by default
-  script:
-    # we want to use `--no-capture` in zombienet tests.
-    - unset NEXTEST_FAILURE_OUTPUT
-    - unset NEXTEST_SUCCESS_OUTPUT
-    - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test
