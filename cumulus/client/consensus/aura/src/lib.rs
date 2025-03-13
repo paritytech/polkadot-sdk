@@ -293,6 +293,7 @@ pub(crate) fn export_pov_to_path<Block: BlockT>(
 		parent_head: HeadData(parent_header.encode()),
 		relay_parent_number,
 		relay_parent_storage_root,
-		max_pov_size
-	}.encode_to(&mut file);
+		max_pov_size,
+	}
+	.encode_to(&mut file);
 }

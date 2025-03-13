@@ -20,7 +20,9 @@ use clap::Parser;
 use codec::{Decode, Encode};
 use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT};
 use polkadot_parachain_primitives::primitives::ValidationParams;
-use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash, HeadData, PersistedValidationData};
+use polkadot_primitives::{
+	BlockNumber as RBlockNumber, Hash as RHash, HeadData, PersistedValidationData,
+};
 use sc_executor::WasmExecutor;
 use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
 use std::{fs, path::PathBuf, time::Instant};
