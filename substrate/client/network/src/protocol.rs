@@ -381,7 +381,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 				let index: usize = set_id.into();
 				let protocol_name = self.notification_protocols.get(index);
 
-				error!(
+				debug!(
 					target: LOG_TARGET,
 					"Received protocol mismatch for peer {:?} on protocol {:?}",
 					peer_id,
