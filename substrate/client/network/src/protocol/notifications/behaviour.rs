@@ -400,7 +400,7 @@ pub enum NotificationsOut {
 		message: BytesMut,
 	},
 
-	/// The remote peer has misbehaved and the connection has been closed.
+	/// The remote peer misbehaved by sent a message on an outbound substream.
 	ProtocolMisbehavior {
 		/// Id of the peer the message came from.
 		peer_id: PeerId,

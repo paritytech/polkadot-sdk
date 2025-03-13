@@ -33,7 +33,7 @@ use libp2p::{
 	},
 	Multiaddr, PeerId,
 };
-use log::{debug, error, warn};
+use log::{debug, warn};
 
 use codec::DecodeAll;
 use sc_network_common::{role::Roles, types::ReputationChange};

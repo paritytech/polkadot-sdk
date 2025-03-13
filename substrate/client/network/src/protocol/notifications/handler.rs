@@ -322,10 +322,11 @@ pub enum NotifsHandlerOut {
 		handshake: Vec<u8>,
 	},
 
-	/// The remote would like the substreams to be closed. Send a [`NotifsHandlerIn::Close`] in
-	/// order to close them. If a [`NotifsHandlerIn::Close`] has been sent before and has not yet
-	/// been acknowledged by a [`NotifsHandlerOut::CloseResult`], then you don't need to a send
-	/// another one.
+	/// The remote would like the substreams to be closed, or the remote peer has misbehaved.
+	///
+	/// Send a [`NotifsHandlerIn::Close`] in order to close them. If a [`NotifsHandlerIn::Close`]
+	/// has been sent before and has not yet been acknowledged by a
+	/// [`NotifsHandlerOut::CloseResult`], then you don't need to a send another one.
 	CloseDesired {
 		/// Index of the protocol in the list of protocols passed at initialization.
 		protocol_index: usize,
