@@ -15,9 +15,12 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	validator_side::common::{
-		DeclarationOutcome, DisconnectedPeers, PeerState, ReputationUpdate, ReputationUpdateKind,
-		Score, CONNECTED_PEERS_LIMIT,
+	validator_side::{
+		common::{
+			DeclarationOutcome, DisconnectedPeers, PeerState, Score, CONNECTED_PEERS_LIMIT,
+			CONNECTED_PER_PARA_LIMIT,
+		},
+		peer_manager::{ReputationDb, ReputationUpdate, ReputationUpdateKind},
 	},
 	LOG_TARGET,
 };
@@ -25,8 +28,6 @@ use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, CollatorProtocolSenderTrait};
 use polkadot_primitives::Id as ParaId;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-
-use super::db::ReputationDb;
 
 #[derive(Default)]
 pub struct ConnectedPeers {
@@ -38,7 +39,7 @@ impl ConnectedPeers {
 	pub fn new(scheduled_paras: BTreeSet<ParaId>) -> Self {
 		let per_para_limit = std::cmp::min(
 			(CONNECTED_PEERS_LIMIT as usize).checked_div(scheduled_paras.len()).unwrap_or(0),
-			CONNECTED_PEERS_LIMIT as usize / 3,
+			CONNECTED_PER_PARA_LIMIT as usize,
 		);
 
 		let mut per_para = BTreeMap::new();

@@ -14,20 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::validator_side::common::{
-	DeclarationOutcome, DisconnectedPeers, PeerState, ReputationUpdate, Score,
-};
+use crate::validator_side::common::{DeclarationOutcome, DisconnectedPeers, PeerState, Score};
 use connected_peers::ConnectedPeers;
 use db::ReputationDb;
 use polkadot_node_network_protocol::PeerId;
 use polkadot_node_subsystem::CollatorProtocolSenderTrait;
-use polkadot_primitives::Id as ParaId;
+use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-
-use super::common::ReputationUpdateKind;
 
 mod connected_peers;
 mod db;
+
+struct ReputationUpdate {
+	pub peer_id: PeerId,
+	pub para_id: ParaId,
+	pub value: Score,
+	pub kind: ReputationUpdateKind,
+}
+
+enum ReputationUpdateKind {
+	Bump,
+	Slash,
+}
 
 #[derive(Default)]
 pub struct PeerManager {
@@ -86,11 +94,13 @@ impl PeerManager {
 		self.connected_peers.update_rep(&update);
 	}
 
-	pub fn update_reputations_on_new_leaf(
+	pub async fn update_reputations_on_new_leaves<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
+		sender: &mut Sender,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
+		max_leaf: (BlockNumber, Hash),
 	) {
-		let updates = self.reputation_db.bump_reputations(bumps);
+		let updates = self.reputation_db.active_leaves_update(sender, bumps, max_leaf).await;
 		for update in updates {
 			self.connected_peers.update_rep(&update);
 		}

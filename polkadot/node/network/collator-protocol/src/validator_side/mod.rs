@@ -14,19 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
-
 use futures::{channel::oneshot, select, FutureExt, StreamExt};
 
-use polkadot_node_subsystem_util::{
-	request_candidate_events, request_candidates_pending_availability,
-};
 use sp_keystore::KeystorePtr;
 
 use common::{
-	Advertisement, CollationFetchOutcome, CollationFetchResponse, DeclarationOutcome, PeerState,
-	ProspectiveCandidate, Score, FAILED_FETCH_SLASH, INVALID_COLLATION_SLASH,
-	VALID_INCLUDED_CANDIDATE_BUMP,
+	extract_reputation_updates_from_new_leaves, Advertisement, CollationFetchOutcome,
+	CollationFetchResponse, DeclarationOutcome, PeerState, ProspectiveCandidate,
+	FAILED_FETCH_SLASH, INVALID_COLLATION_SLASH,
 };
 use polkadot_node_network_protocol::{
 	self as net_protocol, peer_set::CollationVersion, v1 as protocol_v1, v2 as protocol_v2,
@@ -42,8 +37,8 @@ use polkadot_node_subsystem::{
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
 };
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
-	CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, Hash, HeadData, Id as ParaId,
+	PersistedValidationData,
 };
 
 use crate::error::{Result, SecondingError};
@@ -272,14 +267,20 @@ impl State {
 		let old_assignments = self.collation_manager.assignments();
 		let new_leaves = self.collation_manager.view_update(sender, &self.keystore, new_view).await;
 
-		let updates = extract_reputation_updates_from_new_leaves(sender, &new_leaves[..]).await;
-		gum::trace!(
-			target: LOG_TARGET,
-			?new_leaves,
-			"Rep updates: {:#?}",
-			updates
-		);
-		self.peer_manager.update_reputations_on_new_leaf(updates);
+		if !new_leaves.is_empty() {
+			let max_leaf =
+				get_max_block_height_from_new_leaves(sender, &new_leaves[..]).await.unwrap();
+			let updates = extract_reputation_updates_from_new_leaves(sender, &new_leaves[..]).await;
+			gum::trace!(
+				target: LOG_TARGET,
+				?new_leaves,
+				"Rep updates: {:#?}",
+				updates
+			);
+			self.peer_manager
+				.update_reputations_on_new_leaves(sender, updates, max_leaf)
+				.await;
+		}
 
 		let new_assignments = self.collation_manager.assignments();
 		gum::trace!(
@@ -588,66 +589,13 @@ impl State {
 		gum::debug!(
 			target: LOG_TARGET,
 			"Peer reputations: {:#?}",
-			self.peer_manager.reputation_db.0
+			self.peer_manager.reputation_db
 		);
 
 		self.collation_manager
 			.try_launch_fetch_requests(sender, &self.peer_manager)
 			.await;
 	}
-}
-
-async fn extract_reputation_updates_from_new_leaves<Sender: CollatorProtocolSenderTrait>(
-	sender: &mut Sender,
-	leaves: &[Hash],
-) -> BTreeMap<ParaId, HashMap<PeerId, Score>> {
-	// TODO: this could be much easier if we added a new CandidateEvent variant that includes the
-	// info we need (the approved peer)
-	let mut included_candidates_per_rp: HashMap<Hash, HashMap<ParaId, HashSet<CandidateHash>>> =
-		HashMap::new();
-
-	for leaf in leaves {
-		let candidate_events =
-			request_candidate_events(*leaf, sender).await.await.unwrap().unwrap();
-
-		for event in candidate_events {
-			if let CandidateEvent::CandidateIncluded(receipt, _, _, _) = event {
-				included_candidates_per_rp
-					.entry(*leaf)
-					.or_default()
-					.entry(receipt.descriptor.para_id())
-					.or_default()
-					.insert(receipt.hash());
-			}
-		}
-	}
-
-	let mut updates: BTreeMap<ParaId, HashMap<PeerId, Score>> = BTreeMap::new();
-	for (rp, per_para) in included_candidates_per_rp {
-		let parent = get_parent(sender, rp).await;
-
-		for (para_id, included_candidates) in per_para {
-			let candidates_pending_availability =
-				request_candidates_pending_availability(parent, para_id, sender)
-					.await
-					.await
-					.unwrap()
-					.unwrap();
-
-			for candidate in candidates_pending_availability {
-				if included_candidates.contains(&candidate.hash()) {
-					if let Some(approved_peer) = candidate.commitments.approved_peer() {
-						if let Ok(peer_id) = PeerId::from_bytes(&approved_peer.0) {
-							*(updates.entry(para_id).or_default().entry(peer_id).or_default()) +=
-								VALID_INCLUDED_CANDIDATE_BUMP;
-						}
-					}
-				}
-			}
-		}
-	}
-
-	updates
 }
 
 /// Notify a collator that its collation got seconded.
@@ -700,12 +648,30 @@ where
 	rx.await.map_err(SecondingError::CancelledProspectiveValidationData)
 }
 
-async fn get_parent<Sender: CollatorProtocolSenderTrait>(sender: &mut Sender, hash: Hash) -> Hash {
-	// TODO: we could use the implicit view for this info.
-	let (tx, rx) = oneshot::channel();
-	sender.send_message(ChainApiMessage::BlockHeader(hash, tx)).await;
+async fn get_max_block_height_from_new_leaves<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	leaves: &[Hash],
+) -> Option<(BlockNumber, Hash)> {
+	let mut max_leaf = None;
 
-	rx.await.unwrap().unwrap().unwrap().parent_hash
+	for leaf in leaves {
+		let (tx, rx) = oneshot::channel();
+		sender.send_message(ChainApiMessage::BlockNumber(*leaf, tx)).await;
+
+		let number = rx.await.unwrap().unwrap().unwrap();
+
+		max_leaf = match max_leaf {
+			None => Some((number, *leaf)),
+			Some((old_max, old_leaf)) =>
+				if number > old_max {
+					Some((number, *leaf))
+				} else {
+					Some((old_max, old_leaf))
+				},
+		};
+	}
+
+	max_leaf
 }
 
 fn persisted_validation_data_sanity_check(

@@ -13,16 +13,25 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+use futures::channel::oneshot;
 use polkadot_node_network_protocol::{
 	request_response::{outgoing::RequestError, v2 as request_v2},
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, HeadData, Id as ParaId,
+use polkadot_node_subsystem::{messages::ChainApiMessage, CollatorProtocolSenderTrait};
+use polkadot_node_subsystem_util::{
+	request_candidate_events, request_candidates_pending_availability,
 };
+use polkadot_primitives::{
+	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
+	CandidateHash, Hash, HeadData, Id as ParaId,
+};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub const CONNECTED_PEERS_LIMIT: u8 = 255;
+
+pub const CONNECTED_PER_PARA_LIMIT: u8 = CONNECTED_PEERS_LIMIT / 3;
 
 pub const VALID_INCLUDED_CANDIDATE_BUMP: u8 = 10;
 
@@ -39,18 +48,6 @@ pub const FAILED_FETCH_SLASH: Score = 10;
 pub type Score = u8;
 
 pub type DisconnectedPeers = Vec<PeerId>;
-
-pub struct ReputationUpdate {
-	pub peer_id: PeerId,
-	pub para_id: ParaId,
-	pub value: Score,
-	pub kind: ReputationUpdateKind,
-}
-
-pub enum ReputationUpdateKind {
-	Bump,
-	Slash,
-}
 
 pub enum PeerState {
 	/// Connected.
@@ -128,4 +125,65 @@ pub enum CollationFetchError {
 	Cancelled,
 	#[error("{0}")]
 	Request(#[from] RequestError),
+}
+
+pub async fn extract_reputation_updates_from_new_leaves<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	leaves: &[Hash],
+) -> BTreeMap<ParaId, HashMap<PeerId, Score>> {
+	// TODO: this could be much easier if we added a new CandidateEvent variant that includes the
+	// info we need (the approved peer)
+	let mut included_candidates_per_rp: HashMap<Hash, HashMap<ParaId, HashSet<CandidateHash>>> =
+		HashMap::new();
+
+	for leaf in leaves {
+		let candidate_events =
+			request_candidate_events(*leaf, sender).await.await.unwrap().unwrap();
+
+		for event in candidate_events {
+			if let CandidateEvent::CandidateIncluded(receipt, _, _, _) = event {
+				included_candidates_per_rp
+					.entry(*leaf)
+					.or_default()
+					.entry(receipt.descriptor.para_id())
+					.or_default()
+					.insert(receipt.hash());
+			}
+		}
+	}
+
+	let mut updates: BTreeMap<ParaId, HashMap<PeerId, Score>> = BTreeMap::new();
+	for (rp, per_para) in included_candidates_per_rp {
+		let parent = get_parent(sender, rp).await;
+
+		for (para_id, included_candidates) in per_para {
+			let candidates_pending_availability =
+				request_candidates_pending_availability(parent, para_id, sender)
+					.await
+					.await
+					.unwrap()
+					.unwrap();
+
+			for candidate in candidates_pending_availability {
+				if included_candidates.contains(&candidate.hash()) {
+					if let Some(approved_peer) = candidate.commitments.approved_peer() {
+						if let Ok(peer_id) = PeerId::from_bytes(&approved_peer.0) {
+							*(updates.entry(para_id).or_default().entry(peer_id).or_default()) +=
+								VALID_INCLUDED_CANDIDATE_BUMP;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	updates
+}
+
+async fn get_parent<Sender: CollatorProtocolSenderTrait>(sender: &mut Sender, hash: Hash) -> Hash {
+	// TODO: we could use the implicit view for this info.
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockHeader(hash, tx)).await;
+
+	rx.await.unwrap().unwrap().unwrap().parent_hash
 }
