@@ -18,7 +18,9 @@
 
 use crate::{
 	protocol::notifications::{
-		handler::{self, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut},
+		handler::{
+			self, CloseReason, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut,
+		},
 		service::{NotificationCommand, ProtocolHandle, ValidationCallResult},
 	},
 	protocol_controller::{self, IncomingIndex, Message, SetId},
@@ -1907,7 +1909,7 @@ impl NetworkBehaviour for Notifications {
 				};
 			},
 
-			NotifsHandlerOut::CloseDesired { protocol_index, protocol_misbehavior } => {
+			NotifsHandlerOut::CloseDesired { protocol_index, reason } => {
 				let set_id = SetId::from(protocol_index);
 
 				trace!(target: LOG_TARGET,
@@ -1923,7 +1925,7 @@ impl NetworkBehaviour for Notifications {
 					return
 				};
 
-				if protocol_misbehavior {
+				if reason == CloseReason::ProtocolMisbehavior {
 					self.events.push_back(ToSwarm::GenerateEvent(
 						NotificationsOut::ProtocolMisbehavior { peer_id, set_id },
 					));

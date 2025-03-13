@@ -251,6 +251,20 @@ enum State {
 	},
 }
 
+/// The close reason of an [`NotifsHandlerOut::CloseDesired`] event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CloseReason {
+	/// The remote has requested the substreams to be closed.
+	///
+	/// This can happen when the remote drops the substream or an IO error is encountered.
+	RemoteRequest,
+
+	/// The remote has misbehaved and did not comply with the notification spec.
+	///
+	/// This means for now that the remote has sent data on an outbound substream.
+	ProtocolMisbehavior,
+}
+
 /// Event that can be received by a `NotifsHandler`.
 #[derive(Debug, Clone)]
 pub enum NotifsHandlerIn {
@@ -331,8 +345,8 @@ pub enum NotifsHandlerOut {
 		/// Index of the protocol in the list of protocols passed at initialization.
 		protocol_index: usize,
 
-		/// Whether the remote has misbehaved and did not comply with the notification spec.
-		protocol_misbehavior: bool,
+		/// The close reason.
+		reason: CloseReason,
 	},
 
 	/// Received a message on a custom protocol substream.
@@ -824,13 +838,14 @@ impl ConnectionHandler for NotifsHandler {
 						Poll::Ready(Err(error)) => {
 							*out_substream = None;
 
-							let protocol_misbehavior =
-								matches!(error, NotificationsOutError::UnexpectedData);
-
-							let event = NotifsHandlerOut::CloseDesired {
-								protocol_index,
-								protocol_misbehavior,
+							let reason = match error {
+								NotificationsOutError::Io(_) | NotificationsOutError::Closed =>
+									CloseReason::RemoteRequest,
+								NotificationsOutError::UnexpectedData =>
+									CloseReason::ProtocolMisbehavior,
 							};
+
+							let event = NotifsHandlerOut::CloseDesired { protocol_index, reason };
 							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event))
 						},
 					};
@@ -875,7 +890,7 @@ impl ConnectionHandler for NotifsHandler {
 							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
 								NotifsHandlerOut::CloseDesired {
 									protocol_index,
-									protocol_misbehavior: false,
+									reason: CloseReason::RemoteRequest,
 								},
 							))
 						},
@@ -1700,7 +1715,7 @@ pub mod tests {
 				Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
 					NotifsHandlerOut::CloseDesired {
 						protocol_index: 0,
-						protocol_misbehavior: false
+						reason: CloseReason::RemoteRequest,
 					},
 				))
 			));
