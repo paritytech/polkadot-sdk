@@ -109,6 +109,7 @@ fn check_treasury_pallet_id() {
 #[cfg(all(test, feature = "try-runtime"))]
 mod remote_tests {
 	use super::*;
+	use frame_support::traits::{TryState, TryStateSelect::All};
 	use frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
 	use remote_externalities::{
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
@@ -242,6 +243,10 @@ mod remote_tests {
 				unexpected_errors
 			);
 		});
+
+		ext.execute_with(|| {
+			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
+		});
 	}
 
 	#[tokio::test]
@@ -312,6 +317,10 @@ mod remote_tests {
 				err,
 				force_withdraw_acc
 			);
+		});
+
+		ext.execute_with(|| {
+			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
 		});
 	}
 }
