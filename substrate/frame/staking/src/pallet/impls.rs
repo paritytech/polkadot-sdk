@@ -20,7 +20,7 @@
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	PageIndex, ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
+	PageIndex, ScoreProvider, SortedListProvider, TryFromOtherBounds, VoteWeight, VoterOf,
 };
 use frame_support::{
 	defensive,
@@ -647,24 +647,22 @@ impl<T: Config> Pallet<T> {
 		start_session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
-		let election_result: BoundedVec<_, MaxWinnersOf<T>> = if is_genesis {
-			let result = <T::GenesisElectionProvider>::elect(0).map_err(|e| {
-				log!(warn, "genesis election provider failed due to {:?}", e);
-				Self::deposit_event(Event::StakingElectionFailed);
-			});
+		let election_result = if is_genesis {
+			let result = <T::GenesisElectionProvider>::elect(0)
+				.map_err(|e| {
+					log!(warn, "genesis election provider failed due to {:?}", e);
+					Self::deposit_event(Event::StakingElectionFailed);
+				})
+				.ok()?;
 
-			result
-				.ok()?
-				.into_inner()
-				.try_into()
-				// both bounds checked in integrity test to be equal
-				.defensive_unwrap_or_default()
+			BoundedSupportsOf::<T::ElectionProvider>::try_from_other_bounds(result).ok()?
 		} else {
-			let result = <T::ElectionProvider>::elect(0).map_err(|e| {
-				log!(warn, "election provider failed due to {:?}", e);
-				Self::deposit_event(Event::StakingElectionFailed);
-			});
-			result.ok()?
+			<T::ElectionProvider>::elect(0)
+				.map_err(|e| {
+					log!(warn, "election provider failed due to {:?}", e);
+					Self::deposit_event(Event::StakingElectionFailed);
+				})
+				.ok()?
 		};
 
 		let exposures = Self::collect_exposures(election_result);
