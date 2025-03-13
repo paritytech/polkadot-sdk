@@ -72,6 +72,5 @@ You need to set an initial superuser account as the sudo `key`.
 
 [`Call`]: ./enum.Call.html
 [`Config`]: ./trait.Config.html
-[`Origin`]: https://docs.substrate.io/main-docs/build/origins/
-
+[`Origin`]: https://docs.polkadot.com/
 License: Apache-2.0
