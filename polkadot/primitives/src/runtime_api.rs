@@ -308,5 +308,10 @@ sp_api::decl_runtime_apis! {
 		/// Retrieve the scheduling lookahead
 		#[api_version(12)]
 		fn scheduling_lookahead() -> u32;
+
+		/***** Added in v12 *****/
+		/// Retrieve the maximum uncompressed code size.
+		#[api_version(12)]
+		fn validation_code_bomb_limit() -> u32;
 	}
 }

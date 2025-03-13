@@ -45,11 +45,9 @@ fn benchmark_pallet_args_work() {
 		&["--list", "--pallet=pallet_balances", "--chain=dev", "--genesis-builder=spec-genesis"],
 		true,
 	);
-
-	// Error because the genesis runtime does not have any presets in it:
 	benchmark_pallet_args(
 		&["--list", "--pallet=pallet_balances", "--chain=dev", "--genesis-builder=spec-runtime"],
-		false,
+		true,
 	);
 	// Error because no runtime is provided:
 	benchmark_pallet_args(
