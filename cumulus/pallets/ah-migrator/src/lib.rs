@@ -56,8 +56,8 @@ use frame_support::{
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
 	traits::{
 		fungible::{InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
-		Defensive, DefensiveTruncateFrom, LockableCurrency, OriginTrait, QueryPreimage,
-		ReservableCurrency, StorePreimage, WithdrawReasons as LockWithdrawReasons,
+		Defensive, LockableCurrency, OriginTrait, QueryPreimage, ReservableCurrency, StorePreimage,
+		WithdrawReasons as LockWithdrawReasons,
 	},
 };
 use frame_system::pallet_prelude::*;
@@ -221,11 +221,6 @@ pub mod pallet {
 		type RcProxyType: Parameter + Default;
 		/// Convert a Relay Chain Proxy Type to a local AH one.
 		type RcToProxyType: TryConvert<Self::RcProxyType, <Self as pallet_proxy::Config>::ProxyType>;
-		/// Convert a Relay Chain block number delay to an Asset Hub one.
-		///
-		/// Note that we make a simplification here by assuming that both chains have the same block
-		/// number type.
-		type RcToAhDelay: Convert<BlockNumberFor<Self>, BlockNumberFor<Self>>;
 		/// Access the block number of the Relay Chain.
 		type RcBlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 		/// Some part of the Relay Chain origins used in Governance.

@@ -17,7 +17,7 @@
 use crate::*;
 use frame_support::traits::{Currency, Polling};
 use pallet_conviction_voting::{ClassLocksFor, TallyOf, Voting};
-use sp_runtime::traits::Zero;
+use sp_runtime::traits::{BlockNumberProvider, Zero};
 
 /// Stage of the scheduler pallet migration.
 #[derive(
@@ -53,6 +53,10 @@ pub type RcConvictionVotingMessageOf<T> = RcConvictionVotingMessage<
 pub struct ConvictionVotingMigrator<T> {
 	_phantom: sp_std::marker::PhantomData<T>,
 }
+
+/// The block number from the conviction voting pallet provider.
+pub type ConvictionVotingBlockNumberFor<T> =
+	<<T as pallet_conviction_voting::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 impl<T: Config> PalletMigration for ConvictionVotingMigrator<T> {
 	type Key = ConvictionVotingStage<T::AccountId, alias::ClassOf<T>>;
@@ -237,7 +241,7 @@ pub mod alias {
 	pub type VotingOf<T, I = ()> = Voting<
 		BalanceOf<T, I>,
 		<T as frame_system::Config>::AccountId,
-		BlockNumberFor<T>,
+		ConvictionVotingBlockNumberFor<T>,
 		PollIndexOf<T, I>,
 		MaxVotes<<T as pallet_conviction_voting::Config<I>>::MaxVotes>,
 	>;

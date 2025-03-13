@@ -16,15 +16,17 @@
 
 use crate::*;
 use frame_support::traits::DefensiveTruncateFrom;
-use pallet_rc_migrator::scheduler::{alias::Scheduled, RcSchedulerMessage};
+use pallet_rc_migrator::scheduler::{
+	alias::Scheduled, RcSchedulerMessage, SchedulerBlockNumberFor,
+};
 
 /// Messages sent from the RC Migrator concerning the Scheduler pallet.
-pub type RcSchedulerMessageOf<T> = RcSchedulerMessage<BlockNumberFor<T>, RcScheduledOf<T>>;
+pub type RcSchedulerMessageOf<T> = RcSchedulerMessage<SchedulerBlockNumberFor<T>, RcScheduledOf<T>>;
 
 /// Relay Chain `Scheduled` type.
 // From https://github.com/paritytech/polkadot-sdk/blob/f373af0d1c1e296c1b07486dd74710b40089250e/substrate/frame/scheduler/src/lib.rs#L203
 pub type RcScheduledOf<T> =
-	Scheduled<call::BoundedCallOf<T>, BlockNumberFor<T>, <T as Config>::RcPalletsOrigin>;
+	Scheduled<call::BoundedCallOf<T>, SchedulerBlockNumberFor<T>, <T as Config>::RcPalletsOrigin>;
 
 impl<T: Config> Pallet<T> {
 	pub fn do_receive_scheduler_messages(

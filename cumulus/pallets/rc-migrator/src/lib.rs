@@ -322,7 +322,7 @@ pub mod pallet {
 		+ hrmp::Config
 		+ paras_registrar::Config
 		+ pallet_multisig::Config
-		+ pallet_proxy::Config<BlockNumberProvider = frame_system::Pallet<Self>>
+		+ pallet_proxy::Config
 		+ pallet_preimage::Config<Hash = H256>
 		+ pallet_referenda::Config<Votes = u128>
 		+ pallet_nomination_pools::Config
@@ -332,7 +332,7 @@ pub mod pallet {
 		+ pallet_vesting::Config
 		+ pallet_indices::Config
 		+ pallet_conviction_voting::Config
-		+ pallet_treasury::Config<BlockNumberProvider = frame_system::Pallet<Self>>
+		+ pallet_treasury::Config
 		+ pallet_asset_rate::Config
 		+ pallet_slots::Config
 		+ pallet_crowdloan::Config

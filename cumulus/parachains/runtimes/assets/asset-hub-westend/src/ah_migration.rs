@@ -17,9 +17,9 @@ use super::*;
 use codec::DecodeAll;
 use frame_support::pallet_prelude::TypeInfo;
 use frame_system::pallet_prelude::BlockNumberFor;
+use parachains_common::pay::VersionedLocatableAccount;
 use polkadot_runtime_common::impls::{LocatableAssetConverter, VersionedLocatableAsset};
 use sp_runtime::traits::{Convert, TryConvert};
-use system_parachains_common::pay::VersionedLocatableAccount;
 use xcm::latest::prelude::*;
 
 /// Relay Chain Hold Reason
@@ -101,17 +101,6 @@ impl TryConvert<RcProxyType, ProxyType> for RcToProxyType {
 			RcProxyType::NominationPools => Ok(ProxyType::NominationPools),
 			RcProxyType::ParaRegistration => Err(p), // Does not exist on AH
 		}
-	}
-}
-
-/// Convert a Relay Chain Proxy Delay to a local AH one.
-// NOTE we assume Relay Chain and AH to have the same block type
-pub struct RcToAhDelay;
-impl Convert<BlockNumberFor<Runtime>, BlockNumberFor<Runtime>> for RcToAhDelay {
-	fn convert(rc: BlockNumberFor<Runtime>) -> BlockNumberFor<Runtime> {
-		// Polkadot Relay chain: 6 seconds per block
-		// Asset Hub: 12 seconds per block
-		rc / 2
 	}
 }
 

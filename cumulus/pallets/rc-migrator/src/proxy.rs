@@ -18,6 +18,7 @@
 #![doc = include_str!("proxy.md")]
 
 use frame_support::traits::Currency;
+use sp_runtime::traits::BlockNumberProvider;
 
 extern crate alloc;
 use crate::{types::*, *};
@@ -45,8 +46,12 @@ pub struct RcProxy<AccountId, Balance, ProxyType, BlockNumber> {
 	pub proxies: Vec<pallet_proxy::ProxyDefinition<AccountId, ProxyType, BlockNumber>>,
 }
 
+/// The block number from the proxy pallet provider.
+pub type ProxyBlockNumberFor<T> =
+	<<T as pallet_proxy::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+
 pub type RcProxyOf<T, ProxyType> =
-	RcProxy<AccountIdOf<T>, BalanceOf<T>, ProxyType, BlockNumberFor<T>>;
+	RcProxy<AccountIdOf<T>, BalanceOf<T>, ProxyType, ProxyBlockNumberFor<T>>;
 
 /// A RcProxy in Relay chain format, can only be understood by the RC and must be translated first.
 pub(crate) type RcProxyLocalOf<T> = RcProxyOf<T, <T as pallet_proxy::Config>::ProxyType>;
@@ -128,7 +133,7 @@ impl<T: Config> ProxyProxiesMigrator<T> {
 	fn migrate_single(
 		acc: AccountIdOf<T>,
 		(proxies, deposit): (
-			Vec<pallet_proxy::ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>>,
+			Vec<pallet_proxy::ProxyDefinition<T::AccountId, T::ProxyType, ProxyBlockNumberFor<T>>>,
 			BalanceOf<T>,
 		),
 		weight_counter: &mut WeightMeter,

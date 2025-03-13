@@ -17,6 +17,7 @@
 use super::*;
 use frame_support::traits::schedule::v3::TaskName;
 use pallet_scheduler::{RetryConfig, TaskAddress};
+use sp_runtime::traits::BlockNumberProvider;
 
 /// Stage of the scheduler pallet migration.
 #[derive(
@@ -49,7 +50,12 @@ pub enum RcSchedulerMessage<BlockNumber, Scheduled> {
 	Lookup((TaskName, TaskAddress<BlockNumber>)),
 }
 
-pub type RcSchedulerMessageOf<T> = RcSchedulerMessage<BlockNumberFor<T>, alias::ScheduledOf<T>>;
+pub type RcSchedulerMessageOf<T> =
+	RcSchedulerMessage<SchedulerBlockNumberFor<T>, alias::ScheduledOf<T>>;
+
+/// The block number from the scheduler pallet provider.
+pub type SchedulerBlockNumberFor<T> =
+	<<T as pallet_scheduler::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 pub struct SchedulerMigrator<T: Config> {
 	_phantom: PhantomData<T>,
@@ -180,7 +186,7 @@ pub mod alias {
 	/// Scheduled type for the Asset Hub.
 	pub type ScheduledOf<T> = Scheduled<
 		BoundedCallOf<T>,
-		BlockNumberFor<T>,
+		SchedulerBlockNumberFor<T>,
 		<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin,
 	>;
 
@@ -190,7 +196,7 @@ pub mod alias {
 	pub type Agenda<T: pallet_scheduler::Config> = StorageMap<
 		pallet_scheduler::Pallet<T>,
 		Twox64Concat,
-		BlockNumberFor<T>,
+		SchedulerBlockNumberFor<T>,
 		BoundedVec<Option<ScheduledOf<T>>, <T as pallet_scheduler::Config>::MaxScheduledPerBlock>,
 		ValueQuery,
 	>;
@@ -201,6 +207,6 @@ pub mod alias {
 		pallet_scheduler::Pallet<T>,
 		Twox64Concat,
 		TaskName,
-		TaskAddress<BlockNumberFor<T>>,
+		TaskAddress<SchedulerBlockNumberFor<T>>,
 	>;
 }

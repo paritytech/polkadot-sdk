@@ -18,6 +18,7 @@
 #![doc = include_str!("multisig.md")]
 
 use frame_support::traits::Currency;
+use sp_runtime::traits::BlockNumberProvider;
 
 extern crate alloc;
 use crate::{types::*, *};
@@ -25,7 +26,6 @@ use alloc::vec::Vec;
 
 mod aliases {
 	use super::*;
-	use frame_system::pallet_prelude::BlockNumberFor;
 	use pallet_multisig::Timepoint;
 
 	/// Copied from https://github.com/paritytech/polkadot-sdk/blob/7c5224cb01710d0c14c87bf3463cc79e49b3e7b5/substrate/frame/multisig/src/lib.rs#L96-L111
@@ -61,7 +61,7 @@ mod aliases {
 		Blake2_128Concat,
 		[u8; 32],
 		Multisig<
-			BlockNumberFor<T>,
+			MultisigBlockNumberFor<T>,
 			BalanceOf<T>,
 			<T as frame_system::Config>::AccountId,
 			<T as pallet_multisig::Config>::MaxSignatories,
@@ -69,7 +69,7 @@ mod aliases {
 	>;
 
 	pub type MultisigOf<T> = Multisig<
-		BlockNumberFor<T>,
+		MultisigBlockNumberFor<T>,
 		BalanceOf<T>,
 		AccountIdOf<T>,
 		<T as pallet_multisig::Config>::MaxSignatories,
@@ -96,6 +96,10 @@ pub type RcMultisigOf<T> = RcMultisig<AccountIdOf<T>, BalanceOf<T>>;
 type BalanceOf<T> = <<T as pallet_multisig::Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
+
+/// The block number from the multisig pallet provider.
+pub type MultisigBlockNumberFor<T> =
+	<<T as pallet_multisig::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 pub struct MultisigMigrator<T, W> {
 	_marker: sp_std::marker::PhantomData<(T, W)>,

@@ -806,9 +806,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
-						RuntimeCall::NominationPools(..)
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::NominationPools(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..)
 				)
@@ -1282,7 +1281,6 @@ impl pallet_ah_migrator::Config for Runtime {
 	type RcToAhFreezeReason = RcToAhFreezeReason;
 	type RcProxyType = ah_migration::RcProxyType;
 	type RcToProxyType = ah_migration::RcToProxyType;
-	type RcToAhDelay = ah_migration::RcToAhDelay;
 	type RcBlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type RcToAhCall = ah_migration::RcToAhCall;
 	type RcPalletsOrigin = ah_migration::RcPalletsOrigin;
