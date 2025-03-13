@@ -1120,7 +1120,7 @@ macro_rules! decl_test_networks {
 				fn hrmp_channel_parachain_inherent_data(
 					para_id: u32,
 					relay_parent_number: u32,
-					parent_head_data: $crate::HeadData
+					parent_head_data: $crate::HeadData,
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
