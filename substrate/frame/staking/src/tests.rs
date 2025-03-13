@@ -21,7 +21,7 @@ use super::{ConfigOp, Event, *};
 use crate::{asset, ledger::StakingLedgerInspect};
 use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBoundsBuilder},
-	ElectionProvider, SortedListProvider, Support,
+	BoundedSupportsOf, ElectionProvider, SortedListProvider, Support,
 };
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
@@ -2217,13 +2217,14 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider() {
 			// winners should be 21 and 31. Otherwise this election is taking duplicates into
 			// account.
 			let supports = <Test as Config>::ElectionProvider::elect(0).unwrap();
-			assert_eq!(
-				supports,
-				vec![
-					(21, Support { total: 1800, voters: vec![(21, 1000), (1, 400), (3, 400)] }),
-					(31, Support { total: 2200, voters: vec![(31, 1000), (1, 600), (3, 600)] })
-				],
-			);
+			let (expected, _, _) =
+				BoundedSupportsOf::<<Test as Config>::ElectionProvider>::sorted_truncate_from(
+					vec![
+						(21, Support { total: 1800, voters: vec![(21, 1000), (1, 400), (3, 400)] }),
+						(31, Support { total: 2200, voters: vec![(31, 1000), (1, 600), (3, 600)] }),
+					],
+				);
+			assert_eq!(supports, expected,);
 		});
 }
 
@@ -2269,13 +2270,17 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider_elected() {
 
 			// winners should be 21 and 11.
 			let supports = <Test as Config>::ElectionProvider::elect(0).unwrap();
-			assert_eq!(
-				supports,
-				vec![
-					(11, Support { total: 1500, voters: vec![(11, 1000), (1, 500)] }),
-					(21, Support { total: 2500, voters: vec![(21, 1000), (1, 500), (3, 1000)] })
-				],
-			);
+			let (expected, _, _) =
+				BoundedSupportsOf::<<Test as Config>::ElectionProvider>::sorted_truncate_from(
+					vec![
+						(11, Support { total: 1500, voters: vec![(11, 1000), (1, 500)] }),
+						(
+							21,
+							Support { total: 2500, voters: vec![(21, 1000), (1, 500), (3, 1000)] },
+						),
+					],
+				);
+			assert_eq!(supports, expected,);
 		});
 }
 
