@@ -175,7 +175,10 @@ use sp_arithmetic::{
 	PerThing, UpperOf,
 };
 use sp_npos_elections::VoteWeight;
-use sp_runtime::{traits::Hash, SaturatedConversion};
+use sp_runtime::{
+	traits::{Hash, Saturating},
+	SaturatedConversion,
+};
 use sp_std::{borrow::ToOwned, boxed::Box, prelude::*};
 use verifier::Verifier;
 
@@ -296,6 +299,70 @@ impl<T: Config> InstantElectionProvider for Continue<T> {
 
 	fn bother() -> bool {
 		false
+	}
+}
+
+/// A easy means to configure [`Config::AreWeDone`].
+///
+/// With this, you can say what to do if a solution is queued, or what to do if not.
+///
+/// Two common shorthands of this are provided:
+/// * [`ProceedRegardlessOf`]
+/// * [`RevertToSignedIfNotQueuedOf`]
+pub struct IfSolutionQueuedElse<T, Queued, NotQueued>(
+	sp_std::marker::PhantomData<(T, Queued, NotQueued)>,
+);
+
+/// A `Get` impl for `Phase::Done`
+pub struct GetDone<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> Get<Phase<T>> for GetDone<T> {
+	fn get() -> Phase<T> {
+		Phase::Done
+	}
+}
+
+/// A `Get` impl for `Phase::Signed(T::SignedPhase::get())`
+pub struct GetSigned<T>(sp_std::marker::PhantomData<T>);
+impl<T: Config> Get<Phase<T>> for GetSigned<T> {
+	fn get() -> Phase<T> {
+		Phase::Signed(T::SignedPhase::get().saturating_sub(1u32.into()))
+	}
+}
+
+/// A shorthand for [`IfSolutionQueuedElse`] that proceeds regardless of the solution being queued.
+pub type ProceedRegardlessOf<T> = IfSolutionQueuedElse<T, GetDone<T>, GetDone<T>>;
+
+/// A shorthand for [`IfSolutionQueuedElse`] that proceeds to `Phase::Done` if the solution is
+/// queued. Otherwise, it proceeds to `Phase::Signed`.
+pub type RevertToSignedIfNotQueuedOf<T> = IfSolutionQueuedElse<T, GetDone<T>, GetSigned<T>>;
+
+impl<T: Config, Queued, NotQueued> IfSolutionQueuedElse<T, Queued, NotQueued> {
+	fn something_queued() -> bool {
+		let queued_score = <T::Verifier as verifier::Verifier>::queued_score().is_some();
+		#[cfg(debug_assertions)]
+		{
+			let any_pages_queued = (Pallet::<T>::lsp()..=Pallet::<T>::msp()).any(|p| {
+				<T::Verifier as verifier::Verifier>::get_queued_solution_page(p).is_some()
+			});
+			assert_eq!(
+				queued_score, any_pages_queued,
+				"queued score ({}) and queued pages ({}) must match",
+				queued_score, any_pages_queued
+			);
+		}
+		queued_score
+	}
+}
+
+impl<T: Config, Queued: Get<Phase<T>>, NotQueued: Get<Phase<T>>> Get<Phase<T>>
+	for IfSolutionQueuedElse<T, Queued, NotQueued>
+{
+	fn get() -> Phase<T> {
+		if Self::something_queued() {
+			Queued::get()
+		} else {
+			NotQueued::get()
+		}
 	}
 }
 
@@ -453,6 +520,12 @@ pub mod pallet {
 		/// The origin that can perform administration operations on this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+		/// An indicator of whether we should move to do the [`crate::types::Done`] or not? This is
+		/// called at the end of the election process.
+		///
+		/// Common implementation is [`ProceedRegardlessOf`] or [`RevertToSignedIfNotQueuedOf`].
+		type AreWeDone: Get<Phase<Self>>;
+
 		/// The weight of the pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -495,6 +568,7 @@ pub mod pallet {
 				},
 				AdminOperation::EmergencySetSolution(supports, score) => {
 					ensure!(Self::current_phase() == Phase::Emergency, Error::<T>::UnexpectedPhase);
+					// TODO: hardcoding zero here doesn't make a lot of sense
 					T::Verifier::force_set_single_page_valid(*supports, 0, score);
 					Ok(().into())
 				},
@@ -550,7 +624,7 @@ pub mod pallet {
 				let test_election_start: BlockNumberFor<T> =
 					(crate::mock::ElectionStart::get() as u32).into();
 				if _now == test_election_start {
-					crate::log!(info, "Starting election at block {}", _now);
+					crate::log!(info, "TESTING: Starting election at block {}", _now);
 					crate::mock::MultiBlock::start().unwrap();
 				}
 			}
@@ -916,9 +990,6 @@ pub mod pallet {
 				Phase::Export(_) |
 				Phase::Done |
 				Phase::Unsigned(_) => Self::ensure_snapshot(true, T::Pages::get()),
-
-				// cannot assume anything. We might halt at any point.
-				Phase::Halted => Ok(()),
 			}?;
 
 			Ok(())
@@ -1386,7 +1457,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	fn status() -> Result<bool, ()> {
 		match <CurrentPhase<T>>::get() {
 			// we're not doing anything.
-			Phase::Off | Phase::Halted => Err(()),
+			Phase::Off => Err(()),
 
 			// we're doing sth but not read.
 			Phase::Signed(_) |
@@ -1877,6 +1948,37 @@ mod phase_rotation {
 	}
 
 	#[test]
+	fn no_signed_and_unsigned_phase() {
+		ExtBuilder::full()
+			.pages(3)
+			.signed_phase(0, 0)
+			.unsigned_phase(0)
+			.election_start(10)
+			.fallback_mode(FallbackModes::Onchain)
+			.build_and_execute(|| {
+				assert_eq!(System::block_number(), 0);
+				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+				assert_none_snapshot();
+				assert_eq!(MultiBlock::round(), 0);
+
+				roll_to(10);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
+				assert_eq!(MultiBlock::round(), 0);
+
+				roll_to(11);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
+				roll_to(12);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
+				roll_to(13);
+				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
+
+				// And we are done already
+				roll_to(14);
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+			});
+	}
+
+	#[test]
 	#[should_panic(
 		expected = "signed validation phase should be at least as long as the number of pages"
 	)]
@@ -1885,6 +1987,47 @@ mod phase_rotation {
 			.pages(3)
 			.signed_validation_phase(2)
 			.build_and_execute(|| <MultiBlock as Hooks<BlockNumber>>::integrity_test())
+	}
+
+	#[test]
+	fn are_we_done_back_to_signed() {
+		ExtBuilder::full()
+			.are_we_done(AreWeDoneModes::BackToSigned)
+			.build_and_execute(|| {
+				// roll to unsigned
+				roll_to_last_unsigned();
+
+				assert_eq!(MultiBlock::round(), 0);
+				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
+				assert_eq!(
+					multi_block_events_since_last_call(),
+					vec![
+						Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
+						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed(4) },
+						Event::PhaseTransitioned {
+							from: Phase::Signed(0),
+							to: Phase::SignedValidation(4)
+						},
+						Event::PhaseTransitioned {
+							from: Phase::SignedValidation(0),
+							to: Phase::Unsigned(4)
+						}
+					]
+				);
+
+				roll_next();
+				// we are back to signed phase
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 1));
+				// round is still the same
+				assert_eq!(MultiBlock::round(), 0);
+
+				// we proceed to normally again:
+				roll_next();
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 2));
+
+				roll_next();
+				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 3));
+			});
 	}
 }
 
@@ -2186,7 +2329,7 @@ mod election_provider {
 	}
 
 	#[test]
-	fn multi_page_elect_fallback_works() {
+	fn multi_page_onchain_elect_fallback_works() {
 		ExtBuilder::full().fallback_mode(FallbackModes::Onchain).build_and_execute(|| {
 			roll_to_signed_open();
 
@@ -2281,6 +2424,16 @@ mod election_provider {
 			// This will set us to the off phase, since fallback saved us.
 			assert_eq!(MultiBlock::current_phase(), Phase::Off);
 		});
+	}
+
+	#[test]
+	fn continue_fallback_works() {
+		todo!()
+	}
+
+	#[test]
+	fn emergency_fallback_works() {
+		todo!();
 	}
 
 	#[test]
@@ -2403,7 +2556,6 @@ mod admin_ops {
 			})
 	}
 
-	#[should_panic]
 	#[test]
 	fn force_rotate_round() {
 		// clears the snapshot and verifier data.

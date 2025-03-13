@@ -230,8 +230,6 @@ pub struct SolutionOrSnapshotSize {
 #[codec(mel_bound(T: crate::Config))]
 #[scale_info(skip_type_params(T))]
 pub enum Phase<T: crate::Config> {
-	/// Nothing is happening, and nothing will happen.
-	Halted,
 	/// Nothing is happening, but it might.
 	Off,
 	/// Signed phase is open.
@@ -270,9 +268,8 @@ pub enum Phase<T: crate::Config> {
 	///
 	/// Once this is active, no more signed or solutions will be accepted.
 	Export(PageIndex),
-	/// The emergency phase. This is enabled upon a failing call to `T::ElectionProvider::elect`.
-	/// After that, the only way to leave this phase is through a successful
-	/// `T::ElectionProvider::elect`.
+	/// The emergency phase. This is could be enabled by one of the fallbacks, and locks the pallet
+	/// such that only governance can change the state.
 	Emergency,
 }
 
@@ -297,15 +294,16 @@ impl<T: crate::Config> Phase<T> {
 		match self {
 			// for these phases, we do nothing.
 			Self::Off => Self::Off,
-			Self::Halted => Self::Halted,
 			Self::Emergency => Self::Emergency,
 
 			// snapshot phase
 			Self::Snapshot(0) =>
 				if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one()) {
 					Self::Signed(signed_duration)
+				} else if let Some(unsigned_duration) = T::UnsignedPhase::get().checked_sub(&One::one()) {
+					Self::Unsigned(unsigned_duration)
 				} else {
-					Self::Unsigned(T::UnsignedPhase::get().defensive_saturating_sub(One::one()))
+					T::AreWeDone::get()
 				},
 			Self::Snapshot(non_zero_remaining) =>
 				Self::Snapshot(non_zero_remaining.defensive_saturating_sub(One::one())),
@@ -321,13 +319,13 @@ impl<T: crate::Config> Phase<T> {
 				if let Some(unsigned_duration) = T::UnsignedPhase::get().checked_sub(&One::one()) {
 					Self::Unsigned(unsigned_duration)
 				} else {
-					Self::Done
+					T::AreWeDone::get()
 				},
 			Self::SignedValidation(non_zero_left) =>
 				Self::SignedValidation(non_zero_left.defensive_saturating_sub(One::one())),
 
 			// unsigned phase -- at this phase we will
-			Self::Unsigned(zero) if zero == BlockNumberFor::<T>::zero() => Self::Done,
+			Self::Unsigned(zero) if zero == BlockNumberFor::<T>::zero() => T::AreWeDone::get(),
 			Self::Unsigned(non_zero_left) =>
 				Self::Unsigned(non_zero_left.defensive_saturating_sub(One::one())),
 
@@ -374,11 +372,6 @@ impl<T: crate::Config> Phase<T> {
 	/// Whether the phase is export or not.
 	pub fn is_export(&self) -> bool {
 		matches!(self, Phase::Export(_))
-	}
-
-	/// Whether the phase is halted or not.
-	pub fn is_halted(&self) -> bool {
-		matches!(self, Phase::Halted)
 	}
 
 	/// Whether the phase is signed validation or not.

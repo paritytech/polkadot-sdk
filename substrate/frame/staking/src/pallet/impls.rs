@@ -2275,10 +2275,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		ValidatorCount::<T>::get()
 	}
 
-	fn election_ongoing() -> bool {
-		<T::ElectionProvider as ElectionProvider>::ongoing()
-	}
-
 	fn force_unstake(who: Self::AccountId) -> sp_runtime::DispatchResult {
 		let num_slashing_spans =
 			SlashingSpans::<T>::get(&who).map_or(0, |s| s.iter().count() as u32);

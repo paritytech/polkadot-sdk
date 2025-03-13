@@ -21,7 +21,6 @@ use crate::{
 		verifier_events, ExtBuilder, MaxBackersPerWinner, MaxWinnersPerPage, MultiBlock, Runtime,
 		VerifierPallet, *,
 	},
-	types::*,
 	verifier::{impls::Status, Event, FeasibilityError, Verifier, *},
 	PagedRawSolution, Snapshot, *,
 };

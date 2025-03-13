@@ -478,6 +478,8 @@ pub(crate) mod pallet {
 					});
 				let real_score = evaluate_support(backing_map.into_values());
 				ensure!(real_score == queued_score, "queued solution has wrong score");
+			} else {
+				assert!(Self::valid_iter().count() == 0, "nothing should be stored if no score");
 			}
 
 			// The number of existing keys in `QueuedSolutionBackings` must always match that of

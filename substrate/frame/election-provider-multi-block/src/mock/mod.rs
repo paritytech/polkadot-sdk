@@ -119,11 +119,17 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FallbackModes {
 	Continue,
 	Emergency,
 	Onchain,
+}
+
+#[derive(Clone, Debug)]
+pub enum AreWeDoneModes {
+	Proceed,
+	BackToSigned,
 }
 
 parameter_types! {
@@ -160,6 +166,16 @@ parameter_types! {
 	// than the min of these two.
 	#[derive(Encode, Decode, PartialEq, Eq, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 	pub static MaxWinnersPerPage: u32 = (staking::Targets::get().len() as u32).min(staking::DesiredTargets::get());
+	pub static AreWeDone: AreWeDoneModes = AreWeDoneModes::Proceed;
+}
+
+impl Get<Phase<Runtime>> for AreWeDone {
+	fn get() -> Phase<Runtime> {
+		match <Self as Get<AreWeDoneModes>>::get() {
+			AreWeDoneModes::BackToSigned => RevertToSignedIfNotQueuedOf::<Runtime>::get(),
+			AreWeDoneModes::Proceed => ProceedRegardlessOf::<Runtime>::get()
+		}
+	}
 }
 
 impl crate::verifier::Config for Runtime {
@@ -209,6 +225,7 @@ impl crate::Config for Runtime {
 	type Verifier = VerifierPallet;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type Pages = Pages;
+	type AreWeDone = AreWeDone;
 }
 
 parameter_types! {
@@ -225,6 +242,7 @@ impl onchain::Config for Runtime {
 	type WeightInfo = ();
 	type Bounds = OnChainElectionBounds;
 }
+
 
 pub struct MockFallback;
 impl ElectionProvider for MockFallback {
@@ -387,6 +405,10 @@ impl ExtBuilder {
 	}
 	pub(crate) fn fallback_mode(self, mode: FallbackModes) -> Self {
 		FallbackMode::set(mode);
+		self
+	}
+	pub(crate) fn are_we_done(self, mode: AreWeDoneModes) -> Self {
+		AreWeDone::set(mode);
 		self
 	}
 	pub(crate) fn build_unchecked(self) -> sp_io::TestExternalities {
@@ -611,6 +633,13 @@ pub fn roll_to_snapshot_created() {
 /// proceed block number to whenever the unsigned phase is open (`Phase::Unsigned(_)`).
 pub fn roll_to_unsigned_open() {
 	while !matches!(MultiBlock::current_phase(), Phase::Unsigned(_)) {
+		roll_next()
+	}
+}
+
+/// proceed block number to whenever the unsigned phase is about to close (`Phase::Unsigned(_)`).
+pub fn roll_to_last_unsigned() {
+	while !matches!(MultiBlock::current_phase(), Phase::Unsigned(0)) {
 		roll_next()
 	}
 }
