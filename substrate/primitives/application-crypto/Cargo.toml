@@ -28,13 +28,13 @@ log = { workspace = true }
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "full_crypto",
-  "log/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-core/std",
-  "sp-io/std",
+    "codec/std",
+    "full_crypto",
+    "log/std",
+    "scale-info/std",
+    "serde/std",
+    "sp-core/std",
+    "sp-io/std",
 ]
 
 # Serde support without relying on std features.
@@ -44,11 +44,11 @@ serde = ["dep:serde", "scale-info/serde", "sp-core/serde"]
 # or Intel SGX.
 # For the regular wasm runtime builds this should not be used.
 full_crypto = [
-  "sp-core/full_crypto",
-  "sp-io/disable_oom",
-  # Don't add `panic_handler` and `alloc_error_handler` since they are expected to be provided
-  # by the user anyway.
-  "sp-io/disable_panic_handler",
+    "sp-core/full_crypto",
+    "sp-io/disable_oom",
+    # Don't add `panic_handler` and `alloc_error_handler` since they are expected to be provided
+    # by the user anyway.
+    "sp-io/disable_panic_handler",
 ]
 
 # This feature adds BLS crypto primitives.
@@ -60,6 +60,6 @@ bls-experimental = ["sp-core/bls-experimental", "sp-io/bls-experimental"]
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
 bandersnatch-experimental = [
-  "sp-core/bandersnatch-experimental",
-  "sp-io/bandersnatch-experimental",
+    "sp-core/bandersnatch-experimental",
+    "sp-io/bandersnatch-experimental",
 ]
