@@ -277,7 +277,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Hashes of the ABI-encoded messages in the [`Messages`] storage value.
+		/// Hashes of the ABI-encoded messages in the `Messages` storage value.
 		pub fn message_leaves() -> Vec<H256> {
 			MessageLeaves::<T>::get()
 		}
