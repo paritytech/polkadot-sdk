@@ -1476,6 +1476,7 @@ pub struct TestArgs {
 	pub asset_id: Option<u32>,
 	pub fee_asset_item: u32,
 	pub weight_limit: WeightLimit,
+	pub topic_id: Option<[u8; 32]>,
 }
 
 impl TestArgs {
@@ -1489,6 +1490,7 @@ impl TestArgs {
 			asset_id: None,
 			fee_asset_item: 0,
 			weight_limit: WeightLimit::Unlimited,
+			topic_id: None,
 		}
 	}
 
@@ -1509,6 +1511,7 @@ impl TestArgs {
 			asset_id,
 			fee_asset_item,
 			weight_limit: WeightLimit::Unlimited,
+			topic_id: None,
 		}
 	}
 }

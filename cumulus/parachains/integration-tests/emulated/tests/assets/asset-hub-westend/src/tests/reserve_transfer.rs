@@ -384,9 +384,34 @@ fn relay_to_para_assets_receiver_assertions(t: RelayToParaTest) {
 	);
 }
 
-pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
+pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<PenpalA, PenpalB, Hop>) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
+
+	let penpal_a_events = <PenpalA as Chain>::events();
+	let topic_id_on_penpal_a = penpal_a_events.iter().find_map(|event| {
+		if let RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) = event {
+			Some(message_id)
+		} else {
+			None
+		}
+	});
+	if let Some(topic_id) = t.args.topic_id {
+		assert_eq!(topic_id_on_penpal_a, Some(topic_id).as_ref());
+	} else {
+		assert!(topic_id_on_penpal_a.is_some());
+		t.args.topic_id = topic_id_on_penpal_a.copied();
+	}
+
+	let penpal_b_events = <PenpalB as Chain>::events();
+	let topic_id_on_penpal_b = penpal_b_events.iter().find_map(|event| {
+		if let RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) = event {
+			Some(message_id)
+		} else {
+			None
+		}
+	});
+	assert_eq!(topic_id_on_penpal_b, t.args.topic_id.as_ref());
 
 	for asset in t.args.assets.into_inner() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
