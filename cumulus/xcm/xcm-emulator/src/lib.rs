@@ -1278,7 +1278,7 @@ macro_rules! assert_expected_events {
 									)
 								);
 							}
-							this_meet_conditions &= $condition;
+							this_event_meets_conditions &= $condition;
 						)*
 						if this_event_meets_conditions {
 							// Found a perfect match.
