@@ -1125,6 +1125,7 @@ dependencies = [
  "pallet-delegated-staking",
  "pallet-election-provider-multi-block",
  "pallet-fast-unstake",
+ "pallet-indices",
  "pallet-message-queue",
  "pallet-migrations",
  "pallet-multisig",

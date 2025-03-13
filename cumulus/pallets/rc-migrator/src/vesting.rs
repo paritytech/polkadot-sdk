@@ -24,7 +24,15 @@ pub type BalanceOf<T> = <<T as pallet_vesting::Config>::Currency as Currency<
 >>::Balance;
 
 #[derive(
-	Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, TypeInfo, MaxEncodedLen, DebugNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+	DebugNoBound,
 )]
 #[codec(mel_bound(T: pallet_vesting::Config))]
 #[scale_info(skip_type_params(T))]

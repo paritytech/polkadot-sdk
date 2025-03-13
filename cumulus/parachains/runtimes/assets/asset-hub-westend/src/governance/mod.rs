@@ -20,10 +20,7 @@ use super::*;
 use crate::xcm_config::Collectives;
 use frame_support::{
 	parameter_types,
-	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse,
-		FromContains, LinearStoragePrice,
-	},
+	traits::{tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, FromContains},
 };
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};

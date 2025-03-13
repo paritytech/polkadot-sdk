@@ -51,7 +51,17 @@ pub mod alias {
 
 	/// A type to note whether a preimage is owned by a user or the system.
 	// Coped from https://github.com/paritytech/polkadot-sdk/blob/00946b10ab18331f959f5cbced7c433b6132b1cb/substrate/frame/preimage/src/lib.rs#L79-L89
-	#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+	#[derive(
+		Clone,
+		Eq,
+		PartialEq,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		MaxEncodedLen,
+		RuntimeDebug,
+	)]
 	pub enum RequestStatus<AccountId, Ticket> {
 		/// The associated preimage has not yet been requested by the system. The given deposit (if
 		/// some) is being held until either it becomes requested or the user retracts the

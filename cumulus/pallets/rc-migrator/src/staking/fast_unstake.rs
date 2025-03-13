@@ -39,6 +39,7 @@ pub enum FastUnstakeStage<AccountId> {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	RuntimeDebugNoBound,
@@ -57,6 +58,7 @@ pub enum RcFastUnstakeMessage<T: pallet_fast_unstake::Config> {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	CloneNoBound,
@@ -179,6 +181,7 @@ pub mod alias {
 	#[derive(
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		EqNoBound,
 		PartialEqNoBound,
 		CloneNoBound,

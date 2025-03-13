@@ -58,7 +58,17 @@ pub enum NomPoolsStage<AccountId> {
 }
 
 /// All the `StorageValues` from the nominations pools pallet.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct NomPoolsStorageValues<Balance> {
 	pub total_value_locked: Balance,
 	pub min_join_bond: Balance,
@@ -74,6 +84,7 @@ pub struct NomPoolsStorageValues<Balance> {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	RuntimeDebugNoBound,

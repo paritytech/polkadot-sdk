@@ -16,14 +16,13 @@
 use super::*;
 use codec::DecodeAll;
 use frame_support::pallet_prelude::TypeInfo;
-use frame_system::pallet_prelude::BlockNumberFor;
-use parachains_common::pay::VersionedLocatableAccount;
+// use parachains_common::pay::VersionedLocatableAccount;
 use polkadot_runtime_common::impls::{LocatableAssetConverter, VersionedLocatableAsset};
 use sp_runtime::traits::{Convert, TryConvert};
 use xcm::latest::prelude::*;
 
 /// Relay Chain Hold Reason
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum RcHoldReason {
 	#[codec(index = 28u8)]
 	Preimage(pallet_preimage::HoldReason),
@@ -36,7 +35,7 @@ impl Default for RcHoldReason {
 }
 
 /// Relay Chain Freeze Reason
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum RcFreezeReason {
 	#[codec(index = 29u8)]
 	NominationPools(pallet_nomination_pools::FreezeReason),
@@ -48,6 +47,7 @@ impl Default for RcFreezeReason {
 	}
 }
 
+#[derive(DecodeWithMemTracking, Decode)]
 pub struct RcToAhHoldReason;
 impl Convert<RcHoldReason, RuntimeHoldReason> for RcToAhHoldReason {
 	fn convert(_: RcHoldReason) -> RuntimeHoldReason {
@@ -55,6 +55,7 @@ impl Convert<RcHoldReason, RuntimeHoldReason> for RcToAhHoldReason {
 	}
 }
 
+#[derive(DecodeWithMemTracking, Decode)]
 pub struct RcToAhFreezeReason;
 impl Convert<RcFreezeReason, RuntimeFreezeReason> for RcToAhFreezeReason {
 	fn convert(reason: RcFreezeReason) -> RuntimeFreezeReason {
@@ -71,7 +72,9 @@ impl Convert<RcFreezeReason, RuntimeFreezeReason> for RcToAhFreezeReason {
 /// Relay Chain Proxy Type
 ///
 /// Coped from https://github.com/polkadot-fellows/runtimes/blob/dde99603d7dbd6b8bf541d57eb30d9c07a4fce32/relay/polkadot/src/lib.rs#L986-L1010
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, Default)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, Default,
+)]
 pub enum RcProxyType {
 	#[default]
 	Any = 0,
@@ -108,7 +111,7 @@ impl TryConvert<RcProxyType, ProxyType> for RcToProxyType {
 ///
 /// These origins are utilized in Governance and mapped to Asset Hub origins for active referendums.
 #[allow(non_camel_case_types)]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum RcPalletsOrigin {
 	#[codec(index = 0u8)]
 	system(frame_system::Origin<Runtime>),
@@ -139,10 +142,6 @@ pub enum RcRuntimeCall {
 	Referenda(pallet_referenda::Call<Runtime>),
 	#[codec(index = 26u8)]
 	Utility(RcUtilityCall),
-	#[codec(index = 34u8)]
-	Bounties(pallet_bounties::Call<Runtime>),
-	#[codec(index = 38u8)]
-	ChildBounties(pallet_child_bounties::Call<Runtime>),
 }
 
 /// Relay Chain Treasury Call obtained from cargo expand.
@@ -262,17 +261,13 @@ impl RcToAhCall {
 					log::error!("Unsupported RC asset kind location: {:?}", asset_kind.location);
 					return Err(());
 				};
-				let asset_kind = VersionedLocatableAsset::V4 {
+				let asset_kind = VersionedLocatableAsset::V5 {
 					location: Location::here(),
 					asset_id: asset_kind.asset_id,
 				};
 				let beneficiary = beneficiary.try_into().map_err(|_| {
 					log::error!("Failed to convert RC beneficiary type to the latest version");
 				})?;
-				let beneficiary = VersionedLocatableAccount::V4 {
-					location: Location::here(),
-					account_id: beneficiary,
-				};
 				Ok(RuntimeCall::Treasury(pallet_treasury::Call::<Runtime>::spend {
 					asset_kind: Box::new(asset_kind),
 					amount,
@@ -298,28 +293,6 @@ impl RcToAhCall {
 						()
 					})?;
 				Ok(RuntimeCall::Referenda(call))
-			},
-			RcRuntimeCall::Bounties(inner_call) => {
-				let call =
-					inner_call.using_encoded(|mut e| Decode::decode(&mut e)).map_err(|err| {
-						log::error!(
-							"Failed to decode RC Bounties call to AH Bounties call: {:?}",
-							err
-						);
-						()
-					})?;
-				Ok(RuntimeCall::Bounties(call))
-			},
-			RcRuntimeCall::ChildBounties(inner_call) => {
-				let call =
-					inner_call.using_encoded(|mut e| Decode::decode(&mut e)).map_err(|err| {
-						log::error!(
-							"Failed to decode RC ChildBounties call to AH ChildBounties call: {:?}",
-							err
-						);
-						()
-					})?;
-				Ok(RuntimeCall::ChildBounties(call))
 			},
 		}
 	}

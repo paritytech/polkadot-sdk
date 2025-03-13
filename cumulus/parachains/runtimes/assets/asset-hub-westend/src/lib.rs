@@ -32,7 +32,9 @@ pub mod xcm_config;
 mod bag_thresholds;
 pub mod governance;
 mod staking;
-use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
+use governance::{
+	pallet_custom_origins, FellowsBodyId, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer,
+};
 pub mod ah_migration;
 
 extern crate alloc;
@@ -44,19 +46,21 @@ use assets_common::{
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
-use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
+use cumulus_primitives_core::{
+	relay_chain::AccountIndex, AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId,
+};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::{DispatchClass, DispatchInfo},
 	genesis_builder_helper::{build_state, get_preset},
 	ord_parameter_types, parameter_types,
 	traits::{
-		fungible,
-		fungible::HoldConsideration,
+		fungible::{self, HoldConsideration},
 		fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
-		ConstantStoragePrice, Equals, InstanceFilter, Nothing, TransformOrigin, WithdrawReasons,
+		ConstantStoragePrice, EitherOfDiverse, Equals, InstanceFilter, LinearStoragePrice, Nothing,
+		TransformOrigin, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -69,7 +73,7 @@ use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
-use pallet_xcm::EnsureXcm;
+use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -94,8 +98,8 @@ use testnet_parachains_constants::westend::{
 };
 use westend_runtime_constants::time::DAYS as RC_DAYS;
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
-	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
+	Collectives, ForeignAssetsConvertedConcreteId, LocationToAccountId,
+	PoolAssetsConvertedConcreteId, PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
 	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
 };
 
@@ -1250,7 +1254,7 @@ parameter_types! {
 	///
 	/// 32 bytes for the account ID and 16 for the deposit. We cannot use `max_encoded_len` since it
 	/// is not const.
-	pub const IndexDeposit: Balance = system_para_deposit(1, 32 + 16);
+	pub const IndexDeposit: Balance = deposit(1, 32 + 16);
 }
 
 impl pallet_indices::Config for Runtime {
@@ -1271,14 +1275,14 @@ impl pallet_ah_migrator::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ManagerOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
-		EnsureXcm<IsVoiceOfBody<FellowshipLocation, FellowsBodyId>>,
+		EnsureXcm<IsVoiceOfBody<Collectives, FellowsBodyId>>,
 	>;
 	type Currency = Balances;
 	type CheckingAccount = xcm_config::CheckingAccount;
 	type RcHoldReason = ah_migration::RcHoldReason;
 	type RcFreezeReason = ah_migration::RcFreezeReason;
-	type RcToAhHoldReason = RcToAhHoldReason;
-	type RcToAhFreezeReason = RcToAhFreezeReason;
+	type RcToAhHoldReason = ah_migration::RcToAhHoldReason;
+	type RcToAhFreezeReason = ah_migration::RcToAhFreezeReason;
 	type RcProxyType = ah_migration::RcProxyType;
 	type RcToProxyType = ah_migration::RcToProxyType;
 	type RcBlockNumberProvider = RelaychainDataProvider<Runtime>;

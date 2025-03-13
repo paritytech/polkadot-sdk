@@ -42,7 +42,9 @@ pub enum SchedulerStage<BlockNumber> {
 }
 
 /// Message that is being sent to the AH Migrator.
-#[derive(Encode, Decode, Debug, Clone, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Debug, Clone, TypeInfo, MaxEncodedLen, PartialEq, Eq,
+)]
 pub enum RcSchedulerMessage<BlockNumber, Scheduled> {
 	IncompleteSince(BlockNumber),
 	Agenda((BlockNumber, Vec<Option<Scheduled>>)),
@@ -169,7 +171,17 @@ pub mod alias {
 
 	/// Information regarding an item to be executed in the future.
 	// FROM: https://github.com/paritytech/polkadot-sdk/blob/f373af0d1c1e296c1b07486dd74710b40089250e/substrate/frame/scheduler/src/lib.rs#L148
-	#[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
+	#[derive(
+		Clone,
+		RuntimeDebug,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		MaxEncodedLen,
+		TypeInfo,
+		PartialEq,
+		Eq,
+	)]
 	pub struct Scheduled<Call, BlockNumber, PalletsOrigin> {
 		/// The unique identity for this task, if there is one.
 		pub maybe_id: Option<TaskName>,

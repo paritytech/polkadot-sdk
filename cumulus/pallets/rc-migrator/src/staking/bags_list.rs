@@ -43,6 +43,7 @@ pub type BagsListStageOf<T> = BagsListStage<
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	RuntimeDebugNoBound,
@@ -147,7 +148,17 @@ pub mod alias {
 	use super::*;
 
 	// From https://github.com/paritytech/polkadot-sdk/blob/7ecf3f757a5d6f622309cea7f788e8a547a5dce8/substrate/frame/bags-list/src/list/mod.rs#L818-L830 minus all the stuff that we don't need
-	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, RuntimeDebug)]
+	#[derive(
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		MaxEncodedLen,
+		TypeInfo,
+		Clone,
+		PartialEq,
+		Eq,
+		RuntimeDebug,
+	)]
 	pub struct Node<AccountId, Score> {
 		pub id: AccountId,
 		pub prev: Option<AccountId>,
@@ -161,7 +172,17 @@ pub mod alias {
 	>;
 
 	// From https://github.com/paritytech/polkadot-sdk/blob/7ecf3f757a5d6f622309cea7f788e8a547a5dce8/substrate/frame/bags-list/src/list/mod.rs#L622-L630
-	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, RuntimeDebug)]
+	#[derive(
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		MaxEncodedLen,
+		TypeInfo,
+		Clone,
+		PartialEq,
+		Eq,
+		RuntimeDebug,
+	)]
 	pub struct Bag<AccountId> {
 		pub head: Option<AccountId>,
 		pub tail: Option<AccountId>,

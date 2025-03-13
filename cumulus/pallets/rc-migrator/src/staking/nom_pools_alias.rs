@@ -25,6 +25,7 @@ use sp_staking::EraIndex;
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	CloneNoBound,
@@ -54,10 +55,29 @@ pub struct RewardPool<T: pallet_nomination_pools::Config> {
 	pub total_commission_claimed: BalanceOf<T>,
 }
 
+/// Wrapper type to allow deriving DecodeWithMemTracking with a BoundedBTreeMap.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
+#[codec(mel_bound(T: Config))]
+#[scale_info(skip_type_params(T))]
+pub struct UnbondingPoolsMap<T: pallet_nomination_pools::Config>(
+	BoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
+);
+
 // From https://github.com/paritytech/polkadot-sdk/blob/bf20a9ee18f7215210bbbabf79e955c8c35b3360/substrate/frame/nomination-pools/src/lib.rs#L1503
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	RuntimeDebugNoBound,
@@ -73,13 +93,14 @@ pub struct SubPools<T: pallet_nomination_pools::Config> {
 	/// older then `current_era - TotalUnbondingPools`.
 	pub no_era: UnbondPool<T>,
 	/// Map of era in which a pool becomes unbonded in => unbond pools.
-	pub with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
+	pub with_era: UnbondingPoolsMap<T>,
 }
 
 // From https://github.com/paritytech/polkadot-sdk/blob/bf20a9ee18f7215210bbbabf79e955c8c35b3360/substrate/frame/nomination-pools/src/lib.rs#L1461
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 	RuntimeDebugNoBound,

@@ -387,7 +387,17 @@ impl<A, R, B, C: Convert<R, B>> GetSalary<R, A, B> for ConvertRank<C> {
 }
 
 /// An identifier and balance.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct IdAmount<Id, Balance> {
 	/// An identifier for this item.
 	pub id: Id,

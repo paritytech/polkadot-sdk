@@ -18,7 +18,17 @@
 use crate::{preimage::*, types::*, *};
 
 /// An entry of the `StatusFor` storage map. Should only be used to unreserve funds on AH.
-#[derive(Encode, Decode, TypeInfo, Clone, MaxEncodedLen, RuntimeDebug, PartialEq, Eq)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	Clone,
+	MaxEncodedLen,
+	RuntimeDebug,
+	PartialEq,
+	Eq,
+)]
 pub struct RcPreimageLegacyStatus<AccountId, Balance> {
 	/// The hash of the original preimage.
 	///

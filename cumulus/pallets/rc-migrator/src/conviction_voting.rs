@@ -37,7 +37,17 @@ pub enum ConvictionVotingStage<AccountId, Class> {
 	Finished,
 }
 
-#[derive(Encode, Decode, RuntimeDebug, Clone, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	Clone,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+)]
 pub enum RcConvictionVotingMessage<AccountId, Class, Voting, Balance> {
 	VotingFor(AccountId, Class, Voting),
 	ClassLocksFor(AccountId, Vec<(Class, Balance)>),

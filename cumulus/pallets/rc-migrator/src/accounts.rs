@@ -79,7 +79,7 @@ use sp_core::ByteArray;
 use sp_runtime::traits::Zero;
 
 /// Account type meant to transfer data between RC and AH.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Account<AccountId, Balance, HoldReason, FreezeReason> {
 	/// The account address
 	pub who: AccountId,
