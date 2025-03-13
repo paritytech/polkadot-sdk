@@ -15,18 +15,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![no_std]
-#![no_main]
-include!("../panic_handler.rs");
+use frame_benchmarking::v2::*;
 
-use uapi::{HostFn, HostFnImpl as api};
+#[frame_support::pallet]
+mod pallet {
+	use frame_system::pallet_prelude::*;
+	use frame_support::pallet_prelude::*;
 
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
 
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {
-	api::return_value(uapi::ReturnFlags::empty(), &2u32.to_le_bytes());
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(1)]
+		#[pallet::weight(Weight::default())]
+		pub fn call_1(_origin: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+	}
 }
+
+pub use pallet::*;
+
+#[benchmarks]
+mod benches {
+	use super::*;
+	use frame_support::traits::OriginTrait;
+
+	#[benchmark]
+	fn call_1() {
+		let origin = 3u8;
+		#[extrinsic_call]
+		_(origin);
+	}
+}
+
+fn main() {}
