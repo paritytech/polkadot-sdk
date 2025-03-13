@@ -94,6 +94,9 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"num-bigint/std",
+	"num-integer/std",
+	"num-traits/std",
 	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
 	"pallet-timestamp/std",
@@ -120,9 +123,6 @@ std = [
 	"subxt-signer",
 	"xcm-builder/std",
 	"xcm/std",
-	"num-integer/std",
-	"num-traits/std",
-	"num-bigint/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
