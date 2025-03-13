@@ -23,7 +23,7 @@ use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayC
 use futures::{
 	channel::oneshot, future::BoxFuture, pin_mut, stream::FuturesUnordered, FutureExt, StreamExt,
 };
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use prost::Message;
 use sc_network::{
 	event::{DhtEvent, Event},
@@ -32,13 +32,13 @@ use sc_network::{
 	KademliaKey, Multiaddr, PeerId, ProtocolName,
 };
 use sp_consensus_babe::{Epoch, Randomness};
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 /// Log target for this file.
 const LOG_TARGET: &str = "bootnodes::discovery";
 
 /// Number of discovery attempts before giving up.
-const MAX_DISCOVERY_ATTEMPTS: u32 = 3;
+const MAX_DISCOVERY_ATTEMPTS: u32 = 5;
 
 /// Parachain bootnode discovery parameters.
 pub struct BootnodeDiscoveryParams {
@@ -75,6 +75,8 @@ pub struct BootnodeDiscovery {
 			(PeerId, Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>),
 		>,
 	>,
+	direct_requests: HashSet<PeerId>,
+	find_node_queries: HashSet<PeerId>,
 	attempts_left: u32,
 	succeeded: bool,
 }
@@ -103,6 +105,8 @@ impl BootnodeDiscovery {
 			key_being_discovered: None,
 			paranode_protocol_name,
 			pending_responses: FuturesUnordered::default(),
+			direct_requests: HashSet::new(),
+			find_node_queries: HashSet::new(),
 			attempts_left: MAX_DISCOVERY_ATTEMPTS,
 			succeeded: false,
 		}
@@ -154,7 +158,10 @@ impl BootnodeDiscovery {
 	/// terminated.
 	async fn maybe_start_discovery(&mut self) -> RelayChainResult<bool> {
 		// Start discovery if it is not currently in progress.
-		if self.key_being_discovered.is_none() && self.pending_responses.is_empty() {
+		if self.key_being_discovered.is_none() &&
+			self.pending_responses.is_empty() &&
+			self.find_node_queries.is_empty()
+		{
 			// No need to start discovey again if the previous attempt succeeded.
 			if self.succeeded {
 				info!(
@@ -182,6 +189,26 @@ impl BootnodeDiscovery {
 		}
 	}
 
+	fn request_bootnode(&mut self, peer_id: PeerId) {
+		trace!(
+			target: LOG_TARGET,
+			"Requesting parachain bootnode from the relay chain {peer_id:?}",
+		);
+
+		let (tx, rx) = oneshot::channel();
+
+		self.relay_chain_network.start_request(
+			peer_id,
+			self.paranode_protocol_name.clone(),
+			self.para_id_scale_compact.clone(),
+			None,
+			tx,
+			IfDisconnected::TryConnect,
+		);
+
+		self.pending_responses.push(async move { (peer_id, rx.await) }.boxed());
+	}
+
 	fn handle_providers(&mut self, providers: Vec<PeerId>) {
 		debug!(
 			target: LOG_TARGET,
@@ -193,18 +220,20 @@ impl BootnodeDiscovery {
 				continue;
 			}
 
-			let (tx, rx) = oneshot::channel();
+			// libp2p may yield the same provider multiple times; skip if we alredy queried it.
+			if self.direct_requests.contains(&peer_id) || self.find_node_queries.contains(&peer_id)
+			{
+				continue;
+			}
 
-			self.relay_chain_network.start_request(
-				peer_id,
-				self.paranode_protocol_name.clone(),
-				self.para_id_scale_compact.clone(),
-				None,
-				tx,
-				IfDisconnected::TryConnect,
-			);
-
-			self.pending_responses.push(async move { (peer_id, rx.await) }.boxed());
+			// Directly request a bootnode from the peer without performing a `FIND_NODE` query
+			// first. With litep2p backend this will likely succeed, because cached provider
+			// addresses are automatically added to the transport manager known addresses list.
+			//
+			// With libp2p backend, or if the remote did not return the cached addresses of the
+			// provider, the request will fail and we will perform a `FIND_NODE` query.
+			self.direct_requests.insert(peer_id.clone());
+			self.request_bootnode(peer_id);
 		}
 	}
 
@@ -213,6 +242,8 @@ impl BootnodeDiscovery {
 		peer_id: PeerId,
 		res: Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>,
 	) {
+		let direct_request = self.direct_requests.remove(&peer_id);
+
 		let response = match res {
 			Ok(Ok((payload, _))) => match Response::decode(payload.as_slice()) {
 				Ok(response) => response,
@@ -225,10 +256,26 @@ impl BootnodeDiscovery {
 				},
 			},
 			Ok(Err(e)) => {
-				warn!(
-					target: LOG_TARGET,
-					"Failed to query parachain bootnode from {peer_id:?}: {e}",
-				);
+				if direct_request {
+					// It only makes sense to try to find the node on the DHT in case of "address
+					// not available" error. Unfortunately, libp2p and litep2p backends report such
+					// errors differently, and also some network library could break the error
+					// reporting in the future. So, to be on the safe side and avoid subtle bugs,
+					// we always try to find the node on the DHT in case of the request failure.
+					debug!(
+						target: LOG_TARGET,
+						"Failed to directly query parachain bootnode from {peer_id:?}: {e}. \
+						 Starting FIND_NODE query on the DHT",
+					);
+					self.find_node_queries.insert(peer_id.clone());
+					self.relay_chain_network.find_closest_peers(peer_id);
+				} else {
+					debug!(
+						target: LOG_TARGET,
+						"Failed to query parachain bootnode from {peer_id:?} after finding
+						 the node addresses on the DHT: {e}",
+					);
+				}
 				return;
 			},
 			Err(_) => {
@@ -306,6 +353,58 @@ impl BootnodeDiscovery {
 		});
 	}
 
+	fn handle_dht_event(&mut self, event: DhtEvent) {
+		match event {
+			DhtEvent::ProvidersFound(key, providers)
+				// libp2p generates empty events, so also check if `providers` are not empty.
+				if Some(key.clone()) == self.key_being_discovered && !providers.is_empty() =>
+					self.handle_providers(providers),
+			DhtEvent::NoMoreProviders(key) if Some(key.clone()) == self.key_being_discovered => {
+				debug!(
+					target: LOG_TARGET,
+					"Parachain bootnode providers discovery finished for key {}",
+					hex::encode(key),
+				);
+				self.key_being_discovered = None;
+			},
+			DhtEvent::ProvidersNotFound(key) if Some(key.clone()) == self.key_being_discovered => {
+				debug!(
+					target: LOG_TARGET,
+					"Parachain bootnode providers not found for key {}",
+					hex::encode(key),
+				);
+				self.key_being_discovered = None;
+			},
+			DhtEvent::ClosestPeersFound(peer_id, peers)	if self.find_node_queries.remove(&peer_id) => {
+				if let Some((_, addrs)) = peers
+					.into_iter()
+					.find(|(peer, addrs)| peer == &peer_id && !addrs.is_empty())
+				{
+					trace!(
+						target: LOG_TARGET,
+						"Found addresses on the DHT for parachain bootnode provider {peer_id:?}: {addrs:?}",
+					);
+					for address in addrs {
+						self.relay_chain_network.add_known_address(peer_id.clone(), address);
+					}
+					self.request_bootnode(peer_id);
+				} else {
+					debug!(
+						target: LOG_TARGET,
+						"Failed to find addresses on the DHT for parachain bootnode provider {peer_id:?}",
+					);
+				}
+			},
+			DhtEvent::ClosestPeersNotFound(peer_id) if self.find_node_queries.remove(&peer_id) => {
+				debug!(
+					target: LOG_TARGET,
+					"Failed to find addresses on the DHT for parachain bootnode provider {peer_id:?}",
+				);
+			},
+			_ => {},
+		}
+	}
+
 	/// Run the bootnode discovery service.
 	pub async fn run(mut self) -> RelayChainResult<()> {
 		let mut import_notification_stream =
@@ -335,33 +434,7 @@ impl BootnodeDiscovery {
 				header = import_notification_stream.select_next_some() => {
 					self.latest_relay_chain_hash = Some(header.hash());
 				},
-				event = dht_event_stream.select_next_some() => match event {
-					DhtEvent::ProvidersFound(key, providers)
-						// libp2p generates empty events, so also check if `providers` are not empty.
-						if Some(key.clone()) == self.key_being_discovered && !providers.is_empty() =>
-							self.handle_providers(providers),
-					DhtEvent::NoMoreProviders(key)
-						if Some(key.clone()) == self.key_being_discovered =>
-					{
-						debug!(
-							target: LOG_TARGET,
-							"Parachain bootnode providers discovery finished for key {}",
-							hex::encode(key),
-						);
-						self.key_being_discovered = None;
-					},
-					DhtEvent::ProvidersNotFound(key)
-						if Some(key.clone()) == self.key_being_discovered =>
-					{
-						debug!(
-							target: LOG_TARGET,
-							"Parachain bootnode providers not found for key {}",
-							hex::encode(key),
-						);
-						self.key_being_discovered = None;
-					},
-					_ => {},
-				},
+				event = dht_event_stream.select_next_some() => self.handle_dht_event(event),
 				(peer_id, res) = self.pending_responses.select_next_some(),
 					if !self.pending_responses.is_empty() =>
 						self.handle_response(peer_id, res),
