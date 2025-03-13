@@ -1833,6 +1833,24 @@ where
 			slash_session,
 		);
 
+		// the exposure is not actually being used in this implementation
+		let offenders = offenders.iter().map(|details| {
+			let (ref offender, _) = details.offender;
+			OffenceDetails { offender: offender.clone(), reporters: details.reporters.clone() }
+		});
+		Self::on_offence(offenders, slash_fractions, slash_session)
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	/// When an offence is reported, it is split into pages and put in the offence queue.
+	/// As offence queue is processed, computed slashes are queued to be applied after the
+	/// `SlashDeferDuration`.
+	pub fn on_offence(
+		offenders: impl Iterator<Item = OffenceDetails<T::AccountId, T::AccountId>>,
+		slash_fractions: &[Perbill],
+		slash_session: SessionIndex,
+	) -> Weight {
 		// todo(ank4n): Needs to be properly benched.
 		let mut consumed_weight = Weight::zero();
 		let mut add_db_reads_writes = |reads, writes| {
@@ -1876,8 +1894,8 @@ where
 		add_db_reads_writes(1, 0);
 		let invulnerables = Invulnerables::<T>::get();
 
-		for (details, slash_fraction) in offenders.iter().zip(slash_fractions) {
-			let (validator, _) = &details.offender;
+		for (details, slash_fraction) in offenders.zip(slash_fractions) {
+			let validator = &details.offender;
 			// Skip if the validator is invulnerable.
 			if invulnerables.contains(&validator) {
 				log!(debug, "🦹 on_offence: {:?} is invulnerable; ignoring offence", validator);
