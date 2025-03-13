@@ -121,7 +121,8 @@ std = [
 	"xcm-builder/std",
 	"xcm/std",
 	"num-integer/std",
-	"num-traits/std"
+	"num-traits/std",
+	"num-bigint/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
