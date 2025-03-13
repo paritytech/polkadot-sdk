@@ -51,7 +51,8 @@ construct_runtime! {
     }
 }
 
-fn main() {
+#[test]
+fn stored_compiles() {
 	// Unit struct
 	#[stored]
 	struct UnitStruct;
@@ -90,6 +91,14 @@ fn main() {
 	pub type TupleWithGenericsFirstBoundStorage<T: Config> =
 		StorageValue<Pallet<T>, TupleWithGenericsFirstBound<T, u64>, OptionQuery>;
 	let _ = <TupleWithGenericsFirstBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
+
+    // Tuple struct with generics, bound in first position, default in second
+	#[stored(no_bounds(T))]
+	struct TupleWithGenericsFirstBoundDefaultSecond<T: Config, U = ()>(BlockNumberFor<T>, U);
+	#[storage_alias]
+	pub type TupleWithGenericsFirstBoundDefaultSecondStorage<T: Config, U = ()> =
+		StorageValue<Pallet<T>, TupleWithGenericsFirstBoundDefaultSecond<T, U>, OptionQuery>;
+	let _ = <TupleWithGenericsFirstBoundDefaultSecondStorage<Runtime, ()> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Tuple struct with generics, bound in second position
 	#[stored(no_bounds(U))]
@@ -309,7 +318,7 @@ fn main() {
 	let _ =
 		<GenericEnumStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Generic enum with no_bounds(T): first generic is exempted.
+	// Generic enum, first generic bounded
 	#[stored(no_bounds(T))]
 	enum GenericEnumFirstBound<T: Config, U> {
 		A(BlockNumberFor<T>),
@@ -322,7 +331,20 @@ fn main() {
 		StorageValue<Pallet<T>, GenericEnumFirstBound<T, u32>, OptionQuery>;
 	let _ = <GenericEnumFirstBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Generic enum with no_bounds(U): second generic is exempted.
+    // Generic enum, first bounded, second has default
+	#[stored(no_bounds(T))]
+	enum GenericEnumFirstBoundSecondDefault<T: Config, U = ()> {
+		A(BlockNumberFor<T>),
+		B {
+			value: U,
+		},
+	}
+	#[storage_alias]
+	pub type GenericEnumFirstBoundSecondDefaultStorage<T: Config> =
+		StorageValue<Pallet<T>, GenericEnumFirstBoundSecondDefault<T, u32>, OptionQuery>;
+	let _ = <GenericEnumFirstBoundSecondDefaultStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
+
+	// Generic enum, second bounded
 	#[stored(no_bounds(U))]
 	enum GenericEnumSecondBound<T, U: Config> {
 		A(T),
@@ -335,7 +357,7 @@ fn main() {
 		StorageValue<Pallet<T>, GenericEnumSecondBound<u32, T>, OptionQuery>;
 	let _ = <GenericEnumSecondBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Generic enum with no_bounds(T, U): both generics are exempted.
+	// Generic enum, both bounded
 	#[stored(no_bounds(T, U))]
 	enum GenericEnumBothBound<T: Config, U: Config> {
 		A {
@@ -349,7 +371,7 @@ fn main() {
 		StorageValue<Pallet<T>, GenericEnumBothBound<T, T>, OptionQuery>;
 	let _ = <GenericEnumBothBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Generic enum with a where clause and no_bounds(T)
+	// Generic enum, trait bound in where clause
 	#[stored(no_bounds(T))]
 	enum GenericEnumFirstBoundWhere<T, U>
 	where

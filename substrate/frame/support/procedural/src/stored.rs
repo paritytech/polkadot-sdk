@@ -75,7 +75,8 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     // Input extraction.
     let struct_ident = &input.ident;
-    let (impl_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
+    let (_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
+    let generics = &input.generics;
     let attrs = &input.attrs;
     let vis = &input.vis;
 
@@ -93,7 +94,6 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             )]
         };
 
-    // Combination.
     let common_attrs = quote! {
         #common_derives
         #mem_tracking_derive
@@ -108,21 +108,21 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             syn::Fields::Named(ref fields) => {
                 quote! {
                     #common_attrs
-                    #vis struct #struct_ident #impl_generics #where_clause #fields
+                    #vis struct #struct_ident #generics #where_clause #fields
                 }
             },
             // Tuple structs.
             syn::Fields::Unnamed(ref fields) => {
                 quote! {
                     #common_attrs
-                    #vis struct #struct_ident #impl_generics #fields #where_clause;
+                    #vis struct #struct_ident #generics #fields #where_clause;
                 }
             },
             // Unit structs.
             syn::Fields::Unit => {
                 quote! {
                     #common_attrs
-                    #vis struct #struct_ident #impl_generics #where_clause;
+                    #vis struct #struct_ident #generics #where_clause;
                 }
             },
         },
@@ -134,7 +134,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
                 .collect();
             quote! {
                 #common_attrs
-                #vis enum #struct_ident #impl_generics #where_clause {
+                #vis enum #struct_ident #generics #where_clause {
                     #(#variant_tokens),*
                 }
             }
