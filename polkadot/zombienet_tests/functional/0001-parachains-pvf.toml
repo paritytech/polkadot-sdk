@@ -46,90 +46,90 @@ requests = { memory = "2G", cpu = "1" }
 [[parachains]]
 id = 2000
 addToGenesis = true
-genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=1"
+genesis_state_generator = "adder-collator export-genesis-state"
 
   [parachains.collator]
   name = "collator01"
   image = "{{COL_IMAGE}}"
-  command = "undying-collator"
-  args = ["-lparachain=debug", "--pov-size=100000", "--pvf-complexity=1", "--parachain-id=2000"]
+  command = "adder-collator"
+  args = ["-lparachain=debug", "--parachain-id=2000"]
 
 [[parachains]]
 id = 2001
 addToGenesis = true
-genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=10"
+genesis_state_generator = "adder-collator export-genesis-state"
 
   [parachains.collator]
   name = "collator02"
   image = "{{COL_IMAGE}}"
-  command = "undying-collator"
-  args = ["-lparachain=debug", "--pov-size=100000", "--parachain-id=2001", "--pvf-complexity=10"]
+  command = "adder-collator"
+  args = ["-lparachain=debug", "--parachain-id=2001"]
 
 [[parachains]]
 id = 2002
 addToGenesis = true
-genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=100"
+genesis_state_generator = "adder-collator export-genesis-state"
 
   [parachains.collator]
   name = "collator03"
   image = "{{COL_IMAGE}}"
-  command = "undying-collator"
-  args = ["-lparachain=debug", "--pov-size=100000", "--parachain-id=2002", "--pvf-complexity=100"]
+  command = "adder-collator"
+  args = ["-lparachain=debug", "--parachain-id=2002"]
 
 [[parachains]]
 id = 2003
 addToGenesis = true
-genesis_state_generator = "undying-collator export-genesis-state --pov-size=20000 --pvf-complexity=300"
+genesis_state_generator = "adder-collator export-genesis-state"
 
   [parachains.collator]
   name = "collator04"
   image = "{{COL_IMAGE}}"
-  command = "undying-collator"
-  args = ["-lparachain=debug", "--pov-size=20000", "--parachain-id=2003", "--pvf-complexity=300"]
+  command = "adder-collator"
+  args = ["-lparachain=debug", "--parachain-id=2003"]
 
 [[parachains]]
 id = 2004
 addToGenesis = true
-genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=300"
+genesis_state_generator = "adder-collator export-genesis-state"
 
   [parachains.collator]
   name = "collator05"
   image = "{{COL_IMAGE}}"
-  command = "undying-collator"
-  args = ["-lparachain=debug", "--pov-size=100000", "--parachain-id=2004", "--pvf-complexity=300"]
+  command = "adder-collator"
+  args = ["-lparachain=debug", "--parachain-id=2004"]
 
 [[parachains]]
 id = 2005
 addToGenesis = true
-genesis_state_generator = "undying-collator export-genesis-state --pov-size=20000 --pvf-complexity=400"
+genesis_state_generator = "adder-collator export-genesis-state"
 
   [parachains.collator]
   name = "collator06"
   image = "{{COL_IMAGE}}"
-  command = "undying-collator"
-  args = ["-lparachain=debug", "--pov-size=20000",  "--pvf-complexity=400", "--parachain-id=2005"]
+  command = "adder-collator"
+  args = ["-lparachain=debug", "--parachain-id=2005"]
 
 [[parachains]]
 id = 2006
 addToGenesis = true
-genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=300"
+genesis_state_generator = "adder-collator export-genesis-state"
 
   [parachains.collator]
   name = "collator07"
   image = "{{COL_IMAGE}}"
-  command = "undying-collator"
-  args = ["-lparachain=debug", "--pov-size=100000",  "--pvf-complexity=300", "--parachain-id=2006"]
+  command = "adder-collator"
+  args = ["-lparachain=debug", "--parachain-id=2006"]
 
 [[parachains]]
 id = 2007
 addToGenesis = true
-genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=300"
+genesis_state_generator = "adder-collator export-genesis-state"
 
   [parachains.collator]
   name = "collator08"
   image = "{{COL_IMAGE}}"
-  command = "undying-collator"
-  args = ["-lparachain=debug", "--pov-size=100000",  "--pvf-complexity=300", "--parachain-id=2007"]
+  command = "adder-collator"
+  args = ["-lparachain=debug", "--parachain-id=2007"]
 
 [types.Header]
 number = "u64"
