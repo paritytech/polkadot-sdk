@@ -15,18 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![no_std]
-#![no_main]
-include!("../panic_handler.rs");
-
-use uapi::{HostFn, HostFnImpl as api};
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {
-	api::return_value(uapi::ReturnFlags::empty(), &2u32.to_le_bytes());
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+	// Safety: The unimp instruction is guaranteed to trap
+	unsafe {
+		core::arch::asm!("unimp");
+		core::hint::unreachable_unchecked();
+	}
 }
