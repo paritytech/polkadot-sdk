@@ -113,7 +113,7 @@ pub struct Configuration {
 	pub data_path: PathBuf,
 	/// Base path of the configuration. This is shared between chains.
 	pub base_path: BasePath,
-
+	// Enables unlimited trie local cache when importing or building blocks.
 	pub unlimited_local_cache: bool,
 }
 

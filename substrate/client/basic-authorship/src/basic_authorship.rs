@@ -365,7 +365,7 @@ where
 		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
-		self.client.flush_cache(&self.spawn_handle);
+		self.client.trigger_writeback_to_shared(&self.spawn_handle);
 		let proof =
 			PR::into_proof(proof).map_err(|e| sp_blockchain::Error::Application(Box::new(e)))?;
 

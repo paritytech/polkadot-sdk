@@ -117,7 +117,7 @@ pub struct StorageParams {
 	#[arg(long)]
 	pub include_child_trees: bool,
 
-	/// Unlimited local cache.
+	// Enables unlimited trie local cache when importing or building blocks.
 	#[arg(long)]
 	pub unlimited_local_cache: bool,
 }

@@ -853,7 +853,7 @@ where
 					.into_storage_changes(&state, *parent_hash)
 					.map_err(sp_blockchain::Error::Storage)?;
 
-				self.backend.flush_cache(&self.spawn_handle);
+				self.backend.trigger_writeback_to_shared(&self.spawn_handle);
 
 				if import_block.header.state_root() != &gen_storage_changes.transaction_storage_root
 				{
@@ -1663,8 +1663,8 @@ where
 	Block: BlockT,
 	RA: ConstructRuntimeApi<Block, Self> + Send + Sync,
 {
-	fn flush_cache(&self, spawn_handle: &Box<dyn SpawnNamed>) {
-		self.backend.flush_cache(spawn_handle)
+	fn trigger_writeback_to_shared(&self, spawn_handle: &Box<dyn SpawnNamed>) {
+		self.backend.trigger_writeback_to_shared(spawn_handle)
 	}
 }
 

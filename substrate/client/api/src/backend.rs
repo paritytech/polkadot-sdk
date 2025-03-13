@@ -642,9 +642,11 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	fn requires_full_sync(&self) -> bool;
 }
 
+// A trait to trigger the flushing of the local trie cache accesses to the shared trie cache.
 pub trait ManualTrieCacheFlush {
-	/// Flush the trie cache.
-	fn flush_cache(&self, spawn_handle: &Box<dyn SpawnNamed>);
+	/// Trigger writeback of the local trie cache accesses to the shared trie cache.
+	/// This is a no-op for backend that don't configure an un
+	fn trigger_writeback_to_shared(&self, spawn_handle: &Box<dyn SpawnNamed>);
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

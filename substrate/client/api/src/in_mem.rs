@@ -787,7 +787,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 impl<Block: BlockT> backend::LocalBackend<Block> for Backend<Block> {}
 
 impl<Block: BlockT> ManualTrieCacheFlush for Backend<Block> {
-	fn flush_cache(&self, spawn_handle: &Box<dyn SpawnNamed>) {}
+	fn trigger_writeback_to_shared(&self, spawn_handle: &Box<dyn SpawnNamed>) {}
 }
 
 /// Check that genesis storage is valid.

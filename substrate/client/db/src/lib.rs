@@ -314,7 +314,7 @@ pub struct DatabaseSettings {
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
 
-	/// Enables unlimited trie local cache.
+	// Enables unlimited trie local cache when importing or building blocks.
 	pub unlimited_local_cache: bool,
 }
 
@@ -2111,9 +2111,9 @@ where
 }
 
 impl<Block: BlockT> sc_client_api::backend::ManualTrieCacheFlush for Backend<Block> {
-	fn flush_cache(&self, spawn_handle: &Box<dyn SpawnNamed>) {
+	fn trigger_writeback_to_shared(&self, spawn_handle: &Box<dyn SpawnNamed>) {
 		if let Some(cache) = self.shared_trie_cache.as_ref() {
-			cache.flush_cache(spawn_handle);
+			cache.trigger_writeback(spawn_handle);
 		}
 	}
 }

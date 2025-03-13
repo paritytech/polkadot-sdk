@@ -124,7 +124,7 @@ pub struct LocalNodeCacheLimiter {
 }
 
 impl LocalNodeCacheLimiter {
-	/// Create a new limiter with the given configuration.
+	/// Creates a new limiter with the given configuration.
 	pub fn new(config: LocalNodeCacheConfig) -> Self {
 		Self { config, current_heap_size: 0 }
 	}
@@ -201,7 +201,7 @@ pub struct LocalValueCacheLimiter {
 }
 
 impl LocalValueCacheLimiter {
-	/// Create a new limiter with the given configuration.
+	/// Creates a new limiter with the given configuration.
 	pub fn new(config: LocalValueCacheConfig) -> Self {
 		Self { config, current_heap_size: 0 }
 	}
@@ -415,18 +415,27 @@ type ValueAccessSet =
 	LruMap<ValueCacheKeyHash, (), schnellru::ByLength, BuildNoHashHasher<ValueCacheKeyHash>>;
 
 #[derive(Clone, Copy)]
-struct LocalValueCacheConfig {
+pub struct LocalValueCacheConfig {
+	// The maximum size of the value cache on the heap.
 	local_value_cache_max_heap_size: usize,
+	// The maximum size of the value cache in the inline storage.
 	local_value_cache_max_inline_size: usize,
+	// The maximum number of keys that can be promoted to the front of the LRU cache.
 	shared_value_cache_max_promoted_keys: u32,
+	// The maximum percentage of the shared cache that can be replaced, before giving up.
 	shared_value_cache_max_replace_percent: usize,
 }
 
 #[derive(Clone, Copy)]
-struct LocalNodeCacheConfig {
-	local_node_cache_max_inline_size: usize,
+pub struct LocalNodeCacheConfig {
+	// The maximum size of the node cache on the heap.
 	local_node_cache_max_heap_size: usize,
+	// The maximum size of the node cache in the inline storage.
+	local_node_cache_max_inline_size: usize,
+	// The maximum number of keys that can be promoted to the front of the LRU cache, before giving
+	// up.
 	shared_node_cache_max_promoted_keys: u32,
+	// The maximum percentage of the shared cache that can be replaced, before giving up.
 	shared_node_cache_max_replace_percent: usize,
 }
 
@@ -442,6 +451,7 @@ impl Default for LocalNodeCacheConfig {
 }
 
 impl LocalNodeCacheConfig {
+	// Creates a configuration that allows unlimited growth and promotion to the shared cache.
 	fn unlimited() -> Self {
 		LocalNodeCacheConfig {
 			local_node_cache_max_heap_size: usize::MAX,
@@ -464,6 +474,7 @@ impl Default for LocalValueCacheConfig {
 }
 
 impl LocalValueCacheConfig {
+	/// Creates a configuration that allows unlimited growth and promotion to the shared cache.
 	fn unlimited() -> Self {
 		LocalValueCacheConfig {
 			shared_value_cache_max_promoted_keys: u32::MAX,
@@ -503,8 +514,11 @@ pub struct LocalTrieCache<H: Hasher + 'static> {
 	/// value to the top. The important part is that we always get the correct value from the value
 	/// cache for a given key.
 	shared_value_cache_access: Arc<Mutex<ValueAccessSet>>,
+	/// The configuration for the value cache.
 	value_cache_config: LocalValueCacheConfig,
+	/// The configuration for the node cache.
 	node_cache_config: LocalNodeCacheConfig,
+	/// The stats for the cache.
 	stats: TrieHitStats,
 }
 
@@ -558,7 +572,7 @@ impl<H: Hasher + 'static> Drop for LocalTrieCache<H> {
 			"Local value trie cache dropped: {}",
 			self.stats.value_cache
 		);
-		self.shared.queue_local_cache_data(
+		self.shared.queue_or_promote_local_cache_data(
 			Arc::clone(&self.node_cache),
 			Arc::clone(&self.value_cache),
 			Arc::clone(&self.shared_value_cache_access),

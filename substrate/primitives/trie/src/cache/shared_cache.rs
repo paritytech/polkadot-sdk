@@ -24,7 +24,7 @@ use super::{
 	LocalValueCacheLimiter, NodeCacheMap, NodeCached, TrieHitStats, TrieHitStatsSnapshot,
 	ValueAccessSet, ValueCacheMap,
 };
-use core::hash::Hash;
+use core::{hash::Hash, time::Duration};
 use hash_db::Hasher;
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
@@ -33,16 +33,18 @@ use sp_core::traits::SpawnNamed;
 use std::{
 	collections::{hash_map::Entry as SetEntry, HashMap},
 	hash::{BuildHasher, Hasher as _},
-	sync::{Arc, LazyLock},
+	sync::{mpsc::RecvTimeoutError, Arc, LazyLock},
 	time::Instant,
 };
-use tracing::warn;
 use trie_db::{node::NodeOwned, CachedValue};
 static RANDOM_STATE: LazyLock<ahash::RandomState> = LazyLock::new(|| {
 	use rand::Rng;
 	let mut rng = rand::thread_rng();
 	ahash::RandomState::generate_with(rng.gen(), rng.gen(), rng.gen(), rng.gen())
 });
+
+// Writeback trigger timout.
+const WRITEBACK_TRIGGER_TIMEOUT: Duration = Duration::from_secs(12);
 
 pub struct SharedNodeCacheLimiter {
 	/// The maximum size (in bytes) the cache can hold inline.
@@ -295,7 +297,6 @@ impl<H: AsRef<[u8]> + Eq + std::hash::Hash> SharedNodeCache<H> {
 
 					if access_count >= config.shared_node_cache_max_promoted_keys {
 						// Stop when we've promoted a large enough number of items.
-						warn!(target: super::LOG_TARGET, "Promoted {} items from the shared node cache", access_count);
 						break
 					}
 
@@ -307,7 +308,6 @@ impl<H: AsRef<[u8]> + Eq + std::hash::Hash> SharedNodeCache<H> {
 			add_count += 1;
 
 			if self.lru.limiter().items_evicted > self.lru.limiter().max_items_evicted {
-				warn!(target: super::LOG_TARGET, "Evicted {} items from the shared node cache", self.lru.limiter().items_evicted);
 				// Stop when we've evicted a big enough chunk of the shared cache.
 				break
 			}
@@ -556,7 +556,6 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 
 			if self.lru.limiter().items_evicted > self.lru.limiter().max_items_evicted {
 				// Stop when we've evicted a big enough chunk of the shared cache.
-				warn!(target: super::LOG_TARGET, "Evicted {} items from the shared value cache", self.lru.limiter().items_evicted);
 				break
 			}
 		}
@@ -592,7 +591,10 @@ pub(super) struct SharedTrieCacheInner<H: Hasher + 'static> {
 }
 
 /// Holds the `TrieLocalCache` data that needs to be propagated back
-/// to the shared_cache by the worker thread.
+/// to the shared trie cache.
+///
+/// This can be done either synchronously when the local cache is dropped or in the background when
+/// we are dealing with an unlimited local trie cache.
 #[derive(Clone)]
 pub(super) struct LocalCacheDataToWriteBack<H: Hasher + 'static> {
 	node_cache: Arc<Mutex<NodeCacheMap<H::Out>>>,
@@ -631,7 +633,6 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 	}
 
 	pub(super) fn write_back(&mut self, write_back_work: LocalCacheDataToWriteBack<H>) {
-		let start = Instant::now();
 		self.stats().add_snapshot(&write_back_work.stats);
 		self.node_cache_mut()
 			.update(write_back_work.node_cache.lock().drain(), &write_back_work.node_cache_config);
@@ -641,13 +642,6 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 			write_back_work.shared_value_cache_access.lock().drain().map(|(key, ())| key),
 			&write_back_work.value_cache_config,
 		);
-		if start.elapsed().as_millis() > 100 {
-			tracing::warn!(
-				target: LOG_TARGET,
-				"Writing back the shared cache took a lot of time: {} ms hits: {:?}",
-				start.elapsed().as_millis(), write_back_work.stats
-			);
-		}
 	}
 }
 
@@ -660,20 +654,27 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 /// The instance of this object can be shared between multiple threads.
 pub struct SharedTrieCache<H: Hasher + 'static> {
 	inner: Arc<RwLock<SharedTrieCacheInner<H>>>,
-	rx_worker: Arc<Mutex<Option<std::sync::mpsc::Receiver<bool>>>>,
-
+	/// The channel used by the writeback thread to wait for the trigger that it needs to start
+	/// promoting the local trie cache accesses to the shared trie cache. This is used only when
+	/// `promote_in_background` is passed to the constructor.
+	writeback_thread_rx: Arc<Mutex<Option<std::sync::mpsc::Receiver<bool>>>>,
+	/// The channel used to trigger the writeback thread.
 	tx: Option<std::sync::mpsc::Sender<bool>>,
 }
 
 impl<H: Hasher> Clone for SharedTrieCache<H> {
 	fn clone(&self) -> Self {
-		Self { inner: self.inner.clone(), tx: self.tx.clone(), rx_worker: self.rx_worker.clone() }
+		Self {
+			inner: self.inner.clone(),
+			tx: self.tx.clone(),
+			writeback_thread_rx: self.writeback_thread_rx.clone(),
+		}
 	}
 }
 
 impl<H: Hasher + 'static> SharedTrieCache<H> {
 	/// Create a new [`SharedTrieCache`].
-	pub fn new(cache_size: CacheSize, update_cache_in_background: bool) -> Self {
+	pub fn new(cache_size: CacheSize, promote_in_background: bool) -> Self {
 		let total_budget = cache_size.0;
 
 		// Split our memory budget between the two types of caches.
@@ -707,7 +708,7 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 			value_cache_max_inline_size,
 			value_cache_max_heap_size,
 		);
-		let (tx, rx) = if update_cache_in_background {
+		let (tx, rx) = if promote_in_background {
 			let (tx, rx) = std::sync::mpsc::channel();
 			(Some(tx), Some(rx))
 		} else {
@@ -724,9 +725,9 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 					value_cache_max_heap_size,
 				),
 				stats: Default::default(),
-				queued_work: if update_cache_in_background { Some(Vec::new()) } else { None },
+				queued_work: if promote_in_background { Some(Vec::new()) } else { None },
 			})),
-			rx_worker: Arc::new(Mutex::new(rx)),
+			writeback_thread_rx: Arc::new(Mutex::new(rx)),
 			tx,
 		}
 	}
@@ -814,7 +815,7 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 
 	/// Returns the used memory size of this cache in bytes.
 	pub fn used_memory_size(&self) -> usize {
-		let mut inner = self.inner.read();
+		let inner = self.inner.read();
 
 		let value_cache_size =
 			inner.value_cache.lru.memory_usage() + inner.value_cache.lru.limiter().heap_size;
@@ -856,7 +857,13 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 		self.inner.try_write_for(super::SHARED_CACHE_WRITE_LOCK_TIMEOUT)
 	}
 
-	pub(super) fn queue_local_cache_data(
+	/// Depending on the configuration, either queue the promotion of the local cache data to the
+	/// shared cache or perform it right away.
+	///
+	/// This is needed because in the case of an unlimited local cache, promoting all the changes
+	/// could be costly, so we don't want to paid the prices synchronously but rather queue the
+	/// work to be done in the background after the block has been built or imported.
+	pub(super) fn queue_or_promote_local_cache_data(
 		&self,
 		node_cache: Arc<Mutex<NodeCacheMap<H::Out>>>,
 		value_cache: Arc<Mutex<ValueCacheMap<H::Out>>>,
@@ -890,9 +897,10 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 		}
 	}
 
-	pub fn flush_cache(&self, spawn_handle: &Box<dyn SpawnNamed>) {
+	/// Kick the writeback thread to start promoting the local cache data to the shared cache.
+	pub fn trigger_writeback(&self, spawn_handle: &Box<dyn SpawnNamed>) {
 		if let Some(tx) = self.tx.as_ref() {
-			let writeback_receiver = self.rx_worker.lock().take();
+			let writeback_receiver = { self.writeback_thread_rx.lock().take() };
 
 			// Kick the writeback thread.
 			if let Err(err) = tx.send(true) {
@@ -906,7 +914,13 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 					"flush_local_cache_trie",
 					Some("shared_cache_trie"),
 					Box::pin(async move {
-						while let Ok(_) = writeback_receiver.recv() {
+						loop {
+							// We don't want changes to accumulate in the queue, so we'll flush it every 12 seconds, if we don't receive any trigger.
+							match writeback_receiver.recv_timeout(WRITEBACK_TRIGGER_TIMEOUT) {
+									Ok(_) | Err(RecvTimeoutError::Timeout) => {},
+									Err(RecvTimeoutError::Disconnected) => break,
+								}
+
 							let start = Instant::now();
 							// Drain the queue and update the shared cache data.
 							let mut stats = TrieHitStatsSnapshot::default();
@@ -925,7 +939,7 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 								if let Some(work) = shared_inner
 									.queued_work
 									.as_mut()
-									.and_then(|mut queued_work| queued_work.pop())
+									.and_then(|queued_work| queued_work.pop())
 								{
 									shared_inner.write_back(work);
 									stats = shared_inner.stats.snapshot();

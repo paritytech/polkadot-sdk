@@ -81,9 +81,7 @@ pub struct ImportParams {
 	#[arg(long, value_name = "Bytes", default_value_t = 1024 * 1024 * 1024)]
 	pub trie_cache_size: usize,
 
-	/// Specify the state cache size.
-	///
-	/// Providing `0` will disable the cache.
+	/// Enables unlimited trie local cache when importing or building blocks.
 	#[arg(long)]
 	pub unlimited_local_cache: bool,
 }
@@ -98,6 +96,7 @@ impl ImportParams {
 		}
 	}
 
+	/// Specify if the local cache should be unlimited.
 	pub fn unlimited_local_cache(&self) -> bool {
 		self.unlimited_local_cache
 	}
