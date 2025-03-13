@@ -14,7 +14,7 @@ exclude = [
 [formatting]
 reorder_arrays = true
 inline_table_expand = false
-array_auto_expand = true 
+array_auto_expand = true
 array_auto_collapse = false
 indent_string = "	"         # tab
 
