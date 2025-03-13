@@ -24,6 +24,21 @@ use num_traits::{One, Zero};
 use pallet_revive_uapi::ReturnFlags;
 
 /// The Modexp precompile.
+/// ModExp expects the following as inputs:
+/// 1) 32 bytes expressing the length of base
+/// 2) 32 bytes expressing the length of exponent
+/// 3) 32 bytes expressing the length of modulus
+/// 4) base, size as described above
+/// 5) exponent, size as described above
+/// 6) modulus, size as described above
+///
+///
+/// NOTE: input sizes are bound to 1024 bytes, with the expectation
+///       that gas limits would be applied before actual computation.
+///
+///       maximum stack size will also prevent abuse.
+///
+///       see: https://eips.ethereum.org/EIPS/eip-198
 pub struct Modexp;
 
 /// See EIP-2565
@@ -103,22 +118,6 @@ fn read_input(source: &[u8], target: &mut [u8], source_offset: &mut usize) {
 	let len = core::cmp::min(target.len(), source.len() - offset);
 	target[..len].copy_from_slice(&source[offset..][..len]);
 }
-
-// ModExp expects the following as inputs:
-// 1) 32 bytes expressing the length of base
-// 2) 32 bytes expressing the length of exponent
-// 3) 32 bytes expressing the length of modulus
-// 4) base, size as described above
-// 5) exponent, size as described above
-// 6) modulus, size as described above
-//
-//
-// NOTE: input sizes are bound to 1024 bytes, with the expectation
-//       that gas limits would be applied before actual computation.
-//
-//       maximum stack size will also prevent abuse.
-//
-//       see: https://eips.ethereum.org/EIPS/eip-198
 
 impl<T: Config> Precompile<T> for Modexp {
 	fn execute(gas_meter: &mut GasMeter<T>, input: &[u8]) -> Result<ExecReturnValue, &'static str> {
