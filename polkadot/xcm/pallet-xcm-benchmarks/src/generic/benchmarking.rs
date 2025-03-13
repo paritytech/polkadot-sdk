@@ -239,9 +239,10 @@ benchmarks! {
 		let who: Junctions = Junctions::from([AccountId32 { id: [0u8; 32], network: None }]);
 		let instruction = Instruction::ExecuteWithOrigin { descendant_origin: Some(who.clone()), xcm: Xcm(vec![]) };
 		let xcm = Xcm(vec![instruction]);
-<<<<<<< HEAD
 	}: {
-		executor.bench_process(xcm)?;
+		executor
+			.bench_process(xcm)
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 	} verify {
 		assert_eq!(
 			executor.origin(),
@@ -250,17 +251,6 @@ benchmarks! {
 				interior: Here,
 			}),
 		);
-=======
-		#[block]
-		{
-			executor
-				.bench_process(xcm)
-				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		}
-		assert_eq!(executor.origin(), &Some(Location { parents: 0, interior: Here }),);
-
-		Ok(())
->>>>>>> f323814d (Remove execute_with_origin implementation in the XCM executor (#7889))
 	}
 
 	clear_origin {
