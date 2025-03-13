@@ -209,6 +209,7 @@ pub mod prelude {
 			RankedMembers, RankedMembersSwapHandler, VariantCount, VariantCountOf,
 		},
 		PalletId,
+		stored,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -562,9 +563,7 @@ pub mod token {
 ///
 /// This is already part of the [`prelude`].
 pub mod derive {
-	pub use frame_support::stored;
-	pub use codec;
-	pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, };
+	pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 	pub use core::fmt::Debug;
 	pub use frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
