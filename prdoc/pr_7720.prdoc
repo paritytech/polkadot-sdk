@@ -12,3 +12,7 @@ doc:
 crates:
   - name: pallet-core-fellowship
     bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor
