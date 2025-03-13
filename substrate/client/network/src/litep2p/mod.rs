@@ -665,6 +665,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				command = self.cmd_rx.next() => match command {
 					None => return,
 					Some(command) => match command {
+						NetworkServiceCommand::FindClosestPeers { target } => {
+							let query_id = self.discovery.find_node(target.into()).await;
+							self.pending_queries.insert(query_id, KadQuery::FindNode(target, Instant::now()));
+						}
 						NetworkServiceCommand::GetValue{ key } => {
 							let query_id = self.discovery.get_value(key.clone()).await;
 							self.pending_queries.insert(query_id, KadQuery::GetValue(key, Instant::now()));

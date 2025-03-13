@@ -415,6 +415,15 @@ impl DiscoveryBehaviour {
 		}
 	}
 
+	/// Start finding the closest peers to the given `PeerId`.
+	///
+	/// A corresponding `ClosestPeersFound` or `ClosestPeersNotFound` event will later be generated.
+	pub fn find_closest_peers(&mut self, target: PeerId) {
+		if let Some(k) = self.kademlia.as_mut() {
+			k.get_closest_peers(target);
+		}
+	}
+
 	/// Start fetching a record from the DHT.
 	///
 	/// A corresponding `ValueFound` or `ValueNotFound` event will later be generated.

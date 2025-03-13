@@ -281,6 +281,12 @@ impl<B: BlockT> Behaviour<B> {
 		self.discovery.add_self_reported_address(peer_id, supported_protocols, addr);
 	}
 
+	/// Start finding closest peerst to the target `PeerId`. Will later produce either a
+	/// `ClosestPeersFound` or `ClosestPeersNotFound` event.
+	pub fn find_closest_peers(&mut self, target: PeerId) {
+		self.discovery.find_closest_peers(target);
+	}
+
 	/// Start querying a record from the DHT. Will later produce either a `ValueFound` or a
 	/// `ValueNotFound` event.
 	pub fn get_value(&mut self, key: RecordKey) {

@@ -375,6 +375,11 @@ impl Discovery {
 		self.kademlia_handle.add_known_peer(peer, addresses).await;
 	}
 
+	/// Start Kademlia `FIND_NODE` query for `target`.
+	pub async fn find_node(&mut self, target: PeerId) -> QueryId {
+		self.kademlia_handle.find_node(target).await
+	}
+
 	/// Start Kademlia `GET_VALUE` query for `key`.
 	pub async fn get_value(&mut self, key: KademliaKey) -> QueryId {
 		self.kademlia_handle
