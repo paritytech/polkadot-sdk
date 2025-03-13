@@ -499,9 +499,9 @@ to = "37.0.0"
 [[crate]]
 # polkadot/xcm
 name = "staging-xcm"
-from = "14.1.0"
-to = "14.2.0"
-bump = "minor"
+from = "14.2.0"
+to = "14.2.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -795,9 +795,9 @@ to = "2.0.0"
 [[crate]]
 # bridges/snowbridge/primitives/beacon
 name = "snowbridge-beacon-primitives"
-from = "0.9.0"
-to = "0.10.0"
-bump = "major"
+from = "0.10.0"
+to = "0.10.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -975,9 +975,9 @@ to = "10.0.0"
 [[crate]]
 # substrate/frame/delegated-staking
 name = "pallet-delegated-staking"
-from = "4.0.0"
-to = "5.0.0"
-bump = "major"
+from = "5.0.0"
+to = "5.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1761,8 +1761,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/nomination-pools
 name = "pallet-nomination-pools"
-from = "35.0.1"
-to = "35.0.2"
+from = "35.0.2"
+to = "35.0.3"
 bump = "patch"
 reason = "changed"
 
@@ -1863,8 +1863,8 @@ reason = "changed"
 [[crate]]
 # polkadot/xcm/xcm-runtime-apis
 name = "xcm-runtime-apis"
-from = "0.4.1"
-to = "0.4.2"
+from = "0.4.2"
+to = "0.4.3"
 bump = "patch"
 reason = "changed"
 
@@ -2017,9 +2017,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/staking
 name = "pallet-staking"
-from = "37.0.0"
-to = "38.0.0"
-bump = "major"
+from = "38.0.0"
+to = "38.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2033,8 +2033,8 @@ reason = "changed"
 [[crate]]
 # polkadot/xcm/pallet-xcm
 name = "pallet-xcm"
-from = "17.0.0"
-to = "17.0.1"
+from = "17.0.1"
+to = "17.0.2"
 bump = "patch"
 reason = "changed"
 
@@ -2515,17 +2515,17 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/pallets/ethereum-client
 name = "snowbridge-pallet-ethereum-client"
-from = "0.9.0"
-to = "0.10.0"
-bump = "major"
+from = "0.10.0"
+to = "0.10.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
 # bridges/snowbridge/pallets/inbound-queue
 name = "snowbridge-pallet-inbound-queue"
-from = "0.9.0"
-to = "0.10.0"
-bump = "major"
+from = "0.10.0"
+to = "0.10.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2563,8 +2563,8 @@ reason = "changed"
 [[crate]]
 # cumulus/pallets/xcmp-queue
 name = "cumulus-pallet-xcmp-queue"
-from = "0.17.0"
-to = "0.17.1"
+from = "0.17.1"
+to = "0.17.2"
 bump = "patch"
 reason = "changed"
 
@@ -3057,8 +3057,8 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo
 name = "bridge-hub-rococo-runtime"
-from = "0.16.2"
-to = "0.16.3"
+from = "0.16.3"
+to = "0.16.4"
 bump = "patch"
 reason = "changed"
 
@@ -3073,8 +3073,8 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend
 name = "bridge-hub-westend-runtime"
-from = "0.13.2"
-to = "0.13.3"
+from = "0.13.3"
+to = "0.13.4"
 bump = "patch"
 reason = "changed"
 
@@ -3623,8 +3623,8 @@ reason = "changed"
 [[crate]]
 # polkadot/node/service
 name = "polkadot-service"
-from = "19.0.0"
-to = "19.0.1"
+from = "19.0.1"
+to = "19.0.2"
 bump = "patch"
 reason = "changed"
 
