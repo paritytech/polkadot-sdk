@@ -308,9 +308,6 @@ pub mod pallet {
 			// Existing `agent` cannot register again and a delegator cannot become an `agent`.
 			ensure!(!Self::is_agent(&who) && !Self::is_delegator(&who), Error::<T>::NotAllowed);
 
-			// They cannot be already a direct staker in the staking pallet.
-			ensure!(!Self::is_direct_staker(&who), Error::<T>::AlreadyStaking);
-
 			// Reward account cannot be same as `agent` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
 
@@ -407,7 +404,6 @@ pub mod pallet {
 			// Ensure delegator is sane.
 			ensure!(!Self::is_agent(&delegator), Error::<T>::NotAllowed);
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
-			ensure!(!Self::is_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
@@ -441,12 +437,6 @@ pub mod pallet {
 				Delegation::<T>::can_delegate(&delegator, &agent),
 				Error::<T>::InvalidDelegation
 			);
-
-			// Implementation note: Staking uses deprecated locks (similar to freeze) which are not
-			// mutually exclusive of holds. This means, if we allow delegating for existing stakers,
-			// already staked funds might be reused for delegation. We avoid that by just blocking
-			// this.
-			ensure!(!Self::is_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);

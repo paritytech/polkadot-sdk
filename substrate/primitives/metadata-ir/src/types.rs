@@ -52,8 +52,10 @@ pub struct RuntimeApiMetadataIR<T: Form = MetaForm> {
 	pub methods: Vec<RuntimeApiMethodMetadataIR<T>>,
 	/// Trait documentation.
 	pub docs: Vec<T::String>,
-	/// Deprecation info
+	/// Deprecation info.
 	pub deprecation_info: DeprecationStatusIR<T>,
+	/// Runtime API version.
+	pub version: Compact<u32>,
 }
 
 impl IntoPortable for RuntimeApiMetadataIR {
@@ -65,6 +67,7 @@ impl IntoPortable for RuntimeApiMetadataIR {
 			methods: registry.map_into_portable(self.methods),
 			docs: registry.map_into_portable(self.docs),
 			deprecation_info: self.deprecation_info.into_portable(registry),
+			version: self.version,
 		}
 	}
 }
@@ -120,13 +123,13 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 
 /// Metadata of a pallet view function method.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub struct PalletViewFunctionMethodMetadataIR<T: Form = MetaForm> {
+pub struct PalletViewFunctionMetadataIR<T: Form = MetaForm> {
 	/// Method name.
 	pub name: T::String,
 	/// Method id.
 	pub id: [u8; 32],
 	/// Method parameters.
-	pub inputs: Vec<PalletViewFunctionMethodParamMetadataIR<T>>,
+	pub inputs: Vec<PalletViewFunctionParamMetadataIR<T>>,
 	/// Method output.
 	pub output: T::Type,
 	/// Method documentation.
@@ -135,11 +138,11 @@ pub struct PalletViewFunctionMethodMetadataIR<T: Form = MetaForm> {
 	pub deprecation_info: DeprecationStatusIR<T>,
 }
 
-impl IntoPortable for PalletViewFunctionMethodMetadataIR {
-	type Output = PalletViewFunctionMethodMetadataIR<PortableForm>;
+impl IntoPortable for PalletViewFunctionMetadataIR {
+	type Output = PalletViewFunctionMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		PalletViewFunctionMethodMetadataIR {
+		PalletViewFunctionMetadataIR {
 			name: self.name.into_portable(registry),
 			id: self.id,
 			inputs: registry.map_into_portable(self.inputs),
@@ -152,18 +155,18 @@ impl IntoPortable for PalletViewFunctionMethodMetadataIR {
 
 /// Metadata of a pallet view function method argument.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub struct PalletViewFunctionMethodParamMetadataIR<T: Form = MetaForm> {
+pub struct PalletViewFunctionParamMetadataIR<T: Form = MetaForm> {
 	/// Parameter name.
 	pub name: T::String,
 	/// Parameter type.
 	pub ty: T::Type,
 }
 
-impl IntoPortable for PalletViewFunctionMethodParamMetadataIR {
-	type Output = PalletViewFunctionMethodParamMetadataIR<PortableForm>;
+impl IntoPortable for PalletViewFunctionParamMetadataIR {
+	type Output = PalletViewFunctionParamMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		PalletViewFunctionMethodParamMetadataIR {
+		PalletViewFunctionParamMetadataIR {
 			name: self.name.into_portable(registry),
 			ty: registry.register_type(&self.ty),
 		}
@@ -180,7 +183,7 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	/// Pallet calls metadata.
 	pub calls: Option<PalletCallMetadataIR<T>>,
 	/// Pallet view functions metadata.
-	pub view_functions: Vec<PalletViewFunctionMethodMetadataIR<T>>,
+	pub view_functions: Vec<PalletViewFunctionMetadataIR<T>>,
 	/// Pallet event metadata.
 	pub event: Option<PalletEventMetadataIR<T>>,
 	/// Pallet constants metadata.

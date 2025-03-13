@@ -54,10 +54,11 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	snowbridge_core::AgentIdOf,
 	EthereumSystem,
 >;
+use hex_literal::hex;
 
 // Ethereum Bridge
 parameter_types! {
-	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
+	pub storage EthereumGatewayAddress: H160 = H160(hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
 }
 
 parameter_types! {
@@ -121,25 +122,29 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [0, 0, 0, 0], // 0x00000000
+			version: hex!("00000000"),
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [1, 0, 0, 0], // 0x01000000
+			version: hex!("01000000"),
 			epoch: 0,
 		},
 		bellatrix: Fork {
-			version: [2, 0, 0, 0], // 0x02000000
+			version: hex!("02000000"),
 			epoch: 0,
 		},
 		capella: Fork {
-			version: [3, 0, 0, 0], // 0x03000000
+			version: hex!("03000000"),
 			epoch: 0,
 		},
 		deneb: Fork {
-			version: [4, 0, 0, 0], // 0x04000000
+			version: hex!("04000000"),
 			epoch: 0,
-		}
+		},
+		electra: Fork {
+			version: hex!("05000000"),
+			epoch: 80000000000, // setting to a future epoch for local testing to remain on Deneb.
+		},
 	};
 }
 
@@ -147,24 +152,28 @@ parameter_types! {
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [144, 0, 0, 111], // 0x90000069
+			version: hex!("90000069"),
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [144, 0, 0, 112], // 0x90000070
+			version: hex!("90000070"),
 			epoch: 50,
 		},
 		bellatrix: Fork {
-			version: [144, 0, 0, 113], // 0x90000071
+			version: hex!("90000071"),
 			epoch: 100,
 		},
 		capella: Fork {
-			version: [144, 0, 0, 114], // 0x90000072
+			version: hex!("90000072"),
 			epoch: 56832,
 		},
 		deneb: Fork {
-			version: [144, 0, 0, 115], // 0x90000073
+			version: hex!("90000073"),
 			epoch: 132608,
+		},
+		electra: Fork {
+			version: hex!("90000074"),
+			epoch: 222464, // https://github.com/ethereum/EIPs/pull/9322/files
 		},
 	};
 }

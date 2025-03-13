@@ -26,6 +26,7 @@ use crate::{
 	evm::runtime::GAS_PRICE,
 	exec::{Ext, Key, MomentOf},
 	limits,
+	pure_precompiles::Precompile,
 	storage::WriteOutcome,
 	ConversionPrecision, Pallet as Contracts, *,
 };
@@ -57,12 +58,6 @@ use sp_runtime::{
 /// the results appeared to be stable. Reducing the number would speed up the benchmarks
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
-
-/// How many runs we do per instruction benchmark.
-///
-/// Same rationale as for [`API_BENCHMARK_RUNS`]. The number is bigger because instruction
-/// benchmarks are faster.
-const INSTR_BENCHMARK_RUNS: u32 = 5000;
 
 /// Number of layers in a Radix16 unbalanced trie.
 const UNBALANCED_TRIE_LAYERS: u32 = 20;
@@ -548,7 +543,7 @@ mod benchmarks {
 	fn noop_host_fn(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let mut setup = CallSetup::<T>::new(WasmModule::noop());
 		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode());
+		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode(), 0);
 		#[block]
 		{
 			prepared.call().unwrap();
@@ -1945,30 +1940,21 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_ecdsa_recover() {
-		let message_hash = sp_io::hashing::blake2_256("Hello world".as_bytes());
-		let key_type = sp_core::crypto::KeyTypeId(*b"code");
-		let signature = {
-			let pub_key = sp_io::crypto::ecdsa_generate(key_type, None);
-			let sig = sp_io::crypto::ecdsa_sign_prehashed(key_type, &pub_key, &message_hash)
-				.expect("Generates signature");
-			AsRef::<[u8; 65]>::as_ref(&sig).to_vec()
-		};
-
-		build_runtime!(runtime, memory: [signature, message_hash, [0u8; 33], ]);
+	fn ecdsa_recover() {
+		use hex_literal::hex;
+		let input = hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549");
+		let expected = hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
+
 		#[block]
 		{
-			result = runtime.bench_ecdsa_recover(
-				memory.as_mut_slice(),
-				0,       // signature_ptr
-				65,      // message_hash_ptr
-				65 + 32, // output_ptr
-			);
+			result = pure_precompiles::ECRecover::execute(ext.gas_meter_mut(), &input);
 		}
 
-		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_eq!(result.unwrap().data, expected);
 	}
 
 	// Only calling the function itself for the list of
@@ -2012,11 +1998,82 @@ mod benchmarks {
 	}
 
 	// Benchmark the execution of instructions.
+	//
+	// It benchmarks the absolute worst case by allocating a lot of memory
+	// and then accessing it so that each instruction generates two cache misses.
 	#[benchmark(pov_mode = Ignored)]
-	fn instr(r: Linear<0, INSTR_BENCHMARK_RUNS>) {
-		let mut setup = CallSetup::<T>::new(WasmModule::instr());
+	fn instr(r: Linear<0, 10_000>) {
+		use rand::{seq::SliceRandom, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		// Ideally, this needs to be bigger than the cache.
+		const MEMORY_SIZE: u64 = sp_core::MAX_POSSIBLE_ALLOCATION as u64;
+
+		// This is benchmarked for x86-64.
+		const CACHE_LINE_SIZE: u64 = 64;
+
+		// An 8 byte load from this misalignment will reach into the subsequent line.
+		const MISALIGNMENT: u64 = 60;
+
+		// We only need one address per cache line.
+		// -1 because we skip the first address
+		const NUM_ADDRESSES: u64 = (MEMORY_SIZE - MISALIGNMENT) / CACHE_LINE_SIZE - 1;
+
+		assert!(
+			u64::from(r) <= NUM_ADDRESSES / 2,
+			"If we do too many iterations we run into the risk of loading from warm cache lines",
+		);
+
+		let mut setup = CallSetup::<T>::new(WasmModule::instr(true));
 		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode());
+		let mut prepared =
+			CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), MEMORY_SIZE as u32);
+
+		assert!(
+			u64::from(prepared.aux_data_base()) & (CACHE_LINE_SIZE - 1) == 0,
+			"aux data base must be cache aligned"
+		);
+
+		// Addresses data will be located inside the aux data.
+		let misaligned_base = u64::from(prepared.aux_data_base()) + MISALIGNMENT;
+
+		// Create all possible addresses and shuffle them. This makes sure
+		// the accesses are random but no address is accessed more than once.
+		// we skip the first address since it is our entry point
+		let mut addresses = Vec::with_capacity(NUM_ADDRESSES as usize);
+		for i in 1..NUM_ADDRESSES {
+			let addr = (misaligned_base + i * CACHE_LINE_SIZE).to_le_bytes();
+			addresses.push(addr);
+		}
+		let mut rng = Pcg64::seed_from_u64(1337);
+		addresses.shuffle(&mut rng);
+
+		// The addresses need to be padded to be one cache line apart.
+		let mut memory = Vec::with_capacity((NUM_ADDRESSES * CACHE_LINE_SIZE) as usize);
+		for address in addresses {
+			memory.extend_from_slice(&address);
+			memory.resize(memory.len() + CACHE_LINE_SIZE as usize - address.len(), 0);
+		}
+
+		// Copies `memory` to `aux_data_base + MISALIGNMENT`.
+		// Sets `a0 = MISALIGNMENT` and `a1 = r`.
+		prepared
+			.setup_aux_data(memory.as_slice(), MISALIGNMENT as u32, r.into())
+			.unwrap();
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_empty_loop(r: Linear<0, 100_000>) {
+		let mut setup = CallSetup::<T>::new(WasmModule::instr(false));
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
+		prepared.setup_aux_data(&[], 0, r.into()).unwrap();
+
 		#[block]
 		{
 			prepared.call().unwrap();

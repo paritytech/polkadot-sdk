@@ -325,7 +325,7 @@ pub trait HostFn: private::Sealed {
 		salt: Option<&[u8; 32]>,
 	) -> Result;
 
-	/// Load the latest block timestamp into the supplied buffer
+	/// Load the latest block timestamp in seconds into the supplied buffer
 	///
 	/// # Parameters
 	///
@@ -532,27 +532,6 @@ pub trait HostFn: private::Sealed {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	#[unstable_hostfn]
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
-
-	/// Recovers the ECDSA public key from the given message hash and signature.
-	///
-	/// Writes the public key into the given output buffer.
-	/// Assumes the secp256k1 curve.
-	///
-	/// # Parameters
-	///
-	/// - `signature`: The signature bytes.
-	/// - `message_hash`: The message hash bytes.
-	/// - `output`: A reference to the output data buffer to write the public key.
-	///
-	/// # Errors
-	///
-	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
-	#[unstable_hostfn]
-	fn ecdsa_recover(
-		signature: &[u8; 65],
-		message_hash: &[u8; 32],
-		output: &mut [u8; 33],
-	) -> Result;
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// it into the supplied buffer.
