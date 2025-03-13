@@ -947,8 +947,8 @@ fn storage_max_value_limit() {
 }
 
 #[test]
-fn storage_clear() {
-	let (code, _code_hash) = compile_module("storage_clear").unwrap();
+fn clear_storage_on_zero_value() {
+	let (code, _code_hash) = compile_module("clear_storage_on_zero_value").unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);

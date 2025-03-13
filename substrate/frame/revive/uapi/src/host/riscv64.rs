@@ -56,7 +56,7 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn get_storage_or_zero(key_ptr: *const u8, out_ptr: *mut u8);
+		pub fn get_storage_or_zero(flags: u32, key_ptr: *const u8, out_ptr: *mut u8);
 		pub fn contains_storage(flags: u32, key_ptr: *const u8, key_len: u32) -> ReturnCode;
 		pub fn take_storage(
 			flags: u32,
@@ -331,8 +331,8 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn get_storage_or_zero(_flags: StorageFlags, key: &[u8; 32], output: &mut [u8; 32]) {
-		unsafe { sys::get_storage_or_zero(key.as_ptr(), output.as_mut_ptr()) };
+	fn get_storage_or_zero(flags: StorageFlags, key: &[u8; 32], output: &mut [u8; 32]) {
+		unsafe { sys::get_storage_or_zero(flags.bits(), key.as_ptr(), output.as_mut_ptr()) };
 	}
 
 	fn get_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
