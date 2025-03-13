@@ -36,6 +36,7 @@ jobs:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/colander:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      MALUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/malus:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
       # don't retry sdk tests
@@ -64,6 +65,7 @@ jobs:
         run: |
           echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
           echo "COL_IMAGE: $COL_IMAGE"
+          echo "MALUS_IMAGE: $MALUS_IMAGE"
           ls -ltr ./artifacts
           # use spot by default
           export X_INFRA_INSTANCE=spot
