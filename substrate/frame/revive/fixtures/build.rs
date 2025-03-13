@@ -85,8 +85,19 @@ fn create_cargo_toml<'a>(
 	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/_Cargo.toml"))?;
 	let uapi_dep = cargo_toml["dependencies"]["uapi"].as_table_mut().unwrap();
 
-	let metadata = MetadataCommand::new().exec().expect("Failed to fetch cargo metadata");
-	let uapi_pkg = metadata.packages.iter().find(|pkg| pkg.name == "pallet-revive-uapi").unwrap();
+	let metadata = MetadataCommand::new()
+		.manifest_path(fixtures_dir.join("Cargo.toml"))
+		.exec()
+		.expect("Failed to fetch cargo metadata");
+
+	let mut uapi_pkgs: Vec<_> = metadata
+		.packages
+		.iter()
+		.filter(|pkg| pkg.name == "pallet-revive-uapi")
+		.collect();
+
+	uapi_pkgs.sort_by(|a, b| b.version.cmp(&a.version));
+	let uapi_pkg = uapi_pkgs.first().unwrap();
 
 	if uapi_pkg.source.is_none() {
 		uapi_dep.insert(
