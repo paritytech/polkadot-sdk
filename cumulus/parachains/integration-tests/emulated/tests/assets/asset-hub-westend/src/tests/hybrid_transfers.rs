@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use emulated_integration_tests_common::xcm_emulator::find_mq_processed_id;
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
 use super::reserve_transfer::*;
@@ -51,6 +52,9 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 			) => {},
 		]
 	);
+	let id = find_mq_processed_id!(AssetHubWestend);
+	println!("Processed id: {:?}", id);
+	println!("Test Args topic_id: {:?}", t.args.topic_id);
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
@@ -531,7 +535,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	let fee_asset_item = assets.iter().position(|a| a.id == fee_asset_id).unwrap() as u32;
 
 	// Init Test
-	let test_args = TestContext {
+	let mut test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),
 		args: TestArgs::new_para(

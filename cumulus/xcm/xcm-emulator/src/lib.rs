@@ -1334,6 +1334,20 @@ macro_rules! assert_expected_events {
 }
 
 #[macro_export]
+macro_rules! find_mq_processed_id {
+	( $chain:ident ) => {{
+		let events = <$chain as $crate::Chain>::events();
+		events.iter().find_map(|event| {
+			if let RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { id, .. }) = event {
+				Some(id.clone())
+			} else {
+				None
+			}
+		})
+	}};
+}
+
+#[macro_export]
 macro_rules! find_xcm_sent_message_id {
 	( $chain:ident ) => {{
 		let events = <$chain as $crate::Chain>::events();
