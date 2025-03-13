@@ -19,9 +19,7 @@
 
 use alloc::vec::Vec;
 use codec::Codec;
-use frame_election_provider_support::{
-	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
-};
+use frame_election_provider_support::{ElectionProvider, SortedListProvider, VoteWeight};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -76,7 +74,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// Possible operations on the configuration values of this pallet.
-	#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+	#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, DecodeWithMemTracking)]
 	pub enum ConfigOp<T: Default + Codec> {
 		/// Don't change.
 		Noop,
@@ -810,7 +808,7 @@ pub mod pallet {
 				});
 				assert!(
 					ValidatorCount::<T>::get() <=
-						<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
+						<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
 				);
 			}
 
@@ -983,8 +981,8 @@ pub mod pallet {
 
 			// ensure election results are always bounded with the same value
 			assert!(
-				<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get() ==
-					<T::GenesisElectionProvider as ElectionProviderBase>::MaxWinners::get()
+				<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() ==
+					<T::GenesisElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
 			);
 
 			assert!(
@@ -1446,7 +1444,7 @@ pub mod pallet {
 			// ensure new validator count does not exceed maximum winners
 			// support by election provider.
 			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
+				new <= <T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get(),
 				Error::<T>::TooManyValidators
 			);
 			ValidatorCount::<T>::put(new);
@@ -1454,7 +1452,7 @@ pub mod pallet {
 		}
 
 		/// Increments the ideal number of validators up to maximum of
-		/// `ElectionProviderBase::MaxWinners`.
+		/// `ElectionProvider::MaxWinnersPerPage`.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1470,7 +1468,7 @@ pub mod pallet {
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(additional).ok_or(ArithmeticError::Overflow)?;
 			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
+				new <= <T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get(),
 				Error::<T>::TooManyValidators
 			);
 
@@ -1479,7 +1477,7 @@ pub mod pallet {
 		}
 
 		/// Scale up the ideal number of validators by a factor up to maximum of
-		/// `ElectionProviderBase::MaxWinners`.
+		/// `ElectionProvider::MaxWinnersPerPage`.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1493,7 +1491,7 @@ pub mod pallet {
 			let new = old.checked_add(factor.mul_floor(old)).ok_or(ArithmeticError::Overflow)?;
 
 			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
+				new <= <T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get(),
 				Error::<T>::TooManyValidators
 			);
 

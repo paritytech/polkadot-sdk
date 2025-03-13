@@ -31,6 +31,7 @@ use frame_support::{
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
+use sp_core::ConstBool;
 use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
@@ -146,6 +147,8 @@ impl pallet_session::Config for Test {
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type DisablingStrategy =
+		pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
 }
 
@@ -207,6 +210,7 @@ parameter_types! {
 	pub static MaxWinners: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
+	pub static MaxBackersPerWinner: u32 = 256;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -225,8 +229,10 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = MaxWinners;
+	type MaxWinnersPerPage = MaxWinners;
 	type Bounds = ElectionsBounds;
+	type Sort = ConstBool<true>;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 }
 
 pub struct MockReward {}
@@ -470,6 +476,7 @@ impl ExtBuilder {
 				// This allows us to have a total_payout different from 0.
 				(999, 1_000_000_000_000),
 			],
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
