@@ -72,7 +72,8 @@ pub mod pallet {
 
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			// Fetch the authorities once to get them into the storage proof of the PoV.
-			Authorities::<T>::get();
+			let authorities = Authorities::<T>::get();
+			log::info!("authority_num = {}", authorities.len());
 
 			T::DbWeight::get().reads_writes(1, 0)
 		}

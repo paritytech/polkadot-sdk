@@ -193,8 +193,10 @@ where
 	P::Public: Codec,
 	P::Signature: Codec,
 {
+	tracing::info!(target: crate::LOG_TARGET, "entering");
 	let runtime_api = client.runtime_api();
 	let authorities = runtime_api.authorities(parent_hash).ok()?;
+	tracing::info!(target: crate::LOG_TARGET, "can_build_upon authoritities: {:?}", authorities.len());
 	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await?;
 
 	// This function is typically called when we want to build block N. At that point, the

@@ -17,6 +17,7 @@ scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
+log = { workspace = true }
 frame-system = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -52,6 +53,7 @@ std = [
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
+	"log/std",
 ]
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",

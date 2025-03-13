@@ -136,10 +136,8 @@ where
 	EHF: HostFunctions,
 {
 	fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
-		println!("This gets called!!");
 		match self.genesis.resolve()? {
 			Genesis::Raw(RawGenesis { top: map, children_default: children_map }) => {
-				println!("raw!!");
 				storage.top.extend(map.into_iter().map(|(k, v)| (k.0, v.0)));
 				children_map.into_iter().for_each(|(k, v)| {
 					let child_info = ChildInfo::new_default(k.0.as_slice());

@@ -4498,6 +4498,7 @@ dependencies = [
  "cumulus-test-relay-sproof-builder",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-aura",
  "pallet-timestamp",
  "parity-scale-codec",
