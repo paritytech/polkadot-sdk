@@ -1,33 +1,57 @@
 # Release
 
-The outputs of a release are the `polkadot` and `polkadot-parachain` node binaries, the runtimes for Westend & Rococo
-and their system parachains, and new crate versions published to `crates.io`.
+The outputs of a stable release are:
+
+- The binaries:
+   - `polkadot`
+   - `polkadot-execute-worker`
+   - `polkadot-prepare-worker`
+   - `polkadot-parachain`
+   - `polkadot-omni-node`
+   - `chain-spec-builder`
+   - `frame-omni-bencher`
+
+   built for the `x86_64-unknown-linux-gnu` and `aarch64-apple-darwin` targets. The gpg signatures and sha256 checksums.
+
+- The runtimes for Westend and its system parachains
+- The new crate versions published to `crates.io`.
+
+
+# Timeline
+`Stable` releases are scheduled on a quarterly basis, usually by the end of the last month of each quarter. The exact schedule can be found on the [Release Registry](https://github.com/paritytech/release-registry/). It is possible to subscribe to a [calendar link](https://raw.githubusercontent.com/paritytech/release-registry/main/releases-v1.ics) to have it in your personal calendar.
+
+Each stable release is supported for a period of one year from it's first release. For example, `Polkadot stable2412` was released on `2024-12-17` and its end of life is set to `2025-12-16`.
+
+During this period, each stable release is updated with patch releases, which are scheduled on a monthly basis and contain fixes for any bugs that may be found.
+
+ℹ️ Note: the binaries and runtimes (if needed) are only provided for the latest `stable' release, for the previous releases only the crates.io release takes place.
+
+This three month period between `stable` releases includes a 1.5 month QA period. This means that for each upcoming `stable` release, the branch from which that release will be made is created 1.5 months before the release date. This time is used to test the upcoming release candidate and find potential problems before the final release.
 
 # Setup
 
 We have two branches: `master` and `stable`. `master` is the main development branch where normal Pull Requests are
-opened. Developers need to mostly only care about this branch.  
-The `stable` branch contains a version of the code that is ready to be released. Its contents are always audited.
-Merging to it is restricted to [Backports](#backports).
+opened. Developers need to mostly only care about this branch.
+The `stable` branch contains a version of the code that is ready to be released. Its contents should be always audited.
+Merging to it is restricted to [Backports](#backports). Each `stable` branch corresponds to the corresponding stable release, which is in the maintenance period.
 
 # Versioning
 
 We are releasing multiple different things from this repository in one release, but we don't want to use the same
-version for everything. Thus, in the following we explain the versioning story for the crates, node and Westend &
-Rococo.
+version for everything. Thus, in the following we explain the versioning story for the crates, node and Westend.
 
-To easily refer to a release, it shall be named by its date in the form `stableYYMM`. Patches to stable releases are
-tagged in the form of `stableYYMM-PATCH`, with `PATCH` ranging from 1 to 99. For example, the fourth patch to
-`stable2409` would be `stable2409-4`.
+To easily refer to a release, it shall be named by its date in the form `Polkadot stableYYMM`. Patches to stable releases are
+tagged in the form of `Polkadot stableYYMM-PATCH`, with `PATCH` ranging from 1 to 99. For example, the fourth patch to
+`Polkadot stable2409` would be `Polkadot stable2409-4`.
 
 ## Crate
 
 We try to follow [SemVer 2.0.0](https://semver.org/) as best as possible for versioning our crates. The definitions of
 `major`, `minor` and `patch` version for Rust crates are slightly altered from their standard for pre `1.0.0` versions.
-Quoting [rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html):  
+Quoting [rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html):
 
->Initial development releases starting with “0.y.z” can treat changes in “y” as a major release, and “z” as a minor
-release. “0.0.z” releases are always major changes. This is because Cargo uses the convention that only changes in the
+>Initial development releases starting with "0.y.z" can treat changes in "y" as a major release, and "z" as a minor
+release. "0.0.z" releases are always major changes. This is because Cargo uses the convention that only changes in the
 left-most non-zero component are considered incompatible.
 
 SemVer requires a piece of software to first declare a public API. The public API of the Polkadot SDK
@@ -41,19 +65,18 @@ Inductively, the public API of our library crates is declared as all public item
 ## Node
 
 The versioning of the Polkadot node is done most of the time by only incrementing the `minor` version. The `major`
-version is only bumped for special releases and the `patch` can be used for an out of band release that fixes some
-critical bug. The node version is not following SemVer. This means that the version doesn't express if there are any
-breaking changes in the CLI interface or similar. The node version is declared in the
-[`NODE_VERSION`](https://paritytech.github.io/polkadot-sdk/master/polkadot_node_primitives/constant.NODE_VERSION.html)
+version is only bumped for special releases and the `patch` is used for a patch release that happens every month and fixes found issues.
+The node version is not following SemVer. This means that the version doesn't express if there are any breaking changes in the CLI interface or similar.
+The node version is declared in the [`NODE_VERSION`](https://paritytech.github.io/polkadot-sdk/master/polkadot_node_primitives/constant.NODE_VERSION.html)
 variable.
 
-## Westend & Rococo
+## Westend
 
 For these networks, in addition to incrementing the `Cargo.toml` version we also increment the `spec_version` and
 sometimes the `transaction_version`. The spec version is also following the node version. Its schema is: `M_mmm_ppp` and
 for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map
-from an on chain `spec_version` easily to the release in this repository.  
-The Westend testnet will be updated to a new runtime every two weeks with the latest `nightly` release.
+from an on chain `spec_version` easily to the release in this repository.
+
 
 # Backports
 
@@ -66,8 +89,7 @@ also have `major` version bumps through backports.
 
 **From `stable` to `master`**
 
-Should not be needed since all changes first get merged into `master`. The `stable` branch can get out of sync and will
-be synced with the [Clobbering](#clobbering) process.
+Backports to `master` only happen after a `stable` or `patch` release has been made for the current stable release, and include node version and spec version bumps, plus reorganizing the prdoc files (they should go into the appropriate release folder under the [prdoc](./proc) folder).
 
 # Processes
 
@@ -77,7 +99,7 @@ Release Coordination* Matrix channel. All processes should be automated as much 
 
 ## Crate Bumping
 
-Cadence: (possibly) each Pull Request. Responsible: Developer that opened the Pull Request.
+Cadence: currently every 3 months for new `stable` releases and monthly for existing `stables`. Responsible: Developer that opened the Pull Request.
 
 Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the
 Rust documentation that explains the small details on when to bump what. This process is supported with a CI check that
@@ -86,80 +108,36 @@ utilizes [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-chec
 ### Steps
 
 1. Developer opens a Pull Request with changed crates against `master`.
-1. They bump all changed crates according to SemVer. Note that this includes any crates that expose the changed
+2. They mention the type of the bump of all changed crates according to SemVer in the prdoc file attached to the PR. Note that this includes any crates that expose the changed
    behaviour in their *public API* and also transitive dependencies for whom the same rule applies.
+3. The bump itself happens during the release and is done by a release engineer using the [parity-publish](https://github.com/paritytech/parity-publish) tool.
 
 ## Stable Release
 
-Cadence: every two weeks. Responsible: Release Team.
+Cadence: every 3 months for new `stable` releases and monthly for existing `stables`. Responsible: Release Team.
 
-This process aims to release the `stable` branch as a *Stable* release every two weeks.
+### Steps to execute a new stable release
 
-### Steps
+From the main polkadot-sdk repository in the paritytech org:
 
-1. Check and execute process [Clobbering](#clobbering), if needed.
-2. Check if there were any changes since the last release and abort, if not.
-3. Check out the latest commit of `stable`.
-4. Update the `CHANGELOG.md` version, date and compile the content using the PrDoc files.
-5. Open a Pull Request against `stable` for visibility of the release happening.
-6. Internal QA from the release team can happen here.
-7. Do a dry-run release to ensure that it *should* work.
-8. Comment in the Pull Request that a *Stable* release will happen from the merged commit hash.
-9. Release all changed crates to crates.io.
-10. Create the release `stableYYYYMMDD` on GitHub. Note that the Fellowship has a streamlined process that combines the
-    two last steps. A similar approach should be taken here.
+1. On the cut-off date, create a new branch with the name `satbleYYMM` using [Branch-off stable flow](/.github/workflows/release-10_branchoff-stable.yml)
+2. Create a new rc tag from the stable branch using [RC Automation flow](/.github/workflows/release-11_rc-automation.yml)
 
-## Nightly Release
+From the forked polkadot-sdk repository in the [paritytech-release org](https://github.com/paritytech-release/polkadot-sdk/actions):
 
-Cadence: every day at 00:00 UTC+1. Responsible: Release Team
+1. Sync the forks before continuing with the release using [Sync the forked repo with the upstream](https://github.com/paritytech-release/polkadot-sdk/actions/workflows/fork-sync-action.yml)
+2. To build binaries trigger [Release - Build node release candidate](/.github/workflows/release-20_build-rc.yml)
+3. When an rc build is ready to trigger [Release - Publish draft](/.github/workflows/release-30_publish_release_draft.yml) to create a new release draft for the upcoming rc
+4. When the release is finalized and ready to go, publish crates using `parity-publish` tool and push changes to the release branch
+5. Repeat steps 1-3 to prepare the rc
+6. Trigger [Release - Promote RC to final candidate on S3](/.github/workflows/release-31_promote-rc-to-final.yml) to have it as a final rc on the S3
+7. Publish deb package for the `polakdot` binary using [Release - Publish polakdot deb package](/.github/workflows/release-40_publish-deb-package.yml)
+8. Adjust the release draft and publish release on the GitHub.
+9. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
 
-This process aims to release the `master` branch as a *Nightly* release. The process can start at 00:00 UTC+1 and should
-automatically do the following steps.
+## Patch release for the latest stable version
 
-1. Check out the latest commit of branch `master`.
-2. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
-3. Set the version of all crates that changed to `major.0.0-nightlyYYMMDD` where `major` is the last released `major`
-   version of that crate plus one.
-4. Patch the dependencies of the changed crates to point to the newest version of the dependency.
-5. Tag this commit as `nightlyYYMMDD`.
-6. Do a dry-run release to ensure that it *should* work.
-7. Push this tag (the commit will not belong to any branch).
-8. Release all crates that had changed to crates.io.
-
-## Clobbering
-
-Cadence: every 6th release (~3 months). Responsible: Release Team
-
-This process aims to bring branch `stable` in sync with the latest audited commit of `master`. It is not done via a Pull
-Request but rather by just copying files. It should be automated.  
-The following script is provided to do the clobbering. Note that it keeps the complete history of all past clobbering
-processes.
-
-```bash
-# Ensure we have the latest remote data
-git fetch
-# Switch to the stable branch
-git checkout stable
-
-# Delete all tracked files in the working directory
-git ls-files -z | xargs -0 rm -f
-# Find and delete any empty directories
-find . -type d -empty -delete
-
-# Get the last audited commit
-AUDITED=$(git rev-parse --short=10 origin/audited)
-# Grab the files from the commit
-git checkout $AUDITED -- .
-
-# Stage, commit, and push the working directory which now matches 'audited' 1:1
-git add .
-git commit -m "Clobbering with audited ($AUDITED)"
-git push
-```
-
-## Bug and Security Fix
-
-Cadence: n.a. Responsible: Developer
+Cadence: every month. Responsible: Developer
 
 Describes how developers should merge bug and security fixes.
 
@@ -170,5 +148,7 @@ Describes how developers should merge bug and security fixes.
 3. Audit happens with priority.
 4. It is merged into `master`.
 5. Dev adds the `A4-needs-backport` label.
-6. It is automatically back-ported to `stable`.
-7. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
+6. It is automatically back-ported to `stable` and merged by a release engineer.
+7. The fix will be released in the next *Stable patch* release. In urgent cases, a release can happen earlier.
+
+The release itself is similar to [the new stable release](#steps-to-execute-a-new-stable-release) process without the branching-off step, as the branch already exists and depending on the patch (whether it is for the current `stable` release or one of the previous ones) the binary build can be skipped and only crates and GitHub publishing is done.
