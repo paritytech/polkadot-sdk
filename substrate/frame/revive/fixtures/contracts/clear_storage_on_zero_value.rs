@@ -32,31 +32,24 @@ fn test_storage_operations(flags: StorageFlags) {
 	const VALUE_A: [u8; 32] = [4u8; 32];
 	const ZERO: [u8; 32] = [0u8; 32];
 
-	// Clear any existing storage
 	api::clear_storage(flags, &KEY);
 
-	// Verify key doesn't exist
 	assert_eq!(api::contains_storage(flags, &KEY), None);
 
-	// Set a value
 	let existing = api::set_storage_or_clear(flags, &KEY, &VALUE_A);
 	assert_eq!(existing, None);
 
-	// Read the value back
 	let mut stored: [u8; 32] = [0u8; 32];
 	api::get_storage_or_zero(flags, &KEY, &mut stored);
 	assert_eq!(stored, VALUE_A);
 
-	// Clear the value by setting to zero
 	let existing = api::set_storage_or_clear(flags, &KEY, &ZERO);
 	assert_eq!(existing, Some(32));
 
-	// Verify it's cleared by reading back zeros
 	let mut cleared: [u8; 32] = [1u8; 32];
 	api::get_storage_or_zero(flags, &KEY, &mut cleared);
 	assert_eq!(cleared, ZERO);
 
-	// Verify contains_storage reports None (key doesn't exist)
 	assert_eq!(api::contains_storage(flags, &KEY), None);
 }
 

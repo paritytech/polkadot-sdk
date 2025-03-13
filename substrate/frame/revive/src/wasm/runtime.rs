@@ -47,17 +47,11 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 const MAX_DECODE_NESTING: u32 = 256;
 
 enum StorageValue {
-	/// Memory location and length to read from
 	Memory { ptr: u32, len: u32 },
-	/// Pre-read value
 	Value(Vec<u8>),
 }
-
-/// Defines how storage retrieval should handle missing keys
 enum StorageReadMode {
-	/// Return an error if the key doesn't exist
 	ErrorIfMissing,
-	/// Return zeros if the key doesn't exist (for fixed-size operations)
 	ZeroIfMissing,
 }
 /// Abstraction over the memory access within syscalls.
