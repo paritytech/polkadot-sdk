@@ -73,7 +73,6 @@ fn send_assets_from_penpal_westend_through_westend_ah_to_rococo_ah(
 		let sov_penpal_on_ahw = AssetHubWestend::sovereign_account_id_of(
 			AssetHubWestend::sibling_location_of(PenpalB::para_id()),
 		);
-		println!("sov_penpal_on_ahw: {:?}", sov_penpal_on_ahw);
 		let sov_ahr_on_ahw =
 			AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
 				ByGenesis(ROCOCO_GENESIS_HASH),
