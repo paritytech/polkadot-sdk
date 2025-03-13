@@ -632,7 +632,7 @@ impl Debug for Curve {
 mod tests {
 	use super::*;
 	use frame_support::traits::ConstU32;
-	use sp_runtime::PerThing;
+	use sp_runtime::{str_array as s, PerThing};
 
 	const fn percent(x: u128) -> FixedI64 {
 		FixedI64::from_rational(x, 100)
@@ -789,7 +789,7 @@ mod tests {
 					Track {
 						id: 1u8,
 						info: TrackInfo {
-							name: string_like_track_name("root"),
+							name: s("root"),
 							max_deciding: 1,
 							decision_deposit: 10,
 							prepare_period: 4,
@@ -811,7 +811,7 @@ mod tests {
 					Track {
 						id: 0u8,
 						info: TrackInfo {
-							name: string_like_track_name("none"),
+							name: s("none"),
 							max_deciding: 3,
 							decision_deposit: 1,
 							prepare_period: 2,

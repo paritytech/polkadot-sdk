@@ -19,7 +19,7 @@
 use super::*;
 
 use alloc::borrow::Cow;
-use pallet_referenda::string_like_track_name as s;
+use sp_runtime::str_array as s;
 
 const fn percent(x: i32) -> sp_arithmetic::FixedI64 {
 	sp_arithmetic::FixedI64::from_rational(x as u128, 100)

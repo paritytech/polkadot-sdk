@@ -17,8 +17,7 @@
 
 use super::Origin;
 use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS};
-use pallet_referenda::string_like_track_name as s;
-use sp_runtime::Perbill;
+use sp_runtime::{str_array as s, Perbill};
 use sp_std::borrow::Cow;
 
 /// Referendum `TrackId` type.

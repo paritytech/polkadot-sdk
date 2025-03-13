@@ -18,7 +18,7 @@
 //! The crate's tests.
 
 use super::*;
-use crate::{self as pallet_referenda, string_like_track_name as s, types::Track};
+use crate::{self as pallet_referenda, types::Track};
 use alloc::borrow::Cow;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
@@ -30,6 +30,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{
+	str_array as s,
 	traits::{BlakeTwo256, Hash},
 	BuildStorage, DispatchResult, Perbill,
 };
