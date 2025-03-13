@@ -1,0 +1,20 @@
+title: '`fatxpool`: report_invalid: do not ban Future/Stale txs from re-entering the
+  view'
+doc:
+- audience: Node Dev
+  description: |-
+    #### Description
+
+    Avoid banning future/stale transactions reported as invalid by the authorship module.
+
+    #### Note for reviewers
+    When re-org is handled by transaction pool, the view for new fork (`Bn'`) is cloned from the tip of the other existing fork (`Bn`). The new view is not entirely re-validated during the maintain process (it will be revalidated in the background), so it may happen that it contains transactions that are ready on (`Bn`) but actually are not ready on (`Bn'`). All required (which are expected to be in retracted set) transactions are submitted to the new view, but order of txs in ready iterator is not updated.
+
+    The proper fix would require to re-build the the iterator - which is not trivial as we do not have tags for transactions for block `Bn'` yet. We could force retracted txs to be before ready transactions but it also does not feel to be a good solution - it still would be best effort trial.
+
+    For now allowing future transactions to re-enter the view immediately is in my opinion a good compromise. This PR is a quick fix and actually brings back behavior of txpool from before merging #6008. The bad thing is that incorrect transactions are detected during block authorship, but this situation to happen requires some specific pre-conditions which should be rare.
+
+    If this PR is not merged, some transaction will get included into blocks, only after [`DEFAULT_BAN_TIME_SECS`](https://github.com/paritytech/polkadot-sdk/blob/4b39ff00b887039bc3e02a763a29deb09df56833/substrate/client/transaction-pool/src/graph/rotator.rs#L37), which is pretty bad.
+crates:
+- name: sc-transaction-pool
+  bump: minor
