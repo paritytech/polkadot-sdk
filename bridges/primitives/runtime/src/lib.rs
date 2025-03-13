@@ -425,6 +425,20 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 		log::info!(target: Self::LOG_TARGET, "Setting operating mode to {:?}.", operating_mode);
 		Ok(())
 	}
+
+	/// Pallet owner has a right to halt all module operations and then resume it. If it is `None`,
+	/// then there are no direct ways to halt/resume module operations, but other runtime methods
+	/// may still be used to do that (i.e. democracy::referendum to update halt flag directly
+	/// or call the `set_operating_mode`).
+	fn module_owner() -> Option<T::AccountId> {
+		Self::OwnerStorage::get()
+	}
+
+	/// The current operating mode of the module.
+	/// Depending on the mode either all, some, or no transactions will be allowed.
+	fn operating_mode() -> Self::OperatingMode {
+		Self::OperatingModeStorage::get()
+	}
 }
 
 /// All extra operations with weights that we need in bridges.
