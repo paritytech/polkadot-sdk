@@ -19,13 +19,13 @@
 
 use super::*;
 use alloc::borrow::Cow;
-use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
 	Parameter,
 };
-use scale_info::TypeInfo;
+use scale_info::{Type, TypeInfo};
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
 use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
 
@@ -118,16 +118,13 @@ pub struct Deposit<AccountId, Balance> {
 
 pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
 
-#[inline]
-pub const fn string_like_track_name<const N: usize>(name: &str) -> StringLike<N> {
-	StringLike(sp_runtime::str_array(name))
-}
-
+/// Helper structure to treat a `[u8; N]` array as a string.
+///
+/// This is a temporary fix (see [#7671](https://github.com/paritytech/polkadot-sdk/pull/7671)) in
+/// order to stop `polkadot.js` apps to fail when trying to decode the `name` field in `TrackInfo`.
 #[derive(Clone, Eq, DecodeWithMemTracking, PartialEq, Debug)]
 pub struct StringLike<const N: usize>(pub [u8; N]);
 
-use codec::Input;
-use scale_info::Type;
 impl<const N: usize> TypeInfo for StringLike<N> {
 	type Identity = <&'static str as TypeInfo>::Identity;
 
