@@ -383,7 +383,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 
 				debug!(
 					target: LOG_TARGET,
-					"Received protocol mismatch for peer {:?} on protocol {:?}",
+					"Received unexpected data on outbound notification stream from peer {:?} on protocol {:?}",
 					peer_id,
 					protocol_name
 				);
