@@ -23,12 +23,14 @@ derive_more = { workspace = true }
 environmental = { workspace = true }
 ethabi = { workspace = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
-hex = { workspace = true }
+hex-literal = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.21.0", default-features = false }
 polkavm-common = { version = "0.21.0", default-features = false, optional = true }
+rand = { workspace = true, optional = true }
+rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = [
@@ -61,7 +63,6 @@ xcm-builder = { workspace = true }
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-hex-literal = { workspace = true }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
@@ -87,7 +88,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"hex/std",
 	"log/std",
 	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
@@ -96,6 +96,7 @@ std = [
 	"pallet-utility/std",
 	"polkavm-common?/std",
 	"polkavm/std",
+	"rand?/std",
 	"rlp/std",
 	"scale-info/std",
 	"secp256k1/std",
@@ -125,6 +126,8 @@ runtime-benchmarks = [
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"polkavm-common/alloc",
+	"rand",
+	"rand_pcg",
 	"sp-consensus-aura",
 	"sp-consensus-babe",
 	"sp-consensus-slots",

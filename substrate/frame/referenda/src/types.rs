@@ -217,7 +217,7 @@ where
 pub struct ReferendumStatus<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
-	Moment: Parameter + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+	Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
 	Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -289,7 +289,7 @@ pub enum ReferendumInfo<
 impl<
 		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
-		Moment: Parameter + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+		Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
 		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
