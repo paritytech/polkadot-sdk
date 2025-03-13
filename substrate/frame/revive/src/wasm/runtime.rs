@@ -24,6 +24,7 @@ use crate::{
 	gas::{ChargedAmount, Token},
 	limits,
 	primitives::ExecReturnValue,
+	pure_precompiles::is_precompile,
 	weights::WeightInfo,
 	Config, Error, LOG_TARGET, SENTINEL,
 };
@@ -1012,9 +1013,18 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(call_type.cost())?;
+		let callee = match memory.read_h160(callee_ptr) {
+			Ok(callee) if is_precompile(&callee) => callee,
+			Ok(callee) => {
+				self.charge_gas(call_type.cost())?;
+				callee
+			},
+			Err(err) => {
+				self.charge_gas(call_type.cost())?;
+				return Err(err.into());
+			},
+		};
 
-		let callee = memory.read_h160(callee_ptr)?;
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
@@ -1860,36 +1870,6 @@ pub mod env {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		self.contains_storage(memory, flags, key_ptr, key_len)
-	}
-
-	/// Recovers the ECDSA public key from the given message hash and signature.
-	/// See [`pallet_revive_uapi::HostFn::ecdsa_recover`].
-	fn ecdsa_recover(
-		&mut self,
-		memory: &mut M,
-		signature_ptr: u32,
-		message_hash_ptr: u32,
-		output_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::EcdsaRecovery)?;
-
-		let mut signature: [u8; 65] = [0; 65];
-		memory.read_into_buf(signature_ptr, &mut signature)?;
-		let mut message_hash: [u8; 32] = [0; 32];
-		memory.read_into_buf(message_hash_ptr, &mut message_hash)?;
-
-		let result = self.ext.ecdsa_recover(&signature, &message_hash);
-
-		match result {
-			Ok(pub_key) => {
-				// Write the recovered compressed ecdsa public key back into the sandboxed output
-				// buffer.
-				memory.write(output_ptr, pub_key.as_ref())?;
-
-				Ok(ReturnErrorCode::Success)
-			},
-			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
-		}
 	}
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
