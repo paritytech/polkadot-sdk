@@ -32,9 +32,11 @@ xcm-executor = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
 # Bridges
+bp-asset-hub-rococo = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 
 # Cumulus
+asset-hub-rococo-runtime = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }

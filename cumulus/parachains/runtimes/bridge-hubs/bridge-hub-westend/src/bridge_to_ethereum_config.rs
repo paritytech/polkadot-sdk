@@ -21,6 +21,7 @@ use crate::{
 	Balances, BridgeRelayers, EthereumInboundQueue, EthereumOutboundQueue, EthereumOutboundQueueV2,
 	EthereumSystem, EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
 };
+use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::EnsureXcm;
@@ -76,7 +77,6 @@ parameter_types! {
 
 parameter_types! {
 	pub const CreateAssetCall: [u8;2] = [53, 0];
-	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
@@ -106,7 +106,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type Helper = Runtime;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v1::MessageToXcm<
 		CreateAssetCall,
-		CreateAssetDeposit,
+		CreateForeignAssetDeposit,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V1>,
 		AccountId,
 		Balance,
@@ -141,7 +141,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
 		CreateAssetCall,
-		CreateAssetDeposit,
+		CreateForeignAssetDeposit,
 		EthereumNetwork,
 		InboundQueueV2Location,
 		EthereumSystem,

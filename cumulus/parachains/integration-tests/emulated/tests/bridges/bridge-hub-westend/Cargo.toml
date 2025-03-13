@@ -39,6 +39,7 @@ pallet-bridge-messages = { workspace = true }
 pallet-bridge-relayers = { workspace = true }
 
 # Cumulus
+bp-asset-hub-westend = { workspace = true }
 asset-hub-westend-runtime = { workspace = true }
 bridge-hub-westend-runtime = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }

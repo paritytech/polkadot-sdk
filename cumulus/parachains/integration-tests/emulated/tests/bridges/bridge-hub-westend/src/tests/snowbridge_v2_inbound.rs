@@ -22,7 +22,7 @@ use crate::{
 use asset_hub_westend_runtime::ForeignAssets;
 use bridge_hub_westend_runtime::{
 	bridge_common_config::BridgeReward,
-	bridge_to_ethereum_config::{CreateAssetCall, CreateAssetDeposit, EthereumGatewayAddress},
+	bridge_to_ethereum_config::{CreateAssetCall, EthereumGatewayAddress},
 	EthereumInboundQueueV2,
 };
 use codec::Encode;
@@ -391,7 +391,8 @@ fn register_and_send_multiple_tokens_v2() {
 	let weth_transfer_value = 2_500_000_000_000u128;
 
 	let dot_asset = Location::new(1, Here);
-	let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
+	let dot_fee: xcm::prelude::Asset =
+		(dot_asset, bp_asset_hub_westend::CreateForeignAssetDeposit::get()).into();
 
 	// Used to pay the asset creation deposit.
 	let eth_asset_value = 9_000_000_000_000u128;
@@ -1022,4 +1023,15 @@ fn invalid_claimer_does_not_fail_the_message() {
 			"Assets were trapped, should not happen."
 		);
 	});
+}
+
+#[test]
+fn create_foreign_asset_deposit_is_equal_to_asset_hub_foreign_asset_pallet_deposit() {
+	let asset_hub_deposit = asset_hub_westend_runtime::ForeignAssetsAssetDeposit::get();
+	let bridge_hub_deposit = bp_asset_hub_westend::CreateForeignAssetDeposit::get();
+	assert!(
+		bridge_hub_deposit >=
+		asset_hub_deposit,
+		"The BridgeHub asset creation deposit must be equal to or larger than the asset creation deposit configured on BridgeHub"
+	);
 }
