@@ -746,7 +746,7 @@ version = "0.17.0"
 path = "../cumulus/pallets/xcmp-queue"
 default-features = false
 optional = true
-version = "0.17.1"
+version = "0.17.2"
 
 [dependencies.cumulus-ping]
 path = "../cumulus/parachains/pallets/ping"
@@ -1070,7 +1070,7 @@ version = "22.2.0"
 path = "../substrate/frame/delegated-staking"
 default-features = false
 optional = true
-version = "5.0.0"
+version = "5.0.1"
 
 [dependencies.pallet-democracy]
 path = "../substrate/frame/democracy"
@@ -1220,7 +1220,7 @@ version = "38.0.0"
 path = "../substrate/frame/nomination-pools"
 default-features = false
 optional = true
-version = "35.0.2"
+version = "35.0.3"
 
 [dependencies.pallet-nomination-pools-benchmarking]
 path = "../substrate/frame/nomination-pools/benchmarking"
@@ -1382,7 +1382,7 @@ version = "38.0.0"
 path = "../substrate/frame/staking"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.0.1"
 
 [dependencies.pallet-staking-reward-curve]
 path = "../substrate/frame/staking/reward-curve"
@@ -1490,7 +1490,7 @@ version = "37.0.0"
 path = "../polkadot/xcm/pallet-xcm"
 default-features = false
 optional = true
-version = "17.0.1"
+version = "17.0.2"
 
 [dependencies.pallet-xcm-benchmarks]
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
@@ -1580,7 +1580,7 @@ version = "15.0.0"
 path = "../bridges/snowbridge/primitives/beacon"
 default-features = false
 optional = true
-version = "0.10.0"
+version = "0.10.1"
 
 [dependencies.snowbridge-core]
 path = "../bridges/snowbridge/primitives/core"
@@ -1610,7 +1610,7 @@ version = "0.10.0"
 path = "../bridges/snowbridge/pallets/ethereum-client"
 default-features = false
 optional = true
-version = "0.10.0"
+version = "0.10.1"
 
 [dependencies.snowbridge-pallet-ethereum-client-fixtures]
 path = "../bridges/snowbridge/pallets/ethereum-client/fixtures"
@@ -1622,7 +1622,7 @@ version = "0.18.0"
 path = "../bridges/snowbridge/pallets/inbound-queue"
 default-features = false
 optional = true
-version = "0.10.0"
+version = "0.10.1"
 
 [dependencies.snowbridge-pallet-inbound-queue-fixtures]
 path = "../bridges/snowbridge/pallets/inbound-queue/fixtures"
@@ -1946,7 +1946,7 @@ version = "0.17.0"
 path = "../polkadot/xcm"
 default-features = false
 optional = true
-version = "14.2.0"
+version = "14.2.1"
 
 [dependencies.staging-xcm-builder]
 path = "../polkadot/xcm/xcm-builder"
@@ -1988,7 +1988,7 @@ version = "10.1.0"
 path = "../polkadot/xcm/xcm-runtime-apis"
 default-features = false
 optional = true
-version = "0.4.2"
+version = "0.4.3"
 
 [dependencies.asset-test-utils]
 path = "../cumulus/parachains/runtimes/assets/test-utils"
@@ -2396,7 +2396,7 @@ version = "19.0.0"
 path = "../polkadot/node/service"
 default-features = false
 optional = true
-version = "19.0.1"
+version = "19.0.2"
 
 [dependencies.polkadot-statement-distribution]
 path = "../polkadot/node/network/statement-distribution"

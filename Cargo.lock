@@ -2046,7 +2046,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.16.3"
+version = "0.16.4"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2239,7 +2239,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.13.3"
+version = "0.13.4"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -4161,7 +4161,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "bounded-collections",
  "bp-xcm-bridge-hub-router",
@@ -10412,7 +10412,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-delegated-staking"
-version = "5.0.0"
+version = "5.0.1"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -11038,7 +11038,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools"
-version = "35.0.2"
+version = "35.0.3"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -11640,7 +11640,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "38.0.0"
+version = "38.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -11972,7 +11972,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "17.0.1"
+version = "17.0.2"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -14716,7 +14716,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "19.0.1"
+version = "19.0.2"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -19503,7 +19503,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -19613,7 +19613,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -19651,7 +19651,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -20987,7 +20987,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "14.2.0"
+version = "14.2.1"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -24117,7 +24117,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "frame-executive",
  "frame-support",
