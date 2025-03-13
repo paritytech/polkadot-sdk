@@ -10873,11 +10873,10 @@ dependencies = [
 
 [[package]]
 name = "num-integer"
-version = "0.1.45"
+version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
+checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
 dependencies = [
- "autocfg",
  "num-traits",
 ]
 
@@ -12848,6 +12847,9 @@ dependencies = [
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
  "pallet-balances",
  "pallet-proxy",
  "pallet-revive-fixtures",
@@ -12863,6 +12865,7 @@ dependencies = [
  "pretty_assertions",
  "rand 0.8.5",
  "rand_pcg",
+ "ripemd",
  "rlp 0.6.1",
  "scale-info",
  "secp256k1 0.28.2",
@@ -12880,6 +12883,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "staging-xcm",
  "staging-xcm-builder",
+ "substrate-bn",
  "subxt-signer 0.38.0",
 ]
 
@@ -24529,6 +24533,19 @@ dependencies = [
  "schnorrkel 0.11.4",
  "sha2 0.10.8",
  "zeroize",
+]
+
+[[package]]
+name = "substrate-bn"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b5bbfa79abbae15dd642ea8176a21a635ff3c00059961d1ea27ad04e5b441c"
+dependencies = [
+ "byteorder",
+ "crunchy",
+ "lazy_static",
+ "rand 0.8.5",
+ "rustc-hex",
 ]
 
 [[package]]
