@@ -225,6 +225,9 @@ pub mod pallet {
 
 	#[pallet::extra_constants]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// A list of tracks.
+		///
+		/// Note: if the tracks are dynamic, the value in the static metadata might be inaccurate.
 		#[pallet::constant_name(Tracks)]
 		fn tracks() -> Vec<(TrackIdOf<T, I>, ConstTrackInfo<BalanceOf<T, I>, BlockNumberFor<T, I>>)>
 		{
