@@ -2,11 +2,9 @@ title: Add Missing Events for Balances Pallet
 doc:
 - audience: Runtime Dev
   description: |-
-    Credit goes to @Doordashcon and his PR #7250
-
-    I have just removed the changes involving Imbalance stuff as they don't seem to be needed in order to add the events, and were holding up the PR.
+    Adding events for Held balance and Released hold.
 crates:
 - name: pallet-balances
-  bump: patch
+  bump: major
 - name: frame-support
-  bump: patch
+  bump: none
