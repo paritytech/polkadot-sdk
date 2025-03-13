@@ -1334,6 +1334,20 @@ macro_rules! assert_expected_events {
 }
 
 #[macro_export]
+macro_rules! find_xcm_sent_message_id {
+	( $chain:ident ) => {{
+		let events = <$chain as $crate::Chain>::events();
+		events.iter().find_map(|event| {
+			if let RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) = event {
+				Some(message_id.clone())
+			} else {
+				None
+			}
+		})
+	}};
+}
+
+#[macro_export]
 macro_rules! bx {
 	($e:expr) => {
 		Box::new($e)

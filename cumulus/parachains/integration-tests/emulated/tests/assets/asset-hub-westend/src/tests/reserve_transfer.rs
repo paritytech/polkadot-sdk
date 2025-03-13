@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use emulated_integration_tests_common::xcm_emulator::find_xcm_sent_message_id;
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
@@ -388,30 +389,16 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<Penpal
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 
-	let penpal_a_events = <PenpalA as Chain>::events();
-	let topic_id_on_penpal_a = penpal_a_events.iter().find_map(|event| {
-		if let RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) = event {
-			Some(message_id)
-		} else {
-			None
-		}
-	});
+	let topic_id_on_penpal_a = find_xcm_sent_message_id!(PenpalA);
 	if let Some(topic_id) = t.args.topic_id {
-		assert_eq!(topic_id_on_penpal_a, Some(topic_id).as_ref());
+		assert_eq!(topic_id_on_penpal_a, Some(topic_id));
 	} else {
 		assert!(topic_id_on_penpal_a.is_some());
-		t.args.topic_id = topic_id_on_penpal_a.copied();
+		t.args.topic_id = topic_id_on_penpal_a;
 	}
 
-	let penpal_b_events = <PenpalB as Chain>::events();
-	let topic_id_on_penpal_b = penpal_b_events.iter().find_map(|event| {
-		if let RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) = event {
-			Some(message_id)
-		} else {
-			None
-		}
-	});
-	assert_eq!(topic_id_on_penpal_b, t.args.topic_id.as_ref());
+	let topic_id_on_penpal_b = find_xcm_sent_message_id!(PenpalB);
+	assert_eq!(topic_id_on_penpal_b, t.args.topic_id);
 
 	for asset in t.args.assets.into_inner() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
