@@ -24,6 +24,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod bridge_common_config;
+pub mod bridge_to_rococo_config;
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
@@ -110,7 +112,7 @@ use frame_support::traits::PalletInfoAccess;
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response,
+	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
 use xcm_runtime_apis::{
@@ -1035,11 +1037,13 @@ impl pallet_nfts::Config for Runtime {
 }
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
-/// consensus with dynamic fees and back-pressure.
+/// consensus with dynamic fees and back-pressure
+/// (legacy routing with `ExportMessage` over BridgeHub).
 pub type ToRococoXcmRouterInstance = pallet_xcm_bridge_router::Instance1;
 impl pallet_xcm_bridge_router::Config<ToRococoXcmRouterInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_xcm_bridge_router::WeightInfo<Runtime>;
+	type WeightInfo =
+		weights::pallet_xcm_bridge_router_to_rococo_over_bridge_hub::WeightInfo<Runtime>;
 
 	type DestinationVersion = PolkadotXcm;
 
@@ -1190,6 +1194,12 @@ construct_runtime!(
 
 		AssetRewards: pallet_asset_rewards = 61,
 
+		// Bridges permissionless lanes.
+		XcmOverAssetHubRococo: pallet_xcm_bridge::<Instance1> = 62,
+		BridgeRococoMessages: pallet_bridge_messages::<Instance1> = 63,
+		BridgeRelayers: pallet_bridge_relayers::<Instance1> = 64,
+		ToRococoOverAssetHubRococoXcmRouter: pallet_xcm_bridge_router::<Instance2> = 65,
+
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
@@ -1197,6 +1207,12 @@ construct_runtime!(
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,
 	}
 );
+
+bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
+	RuntimeCall, AccountId,
+	// Messages
+	BridgeRococoMessages
+}
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
@@ -1219,6 +1235,8 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckWeight<Runtime>,
 		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+		BridgeRejectObsoleteHeadersAndMessages,
+		(bridge_to_rococo_config::OnAssetHubWestendRefundAssetHubRococoMessages,),
 	),
 >;
 
@@ -1241,6 +1259,8 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			BridgeRejectObsoleteHeadersAndMessages,
+			(bridge_to_rococo_config::OnAssetHubWestendRefundAssetHubRococoMessages::default(),),
 		)
 			.into()
 	}
@@ -1484,8 +1504,13 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
-		[pallet_xcm_bridge_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
+		// Bridge pallets
+		[pallet_xcm_bridge_router, ToRococoOverBridgeHub]
+		[pallet_xcm_bridge_router, ToRococoOverAssetHubRococo]
+		[pallet_bridge_messages, WestendToRococo]
+		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime, bridge_common_config::BridgeRelayersInstance>]
+		[pallet_xcm_bridge, OverRococo]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
@@ -1868,7 +1893,8 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
-			use pallet_xcm_bridge_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
+			use pallet_xcm_bridge_router::benchmarking::Pallet as XcmBridgeHubRouterBench; // TODO: FAIL-CI - rename XcmBridgeHubRouterBench -> XcmBridgeRouterBench
+			use pallet_bridge_relayers::benchmarking::Pallet as BridgeRelayersBench;
 
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
 			// and add_benchmarks! are macros exported by define_benchmarks! macros and those types
@@ -1884,7 +1910,10 @@ impl_runtime_apis! {
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
-			type ToRococo = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
+			type ToRococoOverBridgeHub = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
+			type ToRococoOverAssetHubRococo = XcmBridgeHubRouterBench<Runtime, bridge_to_rococo_config::ToRococoOverAssetHubRococoXcmRouterInstance>;
+			type OverRococo = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverAssetHubRococoInstance>;
+			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -2037,6 +2066,15 @@ impl_runtime_apis! {
 				}
 			}
 
+			impl XcmBridgeHubRouterConfig<bridge_to_rococo_config::ToRococoOverAssetHubRococoXcmRouterInstance> for Runtime {
+				fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
+					Ok(xcm_config::bridging::to_rococo::AssetHubRococo::get())
+				}
+				fn update_bridge_status_origin() -> Option<RuntimeOrigin> {
+					None
+				}
+			}
+
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 			use pallet_xcm_benchmarks::asset_instance_from;
 
@@ -2149,7 +2187,50 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(Location, NetworkId, InteriorLocation), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					// save XCM version for remote permissionless lanes on bridged asset hub
+					let _ = PolkadotXcm::force_xcm_version(
+						RuntimeOrigin::root(),
+						alloc::boxed::Box::new(bridge_to_rococo_config::AssetHubRococoLocation::get()),
+						XCM_VERSION,
+					).map_err(|e| {
+						log::error!(
+							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
+							RuntimeOrigin::root(),
+							bridge_to_rococo_config::AssetHubRococoLocation::get(),
+							XCM_VERSION,
+							e
+						);
+						BenchmarkError::Stop("XcmVersion was not stored!")
+					})?;
+
+					// open bridge
+					let rococo = bridge_to_rococo_config::RococoGlobalConsensusNetwork::get();
+					let sibling_parachain_location = Location::new(1, [Parachain(8765)]);
+					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(rococo), Parachain(5678)].into();
+					let _ = XcmOverAssetHubRococo::open_bridge_for_benchmarks(
+						<bp_messages::HashedLaneId as bp_messages::LaneIdType>::try_new(1, 2).unwrap(),
+						sibling_parachain_location.clone(),
+						bridge_destination_universal_location.clone(),
+						true,
+						None,
+						|| ExistentialDeposit::get(),
+					).map_err(|e| {
+						log::error!(
+							"Failed to `XcmOverAssetHubRococo::open_bridge`({:?}, {:?})`, error: {:?}",
+							sibling_parachain_location,
+							bridge_destination_universal_location,
+							e
+						);
+						BenchmarkError::Stop("Bridge was not opened!")
+					})?;
+
+					Ok(
+						(
+							sibling_parachain_location,
+							rococo,
+							[Parachain(5678)].into()
+						)
+					)
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
@@ -2169,7 +2250,124 @@ impl_runtime_apis! {
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
-			type ToRococo = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
+			type ToRococoOverBridgeHub = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
+			type ToRococoOverAssetHubRococo = XcmBridgeHubRouterBench<Runtime, bridge_to_rococo_config::ToRococoOverAssetHubRococoXcmRouterInstance>;
+			type OverRococo = pallet_xcm_bridge::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverAssetHubRococoInstance>;
+			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>;
+
+			use pallet_bridge_relayers::benchmarking::{
+				Config as BridgeRelayersConfig,
+				Pallet as BridgeRelayersBench
+			};
+
+			impl BridgeRelayersConfig<bridge_common_config::BridgeRelayersInstance> for Runtime {
+				fn prepare_rewards_account(
+					account_params: pallet_bridge_relayers::RewardsAccountParams<<Self as pallet_bridge_relayers::Config<bridge_common_config::BridgeRelayersInstance>>::LaneId>,
+					reward: Balance,
+				) {
+					let rewards_account = pallet_bridge_relayers::PayRewardFromAccount::<
+						Balances,
+						AccountId,
+						<Self as pallet_bridge_relayers::Config<bridge_common_config::BridgeRelayersInstance>>::LaneId,
+					>::rewards_account(account_params);
+					<Runtime as BridgeRelayersConfig<bridge_common_config::BridgeRelayersInstance>>::deposit_account(rewards_account, reward);
+				}
+
+				fn deposit_account(account: AccountId, balance: Balance) {
+					use frame_support::traits::fungible::Mutate;
+					Balances::mint_into(&account, balance.saturating_add(ExistentialDeposit::get())).unwrap();
+				}
+			}
+
+			impl pallet_xcm_bridge::benchmarking::Config<bridge_to_rococo_config::XcmOverAssetHubRococoInstance> for Runtime {
+				fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
+					// We allow bridges to be opened for sibling parachains.
+					Some((
+						pallet_xcm::Origin::Xcm(Location::new(1, [Parachain(42)])).into(),
+						ExistentialDeposit::get(),
+					))
+				}
+			}
+
+			use pallet_bridge_messages::{BridgedChainOf, LaneIdOf};
+			use pallet_bridge_messages::benchmarking::{
+				Config as BridgeMessagesConfig,
+				MessageDeliveryProofParams,
+				MessageProofParams,
+			};
+
+			impl BridgeMessagesConfig<bridge_to_rococo_config::WithAssetHubRococoMessagesInstance> for Runtime {
+				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
+					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>>::bench_lane_id();
+					use bp_runtime::Chain;
+					let bridged_chain_id =<Self as pallet_bridge_messages::Config<bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>>::BridgedChain::ID;
+					pallet_bridge_relayers::Pallet::<Runtime, bridge_common_config::BridgeRelayersInstance>::relayer_reward(
+						relayer,
+						pallet_bridge_relayers::RewardsAccountParams::new(
+							bench_lane_id,
+							bridged_chain_id,
+							pallet_bridge_relayers::RewardsAccountOwner::BridgedChain
+						)
+					).is_some()
+				}
+
+				fn prepare_message_proof(
+					params: MessageProofParams<LaneIdOf<Runtime, bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>>,
+				) -> (
+					bp_messages::target_chain::FromBridgedChainMessagesProof<
+						bp_runtime::HashOf<BridgedChainOf<Runtime, bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>>,
+						LaneIdOf<Runtime, bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>
+					>,
+					Weight
+				) {
+					use cumulus_primitives_core::XcmpMessageSource;
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+					let _bridge_locations = XcmOverAssetHubRococo::open_bridge_for_benchmarks(
+						params.lane,
+						Location::new(1, [Parachain(42)]),
+						[GlobalConsensus(bridge_to_rococo_config::RococoGlobalConsensusNetwork::get()), Parachain(2075)].into(),
+						// do not create lanes, because they are already created `params.lane`
+						false,
+						None,
+						|| ExistentialDeposit::get(),
+					).expect("valid bridge opened");
+					todo!("TODO: FAIL-CI - prepare storage proof for synced proof")
+					// prepare_message_proof_from_parachain::<
+					// 	Runtime,
+					// 	bridge_common_config::BridgeGrandpaWestendInstance,
+					// 	bridge_to_westend_config::WithAssetHubWestendMessagesInstance,
+					// >(params, generate_xcm_builder_bridge_message_sample(bridge_locations.bridge_origin_universal_location().clone()))
+				}
+
+				fn prepare_message_delivery_proof(
+					params: MessageDeliveryProofParams<AccountId, LaneIdOf<Runtime, bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>>,
+				) -> bp_messages::source_chain::FromBridgedChainMessagesDeliveryProof<
+					bp_runtime::HashOf<BridgedChainOf<Runtime, bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>>,
+					LaneIdOf<Runtime, bridge_to_rococo_config::WithAssetHubRococoMessagesInstance>
+				> {
+					let _ = XcmOverAssetHubRococo::open_bridge_for_benchmarks(
+						params.lane,
+						Location::new(1, [Parachain(42)]),
+						[GlobalConsensus(bridge_to_rococo_config::RococoGlobalConsensusNetwork::get()), Parachain(2075)].into(),
+						// do not create lanes, because they are already created `params.lane`
+						false,
+						None,
+						|| ExistentialDeposit::get(),
+					);
+					todo!("TODO: FAIL-CI - prepare storage proof for synced proof")
+					// prepare_message_delivery_proof_from_parachain::<
+					// 	Runtime,
+					// 	bridge_common_config::BridgeGrandpaRococoInstance,
+					// 	bridge_to_rococo_config::WithAssetHubRococoMessagesInstance,
+					// >(params)
+				}
+
+				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
+					use cumulus_primitives_core::XcmpMessageSource;
+					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+				}
+			}
 
 			use frame_support::traits::WhitelistedStorageKeys;
 			let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

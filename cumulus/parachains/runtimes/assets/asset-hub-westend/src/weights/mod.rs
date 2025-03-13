@@ -28,6 +28,8 @@ pub mod pallet_assets_foreign;
 pub mod pallet_assets_local;
 pub mod pallet_assets_pool;
 pub mod pallet_balances;
+pub mod pallet_bridge_messages;
+pub mod pallet_bridge_relayers;
 pub mod pallet_collator_selection;
 pub mod pallet_message_queue;
 pub mod pallet_migrations;
@@ -41,7 +43,9 @@ pub mod pallet_transaction_payment;
 pub mod pallet_uniques;
 pub mod pallet_utility;
 pub mod pallet_xcm;
-pub mod pallet_xcm_bridge_router;
+pub mod pallet_xcm_bridge;
+pub mod pallet_xcm_bridge_router_to_rococo_over_asset_hub_rococo;
+pub mod pallet_xcm_bridge_router_to_rococo_over_bridge_hub;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
 pub mod xcm;
@@ -49,3 +53,23 @@ pub mod xcm;
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
 pub use rocksdb_weights::constants::RocksDbWeight;
+
+use ::pallet_bridge_messages::WeightInfoExt as MessagesWeightInfoExt;
+use ::pallet_bridge_relayers::WeightInfoExt as _;
+
+use crate::{Runtime, Weight};
+
+impl MessagesWeightInfoExt for pallet_bridge_messages::WeightInfo<Runtime> {
+	fn expected_extra_storage_proof_size() -> u32 {
+		bp_bridge_hub_rococo::EXTRA_STORAGE_PROOF_SIZE
+	}
+
+	fn receive_messages_proof_overhead_from_runtime() -> Weight {
+		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_proof_overhead_from_runtime(
+		)
+	}
+
+	fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight {
+		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_delivery_proof_overhead_from_runtime()
+	}
+}

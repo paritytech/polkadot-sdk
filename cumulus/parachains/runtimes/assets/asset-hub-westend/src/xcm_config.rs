@@ -17,8 +17,8 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
 	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	ToRococoXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee,
-	XcmpQueue,
+	ToRococoOverAssetHubRococoXcmRouter, ToRococoXcmRouter, TransactionByteFee,
+	TrustBackedAssetsInstance, Uniques, WeightToFee, XcmOverAssetHubRococo, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -66,10 +66,10 @@ parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const WestendLocation: Location = Location::parent();
 	pub const GovernanceLocation: Location = Location::parent();
-	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
+	pub const RelayNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
+		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
 	pub TrustBackedAssetsPalletLocation: Location =
 		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
@@ -461,7 +461,10 @@ impl xcm_executor::Config for XcmConfig {
 		WaivedLocations,
 		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
-	type MessageExporter = ();
+	type MessageExporter = (
+		// AH's permissionless lanes support exporting to Rococo.
+		XcmOverAssetHubRococo,
+	);
 	type UniversalAliases =
 		(bridging::to_rococo::UniversalAliases, bridging::to_ethereum::UniversalAliases);
 	type CallDispatcher = RuntimeCall;
@@ -482,7 +485,7 @@ pub type PriceForParentDelivery =
 	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
 /// For routing XCM messages which do not cross local consensus boundary.
-type LocalXcmRouter = (
+pub(crate) type LocalXcmRouter = (
 	// Two routers - use UMP to communicate with the relay chain:
 	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
 	// ..and XCMP to communicate with the sibling chains.
@@ -495,6 +498,15 @@ pub type XcmRouter = WithUniqueTopic<(
 	LocalXcmRouter,
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Rococo
 	// GlobalConsensus
+	// Router that exports messages to be delivered to the Rococo GlobalConsensus,
+	// when a permissionless lane is created between the origin and destination.
+	//
+	// Note: `ToRococoOverAssetHubRococoXcmRouter` must come before `ToRococoXcmRouter`
+	// because it checks if the lane is created dynamically, whereas `ToRococoXcmRouter` has a
+	// static configuration.
+	ToRococoOverAssetHubRococoXcmRouter,
+	// Router which wraps (`ExportMessage`) and sends xcm to BridgeHub to be delivered to the
+	// Rococo GlobalConsensus
 	ToRococoXcmRouter,
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
 	// GlobalConsensus

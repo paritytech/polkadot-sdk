@@ -1143,6 +1143,12 @@ construct_runtime!(
 	}
 );
 
+bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
+	RuntimeCall, AccountId,
+	// Messages
+	BridgeWestendMessages
+}
+
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 /// Block type as expected by this runtime.
@@ -1164,6 +1170,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckWeight<Runtime>,
 		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+		BridgeRejectObsoleteHeadersAndMessages,
 		(bridge_to_westend_config::OnAssetHubRococoRefundAssetHubWestendMessages,),
 	),
 >;
