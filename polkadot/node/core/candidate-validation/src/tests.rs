@@ -24,7 +24,7 @@ use crate::PvfExecKind;
 use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
-use polkadot_node_primitives::{BlockData, VALIDATION_CODE_BOMB_LIMIT};
+use polkadot_node_primitives::BlockData;
 use polkadot_node_subsystem::messages::AllMessages;
 use polkadot_node_subsystem_test_helpers::{make_subsystem_context, TestSubsystemContextHandle};
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
@@ -45,6 +45,8 @@ use rstest::rstest;
 use sp_core::{sr25519::Public, testing::TaskExecutor};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
+
+const VALIDATION_CODE_BOMB_LIMIT: u32 = 30 * 1024 * 1024;
 
 #[derive(Debug)]
 enum AssumptionCheckOutcome {
@@ -518,7 +520,7 @@ fn session_index_checked_only_in_backing() {
 
 	// The session index is invalid
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
 		validation_code.clone(),
@@ -528,6 +530,7 @@ fn session_index_checked_only_in_backing() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -535,7 +538,7 @@ fn session_index_checked_only_in_backing() {
 
 	// Approval doesn't fail since the check is ommited.
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
 		validation_code.clone(),
@@ -545,6 +548,7 @@ fn session_index_checked_only_in_backing() {
 		PvfExecKind::Approval,
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -559,7 +563,7 @@ fn session_index_checked_only_in_backing() {
 
 	// Approval doesn't fail since the check is ommited.
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data.clone(),
 		validation_code,
@@ -569,6 +573,7 @@ fn session_index_checked_only_in_backing() {
 		PvfExecKind::Dispute,
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -657,7 +662,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 	let _ = cq.insert(CoreIndex(1), vec![1.into(), 1.into()].into());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data.clone(),
 		validation_code,
@@ -667,6 +672,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -735,7 +741,7 @@ fn invalid_session_or_core_index() {
 		CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	let err = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
 		validation_code.clone(),
@@ -745,13 +751,14 @@ fn invalid_session_or_core_index() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
 	assert_matches!(err, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
 
 	let err = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
 		validation_code.clone(),
@@ -761,6 +768,7 @@ fn invalid_session_or_core_index() {
 		PvfExecKind::BackingSystemParas(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -769,7 +777,7 @@ fn invalid_session_or_core_index() {
 	candidate_receipt.descriptor.set_session_index(1);
 
 	let result = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
 		validation_code.clone(),
@@ -779,12 +787,13 @@ fn invalid_session_or_core_index() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(Default::default()),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 	assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidCoreIndex));
 
 	let result = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
 		validation_code.clone(),
@@ -794,12 +803,13 @@ fn invalid_session_or_core_index() {
 		PvfExecKind::BackingSystemParas(dummy_hash()),
 		&Default::default(),
 		Some(Default::default()),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 	assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidCoreIndex));
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
 		validation_code.clone(),
@@ -809,6 +819,7 @@ fn invalid_session_or_core_index() {
 		PvfExecKind::Approval,
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -824,7 +835,7 @@ fn invalid_session_or_core_index() {
 
 	// Dispute check passes because we don't check core or session index
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
 		validation_code.clone(),
@@ -834,6 +845,7 @@ fn invalid_session_or_core_index() {
 		PvfExecKind::Dispute,
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -853,7 +865,7 @@ fn invalid_session_or_core_index() {
 	let _ = cq.insert(CoreIndex(1), vec![1.into(), 2.into()].into());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
 		validation_code.clone(),
@@ -863,6 +875,7 @@ fn invalid_session_or_core_index() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq.clone())),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -876,7 +889,7 @@ fn invalid_session_or_core_index() {
 	});
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
 		validation_code.clone(),
@@ -886,6 +899,7 @@ fn invalid_session_or_core_index() {
 		PvfExecKind::BackingSystemParas(dummy_hash()),
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -920,7 +934,7 @@ fn invalid_session_or_core_index() {
 		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
 	{
 		let result = executor::block_on(validate_candidate_exhaustive(
-			Some(1),
+			1,
 			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 			validation_data.clone(),
 			validation_code.clone(),
@@ -930,6 +944,7 @@ fn invalid_session_or_core_index() {
 			exec_kind,
 			&Default::default(),
 			Some(Default::default()),
+			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
 		assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidCoreIndex));
@@ -938,7 +953,7 @@ fn invalid_session_or_core_index() {
 	// Validation doesn't fail for approvals and disputes, core/session index is not checked.
 	for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
 		let v = executor::block_on(validate_candidate_exhaustive(
-			Some(1),
+			1,
 			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 			validation_data.clone(),
 			validation_code.clone(),
@@ -948,6 +963,7 @@ fn invalid_session_or_core_index() {
 			exec_kind,
 			&Default::default(),
 			Default::default(),
+			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
 
@@ -992,7 +1008,7 @@ fn candidate_validation_bad_return_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
 			WasmInvalidCandidate::HardTimeout,
 		))),
@@ -1004,6 +1020,7 @@ fn candidate_validation_bad_return_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -1075,7 +1092,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			Ok(validation_result),
@@ -1088,6 +1105,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		PvfExecKind::Approval,
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -1118,7 +1136,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
@@ -1131,6 +1149,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		PvfExecKind::Approval,
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -1238,7 +1257,7 @@ fn candidate_validation_retry_on_error_helper(
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	return executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result_list(mock_errors),
 		validation_data,
 		validation_code,
@@ -1248,6 +1267,7 @@ fn candidate_validation_retry_on_error_helper(
 		exec_kind,
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 }
 
@@ -1281,7 +1301,7 @@ fn candidate_validation_timeout_is_internal_error() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
 			WasmInvalidCandidate::HardTimeout,
 		))),
@@ -1293,6 +1313,7 @@ fn candidate_validation_timeout_is_internal_error() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)));
@@ -1332,7 +1353,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 	};
 
 	let result = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data,
 		validation_code,
@@ -1342,6 +1363,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -1382,7 +1404,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 	let (_ctx, _ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
 			WasmInvalidCandidate::HardTimeout,
 		))),
@@ -1394,6 +1416,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
+		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
 
@@ -1407,9 +1430,10 @@ fn compressed_code_works() {
 	let head_data = HeadData(vec![1, 1, 1]);
 
 	let raw_code = vec![2u8; 16];
-	let validation_code = sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT)
-		.map(ValidationCode)
-		.unwrap();
+	let validation_code =
+		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT as usize)
+			.map(ValidationCode)
+			.unwrap();
 
 	let descriptor = make_valid_candidate_descriptor(
 		ParaId::from(1_u32),
@@ -1444,7 +1468,7 @@ fn compressed_code_works() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		Some(1),
+		1,
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data,
 		validation_code,
@@ -1454,6 +1478,7 @@ fn compressed_code_works() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(Default::default()),
+		VALIDATION_CODE_BOMB_LIMIT,
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));
@@ -1514,6 +1539,7 @@ fn precheck_works() {
 		MockPreCheckBackend::with_hardcoded_result(Ok(())),
 		relay_parent,
 		validation_code_hash,
+		VALIDATION_CODE_BOMB_LIMIT,
 	)
 	.remote_handle();
 
@@ -1571,6 +1597,7 @@ fn precheck_properly_classifies_outcomes() {
 			MockPreCheckBackend::with_hardcoded_result(prepare_result),
 			relay_parent,
 			validation_code_hash,
+			VALIDATION_CODE_BOMB_LIMIT,
 		)
 		.remote_handle();
 
@@ -1821,6 +1848,21 @@ fn maybe_prepare_validation_golden_path() {
 				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
 			}
 		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeBombLimit(session, tx))) => {
+				assert_eq!(session, 1);
+				let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
+			}
+		);
 	};
 
 	let test_fut = future::join(test_fut, check_fut);
@@ -1980,6 +2022,21 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_valida
 				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
 			}
 		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeBombLimit(session, tx))) => {
+				assert_eq!(session, 1);
+				let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
+			}
+		);
 	};
 
 	let test_fut = future::join(test_fut, check_fut);
@@ -2131,21 +2188,30 @@ fn maybe_prepare_validation_prepares_a_limited_number_of_pvfs() {
 			}
 		);
 
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
-				assert_eq!(hash, ValidationCode(vec![0; 16]).hash());
-				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
-			}
-		);
+		for c in 0..2 {
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+					assert_eq!(hash, ValidationCode(vec![c; 16]).hash());
+					let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+				}
+			);
 
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
-				assert_eq!(hash, ValidationCode(vec![1; 16]).hash());
-				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
-			}
-		);
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+					let _ = tx.send(Ok(1));
+				}
+			);
+
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeBombLimit(session, tx))) => {
+					assert_eq!(session, 1);
+					let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
+				}
+			);
+		}
 	};
 
 	let test_fut = future::join(test_fut, check_fut);
@@ -2214,6 +2280,21 @@ fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
 				assert_eq!(hash, ValidationCode(vec![2; 16]).hash());
 				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeBombLimit(session, tx))) => {
+				assert_eq!(session, 1);
+				let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
 			}
 		);
 	};
