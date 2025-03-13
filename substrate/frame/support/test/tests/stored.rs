@@ -1,10 +1,9 @@
 use frame_support::{
 	construct_runtime, derive_impl, pallet_prelude::*, storage_alias, stored, CloneNoBound,
-	DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound, PartialOrdNoBound,
+	EqNoBound, PartialEqNoBound,
 	RuntimeDebugNoBound,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use serde::{Deserialize, Serialize};
 use sp_core::sr25519;
 use sp_runtime::{generic, traits::BlakeTwo256};
 use test_pallet::{Config, Pallet};
@@ -57,112 +56,56 @@ fn main() {
 	#[stored]
 	struct UnitStruct;
 	#[storage_alias]
-	pub type UnitStructStorage<T: Config> = StorageValue<Pallet<T>, UnitStruct, ValueQuery>;
+	pub type UnitStructStorage<T: Config> = StorageValue<Pallet<T>, UnitStruct, OptionQuery>;
 	let _ = <UnitStructStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct UnitStructGC<T: Config> {
-		pub unit: UnitStruct,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Tuple struct one value
 	#[stored]
 	struct TupleOneVal(u32);
 	#[storage_alias]
-	pub type TupleOneValStorage<T: Config> = StorageValue<Pallet<T>, TupleOneVal, ValueQuery>;
+	pub type TupleOneValStorage<T: Config> = StorageValue<Pallet<T>, TupleOneVal, OptionQuery>;
 	let _ =
 		<TupleOneValStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct TupleOneValGC<T: Config> {
-		pub tuple_one_val: TupleOneVal,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Tuple struct multiple values
 	#[stored]
 	struct TupleTwoVals(u32, u64);
 	#[storage_alias]
-	pub type TupleTwoValsStorage<T: Config> = StorageValue<Pallet<T>, TupleTwoVals, ValueQuery>;
+	pub type TupleTwoValsStorage<T: Config> = StorageValue<Pallet<T>, TupleTwoVals, OptionQuery>;
 	let _ =
 		<TupleTwoValsStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct TupleTwoValsGC<T: Config> {
-		pub tuple_two_vals: TupleTwoVals,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Tuple struct with generics
 	#[stored]
 	struct TupleWithGenerics<T, U>(T, U);
 	#[storage_alias]
 	pub type TupleWithGenericsStorage<T: Config> =
-		StorageValue<Pallet<T>, TupleWithGenerics<u32, u64>, ValueQuery>;
+		StorageValue<Pallet<T>, TupleWithGenerics<u32, u64>, OptionQuery>;
 	let _ = <TupleWithGenericsStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct TupleWithGenericsGC<T: Config> {
-		pub tuple_with_generics: TupleWithGenerics<u32, u64>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Tuple struct with generics, bound in first position
 	#[stored(no_bounds(T))]
 	struct TupleWithGenericsFirstBound<T: Config, U>(BlockNumberFor<T>, U);
 	#[storage_alias]
 	pub type TupleWithGenericsFirstBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, TupleWithGenericsFirstBound<T, u64>, ValueQuery>;
+		StorageValue<Pallet<T>, TupleWithGenericsFirstBound<T, u64>, OptionQuery>;
 	let _ = <TupleWithGenericsFirstBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct TupleWithGenericsFirstBoundGC<T: Config> {
-		pub tuple_with_generics_first_bound: TupleWithGenericsFirstBound<T, u64>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Tuple struct with generics, bound in second position
 	#[stored(no_bounds(U))]
 	struct TupleWithGenericsSecondBound<T, U: Config>(T, BlockNumberFor<U>);
 	#[storage_alias]
 	pub type TupleWithGenericsSecondBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, TupleWithGenericsSecondBound<u64, T>, ValueQuery>;
+		StorageValue<Pallet<T>, TupleWithGenericsSecondBound<u64, T>, OptionQuery>;
 	let _ = <TupleWithGenericsSecondBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct TupleWithGenericsSecondBoundGC<T: Config> {
-		pub tuple_with_generics_second_bound: TupleWithGenericsSecondBound<u64, T>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Tuple struct with generics, both bound (double generics: pass T twice)
 	#[stored(no_bounds(T, U))]
 	struct TupleWithGenericsBothBound<T: Config, U: Config>(BlockNumberFor<T>, BlockNumberFor<U>);
 	#[storage_alias]
 	pub type TupleWithGenericsBothBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, TupleWithGenericsBothBound<T, T>, ValueQuery>;
+		StorageValue<Pallet<T>, TupleWithGenericsBothBound<T, T>, OptionQuery>;
 	let _ = <TupleWithGenericsBothBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct TupleWithGenericsBothBoundGC<T: Config> {
-		pub tuple_with_generics_both_bound: TupleWithGenericsBothBound<T, T>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Tuple struct with generics, bound in first position, where clause
 	#[stored(no_bounds(T))]
@@ -171,16 +114,8 @@ fn main() {
 		T: Config;
 	#[storage_alias]
 	pub type TupleWithGenericsFirstBoundWhereStorage<T: Config> =
-		StorageValue<Pallet<T>, TupleWithGenericsFirstBoundWhere<T, u64>, ValueQuery>;
+		StorageValue<Pallet<T>, TupleWithGenericsFirstBoundWhere<T, u64>, OptionQuery>;
 	let _ = <TupleWithGenericsFirstBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct TupleWithGenericsFirstBoundWhereGC<T: Config> {
-		pub tuple_with_generics_first_bound_where: TupleWithGenericsFirstBoundWhere<T, u64>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Tuple struct with generics, bound in second position, where clause
 	#[stored(no_bounds(U))]
@@ -189,16 +124,8 @@ fn main() {
 		U: Config;
 	#[storage_alias]
 	pub type TupleWithGenericsSecondBoundWhereStorage<T: Config> =
-		StorageValue<Pallet<T>, TupleWithGenericsSecondBoundWhere<u64, T>, ValueQuery>;
+		StorageValue<Pallet<T>, TupleWithGenericsSecondBoundWhere<u64, T>, OptionQuery>;
 	let _ = <TupleWithGenericsSecondBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct TupleWithGenericsSecondBoundWhereGC<T: Config> {
-		pub tuple_with_generics_second_bound_where: TupleWithGenericsSecondBoundWhere<u64, T>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Tuple struct with generics, both bound, where clause
 	#[stored(no_bounds(T, U))]
@@ -208,16 +135,8 @@ fn main() {
 		U: Config;
 	#[storage_alias]
 	pub type TupleWithGenericsBothBoundWhereStorage<T: Config> =
-		StorageValue<Pallet<T>, TupleWithGenericsBothBoundWhere<T, T>, ValueQuery>;
+		StorageValue<Pallet<T>, TupleWithGenericsBothBoundWhere<T, T>, OptionQuery>;
 	let _ = <TupleWithGenericsBothBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct TupleWithGenericsBothBoundWhereGC<T: Config> {
-		pub tuple_with_generics_both_bound_where: TupleWithGenericsBothBoundWhere<T, T>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Named struct one value
 	#[stored]
@@ -225,17 +144,9 @@ fn main() {
 		value: u32,
 	}
 	#[storage_alias]
-	pub type NamedOneValStorage<T: Config> = StorageValue<Pallet<T>, NamedOneVal, ValueQuery>;
+	pub type NamedOneValStorage<T: Config> = StorageValue<Pallet<T>, NamedOneVal, OptionQuery>;
 	let _ =
 		<NamedOneValStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct NamedOneValGC<T: Config> {
-		pub named_one_val: NamedOneVal,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Named struct one value, option
 	#[stored]
@@ -244,16 +155,8 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type NamedOneValOptionStorage<T: Config> =
-		StorageValue<Pallet<T>, NamedOneValOption, ValueQuery>;
+		StorageValue<Pallet<T>, NamedOneValOption, OptionQuery>;
 	let _ = <NamedOneValOptionStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct NamedOneValOptionGC<T: Config> {
-		pub named_one_val_option: NamedOneValOption,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Named struct multiple values
 	#[stored]
@@ -262,17 +165,9 @@ fn main() {
 		second: u64,
 	}
 	#[storage_alias]
-	pub type NamedTwoValsStorage<T: Config> = StorageValue<Pallet<T>, NamedTwoVals, ValueQuery>;
+	pub type NamedTwoValsStorage<T: Config> = StorageValue<Pallet<T>, NamedTwoVals, OptionQuery>;
 	let _ =
 		<NamedTwoValsStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct NamedTwoValsGC<T: Config> {
-		pub named_two_vals: NamedTwoVals,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Named struct with generics
 	#[stored]
@@ -282,16 +177,8 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type NamedWithGenericsStorage<T: Config> =
-		StorageValue<Pallet<T>, NamedWithGenerics<u32, u64>, ValueQuery>;
+		StorageValue<Pallet<T>, NamedWithGenerics<u32, u64>, OptionQuery>;
 	let _ = <NamedWithGenericsStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct NamedWithGenericsGC<T: Config> {
-		pub named_with_generics: NamedWithGenerics<u32, u64>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Named struct with generics, bound in first field
 	#[stored(no_bounds(T))]
@@ -301,16 +188,8 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type NamedWithGenericsFirstBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, NamedWithGenericsFirstBound<T, u64>, ValueQuery>;
+		StorageValue<Pallet<T>, NamedWithGenericsFirstBound<T, u64>, OptionQuery>;
 	let _ = <NamedWithGenericsFirstBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct NamedWithGenericsFirstBoundGC<T: Config> {
-		pub named_with_generics_first_bound: NamedWithGenericsFirstBound<T, u64>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Named struct with generics, bound in second field
 	#[stored(no_bounds(U))]
@@ -320,16 +199,8 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type NamedWithGenericsSecondBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, NamedWithGenericsSecondBound<u64, T>, ValueQuery>;
+		StorageValue<Pallet<T>, NamedWithGenericsSecondBound<u64, T>, OptionQuery>;
 	let _ = <NamedWithGenericsSecondBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct NamedWithGenericsSecondBoundGC<T: Config> {
-		pub named_with_generics_second_bound: NamedWithGenericsSecondBound<u64, T>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Named struct with generics, both bound (double generics: T, T)
 	#[stored(no_bounds(T, U))]
@@ -339,16 +210,8 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type NamedWithGenericsBothBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, NamedWithGenericsBothBound<T, T>, ValueQuery>;
+		StorageValue<Pallet<T>, NamedWithGenericsBothBound<T, T>, OptionQuery>;
 	let _ = <NamedWithGenericsBothBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct NamedWithGenericsBothBoundGC<T: Config> {
-		pub named_with_generics_both_bound: NamedWithGenericsBothBound<T, T>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Named struct with generics, bound in first field, where clause
 	#[stored(no_bounds(T))]
@@ -361,16 +224,8 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type NamedWithGenericsFirstBoundWhereStorage<T: Config> =
-		StorageValue<Pallet<T>, NamedWithGenericsFirstBoundWhere<T, u64>, ValueQuery>;
+		StorageValue<Pallet<T>, NamedWithGenericsFirstBoundWhere<T, u64>, OptionQuery>;
 	let _ = <NamedWithGenericsFirstBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct NamedWithGenericsFirstBoundWhereGC<T: Config> {
-		pub named_with_generics_first_bound_where: NamedWithGenericsFirstBoundWhere<T, u64>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Named struct with generics, bound in second field, where clause
 	#[stored(no_bounds(U))]
@@ -383,16 +238,8 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type NamedWithGenericsSecondBoundWhereStorage<T: Config> =
-		StorageValue<Pallet<T>, NamedWithGenericsSecondBoundWhere<u64, T>, ValueQuery>;
+		StorageValue<Pallet<T>, NamedWithGenericsSecondBoundWhere<u64, T>, OptionQuery>;
 	let _ = <NamedWithGenericsSecondBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct NamedWithGenericsSecondBoundWhereGC<T: Config> {
-		pub named_with_generics_second_bound_where: NamedWithGenericsSecondBoundWhere<u64, T>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Named struct with generics, both bound, where clause
 	#[stored(no_bounds(T, U))]
@@ -406,60 +253,33 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type NamedWithGenericsBothBoundWhereStorage<T: Config> =
-		StorageValue<Pallet<T>, NamedWithGenericsBothBoundWhere<T, T>, ValueQuery>;
+		StorageValue<Pallet<T>, NamedWithGenericsBothBoundWhere<T, T>, OptionQuery>;
 	let _ = <NamedWithGenericsBothBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct NamedWithGenericsBothBoundWhereGC<T: Config> {
-		pub named_with_generics_both_bound_where: NamedWithGenericsBothBoundWhere<T, T>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Unit enum
 	#[stored]
 	enum UnitEnum {
-		#[default]
 		A,
 		B,
 	}
 	#[storage_alias]
-	pub type UnitEnumStorage<T: Config> = StorageValue<Pallet<T>, UnitEnum, ValueQuery>;
+	pub type UnitEnumStorage<T: Config> = StorageValue<Pallet<T>, UnitEnum, OptionQuery>;
 	let _ = <UnitEnumStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct UnitEnumGC<T: Config> {
-		pub unit_enum: UnitEnum,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Tuple enum
 	#[stored]
 	enum TupleEnum {
-		#[default]
 		None,
 		A(u32),
 		B(u64, u32),
 	}
 	#[storage_alias]
-	pub type TupleEnumStorage<T: Config> = StorageValue<Pallet<T>, TupleEnum, ValueQuery>;
+	pub type TupleEnumStorage<T: Config> = StorageValue<Pallet<T>, TupleEnum, OptionQuery>;
 	let _ = <TupleEnumStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct TupleEnumGC<T: Config> {
-		pub tuple_enum: TupleEnum,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Struct enum
 	#[stored]
 	enum StructEnum {
-		#[default]
 		None,
 		A {
 			x: u32,
@@ -470,21 +290,12 @@ fn main() {
 		},
 	}
 	#[storage_alias]
-	pub type StructEnumStorage<T: Config> = StorageValue<Pallet<T>, StructEnum, ValueQuery>;
+	pub type StructEnumStorage<T: Config> = StorageValue<Pallet<T>, StructEnum, OptionQuery>;
 	let _ = <StructEnumStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct StructEnumGC<T: Config> {
-		pub struct_enum: StructEnum,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Generic enum
 	#[stored]
 	enum GenericEnum<T, U> {
-		#[default]
 		None,
 		A(T),
 		B {
@@ -494,22 +305,13 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type GenericEnumStorage<T: Config> =
-		StorageValue<Pallet<T>, GenericEnum<u32, u64>, ValueQuery>;
+		StorageValue<Pallet<T>, GenericEnum<u32, u64>, OptionQuery>;
 	let _ =
 		<GenericEnumStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct GenericEnumGC<T: Config> {
-		pub generic_enum: GenericEnum<u32, u64>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Generic enum with no_bounds(T): first generic is exempted.
 	#[stored(no_bounds(T))]
 	enum GenericEnumFirstBound<T: Config, U> {
-		#[default]
 		A(BlockNumberFor<T>),
 		B {
 			value: U,
@@ -517,20 +319,12 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type GenericEnumFirstBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, GenericEnumFirstBound<T, u32>, ValueQuery>;
+		StorageValue<Pallet<T>, GenericEnumFirstBound<T, u32>, OptionQuery>;
 	let _ = <GenericEnumFirstBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct GenericEnumFirstBoundGC<T: Config> {
-		pub generic_enum_first_bound: GenericEnumFirstBound<T, u32>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Generic enum with no_bounds(U): second generic is exempted.
 	#[stored(no_bounds(U))]
 	enum GenericEnumSecondBound<T, U: Config> {
-		#[default]
 		A(T),
 		B {
 			value: BlockNumberFor<U>,
@@ -538,20 +332,12 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type GenericEnumSecondBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, GenericEnumSecondBound<u32, T>, ValueQuery>;
+		StorageValue<Pallet<T>, GenericEnumSecondBound<u32, T>, OptionQuery>;
 	let _ = <GenericEnumSecondBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct GenericEnumSecondBoundGC<T: Config> {
-		pub generic_enum_second_bound: GenericEnumSecondBound<u32, T>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Generic enum with no_bounds(T, U): both generics are exempted.
 	#[stored(no_bounds(T, U))]
 	enum GenericEnumBothBound<T: Config, U: Config> {
-		#[default]
 		A {
 			first: BlockNumberFor<T>,
 			second: BlockNumberFor<U>,
@@ -560,15 +346,8 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type GenericEnumBothBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, GenericEnumBothBound<T, T>, ValueQuery>;
+		StorageValue<Pallet<T>, GenericEnumBothBound<T, T>, OptionQuery>;
 	let _ = <GenericEnumBothBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct GenericEnumBothBoundGC<T: Config> {
-		pub generic_enum_both_bound: GenericEnumBothBound<T, T>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 
 	// Generic enum with a where clause and no_bounds(T)
 	#[stored(no_bounds(T))]
@@ -576,7 +355,6 @@ fn main() {
 	where
 		T: Config,
 	{
-		#[default]
 		A(BlockNumberFor<T>),
 		B {
 			value: U,
@@ -584,13 +362,6 @@ fn main() {
 	}
 	#[storage_alias]
 	pub type GenericEnumFirstBoundWhereStorage<T: Config> =
-		StorageValue<Pallet<T>, GenericEnumFirstBoundWhere<T, u32>, ValueQuery>;
+		StorageValue<Pallet<T>, GenericEnumFirstBoundWhere<T, u32>, OptionQuery>;
 	let _ = <GenericEnumFirstBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
-	#[derive(Serialize, Deserialize)]
-	#[serde(bound(serialize = "", deserialize = ""))]
-	pub struct GenericEnumFirstBoundWhereGC<T: Config> {
-		pub generic_enum_first_bound_where: GenericEnumFirstBoundWhere<T, u32>,
-		#[serde(skip)]
-		_marker: PhantomData<T>,
-	}
 }
