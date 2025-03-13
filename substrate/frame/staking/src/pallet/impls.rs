@@ -108,9 +108,13 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
-		// look at any old unmigrated lock as well.
-		let hold_or_lock = asset::staked::<T>(&stash)
-			.max(T::OldCurrency::balance_locked(STAKING_ID, &stash).into());
+		let hold_or_lock = match asset::staked::<T>(&stash) {
+			x if x.is_zero() => {
+				let locked = T::OldCurrency::balance_locked(STAKING_ID, &stash).into();
+				locked
+			},
+			held => held,
+		};
 
 		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
 			if hold_or_lock == Zero::zero() {
@@ -1352,18 +1356,20 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// if we are here, it means we cannot hold all user stake. We will do a force withdraw
 			// from ledger, but that's okay since anyways user do not have funds for it.
-			let force_withdraw = staked.saturating_sub(max_hold);
 
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash but we can't do much better here.
-			StakingLedger {
-				total: max_hold,
-				active: ledger.active.saturating_sub(force_withdraw),
-				// we are not changing the stash, so we can keep the stash.
-				..ledger
-			}
-			.update()?;
-			force_withdraw
+			let old_total = ledger.total;
+			// update ledger with total stake as max_hold.
+			let updated_ledger = ledger.update_total_stake(max_hold);
+
+			// new total stake in ledger.
+			let new_total = updated_ledger.total;
+			debug_assert_eq!(new_total, max_hold);
+
+			// update ledger in storage.
+			updated_ledger.update()?;
+
+			// return the diff
+			old_total.defensive_saturating_sub(new_total)
 		};
 
 		// Get rid of the extra consumer we used to have with OldCurrency.
@@ -1373,20 +1379,31 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	// These are system accounts and don’t normally hold funds, so migration isn’t strictly
+	// necessary. However, this is a good opportunity to clean up the extra consumer/providers that
+	// were previously used.
 	fn do_migrate_virtual_staker(stash: &T::AccountId) -> DispatchResult {
-		// Funds for virtual stakers not managed/held by this pallet. We only need to clear
-		// the extra consumer we used to have with OldCurrency.
-		frame_system::Pallet::<T>::dec_consumers(&stash);
+		let consumer_count = frame_system::Pallet::<T>::consumers(stash);
+		// fail early if no consumers.
+		ensure!(consumer_count > 0, Error::<T>::AlreadyMigrated);
 
-		// The delegation system that manages the virtual staker needed to increment provider
-		// previously because of the consumer needed by this pallet. In reality, this stash
-		// is just a key for managing the ledger and the account does not need to hold any
-		// balance or exist. We decrement this provider.
+		// provider/consumer ref count has been a mess (inconsistent), and some of these accounts
+		// accumulated upto 2 consumers. But if it's more than 2, we simply fail to not allow
+		// this migration to be called multiple times.
+		ensure!(consumer_count <= 2, Error::<T>::BadState);
+
+		// get rid of the consumers
+		for _ in 0..consumer_count {
+			frame_system::Pallet::<T>::dec_consumers(&stash);
+		}
+
+		// get the current count of providers
 		let actual_providers = frame_system::Pallet::<T>::providers(stash);
 
 		let expected_providers =
-			// provider is expected to be 1 but someone can always transfer some free funds to
-			// these accounts, increasing the provider.
+			// We expect these accounts to have only one provider, and hold no balance. However, if
+			// someone mischievously sends some funds to these accounts, they may have an additional
+			// provider, which we can safely ignore.
 			if asset::free_to_stake::<T>(&stash) >= asset::existential_deposit::<T>() {
 				2
 			} else {
@@ -1399,10 +1416,9 @@ impl<T: Config> Pallet<T> {
 		// if actual provider is less than expected, it is already migrated.
 		ensure!(actual_providers == expected_providers, Error::<T>::AlreadyMigrated);
 
-		// dec provider
 		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
 
-		return Ok(())
+		Ok(())
 	}
 }
 
@@ -2716,7 +2732,7 @@ impl<T: Config> Pallet<T> {
 			.map(|nominator| -> Result<(), TryRuntimeError> {
 				// must be bonded.
 				Self::ensure_is_stash(&nominator)?;
-				let mut sum = BalanceOf::<T>::zero();
+				let mut sum_exposed = BalanceOf::<T>::zero();
 				era_exposures
 					.iter()
 					.map(|e| -> Result<(), TryRuntimeError> {
@@ -2725,7 +2741,7 @@ impl<T: Config> Pallet<T> {
 						let len = individual.len();
 						match len {
 							0 => { /* not supporting this validator at all. */ },
-							1 => sum += individual[0].value,
+							1 => sum_exposed += individual[0].value,
 							_ =>
 								return Err(
 									"nominator cannot back a validator more than once.".into()
@@ -2737,9 +2753,15 @@ impl<T: Config> Pallet<T> {
 
 				// We take total instead of active as the nominator might have requested to unbond
 				// some of their stake that is still exposed in the current era.
-				if sum <= Self::ledger(Stash(nominator.clone()))?.total {
+				if sum_exposed > Self::ledger(Stash(nominator.clone()))?.total {
 					// This can happen when there is a slash in the current era so we only warn.
-					log!(warn, "nominator stake exceeds what is bonded.");
+					log!(
+						warn,
+						"nominator {:?} stake {:?} exceeds the sum_exposed of exposures {:?}.",
+						nominator,
+						Self::ledger(Stash(nominator.clone()))?.total,
+						sum_exposed,
+					);
 				}
 
 				Ok(())

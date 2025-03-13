@@ -2608,38 +2608,6 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Adjusts the staking ledger by withdrawing any excess staked amount.
-		///
-		/// This function corrects cases where a user's recorded stake in the ledger
-		/// exceeds their actual staked funds. This situation can arise due to cases such as
-		/// external slashing by another pallet, leading to an inconsistency between the ledger
-		/// and the actual stake.
-		#[pallet::call_index(32)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
-		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
-
-			let ledger = Self::ledger(Stash(stash.clone()))?;
-			let actual_stake = asset::staked::<T>(&stash);
-			let force_withdraw_amount = ledger.total.defensive_saturating_sub(actual_stake);
-
-			// ensure there is something to force unstake.
-			ensure!(!force_withdraw_amount.is_zero(), Error::<T>::BoundNotMet);
-
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash, but we can't do much better here.
-			StakingLedger {
-				total: actual_stake,
-				active: ledger.active.saturating_sub(force_withdraw_amount),
-				..ledger
-			}
-			.update()?;
-
-			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
-
-			Ok(())
-		}
-
 		/// This function allows governance to manually slash a validator and is a
 		/// **fallback mechanism**.
 		///
