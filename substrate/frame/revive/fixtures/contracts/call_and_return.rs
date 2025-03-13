@@ -18,9 +18,9 @@
 //! This calls another contract as passed as its account id.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, ReturnErrorCode, ReturnFlags};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api, ReturnErrorCode, ReturnFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
