@@ -21,10 +21,10 @@ impl Parse for IdentList {
 /// runtime storage.
 ///
 /// It does the following:
-/// - Parses attribute no_bounds argument to determines type parameters that should not be bounded.
+/// - Parses attribute no_bounds argument to determine type parameters that should not be bounded.
 /// - Adds default trait bounds to any type parameter that should be bounded.
 /// - Generates the necessary derive attributes and other metadata required for storage in a substrate runtime.
-/// - Adjusts those attribute based on whether the item is a struct or an enum.
+/// - Adjusts those attributes based on whether the item is a struct or an enum.
 /// - Utilizes the `NoBound` version of the derives if there's a type parameter that should be unbounded.
 pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     // Initial parsing.
@@ -95,18 +95,17 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         quote! {
             #[derive(
                 #default_i,
+                #ord_i,
+                #partial_ord_i,
                 #partial_eq_i,
                 #eq_i,
                 #clone_i,
-                Copy,
                 Encode,
                 Decode,
                 DecodeWithMemTracking,
                 #debug_i,
                 TypeInfo,
-                MaxEncodedLen,
-                Serialize,
-                Deserialize
+                MaxEncodedLen
             )]
         }
     } else {
@@ -118,22 +117,25 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
                 #partial_eq_i,
                 #eq_i,
                 #clone_i,
-                Copy,
                 Encode,
                 Decode,
                 DecodeWithMemTracking,
                 #debug_i,
                 TypeInfo,
-                MaxEncodedLen,
-                Serialize,
-                Deserialize
+                MaxEncodedLen
             )]
         }
+    };
+
+    // Add cfg_attr for Serialize and Deserialize.
+    let std_derive = quote! {
+        #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     };
 
     // Combination.
     let common_attrs = quote! {
         #common_derive
+        #std_derive
         #skip_list
         #serde_attrs
         #(#attrs)*
@@ -217,7 +219,7 @@ fn add_normal_trait_bounds(
     generics: &mut syn::Generics,
     no_bound_params: &[Ident],
 ) {
-    let normal_bounds: &[&str] = &[
+    let mut normal_bounds: Vec<&str> = vec![
         "Default",
         "Clone",
         "Ord",
@@ -225,16 +227,20 @@ fn add_normal_trait_bounds(
         "PartialEq",
         "Eq",
         "core::fmt::Debug",
-        "Serialize",
-        "for<'a> Deserialize<'a>",
     ];
 
-    // For each param.
+    // Conditionally add Serialize and Deserialize bounds when std is enabled.
+    if cfg!(feature = "std") {
+        normal_bounds.push("Serialize");
+        normal_bounds.push("for<'a> Deserialize<'a>");
+    }
+
+    // For each type parameter.
     for param in &mut generics.params {
         if let syn::GenericParam::Type(type_param) = param {
-            // But not those in no_bound_params.
+            // Skip parameters specified in no_bound_params.
             if !no_bound_params.contains(&type_param.ident) {
-                for bound_name in normal_bounds {
+                for bound_name in &normal_bounds {
                     // Add the bound.
                     let bound: TypeParamBound = syn::parse_str(bound_name)
                         .unwrap_or_else(|_| panic!("Failed to parse bound: {}", bound_name));
