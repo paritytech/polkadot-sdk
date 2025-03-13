@@ -681,9 +681,9 @@ pub mod bridging {
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
-			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+			pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
 				NetworkExportTableItem::new(
-					EthereumNetwork::get().into(),
+					EthereumNetwork::get(),
 					Some(sp_std::vec![Junctions::Here]),
 					SiblingBridgeHub::get(),
 					Some((
@@ -693,7 +693,7 @@ pub mod bridging {
 				),
 			];
 
-			pub BridgeTableV2: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+			pub EthereumBridgeTableV2: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
 					Some(sp_std::vec![Junctions::Here]),
@@ -712,14 +712,6 @@ pub mod bridging {
 					(SiblingBridgeHubWithEthereumInboundQueueV2Instance::get(), GlobalConsensus(EthereumNetwork::get().into())),
 				]
 			);
-
-			pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
-				.chain(BridgeTable::get())
-				.collect();
-
-			pub EthereumBridgeTableV2: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
-				.chain(BridgeTableV2::get())
-				.collect();
 		}
 
 		pub type EthereumNetworkExportTableV2 =

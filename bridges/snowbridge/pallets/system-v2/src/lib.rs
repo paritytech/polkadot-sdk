@@ -134,7 +134,7 @@ pub mod pallet {
 			initializer: Initializer,
 		) -> DispatchResult {
 			let origin_location = T::GovernanceOrigin::ensure_origin(origin)?;
-			let origin = Self::location_to_message_origin(&origin_location)?;
+			let origin = Self::location_to_message_origin(origin_location)?;
 
 			ensure!(
 				!impl_address.eq(&H160::zero()) && !impl_code_hash.eq(&H256::zero()),
@@ -163,7 +163,7 @@ pub mod pallet {
 		#[pallet::weight((<T as pallet::Config>::WeightInfo::set_operating_mode(), DispatchClass::Operational))]
 		pub fn set_operating_mode(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
 			let origin_location = T::GovernanceOrigin::ensure_origin(origin)?;
-			let origin = Self::location_to_message_origin(&origin_location)?;
+			let origin = Self::location_to_message_origin(origin_location)?;
 
 			let command = Command::SetOperatingMode { mode };
 			Self::send(origin, command, 0)?;
@@ -195,8 +195,7 @@ pub mod pallet {
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			let location = Self::reanchor(&asset_location)?;
-
+			let location = Self::reanchor(asset_location)?;
 			let token_id = TokenIdOf::convert_location(&location)
 				.ok_or(Error::<T>::LocationConversionFailed)?;
 
@@ -212,11 +211,11 @@ pub mod pallet {
 				decimals: metadata.decimals,
 			};
 
-			let message_origin = Self::location_to_message_origin(&sender_location)?;
+			let message_origin = Self::location_to_message_origin(sender_location)?;
 			Self::send(message_origin, command, 0)?;
 
 			Self::deposit_event(Event::<T>::RegisterToken {
-				location: location.clone().into(),
+				location: location.into(),
 				foreign_token_id: token_id,
 			});
 
@@ -245,14 +244,13 @@ pub mod pallet {
 		}
 
 		/// Reanchor the `location` in context of ethereum
-		pub fn reanchor(location: &Location) -> Result<Location, Error<T>> {
+		pub fn reanchor(location: Location) -> Result<Location, Error<T>> {
 			location
-				.clone()
 				.reanchored(&T::EthereumLocation::get(), &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationReanchorFailed)
 		}
 
-		pub fn location_to_message_origin(location: &Location) -> Result<H256, Error<T>> {
+		pub fn location_to_message_origin(location: Location) -> Result<H256, Error<T>> {
 			let reanchored_location = Self::reanchor(location)?;
 			LocationHashOf::convert_location(&reanchored_location)
 				.ok_or(Error::<T>::LocationConversionFailed)

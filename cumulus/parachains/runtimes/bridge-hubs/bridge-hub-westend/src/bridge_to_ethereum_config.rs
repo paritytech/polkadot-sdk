@@ -83,11 +83,11 @@ parameter_types! {
 		rewards: Rewards { local: 1 * UNITS, remote: meth(1) },
 		multiplier: FixedU128::from_rational(1, 1),
 	};
-	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(RelayNetwork::get()),Parachain(ASSET_HUB_ID)]);
-	pub AssetHubLocation: Location = Location::new(1,[Parachain(ASSET_HUB_ID)]);
+	pub AssetHubFromEthereum: Location = Location::new(1, [GlobalConsensus(RelayNetwork::get()), Parachain(ASSET_HUB_ID)]);
+	pub AssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
 	pub EthereumUniversalLocation: InteriorLocation = [GlobalConsensus(EthereumNetwork::get())].into();
-	pub InboundQueueLocation: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
-	pub SnowbridgeFrontendLocation: Location = Location::new(1,[Parachain(ASSET_HUB_ID),PalletInstance(FRONTEND_PALLET_INDEX)]);
+	pub InboundQueueV2Location: InteriorLocation = [PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V2)].into();
+	pub SnowbridgeFrontendLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID), PalletInstance(FRONTEND_PALLET_INDEX)]);
 	pub AssetHubXCMFee: u128 = 1_000_000_000_000u128;
 	pub const SnowbridgeReward: BridgeReward = BridgeReward::Snowbridge;
 }
@@ -143,7 +143,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 		CreateAssetCall,
 		CreateAssetDeposit,
 		EthereumNetwork,
-		InboundQueueLocation,
+		InboundQueueV2Location,
 		EthereumSystem,
 		EthereumGatewayAddress,
 		EthereumUniversalLocation,

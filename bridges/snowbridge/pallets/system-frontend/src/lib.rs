@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //!
-//! System frontend pallet that acts as the user-facing controlplane for Snowbridge.
+//! System frontend pallet that acts as the user-facing control-plane for Snowbridge.
 //!
 //! Some operations are delegated to a backend pallet installed on a remote parachain.
 //!
@@ -204,11 +204,10 @@ pub mod pallet {
 
 			let dest = T::BridgeHubLocation::get();
 			let call =
-				Self::build_register_token_call(&origin_location, &asset_location, metadata)?;
+				Self::build_register_token_call(origin_location.clone(), asset_location, metadata)?;
 			let remote_xcm = Self::build_remote_xcm(&call);
-			let message_id =
-				Self::send_xcm(origin_location.clone(), dest.clone(), remote_xcm.clone())
-					.map_err(|error| Error::<T>::from(error))?;
+			let message_id = Self::send_xcm(origin_location, dest.clone(), remote_xcm.clone())
+				.map_err(|error| Error::<T>::from(error))?;
 
 			Self::deposit_event(Event::<T>::MessageSent {
 				origin: T::PalletLocation::get().into(),
@@ -234,13 +233,13 @@ pub mod pallet {
 
 		// Build the call to dispatch the `EthereumSystem::register_token` extrinsic on BH
 		fn build_register_token_call(
-			sender: &Location,
-			asset: &Location,
+			sender: Location,
+			asset: Location,
 			metadata: AssetMetadata,
 		) -> Result<BridgeHubRuntime, Error<T>> {
 			// reanchor locations relative to BH
-			let sender = Self::reanchored(&sender)?;
-			let asset = Self::reanchored(&asset)?;
+			let sender = Self::reanchored(sender)?;
+			let asset = Self::reanchored(asset)?;
 
 			let call = BridgeHubRuntime::EthereumSystem(EthereumSystemCall::RegisterToken {
 				sender: Box::new(VersionedLocation::from(sender)),
@@ -264,9 +263,8 @@ pub mod pallet {
 		}
 
 		/// Reanchors `location` relative to BridgeHub.
-		fn reanchored(location: &Location) -> Result<Location, Error<T>> {
+		fn reanchored(location: Location) -> Result<Location, Error<T>> {
 			location
-				.clone()
 				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationConversionFailed)
 		}

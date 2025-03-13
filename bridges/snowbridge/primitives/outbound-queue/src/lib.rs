@@ -23,7 +23,7 @@ pub enum OperatingMode {
 	/// Normal operations. Allow sending and receiving messages.
 	Normal,
 	/// Reject outbound messages. This allows receiving governance messages but does now allow
-	/// enqueuing of new messages from the Ethereum side. This can be used to close off an
+	/// enqueuing of new messages from the Ethereum side. This can be used to close off a
 	/// deprecated channel or pause the bridge for upgrade operations.
 	RejectingOutboundMessages,
 }

@@ -23,7 +23,7 @@
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use crate::{
-	bridge_to_ethereum_config::{AssetHubLocation, InboundQueueLocation},
+	bridge_to_ethereum_config::{AssetHubLocation, InboundQueueV2Location},
 	xcm_config::XcmConfig,
 	RuntimeCall, XcmRouter,
 };
@@ -122,7 +122,7 @@ impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewa
 							u128,
 							EthereumNetwork,
 							AssetHubLocation,
-							InboundQueueLocation,
+							InboundQueueV2Location,
 							XcmRouter,
 							XcmExecutor<XcmConfig>,
 							RuntimeCall

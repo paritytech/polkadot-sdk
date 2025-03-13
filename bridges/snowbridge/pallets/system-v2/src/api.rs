@@ -11,5 +11,5 @@ where
 	Runtime: Config,
 {
 	let location: Location = location.try_into().ok()?;
-	crate::Pallet::<Runtime>::location_to_message_origin(&location).ok()
+	crate::Pallet::<Runtime>::location_to_message_origin(location).ok()
 }

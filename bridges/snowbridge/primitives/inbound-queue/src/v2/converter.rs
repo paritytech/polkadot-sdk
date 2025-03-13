@@ -101,20 +101,16 @@ where
 	/// Parse the message into an intermediate form, with all fields decoded
 	/// and prepared.
 	fn prepare(message: Message) -> Result<PreparedMessage, ConvertMessageError> {
+		// ETH "asset id" is the Ethereum root location. Same location used for the "bridge owner".
 		let ether_location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-
 		let bridge_owner = Self::bridge_owner()?;
 
-		let maybe_claimer: Option<Location> = match message.claimer {
-			Some(claimer_bytes) => Location::decode(&mut claimer_bytes.as_ref()).ok(),
-			None => None,
-		};
-
-		// Make the Snowbridge sovereign on AH the fallback claimer.
-		let claimer = match maybe_claimer {
-			Some(claimer) => claimer,
-			None => Location::new(0, [AccountId32 { network: None, id: bridge_owner }]),
-		};
+		let claimer = message
+			.claimer
+			// Get the claimer from the message,
+			.and_then(|claimer_bytes| Location::decode(&mut claimer_bytes.as_ref()).ok())
+			// or use the Snowbridge sovereign on AH as the fallback claimer.
+			.unwrap_or_else(|| Location::new(0, [AccountId32 { network: None, id: bridge_owner }]));
 
 		let mut remote_xcm: Xcm<()> = match &message.xcm {
 			XcmPayload::Raw(raw) => Self::decode_raw_xcm(raw),
@@ -155,9 +151,11 @@ where
 				EthereumAsset::ForeignTokenERC20 { token_id, value } => {
 					let asset_loc = ConvertAssetId::convert(&token_id)
 						.ok_or(ConvertMessageError::InvalidAsset)?;
-					let mut reanchored_asset_loc = asset_loc.clone();
-					reanchored_asset_loc
-						.reanchor(&GlobalAssetHubLocation::get(), &EthereumUniversalLocation::get())
+					let reanchored_asset_loc = asset_loc
+						.reanchored(
+							&GlobalAssetHubLocation::get(),
+							&EthereumUniversalLocation::get(),
+						)
 						.map_err(|_| ConvertMessageError::CannotReanchor)?;
 					let asset: Asset = (reanchored_asset_loc, *value).into();
 					assets.push(AssetTransfer::ReserveWithdraw(asset));
@@ -319,13 +317,11 @@ where
 	fn convert(message: Message) -> Result<Xcm<()>, ConvertMessageError> {
 		let message = Self::prepare(message)?;
 
-		log::trace!(target: LOG_TARGET,"prepared message: {:?}", message);
-
-		let network = EthereumNetwork::get();
+		log::trace!(target: LOG_TARGET, "prepared message: {:?}", message);
 
 		let mut instructions = vec![
 			DescendOrigin(InboundQueueLocation::get()),
-			UniversalOrigin(GlobalConsensus(network)),
+			UniversalOrigin(GlobalConsensus(EthereumNetwork::get())),
 			ReserveAssetDeposited(message.execution_fee.clone().into()),
 		];
 
@@ -349,8 +345,12 @@ where
 			};
 		}
 
-		instructions.push(ReserveAssetDeposited(reserve_deposit_assets.into()));
-		instructions.push(WithdrawAsset(reserve_withdraw_assets.into()));
+		if !reserve_deposit_assets.is_empty() {
+			instructions.push(ReserveAssetDeposited(reserve_deposit_assets.into()));
+		}
+		if !reserve_withdraw_assets.is_empty() {
+			instructions.push(WithdrawAsset(reserve_withdraw_assets.into()));
+		}
 
 		// If the message origin is not the gateway proxy contract, set the origin to
 		// the original sender on Ethereum. Important to be before the arbitrary XCM that is

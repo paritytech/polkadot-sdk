@@ -280,13 +280,6 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
-pub struct BaseFilter;
-impl Contains<RuntimeCall> for BaseFilter {
-	fn contains(_: &RuntimeCall) -> bool {
-		return true;
-	}
-}
-
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
@@ -318,7 +311,6 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type BaseCallFilter = BaseFilter;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {

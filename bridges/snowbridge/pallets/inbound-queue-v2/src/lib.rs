@@ -258,7 +258,7 @@ pub mod pallet {
 			// Forward XCM to AH
 			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
 			let message_id =
-				Self::send_xcm(dest.clone(), relayer.clone(), xcm.clone()).map_err(|error| {
+				Self::send_xcm(dest.clone(), &relayer, xcm.clone()).map_err(|error| {
 					tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
 					Error::<T>::from(error)
 				})?;
@@ -276,11 +276,11 @@ pub mod pallet {
 
 		fn send_xcm(
 			dest: Location,
-			fee_payer: T::AccountId,
+			fee_payer: &T::AccountId,
 			xcm: Xcm<()>,
 		) -> Result<XcmHash, SendError> {
 			let (ticket, fee) = validate_send::<T::XcmSender>(dest, xcm)?;
-			let fee_payer = T::AccountToLocation::try_convert(&fee_payer).map_err(|err| {
+			let fee_payer = T::AccountToLocation::try_convert(fee_payer).map_err(|err| {
 				tracing::error!(
 					target: LOG_TARGET,
 					?err,

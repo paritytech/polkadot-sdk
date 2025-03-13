@@ -72,7 +72,7 @@ parameter_types! {
 			],
 	);
 	pub storage DeliveryFee: Asset = (Location::parent(), 80_000_000_000u128).into();
-	pub BridgeHubLocation: Location = Location::new(1,[Parachain(westend_runtime_constants::system_parachain::BRIDGE_HUB_ID)]);
+	pub BridgeHubLocation: Location = Location::new(1, [Parachain(westend_runtime_constants::system_parachain::BRIDGE_HUB_ID)]);
 	pub SystemFrontendPalletLocation: InteriorLocation = [PalletInstance(80)].into();
 	pub const RootLocation: Location = Location::here();
 }
@@ -127,8 +127,7 @@ where
 		if !IsForeign::contains(asset_location, &origin_location) {
 			return Err(origin)
 		}
-		let latest_location: Location =
-			origin_location.clone().try_into().map_err(|_| origin.clone())?;
+		let latest_location: Location = origin_location.clone().try_into().map_err(|_| origin)?;
 		Ok(latest_location)
 	}
 
