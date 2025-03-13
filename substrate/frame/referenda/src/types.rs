@@ -158,13 +158,21 @@ impl<const N: usize> Decode for StringLike<N> {
 	}
 }
 
+/// Detailed information about the configuration of a referenda track. Used for internal storage.
+pub type TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> =
+	TrackDetails<Balance, Moment, [u8; N]>;
+
+/// Detailed information about the configuration of a referenda track. Used for const querying.
+pub type ConstTrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> =
+	TrackDetails<Balance, Moment, StringLike<N>>;
+
 /// Detailed information about the configuration of a referenda track
 #[derive(
 	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
 )]
-pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
+pub struct TrackDetails<Balance, Moment, Name> {
 	/// Name of this track.
-	pub name: StringLike<N>,
+	pub name: Name,
 	/// A limit for the number of referenda on this track that can be being decided at once.
 	/// For Root origin this should generally be just one.
 	pub max_deciding: u32,
