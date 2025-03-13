@@ -32,13 +32,12 @@ use pallet_revive_uapi::ReturnFlags;
 /// 5) exponent, size as described above
 /// 6) modulus, size as described above
 ///
+/// # Note
 ///
-/// NOTE: input sizes are bound to 1024 bytes, with the expectation
-///       that gas limits would be applied before actual computation.
-///
-///       maximum stack size will also prevent abuse.
-///
-///       see: https://eips.ethereum.org/EIPS/eip-198
+/// input sizes are bound to 1024 bytes, with the expectation
+/// that gas limits would be applied before actual computation.
+/// maximum stack size will also prevent abuse.
+/// see <https://eips.ethereum.org/EIPS/eip-198>
 pub struct Modexp;
 
 /// See EIP-2565
