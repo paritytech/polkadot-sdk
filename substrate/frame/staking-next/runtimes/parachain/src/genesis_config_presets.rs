@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Asset Hub Next Westend Runtime genesis config presets
+//! # Staking Next Runtime genesis config presets
 
 use crate::*;
 use alloc::{vec, vec::Vec};
@@ -28,9 +28,9 @@ use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
 
-const ASSET_HUB_NEXT_WESTEND_ED: Balance = ExistentialDeposit::get();
+const STAKING_NEXT_PARA_ED: Balance = ExistentialDeposit::get();
 
-fn asset_hub_next_westend_genesis(
+fn staking_next_parachain_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
@@ -45,7 +45,7 @@ fn asset_hub_next_westend_genesis(
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: ASSET_HUB_NEXT_WESTEND_ED * 16,
+			candidacy_bond: STAKING_NEXT_PARA_ED * 16,
 		},
 		session: SessionConfig {
 			keys: invulnerables
@@ -83,7 +83,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
 	let dev_stakers = Some((1_000, 25_000));
 	let patch = match id.as_ref() {
-		PRESET_GENESIS => asset_hub_next_westend_genesis(
+		PRESET_GENESIS => staking_next_parachain_genesis(
 			// initial collators.
 			vec![
 				(
@@ -98,13 +98,13 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				),
 			],
 			Vec::new(),
-			ASSET_HUB_NEXT_WESTEND_ED * 4096,
+			STAKING_NEXT_PARA_ED * 4096,
 			dev_stakers,
 			// Ask Dónal for access, or overwrite from Relay via XCM.
 			hex!("b662f28c3beb0d03e6f4cc9a5d6eb158c609d4ac909a746a2a8dc6b40634be65").into(),
 			1100.into(),
 		),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => asset_hub_next_westend_genesis(
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => staking_next_parachain_genesis(
 			// initial collators.
 			vec![
 				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
@@ -116,7 +116,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			Sr25519Keyring::Alice.to_account_id(),
 			1100.into(),
 		),
-		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_next_westend_genesis(
+		sp_genesis_builder::DEV_RUNTIME_PRESET => staking_next_parachain_genesis(
 			// initial collators.
 			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
 			vec![

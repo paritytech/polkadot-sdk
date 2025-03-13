@@ -388,6 +388,7 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
+	type XcmEventEmitter = PolkadotXcm;
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
 	type AssetTransactor = AssetTransactors;

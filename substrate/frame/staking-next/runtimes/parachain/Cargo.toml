@@ -1,9 +1,9 @@
 [package]
-name = "asset-hub-next-westend-runtime"
+name = "pallet-staking-next-parachain-runtime"
 version = "0.15.0"
 authors.workspace = true
 edition.workspace = true
-description = "Westend variant of Asset Hub parachain runtime"
+description = "A parachain runtime for staking-next"
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
@@ -56,9 +56,9 @@ pallet-referenda = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
-pallet-staking = { workspace = true }
-pallet-staking-rc-client = { workspace = true }
-pallet-staking-runtime-api = { workspace = true }
+pallet-staking-next = { workspace = true }
+pallet-staking-next-rc-client = { workspace = true }
+pallet-staking-next-runtime-api = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -173,8 +173,8 @@ runtime-benchmarks = [
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-staking-rc-client/runtime-benchmarks",
+	"pallet-staking-next/runtime-benchmarks",
+	"pallet-staking-next-rc-client/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -237,8 +237,8 @@ try-runtime = [
 	"pallet-revive/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-staking/try-runtime",
-	"pallet-staking-rc-client/try-runtime",
+	"pallet-staking-next/try-runtime",
+	"pallet-staking-next-rc-client/try-runtime",
 	"pallet-state-trie-migration/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
@@ -310,9 +310,9 @@ std = [
 	"pallet-revive/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
-	"pallet-staking-runtime-api/std",
-	"pallet-staking/std",
-	"pallet-staking-rc-client/std",
+	"pallet-staking-next-runtime-api/std",
+	"pallet-staking-next/std",
+	"pallet-staking-next-rc-client/std",
 	"pallet-state-trie-migration/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",

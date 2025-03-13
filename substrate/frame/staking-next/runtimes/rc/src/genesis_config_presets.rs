@@ -32,7 +32,7 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use westend_runtime_constants::currency::UNITS as WND;
+use pallet_staking_next_rc_runtime_constants::currency::UNITS as WND;
 
 /// Helper function to generate stash, controller and session key from seed
 fn get_authority_keys_from_seed(

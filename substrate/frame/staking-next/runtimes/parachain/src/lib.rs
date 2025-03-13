@@ -13,9 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Asset Hub Next Westend Runtime
-//!
-//! Testnet for Asset Hub Polkadot.
+//! # Staking Next Parachain Runtime
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
@@ -32,7 +30,6 @@ pub mod xcm_config;
 mod bag_thresholds;
 pub mod governance;
 mod staking;
-use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
 
 extern crate alloc;
 
@@ -64,6 +61,7 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
+use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::PalletFeatures;
 use pallet_nomination_pools::PoolId;
@@ -1219,12 +1217,12 @@ construct_runtime!(
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
 		// Staking.
-		Staking: pallet_staking = 80,
+		Staking: pallet_staking_next = 80,
 		NominationPools: pallet_nomination_pools = 81,
 		FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
-		StakingRcClient: pallet_staking_rc_client = 89,
+		StakingRcClient: pallet_staking_next_rc_client = 89,
 
 		// Election apparatus.
 		MultiBlock: pallet_election_provider_multi_block = 85,
@@ -1852,7 +1850,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
+	impl pallet_staking_next_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
 		fn nominations_quota(balance: Balance) -> u32 {
 			Staking::api_nominations_quota(balance)
 		}

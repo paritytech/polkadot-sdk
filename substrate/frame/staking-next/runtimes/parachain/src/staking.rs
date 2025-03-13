@@ -26,15 +26,15 @@ use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{
 	self as multi_block, weights::measured, SolutionAccuracyOf,
 };
-use pallet_staking::UseValidatorsMap;
+use pallet_staking_next::UseValidatorsMap;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
 
 parameter_types! {
-	pub SignedPhase: u32 = 2 * MINUTES;
-	pub UnsignedPhase: u32 = 0;
+	pub SignedPhase: u32 = 1 * MINUTES;
+	pub UnsignedPhase: u32 = 1 * MINUTES;
 	pub const SignedValidationPhase: u32 = Pages::get() + 1;
 
 	/// Compatible with Polkadot, we allow up to 22_500 nominators to be considered for election
@@ -98,6 +98,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 }
 
 impl multi_block::Config for Runtime {
+	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 	type RuntimeEvent = RuntimeEvent;
 	type Pages = Pages;
 	type UnsignedPhase = UnsignedPhase;
@@ -156,6 +157,7 @@ parameter_types! {
 }
 
 impl multi_block::unsigned::Config for Runtime {
+	type MinerPages = ConstU32<2>;
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
@@ -202,7 +204,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 }
 
 pub struct EraPayout;
-impl pallet_staking::EraPayout<Balance> for EraPayout {
+impl pallet_staking_next::EraPayout<Balance> for EraPayout {
 	fn era_payout(
 		_total_staked: Balance,
 		_total_issuance: Balance,
@@ -241,7 +243,7 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
 
-impl pallet_staking::Config for Runtime {
+impl pallet_staking_next::Config for Runtime {
 	type Filter = ();
 	type OldCurrency = Balances;
 	type Currency = Balances;
@@ -264,20 +266,20 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = VoterList;
 	type TargetList = UseValidatorsMap<Self>;
 	type MaxValidatorSet = MaxValidatorSet;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<{ MaxNominations::get() }>;
+	type NominationsQuota = pallet_staking_next::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
-	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
+	type BenchmarkingConfig = pallet_staking_next::TestBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_staking_next::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
 	type ElectionOffset = ConstU32<2>;
 	type RcClientInterface = StakingRcClient;
 }
 
-impl pallet_staking_rc_client::Config for Runtime {
+impl pallet_staking_next_rc_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
@@ -297,7 +299,7 @@ pub enum AhClientCalls {
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>)
 }
 
-use pallet_staking_rc_client as rc_client;
+use pallet_staking_next_rc_client as rc_client;
 use xcm::latest::{SendXcm, prelude::*};
 
 pub struct XcmToRelayChain<T: SendXcm>(PhantomData<T>);
@@ -359,7 +361,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PostUnbondingPoolsWindow = ConstU32<4>;
 	type MaxMetadataLen = ConstU32<256>;
 	// we use the same number of allowed unlocking chunks as with staking.
-	type MaxUnbonding = <Self as pallet_staking::Config>::MaxUnlockingChunks;
+	type MaxUnbonding = <Self as pallet_staking_next::Config>::MaxUnlockingChunks;
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
@@ -467,9 +469,4 @@ where
 	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
-}
-
-impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
 }

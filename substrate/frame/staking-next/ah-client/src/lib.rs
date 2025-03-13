@@ -54,6 +54,10 @@
 
 pub use pallet::*;
 
+/// Re-export the `FullIdentification` type from pallet-staking that should be used as in a rc
+/// runtime.
+pub use pallet_staking_next::NullIdentity;
+
 extern crate alloc;
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
@@ -416,14 +420,9 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config>
-		OnOffenceHandler<T::AccountId, (T::AccountId, pallet_staking_next::NullIdentity), Weight> for Pallet<T>
-	{
+	impl<T: Config> OnOffenceHandler<T::AccountId, (T::AccountId, ()), Weight> for Pallet<T> {
 		fn on_offence(
-			offenders: &[OffenceDetails<
-				T::AccountId,
-				(T::AccountId, pallet_staking_next::NullIdentity),
-			>],
+			offenders: &[OffenceDetails<T::AccountId, (T::AccountId, ())>],
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {

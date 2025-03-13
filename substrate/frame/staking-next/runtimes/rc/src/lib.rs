@@ -50,8 +50,8 @@ pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDeposit
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_session::historical as session_historical;
-use pallet_staking_ah_client::{self as ah_client};
-use pallet_staking_rc_client::{self as rc_client};
+use pallet_staking_next_ah_client::{self as ah_client};
+use pallet_staking_next_rc_client::{self as rc_client};
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
 use polkadot_primitives::{
@@ -125,7 +125,7 @@ use xcm_runtime_apis::{
 };
 
 /// Constant values used within the runtime.
-use westend_runtime_constants::{
+use pallet_staking_next_rc_runtime_constants::{
 	currency::*,
 	fee::*,
 	system_parachain::{coretime::TIMESLICE_PERIOD, ASSET_HUB_ID, BROKER_ID},
@@ -150,7 +150,7 @@ use governance::{
 #[cfg(test)]
 mod tests;
 
-impl_runtime_weights!(westend_runtime_constants);
+impl_runtime_weights!(pallet_staking_next_rc_runtime_constants);
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -342,7 +342,7 @@ impl pallet_preimage::Config for Runtime {
 parameter_types! {
 	pub const EpochDuration: u64 = prod_or_fast!(
 		EPOCH_DURATION_IN_SLOTS as u64,
-		2 * MINUTES as u64
+		1 * MINUTES as u64
 	);
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 	pub const ReportLongevity: u64 = 256 * EpochDuration::get();
@@ -567,17 +567,10 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
-// Dummy implementation which returns `Some(())`
-pub struct FullIdentificationOf;
-impl sp_runtime::traits::Convert<AccountId, Option<()>> for FullIdentificationOf {
-	fn convert(_: AccountId) -> Option<()> {
-		Some(Default::default())
-	}
-}
-
 impl session_historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = FullIdentificationOf;
+	type FullIdentificationOf = ah_client::NullIdentity;
 }
 
 pub struct AssetHubLocation;
@@ -670,12 +663,14 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	}
 }
 
-impl pallet_staking_ah_client::Config for Runtime {
+impl pallet_staking_next_ah_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetHubOrigin = frame_support::traits::EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		EnsureAssetHub,
 	>;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type SessionInterface = Self;
 	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter, AssetHubId>;
 	type MinimumValidatorSetSize = ConstU32<333>;
 	type UnixTime = Timestamp;
@@ -1314,7 +1309,7 @@ impl assigned_slots::Config for Runtime {
 impl parachains_disputes::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, RewardsHandler>;
+		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
 	type SlashingHandler = parachains_slashing::SlashValidatorsForDisputes<ParasSlashing>;
 	type WeightInfo = weights::polkadot_runtime_parachains_disputes::WeightInfo<Runtime>;
 }
@@ -1614,7 +1609,7 @@ mod runtime {
 	pub type Coretime = coretime;
 
 	#[runtime::pallet_index(67)]
-	pub type AssetHubStakingClient = pallet_staking_ah_client;
+	pub type AssetHubStakingClient = pallet_staking_next_ah_client;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
@@ -2438,7 +2433,7 @@ sp_api::impl_runtime_apis! {
 					TokenLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-				pub AssetHubParaId: ParaId = westend_runtime_constants::system_parachain::ASSET_HUB_ID.into();
+				pub AssetHubParaId: ParaId = pallet_staking_next_rc_runtime_constants::system_parachain::ASSET_HUB_ID.into();
 				pub const RandomParaId: ParaId = ParaId::new(43211234);
 			}
 

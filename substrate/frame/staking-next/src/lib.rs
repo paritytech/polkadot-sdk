@@ -1370,10 +1370,8 @@ pub trait BenchmarkingConfig {
 /// A mock benchmarking config for pallet-staking-next.
 ///
 /// Should only be used for testing.
-#[cfg(feature = "std")]
 pub struct TestBenchmarkingConfig;
 
-#[cfg(feature = "std")]
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;

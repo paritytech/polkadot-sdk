@@ -1,6 +1,6 @@
 [relaychain]
 default_command = "polkadot"
-chain_spec_path = "./westend_next.json"
+chain_spec_path = "./rc.json"
 
 [[relaychain.nodes]]
 name = "alice"
@@ -11,11 +11,11 @@ rpc_port = 9944
 name = "bob"
 validator = true
 rpc_port = 9955
-args = [ "-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace,xcm=trace"]
+args = [ "-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace"]
 
 [[parachains]]
 id = 1100
-chain_spec_path = "./asset_hub_westend_next.json"
+chain_spec_path = "./parachain.json"
 
 [parachains.collator]
 name = "charlie"

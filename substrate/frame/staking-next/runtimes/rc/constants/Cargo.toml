@@ -1,7 +1,7 @@
 [package]
-name = "westend-next-runtime-constants"
+name = "pallet-staking-next-rc-runtime-constants"
 version = "7.0.0"
-description = "Constants used throughout the Westend Next network."
+description = "Constants used throughout the Staking Next RC network."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true

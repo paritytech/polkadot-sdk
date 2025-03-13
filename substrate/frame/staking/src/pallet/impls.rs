@@ -2000,8 +2000,8 @@ where
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
 
-	fn score(who: &T::AccountId) -> Self::Score {
-		Self::weight_of(who)
+	fn score(who: &T::AccountId) -> Option<Self::Score> {
+		todo!("should be fixed by tsv's PR")
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2050,6 +2050,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 			Err(())
 		}
 	}
+	fn lock() {}
+	fn unlock() {}
 	fn count() -> u32 {
 		Validators::<T>::count()
 	}
@@ -2073,9 +2075,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	}
 	fn unsafe_regenerate(
 		_: impl IntoIterator<Item = T::AccountId>,
-		_: Box<dyn Fn(&T::AccountId) -> Self::Score>,
+		_: Box<dyn Fn(&T::AccountId) -> Option<Self::Score>>,
 	) -> u32 {
-		// nothing to do upon regenerate.
 		0
 	}
 	#[cfg(feature = "try-runtime")]
@@ -2129,6 +2130,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 	fn count() -> u32 {
 		Nominators::<T>::count().saturating_add(Validators::<T>::count())
 	}
+	fn lock() {}
+	fn unlock() {}
 	fn contains(id: &T::AccountId) -> bool {
 		Nominators::<T>::contains_key(id) || Validators::<T>::contains_key(id)
 	}
@@ -2149,12 +2152,10 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 	}
 	fn unsafe_regenerate(
 		_: impl IntoIterator<Item = T::AccountId>,
-		_: Box<dyn Fn(&T::AccountId) -> Self::Score>,
+		_: Box<dyn Fn(&T::AccountId) -> Option<Self::Score>>,
 	) -> u32 {
-		// nothing to do upon regenerate.
 		0
 	}
-
 	#[cfg(feature = "try-runtime")]
 	fn try_state() -> Result<(), TryRuntimeError> {
 		Ok(())
@@ -2200,6 +2201,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	fn current_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(Zero::zero())
+	}
+
+	fn election_ongoing() -> bool {
+		todo!("should be fixed by tsv's branch upstream")
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<BalanceOf<T>>, DispatchError> {

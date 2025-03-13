@@ -101,7 +101,7 @@ fn check_whitelist() {
 fn check_treasury_pallet_id() {
 	assert_eq!(
 		<Treasury as frame_support::traits::PalletInfoAccess>::index() as u8,
-		westend_runtime_constants::TREASURY_PALLET_ID
+		pallet_staking_next_rc_runtime_constants::TREASURY_PALLET_ID
 	);
 }
 
