@@ -53,7 +53,7 @@ impl RuntimePublic for Public {
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
 		let sig = AppSignature::from(signature.clone());
 		let pub_key = AppPublic::from(self.clone());
-		AppPair::verify(&sig, msg.as_ref(), &pub_key)
+		<AppPublic as CryptoType>::Pair::verify(&sig, msg.as_ref(), &pub_key)
 	}
 
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {

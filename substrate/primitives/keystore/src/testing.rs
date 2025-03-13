@@ -330,13 +330,12 @@ impl Keystore for MemoryKeystore {
 		key_type: KeyTypeId,
 		seed: Option<&str>,
 	) -> Result<ecdsa_bls381::Public, Error> {
-		let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed.clone())?;
+		let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)?;
 
 		let s: String = self.keys
 			.read()
 			.get(&key_type)
-			.map(|inner| inner.get(pubkey.as_slice()).map(|s| s.to_string()))
-			.flatten()
+			.and_then(|inner| inner.get(pubkey.as_slice()).map(|s| s.to_string()))
 			.expect("Can Retrieve Seed");
 
 // This is done to give the keystore access to individual keys, this is necessary to avoid unnecessary host functions for paired keys and re-use host functions implemented for each element of the pair.
