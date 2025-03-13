@@ -12,6 +12,7 @@ repository.workspace = true
 chrono = { workspace = true }
 codec = { workspace = true, features = ["max-encoded-len"] }
 cumulus-primitives-core = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -23,7 +24,6 @@ pallet-ah-ops = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-bounties = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-indices = { workspace = true }
@@ -58,6 +58,7 @@ std = [
 	"chrono/std",
 	"codec/std",
 	"cumulus-primitives-core/std",
+	"cumulus-pallet-parachain-system/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -67,7 +68,6 @@ std = [
 	"pallet-asset-rate/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
-	"pallet-bounties/std",
 	"pallet-conviction-voting/std",
 	"pallet-fast-unstake/std",
 	"pallet-indices/std",
@@ -99,6 +99,7 @@ std = [
 ]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
@@ -106,7 +107,6 @@ runtime-benchmarks = [
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-bounties/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
@@ -132,11 +132,11 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"cumulus-pallet-parachain-system/try-runtime",
 	"pallet-ah-ops/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-bounties/try-runtime",
 	"pallet-conviction-voting/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-indices/try-runtime",

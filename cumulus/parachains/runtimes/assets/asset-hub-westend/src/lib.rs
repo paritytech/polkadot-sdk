@@ -33,6 +33,7 @@ mod bag_thresholds;
 pub mod governance;
 mod staking;
 use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
+pub mod ah_migration;
 
 extern crate alloc;
 
@@ -155,8 +156,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
-
-type RelayChainBlockNumberProvider = RelaychainDataProvider<Runtime>;
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -493,7 +492,7 @@ parameter_types! {
 
 impl pallet_vesting::Config for Runtime {
 	const MAX_VESTING_SCHEDULES: u32 = 100;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type BlockNumberToBalance = ConvertInto;
 	type Currency = Balances;
 	type MinVestedTransfer = MinVestedTransfer;
@@ -614,7 +613,7 @@ impl pallet_multisig::Config for Runtime {
 	type MaxSignatories = MaxSignatories;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 	// TODO add migration.
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -666,6 +665,21 @@ pub enum ProxyType {
 	AssetManager,
 	/// Collator selection proxy. Can execute calls related to collator selection mechanism.
 	Collator,
+	// New variants introduced by the Asset Hub Migration from the Relay Chain.
+	/// Allow to do governance.
+	///
+	/// Contains pallets `Treasury`, `Bounties`, `Utility`, `ChildBounties`, `ConvictionVoting`,
+	/// `Referenda` and `Whitelist`.
+	Governance,
+	/// Allows access to staking related calls.
+	///
+	/// Contains the `Staking`, `Session`, `Utility`, `FastUnstake`, `VoterList`, `NominationPools`
+	/// pallets.
+	Staking,
+	/// Allows access to nomination pools related calls.
+	///
+	/// Contains the `NominationPools` and `Utility` pallets.
+	NominationPools,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
@@ -683,7 +697,15 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::Assets { .. } |
 					RuntimeCall::NftFractionalization { .. } |
 					RuntimeCall::Nfts { .. } |
-					RuntimeCall::Uniques { .. }
+					RuntimeCall::Uniques { .. } |
+					RuntimeCall::Scheduler(..) |
+					RuntimeCall::Treasury(..) |
+					// We allow calling `vest` and merging vesting schedules, but obviously not
+					// vested transfers.
+					RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. }) |
+					RuntimeCall::ConvictionVoting(..) |
+					RuntimeCall::Referenda(..) |
+					RuntimeCall::Whitelist(..)
 			),
 			ProxyType::CancelProxy => matches!(
 				c,
@@ -771,6 +793,29 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
+			// New variants introduced by the Asset Hub Migration from the Relay Chain.
+			ProxyType::Governance => matches!(
+				c,
+				RuntimeCall::Treasury(..) |
+					RuntimeCall::Utility(..) |
+					RuntimeCall::ConvictionVoting(..) |
+					RuntimeCall::Referenda(..) |
+					RuntimeCall::Whitelist(..)
+			),
+			ProxyType::Staking => {
+				matches!(
+					c,
+					RuntimeCall::Staking(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
+						RuntimeCall::NominationPools(..)
+						RuntimeCall::FastUnstake(..) |
+						RuntimeCall::VoterList(..)
+				)
+			},
+			ProxyType::NominationPools => {
+				matches!(c, RuntimeCall::NominationPools(..) | RuntimeCall::Utility(..))
+			},
 		}
 	}
 
@@ -781,7 +826,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			(_, ProxyType::Any) => false,
 			(ProxyType::Assets, ProxyType::AssetOwner) => true,
 			(ProxyType::Assets, ProxyType::AssetManager) => true,
-			(ProxyType::NonTransfer, ProxyType::Collator) => true,
+			(
+				ProxyType::NonTransfer,
+				ProxyType::Collator |
+				ProxyType::Governance |
+				ProxyType::Staking |
+				ProxyType::NominationPools,
+			) => true,
 			_ => false,
 		}
 	}
@@ -801,7 +852,7 @@ impl pallet_proxy::Config for Runtime {
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
 	// TODO add migration.
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 parameter_types! {
@@ -1173,7 +1224,7 @@ impl pallet_scheduler::Config for Runtime {
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type Preimages = Preimage;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 parameter_types! {
@@ -1195,6 +1246,22 @@ impl pallet_preimage::Config for Runtime {
 	>;
 }
 
+parameter_types! {
+	/// Deposit for an index in the indices pallet.
+	///
+	/// 32 bytes for the account ID and 16 for the deposit. We cannot use `max_encoded_len` since it
+	/// is not const.
+	pub const IndexDeposit: Balance = system_para_deposit(1, 32 + 16);
+}
+
+impl pallet_indices::Config for Runtime {
+	type AccountIndex = AccountIndex;
+	type Currency = Balances;
+	type Deposit = IndexDeposit;
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_indices::WeightInfo<Runtime>;
+}
+
 impl pallet_ah_ops::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -1209,17 +1276,17 @@ impl pallet_ah_migrator::Config for Runtime {
 	>;
 	type Currency = Balances;
 	type CheckingAccount = xcm_config::CheckingAccount;
-	type RcHoldReason = migration::RcHoldReason;
-	type RcFreezeReason = migration::RcFreezeReason;
+	type RcHoldReason = ah_migration::RcHoldReason;
+	type RcFreezeReason = ah_migration::RcFreezeReason;
 	type RcToAhHoldReason = RcToAhHoldReason;
 	type RcToAhFreezeReason = RcToAhFreezeReason;
-	type RcProxyType = migration::RcProxyType;
-	type RcToProxyType = migration::RcToProxyType;
-	type RcToAhDelay = migration::RcToAhDelay;
+	type RcProxyType = ah_migration::RcProxyType;
+	type RcToProxyType = ah_migration::RcToProxyType;
+	type RcToAhDelay = ah_migration::RcToAhDelay;
 	type RcBlockNumberProvider = RelaychainDataProvider<Runtime>;
-	type RcToAhCall = migration::RcToAhCall;
-	type RcPalletsOrigin = migration::RcPalletsOrigin;
-	type RcToAhPalletsOrigin = migration::RcToAhPalletsOrigin;
+	type RcToAhCall = ah_migration::RcToAhCall;
+	type RcPalletsOrigin = ah_migration::RcPalletsOrigin;
+	type RcToAhPalletsOrigin = ah_migration::RcToAhPalletsOrigin;
 	type Preimage = Preimage;
 	type SendXcm = xcm_config::XcmRouter;
 	type AhWeightInfo = (); // TODO: weights::pallet_ah_migrator::WeightInfo;

@@ -32,21 +32,17 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_proxy::ProxyDefinition;
-use pallet_rc_migrator::{
-	claims::{alias::EthereumAddress, RcClaimsMessage},
-	proxy::{RcProxy, RcProxyAnnouncement},
-};
+use pallet_rc_migrator::proxy::{RcProxy, RcProxyAnnouncement};
 
 /// The minimum amount used for deposits, transfers, etc.
 ///
 /// Equivalent to Polkadot `UNITS`, which is larger than Kusama `UNITS`.
 pub const UNITS: u128 = 10_000_000_000;
 
-pub trait ParametersFactory<RcMultisig, RcAccount, RcClaimsMessage, RcProxy, RcProxyAnnouncement> {
+pub trait ParametersFactory<RcMultisig, RcAccount, RcProxy, RcProxyAnnouncement> {
 	fn create_multisig(n: u8) -> RcMultisig;
 	fn create_account(n: u8) -> RcAccount;
 	fn create_liquid_account(n: u8) -> RcAccount;
-	fn create_vesting_msg(n: u8) -> RcClaimsMessage;
 	fn create_proxy(n: u8) -> RcProxy;
 	fn create_proxy_announcement(n: u8) -> RcProxyAnnouncement;
 }
@@ -56,7 +52,6 @@ impl<T: Config>
 	ParametersFactory<
 		RcMultisig<AccountId32, u128>,
 		RcAccount<AccountId32, u128, T::RcHoldReason, T::RcFreezeReason>,
-		RcClaimsMessage<AccountId32, u128, u32>,
 		RcProxy<AccountId32, u128, T::RcProxyType, u32>,
 		RcProxyAnnouncement<AccountId32, u128>,
 	> for BenchmarkFactory<T>
@@ -139,10 +134,6 @@ where
 			consumers: 1,
 			providers: 1,
 		}
-	}
-
-	fn create_vesting_msg(n: u8) -> RcClaimsMessage<AccountId32, u128, u32> {
-		RcClaimsMessage::Vesting { who: EthereumAddress([n; 20]), schedule: (100, 200, 300) }
 	}
 
 	fn create_proxy(n: u8) -> RcProxy<AccountId32, u128, T::RcProxyType, u32> {
@@ -246,17 +237,18 @@ mod benchmarks {
 		assert_last_event::<T>(Event::AccountBatchProcessed { count_good: n, count_bad: 0 }.into());
 	}
 
-	#[benchmark]
-	fn receive_claims(n: Linear<1, 255>) {
-		let messages = (0..n)
-			.map(|i| <<T as Config>::BenchmarkHelper>::create_vesting_msg(i.try_into().unwrap()))
-			.collect::<Vec<_>>();
+	// Claims pallet isn't on Westend.
+	// #[benchmark]
+	// fn receive_claims(n: Linear<1, 255>) {
+	// 	let messages = (0..n)
+	// 		.map(|i| <<T as Config>::BenchmarkHelper>::create_vesting_msg(i.try_into().unwrap()))
+	// 		.collect::<Vec<_>>();
 
-		#[extrinsic_call]
-		_(RawOrigin::Root, messages);
+	// 	#[extrinsic_call]
+	// 	_(RawOrigin::Root, messages);
 
-		assert_last_event::<T>(Event::ClaimsBatchProcessed { count_good: n, count_bad: 0 }.into());
-	}
+	// 	assert_last_event::<T>(Event::ClaimsBatchProcessed { count_good: n, count_bad: 0 }.into());
+	// }
 
 	#[benchmark]
 	fn receive_proxy_proxies(n: Linear<1, 255>) {

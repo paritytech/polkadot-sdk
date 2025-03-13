@@ -35,9 +35,7 @@ pub mod account;
 pub mod asset_rate;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-pub mod bounties;
 pub mod call;
-pub mod claims;
 pub mod conviction_voting;
 pub mod crowdloan;
 pub mod indices;
@@ -66,7 +64,6 @@ use frame_system::pallet_prelude::*;
 use pallet_balances::{AccountData, Reasons as LockReasons};
 use pallet_rc_migrator::{
 	accounts::Account as RcAccount,
-	claims::RcClaimsMessageOf,
 	conviction_voting::RcConvictionVotingMessageOf,
 	crowdloan::RcCrowdloanMessageOf,
 	indices::RcIndicesIndexOf,
@@ -82,7 +79,6 @@ use pallet_rc_migrator::{
 	weights_ah::WeightInfo,
 };
 use pallet_referenda::TrackIdOf;
-use polkadot_runtime_common::claims as pallet_claims;
 use referenda::RcReferendumInfoOf;
 use sp_application_crypto::Ss58Codec;
 use sp_core::H256;
@@ -103,18 +99,38 @@ type RcAccountFor<T> = RcAccount<
 	<T as Config>::RcFreezeReason,
 >;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum PalletEventName {
 	Indices,
 	FastUnstake,
 	Crowdloan,
 	BagsList,
 	Vesting,
-	Bounties,
 }
 
 /// The migration stage on the Asset Hub.
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, TypeInfo, MaxEncodedLen, PartialEq, Eq)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+)]
 pub enum MigrationStage {
 	/// The migration has not started but will start in the future.
 	#[default]
@@ -156,7 +172,6 @@ pub mod pallet {
 		frame_system::Config<AccountData = AccountData<u128>, AccountId = AccountId32>
 		+ pallet_balances::Config<Balance = u128>
 		+ pallet_multisig::Config
-		+ pallet_claims::Config
 		+ pallet_proxy::Config
 		+ pallet_preimage::Config<Hash = H256>
 		+ pallet_referenda::Config<Votes = u128>
@@ -167,7 +182,6 @@ pub mod pallet {
 		+ pallet_vesting::Config
 		+ pallet_indices::Config
 		+ pallet_conviction_voting::Config
-		+ pallet_bounties::Config
 		+ pallet_treasury::Config
 		+ pallet_asset_rate::Config
 		+ pallet_timestamp::Config<Moment = u64> // Needed for testing
@@ -234,7 +248,6 @@ pub mod pallet {
 		type BenchmarkHelper: benchmarking::ParametersFactory<
 			RcMultisigOf<Self>,
 			RcAccountFor<Self>,
-			RcClaimsMessageOf<Self>,
 			RcProxyOf<Self, Self::RcProxyType>,
 			RcProxyAnnouncementOf<Self>,
 		>;
@@ -308,18 +321,6 @@ pub mod pallet {
 			/// How many multisigs were successfully integrated.
 			count_good: u32,
 			/// How many multisigs failed to integrate.
-			count_bad: u32,
-		},
-		/// We received a batch of claims that we are going to integrate.
-		ClaimsBatchReceived {
-			/// How many claims are in the batch.
-			count: u32,
-		},
-		/// We processed a batch of claims that we received.
-		ClaimsBatchProcessed {
-			/// How many claims were successfully integrated.
-			count_good: u32,
-			/// How many claims failed to integrate.
 			count_bad: u32,
 		},
 		/// We received a batch of proxies that we are going to integrate.
@@ -610,15 +611,16 @@ pub mod pallet {
 			Self::do_receive_referendums(referendums).map_err(Into::into)
 		}
 
-		#[pallet::call_index(12)]
-		pub fn receive_claims(
-			origin: OriginFor<T>,
-			messages: Vec<RcClaimsMessageOf<T>>,
-		) -> DispatchResult {
-			ensure_root(origin)?;
+		// Claims pallet isn't on Westend.
+		// #[pallet::call_index(12)]
+		// pub fn receive_claims(
+		// 	origin: OriginFor<T>,
+		// 	messages: Vec<RcClaimsMessageOf<T>>,
+		// ) -> DispatchResult {
+		// 	ensure_root(origin)?;
 
-			Self::do_receive_claims(messages).map_err(Into::into)
-		}
+		// 	Self::do_receive_claims(messages).map_err(Into::into)
+		// }
 
 		#[pallet::call_index(13)]
 		pub fn receive_bags_list_messages(
@@ -660,15 +662,16 @@ pub mod pallet {
 			Self::do_receive_conviction_voting_messages(messages).map_err(Into::into)
 		}
 
-		#[pallet::call_index(17)]
-		pub fn receive_bounties_messages(
-			origin: OriginFor<T>,
-			messages: Vec<pallet_rc_migrator::bounties::RcBountiesMessageOf<T>>,
-		) -> DispatchResult {
-			ensure_root(origin)?;
+		// Bounties pallet isn't on Westend.
+		// #[pallet::call_index(17)]
+		// pub fn receive_bounties_messages(
+		// 	origin: OriginFor<T>,
+		// 	messages: Vec<pallet_rc_migrator::bounties::RcBountiesMessageOf<T>>,
+		// ) -> DispatchResult {
+		// 	ensure_root(origin)?;
 
-			Self::do_receive_bounties_messages(messages).map_err(Into::into)
-		}
+		// 	Self::do_receive_bounties_messages(messages).map_err(Into::into)
+		// }
 
 		#[pallet::call_index(18)]
 		pub fn receive_asset_rates(
@@ -749,7 +752,7 @@ pub mod pallet {
 				},
 				Instruction::Transact {
 					origin_kind: OriginKind::Superuser,
-					require_weight_at_most: Weight::from_all(1), // TODO
+					fallback_max_weight: None,
 					call: call.encode().into(),
 				},
 			]);

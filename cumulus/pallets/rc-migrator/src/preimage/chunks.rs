@@ -23,7 +23,17 @@ use crate::{preimage::*, types::*, *};
 pub const CHUNK_SIZE: u32 = MAX_XCM_SIZE - 100;
 
 /// A chunk of a preimage that was migrated out of the Relay and can be integrated into AH.
-#[derive(Encode, Decode, TypeInfo, Clone, MaxEncodedLen, RuntimeDebug, PartialEq, Eq)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	Clone,
+	MaxEncodedLen,
+	RuntimeDebug,
+	PartialEq,
+	Eq,
+)]
 pub struct RcPreimageChunk {
 	/// The hash of the original preimage.
 	pub preimage_hash: H256,
