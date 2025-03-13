@@ -152,17 +152,14 @@ pub mod pallet {
 
 	/// Latest imported checkpoint root
 	#[pallet::storage]
-	#[pallet::getter(fn initial_checkpoint_root)]
 	pub type InitialCheckpointRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Latest imported finalized block root
 	#[pallet::storage]
-	#[pallet::getter(fn latest_finalized_block_root)]
 	pub type LatestFinalizedBlockRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Beacon state by finalized block root
 	#[pallet::storage]
-	#[pallet::getter(fn finalized_beacon_state)]
 	pub type FinalizedBeaconState<T: Config> =
 		StorageMap<_, Identity, H256, CompactBeaconState, OptionQuery>;
 
@@ -176,7 +173,6 @@ pub mod pallet {
 		StorageMap<_, Identity, u32, H256, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn validators_root)]
 	pub type ValidatorsRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Sync committee for current period
@@ -193,7 +189,6 @@ pub mod pallet {
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
-	#[pallet::getter(fn operating_mode)]
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]
@@ -243,6 +238,30 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Latest imported checkpoint root
+		pub fn initial_checkpoint_root() -> H256 {
+			InitialCheckpointRoot::<T>::get()
+		}
+
+		/// Latest imported finalized block root
+		pub fn latest_finalized_block_root() -> H256 {
+			LatestFinalizedBlockRoot::<T>::get()
+		}
+
+		/// Beacon state by finalized block root
+		pub fn finalized_beacon_state(block_root: &H256) -> Option<CompactBeaconState> {
+			FinalizedBeaconState::<T>::get(block_root)
+		}
+
+		pub fn validators_root() -> H256 {
+			ValidatorsRoot::<T>::get()
+		}
+
+		/// The current operating mode of the pallet.
+		pub fn operating_mode() -> BasicOperatingMode {
+			OperatingMode::<T>::get()
+		}
+
 		/// Forces a finalized beacon header checkpoint update. The current sync committee,
 		/// with a header attesting to the current sync committee, should be provided.
 		/// An `block_roots` proof should also be provided. This is used for ancestry proofs
@@ -633,19 +652,19 @@ pub mod pallet {
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
 			if epoch >= fork_versions.electra.epoch {
-				return fork_versions.electra.version
+				return fork_versions.electra.version;
 			}
 			if epoch >= fork_versions.deneb.epoch {
-				return fork_versions.deneb.version
+				return fork_versions.deneb.version;
 			}
 			if epoch >= fork_versions.capella.epoch {
-				return fork_versions.capella.version
+				return fork_versions.capella.version;
 			}
 			if epoch >= fork_versions.bellatrix.epoch {
-				return fork_versions.bellatrix.version
+				return fork_versions.bellatrix.version;
 			}
 			if epoch >= fork_versions.altair.epoch {
-				return fork_versions.altair.version
+				return fork_versions.altair.version;
 			}
 			fork_versions.genesis.version
 		}
