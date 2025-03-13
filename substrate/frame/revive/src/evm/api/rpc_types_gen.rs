@@ -227,10 +227,10 @@ pub struct Filter {
 	pub address: Option<AddressOrAddresses>,
 	/// from block
 	#[serde(rename = "fromBlock", skip_serializing_if = "Option::is_none")]
-	pub from_block: Option<U256>,
+	pub from_block: Option<BlockNumberOrTag>,
 	/// to block
 	#[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
-	pub to_block: Option<U256>,
+	pub to_block: Option<BlockNumberOrTag>,
 	/// Restricts the logs returned to the single block
 	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
 	pub block_hash: Option<H256>,

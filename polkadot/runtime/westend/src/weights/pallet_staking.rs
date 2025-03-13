@@ -875,4 +875,33 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(457))
 			.saturating_add(T::DbWeight::get().writes(261))
 	}
+	/// Storage: `Staking::CurrentEra` (r:1 w:0)
+	/// Proof: `Staking::CurrentEra` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasStartSessionIndex` (r:1 w:0)
+	/// Proof: `Staking::ErasStartSessionIndex` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ActiveEra` (r:1 w:0)
+	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::Invulnerables` (r:1 w:0)
+	/// Proof: `Staking::Invulnerables` (`max_values`: Some(1), `max_size`: Some(641), added: 1136, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::ErasStakersOverview` (r:1 w:0)
+	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
+	/// Storage: `Session::DisabledValidators` (r:1 w:1)
+	/// Proof: `Session::DisabledValidators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Session::Validators` (r:1 w:0)
+	/// Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Staking::ValidatorSlashInEra` (r:1 w:1)
+	/// Proof: `Staking::ValidatorSlashInEra` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::OffenceQueue` (r:1 w:1)
+	/// Proof: `Staking::OffenceQueue` (`max_values`: None, `max_size`: Some(101), added: 2576, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::OffenceQueueEras` (r:1 w:1)
+	/// Proof: `Staking::OffenceQueueEras` (`max_values`: Some(1), `max_size`: Some(2690), added: 3185, mode: `MaxEncodedLen`)
+	fn manual_slash() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `514`
+		//  Estimated: `4175`
+		// Minimum execution time: 30_000_000 picoseconds.
+		Weight::from_parts(33_000_000, 4175)
+			.saturating_add(T::DbWeight::get().reads(10_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+	}
 }
