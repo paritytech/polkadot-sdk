@@ -11,13 +11,14 @@ use crate::helpers::asset_hub_westend::{
 use anyhow::anyhow;
 use futures::{stream::FuturesUnordered, StreamExt};
 use pallet_revive::AddressMapper;
+use sp_core::H256;
 use std::str::FromStr;
 use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
 use subxt_signer::{
 	sr25519::{dev, Keypair},
 	SecretUri,
 };
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{AddCollatorOptions, NetworkConfigBuilder};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn weights_test() -> Result<(), anyhow::Error> {
@@ -47,7 +48,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 				.with_collator(|n| {
 					n.with_name("collator")
 						.validator(true)
-						.with_args(vec![("-lerror,runtime=trace").into()])
+						.with_args(vec![("--force-in-memory-trie-cache").into(), ("-linfo").into()])
 				})
 		})
 		.build()
@@ -87,7 +88,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 
 	let code_path = std::env::current_dir().unwrap().join("tests/parachains/contract.polkavm");
 	let code = std::fs::read(code_path)?;
-	let contract_data = sp_core::hex2array!(
+	let mint_100 = sp_core::hex2array!(
 		"a0712d680000000000000000000000000000000000000000000000000000000000000064"
 	)
 	.to_vec();
@@ -139,6 +140,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		.call(asset_hub_westend::apis().revive_api().nonce(alice_h160))
 		.await?;
 	let contract_address = pallet_revive::create1(&alice_h160, alice_revive_nonce.into());
+	log::info!("Contract address: {:?}", contract_address);
 	let weight = Weight {
 		ref_time: contract_dry_run.gas_required.ref_time,
 		proof_size: contract_dry_run.gas_required.proof_size,
@@ -165,47 +167,55 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		.wait_for_finalized_success()
 		.await?;
 
-	let keys = (0..10)
+	let keys = (0..3000)
 		.map(|i| {
 			let uri = SecretUri::from_str(&format!("//key{}", i)).unwrap();
 			Keypair::from_uri(&uri).unwrap()
 		})
 		.collect::<Vec<_>>();
 
-	let alice_nonce = para_client.tx().account_nonce(&alice_account_id).await?;
-	let transfer_txs = keys
-		.iter()
-		.enumerate()
-		.map(|(i, key)| {
-			let params = subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new()
-				.nonce(alice_nonce + i as u64)
-				.build();
-			para_client.tx().create_signed_offline(
-				&asset_hub_westend::tx()
-					.balances()
-					.transfer_keep_alive(key.public_key().into(), 1000000000000),
-				&alice,
-				params,
-			)
-		})
-		.collect::<Result<Vec<_>, _>>()?;
-	submit_txs(transfer_txs).await?;
+	for keys_chunk in keys.chunks(500) {
+		let alice_nonce = para_client.tx().account_nonce(&alice_account_id).await?;
+		let transfer_txs = keys_chunk
+			.iter()
+			.enumerate()
+			.map(|(i, key)| {
+				let params = subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new()
+					.nonce(alice_nonce + i as u64)
+					.build();
+				para_client.tx().create_signed_offline(
+					&asset_hub_westend::tx()
+						.balances()
+						.transfer_keep_alive(key.public_key().into(), 1000000000000),
+					&alice,
+					params,
+				)
+			})
+			.collect::<Result<Vec<_>, _>>()?;
+		submit_txs(transfer_txs).await?;
+		log::info!("Sleeping for 60 seconds to finalize the transfer"); // Should have use wait_for_finalized_success, but needs to rewrite the code
+		tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+	}
 
 	log::info!("Accounts ready");
 
-	let mapping_txs = keys
-		.iter()
-		.map(|key| {
-			let params =
-				subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new().nonce(0).build();
-			para_client.tx().create_signed_offline(
-				&asset_hub_westend::tx().revive().map_account(),
-				key,
-				params,
-			)
-		})
-		.collect::<Result<Vec<_>, _>>()?;
-	submit_txs(mapping_txs).await?;
+	for keys_chunk in keys.chunks(500) {
+		let mapping_txs = keys_chunk
+			.iter()
+			.map(|key| {
+				let params =
+					subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new().nonce(0).build();
+				para_client.tx().create_signed_offline(
+					&asset_hub_westend::tx().revive().map_account(),
+					key,
+					params,
+				)
+			})
+			.collect::<Result<Vec<_>, _>>()?;
+		submit_txs(mapping_txs).await?;
+		log::info!("Sleeping for 60 seconds to finalize the mapping"); // Should have use wait_for_finalized_success, but needs to rewrite the code
+		tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+	}
 
 	log::info!("Accounts mapped");
 
@@ -219,7 +229,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 			0,
 			None,
 			None,
-			contract_data.clone(),
+			mint_100.clone(),
 		))
 		.await?;
 	let storage_deposit = match contract_call_dry_run.storage_deposit {
@@ -227,29 +237,50 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		StorageDeposit::Refund(_) => 0,
 	};
 
-	let call_txs = keys
-		.iter()
-		.map(|key| {
-			let weight = Weight {
-				ref_time: contract_call_dry_run.gas_required.ref_time,
-				proof_size: contract_call_dry_run.gas_required.proof_size,
-			};
-			let params =
-				subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new().nonce(1).build();
-			para_client.tx().create_signed_offline(
-				&asset_hub_westend::tx().revive().call(
-					contract_address,
-					0,
-					weight,
-					storage_deposit,
-					contract_data.clone(),
-				),
-				key,
-				params,
-			)
-		})
-		.collect::<Result<Vec<_>, _>>()?;
-	submit_txs(call_txs).await?;
+	let call_chunk_size = 1000; // para_client has a limit to 1024 rpc calls
+	let mut para_clients: Vec<OnlineClient<PolkadotConfig>> = vec![];
+	for _ in 0..(keys.len() / call_chunk_size) {
+		let para_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
+		para_clients.push(para_client);
+	}
+	let mut call_txs = vec![];
+	for keys_chunk in keys.chunks(call_chunk_size) {
+		let para_client = para_clients.pop().unwrap();
+		let call_chunk = keys_chunk
+			.iter()
+			.map(|key| {
+				let weight = Weight {
+					ref_time: contract_call_dry_run.gas_required.ref_time,
+					proof_size: contract_call_dry_run.gas_required.proof_size,
+				};
+				let params =
+					subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new().nonce(1).build();
+				para_client.tx().create_signed_offline(
+					&asset_hub_westend::tx().revive().call(
+						contract_address,
+						0,
+						weight,
+						storage_deposit,
+						mint_100.clone(),
+					),
+					key,
+					params,
+				)
+			})
+			.collect::<Result<Vec<_>, _>>()?;
+		call_txs.extend(call_chunk);
+	}
+	let finalized_blocks = submit_txs(call_txs).await?;
+
+	for block_hash in finalized_blocks {
+		let weight = para_client
+			.storage()
+			.at(block_hash)
+			.fetch(&asset_hub_westend::storage().system().block_weight())
+			.await?;
+
+		log::info!("Weight of block {:?}: {:?}", block_hash, weight);
+	}
 
 	log::info!("Test finished, sleeping for 6000 seconds to allow for manual inspection");
 
@@ -261,12 +292,13 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 
 async fn submit_txs(
 	txs: Vec<SubmittableExtrinsic<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
-) -> Result<(), anyhow::Error> {
+) -> Result<std::collections::HashSet<H256>, anyhow::Error> {
 	let futs = txs.iter().map(|tx| tx.submit_and_watch()).collect::<FuturesUnordered<_>>();
 	let res = futs.collect::<Vec<_>>().await;
 	let res: Result<Vec<_>, _> = res.into_iter().collect();
 	let res = res.expect("All the transactions submitted successfully");
 	let mut statuses = futures::stream::select_all(res);
+	let mut finalized_blocks = std::collections::HashSet::new();
 	while let Some(a) = statuses.next().await {
 		match a {
 			Ok(st) => match st {
@@ -275,7 +307,10 @@ async fn submit_txs(
 					log::trace!("BROADCASTED TO {num_peers}"),
 				subxt::tx::TxStatus::NoLongerInBestBlock => log::warn!("NO LONGER IN BEST BLOCK"),
 				subxt::tx::TxStatus::InBestBlock(_) => log::trace!("IN BEST BLOCK"),
-				subxt::tx::TxStatus::InFinalizedBlock(_) => log::trace!("IN FINALIZED BLOCK"),
+				subxt::tx::TxStatus::InFinalizedBlock(block) => {
+					log::trace!("IN FINALIZED BLOCK");
+					finalized_blocks.insert(block.block_hash());
+				},
 				subxt::tx::TxStatus::Error { message } => log::warn!("ERROR: {message}"),
 				subxt::tx::TxStatus::Invalid { message } => log::trace!("INVALID: {message}"),
 				subxt::tx::TxStatus::Dropped { message } => log::trace!("DROPPED: {message}"),
@@ -285,5 +320,5 @@ async fn submit_txs(
 			},
 		}
 	}
-	Ok(())
+	Ok(finalized_blocks)
 }
