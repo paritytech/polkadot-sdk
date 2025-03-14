@@ -46,6 +46,7 @@ use frame_support::{
 use frame_system::pallet_prelude::{BlockNumberFor, *};
 pub use pallet::*;
 use scale_info::TypeInfo;
+use sp_core::H256;
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
@@ -192,7 +193,6 @@ pub mod pallet {
 		parameter_types,
 	};
 	use frame_system::Config as SysConfig;
-	use sp_core::H256;
 	use sp_runtime::traits::Dispatchable;
 	use xcm_executor::traits::{MatchesFungible, WeightBounds};
 
@@ -1574,7 +1574,7 @@ impl<T: Config> Pallet<T> {
     /// Value is the number of times this pair has been trapped
     /// (usually just 1 if it exists at all).
     pub fn asset_trap(trap_id: &H256) -> u32 {
-        AssetTraps::<T>::get(&trap_id)
+        AssetTraps::<T>::get(trap_id)
     }
 
 	/// Find `TransferType`s for `assets` and fee identified through `fee_asset_item`, when
