@@ -222,8 +222,7 @@ For more information, check the [Paseo repo](https://github.com/paseo-network).
 ### Westend
 
 [Westend](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwestend-rpc.polkadot.io#/explorer) is a long running testnet for Polkadot, 
-primarily intended to provide a testing environment for infrastructure providers to test their Polkadot and Kusama deployment and 
-processes. Also widely used by Polkadot Technical Fellowship for testing the system chain runtimes.
+primarily intended to provide a testing environment for Parity to test the latest changes in the SDK.
 
 ### Testnet Parachains
 
