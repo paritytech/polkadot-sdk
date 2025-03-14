@@ -9256,7 +9256,6 @@ mod hold_migration {
 			// AND Bob wants to remove the old lock.
 			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), bob));
 
-
 			// THEN ensure no lock
 			assert_eq!(Balances::balance_locked(STAKING_ID, &bob), 0);
 
