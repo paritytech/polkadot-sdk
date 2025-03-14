@@ -1353,7 +1353,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(());
 		};
 
-		// check if we can hold all stake.
+		// Ensure we can hold all stake.
 		let max_hold = asset::stakeable_balance::<T>(&stash);
 		let force_withdraw = if max_hold >= ledger.total {
 			// this means we can hold all stake. yay!
