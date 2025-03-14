@@ -40,7 +40,7 @@ use xcm_builder::{
 	MintLocation, NoChecking, TakeWeightCredit,
 };
 use xcm_executor::{
-	traits::{ConvertLocation, JustTry},
+	traits::{ConvertLocation, EventEmitter, JustTry},
 	XcmExecutor,
 };
 
@@ -296,11 +296,92 @@ pub type Barrier = (
 
 pub type Trader = FixedRateOfFungible<NativeTokenPerSecondPerByte, ()>;
 
+thread_local! {
+	static EMITTED_EVENTS: RefCell<Vec<<TestRuntime as frame_system::Config>::RuntimeEvent>> = RefCell::new(Vec::new());
+}
+pub struct TestEventEmitter {}
+impl TestEventEmitter {
+	pub fn events() -> Vec<<TestRuntime as frame_system::Config>::RuntimeEvent> {
+		EMITTED_EVENTS.with(|events| events.borrow().clone())
+	}
+
+	pub fn reset_events() {
+		EMITTED_EVENTS.with(|events| events.borrow_mut().clear());
+	}
+}
+impl EventEmitter for TestEventEmitter {
+	fn emit_sent_event(
+		origin: Location,
+		destination: Location,
+		message: Option<Xcm<()>>,
+		message_id: XcmHash,
+	) {
+		sp_tracing::tracing::trace!(target: "xcm::mock",
+			?origin,
+			?destination,
+			?message,
+			?message_id,
+			"EventEmitter::emit_sent_event =>"
+		);
+		XcmPallet::emit_sent_event(origin, destination, message, message_id);
+		let events = frame_system::Pallet::<TestRuntime>::events();
+		if let Some(event) = events.last() {
+			EMITTED_EVENTS.with(|q| q.borrow_mut().push(event.event.clone()));
+			sp_tracing::tracing::trace!(target: "xcm::mock",
+				?event,
+				"EventEmitter::emit_sent_event <="
+			);
+		}
+	}
+
+	fn emit_send_failure_event(
+		origin: Location,
+		destination: Location,
+		error: SendError,
+		message_id: XcmHash,
+	) {
+		sp_tracing::tracing::debug!(target: "xcm::mock",
+			?origin,
+			?destination,
+			?error,
+			?message_id,
+			"EventEmitter::emit_send_failure_event =>"
+		);
+		XcmPallet::emit_send_failure_event(origin, destination, error, message_id);
+		let events = frame_system::Pallet::<TestRuntime>::events();
+		if let Some(event) = events.last() {
+			EMITTED_EVENTS.with(|q| q.borrow_mut().push(event.event.clone()));
+			sp_tracing::tracing::debug!(target: "xcm::mock",
+				?event,
+				"EventEmitter::emit_send_failure_event <="
+			);
+		}
+	}
+
+	fn emit_process_failure_event(origin: Location, error: XcmError, message_id: XcmHash) {
+		sp_tracing::tracing::debug!(target: "xcm::mock",
+			?origin,
+			?error,
+			?message_id,
+			"EventEmitter::emit_process_failure_event =>"
+		);
+		XcmPallet::emit_process_failure_event(origin, error, message_id);
+		let events = frame_system::Pallet::<TestRuntime>::events();
+		if let Some(event) = events.last() {
+			EMITTED_EVENTS.with(|q| q.borrow_mut().push(event.event.clone()));
+			sp_tracing::tracing::debug!(target: "xcm::mock",
+				?event,
+				"EventEmitter::emit_process_failure_event <="
+			);
+		}
+	}
+}
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
-	type XcmEventEmitter = XcmPallet;
+	type XcmEventEmitter = TestEventEmitter;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = ();
 	type IsReserve = RelayTokenToAssetHub;
