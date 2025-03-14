@@ -6651,7 +6651,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6663,23 +6663,6 @@ dependencies = [
  "cfg-if",
  "home",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "ethabi"
-version = "18.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7413c5f74cc903ea37386a8965a936cbeb334bd270862fdece542c1b2dcbc898"
-dependencies = [
- "ethereum-types 0.14.1",
- "hex",
- "once_cell",
- "regex",
- "serde",
- "serde_json",
- "sha3 0.10.8",
- "thiserror 1.0.65",
- "uint 0.9.5",
 ]
 
 [[package]]
@@ -8793,7 +8776,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.9",
+ "socket2 0.5.8",
  "tokio",
  "tower-service",
  "tracing",
@@ -11813,11 +11796,10 @@ dependencies = [
 
 [[package]]
 name = "num-integer"
-version = "0.1.45"
+version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
+checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
 dependencies = [
- "autocfg",
  "num-traits",
 ]
 
@@ -15073,6 +15055,9 @@ dependencies = [
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
  "pallet-balances 28.0.0",
  "pallet-proxy 28.0.0",
  "pallet-revive-fixtures 0.1.0",
@@ -15088,6 +15073,7 @@ dependencies = [
  "pretty_assertions",
  "rand 0.8.5",
  "rand_pcg",
+ "ripemd",
  "rlp 0.6.1",
  "scale-info",
  "secp256k1 0.28.2",
@@ -15105,6 +15091,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "staging-xcm 7.0.1",
  "staging-xcm-builder 7.0.0",
+ "substrate-bn",
  "subxt-signer",
 ]
 
@@ -15146,7 +15133,6 @@ dependencies = [
  "anyhow",
  "clap 4.5.13",
  "env_logger 0.11.3",
- "ethabi",
  "futures",
  "git2",
  "hex",
@@ -15181,6 +15167,8 @@ name = "pallet-revive-fixtures"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cargo_metadata",
+ "pallet-revive-uapi 0.1.0",
  "polkavm-linker 0.21.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
@@ -16705,7 +16693,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand 0.8.5",
- "rand_core 0.5.1",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -22270,7 +22258,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.14",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -29030,6 +29018,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "substrate-bn"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b5bbfa79abbae15dd642ea8176a21a635ff3c00059961d1ea27ad04e5b441c"
+dependencies = [
+ "byteorder",
+ "crunchy",
+ "lazy_static",
+ "rand 0.8.5",
+ "rustc-hex",
+]
+
+[[package]]
 name = "substrate-build-script-utils"
 version = "11.0.0"
 
@@ -29845,7 +29846,7 @@ dependencies = [
  "fastrand 2.3.0",
  "once_cell",
  "rustix 0.38.42",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
