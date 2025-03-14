@@ -8821,8 +8821,8 @@ mod getters {
 }
 
 mod hold_migration {
-	use frame_support::traits::fungible::Mutate;
 	use super::*;
+	use frame_support::traits::fungible::Mutate;
 	use sp_staking::{Stake, StakingInterface};
 
 	#[test]
@@ -9165,8 +9165,16 @@ mod hold_migration {
 
 			mock::start_active_era(1);
 			let init_stake = 1000;
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), init_stake, RewardDestination::Staked));
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(bob), init_stake, RewardDestination::Staked));
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(alice),
+				init_stake,
+				RewardDestination::Staked
+			));
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(bob),
+				init_stake,
+				RewardDestination::Staked
+			));
 
 			// convert hold to lock.
 			testing_utils::migrate_to_old_currency::<Test>(alice);
@@ -9219,10 +9227,7 @@ mod hold_migration {
 			// ensure events are emitted.
 			assert_eq!(
 				staking_events_since_last_call(),
-				vec![Event::CurrencyMigrated {
-					stash: alice,
-					force_withdraw: 0
-				}]
+				vec![Event::CurrencyMigrated { stash: alice, force_withdraw: 0 }]
 			);
 
 			// ensure cannot migrate again.
@@ -9240,16 +9245,28 @@ mod hold_migration {
 			// assert lock still exists but there is no stake.
 			assert_eq!(Balances::balance_locked(STAKING_ID, &bob), init_stake);
 			assert_eq!(asset::staked::<Test>(&bob), 0);
-			assert_eq!(<Staking as StakingInterface>::stake(&bob).unwrap_err(), Error::<Test>::NotStash.into());
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&bob).unwrap_err(),
+				Error::<Test>::NotStash.into()
+			);
 
 			// clear events
 			System::reset_events();
 
 			// AND Bob wants to remove the old lock.
 			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), bob));
+
+
+			// THEN ensure no lock
+			assert_eq!(Balances::balance_locked(STAKING_ID, &bob), 0);
+
+			// And they cannot migrate again.
+			assert_noop!(
+				Staking::migrate_currency(RuntimeOrigin::signed(1), bob),
+				Error::<Test>::AlreadyMigrated
+			);
 		});
 	}
-
 }
 
 mod paged_slashing {
