@@ -467,6 +467,10 @@ fn calling_payment_api_with_a_lower_version_works() {
 
 #[test]
 fn dry_run_error_event_check() {
+	use frame_support::{
+		dispatch::DispatchErrorWithPostInfo,
+		sp_runtime::{DispatchError, ModuleError},
+	};
 	use sp_tracing::{capture_test_logs, tracing::Level};
 
 	let who = 1;
@@ -491,7 +495,16 @@ fn dry_run_error_event_check() {
 				.dry_run_call(H256::zero(), origin, xcm_call, XCM_VERSION)
 				.unwrap()
 				.unwrap();
-
+			if let Err(DispatchErrorWithPostInfo {
+				error: DispatchError::Module(ModuleError { message: Some(err_msg), .. }),
+				..
+			}) = dry_run_effects.execution_result
+			{
+				assert_eq!(err_msg, "LocalExecutionIncomplete");
+			} else {
+				assert!(false, "Expected LocalExecutionIncomplete error");
+			}
+			println!("dry_run_effects.emitted_events={:?}", dry_run_effects.emitted_events);
 			assert!(dry_run_effects.emitted_events.is_empty());
 		});
 		assert!(log_capture.contains("xcm::pallet_xcm::execute_xcm_transfer: origin=Location"));
