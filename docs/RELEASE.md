@@ -26,14 +26,14 @@ During this period, each stable release is updated with patch releases, which ar
 
 ℹ️ Note: the binaries and runtimes (if needed) are only provided for the latest `stable' release, for the previous releases only the crates.io release takes place.
 
-This three month period between `stable` releases includes a 1.5 month QA period. This means that for each upcoming `stable` release, the branch from which that release will be made is created 1.5 months before the release date. This time is used to test the upcoming release candidate and find potential problems before the final release.
+This three month period between `stable` releases includes a 1.5 month QA period. This means that for each upcoming `stable` release, the branch from which that release will be made is created 1.5 months before the release date. This time is used to test the upcoming release candidate and find any issues that may arise with publishing crates to crates.io, binary artifacts and template synchronisation before the final release. The findings should be fixed and backported to the release branch. During this time, multiple release candidates may be built and rolled out.
 
 # Setup
 
-We have two branches: `master` and `stable`. `master` is the main development branch where normal Pull Requests are
+We have two branches: `master` and `stableYYMM`. `master` is the main development branch where normal Pull Requests are
 opened. Developers need to mostly only care about this branch.
-The `stable` branch contains a version of the code that is ready to be released. Its contents should be always audited.
-Merging to it is restricted to [Backports](#backports). Each `stable` branch corresponds to the corresponding stable release, which is in the maintenance period.
+The `stableYYMM` branch contains a version of the code that is ready to be released. Its contents should be always audited.
+Merging to it is restricted to [Backports](#backports). Each `stableYYMM` branch corresponds to the corresponding stable release, which is in the maintenance period.
 
 # Versioning
 
@@ -134,6 +134,10 @@ From the forked polkadot-sdk repository in the [paritytech-release org](https://
 7. Publish deb package for the `polakdot` binary using [Release - Publish polakdot deb package](/.github/workflows/release-40_publish-deb-package.yml)
 8. Adjust the release draft and publish release on the GitHub.
 9. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
+
+From the main polkadot-sdk repository in the paritytech org:
+
+1. Synchronize templates using [Synchronize templates](/.github/workflows/misc-sync-templates.yml)
 
 ## Patch release for the latest stable version
 
