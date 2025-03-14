@@ -273,7 +273,7 @@ pub(crate) fn export_pov_to_path<Block: BlockT>(
 	parent_header: Block::Header,
 	relay_parent_storage_root: RHash,
 	relay_parent_number: RBlockNumber,
-	max_pov_size: usize,
+	max_pov_size: u32,
 ) {
 	if let Err(error) = fs::create_dir_all(&path) {
 		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
