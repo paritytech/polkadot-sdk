@@ -96,7 +96,7 @@ pub mod pallet {
 			+ fungible::hold::Mutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ fungible::freeze::Inspect<Self::AccountId>
 			+ fungible::freeze::Mutate<Self::AccountId>;
-
+		type Governance: ReferendumTrait<Self::AccountId>;
 		type RuntimeHoldReason: From<HoldReason>;
 		/// Provider for the block number.
 		type BlockNumberProvider: BlockNumberProvider;
@@ -418,7 +418,7 @@ pub mod pallet {
 			project_id: ProjectId<T>,
 			#[pallet::compact] amount: BalanceOf<T>,
 			fund: bool,
-			conviction: Democracy::Conviction,
+			conviction: Conviction,
 		) -> DispatchResult {
 			let voter = ensure_signed(origin.clone())?;
 			// Get current voting round & check if we are in voting period or not
@@ -444,13 +444,13 @@ pub mod pallet {
 			let ref_index = infos.index;
 
 			// Funds lock is handled by the opf pallet
-			let conv = Democracy::Conviction::None;
-			let vote = Democracy::Vote { aye: fund, conviction: conv };
-			let converted_amount = Self::convert_balance(amount).ok_or("Failed Conversion!!!")?;
-			let account_vote = Democracy::AccountVote::Standard { vote, balance: converted_amount };
+			let conv = Conviction::None;
+			//let vote = Democracy::Vote { aye: fund, conviction: conv };
+			//let converted_amount = Self::convert_balance(amount).ok_or("Failed Conversion!!!")?;
+			//let account_vote = Democracy::AccountVote::Standard { vote, balance: converted_amount };
 
-			Self::try_vote(voter.clone(), project_id.clone(), amount, fund, conviction)?;
-			Democracy::Pallet::<T>::vote(origin, ref_index, account_vote)?;
+			//Self::try_vote(voter.clone(), project_id.clone(), amount, fund, conviction)?;
+			//Democracy::Pallet::<T>::vote(origin, ref_index, account_vote)?;
 
 			Self::deposit_event(Event::<T>::VoteCasted { who: voter, project_id });
 

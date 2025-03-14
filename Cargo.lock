@@ -5036,7 +5036,7 @@ dependencies = [
  "serde",
  "serde_json",
  "subxt 0.38.1",
- "subxt-signer 0.38.0",
+ "subxt-signer 0.38.1",
  "tokio",
 ]
 
@@ -5046,14 +5046,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cumulus-zombienet-sdk-helpers",
- "env_logger 0.11.3",
+ "env_logger 0.11.7",
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
  "serde",
  "serde_json",
  "subxt 0.38.1",
- "subxt-signer 0.38.0",
+ "subxt-signer 0.38.1",
  "tokio",
  "zombienet-sdk",
 ]
@@ -16849,7 +16849,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cumulus-zombienet-sdk-helpers",
- "env_logger 0.11.3",
+ "env_logger 0.11.7",
  "log",
  "parity-scale-codec",
  "polkadot-primitives",

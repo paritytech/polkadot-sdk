@@ -49,7 +49,7 @@ pub use sp_runtime::{
 	Percent, SaturatedConversion,
 };
 pub use sp_std::{boxed::Box, vec};
-
+pub use pallet_conviction_voting::Conviction;
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
@@ -168,7 +168,7 @@ pub struct VoteInfo<T: Config> {
 	/// Whether the vote is "fund" / "not fund"
 	pub fund: bool,
 
-	pub conviction: Democracy::Conviction,
+	pub conviction: Conviction,
 
 	pub funds_unlock_block: ProvidedBlockNumberFor<T>,
 }
@@ -176,7 +176,7 @@ pub struct VoteInfo<T: Config> {
 // If no conviction, user's funds are released at the end of the voting round
 impl<T: Config> VoteInfo<T> {
 	pub fn funds_unlock(&mut self) {
-		let conviction_coeff = <u8 as From<Democracy::Conviction>>::from(self.conviction);
+		let conviction_coeff = <u8 as From<Conviction>>::from(self.conviction);
 		let funds_unlock_block = self
 			.round
 			.round_ending_block
@@ -190,7 +190,7 @@ impl<T: Config> Default for VoteInfo<T> {
 	fn default() -> Self {
 		let amount = Zero::zero();
 		let fund = false;
-		let conviction = Democracy::Conviction::None;
+		let conviction = Conviction::None;
 
 		// get round number
 		if let Some(round) = VotingRounds::<T>::get(0) {

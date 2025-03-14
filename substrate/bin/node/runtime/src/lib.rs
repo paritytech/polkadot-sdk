@@ -1898,7 +1898,7 @@ impl pallet_opf::Config for Runtime {
 	type TemporaryRewards = TemporaryRewards;
 
 
-	//type Governance = Gov;
+	type Governance = Referenda;
 
 	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
 }

@@ -24,14 +24,14 @@ impl<T: Config> Pallet<T> {
 	}
 	pub fn conviction_amount(
 		amount: BalanceOf<T>,
-		conviction: Democracy::Conviction,
+		conviction: Conviction,
 	) -> Option<BalanceOf<T>> {
 		let conviction_amount: BalanceOf<T> = match conviction {
-			Democracy::Conviction::None => {
+			Conviction::None => {
 				amount.checked_div(&10u8.into()).unwrap_or_else(Zero::zero)
 			},
 			_ => {
-				amount.saturating_mul(<u8 as From<Democracy::Conviction>>::from(conviction).into())
+				amount.saturating_mul(<u8 as From<Conviction>>::from(conviction).into())
 			},
 		};
 		Some(conviction_amount)
@@ -71,7 +71,7 @@ impl<T: Config> Pallet<T> {
 		project: ProjectId<T>,
 		amount: BalanceOf<T>,
 		fund: bool,
-		conviction: Democracy::Conviction,
+		conviction: Conviction,
 	) -> DispatchResult {
 		let origin = T::RuntimeOrigin::from(RawOrigin::Signed(voter_id.clone()));
 		if !ProjectFunds::<T>::contains_key(&project) {
