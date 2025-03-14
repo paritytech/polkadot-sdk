@@ -333,9 +333,10 @@ impl NonAggregatable for Pair {}
 mod test {
 	use super::*;
 	use crate::crypto::{
-		set_default_ss58_version, ProofOfPossessionGenerator, ProofOfPossessionVerifier,
-		PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry, Ss58Codec, DEV_PHRASE,
+		set_default_ss58_version, PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry,
+		Ss58Codec, DEV_PHRASE,
 	};
+	use crate::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 	use serde_json;
 
 	#[test]

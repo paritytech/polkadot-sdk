@@ -593,9 +593,10 @@ mod tests {
 	use super::{vrf::*, *};
 	use crate::{
 		crypto::{
-			ProofOfPossessionGenerator, ProofOfPossessionVerifier, Ss58Codec, VrfPublic, VrfSecret,
+			Ss58Codec, VrfPublic, VrfSecret,
 			DEV_ADDRESS, DEV_PHRASE,
 		},
+		pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 		ByteArray as _,
 	};
 	use serde_json;

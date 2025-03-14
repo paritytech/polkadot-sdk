@@ -161,7 +161,8 @@ mod tests {
 	use super::*;
 	#[cfg(feature = "serde")]
 	use crate::crypto::Ss58Codec;
-	use crate::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier, DEV_PHRASE};
+	use crate::crypto::DEV_PHRASE;
+	use crate::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 	use serde_json;
 
 	#[test]
