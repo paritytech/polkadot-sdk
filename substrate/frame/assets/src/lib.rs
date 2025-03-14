@@ -248,6 +248,7 @@ where
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{AccountTouch, ContainsPair},
@@ -275,7 +276,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, traits::ConstU64};
+		use frame_support::derive_impl;
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
@@ -289,12 +290,14 @@ pub mod pallet {
 			type RemoveItemsLimit = ConstU32<5>;
 			type AssetId = u32;
 			type AssetIdParameter = u32;
-			type AssetDeposit = ConstU64<1>;
-			type AssetAccountDeposit = ConstU64<10>;
-			type MetadataDepositBase = ConstU64<1>;
-			type MetadataDepositPerByte = ConstU64<1>;
-			type ApprovalDeposit = ConstU64<1>;
+			type AssetDeposit = ConstUint<1>;
+			type AssetAccountDeposit = ConstUint<10>;
+			type MetadataDepositBase = ConstUint<1>;
+			type MetadataDepositPerByte = ConstUint<1>;
+			type ApprovalDeposit = ConstUint<1>;
 			type StringLimit = ConstU32<50>;
+			type Freezer = ();
+			type Holder = ();
 			type Extra = ();
 			type CallbackHandle = ();
 			type WeightInfo = ();
@@ -314,6 +317,7 @@ pub mod pallet {
 		/// The units in which we record balances.
 		type Balance: Member
 			+ Parameter
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ AtLeast32BitUnsigned
 			+ Default
 			+ Copy
@@ -390,8 +394,11 @@ pub mod pallet {
 
 		/// A hook to allow a per-asset, per-account minimum balance to be enforced. This must be
 		/// respected in all permissionless operations.
-		#[pallet::no_default]
 		type Freezer: FrozenBalance<Self::AssetId, Self::AccountId, Self::Balance>;
+
+		/// A hook to inspect a per-asset, per-account balance that is held. This goes in
+		/// accordance with balance model.
+		type Holder: BalanceOnHold<Self::AssetId, Self::AccountId, Self::Balance>;
 
 		/// Additional data to be stored with an account's asset balance.
 		type Extra: Member + Parameter + Default + MaxEncodedLen;
@@ -414,7 +421,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Details of an asset.
-	pub(super) type Asset<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type Asset<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
@@ -423,7 +430,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// The holdings of a specific account for a specific asset.
-	pub(super) type Account<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type Account<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
@@ -436,7 +443,7 @@ pub mod pallet {
 	/// Approved balance transfers. First balance is the amount approved for transfer. Second
 	/// is the amount of `T::Currency` reserved for storing this.
 	/// First key is the asset ID, second key is the owner and third key is the delegate.
-	pub(super) type Approvals<T: Config<I>, I: 'static = ()> = StorageNMap<
+	pub type Approvals<T: Config<I>, I: 'static = ()> = StorageNMap<
 		_,
 		(
 			NMapKey<Blake2_128Concat, T::AssetId>,
@@ -448,7 +455,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Metadata of an asset.
-	pub(super) type Metadata<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type Metadata<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
@@ -688,6 +695,10 @@ pub mod pallet {
 		CallbackFailed,
 		/// The asset ID must be equal to the [`NextAssetId`].
 		BadAssetId,
+		/// The asset cannot be destroyed because some accounts for this asset contain freezes.
+		ContainsFreezes,
+		/// The asset cannot be destroyed because some accounts for this asset contain holds.
+		ContainsHolds,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -802,7 +813,8 @@ pub mod pallet {
 		/// - `id`: The identifier of the asset to be destroyed. This must identify an existing
 		///   asset.
 		///
-		/// The asset class must be frozen before calling `start_destroy`.
+		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
+		/// an account contains holds or freezes in place.
 		#[pallet::call_index(2)]
 		pub fn start_destroy(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			let maybe_check_owner = match T::ForceOrigin::try_origin(origin) {
@@ -1617,6 +1629,9 @@ pub mod pallet {
 		///   refunded.
 		/// - `allow_burn`: If `true` then assets may be destroyed in order to complete the refund.
 		///
+		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
+		/// the asset account contains holds or freezes in place.
+		///
 		/// Emits `Refunded` event when successful.
 		#[pallet::call_index(27)]
 		#[pallet::weight(T::WeightInfo::refund())]
@@ -1706,6 +1721,9 @@ pub mod pallet {
 		///
 		/// - `id`: The identifier of the asset for the account holding a deposit.
 		/// - `who`: The account to refund.
+		///
+		/// It will fail with either [`Error::ContainsHolds`] or [`Error::ContainsFreezes`] if
+		/// the asset account contains holds or freezes in place.
 		///
 		/// Emits `Refunded` event when successful.
 		#[pallet::call_index(30)]

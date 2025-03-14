@@ -29,7 +29,7 @@ pub mod substrate_test_pallet;
 
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -47,7 +47,7 @@ use frame_system::{
 };
 use scale_info::TypeInfo;
 use sp_application_crypto::Ss58Codec;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 use sp_core::{OpaqueMetadata, RuntimeDebug};
@@ -63,9 +63,11 @@ pub use sp_core::hash::H256;
 use sp_genesis_builder::PresetId;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-	create_runtime_str, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, NumberFor, Verify},
-	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
+	impl_opaque_keys, impl_tx_ext_default,
+	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor, Verify},
+	transaction_validity::{
+		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
+	},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
 #[cfg(any(feature = "std", test))]
@@ -112,14 +114,14 @@ pub fn wasm_binary_logging_disabled_unwrap() -> &'static [u8] {
 /// Test runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("test"),
-	impl_name: create_runtime_str!("parity-test"),
+	spec_name: alloc::borrow::Cow::Borrowed("test"),
+	impl_name: alloc::borrow::Cow::Borrowed("parity-test"),
 	authoring_version: 1,
 	spec_version: 2,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 fn version() -> RuntimeVersion {
@@ -133,7 +135,7 @@ pub fn native_version() -> NativeVersion {
 }
 
 /// Transfer data extracted from Extrinsic containing `Balances::transfer_allow_death`.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
 pub struct TransferData {
 	pub from: AccountId,
 	pub to: AccountId,
@@ -147,18 +149,19 @@ pub type Signature = sr25519::Signature;
 #[cfg(feature = "std")]
 pub type Pair = sp_core::sr25519::Pair;
 
-/// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
-	CheckNonce<Runtime>,
-	CheckWeight<Runtime>,
+// TODO: Remove after the Checks are migrated to TxExtension.
+/// The extension to the basic transaction logic.
+pub type TxExtension = (
+	(CheckNonce<Runtime>, CheckWeight<Runtime>),
 	CheckSubstrateCall,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 /// The payload being signed in transactions.
-pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, SignedExtra>;
+pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type Extrinsic =
-	sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// An identifier for an account on this system.
 pub type AccountId = <Signature as Verify>::Signer;
@@ -243,7 +246,9 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 >;
 
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	Copy, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo,
+)]
 pub struct CheckSubstrateCall;
 
 impl sp_runtime::traits::Printable for CheckSubstrateCall {
@@ -252,8 +257,17 @@ impl sp_runtime::traits::Printable for CheckSubstrateCall {
 	}
 }
 
+impl sp_runtime::traits::RefundWeight for CheckSubstrateCall {
+	fn refund(&mut self, _weight: frame_support::weights::Weight) {}
+}
+impl sp_runtime::traits::ExtensionPostDispatchWeightHandler<CheckSubstrateCall>
+	for CheckSubstrateCall
+{
+	fn set_extension_weight(&mut self, _info: &CheckSubstrateCall) {}
+}
+
 impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
-	type RuntimeOrigin = CheckSubstrateCall;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Config = CheckSubstrateCall;
 	type Info = CheckSubstrateCall;
 	type PostInfo = CheckSubstrateCall;
@@ -266,42 +280,33 @@ impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
-	type AccountId = AccountId;
-	type Call = RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
+impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCall {
 	const IDENTIFIER: &'static str = "CheckSubstrateCall";
-
-	fn additional_signed(
-		&self,
-	) -> core::result::Result<Self::AdditionalSigned, TransactionValidityError> {
-		Ok(())
-	}
+	type Implicit = ();
+	type Pre = ();
+	type Val = ();
+	impl_tx_ext_default!(RuntimeCall; weight prepare);
 
 	fn validate(
 		&self,
-		_who: &Self::AccountId,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: <RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &RuntimeCall,
+		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-	) -> TransactionValidity {
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> Result<
+		(ValidTransaction, Self::Val, <RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
 		log::trace!(target: LOG_TARGET, "validate");
-		match call {
+		let v = match call {
 			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
-				substrate_test_pallet::validate_runtime_call(substrate_test_call),
-			_ => Ok(Default::default()),
-		}
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(drop)
+				substrate_test_pallet::validate_runtime_call(substrate_test_call)?,
+			_ => Default::default(),
+		};
+		Ok((v, (), origin))
 	}
 }
 
@@ -391,6 +396,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type DoneSlashHandler = ();
 }
 
 impl substrate_test_pallet::Config for Runtime {}
@@ -669,7 +675,7 @@ impl_runtime_apis! {
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
-			let ext = Extrinsic::new_unsigned(
+			let ext = Extrinsic::new_bare(
 				substrate_test_pallet::pallet::Call::storage_change{
 					key:b"some_key".encode(),
 					value:Some(header.number.encode())
@@ -725,11 +731,11 @@ impl_runtime_apis! {
 
 		fn get_preset(name: &Option<PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(name, |name| {
-				let patch = match name.try_into() {
-					Ok("staging") => {
+				 let patch = match name.as_ref() {
+					"staging" => {
 						let endowed_accounts: Vec<AccountId> = vec![
-							AccountKeyring::Bob.public().into(),
-							AccountKeyring::Charlie.public().into(),
+							Sr25519Keyring::Bob.public().into(),
+							Sr25519Keyring::Charlie.public().into(),
 						];
 
 						json!({
@@ -738,13 +744,13 @@ impl_runtime_apis! {
 							},
 							"substrateTest": {
 								"authorities": [
-									AccountKeyring::Alice.public().to_ss58check(),
-									AccountKeyring::Ferdie.public().to_ss58check()
+									Sr25519Keyring::Alice.public().to_ss58check(),
+									Sr25519Keyring::Ferdie.public().to_ss58check()
 								],
 							}
 						})
 					},
-					Ok("foobar") => json!({"foo":"bar"}),
+					"foobar" => json!({"foo":"bar"}),
 					_ => return None,
 				};
 				Some(serde_json::to_string(&patch)
@@ -908,11 +914,11 @@ pub mod storage_key_generator {
 
 		let balances_map_keys = (0..16_usize)
 			.into_iter()
-			.map(|i| AccountKeyring::numeric(i).public().to_vec())
+			.map(|i| Sr25519Keyring::numeric(i).public().to_vec())
 			.chain(vec![
-				AccountKeyring::Alice.public().to_vec(),
-				AccountKeyring::Bob.public().to_vec(),
-				AccountKeyring::Charlie.public().to_vec(),
+				Sr25519Keyring::Alice.public().to_vec(),
+				Sr25519Keyring::Bob.public().to_vec(),
+				Sr25519Keyring::Charlie.public().to_vec(),
 			])
 			.map(|pubkey| {
 				sp_crypto_hashing::blake2_128(&pubkey)
@@ -1050,8 +1056,8 @@ mod tests {
 	use sp_consensus::BlockOrigin;
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_runtime::{
-		traits::{Hash as _, SignedExtension},
-		transaction_validity::{InvalidTransaction, ValidTransaction},
+		traits::{DispatchTransaction, Hash as _},
+		transaction_validity::{InvalidTransaction, TransactionSource::External, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
 		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,
@@ -1062,7 +1068,7 @@ mod tests {
 		// This tests that the on-chain `HEAP_PAGES` parameter is respected.
 
 		// Create a client devoting only 8 pages of wasm memory. This gives us ~512k of heap memory.
-		let mut client = TestClientBuilder::new().set_heap_pages(8).build();
+		let client = TestClientBuilder::new().set_heap_pages(8).build();
 		let best_hash = client.chain_info().best_hash;
 
 		// Try to allocate 1024k of memory on heap. This is going to fail since it is twice larger
@@ -1130,8 +1136,8 @@ mod tests {
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
 		genesismap::GenesisStorageBuilder::new(
-			vec![AccountKeyring::One.public().into(), AccountKeyring::Two.public().into()],
-			vec![AccountKeyring::One.into(), AccountKeyring::Two.into()],
+			vec![Sr25519Keyring::One.public().into(), Sr25519Keyring::Two.public().into()],
+			vec![Sr25519Keyring::One.into(), Sr25519Keyring::Two.into()],
 			1000 * currency::DOLLARS,
 		)
 		.build()
@@ -1199,31 +1205,37 @@ mod tests {
 	fn check_substrate_check_signed_extension_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
-			let x = AccountKeyring::Alice.into();
+			let x = Sr25519Keyring::Alice.into();
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			assert_eq!(
 				CheckSubstrateCall {}
-					.validate(
-						&x,
+					.validate_only(
+						Some(x).into(),
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
-						len
+						len,
+						External,
+						0,
 					)
 					.unwrap()
+					.0
 					.priority,
 				16
 			);
 
 			assert_eq!(
 				CheckSubstrateCall {}
-					.validate(
-						&x,
+					.validate_only(
+						Some(x).into(),
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
-						len
+						len,
+						External,
+						0,
 					)
 					.unwrap()
+					.0
 					.propagate,
 				false
 			);
@@ -1319,7 +1331,7 @@ mod tests {
 				.expect("default config is there");
 			let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 
-			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[],"devAccounts":null}}"#;
 			assert_eq!(expected.to_string(), json);
 		}
 
@@ -1388,10 +1400,8 @@ mod tests {
 			let r = BuildResult::decode(&mut &r[..]).unwrap();
 			log::info!("result: {:#?}", r);
 			assert_eq!(r, Err(
-				sp_runtime::RuntimeString::Owned(
-					"Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 4 column 25".to_string(),
-				))
-			);
+				"Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 4 column 25".to_string(),
+			));
 		}
 
 		#[test]
@@ -1402,10 +1412,8 @@ mod tests {
 			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]).unwrap();
 			assert_eq!(r, Err(
-				sp_runtime::RuntimeString::Owned(
-					"Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 3 column 9".to_string(),
-				))
-			);
+				"Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 3 column 9".to_string(),
+			));
 		}
 
 		#[test]
@@ -1415,14 +1423,11 @@ mod tests {
 
 			let mut t = BasicExternalities::new_empty();
 			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
-			let r =
-				core::result::Result::<(), sp_runtime::RuntimeString>::decode(&mut &r[..]).unwrap();
+			let r = core::result::Result::<(), String>::decode(&mut &r[..]).unwrap();
 			assert_eq!(
 				r,
-				Err(sp_runtime::RuntimeString::Owned(
-					"Invalid JSON blob: missing field `authorities` at line 11 column 3"
-						.to_string()
-				))
+				Err("Invalid JSON blob: missing field `authorities` at line 11 column 3"
+					.to_string())
 			);
 		}
 
@@ -1470,8 +1475,8 @@ mod tests {
 				},
 				"substrateTest": {
 					"authorities": [
-						AccountKeyring::Ferdie.public().to_ss58check(),
-						AccountKeyring::Alice.public().to_ss58check()
+						Sr25519Keyring::Ferdie.public().to_ss58check(),
+						Sr25519Keyring::Alice.public().to_ss58check()
 					],
 				}
 			});
@@ -1500,8 +1505,8 @@ mod tests {
 			let authority_key_vec =
 				Vec::<sp_core::sr25519::Public>::decode(&mut &value[..]).unwrap();
 			assert_eq!(authority_key_vec.len(), 2);
-			assert_eq!(authority_key_vec[0], AccountKeyring::Ferdie.public());
-			assert_eq!(authority_key_vec[1], AccountKeyring::Alice.public());
+			assert_eq!(authority_key_vec[0], Sr25519Keyring::Ferdie.public());
+			assert_eq!(authority_key_vec[1], Sr25519Keyring::Alice.public());
 
 			//Babe|Authorities
 			let value: Vec<u8> = get_from_storage(

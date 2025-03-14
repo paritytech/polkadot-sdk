@@ -30,12 +30,14 @@ use futures::{
 	sink::SinkExt,
 	task::LocalSpawn,
 };
-use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
 use prometheus_endpoint::prometheus::default_registry;
-
 use sc_client_api::HeaderBackend;
-use sc_network::{service::signature::Keypair, Signature};
+use sc_network::{
+	service::signature::{Keypair, SigningError},
+	PublicKey, Signature,
+};
 use sc_network_types::{
+	kad::Key as KademliaKey,
 	multiaddr::{Multiaddr, Protocol},
 	PeerId,
 };
@@ -117,10 +119,10 @@ sp_api::mock_impl_runtime_apis! {
 
 #[derive(Debug)]
 pub enum TestNetworkEvent {
-	GetCalled(KademliaKey),
-	PutCalled(KademliaKey, Vec<u8>),
-	PutToCalled(Record, HashSet<sc_network_types::PeerId>, bool),
-	StoreRecordCalled(KademliaKey, Vec<u8>, Option<sc_network_types::PeerId>, Option<Instant>),
+	GetCalled,
+	PutCalled,
+	PutToCalled,
+	StoreRecordCalled,
 }
 
 pub struct TestNetwork {
@@ -178,8 +180,8 @@ impl NetworkSigner for TestNetwork {
 		signature: &Vec<u8>,
 		message: &Vec<u8>,
 	) -> std::result::Result<bool, String> {
-		let public_key = libp2p::identity::PublicKey::try_decode_protobuf(&public_key)
-			.map_err(|error| error.to_string())?;
+		let public_key =
+			PublicKey::try_decode_protobuf(&public_key).map_err(|error| error.to_string())?;
 		let peer_id: PeerId = peer_id.into();
 		let remote: PeerId = public_key.to_peer_id().into();
 
@@ -190,17 +192,11 @@ impl NetworkSigner for TestNetwork {
 impl NetworkDHTProvider for TestNetwork {
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>) {
 		self.put_value_call.lock().unwrap().push((key.clone(), value.clone()));
-		self.event_sender
-			.clone()
-			.unbounded_send(TestNetworkEvent::PutCalled(key, value))
-			.unwrap();
+		self.event_sender.clone().unbounded_send(TestNetworkEvent::PutCalled).unwrap();
 	}
 	fn get_value(&self, key: &KademliaKey) {
 		self.get_value_call.lock().unwrap().push(key.clone());
-		self.event_sender
-			.clone()
-			.unbounded_send(TestNetworkEvent::GetCalled(key.clone()))
-			.unwrap();
+		self.event_sender.clone().unbounded_send(TestNetworkEvent::GetCalled).unwrap();
 	}
 
 	fn put_record_to(
@@ -214,10 +210,7 @@ impl NetworkDHTProvider for TestNetwork {
 			peers.clone(),
 			update_local_storage,
 		));
-		self.event_sender
-			.clone()
-			.unbounded_send(TestNetworkEvent::PutToCalled(record, peers, update_local_storage))
-			.unwrap();
+		self.event_sender.clone().unbounded_send(TestNetworkEvent::PutToCalled).unwrap();
 	}
 
 	fn store_record(
@@ -235,8 +228,20 @@ impl NetworkDHTProvider for TestNetwork {
 		));
 		self.event_sender
 			.clone()
-			.unbounded_send(TestNetworkEvent::StoreRecordCalled(key, value, publisher, expires))
+			.unbounded_send(TestNetworkEvent::StoreRecordCalled)
 			.unwrap();
+	}
+
+	fn start_providing(&self, _: KademliaKey) {
+		unimplemented!()
+	}
+
+	fn stop_providing(&self, _: KademliaKey) {
+		unimplemented!()
+	}
+
+	fn get_providers(&self, _: KademliaKey) {
+		unimplemented!()
 	}
 }
 
@@ -536,7 +541,7 @@ fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 
 	pool.run_until(async {
 		// Assert worker to trigger a lookup for the one and only authority.
-		assert!(matches!(network_events.next().await, Some(TestNetworkEvent::GetCalled(_))));
+		assert!(matches!(network_events.next().await, Some(TestNetworkEvent::GetCalled)));
 
 		// Send an event that should generate an error
 		dht_event_tx
@@ -1027,7 +1032,7 @@ fn addresses_to_publish_adds_p2p() {
 	));
 
 	let (_to_worker, from_service) = mpsc::channel(0);
-	let worker = Worker::new(
+	let mut worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: vec![] }),
 		network.clone(),
@@ -1065,7 +1070,7 @@ fn addresses_to_publish_respects_existing_p2p_protocol() {
 	});
 
 	let (_to_worker, from_service) = mpsc::channel(0);
-	let worker = Worker::new(
+	let mut worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: vec![] }),
 		network.clone(),
@@ -1137,7 +1142,7 @@ fn lookup_throttling() {
 		async {
 			// Assert worker to trigger MAX_IN_FLIGHT_LOOKUPS lookups.
 			for _ in 0..MAX_IN_FLIGHT_LOOKUPS {
-				assert!(matches!(receiver.next().await, Some(TestNetworkEvent::GetCalled(_))));
+				assert!(matches!(receiver.next().await, Some(TestNetworkEvent::GetCalled)));
 			}
 			assert_eq!(
 				metrics.requests_pending.get(),
@@ -1168,7 +1173,7 @@ fn lookup_throttling() {
 			}
 
 			// Assert worker to trigger another lookup.
-			assert!(matches!(receiver.next().await, Some(TestNetworkEvent::GetCalled(_))));
+			assert!(matches!(receiver.next().await, Some(TestNetworkEvent::GetCalled)));
 			assert_eq!(
 				metrics.requests_pending.get(),
 				(remote_public_keys.len() - MAX_IN_FLIGHT_LOOKUPS - 1) as u64
@@ -1181,7 +1186,7 @@ fn lookup_throttling() {
 			dht_event_tx.send(dht_event).await.expect("Channel has capacity of 1.");
 
 			// Assert worker to trigger another lookup.
-			assert!(matches!(receiver.next().await, Some(TestNetworkEvent::GetCalled(_))));
+			assert!(matches!(receiver.next().await, Some(TestNetworkEvent::GetCalled)));
 			assert_eq!(
 				metrics.requests_pending.get(),
 				(remote_public_keys.len() - MAX_IN_FLIGHT_LOOKUPS - 2) as u64

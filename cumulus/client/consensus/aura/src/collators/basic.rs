@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! This provides the option to run a basic relay-chain driven Aura implementation.
 //!
@@ -138,6 +139,7 @@ where
 		};
 
 		let mut last_processed_slot = 0;
+		let mut last_relay_chain_block = Default::default();
 
 		while let Some(request) = collation_requests.next().await {
 			macro_rules! reject_with_error {
@@ -215,11 +217,13 @@ where
 			//
 			// Most parachains currently run with 12 seconds slots and thus, they would try to
 			// produce multiple blocks per slot which very likely would fail on chain. Thus, we have
-			// this "hack" to only produce on block per slot.
+			// this "hack" to only produce one block per slot per relay chain fork.
 			//
 			// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
 			// obsolete and also the underlying issue will be fixed.
-			if last_processed_slot >= *claim.slot() {
+			if last_processed_slot >= *claim.slot() &&
+				last_relay_chain_block < *relay_parent_header.number()
+			{
 				continue
 			}
 
@@ -234,6 +238,16 @@ where
 					.await
 			);
 
+			let allowed_pov_size = if cfg!(feature = "full-pov-size") {
+				validation_data.max_pov_size
+			} else {
+				// Set the block limit to 50% of the maximum PoV size.
+				//
+				// TODO: If we got benchmarking that includes the proof size,
+				// we should be able to use the maximum pov size.
+				validation_data.max_pov_size / 2
+			} as usize;
+
 			let maybe_collation = try_request!(
 				collator
 					.collate(
@@ -242,11 +256,7 @@ where
 						None,
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
-						// Set the block limit to 50% of the maximum PoV size.
-						//
-						// TODO: If we got benchmarking that includes the proof size,
-						// we should be able to use the maximum pov size.
-						(validation_data.max_pov_size / 2) as usize,
+						allowed_pov_size,
 					)
 					.await
 			);
@@ -261,6 +271,7 @@ where
 			}
 
 			last_processed_slot = *claim.slot();
+			last_relay_chain_block = *relay_parent_header.number();
 		}
 	}
 }

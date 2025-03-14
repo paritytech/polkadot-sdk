@@ -191,11 +191,15 @@ pub mod well_known_keys {
 	/// Wasm code of the runtime.
 	///
 	/// Stored as a raw byte vector. Required by substrate.
+	///
+	/// Encodes to `0x3A636F6465`.
 	pub const CODE: &[u8] = b":code";
 
 	/// Number of wasm linear memory pages required for execution of the runtime.
 	///
 	/// The type of this value is encoded `u64`.
+	///
+	/// Encodes to `0x307833413633364636343635`
 	pub const HEAP_PAGES: &[u8] = b":heappages";
 
 	/// Current extrinsic index (u32) is stored under this key.
@@ -444,6 +448,7 @@ impl TryFrom<u8> for StateVersion {
 		match val {
 			0 => Ok(StateVersion::V0),
 			1 => Ok(StateVersion::V1),
+			2 => Ok(StateVersion::V1),
 			_ => Err(()),
 		}
 	}

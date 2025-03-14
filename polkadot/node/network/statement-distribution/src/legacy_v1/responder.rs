@@ -29,7 +29,9 @@ use polkadot_node_network_protocol::{
 	},
 	PeerId, UnifiedReputationChange as Rep,
 };
-use polkadot_primitives::{CandidateHash, CommittedCandidateReceipt, Hash};
+use polkadot_primitives::{
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash, Hash,
+};
 
 use crate::LOG_TARGET;
 

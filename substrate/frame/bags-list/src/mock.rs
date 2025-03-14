@@ -41,7 +41,7 @@ impl frame_election_provider_support::ScoreProvider<AccountId> for StakingMock {
 		*NextVoteWeightMap::get().get(id).unwrap_or(&NextVoteWeight::get())
 	}
 
-	frame_election_provider_support::runtime_benchmarks_fuzz_or_std_enabled! {
+	frame_election_provider_support::runtime_benchmarks_or_std_enabled! {
 		fn set_score_of(id: &AccountId, weight: Self::Score) {
 			NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().insert(*id, weight));
 		}

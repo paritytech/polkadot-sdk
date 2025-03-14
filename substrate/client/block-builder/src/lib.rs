@@ -320,7 +320,7 @@ where
 			header.extrinsics_root().clone(),
 			HashingFor::<Block>::ordered_trie_root(
 				self.extrinsics.iter().map(Encode::encode).collect(),
-				sp_runtime::StateVersion::V0,
+				self.api.version(self.parent_hash)?.extrinsics_root_state_version(),
 			),
 		);
 

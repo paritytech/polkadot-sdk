@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -29,7 +29,31 @@ fn main() {
 		.with_current_project()
 		.enable_feature("elastic-scaling")
 		.import_memory()
+		.set_file_name("wasm_binary_elastic_scaling_mvp.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("elastic-scaling")
+		.enable_feature("experimental-ump-signals")
+		.import_memory()
 		.set_file_name("wasm_binary_elastic_scaling.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("elastic-scaling-500ms")
+		.enable_feature("experimental-ump-signals")
+		.import_memory()
+		.set_file_name("wasm_binary_elastic_scaling_500ms.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("elastic-scaling-multi-block-slot")
+		.enable_feature("experimental-ump-signals")
+		.import_memory()
+		.set_file_name("wasm_binary_elastic_scaling_multi_block_slot.rs")
 		.build();
 }
 

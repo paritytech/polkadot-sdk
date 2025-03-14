@@ -2,32 +2,39 @@ name: Check semver
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   workflow_dispatch:
+  merge_group:
 
 concurrency:
   group: check-semver-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
-  TOOLCHAIN: nightly-2024-06-01
-
+  TOOLCHAIN: nightly-2024-11-19
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
+  preflight:
+    needs: isdraft
+    uses: ./.github/workflows/reusable-preflight.yml
   check-semver:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: [preflight]
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+        with:
+          fetch-depth: 2
 
       - name: extra git setup
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           git config --global --add safe.directory '*'
-          git fetch --no-tags --no-recurse-submodules --depth=1 origin $BASE
-          git branch old $BASE
+
+          git branch old HEAD^1
 
       - name: Comment If Backport
         if: ${{ startsWith(github.event.pull_request.base.ref, 'stable') }}
@@ -37,16 +44,12 @@ jobs:
         run: |
           echo "This is a backport into stable."
 
-          wget -q https://github.com/cli/cli/releases/download/v2.51.0/gh_2.51.0_linux_amd64.tar.gz -O gh.tar.gz && \
-          tar -xzf gh.tar.gz && mv gh_2.51.0_linux_amd64/bin/gh /usr/local/bin/gh && rm gh.tar.gz
-          chmod +x /usr/local/bin/gh
-
             cat > msg.txt <<EOF
             This pull request is amending an existing release. Please proceed with extreme caution,
             as to not impact downstream teams that rely on the stability of it. Some things to consider:
             - Backports are only for 'patch' or 'minor' changes. No 'major' or other breaking change.
             - Should be a legit *fix* for some  bug, not adding tons of new features.
-            - Must either be already audited or trivial (not sure audit).
+            - Must either be already audited or not need an audit.
 
             <details><summary><i>Emergency Bypass</i></summary>
             <p>
@@ -62,22 +65,36 @@ jobs:
 
           echo "PRDOC_EXTRA_ARGS=--max-bump minor" >> $GITHUB_ENV
 
+      - name: Echo Skip
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
+        run: echo "Skipping this PR because it is labeled as R0-silent."
+
       - name: Rust Cache
-        uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
+        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
         with:
           cache-on-failure: true
 
       - name: Rust compilation prerequisites
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
         run: |
           rustup default $TOOLCHAIN
+          rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
           rustup component add rust-src --toolchain $TOOLCHAIN
 
       - name: install parity-publish
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
         # Set the target dir to cache the build.
-        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.8.0 -q
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.4 --locked -q
 
       - name: check semver
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
         run: |
+          if [ -z "$PR" ]; then
+            echo "Skipping master/merge queue"
+            exit 0
+          fi
+
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
           export SKIP_WASM_BUILD=1

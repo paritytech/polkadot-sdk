@@ -1,18 +1,18 @@
-// Copyright 2023 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, Broker, FeeAssetId, ParachainInfo,
@@ -37,12 +37,13 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::AccountIdConversion;
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, NonFungibleAdapter, ParentAsSuperuser, ParentIsPreset,
+	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
+	DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
+	HashedDescription, IsConcrete, NonFungibleAdapter, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
@@ -51,8 +52,9 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
+	pub const RootLocation: Location = Location::here();
 	pub const RocRelayLocation: Location = Location::parent();
-	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Rococo);
+	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(ROCOCO_GENESIS_HASH));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
@@ -74,6 +76,8 @@ pub type LocationToAccountId = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
+	// Foreign locations alias into accounts according to a hash of their standard description.
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
 
 /// Means for transacting the native currency on this chain.
@@ -141,7 +145,7 @@ impl Contains<Location> for ParentOrParentsPlurality {
 
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
-		DenyReserveTransferToRelayChain,
+		DenyRecursively<DenyReserveTransferToRelayChain>,
 		(
 			// Allow local users to buy weight credit.
 			TakeWeightCredit,
@@ -174,6 +178,7 @@ parameter_types! {
 /// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (
+	Equals<RootLocation>,
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 	Equals<RelayTreasuryLocation>,
 );
@@ -182,6 +187,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = PolkadotXcm;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// Coretime chain does not recognize a reserve location for any asset. Users must teleport ROC

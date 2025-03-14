@@ -20,8 +20,8 @@ use codec::{Decode, Encode};
 
 use polkadot_node_primitives::ErasureChunk;
 use polkadot_primitives::{
-	CandidateHash, CommittedCandidateReceipt, Hash, Id as ParaId, PersistedValidationData,
-	UncheckedSignedStatement, ValidatorIndex,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash, Hash,
+	Id as ParaId, PersistedValidationData, UncheckedSignedStatement, ValidatorIndex,
 };
 
 use super::{v1, IsRequest, Protocol};

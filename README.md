@@ -1,4 +1,3 @@
-
 <div align="center">
 
 ![SDK Logo](./docs/images/Polkadot_Logo_Horizontal_Pink_White.png#gh-dark-mode-only)
@@ -20,45 +19,35 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 ## ⚡ Quickstart
 If you want to get an example node running quickly you can execute the following getting started script:
+
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
 ```
 
 ## 📚 Documentation
 
-* [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html)
+* [Polkadot Documentation Portal](https://docs.polkadot.com)
+* [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html): Where we keep track of
+the API docs of our Rust crates. Includes:
   * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
 	to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
   * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html),
-	namely how to build your first FRAME pallet.
+	namely how to build your first FRAME pallet
   * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
     for starting a new project.
-* Other Resources:
-  * [Polkadot Wiki -> Build](https://wiki.polkadot.network/docs/build-guide)
+  * [External Resources](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/external_resources/index.html)
 
 ## 🚀 Releases
 
-> [!NOTE]
-> Our release process is still Work-In-Progress and may not yet reflect the aspired outline
-> here.
+<!-- markdownlint-disable-next-line MD013 -->
+![Current Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-latest.svg)&nbsp;&nbsp;![Next Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-next.svg)
 
-The Polkadot-SDK has two release channels: `stable` and `nightly`. Production software is advised to
-only use `stable`. `nightly` is meant for tinkerers to try out the latest features. The detailed
-release process is described in [RELEASE.md](docs/RELEASE.md).
+The Polkadot SDK is released every three months as a `stableYYMM` release. They are supported for
+one year with patches. See the next upcoming versions in the [Release
+Registry](https://github.com/paritytech/release-registry/) and more docs in [RELEASE.md](./docs/RELEASE.md).
 
-You can use [`psvm`](https://github.com/paritytech/psvm) to manage your Polkadot-SDK dependency
-versions in downstream projects.
-
-### 😌 Stable
-
-`stable` releases have a support duration of **three months**. In this period, the release will not
-have any breaking changes. It will receive bug fixes, security fixes, performance fixes and new
-non-breaking features on a **two week** cadence.
-
-### 🤠 Nightly
-
-`nightly` releases are released every night from the `master` branch, potentially with breaking
-changes. They have pre-release version numbers in the format `major.0.0-nightlyYYMMDD`.
+You can use [`psvm`](https://github.com/paritytech/psvm) to update all dependencies to a specific
+version without needing to manually select the correct version for each crate.
 
 ## 🛠️ Tooling
 

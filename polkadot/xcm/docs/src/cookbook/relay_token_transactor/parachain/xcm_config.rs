@@ -1,4 +1,5 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -21,7 +22,7 @@ use frame::{
 	runtime::prelude::*,
 	traits::{Everything, Nothing},
 };
-use xcm::v4::prelude::*;
+use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
@@ -114,6 +115,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = ();
+	type XcmEventEmitter = ();
 	type AssetTransactor = asset_transactor::AssetTransactor;
 	type OriginConverter = ();
 	// The declaration of which Locations are reserves for which Assets.
@@ -152,7 +154,7 @@ impl pallet_xcm::Config for Runtime {
 	// We turn off sending for these tests
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
 	type XcmRouter = super::super::network::ParachainXcmRouter<MessageQueue>; // Provided by xcm-simulator
-																		  // Anyone can execute XCM programs
+																		   // Anyone can execute XCM programs
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	// We execute any type of program
 	type XcmExecuteFilter = Everything;
@@ -168,7 +170,7 @@ impl pallet_xcm::Config for Runtime {
 	type UniversalLocation = UniversalLocation;
 	// No version discovery needed
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 0;
-	type AdvertisedXcmVersion = frame::traits::ConstU32<3>;
+	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	// No locking
 	type TrustedLockers = ();

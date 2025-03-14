@@ -18,10 +18,10 @@
 //! Tests for solution-type.
 
 #![cfg(test)]
-
-use crate::{mock::*, IndexAssignment, NposSolution};
+use crate::{mock::*, BoundedSupports, IndexAssignment, NposSolution};
 use frame_support::traits::ConstU32;
 use rand::SeedableRng;
+use sp_npos_elections::{Support, Supports};
 
 mod solution_type {
 	use super::*;
@@ -451,4 +451,30 @@ fn index_assignments_generate_same_solution_as_plain_assignments() {
 	let index_compact = index_assignments.as_slice().try_into().unwrap();
 
 	assert_eq!(solution, index_compact);
+}
+
+#[test]
+fn sorted_truncate_from_works() {
+	let supports: Supports<u32> = vec![
+		(1, Support { total: 303, voters: vec![(100, 100), (101, 101), (102, 102)] }),
+		(2, Support { total: 201, voters: vec![(100, 100), (101, 101)] }),
+		(3, Support { total: 406, voters: vec![(100, 100), (101, 101), (102, 102), (103, 103)] }),
+	];
+
+	let (bounded, winners_removed, backers_removed) =
+		BoundedSupports::<u32, ConstU32<2>, ConstU32<2>>::sorted_truncate_from(supports);
+	// we trim 2 as it has least total support, and trim backers based on stake.
+	assert_eq!(
+		bounded
+			.clone()
+			.into_iter()
+			.map(|(k, v)| (k, Support { total: v.total, voters: v.voters.into_inner() }))
+			.collect::<Vec<_>>(),
+		vec![
+			(3, Support { total: 205, voters: vec![(103, 103), (102, 102)] }),
+			(1, Support { total: 203, voters: vec![(102, 102), (101, 101)] })
+		]
+	);
+	assert_eq!(winners_removed, 1);
+	assert_eq!(backers_removed, 3);
 }

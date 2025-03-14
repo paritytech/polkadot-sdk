@@ -10,16 +10,19 @@ use snowbridge_beacon_primitives::{
 use snowbridge_core::{
 	gwei,
 	inbound::{Log, Proof, VerificationError},
-	meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup,
+	meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
 use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{IdentifyAccount, IdentityLookup, Verify},
+	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
-use xcm::{latest::SendXcm, prelude::*};
+use xcm::{
+	latest::{SendXcm, WESTEND_GENESIS_HASH},
+	prelude::*,
+};
 use xcm_executor::AssetsInHolding;
 
 use crate::{self as inbound_queue};
@@ -80,7 +83,11 @@ parameter_types! {
 		},
 		deneb: Fork {
 			version: [4, 0, 0, 1], // 0x04000001
-			epoch: 4294967295,
+			epoch: 0,
+		},
+		electra: Fork {
+			version: [5, 0, 0, 0], // 0x05000000
+			epoch: 80000000000,
 		}
 	};
 }
@@ -88,6 +95,7 @@ parameter_types! {
 impl snowbridge_pallet_ethereum_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
+	type FreeHeadersInterval = ConstU32<32>;
 	type WeightInfo = ();
 }
 
@@ -111,6 +119,9 @@ parameter_types! {
 	pub const SendTokenExecutionFee: u128 = 1_000_000_000;
 	pub const InitialFund: u128 = 1_000_000_000_000;
 	pub const InboundQueuePalletInstance: u8 = 80;
+	pub UniversalLocation: InteriorLocation =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
+	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -204,6 +215,16 @@ impl TransactAsset for SuccessfulTransactor {
 	}
 }
 
+pub struct MockTokenIdConvert;
+impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
+	fn convert(_id: &TokenId) -> Option<Location> {
+		Some(Location::parent())
+	}
+	fn convert_back(_loc: &Location) -> Option<TokenId> {
+		None
+	}
+}
+
 impl inbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -217,6 +238,9 @@ impl inbound_queue::Config for Test {
 		InboundQueuePalletInstance,
 		AccountId,
 		Balance,
+		MockTokenIdConvert,
+		UniversalLocation,
+		AssetHubFromEthereum,
 	>;
 	type PricingParameters = Parameters;
 	type ChannelLookup = MockChannelLookup;
@@ -226,20 +250,6 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
-}
-
-pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	frame_system::Pallet::<Test>::events()
-		.into_iter()
-		.rev()
-		.take(n)
-		.rev()
-		.map(|e| e.event)
-		.collect()
-}
-
-pub fn expect_events(e: Vec<RuntimeEvent>) {
-	assert_eq!(last_events(e.len()), e);
 }
 
 pub fn setup() {

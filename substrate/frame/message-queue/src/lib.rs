@@ -206,7 +206,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, ops::Deref};
 use frame_support::{
 	defensive,
@@ -225,7 +225,7 @@ use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{defer, H256};
 use sp_runtime::{
 	traits::{One, Zero},
-	SaturatedConversion, Saturating,
+	SaturatedConversion, Saturating, TransactionOutcome,
 };
 use sp_weights::WeightMeter;
 pub use weights::WeightInfo;
@@ -462,6 +462,17 @@ impl<Id> OnQueueChanged<Id> for () {
 	fn on_queue_changed(_: Id, _: QueueFootprint) {}
 }
 
+/// Allows to force the processing head to a specific queue.
+pub trait ForceSetHead<O> {
+	/// Set the `ServiceHead` to `origin`.
+	///
+	/// This function:
+	/// - `Err`: Queue did not exist, not enough weight or other error.
+	/// - `Ok(true)`: The service head was updated.
+	/// - `Ok(false)`: The service head was not updated since the queue is empty.
+	fn force_set_head(weight: &mut WeightMeter, origin: &O) -> Result<bool, ()>;
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -626,16 +637,16 @@ pub mod pallet {
 
 	/// The index of the first and last (non-empty) pages.
 	#[pallet::storage]
-	pub(super) type BookStateFor<T: Config> =
+	pub type BookStateFor<T: Config> =
 		StorageMap<_, Twox64Concat, MessageOriginOf<T>, BookState<MessageOriginOf<T>>, ValueQuery>;
 
 	/// The origin at which we should begin servicing.
 	#[pallet::storage]
-	pub(super) type ServiceHead<T: Config> = StorageValue<_, MessageOriginOf<T>, OptionQuery>;
+	pub type ServiceHead<T: Config> = StorageValue<_, MessageOriginOf<T>, OptionQuery>;
 
 	/// The map of page indices to pages.
 	#[pallet::storage]
-	pub(super) type Pages<T: Config> = StorageDoubleMap<
+	pub type Pages<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		MessageOriginOf<T>,
@@ -649,7 +660,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			if let Some(weight_limit) = T::ServiceWeight::get() {
-				Self::service_queues(weight_limit)
+				Self::service_queues_impl(weight_limit, ServiceQueuesContext::OnInitialize)
 			} else {
 				Weight::zero()
 			}
@@ -658,7 +669,10 @@ pub mod pallet {
 		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			if let Some(weight_limit) = T::IdleMaxServiceWeight::get() {
 				// Make use of the remaining weight to process enqueued messages.
-				Self::service_queues(weight_limit.min(remaining_weight))
+				Self::service_queues_impl(
+					weight_limit.min(remaining_weight),
+					ServiceQueuesContext::OnIdle,
+				)
 			} else {
 				Weight::zero()
 			}
@@ -777,6 +791,18 @@ enum MessageExecutionStatus {
 	StackLimitReached,
 }
 
+/// The context to pass to [`Pallet::service_queues_impl`] through on_idle and on_initialize hooks
+/// We don't want to throw the defensive message if called from on_idle hook
+#[derive(PartialEq)]
+enum ServiceQueuesContext {
+	/// Context of on_idle hook.
+	OnIdle,
+	/// Context of on_initialize hook.
+	OnInitialize,
+	/// Context `service_queues` trait function.
+	ServiceQueues,
+}
+
 impl<T: Config> Pallet<T> {
 	/// Knit `origin` into the ready ring right at the end.
 	///
@@ -846,6 +872,7 @@ impl<T: Config> Pallet<T> {
 				ServiceHead::<T>::put(&head_neighbours.next);
 				Some(head)
 			} else {
+				defensive!("The head must point to a queue in the ready ring");
 				None
 			}
 		} else {
@@ -853,13 +880,40 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// The maximal weight that a single message can consume.
+	fn set_service_head(weight: &mut WeightMeter, queue: &MessageOriginOf<T>) -> Result<bool, ()> {
+		if weight.try_consume(T::WeightInfo::set_service_head()).is_err() {
+			return Err(())
+		}
+
+		// Ensure that we never set the head to an un-ready queue.
+		if BookStateFor::<T>::get(queue).ready_neighbours.is_some() {
+			ServiceHead::<T>::put(queue);
+			Ok(true)
+		} else {
+			Ok(false)
+		}
+	}
+
+	/// The maximal weight that a single message ever can consume.
 	///
 	/// Any message using more than this will be marked as permanently overweight and not
 	/// automatically re-attempted. Returns `None` if the servicing of a message cannot begin.
 	/// `Some(0)` means that only messages with no weight may be served.
 	fn max_message_weight(limit: Weight) -> Option<Weight> {
-		limit.checked_sub(&Self::single_msg_overhead())
+		let service_weight = T::ServiceWeight::get().unwrap_or_default();
+		let on_idle_weight = T::IdleMaxServiceWeight::get().unwrap_or_default();
+
+		// Whatever weight is set, the one with the biggest one is used as the maximum weight. If a
+		// message is tried in one context and fails, it will be retried in the other context later.
+		let max_message_weight =
+			if service_weight.any_gt(on_idle_weight) { service_weight } else { on_idle_weight };
+
+		if max_message_weight.is_zero() {
+			// If no service weight is set, we need to use the given limit as max message weight.
+			limit.checked_sub(&Self::single_msg_overhead())
+		} else {
+			max_message_weight.checked_sub(&Self::single_msg_overhead())
+		}
 	}
 
 	/// The overhead of servicing a single message.
@@ -881,6 +935,8 @@ impl<T: Config> Pallet<T> {
 	fn do_integrity_test() -> Result<(), String> {
 		ensure!(!MaxMessageLenOf::<T>::get().is_zero(), "HeapSize too low");
 
+		let max_block = T::BlockWeights::get().max_block;
+
 		if let Some(service) = T::ServiceWeight::get() {
 			if Self::max_message_weight(service).is_none() {
 				return Err(format!(
@@ -888,6 +944,31 @@ impl<T: Config> Pallet<T> {
 					service,
 					Self::single_msg_overhead(),
 				))
+			}
+
+			if service.any_gt(max_block) {
+				return Err(format!(
+					"ServiceWeight {service} is bigger than max block weight {max_block}"
+				))
+			}
+		}
+
+		if let Some(on_idle) = T::IdleMaxServiceWeight::get() {
+			if on_idle.any_gt(max_block) {
+				return Err(format!(
+					"IdleMaxServiceWeight {on_idle} is bigger than max block weight {max_block}"
+				))
+			}
+		}
+
+		if let (Some(service_weight), Some(on_idle)) =
+			(T::ServiceWeight::get(), T::IdleMaxServiceWeight::get())
+		{
+			if !(service_weight.all_gt(on_idle) ||
+				on_idle.all_gt(service_weight) ||
+				service_weight == on_idle)
+			{
+				return Err("One of `ServiceWeight` or `IdleMaxServiceWeight` needs to be `all_gt` or both need to be equal.".into())
 			}
 		}
 
@@ -1435,6 +1516,8 @@ impl<T: Config> Pallet<T> {
 	/// The base weight of this function needs to be accounted for by the caller. `weight` is the
 	/// remaining weight to process the message. `overweight_limit` is the maximum weight that a
 	/// message can ever consume. Messages above this limit are marked as permanently overweight.
+	/// This process is also transactional, any form of error that occurs in processing a message
+	/// causes storage changes to be rolled back.
 	fn process_message_payload(
 		origin: MessageOriginOf<T>,
 		page_index: PageIndex,
@@ -1447,7 +1530,27 @@ impl<T: Config> Pallet<T> {
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 
-		match T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id) {
+		let transaction =
+			storage::with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+				let res =
+					T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id);
+				match &res {
+					Ok(_) => TransactionOutcome::Commit(Ok(res)),
+					Err(_) => TransactionOutcome::Rollback(Ok(res)),
+				}
+			});
+
+		let transaction = match transaction {
+			Ok(result) => result,
+			_ => {
+				defensive!(
+					"Error occurred processing message, storage changes will be rolled back"
+				);
+				return MessageExecutionStatus::Unprocessable { permanent: true }
+			},
+		};
+
+		match transaction {
 			Err(Overweight(w)) if w.any_gt(overweight_limit) => {
 				// Permanently overweight.
 				Self::deposit_event(Event::<T>::OverweightEnqueued {
@@ -1488,6 +1591,60 @@ impl<T: Config> Pallet<T> {
 				MessageExecutionStatus::Processed
 			},
 		}
+	}
+
+	fn service_queues_impl(weight_limit: Weight, context: ServiceQueuesContext) -> Weight {
+		let mut weight = WeightMeter::with_limit(weight_limit);
+
+		// Get the maximum weight that processing a single message may take:
+		let overweight_limit = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
+			if matches!(context, ServiceQueuesContext::OnInitialize) {
+				defensive!("Not enough weight to service a single message.");
+			}
+			Weight::zero()
+		});
+
+		match with_service_mutex(|| {
+			let mut next = match Self::bump_service_head(&mut weight) {
+				Some(h) => h,
+				None => return weight.consumed(),
+			};
+			// The last queue that did not make any progress.
+			// The loop aborts as soon as it arrives at this queue again without making any progress
+			// on other queues in between.
+			let mut last_no_progress = None;
+
+			loop {
+				let (progressed, n) =
+					Self::service_queue(next.clone(), &mut weight, overweight_limit);
+				next = match n {
+					Some(n) =>
+						if !progressed {
+							if last_no_progress == Some(n.clone()) {
+								break
+							}
+							if last_no_progress.is_none() {
+								last_no_progress = Some(next.clone())
+							}
+							n
+						} else {
+							last_no_progress = None;
+							n
+						},
+					None => break,
+				}
+			}
+			weight.consumed()
+		}) {
+			Err(()) => weight.consumed(),
+			Ok(w) => w,
+		}
+	}
+}
+
+impl<T: Config> ForceSetHead<MessageOriginOf<T>> for Pallet<T> {
+	fn force_set_head(weight: &mut WeightMeter, origin: &MessageOriginOf<T>) -> Result<bool, ()> {
+		Pallet::<T>::set_service_head(weight, origin)
 	}
 }
 
@@ -1558,48 +1715,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 	type OverweightMessageAddress = (MessageOriginOf<T>, PageIndex, T::Size);
 
 	fn service_queues(weight_limit: Weight) -> Weight {
-		let mut weight = WeightMeter::with_limit(weight_limit);
-
-		// Get the maximum weight that processing a single message may take:
-		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
-			defensive!("Not enough weight to service a single message.");
-			Weight::zero()
-		});
-
-		match with_service_mutex(|| {
-			let mut next = match Self::bump_service_head(&mut weight) {
-				Some(h) => h,
-				None => return weight.consumed(),
-			};
-			// The last queue that did not make any progress.
-			// The loop aborts as soon as it arrives at this queue again without making any progress
-			// on other queues in between.
-			let mut last_no_progress = None;
-
-			loop {
-				let (progressed, n) = Self::service_queue(next.clone(), &mut weight, max_weight);
-				next = match n {
-					Some(n) =>
-						if !progressed {
-							if last_no_progress == Some(n.clone()) {
-								break
-							}
-							if last_no_progress.is_none() {
-								last_no_progress = Some(next.clone())
-							}
-							n
-						} else {
-							last_no_progress = None;
-							n
-						},
-					None => break,
-				}
-			}
-			weight.consumed()
-		}) {
-			Err(()) => weight.consumed(),
-			Ok(w) => w,
-		}
+		Self::service_queues_impl(weight_limit, ServiceQueuesContext::ServiceQueues)
 	}
 
 	/// Execute a single overweight message.

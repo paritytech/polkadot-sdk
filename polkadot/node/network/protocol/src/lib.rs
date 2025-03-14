@@ -21,10 +21,9 @@
 
 use codec::{Decode, Encode};
 use polkadot_primitives::{BlockNumber, Hash};
-use std::{collections::HashMap, fmt};
+use std::fmt;
 
 #[doc(hidden)]
-pub use polkadot_node_jaeger as jaeger;
 pub use sc_network::IfDisconnected;
 pub use sc_network_types::PeerId;
 #[doc(hidden)]
@@ -91,31 +90,16 @@ impl Into<sc_network::ObservedRole> for ObservedRole {
 }
 
 /// Specialized wrapper around [`View`].
-///
-/// Besides the access to the view itself, it also gives access to the [`jaeger::Span`] per
-/// leave/head.
 #[derive(Debug, Clone, Default)]
 pub struct OurView {
 	view: View,
-	span_per_head: HashMap<Hash, Arc<jaeger::Span>>,
 }
 
 impl OurView {
 	/// Creates a new instance.
-	pub fn new(
-		heads: impl IntoIterator<Item = (Hash, Arc<jaeger::Span>)>,
-		finalized_number: BlockNumber,
-	) -> Self {
-		let state_per_head = heads.into_iter().collect::<HashMap<_, _>>();
-		let view = View::new(state_per_head.keys().cloned(), finalized_number);
-		Self { view, span_per_head: state_per_head }
-	}
-
-	/// Returns the span per head map.
-	///
-	/// For each head there exists one span in this map.
-	pub fn span_per_head(&self) -> &HashMap<Hash, Arc<jaeger::Span>> {
-		&self.span_per_head
+	pub fn new(heads: impl IntoIterator<Item = Hash>, finalized_number: BlockNumber) -> Self {
+		let view = View::new(heads, finalized_number);
+		Self { view }
 	}
 }
 
@@ -133,8 +117,7 @@ impl std::ops::Deref for OurView {
 	}
 }
 
-/// Construct a new [`OurView`] with the given chain heads, finalized number 0 and disabled
-/// [`jaeger::Span`]'s.
+/// Construct a new [`OurView`] with the given chain heads, finalized number 0
 ///
 /// NOTE: Use for tests only.
 ///
@@ -149,7 +132,7 @@ impl std::ops::Deref for OurView {
 macro_rules! our_view {
 	( $( $hash:expr ),* $(,)? ) => {
 		$crate::OurView::new(
-			vec![ $( $hash.clone() ),* ].into_iter().map(|h| (h, $crate::Arc::new($crate::jaeger::Span::Disabled))),
+			vec![ $( $hash.clone() ),* ].into_iter().map(|h| h),
 			0,
 		)
 	};

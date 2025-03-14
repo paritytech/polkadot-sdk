@@ -13,12 +13,14 @@ codec = { workspace = true }
 # Substrate
 frame-support = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-message-queue = { workspace = true }
 pallet-identity = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-xcm = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
 polkadot-runtime-common = { workspace = true, default-features = true }
+westend-runtime = { workspace = true }
 westend-runtime-constants = { workspace = true, default-features = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }

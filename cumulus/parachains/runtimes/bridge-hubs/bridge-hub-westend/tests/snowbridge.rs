@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg(test)]
 
@@ -22,7 +22,7 @@ use bp_polkadot_core::Signature;
 use bridge_hub_westend_runtime::{
 	bridge_to_rococo_config, xcm_config::XcmConfig, AllPalletsWithoutSystem,
 	BridgeRejectObsoleteHeadersAndMessages, Executive, MessageQueueServiceWeight, Runtime,
-	RuntimeCall, RuntimeEvent, SessionKeys, SignedExtra, UncheckedExtrinsic,
+	RuntimeCall, RuntimeEvent, SessionKeys, TxExtension, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
@@ -30,7 +30,7 @@ use frame_support::parameter_types;
 use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_pallet_ethereum_client::WeightInfo;
 use sp_core::H160;
-use sp_keyring::AccountKeyring::Alice;
+use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32,
@@ -86,11 +86,11 @@ pub fn transfer_token_to_ethereum_fee_not_enough() {
 		collator_session_keys(),
 		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		ASSET_HUB_WESTEND_PARACHAIN_ID,
-		DefaultBridgeHubEthereumBaseFee::get() + 10_000_000_000,
+		DefaultBridgeHubEthereumBaseFee::get() + 20_000_000_000,
 		H160::random(),
 		H160::random(),
 		// fee not enough
-		10_000_000_000,
+		20_000_000_000,
 		NotHoldingFees,
 	)
 }
@@ -167,11 +167,11 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works() {
 }
 
 fn construct_extrinsic(
-	sender: sp_keyring::AccountKeyring,
+	sender: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
-	let extra: SignedExtra = (
+	let extra: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -184,16 +184,16 @@ fn construct_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
-	);
+	)
+		.into();
 	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
 	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), extra)
 }
 
 fn construct_and_apply_extrinsic(
-	origin: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> sp_runtime::DispatchOutcome {
 	let xt = construct_extrinsic(origin, call);

@@ -37,8 +37,8 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"dev" => Box::new(chain_spec::development_config()?),
-			"" | "local" => Box::new(chain_spec::local_testnet_config()?),
+			"dev" => Box::new(chain_spec::development_chain_spec()?),
+			"" | "local" => Box::new(chain_spec::local_chain_spec()?),
 			path =>
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 		})
@@ -144,11 +144,12 @@ pub fn run() -> sc_cli::Result<()> {
 						let ext_builder = RemarkBuilder::new(client.clone());
 
 						cmd.run(
-							config,
+							config.chain_spec.name().into(),
 							client,
 							inherent_benchmark_data()?,
 							Vec::new(),
 							&ext_builder,
+							false,
 						)
 					},
 					BenchmarkCmd::Extrinsic(cmd) => {
@@ -177,7 +178,7 @@ pub fn run() -> sc_cli::Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| async move {
-				match config.network.network_backend {
+				match config.network.network_backend.unwrap_or_default() {
 					sc_network::config::NetworkBackendType::Libp2p => service::new_full::<
 						sc_network::NetworkWorker<
 							solochain_template_runtime::opaque::Block,

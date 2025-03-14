@@ -16,16 +16,17 @@
 
 use super::*;
 use futures::{channel::oneshot, executor};
-use overseer::jaeger;
 use polkadot_node_network_protocol::{self as net_protocol, OurView};
 use polkadot_node_subsystem::messages::NetworkBridgeEvent;
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use parking_lot::Mutex;
+use polkadot_overseer::TimeoutExt;
 use std::{
 	collections::HashSet,
 	sync::atomic::{AtomicBool, Ordering},
+	time::Duration,
 };
 
 use sc_network::{
@@ -529,6 +530,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		validation_service,
 		collation_service,
 		notification_sinks,
+		approval_voting_parallel_enabled: false,
 	};
 
 	let network_bridge = run_network_in(bridge, context)
@@ -1380,12 +1382,7 @@ fn our_view_updates_decreasing_order_and_limited_to_max() {
 		}
 
 		let our_views = (1..=MAX_VIEW_HEADS).rev().map(|start| {
-			OurView::new(
-				(start..=MAX_VIEW_HEADS)
-					.rev()
-					.map(|i| (Hash::repeat_byte(i as u8), Arc::new(jaeger::Span::Disabled))),
-				0,
-			)
+			OurView::new((start..=MAX_VIEW_HEADS).rev().map(|i| Hash::repeat_byte(i as u8)), 0)
 		});
 
 		for our_view in our_views {
@@ -1466,6 +1463,120 @@ fn network_protocol_versioning_view_update() {
 			);
 		}
 
+		virtual_overseer
+	});
+}
+
+// Test rx bridge sends the newest gossip topology to all subsystems and old ones only to approval
+// distribution.
+#[test]
+fn network_new_topology_update() {
+	let (oracle, handle) = make_sync_oracle(false);
+	test_harness(Box::new(oracle), |test_harness| async move {
+		let TestHarness { mut network_handle, mut virtual_overseer, shared } = test_harness;
+
+		let peer_ids: Vec<_> = (0..4).map(|_| PeerId::random()).collect();
+		let peers = [
+			(peer_ids[0], PeerSet::Validation, ValidationVersion::V2),
+			(peer_ids[1], PeerSet::Validation, ValidationVersion::V1),
+			(peer_ids[2], PeerSet::Validation, ValidationVersion::V1),
+			(peer_ids[3], PeerSet::Collation, ValidationVersion::V2),
+		];
+
+		let head = Hash::repeat_byte(1);
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::start_work(new_leaf(head, 1)),
+			)))
+			.await;
+
+		handle.await_mode_switch().await;
+
+		let mut total_validation_peers = 0;
+		let mut total_collation_peers = 0;
+
+		for &(peer_id, peer_set, version) in &peers {
+			network_handle
+				.connect_peer(peer_id, version, peer_set, ObservedRole::Full)
+				.await;
+
+			match peer_set {
+				PeerSet::Validation => total_validation_peers += 1,
+				PeerSet::Collation => total_collation_peers += 1,
+			}
+		}
+
+		await_peer_connections(&shared, total_validation_peers, total_collation_peers).await;
+
+		// Drain setup messages.
+		while let Some(_) = virtual_overseer.recv().timeout(Duration::from_secs(1)).await {}
+
+		// 1. Send new gossip topology and check is sent to all subsystems.
+		virtual_overseer
+			.send(polkadot_overseer::FromOrchestra::Communication {
+				msg: NetworkBridgeRxMessage::NewGossipTopology {
+					session: 2,
+					local_index: Some(ValidatorIndex(0)),
+					canonical_shuffling: Vec::new(),
+					shuffled_indices: Vec::new(),
+				},
+			})
+			.await;
+
+		assert_sends_validation_event_to_all(
+			NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+				session: 2,
+				topology: SessionGridTopology::new(Vec::new(), Vec::new()),
+				local_index: Some(ValidatorIndex(0)),
+			}),
+			&mut virtual_overseer,
+		)
+		.await;
+
+		// 2. Send old gossip topology and check is sent only to approval distribution.
+		virtual_overseer
+			.send(polkadot_overseer::FromOrchestra::Communication {
+				msg: NetworkBridgeRxMessage::NewGossipTopology {
+					session: 1,
+					local_index: Some(ValidatorIndex(0)),
+					canonical_shuffling: Vec::new(),
+					shuffled_indices: Vec::new(),
+				},
+			})
+			.await;
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
+				NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+					session: 1,
+					topology: _,
+					local_index: _,
+				})
+			))
+		);
+
+		// 3. Send new gossip topology and check is sent to all subsystems.
+		virtual_overseer
+			.send(polkadot_overseer::FromOrchestra::Communication {
+				msg: NetworkBridgeRxMessage::NewGossipTopology {
+					session: 3,
+					local_index: Some(ValidatorIndex(0)),
+					canonical_shuffling: Vec::new(),
+					shuffled_indices: Vec::new(),
+				},
+			})
+			.await;
+
+		assert_sends_validation_event_to_all(
+			NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+				session: 3,
+				topology: SessionGridTopology::new(Vec::new(), Vec::new()),
+				local_index: Some(ValidatorIndex(0)),
+			}),
+			&mut virtual_overseer,
+		)
+		.await;
 		virtual_overseer
 	});
 }

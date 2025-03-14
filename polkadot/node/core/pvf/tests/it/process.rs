@@ -77,7 +77,9 @@ fn find_process_by_sid_and_name(
 
 	let mut found = None;
 	for process in all_processes {
-		let stat = process.stat().expect("/proc existed above. Potential race occurred");
+		let Ok(stat) = process.stat() else {
+			continue;
+		};
 
 		if stat.session != sid || !process.exe().unwrap().to_str().unwrap().contains(exe_name) {
 			continue
@@ -141,6 +143,7 @@ rusty_fork_test! {
 					pvd,
 					pov,
 					Default::default(),
+					H256::default(),
 				)
 				.await
 				.unwrap();
@@ -187,6 +190,7 @@ rusty_fork_test! {
 					pvd,
 					pov,
 					Default::default(),
+					H256::default(),
 				),
 				// Send a stop signal to pause the worker.
 				async {
@@ -242,6 +246,7 @@ rusty_fork_test! {
 					pvd,
 					pov,
 					Default::default(),
+					H256::default(),
 				),
 				// Run a future that kills the job while it's running.
 				async {
@@ -301,6 +306,7 @@ rusty_fork_test! {
 					pvd,
 					pov,
 					Default::default(),
+					H256::default(),
 				),
 				// Run a future that kills the job while it's running.
 				async {
@@ -372,6 +378,7 @@ rusty_fork_test! {
 					pvd,
 					pov,
 					Default::default(),
+					H256::default(),
 				),
 				// Run a future that tests the thread count while the worker is running.
 				async {

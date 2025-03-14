@@ -5,11 +5,11 @@ use super::*;
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use snowbridge_core::{inbound::Proof, ChannelId};
-use sp_keyring::AccountKeyring as Keyring;
+use sp_keyring::Sr25519Keyring as Keyring;
 use sp_runtime::DispatchError;
 use sp_std::convert::From;
 
-use crate::{Error, Event as InboundQueueEvent};
+use crate::Error;
 
 use crate::mock::*;
 
@@ -35,17 +35,16 @@ fn test_submit_happy_path() {
 		assert_eq!(Balances::balance(&channel_sovereign), initial_fund);
 
 		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
-		expect_events(vec![InboundQueueEvent::MessageReceived {
-			channel_id: hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539")
-				.into(),
-			nonce: 1,
-			message_id: [
-				57, 61, 232, 3, 66, 61, 25, 190, 234, 188, 193, 174, 13, 186, 1, 64, 237, 94, 73,
-				83, 14, 18, 209, 213, 78, 121, 43, 108, 251, 245, 107, 67,
-			],
-			fee_burned: 110000000000,
-		}
-		.into()]);
+
+		let events = frame_system::Pallet::<Test>::events();
+		assert!(
+			events.iter().any(|event| matches!(
+				event.event,
+				RuntimeEvent::InboundQueue(Event::MessageReceived { nonce, ..})
+					if nonce == 1
+			)),
+			"no event emit."
+		);
 
 		let delivery_cost = InboundQueue::calculate_delivery_cost(message.encode().len() as u32);
 		assert!(

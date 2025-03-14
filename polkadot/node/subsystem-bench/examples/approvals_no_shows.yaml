@@ -9,6 +9,7 @@ TestConfiguration:
     coalesce_tranche_diff: 12
     num_no_shows_per_candidate: 10
     workdir_prefix: "/tmp/"
+    approval_voting_parallel_enabled: false
   n_validators: 500
   n_cores: 100
   min_pov_size: 1120

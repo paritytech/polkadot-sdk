@@ -19,6 +19,7 @@ pub mod barrier;
 pub mod constants;
 pub mod location_converter;
 pub mod origin_converter;
+pub mod teleporter;
 pub mod weigher;
 
 use crate::relay_chain::{RuntimeCall, XcmPallet};
@@ -33,10 +34,11 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = ();
 	type AssetTransactor = asset_transactor::AssetTransactor;
 	type OriginConverter = origin_converter::OriginConverter;
 	type IsReserve = ();
-	type IsTeleporter = ();
+	type IsTeleporter = teleporter::TrustedTeleporters;
 	type UniversalLocation = constants::UniversalLocation;
 	type Barrier = barrier::Barrier;
 	type Weigher = weigher::Weigher;

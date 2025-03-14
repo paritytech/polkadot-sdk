@@ -17,16 +17,30 @@ use crate::imports::*;
 
 mod asset_transfers;
 mod claim_assets;
+mod register_bridged_assets;
 mod send_xcm;
 mod snowbridge;
 mod teleport;
+mod transact;
 
 pub(crate) fn asset_hub_rococo_location() -> Location {
-	Location::new(2, [GlobalConsensus(Rococo), Parachain(AssetHubRococo::para_id().into())])
+	Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+			Parachain(AssetHubRococo::para_id().into()),
+		],
+	)
 }
 
 pub(crate) fn bridge_hub_rococo_location() -> Location {
-	Location::new(2, [GlobalConsensus(Rococo), Parachain(BridgeHubRococo::para_id().into())])
+	Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+			Parachain(BridgeHubRococo::para_id().into()),
+		],
+	)
 }
 
 // WND and wWND
@@ -34,24 +48,24 @@ pub(crate) fn wnd_at_ah_westend() -> Location {
 	Parent.into()
 }
 pub(crate) fn bridged_wnd_at_ah_rococo() -> Location {
-	Location::new(2, [GlobalConsensus(Westend)])
+	Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))])
 }
 
-// wROC
+// ROC and wROC
 pub(crate) fn bridged_roc_at_ah_westend() -> Location {
-	Location::new(2, [GlobalConsensus(Rococo)])
+	Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))])
 }
 
 // USDT and wUSDT
-pub(crate) fn usdt_at_ah_rococo() -> Location {
+pub(crate) fn usdt_at_ah_westend() -> Location {
 	Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())])
 }
-pub(crate) fn bridged_usdt_at_ah_westend() -> Location {
+pub(crate) fn bridged_usdt_at_ah_rococo() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Rococo),
-			Parachain(AssetHubRococo::para_id().into()),
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(AssetHubWestend::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(USDT_ID.into()),
 		],
@@ -69,13 +83,13 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	)
 }
 
-pub(crate) fn create_foreign_on_ah_rococo(id: v3::Location, sufficient: bool) {
+pub(crate) fn create_foreign_on_ah_rococo(id: v5::Location, sufficient: bool) {
 	let owner = AssetHubRococo::account_id_of(ALICE);
 	AssetHubRococo::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
 }
 
 pub(crate) fn create_foreign_on_ah_westend(
-	id: v3::Location,
+	id: v5::Location,
 	sufficient: bool,
 	prefund_accounts: Vec<(AccountId, u128)>,
 ) {
@@ -84,74 +98,83 @@ pub(crate) fn create_foreign_on_ah_westend(
 	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, min, prefund_accounts);
 }
 
-pub(crate) fn foreign_balance_on_ah_rococo(id: v3::Location, who: &AccountId) -> u128 {
+pub(crate) fn foreign_balance_on_ah_rococo(id: v5::Location, who: &AccountId) -> u128 {
 	AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(id, who)
 	})
 }
-pub(crate) fn foreign_balance_on_ah_westend(id: v3::Location, who: &AccountId) -> u128 {
+pub(crate) fn foreign_balance_on_ah_westend(id: v5::Location, who: &AccountId) -> u128 {
 	AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(id, who)
 	})
 }
 
-// set up pool
-pub(crate) fn set_up_pool_with_roc_on_ah_rococo(asset: v3::Location, is_foreign: bool) {
-	let roc: v3::Location = v3::Parent.into();
-	AssetHubRococo::execute_with(|| {
-		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-		let owner = AssetHubRococoSender::get();
-		let signed_owner = <AssetHubRococo as Chain>::RuntimeOrigin::signed(owner.clone());
+/// note: $asset needs to be prefunded outside this function
+#[macro_export]
+macro_rules! create_pool_with_native_on {
+	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr ) => {
+		emulated_integration_tests_common::impls::paste::paste! {
+			<$chain>::execute_with(|| {
+				type RuntimeEvent = <$chain as Chain>::RuntimeEvent;
+				let owner = $asset_owner;
+				let signed_owner = <$chain as Chain>::RuntimeOrigin::signed(owner.clone());
+				let native_asset: Location = Parent.into();
 
-		if is_foreign {
-			assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::mint(
-				signed_owner.clone(),
-				asset.into(),
-				owner.clone().into(),
-				3_000_000_000_000,
-			));
-		} else {
-			let asset_id = match asset.interior.split_last() {
-				(_, Some(v3::Junction::GeneralIndex(id))) => id as u32,
-				_ => unreachable!(),
-			};
-			assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
-				signed_owner.clone(),
-				asset_id.into(),
-				owner.clone().into(),
-				3_000_000_000_000,
-			));
+				if $is_foreign {
+					assert_ok!(<$chain as [<$chain Pallet>]>::ForeignAssets::mint(
+						signed_owner.clone(),
+						$asset.clone().into(),
+						owner.clone().into(),
+						10_000_000_000_000, // For it to have more than enough.
+					));
+				} else {
+					let asset_id = match $asset.interior.last() {
+						Some(GeneralIndex(id)) => *id as u32,
+						_ => unreachable!(),
+					};
+					assert_ok!(<$chain as [<$chain Pallet>]>::Assets::mint(
+						signed_owner.clone(),
+						asset_id.into(),
+						owner.clone().into(),
+						10_000_000_000_000, // For it to have more than enough.
+					));
+				}
+
+				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::create_pool(
+					signed_owner.clone(),
+					Box::new(native_asset.clone()),
+					Box::new($asset.clone()),
+				));
+
+				assert_expected_events!(
+					$chain,
+					vec![
+						RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+					]
+				);
+
+				assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::add_liquidity(
+					signed_owner,
+					Box::new(native_asset),
+					Box::new($asset),
+					1_000_000_000_000,
+					2_000_000_000_000, // $asset is worth half of native_asset
+					0,
+					0,
+					owner.into()
+				));
+
+				assert_expected_events!(
+					$chain,
+					vec![
+						RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
+					]
+				);
+			});
 		}
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
-			signed_owner.clone(),
-			Box::new(roc),
-			Box::new(asset),
-		));
-		assert_expected_events!(
-			AssetHubRococo,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-			]
-		);
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
-			signed_owner.clone(),
-			Box::new(roc),
-			Box::new(asset),
-			1_000_000_000_000,
-			2_000_000_000_000,
-			1,
-			1,
-			owner.into()
-		));
-		assert_expected_events!(
-			AssetHubRococo,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
-			]
-		);
-	});
+	};
 }
 
 pub(crate) fn send_assets_from_asset_hub_westend(

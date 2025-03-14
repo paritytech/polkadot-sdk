@@ -32,6 +32,7 @@ use proc_macro2::{Span, TokenStream};
 
 use quote::quote;
 
+use std::collections::{BTreeMap, HashMap};
 use syn::{
 	fold::{self, Fold},
 	parse::{Error, Parse, ParseStream, Result},
@@ -42,8 +43,6 @@ use syn::{
 	Attribute, FnArg, GenericParam, Generics, Ident, ItemTrait, LitInt, LitStr, TraitBound,
 	TraitItem, TraitItemFn,
 };
-
-use std::collections::{BTreeMap, HashMap};
 
 /// The structure used for parsing the runtime api declarations.
 struct RuntimeApiDecls {
@@ -133,7 +132,7 @@ fn remove_supported_attributes(attrs: &mut Vec<Attribute>) -> HashMap<&'static s
 /// ```
 fn generate_versioned_api_traits(
 	api: ItemTrait,
-	methods: BTreeMap<u64, Vec<TraitItemFn>>,
+	methods: BTreeMap<u32, Vec<TraitItemFn>>,
 ) -> Vec<ItemTrait> {
 	let mut result = Vec::<ItemTrait>::new();
 	for (version, _) in &methods {
@@ -189,15 +188,12 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 		extend_generics_with_block(&mut decl.generics);
 		let mod_name = generate_runtime_mod_name_for_trait(&decl.ident);
 		let found_attributes = remove_supported_attributes(&mut decl.attrs);
-		let api_version =
-			get_api_version(&found_attributes).map(|v| generate_runtime_api_version(v as u32))?;
+		let api_version = get_api_version(&found_attributes).map(generate_runtime_api_version)?;
 		let id = generate_runtime_api_id(&decl.ident.to_string());
-
-		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl);
 
 		let trait_api_version = get_api_version(&found_attributes)?;
 
-		let mut methods_by_version: BTreeMap<u64, Vec<TraitItemFn>> = BTreeMap::new();
+		let mut methods_by_version: BTreeMap<u32, Vec<TraitItemFn>> = BTreeMap::new();
 
 		// Process the items in the declaration. The filter_map function below does a lot of stuff
 		// because the method attributes are stripped at this point
@@ -254,6 +250,12 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 			},
 			_ => (),
 		});
+
+		let versioned_methods_iter = methods_by_version
+			.iter()
+			.flat_map(|(&version, methods)| methods.iter().map(move |method| (method, version)));
+		let metadata =
+			crate::runtime_metadata::generate_decl_runtime_metadata(&decl, versioned_methods_iter);
 
 		let versioned_api_traits = generate_versioned_api_traits(decl.clone(), methods_by_version);
 
@@ -505,7 +507,7 @@ fn generate_runtime_api_version(version: u32) -> TokenStream {
 }
 
 /// Generates the implementation of `RuntimeApiInfo` for the given trait.
-fn generate_runtime_info_impl(trait_: &ItemTrait, version: u64) -> TokenStream {
+fn generate_runtime_info_impl(trait_: &ItemTrait, version: u32) -> TokenStream {
 	let trait_name = &trait_.ident;
 	let crate_ = generate_crate_access();
 	let id = generate_runtime_api_id(&trait_name.to_string());
@@ -537,7 +539,7 @@ fn generate_runtime_info_impl(trait_: &ItemTrait, version: u64) -> TokenStream {
 }
 
 /// Get changed in version from the user given attribute or `Ok(None)`, if no attribute was given.
-fn get_changed_in(found_attributes: &HashMap<&'static str, Attribute>) -> Result<Option<u64>> {
+fn get_changed_in(found_attributes: &HashMap<&'static str, Attribute>) -> Result<Option<u32>> {
 	found_attributes
 		.get(&CHANGED_IN_ATTRIBUTE)
 		.map(|v| parse_runtime_api_version(v).map(Some))
@@ -545,7 +547,7 @@ fn get_changed_in(found_attributes: &HashMap<&'static str, Attribute>) -> Result
 }
 
 /// Get the api version from the user given attribute or `Ok(1)`, if no attribute was given.
-fn get_api_version(found_attributes: &HashMap<&'static str, Attribute>) -> Result<u64> {
+fn get_api_version(found_attributes: &HashMap<&'static str, Attribute>) -> Result<u32> {
 	found_attributes
 		.get(&API_VERSION_ATTRIBUTE)
 		.map(parse_runtime_api_version)
@@ -610,7 +612,7 @@ impl CheckTraitDecl {
 	///
 	/// Any error is stored in `self.errors`.
 	fn check_method_declarations<'a>(&mut self, methods: impl Iterator<Item = &'a TraitItemFn>) {
-		let mut method_to_signature_changed = HashMap::<Ident, Vec<Option<u64>>>::new();
+		let mut method_to_signature_changed = HashMap::<Ident, Vec<Option<u32>>>::new();
 
 		methods.into_iter().for_each(|method| {
 			let attributes = remove_supported_attributes(&mut method.attrs.clone());

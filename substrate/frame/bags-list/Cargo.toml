@@ -27,14 +27,14 @@ scale-info = { features = [
 sp-runtime = { workspace = true }
 
 # FRAME
+frame-election-provider-support = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-election-provider-support = { workspace = true }
 
 # third party
-log = { workspace = true }
-docify = { workspace = true }
 aquamarine = { workspace = true }
+docify = { workspace = true }
+log = { workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
@@ -44,12 +44,12 @@ sp-io = { optional = true, workspace = true }
 sp-tracing = { optional = true, workspace = true }
 
 [dev-dependencies]
+frame-benchmarking = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-frame-election-provider-support = { workspace = true, default-features = true }
-frame-benchmarking = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

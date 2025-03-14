@@ -47,7 +47,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	CandidateHash, ChunkIndex, CoreIndex, CoreState, ExecutorParams, GroupIndex, Hash,
+	vstaging::CoreState, CandidateHash, ChunkIndex, CoreIndex, ExecutorParams, GroupIndex, Hash,
 	Id as ParaId, NodeFeatures, ScheduledCore, SessionInfo, ValidatorIndex,
 };
 use test_helpers::mock::{make_ferdie_keystore, new_leaf};
@@ -60,7 +60,6 @@ type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContex
 >;
 pub struct TestHarness {
 	pub virtual_overseer: VirtualOverseer,
-	pub pov_req_cfg: RequestResponseConfig,
 	pub chunk_req_v1_cfg: RequestResponseConfig,
 	pub chunk_req_v2_cfg: RequestResponseConfig,
 	pub pool: TaskExecutor,

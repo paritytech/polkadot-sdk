@@ -1,4 +1,4 @@
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
@@ -31,7 +31,7 @@ impl<T: Into<QueuedMessage>> From<T> for VersionedQueuedMessage {
 
 mod v1 {
 	use crate::{pricing::UD60x18, ChannelId};
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use ethabi::Token;
 	use scale_info::TypeInfo;
 	use sp_core::{RuntimeDebug, H160, H256, U256};
@@ -55,7 +55,9 @@ mod v1 {
 	}
 
 	/// The operating mode of Channels and Gateway contract on Ethereum.
-	#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+	#[derive(
+		Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, RuntimeDebug, TypeInfo,
+	)]
 	pub enum OperatingMode {
 		/// Normal operations. Allow sending and receiving messages.
 		Normal,
@@ -139,6 +141,37 @@ mod v1 {
 			// Fee multiplier
 			multiplier: UD60x18,
 		},
+		/// Transfer ERC20 tokens
+		TransferNativeToken {
+			/// ID of the agent
+			agent_id: H256,
+			/// Address of the ERC20 token
+			token: H160,
+			/// The recipient of the tokens
+			recipient: H160,
+			/// The amount of tokens to transfer
+			amount: u128,
+		},
+		/// Register foreign token from Polkadot
+		RegisterForeignToken {
+			/// ID for the token
+			token_id: H256,
+			/// Name of the token
+			name: Vec<u8>,
+			/// Short symbol for the token
+			symbol: Vec<u8>,
+			/// Number of decimal places
+			decimals: u8,
+		},
+		/// Mint foreign token from Polkadot
+		MintForeignToken {
+			/// ID for the token
+			token_id: H256,
+			/// The recipient of the newly minted tokens
+			recipient: H160,
+			/// The amount of tokens to mint
+			amount: u128,
+		},
 	}
 
 	impl Command {
@@ -154,6 +187,9 @@ mod v1 {
 				Command::TransferNativeFromAgent { .. } => 6,
 				Command::SetTokenTransferFees { .. } => 7,
 				Command::SetPricingParameters { .. } => 8,
+				Command::TransferNativeToken { .. } => 9,
+				Command::RegisterForeignToken { .. } => 10,
+				Command::MintForeignToken { .. } => 11,
 			}
 		}
 
@@ -211,13 +247,33 @@ mod v1 {
 						Token::Uint(U256::from(*delivery_cost)),
 						Token::Uint(multiplier.clone().into_inner()),
 					])]),
+				Command::TransferNativeToken { agent_id, token, recipient, amount } =>
+					ethabi::encode(&[Token::Tuple(vec![
+						Token::FixedBytes(agent_id.as_bytes().to_owned()),
+						Token::Address(*token),
+						Token::Address(*recipient),
+						Token::Uint(U256::from(*amount)),
+					])]),
+				Command::RegisterForeignToken { token_id, name, symbol, decimals } =>
+					ethabi::encode(&[Token::Tuple(vec![
+						Token::FixedBytes(token_id.as_bytes().to_owned()),
+						Token::String(name.to_owned()),
+						Token::String(symbol.to_owned()),
+						Token::Uint(U256::from(*decimals)),
+					])]),
+				Command::MintForeignToken { token_id, recipient, amount } =>
+					ethabi::encode(&[Token::Tuple(vec![
+						Token::FixedBytes(token_id.as_bytes().to_owned()),
+						Token::Address(*recipient),
+						Token::Uint(U256::from(*amount)),
+					])]),
 			}
 		}
 	}
 
 	/// Representation of a call to the initializer of an implementation contract.
 	/// The initializer has the following ABI signature: `initialize(bytes)`.
-	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Initializer {
 		/// ABI-encoded params of type `bytes` to pass to the initializer
 		pub params: Vec<u8>,
@@ -335,7 +391,18 @@ pub trait SendMessageFeeProvider {
 }
 
 /// Reasons why sending to Ethereum could not be initiated
-#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, PalletError, TypeInfo)]
+#[derive(
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	PalletError,
+	TypeInfo,
+)]
 pub enum SendError {
 	/// Message is too large to be safely executed on Ethereum
 	MessageTooLarge,
@@ -403,6 +470,9 @@ impl GasMeter for ConstantGasMeter {
 			},
 			Command::SetTokenTransferFees { .. } => 60_000,
 			Command::SetPricingParameters { .. } => 60_000,
+			Command::TransferNativeToken { .. } => 100_000,
+			Command::RegisterForeignToken { .. } => 1_200_000,
+			Command::MintForeignToken { .. } => 100_000,
 		}
 	}
 }
