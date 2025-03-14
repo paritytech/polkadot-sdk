@@ -125,8 +125,8 @@ pub fn run() -> Result<()> {
 			})
 		},
 		Some(Subcommand::ExportChainSpec(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			Ok(runner.sync_run(|config| cmd.run(config.chain_spec))?)
+			let chain_spec = cli.load_spec(&cmd.chain)?;
+			cmd.run(chain_spec)
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			construct_async_run!(|components, cli, cmd, config| {

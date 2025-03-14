@@ -65,9 +65,8 @@ pub fn run() -> sc_cli::Result<()> {
 			})
 		},
 		Some(Subcommand::ExportChainSpec(cmd)) => {
-			// Directly load the embedded chain spec using the CLI’s load_spec method.
-			let runner = cli.create_runner(cmd)?;
-			Ok(runner.sync_run(|config| cmd.run(config.chain_spec))?)
+			let chain_spec = cli.load_spec(&cmd.chain)?;
+			cmd.run(chain_spec)
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
