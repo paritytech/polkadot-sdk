@@ -1234,7 +1234,7 @@ impl<Block: BlockT> Backend<Block> {
 			let total_memory = system_memory.total_memory();
 			let available_memory = system_memory.available_memory();
 			let forced_cache_size = (total_memory / 2).max(MIN_TRIE_CACHE_SIZE);
-			if forced_cache_size < available_memory {
+			if forced_cache_size > available_memory {
 				error!(
 					"Not enough memory to force in-memory trie cache. Using minimum size of {} bytes. System memory: total {} bytes, available {} bytes",
 					MIN_TRIE_CACHE_SIZE,
