@@ -464,3 +464,37 @@ fn calling_payment_api_with_a_lower_version_works() {
 		.unwrap();
 	assert!(execution_fees.is_ok());
 }
+
+#[test]
+fn dry_run_error_event_check() {
+	use sp_tracing::{capture_test_logs, tracing::Level};
+
+	let who = 1;
+	let balances = vec![(who, DeliveryFees::get() + ExistentialDeposit::get())];
+	let assets = vec![(1, who, 100)];
+	new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
+		let client = TestClient;
+		let runtime_api = client.runtime_api();
+
+		let xcm_call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
+			dest: VersionedLocation::from((Parent, Parachain(1000))).into(),
+			beneficiary: VersionedLocation::from(AccountId32 { id: [0u8; 32], network: None })
+				.into(),
+			assets: VersionedAssets::from((Parent, 1984u128)).into(),
+			fee_asset_item: 0,
+			weight_limit: Unlimited,
+		});
+
+		let origin = OriginCaller::system(RawOrigin::Signed(who));
+		let log_capture = capture_test_logs!(Level::DEBUG, true, {
+			let dry_run_effects = runtime_api
+				.dry_run_call(H256::zero(), origin, xcm_call, XCM_VERSION)
+				.unwrap()
+				.unwrap();
+
+			assert!(dry_run_effects.emitted_events.is_empty());
+		});
+		assert!(log_capture.contains("xcm::pallet_xcm::execute_xcm_transfer: origin=Location"));
+		assert!(log_capture.contains("XCM execution failed with error with outcome: Incomplete"));
+	});
+}
