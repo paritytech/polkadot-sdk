@@ -2493,9 +2493,7 @@ impl<T: Config> Pallet<T> {
 		code: &ValidationCode,
 		para: &ParaId,
 	) -> Result<(ValidationCodeHash, BlockNumberFor<T>), Error<T>> {
-		let Some((authorized_code_hash, expire_at)) = AuthorizedCodeHash::<T>::get(para) else {
-			return Err(Error::<T>::NothingAuthorized);
-		};
+		let (authorized_code_hash, expire_at) = AuthorizedCodeHash::<T>::get(para).ok_or(Error::<T>::NothingAuthorized))?
 		ensure!(authorized_code_hash == code.hash(), Error::<T>::Unauthorized);
 		ensure!(
 			expire_at > frame_system::Pallet::<T>::block_number(),
