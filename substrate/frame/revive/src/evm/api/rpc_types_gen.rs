@@ -167,9 +167,7 @@ impl Default for BlockNumberOrTag {
 }
 
 /// Block number, tag, or block hash
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, Serialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum BlockNumberOrTagOrHash {
 	/// Block number
@@ -185,6 +183,41 @@ impl Default for BlockNumberOrTagOrHash {
 	}
 }
 
+// Support nested object notation as defined in  https://eips.ethereum.org/EIPS/eip-1898
+impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
+	fn deserialize<D>(de: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'a>,
+	{
+		#[derive(Deserialize)]
+		#[serde(untagged)]
+		pub enum BlockNumberOrTagOrHashWithAlias {
+			BlockTag(BlockTag),
+			U256(U256),
+			BlockNumber {
+				#[serde(rename = "blockNumber")]
+				block_number: U256,
+			},
+			H256(H256),
+			BlockHash {
+				#[serde(rename = "blockHash")]
+				block_hash: H256,
+			},
+		}
+
+		let r = BlockNumberOrTagOrHashWithAlias::deserialize(de)?;
+		Ok(match r {
+			BlockNumberOrTagOrHashWithAlias::BlockTag(val) => BlockNumberOrTagOrHash::BlockTag(val),
+			BlockNumberOrTagOrHashWithAlias::U256(val) |
+			BlockNumberOrTagOrHashWithAlias::BlockNumber { block_number: val } =>
+				BlockNumberOrTagOrHash::U256(val),
+			BlockNumberOrTagOrHashWithAlias::H256(val) |
+			BlockNumberOrTagOrHashWithAlias::BlockHash { block_hash: val } =>
+				BlockNumberOrTagOrHash::H256(val),
+		})
+	}
+}
+
 /// filter
 #[derive(
 	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
@@ -194,10 +227,10 @@ pub struct Filter {
 	pub address: Option<AddressOrAddresses>,
 	/// from block
 	#[serde(rename = "fromBlock", skip_serializing_if = "Option::is_none")]
-	pub from_block: Option<U256>,
+	pub from_block: Option<BlockNumberOrTag>,
 	/// to block
 	#[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
-	pub to_block: Option<U256>,
+	pub to_block: Option<BlockNumberOrTag>,
 	/// Restricts the logs returned to the single block
 	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
 	pub block_hash: Option<H256>,
