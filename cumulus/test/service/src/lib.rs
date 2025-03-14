@@ -72,7 +72,7 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CandidateHash, CollatorPair, Hash as PHash, PersistedValidationData};
-use polkadot_service::ProvideRuntimeApi;
+use polkadot_service::{IdentifyNetworkBackend, ProvideRuntimeApi};
 use sc_consensus::ImportQueue;
 use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
@@ -759,8 +759,12 @@ impl TestNodeBuilder {
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
 
 		let multiaddr = parachain_config.network.listen_addresses[0].clone();
+
+		// If the network backend is unspecified, use the default for the given chain.
+		let default_backend = relay_chain_config.chain_spec.network_backend();
+		let network_backend = relay_chain_config.network.network_backend.unwrap_or(default_backend);
 		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
-			match relay_chain_config.network.network_backend {
+			match network_backend {
 				sc_network::config::NetworkBackendType::Libp2p =>
 					start_node_impl::<_, sc_network::NetworkWorker<_, _>>(
 						parachain_config,
