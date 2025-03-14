@@ -398,7 +398,7 @@ where
 			aura_internal::seal::<_, P>(&pre_hash, &author_pub, keystore).map_err(Box::new)?;
 		let mut block_import_params = BlockImportParams::new(BlockOrigin::Own, pre_header);
 		block_import_params.post_digests.push(seal_digest);
-		block_import_params.body = Some(body.clone());
+		block_import_params.body = Some(body);
 		block_import_params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(storage_changes));
 		block_import_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
