@@ -12480,7 +12480,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.25.0"
+version = "0.25.1"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
