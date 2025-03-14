@@ -479,11 +479,13 @@ where
 			Poll::Pending => {},
 			Poll::Ready(Some(result)) => match result {
 				Ok(_) => {
-					error!(
+					debug!(
 						target: "sub-libp2p",
 						"Unexpected incoming data in `NotificationsOutSubstream` peer={:?}",
 						this.peer_id
 					);
+
+					return Poll::Ready(Err(NotificationsOutError::UnexpectedData));
 				},
 				Err(error) => {
 					debug!(
@@ -493,11 +495,10 @@ where
 					);
 
 					// The expectation is that the remote has closed the substream.
-					// This is similar to the `Poll::Ready(None)` branch below.
-					return Poll::Ready(Err(NotificationsOutError::Terminated));
+					return Poll::Ready(Err(NotificationsOutError::Closed));
 				},
 			},
-			Poll::Ready(None) => return Poll::Ready(Err(NotificationsOutError::Terminated)),
+			Poll::Ready(None) => return Poll::Ready(Err(NotificationsOutError::Closed)),
 		}
 
 		Sink::poll_flush(this.socket.as_mut(), cx).map_err(NotificationsOutError::Io)
@@ -549,8 +550,16 @@ pub enum NotificationsOutError {
 	/// I/O error on the substream.
 	#[error(transparent)]
 	Io(#[from] io::Error),
+
+	/// The substream was closed.
 	#[error("substream was closed/reset")]
-	Terminated,
+	Closed,
+
+	/// The remote peer did not comply with the notification spec.
+	///
+	/// This is a terminal error and the peer should be banned immediately.
+	#[error("unexpected data received from the remote peer")]
+	UnexpectedData,
 }
 
 #[cfg(test)]
@@ -824,7 +833,7 @@ mod tests {
 					Poll::Pending
 				},
 				Poll::Ready(Err(e)) => {
-					assert!(matches!(e, NotificationsOutError::Terminated));
+					assert!(matches!(e, NotificationsOutError::Closed));
 					Poll::Ready(())
 				},
 			})
