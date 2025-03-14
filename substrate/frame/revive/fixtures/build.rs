@@ -89,32 +89,26 @@ fn create_cargo_toml<'a>(
 	let metadata = MetadataCommand::new().manifest_path(&manifest_path).exec().unwrap();
 	let dependency_graph = metadata.resolve.unwrap();
 
-	// Get the pallet-revive-fixtures package id
-	let pallet_revive_fixtures_id = metadata
+	// Resolve the pallet-revive-fixtures package id
+	let fixtures_pkg_id = metadata
 		.packages
 		.iter()
-		.find(|package| package.manifest_path.as_std_path() == manifest_path)
-		.map(|package| package.id.clone())
+		.find(|pkg| pkg.manifest_path.as_std_path() == manifest_path)
+		.map(|pkg| pkg.id.clone())
 		.unwrap();
-	let pallet_revive_fixtures_node = dependency_graph
-		.nodes
-		.iter()
-		.find(|node| node.id == pallet_revive_fixtures_id)
-		.unwrap();
+	let fixtures_pkg_node =
+		dependency_graph.nodes.iter().find(|node| node.id == fixtures_pkg_id).unwrap();
 
 	// Get the pallet-revive-uapi package id
-	let pallet_revive_uapi_dep = pallet_revive_fixtures_node
+	let uapi_pkg_id = fixtures_pkg_node
 		.deps
 		.iter()
-		.find(|pkg| pkg.name == "pallet_revive_uapi")
+		.find(|dep| dep.name == "pallet_revive_uapi")
+		.map(|dep| dep.pkg.clone())
 		.expect("pallet-revive-uapi is a build dependency of pallet-revive-fixtures; qed");
 
 	// Get pallet-revive-uapi package
-	let uapi_pkg = metadata
-		.packages
-		.iter()
-		.find(|pkg| pkg.id == pallet_revive_uapi_dep.pkg)
-		.unwrap();
+	let uapi_pkg = metadata.packages.iter().find(|pkg| pkg.id == uapi_pkg_id).unwrap();
 
 	if uapi_pkg.source.is_none() {
 		uapi_dep.insert(
