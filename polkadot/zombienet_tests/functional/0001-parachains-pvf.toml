@@ -10,8 +10,6 @@ limits = { memory = "4G", cpu = "2" }
 requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.nodes]]
-  # Use an image that doesn't use validation v3 protocol.
-  image = "{{POLKADOT_IMAGE}}:master-4ac9c4a3"
   name = "alice"
   args = [ "--alice", "-lparachain=debug,runtime=debug" ]
 
@@ -46,90 +44,90 @@ requests = { memory = "2G", cpu = "1" }
 [[parachains]]
 id = 2000
 addToGenesis = true
-genesis_state_generator = "adder-collator export-genesis-state"
+genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=1"
 
   [parachains.collator]
   name = "collator01"
   image = "{{COL_IMAGE}}"
-  command = "adder-collator"
-  args = ["-lparachain=debug", "--parachain-id=2000"]
+  command = "undying-collator"
+  args = ["-lparachain=debug", "--pov-size=100000", "--pvf-complexity=1", "--parachain-id=2000"]
 
 [[parachains]]
 id = 2001
 addToGenesis = true
-genesis_state_generator = "adder-collator export-genesis-state"
+genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=10"
 
   [parachains.collator]
   name = "collator02"
   image = "{{COL_IMAGE}}"
-  command = "adder-collator"
-  args = ["-lparachain=debug", "--parachain-id=2001"]
+  command = "undying-collator"
+  args = ["-lparachain=debug", "--pov-size=100000", "--parachain-id=2001", "--pvf-complexity=10"]
 
 [[parachains]]
 id = 2002
 addToGenesis = true
-genesis_state_generator = "adder-collator export-genesis-state"
+genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=100"
 
   [parachains.collator]
   name = "collator03"
   image = "{{COL_IMAGE}}"
-  command = "adder-collator"
-  args = ["-lparachain=debug", "--parachain-id=2002"]
+  command = "undying-collator"
+  args = ["-lparachain=debug", "--pov-size=100000", "--parachain-id=2002", "--pvf-complexity=100"]
 
 [[parachains]]
 id = 2003
 addToGenesis = true
-genesis_state_generator = "adder-collator export-genesis-state"
+genesis_state_generator = "undying-collator export-genesis-state --pov-size=20000 --pvf-complexity=300"
 
   [parachains.collator]
   name = "collator04"
   image = "{{COL_IMAGE}}"
-  command = "adder-collator"
-  args = ["-lparachain=debug", "--parachain-id=2003"]
+  command = "undying-collator"
+  args = ["-lparachain=debug", "--pov-size=20000", "--parachain-id=2003", "--pvf-complexity=300"]
 
 [[parachains]]
 id = 2004
 addToGenesis = true
-genesis_state_generator = "adder-collator export-genesis-state"
+genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=300"
 
   [parachains.collator]
   name = "collator05"
   image = "{{COL_IMAGE}}"
-  command = "adder-collator"
-  args = ["-lparachain=debug", "--parachain-id=2004"]
+  command = "undying-collator"
+  args = ["-lparachain=debug", "--pov-size=100000", "--parachain-id=2004", "--pvf-complexity=300"]
 
 [[parachains]]
 id = 2005
 addToGenesis = true
-genesis_state_generator = "adder-collator export-genesis-state"
+genesis_state_generator = "undying-collator export-genesis-state --pov-size=20000 --pvf-complexity=400"
 
   [parachains.collator]
   name = "collator06"
   image = "{{COL_IMAGE}}"
-  command = "adder-collator"
-  args = ["-lparachain=debug", "--parachain-id=2005"]
+  command = "undying-collator"
+  args = ["-lparachain=debug", "--pov-size=20000",  "--pvf-complexity=400", "--parachain-id=2005"]
 
 [[parachains]]
 id = 2006
 addToGenesis = true
-genesis_state_generator = "adder-collator export-genesis-state"
+genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=300"
 
   [parachains.collator]
   name = "collator07"
   image = "{{COL_IMAGE}}"
-  command = "adder-collator"
-  args = ["-lparachain=debug", "--parachain-id=2006"]
+  command = "undying-collator"
+  args = ["-lparachain=debug", "--pov-size=100000",  "--pvf-complexity=300", "--parachain-id=2006"]
 
 [[parachains]]
 id = 2007
 addToGenesis = true
-genesis_state_generator = "adder-collator export-genesis-state"
+genesis_state_generator = "undying-collator export-genesis-state --pov-size=100000 --pvf-complexity=300"
 
   [parachains.collator]
   name = "collator08"
   image = "{{COL_IMAGE}}"
-  command = "adder-collator"
-  args = ["-lparachain=debug", "--parachain-id=2007"]
+  command = "undying-collator"
+  args = ["-lparachain=debug", "--pov-size=100000",  "--pvf-complexity=300", "--parachain-id=2007"]
 
 [types.Header]
 number = "u64"
