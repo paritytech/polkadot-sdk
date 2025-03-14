@@ -16,9 +16,8 @@
 // limitations under the License.
 
 //! Compile text fixtures to PolkaVM binaries.
-use anyhow::Result;
-
-use anyhow::{bail, Context};
+use anyhow::{bail, Context, Result};
+use cargo_metadata::MetadataCommand;
 use std::{
 	env, fs,
 	io::Write,
@@ -84,14 +83,32 @@ fn create_cargo_toml<'a>(
 	output_dir: &Path,
 ) -> Result<()> {
 	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/_Cargo.toml"))?;
-	let mut set_dep = |name, path| -> Result<()> {
-		cargo_toml["dependencies"][name]["path"] = toml::Value::String(
-			fixtures_dir.join(path).canonicalize()?.to_str().unwrap().to_string(),
+	let uapi_dep = cargo_toml["dependencies"]["uapi"].as_table_mut().unwrap();
+
+	let metadata = MetadataCommand::new()
+		.manifest_path(fixtures_dir.join("Cargo.toml"))
+		.exec()
+		.expect("Failed to fetch cargo metadata");
+
+	let mut uapi_pkgs: Vec<_> = metadata
+		.packages
+		.iter()
+		.filter(|pkg| pkg.name == "pallet-revive-uapi")
+		.collect();
+
+	uapi_pkgs.sort_by(|a, b| b.version.cmp(&a.version));
+	let uapi_pkg = uapi_pkgs.first().unwrap();
+
+	if uapi_pkg.source.is_none() {
+		uapi_dep.insert(
+			"path".to_string(),
+			toml::Value::String(
+				fixtures_dir.join("../uapi").canonicalize()?.to_str().unwrap().to_string(),
+			),
 		);
-		Ok(())
-	};
-	set_dep("uapi", "../uapi")?;
-	set_dep("common", "./contracts/common")?;
+	} else {
+		uapi_dep.insert("version".to_string(), toml::Value::String(uapi_pkg.version.to_string()));
+	}
 
 	cargo_toml["bin"] = toml::Value::Array(
 		entries
