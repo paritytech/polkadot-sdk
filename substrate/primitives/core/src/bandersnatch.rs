@@ -23,9 +23,10 @@
 #[cfg(feature = "full_crypto")]
 use crate::crypto::VrfSecret;
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable,
+	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction,
 	Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
 };
+use crate::pop::NonAggregatable;
 
 use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
