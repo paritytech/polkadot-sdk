@@ -1340,18 +1340,17 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let ledger = Self::ledger(Stash(stash.clone()))?;
-		let staked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
-		ensure!(!staked.is_zero(), Error::<T>::AlreadyMigrated);
-		ensure!(ledger.total == staked, Error::<T>::BadState);
+		let locked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
+		ensure!(!locked.is_zero(), Error::<T>::AlreadyMigrated);
 
 		// remove old staking lock
 		T::OldCurrency::remove_lock(STAKING_ID, &stash);
 
 		// check if we can hold all stake.
-		let max_hold = asset::free_to_stake::<T>(&stash);
-		let force_withdraw = if max_hold >= staked {
+		let max_hold = asset::stakeable_balance::<T>(&stash);
+		let force_withdraw = if max_hold >= ledger.total {
 			// this means we can hold all stake. yay!
-			asset::update_stake::<T>(&stash, staked)?;
+			asset::update_stake::<T>(&stash, ledger.total)?;
 			Zero::zero()
 		} else {
 			// if we are here, it means we cannot hold all user stake. We will do a force withdraw
