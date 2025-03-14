@@ -74,10 +74,8 @@ pub fn replace_wild_card_parameter_names(input: &mut Signature) {
 	let mut generated_pattern_counter = 0;
 	input.inputs.iter_mut().for_each(|arg| {
 		if let FnArg::Typed(arg) = arg {
-			arg.pat = Box::new(sanitize_pattern(
-				(*arg.pat).clone(),
-				&mut generated_pattern_counter,
-			));
+			arg.pat =
+				Box::new(sanitize_pattern((*arg.pat).clone(), &mut generated_pattern_counter));
 		}
 	});
 }
@@ -115,9 +113,9 @@ pub fn sanitize_pattern(pat: Pat, counter: &mut u32) -> Pat {
 			parse_quote!( #generated_name )
 		},
 		Pat::Ident(mut pat) => {
-			pat.mutability = None;	
+			pat.mutability = None;
 			pat.into()
-		}
+		},
 		_ => pat,
 	}
 }
@@ -145,8 +143,7 @@ pub fn extract_parameter_names_types_and_borrows(
 					t => (t.clone(), None),
 				};
 
-				let name =
-					sanitize_pattern((*arg.pat).clone(), &mut generated_pattern_counter);
+				let name = sanitize_pattern((*arg.pat).clone(), &mut generated_pattern_counter);
 				result.push((name, ty, borrow));
 			},
 			FnArg::Receiver(_) if matches!(allow_self, AllowSelfRefInParameters::No) =>
