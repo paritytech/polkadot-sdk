@@ -513,12 +513,10 @@ pub(crate) mod pallet {
 
 	/// The minimum score that each solution must attain in order to be considered feasible.
 	#[pallet::storage]
-	#[pallet::getter(fn minimum_score)]
 	pub(crate) type MinimumScore<T: Config> = StorageValue<_, ElectionScore>;
 
 	/// Storage item for [`Status`].
 	#[pallet::storage]
-	#[pallet::getter(fn status_storage)]
 	pub(crate) type StatusStorage<T: Config> = StorageValue<_, Status, ValueQuery>;
 
 	#[pallet::pallet]
@@ -552,6 +550,16 @@ pub(crate) mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// The minimum score that each solution must attain in order to be considered feasible.
+	pub fn minimum_score() -> Option<ElectionScore> {
+		MinimumScore::<T>::get()
+	}
+
+	/// Storage item for `Status`.
+	pub fn status_storage() -> Status {
+		StatusStorage::<T>::get()
+	}
+
 	fn do_on_initialize() -> Weight {
 		if let Status::Ongoing(current_page) = Self::status_storage() {
 			let maybe_page_solution =
