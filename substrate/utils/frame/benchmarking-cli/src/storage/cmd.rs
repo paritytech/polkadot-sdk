@@ -31,7 +31,7 @@ use log::info;
 use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
-use std::{fmt::Debug, path::PathBuf, sync::Arc};
+use std::{default, fmt::Debug, path::PathBuf, sync::Arc};
 
 use super::template::TemplateData;
 use crate::shared::{new_rng, HostInfoParams, WeightParams};
@@ -121,8 +121,8 @@ pub struct StorageParams {
 	/// Enable PoV recorder.
 	///
 	/// The recorder has impact on performance when benchmarking with the TrieCache enabled.
-	/// It should be used for the final results for parachains.
-	#[arg(long)]
+	/// For parachains weights this should be true and false for relay chain weights.
+	#[arg(long, default_value = "true", action=ArgAction::Set)]
 	pub enable_pov_recorder: bool,
 
 	/// The batch size for the write benchmark.
@@ -130,7 +130,7 @@ pub struct StorageParams {
 	/// Since the write size needs to also include the cost of computing the storage root, which is
 	/// done once at the end of the block, the batch size is used to simulate multiple writes in a
 	/// block.
-	#[arg(long, default_value_t = 1)]
+	#[arg(long, default_value_t = 100_000)]
 	pub batch_size: usize,
 }
 
