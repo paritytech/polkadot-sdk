@@ -2,13 +2,12 @@ title: Add `export-chain-spec` substrate CLI command
 doc:
 - audience: Runtime Dev
   description: |-
-    1. Idea is introduce a function export-chain-spec that does the chain-spec exporting. build-spec will work as before, but have a deprecation message on usage.
-    2. For now, this new command will focus on the ability to take the chain-specs embedded in the node and "exports" them to a json file
-    3. We will not include the addition of boot node functionality, that the build-spec command has right now into the new command, if along the process, we decide otherwise, we can include it
-    4. Part of this PR will also be to display the message the build-spec will soon be on deprecation path
+    This release adds a new export-chain-spec command to export raw chain specs directly from the node. The build-spec command is now on a deprecation path across all nodes and will display a warning, encouraging the use of export-chain-spec for chain spec exports.
 
 crates:
 - name: sc-cli
   bump: minor
 - name: polkadot-cli
   bump: major
+- name: polkadot-parachain-bin
+- bump: major
