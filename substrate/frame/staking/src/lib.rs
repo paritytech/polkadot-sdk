@@ -1527,6 +1527,9 @@ mod test {
 		));
 
 		// encoding again removes the exposure.
-		assert_eq!(ExistenceOrLegacyExposure::<u32, u32>::Exists.encode(), decoded_legacy_exposure.encode());
+		assert_eq!(
+			ExistenceOrLegacyExposure::<u32, u32>::Exists.encode(),
+			decoded_legacy_exposure.encode()
+		);
 	}
 }
