@@ -16,11 +16,10 @@
 // limitations under the License.
 
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{Error, Expr, ItemFn};
 use proc_macro2::Span;
 use proc_macro_crate::{crate_name, FoundCrate};
-use syn::{Path, Result};
+use quote::quote;
+use syn::{Error, Expr, ItemFn, Path, Result};
 
 /// This prefixes all the log lines with `[<name>]` (after the timestamp). It works by making a
 /// tracing's span that is propagated to all the child calls and child tasks (futures) if they are
