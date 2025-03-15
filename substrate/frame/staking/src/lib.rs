@@ -1139,11 +1139,7 @@ pub type Existence = ();
 pub struct ExistenceOf<T>(core::marker::PhantomData<T>);
 impl<T: Config> Convert<T::AccountId, Option<Existence>> for ExistenceOf<T> {
 	fn convert(validator: T::AccountId) -> Option<Existence> {
-		ActiveEra::<T>::get()
-			.filter(|active_era| {
-				ErasStakersOverview::<T>::contains_key(active_era.index, &validator)
-			})
-			.map(|_| ())
+		Validators::<T>::contains_key(&validator).then_some(())
 	}
 }
 
@@ -1168,11 +1164,7 @@ impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::Accoun
 	fn convert(
 		validator: T::AccountId,
 	) -> Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> {
-		ActiveEra::<T>::get()
-			.filter(|active_era| {
-				ErasStakersOverview::<T>::contains_key(active_era.index, &validator)
-			})
-			.map(|_| ExistenceOrLegacyExposure::Exists)
+		Validators::<T>::contains_key(&validator).then_some(ExistenceOrLegacyExposure::Exists)
 	}
 }
 
