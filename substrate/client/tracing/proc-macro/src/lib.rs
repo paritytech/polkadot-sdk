@@ -18,9 +18,10 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Error, Expr, ItemFn};
+use proc_macro2::Span;
+use proc_macro_crate::{crate_name, FoundCrate};
+use syn::{Path, Result};
 
-/// Add a log prefix to the function.
-///
 /// This prefixes all the log lines with `[<name>]` (after the timestamp). It works by making a
 /// tracing's span that is propagated to all the child calls and child tasks (futures) if they are
 /// spawned properly with the `SpawnHandle` (see `TaskManager` in sc-cli) or if the futures use
@@ -100,7 +101,6 @@ use syn::{Error, Expr, ItemFn};
 /// 2020-10-16 08:12:58  [open-harbor-1619] 〽️ Prometheus server started at 127.0.0.1:9615
 /// 2020-10-16 08:12:58  [open-harbor-1619] Listening for new connections on 127.0.0.1:9944.
 /// ```
-mod utils;
 
 #[proc_macro_attribute]
 pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
@@ -118,7 +118,7 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 	let item_fn = syn::parse_macro_input!(item as ItemFn);
 
 	// Resolve the proper sc_tracing path.
-	let crate_name = match utils::resolve_sc_tracing() {
+	let crate_name = match resolve_sc_tracing() {
 		Ok(path) => path,
 		Err(err) => return err.to_compile_error().into(),
 	};
@@ -138,4 +138,19 @@ pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 		}
 	})
 	.into()
+}
+
+/// Resolve the correct path for sc_tracing:
+/// - If `polkadot-sdk` is in scope, returns a Path corresponding to `polkadot_sdk::sc_tracing`
+/// - Otherwise, falls back to `sc_tracing`
+fn resolve_sc_tracing() -> Result<Path> {
+	match crate_name("polkadot-sdk") {
+		Ok(FoundCrate::Itself) => syn::parse_str("polkadot_sdk::sc_tracing"),
+		Ok(FoundCrate::Name(sdk_name)) => syn::parse_str(&format!("{}::sc_tracing", sdk_name)),
+		Err(_) => match crate_name("sc-tracing") {
+			Ok(FoundCrate::Itself) => syn::parse_str("sc_tracing"),
+			Ok(FoundCrate::Name(name)) => syn::parse_str(&name),
+			Err(e) => Err(syn::Error::new(Span::call_site(), e)),
+		},
+	}
 }
