@@ -134,6 +134,8 @@ use crate::scheduler::common::Assignment;
 use serde::{Deserialize, Serialize};
 
 pub use crate::Origin as ParachainOrigin;
+use crate::{scheduler, inclusion, dmp};
+
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -611,6 +613,20 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
+pub trait FreezeParaStoragesAccess {
+    type Scheduler: scheduler::Config;
+    type Inclusion: inclusion::Config;
+	type Dmp: dmp::Config;
+}
+
+pub type SchedulerAccess<T> = 
+    <<T as Config>::FreezeParaStoragesAccess as FreezeParaStoragesAccess>::Scheduler;
+pub type InclusionAccess<T> = 
+    <<T as Config>::FreezeParaStoragesAccess as FreezeParaStoragesAccess>::Inclusion;	
+pub type DmpAccess<T> = 
+    <<T as Config>::FreezeParaStoragesAccess as FreezeParaStoragesAccess>::Dmp;
+
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -655,6 +671,9 @@ pub mod pallet {
 		///
 		/// TODO: Remove once coretime is the standard across all chains.
 		type AssignCoretime: AssignCoretime;
+
+		/// Helper trait to access Freeze Parachain related storage
+		type FreezeParaStoragesAccess: FreezeParaStoragesAccess;
 	}
 
 	#[pallet::event]
@@ -1174,18 +1193,22 @@ pub mod pallet {
 		pub fn freeze_parachain(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			ensure_root(origin)?;
 			// clean any ongoing activies on the parablock
-			crate::scheduler::ClaimQueue::<T>::mutate(|cq|{
+			scheduler::ClaimQueue::<SchedulerAccess<T>>::mutate(|cq|{
 				for assignments in cq.values_mut() {
-					assignments.retain(|&assignment| {
+					assignments.retain(|assignment| {
 						let assigned_para_id = match assignment {
 							Assignment::Bulk(id) => id,
 							Assignment::Pool { para_id, ..} => para_id
 						};
-						para_id != assigned_para_id
+						para_id != *assigned_para_id
 					})
 				}
 			});
-			// TODO
+
+			inclusion::PendingAvailability::<InclusionAccess<T>>::remove(para_id);
+			dmp::DownwardMessageQueues::<DmpAccess<T>>::remove(para_id);
+			dmp::DownwardMessageQueueHeads::<DmpAccess<T>>::remove(para_id);
+
 			FrozenParas::<T>::mutate(|paras|{
 				paras.push(para_id)
 			});
