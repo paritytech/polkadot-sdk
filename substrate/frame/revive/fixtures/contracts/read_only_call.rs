@@ -18,9 +18,9 @@
 // This fixture tests if read-only call works as expected.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -39,10 +39,10 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::READ_ONLY,
 		callee_addr,
-		u64::MAX,                 // How much ref_time to devote for the execution. u64::MAX = all.
-		u64::MAX,                 // How much proof_size to devote for the execution. u64::MAX = all.
-		&[u8::MAX; 32],           // No deposit limit.
-		&[0u8; 32],               // Value transferred to the contract.
+		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = all.
+		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = all.
+		&[u8::MAX; 32], // No deposit limit.
+		&[0u8; 32],     // Value transferred to the contract.
 		callee_input,
 		None,
 	)
