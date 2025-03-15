@@ -129,6 +129,7 @@ use sp_runtime::{
 	traits::{AppVerify, One, Saturating},
 	DispatchResult, SaturatedConversion,
 };
+use crate::scheduler::common::Assignment;
 
 use serde::{Deserialize, Serialize};
 
@@ -244,6 +245,7 @@ impl ParaLifecycle {
 	pub fn is_transitioning(&self) -> bool {
 		!Self::is_stable(self)
 	}
+
 }
 
 impl<N: Ord + Copy + PartialEq> ParaPastCodeMeta<N> {
@@ -677,6 +679,8 @@ pub mod pallet {
 		/// The given validation code was rejected by the PVF pre-checking vote.
 		/// `code_hash` `para_id`
 		PvfCheckRejected(ValidationCodeHash, ParaId),
+		/// A paraId has been frozen
+		ParaIdFrozen(ParaId)
 	}
 
 	#[pallet::error]
@@ -870,6 +874,10 @@ pub mod pallet {
 	/// [`PastCodeHash`].
 	#[pallet::storage]
 	pub type CodeByHash<T: Config> = StorageMap<_, Identity, ValidationCodeHash, ValidationCode>;
+
+	/// Frozen parachain list
+	#[pallet::storage]
+	pub type FrozenParas<T: Config> = StorageValue<_,Vec<ParaId>,ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -1158,6 +1166,30 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			MostRecentContext::<T>::insert(&para, context);
+			Ok(())
+		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(Weight::zero())]
+		pub fn freeze_parachain(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			ensure_root(origin)?;
+			// clean any ongoing activies on the parablock
+			crate::scheduler::ClaimQueue::<T>::mutate(|cq|{
+				for assignments in cq.values_mut() {
+					assignments.retain(|&assignment| {
+						let assigned_para_id = match assignment {
+							Assignment::Bulk(id) => id,
+							Assignment::Pool { para_id, ..} => para_id
+						};
+						para_id != assigned_para_id
+					})
+				}
+			});
+			// TODO
+			FrozenParas::<T>::mutate(|paras|{
+				paras.push(para_id)
+			});
+			Self::deposit_event(Event::ParaIdFrozen(para_id));
 			Ok(())
 		}
 	}

@@ -398,9 +398,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn fill_claim_queue(core_idx: CoreIndex, n_lookahead: u32) {
+		
 		ClaimQueue::<T>::mutate(|la| {
 			let cq = la.entry(core_idx).or_default();
-
+			let frozen_paras = crate::paras::FrozenParas::<T>::get();
 			let mut n_lookahead_used = cq.len() as u32;
 
 			// If the claim queue used to be empty, we need to double the first assignment.
@@ -411,15 +412,31 @@ impl<T: Config> Pallet<T> {
 			if n_lookahead_used == 0 && n_lookahead > 1 {
 				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
 					T::AssignmentProvider::assignment_duplicated(&assignment);
-					cq.push_back(assignment.clone());
-					cq.push_back(assignment);
-					n_lookahead_used += 2;
+					// check if the paraId is frozen
+					let para_id = match assignment {
+						Assignment::Bulk(id) => id,
+						Assignment::Pool { para_id, ..} => para_id
+					};
+
+					if !frozen_paras.contains(&para_id) {
+						cq.push_back(assignment.clone());
+						cq.push_back(assignment);
+						n_lookahead_used += 2;
+					}
+			
 				}
 			}
 
 			for _ in n_lookahead_used..n_lookahead {
 				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
-					cq.push_back(assignment);
+					
+					let para_id = match assignment {
+						Assignment::Bulk(id) => id,
+						Assignment::Pool { para_id, ..} => para_id
+					};
+					if !frozen_paras.contains(&para_id) {
+						cq.push_back(assignment);
+					}
 				} else {
 					break
 				}
