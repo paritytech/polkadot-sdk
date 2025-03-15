@@ -344,7 +344,9 @@ mod pallet;
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
+use codec::{
+	Decode, DecodeWithMemTracking, Encode, EncodeLike, HasCompact, Input, MaxEncodedLen, Output,
+};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
@@ -1129,13 +1131,12 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 
 /// A marker type representing the presence of a validator. Encodes as a unit type.
 pub type Existence = ();
+
 /// A converter type that returns `Some(())` if the validator exists in the current active era,
 /// otherwise `None`. This serves as a lightweight presence check for validators.
 pub struct ExistenceOf<T>(core::marker::PhantomData<T>);
 impl<T: Config> Convert<T::AccountId, Option<Existence>> for ExistenceOf<T> {
-	fn convert(
-		validator: T::AccountId,
-	) -> Option<Existence> {
+	fn convert(validator: T::AccountId) -> Option<Existence> {
 		ActiveEra::<T>::get()
 			.filter(|active_era| {
 				ErasStakersOverview::<T>::contains_key(active_era.index, &validator)
@@ -1143,7 +1144,6 @@ impl<T: Config> Convert<T::AccountId, Option<Existence>> for ExistenceOf<T> {
 			.map(|_| ())
 	}
 }
-
 
 /// A compatibility wrapper type used to represent the presence of a validator in the current era.
 /// Encodes as a unit type but can decode from legacy `Exposure` values for backward compatibility.
@@ -1170,6 +1170,30 @@ impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::Accoun
 				ErasStakersOverview::<T>::contains_key(active_era.index, &validator)
 			})
 			.map(|_| ExistenceOrLegacyExposure::Exists)
+	}
+}
+
+impl<A, B: HasCompact> Encode for ExistenceOrLegacyExposure<A, B> {
+	fn encode_to<T: Output + ?Sized>(&self, _: &mut T) {}
+}
+
+impl<A, B: HasCompact> MaxEncodedLen for ExistenceOrLegacyExposure<A, B> {
+	fn max_encoded_len() -> usize {
+		0
+	}
+}
+
+impl<A, B: HasCompact> EncodeLike for ExistenceOrLegacyExposure<A, B> {}
+
+impl<A, B: HasCompact> Decode for ExistenceOrLegacyExposure<A, B>
+where
+	Exposure<A, B>: Decode,
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
+		match input.remaining_len() {
+			Ok(Some(x)) if x > 0 => Ok(ExistenceOrLegacyExposure::Exposure(Decode::decode(input)?)),
+			_ => Ok(ExistenceOrLegacyExposure::Exists),
+		}
 	}
 }
 
@@ -1456,4 +1480,53 @@ pub struct TestBenchmarkingConfig;
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
+}
+
+#[cfg(test)]
+mod test {
+	use crate::ExistenceOrLegacyExposure;
+	use codec::{Decode, Encode};
+	use sp_staking::{Exposure, IndividualExposure};
+
+	#[test]
+	fn existence_encodes_decodes_correctly() {
+		let encoded_existence = ExistenceOrLegacyExposure::<u32, u32>::Exists.encode();
+		assert!(encoded_existence.is_empty());
+
+		// try decoding the existence
+		let decoded_existence =
+			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_existence.as_slice())
+				.unwrap();
+		assert!(matches!(decoded_existence, ExistenceOrLegacyExposure::Exists));
+
+		// check that round-trip encoding works
+		assert_eq!(encoded_existence, decoded_existence.encode());
+	}
+
+	#[test]
+	fn legacy_existence_encodes_decodes_correctly() {
+		let legacy_exposure = Exposure::<u32, u32> {
+			total: 1,
+			own: 2,
+			others: vec![IndividualExposure { who: 3, value: 4 }],
+		};
+
+		let encoded_legacy_exposure = legacy_exposure.encode();
+
+		// try decoding the legacy exposure
+		let decoded_legacy_exposure =
+			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_legacy_exposure.as_slice())
+				.unwrap();
+		assert!(matches!(
+			decoded_legacy_exposure,
+			ExistenceOrLegacyExposure::Exposure(Exposure {
+				total: 1,
+				own: 2,
+				others: ref i
+			}) if *i == vec![IndividualExposure { who: 3, value: 4 }]
+		));
+
+		// encoding again removes the exposure.
+		assert_eq!(ExistenceOrLegacyExposure::<u32, u32>::Exists.encode(), decoded_legacy_exposure.encode());
+	}
 }
