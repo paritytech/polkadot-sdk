@@ -47,8 +47,8 @@ use sp_staking::{
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, ExistenceOrLegacyExposure, Exposure,
-	Forcing, IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf,
+	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Existence, ExistenceOrLegacyExposure,
+	Exposure, Forcing, IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf,
 	MaxWinnersPerPageOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
 	SessionInterface, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
 };
@@ -1728,53 +1728,6 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
-	for Pallet<T>
-{
-	fn new_session(
-		new_index: SessionIndex,
-	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-		<Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
-			let current_era = CurrentEra::<T>::get()
-				// Must be some as a new era has been created.
-				.unwrap_or(0);
-
-			validators
-				.into_iter()
-				.map(|v| {
-					let exposure = Self::eras_stakers(current_era, &v);
-					(v, exposure)
-				})
-				.collect()
-		})
-	}
-	fn new_session_genesis(
-		new_index: SessionIndex,
-	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index).map(
-			|validators| {
-				let current_era = CurrentEra::<T>::get()
-					// Must be some as a new era has been created.
-					.unwrap_or(0);
-
-				validators
-					.into_iter()
-					.map(|v| {
-						let exposure = Self::eras_stakers(current_era, &v);
-						(v, exposure)
-					})
-					.collect()
-			},
-		)
-	}
-	fn start_session(start_index: SessionIndex) {
-		<Self as pallet_session::SessionManager<_>>::start_session(start_index)
-	}
-	fn end_session(end_index: SessionIndex) {
-		<Self as pallet_session::SessionManager<_>>::end_session(end_index)
-	}
-}
-
 impl<T: Config>
 	historical::SessionManager<T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>
 	for Pallet<T>
@@ -1794,6 +1747,23 @@ impl<T: Config>
 				validators.into_iter().map(|v| (v, ExistenceOrLegacyExposure::Exists)).collect()
 			},
 		)
+	}
+	fn start_session(start_index: SessionIndex) {
+		<Self as pallet_session::SessionManager<_>>::start_session(start_index)
+	}
+	fn end_session(end_index: SessionIndex) {
+		<Self as pallet_session::SessionManager<_>>::end_session(end_index)
+	}
+}
+
+impl<T: Config> historical::SessionManager<T::AccountId, Existence> for Pallet<T> {
+	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, Existence)>> {
+		<Self as pallet_session::SessionManager<_>>::new_session(new_index)
+			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
+	}
+	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<(T::AccountId, Existence)>> {
+		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index)
+			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
 	}
 	fn start_session(start_index: SessionIndex) {
 		<Self as pallet_session::SessionManager<_>>::start_session(start_index)
