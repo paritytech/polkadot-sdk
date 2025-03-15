@@ -653,7 +653,7 @@ impl<T: Config> StakingLedger<T> {
 		// first we try to remove stake from active
 		if self.active >= to_withdraw {
 			self.active -= to_withdraw;
-			return self
+			return self;
 		} else {
 			withdrawn += self.active;
 			self.active = BalanceOf::<T>::zero();
@@ -671,7 +671,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if withdrawn >= to_withdraw {
-				break
+				break;
 			}
 		}
 
@@ -698,7 +698,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if unlocking_balance >= value {
-				break
+				break;
 			}
 		}
 
@@ -735,7 +735,7 @@ impl<T: Config> StakingLedger<T> {
 		slash_era: EraIndex,
 	) -> BalanceOf<T> {
 		if slash_amount.is_zero() {
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		use sp_runtime::PerThing as _;
@@ -828,7 +828,7 @@ impl<T: Config> StakingLedger<T> {
 		let mut slashed_unlocking = BTreeMap::<_, _>::new();
 		for i in slash_chunks_priority {
 			if remaining_slash.is_zero() {
-				break
+				break;
 			}
 
 			if let Some(chunk) = self.unlocking.get_mut(i).defensive() {
@@ -836,7 +836,7 @@ impl<T: Config> StakingLedger<T> {
 				// write the new slashed value of this chunk to the map.
 				slashed_unlocking.insert(chunk.era, chunk.value);
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -1127,10 +1127,49 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	}
 }
 
-pub struct NullIdentity;
-impl<T> Convert<T, Option<()>> for NullIdentity {
-	fn convert(_: T) -> Option<()> {
-		Some(())
+/// A marker type representing the presence of a validator. Encodes as a unit type.
+pub type Existence = ();
+/// A converter type that returns `Some(())` if the validator exists in the current active era,
+/// otherwise `None`. This serves as a lightweight presence check for validators.
+pub struct ExistenceOf<T>(core::marker::PhantomData<T>);
+impl<T: Config> Convert<T::AccountId, Option<Existence>> for ExistenceOf<T> {
+	fn convert(
+		validator: T::AccountId,
+	) -> Option<Existence> {
+		ActiveEra::<T>::get()
+			.filter(|active_era| {
+				ErasStakersOverview::<T>::contains_key(active_era.index, &validator)
+			})
+			.map(|_| ())
+	}
+}
+
+
+/// A compatibility wrapper type used to represent the presence of a validator in the current era.
+/// Encodes as a unit type but can decode from legacy `Exposure` values for backward compatibility.
+pub enum ExistenceOrLegacyExposure<A, B: HasCompact> {
+	/// Validator exists in the current era.
+	Exists,
+	/// Legacy `Exposure` data, retained for decoding compatibility.
+	Exposure(Exposure<A, B>),
+}
+
+/// A converter type that returns `Some(ExistenceOrLegacyExposure::Exists)` if the validator exists
+/// in the current active era, otherwise `None`. This allows decoding from older exposures while
+/// encoding remains minimal.
+pub struct ExistenceOrLegacyExposureOf<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>>
+	for ExistenceOrLegacyExposureOf<T>
+{
+	fn convert(
+		validator: T::AccountId,
+	) -> Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> {
+		ActiveEra::<T>::get()
+			.filter(|active_era| {
+				ErasStakersOverview::<T>::contains_key(active_era.index, &validator)
+			})
+			.map(|_| ExistenceOrLegacyExposure::Exists)
 	}
 }
 
@@ -1278,7 +1317,7 @@ impl<T: Config> EraInfo<T> {
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
 			// nevertheless don't do anything since the page already exist in claimed rewards.
-			return
+			return;
 		}
 
 		// add page to claimed entries
