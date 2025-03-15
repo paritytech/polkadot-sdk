@@ -15524,6 +15524,7 @@ dependencies = [
  "asset-hub-westend-runtime",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
+ "clap 4.5.13",
  "collectives-westend-runtime",
  "color-eyre",
  "coretime-rococo-runtime",

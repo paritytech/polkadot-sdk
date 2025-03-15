@@ -51,8 +51,8 @@ sp-keyring = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 
 # Cumulus
-cumulus-primitives-core = { workspace = true, default-features = true }
 clap = { features = ["derive"], workspace = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
