@@ -1,0 +1,13 @@
+title: '[pallet-revive] Update fixture build script'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Update the fixture build script so that it can be built from crates.io registry
+crates:
+- name: pallet-revive-uapi
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
+

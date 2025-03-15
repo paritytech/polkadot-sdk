@@ -418,7 +418,6 @@ pub mod pallet {
 
 	/// Hash of the best finalized header.
 	#[pallet::storage]
-	#[pallet::getter(fn best_finalized)]
 	pub type BestFinalized<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BridgedBlockId<T, I>, OptionQuery>;
 
@@ -819,6 +818,13 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 		operating_mode: bp_runtime::BasicOperatingMode::Normal,
 	})
 	.expect("only used from benchmarks; benchmarks are correct; qed");
+}
+
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Returns the hash of the best finalized header.
+	pub fn best_finalized() -> Option<BridgedBlockId<T, I>> {
+		BestFinalized::<T, I>::get()
+	}
 }
 
 #[cfg(test)]

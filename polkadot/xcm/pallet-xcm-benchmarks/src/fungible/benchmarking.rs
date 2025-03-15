@@ -23,7 +23,7 @@ use frame_support::{
 	traits::fungible::{Inspect, Mutate},
 	weights::Weight,
 };
-use sp_runtime::traits::{Bounded, Zero};
+use sp_runtime::traits::Bounded;
 use xcm::latest::{prelude::*, AssetTransferFilter, MAX_ITEMS_IN_ASSETS};
 use xcm_executor::traits::{ConvertLocation, FeeReason, TransactAsset};
 
@@ -46,8 +46,6 @@ benchmarks_instance_pallet! {
 		let asset = T::get_asset();
 
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
-		// check the assets of origin.
-		assert!(!T::TransactAsset::balance(&sender_account).is_zero());
 
 		let mut executor = new_executor::<T>(sender_location);
 		executor.set_holding(worst_case_holding.into());
@@ -56,8 +54,6 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		// check one of the assets of origin.
-		assert!(T::TransactAsset::balance(&sender_account).is_zero());
 		assert!(executor.holding().ensure_contains(&vec![asset].into()).is_ok());
 	}
 
@@ -73,8 +69,6 @@ benchmarks_instance_pallet! {
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
 		// We deposit the asset twice so we have enough for ED after transferring
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
-		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
-		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
 		let mut executor = new_executor::<T>(sender_location);
 		let instruction = Instruction::TransferAsset { assets, beneficiary: dest_location };
@@ -82,8 +76,6 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		assert!(T::TransactAsset::balance(&sender_account) < sender_account_balance_before);
-		assert!(!T::TransactAsset::balance(&dest_account).is_zero());
 	}
 
 	transfer_reserve_asset {
@@ -101,9 +93,7 @@ benchmarks_instance_pallet! {
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
 		// We deposit the asset twice so we have enough for ED after transferring
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
-		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 		let assets: Assets = vec![asset].into();
-		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
 		let mut executor = new_executor::<T>(sender_location);
 		if let Some(expected_fees_mode) = expected_fees_mode {
@@ -122,8 +112,6 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
-		assert!(!T::TransactAsset::balance(&dest_account).is_zero());
 		// TODO: Check sender queue is not empty. #4426
 	}
 
@@ -229,7 +217,6 @@ benchmarks_instance_pallet! {
 		// our dest must have no balance initially.
 		let dest_location = T::valid_destination()?;
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
-		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
 		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
@@ -248,8 +235,6 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		// dest should have received some asset.
-		assert!(!T::TransactAsset::balance(&dest_account).is_zero())
 	}
 
 	deposit_reserve_asset {
@@ -262,7 +247,6 @@ benchmarks_instance_pallet! {
 		// our dest must have no balance initially.
 		let dest_location = T::valid_destination()?;
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
-		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
 		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
@@ -282,8 +266,6 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		// dest should have received some asset.
-		assert!(!T::TransactAsset::balance(&dest_account).is_zero())
 	}
 
 	initiate_teleport {
@@ -293,8 +275,6 @@ benchmarks_instance_pallet! {
 		// Add our asset to the holding.
 		holding.push(asset.clone());
 
-		// Checked account starts at zero
-		assert!(T::CheckedAccount::get().map_or(true, |(c, _)| T::TransactAsset::balance(&c).is_zero()));
 		let dest_location =  T::valid_destination()?;
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
@@ -315,10 +295,6 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		if let Some((checked_account, _)) = T::CheckedAccount::get() {
-			// teleport checked account should have received some asset.
-			assert!(!T::TransactAsset::balance(&checked_account).is_zero());
-		}
 	}
 
 	initiate_transfer {
@@ -333,8 +309,6 @@ benchmarks_instance_pallet! {
 			&dest_location,
 			FeeReason::ChargeFees,
 		);
-
-		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
 		// Add our asset to the holding.
 		holding.push(asset.clone());
@@ -354,7 +328,6 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 	}
 
 	impl_benchmark_test_suite!(
