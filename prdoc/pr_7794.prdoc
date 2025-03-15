@@ -1,0 +1,16 @@
+title: '[glutton-westend] remove `CheckNonce` from `TXExtension` and add sudo key
+  to genesis config'
+doc:
+- audience: Runtime Dev
+  description: |-
+    I discovered in https://github.com/paritytech/polkadot-sdk/pull/7459, that the overhead benchmark is not working for glutton-westend, as the client can't send `system.remark` extrinsics. This was due to 2 issues:
+
+    1. Alice was not set as sudo. Hence, the `CheckOnlySudoAccount` deemed the extrinsic as invalid.
+    2. The `CheckNonce` TxExtension also marked the extrinsic as invalid, as the account doesn't exist (because glutton has no balances pallet).
+
+    This PR fixes the 1.) for now. I wanted to simply remove the `CheckNonce` in the TxExtension to fix 2., but it turns out that this is not possible, as the tx-pool needs the nonce tag to identify the transaction. https://github.com/paritytech/polkadot-sdk/pull/6884 will fix sending extrinsics on glutton.
+crates:
+- name: glutton-westend-runtime
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor
