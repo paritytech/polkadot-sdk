@@ -93,16 +93,11 @@ pub enum AccountVote<Balance> {
 }
 
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
 	Copy,
 	Clone,
 	Eq,
 	PartialEq,
 	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
 )]
 pub enum LockedIf {
 	Status(bool),

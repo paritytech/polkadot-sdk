@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.use crate::AccountVote;
 
-//! The Voting_hook traits
+//! Traits for conviction voting.
 
 use crate::AccountVote;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -51,11 +51,19 @@ pub trait VotingHooks<AccountId, Index, Balance> {
 
 	// Called when removed vote is executed and voter lost the direction to possibly lock some
 	// balance. Can return an amount that should be locked for the conviction time.
-	fn balance_locked_on_unsuccessful_vote(who: &AccountId, ref_index: Index) -> Option<Balance>;
+	fn lock_balance_on_unsuccessful_vote(who: &AccountId, ref_index: Index) -> Option<Balance>;
 
+	/// Will be called by benchmarking before calling `on_vote` in a benchmark.
+	///
+	/// Should setup the state in such a way that when `on_vote` is called it will
+	/// take the worst case path performance wise.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn on_vote_worst_case(who: &AccountId);
 
+	/// Will be called by benchmarking before calling `on_remove_vote` in a benchmark.  
+    ///  
+    /// Should setup the state in such a way that when `on_remove_vote` is called it will  
+    /// take the worst case path performance wise.  
 	#[cfg(feature = "runtime-benchmarks")]
 	fn on_remove_vote_worst_case(who: &AccountId);
 }
@@ -68,7 +76,7 @@ impl<A, I, B> VotingHooks<A, I, B> for () {
 
 	fn on_remove_vote(_who: &A, _ref_index: I, _status: Status) {}
 
-	fn balance_locked_on_unsuccessful_vote(_who: &A, _ref_index: I) -> Option<B> {
+	fn lock_balance_on_unsuccessful_vote(_who: &A, _ref_index: I) -> Option<B> {
 		None
 	}
 

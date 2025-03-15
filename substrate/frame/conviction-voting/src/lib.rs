@@ -502,11 +502,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								);
 								prior.accumulate(unlock_at, balance)
 							}
-						} else if v.1.as_standard() == Some(!approved) {
+						} else if v.1.as_standard().is_some_and(|s| s == !approved) {
 							// Unsuccessful vote, use special hook to lock the funds too in case of
 							// conviction.
 							if let Some(to_lock) =
-								T::VotingHooks::balance_locked_on_unsuccessful_vote(who, poll_index)
+								T::VotingHooks::lock_balance_on_unsuccessful_vote(who, poll_index)
 							{
 								if let AccountVote::Standard { vote, .. } = v.1 {
 									let unlock_at = end.saturating_add(

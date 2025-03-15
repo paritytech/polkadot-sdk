@@ -963,7 +963,7 @@ impl VotingHooks<u64, u8, u64> for HooksHandler {
 		});
 	}
 
-	fn balance_locked_on_unsuccessful_vote(who: &u64, ref_index: u8) -> Option<u64> {
+	fn lock_balance_on_unsuccessful_vote(who: &u64, ref_index: u8) -> Option<u64> {
 		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| {
 			*data.borrow_mut() = Some((*who, ref_index));
 
