@@ -1118,8 +1118,10 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
+#[deprecated(note = "Use `ExistenceOf` or `ExistenceOrLegacyExposureOf` instead")]
 pub struct ExposureOf<T>(core::marker::PhantomData<T>);
 
+#[allow(deprecated)]
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
 	for ExposureOf<T>
 {
@@ -1146,7 +1148,9 @@ impl<T: Config> Convert<T::AccountId, Option<Existence>> for ExistenceOf<T> {
 }
 
 /// A compatibility wrapper type used to represent the presence of a validator in the current era.
-/// Encodes as a unit type but can decode from legacy `Exposure` values for backward compatibility.
+/// Encodes as type [`Existence`] but can decode from legacy [`Exposure`] values for backward
+/// compatibility.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, RuntimeDebug, TypeInfo, DecodeWithMemTracking)]
 pub enum ExistenceOrLegacyExposure<A, B: HasCompact> {
 	/// Validator exists in the current era.
 	Exists,
@@ -1154,9 +1158,8 @@ pub enum ExistenceOrLegacyExposure<A, B: HasCompact> {
 	Exposure(Exposure<A, B>),
 }
 
-/// A converter type that returns `Some(ExistenceOrLegacyExposure::Exists)` if the validator exists
-/// in the current active era, otherwise `None`. This allows decoding from older exposures while
-/// encoding remains minimal.
+/// Converts a validator account ID to a Some([`ExistenceOrLegacyExposure::Exists`]) if the
+/// validator exists in the current era, otherwise `None`.
 pub struct ExistenceOrLegacyExposureOf<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>>

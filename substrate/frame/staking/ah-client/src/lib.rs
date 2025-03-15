@@ -71,7 +71,7 @@ pub mod pallet {
 	use core::result;
 	use frame_system::pallet_prelude::*;
 	use pallet_session::historical;
-	use pallet_staking::ExposureOf;
+	use pallet_staking::{ExistenceOrLegacyExposure, ExistenceOrLegacyExposureOf};
 	use polkadot_primitives::Id as ParaId;
 	use polkadot_runtime_parachains::origin::{ensure_parachain, Origin};
 	use sp_runtime::Perbill;
@@ -238,8 +238,11 @@ pub mod pallet {
 	where
 		T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
 		T: pallet_session::historical::Config<
-			FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-			FullIdentificationOf = ExposureOf<T>,
+			FullIdentification = ExistenceOrLegacyExposure<
+				<T as frame_system::Config>::AccountId,
+				BalanceOf<T>,
+			>,
+			FullIdentificationOf = ExistenceOrLegacyExposureOf<T>,
 		>,
 		T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
 		T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
