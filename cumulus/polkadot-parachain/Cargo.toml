@@ -52,8 +52,7 @@ xcm = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-primitives-core = { workspace = true, default-features = true }
-clap = { version = "4.5.13", features = ["derive"] }
-anyhow = "1.0.86"
+clap = { features = ["derive"], workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
