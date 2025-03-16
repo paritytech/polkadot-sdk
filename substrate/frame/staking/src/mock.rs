@@ -154,8 +154,8 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = ();
-	type FullIdentificationOf = NullIdentity;
+	type FullIdentification = crate::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = crate::ExposureOf<Test>;
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
@@ -728,11 +728,6 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 	);
 }
 
-/// Progress by n block.
-pub(crate) fn advance_blocks(n: u64) {
-	run_to_block(System::block_number() + n);
-}
-
 /// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
 pub(crate) fn start_session(end_session_idx: SessionIndex) {
 	let period = Period::get();
@@ -835,14 +830,7 @@ pub(crate) fn on_offence_in_era(
 	>],
 	slash_fraction: &[Perbill],
 	era: EraIndex,
-	advance_processing_blocks: bool,
 ) {
-	// counter to keep track of how many blocks we need to advance to process all the offences.
-	let mut process_blocks = 0u32;
-	for detail in offenders {
-		process_blocks += EraInfo::<Test>::get_page_count(era, &detail.offender.0);
-	}
-
 	let bonded_eras = crate::BondedEras::<Test>::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
@@ -851,9 +839,6 @@ pub(crate) fn on_offence_in_era(
 				slash_fraction,
 				start_session,
 			);
-			if advance_processing_blocks {
-				advance_blocks(process_blocks as u64);
-			}
 			return
 		} else if bonded_era > era {
 			break
@@ -866,9 +851,6 @@ pub(crate) fn on_offence_in_era(
 			slash_fraction,
 			pallet_staking::ErasStartSessionIndex::<Test>::get(era).unwrap(),
 		);
-		if advance_processing_blocks {
-			advance_blocks(process_blocks as u64);
-		}
 	} else {
 		panic!("cannot slash in era {}", era);
 	}
@@ -880,23 +862,19 @@ pub(crate) fn on_offence_now(
 		pallet_session::historical::IdentificationTuple<Test>,
 	>],
 	slash_fraction: &[Perbill],
-	advance_processing_blocks: bool,
 ) {
 	let now = pallet_staking::ActiveEra::<Test>::get().unwrap().index;
-	on_offence_in_era(offenders, slash_fraction, now, advance_processing_blocks);
-}
-pub(crate) fn offence_from(
-	offender: AccountId,
-	reporter: Option<AccountId>,
-) -> OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>> {
-	OffenceDetails {
-		offender: (offender, ()),
-		reporters: reporter.map(|r| vec![(r)]).unwrap_or_default(),
-	}
+	on_offence_in_era(offenders, slash_fraction, now)
 }
 
 pub(crate) fn add_slash(who: &AccountId) {
-	on_offence_now(&[offence_from(*who, None)], &[Perbill::from_percent(10)], true);
+	on_offence_now(
+		&[OffenceDetails {
+			offender: (*who, Staking::eras_stakers(active_era(), who)),
+			reporters: vec![],
+		}],
+		&[Perbill::from_percent(10)],
+	);
 }
 
 /// Make all validator and nominator request their payment
