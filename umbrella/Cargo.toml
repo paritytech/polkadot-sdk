@@ -136,8 +136,6 @@ std = [
 	"pallet-session?/std",
 	"pallet-skip-feeless-payment?/std",
 	"pallet-society?/std",
-	"pallet-staking-ah-client?/std",
-	"pallet-staking-rc-client?/std",
 	"pallet-staking-reward-fn?/std",
 	"pallet-staking-runtime-api?/std",
 	"pallet-staking?/std",
@@ -326,8 +324,6 @@ runtime-benchmarks = [
 	"pallet-session-benchmarking?/runtime-benchmarks",
 	"pallet-skip-feeless-payment?/runtime-benchmarks",
 	"pallet-society?/runtime-benchmarks",
-	"pallet-staking-ah-client?/runtime-benchmarks",
-	"pallet-staking-rc-client?/runtime-benchmarks",
 	"pallet-staking?/runtime-benchmarks",
 	"pallet-state-trie-migration?/runtime-benchmarks",
 	"pallet-sudo?/runtime-benchmarks",
@@ -468,8 +464,6 @@ try-runtime = [
 	"pallet-session?/try-runtime",
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
-	"pallet-staking-ah-client?/try-runtime",
-	"pallet-staking-rc-client?/try-runtime",
 	"pallet-staking?/try-runtime",
 	"pallet-state-trie-migration?/try-runtime",
 	"pallet-statement?/try-runtime",
@@ -690,8 +684,6 @@ runtime-full = [
 	"pallet-skip-feeless-payment",
 	"pallet-society",
 	"pallet-staking",
-	"pallet-staking-ah-client",
-	"pallet-staking-rc-client",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
 	"pallet-staking-runtime-api",
@@ -1679,16 +1671,6 @@ path = "../substrate/frame/society"
 default-features = false
 optional = true
 path = "../substrate/frame/staking"
-
-[dependencies.pallet-staking-ah-client]
-default-features = false
-optional = true
-path = "../substrate/frame/staking/ah-client"
-
-[dependencies.pallet-staking-rc-client]
-default-features = false
-optional = true
-path = "../substrate/frame/staking/rc-client"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
