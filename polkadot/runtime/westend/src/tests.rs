@@ -286,6 +286,7 @@ mod remote_tests {
 
 			let mut success = 0;
 			let mut err = 0;
+			let mut no_migration_needed = 0;
 			let mut force_withdraw_acc = 0;
 			// iterate over all pools
 			pallet_staking::Ledger::<Runtime>::iter().for_each(|(ctrl, ledger)| {
@@ -304,18 +305,23 @@ mod remote_tests {
 						success += 1;
 					},
 					Err(e) => {
-						log::error!(target: "remote_test", "Error migrating {:?}: {:?}", ledger.stash, e);
-						err += 1;
+						if e == pallet_staking::Error::<Runtime>::AlreadyMigrated.into() {
+							no_migration_needed += 1;
+						} else {
+							log::error!(target: "remote_test", "Error migrating {:?}: {:?}", ledger.stash, e);
+							err += 1;
+						}
 					},
 				}
 			});
 
 			log::info!(
 				target: "remote_test",
-				"Migration stats: success: {}, err: {}, total force withdrawn stake: {}",
+				"Migration stats: success: {}, err: {}, total force withdrawn stake: {}, no_migration_needed: {}",
 				success,
 				err,
-				force_withdraw_acc
+				force_withdraw_acc,
+				no_migration_needed
 			);
 		});
 
