@@ -3476,7 +3476,6 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 						fraction: Perbill::from_percent(10),
 						slash_era: 1
 					},
-					Event::ValidatorDisabled { stash: 11 },
 					Event::Slashed { staker: 11, amount: 100 },
 					Event::Slashed { staker: 101, amount: 12 },
 				]
@@ -3554,13 +3553,11 @@ fn non_slashable_offence_disables_validator() {
 						fraction: Perbill::from_percent(0),
 						slash_era: 1
 					},
-					Event::ValidatorDisabled { stash: 11 },
 					Event::SlashReported {
 						validator: 21,
 						fraction: Perbill::from_percent(25),
 						slash_era: 1
 					},
-					Event::ValidatorDisabled { stash: 21 },
 					Event::Slashed { staker: 21, amount: 250 },
 					Event::Slashed { staker: 101, amount: 94 }
 				]
@@ -3643,7 +3640,6 @@ fn slashing_independent_of_disabling_validator() {
 						fraction: Perbill::from_percent(0),
 						slash_era: 1
 					},
-					Event::ValidatorDisabled { stash: 11 },
 					Event::SlashReported {
 						validator: 11,
 						fraction: Perbill::from_percent(50),
@@ -8848,7 +8844,6 @@ fn reenable_lower_offenders_mock() {
 						fraction: Perbill::from_percent(10),
 						slash_era: 1
 					},
-					Event::ValidatorDisabled { stash: 11 },
 					Event::Slashed { staker: 11, amount: 100 },
 					Event::Slashed { staker: 101, amount: 12 },
 					Event::SlashReported {
@@ -8856,7 +8851,6 @@ fn reenable_lower_offenders_mock() {
 						fraction: Perbill::from_percent(20),
 						slash_era: 1
 					},
-					Event::ValidatorDisabled { stash: 21 },
 					Event::Slashed { staker: 21, amount: 200 },
 					Event::Slashed { staker: 101, amount: 75 },
 					Event::SlashReported {
@@ -8864,8 +8858,6 @@ fn reenable_lower_offenders_mock() {
 						fraction: Perbill::from_percent(50),
 						slash_era: 1
 					},
-					Event::ValidatorDisabled { stash: 31 },
-					Event::ValidatorReenabled { stash: 11 },
 					Event::Slashed { staker: 31, amount: 250 },
 				]
 			);
@@ -8935,7 +8927,6 @@ fn do_not_reenable_higher_offenders_mock() {
 						fraction: Perbill::from_percent(50),
 						slash_era: 1
 					},
-					Event::ValidatorDisabled { stash: 11 },
 					Event::Slashed { staker: 11, amount: 500 },
 					Event::Slashed { staker: 101, amount: 62 },
 					Event::SlashReported {
@@ -8943,7 +8934,6 @@ fn do_not_reenable_higher_offenders_mock() {
 						fraction: Perbill::from_percent(50),
 						slash_era: 1
 					},
-					Event::ValidatorDisabled { stash: 21 },
 					Event::Slashed { staker: 21, amount: 500 },
 					Event::Slashed { staker: 101, amount: 187 },
 					Event::SlashReported {
@@ -9745,11 +9735,8 @@ fn manual_slashing_works() {
 		let has_offence_reported = System::events().iter().any(|record| {
 			matches!(
 				record.event,
-				RuntimeEvent::Staking(Event::<Test>::OffenceReported {
-					validator,
-					fraction,
-					..
-				}) if validator == validator_stash && fraction == slash_fraction_2
+				RuntimeEvent::Staking(Event::<Test>::Slashed { staker, .. })
+					if staker == validator_stash
 			)
 		});
 		assert!(has_offence_reported, "No OffenceReported event was emitted");

@@ -634,6 +634,11 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 	);
 }
 
+/// Progress by n block.
+pub(crate) fn advance_blocks(n: u64) {
+	run_to_block(System::block_number() + n);
+}
+
 /// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
 pub(crate) fn start_session(end_session_idx: SessionIndex) {
 	let period = Period::get();
@@ -733,7 +738,11 @@ pub(crate) fn on_offence_in_era(
 	let bonded_eras = crate::BondedEras::<Test>::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			let _ = Staking::on_offence(offenders, slash_fraction, start_session);
+			let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
+				offenders,
+				slash_fraction,
+				start_session
+			);
 			return
 		} else if bonded_era > era {
 			break
