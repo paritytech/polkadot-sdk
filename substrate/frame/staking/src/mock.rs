@@ -741,7 +741,7 @@ pub(crate) fn on_offence_in_era(
 			let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
 				offenders,
 				slash_fraction,
-				start_session
+				start_session,
 			);
 			return
 		} else if bonded_era > era {

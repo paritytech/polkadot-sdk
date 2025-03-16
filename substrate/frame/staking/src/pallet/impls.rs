@@ -1374,7 +1374,6 @@ impl<T: Config> Pallet<T> {
 
 		consumed_weight
 	}
-
 }
 
 impl<T: Config> Pallet<T> {
@@ -1668,7 +1667,8 @@ where
 			OffenceDetails { offender: offender.clone(), reporters: details.reporters.clone() }
 		});
 
-		Self::on_offence(offenders, slash_fractions, slash_session)	}
+		Self::on_offence(offenders, slash_fractions, slash_session)
+	}
 }
 
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {

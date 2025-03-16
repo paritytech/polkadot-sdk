@@ -53,10 +53,9 @@ pub use impls::*;
 
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
 	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
 	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
-	Exposure,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -313,7 +312,6 @@ pub mod pallet {
 		/// WARNING: this only reports slashing and withdraw events for the time being.
 		#[pallet::no_default_bounds]
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
-
 
 		#[pallet::no_default_bounds]
 		/// Filter some accounts from participating in staking.
@@ -873,9 +871,7 @@ pub mod pallet {
 		/// A new force era mode was set.
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
-		ControllerBatchDeprecated {
-			failures: u32,
-		},
+		ControllerBatchDeprecated { failures: u32 },
 		/// Staking balance migrated from locks to holds, with any balance that could not be held
 		/// is force withdrawn.
 		CurrencyMigrated { stash: T::AccountId, force_withdraw: BalanceOf<T> },

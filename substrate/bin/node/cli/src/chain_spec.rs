@@ -314,7 +314,6 @@ pub fn testnet_genesis(
 	let (initial_authorities, endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 
-
 	serde_json::json!({
 		"balances": {
 			"balances": endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect::<Vec<_>>(),
