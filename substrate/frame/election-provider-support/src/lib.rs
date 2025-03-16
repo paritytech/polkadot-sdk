@@ -188,6 +188,8 @@ use sp_runtime::{
 
 pub use bounds::DataProviderBounds;
 pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+/// Re-export the solution generation macro.
+pub use frame_election_provider_solution_type::generate_solution_type;
 pub use frame_support::{traits::Get, weights::Weight, BoundedVec};
 /// Re-export some type as they are used in the interface.
 pub use sp_arithmetic::PerThing;

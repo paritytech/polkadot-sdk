@@ -9694,9 +9694,6 @@ fn manual_slashing_works() {
 			slash_fraction_1
 		));
 
-		// process offence
-		advance_blocks(1);
-
 		// check if balance was slashed correctly (25%)
 		let balance_after_first_slash = Staking::slashable_balance_of(&validator_stash);
 		let expected_balance_1 = initial_balance - (initial_balance / 4); // 25% slash
@@ -9730,18 +9727,7 @@ fn manual_slashing_works() {
 			"Balance changed after slashing with smaller fraction"
 		);
 
-		// with the new implementation, we should see an OffenceReported event
-		// but no Slashed event yet as the slash will be queued
-		let has_offence_reported = System::events().iter().any(|record| {
-			matches!(
-				record.event,
-				RuntimeEvent::Staking(Event::<Test>::Slashed { staker, .. })
-					if staker == validator_stash
-			)
-		});
-		assert!(has_offence_reported, "No OffenceReported event was emitted");
-
-		// verify no Slashed event was emitted yet (since it's queued for later processing)
+		// verify no Slashed event since slash fraction is lower than previous
 		let no_slashed_events = !System::events().iter().any(|record| {
 			matches!(record.event, RuntimeEvent::Staking(Event::<Test>::Slashed { .. }))
 		});
@@ -9760,9 +9746,6 @@ fn manual_slashing_works() {
 			current_era,
 			slash_fraction_3
 		));
-
-		// process offence
-		advance_blocks(1);
 
 		// check if balance was further slashed (from 75% to 50% of original)
 		let balance_after_third_slash = Staking::slashable_balance_of(&validator_stash);
@@ -9806,9 +9789,6 @@ fn manual_slashing_works() {
 			0,
 			Perbill::from_percent(75)
 		));
-
-		// process offence
-		advance_blocks(1);
 
 		// check balance was further reduced
 		let balance_after_fifth_slash = Staking::slashable_balance_of(&validator_stash);
