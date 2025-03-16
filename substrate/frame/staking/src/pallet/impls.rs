@@ -1799,11 +1799,8 @@ where
 	>,
 {
 	fn on_offence(
-		offenders: &[OffenceDetails<
-			T::AccountId,
-			pallet_session::historical::IdentificationTuple<T>,
-		>],
-		slash_fraction: &[Perbill],
+		offenders: &[OffenceDetails<T::AccountId, historical::IdentificationTuple<T>>],
+		slash_fractions: &[Perbill],
 		slash_session: SessionIndex,
 	) -> Weight {
 		log!(
@@ -1857,7 +1854,8 @@ impl<T: Config> Pallet<T> {
 		let window_start = active_era.saturating_sub(T::BondingDuration::get());
 
 		// Fast path for active-era report - most likely.
-		// `slash_session` cannot be in a future active era. It must be in `active_era` or before.
+		// `slash_session` cannot be in a future active era. It must be in `active_era` or
+		// before.
 		let slash_era = if slash_session >= active_era_start_session_index {
 			active_era
 		} else {
@@ -1880,42 +1878,18 @@ impl<T: Config> Pallet<T> {
 		add_db_reads_writes(1, 0);
 
 		for (details, slash_fraction) in offenders.zip(slash_fractions) {
-			let validator = &details.offender;
+			let (stash, exposure) = &details.offender;
+
 			// Skip if the validator is invulnerable.
-			if invulnerables.contains(&validator) {
-				log!(debug, "🦹 on_offence: {:?} is invulnerable; ignoring offence", validator);
+			if invulnerables.contains(stash) {
 				continue
 			}
-
-			add_db_reads_writes(1, 0);
-			let Some(exposure_overview) = <ErasStakersOverview<T>>::get(&offence_era, validator)
-			else {
-				// defensive: this implies offence is for a discarded era, and should already be
-				// filtered out.
-				log!(
-					warn,
-					"🦹 on_offence: no exposure found for {:?} in era {}; ignoring offence",
-					validator,
-					offence_era
-				);
-				continue;
-			};
 
 			Self::deposit_event(Event::<T>::SlashReported {
 				validator: stash.clone(),
 				fraction: *slash_fraction,
 				slash_era,
 			});
-
-			if offence_era == active_era.index {
-				// offence is in the current active era. Report it to session to maybe disable the
-				// validator.
-				add_db_reads_writes(2, 2);
-				T::SessionInterface::report_offence(
-					validator.clone(),
-					OffenceSeverity(*slash_fraction),
-				);
-			}
 
 			let unapplied = slashing::compute_slash::<T>(slashing::SlashParams {
 				stash,

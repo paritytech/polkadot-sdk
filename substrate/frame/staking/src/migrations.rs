@@ -66,6 +66,10 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 pub mod v17 {
 	use super::*;
 
+	#[frame_support::storage_alias]
+	pub type DisabledValidators<T: Config> =
+		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<100>>, ValueQuery>;
+
 	pub struct MigrateDisabledToSession<T>(core::marker::PhantomData<T>);
 	impl<T: Config> pallet_session::migrations::v1::MigrateDisabledValidators
 		for MigrateDisabledToSession<T>

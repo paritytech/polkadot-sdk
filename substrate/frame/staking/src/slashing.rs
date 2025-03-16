@@ -50,9 +50,9 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	asset, log, BalanceOf, Config, EraInfo, Error, NegativeImbalanceOf, NominatorSlashInEra,
-	OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill, ProcessingOffence,
-	SlashRewardFraction, SpanSlash, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
+	asset, log, BalanceOf, Config, EraInfo, Error, Exposure, NegativeImbalanceOf,
+	NominatorSlashInEra, PagedExposure, Pallet, Perbill, SlashRewardFraction, SpanSlash,
+	UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -284,8 +284,6 @@ pub(crate) fn compute_slash<T: Config>(
 		}
 	}
 
-	add_offending_validator::<T>(&params);
-
 	let mut nominators_slashed = Vec::new();
 	reward_payout += slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
 
@@ -316,109 +314,6 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 		// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
 		spans.end_span(params.now);
 	}
-
-	add_offending_validator::<T>(&params);
-}
-
-/// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
-/// validators provided by [`decision`].
-pub(crate) fn add_offending_validator<T: Config>(
-	stash: &T::AccountId,
-	slash: Perbill,
-	offence_era: EraIndex,
-) {
-	DisabledValidators::<T>::mutate(|disabled| {
-		let new_severity = OffenceSeverity(slash);
-		let decision = T::DisablingStrategy::decision(stash, new_severity, offence_era, &disabled);
-
-		if let Some(offender_idx) = decision.disable {
-			// Check if the offender is already disabled
-			match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
-				// Offender is already disabled, update severity if the new one is higher
-				Ok(index) => {
-					let (_, old_severity) = &mut disabled[index];
-					if new_severity > *old_severity {
-						*old_severity = new_severity;
-					}
-				},
-				Err(index) => {
-					// Offender is not disabled, add to `DisabledValidators` and disable it
-					if disabled.try_insert(index, (offender_idx, new_severity)).defensive().is_ok()
-					{
-						// Propagate disablement to session level
-						T::SessionInterface::disable_validator(offender_idx);
-						// Emit event that a validator got disabled
-						<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled {
-							stash: stash.clone(),
-						});
-					}
-				},
-			}
-		}
-
-		if let Some(reenable_idx) = decision.reenable {
-			// Remove the validator from `DisabledValidators` and re-enable it.
-			if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
-				disabled.remove(index);
-				// Propagate re-enablement to session level
-				T::SessionInterface::enable_validator(reenable_idx);
-				// Emit event that a validator got re-enabled
-				let reenabled_stash =
-					T::SessionInterface::validators()[reenable_idx as usize].clone();
-				<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorReenabled {
-					stash: reenabled_stash,
-				});
-			}
-		}
-	});
-
-	// `DisabledValidators` should be kept sorted
-	debug_assert!(DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] < pair[1]));
-}
-
-/// Compute the slash for a validator. Returns the amount slashed and the reward payout.
-fn slash_validator<T: Config>(params: SlashParams<T>) -> (BalanceOf<T>, BalanceOf<T>) {
-	let own_slash = params.slash * params.exposure.exposure_metadata.own;
-	log!(
-		warn,
-		"🦹 slashing validator {:?} of stake: {:?} with {:?}% for {:?} in era {:?}",
-		params.stash,
-		params.exposure.exposure_metadata.own,
-		params.slash,
-		own_slash,
-		params.slash_era,
-	);
-
-	if own_slash == Zero::zero() {
-		// kick out the validator even if they won't be slashed,
-		// as long as the misbehavior is from their most recent slashing span.
-		kick_out_if_recent::<T>(params);
-		return (Zero::zero(), Zero::zero())
-	}
-
-	// apply slash to validator.
-	let mut reward_payout = Zero::zero();
-	let mut val_slashed = Zero::zero();
-
-	{
-		let mut spans = fetch_spans::<T>(
-			params.stash,
-			params.window_start,
-			&mut reward_payout,
-			&mut val_slashed,
-			params.reward_proportion,
-		);
-
-		let target_span = spans.compare_and_update_span_slash(params.slash_era, own_slash);
-
-		if target_span == Some(spans.span_index()) {
-			// misbehavior occurred within the current slashing span - end current span.
-			// Check <https://github.com/paritytech/polkadot-sdk/issues/2650> for details.
-			spans.end_span(params.now);
-		}
-	}
-
-	(val_slashed, reward_payout)
 }
 
 /// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.
