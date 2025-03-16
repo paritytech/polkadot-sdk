@@ -33,6 +33,7 @@ use sp_runtime::{
 };
 
 type AccountId = u64;
+type Balance = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -53,8 +54,8 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
 }
 
 sp_runtime::impl_opaque_keys! {
