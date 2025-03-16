@@ -154,43 +154,28 @@ pub struct Bounty<
 >
 {
 	/// The account proposing it.
-	proposer: AccountId,
+	pub proposer: AccountId,
 	// TODO: new filed, migration required.
 	/// The kind of asset this bounty is rewarded in.
 	pub asset_kind: AssetKind,
 	/// The (total) amount of the `asset_kind` that should be paid if the bounty is rewarded.
-	value: Balance,
+	pub value: Balance,
 	/// The curator fee in the `asset_kind`. Included in value.
-	fee: Balance,
+	pub fee: Balance,
 	/// The deposit of curator.
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
-	curator_deposit: Balance,
+	pub curator_deposit: Balance,
 	/// The amount held on deposit (reserved) for making this proposal.
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
-	bond: Balance,
+	pub bond: Balance,
 	/// The status of this bounty.
-	status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
+	pub status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
 }
 
-impl<
-		AccountId: PartialEq + Clone + Ord,
-		Balance,
-		BlockNumber: Clone,
-		AssetKind,
-		PaymentId: Clone,
-		Beneficiary: Clone,
-	> Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary>
-{
-	/// Getter for bounty status, to be used for child bounties.
-	pub fn get_status(&self) -> BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
-		self.status.clone()
-	}
-}
 
 // TODO: breaking changes to the stored type, migration required.
-
 /// The status of a bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>

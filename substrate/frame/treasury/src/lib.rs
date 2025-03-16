@@ -265,19 +265,19 @@ pub mod pallet {
 		/// Converting trait to take a source type and convert to [`Self::Beneficiary`].
 		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
 
-		/// Type for processing spends of [`Self::AssetKind``] in favor of [`Self::Beneficiary`].
+		/// Type for processing spends of [`Self::AssetKind`] in favor of [`Self::Beneficiary`].
 		type Paymaster: Pay<
 				Balance = BalanceOf<Self, I>,
 				Beneficiary = Self::Beneficiary,
 				AssetKind = Self::AssetKind>;
 
-		/// Type for converting the balance of an [Self::AssetKind] to the balance of the native
+		/// Type for converting the balance of an [`Self::AssetKind`] to the balance of the native
 		/// asset, solely for the purpose of asserting the result against the maximum allowed spend
 		/// amount of the [`Self::SpendOrigin`].
 		type BalanceConverter: ConversionFromAssetBalance<
 			<Self::Paymaster as Pay>::Balance,
 			Self::AssetKind,
-			Balance = BalanceOf<Self, I>,
+			BalanceOf<Self, I>,
 		>;
 
 		/// The period during which an approved treasury spend has to be claimed.
