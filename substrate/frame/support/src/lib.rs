@@ -447,6 +447,12 @@ macro_rules! parameter_types_impl_thread_local {
 						Self::set($value);
 						current
 					}
+
+					/// Kill/reset the value to whatever was set at first.
+					#[allow(unused)]
+					pub fn reset() {
+						Self::set($value);
+					}
 				}
 			)*
 		}

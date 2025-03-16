@@ -100,7 +100,7 @@ mod electable_stashes {
 			assert_eq!(ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(), vec![1, 2]);
 
 			let exposure_exists =
-				|acc, era| EraInfo::<Test>::get_full_exposure(era, &acc).total != 0;
+				|acc, era| Eras::<Test>::get_full_exposure(era, &acc).total != 0;
 
 			// exposures were only collected for electable stashes in bounds (1 and 2).
 			assert!(exposure_exists(1, 1));
@@ -145,7 +145,7 @@ mod paged_on_initialize {
 
 				// 1. election prep hasn't started yet, election cursor and electable stashes are
 				// not set yet.
-				run_to_block(8);
+				roll_to_block(8);
 				assert_eq!(NextElectionPage::<Test>::get(), None);
 				assert!(ElectableStashes::<Test>::get().is_empty());
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
@@ -154,7 +154,7 @@ mod paged_on_initialize {
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 				// 2. starts preparing election at the (election_prediction - n_pages) block.
-				run_to_block(9);
+				roll_to_block(9);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 				// electing started, but since single-page, we don't set `NextElectionPage` at all.
@@ -170,7 +170,7 @@ mod paged_on_initialize {
 				assert_eq!(current_era(), 0);
 
 				// 3. progress to election block, which matches with era rotation.
-				run_to_block(10);
+				roll_to_block(10);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				assert_eq!(current_era(), 1);
 				// clears out election metadata for era.
@@ -201,7 +201,7 @@ mod paged_on_initialize {
 
 				// genesis validators and exposures.
 				assert_eq!(current_era(), 0);
-				assert_eq_uvec!(validator_controllers(), vec![11, 21, 31]);
+				assert_eq_uvec!(session_validators(), vec![11, 21, 31]);
 				assert_eq!(
 					era_exposures(current_era()),
 					vec![
@@ -346,14 +346,14 @@ mod paged_on_initialize {
 
 				// 1. election prep hasn't started yet, election cursor and electable stashes are
 				// not set yet.
-				run_to_block(6);
+				roll_to_block(6);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				assert_eq!(NextElectionPage::<Test>::get(), None);
 				assert!(ElectableStashes::<Test>::get().is_empty());
 
 				// 2. starts preparing election at the (election_prediction - n_pages) block.
 				//  fetches msp (i.e. 2).
-				run_to_block(7);
+				roll_to_block(7);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 				// electing started at cursor is set once the election starts to be prepared.
@@ -374,7 +374,7 @@ mod paged_on_initialize {
 				}
 
 				// 3. progress one block to fetch page 1.
-				run_to_block(8);
+				roll_to_block(8);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				// the electable stashes remain the same.
 				assert_eq_uvec!(
@@ -390,7 +390,7 @@ mod paged_on_initialize {
 				}
 
 				// 4. progress one block to fetch lsp (i.e. 0).
-				run_to_block(9);
+				roll_to_block(9);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				// the electable stashes remain the same.
 				assert_eq_uvec!(
@@ -414,7 +414,7 @@ mod paged_on_initialize {
 				assert_eq!(current_era(), 0);
 
 				// Next block the era will rotate.
-				run_to_block(10);
+				roll_to_block(10);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				// and all the metadata has been cleared up and ready for the next election.
 				assert!(NextElectionPage::<Test>::get().is_none());
@@ -478,16 +478,16 @@ mod paged_on_initialize {
 		        Pallet::<Test>::reward_by_ids(vec![(31, 50)]);
 		        Pallet::<Test>::reward_by_ids(vec![(71, 50)]);
 
-        		let total_payout = current_total_payout_for_duration(reward_time_per_era());
+        		let total_payout = validator_payout_for(time_per_era());
 
                 start_active_era(2);
 
                 // all the validators exposed in era 1 have two pages of exposures, since exposure
                 // page size is 2.
                 assert_eq!(MaxExposurePageSize::get(), 2);
-                assert_eq!(EraInfo::<Test>::get_page_count(1, &21), 2);
-                assert_eq!(EraInfo::<Test>::get_page_count(1, &31), 2);
-                assert_eq!(EraInfo::<Test>::get_page_count(1, &71), 2);
+                assert_eq!(Eras::<Test>::exposure_page_count(1, &21), 2);
+                assert_eq!(Eras::<Test>::exposure_page_count(1, &31), 2);
+                assert_eq!(Eras::<Test>::exposure_page_count(1, &71), 2);
 
                 make_all_reward_payment(1);
 
@@ -532,14 +532,14 @@ mod paged_on_initialize {
 
 			// 1. election prep hasn't started yet, election cursor and electable stashes are
 			// not set yet.
-			run_to_block(6);
+			roll_to_block(6);
 			assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 			assert_eq!(NextElectionPage::<Test>::get(), None);
 			assert!(ElectableStashes::<Test>::get().is_empty());
 
 			// 2. starts preparing election at the (election_prediction - n_pages) block.
 			//  fetches lsp (i.e. 2).
-			run_to_block(7);
+			roll_to_block(7);
 			assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 			// electing started at cursor is set once the election starts to be prepared.
@@ -548,7 +548,7 @@ mod paged_on_initialize {
 			assert!(ElectableStashes::<Test>::get().is_empty());
 
 			// 3. progress one block to fetch page 1.
-			run_to_block(8);
+			roll_to_block(8);
 			assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 			// in elect(1) we won't collect any stashes yet.
@@ -557,7 +557,7 @@ mod paged_on_initialize {
 			assert_eq!(NextElectionPage::<Test>::get(), Some(0));
 
 			// 4. progress one block to fetch mps (i.e. 0).
-			run_to_block(9);
+			roll_to_block(9);
 			assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 			// some stashes come in.
@@ -583,7 +583,7 @@ mod paged_on_initialize {
 			assert_eq!(current_era(), 0);
 
 			// Next block the era will rotate.
-			run_to_block(10);
+			roll_to_block(10);
 			assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 			// and all the metadata has been cleared up and ready for the next election.
@@ -627,14 +627,14 @@ mod paged_on_initialize {
 
 				// 1. election prep hasn't started yet, election cursor and electable stashes are
 				// not set yet.
-				run_to_block(6);
+				roll_to_block(6);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				assert_eq!(NextElectionPage::<Test>::get(), None);
 				assert!(ElectableStashes::<Test>::get().is_empty());
 
 				// 2. starts preparing election at the (election_prediction - n_pages) block.
 				//  fetches lsp (i.e. 2).
-				run_to_block(7);
+				roll_to_block(7);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 				// electing started at cursor is set once the election starts to be prepared.
@@ -643,7 +643,7 @@ mod paged_on_initialize {
 				assert!(ElectableStashes::<Test>::get().is_empty());
 
 				// 3. progress one block to fetch page 1.
-				run_to_block(8);
+				roll_to_block(8);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 				// in elect(1) we won't collect any stashes yet.
@@ -652,7 +652,7 @@ mod paged_on_initialize {
 				assert_eq!(NextElectionPage::<Test>::get(), Some(0));
 
 				// 4. progress one block to fetch mps (i.e. 0).
-				run_to_block(9);
+				roll_to_block(9);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 				// some stashes come in.
@@ -678,7 +678,7 @@ mod paged_on_initialize {
 				assert_eq!(current_era(), 0);
 
 				// Next block the era will rotate.
-				run_to_block(10);
+				roll_to_block(10);
 				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 				// and all the metadata has been cleared up and ready for the next election.
@@ -821,13 +821,11 @@ mod paged_snapshot {
 	}
 
 	#[test]
-	#[should_panic]
 	fn voter_snapshot_starts_from_msp_to_lsp() {
 		todo!();
 	}
 
 	#[test]
-	#[should_panic]
 	fn locked_nominator_cannot_move_in_list() {
 		// they cannot chill, which removes them from the list
 		// they cannot bond_extra, which adds to their score
@@ -855,7 +853,7 @@ mod paged_exposures {
 
 			// expected exposures are stored for the expected genesis validators.
 			for exposure in expected_exposures {
-				assert_eq!(EraInfo::<Test>::get_full_exposure(0, &exposure.0), exposure.1);
+				assert_eq!(Eras::<Test>::get_full_exposure(0, &exposure.0), exposure.1);
 			}
 		})
 	}
@@ -928,8 +926,8 @@ mod paged_exposures {
 			// validator 1 has 3 paged exposures.
 			assert!(
 				ErasStakersPaged::<Test>::iter_prefix_values((0, &1)).count() as u32 ==
-					EraInfo::<Test>::get_page_count(0, &1) &&
-					EraInfo::<Test>::get_page_count(0, &1) == 3
+					Eras::<Test>::exposure_page_count(0, &1) &&
+					Eras::<Test>::exposure_page_count(0, &1) == 3
 			);
 			assert!(ErasStakersPaged::<Test>::get((0, &1, 0)).is_some());
 			assert!(ErasStakersPaged::<Test>::get((0, &1, 1)).is_some());

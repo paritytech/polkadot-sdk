@@ -768,7 +768,7 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 	assert_eq!(current_era(), active_era());
 }
 
-pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
+pub(crate) fn validator_payout_for(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
 		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
@@ -778,7 +778,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	payout
 }
 
-pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
+pub(crate) fn total_payout_for(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
 		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
@@ -804,7 +804,7 @@ pub(crate) fn time_per_era() -> u64 {
 }
 
 /// Time that will be calculated for the reward per era.
-pub(crate) fn reward_time_per_era() -> u64 {
+pub(crate) fn time_per_era() -> u64 {
 	time_per_era() - BLOCK_TIME
 }
 

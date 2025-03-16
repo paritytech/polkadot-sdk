@@ -260,7 +260,6 @@ impl pallet_staking_next::Config for Runtime {
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type NextNewSession = Session;
 	type ElectionProvider = MultiBlock;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
@@ -275,7 +274,7 @@ impl pallet_staking_next::Config for Runtime {
 	type WeightInfo = weights::pallet_staking_next::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
-	type ElectionOffset = ConstU32<2>;
+	type PlanningEraOffset = ConstU32<2>;
 	type RcClientInterface = StakingRcClient;
 }
 

@@ -50,9 +50,10 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	asset, log, BalanceOf, Config, EraInfo, Error, NegativeImbalanceOf, NominatorSlashInEra,
-	OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill, ProcessingOffence,
-	SlashRewardFraction, SpanSlash, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
+	asset, log, session_rotation::Eras, BalanceOf, Config, Error, NegativeImbalanceOf,
+	NominatorSlashInEra, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
+	ProcessingOffence, SlashRewardFraction, SpanSlash, UnappliedSlash, UnappliedSlashes,
+	ValidatorSlashInEra,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -352,7 +353,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 
 	add_db_reads_writes(2, 0);
 	let Some(exposure) =
-		EraInfo::<T>::get_paged_exposure(offence_era, &offender, offence_record.exposure_page)
+		Eras::<T>::get_paged_exposure(offence_era, &offender, offence_record.exposure_page)
 	else {
 		// this can only happen if the offence was valid at the time of reporting but became too old
 		// at the time of computing and should be discarded.

@@ -169,6 +169,7 @@ impl multi_block::Config for Runtime {
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type Verifier = MultiBlockVerifier;
+	type AreWeDone = multi_block::ProceedRegardlessOf<Self>;
 	type WeightInfo = multi_block::weights::AllZeroWeights;
 }
 
@@ -219,7 +220,7 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
-	pub static ElectionOffset: u32 = 1;
+	pub static PlanningEraOffset: u32 = 1;
 }
 
 impl pallet_staking_next::Config for Runtime {
@@ -231,7 +232,7 @@ impl pallet_staking_next::Config for Runtime {
 	type BenchmarkingConfig = pallet_staking_next::TestBenchmarkingConfig;
 	type BondingDuration = BondingDuration;
 	type SessionsPerEra = SessionsPerEra;
-	type ElectionOffset = ElectionOffset;
+	type PlanningEraOffset = PlanningEraOffset;
 
 	type Currency = Balances;
 	type OldCurrency = Balances;
@@ -262,9 +263,6 @@ impl pallet_staking_next::Config for Runtime {
 	type TargetList = pallet_staking_next::UseValidatorsMap<Self>;
 
 	type RcClientInterface = RcClient;
-
-	// TODO
-	type NextNewSession = ();
 
 	type WeightInfo = ();
 }
@@ -331,7 +329,7 @@ impl ExtBuilder {
 
 		let validators = vec![1, 2, 3, 4, 5, 6, 7, 8]
 			.into_iter()
-			.map(|x| (x, x, INITIAL_STAKE, pallet_staking_next::StakerStatus::Validator));
+			.map(|x| (x, INITIAL_STAKE, pallet_staking_next::StakerStatus::Validator));
 
 		let nominators = vec![
 			(100, vec![1, 2]),
@@ -351,14 +349,14 @@ impl ExtBuilder {
 		.into_iter()
 		.map(|(x, y)| {
 			let y = y.into_iter().map(|x| x).collect::<Vec<_>>();
-			(x, x, INITIAL_STAKE, pallet_staking_next::StakerStatus::Nominator(y))
+			(x, INITIAL_STAKE, pallet_staking_next::StakerStatus::Nominator(y))
 		});
 
 		let stakers = validators.chain(nominators).collect::<Vec<_>>();
 		let balances = stakers
 			.clone()
 			.into_iter()
-			.map(|(x, _, _, _)| (x, INITIAL_BALANCE))
+			.map(|(x, _, _)| (x, INITIAL_BALANCE))
 			.collect::<Vec<_>>();
 
 		pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }

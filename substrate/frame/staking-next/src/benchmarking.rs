@@ -115,12 +115,6 @@ pub fn create_validator_with_nominators<T: Config>(
 	MinimumValidatorCount::<T>::put(1);
 
 	// Start a new (genesis) Era
-	// populate electable stashes as it gets read within `try_plan_new_era`
-
-	// ElectableStashes::<T>::put(
-	// 	BoundedBTreeSet::try_from(vec![v_stash.clone()].into_iter().collect::<BTreeSet<_>>())
-	// 		.unwrap(),
-	// );
 	let new_validators = Staking::<T>::try_plan_new_era(SessionIndex::one(), true).unwrap();
 
 	assert_eq!(new_validators.len(), 1);

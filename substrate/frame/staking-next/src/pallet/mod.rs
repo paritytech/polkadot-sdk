@@ -28,8 +28,8 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Mutate, Mutate as FunMutate,
 		},
-		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, Nothing, OnUnbalanced,
+		Contains, Defensive, DefensiveSaturating, EnsureOrigin, Get, InspectLockableCurrency,
+		Nothing, OnUnbalanced,
 	},
 	weights::Weight,
 	BoundedBTreeSet, BoundedVec,
@@ -45,7 +45,6 @@ use sp_runtime::{
 	traits::{StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
-
 use sp_staking::{
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
@@ -168,7 +167,7 @@ pub mod pallet {
 		///
 		/// Following information is kept for eras in `[current_era -
 		/// HistoryDepth, current_era]`: `ErasValidatorPrefs`, `ErasValidatorReward`,
-		/// `ErasRewardPoints`, `ErasTotalStake`, `ErasStartSessionIndex`, `ClaimedRewards`,
+		/// `ErasRewardPoints`, `ErasTotalStake`, `ErasStartSessionIndex`, `ErasClaimedRewards`,
 		/// `ErasStakersPaged`, `ErasStakersOverview`.
 		///
 		/// Must be more than the number of eras delayed by session.
@@ -219,12 +218,12 @@ pub mod pallet {
 		///   of the era).
 		///
 		/// ### Example:
-		/// - If `SessionsPerEra = 6` and `ElectionOffset = 1`, the election starts at the beginning
-		///   of session `6 - 1 = 5`.
-		/// - If `ElectionOffset = 6`, the election starts at the beginning of session `6 - 6 = 0`,
-		///   meaning it starts at the very beginning of the era.
+		/// - If `SessionsPerEra = 6` and `PlanningEraOffset = 1`, the election starts at the
+		///   beginning of session `6 - 1 = 5`.
+		/// - If `PlanningEraOffset = 6`, the election starts at the beginning of session `6 - 6 =
+		///   0`, meaning it starts at the very beginning of the era.
 		#[pallet::constant]
-		type ElectionOffset: Get<SessionIndex>;
+		type PlanningEraOffset: Get<SessionIndex>;
 
 		/// Number of eras that staked funds must remain bonded for.
 		#[pallet::constant]
@@ -252,11 +251,6 @@ pub mod pallet {
 		#[pallet::no_default]
 		type EraPayout: EraPayout<BalanceOf<Self>>;
 
-		/// Something that can estimate the next session change, accurately or as a best effort
-		/// guess.
-		#[pallet::no_default_bounds]
-		type NextNewSession: EstimateNextNewSession<BlockNumberFor<Self>>;
-
 		/// The maximum size of each `T::ExposurePage`.
 		///
 		/// An `ExposurePage` is weakly bounded to a maximum of `MaxExposurePageSize`
@@ -266,8 +260,8 @@ pub mod pallet {
 		/// `MaxExposurePageSize` nominators. This is to limit the i/o cost for the
 		/// nominator payout.
 		///
-		/// Note: `MaxExposurePageSize` is used to bound `ClaimedRewards` and is unsafe to reduce
-		/// without handling it in a migration.
+		/// Note: `MaxExposurePageSize` is used to bound `ErasClaimedRewards` and is unsafe to
+		/// reduce without handling it in a migration.
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
 
@@ -409,9 +403,8 @@ pub mod pallet {
 			type Reward = ();
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
-			type ElectionOffset = ConstU32<1>;
+			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
-			type NextNewSession = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
@@ -530,7 +523,8 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MaxNominatorsCount<T> = StorageValue<_, u32, OptionQuery>;
 
-	/// The current era index.
+	// --- AUDIT NOTE: the following storage items should only be controlled by `Rotator`
+	/// The current planned era index.
 	///
 	/// This is the latest planned era, depending on how the Session pallet queues the validator
 	/// set, it might be active or not.
@@ -540,13 +534,24 @@ pub mod pallet {
 	/// The active era information, it holds index and start.
 	///
 	/// The active era is the era being currently rewarded. Validator set of this era must be
-	/// equal to [`SessionInterface::validators`].
+	/// equal to what is RC's session pallet.
 	#[pallet::storage]
 	pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
 
+	/// A mapping from still-bonded eras to the first session index of that era.
+	///
+	/// Must contains information for eras for the range:
+	/// `[active_era - bounding_duration; active_era]`
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type BondedEras<T: Config> =
+		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+
+	// --- AUDIT Note: end of storage items controlled by `Rotator`.
+
 	/// The session index at which the era start for the last [`Config::HistoryDepth`] eras.
 	///
-	/// Note: This tracks the starting session (i.e. session index when era start being active)
+	/// Note: This tracks the STARTING session (i.e. session index when era start being ACTIVE)
 	/// for the eras in `[CurrentEra - HISTORY_DEPTH, CurrentEra]`.
 	#[pallet::storage]
 	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
@@ -559,7 +564,7 @@ pub mod pallet {
 	/// pages of rewards that needs to be claimed.
 	///
 	/// This is keyed first by the era index to allow bulk deletion and then the stash account.
-	/// Should only be accessed through `EraInfo`.
+	/// Should only be accessed through `Eras`.
 	///
 	/// Is it removed after [`Config::HistoryDepth`] eras.
 	/// If stakers hasn't been set or has been removed then empty overview is returned.
@@ -577,7 +582,7 @@ pub mod pallet {
 	/// Paginated exposure of a validator at given era.
 	///
 	/// This is keyed first by the era index to allow bulk deletion, then stash account and finally
-	/// the page. Should only be accessed through `EraInfo`.
+	/// the page. Should only be accessed through `Eras`.
 	///
 	/// This is cleared after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
@@ -601,7 +606,7 @@ pub mod pallet {
 	/// It is removed after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type ClaimedRewards<T: Config> = StorageDoubleMap<
+	pub type ErasClaimedRewards<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
@@ -731,15 +736,6 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// A mapping from still-bonded eras to the first session index of that era.
-	///
-	/// Must contains information for eras for the range:
-	/// `[active_era - bounding_duration; active_era]`
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(crate) type BondedEras<T: Config> =
-		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
-
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.
 	#[pallet::storage]
@@ -773,12 +769,6 @@ pub mod pallet {
 		slashing::SpanRecord<BalanceOf<T>>,
 		ValueQuery,
 	>;
-
-	/// The last planned session scheduled by the session pallet.
-	///
-	/// This is basically in sync with the call to [`pallet_session::SessionManager::new_session`].
-	#[pallet::storage]
-	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -817,8 +807,7 @@ pub mod pallet {
 		pub force_era: Forcing,
 		pub slash_reward_fraction: Perbill,
 		pub canceled_payout: BalanceOf<T>,
-		pub stakers:
-			Vec<(T::AccountId, T::AccountId, BalanceOf<T>, crate::StakerStatus<T::AccountId>)>,
+		pub stakers: Vec<(T::AccountId, BalanceOf<T>, crate::StakerStatus<T::AccountId>)>,
 		pub min_nominator_bond: BalanceOf<T>,
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
@@ -835,10 +824,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> GenesisConfig<T> {
-		fn generate_endowed_bonded_account(
-			derivation: &str,
-			rng: &mut ChaChaRng,
-		) -> T::AccountId {
+		fn generate_endowed_bonded_account(derivation: &str, rng: &mut ChaChaRng) -> T::AccountId {
 			let pair: SrPair = Pair::from_string(&derivation, None)
 				.expect(&format!("Failed to parse derivation string: {derivation}"));
 			let who = T::AccountId::decode(&mut &pair.public().encode()[..])
@@ -880,7 +866,7 @@ pub mod pallet {
 				MaxNominatorsCount::<T>::put(x);
 			}
 
-			for &(ref stash, _, balance, ref status) in &self.stakers {
+			for &(ref stash, balance, ref status) in &self.stakers {
 				crate::log!(
 					trace,
 					"inserting genesis staker: {:?} => {:?} => {:?}",
@@ -941,10 +927,7 @@ pub mod pallet {
 					.map(|index| {
 						let derivation =
 							base_derivation.replace("{}", &format!("validator{}", index));
-						let who = Self::generate_endowed_bonded_account(
-							&derivation,
-							&mut rng,
-						);
+						let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
 						assert_ok!(<Pallet<T>>::validate(
 							T::RuntimeOrigin::from(Some(who.clone()).into()),
 							Default::default(),
@@ -955,10 +938,7 @@ pub mod pallet {
 
 				(0..nominators).for_each(|index| {
 					let derivation = base_derivation.replace("{}", &format!("nominator{}", index));
-					let who = Self::generate_endowed_bonded_account(
-						&derivation,
-						&mut rng,
-					);
+					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
 
 					let random_nominations = validators
 						.choose_multiple(&mut rng, MaxNominationsOf::<T>::get() as usize)
@@ -1254,206 +1234,50 @@ pub mod pallet {
 					"Next era must be already planned."
 				);
 
-				match NextElectionPage::<T>::get() {
-					Some(current_page) => {
-						let next_page = current_page.checked_sub(1);
-						crate::log!(
-							debug,
-							"fetching page {:?}, next {:?}",
-							current_page,
-							next_page
-						);
-						Self::do_elect_paged(current_page);
-						NextElectionPage::<T>::set(next_page);
-						// TODO(ank4n): Both `NextElectionPage` and `VoterSnapshotStatus` need be
-						// checked carefully again.
+				// TODO(ank4n): Both `NextElectionPage` and `VoterSnapshotStatus` need be
+				// checked carefully again.
+				let current_page = NextElectionPage::<T>::get()
+					.unwrap_or(Self::election_pages().defensive_saturating_sub(1));
+				let maybe_next_page = current_page.checked_sub(1);
+				crate::log!(debug, "fetching page {:?}, next {:?}", current_page, maybe_next_page);
 
-						// if current page was `Some`, and next is `None`, we have
-						// finished an election and we can report it now.
-						if next_page.is_none() {
-							use pallet_staking_next_rc_client::RcClientInterface;
-							let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
-							let bonded_eras = BondedEras::<T>::get();
+				Self::do_elect_paged(current_page);
+				NextElectionPage::<T>::set(maybe_next_page);
 
-							// get the first session of the oldest era in the bonded eras.
-							let prune_up_to =
-								if (bonded_eras.len() as u32) < T::BondingDuration::get() {
-									0
-								} else {
-									bonded_eras
-										.first()
-										.map(|(_, first_session)| *first_session)
-										.unwrap_or(0)
-								};
+				// if current page was `Some`, and next is `None`, we have
+				// finished an election and we can report it now.
+				if maybe_next_page.is_none() {
+					// TODO: do one last check if this is a good election or not.
+					// If not, delete everything.
+					// minimum_validator_count
+					use pallet_staking_next_rc_client::RcClientInterface;
+					let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
+					let bonded_eras = BondedEras::<T>::get();
 
-							crate::log!(
-								info,
-								"Send new validator set to RC. ID: {:?}, prune_up_to: {:?}",
-								id,
-								prune_up_to
-							);
+					// get the first session of the oldest era in the bonded eras.
+					let prune_up_to = if (bonded_eras.len() as u32) < T::BondingDuration::get() {
+						0
+					} else {
+						bonded_eras.first().map(|(_, first_session)| *first_session).unwrap_or(0)
+					};
 
-							T::RcClientInterface::validator_set(
-								ElectableStashes::<T>::get().into_iter().collect(),
-								id,
-								Some(prune_up_to),
-							);
-						}
-					},
-					None => {
-						let pages = Self::election_pages();
-						let current_page = pages.saturating_sub(1);
-						let next_page = current_page.checked_sub(1);
-						crate::log!(
-							debug,
-							"fetching page {:?}, next {:?}",
-							current_page,
-							next_page
-						);
-						Self::do_elect_paged(current_page);
-						NextElectionPage::<T>::set(next_page);
-					},
-				};
+					crate::log!(
+						info,
+						"Send new validator set to RC. ID: {:?}, prune_up_to: {:?}",
+						id,
+						prune_up_to
+					);
+
+					T::RcClientInterface::validator_set(
+						ElectableStashes::<T>::get().into_iter().collect(),
+						id,
+						Some(prune_up_to),
+					);
+				}
 				T::DbWeight::get().reads_writes(1, 1)
 			} else {
 				T::DbWeight::get().reads(1)
 			}
-		}
-
-		/// Get the ideal number of active validators.
-		pub fn validator_count() -> u32 {
-			ValidatorCount::<T>::get()
-		}
-
-		/// Get the minimum number of staking participants before emergency conditions are imposed.
-		pub fn minimum_validator_count() -> u32 {
-			MinimumValidatorCount::<T>::get()
-		}
-
-		/// Get the validators that may never be slashed or forcibly kicked out.
-		pub fn invulnerables() -> BoundedVec<T::AccountId, T::MaxInvulnerables> {
-			Invulnerables::<T>::get()
-		}
-
-		/// Get the preferences of a given validator.
-		pub fn validators<EncodeLikeAccountId>(account_id: EncodeLikeAccountId) -> ValidatorPrefs
-		where
-			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			Validators::<T>::get(account_id)
-		}
-
-		/// Get the nomination preferences of a given nominator.
-		pub fn nominators<EncodeLikeAccountId>(
-			account_id: EncodeLikeAccountId,
-		) -> Option<Nominations<T>>
-		where
-			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			Nominators::<T>::get(account_id)
-		}
-
-		/// Get the current era index.
-		pub fn current_era() -> Option<EraIndex> {
-			CurrentEra::<T>::get()
-		}
-
-		/// Get the active era information.
-		pub fn active_era() -> Option<ActiveEraInfo> {
-			ActiveEra::<T>::get()
-		}
-
-		/// Get the session index at which the era starts for the last [`Config::HistoryDepth`]
-		/// eras.
-		pub fn eras_start_session_index<EncodeLikeEraIndex>(
-			era_index: EncodeLikeEraIndex,
-		) -> Option<SessionIndex>
-		where
-			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
-		{
-			ErasStartSessionIndex::<T>::get(era_index)
-		}
-
-		/// Get the paged history of claimed rewards by era for given validator.
-		pub fn claimed_rewards<EncodeLikeEraIndex, EncodeLikeAccountId>(
-			era_index: EncodeLikeEraIndex,
-			account_id: EncodeLikeAccountId,
-		) -> Vec<Page>
-		where
-			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
-			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			ClaimedRewards::<T>::get(era_index, account_id)
-		}
-
-		/// Get the preferences of given validator at given era.
-		pub fn eras_validator_prefs<EncodeLikeEraIndex, EncodeLikeAccountId>(
-			era_index: EncodeLikeEraIndex,
-			account_id: EncodeLikeAccountId,
-		) -> ValidatorPrefs
-		where
-			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
-			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			ErasValidatorPrefs::<T>::get(era_index, account_id)
-		}
-
-		/// Get the total validator era payout for the last [`Config::HistoryDepth`] eras.
-		pub fn eras_validator_reward<EncodeLikeEraIndex>(
-			era_index: EncodeLikeEraIndex,
-		) -> Option<BalanceOf<T>>
-		where
-			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
-		{
-			ErasValidatorReward::<T>::get(era_index)
-		}
-
-		/// Get the rewards for the last [`Config::HistoryDepth`] eras.
-		pub fn eras_reward_points<EncodeLikeEraIndex>(
-			era_index: EncodeLikeEraIndex,
-		) -> EraRewardPoints<T::AccountId>
-		where
-			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
-		{
-			ErasRewardPoints::<T>::get(era_index)
-		}
-
-		/// Get the total amount staked for the last [`Config::HistoryDepth`] eras.
-		pub fn eras_total_stake<EncodeLikeEraIndex>(era_index: EncodeLikeEraIndex) -> BalanceOf<T>
-		where
-			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
-		{
-			ErasTotalStake::<T>::get(era_index)
-		}
-
-		/// Get the mode of era forcing.
-		pub fn force_era() -> Forcing {
-			ForceEra::<T>::get()
-		}
-
-		/// Get the percentage of the slash that is distributed to reporters.
-		pub fn slash_reward_fraction() -> Perbill {
-			SlashRewardFraction::<T>::get()
-		}
-
-		/// Get the amount of canceled slash payout.
-		pub fn canceled_payout() -> BalanceOf<T> {
-			CanceledSlashPayout::<T>::get()
-		}
-
-		/// Get the slashing spans for given account.
-		pub fn slashing_spans<EncodeLikeAccountId>(
-			account_id: EncodeLikeAccountId,
-		) -> Option<slashing::SlashingSpans>
-		where
-			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			SlashingSpans::<T>::get(account_id)
-		}
-
-		/// Get the last planned session scheduled by the session pallet.
-		pub fn current_planned_session() -> SessionIndex {
-			CurrentPlannedSession::<T>::get()
 		}
 	}
 

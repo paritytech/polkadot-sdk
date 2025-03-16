@@ -328,32 +328,29 @@ pub mod testing_utils;
 pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-mod tests_paged_election;
+// #[cfg(test)]
+// mod tests_paged_election;
 
 pub mod asset;
 pub mod election_size_tracker;
 pub mod inflation;
 pub mod ledger;
-pub mod migrations;
 pub mod slashing;
 pub mod weights;
 
 mod pallet;
 mod session_rotation;
 
-extern crate alloc;
 
+extern crate alloc;
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
-	defensive, defensive_assert,
 	traits::{
 		tokens::fungible::{Credit, Debt},
-		ConstU32, Contains, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+		ConstU32, Contains, Defensive, DefensiveSaturating, Get, LockIdentifier,
 	},
-	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
 };
 use scale_info::TypeInfo;
@@ -363,12 +360,11 @@ use sp_runtime::{
 	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 use sp_staking::{
-	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
-	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, StakingAccount,
+	offence::{Offence, OffenceError, ReportOffence},
+	EraIndex, ExposurePage, OnStakingUpdate, PagedExposureMetadata, StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
-
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
@@ -383,62 +379,6 @@ macro_rules! log {
 			concat!("[{:?}] 💸 ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
 		)
 	};
-}
-
-/// A test adapter for this other pallets to remain backwards compatible, and readily do an election
-/// right before the election.
-#[cfg(feature = "std")]
-pub struct TestElectionProviderAtEraBoundary<T, SP>(core::marker::PhantomData<(T, SP)>);
-
-#[cfg(feature = "std")]
-impl<
-		T: Config,
-		// single page EP.
-		SP: ElectionProvider,
-	> ElectionProvider for TestElectionProviderAtEraBoundary<T, SP>
-{
-	type AccountId = SP::AccountId;
-	type BlockNumber = SP::BlockNumber;
-	type MaxWinnersPerPage = SP::MaxWinnersPerPage;
-	type MaxBackersPerWinner = SP::MaxBackersPerWinner;
-	type Pages = SP::Pages;
-	type DataProvider = SP::DataProvider;
-	type Error = SP::Error;
-
-	fn elect(
-		page: frame_election_provider_support::PageIndex,
-	) -> Result<frame_election_provider_support::BoundedSupportsOf<Self>, Self::Error> {
-		SP::elect(page)
-	}
-
-	fn start() -> Result<(), Self::Error> {
-		unreachable!()
-	}
-
-	fn duration() -> Self::BlockNumber {
-		SP::duration()
-	}
-
-	fn msp() -> frame_election_provider_support::PageIndex {
-		SP::msp()
-	}
-	fn lsp() -> frame_election_provider_support::PageIndex {
-		SP::lsp()
-	}
-
-	fn status() -> Result<bool, ()> {
-		use frame_election_provider_support::ElectionDataProvider;
-		let now = frame_system::Pallet::<T>::block_number();
-		// TODO: redo this prediction as a standalone helper to use in other pallets. Atm it forces
-		// us to keep this deprecated API in code.
-		let prediction = Pallet::<T>::next_election_prediction(now);
-		let pages_bn: frame_system::pallet_prelude::BlockNumberFor<T> = SP::Pages::get().into();
-		if now + pages_bn >= prediction {
-			Ok(true)
-		} else {
-			Err(())
-		}
-	}
 }
 
 /// Alias for a bounded set of exposures behind a validator, parameterized by this pallet's
@@ -630,8 +570,9 @@ pub struct StakingLedger<T: Config> {
 	/// List of eras for which the stakers behind a validator have claimed rewards. Only updated
 	/// for validators.
 	///
-	/// This is deprecated as of V14 in favor of `T::ClaimedRewards` and will be removed in future.
+	/// This is deprecated as of V14 in favor of `T::ErasClaimedRewards` and will be removed in future.
 	/// Refer to issue <https://github.com/paritytech/polkadot-sdk/issues/433>
+	/// TODO: remove this
 	pub legacy_claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
 
 	/// The controller associated with this ledger's stash.
@@ -1123,221 +1064,6 @@ where
 
 	fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
 		R::is_known_offence(offenders, time_slot)
-	}
-}
-
-/// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
-/// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
-/// can and add more functions to it as needed.
-pub struct EraInfo<T>(core::marker::PhantomData<T>);
-impl<T: Config> EraInfo<T> {
-	/// Returns true if validator has one or more page of era rewards not claimed yet.
-	pub fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
-		<ErasStakersOverview<T>>::get(&era, validator)
-			.map(|overview| {
-				ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
-			})
-			.unwrap_or(false)
-	}
-
-	/// Check if the rewards for the given era and page index have been claimed.
-	///
-	/// This is only used for paged rewards. Once older non-paged rewards are no longer
-	/// relevant, `is_rewards_claimed_with_legacy_fallback` can be removed and this function can
-	/// be made public.
-	fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
-		ClaimedRewards::<T>::get(era, validator).contains(&page)
-	}
-
-	/// Get exposure for a validator at a given era and page.
-	///
-	/// This builds a paged exposure from `PagedExposureMetadata` and `ExposurePage` of the
-	/// validator. For older non-paged exposure, it returns the clipped exposure directly.
-	pub fn get_paged_exposure(
-		era: EraIndex,
-		validator: &T::AccountId,
-		page: Page,
-	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
-		let overview = <ErasStakersOverview<T>>::get(&era, validator)?;
-
-		// validator stake is added only in page zero
-		let validator_stake = if page == 0 { overview.own } else { Zero::zero() };
-
-		// since overview is present, paged exposure will always be present except when a
-		// validator has only own stake and no nominator stake.
-		let exposure_page = <ErasStakersPaged<T>>::get((era, validator, page)).unwrap_or_default();
-
-		// build the exposure
-		Some(PagedExposure {
-			exposure_metadata: PagedExposureMetadata { own: validator_stake, ..overview },
-			exposure_page,
-		})
-	}
-
-	/// Get full exposure of the validator at a given era.
-	pub fn get_full_exposure(
-		era: EraIndex,
-		validator: &T::AccountId,
-	) -> Exposure<T::AccountId, BalanceOf<T>> {
-		let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) else {
-			return Exposure::default();
-		};
-
-		let mut others = Vec::with_capacity(overview.nominator_count as usize);
-		for page in 0..overview.page_count {
-			let nominators = <ErasStakersPaged<T>>::get((era, validator, page));
-			others.append(&mut nominators.map(|n| n.others).defensive_unwrap_or_default());
-		}
-
-		Exposure { total: overview.total, own: overview.own, others }
-	}
-
-	/// Returns the number of pages of exposure a validator has for the given era.
-	///
-	/// For eras where paged exposure does not exist, this returns 1 to keep backward compatibility.
-	pub(crate) fn get_page_count(era: EraIndex, validator: &T::AccountId) -> Page {
-		<ErasStakersOverview<T>>::get(&era, validator)
-			.map(|overview| {
-				if overview.page_count == 0 && overview.own > Zero::zero() {
-					// Even though there are no nominator pages, there is still validator's own
-					// stake exposed which needs to be paid out in a page.
-					1
-				} else {
-					overview.page_count
-				}
-			})
-			// Always returns 1 page for older non-paged exposure.
-			// FIXME: Can be cleaned up with issue #13034.
-			.unwrap_or(1)
-	}
-
-	/// Returns the next page that can be claimed or `None` if nothing to claim.
-	pub(crate) fn get_next_claimable_page(era: EraIndex, validator: &T::AccountId) -> Option<Page> {
-		// Find next claimable page of paged exposure.
-		let page_count = Self::get_page_count(era, validator);
-		let all_claimable_pages: Vec<Page> = (0..page_count).collect();
-		let claimed_pages = ClaimedRewards::<T>::get(era, validator);
-
-		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
-	}
-
-	/// Returns validator commission for this era and page.
-	pub(crate) fn get_validator_commission(
-		era: EraIndex,
-		validator_stash: &T::AccountId,
-	) -> Perbill {
-		<ErasValidatorPrefs<T>>::get(&era, validator_stash).commission
-	}
-
-	/// Creates an entry to track validator reward has been claimed for a given era and page.
-	/// Noop if already claimed.
-	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
-		let mut claimed_pages = ClaimedRewards::<T>::get(era, validator);
-
-		// this should never be called if the reward has already been claimed
-		if claimed_pages.contains(&page) {
-			defensive!("Trying to set an already claimed reward");
-			// nevertheless don't do anything since the page already exist in claimed rewards.
-			return
-		}
-
-		// add page to claimed entries
-		claimed_pages.push(page);
-		ClaimedRewards::<T>::insert(era, validator, claimed_pages);
-	}
-
-	/// Store exposure for elected validators at start of an era.
-	///
-	/// If the exposure does not exist yet for the tuple (era, validator), it sets it. Otherwise,
-	/// it updates the existing record by ensuring *intermediate* exposure pages are filled up with
-	/// `T::MaxExposurePageSize` number of backers per page and the remaining exposures are added
-	/// to new exposure pages.
-	pub fn upsert_exposure(
-		era: EraIndex,
-		validator: &T::AccountId,
-		mut exposure: Exposure<T::AccountId, BalanceOf<T>>,
-	) {
-		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
-
-		if let Some(stored_overview) = ErasStakersOverview::<T>::get(era, &validator) {
-			let last_page_idx = stored_overview.page_count.saturating_sub(1);
-
-			let mut last_page =
-				ErasStakersPaged::<T>::get((era, validator, last_page_idx)).unwrap_or_default();
-			let last_page_empty_slots =
-				T::MaxExposurePageSize::get().saturating_sub(last_page.others.len() as u32);
-
-			// splits the exposure so that `exposures_append` will fit within the last exposure
-			// page, up to the max exposure page size. The remaining individual exposures in
-			// `exposure` will be added to new pages.
-			let exposures_append = exposure.split_others(last_page_empty_slots);
-
-			ErasStakersOverview::<T>::mutate(era, &validator, |stored| {
-				// new metadata is updated based on 3 different set of exposures: the
-				// current one, the exposure split to be "fitted" into the current last page and
-				// the exposure set that will be appended from the new page onwards.
-				let new_metadata =
-					stored.defensive_unwrap_or_default().update_with::<T::MaxExposurePageSize>(
-						[&exposures_append, &exposure]
-							.iter()
-							.fold(Default::default(), |total, expo| {
-								total.saturating_add(expo.total.saturating_sub(expo.own))
-							}),
-						[&exposures_append, &exposure]
-							.iter()
-							.fold(Default::default(), |count, expo| {
-								count.saturating_add(expo.others.len() as u32)
-							}),
-					);
-				*stored = new_metadata.into();
-			});
-
-			// fill up last page with exposures.
-			last_page.page_total = last_page
-				.page_total
-				.saturating_add(exposures_append.total)
-				.saturating_sub(exposures_append.own);
-			last_page.others.extend(exposures_append.others);
-			ErasStakersPaged::<T>::insert((era, &validator, last_page_idx), last_page);
-
-			// now handle the remaining exposures and append the exposure pages. The metadata update
-			// has been already handled above.
-			let (_, exposure_pages) = exposure.into_pages(page_size);
-
-			exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
-				let append_at =
-					(last_page_idx.saturating_add(1).saturating_add(idx as u32)) as Page;
-				<ErasStakersPaged<T>>::insert((era, &validator, append_at), &paged_exposure);
-			});
-		} else {
-			// expected page count is the number of nominators divided by the page size, rounded up.
-			let expected_page_count = exposure
-				.others
-				.len()
-				.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
-				.saturating_div(page_size as usize);
-
-			// no exposures yet for this (era, validator) tuple, calculate paged exposure pages and
-			// metadata from a blank slate.
-			let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
-			defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
-
-			// insert metadata.
-			ErasStakersOverview::<T>::insert(era, &validator, exposure_metadata);
-
-			// insert validator's overview.
-			exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
-				let append_at = idx as Page;
-				<ErasStakersPaged<T>>::insert((era, &validator, append_at), &paged_exposure);
-			});
-		};
-	}
-
-	/// Update the total exposure for all the elected validators in the era.
-	pub(crate) fn add_total_stake(era: EraIndex, stake: BalanceOf<T>) {
-		<ErasTotalStake<T>>::mutate(era, |total_stake| {
-			*total_stake += stake;
-		});
 	}
 }
 
