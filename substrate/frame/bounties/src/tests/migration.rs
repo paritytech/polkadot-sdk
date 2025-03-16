@@ -25,5 +25,4 @@ use frame_support::pallet_prelude::Encode;
 use sp_runtime::Storage;
 
 #[test]
-fn test_migration_v5() {
-}
+fn test_migration_v5() {}
