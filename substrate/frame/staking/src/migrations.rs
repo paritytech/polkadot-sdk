@@ -86,38 +86,12 @@ pub mod v17 {
 /// severity for re-enabling purposes.
 pub mod v16 {
 	use super::*;
-	use frame_support::Twox64Concat;
 	use sp_staking::offence::OffenceSeverity;
 
 	#[frame_support::storage_alias]
-	pub(crate) type Invulnerables<T: Config> =
-		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
-
-	#[frame_support::storage_alias]
 	pub(crate) type DisabledValidators<T: Config> =
-		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
+	StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
 
-	#[frame_support::storage_alias]
-	pub(crate) type ErasStakers<T: Config> = StorageDoubleMap<
-		Pallet<T>,
-		Twox64Concat,
-		EraIndex,
-		Twox64Concat,
-		<T as frame_system::Config>::AccountId,
-		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		ValueQuery,
-	>;
-
-	#[frame_support::storage_alias]
-	pub(crate) type ErasStakersClipped<T: Config> = StorageDoubleMap<
-		Pallet<T>,
-		Twox64Concat,
-		EraIndex,
-		Twox64Concat,
-		<T as frame_system::Config>::AccountId,
-		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		ValueQuery,
-	>;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {

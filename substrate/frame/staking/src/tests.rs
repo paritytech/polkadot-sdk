@@ -32,7 +32,6 @@ use frame_support::{
 		fungible::Inspect, Currency, Get, InspectLockableCurrency, LockableCurrency,
 		ReservableCurrency, WithdrawReasons,
 	},
-	BoundedVec,
 };
 use mock::*;
 use pallet_balances::Error as BalancesError;
@@ -1377,7 +1376,6 @@ fn bond_extra_and_withdraw_unbonded_works() {
 				legacy_claimed_rewards: bounded_vec![],
 			}
 		);
-
 		assert_eq!(
 			Staking::eras_stakers(active_era(), &11),
 			Exposure { total: 1000, own: 1000, others: vec![] }
@@ -1928,11 +1926,7 @@ fn reward_to_stake_works() {
 			let _ = asset::set_stakeable_balance::<Test>(&20, 1000);
 
 			// Bypass logic and change current exposure
-			EraInfo::<Test>::upsert_exposure(
-				0,
-				&21,
-				Exposure { total: 69, own: 69, others: vec![] },
-			);
+			EraInfo::<Test>::set_exposure(0, &21, Exposure { total: 69, own: 69, others: vec![] });
 			<Ledger<Test>>::insert(
 				&20,
 				StakingLedgerInspect {
@@ -2283,14 +2277,14 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider() {
 
 			// winners should be 21 and 31. Otherwise this election is taking duplicates into
 			// account.
-			let supports = <Test as Config>::ElectionProvider::elect(SINGLE_PAGE).unwrap();
-
-			let expected_supports = vec![
-				(21, Support { total: 1800, voters: vec![(21, 1000), (1, 400), (3, 400)] }),
-				(31, Support { total: 2200, voters: vec![(31, 1000), (1, 600), (3, 600)] }),
-			];
-
-			assert_eq!(supports, to_bounded_supports(expected_supports));
+			let supports = <Test as Config>::ElectionProvider::elect().unwrap();
+			assert_eq!(
+				supports,
+				vec![
+					(21, Support { total: 1800, voters: vec![(21, 1000), (1, 400), (3, 400)] }),
+					(31, Support { total: 2200, voters: vec![(31, 1000), (1, 600), (3, 600)] })
+				],
+			);
 		});
 }
 
@@ -2335,13 +2329,14 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider_elected() {
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![21]));
 
 			// winners should be 21 and 11.
-			let supports = <Test as Config>::ElectionProvider::elect(SINGLE_PAGE).unwrap();
-			let expected_supports = vec![
-				(11, Support { total: 1500, voters: vec![(11, 1000), (1, 500)] }),
-				(21, Support { total: 2500, voters: vec![(21, 1000), (1, 500), (3, 1000)] }),
-			];
-
-			assert_eq!(supports, to_bounded_supports(expected_supports));
+			let supports = <Test as Config>::ElectionProvider::elect().unwrap();
+			assert_eq!(
+				supports,
+				vec![
+					(11, Support { total: 1500, voters: vec![(11, 1000), (1, 500)] }),
+					(21, Support { total: 2500, voters: vec![(21, 1000), (1, 500), (3, 1000)] })
+				],
+			);
 		});
 }
 
@@ -2384,7 +2379,7 @@ fn phragmen_should_not_overflow() {
 
 #[test]
 fn reward_validator_slashing_validator_does_not_overflow() {
-	ExtBuilder::default().nominate(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let stake = u64::MAX as Balance * 2;
 		let reward_slash = u64::MAX as Balance * 2;
 
@@ -2394,6 +2389,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		// Set staker
 		let _ = asset::set_stakeable_balance::<Test>(&11, stake);
 
+		let exposure = Exposure::<AccountId, Balance> { total: stake, own: stake, others: vec![] };
 		let reward = EraRewardPoints::<AccountId> {
 			total: 1,
 			individual: vec![(11, 1)].into_iter().collect(),
@@ -2401,19 +2397,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 
 		// Check reward
 		ErasRewardPoints::<Test>::insert(0, reward);
-
-		// force exposure metadata to account for the overflowing `stake`.
-		ErasStakersOverview::<Test>::insert(
-			current_era(),
-			11,
-			PagedExposureMetadata { total: stake, own: stake, nominator_count: 0, page_count: 0 },
-		);
-
-		// we want to slash only self-stake, confirm that no others exposed.
-		let full_exposure_after = EraInfo::<Test>::get_full_exposure(current_era(), &11);
-		assert_eq!(full_exposure_after.total, stake);
-		assert_eq!(full_exposure_after.others, vec![]);
-
+		EraInfo::<Test>::set_exposure(0, &11, exposure);
 		ErasValidatorReward::<Test>::insert(0, stake);
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
 		assert_eq!(asset::stakeable_balance::<Test>(&11), stake * 2);
@@ -2435,19 +2419,13 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 
 		// only slashes out of bonded stake are applied. without this line, it is 0.
 		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::Staked).unwrap();
-
-		// Override metadata and exposures of 11 so that it exposes minmal self stake and `stake` -
-		// 1 from nominator 2.
-		ErasStakersOverview::<Test>::insert(
-			current_era(),
-			11,
-			PagedExposureMetadata { total: stake, own: 1, nominator_count: 1, page_count: 1 },
-		);
-
-		ErasStakersPaged::<Test>::insert(
-			(current_era(), &11, 0),
-			ExposurePage {
-				page_total: stake - 1,
+		// Override exposure of 11
+		EraInfo::<Test>::set_exposure(
+			0,
+			&11,
+			Exposure {
+				total: stake,
+				own: 1,
 				others: vec![IndividualExposure { who: 2, value: stake - 1 }],
 			},
 		);
@@ -3155,7 +3133,6 @@ fn deferred_slashes_are_deferred() {
 			staking_events_since_last_call().as_slice(),
 			&[
 				Event::SlashReported { validator: 11, slash_era: 1, .. },
-				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::StakersElected,
 				..,
 				Event::Slashed { staker: 11, amount: 100 },
@@ -3492,7 +3469,6 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::PagedElectionProceeded { page: 0, result: Ok(7) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3571,7 +3547,6 @@ fn non_slashable_offence_disables_validator() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::PagedElectionProceeded { page: 0, result: Ok(7) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3661,7 +3636,6 @@ fn slashing_independent_of_disabling_validator() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::PagedElectionProceeded { page: 0, result: Ok(5) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3700,7 +3674,7 @@ fn slashing_independent_of_disabling_validator() {
 }
 
 #[test]
-fn offence_threshold_doesnt_plan_new_era() {
+fn offence_threshold_doesnt_trigger_new_era() {
 	ExtBuilder::default()
 		.validator_count(4)
 		.set_status(41, StakerStatus::Validator)
@@ -3938,17 +3912,12 @@ fn six_session_delay() {
 
 		// pallet-session is delaying session by one, thus the next session to plan is +2.
 		assert_eq!(<Staking as SessionManager<_>>::new_session(init_session + 2), None);
-
-		// note a new election happens independently of the call to `new_session`.
-		Staking::do_elect_paged(0);
 		assert_eq!(
 			<Staking as SessionManager<_>>::new_session(init_session + 3),
 			Some(val_set.clone())
 		);
 		assert_eq!(<Staking as SessionManager<_>>::new_session(init_session + 4), None);
 		assert_eq!(<Staking as SessionManager<_>>::new_session(init_session + 5), None);
-
-		Staking::do_elect_paged(0);
 		assert_eq!(
 			<Staking as SessionManager<_>>::new_session(init_session + 6),
 			Some(val_set.clone())
@@ -4189,8 +4158,17 @@ fn test_multi_page_payout_stakers_by_page() {
 		);
 
 		// verify rewards are tracked to prevent double claims
+		let ledger = Staking::ledger(11.into());
 		for page in 0..EraInfo::<Test>::get_page_count(1, &11) {
-			assert_eq!(EraInfo::<Test>::is_rewards_claimed(1, &11, page), true);
+			assert_eq!(
+				EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
+					1,
+					ledger.as_ref().unwrap(),
+					&11,
+					page
+				),
+				true
+			);
 		}
 
 		for i in 3..16 {
@@ -4212,7 +4190,15 @@ fn test_multi_page_payout_stakers_by_page() {
 
 			// verify we track rewards for each era and page
 			for page in 0..EraInfo::<Test>::get_page_count(i - 1, &11) {
-				assert_eq!(EraInfo::<Test>::is_rewards_claimed(i - 1, &11, page), true);
+				assert_eq!(
+					EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
+						i - 1,
+						Staking::ledger(11.into()).as_ref().unwrap(),
+						&11,
+						page
+					),
+					true
+				);
 			}
 		}
 
@@ -4371,6 +4357,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		}
 
 		// verify we no longer track rewards in `legacy_claimed_rewards` vec
+		let ledger = Staking::ledger(11.into());
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect {
@@ -4384,7 +4371,15 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 		// verify rewards are tracked to prevent double claims
 		for page in 0..EraInfo::<Test>::get_page_count(1, &11) {
-			assert_eq!(EraInfo::<Test>::is_rewards_claimed(1, &11, page), true);
+			assert_eq!(
+				EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
+					1,
+					ledger.as_ref().unwrap(),
+					&11,
+					page
+				),
+				true
+			);
 		}
 
 		for i in 3..16 {
@@ -4406,7 +4401,15 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 			// verify we track rewards for each era and page
 			for page in 0..EraInfo::<Test>::get_page_count(i - 1, &11) {
-				assert_eq!(EraInfo::<Test>::is_rewards_claimed(i - 1, &11, page), true);
+				assert_eq!(
+					EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
+						i - 1,
+						Staking::ledger(11.into()).as_ref().unwrap(),
+						&11,
+						page
+					),
+					true
+				);
 			}
 		}
 
@@ -4518,7 +4521,6 @@ fn test_page_count_and_size() {
 		mock::start_active_era(1);
 
 		// Since max exposure page size is 64, 2 pages of nominators are created.
-		assert_eq!(MaxExposurePageSize::get(), 64);
 		assert_eq!(EraInfo::<Test>::get_page_count(1, &11), 2);
 
 		// first page has 64 nominators
@@ -5293,6 +5295,41 @@ mod election_data_provider {
 	use frame_election_provider_support::ElectionDataProvider;
 
 	#[test]
+	fn targets_2sec_block() {
+		let mut validators = 1000;
+		while <Test as Config>::WeightInfo::get_npos_targets(validators).all_lt(Weight::from_parts(
+			2u64 * frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+			u64::MAX,
+		)) {
+			validators += 1;
+		}
+
+		println!("Can create a snapshot of {} validators in 2sec block", validators);
+	}
+
+	#[test]
+	fn voters_2sec_block() {
+		// we assume a network only wants up to 1000 validators in most cases, thus having 2000
+		// candidates is as high as it gets.
+		let validators = 2000;
+		let mut nominators = 1000;
+
+		while <Test as Config>::WeightInfo::get_npos_voters(validators, nominators).all_lt(
+			Weight::from_parts(
+				2u64 * frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+				u64::MAX,
+			),
+		) {
+			nominators += 1;
+		}
+
+		println!(
+			"Can create a snapshot of {} nominators [{} validators, each 1 slashing] in 2sec block",
+			nominators, validators
+		);
+	}
+
+	#[test]
 	fn set_minimum_active_stake_is_correct() {
 		ExtBuilder::default()
 			.nominate(false)
@@ -5302,15 +5339,14 @@ mod election_data_provider {
 			.build_and_execute(|| {
 				// default bounds are unbounded.
 				assert_ok!(<Staking as ElectionDataProvider>::electing_voters(
-					DataProviderBounds::default(),
-					0
+					DataProviderBounds::default()
 				));
 				assert_eq!(MinimumActiveStake::<Test>::get(), 10);
 
 				// remove staker with lower bond by limiting the number of voters and check
 				// `MinimumActiveStake` again after electing voters.
 				let bounds = ElectionBoundsBuilder::default().voters_count(5.into()).build();
-				assert_ok!(<Staking as ElectionDataProvider>::electing_voters(bounds.voters, 0));
+				assert_ok!(<Staking as ElectionDataProvider>::electing_voters(bounds.voters));
 				assert_eq!(MinimumActiveStake::<Test>::get(), 50);
 			});
 	}
@@ -5321,8 +5357,7 @@ mod election_data_provider {
 		ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 			// default bounds are unbounded.
 			assert_ok!(<Staking as ElectionDataProvider>::electing_voters(
-				DataProviderBounds::default(),
-				0
+				DataProviderBounds::default()
 			));
 			assert_eq!(<Test as Config>::VoterList::count(), 0);
 			assert_eq!(MinimumActiveStake::<Test>::get(), 0);
@@ -5338,11 +5373,9 @@ mod election_data_provider {
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![1]));
 			assert_eq!(<Test as Config>::VoterList::count(), 5);
 
-			let voters_before = <Staking as ElectionDataProvider>::electing_voters(
-				DataProviderBounds::default(),
-				0,
-			)
-			.unwrap();
+			let voters_before =
+				<Staking as ElectionDataProvider>::electing_voters(DataProviderBounds::default())
+					.unwrap();
 			assert_eq!(MinimumActiveStake::<Test>::get(), 5);
 
 			// update minimum nominator bond.
@@ -5352,11 +5385,9 @@ mod election_data_provider {
 			// lower than `MinNominatorBond`.
 			assert_eq!(<Test as Config>::VoterList::count(), 5);
 
-			let voters = <Staking as ElectionDataProvider>::electing_voters(
-				DataProviderBounds::default(),
-				0,
-			)
-			.unwrap();
+			let voters =
+				<Staking as ElectionDataProvider>::electing_voters(DataProviderBounds::default())
+					.unwrap();
 			assert_eq!(voters_before, voters);
 
 			// minimum active stake is lower than `MinNominatorBond`.
@@ -5374,7 +5405,6 @@ mod election_data_provider {
 				assert_eq!(Staking::weight_of(&101), 500);
 				let voters = <Staking as ElectionDataProvider>::electing_voters(
 					DataProviderBounds::default(),
-					0,
 				)
 				.unwrap();
 				assert_eq!(voters.len(), 5);
@@ -5390,7 +5420,6 @@ mod election_data_provider {
 
 				let voters = <Staking as ElectionDataProvider>::electing_voters(
 					DataProviderBounds::default(),
-					0,
 				)
 				.unwrap();
 				// number of returned voters decreases since ledger entry of stash 101 is now
@@ -5412,8 +5441,7 @@ mod election_data_provider {
 		ExtBuilder::default().nominate(false).build_and_execute(|| {
 			// default bounds are unbounded.
 			assert!(<Validators<Test>>::iter().map(|(x, _)| x).all(|v| Staking::electing_voters(
-				DataProviderBounds::default(),
-				0
+				DataProviderBounds::default()
 			)
 			.unwrap()
 			.into_iter()
@@ -5467,15 +5495,12 @@ mod election_data_provider {
 				// 11 is taken;
 				// we finish since the 2x limit is reached.
 				assert_eq!(
-					Staking::electing_voters(
-						bounds_builder.voters_count(2.into()).build().voters,
-						0
-					)
-					.unwrap()
-					.iter()
-					.map(|(stash, _, _)| stash)
-					.copied()
-					.collect::<Vec<_>>(),
+					Staking::electing_voters(bounds_builder.voters_count(2.into()).build().voters)
+						.unwrap()
+						.iter()
+						.map(|(stash, _, _)| stash)
+						.copied()
+						.collect::<Vec<_>>(),
 					vec![11],
 				);
 			});
@@ -5493,42 +5518,32 @@ mod election_data_provider {
 
 				// if voter count limit is less..
 				assert_eq!(
-					Staking::electing_voters(
-						bounds_builder.voters_count(1.into()).build().voters,
-						0
-					)
-					.unwrap()
-					.len(),
+					Staking::electing_voters(bounds_builder.voters_count(1.into()).build().voters)
+						.unwrap()
+						.len(),
 					1
 				);
 
 				// if voter count limit is equal..
 				assert_eq!(
-					Staking::electing_voters(
-						bounds_builder.voters_count(5.into()).build().voters,
-						0
-					)
-					.unwrap()
-					.len(),
+					Staking::electing_voters(bounds_builder.voters_count(5.into()).build().voters)
+						.unwrap()
+						.len(),
 					5
 				);
 
 				// if voter count limit is more.
 				assert_eq!(
-					Staking::electing_voters(
-						bounds_builder.voters_count(55.into()).build().voters,
-						0
-					)
-					.unwrap()
-					.len(),
+					Staking::electing_voters(bounds_builder.voters_count(55.into()).build().voters)
+						.unwrap()
+						.len(),
 					5
 				);
 
 				// if target count limit is more..
 				assert_eq!(
 					Staking::electable_targets(
-						bounds_builder.targets_count(6.into()).build().targets,
-						0,
+						bounds_builder.targets_count(6.into()).build().targets
 					)
 					.unwrap()
 					.len(),
@@ -5538,8 +5553,7 @@ mod election_data_provider {
 				// if target count limit is equal..
 				assert_eq!(
 					Staking::electable_targets(
-						bounds_builder.targets_count(4.into()).build().targets,
-						0,
+						bounds_builder.targets_count(4.into()).build().targets
 					)
 					.unwrap()
 					.len(),
@@ -5549,12 +5563,10 @@ mod election_data_provider {
 				// if target limit count is less, then we return an error.
 				assert_eq!(
 					Staking::electable_targets(
-						bounds_builder.targets_count(1.into()).build().targets,
-						0
+						bounds_builder.targets_count(1.into()).build().targets
 					)
-					.unwrap()
-					.len(),
-					1,
+					.unwrap_err(),
+					"Target snapshot too big"
 				);
 			});
 	}
@@ -5564,25 +5576,25 @@ mod election_data_provider {
 		ExtBuilder::default().build_and_execute(|| {
 			// voters: set size bounds that allows only for 1 voter.
 			let bounds = ElectionBoundsBuilder::default().voters_size(26.into()).build();
-			let elected = Staking::electing_voters(bounds.voters, 0).unwrap();
+			let elected = Staking::electing_voters(bounds.voters).unwrap();
 			assert!(elected.encoded_size() == 26 as usize);
 			let prev_len = elected.len();
 
 			// larger size bounds means more quota for voters.
 			let bounds = ElectionBoundsBuilder::default().voters_size(100.into()).build();
-			let elected = Staking::electing_voters(bounds.voters, 0).unwrap();
+			let elected = Staking::electing_voters(bounds.voters).unwrap();
 			assert!(elected.encoded_size() <= 100 as usize);
 			assert!(elected.len() > 1 && elected.len() > prev_len);
 
 			// targets: set size bounds that allows for only one target to fit in the snapshot.
 			let bounds = ElectionBoundsBuilder::default().targets_size(10.into()).build();
-			let elected = Staking::electable_targets(bounds.targets, 0).unwrap();
+			let elected = Staking::electable_targets(bounds.targets).unwrap();
 			assert!(elected.encoded_size() == 9 as usize);
 			let prev_len = elected.len();
 
 			// larger size bounds means more space for targets.
 			let bounds = ElectionBoundsBuilder::default().targets_size(100.into()).build();
-			let elected = Staking::electable_targets(bounds.targets, 0).unwrap();
+			let elected = Staking::electable_targets(bounds.targets).unwrap();
 			assert!(elected.encoded_size() <= 100 as usize);
 			assert!(elected.len() > 1 && elected.len() > prev_len);
 		});
@@ -5626,7 +5638,7 @@ mod election_data_provider {
 				// even through 61 has nomination quota of 2 at the time of the election, all the
 				// nominations (5) will be used.
 				assert_eq!(
-					Staking::electing_voters(DataProviderBounds::default(), 0)
+					Staking::electing_voters(DataProviderBounds::default())
 						.unwrap()
 						.iter()
 						.map(|(stash, _, targets)| (*stash, targets.len()))
@@ -5650,7 +5662,7 @@ mod election_data_provider {
 				// nominations of controller 70 won't be added due to voter size limit exceeded.
 				let bounds = ElectionBoundsBuilder::default().voters_size(100.into()).build();
 				assert_eq!(
-					Staking::electing_voters(bounds.voters, 0)
+					Staking::electing_voters(bounds.voters)
 						.unwrap()
 						.iter()
 						.map(|(stash, _, targets)| (*stash, targets.len()))
@@ -5667,7 +5679,7 @@ mod election_data_provider {
 				// include the electing voters of 70.
 				let bounds = ElectionBoundsBuilder::default().voters_size(1_000.into()).build();
 				assert_eq!(
-					Staking::electing_voters(bounds.voters, 0)
+					Staking::electing_voters(bounds.voters)
 						.unwrap()
 						.iter()
 						.map(|(stash, _, targets)| (*stash, targets.len()))
@@ -5678,10 +5690,10 @@ mod election_data_provider {
 	}
 
 	#[test]
-	fn estimate_next_election_single_page_works() {
+	fn estimate_next_election_works() {
 		ExtBuilder::default().session_per_era(5).period(5).build_and_execute(|| {
 			// first session is always length 0.
-			for b in 1..19 {
+			for b in 1..20 {
 				run_to_block(b);
 				assert_eq!(Staking::next_election_prediction(System::block_number()), 20);
 			}
@@ -5689,9 +5701,10 @@ mod election_data_provider {
 			// election
 			run_to_block(20);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 45);
+			assert_eq!(staking_events().len(), 1);
 			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
 
-			for b in 21..44 {
+			for b in 21..45 {
 				run_to_block(b);
 				assert_eq!(Staking::next_election_prediction(System::block_number()), 45);
 			}
@@ -5699,6 +5712,7 @@ mod election_data_provider {
 			// election
 			run_to_block(45);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 70);
+			assert_eq!(staking_events().len(), 3);
 			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
 
 			Staking::force_no_eras(RuntimeOrigin::root()).unwrap();
@@ -5721,6 +5735,7 @@ mod election_data_provider {
 			MinimumValidatorCount::<Test>::put(2);
 			run_to_block(55);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 55 + 25);
+			assert_eq!(staking_events().len(), 10);
 			assert_eq!(
 				*staking_events().last().unwrap(),
 				Event::ForceEra { mode: Forcing::NotForcing }
@@ -6233,7 +6248,7 @@ fn change_of_absolute_max_nominations() {
 			let bounds = DataProviderBounds::default();
 
 			// 3 validators and 3 nominators
-			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
+			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 3);
 
 			// abrupt change from 16 to 4, everyone should be fine.
 			AbsoluteMaxNominations::set(4);
@@ -6244,7 +6259,7 @@ fn change_of_absolute_max_nominations() {
 					.collect::<Vec<_>>(),
 				vec![(101, 2), (71, 3), (61, 1)]
 			);
-			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
+			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 3);
 
 			// No one can be chilled on account of non-decodable keys.
 			for k in Nominators::<Test>::iter_keys() {
@@ -6263,7 +6278,7 @@ fn change_of_absolute_max_nominations() {
 					.collect::<Vec<_>>(),
 				vec![(101, 2), (71, 3), (61, 1)]
 			);
-			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
+			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 3);
 
 			// As before, no one can be chilled on account of non-decodable keys.
 			for k in Nominators::<Test>::iter_keys() {
@@ -6297,7 +6312,7 @@ fn change_of_absolute_max_nominations() {
 			// but its value cannot be decoded and default is returned.
 			assert!(Nominators::<Test>::get(71).is_none());
 
-			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 2);
+			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 2);
 			assert!(Nominators::<Test>::contains_key(101));
 
 			// abrupt change from 2 to 1, this should cause some nominators to be non-decodable, and
@@ -6321,7 +6336,7 @@ fn change_of_absolute_max_nominations() {
 			assert!(Nominators::<Test>::contains_key(61));
 			assert!(Nominators::<Test>::get(71).is_none());
 			assert!(Nominators::<Test>::get(61).is_some());
-			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 1);
+			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 1);
 
 			// now one of them can revive themselves by re-nominating to a proper value.
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(71), vec![1]));
@@ -6364,7 +6379,7 @@ fn nomination_quota_max_changes_decoding() {
 				vec![(70, 3), (101, 2), (50, 4), (30, 4), (60, 1)]
 			);
 			// 4 validators and 4 nominators
-			assert_eq!(Staking::electing_voters(unbonded_election, 0).unwrap().len(), 4 + 4);
+			assert_eq!(Staking::electing_voters(unbonded_election).unwrap().len(), 4 + 4);
 		});
 }
 
@@ -6765,8 +6780,7 @@ fn reducing_max_unlocking_chunks_abrupt() {
 #[test]
 fn cannot_set_unsupported_validator_count() {
 	ExtBuilder::default().build_and_execute(|| {
-		MaxValidatorSet::set(50);
-		MaxWinnersPerPage::set(50);
+		MaxWinners::set(50);
 		// set validator count works
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 30));
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 50));
@@ -6781,8 +6795,7 @@ fn cannot_set_unsupported_validator_count() {
 #[test]
 fn increase_validator_count_errors() {
 	ExtBuilder::default().build_and_execute(|| {
-		MaxValidatorSet::set(50);
-		MaxWinnersPerPage::set(50);
+		MaxWinners::set(50);
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 40));
 
 		// increase works
@@ -6800,8 +6813,7 @@ fn increase_validator_count_errors() {
 #[test]
 fn scale_validator_count_errors() {
 	ExtBuilder::default().build_and_execute(|| {
-		MaxValidatorSet::set(50);
-		MaxWinnersPerPage::set(50);
+		MaxWinners::set(50);
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 20));
 
 		// scale value works
@@ -6940,6 +6952,218 @@ fn should_retain_era_info_only_upto_history_depth() {
 }
 
 #[test]
+fn test_legacy_claimed_rewards_is_checked_at_reward_payout() {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+		// Create a validator:
+		bond_validator(11, 1000);
+
+		// reward validator for next 2 eras
+		mock::start_active_era(1);
+		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		mock::start_active_era(2);
+		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		mock::start_active_era(3);
+
+		//verify rewards are not claimed
+		assert_eq!(
+			EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
+				1,
+				Staking::ledger(11.into()).as_ref().unwrap(),
+				&11,
+				0
+			),
+			false
+		);
+		assert_eq!(
+			EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
+				2,
+				Staking::ledger(11.into()).as_ref().unwrap(),
+				&11,
+				0
+			),
+			false
+		);
+
+		// assume reward claim for era 1 was stored in legacy storage
+		Ledger::<Test>::insert(
+			11,
+			StakingLedgerInspect {
+				stash: 11,
+				total: 1000,
+				active: 1000,
+				unlocking: Default::default(),
+				legacy_claimed_rewards: bounded_vec![1],
+			},
+		);
+
+		// verify rewards for era 1 cannot be claimed
+		assert_noop!(
+			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 1, 0),
+			Error::<Test>::AlreadyClaimed
+				.with_weight(<Test as Config>::WeightInfo::payout_stakers_alive_staked(0)),
+		);
+		assert_eq!(
+			EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
+				1,
+				Staking::ledger(11.into()).as_ref().unwrap(),
+				&11,
+				0
+			),
+			true
+		);
+
+		// verify rewards for era 2 can be claimed
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
+		assert_eq!(
+			EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
+				2,
+				Staking::ledger(11.into()).as_ref().unwrap(),
+				&11,
+				0
+			),
+			true
+		);
+		// but the new claimed rewards for era 2 is not stored in legacy storage
+		assert_eq!(
+			Ledger::<Test>::get(11).unwrap(),
+			StakingLedgerInspect {
+				stash: 11,
+				total: 1000,
+				active: 1000,
+				unlocking: Default::default(),
+				legacy_claimed_rewards: bounded_vec![1],
+			},
+		);
+		// instead it is kept in `ClaimedRewards`
+		assert_eq!(ClaimedRewards::<Test>::get(2, 11), vec![0]);
+	});
+}
+
+#[test]
+fn test_validator_exposure_is_backward_compatible_with_non_paged_rewards_payout() {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+		// case 1: exposure exist in clipped.
+		// set page cap to 10
+		MaxExposurePageSize::set(10);
+		bond_validator(11, 1000);
+		let mut expected_individual_exposures: Vec<IndividualExposure<AccountId, Balance>> = vec![];
+		let mut total_exposure: Balance = 0;
+		// 1st exposure page
+		for i in 0..10 {
+			let who = 1000 + i;
+			let value = 1000 + i as Balance;
+			bond_nominator(who, value, vec![11]);
+			expected_individual_exposures.push(IndividualExposure { who, value });
+			total_exposure += value;
+		}
+
+		for i in 10..15 {
+			let who = 1000 + i;
+			let value = 1000 + i as Balance;
+			bond_nominator(who, value, vec![11]);
+			expected_individual_exposures.push(IndividualExposure { who, value });
+			total_exposure += value;
+		}
+
+		mock::start_active_era(1);
+		// reward validator for current era
+		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+
+		// start new era
+		mock::start_active_era(2);
+		// verify exposure for era 1 is stored in paged storage, that each exposure is stored in
+		// one and only one page, and no exposure is repeated.
+		let actual_exposure_page_0 = ErasStakersPaged::<Test>::get((1, 11, 0)).unwrap();
+		let actual_exposure_page_1 = ErasStakersPaged::<Test>::get((1, 11, 1)).unwrap();
+		expected_individual_exposures.iter().for_each(|exposure| {
+			assert!(
+				actual_exposure_page_0.others.contains(exposure) ||
+					actual_exposure_page_1.others.contains(exposure)
+			);
+		});
+		assert_eq!(
+			expected_individual_exposures.len(),
+			actual_exposure_page_0.others.len() + actual_exposure_page_1.others.len()
+		);
+		// verify `EraInfo` returns page from paged storage
+		assert_eq!(
+			EraInfo::<Test>::get_paged_exposure(1, &11, 0).unwrap().others(),
+			&actual_exposure_page_0.others
+		);
+		assert_eq!(
+			EraInfo::<Test>::get_paged_exposure(1, &11, 1).unwrap().others(),
+			&actual_exposure_page_1.others
+		);
+		assert_eq!(EraInfo::<Test>::get_page_count(1, &11), 2);
+
+		// validator is exposed
+		assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&11, &1));
+		// nominators are exposed
+		for i in 10..15 {
+			let who: AccountId = 1000 + i;
+			assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&who, &1));
+		}
+
+		// case 2: exposure exist in ErasStakers and ErasStakersClipped (legacy).
+		// delete paged storage and add exposure to clipped storage
+		<ErasStakersPaged<Test>>::remove((1, 11, 0));
+		<ErasStakersPaged<Test>>::remove((1, 11, 1));
+		<ErasStakersOverview<Test>>::remove(1, 11);
+
+		<ErasStakers<Test>>::insert(
+			1,
+			11,
+			Exposure {
+				total: total_exposure,
+				own: 1000,
+				others: expected_individual_exposures.clone(),
+			},
+		);
+		let mut clipped_exposure = expected_individual_exposures.clone();
+		clipped_exposure.sort_by(|a, b| b.who.cmp(&a.who));
+		clipped_exposure.truncate(10);
+		<ErasStakersClipped<Test>>::insert(
+			1,
+			11,
+			Exposure { total: total_exposure, own: 1000, others: clipped_exposure.clone() },
+		);
+
+		// verify `EraInfo` returns exposure from clipped storage
+		let actual_exposure_paged = EraInfo::<Test>::get_paged_exposure(1, &11, 0).unwrap();
+		assert_eq!(actual_exposure_paged.others(), &clipped_exposure);
+		assert_eq!(actual_exposure_paged.own(), 1000);
+		assert_eq!(actual_exposure_paged.exposure_metadata.page_count, 1);
+
+		let actual_exposure_full = EraInfo::<Test>::get_full_exposure(1, &11);
+		assert_eq!(actual_exposure_full.others, expected_individual_exposures);
+		assert_eq!(actual_exposure_full.own, 1000);
+		assert_eq!(actual_exposure_full.total, total_exposure);
+
+		// validator is exposed
+		assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&11, &1));
+		// nominators are exposed
+		for i in 10..15 {
+			let who: AccountId = 1000 + i;
+			assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&who, &1));
+		}
+
+		// for pages other than 0, clipped storage returns empty exposure
+		assert_eq!(EraInfo::<Test>::get_paged_exposure(1, &11, 1), None);
+		// page size is 1 for clipped storage
+		assert_eq!(EraInfo::<Test>::get_page_count(1, &11), 1);
+
+		// payout for page 0 works
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
+		// payout for page 1 fails
+		assert_noop!(
+			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 1),
+			Error::<Test>::InvalidPage
+				.with_weight(<Test as Config>::WeightInfo::payout_stakers_alive_staked(0))
+		);
+	});
+}
+
+#[test]
 fn test_runtime_api_pending_rewards() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN
@@ -6979,36 +7203,70 @@ fn test_runtime_api_pending_rewards() {
 			others: individual_exposures,
 		};
 
-		// add exposure for validators
-		EraInfo::<Test>::upsert_exposure(0, &validator_one, exposure.clone());
-		EraInfo::<Test>::upsert_exposure(0, &validator_two, exposure.clone());
+		// add non-paged exposure for one and two.
+		<ErasStakers<Test>>::insert(0, validator_one, exposure.clone());
+		<ErasStakers<Test>>::insert(0, validator_two, exposure.clone());
+		// add paged exposure for third validator
+		EraInfo::<Test>::set_exposure(0, &validator_three, exposure);
 
 		// add some reward to be distributed
 		ErasValidatorReward::<Test>::insert(0, 1000);
 
-		// SCENARIO: Validator with paged exposure (two pages).
-		// validators have not claimed rewards, so pending rewards is true.
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_one));
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
-		// and payout works
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0));
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
-		// validators have two pages of exposure, so pending rewards is still true.
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_one));
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
-		// payout again only for validator one
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0));
-		// now pending rewards is false for validator one
+		// mark rewards claimed for validator_one in legacy claimed rewards
+		<Ledger<Test>>::insert(
+			validator_one,
+			StakingLedgerInspect {
+				stash: validator_one,
+				total: stake,
+				active: stake,
+				unlocking: Default::default(),
+				legacy_claimed_rewards: bounded_vec![0],
+			},
+		);
+
+		// SCENARIO ONE: rewards already marked claimed in legacy storage.
+		// runtime api should return false for pending rewards for validator_one.
 		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
-		// and payout fails for validator one
+		// and if we try to pay, we get an error.
 		assert_noop!(
 			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0),
 			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
 		);
-		// while pending reward is true for validator two
+
+		// SCENARIO TWO: non-paged exposure
+		// validator two has not claimed rewards, so pending rewards is true.
 		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
-		// and payout works again for validator two.
+		// and payout works
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+		// now pending rewards is false.
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_two));
+		// and payout fails
+		assert_noop!(
+			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0),
+			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+		);
+
+		// SCENARIO THREE: validator with paged exposure (two pages).
+		// validator three has not claimed rewards, so pending rewards is true.
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_three));
+		// and payout works
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0));
+		// validator three has two pages of exposure, so pending rewards is still true.
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_three));
+		// payout again
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0));
+		// now pending rewards is false.
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_three));
+		// and payout fails
+		assert_noop!(
+			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0),
+			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+		);
+
+		// for eras with no exposure, pending rewards is false.
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_two));
+		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_three));
 	});
 }
 
@@ -7462,7 +7720,6 @@ mod staking_unchecked {
 		})
 	}
 }
-
 mod ledger {
 	use super::*;
 
@@ -8584,7 +8841,6 @@ fn reenable_lower_offenders_mock() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::PagedElectionProceeded { page: 0, result: Ok(7) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -8672,7 +8928,6 @@ fn do_not_reenable_higher_offenders_mock() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::PagedElectionProceeded { page: 0, result: Ok(7) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -8747,12 +9002,12 @@ mod getters {
 		slashing,
 		tests::{Staking, Test},
 		ActiveEra, ActiveEraInfo, BalanceOf, CanceledSlashPayout, ClaimedRewards, CurrentEra,
-		CurrentPlannedSession, EraRewardPoints, ErasRewardPoints, ErasStartSessionIndex,
-		ErasTotalStake, ErasValidatorPrefs, ErasValidatorReward, ForceEra, Forcing, Nominations,
-		Nominators, Perbill, SlashRewardFraction, SlashingSpans, ValidatorPrefs, Validators,
+		CurrentPlannedSession, EraRewardPoints, ErasRewardPoints, ErasStakersClipped,
+		ErasStartSessionIndex, ErasTotalStake, ErasValidatorPrefs, ErasValidatorReward, ForceEra,
+		Forcing, Nominations, Nominators, Perbill, SlashRewardFraction, SlashingSpans,
+		ValidatorPrefs, Validators,
 	};
-	use frame_support::BoundedVec;
-	use sp_staking::{EraIndex, Page, SessionIndex};
+	use sp_staking::{EraIndex, Exposure, IndividualExposure, Page, SessionIndex};
 
 	#[test]
 	fn get_validator_count_returns_value_from_storage() {
@@ -8789,9 +9044,7 @@ mod getters {
 		sp_io::TestExternalities::default().execute_with(|| {
 			// given
 			let v: Vec<mock::AccountId> = vec![1, 2, 3];
-			Invulnerables::<Test>::put(
-				BoundedVec::try_from(v.clone()).expect("Too many invulnerable validators!"),
-			);
+			Invulnerables::<Test>::put(v.clone());
 
 			// when
 			let result = Staking::invulnerables();
@@ -8887,6 +9140,27 @@ mod getters {
 
 			// then
 			assert_eq!(result, Some(session_index));
+		});
+	}
+
+	#[test]
+	fn get_eras_stakers_clipped_returns_value_from_storage() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// given
+			let era: EraIndex = 12;
+			let account_id: mock::AccountId = 1;
+			let exposure: Exposure<mock::AccountId, BalanceOf<Test>> = Exposure {
+				total: 1125,
+				own: 1000,
+				others: vec![IndividualExposure { who: 101, value: 125 }],
+			};
+			ErasStakersClipped::<Test>::insert(era, account_id, exposure.clone());
+
+			// when
+			let result = Staking::eras_stakers_clipped(era, &account_id);
+
+			// then
+			assert_eq!(result, exposure);
 		});
 	}
 
