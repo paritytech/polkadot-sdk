@@ -314,7 +314,7 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 		// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
 		spans.end_span(params.now);
 	}
-
+}
 
 /// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.
 ///

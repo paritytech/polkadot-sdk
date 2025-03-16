@@ -131,7 +131,7 @@ pub enum Error {
 	/// One of the page indices was invalid.
 	SolutionInvalidPageIndex,
 	/// An error occurred in some arithmetic operation.
-	ArithmeticError(&'static str),
+	ArithmeticError,
 	/// The data provided to create support map was invalid.
 	InvalidSupportEdge,
 	/// The number of voters is bigger than the `MaxVoters` bound.

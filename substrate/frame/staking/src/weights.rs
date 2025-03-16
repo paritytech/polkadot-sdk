@@ -99,8 +99,6 @@ pub trait WeightInfo {
 	fn payout_stakers_alive_staked(n: u32, ) -> Weight;
 	fn rebond(l: u32, ) -> Weight;
 	fn reap_stash(s: u32, ) -> Weight;
-	fn get_npos_voters(v: u32, n: u32, ) -> Weight;
-	fn get_npos_targets(v: u32, ) -> Weight;
 	fn set_staking_configs_all_set() -> Weight;
 	fn set_staking_configs_all_remove() -> Weight;
 	fn chill_other() -> Weight;
@@ -109,6 +107,7 @@ pub trait WeightInfo {
 	fn restore_ledger() -> Weight;
 	fn migrate_currency() -> Weight;
 	fn manual_slash() -> Weight;
+	fn new_era(v: u32, n: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
