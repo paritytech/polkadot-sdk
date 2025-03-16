@@ -148,7 +148,7 @@ pub use list::{notional_bag_for, Bag, List, ListError, Node};
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-pub(crate) const LOG_TARGET: &str = "runtime::bags_list";
+pub(crate) const LOG_TARGET: &str = "runtime::bags-list";
 
 // syntactic sugar for logging.
 #[macro_export]
