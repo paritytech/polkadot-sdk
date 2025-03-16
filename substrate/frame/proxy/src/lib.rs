@@ -78,7 +78,7 @@ pub struct ProxyDefinition<AccountId, ProxyType, BlockNumber> {
 	/// The maximun amount that can be transferred by this proxy.
 	pub max_amount: Option<BalanceOf<T>>,
 	/// The block number until which the limit is valid.
-	pub valid_unil: BlockNumber,
+	pub valid_until: BlockNumber,
 }
 
 /// Details surrounding a specific instance of an announcement to make a call.
@@ -90,6 +90,26 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 	call_hash: Hash,
 	/// The height at which the announcement was made.
 	height: BlockNumber,
+}
+
+/// The type of deposit
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+	DecodeWithMemTracking,
+)]
+pub enum DepositKind {
+	/// Proxy registration deposit
+	Proxies,
+	/// Announcement deposit
+	Announcements,
 }
 
 #[frame::pallet]
@@ -147,16 +167,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxProxies: Get<u32>;
 
+		#[pallet::constant]
+		type MaxTransferAmount: Get<BalanceOf<Self>>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
 		/// The maximum amount of time-delayed announcements that are allowed to be pending.
 		#[pallet::constant]
 		type MaxPending: Get<u32>;
-
-		#[pallet::constant]
-		type MaxTransferAmount: Get<BalanceOf<Self>>;
-
 
 		/// The type of hash used for hashing the call.
 		type CallHasher: Hash;
@@ -252,12 +271,10 @@ pub mod pallet {
 			delegate: AccountIdLookupOf<T>,
 			proxy_type: T::ProxyType,
 			delay: BlockNumberFor<T>,
-			max_amount: Option<BalanceOf<T>>,
-			valid_unil: BlockNumberFor<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
-			Self::add_proxy_delegate(&who, delegate, proxy_type, delay, max_amount, valid_unil)
+			Self::add_proxy_delegate(&who, delegate, proxy_type, delay)
 		}
 
 		/// Unregister a proxy account for the sender.
@@ -319,8 +336,6 @@ pub mod pallet {
 			proxy_type: T::ProxyType,
 			delay: BlockNumberFor<T>,
 			index: u16,
-			max_amount: Option<BalanceOf<T>>,
-			valid_unil: BlockNumberFor<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -328,7 +343,7 @@ pub mod pallet {
 			ensure!(!Proxies::<T>::contains_key(&pure), Error::<T>::Duplicate);
 
 			let proxy_def =
-				ProxyDefinition { delegate: who.clone(), proxy_type: proxy_type.clone(), delay, max_amount, valid_unil };
+				ProxyDefinition { delegate: who.clone(), proxy_type: proxy_type.clone(), delay };
 			let bounded_proxies: BoundedVec<_, T::MaxProxies> =
 				vec![proxy_def].try_into().map_err(|_| Error::<T>::TooMany)?;
 
@@ -541,6 +556,105 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Poke / Adjust deposits made for proxies and announcements based on current values.
+		/// This can be used by accounts to possibly lower their locked amount.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// The transaction fee is waived if the deposit amount has changed.
+		///
+		/// Emits `DepositPoked` if successful.
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::poke_deposit())]
+		pub fn poke_deposit(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let mut deposit_updated = false;
+
+			// Check and update proxy deposits
+			Proxies::<T>::try_mutate_exists(&who, |maybe_proxies| -> DispatchResult {
+				let (proxies, old_deposit) = maybe_proxies.take().unwrap_or_default();
+				let maybe_new_deposit = Self::rejig_deposit(
+					&who,
+					old_deposit,
+					T::ProxyDepositBase::get(),
+					T::ProxyDepositFactor::get(),
+					proxies.len(),
+				)?;
+
+				match maybe_new_deposit {
+					Some(new_deposit) if new_deposit != old_deposit => {
+						*maybe_proxies = Some((proxies, new_deposit));
+						deposit_updated = true;
+						Self::deposit_event(Event::DepositPoked {
+							who: who.clone(),
+							kind: DepositKind::Proxies,
+							old_deposit,
+							new_deposit,
+						});
+					},
+					Some(_) => {
+						*maybe_proxies = Some((proxies, old_deposit));
+					},
+					None => {
+						*maybe_proxies = None;
+						if !old_deposit.is_zero() {
+							deposit_updated = true;
+							Self::deposit_event(Event::DepositPoked {
+								who: who.clone(),
+								kind: DepositKind::Proxies,
+								old_deposit,
+								new_deposit: BalanceOf::<T>::zero(),
+							});
+						}
+					},
+				}
+				Ok(())
+			})?;
+
+			// Check and update announcement deposits
+			Announcements::<T>::try_mutate_exists(&who, |maybe_announcements| -> DispatchResult {
+				let (announcements, old_deposit) = maybe_announcements.take().unwrap_or_default();
+				let maybe_new_deposit = Self::rejig_deposit(
+					&who,
+					old_deposit,
+					T::AnnouncementDepositBase::get(),
+					T::AnnouncementDepositFactor::get(),
+					announcements.len(),
+				)?;
+
+				match maybe_new_deposit {
+					Some(new_deposit) if new_deposit != old_deposit => {
+						*maybe_announcements = Some((announcements, new_deposit));
+						deposit_updated = true;
+						Self::deposit_event(Event::DepositPoked {
+							who: who.clone(),
+							kind: DepositKind::Announcements,
+							old_deposit,
+							new_deposit,
+						});
+					},
+					Some(_) => {
+						*maybe_announcements = Some((announcements, old_deposit));
+					},
+					None => {
+						*maybe_announcements = None;
+						if !old_deposit.is_zero() {
+							deposit_updated = true;
+							Self::deposit_event(Event::DepositPoked {
+								who: who.clone(),
+								kind: DepositKind::Announcements,
+								old_deposit,
+								new_deposit: BalanceOf::<T>::zero(),
+							});
+						}
+					},
+				}
+				Ok(())
+			})?;
+
+			Ok(if deposit_updated { Pays::No.into() } else { Pays::Yes.into() })
+		}
 	}
 
 	#[pallet::event]
@@ -571,6 +685,13 @@ pub mod pallet {
 			delegatee: T::AccountId,
 			proxy_type: T::ProxyType,
 			delay: BlockNumberFor<T>,
+		},
+		/// A deposit stored for proxies or announcements was poked / updated.
+		DepositPoked {
+			who: T::AccountId,
+			kind: DepositKind,
+			old_deposit: BalanceOf<T>,
+			new_deposit: BalanceOf<T>,
 		},
 	}
 
@@ -709,7 +830,7 @@ impl<T: Config> Pallet<T> {
 		proxy_type: T::ProxyType,
 		delay: BlockNumberFor<T>,
 		max_amount: Option<BalanceOf<T>>,
-		valid_unil: BlockNumberFor<T>,
+		valid_until: BlockNumberFor<T>
 	) -> DispatchResult {
 		ensure!(delegator != &delegatee, Error::<T>::NoSelfProxy);
 		Proxies::<T>::try_mutate(delegator, |(ref mut proxies, ref mut deposit)| {
@@ -717,16 +838,6 @@ impl<T: Config> Pallet<T> {
 				delegate: delegatee.clone(),
 				proxy_type: proxy_type.clone(),
 				delay,
-				max_amount: if proxy_type == ProxyType::AnyWithLimit {
-					max_amount
-				} else {
-					None
-				},
-				valid_unil: if proxy_type = ProxyType::AnyWithLimit {
-					valid_unil
-				} else {
-					None
-				},
 			};
 			let i = proxies.binary_search(&proxy_def).err().ok_or(Error::<T>::Duplicate)?;
 			proxies.try_insert(i, proxy_def).map_err(|_| Error::<T>::TooMany)?;
@@ -819,9 +930,16 @@ impl<T: Config> Pallet<T> {
 		let new_deposit =
 			if len == 0 { BalanceOf::<T>::zero() } else { base + factor * (len as u32).into() };
 		if new_deposit > old_deposit {
-			T::Currency::reserve(who, new_deposit - old_deposit)?;
+			T::Currency::reserve(who, new_deposit.saturating_sub(old_deposit))?;
 		} else if new_deposit < old_deposit {
-			T::Currency::unreserve(who, old_deposit - new_deposit);
+			let excess = old_deposit.saturating_sub(new_deposit);
+			let remaining_unreserved = T::Currency::unreserve(who, excess);
+			if !remaining_unreserved.is_zero() {
+				defensive!(
+					"Failed to unreserve full amount. (Requested, Actual)",
+					(excess, excess.saturating_sub(remaining_unreserved))
+				);
+			}
 		}
 		Ok(if len == 0 { None } else { Some(new_deposit) })
 	}
@@ -884,24 +1002,22 @@ impl<T: Config> Pallet<T> {
 				Some(Call::remove_proxies { .. }) | Some(Call::kill_pure { .. })
 					if def.proxy_type != T::ProxyType::default() =>
 					false,
-					// Enforce the max_amount and duration limits for `AnyWithLimit` proxies.
+
 					if def.proxy_type == ProxyType::AnyWithLimit {
-						if let Some(Call::Balances(BalancesCall::transfer_allow_death { value, .. })) = c.is_sub_type() {
+						if let Some(Call::Balances(BalancesCall::transfer_allow_death { value, .. })) = c {
+							// Check the proxy's max_amount limit
 							if let Some(max_amount) = def.max_amount {
 								if *value > max_amount {
-									return false; 
+									return false; // Reject the call if it exceeds the proxy's limit
 								}
 							}
-							// Check the duration limit
-							if let Some(duration) = def.duration {
-								let current_block = T::BlockNumberProvider::current_block_number();
-								if current_block > def.delay + valid_unil {
-									return false; 
-								}
+							// Check the global MaxTransferAmount limit
+							if *value > T::MaxTransferAmount::get() {
+								return false; // Reject the call if it exceeds the global limit
 							}
 						}
-			 def.proxy_type.filter(c),
 					}
+				def.proxy_type.filter(c),
 			}
 		});
 		let e = call.dispatch(origin);
