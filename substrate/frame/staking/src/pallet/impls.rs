@@ -1310,6 +1310,16 @@ impl<T: Config> Pallet<T> {
 				slash_era,
 			});
 
+			if slash_era == active_era {
+				// offence is in the current active era. Report it to session to maybe disable the
+				// validator.
+				add_db_reads_writes(2, 2);
+				T::SessionInterface::report_offence(
+					stash.clone(),
+					crate::OffenceSeverity(*slash_fraction),
+				);
+			}
+
 			let unapplied = slashing::compute_slash::<T>(slashing::SlashParams {
 				stash,
 				slash: *slash_fraction,
