@@ -2551,9 +2551,9 @@ pub mod pallet {
 
 		/// Removes the legacy Staking locks if they exist.
 		///
-		/// This removes the legacy lock on the stake with [`Config::OldCurrency`] and creates a hold on
-		/// it if needed. If all stake cannot be held, the best effort is made to hold as much as
-		/// possible. The remaining stake is forced withdrawn from the ledger.
+		/// This removes the legacy lock on the stake with [`Config::OldCurrency`] and creates a
+		/// hold on it if needed. If all stake cannot be held, the best effort is made to hold as
+		/// much as possible. The remaining stake is forced withdrawn from the ledger.
 		///
 		/// The fee is waived if the migration is successful.
 		#[pallet::call_index(30)]
