@@ -447,10 +447,6 @@ pub use pallet_democracy;
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
 
-/// PALLET multi phase+block election providers.
-#[cfg(feature = "pallet-election-provider-multi-block")]
-pub use pallet_election_provider_multi_block;
-
 /// PALLET two phase election providers.
 #[cfg(feature = "pallet-election-provider-multi-phase")]
 pub use pallet_election_provider_multi_phase;

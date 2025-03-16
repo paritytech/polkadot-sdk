@@ -88,7 +88,6 @@ std = [
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
 	"pallet-dev-mode?/std",
-	"pallet-election-provider-multi-block?/std",
 	"pallet-election-provider-multi-phase?/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen?/std",
@@ -284,7 +283,6 @@ runtime-benchmarks = [
 	"pallet-core-fellowship?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
-	"pallet-election-provider-multi-block?/runtime-benchmarks",
 	"pallet-election-provider-multi-phase?/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
 	"pallet-elections-phragmen?/runtime-benchmarks",
@@ -422,7 +420,6 @@ try-runtime = [
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
 	"pallet-dev-mode?/try-runtime",
-	"pallet-election-provider-multi-block?/try-runtime",
 	"pallet-election-provider-multi-phase?/try-runtime",
 	"pallet-elections-phragmen?/try-runtime",
 	"pallet-fast-unstake?/try-runtime",
@@ -634,7 +631,6 @@ runtime-full = [
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-dev-mode",
-	"pallet-election-provider-multi-block",
 	"pallet-election-provider-multi-phase",
 	"pallet-election-provider-support-benchmarking",
 	"pallet-elections-phragmen",
@@ -1421,11 +1417,6 @@ path = "../substrate/frame/democracy"
 default-features = false
 optional = true
 path = "../substrate/frame/examples/dev-mode"
-
-[dependencies.pallet-election-provider-multi-block]
-default-features = false
-optional = true
-path = "../substrate/frame/election-provider-multi-block"
 
 [dependencies.pallet-election-provider-multi-phase]
 default-features = false

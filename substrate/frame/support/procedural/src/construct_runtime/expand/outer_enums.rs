@@ -161,7 +161,7 @@ pub fn expand_outer_enum(
 			#scrate::__private::codec::Decode,
 			#scrate::__private::codec::DecodeWithMemTracking,
 			#scrate::__private::scale_info::TypeInfo,
-			#scrate::__private::Debug,
+			#scrate::__private::RuntimeDebug,
 		)]
 		#[allow(non_camel_case_types)]
 		pub enum #enum_name_ident {

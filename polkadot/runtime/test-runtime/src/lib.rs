@@ -79,7 +79,7 @@ use polkadot_runtime_common::{
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
-use sp_core::{ConstBool, ConstU32, OpaqueMetadata};
+use sp_core::{ConstU32, OpaqueMetadata};
 use sp_mmr_primitives as mmr;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -349,7 +349,7 @@ parameter_types! {
 	pub const MaxExposurePageSize: u32 = 64;
 	pub const MaxNominators: u32 = 256;
 	pub const MaxAuthorities: u32 = 100_000;
-	pub const OnChainMaxWinners: u32 = MaxAuthorities::get();
+	pub const OnChainMaxWinners: u32 = u32::MAX;
 	// Unbounded number of election targets and voters.
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
@@ -362,9 +362,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type Bounds = ElectionBoundsOnChain;
-	type MaxWinnersPerPage = OnChainMaxWinners;
-	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
-	type Sort = ConstBool<true>;
+	type MaxWinners = OnChainMaxWinners;
 }
 
 /// Upper limit on the number of NPOS nominations.
