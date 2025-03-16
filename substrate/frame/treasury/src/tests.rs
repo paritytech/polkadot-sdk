@@ -128,7 +128,7 @@ impl Pay for TestPay {
 		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
+	fn ensure_successful(_: &Self::Beneficiary, _: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
 		set_status(id, PaymentStatus::Failure)

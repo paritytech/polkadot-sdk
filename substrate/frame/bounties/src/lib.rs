@@ -117,8 +117,7 @@ use sp_runtime::{
 	Permill, RuntimeDebug,
 };
 
-type DepositBalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
-type BountyBalanceOf<T, I = ()> = pallet_treasury::AssetBalanceOf<T, I>;
+type BalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
 type BeneficiaryLookupOf<T, I = ()> = pallet_treasury::BeneficiaryLookupOf<T, I>;
 type PaymentIdOf<T, I = ()> = <<T as pallet_treasury::Config<I>>::Paymaster as Pay>::Id;
 
@@ -128,8 +127,7 @@ pub type BountyIndex = u32;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BountyOf<T, I> = Bounty<
 	<T as frame_system::Config>::AccountId,
-	DepositBalanceOf<T, I>,
-	BountyBalanceOf<T, I>,
+	BalanceOf<T, I>,
 	BlockNumberFor<T, I>,
 	<T as pallet_treasury::Config<I>>::AssetKind,
 	PaymentIdOf<T, I>,
@@ -148,8 +146,7 @@ type BlockNumberFor<T, I = ()> =
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Bounty<
 	AccountId,
-	NativeBalance,
-	BountyBalance,
+	Balance,
 	BlockNumber,
 	AssetKind,
 	PaymentId,
@@ -162,30 +159,29 @@ pub struct Bounty<
 	/// The kind of asset this bounty is rewarded in.
 	pub asset_kind: AssetKind,
 	/// The (total) amount of the `asset_kind` that should be paid if the bounty is rewarded.
-	value: BountyBalance,
+	value: Balance,
 	/// The curator fee in the `asset_kind`. Included in value.
-	fee: BountyBalance,
+	fee: Balance,
 	/// The deposit of curator.
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
-	curator_deposit: NativeBalance,
+	curator_deposit: Balance,
 	/// The amount held on deposit (reserved) for making this proposal.
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
-	bond: NativeBalance,
+	bond: Balance,
 	/// The status of this bounty.
 	status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
 }
 
 impl<
 		AccountId: PartialEq + Clone + Ord,
-		NativeBalance,
-		BountyBalance,
+		Balance,
 		BlockNumber: Clone,
 		AssetKind,
 		PaymentId: Clone,
 		Beneficiary: Clone,
-	> Bounty<AccountId, NativeBalance, BountyBalance, BlockNumber, AssetKind, PaymentId, Beneficiary>
+	> Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary>
 {
 	/// Getter for bounty status, to be used for child bounties.
 	pub fn get_status(&self) -> BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
@@ -313,7 +309,7 @@ pub mod pallet {
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
 		/// The amount held on deposit for placing a bounty proposal.
 		#[pallet::constant]
-		type BountyDepositBase: Get<DepositBalanceOf<Self, I>>;
+		type BountyDepositBase: Get<BalanceOf<Self, I>>;
 
 		/// The delay period for which a bounty beneficiary need to wait before claim the payout.
 		#[pallet::constant]
@@ -332,19 +328,19 @@ pub mod pallet {
 
 		/// Maximum amount of funds that should be placed in a deposit for making a proposal.
 		#[pallet::constant]
-		type CuratorDepositMax: Get<Option<DepositBalanceOf<Self, I>>>;
+		type CuratorDepositMax: Get<Option<BalanceOf<Self, I>>>;
 
 		/// Minimum amount of funds that should be placed in a deposit for making a proposal.
 		#[pallet::constant]
-		type CuratorDepositMin: Get<Option<DepositBalanceOf<Self, I>>>;
+		type CuratorDepositMin: Get<Option<BalanceOf<Self, I>>>;
 
 		/// Minimum value for a bounty.
 		#[pallet::constant]
-		type BountyValueMinimum: Get<DepositBalanceOf<Self, I>>;
+		type BountyValueMinimum: Get<BalanceOf<Self, I>>;
 
 		/// The amount held on deposit per byte within the tip report reason or bounty description.
 		#[pallet::constant]
-		type DataDepositPerByte: Get<DepositBalanceOf<Self, I>>;
+		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind>;
@@ -363,7 +359,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The child bounty manager.
-		type ChildBountyManager: ChildBountyManager<BountyBalanceOf<Self, I>>;
+		type ChildBountyManager: ChildBountyManager<BalanceOf<Self, I>>;
 
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
@@ -414,7 +410,7 @@ pub mod pallet {
 		/// New bounty proposal.
 		BountyProposed { index: BountyIndex },
 		/// A bounty proposal was rejected; funds were slashed.
-		BountyRejected { index: BountyIndex, bond: DepositBalanceOf<T, I> },
+		BountyRejected { index: BountyIndex, bond: BalanceOf<T, I> },
 		/// A bounty proposal is funded and became active.
 		BountyBecameActive { index: BountyIndex },
 		/// A bounty is awarded to a beneficiary.
@@ -423,7 +419,7 @@ pub mod pallet {
 		BountyClaimed {
 			index: BountyIndex,
 			asset_kind: T::AssetKind,
-			asset_payout: BountyBalanceOf<T, I>,
+			asset_payout: BalanceOf<T, I>,
 			beneficiary: T::Beneficiary,
 		},
 		/// A bounty is cancelled.
@@ -483,8 +479,7 @@ pub mod pallet {
 		pub fn propose_bounty(
 			origin: OriginFor<T>,
 			asset_kind: Box<T::AssetKind>,
-			// Tiago: I propose just using pallet_treasury::AssetBalanceOf<T, I>.
-			#[pallet::compact] value: BountyBalanceOf<T, I>,
+			#[pallet::compact] value: BalanceOf<T, I>,
 			description: Vec<u8>,
 		) -> DispatchResult {
 			let proposer = ensure_signed(origin)?;
@@ -535,7 +530,7 @@ pub mod pallet {
 				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
 
 				// Tiago: is this the best way to use the SpendContext?
-				with_context::<SpendContext<DepositBalanceOf<T, I>>, _>(|v| {
+				with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
 					let context = v.or_default();
 					let spend = context.spend_in_context.entry(max_amount).or_default();
 
@@ -595,7 +590,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			curator: AccountIdLookupOf<T>,
-			#[pallet::compact] fee: BountyBalanceOf<T, I>,
+			#[pallet::compact] fee: BalanceOf<T, I>,
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 
@@ -668,7 +663,7 @@ pub mod pallet {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
 				let slash_curator =
-					|curator: &T::AccountId, curator_deposit: &mut DepositBalanceOf<T, I>| {
+					|curator: &T::AccountId, curator_deposit: &mut BalanceOf<T, I>| {
 						let imbalance = T::Currency::slash_reserved(curator, *curator_deposit).0;
 						T::OnSlash::on_unbalanced(imbalance);
 						*curator_deposit = Zero::zero();
@@ -1142,7 +1137,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			curator: AccountIdLookupOf<T>,
-			#[pallet::compact] fee: BountyBalanceOf<T, I>,
+			#[pallet::compact] fee: BalanceOf<T, I>,
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			let curator = T::Lookup::lookup(curator)?;
@@ -1163,7 +1158,7 @@ pub mod pallet {
 				ensure!(fee < bounty.value, Error::<T, I>::InvalidFee);
 
 				// Tiago: is this the best way to use the SpendContext?
-				with_context::<SpendContext<DepositBalanceOf<T, I>>, _>(|v| {
+				with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
 					let context = v.or_default();
 					let spend = context.spend_in_context.entry(max_amount).or_default();
 
@@ -1612,9 +1607,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Calculate the deposit required for a curator.
 	pub fn calculate_curator_deposit(
-		fee: &BountyBalanceOf<T, I>,
+		fee: &BalanceOf<T, I>,
 		asset_kind: T::AssetKind,
-	) -> Result<DepositBalanceOf<T, I>, pallet_treasury::Error<T, I>> {
+	) -> Result<BalanceOf<T, I>, pallet_treasury::Error<T, I>> {
 		let fee = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
 			*fee, asset_kind,
 		)
@@ -1649,7 +1644,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Return the amount of money in the bounty.
-	pub fn bounty_balance(id: BountyIndex) -> DepositBalanceOf<T, I> {
+	pub fn bounty_balance(id: BountyIndex) -> BalanceOf<T, I> {
 		// Tiago: Currency::free_balance accepts AccountId. Is this how I can get the balance of the
 		// bounty?
 		let native_account_id = T::PalletId::get().into_sub_account_truncating(("bt", id));
@@ -1662,7 +1657,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		proposer: T::AccountId,
 		description: Vec<u8>,
 		asset_kind: T::AssetKind,
-		value: BountyBalanceOf<T, I>,
+		value: BalanceOf<T, I>,
 	) -> DispatchResult {
 		let bounded_description: BoundedVec<_, _> =
 			description.try_into().map_err(|_| Error::<T, I>::ReasonTooBig)?;
@@ -1705,9 +1700,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	fn calculate_curator_fee_and_payout(
 		bounty_id: BountyIndex,
-		fee: BountyBalanceOf<T, I>,
-		value: BountyBalanceOf<T, I>,
-	) -> (BountyBalanceOf<T, I>, BountyBalanceOf<T, I>) {
+		fee: BalanceOf<T, I>,
+		value: BalanceOf<T, I>,
+	) -> (BalanceOf<T, I>, BalanceOf<T, I>) {
 		// Tiago: The payout should be the balance of the bounty account of asset_kind.
 		// if a child bounty is added and claimed, and parent-bounty is claimed the bounty.amount is
 		// returned and not the balance of the bounty account.

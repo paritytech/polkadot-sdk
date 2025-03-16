@@ -62,8 +62,8 @@ fn setup_bounty<T: Config<I>, I: 'static>(
 	T::AccountId,
 	T::AccountId,
 	T::AssetKind,
-	BountyBalanceOf<T, I>,
-	BountyBalanceOf<T, I>,
+	BalanceOf<T, I>,
+	BalanceOf<T, I>,
 	T::Beneficiary,
 	Vec<u8>,
 ) {
@@ -71,12 +71,12 @@ fn setup_bounty<T: Config<I>, I: 'static>(
 	// Tiago: check with Muharem if we need coupling with pallet-assets
 	// let value: BalanceOf<T, I> = T::BountyValueMinimum::get().saturating_mul(100u32.into());
 	let asset_kind = <T as Config<I>>::BenchmarkHelper::create_asset_kind(SEED);
-	let value: BountyBalanceOf<T, I> = 100_000u32.into();
+	let value: BalanceOf<T, I> = 100_000u32.into();
 	// Tiago: check with Muharem if we need coupling with pallet-assets
 	// TODO: revisit asset conversion
 	// let native_value =
 	// 	T::BalanceConverter::from_asset_balance(100u32.into(), asset_kind).unwrap_or(100u32.into());
-	let fee: BountyBalanceOf<T, I> = value / 2u32.into();
+	let fee: BalanceOf<T, I> = value / 2u32.into();
 	let deposit = T::BountyDepositBase::get() +
 		T::DataDepositPerByte::get() * T::MaximumReasonLength::get().into();
 	let _ = T::Currency::make_free_balance_be(&caller, deposit + T::Currency::minimum_balance());
