@@ -23,7 +23,6 @@ use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
-
 /// Represents the differents states of a referendum.
 /// None: The referendum is not started.
 /// Ongoing: The referendum is ongoing.
@@ -64,9 +63,9 @@ pub trait VotingHooks<AccountId, Index, Balance> {
 	fn on_vote_worst_case(who: &AccountId);
 
 	/// Will be called by benchmarking before calling `on_remove_vote` in a benchmark.  
-    ///  
-    /// Should setup the state in such a way that when `on_remove_vote` is called it will  
-    /// take the worst case path performance wise.  
+	///  
+	/// Should setup the state in such a way that when `on_remove_vote` is called it will  
+	/// take the worst case path performance wise.  
 	#[cfg(feature = "runtime-benchmarks")]
 	fn on_remove_vote_worst_case(who: &AccountId);
 }

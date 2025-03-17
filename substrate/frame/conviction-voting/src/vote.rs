@@ -92,17 +92,10 @@ pub enum AccountVote<Balance> {
 	SplitAbstain { aye: Balance, nay: Balance, abstain: Balance },
 }
 
-
 /// present the conditions under which an account's Funds are locked after a voting action.
 /// - `Status(bool)`: Implement a locking period if the referendum passed and `bool` is `true`.
 /// - `Always`: lock the funds regardless of the outcome of the referendum.
-#[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	RuntimeDebug,
-)]
+#[derive(Copy, Clone, Eq, PartialEq, RuntimeDebug)]
 pub enum LockedIf {
 	Status(bool),
 	Always,
