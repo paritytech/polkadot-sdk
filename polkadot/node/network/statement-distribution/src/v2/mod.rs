@@ -51,8 +51,8 @@ use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{transpose_claim_queue, CandidateDescriptorVersion, TransposedClaimQueue},
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo,
-	SignedStatement, SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
+	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, SessionIndex, SessionInfo, SignedStatement,
+	SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
 };
 
 use sp_keystore::KeystorePtr;
@@ -639,7 +639,6 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				&state.keystore,
 				minimum_backing_votes,
 				node_features
-					.unwrap_or(NodeFeatures::EMPTY)
 					.get(FeatureIndex::CandidateReceiptV2 as usize)
 					.map(|b| *b)
 					.unwrap_or(false),

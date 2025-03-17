@@ -1284,7 +1284,6 @@ where
 
 		let v2_receipts = request_node_features(*leaf, session_index, sender)
 			.await?
-			.unwrap_or_default()
 			.get(node_features::FeatureIndex::CandidateReceiptV2 as usize)
 			.map(|b| *b)
 			.unwrap_or(false);

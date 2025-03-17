@@ -235,9 +235,7 @@ impl RuntimeInfo {
 
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let node_features = request_node_features(parent, session_index, sender)
-				.await?
-				.unwrap_or(NodeFeatures::EMPTY);
+			let node_features = request_node_features(parent, session_index, sender).await?;
 			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
 			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
 				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
@@ -489,7 +487,7 @@ pub async fn request_node_features(
 	parent: Hash,
 	session_index: SessionIndex,
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<Option<NodeFeatures>> {
+) -> Result<NodeFeatures> {
 	recv_runtime(
 		request_from_runtime(parent, sender, |tx| {
 			RuntimeApiRequest::NodeFeatures(session_index, tx)
@@ -497,7 +495,6 @@ pub async fn request_node_features(
 		.await,
 	)
 	.await
-	.map(Some)
 }
 
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.

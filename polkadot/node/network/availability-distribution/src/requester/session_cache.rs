@@ -66,7 +66,7 @@ pub struct SessionInfo {
 	pub our_group: Option<GroupIndex>,
 
 	/// Node features.
-	pub node_features: Option<NodeFeatures>,
+	pub node_features: NodeFeatures,
 }
 
 /// Report of bad validators.

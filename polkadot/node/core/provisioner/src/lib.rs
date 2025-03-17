@@ -41,8 +41,8 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{BackedCandidate, CoreState},
-	CandidateHash, CoreIndex, Hash, Id as ParaId, NodeFeatures, SessionIndex,
-	SignedAvailabilityBitfield, ValidatorIndex,
+	CandidateHash, CoreIndex, Hash, Id as ParaId, SessionIndex, SignedAvailabilityBitfield,
+	ValidatorIndex,
 };
 use std::collections::{BTreeMap, HashMap};
 
@@ -204,7 +204,6 @@ async fn handle_active_leaves_update(
 		if per_session.get(&session_index).is_none() {
 			let elastic_scaling_mvp = request_node_features(leaf.hash, session_index, sender)
 				.await?
-				.unwrap_or(NodeFeatures::EMPTY)
 				.get(FeatureIndex::ElasticScalingMVP as usize)
 				.map(|b| *b)
 				.unwrap_or(false);

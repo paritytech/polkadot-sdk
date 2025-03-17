@@ -56,8 +56,7 @@ use polkadot_primitives::{
 		ClaimQueueOffset, CommittedCandidateReceiptV2, TransposedClaimQueue,
 	},
 	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
-	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
-	ValidationCodeHash,
+	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
 use sp_core::crypto::Pair;
@@ -510,9 +509,7 @@ impl SessionInfoCache {
 		let n_validators =
 			request_validators(relay_parent, &mut sender.clone()).await.await??.len();
 
-		let node_features = request_node_features(relay_parent, session_index, sender)
-			.await?
-			.unwrap_or(NodeFeatures::EMPTY);
+		let node_features = request_node_features(relay_parent, session_index, sender).await?;
 
 		let info = PerSessionInfo {
 			v2_receipts: node_features

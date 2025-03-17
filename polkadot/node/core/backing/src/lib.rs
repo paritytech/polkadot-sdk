@@ -260,7 +260,7 @@ struct PerSessionCache {
 	/// Cache for storing validators list, retrieved from the runtime.
 	validators_cache: LruMap<SessionIndex, Arc<Vec<ValidatorId>>>,
 	/// Cache for storing node features, retrieved from the runtime.
-	node_features_cache: LruMap<SessionIndex, Option<NodeFeatures>>,
+	node_features_cache: LruMap<SessionIndex, NodeFeatures>,
 	/// Cache for storing executor parameters, retrieved from the runtime.
 	executor_params_cache: LruMap<SessionIndex, Arc<ExecutorParams>>,
 	/// Cache for storing the minimum backing votes threshold, retrieved from the runtime.
@@ -322,15 +322,14 @@ impl PerSessionCache {
 		session_index: SessionIndex,
 		parent: Hash,
 		sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-	) -> Result<Option<NodeFeatures>, Error> {
+	) -> Result<NodeFeatures, Error> {
 		// Try to get the node features from the cache.
 		if let Some(node_features) = self.node_features_cache.get(&session_index) {
 			return Ok(node_features.clone());
 		}
 
 		// Fetch the node features from the runtime since it was not in the cache.
-		let node_features: Option<NodeFeatures> =
-			request_node_features(parent, session_index, sender).await?;
+		let node_features = request_node_features(parent, session_index, sender).await?;
 
 		// Cache the fetched node features for future use.
 		self.node_features_cache.insert(session_index, node_features.clone());
@@ -1152,10 +1151,8 @@ async fn construct_per_relay_parent_state<Context>(
 	let validators = per_session_cache.validators(session_index, parent, ctx.sender()).await;
 	let validators = try_runtime_api!(validators);
 
-	let node_features = per_session_cache
-		.node_features(session_index, parent, ctx.sender())
-		.await?
-		.unwrap_or(NodeFeatures::EMPTY);
+	let node_features =
+		per_session_cache.node_features(session_index, parent, ctx.sender()).await?;
 
 	let inject_core_index = node_features
 		.get(FeatureIndex::ElasticScalingMVP as usize)
