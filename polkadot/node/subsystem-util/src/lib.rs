@@ -475,11 +475,12 @@ impl Validator {
 	where
 		S: SubsystemSender<RuntimeApiMessage>,
 	{
-		// Note: request_validators and request_session_index_for_child do not and cannot
-		// run concurrently: they both have a mutable handle to the same sender.
+		// Note: request_validators, request_disabled_validators and request_session_index_for_child
+		// do not and cannot run concurrently: they both have a mutable handle to the same sender.
 		// However, each of them returns a oneshot::Receiver, and those are resolved concurrently.
-		let (validators, session_index) = futures::try_join!(
+		let (validators, disabled_validators, session_index) = futures::try_join!(
 			request_validators(parent, sender).await,
+			request_disabled_validators(parent, sender).await,
 			request_session_index_for_child(parent, sender).await,
 		)?;
 
@@ -487,7 +488,7 @@ impl Validator {
 
 		let validators = validators?;
 
-		let disabled_validators = request_disabled_validators(parent, sender).await.await??;
+		let disabled_validators = disabled_validators?;
 
 		Self::construct(&validators, &disabled_validators, signing_context, keystore)
 	}
