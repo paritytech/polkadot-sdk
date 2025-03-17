@@ -1,0 +1,25 @@
+title: 'Update Scheduler to have a configurable block number provider'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR makes `pallet_scheduler` configurable by introducing `BlockNumberProvider` in
+    `pallet_scheduler::Config`. Instead of relying solely on
+    `frame_system::Pallet::<T>::block_number()`, the scheduler can now use any block number source,
+    including external providers like the relay chain.
+
+    Parachains can continue using `frame_system::Pallet::<Runtime>` without issue. To retain the
+    previous behavior, set `BlockNumberProvider` to `frame_system::Pallet::<Runtime>`.
+
+crates:
+- name: collectives-westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: pallet-democracy
+  bump: patch
+- name: pallet-referenda
+  bump: patch
+- name: pallet-scheduler
+  bump: major

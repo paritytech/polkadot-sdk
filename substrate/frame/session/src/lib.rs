@@ -95,7 +95,7 @@
 //! use pallet_session as session;
 //!
 //! fn validators<T: pallet_session::Config>() -> Vec<<T as pallet_session::Config>::ValidatorId> {
-//! 	<pallet_session::Pallet<T>>::validators()
+//! 	pallet_session::Validators::<T>::get()
 //! }
 //! # fn main(){}
 //! ```
@@ -106,6 +106,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod disabling;
 #[cfg(feature = "historical")]
 pub mod historical;
 pub mod migrations;
@@ -115,13 +116,21 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, MaxEncodedLen};
+use core::{
+	marker::PhantomData,
+	ops::{Rem, Sub},
+};
+use disabling::DisablingStrategy;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get, OneSessionHandler,
-		ValidatorRegistration, ValidatorSet,
+		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
+		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
 	weights::Weight,
 	Parameter,
@@ -129,17 +138,25 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
-	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
+	ConsensusEngineId, DispatchError, KeyTypeId, Perbill, Permill, RuntimeAppPublic,
 };
-use sp_staking::SessionIndex;
-use sp_std::{
-	marker::PhantomData,
-	ops::{Rem, Sub},
-	prelude::*,
-};
+use sp_staking::{offence::OffenceSeverity, SessionIndex};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+pub(crate) const LOG_TARGET: &str = "runtime::session";
+
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: crate::LOG_TARGET,
+			concat!("[{:?}] 💸 ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
 
 /// Decides whether the session should be ended.
 pub trait ShouldEndSession<BlockNumber> {
@@ -285,7 +302,11 @@ pub trait SessionHandler<ValidatorId> {
 	/// before initialization of your pallet.
 	///
 	/// `changed` is true whenever any of the session keys or underlying economic
-	/// identities or weightings behind those keys has changed.
+	/// identities or weightings behind `validators` keys has changed. `queued_validators`
+	/// could change without `validators` changing. Example of possible sequent calls:
+	///     Session N: on_new_session(false, unchanged_validators, unchanged_queued_validators)
+	///     Session N + 1: on_new_session(false, unchanged_validators, new_queued_validators)
+	/// 	Session N + 2: on_new_session(true, new_queued_validators, new_queued_validators)
 	fn on_new_session<Ks: OpaqueKeys>(
 		changed: bool,
 		validators: &[(ValidatorId, Ks)],
@@ -368,8 +389,8 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -379,7 +400,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
-		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A stable ID for a validator.
 		type ValidatorId: Member
@@ -410,6 +431,9 @@ pub mod pallet {
 		/// The keys.
 		type Keys: OpaqueKeys + Member + Parameter + MaybeSerializeDeserialize;
 
+		/// `DisablingStragegy` controls how validators are disabled
+		type DisablingStrategy: DisablingStrategy<Self>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -417,7 +441,14 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
+		/// Initial list of validator at genesis representing by their `(AccountId, ValidatorId,
+		/// Keys)`. These keys will be considered authorities for the first two sessions and they
+		/// will be valid at least until session 2
 		pub keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
+		/// List of (AccountId, ValidatorId, Keys) that will be registered at genesis, but not as
+		/// active validators. These keys are set, together with `keys`, as authority candidates
+		/// for future sessions (enactable from session 2 onwards)
+		pub non_authority_keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
 	}
 
 	#[pallet::genesis_build]
@@ -440,8 +471,10 @@ pub mod pallet {
 					}
 				});
 
-			for (account, val, keys) in self.keys.iter().cloned() {
-				<Pallet<T>>::inner_set_keys(&val, keys)
+			for (account, val, keys) in
+				self.keys.iter().chain(self.non_authority_keys.iter()).cloned()
+			{
+				Pallet::<T>::inner_set_keys(&val, keys)
 					.expect("genesis config must not contain duplicates; qed");
 				if frame_system::Pallet::<T>::inc_consumers_without_limit(&account).is_err() {
 					// This will leak a provider reference, however it only happens once (at
@@ -460,34 +493,20 @@ pub mod pallet {
 					);
 					self.keys.iter().map(|x| x.1.clone()).collect()
 				});
-			assert!(
-				!initial_validators_0.is_empty(),
-				"Empty validator set for session 0 in genesis block!"
-			);
 
 			let initial_validators_1 = T::SessionManager::new_session_genesis(1)
 				.unwrap_or_else(|| initial_validators_0.clone());
-			assert!(
-				!initial_validators_1.is_empty(),
-				"Empty validator set for session 1 in genesis block!"
-			);
 
 			let queued_keys: Vec<_> = initial_validators_1
-				.iter()
-				.cloned()
-				.map(|v| {
-					(
-						v.clone(),
-						Pallet::<T>::load_keys(&v).expect("Validator in session 1 missing keys!"),
-					)
-				})
+				.into_iter()
+				.filter_map(|v| Pallet::<T>::load_keys(&v).map(|k| (v, k)))
 				.collect();
 
 			// Tell everyone about the genesis session keys
 			T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);
 
 			Validators::<T>::put(initial_validators_0);
-			<QueuedKeys<T>>::put(queued_keys);
+			QueuedKeys::<T>::put(queued_keys);
 
 			T::SessionManager::start_session(0);
 		}
@@ -495,12 +514,10 @@ pub mod pallet {
 
 	/// The current set of validators.
 	#[pallet::storage]
-	#[pallet::getter(fn validators)]
 	pub type Validators<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 
 	/// Current index of the session.
 	#[pallet::storage]
-	#[pallet::getter(fn current_index)]
 	pub type CurrentIndex<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// True if the underlying economic identities or weighting behind the validators
@@ -511,7 +528,6 @@ pub mod pallet {
 	/// The queued keys for the next session. When the next session begins, these keys
 	/// will be used to determine the validator's session keys.
 	#[pallet::storage]
-	#[pallet::getter(fn queued_keys)]
 	pub type QueuedKeys<T: Config> = StorageValue<_, Vec<(T::ValidatorId, T::Keys)>, ValueQuery>;
 
 	/// Indices of disabled validators.
@@ -520,8 +536,7 @@ pub mod pallet {
 	/// disabled using binary search. It gets cleared when `on_session_ending` returns
 	/// a new set of identities.
 	#[pallet::storage]
-	#[pallet::getter(fn disabled_validators)]
-	pub type DisabledValidators<T> = StorageValue<_, Vec<u32>, ValueQuery>;
+	pub type DisabledValidators<T> = StorageValue<_, Vec<(u32, OffenceSeverity)>, ValueQuery>;
 
 	/// The next session keys for a validator.
 	#[pallet::storage]
@@ -535,10 +550,14 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {
+	pub enum Event<T: Config> {
 		/// New session has happened. Note that the argument is the session index, not the
 		/// block number as the type might suggest.
 		NewSession { session_index: SessionIndex },
+		/// Validator has been disabled.
+		ValidatorDisabled { validator: T::ValidatorId },
+		/// Validator has been re-enabled.
+		ValidatorReenabled { validator: T::ValidatorId },
 	}
 
 	/// Error for the session pallet.
@@ -617,38 +636,63 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Public function to access the current set of validators.
+	pub fn validators() -> Vec<T::ValidatorId> {
+		Validators::<T>::get()
+	}
+
+	/// Public function to access the current session index.
+	pub fn current_index() -> SessionIndex {
+		CurrentIndex::<T>::get()
+	}
+
+	/// Public function to access the queued keys.
+	pub fn queued_keys() -> Vec<(T::ValidatorId, T::Keys)> {
+		QueuedKeys::<T>::get()
+	}
+
+	/// Public function to access the disabled validators.
+	pub fn disabled_validators() -> Vec<u32> {
+		DisabledValidators::<T>::get().iter().map(|(i, _)| *i).collect()
+	}
+
 	/// Move on to next session. Register new validator set and session keys. Changes to the
 	/// validator set have a session of delay to take effect. This allows for equivocation
 	/// punishment after a fork.
 	pub fn rotate_session() {
-		let session_index = <CurrentIndex<T>>::get();
-		log::trace!(target: "runtime::session", "rotating session {:?}", session_index);
-
-		let changed = <QueuedChanged<T>>::get();
+		let session_index = CurrentIndex::<T>::get();
+		let changed = QueuedChanged::<T>::get();
 
 		// Inform the session handlers that a session is going to end.
 		T::SessionHandler::on_before_session_ending();
 		T::SessionManager::end_session(session_index);
+		log!(trace, "ending_session {:?}", session_index);
 
 		// Get queued session keys and validators.
-		let session_keys = <QueuedKeys<T>>::get();
+		let session_keys = QueuedKeys::<T>::get();
 		let validators =
 			session_keys.iter().map(|(validator, _)| validator.clone()).collect::<Vec<_>>();
 		Validators::<T>::put(&validators);
 
 		if changed {
-			// reset disabled validators
-			<DisabledValidators<T>>::take();
+			// reset disabled validators if active set was changed
+			DisabledValidators::<T>::take();
 		}
 
 		// Increment session index.
 		let session_index = session_index + 1;
-		<CurrentIndex<T>>::put(session_index);
-
+		CurrentIndex::<T>::put(session_index);
 		T::SessionManager::start_session(session_index);
+		log::trace!(target: "runtime::session", "starting_session {:?}", session_index);
 
 		// Get next validator set.
 		let maybe_next_validators = T::SessionManager::new_session(session_index + 1);
+		log::trace!(
+			target: "runtime::session",
+			"planning_session {:?} with {:?} validators",
+			session_index + 1,
+			maybe_next_validators.as_ref().map(|v| v.len())
+		);
 		let (next_validators, next_identities_changed) =
 			if let Some(validators) = maybe_next_validators {
 				// NOTE: as per the documentation on `OnSessionEnding`, we consider
@@ -668,7 +712,7 @@ impl<T: Config> Pallet<T> {
 			let mut now_session_keys = session_keys.iter();
 			let mut check_next_changed = |keys: &T::Keys| {
 				if changed {
-					return
+					return;
 				}
 				// since a new validator set always leads to `changed` starting
 				// as true, we can ensure that `now_session_keys` and `next_validators`
@@ -691,8 +735,8 @@ impl<T: Config> Pallet<T> {
 			(queued_amalgamated, changed)
 		};
 
-		<QueuedKeys<T>>::put(queued_amalgamated.clone());
-		<QueuedChanged<T>>::put(next_changed);
+		QueuedKeys::<T>::put(queued_amalgamated.clone());
+		QueuedChanged::<T>::put(next_changed);
 
 		// Record that this happened.
 		Self::deposit_event(Event::NewSession { session_index });
@@ -702,14 +746,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
+	///
+	/// Note: This sets the OffenceSeverity to the lowest value.
 	pub fn disable_index(i: u32) -> bool {
-		if i >= Validators::<T>::decode_len().unwrap_or(0) as u32 {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
 			return false
 		}
 
-		<DisabledValidators<T>>::mutate(|disabled| {
-			if let Err(index) = disabled.binary_search(&i) {
-				disabled.insert(index, i);
+		DisabledValidators::<T>::mutate(|disabled| {
+			if let Err(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
+				disabled.insert(index, (i, OffenceSeverity(Perbill::zero())));
 				T::SessionHandler::on_disabled(i);
 				return true
 			}
@@ -724,7 +770,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns `false` either if the validator could not be found or it was already
 	/// disabled.
 	pub fn disable(c: &T::ValidatorId) -> bool {
-		Self::validators()
+		Validators::<T>::get()
 			.iter()
 			.position(|i| i == c)
 			.map(|i| Self::disable_index(i as u32))
@@ -755,7 +801,7 @@ impl<T: Config> Pallet<T> {
 		let new_ids = T::Keys::key_ids();
 
 		// Translate NextKeys, and key ownership relations at the same time.
-		<NextKeys<T>>::translate::<Old, _>(|val, old_keys| {
+		NextKeys::<T>::translate::<Old, _>(|val, old_keys| {
 			// Clear all key ownership relations. Typically the overlap should
 			// stay the same, but no guarantees by the upgrade function.
 			for i in old_ids.iter() {
@@ -772,7 +818,7 @@ impl<T: Config> Pallet<T> {
 			Some(new_keys)
 		});
 
-		let _ = <QueuedKeys<T>>::translate::<Vec<(T::ValidatorId, Old)>, _>(|k| {
+		let _ = QueuedKeys::<T>::translate::<Vec<(T::ValidatorId, Old)>, _>(|k| {
 			k.map(|k| {
 				k.into_iter()
 					.map(|(val, old_keys)| (val.clone(), upgrade(val, old_keys)))
@@ -858,28 +904,69 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
-		<NextKeys<T>>::get(v)
+		NextKeys::<T>::get(v)
 	}
 
 	fn take_keys(v: &T::ValidatorId) -> Option<T::Keys> {
-		<NextKeys<T>>::take(v)
+		NextKeys::<T>::take(v)
 	}
 
 	fn put_keys(v: &T::ValidatorId, keys: &T::Keys) {
-		<NextKeys<T>>::insert(v, keys);
+		NextKeys::<T>::insert(v, keys);
 	}
 
 	/// Query the owner of a session key by returning the owner's validator ID.
 	pub fn key_owner(id: KeyTypeId, key_data: &[u8]) -> Option<T::ValidatorId> {
-		<KeyOwner<T>>::get((id, key_data))
+		KeyOwner::<T>::get((id, key_data))
 	}
 
 	fn put_key_owner(id: KeyTypeId, key_data: &[u8], v: &T::ValidatorId) {
-		<KeyOwner<T>>::insert((id, key_data), v)
+		KeyOwner::<T>::insert((id, key_data), v)
 	}
 
 	fn clear_key_owner(id: KeyTypeId, key_data: &[u8]) {
-		<KeyOwner<T>>::remove((id, key_data));
+		KeyOwner::<T>::remove((id, key_data));
+	}
+
+	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
+		DisabledValidators::<T>::mutate(|disabled| {
+			let decision = T::DisablingStrategy::decision(&validator, severity, &disabled);
+
+			if let Some(offender_idx) = decision.disable {
+				// Check if the offender is already disabled
+				match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
+					// Offender is already disabled, update severity if the new one is higher
+					Ok(index) => {
+						let (_, old_severity) = &mut disabled[index];
+						if severity > *old_severity {
+							*old_severity = severity;
+						}
+					},
+					Err(index) => {
+						// Offender is not disabled, add to `DisabledValidators` and disable it
+						disabled.insert(index, (offender_idx, severity));
+						// let the session handlers know that a validator got disabled
+						T::SessionHandler::on_disabled(offender_idx);
+
+						// Emit event that a validator got disabled
+						Self::deposit_event(Event::ValidatorDisabled {
+							validator: validator.clone(),
+						});
+					},
+				}
+			}
+
+			if let Some(reenable_idx) = decision.reenable {
+				// Remove the validator from `DisabledValidators` and re-enable it.
+				if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index)
+				{
+					disabled.remove(index);
+					// Emit event that a validator got re-enabled
+					let reenabled_stash = Validators::<T>::get()[reenable_idx as usize].clone();
+					Self::deposit_event(Event::ValidatorReenabled { validator: reenabled_stash });
+				}
+			}
+		});
 	}
 }
 
@@ -894,11 +981,11 @@ impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
 	type ValidatorIdOf = T::ValidatorIdOf;
 
 	fn session_index() -> sp_staking::SessionIndex {
-		Pallet::<T>::current_index()
+		CurrentIndex::<T>::get()
 	}
 
 	fn validators() -> Vec<Self::ValidatorId> {
-		Pallet::<T>::validators()
+		Validators::<T>::get()
 	}
 }
 
@@ -916,18 +1003,18 @@ impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
 
 impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
-		<Pallet<T>>::disabled_validators().binary_search(&index).is_ok()
+		DisabledValidators::<T>::get().binary_search_by_key(&index, |(i, _)| *i).is_ok()
 	}
 
 	fn disabled_validators() -> Vec<u32> {
-		<Pallet<T>>::disabled_validators()
+		Self::disabled_validators()
 	}
 }
 
 /// Wraps the author-scraping logic for consensus engines that can recover
 /// the canonical index of an author. This then transforms it into the
 /// registering account-ID of that session key index.
-pub struct FindAccountFromAuthorIndex<T, Inner>(sp_std::marker::PhantomData<(T, Inner)>);
+pub struct FindAccountFromAuthorIndex<T, Inner>(core::marker::PhantomData<(T, Inner)>);
 
 impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::ValidatorId>
 	for FindAccountFromAuthorIndex<T, Inner>
@@ -938,7 +1025,7 @@ impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::ValidatorId>
 	{
 		let i = Inner::find_author(digests)?;
 
-		let validators = <Pallet<T>>::validators();
+		let validators = Validators::<T>::get();
 		validators.get(i as usize).cloned()
 	}
 }

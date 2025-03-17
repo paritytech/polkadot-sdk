@@ -1,0 +1,25 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Allows Nomination Pool to use different staking strategies including a new DelegateStake strategy.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces a new staking strategy called `DelegateStake`. This strategy allows the nomination pool to
+      delegate its stake to a validator, that is, funds are locked in user account itself instead of being transferred
+      to the pool account. Includes migration of pools to this strategy for Westend.
+
+crates:
+    - name: pallet-nomination-pools
+      bump: major
+    - name: pallet-nomination-pools-benchmarking
+      bump: major
+    - name: sp-staking
+      bump: patch
+    - name: pallet-staking
+      bump: patch
+    - name: pallet-delegated-staking
+      bump: patch
+    - name: westend-runtime
+      bump: major

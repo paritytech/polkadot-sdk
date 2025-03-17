@@ -15,13 +15,14 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
+	configuration,
 	inclusion::{
 		tests::run_to_block_default_notifications as run_to_block, AggregateMessageOrigin,
 		AggregateMessageOrigin::Ump, UmpAcceptanceCheckErr, UmpQueueId,
 	},
 	mock::{
-		assert_last_event, assert_last_events, new_test_ext, Configuration, MessageQueue,
-		MessageQueueSize, MockGenesisConfig, ParaInclusion, Processed, System, Test, *,
+		assert_last_event, assert_last_events, new_test_ext, MessageQueue, MessageQueueSize,
+		MockGenesisConfig, ParaInclusion, Processed, System, Test, *,
 	},
 };
 use frame_support::{
@@ -30,10 +31,12 @@ use frame_support::{
 	traits::{EnqueueMessage, ExecuteOverweightError, ServiceQueues},
 	weights::Weight,
 };
-use primitives::{well_known_keys, Id as ParaId, UpwardMessage};
+use polkadot_primitives::{
+	vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR},
+	well_known_keys, Id as ParaId, UpwardMessage,
+};
 use sp_crypto_hashing::{blake2_256, twox_64};
 use sp_runtime::traits::Bounded;
-use sp_std::prelude::*;
 
 pub(super) struct GenesisConfigBuilder {
 	max_upward_message_size: u32,
@@ -88,7 +91,7 @@ fn queue_upward_msg(para: ParaId, msg: UpwardMessage) {
 
 fn try_queue_upward_msg(para: ParaId, msg: UpwardMessage) -> Result<(), UmpAcceptanceCheckErr> {
 	let msgs = vec![msg];
-	ParaInclusion::check_upward_messages(&Configuration::config(), para, &msgs)?;
+	ParaInclusion::check_upward_messages(&configuration::ActiveConfig::<Test>::get(), para, &msgs)?;
 	ParaInclusion::receive_upward_messages(para, msgs.as_slice());
 	Ok(())
 }
@@ -107,7 +110,12 @@ mod check_upward_messages {
 	/// Check that these messages *could* be queued.
 	fn check(para: ParaId, msgs: Vec<UpwardMessage>, err: Option<UmpAcceptanceCheckErr>) {
 		assert_eq!(
-			ParaInclusion::check_upward_messages(&Configuration::config(), para, &msgs[..]).err(),
+			ParaInclusion::check_upward_messages(
+				&configuration::ActiveConfig::<Test>::get(),
+				para,
+				&msgs[..]
+			)
+			.err(),
 			err
 		);
 	}
@@ -132,15 +140,16 @@ mod check_upward_messages {
 	fn num_per_candidate_exceeded_error() {
 		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 			let _g = frame_support::StorageNoopGuard::default();
-			let permitted = Configuration::config().max_upward_message_num_per_candidate;
+			let permitted =
+				configuration::ActiveConfig::<Test>::get().max_upward_message_num_per_candidate;
 
 			for sent in 0..permitted + 1 {
-				check(P_0, vec![msg(""); sent as usize], None);
+				check(P_0, vec![msg("a"); sent as usize], None);
 			}
 			for sent in permitted + 1..permitted + 10 {
 				check(
 					P_0,
-					vec![msg(""); sent as usize],
+					vec![msg("a"); sent as usize],
 					Some(UmpAcceptanceCheckErr::MoreMessagesThanPermitted { sent, permitted }),
 				);
 			}
@@ -151,10 +160,11 @@ mod check_upward_messages {
 	fn size_per_message_exceeded_error() {
 		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 			let _g = frame_support::StorageNoopGuard::default();
-			let max_size = Configuration::config().max_upward_message_size;
-			let max_per_candidate = Configuration::config().max_upward_message_num_per_candidate;
+			let max_size = configuration::ActiveConfig::<Test>::get().max_upward_message_size;
+			let max_per_candidate =
+				configuration::ActiveConfig::<Test>::get().max_upward_message_num_per_candidate;
 
-			for msg_size in 0..=max_size {
+			for msg_size in 1..=max_size {
 				check(P_0, vec![vec![0; msg_size as usize]], None);
 			}
 			for msg_size in max_size + 1..max_size + 10 {
@@ -175,21 +185,21 @@ mod check_upward_messages {
 	#[test]
 	fn queue_count_exceeded_error() {
 		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-			let limit = Configuration::config().max_upward_queue_count as u64;
+			let limit = configuration::ActiveConfig::<Test>::get().max_upward_queue_count as u64;
 
 			for _ in 0..limit {
-				check(P_0, vec![msg("")], None);
-				queue(P_0, vec![msg("")]);
+				check(P_0, vec![msg("a")], None);
+				queue(P_0, vec![msg("a")]);
 			}
 
 			check(
 				P_0,
-				vec![msg("")],
+				vec![msg("a")],
 				Some(UmpAcceptanceCheckErr::CapacityExceeded { count: limit + 1, limit }),
 			);
 			check(
 				P_0,
-				vec![msg(""); 2],
+				vec![msg("a"); 2],
 				Some(UmpAcceptanceCheckErr::CapacityExceeded { count: limit + 2, limit }),
 			);
 		});
@@ -198,10 +208,10 @@ mod check_upward_messages {
 	#[test]
 	fn queue_size_exceeded_error() {
 		new_test_ext(GenesisConfigBuilder::large_queue_count().build()).execute_with(|| {
-			let limit = Configuration::config().max_upward_queue_size as u64;
+			let limit = configuration::ActiveConfig::<Test>::get().max_upward_queue_size as u64;
 			assert_eq!(pallet_message_queue::ItemHeader::<MessageQueueSize>::max_encoded_len(), 5);
 			assert!(
-				Configuration::config().max_upward_queue_size <
+				configuration::ActiveConfig::<Test>::get().max_upward_queue_size <
 					crate::inclusion::MaxUmpMessageLenOf::<Test>::get(),
 				"Test will not work"
 			);
@@ -351,7 +361,7 @@ fn queue_enact_too_long_ignored() {
 #[test]
 fn relay_dispatch_queue_size_is_updated() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		let cfg = Configuration::config();
+		let cfg = configuration::ActiveConfig::<Test>::get();
 
 		for p in 0..100 {
 			let para = p.into();
@@ -418,7 +428,7 @@ fn relay_dispatch_queue_size_key_is_correct() {
 		// A "random" para id.
 		let para: ParaId = u32::from_ne_bytes(twox_64(&i.encode())[..4].try_into().unwrap()).into();
 
-		let well_known = primitives::well_known_keys::relay_dispatch_queue_size(para);
+		let well_known = polkadot_primitives::well_known_keys::relay_dispatch_queue_size(para);
 		let aliased = RelayDispatchQueueSize::hashed_key_for(para);
 
 		assert_eq!(well_known, aliased, "Old and new key must match");
@@ -430,7 +440,7 @@ fn verify_relay_dispatch_queue_size_is_externally_accessible() {
 	// Make sure that the relay dispatch queue size storage entry is accessible via well known
 	// keys and is decodable into a (u32, u32).
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		let cfg = Configuration::config();
+		let cfg = configuration::ActiveConfig::<Test>::get();
 
 		for para in 0..10 {
 			let para = para.into();
@@ -455,10 +465,11 @@ fn verify_relay_dispatch_queue_size_is_externally_accessible() {
 
 fn assert_queue_size(para: ParaId, count: u32, size: u32) {
 	#[allow(deprecated)]
-	let raw_queue_size = sp_io::storage::get(&well_known_keys::relay_dispatch_queue_size(para)).expect(
-		"enqueing a message should create the dispatch queue\
+	let raw_queue_size = sp_io::storage::get(&well_known_keys::relay_dispatch_queue_size(para))
+		.expect(
+			"enqueuing a message should create the dispatch queue\
 				and it should be accessible via the well known keys",
-	);
+		);
 	let (c, s) = <(u32, u32)>::decode(&mut &raw_queue_size[..])
 		.expect("the dispatch queue size should be decodable into (u32, u32)");
 	assert_eq!((c, s), (count, size));
@@ -466,7 +477,7 @@ fn assert_queue_size(para: ParaId, count: u32, size: u32) {
 	// Test the deprecated but at least type-safe `relay_dispatch_queue_size_typed`:
 	#[allow(deprecated)]
 	let (c, s) = well_known_keys::relay_dispatch_queue_size_typed(para).get().expect(
-		"enqueing a message should create the dispatch queue\
+		"enqueuing a message should create the dispatch queue\
 				and it should be accessible via the well known keys",
 	);
 	assert_eq!((c, s), (count, size));
@@ -631,6 +642,42 @@ fn cannot_offboard_while_ump_dispatch_queued() {
 		// Offboarding completed.
 		run_to_block(11, vec![11]);
 		assert!(!Paras::is_valid_para(para));
+	});
+}
+
+/// Test UMP signals are filtered out and don't consume `max_upward_message_num_per_candidate`.
+#[test]
+fn enqueue_ump_signals() {
+	let para = 100.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		register_parachain(para);
+		run_to_block(5, vec![4, 5]);
+
+		let config = configuration::ActiveConfig::<Test>::get();
+		let mut messages = (0..config.max_upward_message_num_per_candidate)
+			.into_iter()
+			.map(|_| "msg".encode())
+			.collect::<Vec<_>>();
+		let expected_messages = messages.iter().cloned().map(|msg| (para, msg)).collect::<Vec<_>>();
+
+		// `UMPSignals` and separator do not count as XCM messages. The below check must pass.
+		messages.append(&mut vec![
+			UMP_SEPARATOR,
+			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode(),
+		]);
+
+		ParaInclusion::check_upward_messages(
+			&configuration::ActiveConfig::<Test>::get(),
+			para,
+			&messages,
+		)
+		.unwrap();
+
+		// We expect that all messages except UMP signal and separator are processed
+		ParaInclusion::receive_upward_messages(para, &messages);
+		MessageQueue::service_queues(Weight::max_value());
+		assert_eq!(Processed::take(), expected_messages);
 	});
 }
 

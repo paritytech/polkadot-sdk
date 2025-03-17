@@ -22,7 +22,7 @@ use super::*;
 use crate as scheduler;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize},
+	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly},
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{BuildStorage, Perbill};
@@ -137,7 +137,7 @@ parameter_types! {
 		);
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type Block = Block;
@@ -212,7 +212,7 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 parameter_types! {
-	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+	pub storage MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 		BlockWeights::get().max_block;
 }
 
@@ -223,10 +223,11 @@ impl Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
+	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type MaxScheduledPerBlock = ConstU32<10>;
 	type WeightInfo = TestWeightInfo;
-	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
+	type BlockNumberProvider = frame_system::Pallet<Self>;
 }
 
 pub type LoggerCall = logger::Call<Test>;
@@ -234,14 +235,6 @@ pub type LoggerCall = logger::Call<Test>;
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	t.into()
-}
-
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		Scheduler::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		Scheduler::on_initialize(System::block_number());
-	}
 }
 
 pub fn root() -> OriginCaller {

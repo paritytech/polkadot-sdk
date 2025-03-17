@@ -19,25 +19,28 @@
 
 #![cfg(test)]
 
-use crate::{self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet};
-use codec::{Decode, Encode, MaxEncodedLen};
+use crate::{
+	self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet, TotalIssuance,
+	DEFAULT_ADDRESS_URI,
+};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	parameter_types,
 	traits::{
 		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced, StorageMapShim,
-		StoredMap, VariantCount, WhitelistedStorageKeys,
+		StoredMap, VariantCount, VariantCountOf, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},
 };
 use frame_system::{self as system, RawOrigin};
-use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter, Multiplier};
+use pallet_transaction_payment::{ChargeTransactionPayment, FungibleAdapter, Multiplier};
 use scale_info::TypeInfo;
-use sp_core::hexdisplay::HexDisplay;
+use sp_core::{hexdisplay::HexDisplay, sr25519::Pair as SrPair, Pair};
 use sp_io;
 use sp_runtime::{
-	traits::{BadOrigin, SignedExtension, Zero},
+	traits::{BadOrigin, Zero},
 	ArithmeticError, BuildStorage, DispatchError, DispatchResult, FixedPointNumber, RuntimeDebug,
 	TokenError,
 };
@@ -47,6 +50,7 @@ mod currency_tests;
 mod dispatchable_tests;
 mod fungible_conformance_tests;
 mod fungible_tests;
+mod general_tests;
 mod reentrancy_tests;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -54,6 +58,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Copy,
 	Clone,
 	Eq,
@@ -90,37 +95,36 @@ parameter_types! {
 	pub static ExistentialDeposit: u64 = 1;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = super::AccountData<u64>;
 }
 
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Pallet<Test>, ()>;
+	type OnChargeTransaction = FungibleAdapter<Pallet<Test>, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<u64>;
 	type LengthToFee = IdentityFee<u64>;
-	type FeeMultiplierUpdate = ();
 }
 
-pub(crate) type Balance = u64;
+parameter_types! {
+	pub FooReason: TestId = TestId::Foo;
+}
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl Config for Test {
-	type Balance = Balance;
 	type DustRemoval = DustTrap;
-	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = TestAccountStore;
-	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ConstU32<2>;
 	type ReserveIdentifier = TestId;
-	type WeightInfo = ();
 	type RuntimeHoldReason = TestId;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeFreezeReason = TestId;
 	type FreezeIdentifier = TestId;
-	type MaxFreezes = ConstU32<2>;
+	type MaxFreezes = VariantCountOf<TestId>;
 }
 
 #[derive(Clone)]
@@ -169,6 +173,11 @@ impl ExtBuilder {
 			} else {
 				vec![]
 			},
+			dev_accounts: Some((
+				1000,
+				self.existential_deposit,
+				Some(DEFAULT_ADDRESS_URI.to_string()),
+			)),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -274,16 +283,59 @@ pub fn events() -> Vec<RuntimeEvent> {
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
-	DispatchInfo { weight: w, ..Default::default() }
+	DispatchInfo { call_weight: w, ..Default::default() }
+}
+
+/// Check that the total-issuance matches the sum of all accounts' total balances.
+pub fn ensure_ti_valid() {
+	let mut sum = 0;
+
+	// Fetch the dev accounts from Account Storage.
+	let dev_accounts = (1000, EXISTENTIAL_DEPOSIT, DEFAULT_ADDRESS_URI.to_string());
+	let (num_accounts, _balance, ref derivation) = dev_accounts;
+
+	// Generate the dev account public keys.
+	let dev_account_ids: Vec<_> = (0..num_accounts)
+		.map(|index| {
+			let derivation_string = derivation.replace("{}", &index.to_string());
+			let pair: SrPair =
+				Pair::from_string(&derivation_string, None).expect("Invalid derivation string");
+			<crate::tests::Test as frame_system::Config>::AccountId::decode(
+				&mut &pair.public().encode()[..],
+			)
+			.unwrap()
+		})
+		.collect();
+
+	// Iterate over all account keys (i.e., the account IDs).
+	for acc in frame_system::Account::<Test>::iter_keys() {
+		// Skip dev accounts by checking if the account is in the dev_account_ids list.
+		// This also proves dev_accounts exists in storage.
+		if dev_account_ids.contains(&acc) {
+			continue;
+		}
+
+		// Check if we are using the system pallet or some other custom storage for accounts.
+		if UseSystem::get() {
+			let data = frame_system::Pallet::<Test>::account(acc);
+			sum += data.data.total();
+		} else {
+			let data = crate::Account::<Test>::get(acc);
+			sum += data.total();
+		}
+	}
+
+	// Ensure the total issuance matches the sum of the account balances
+	assert_eq!(TotalIssuance::<Test>::get(), sum, "Total Issuance is incorrect");
 }
 
 #[test]
 fn weights_sane() {
 	let info = crate::Call::<Test>::transfer_allow_death { dest: 10, value: 4 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::transfer_allow_death(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::transfer_allow_death(), info.call_weight);
 
 	let info = crate::Call::<Test>::force_unreserve { who: 10, amount: 4 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::force_unreserve(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::force_unreserve(), info.call_weight);
 }
 
 #[test]

@@ -1,0 +1,10 @@
+title: "Remove `slot_duration` from `aura::collators::basic::Params`"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Removes the `slot_duration` parameter from the `aura::collators::basic::Params`.
+      The `slot_duration` will now be fetched from the runtime using the `Aura` runtime api.
+
+crates:
+  - name: cumulus-client-consensus-aura

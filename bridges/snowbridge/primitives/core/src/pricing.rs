@@ -1,11 +1,13 @@
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned, Zero};
 use sp_core::U256;
 use sp_runtime::{FixedU128, RuntimeDebug};
 use sp_std::prelude::*;
 
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo,
+)]
 pub struct PricingParameters<Balance> {
 	/// ETH/DOT exchange rate
 	pub exchange_rate: FixedU128,
@@ -13,9 +15,13 @@ pub struct PricingParameters<Balance> {
 	pub rewards: Rewards<Balance>,
 	/// Ether (wei) fee per gas unit
 	pub fee_per_gas: U256,
+	/// Fee multiplier
+	pub multiplier: FixedU128,
 }
 
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo,
+)]
 pub struct Rewards<Balance> {
 	/// Local reward in DOT
 	pub local: Balance,
@@ -41,6 +47,9 @@ where
 			return Err(InvalidPricingParameters)
 		}
 		if self.rewards.remote.is_zero() {
+			return Err(InvalidPricingParameters)
+		}
+		if self.multiplier == FixedU128::zero() {
 			return Err(InvalidPricingParameters)
 		}
 		Ok(())

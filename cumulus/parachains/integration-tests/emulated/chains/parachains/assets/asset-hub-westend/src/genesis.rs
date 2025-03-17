@@ -14,22 +14,32 @@
 // limitations under the License.
 
 // Substrate
+use frame_support::parameter_types;
 use sp_core::storage::Storage;
+use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
+	accounts, build_genesis_storage, collators, PenpalASiblingSovereignAccount,
+	PenpalATeleportableAssetLocation, PenpalBSiblingSovereignAccount,
+	PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
-use parachains_common::Balance;
+use parachains_common::{AccountId, Balance};
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
+pub const USDT_ED: Balance = 70_000;
+
+parameter_types! {
+	pub AssetHubWestendAssetOwner: AccountId = Keyring::Alice.to_account_id();
+}
 
 pub fn genesis() -> Storage {
 	let genesis_config = asset_hub_westend_runtime::RuntimeGenesisConfig {
 		system: asset_hub_westend_runtime::SystemConfig::default(),
 		balances: asset_hub_westend_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			..Default::default()
 		},
 		parachain_info: asset_hub_westend_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
@@ -51,9 +61,36 @@ pub fn genesis() -> Storage {
 					)
 				})
 				.collect(),
+			..Default::default()
 		},
 		polkadot_xcm: asset_hub_westend_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
+		},
+		assets: asset_hub_westend_runtime::AssetsConfig {
+			assets: vec![
+				(RESERVABLE_ASSET_ID, AssetHubWestendAssetOwner::get(), false, ED),
+				(USDT_ID, AssetHubWestendAssetOwner::get(), true, USDT_ED),
+			],
+			..Default::default()
+		},
+		foreign_assets: asset_hub_westend_runtime::ForeignAssetsConfig {
+			assets: vec![
+				// PenpalA's teleportable asset representation
+				(
+					PenpalATeleportableAssetLocation::get(),
+					PenpalASiblingSovereignAccount::get(),
+					false,
+					ED,
+				),
+				// PenpalB's teleportable asset representation
+				(
+					PenpalBTeleportableAssetLocation::get(),
+					PenpalBSiblingSovereignAccount::get(),
+					false,
+					ED,
+				),
+			],
 			..Default::default()
 		},
 		..Default::default()

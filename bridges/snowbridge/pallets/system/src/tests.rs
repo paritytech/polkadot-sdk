@@ -248,7 +248,7 @@ fn create_channel() {
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal,));
 	});
 }
 
@@ -264,10 +264,10 @@ fn create_channel_fail_already_exists() {
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal,));
 
 		assert_noop!(
-			EthereumSystem::create_channel(origin, OperatingMode::Normal),
+			EthereumSystem::create_channel(origin, OperatingMode::Normal,),
 			Error::<Test>::ChannelAlreadyCreated
 		);
 	});
@@ -334,10 +334,10 @@ fn update_channel() {
 		// First create the channel
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal,));
 
 		// Now try to update it
-		assert_ok!(EthereumSystem::update_channel(origin, OperatingMode::Normal));
+		assert_ok!(EthereumSystem::update_channel(origin, OperatingMode::Normal,));
 
 		System::assert_last_event(RuntimeEvent::EthereumSystem(crate::Event::UpdateChannel {
 			channel_id: ParaId::from(2000).into(),
@@ -383,12 +383,12 @@ fn update_channel_bad_origin() {
 
 		// Signed origin not allowed
 		assert_noop!(
-			EthereumSystem::update_channel(RuntimeOrigin::signed([14; 32].into()), mode),
+			EthereumSystem::update_channel(RuntimeOrigin::signed([14; 32].into()), mode,),
 			BadOrigin
 		);
 
 		// None origin not allowed
-		assert_noop!(EthereumSystem::update_channel(RuntimeOrigin::none(), mode), BadOrigin);
+		assert_noop!(EthereumSystem::update_channel(RuntimeOrigin::none(), mode,), BadOrigin);
 	});
 }
 
@@ -400,7 +400,7 @@ fn update_channel_fails_not_exist() {
 
 		// Now try to update it
 		assert_noop!(
-			EthereumSystem::update_channel(origin, OperatingMode::Normal),
+			EthereumSystem::update_channel(origin, OperatingMode::Normal,),
 			Error::<Test>::NoChannel
 		);
 	});
@@ -419,7 +419,7 @@ fn force_update_channel() {
 		// First create the channel
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal,));
 
 		// Now try to force update it
 		let force_origin = RuntimeOrigin::root();
@@ -463,7 +463,7 @@ fn transfer_native_from_agent() {
 
 		// First create the agent and channel
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal,));
 
 		let origin = make_xcm_origin(origin_location.clone());
 		assert_ok!(EthereumSystem::transfer_native_from_agent(origin, recipient, amount),);
@@ -584,7 +584,7 @@ fn charge_fee_for_transfer_native_from_agent() {
 
 		// create_agent & create_channel first
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
-		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal));
+		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal,));
 
 		// assert sovereign_balance decreased by only the base_fee
 		let sovereign_balance_before = Balances::balance(&sovereign_account);
@@ -629,5 +629,118 @@ fn genesis_build_initializes_correctly() {
 fn no_genesis_build_is_uninitialized() {
 	new_test_ext(false).execute_with(|| {
 		assert!(!EthereumSystem::is_initialized(), "Ethereum initialized.");
+	});
+}
+
+#[test]
+fn register_token_with_signed_yields_bad_origin() {
+	new_test_ext(true).execute_with(|| {
+		let origin = RuntimeOrigin::signed([14; 32].into());
+		let location = Location::new(1, [Parachain(2000)]);
+		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
+		assert_noop!(
+			EthereumSystem::register_token(origin, versioned_location, Default::default()),
+			BadOrigin
+		);
+	});
+}
+
+pub struct RegisterTokenTestCase {
+	/// Input: Location of Polkadot-native token relative to BH
+	pub native: Location,
+	/// Output: Reanchored, canonicalized location
+	pub reanchored: Location,
+	/// Output: Stable hash of reanchored location
+	pub foreign: TokenId,
+}
+
+#[test]
+fn register_all_tokens_succeeds() {
+	let test_cases = vec![
+		// DOT
+		RegisterTokenTestCase {
+			native: Location::parent(),
+			reanchored: Location::new(1, GlobalConsensus(Polkadot)),
+			foreign: hex!("4e241583d94b5d48a27a22064cd49b2ed6f5231d2d950e432f9b7c2e0ade52b2")
+				.into(),
+		},
+		// GLMR (Some Polkadot parachain currency)
+		RegisterTokenTestCase {
+			native: Location::new(1, [Parachain(2004)]),
+			reanchored: Location::new(1, [GlobalConsensus(Polkadot), Parachain(2004)]),
+			foreign: hex!("34c08fc90409b6924f0e8eabb7c2aaa0c749e23e31adad9f6d217b577737fafb")
+				.into(),
+		},
+		// USDT
+		RegisterTokenTestCase {
+			native: Location::new(1, [Parachain(1000), PalletInstance(50), GeneralIndex(1984)]),
+			reanchored: Location::new(
+				1,
+				[
+					GlobalConsensus(Polkadot),
+					Parachain(1000),
+					PalletInstance(50),
+					GeneralIndex(1984),
+				],
+			),
+			foreign: hex!("14b0579be12d7d7f9971f1d4b41f0e88384b9b74799b0150d4aa6cd01afb4444")
+				.into(),
+		},
+		// KSM
+		RegisterTokenTestCase {
+			native: Location::new(2, [GlobalConsensus(Kusama)]),
+			reanchored: Location::new(1, [GlobalConsensus(Kusama)]),
+			foreign: hex!("03b6054d0c576dd8391e34e1609cf398f68050c23009d19ce93c000922bcd852")
+				.into(),
+		},
+		// KAR (Some Kusama parachain currency)
+		RegisterTokenTestCase {
+			native: Location::new(2, [GlobalConsensus(Kusama), Parachain(2000)]),
+			reanchored: Location::new(1, [GlobalConsensus(Kusama), Parachain(2000)]),
+			foreign: hex!("d3e39ad6ea4cee68c9741181e94098823b2ea34a467577d0875c036f0fce5be0")
+				.into(),
+		},
+	];
+	for tc in test_cases.iter() {
+		new_test_ext(true).execute_with(|| {
+			let origin = RuntimeOrigin::root();
+			let versioned_location: VersionedLocation = tc.native.clone().into();
+
+			assert_ok!(EthereumSystem::register_token(
+				origin,
+				Box::new(versioned_location),
+				Default::default()
+			));
+
+			assert_eq!(NativeToForeignId::<Test>::get(tc.reanchored.clone()), Some(tc.foreign));
+			assert_eq!(ForeignToNativeId::<Test>::get(tc.foreign), Some(tc.reanchored.clone()));
+
+			System::assert_last_event(RuntimeEvent::EthereumSystem(Event::<Test>::RegisterToken {
+				location: tc.reanchored.clone().into(),
+				foreign_token_id: tc.foreign,
+			}));
+		});
+	}
+}
+
+#[test]
+fn register_ethereum_native_token_fails() {
+	new_test_ext(true).execute_with(|| {
+		let origin = RuntimeOrigin::root();
+		let location = Location::new(
+			2,
+			[
+				GlobalConsensus(Ethereum { chain_id: 11155111 }),
+				AccountKey20 {
+					network: None,
+					key: hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d"),
+				},
+			],
+		);
+		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
+		assert_noop!(
+			EthereumSystem::register_token(origin, versioned_location, Default::default()),
+			Error::<Test>::LocationConversionFailed
+		);
 	});
 }

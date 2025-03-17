@@ -42,10 +42,19 @@ pub use on_response::{OnResponse, QueryHandler, QueryResponseStatus, VersionChan
 mod process_transaction;
 pub use process_transaction::ProcessTransaction;
 mod should_execute;
-pub use should_execute::{CheckSuspension, Properties, ShouldExecute};
+pub use should_execute::{CheckSuspension, DenyExecution, Properties, ShouldExecute};
 mod transact_asset;
 pub use transact_asset::TransactAsset;
+mod hrmp;
+pub use hrmp::{
+	HandleHrmpChannelAccepted, HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest,
+};
+mod event_emitter;
+mod record_xcm;
 mod weight;
+pub use event_emitter::EventEmitter;
+
+pub use record_xcm::RecordXcm;
 #[deprecated = "Use `sp_runtime::traits::` instead"]
 pub use sp_runtime::traits::{Identity, TryConvertInto as JustTry};
 pub use weight::{WeightBounds, WeightTrader};
@@ -53,10 +62,10 @@ pub use weight::{WeightBounds, WeightTrader};
 pub mod prelude {
 	pub use super::{
 		export_xcm, validate_export, AssetExchange, AssetLock, ClaimAssets, ConvertOrigin,
-		DropAssets, Enact, Error, ExportXcm, FeeManager, FeeReason, LockError, MatchesFungible,
-		MatchesFungibles, MatchesNonFungible, MatchesNonFungibles, OnResponse, ProcessTransaction,
-		ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
-		WithOriginFilter,
+		DropAssets, Enact, Error, EventEmitter, ExportXcm, FeeManager, FeeReason, LockError,
+		MatchesFungible, MatchesFungibles, MatchesNonFungible, MatchesNonFungibles, OnResponse,
+		ProcessTransaction, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds,
+		WeightTrader, WithOriginFilter,
 	};
 	#[allow(deprecated)]
 	pub use super::{Identity, JustTry};

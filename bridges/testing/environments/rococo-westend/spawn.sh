@@ -4,7 +4,7 @@ set -e
 
 trap "trap - SIGTERM && kill -9 -$$" SIGINT SIGTERM EXIT
 
-source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
+source "$FRAMEWORK_PATH/utils/zombienet.sh"
 
 # whether to init the chains (open HRMP channels, set XCM version, create reserve assets, etc)
 init=0
@@ -35,9 +35,11 @@ start_zombienet $TEST_DIR $westend_def westend_dir westend_pid
 echo
 
 if [[ $init -eq 1 ]]; then
+  run_zndsl ${BASH_SOURCE%/*}/rococo-start.zndsl $rococo_dir
+  run_zndsl ${BASH_SOURCE%/*}/westend-start.zndsl $westend_dir
+
   rococo_init_log=$logs_dir/rococo-init.log
   echo -e "Setting up the rococo side of the bridge. Logs available at: $rococo_init_log\n"
-
   westend_init_log=$logs_dir/westend-init.log
   echo -e "Setting up the westend side of the bridge. Logs available at: $westend_init_log\n"
 
@@ -46,7 +48,6 @@ if [[ $init -eq 1 ]]; then
   $helper_script init-asset-hub-westend-local >> $westend_init_log 2>&1 &
   westend_init_pid=$!
   wait -n $rococo_init_pid $westend_init_pid
-
 
   $helper_script init-bridge-hub-rococo-local >> $rococo_init_log 2>&1 &
   rococo_init_pid=$!
@@ -59,12 +60,12 @@ if [[ $init -eq 1 ]]; then
 fi
 
 if [[ $start_relayer -eq 1 ]]; then
-  ${BASH_SOURCE%/*}/start_relayer.sh $rococo_dir $westend_dir relayer_pid
+  ${BASH_SOURCE%/*}/start_relayer.sh $rococo_dir $westend_dir finality_relayer_pid parachains_relayer_pid messages_relayer_pid
 fi
 
 echo $rococo_dir > $TEST_DIR/rococo.env
 echo $westend_dir > $TEST_DIR/westend.env
 echo
 
-wait -n $rococo_pid $westend_pid $relayer_pid
+wait -n $rococo_pid $westend_pid $finality_relayer_pid $parachains_relayer_pid $messages_relayer_pid
 kill -9 -$$

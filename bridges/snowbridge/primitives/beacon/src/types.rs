@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
@@ -36,6 +36,7 @@ pub struct ForkVersions {
 	pub bellatrix: Fork,
 	pub capella: Fork,
 	pub deneb: Fork,
+	pub electra: Fork,
 }
 
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
@@ -44,7 +45,7 @@ pub struct Fork {
 	pub epoch: u64,
 }
 
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct PublicKey(pub [u8; PUBKEY_SIZE]);
 
 impl Default for PublicKey {
@@ -85,7 +86,7 @@ impl Serialize for PublicKey {
 	}
 }
 
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Signature(pub [u8; SIGNATURE_SIZE]);
 
 impl Default for Signature {
@@ -108,14 +109,6 @@ impl<'de> Deserialize<'de> for Signature {
 	{
 		deserializer.deserialize_str(HexVisitor::<SIGNATURE_SIZE>()).map(|v| v.into())
 	}
-}
-
-#[derive(Copy, Clone, Default, Encode, Decode, TypeInfo, MaxEncodedLen)]
-pub struct ExecutionHeaderState {
-	pub beacon_block_root: H256,
-	pub beacon_slot: u64,
-	pub block_hash: H256,
-	pub block_number: u64,
 }
 
 #[derive(Copy, Clone, Default, Encode, Decode, TypeInfo, MaxEncodedLen)]
@@ -151,7 +144,14 @@ impl SigningData {
 
 /// Sync committee as it is stored in the runtime storage.
 #[derive(
-	Encode, Decode, PartialEqNoBound, CloneNoBound, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEqNoBound,
+	CloneNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[cfg_attr(
 	feature = "std",
@@ -223,7 +223,16 @@ impl<const COMMITTEE_SIZE: usize> TryFrom<&SyncCommittee<COMMITTEE_SIZE>>
 /// Beacon block header as it is stored in the runtime storage. The block root is the
 /// Merkleization of a BeaconHeader.
 #[derive(
-	Copy, Clone, Default, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Default,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct BeaconHeader {
@@ -246,7 +255,15 @@ impl BeaconHeader {
 	}
 }
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
 #[cfg_attr(
 	feature = "std",
 	derive(Deserialize),
@@ -311,7 +328,14 @@ impl<const COMMITTEE_SIZE: usize, const COMMITTEE_BITS_SIZE: usize>
 /// ExecutionPayloadHeader
 /// <https://github.com/ethereum/annotated-spec/blob/master/capella/beacon-chain.md#executionpayloadheader>
 #[derive(
-	Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
+	Default,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
 )]
 #[cfg_attr(
 	feature = "std",
@@ -350,35 +374,6 @@ impl ExecutionPayloadHeader {
 	Default,
 	Encode,
 	Decode,
-	CloneNoBound,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-pub struct CompactExecutionHeader {
-	pub parent_hash: H256,
-	#[codec(compact)]
-	pub block_number: u64,
-	pub state_root: H256,
-	pub receipts_root: H256,
-}
-
-impl From<ExecutionPayloadHeader> for CompactExecutionHeader {
-	fn from(execution_payload: ExecutionPayloadHeader) -> Self {
-		Self {
-			parent_hash: execution_payload.parent_hash,
-			block_number: execution_payload.block_number,
-			state_root: execution_payload.state_root,
-			receipts_root: execution_payload.receipts_root,
-		}
-	}
-}
-
-#[derive(
-	Default,
-	Encode,
-	Decode,
 	Copy,
 	Clone,
 	PartialEqNoBound,
@@ -393,7 +388,15 @@ pub struct CompactBeaconState {
 }
 
 /// VersionedExecutionPayloadHeader
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
 #[cfg_attr(
 	feature = "std",
 	derive(Serialize, Deserialize),
@@ -403,18 +406,6 @@ pub struct CompactBeaconState {
 pub enum VersionedExecutionPayloadHeader {
 	Capella(ExecutionPayloadHeader),
 	Deneb(deneb::ExecutionPayloadHeader),
-}
-
-/// Convert VersionedExecutionPayloadHeader to CompactExecutionHeader
-impl From<VersionedExecutionPayloadHeader> for CompactExecutionHeader {
-	fn from(versioned_execution_header: VersionedExecutionPayloadHeader) -> Self {
-		match versioned_execution_header {
-			VersionedExecutionPayloadHeader::Capella(execution_payload_header) =>
-				execution_payload_header.into(),
-			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) =>
-				execution_payload_header.into(),
-		}
-	}
 }
 
 impl VersionedExecutionPayloadHeader {
@@ -448,6 +439,61 @@ impl VersionedExecutionPayloadHeader {
 				execution_payload_header.block_number,
 		}
 	}
+
+	pub fn receipts_root(&self) -> H256 {
+		match self {
+			VersionedExecutionPayloadHeader::Capella(execution_payload_header) =>
+				execution_payload_header.receipts_root,
+			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) =>
+				execution_payload_header.receipts_root,
+		}
+	}
+}
+
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
+#[cfg_attr(
+	feature = "std",
+	derive(serde::Deserialize),
+	serde(deny_unknown_fields, bound(serialize = ""), bound(deserialize = ""))
+)]
+pub struct ExecutionProof {
+	/// Header for the beacon block containing the execution payload
+	pub header: BeaconHeader,
+	/// Proof that `header` is an ancestor of a finalized header
+	pub ancestry_proof: Option<AncestryProof>,
+	/// The execution header to be verified
+	pub execution_header: VersionedExecutionPayloadHeader,
+	/// Merkle proof that execution payload is contained within `header`
+	pub execution_branch: Vec<H256>,
+}
+
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
+#[cfg_attr(
+	feature = "std",
+	derive(serde::Deserialize),
+	serde(deny_unknown_fields, bound(serialize = ""), bound(deserialize = ""))
+)]
+pub struct AncestryProof {
+	/// Merkle proof that `header` is an ancestor of `finalized_header`
+	pub header_branch: Vec<H256>,
+	/// Root of a finalized block that has already been imported into the light client
+	pub finalized_block_root: H256,
 }
 
 #[cfg(test)]
@@ -576,8 +622,7 @@ pub enum Mode {
 }
 
 pub mod deneb {
-	use crate::CompactExecutionHeader;
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 	use scale_info::TypeInfo;
 	#[cfg(feature = "std")]
@@ -588,7 +633,14 @@ pub mod deneb {
 	/// ExecutionPayloadHeader
 	/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#executionpayloadheader>
 	#[derive(
-		Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
+		Default,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		CloneNoBound,
+		PartialEqNoBound,
+		RuntimeDebugNoBound,
+		TypeInfo,
 	)]
 	#[cfg_attr(
 		feature = "std",
@@ -626,16 +678,5 @@ pub mod deneb {
 		pub withdrawals_root: H256,
 		pub blob_gas_used: u64,   // [New in Deneb:EIP4844]
 		pub excess_blob_gas: u64, // [New in Deneb:EIP4844]
-	}
-
-	impl From<ExecutionPayloadHeader> for CompactExecutionHeader {
-		fn from(execution_payload: ExecutionPayloadHeader) -> Self {
-			Self {
-				parent_hash: execution_payload.parent_hash,
-				block_number: execution_payload.block_number,
-				state_root: execution_payload.state_root,
-				receipts_root: execution_payload.receipts_root,
-			}
-		}
 	}
 }

@@ -17,9 +17,9 @@
 
 //! Mixnet types used by both host and runtime.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_std::vec::Vec;
 
 mod app {
 	use sp_application_crypto::{app_crypto, key_types::MIXNET, sr25519};
@@ -90,8 +90,8 @@ pub enum MixnodesErr {
 	},
 }
 
-impl sp_std::fmt::Display for MixnodesErr {
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl core::fmt::Display for MixnodesErr {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match self {
 			MixnodesErr::InsufficientRegistrations { num, min } =>
 				write!(fmt, "{num} mixnode(s) registered; {min} is the minimum"),

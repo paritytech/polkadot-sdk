@@ -25,7 +25,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-use sp_std::prelude::*;
 use std::cell::RefCell;
 
 #[frame_support::pallet(dev_mode)]
@@ -75,7 +74,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -130,7 +129,6 @@ mod benchmarks {
 	use frame_support::{assert_err, assert_ok, ensure, traits::Get};
 	use frame_system::RawOrigin;
 	use rusty_fork::rusty_fork_test;
-	use sp_std::prelude::*;
 
 	// Additional used internally by the benchmark macro.
 	use super::pallet_test::{Call, Config, Pallet};
@@ -262,15 +260,11 @@ mod benchmarks {
 		let components = <SelectedBenchmark as BenchmarkingSetup<Test>>::components(&selected);
 		assert_eq!(components, vec![(BenchmarkParameter::b, 1, 1000)]);
 
-		let closure = <SelectedBenchmark as BenchmarkingSetup<Test>>::instance(
-			&selected,
-			&[(BenchmarkParameter::b, 1)],
-			true,
-		)
-		.expect("failed to create closure");
-
 		new_test_ext().execute_with(|| {
-			assert_ok!(closure());
+			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
+				&selected,
+				&[(BenchmarkParameter::b, 1)],
+			));
 		});
 	}
 
@@ -281,15 +275,11 @@ mod benchmarks {
 		let components = <SelectedBenchmark as BenchmarkingSetup<Test>>::components(&selected);
 		assert_eq!(components, vec![(BenchmarkParameter::b, 1, 1000)]);
 
-		let closure = <SelectedBenchmark as BenchmarkingSetup<Test>>::instance(
-			&selected,
-			&[(BenchmarkParameter::b, 1)],
-			true,
-		)
-		.expect("failed to create closure");
-
 		new_test_ext().execute_with(|| {
-			assert_ok!(closure());
+			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
+				&selected,
+				&[(BenchmarkParameter::b, 1)],
+			));
 		});
 	}
 
@@ -300,14 +290,12 @@ mod benchmarks {
 		let components = <SelectedBenchmark as BenchmarkingSetup<Test>>::components(&selected);
 		assert_eq!(components, vec![(BenchmarkParameter::x, 1, 10000)]);
 
-		let closure = <SelectedBenchmark as BenchmarkingSetup<Test>>::instance(
-			&selected,
-			&[(BenchmarkParameter::x, 1)],
-			true,
-		)
-		.expect("failed to create closure");
-
-		assert_ok!(closure());
+		new_test_ext().execute_with(|| {
+			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
+				&selected,
+				&[(BenchmarkParameter::x, 1)],
+			));
+		});
 	}
 
 	#[test]
@@ -315,29 +303,24 @@ mod benchmarks {
 		// Check postcondition for benchmark `set_value` is valid.
 		let selected = SelectedBenchmark::set_value;
 
-		let closure = <SelectedBenchmark as BenchmarkingSetup<Test>>::instance(
-			&selected,
-			&[(BenchmarkParameter::b, 1)],
-			true,
-		)
-		.expect("failed to create closure");
-
 		new_test_ext().execute_with(|| {
-			assert_ok!(closure());
+			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
+				&selected,
+				&[(BenchmarkParameter::b, 1)],
+			));
 		});
 
 		// Check postcondition for benchmark `bad_verify` is invalid.
 		let selected = SelectedBenchmark::bad_verify;
 
-		let closure = <SelectedBenchmark as BenchmarkingSetup<Test>>::instance(
-			&selected,
-			&[(BenchmarkParameter::x, 10000)],
-			true,
-		)
-		.expect("failed to create closure");
-
 		new_test_ext().execute_with(|| {
-			assert_err!(closure(), "You forgot to sort!");
+			assert_err!(
+				<SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
+					&selected,
+					&[(BenchmarkParameter::x, 10000)],
+				),
+				"You forgot to sort!"
+			);
 		});
 	}
 
@@ -345,15 +328,11 @@ mod benchmarks {
 	fn benchmark_override_works() {
 		let selected = SelectedBenchmark::override_benchmark;
 
-		let closure = <SelectedBenchmark as BenchmarkingSetup<Test>>::instance(
-			&selected,
-			&[(BenchmarkParameter::b, 1)],
-			true,
-		)
-		.expect("failed to create closure");
-
 		new_test_ext().execute_with(|| {
-			let result = closure();
+			let result = <SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
+				&selected,
+				&[(BenchmarkParameter::b, 1)],
+			);
 			assert!(matches!(result, Err(BenchmarkError::Override(_))));
 		});
 	}

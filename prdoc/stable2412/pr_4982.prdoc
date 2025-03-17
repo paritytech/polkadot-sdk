@@ -1,0 +1,13 @@
+title: Add useful error logs in pallet-xcm
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds error logs to assist in debugging pallet-xcm.
+      Additionally, it replaces the usage of `log` with `tracing`.
+
+crates:
+  - name: staging-xcm-executor
+    bump: patch
+  - name: pallet-xcm
+    bump: patch

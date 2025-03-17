@@ -1,19 +1,25 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 //! <!-- markdown-link-check-disable -->
 //! # Offchain Worker Example Pallet
@@ -45,13 +51,16 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+extern crate alloc;
+
+use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::traits::Get;
 use frame_system::{
 	self as system,
 	offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, SendUnsignedTransaction,
-		SignedPayload, Signer, SigningTypes, SubmitTransaction,
+		AppCrypto, CreateInherent, CreateSignedTransaction, SendSignedTransaction,
+		SendUnsignedTransaction, SignedPayload, Signer, SigningTypes, SubmitTransaction,
 	},
 	pallet_prelude::BlockNumberFor,
 };
@@ -67,7 +76,6 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	RuntimeDebug,
 };
-use sp_std::vec::Vec;
 
 #[cfg(test)]
 mod tests;
@@ -122,7 +130,9 @@ pub mod pallet {
 
 	/// This pallet's configuration trait
 	#[pallet::config]
-	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config {
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>> + CreateInherent<Call<Self>> + frame_system::Config
+	{
 		/// The identifier type for an offchain worker.
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 
@@ -332,7 +342,6 @@ pub mod pallet {
 	///
 	/// This is used to calculate average price, should have bounded size.
 	#[pallet::storage]
-	#[pallet::getter(fn prices)]
 	pub(super) type Prices<T: Config> = StorageValue<_, BoundedVec<u32, T::MaxPrices>, ValueQuery>;
 
 	/// Defines the block when next unsigned transaction will be accepted.
@@ -341,13 +350,14 @@ pub mod pallet {
 	/// we only allow one transaction every `T::UnsignedInterval` blocks.
 	/// This storage entry defines when new transaction is going to be accepted.
 	#[pallet::storage]
-	#[pallet::getter(fn next_unsigned_at)]
 	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 }
 
 /// Payload used by this example crate to hold price
 /// data required to submit a transaction.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo,
+)]
 pub struct PricePayload<Public, BlockNumber> {
 	block_number: BlockNumber,
 	price: u32,
@@ -479,7 +489,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), &'static str> {
 		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if next_unsigned_at > block_number {
 			return Err("Too early to send unsigned transaction")
 		}
@@ -497,11 +507,12 @@ impl<T: Config> Pallet<T> {
 		// Here we showcase two ways to send an unsigned transaction / unsigned payload (raw)
 		//
 		// By default unsigned transactions are disallowed, so we need to whitelist this case
-		// by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefuly
+		// by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefully
 		// implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
 		// attack vectors. See validation logic docs for more details.
 		//
-		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+		let xt = T::create_inherent(call.into());
+		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map_err(|()| "Unable to submit unsigned transaction.")?;
 
 		Ok(())
@@ -513,7 +524,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), &'static str> {
 		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if next_unsigned_at > block_number {
 			return Err("Too early to send unsigned transaction")
 		}
@@ -543,7 +554,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), &'static str> {
 		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if next_unsigned_at > block_number {
 			return Err("Too early to send unsigned transaction")
 		}
@@ -608,7 +619,7 @@ impl<T: Config> Pallet<T> {
 		let body = response.body().collect::<Vec<u8>>();
 
 		// Create a str slice from the body.
-		let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
+		let body_str = alloc::str::from_utf8(&body).map_err(|_| {
 			log::warn!("No UTF8 body");
 			http::Error::Unknown
 		})?;
@@ -664,7 +675,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate current average price.
 	fn average_price() -> Option<u32> {
-		let prices = <Prices<T>>::get();
+		let prices = Prices::<T>::get();
 		if prices.is_empty() {
 			None
 		} else {
@@ -677,7 +688,7 @@ impl<T: Config> Pallet<T> {
 		new_price: &u32,
 	) -> TransactionValidity {
 		// Now let's check if the transaction has any chance to succeed.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if &next_unsigned_at > block_number {
 			return InvalidTransaction::Stale.into()
 		}

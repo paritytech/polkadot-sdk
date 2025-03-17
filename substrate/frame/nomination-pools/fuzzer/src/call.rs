@@ -306,7 +306,7 @@ fn main() {
 					BondedPools::<T>::iter().for_each(|(id, _)| {
 						let amount = random_ed_multiple(&mut rng);
 						let _ =
-							Balances::deposit_creating(&Pools::create_reward_account(id), amount);
+							Balances::deposit_creating(&Pools::generate_reward_account(id), amount);
 						// if we just paid out the reward agent, let's calculate how much we expect
 						// our reward agent to have earned.
 						if reward_agent.pool_id.map_or(false, |mid| mid == id) {

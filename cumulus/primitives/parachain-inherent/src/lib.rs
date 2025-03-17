@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Cumulus parachain inherent
 //!
@@ -27,20 +27,30 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use cumulus_primitives_core::{
 	relay_chain::{BlakeTwo256, Hash as RelayHash, HashT as _},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use scale_info::TypeInfo;
 use sp_inherents::InherentIdentifier;
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// The identifier for the parachain inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"sysi1337";
 
 /// The inherent data that is passed by the collator to the parachain runtime.
-#[derive(codec::Encode, codec::Decode, sp_core::RuntimeDebug, Clone, PartialEq, TypeInfo)]
+#[derive(
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	sp_core::RuntimeDebug,
+	Clone,
+	PartialEq,
+	TypeInfo,
+)]
 pub struct ParachainInherentData {
 	pub validation_data: PersistedValidationData,
 	/// A storage proof of a predefined set of keys from the relay-chain.

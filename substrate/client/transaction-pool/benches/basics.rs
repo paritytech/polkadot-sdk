@@ -24,6 +24,7 @@ use futures::{
 	future::{ready, Ready},
 };
 use sc_transaction_pool::*;
+use sp_blockchain::HashAndNumber;
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::{
 	generic::BlockId,
@@ -64,8 +65,9 @@ impl ChainApi for TestApi {
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
-		uxt: <Self::Block as BlockT>::Extrinsic,
+		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
 	) -> Self::ValidationFuture {
+		let uxt = (*uxt).clone();
 		let transfer = TransferData::try_from(&uxt)
 			.expect("uxt is expected to be bench_call (carrying TransferData)");
 		let nonce = transfer.nonce;
@@ -87,6 +89,15 @@ impl ChainApi for TestApi {
 			longevity: 10,
 			propagate: true,
 		})))
+	}
+
+	fn validate_transaction_blocking(
+		&self,
+		_at: <Self::Block as BlockT>::Hash,
+		_source: TransactionSource,
+		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+	) -> sc_transaction_pool_api::error::Result<TransactionValidity> {
+		unimplemented!();
 	}
 
 	fn block_id_to_number(
@@ -140,10 +151,14 @@ fn uxt(transfer: TransferData) -> Extrinsic {
 	ExtrinsicBuilder::new_bench_call(transfer).build()
 }
 
-fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
-	let source = TransactionSource::External;
+fn bench_configured(pool: Pool<TestApi, ()>, number: u64, api: Arc<TestApi>) {
+	let source = TimedTransactionSource::new_external(false);
 	let mut futures = Vec::new();
 	let mut tags = Vec::new();
+	let at = HashAndNumber {
+		hash: api.block_id_to_hash(&BlockId::Number(1)).unwrap().unwrap(),
+		number: 1,
+	};
 
 	for nonce in 1..=number {
 		let xt = uxt(TransferData {
@@ -151,15 +166,12 @@ fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
 			to: AccountId::from_h256(H256::from_low_u64_be(2)),
 			amount: 5,
 			nonce,
-		});
+		})
+		.into();
 
 		tags.push(to_tag(nonce, AccountId::from_h256(H256::from_low_u64_be(1))));
 
-		futures.push(pool.submit_one(
-			api.block_id_to_hash(&BlockId::Number(1)).unwrap().unwrap(),
-			source,
-			xt,
-		));
+		futures.push(pool.submit_one(&at, source.clone(), xt));
 	}
 
 	let res = block_on(futures::future::join_all(futures.into_iter()));
@@ -170,12 +182,11 @@ fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
 
 	// Prune all transactions.
 	let block_num = 6;
-	block_on(pool.prune_tags(
-		api.block_id_to_hash(&BlockId::Number(block_num)).unwrap().unwrap(),
-		tags,
-		vec![],
-	))
-	.expect("Prune failed");
+	let at = HashAndNumber {
+		hash: api.block_id_to_hash(&BlockId::Number(block_num)).unwrap().unwrap(),
+		number: block_num,
+	};
+	block_on(pool.prune_tags(&at, tags, vec![]));
 
 	// pool is empty
 	assert_eq!(pool.validated_pool().status().ready, 0);
@@ -186,14 +197,22 @@ fn benchmark_main(c: &mut Criterion) {
 	c.bench_function("sequential 50 tx", |b| {
 		b.iter(|| {
 			let api = Arc::from(TestApi::new_dependant());
-			bench_configured(Pool::new(Default::default(), true.into(), api.clone()), 50, api);
+			bench_configured(
+				Pool::new_with_staticly_sized_rotator(Default::default(), true.into(), api.clone()),
+				50,
+				api,
+			);
 		});
 	});
 
 	c.bench_function("random 100 tx", |b| {
 		b.iter(|| {
 			let api = Arc::from(TestApi::default());
-			bench_configured(Pool::new(Default::default(), true.into(), api.clone()), 100, api);
+			bench_configured(
+				Pool::new_with_staticly_sized_rotator(Default::default(), true.into(), api.clone()),
+				100,
+				api,
+			);
 		});
 	});
 }

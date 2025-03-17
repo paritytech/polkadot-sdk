@@ -18,10 +18,7 @@
 //! availability.
 
 use std::{
-	collections::{
-		hash_map::{Entry, HashMap},
-		hash_set::HashSet,
-	},
+	collections::{hash_map::HashMap, hash_set::HashSet},
 	iter::IntoIterator,
 	pin::Pin,
 };
@@ -32,13 +29,16 @@ use futures::{
 	Stream,
 };
 
+use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{ChainApiMessage, RuntimeApiMessage},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
-use polkadot_node_subsystem_util::runtime::{get_occupied_cores, RuntimeInfo};
-use polkadot_primitives::{CandidateHash, Hash, OccupiedCore, SessionIndex};
+use polkadot_node_subsystem_util::{
+	availability_chunks::availability_chunk_index,
+	runtime::{get_occupied_cores, RuntimeInfo},
+};
+use polkadot_primitives::{vstaging::OccupiedCore, CandidateHash, CoreIndex, Hash, SessionIndex};
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
 
@@ -77,6 +77,9 @@ pub struct Requester {
 
 	/// Prometheus Metrics
 	metrics: Metrics,
+
+	/// Mapping of the req-response protocols to the full protocol names.
+	req_protocol_names: ReqProtocolNames,
 }
 
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
@@ -88,9 +91,16 @@ impl Requester {
 	///
 	/// You must feed it with `ActiveLeavesUpdate` via `update_fetching_heads` and make it progress
 	/// by advancing the stream.
-	pub fn new(metrics: Metrics) -> Self {
+	pub fn new(req_protocol_names: ReqProtocolNames, metrics: Metrics) -> Self {
 		let (tx, rx) = mpsc::channel(1);
-		Requester { fetches: HashMap::new(), session_cache: SessionCache::new(), tx, rx, metrics }
+		Requester {
+			fetches: HashMap::new(),
+			session_cache: SessionCache::new(),
+			tx,
+			rx,
+			metrics,
+			req_protocol_names,
+		}
 	}
 
 	/// Update heads that need availability distribution.
@@ -101,21 +111,13 @@ impl Requester {
 		ctx: &mut Context,
 		runtime: &mut RuntimeInfo,
 		update: ActiveLeavesUpdate,
-		spans: &HashMap<Hash, jaeger::PerLeafSpan>,
 	) -> Result<()> {
 		gum::trace!(target: LOG_TARGET, ?update, "Update fetching heads");
 		let ActiveLeavesUpdate { activated, deactivated } = update;
 		if let Some(leaf) = activated {
-			let span = spans
-				.get(&leaf.hash)
-				.map(|span| span.child("update-fetching-heads"))
-				.unwrap_or_else(|| jaeger::Span::new(&leaf.hash, "update-fetching-heads"))
-				.with_string_tag("leaf", format!("{:?}", leaf.hash))
-				.with_stage(jaeger::Stage::AvailabilityDistribution);
-
 			// Order important! We need to handle activated, prior to deactivated, otherwise we
 			// might cancel still needed jobs.
-			self.start_requesting_chunks(ctx, runtime, leaf, &span).await?;
+			self.start_requesting_chunks(ctx, runtime, leaf).await?;
 		}
 
 		self.stop_requesting_chunks(deactivated.into_iter());
@@ -131,13 +133,7 @@ impl Requester {
 		ctx: &mut Context,
 		runtime: &mut RuntimeInfo,
 		new_head: ActivatedLeaf,
-		span: &jaeger::Span,
 	) -> Result<()> {
-		let mut span = span
-			.child("request-chunks-new-head")
-			.with_string_tag("leaf", format!("{:?}", new_head.hash))
-			.with_stage(jaeger::Stage::AvailabilityDistribution);
-
 		let sender = &mut ctx.sender().clone();
 		let ActivatedLeaf { hash: leaf, .. } = new_head;
 		let (leaf_session_index, ancestors_in_session) = get_block_ancestors_in_same_session(
@@ -147,15 +143,9 @@ impl Requester {
 			Self::LEAF_ANCESTRY_LEN_WITHIN_SESSION,
 		)
 		.await?;
-		span.add_uint_tag("ancestors-in-session", ancestors_in_session.len() as u64);
 
 		// Also spawn or bump tasks for candidates in ancestry in the same session.
 		for hash in std::iter::once(leaf).chain(ancestors_in_session) {
-			let span = span
-				.child("request-chunks-ancestor")
-				.with_string_tag("leaf", format!("{:?}", hash.clone()))
-				.with_stage(jaeger::Stage::AvailabilityDistribution);
-
 			let cores = get_occupied_cores(sender, hash).await?;
 			gum::trace!(
 				target: LOG_TARGET,
@@ -169,7 +159,7 @@ impl Requester {
 			// The next time the subsystem receives leaf update, some of spawned task will be bumped
 			// to be live in fresh relay parent, while some might get dropped due to the current
 			// leaf being deactivated.
-			self.add_cores(ctx, runtime, leaf, leaf_session_index, cores, span).await?;
+			self.add_cores(ctx, runtime, leaf, leaf_session_index, cores).await?;
 		}
 
 		Ok(())
@@ -197,56 +187,65 @@ impl Requester {
 		runtime: &mut RuntimeInfo,
 		leaf: Hash,
 		leaf_session_index: SessionIndex,
-		cores: impl IntoIterator<Item = OccupiedCore>,
-		span: jaeger::Span,
+		cores: impl IntoIterator<Item = (CoreIndex, OccupiedCore)>,
 	) -> Result<()> {
-		for core in cores {
-			let mut span = span
-				.child("check-fetch-candidate")
-				.with_trace_id(core.candidate_hash)
-				.with_string_tag("leaf", format!("{:?}", leaf))
-				.with_candidate(core.candidate_hash)
-				.with_stage(jaeger::Stage::AvailabilityDistribution);
-			match self.fetches.entry(core.candidate_hash) {
-				Entry::Occupied(mut e) =>
+		for (core_index, core) in cores {
+			if let Some(e) = self.fetches.get_mut(&core.candidate_hash) {
 				// Just book keeping - we are already requesting that chunk:
-				{
-					span.add_string_tag("already-requested-chunk", "true");
-					e.get_mut().add_leaf(leaf);
-				},
-				Entry::Vacant(e) => {
-					span.add_string_tag("already-requested-chunk", "false");
-					let tx = self.tx.clone();
-					let metrics = self.metrics.clone();
+				e.add_leaf(leaf);
+			} else {
+				let tx = self.tx.clone();
+				let metrics = self.metrics.clone();
 
-					let task_cfg = self
-						.session_cache
-						.with_session_info(
-							context,
-							runtime,
-							// We use leaf here, the relay_parent must be in the same session as
-							// the leaf. This is guaranteed by runtime which ensures that cores are
-							// cleared at session boundaries. At the same time, only leaves are
-							// guaranteed to be fetchable by the state trie.
-							leaf,
-							leaf_session_index,
-							|info| FetchTaskConfig::new(leaf, &core, tx, metrics, info, span),
-						)
-						.await
-						.map_err(|err| {
-							gum::warn!(
-								target: LOG_TARGET,
-								error = ?err,
-								"Failed to spawn a fetch task"
-							);
-							err
+				let session_info = self
+					.session_cache
+					.get_session_info(
+						context,
+						runtime,
+						// We use leaf here, the relay_parent must be in the same session as
+						// the leaf. This is guaranteed by runtime which ensures that cores are
+						// cleared at session boundaries. At the same time, only leaves are
+						// guaranteed to be fetchable by the state trie.
+						leaf,
+						leaf_session_index,
+					)
+					.await
+					.map_err(|err| {
+						gum::warn!(
+							target: LOG_TARGET,
+							error = ?err,
+							"Failed to spawn a fetch task"
+						);
+						err
+					})?;
+
+				if let Some(session_info) = session_info {
+					let n_validators =
+						session_info.validator_groups.iter().fold(0usize, |mut acc, group| {
+							acc = acc.saturating_add(group.len());
+							acc
 						});
+					let chunk_index = availability_chunk_index(
+						session_info.node_features.as_ref(),
+						n_validators,
+						core_index,
+						session_info.our_index,
+					)?;
 
-					if let Ok(Some(task_cfg)) = task_cfg {
-						e.insert(FetchTask::start(task_cfg, context).await?);
-					}
-					// Not a validator, nothing to do.
-				},
+					let task_cfg = FetchTaskConfig::new(
+						leaf,
+						&core,
+						tx,
+						metrics,
+						session_info,
+						chunk_index,
+						self.req_protocol_names.get_name(v1::ChunkFetchingRequest::PROTOCOL),
+						self.req_protocol_names.get_name(v2::ChunkFetchingRequest::PROTOCOL),
+					);
+
+					self.fetches
+						.insert(core.candidate_hash, FetchTask::start(task_cfg, context).await?);
+				}
 			}
 		}
 		Ok(())

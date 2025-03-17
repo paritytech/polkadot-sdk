@@ -14,13 +14,13 @@
 // limitations under the License.
 
 use crate::impls::AccountIdOf;
+use core::marker::PhantomData;
 use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
 	traits::{fungibles::Inspect, tokens::ConversionToAssetBalance, Contains, ContainsPair},
 	weights::Weight,
 };
 use sp_runtime::traits::Get;
-use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
 /// A `ChargeFeeInFungibles` implementation that converts the output of
@@ -45,8 +45,6 @@ where
 		<Runtime as pallet_assets::Config<AssetInstance>>::AssetId,
 		<Runtime as pallet_assets::Config<AssetInstance>>::Balance,
 	>,
-	AccountIdOf<Runtime>:
-		From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 {
 	fn charge_weight_in_fungibles(
 		asset_id: <pallet_assets::Pallet<Runtime, AssetInstance> as Inspect<

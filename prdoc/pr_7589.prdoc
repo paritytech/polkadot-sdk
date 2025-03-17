@@ -1,0 +1,8 @@
+title: '[pallet-revive] rpc add --earliest-receipt-block'
+doc:
+- audience: Runtime Dev
+  description: "Add a cli option to skip searching receipts for blocks older than\
+    \ the specified limit\r\n"
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

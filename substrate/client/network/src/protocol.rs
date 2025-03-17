@@ -18,46 +18,42 @@
 
 use crate::{
 	config, error,
-	peer_store::{PeerStoreHandle, PeerStoreProvider},
+	peer_store::PeerStoreProvider,
 	protocol_controller::{self, SetId},
-	service::traits::Direction,
+	service::{metrics::NotificationMetrics, traits::Direction},
 	types::ProtocolName,
 };
 
 use codec::Encode;
 use libp2p::{
-	core::Endpoint,
+	core::{transport::PortUse, Endpoint},
 	swarm::{
-		behaviour::FromSwarm, ConnectionDenied, ConnectionId, NetworkBehaviour, PollParameters,
-		THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
+		behaviour::FromSwarm, ConnectionDenied, ConnectionId, NetworkBehaviour, THandler,
+		THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
 	Multiaddr, PeerId,
 };
-use log::warn;
+use log::{debug, warn};
 
 use codec::DecodeAll;
-use prometheus_endpoint::Registry;
-use sc_network_common::role::Roles;
+use sc_network_common::{role::Roles, types::ReputationChange};
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::Block as BlockT;
 
-use std::{collections::HashSet, iter, task::Poll};
+use std::{collections::HashSet, iter, sync::Arc, task::Poll};
 
-use notifications::{metrics, Notifications, NotificationsOut};
+use notifications::{Notifications, NotificationsOut};
 
 pub(crate) use notifications::ProtocolHandle;
 
-pub use notifications::{
-	notification_service, NotificationsSink, NotifsHandlerError, ProtocolHandlePair, Ready,
-};
+pub use notifications::{notification_service, NotificationsSink, ProtocolHandlePair, Ready};
 
 mod notifications;
 
 pub mod message;
 
-/// Maximum size used for notifications in the block announce and transaction protocols.
-// Must be equal to `max(MAX_BLOCK_ANNOUNCE_SIZE, MAX_TRANSACTIONS_SIZE)`.
-pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = 16 * 1024 * 1024;
+// Log target for this file.
+const LOG_TARGET: &str = "sub-libp2p";
 
 /// Identifier of the peerset for the block announces protocol.
 const HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
@@ -69,7 +65,7 @@ pub struct Protocol<B: BlockT> {
 	/// List of notifications protocols that have been registered.
 	notification_protocols: Vec<ProtocolName>,
 	/// Handle to `PeerStore`.
-	peer_store_handle: PeerStoreHandle,
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
 	/// Streams for peers whose handshake couldn't be determined.
 	bad_handshake_streams: HashSet<PeerId>,
 	sync_handle: ProtocolHandle,
@@ -80,10 +76,10 @@ impl<B: BlockT> Protocol<B> {
 	/// Create a new instance.
 	pub(crate) fn new(
 		roles: Roles,
-		registry: &Option<Registry>,
+		notification_metrics: NotificationMetrics,
 		notification_protocols: Vec<config::NonDefaultSetConfig>,
 		block_announces_protocol: config::NonDefaultSetConfig,
-		peer_store_handle: PeerStoreHandle,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
 		protocol_controller_handles: Vec<protocol_controller::ProtocolHandle>,
 		from_protocol_controllers: TracingUnboundedReceiver<protocol_controller::Message>,
 	) -> error::Result<(Self, Vec<ProtocolHandle>)> {
@@ -122,16 +118,19 @@ impl<B: BlockT> Protocol<B> {
 			}))
 			.unzip();
 
-			let metrics = registry.as_ref().and_then(|registry| metrics::register(&registry).ok());
 			handles.iter_mut().for_each(|handle| {
-				handle.set_metrics(metrics.clone());
+				handle.set_metrics(notification_metrics.clone());
+			});
+
+			protocol_configs.iter().enumerate().for_each(|(i, (p, _, _))| {
+				debug!(target: LOG_TARGET, "Notifications protocol {:?}: {}", SetId::from(i), p.name);
 			});
 
 			(
 				Notifications::new(
 					protocol_controller_handles,
 					from_protocol_controllers,
-					metrics,
+					notification_metrics,
 					protocol_configs.into_iter(),
 				),
 				installed_protocols,
@@ -165,12 +164,9 @@ impl<B: BlockT> Protocol<B> {
 	pub fn disconnect_peer(&mut self, peer_id: &PeerId, protocol_name: ProtocolName) {
 		if let Some(position) = self.notification_protocols.iter().position(|p| *p == protocol_name)
 		{
-			// Note: no need to remove a peer from `self.peers` if we are dealing with sync
-			// protocol, because it will be done when handling
-			// `NotificationsOut::CustomProtocolClosed`.
 			self.behaviour.disconnect_peer(peer_id, SetId::from(position));
 		} else {
-			warn!(target: "sub-libp2p", "disconnect_peer() with invalid protocol name")
+			warn!(target: LOG_TARGET, "disconnect_peer() with invalid protocol name")
 		}
 	}
 
@@ -179,7 +175,7 @@ impl<B: BlockT> Protocol<B> {
 	fn role_available(&self, peer_id: &PeerId, handshake: &Vec<u8>) -> bool {
 		match Roles::decode_all(&mut &handshake[..]) {
 			Ok(_) => true,
-			Err(_) => self.peer_store_handle.peer_role(&peer_id).is_some(),
+			Err(_) => self.peer_store_handle.peer_role(&((*peer_id).into())).is_some(),
 		}
 	}
 }
@@ -231,7 +227,7 @@ pub enum CustomMessageOutcome {
 
 impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 	type ConnectionHandler = <Notifications as NetworkBehaviour>::ConnectionHandler;
-	type OutEvent = CustomMessageOutcome;
+	type ToSwarm = CustomMessageOutcome;
 
 	fn handle_established_inbound_connection(
 		&mut self,
@@ -254,12 +250,14 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 		peer: PeerId,
 		addr: &Multiaddr,
 		role_override: Endpoint,
+		port_use: PortUse,
 	) -> Result<THandler<Self>, ConnectionDenied> {
 		self.behaviour.handle_established_outbound_connection(
 			connection_id,
 			peer,
 			addr,
 			role_override,
+			port_use,
 		)
 	}
 
@@ -275,7 +273,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 		Ok(Vec::new())
 	}
 
-	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+	fn on_swarm_event(&mut self, event: FromSwarm) {
 		self.behaviour.on_swarm_event(event);
 	}
 
@@ -291,18 +289,15 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 	fn poll(
 		&mut self,
 		cx: &mut std::task::Context,
-		params: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
-		let event = match self.behaviour.poll(cx, params) {
+	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
+		let event = match self.behaviour.poll(cx) {
 			Poll::Pending => return Poll::Pending,
 			Poll::Ready(ToSwarm::GenerateEvent(ev)) => ev,
-			Poll::Ready(ToSwarm::Dial { opts }) => return Poll::Ready(ToSwarm::Dial { opts }),
-			Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }) =>
-				return Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }),
-			Poll::Ready(ToSwarm::ReportObservedAddr { address, score }) =>
-				return Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
-			Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }) =>
-				return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+			Poll::Ready(event) => {
+				return Poll::Ready(event.map_out(|_| {
+					unreachable!("`GenerateEvent` is handled in a branch above; qed")
+				}));
+			},
 		};
 
 		let outcome = match event {
@@ -380,6 +375,27 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 						},
 					)
 				}
+			},
+
+			NotificationsOut::ProtocolMisbehavior { peer_id, set_id } => {
+				let index: usize = set_id.into();
+				let protocol_name = self.notification_protocols.get(index);
+
+				debug!(
+					target: LOG_TARGET,
+					"Received unexpected data on outbound notification stream from peer {:?} on protocol {:?}",
+					peer_id,
+					protocol_name
+				);
+
+				self.peer_store_handle.report_peer(
+					peer_id.into(),
+					ReputationChange::new_fatal(
+						"Received unexpected data on outbound notification stream",
+					),
+				);
+
+				None
 			},
 		};
 

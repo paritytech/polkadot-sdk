@@ -17,10 +17,16 @@
 
 use super::*;
 use crate::{self as pools};
-use frame_support::{assert_ok, derive_impl, parameter_types, traits::fungible::Mutate, PalletId};
-use frame_system::RawOrigin;
-use sp_runtime::{BuildStorage, FixedU128};
-use sp_staking::{OnStakingUpdate, Stake};
+use frame_support::{
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
+	traits::{fungible::Mutate, VariantCountOf},
+	PalletId,
+};
+use frame_system::{EnsureSignedBy, RawOrigin};
+use sp_runtime::{BuildStorage, DispatchResult, FixedU128};
+use sp_staking::{
+	Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate, Stake,
+};
 
 pub type BlockNumber = u64;
 pub type AccountId = u128;
@@ -33,12 +39,12 @@ pub type Currency = <T as Config>::Currency;
 
 // Ext builder creates a pool with id 1.
 pub fn default_bonded_account() -> AccountId {
-	Pools::create_bonded_account(1)
+	Pools::generate_bonded_account(1)
 }
 
 // Ext builder creates a pool with id 1.
 pub fn default_reward_account() -> AccountId {
-	Pools::create_reward_account(1)
+	Pools::generate_reward_account(1)
 }
 
 parameter_types! {
@@ -52,6 +58,7 @@ parameter_types! {
 	pub static MaxUnbonding: u32 = 8;
 	pub static StakingMinBond: Balance = 10;
 	pub storage Nominations: Option<Vec<AccountId>> = None;
+	pub static RestrictedAccounts: Vec<AccountId> = Vec::new();
 }
 pub struct StakingMock;
 
@@ -68,10 +75,11 @@ impl StakingMock {
 	/// Does not modify any [`SubPools`] of the pool as [`Default::default`] is passed for
 	/// `slashed_unlocking`.
 	pub fn slash_by(pool_id: PoolId, amount: Balance) {
-		let acc = Pools::create_bonded_account(pool_id);
+		let acc = Pools::generate_bonded_account(pool_id);
 		let bonded = BondedBalanceMap::get();
 		let pre_total = bonded.get(&acc).unwrap();
 		Self::set_bonded_balance(acc, pre_total - amount);
+		DelegateMock::on_slash(acc, amount);
 		Pools::on_slash(&acc, pre_total - amount, &Default::default(), amount);
 	}
 }
@@ -108,6 +116,10 @@ impl sp_staking::StakingInterface for StakingMock {
 			.ok_or(DispatchError::Other("NotStash"))
 	}
 
+	fn is_virtual_staker(who: &Self::AccountId) -> bool {
+		AgentBalanceMap::get().contains_key(who)
+	}
+
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
 		let mut x = BondedBalanceMap::get();
 		x.get_mut(who).map(|v| *v += extra);
@@ -126,6 +138,10 @@ impl sp_staking::StakingInterface for StakingMock {
 		y.entry(*who).or_insert(Default::default()).push((unlocking_at, amount));
 		UnbondingBalanceMap::set(&y);
 		Ok(())
+	}
+
+	fn set_payee(_stash: &Self::AccountId, _reward_acc: &Self::AccountId) -> DispatchResult {
+		unimplemented!("method currently not used in testing")
 	}
 
 	fn chill(_: &Self::AccountId) -> sp_runtime::DispatchResult {
@@ -150,10 +166,13 @@ impl sp_staking::StakingInterface for StakingMock {
 		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
 
 		// if there was a withdrawal, notify the pallet.
-		Pools::on_withdraw(&who, unlocking_before.saturating_sub(unlocking(&staker_map)));
+		let withdraw_amount = unlocking_before.saturating_sub(unlocking(&staker_map));
+		Pools::on_withdraw(&who, withdraw_amount);
+		DelegateMock::on_withdraw(who, withdraw_amount);
 
 		UnbondingBalanceMap::set(&unbonding_map);
-		Ok(UnbondingBalanceMap::get().is_empty() && BondedBalanceMap::get().is_empty())
+		Ok(UnbondingBalanceMap::get().get(&who).unwrap().is_empty() &&
+			BondedBalanceMap::get().get(&who).unwrap().is_zero())
 	}
 
 	fn bond(stash: &Self::AccountId, value: Self::Balance, _: &Self::AccountId) -> DispatchResult {
@@ -220,53 +239,203 @@ impl sp_staking::StakingInterface for StakingMock {
 	fn max_exposure_page_size() -> sp_staking::Page {
 		unimplemented!("method currently not used in testing")
 	}
+
+	fn slash_reward_fraction() -> Perbill {
+		unimplemented!("method currently not used in testing")
+	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+parameter_types! {
+	// Map of agent to their (delegated balance, unclaimed withdrawal, pending slash).
+	pub storage AgentBalanceMap: BTreeMap<AccountId, (Balance, Balance, Balance)> = Default::default();
+	pub storage DelegatorBalanceMap: BTreeMap<AccountId, Balance> = Default::default();
+}
+pub struct DelegateMock;
+impl DelegationInterface for DelegateMock {
+	type Balance = Balance;
+	type AccountId = AccountId;
+	fn agent_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
+		AgentBalanceMap::get()
+			.get(&agent.get())
+			.copied()
+			.map(|(delegated, _, pending)| delegated - pending)
+	}
+
+	fn agent_transferable_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
+		AgentBalanceMap::get()
+			.get(&agent.get())
+			.copied()
+			.map(|(_, unclaimed_withdrawals, _)| unclaimed_withdrawals)
+	}
+
+	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance> {
+		DelegatorBalanceMap::get().get(&delegator.get()).copied()
+	}
+
+	fn register_agent(
+		agent: Agent<Self::AccountId>,
+		_reward_account: &Self::AccountId,
+	) -> DispatchResult {
+		let mut agents = AgentBalanceMap::get();
+		agents.insert(agent.get(), (0, 0, 0));
+		AgentBalanceMap::set(&agents);
+		Ok(())
+	}
+
+	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult {
+		let mut agents = AgentBalanceMap::get();
+		let agent = agent.get();
+		assert!(agents.contains_key(&agent));
+		agents.remove(&agent);
+		AgentBalanceMap::set(&agents);
+		Ok(())
+	}
+
+	fn delegate(
+		delegator: Delegator<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		let delegator = delegator.get();
+		let mut delegators = DelegatorBalanceMap::get();
+		delegators.entry(delegator).and_modify(|b| *b += amount).or_insert(amount);
+		DelegatorBalanceMap::set(&delegators);
+
+		let agent = agent.get();
+		let mut agents = AgentBalanceMap::get();
+		agents
+			.get_mut(&agent)
+			.map(|(d, _, _)| *d += amount)
+			.ok_or(DispatchError::Other("agent not registered"))?;
+		AgentBalanceMap::set(&agents);
+
+		if BondedBalanceMap::get().contains_key(&agent) {
+			StakingMock::bond_extra(&agent, amount)
+		} else {
+			// reward account does not matter in this context.
+			StakingMock::bond(&agent, amount, &999)
+		}
+	}
+
+	fn withdraw_delegation(
+		delegator: Delegator<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
+		amount: Self::Balance,
+		_num_slashing_spans: u32,
+	) -> DispatchResult {
+		let mut delegators = DelegatorBalanceMap::get();
+		delegators.get_mut(&delegator.get()).map(|b| *b -= amount);
+		DelegatorBalanceMap::set(&delegators);
+
+		let mut agents = AgentBalanceMap::get();
+		agents.get_mut(&agent.get()).map(|(d, u, _)| {
+			*d -= amount;
+			*u -= amount;
+		});
+		AgentBalanceMap::set(&agents);
+
+		Ok(())
+	}
+
+	fn pending_slash(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
+		AgentBalanceMap::get()
+			.get(&agent.get())
+			.copied()
+			.map(|(_, _, pending_slash)| pending_slash)
+	}
+
+	fn delegator_slash(
+		agent: Agent<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
+		value: Self::Balance,
+		_maybe_reporter: Option<Self::AccountId>,
+	) -> DispatchResult {
+		let mut delegators = DelegatorBalanceMap::get();
+		delegators.get_mut(&delegator.get()).map(|b| *b -= value);
+		DelegatorBalanceMap::set(&delegators);
+
+		let mut agents = AgentBalanceMap::get();
+		agents.get_mut(&agent.get()).map(|(_, _, p)| {
+			p.saturating_reduce(value);
+		});
+		AgentBalanceMap::set(&agents);
+
+		Ok(())
+	}
+}
+
+impl DelegateMock {
+	pub fn set_agent_balance(who: AccountId, delegated: Balance) {
+		let mut agents = AgentBalanceMap::get();
+		agents.insert(who, (delegated, 0, 0));
+		AgentBalanceMap::set(&agents);
+	}
+
+	pub fn set_delegator_balance(who: AccountId, amount: Balance) {
+		let mut delegators = DelegatorBalanceMap::get();
+		delegators.insert(who, amount);
+		DelegatorBalanceMap::set(&delegators);
+	}
+
+	pub fn on_slash(agent: AccountId, amount: Balance) {
+		let mut agents = AgentBalanceMap::get();
+		agents.get_mut(&agent).map(|(_, _, p)| *p += amount);
+		AgentBalanceMap::set(&agents);
+	}
+
+	fn on_withdraw(agent: AccountId, amount: Balance) {
+		let mut agents = AgentBalanceMap::get();
+		// if agent exists, add the amount to unclaimed withdrawals.
+		agents.get_mut(&agent).map(|(_, u, _)| *u += amount);
+		AgentBalanceMap::set(&agents);
+	}
+}
+
+impl DelegationMigrator for DelegateMock {
+	type Balance = Balance;
+	type AccountId = AccountId;
+	fn migrate_nominator_to_agent(
+		_agent: Agent<Self::AccountId>,
+		_reward_account: &Self::AccountId,
+	) -> DispatchResult {
+		unimplemented!("not used in current unit tests")
+	}
+
+	fn migrate_delegation(
+		_agent: Agent<Self::AccountId>,
+		_delegator: Delegator<Self::AccountId>,
+		_value: Self::Balance,
+	) -> DispatchResult {
+		unimplemented!("not used in current unit tests")
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn force_kill_agent(_agent: Agent<Self::AccountId>) {
+		unimplemented!("not used in current unit tests")
+	}
+}
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SS58Prefix = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = sp_core::H256;
-	type Hashing = sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type DbWeight = ();
-	type BlockLength = ();
-	type BlockWeights = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
 	pub static ExistentialDeposit: Balance = 5;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = frame_support::traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 pub struct BalanceToU256;
@@ -283,12 +452,24 @@ impl Convert<U256, Balance> for U256ToBalance {
 	}
 }
 
+pub struct RestrictMock;
+impl Contains<AccountId> for RestrictMock {
+	fn contains(who: &AccountId) -> bool {
+		RestrictedAccounts::get().contains(who)
+	}
+}
+
 parameter_types! {
 	pub static PostUnbondingPoolsWindow: u32 = 2;
 	pub static MaxMetadataLen: u32 = 2;
 	pub static CheckLevel: u8 = 255;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 }
+
+ord_parameter_types! {
+	pub const Admin: u128 = 42;
+}
+
 impl pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -297,12 +478,15 @@ impl pools::Config for Runtime {
 	type RewardCounter = RewardCounter;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = StakingMock;
+	type StakeAdapter = adapter::DelegateStake<Self, StakingMock, DelegateMock>;
 	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = MaxMetadataLen;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
+	type AdminOrigin = EnsureSignedBy<Admin, AccountId>;
+	type BlockNumberProvider = System;
+	type Filter = RestrictMock;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -436,18 +620,7 @@ parameter_types! {
 /// Helper to run a specified amount of blocks.
 pub fn run_blocks(n: u64) {
 	let current_block = System::block_number();
-	run_to_block(n + current_block);
-}
-
-/// Helper to run to a specific block.
-pub fn run_to_block(n: u64) {
-	let current_block = System::block_number();
-	assert!(n > current_block);
-	while System::block_number() < n {
-		Pools::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		Pools::on_initialize(System::block_number());
-	}
+	System::run_to_block::<AllPalletsWithSystem>(n + current_block);
 }
 
 /// All events of this pallet.
@@ -532,6 +705,31 @@ pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
 	} else {
 		RewardImbalance::Surplus(current_balance - pending_rewards)
 	}
+}
+
+pub fn set_pool_balance(who: AccountId, amount: Balance) {
+	StakingMock::set_bonded_balance(who, amount);
+	DelegateMock::set_agent_balance(who, amount);
+}
+
+pub fn member_delegation(who: AccountId) -> Balance {
+	<T as Config>::StakeAdapter::member_delegation_balance(Member::from(who))
+		.expect("who must be a pool member")
+}
+
+pub fn pool_balance(id: PoolId) -> Balance {
+	<T as Config>::StakeAdapter::total_balance(Pool::from(Pools::generate_bonded_account(id)))
+		.expect("who must be a bonded pool account")
+}
+
+pub fn add_to_restrict_list(who: &AccountId) {
+	if !RestrictedAccounts::get().contains(who) {
+		RestrictedAccounts::mutate(|l| l.push(*who));
+	}
+}
+
+pub fn remove_from_restrict_list(who: &AccountId) {
+	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
 }
 
 #[cfg(test)]

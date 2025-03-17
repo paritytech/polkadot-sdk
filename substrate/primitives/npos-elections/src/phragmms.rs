@@ -25,8 +25,8 @@ use crate::{
 	balance, setup_inputs, BalancingConfig, CandidatePtr, ElectionResult, ExtendedBalance,
 	IdentifierT, PerThing128, VoteWeight, Voter,
 };
+use alloc::{rc::Rc, vec, vec::Vec};
 use sp_arithmetic::{traits::Bounded, PerThing, Rational128};
-use sp_std::{prelude::*, rc::Rc};
 
 /// Execute the phragmms method.
 ///
@@ -71,7 +71,7 @@ pub fn phragmms<AccountId: IdentifierT, P: PerThing128>(
 	let _ = assignments
 		.iter_mut()
 		.try_for_each(|a| a.try_normalize())
-		.map_err(crate::Error::ArithmeticError)?;
+		.map_err(|_| crate::Error::ArithmeticError)?;
 	let winners = winners
 		.into_iter()
 		.map(|w_ptr| (w_ptr.borrow().who.clone(), w_ptr.borrow().backed_stake))
@@ -232,8 +232,8 @@ pub(crate) fn apply_elected<AccountId: IdentifierT>(
 mod tests {
 	use super::*;
 	use crate::{Assignment, ElectionResult};
+	use alloc::rc::Rc;
 	use sp_runtime::{Perbill, Percent};
-	use sp_std::rc::Rc;
 
 	#[test]
 	fn basic_election_manual_works() {

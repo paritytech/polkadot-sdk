@@ -1,0 +1,10 @@
+title: Added support for coretime-kusama/polkadot and people-kusama/polkadot
+
+doc:
+  - audience: Node Operator
+    description: |
+      The support for running `coretime-kusama` and `people-kusama` collators with `polkadot-parachain-bin` have been added.
+
+crates:
+- name: polkadot-parachain-bin
+  bump: minor

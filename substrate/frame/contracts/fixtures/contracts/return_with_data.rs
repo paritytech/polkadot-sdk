@@ -38,6 +38,10 @@ pub extern "C" fn call() {
 		output: [u8],
 	);
 
+	// Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we
+	// need to read its size first.
+	api::clear_storage_v1(b"");
+
 	let exit_status = uapi::ReturnFlags::from_bits(exit_status[0] as u32).unwrap();
 	api::return_value(exit_status, output);
 }

@@ -2,9 +2,10 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Types for representing inbound messages
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
+use snowbridge_beacon_primitives::{BeaconHeader, ExecutionProof};
 use sp_core::{H160, H256};
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
@@ -14,7 +15,7 @@ pub trait Verifier {
 	fn verify(event: &Log, proof: &Proof) -> Result<(), VerificationError>;
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, PalletError, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PalletError, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum VerificationError {
 	/// Execution header is missing
@@ -25,12 +26,14 @@ pub enum VerificationError {
 	InvalidLog,
 	/// Unable to verify the transaction receipt with the provided proof
 	InvalidProof,
+	/// Unable to verify the execution header with ancestry proof
+	InvalidExecutionProof(#[codec(skip)] &'static str),
 }
 
 pub type MessageNonce = u64;
 
 /// A bridge message from the Gateway contract on Ethereum
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Message {
 	/// Event log emitted by Gateway contract
 	pub event_log: Log,
@@ -46,7 +49,7 @@ pub enum LogValidationError {
 }
 
 /// Event log
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Log {
 	pub address: H160,
 	pub topics: Vec<H256>,
@@ -63,12 +66,17 @@ impl Log {
 }
 
 /// Inclusion proof for a transaction receipt
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Proof {
-	// The block hash of the block in which the receipt was included.
-	pub block_hash: H256,
-	// The index of the transaction (and receipt) within the block.
-	pub tx_index: u32,
 	// Proof keys and values (receipts tree)
-	pub data: (Vec<Vec<u8>>, Vec<Vec<u8>>),
+	pub receipt_proof: (Vec<Vec<u8>>, Vec<Vec<u8>>),
+	// Proof that an execution header was finalized by the beacon chain
+	pub execution_proof: ExecutionProof,
+}
+
+#[derive(Clone, RuntimeDebug)]
+pub struct InboundQueueFixture {
+	pub message: Message,
+	pub finalized_header: BeaconHeader,
+	pub block_roots_root: H256,
 }

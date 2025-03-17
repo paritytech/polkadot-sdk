@@ -34,9 +34,9 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, DisputeStatement, ExecutorParams, Hash, IndexedVec,
-	SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorPair, ValidatorSignature,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, DisputeStatement,
+	ExecutorParams, Hash, IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 

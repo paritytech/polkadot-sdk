@@ -18,17 +18,17 @@
 
 //! Blockchain syncing implementation in Substrate.
 
+pub use schema::v1::*;
 pub use service::syncing_service::SyncingService;
-pub use strategy::warp::{WarpSyncParams, WarpSyncPhase, WarpSyncProgress};
+pub use strategy::warp::{WarpSyncConfig, WarpSyncPhase, WarpSyncProgress};
 pub use types::{SyncEvent, SyncEventStream, SyncState, SyncStatus, SyncStatusProvider};
 
 mod block_announce_validator;
 mod futures_stream;
 mod justification_requests;
 mod pending_responses;
-mod request_metrics;
 mod schema;
-mod types;
+pub mod types;
 
 pub mod block_relay_protocol;
 pub mod block_request_handler;

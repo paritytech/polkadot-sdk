@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! A pallet which uses the XCMP transport layer to handle both incoming and outgoing XCM message
 //! sending and dispatch, queuing, signalling and backpressure. To do so, it implements:
@@ -50,8 +50,11 @@ pub mod bridging;
 pub mod weights;
 pub use weights::WeightInfo;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use bounded_collections::BoundedBTreeSet;
-use codec::{Decode, DecodeLimit, Encode};
+use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
 	ParaId, XcmpMessageFormat, XcmpMessageHandler, XcmpMessageSource,
@@ -59,7 +62,7 @@ use cumulus_primitives_core::{
 
 use frame_support::{
 	defensive, defensive_assert,
-	traits::{EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
+	traits::{Defensive, EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
 	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
@@ -68,9 +71,9 @@ use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
-use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
-use sp_std::prelude::*;
-use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use sp_runtime::{FixedU128, RuntimeDebug, Saturating, WeakBoundedVec};
+use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use xcm_builder::InspectMessageQueues;
 use xcm_executor::traits::ConvertOrigin;
 
 pub use pallet::*;
@@ -105,7 +108,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -131,6 +133,25 @@ pub mod pallet {
 		/// [`InboundXcmpSuspended`] still applies at that scale.
 		#[pallet::constant]
 		type MaxInboundSuspended: Get<u32>;
+
+		/// Maximal number of outbound XCMP channels that can have messages queued at the same time.
+		///
+		/// If this is reached, then no further messages can be sent to channels that do not yet
+		/// have a message queued. This should be set to the expected maximum of outbound channels
+		/// which is determined by [`Self::ChannelInfo`]. It is important to set this large enough,
+		/// since otherwise the congestion control protocol will not work as intended and messages
+		/// may be dropped. This value increases the PoV and should therefore not be picked too
+		/// high. Governance needs to pay attention to not open more channels than this value.
+		#[pallet::constant]
+		type MaxActiveOutboundChannels: Get<u32>;
+
+		/// The maximal page size for HRMP message pages.
+		///
+		/// A lower limit can be set dynamically, but this is the hard-limit for the PoV worst case
+		/// benchmarking. The limit for the size of a message is slightly below this, since some
+		/// overhead is incurred for encoding the format.
+		#[pallet::constant]
+		type MaxPageSize: Get<u32>;
 
 		/// The origin that is allowed to resume or suspend the XCMP queue.
 		type ControllerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -276,6 +297,10 @@ pub mod pallet {
 		AlreadySuspended,
 		/// The execution is already resumed.
 		AlreadyResumed,
+		/// There are too many active outbound channels.
+		TooManyActiveOutboundChannels,
+		/// The message is too big.
+		TooBig,
 	}
 
 	/// The suspended inbound XCMP channels. All others are not suspended.
@@ -297,19 +322,28 @@ pub mod pallet {
 	/// case of the need to send a high-priority signal message this block.
 	/// The bool is true if there is a signal message waiting to be sent.
 	#[pallet::storage]
-	pub(super) type OutboundXcmpStatus<T: Config> =
-		StorageValue<_, Vec<OutboundChannelDetails>, ValueQuery>;
+	pub(super) type OutboundXcmpStatus<T: Config> = StorageValue<
+		_,
+		BoundedVec<OutboundChannelDetails, T::MaxActiveOutboundChannels>,
+		ValueQuery,
+	>;
 
-	// The new way of doing it:
 	/// The messages outbound in a given XCMP channel.
 	#[pallet::storage]
-	pub(super) type OutboundXcmpMessages<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, ParaId, Twox64Concat, u16, Vec<u8>, ValueQuery>;
+	pub(super) type OutboundXcmpMessages<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ParaId,
+		Twox64Concat,
+		u16,
+		WeakBoundedVec<u8, T::MaxPageSize>,
+		ValueQuery,
+	>;
 
 	/// Any signal messages waiting to be sent.
 	#[pallet::storage]
 	pub(super) type SignalMessages<T: Config> =
-		StorageMap<_, Blake2_128Concat, ParaId, Vec<u8>, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, ParaId, WeakBoundedVec<u8, T::MaxPageSize>, ValueQuery>;
 
 	/// The configuration which controls the dynamics of the outbound queue.
 	#[pallet::storage]
@@ -331,15 +365,14 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum OutboundState {
 	Ok,
 	Suspended,
 }
 
 /// Struct containing detailed information about the outbound channel.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug, MaxEncodedLen)]
 pub struct OutboundChannelDetails {
 	/// The `ParaId` of the parachain that this channel is connected with.
 	recipient: ParaId,
@@ -375,7 +408,7 @@ impl OutboundChannelDetails {
 	}
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct QueueConfigData {
 	/// The number of pages which must be in the queue for the other side to be told to suspend
 	/// their sending.
@@ -460,9 +493,9 @@ impl<T: Config> Pallet<T> {
 		let channel_info =
 			T::ChannelInfo::get_channel_info(recipient).ok_or(MessageSendError::NoChannel)?;
 		// Max message size refers to aggregates, or pages. Not to individual fragments.
-		let max_message_size = channel_info.max_message_size as usize;
+		let max_message_size = channel_info.max_message_size.min(T::MaxPageSize::get()) as usize;
 		let format_size = format.encoded_size();
-		// We check the encoded fragment length plus the format size agains the max message size
+		// We check the encoded fragment length plus the format size against the max message size
 		// because the format is concatenated if a new page is needed.
 		let size_to_check = encoded_fragment
 			.len()
@@ -478,7 +511,10 @@ impl<T: Config> Pallet<T> {
 		{
 			details
 		} else {
-			all_channels.push(OutboundChannelDetails::new(recipient));
+			all_channels.try_push(OutboundChannelDetails::new(recipient)).map_err(|e| {
+				log::error!("Failed to activate HRMP channel: {:?}", e);
+				MessageSendError::TooManyChannels
+			})?;
 			all_channels
 				.last_mut()
 				.expect("can't be empty; a new element was just pushed; qed")
@@ -488,25 +524,24 @@ impl<T: Config> Pallet<T> {
 		// We return the size of the last page inside of the option, to not calculate it again.
 		let appended_to_last_page = have_active
 			.then(|| {
-				<OutboundXcmpMessages<T>>::mutate(
+				<OutboundXcmpMessages<T>>::try_mutate(
 					recipient,
 					channel_details.last_index - 1,
 					|page| {
-						if XcmpMessageFormat::decode_with_depth_limit(
-							MAX_XCM_DECODE_DEPTH,
-							&mut &page[..],
-						) != Ok(format)
-						{
+						if XcmpMessageFormat::decode(&mut &page[..]) != Ok(format) {
 							defensive!("Bad format in outbound queue; dropping message");
-							return None
+							return Err(())
 						}
 						if page.len() + encoded_fragment.len() > max_message_size {
-							return None
+							return Err(())
 						}
-						page.extend_from_slice(&encoded_fragment[..]);
-						Some(page.len())
+						for frag in encoded_fragment.iter() {
+							page.try_push(*frag)?;
+						}
+						Ok(page.len())
 					},
 				)
+				.ok()
 			})
 			.flatten();
 
@@ -521,7 +556,10 @@ impl<T: Config> Pallet<T> {
 			new_page.extend_from_slice(&encoded_fragment[..]);
 			let last_page_size = new_page.len();
 			let number_of_pages = (channel_details.last_index - channel_details.first_index) as u32;
-			<OutboundXcmpMessages<T>>::insert(recipient, page_index, new_page);
+			let bounded_page = BoundedVec::<u8, T::MaxPageSize>::try_from(new_page)
+				.map_err(|_| MessageSendError::TooBig)?;
+			let bounded_page = WeakBoundedVec::force_from(bounded_page.into_inner(), None);
+			<OutboundXcmpMessages<T>>::insert(recipient, page_index, bounded_page);
 			<OutboundXcmpStatus<T>>::put(all_channels);
 			(number_of_pages, last_page_size)
 		};
@@ -543,17 +581,24 @@ impl<T: Config> Pallet<T> {
 
 	/// Sends a signal to the `dest` chain over XCMP. This is guaranteed to be dispatched on this
 	/// block.
-	fn send_signal(dest: ParaId, signal: ChannelSignal) {
+	fn send_signal(dest: ParaId, signal: ChannelSignal) -> Result<(), Error<T>> {
 		let mut s = <OutboundXcmpStatus<T>>::get();
 		if let Some(details) = s.iter_mut().find(|item| item.recipient == dest) {
 			details.signals_exist = true;
 		} else {
-			s.push(OutboundChannelDetails::new(dest).with_signals());
+			s.try_push(OutboundChannelDetails::new(dest).with_signals())
+				.map_err(|_| Error::<T>::TooManyActiveOutboundChannels)?;
 		}
-		<SignalMessages<T>>::mutate(dest, |page| {
-			*page = (XcmpMessageFormat::Signals, signal).encode();
-		});
+
+		let page = BoundedVec::<u8, T::MaxPageSize>::try_from(
+			(XcmpMessageFormat::Signals, signal).encode(),
+		)
+		.map_err(|_| Error::<T>::TooBig)?;
+		let page = WeakBoundedVec::force_from(page.into_inner(), None);
+
+		<SignalMessages<T>>::insert(dest, page);
 		<OutboundXcmpStatus<T>>::put(s);
+		Ok(())
 	}
 
 	fn suspend_channel(target: ParaId) {
@@ -563,7 +608,9 @@ impl<T: Config> Pallet<T> {
 				defensive_assert!(ok, "WARNING: Attempt to suspend channel that was not Ok.");
 				details.state = OutboundState::Suspended;
 			} else {
-				s.push(OutboundChannelDetails::new(target).with_suspended_state());
+				if s.try_push(OutboundChannelDetails::new(target).with_suspended_state()).is_err() {
+					defensive!("Cannot pause channel; too many outbound channels");
+				}
 			}
 		});
 	}
@@ -600,7 +647,7 @@ impl<T: Config> Pallet<T> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
 		let fp = T::XcmpQueue::footprint(sender);
 		// Assume that it will not fit into the current page:
-		let new_pages = fp.pages.saturating_add(1);
+		let new_pages = fp.ready_pages.saturating_add(1);
 		if new_pages > drop_threshold {
 			// This should not happen since the channel should have been suspended in
 			// [`on_queue_changed`].
@@ -663,19 +710,26 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 		let mut suspended_channels = <InboundXcmpSuspended<T>>::get();
 		let suspended = suspended_channels.contains(&para);
 
-		if suspended && fp.pages <= resume_threshold {
-			Self::send_signal(para, ChannelSignal::Resume);
-
-			suspended_channels.remove(&para);
-			<InboundXcmpSuspended<T>>::put(suspended_channels);
-		} else if !suspended && fp.pages >= suspend_threshold {
-			log::warn!("XCMP queue for sibling {:?} is full; suspending channel.", para);
-			Self::send_signal(para, ChannelSignal::Suspend);
-
-			if let Err(err) = suspended_channels.try_insert(para) {
-				log::error!("Too many channels suspended; cannot suspend sibling {:?}: {:?}; further messages may be dropped.", para, err);
+		if suspended && fp.ready_pages <= resume_threshold {
+			if let Err(err) = Self::send_signal(para, ChannelSignal::Resume) {
+				log::error!("defensive: Could not send resumption signal to inbound channel of sibling {:?}: {:?}; channel remains suspended.", para, err);
+			} else {
+				suspended_channels.remove(&para);
+				<InboundXcmpSuspended<T>>::put(suspended_channels);
 			}
-			<InboundXcmpSuspended<T>>::put(suspended_channels);
+		} else if !suspended && fp.ready_pages >= suspend_threshold {
+			log::warn!("XCMP queue for sibling {:?} is full; suspending channel.", para);
+
+			if let Err(err) = Self::send_signal(para, ChannelSignal::Suspend) {
+				// It will retry if `drop_threshold` is not reached, but it could be too late.
+				log::error!(
+					"defensive: Could not send suspension signal; future messages may be dropped: {:?}", err
+				);
+			} else if let Err(err) = suspended_channels.try_insert(para) {
+				log::error!("Too many channels suspended; cannot suspend sibling {:?}: {:?}; further messages may be dropped.", para, err);
+			} else {
+				<InboundXcmpSuspended<T>>::put(suspended_channels);
+			}
 		}
 	}
 }
@@ -842,7 +896,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				//   since it's so unlikely then for now we just drop it.
 				defensive!("WARNING: oversize message in queue - dropping");
 			} else {
-				result.push((para_id, page));
+				result.push((para_id, page.into_inner()));
 			}
 
 			let max_total_size = match T::ChannelInfo::get_channel_info(para_id) {
@@ -890,7 +944,9 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 		let pruned = old_statuses_len - statuses.len();
 		// removing an item from status implies a message being sent, so the result messages must
 		// be no less than the pruned channels.
-		statuses.rotate_left(result.len().saturating_sub(pruned));
+		let _ = statuses.try_rotate_left(result.len().saturating_sub(pruned)).defensive_proof(
+			"Could not store HRMP channels config. Some HRMP channels may be broken.",
+		);
 
 		<OutboundXcmpStatus<T>>::put(statuses);
 
@@ -916,7 +972,8 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
-				validate_xcm_nesting(&versioned_xcm)
+				versioned_xcm
+					.check_is_decodable()
 					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 
 				Ok(((id, versioned_xcm), price))
@@ -932,29 +989,59 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		defensive_assert!(
-			validate_xcm_nesting(&xcm).is_ok(),
-			"Tickets are valid prior to delivery by trait XCM; qed"
-		);
 
 		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {
 				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
 			},
-			Err(e) => Err(SendError::Transport(e.into())),
+			Err(e) => {
+				log::error!(target: LOG_TARGET, "Deliver error: {e:?}");
+				Err(SendError::Transport(e.into()))
+			},
 		}
 	}
 }
 
-/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`.
-///
-/// Note that this uses the limit of the sender - not the receiver. It it best effort.
-pub(crate) fn validate_xcm_nesting(xcm: &VersionedXcm<()>) -> Result<(), ()> {
-	xcm.using_encoded(|mut enc| {
-		VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
-	})
-	.map_err(|_| ())
+impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn clear_messages() {
+		// Best effort.
+		let _ = OutboundXcmpMessages::<T>::clear(u32::MAX, None);
+		OutboundXcmpStatus::<T>::mutate(|details_vec| {
+			for details in details_vec {
+				details.first_index = 0;
+				details.last_index = 0;
+			}
+		});
+	}
+
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		use xcm::prelude::*;
+
+		OutboundXcmpMessages::<T>::iter()
+			.map(|(para_id, _, messages)| {
+				let mut data = &messages[..];
+				let decoded_format = XcmpMessageFormat::decode(&mut data).unwrap();
+				if decoded_format != XcmpMessageFormat::ConcatenatedVersionedXcm {
+					panic!("Unexpected format.")
+				}
+				let mut decoded_messages = Vec::new();
+				while !data.is_empty() {
+					let decoded_message = VersionedXcm::<()>::decode_with_depth_limit(
+						MAX_XCM_DECODE_DEPTH,
+						&mut data,
+					)
+					.unwrap();
+					decoded_messages.push(decoded_message);
+				}
+
+				(
+					VersionedLocation::from(Location::new(1, Parachain(para_id.into()))),
+					decoded_messages,
+				)
+			})
+			.collect()
+	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {

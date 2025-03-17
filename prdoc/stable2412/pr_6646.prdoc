@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: OmniNode --dev flag starts node with manual seal 
+
+doc:
+  - audience: [ Runtime Dev, Node Dev ] 
+    description: |
+      `polkadot-omni-node` lib supports `--dev` flag now by allowing also to pass over a chain spec,
+      and starts the node with manual seal. It will seal the node at each `dev_block_time` milliseconds,
+      which can be set via `--dev-block-time`, and if not set will default to `3000ms`.
+
+crates:
+  - name: sc-cli
+    bump: patch 
+  - name: polkadot-omni-node-lib
+    bump: patch
+  - name: polkadot-omni-node
+    bump: patch

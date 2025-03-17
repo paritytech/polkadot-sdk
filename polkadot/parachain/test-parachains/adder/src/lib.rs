@@ -18,7 +18,9 @@
 
 #![no_std]
 
-use parity_scale_codec::{Decode, Encode};
+extern crate alloc;
+
+use codec::{Decode, Encode};
 use tiny_keccak::{Hasher as _, Keccak};
 
 #[cfg(not(feature = "std"))]

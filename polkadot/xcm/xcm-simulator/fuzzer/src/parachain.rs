@@ -24,13 +24,11 @@ use frame_support::{
 };
 
 use frame_system::EnsureRoot;
-use sp_core::ConstU32;
 use sp_runtime::{
 	generic,
 	traits::{AccountIdLookup, BlakeTwo256, Hash, IdentifyAccount, Verify},
 	MultiAddress, MultiSignature,
 };
-use sp_std::prelude::*;
 
 use pallet_xcm::XcmPassthrough;
 use polkadot_core_primitives::BlockNumber as RelayBlockNumber;
@@ -46,13 +44,13 @@ use xcm_builder::{
 };
 use xcm_executor::{Config, XcmExecutor};
 
-pub type SignedExtra = (frame_system::CheckNonZeroSender<Runtime>,);
+pub type TxExtension = (frame_system::CheckNonZeroSender<Runtime>,);
 
 pub type BlockNumber = u64;
 pub type Address = MultiAddress<AccountId, ()>;
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
 pub type Signature = MultiSignature;
@@ -63,7 +61,7 @@ parameter_types! {
 	pub const BlockHashCount: u32 = 250;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type AccountId = AccountId;
 	type Lookup = AccountIdLookup<AccountId, ()>;
@@ -73,24 +71,13 @@ impl frame_system::Config for Runtime {
 
 parameter_types! {
 	pub ExistentialDeposit: Balance = 1;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = MaxLocks;
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
@@ -101,7 +88,7 @@ parameter_types! {
 parameter_types! {
 	pub const KsmLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(MsgQueue::parachain_id().into())].into();
 }
 
 pub type LocationToAccountId = (
@@ -133,6 +120,7 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = ();
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = XcmOriginToCallOrigin;
 	type IsReserve = NativeAsset;
@@ -156,6 +144,10 @@ impl Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 #[frame_support::pallet]
@@ -169,12 +161,12 @@ pub mod mock_msg_queue {
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
 
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
 
 	#[pallet::storage]
 	#[pallet::getter(fn parachain_id)]

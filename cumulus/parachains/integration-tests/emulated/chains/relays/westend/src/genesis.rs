@@ -14,12 +14,12 @@
 // limitations under the License.
 
 // Substrate
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa::AuthorityId as GrandpaId;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::storage::Storage;
-use sp_runtime::Perbill;
+use sp_runtime::{BoundedVec, Perbill};
 
 // Polkadot
 use polkadot_primitives::{AssignmentId, ValidatorId};
@@ -58,6 +58,7 @@ pub fn genesis() -> Storage {
 		system: westend_runtime::SystemConfig::default(),
 		balances: westend_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ENDOWMENT)).collect(),
+			..Default::default()
 		},
 		session: westend_runtime::SessionConfig {
 			keys: validators::initial_authorities()
@@ -77,24 +78,29 @@ pub fn genesis() -> Storage {
 					)
 				})
 				.collect::<Vec<_>>(),
+			..Default::default()
 		},
 		staking: westend_runtime::StakingConfig {
 			validator_count: validators::initial_authorities().len() as u32,
 			minimum_validator_count: 1,
 			stakers: validators::initial_authorities()
 				.iter()
-				.map(|x| {
-					(x.0.clone(), x.1.clone(), STASH, westend_runtime::StakerStatus::Validator)
-				})
+				.map(|x| (x.0.clone(), x.1.clone(), STASH, pallet_staking::StakerStatus::Validator))
 				.collect(),
-			invulnerables: validators::initial_authorities().iter().map(|x| x.0.clone()).collect(),
+			invulnerables: BoundedVec::try_from(
+				validators::initial_authorities()
+					.iter()
+					.map(|x| x.0.clone())
+					.collect::<Vec<_>>(),
+			)
+			.expect("Limit for staking invulnerables must be less than initial authorities."),
 			force_era: pallet_staking::Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		},
 		babe: westend_runtime::BabeConfig {
 			authorities: Default::default(),
-			epoch_config: Some(westend_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			epoch_config: westend_runtime::BABE_GENESIS_EPOCH_CONFIG,
 			..Default::default()
 		},
 		configuration: westend_runtime::ConfigurationConfig { config: get_host_config() },

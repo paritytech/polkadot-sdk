@@ -28,8 +28,8 @@
 use polkadot_node_network_protocol::PeerId;
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
-	CandidateHash, CommittedCandidateReceipt, GroupIndex, Hash, Id as ParaId,
-	PersistedValidationData,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash, GroupIndex,
+	Hash, Id as ParaId, PersistedValidationData,
 };
 
 use std::{
@@ -154,8 +154,8 @@ impl Candidates {
 		assigned_group: GroupIndex,
 	) -> Option<PostConfirmation> {
 		let parent_hash = persisted_validation_data.parent_head.hash();
-		let relay_parent = candidate_receipt.descriptor().relay_parent;
-		let para_id = candidate_receipt.descriptor().para_id;
+		let relay_parent = candidate_receipt.descriptor.relay_parent();
+		let para_id = candidate_receipt.descriptor.para_id();
 
 		let prev_state = self.candidates.insert(
 			candidate_hash,
@@ -243,12 +243,12 @@ impl Candidates {
 	/// Whether statements from a candidate are importable.
 	///
 	/// This is only true when the candidate is known, confirmed,
-	/// and is importable in a fragment tree.
+	/// and is importable in a fragment chain.
 	pub fn is_importable(&self, candidate_hash: &CandidateHash) -> bool {
 		self.get_confirmed(candidate_hash).map_or(false, |c| c.is_importable(None))
 	}
 
-	/// Note that a candidate is importable in a fragment tree indicated by the given
+	/// Note that a candidate is importable in a fragment chain indicated by the given
 	/// leaf hash.
 	pub fn note_importable_under(&mut self, candidate: &HypotheticalCandidate, leaf_hash: Hash) {
 		match candidate {
@@ -530,12 +530,12 @@ pub struct ConfirmedCandidate {
 impl ConfirmedCandidate {
 	/// Get the relay-parent of the candidate.
 	pub fn relay_parent(&self) -> Hash {
-		self.receipt.descriptor().relay_parent
+		self.receipt.descriptor.relay_parent()
 	}
 
 	/// Get the para-id of the candidate.
 	pub fn para_id(&self) -> ParaId {
-		self.receipt.descriptor().para_id
+		self.receipt.descriptor.para_id()
 	}
 
 	/// Get the underlying candidate receipt.

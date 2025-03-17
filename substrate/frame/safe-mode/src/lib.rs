@@ -19,10 +19,6 @@
 //!
 //! Trigger for stopping all extrinsics outside of a specific whitelist.
 //!
-//! ## WARNING
-//!
-//! NOT YET AUDITED. DO NOT USE IN PRODUCTION.
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -79,7 +75,6 @@ pub mod mock;
 mod tests;
 pub mod weights;
 
-use core::convert::TryInto;
 use frame_support::{
 	defensive_assert,
 	pallet_prelude::*,
@@ -243,7 +238,18 @@ pub mod pallet {
 	}
 
 	/// The reason why the safe-mode was deactivated.
-	#[derive(Copy, Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		Copy,
+		Clone,
+		PartialEq,
+		Eq,
+		RuntimeDebug,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum ExitReason {
 		/// The safe-mode was automatically deactivated after it's duration ran out.
 		Timeout,

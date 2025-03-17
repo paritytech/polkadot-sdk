@@ -20,11 +20,8 @@
 #![cfg(test)]
 
 use codec::Encode;
-use frame_support::derive_impl;
-use sp_runtime::{traits::IdentityLookup, BuildStorage};
-
-type AccountId = u64;
-type Nonce = u32;
+use frame_support::{derive_impl, weights::Weight};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -35,31 +32,49 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+pub struct MockWeights;
+impl frame_system::ExtensionsWeightInfo for MockWeights {
+	fn check_genesis() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+
+	fn check_mortality_mortal_transaction() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+
+	fn check_mortality_immortal_transaction() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+
+	fn check_non_zero_sender() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+
+	fn check_nonce() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+
+	fn check_spec_version() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+
+	fn check_tx_version() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+
+	fn check_weight() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+
+	fn weight_reclaim() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+}
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = Nonce;
-	type RuntimeCall = RuntimeCall;
-	type Hash = sp_core::H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type ExtensionsWeightInfo = MockWeights;
 }
 
 impl crate::Config for Test {}

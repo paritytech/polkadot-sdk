@@ -27,6 +27,8 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -35,12 +37,10 @@ use frame_support::{
 		ReservableCurrency, WithdrawReasons,
 	},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, Perbill,
 };
-use sp_std::prelude::*;
 
 mod conviction;
 mod types;
@@ -54,6 +54,7 @@ pub use self::{
 	vote::{AccountVote, Casting, Delegating, Vote, Voting},
 	weights::WeightInfo,
 };
+use sp_runtime::traits::BlockNumberProvider;
 
 #[cfg(test)]
 mod tests;
@@ -63,25 +64,28 @@ pub mod benchmarking;
 
 const CONVICTION_VOTING_ID: LockIdentifier = *b"pyconvot";
 
+pub type BlockNumberFor<T, I> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BalanceOf<T, I = ()> =
+pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type VotingOf<T, I = ()> = Voting<
+pub type VotingOf<T, I = ()> = Voting<
 	BalanceOf<T, I>,
 	<T as frame_system::Config>::AccountId,
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	PollIndexOf<T, I>,
 	<T as Config<I>>::MaxVotes,
 >;
 #[allow(dead_code)]
 type DelegatingOf<T, I = ()> =
-	Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T>>;
+	Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T, I>>;
 pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout>;
 pub type VotesOf<T, I = ()> = BalanceOf<T, I>;
-type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
 #[cfg(feature = "runtime-benchmarks")]
-type IndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
-type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
+pub type IndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -93,7 +97,7 @@ pub mod pallet {
 		traits::ClassCountOf,
 		Twox64Concat,
 	};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 	use sp_runtime::BoundedVec;
 
 	#[pallet::pallet]
@@ -108,14 +112,14 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// Currency type with which voting happens.
 		type Currency: ReservableCurrency<Self::AccountId>
-			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>
+			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self, I>>
 			+ fungible::Inspect<Self::AccountId>;
 
 		/// The implementation of the logic which conducts polls.
 		type Polls: Polling<
 			TallyOf<Self, I>,
 			Votes = BalanceOf<Self, I>,
-			Moment = BlockNumberFor<Self>,
+			Moment = BlockNumberFor<Self, I>,
 		>;
 
 		/// The maximum amount of tokens which may be used for voting. May just be
@@ -135,7 +139,9 @@ pub mod pallet {
 		/// It should be no shorter than enactment period to ensure that in the case of an approval,
 		/// those successful voters are locked into the consequences that their votes entail.
 		#[pallet::constant]
-		type VoteLockingPeriod: Get<BlockNumberFor<Self>>;
+		type VoteLockingPeriod: Get<BlockNumberFor<Self, I>>;
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	/// All voting for a particular voter in a particular voting class. We store the balance for the
@@ -170,6 +176,12 @@ pub mod pallet {
 		Delegated(T::AccountId, T::AccountId),
 		/// An \[account\] has cancelled a previous delegation operation.
 		Undelegated(T::AccountId),
+		/// An account has voted
+		Voted { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
+		/// A vote has been removed
+		VoteRemoved { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
+		/// The lockup period of a conviction vote expired, and the funds have been unlocked.
+		VoteUnlocked { who: T::AccountId, class: ClassOf<T, I> },
 	}
 
 	#[pallet::error]
@@ -310,6 +322,7 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
 			Self::update_lock(&class, &target);
+			Self::deposit_event(Event::VoteUnlocked { who: target, class });
 			Ok(())
 		}
 
@@ -427,6 +440,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(who, &class, vote.balance());
+				Self::deposit_event(Event::Voted { who: who.clone(), vote });
 				Ok(())
 			})
 		})
@@ -462,6 +476,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						if let Some(approve) = v.1.as_standard() {
 							tally.reduce(approve, *delegations);
 						}
+						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: v.1 });
 						Ok(())
 					},
 					PollStatus::Completed(end, approved) => {
@@ -469,7 +484,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							let unlock_at = end.saturating_add(
 								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
 							);
-							let now = frame_system::Pallet::<T>::block_number();
+							let now = T::BlockNumberProvider::current_block_number();
 							if now < unlock_at {
 								ensure!(
 									matches!(scope, UnvoteScope::Any),
@@ -559,7 +574,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
 		let votes =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
-				let old = sp_std::mem::replace(
+				let old = core::mem::replace(
 					voting,
 					Voting::Delegating(Delegating {
 						balance,
@@ -596,7 +611,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn try_undelegate(who: T::AccountId, class: ClassOf<T, I>) -> Result<u32, DispatchError> {
 		let votes =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
-				match sp_std::mem::replace(voting, Voting::default()) {
+				match core::mem::replace(voting, Voting::default()) {
 					Voting::Delegating(Delegating {
 						balance,
 						target,
@@ -610,7 +625,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							&class,
 							conviction.votes(balance),
 						);
-						let now = frame_system::Pallet::<T>::block_number();
+						let now = T::BlockNumberProvider::current_block_number();
 						let lock_periods = conviction.lock_periods().into();
 						prior.accumulate(
 							now.saturating_add(
@@ -656,7 +671,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// a security hole) but may be reduced from what they are currently.
 	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) {
 		let class_lock_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
-			voting.rejig(frame_system::Pallet::<T>::block_number());
+			voting.rejig(T::BlockNumberProvider::current_block_number());
 			voting.locked_balance()
 		});
 		let lock_needed = ClassLocksFor::<T, I>::mutate(who, |locks| {

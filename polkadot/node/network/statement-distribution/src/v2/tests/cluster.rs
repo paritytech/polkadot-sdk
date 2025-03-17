@@ -24,7 +24,7 @@ fn share_seconded_circulated_to_cluster() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -111,8 +111,8 @@ fn share_seconded_circulated_to_cluster() {
 		);
 
 		// sharing a `Seconded` message confirms a candidate, which leads to new
-		// fragment tree updates.
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		// fragment chain updates.
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		overseer
 	});
@@ -124,7 +124,7 @@ fn cluster_valid_statement_before_seconded_ignored() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -184,7 +184,7 @@ fn cluster_statement_bad_signature() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -257,7 +257,7 @@ fn useful_cluster_statement_from_non_cluster_peer_rejected() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -312,13 +312,73 @@ fn useful_cluster_statement_from_non_cluster_peer_rejected() {
 	});
 }
 
+// Both validators in the test are part of backing groups assigned to same parachain
+#[test]
+fn elastic_scaling_useful_cluster_statement_from_non_cluster_peer_rejected() {
+	let config = TestConfig {
+		validator_count: 20,
+		group_size: 3,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
+
+	let relay_parent = Hash::repeat_byte(1);
+	let peer_a = PeerId::random();
+
+	test_harness(config, |state, mut overseer| async move {
+		let candidate_hash = CandidateHash(Hash::repeat_byte(42));
+
+		let test_leaf = state.make_dummy_leaf_with_multiple_cores_per_para(relay_parent, 3);
+
+		// Peer A is not in our group, but its group is assigned to same para as we are.
+		let not_our_group = GroupIndex(1);
+
+		let that_group_validators = state.group_validators(not_our_group, false);
+		let v_non = that_group_validators[0];
+
+		connect_peer(
+			&mut overseer,
+			peer_a.clone(),
+			Some(vec![state.discovery_id(v_non)].into_iter().collect()),
+		)
+		.await;
+
+		send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
+
+		let statement = state
+			.sign_statement(
+				v_non,
+				CompactStatement::Seconded(candidate_hash),
+				&SigningContext { parent_hash: relay_parent, session_index: 1 },
+			)
+			.as_unchecked()
+			.clone();
+
+		send_peer_message(
+			&mut overseer,
+			peer_a.clone(),
+			protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+		)
+		.await;
+
+		assert_matches!(
+			overseer.recv().await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+				if p == peer_a && r == COST_UNEXPECTED_STATEMENT_INVALID_SENDER.into() => { }
+		);
+
+		overseer
+	});
+}
+
 #[test]
 fn statement_from_non_cluster_originator_unexpected() {
 	let config = TestConfig {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -373,7 +433,7 @@ fn seconded_statement_leads_to_request() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -449,7 +509,7 @@ fn seconded_statement_leads_to_request() {
 				if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
 		);
 
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		overseer
 	});
@@ -461,7 +521,7 @@ fn cluster_statements_shared_seconded_first() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -523,7 +583,7 @@ fn cluster_statements_shared_seconded_first() {
 			.await;
 
 		// result of new confirmed candidate.
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		overseer
 			.send(FromOrchestra::Communication {
@@ -575,7 +635,7 @@ fn cluster_accounts_for_implicit_view() {
 		validator_count: 20,
 		group_size: 3,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -657,8 +717,8 @@ fn cluster_accounts_for_implicit_view() {
 		);
 
 		// sharing a `Seconded` message confirms a candidate, which leads to new
-		// fragment tree updates.
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		// fragment chain updates.
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		// activate new leaf, which has relay-parent in implicit view.
 		let next_relay_parent = Hash::repeat_byte(2);
@@ -674,8 +734,7 @@ fn cluster_accounts_for_implicit_view() {
 		// peer B never had the relay parent in its view, so this tests that
 		// the implicit view is working correctly for B.
 		//
-		// the fact that the statement isn't sent again to A also indicates that it works
-		// it's working.
+		// the fact that the statement isn't sent again to A also indicates that it's working.
 		assert_matches!(
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessages(messages)) => {
@@ -711,7 +770,7 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -795,7 +854,7 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 			);
 		}
 
-		answer_expected_hypothetical_depth_request(
+		answer_expected_hypothetical_membership_request(
 			&mut overseer,
 			vec![(
 				HypotheticalCandidate::Complete {
@@ -803,7 +862,7 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 					receipt: Arc::new(candidate.clone()),
 					persisted_validation_data: pvd.clone(),
 				},
-				vec![(relay_parent, vec![0])],
+				vec![relay_parent],
 			)],
 		)
 		.await;
@@ -834,7 +893,7 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -918,7 +977,7 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 			);
 		}
 
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 
 		let next_relay_parent = Hash::repeat_byte(2);
 		let mut next_test_leaf = state.make_dummy_leaf(next_relay_parent);
@@ -936,7 +995,7 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 					receipt: Arc::new(candidate.clone()),
 					persisted_validation_data: pvd.clone(),
 				},
-				vec![(relay_parent, vec![0])],
+				vec![relay_parent],
 			)],
 		)
 		.await;
@@ -962,17 +1021,14 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 
 #[test]
 fn ensure_seconding_limit_is_respected() {
-	// `max_candidate_depth: 1` for a `seconding_limit` of 2.
+	// use a scheduling_lookahead of two to restrict the per-core seconding limit to 2.
+	let scheduling_lookahead = 2;
 	let config = TestConfig {
 		validator_count: 20,
 		group_size: 4,
 		local_validator: LocalRole::Validator,
-		async_backing_params: Some(AsyncBackingParams {
-			max_candidate_depth: 1,
-			allowed_ancestry_len: 3,
-		}),
+		allow_v2_descriptors: false,
 	};
-
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
 
@@ -981,7 +1037,8 @@ fn ensure_seconding_limit_is_respected() {
 		let local_group_index = local_validator.group_index.unwrap();
 		let local_para = ParaId::from(local_group_index.0);
 
-		let test_leaf = state.make_dummy_leaf(relay_parent);
+		let test_leaf =
+			state.make_dummy_leaf_with_scheduling_lookahead(relay_parent, scheduling_lookahead);
 
 		let (candidate_1, pvd_1) = make_candidate(
 			relay_parent,
@@ -1053,7 +1110,7 @@ fn ensure_seconding_limit_is_respected() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Candidate 2.
@@ -1079,7 +1136,7 @@ fn ensure_seconding_limit_is_respected() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		// Send first statement from peer A.
@@ -1159,4 +1216,118 @@ fn ensure_seconding_limit_is_respected() {
 
 		overseer
 	});
+}
+
+#[test]
+fn delayed_reputation_changes() {
+	let config = TestConfig {
+		validator_count: 20,
+		group_size: 3,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
+
+	let keystore = test_helpers::mock::make_ferdie_keystore();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
+	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (candidate_req_receiver, req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(0);
+
+	let state = TestState::from_config(config, req_cfg.inbound_queue.unwrap(), &mut rng);
+
+	// We can't use the test harness as we need to spawn our own subsystem with custom config.
+	let (context, mut virtual_overseer) =
+		polkadot_node_subsystem_test_helpers::make_subsystem_context(
+			sp_core::testing::TaskExecutor::new(),
+		);
+	let subsystem = async move {
+		let subsystem = crate::StatementDistributionSubsystem {
+			keystore,
+			v1_req_receiver: Some(statement_req_receiver),
+			req_receiver: Some(candidate_req_receiver),
+			metrics: Default::default(),
+			rng,
+			reputation: ReputationAggregator::new(|_| false),
+		};
+
+		if let Err(e) = subsystem.run_inner(context, Duration::from_millis(100)).await {
+			panic!("Fatal error: {:?}", e);
+		}
+	};
+
+	let test_fut = async move {
+		let relay_parent = Hash::repeat_byte(1);
+		let peer_a = PeerId::random();
+
+		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
+		let candidate_hash = CandidateHash(Hash::repeat_byte(42));
+
+		let test_leaf = state.make_dummy_leaf(relay_parent);
+
+		// peer A is in group, has relay parent in view.
+		let other_group_validators = state.group_validators(local_group_index, true);
+		let v_a = other_group_validators[0];
+		connect_peer(
+			&mut virtual_overseer,
+			peer_a.clone(),
+			Some(vec![state.discovery_id(v_a)].into_iter().collect()),
+		)
+		.await;
+
+		send_peer_view_change(&mut virtual_overseer, peer_a.clone(), view![relay_parent]).await;
+		activate_leaf(&mut virtual_overseer, &test_leaf, &state, true, vec![]).await;
+
+		let signed_valid = state.sign_statement(
+			v_a,
+			CompactStatement::Valid(candidate_hash),
+			&SigningContext { parent_hash: relay_parent, session_index: 1 },
+		);
+
+		send_peer_message(
+			&mut virtual_overseer,
+			peer_a.clone(),
+			protocol_v2::StatementDistributionMessage::Statement(
+				relay_parent,
+				signed_valid.as_unchecked().clone(),
+			),
+		)
+		.await;
+
+		assert_matches!(virtual_overseer.rx.next().timeout(Duration::from_millis(50)).await, None);
+		// Wait enough to fire reputation delay
+		futures_timer::Delay::new(Duration::from_millis(60)).await;
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Batch(reps))) => {
+				let mut expected = HashMap::new();
+				expected.insert(peer_a, COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED.cost_or_benefit());
+				assert_eq!(expected, reps);
+			}
+		);
+
+		virtual_overseer
+	};
+
+	futures::pin_mut!(test_fut);
+	futures::pin_mut!(subsystem);
+	futures::executor::block_on(future::join(
+		async move {
+			let mut virtual_overseer = test_fut.await;
+			// Ensure we have handled all responses.
+			if let Ok(Some(msg)) = virtual_overseer.rx.try_next() {
+				panic!("Did not handle all responses: {:?}", msg);
+			}
+			// Conclude.
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+		},
+		subsystem,
+	));
 }

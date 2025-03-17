@@ -1,0 +1,10 @@
+title: "[pallet-contracts] Only allow non-deterministic code to be uploaded with Determinism::Relaxed"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `upload_code` extrinsic, will now only allow non-deterministic code to be uploaded with the `Determinism::Relaxed` flag. 
+      This prevent an attacker from uploading "deterministic" code with the `Determinism::Relaxed` flag, preventing the code to be instantiated for on-chain execution.
+
+crates:
+  - name: pallet-contracts

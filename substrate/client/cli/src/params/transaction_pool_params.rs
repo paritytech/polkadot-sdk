@@ -16,8 +16,28 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use clap::Args;
-use sc_service::config::TransactionPoolOptions;
+use clap::{Args, ValueEnum};
+use sc_transaction_pool::TransactionPoolOptions;
+
+/// Type of transaction pool to be used
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+pub enum TransactionPoolType {
+	/// Uses a legacy, single-state transaction pool.
+	SingleState,
+	/// Uses a fork-aware transaction pool.
+	ForkAware,
+}
+
+impl Into<sc_transaction_pool::TransactionPoolType> for TransactionPoolType {
+	fn into(self) -> sc_transaction_pool::TransactionPoolType {
+		match self {
+			TransactionPoolType::SingleState =>
+				sc_transaction_pool::TransactionPoolType::SingleState,
+			TransactionPoolType::ForkAware => sc_transaction_pool::TransactionPoolType::ForkAware,
+		}
+	}
+}
 
 /// Parameters used to create the pool configuration.
 #[derive(Debug, Clone, Args)]
@@ -35,30 +55,21 @@ pub struct TransactionPoolParams {
 	/// If it is considered invalid. Defaults to 1800s.
 	#[arg(long, value_name = "SECONDS")]
 	pub tx_ban_seconds: Option<u64>,
+
+	/// The type of transaction pool to be instantiated.
+	#[arg(long, value_enum, default_value_t = TransactionPoolType::SingleState)]
+	pub pool_type: TransactionPoolType,
 }
 
 impl TransactionPoolParams {
 	/// Fill the given `PoolConfiguration` by looking at the cli parameters.
 	pub fn transaction_pool(&self, is_dev: bool) -> TransactionPoolOptions {
-		let mut opts = TransactionPoolOptions::default();
-
-		// ready queue
-		opts.ready.count = self.pool_limit;
-		opts.ready.total_bytes = self.pool_kbytes * 1024;
-
-		// future queue
-		let factor = 10;
-		opts.future.count = self.pool_limit / factor;
-		opts.future.total_bytes = self.pool_kbytes * 1024 / factor;
-
-		opts.ban_time = if let Some(ban_seconds) = self.tx_ban_seconds {
-			std::time::Duration::from_secs(ban_seconds)
-		} else if is_dev {
-			std::time::Duration::from_secs(0)
-		} else {
-			std::time::Duration::from_secs(30 * 60)
-		};
-
-		opts
+		TransactionPoolOptions::new_with_params(
+			self.pool_limit,
+			self.pool_kbytes * 1024,
+			self.tx_ban_seconds,
+			self.pool_type.into(),
+			is_dev,
+		)
 	}
 }

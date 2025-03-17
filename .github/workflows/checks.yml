@@ -1,0 +1,119 @@
+name: Checks
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
+  preflight:
+    needs: isdraft
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  cargo-clippy:
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    timeout-minutes: 40
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUSTFLAGS: "-D warnings"
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - name: script
+        id: required
+        run: |
+          cargo clippy --all-targets --locked --workspace --quiet
+          cargo clippy --all-targets --all-features --locked --workspace --quiet
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
+  check-try-runtime:
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    timeout-minutes: 40
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - name: script
+        id: required
+        run: |
+          forklift cargo check --locked --all --features try-runtime --quiet
+          # this is taken from cumulus
+          # Check that parachain-template will compile with `try-runtime` feature flag.
+          forklift cargo check --locked -p parachain-template-node --features try-runtime
+          # add after https://github.com/paritytech/substrate/pull/14502 is merged
+          # experimental code may rely on try-runtime and vice-versa
+          forklift cargo check --locked --all --features try-runtime,experimental --quiet
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
+  # check-core-crypto-features works fast without forklift
+  check-core-crypto-features:
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - name: script
+        id: required
+        run: |
+          cd substrate/primitives/core
+          ./check-features-variants.sh
+          cd -
+          cd substrate/primitives/application-crypto
+          ./check-features-variants.sh
+          cd -
+          cd substrate/primitives/keyring
+          ./check-features-variants.sh
+          cd -
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+  # name of this job must be unique across all workflows
+  # otherwise GitHub will mark all these jobs as required
+  confirm-required-checks-passed:
+    runs-on: ubuntu-latest
+    name: All checks passed
+    # If any new job gets added, be sure to add it to this array
+    needs: [cargo-clippy, check-try-runtime, check-core-crypto-features]
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi

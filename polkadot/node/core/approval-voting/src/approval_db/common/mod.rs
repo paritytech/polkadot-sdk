@@ -17,7 +17,7 @@
 //! Common helper functions for all versions of approval-voting database.
 use std::sync::Arc;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use polkadot_primitives::{BlockNumber, CandidateHash, CandidateIndex, Hash};
@@ -64,7 +64,7 @@ impl DbBackend {
 #[derive(Debug, derive_more::From, derive_more::Display)]
 pub enum Error {
 	Io(std::io::Error),
-	InvalidDecoding(parity_scale_codec::Error),
+	InvalidDecoding(codec::Error),
 	InternalError(SubsystemError),
 }
 

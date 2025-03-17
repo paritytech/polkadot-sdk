@@ -46,7 +46,7 @@
 //! 1. Scheduling a runtime call at a specific block.
 #![doc = docify::embed!("src/tests.rs", basic_scheduling_works)]
 //!
-//! 2. Scheduling a preimage hash of a runtime call at a specifc block
+//! 2. Scheduling a preimage hash of a runtime call at a specific block
 #![doc = docify::embed!("src/tests.rs", scheduling_with_preimages_works)]
 
 //!
@@ -85,7 +85,11 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
 	ensure,
@@ -96,17 +100,13 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use frame_system::{
-	pallet_prelude::BlockNumberFor,
-	{self as system},
-};
+use frame_system::{self as system};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
+	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, Saturating, Zero},
 	BoundedVec, DispatchError, RuntimeDebug,
 };
-use sp_std::{borrow::Borrow, cmp::Ordering, marker::PhantomData, prelude::*};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -121,6 +121,9 @@ pub type CallOrHashOf<T> =
 
 pub type BoundedCallOf<T> =
 	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
+
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The configuration of the retry mechanism for a given task along with its current state.
 #[derive(Clone, Copy, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
@@ -143,20 +146,20 @@ struct ScheduledV1<Call, BlockNumber> {
 }
 
 /// Information regarding an item to be executed in the future.
-#[cfg_attr(any(feature = "std", test), derive(PartialEq, Eq))]
-#[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	/// The unique identity for this task, if there is one.
-	maybe_id: Option<Name>,
+	pub maybe_id: Option<Name>,
 	/// This task's priority.
-	priority: schedule::Priority,
+	pub priority: schedule::Priority,
 	/// The call to be dispatched.
-	call: Call,
+	pub call: Call,
 	/// If the call is periodic, then this points to the information concerning that.
-	maybe_periodic: Option<schedule::Period<BlockNumber>>,
+	pub maybe_periodic: Option<schedule::Period<BlockNumber>>,
 	/// The origin with which to dispatch the call.
-	origin: PalletsOrigin,
-	_phantom: PhantomData<AccountId>,
+	pub origin: PalletsOrigin,
+	#[doc(hidden)]
+	pub _phantom: PhantomData<AccountId>,
 }
 
 impl<Name, Call, BlockNumber, PalletsOrigin, AccountId>
@@ -227,9 +230,9 @@ impl<T: WeightInfo> MarginalWeightInfo for T {}
 pub mod pallet {
 	use super::*;
 	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, OriginFor};
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
@@ -289,8 +292,38 @@ pub mod pallet {
 
 		/// The preimage provider with which we look up call hashes to get the call.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+
+		/// Query the current block number.
+		///
+		/// Must return monotonically increasing values when called from consecutive blocks. It is
+		/// generally expected that the values also do not differ "too much" between consecutive
+		/// blocks. A future addition to this pallet will allow bigger difference between
+		/// consecutive blocks to make it possible to be utilized by parachains with *Agile
+		/// Coretime*. *Agile Coretime* parachains are currently not supported and must continue to
+		/// use their local block number provider.
+		///
+		/// Can be configured to return either:
+		/// - the local block number of the runtime via `frame_system::Pallet`
+		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
+		/// - an arbitrary value through a custom implementation of the trait
+		///
+		/// Suggested values:
+		/// - Solo- and Relay-chains should use `frame_system::Pallet`. There are no concerns with
+		///   this configuration.
+		/// - Parachains should also use `frame_system::Pallet` for the time being. The scheduler
+		///   pallet is not yet ready for the case that big numbers of blocks are skipped. In an
+		///   *Agile Coretime* chain with relay chain number provider configured, it could otherwise
+		///   happen that the scheduler will not be able to catch up to its agendas, since too many
+		///   relay blocks are missing if the parachain only produces blocks rarely.
+		///
+		/// There is currently no migration provided to "hot-swap" block number providers and it is
+		/// therefore highly advised to stay with the default (local) values. If you still want to
+		/// swap block number providers on the fly, then please at least ensure that you do not run
+		/// any pallet migration in the same runtime upgrade.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
+	/// Block number at which the agenda began incomplete execution.
 	#[pallet::storage]
 	pub type IncompleteSince<T: Config> = StorageValue<_, BlockNumberFor<T>>;
 
@@ -319,7 +352,7 @@ pub mod pallet {
 	/// For v3 -> v4 the previously unbounded identities are Blake2-256 hashed to form the v4
 	/// identities.
 	#[pallet::storage]
-	pub(crate) type Lookup<T: Config> =
+	pub type Lookup<T: Config> =
 		StorageMap<_, Twox64Concat, TaskName, TaskAddress<BlockNumberFor<T>>>;
 
 	/// Events type.
@@ -354,6 +387,8 @@ pub mod pallet {
 		RetryFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task can never be executed since it is overweight.
 		PermanentlyOverweight { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
+		/// Agenda is incomplete from `when`.
+		AgendaIncomplete { when: BlockNumberFor<T> },
 	}
 
 	#[pallet::error]
@@ -371,11 +406,12 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_now: SystemBlockNumberFor<T>) -> Weight {
+			let now = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
-			Self::service_agendas(&mut weight_counter, now, u32::max_value());
+			Self::service_agendas(&mut weight_counter, now, u32::MAX);
 			weight_counter.consumed()
 		}
 	}
@@ -886,8 +922,7 @@ impl<T: Config> Pallet<T> {
 	fn resolve_time(
 		when: DispatchTime<BlockNumberFor<T>>,
 	) -> Result<BlockNumberFor<T>, DispatchError> {
-		let now = frame_system::Pallet::<T>::block_number();
-
+		let now = T::BlockNumberProvider::current_block_number();
 		let when = match when {
 			DispatchTime::At(x) => x,
 			// The current block has already completed it's scheduled tasks, so
@@ -1162,7 +1197,7 @@ impl<T: Config> Pallet<T> {
 		let mut count_down = max;
 		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
 		while count_down > 0 && when <= now && weight.can_consume(service_agenda_base_weight) {
-			if !Self::service_agenda(weight, &mut executed, now, when, u32::max_value()) {
+			if !Self::service_agenda(weight, &mut executed, now, when, u32::MAX) {
 				incomplete_since = incomplete_since.min(when);
 			}
 			when.saturating_inc();
@@ -1170,6 +1205,7 @@ impl<T: Config> Pallet<T> {
 		}
 		incomplete_since = incomplete_since.min(when);
 		if incomplete_since <= now {
+			Self::deposit_event(Event::AgendaIncomplete { when: incomplete_since });
 			IncompleteSince::<T>::put(incomplete_since);
 		}
 	}
@@ -1203,10 +1239,7 @@ impl<T: Config> Pallet<T> {
 		let mut dropped = 0;
 
 		for (agenda_index, _) in ordered.into_iter().take(max as usize) {
-			let task = match agenda[agenda_index as usize].take() {
-				None => continue,
-				Some(t) => t,
-			};
+			let Some(task) = agenda[agenda_index as usize].take() else { continue };
 			let base_weight = T::WeightInfo::service_task(
 				task.call.lookup_len().map(|x| x as usize),
 				task.maybe_id.is_some(),
@@ -1214,6 +1247,7 @@ impl<T: Config> Pallet<T> {
 			);
 			if !weight.can_consume(base_weight) {
 				postponed += 1;
+				agenda[agenda_index as usize] = Some(task);
 				break
 			}
 			let result = Self::service_task(weight, now, when, agenda_index, *executed == 0, task);
@@ -1266,6 +1300,17 @@ impl<T: Config> Pallet<T> {
 					task: (when, agenda_index),
 					id: task.maybe_id,
 				});
+
+				// It was not available when we needed it, so we don't need to have requested it
+				// anymore.
+				T::Preimages::drop(&task.call);
+
+				// We don't know why `peek` failed, thus we most account here for the "full weight".
+				let _ = weight.try_consume(T::WeightInfo::service_task(
+					task.call.lookup_len().map(|x| x as usize),
+					task.maybe_id.is_some(),
+					task.maybe_periodic.is_some(),
+				));
 
 				return Err((Unavailable, Some(task)))
 			},
@@ -1350,7 +1395,7 @@ impl<T: Config> Pallet<T> {
 			Some(&RawOrigin::Signed(_)) => T::WeightInfo::execute_dispatch_signed(),
 			_ => T::WeightInfo::execute_dispatch_unsigned(),
 		};
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		// We only allow a scheduled call if it cannot push the weight past the limit.
 		let max_weight = base_weight.saturating_add(call_weight);
 
@@ -1435,6 +1480,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+#[allow(deprecated)]
 impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
@@ -1469,6 +1515,8 @@ impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall
 	}
 }
 
+// TODO: migrate `schedule::v2::Anon` to `v3`
+#[allow(deprecated)]
 impl<T: Config> schedule::v2::Named<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {

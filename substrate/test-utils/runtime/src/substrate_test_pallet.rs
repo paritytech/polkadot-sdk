@@ -21,6 +21,7 @@
 //! functioning runtime. Some calls are allowed to be submitted as unsigned extrinsics, however most
 //! of them requires signing. Refer to `pallet::Call` for further details.
 
+use alloc::{vec, vec::Vec};
 use frame_support::{pallet_prelude::*, storage};
 use sp_core::sr25519::Public;
 use sp_runtime::{
@@ -29,7 +30,6 @@ use sp_runtime::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
 };
-use sp_std::prelude::*;
 
 pub use self::pallet::*;
 
@@ -59,7 +59,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: Vec<Public>,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

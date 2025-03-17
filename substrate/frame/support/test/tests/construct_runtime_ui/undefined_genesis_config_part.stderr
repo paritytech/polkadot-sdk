@@ -28,7 +28,7 @@ error[E0412]: cannot find type `GenesisConfig` in module `pallet`
    | |_^ not found in `pallet`
    |
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
-help: consider importing one of these items
+help: consider importing one of these structs
    |
 18 + use frame_system::GenesisConfig;
    |

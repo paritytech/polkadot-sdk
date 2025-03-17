@@ -18,7 +18,7 @@
 //! Primitives related to tickets.
 
 use crate::vrf::RingVrfSignature;
-use scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 pub use sp_core::ed25519::{Public as EphemeralPublic, Signature as EphemeralSignature};
@@ -33,7 +33,9 @@ pub use sp_core::ed25519::{Public as EphemeralPublic, Signature as EphemeralSign
 pub type TicketId = u128;
 
 /// Ticket data persisted on-chain.
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Debug, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+)]
 pub struct TicketBody {
 	/// Attempt index.
 	pub attempt_idx: u32,
@@ -47,7 +49,9 @@ pub struct TicketBody {
 pub type TicketSignature = RingVrfSignature;
 
 /// Ticket envelope used on during submission.
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Debug, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+)]
 pub struct TicketEnvelope {
 	/// Ticket body.
 	pub body: TicketBody,
@@ -115,7 +119,7 @@ mod tests {
 		let threshold = ticket_id_threshold(redundancy, slots, attempts, validators);
 		let threshold = threshold as f64 / TicketId::MAX as f64;
 
-		// We expect that the total number of tickets allowed to be submited
+		// We expect that the total number of tickets allowed to be submitted
 		// is slots*redundancy
 		let avt = ((attempts * validators) as f64 * threshold) as u32;
 		assert_eq!(avt, slots * redundancy);

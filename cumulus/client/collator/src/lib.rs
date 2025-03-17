@@ -1,18 +1,19 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Cumulus Collator implementation for Substrate.
 
@@ -381,13 +382,11 @@ mod tests {
 			sproof.included_para_head = Some(HeadData(parent.encode()));
 			sproof.para_id = cumulus_test_runtime::PARACHAIN_ID.into();
 
-			let builder = self.client.init_block_builder_at(
-				parent.hash(),
-				Some(validation_data.clone()),
-				sproof,
-			);
+			let cumulus_test_client::BlockBuilderAndSupportData { block_builder, .. } = self
+				.client
+				.init_block_builder_at(parent.hash(), Some(validation_data.clone()), sproof);
 
-			let (block, _, proof) = builder.build().expect("Creates block").into_inner();
+			let (block, _, proof) = block_builder.build().expect("Creates block").into_inner();
 
 			self.client
 				.import(BlockOrigin::Own, block.clone())

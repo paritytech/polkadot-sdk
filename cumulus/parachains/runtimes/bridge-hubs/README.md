@@ -38,7 +38,7 @@ mkdir -p ~/local_bridge_testing/logs
 ---
 # 1. Install zombienet
 Go to: https://github.com/paritytech/zombienet/releases
-Copy the apropriate binary (zombienet-linux) from the latest release to ~/local_bridge_testing/bin
+Copy the appropriate binary (zombienet-linux) from the latest release to ~/local_bridge_testing/bin
 
 
 ---
@@ -112,7 +112,7 @@ POLKADOT_PARACHAIN_BINARY=~/local_bridge_testing/bin/polkadot-parachain \
 ```
 cd <polkadot-sdk-git-repo-dir>
 
-./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh run-relay
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh run-finality-relay
 ```
 
 **Check relay-chain headers relaying:**

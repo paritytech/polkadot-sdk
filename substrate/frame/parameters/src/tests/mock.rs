@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #![cfg(any(test, feature = "runtime-benchmarks"))]
+#![allow(non_snake_case)]
 
 //! Mock runtime that configures the `pallet_example_basic` to use dynamic params for testing.
 
@@ -28,15 +29,14 @@ use frame_support::{
 use crate as pallet_parameters;
 use crate::*;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = frame_system::mocking::MockBlock<Runtime>;
 	type AccountData = pallet_balances::AccountData<<Self as pallet_balances::Config>::Balance>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
 }
 
@@ -66,6 +66,20 @@ pub mod dynamic_params {
 		#[codec(index = 0)]
 		pub static Key3: u128 = 4;
 	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 2)]
+	pub mod nis {
+		#[codec(index = 0)]
+		pub static Target: u64 = 0;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 4)]
+	pub mod somE_weird_SPElLInG_s {
+		#[codec(index = 0)]
+		pub static V: u64 = 0;
+	}
 }
 
 #[docify::export(benchmarking_default)]
@@ -93,11 +107,13 @@ mod custom_origin {
 		) -> Result<Self::Success, RuntimeOrigin> {
 			// Account 123 is allowed to set parameters in benchmarking only:
 			#[cfg(feature = "runtime-benchmarks")]
-			if ensure_signed(origin.clone()).map_or(false, |acc| acc == 123) {
+			if ensure_signed(origin.clone()).is_ok_and(|acc| acc == 123) {
 				return Ok(());
 			}
 
 			match key {
+				RuntimeParametersKey::SomEWeirdSPElLInGS(_) |
+				RuntimeParametersKey::Nis(_) |
 				RuntimeParametersKey::Pallet1(_) => ensure_root(origin.clone()),
 				RuntimeParametersKey::Pallet2(_) => ensure_signed(origin.clone()).map(|_| ()),
 			}
@@ -112,7 +128,7 @@ mod custom_origin {
 }
 
 #[docify::export(impl_config)]
-#[derive_impl(pallet_parameters::config_preludes::TestDefaultConfig as pallet_parameters::DefaultConfig)]
+#[derive_impl(pallet_parameters::config_preludes::TestDefaultConfig)]
 impl Config for Runtime {
 	type AdminOrigin = custom_origin::ParamsManager;
 	// RuntimeParameters is injected by the `derive_impl` macro.

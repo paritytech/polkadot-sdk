@@ -17,12 +17,19 @@
 use futures::channel::oneshot;
 use polkadot_node_subsystem::{
 	errors::ChainApiError,
-	messages::{ChainApiMessage, ProspectiveParachainsMessage},
+	messages::{ChainApiMessage, ProspectiveParachainsMessage, RuntimeApiMessage},
 	SubsystemSender,
 };
 use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+use crate::{
+	inclusion_emulator::RelayChainBlockInfo,
+	request_session_index_for_child,
+	runtime::{self, fetch_scheduling_lookahead, recv_runtime},
+	LOG_TARGET,
+};
 
 // Always aim to retain 1 block before the active leaves.
 const MINIMUM_RETAIN_LENGTH: BlockNumber = 2;
@@ -30,10 +37,27 @@ const MINIMUM_RETAIN_LENGTH: BlockNumber = 2;
 /// Handles the implicit view of the relay chain derived from the immediate view, which
 /// is composed of active leaves, and the minimum relay-parents allowed for
 /// candidates of various parachains at those leaves.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct View {
 	leaves: HashMap<Hash, ActiveLeafPruningInfo>,
 	block_info_storage: HashMap<Hash, BlockInfo>,
+	collating_for: Option<ParaId>,
+}
+
+impl View {
+	/// Create a new empty view.
+	/// If `collating_for` is `Some`, the node is a collator and is only interested in the allowed
+	/// relay parents of a single paraid. When this is true, prospective-parachains is no longer
+	/// queried.
+	pub fn new(collating_for: Option<ParaId>) -> Self {
+		Self { leaves: Default::default(), block_info_storage: Default::default(), collating_for }
+	}
+}
+
+impl Default for View {
+	fn default() -> Self {
+		Self::new(None)
+	}
 }
 
 // Minimum relay parents implicitly relative to a particular block.
@@ -99,22 +123,45 @@ struct BlockInfo {
 	parent_hash: Hash,
 }
 
+/// Information about a relay-chain block, to be used when calling this module from prospective
+/// parachains.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlockInfoProspectiveParachains {
+	/// The hash of the relay-chain block.
+	pub hash: Hash,
+	/// The hash of the parent relay-chain block.
+	pub parent_hash: Hash,
+	/// The number of the relay-chain block.
+	pub number: BlockNumber,
+	/// The storage-root of the relay-chain block.
+	pub storage_root: Hash,
+}
+
+impl From<BlockInfoProspectiveParachains> for RelayChainBlockInfo {
+	fn from(value: BlockInfoProspectiveParachains) -> Self {
+		Self { hash: value.hash, number: value.number, storage_root: value.storage_root }
+	}
+}
+
 impl View {
 	/// Get an iterator over active leaves in the view.
 	pub fn leaves(&self) -> impl Iterator<Item = &Hash> {
 		self.leaves.keys()
 	}
 
+	/// Check if the given block hash is an active leaf of the current view.
+	pub fn contains_leaf(&self, leaf_hash: &Hash) -> bool {
+		self.leaves.contains_key(leaf_hash)
+	}
+
 	/// Activate a leaf in the view.
-	/// This will request the minimum relay parents from the
-	/// Prospective Parachains subsystem for each leaf and will load headers in the ancestry of each
-	/// leaf in the view as needed. These are the 'implicit ancestors' of the leaf.
+	/// This will request the minimum relay parents the leaf and will load headers in the
+	/// ancestry of the leaf as needed. These are the 'implicit ancestors' of the leaf.
 	///
 	/// To maximize reuse of outdated leaves, it's best to activate new leaves before
 	/// deactivating old ones.
 	///
-	/// This returns a list of para-ids which are relevant to the leaf,
-	/// and the allowed relay parents for these paras under this leaf can be
+	/// The allowed relay parents for the relevant paras under this leaf can be
 	/// queried with [`View::known_allowed_relay_parents_under`].
 	///
 	/// No-op for known leaves.
@@ -122,21 +169,17 @@ impl View {
 		&mut self,
 		sender: &mut Sender,
 		leaf_hash: Hash,
-	) -> Result<Vec<ParaId>, FetchError>
+	) -> Result<(), FetchError>
 	where
-		Sender: SubsystemSender<ChainApiMessage>,
-		Sender: SubsystemSender<ProspectiveParachainsMessage>,
+		Sender: SubsystemSender<ChainApiMessage>
+			+ SubsystemSender<ProspectiveParachainsMessage>
+			+ SubsystemSender<RuntimeApiMessage>,
 	{
 		if self.leaves.contains_key(&leaf_hash) {
 			return Err(FetchError::AlreadyKnown)
 		}
 
-		let res = fetch_fresh_leaf_and_insert_ancestry(
-			leaf_hash,
-			&mut self.block_info_storage,
-			&mut *sender,
-		)
-		.await;
+		let res = self.fetch_fresh_leaf_and_insert_ancestry(leaf_hash, &mut *sender).await;
 
 		match res {
 			Ok(fetched) => {
@@ -150,10 +193,65 @@ impl View {
 
 				self.leaves.insert(leaf_hash, ActiveLeafPruningInfo { retain_minimum });
 
-				Ok(fetched.relevant_paras)
+				Ok(())
 			},
 			Err(e) => Err(e),
 		}
+	}
+
+	/// Activate a leaf in the view. To be used by the prospective parachains subsystem.
+	///
+	/// This will not request any additional data, as prospective parachains already provides all
+	/// the required info.
+	/// NOTE: using `activate_leaf` instead of this function will result in a
+	/// deadlock, as it calls prospective-parachains under the hood.
+	///
+	/// No-op for known leaves.
+	pub fn activate_leaf_from_prospective_parachains(
+		&mut self,
+		leaf: BlockInfoProspectiveParachains,
+		ancestors: &[BlockInfoProspectiveParachains],
+	) {
+		if self.leaves.contains_key(&leaf.hash) {
+			return
+		}
+
+		// Retain at least `MINIMUM_RETAIN_LENGTH` blocks in storage.
+		// This helps to avoid Chain API calls when activating leaves in the
+		// same chain.
+		let retain_minimum = std::cmp::min(
+			ancestors.last().map(|a| a.number).unwrap_or(0),
+			leaf.number.saturating_sub(MINIMUM_RETAIN_LENGTH),
+		);
+
+		self.leaves.insert(leaf.hash, ActiveLeafPruningInfo { retain_minimum });
+		let mut allowed_relay_parents = AllowedRelayParents {
+			allowed_relay_parents_contiguous: Vec::with_capacity(ancestors.len()),
+			// In this case, initialise this to an empty map, as prospective parachains already has
+			// this data and it won't query the implicit view for it.
+			minimum_relay_parents: HashMap::new(),
+		};
+
+		for ancestor in ancestors {
+			self.block_info_storage.insert(
+				ancestor.hash,
+				BlockInfo {
+					block_number: ancestor.number,
+					maybe_allowed_relay_parents: None,
+					parent_hash: ancestor.parent_hash,
+				},
+			);
+			allowed_relay_parents.allowed_relay_parents_contiguous.push(ancestor.hash);
+		}
+
+		self.block_info_storage.insert(
+			leaf.hash,
+			BlockInfo {
+				block_number: leaf.number,
+				maybe_allowed_relay_parents: Some(allowed_relay_parents),
+				parent_hash: leaf.parent_hash,
+			},
+		);
 	}
 
 	/// Deactivate a leaf in the view. This prunes any outdated implicit ancestors as well.
@@ -225,6 +323,205 @@ impl View {
 			.as_ref()
 			.map(|mins| mins.allowed_relay_parents_for(para_id, block_info.block_number))
 	}
+
+	/// Returns all paths from each leaf to the last block in state containing `relay_parent`. If no
+	/// paths exist the function will return an empty `Vec`.
+	pub fn paths_via_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			leaves=?self.leaves,
+			block_info_storage=?self.block_info_storage,
+			"Finding paths via relay parent"
+		);
+
+		if self.leaves.is_empty() {
+			// No leaves so the view should be empty. Don't return any paths.
+			return vec![]
+		};
+
+		if !self.block_info_storage.contains_key(relay_parent) {
+			// `relay_parent` is not in the view - don't return any paths
+			return vec![]
+		}
+
+		// Find all paths from each leaf to `relay_parent`.
+		let mut paths = Vec::new();
+		for (leaf, _) in &self.leaves {
+			let mut path = Vec::new();
+			let mut current_leaf = *leaf;
+			let mut visited = HashSet::new();
+			let mut path_contains_target = false;
+
+			// Start from the leaf and traverse all known blocks
+			loop {
+				if visited.contains(&current_leaf) {
+					// There is a cycle - abandon this path
+					break
+				}
+
+				current_leaf = match self.block_info_storage.get(&current_leaf) {
+					Some(info) => {
+						// `current_leaf` is a known block - add it to the path and mark it as
+						// visited
+						path.push(current_leaf);
+						visited.insert(current_leaf);
+
+						// `current_leaf` is the target `relay_parent`. Mark the path so that it's
+						// included in the result
+						if current_leaf == *relay_parent {
+							path_contains_target = true;
+						}
+
+						// update `current_leaf` with the parent
+						info.parent_hash
+					},
+					None => {
+						// path is complete
+						if path_contains_target {
+							// we want the path ordered from oldest to newest so reverse it
+							paths.push(path.into_iter().rev().collect());
+						}
+						break
+					},
+				};
+			}
+		}
+
+		paths
+	}
+
+	async fn fetch_fresh_leaf_and_insert_ancestry<Sender>(
+		&mut self,
+		leaf_hash: Hash,
+		sender: &mut Sender,
+	) -> Result<FetchSummary, FetchError>
+	where
+		Sender: SubsystemSender<ChainApiMessage>
+			+ SubsystemSender<ProspectiveParachainsMessage>
+			+ SubsystemSender<RuntimeApiMessage>,
+	{
+		let leaf_header = {
+			let (tx, rx) = oneshot::channel();
+			sender.send_message(ChainApiMessage::BlockHeader(leaf_hash, tx)).await;
+
+			match rx.await {
+				Ok(Ok(Some(header))) => header,
+				Ok(Ok(None)) =>
+					return Err(FetchError::BlockHeaderUnavailable(
+						leaf_hash,
+						BlockHeaderUnavailableReason::Unknown,
+					)),
+				Ok(Err(e)) =>
+					return Err(FetchError::BlockHeaderUnavailable(
+						leaf_hash,
+						BlockHeaderUnavailableReason::Internal(e),
+					)),
+				Err(_) =>
+					return Err(FetchError::BlockHeaderUnavailable(
+						leaf_hash,
+						BlockHeaderUnavailableReason::SubsystemUnavailable,
+					)),
+			}
+		};
+
+		// If the node is a collator, bypass prospective-parachains. We're only interested in the
+		// one paraid and the subsystem is not present.
+		let min_relay_parents = if let Some(para_id) = self.collating_for {
+			fetch_min_relay_parents_for_collator(leaf_hash, leaf_header.number, sender)
+				.await?
+				.map(|x| vec![(para_id, x)])
+				.unwrap_or_default()
+		} else {
+			fetch_min_relay_parents_from_prospective_parachains(leaf_hash, sender).await?
+		};
+
+		let min_min = min_relay_parents.iter().map(|x| x.1).min().unwrap_or(leaf_header.number);
+		let expected_ancestry_len = (leaf_header.number.saturating_sub(min_min) as usize) + 1;
+
+		let ancestry = if leaf_header.number > 0 {
+			let mut next_ancestor_number = leaf_header.number - 1;
+			let mut next_ancestor_hash = leaf_header.parent_hash;
+
+			let mut ancestry = Vec::with_capacity(expected_ancestry_len);
+			ancestry.push(leaf_hash);
+
+			// Ensure all ancestors up to and including `min_min` are in the
+			// block storage. When views advance incrementally, everything
+			// should already be present.
+			while next_ancestor_number >= min_min {
+				let parent_hash = if let Some(info) =
+					self.block_info_storage.get(&next_ancestor_hash)
+				{
+					info.parent_hash
+				} else {
+					// load the header and insert into block storage.
+					let (tx, rx) = oneshot::channel();
+					sender.send_message(ChainApiMessage::BlockHeader(next_ancestor_hash, tx)).await;
+
+					let header = match rx.await {
+						Ok(Ok(Some(header))) => header,
+						Ok(Ok(None)) =>
+							return Err(FetchError::BlockHeaderUnavailable(
+								next_ancestor_hash,
+								BlockHeaderUnavailableReason::Unknown,
+							)),
+						Ok(Err(e)) =>
+							return Err(FetchError::BlockHeaderUnavailable(
+								next_ancestor_hash,
+								BlockHeaderUnavailableReason::Internal(e),
+							)),
+						Err(_) =>
+							return Err(FetchError::BlockHeaderUnavailable(
+								next_ancestor_hash,
+								BlockHeaderUnavailableReason::SubsystemUnavailable,
+							)),
+					};
+
+					self.block_info_storage.insert(
+						next_ancestor_hash,
+						BlockInfo {
+							block_number: next_ancestor_number,
+							parent_hash: header.parent_hash,
+							maybe_allowed_relay_parents: None,
+						},
+					);
+
+					header.parent_hash
+				};
+
+				ancestry.push(next_ancestor_hash);
+				if next_ancestor_number == 0 {
+					break
+				}
+
+				next_ancestor_number -= 1;
+				next_ancestor_hash = parent_hash;
+			}
+
+			ancestry
+		} else {
+			vec![leaf_hash]
+		};
+
+		let fetched_ancestry =
+			FetchSummary { minimum_ancestor_number: min_min, leaf_number: leaf_header.number };
+
+		let allowed_relay_parents = AllowedRelayParents {
+			minimum_relay_parents: min_relay_parents.into_iter().collect(),
+			allowed_relay_parents_contiguous: ancestry,
+		};
+
+		let leaf_block_info = BlockInfo {
+			parent_hash: leaf_header.parent_hash,
+			block_number: leaf_header.number,
+			maybe_allowed_relay_parents: Some(allowed_relay_parents),
+		};
+
+		self.block_info_storage.insert(leaf_hash, leaf_block_info);
+
+		Ok(fetched_ancestry)
+	}
 }
 
 /// Errors when fetching a leaf and associated ancestry.
@@ -249,6 +546,10 @@ pub enum FetchError {
 	/// Request to the Chain API subsystem failed.
 	#[error("The chain API subsystem was unavailable")]
 	ChainApiUnavailable,
+
+	/// Request to the runtime API failed.
+	#[error("Runtime API error: {0}")]
+	RuntimeApi(#[from] runtime::Error),
 }
 
 /// Reasons a block header might have been unavailable.
@@ -265,141 +566,74 @@ pub enum BlockHeaderUnavailableReason {
 struct FetchSummary {
 	minimum_ancestor_number: BlockNumber,
 	leaf_number: BlockNumber,
-	relevant_paras: Vec<ParaId>,
 }
 
-async fn fetch_fresh_leaf_and_insert_ancestry<Sender>(
-	leaf_hash: Hash,
-	block_info_storage: &mut HashMap<Hash, BlockInfo>,
-	sender: &mut Sender,
-) -> Result<FetchSummary, FetchError>
-where
-	Sender: SubsystemSender<ChainApiMessage>,
+// Request the min relay parents from prospective-parachains.
+async fn fetch_min_relay_parents_from_prospective_parachains<
 	Sender: SubsystemSender<ProspectiveParachainsMessage>,
+>(
+	leaf_hash: Hash,
+	sender: &mut Sender,
+) -> Result<Vec<(ParaId, BlockNumber)>, FetchError> {
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(ProspectiveParachainsMessage::GetMinimumRelayParents(leaf_hash, tx))
+		.await;
+
+	rx.await.map_err(|_| FetchError::ProspectiveParachainsUnavailable)
+}
+
+// Request the min relay parent for the purposes of a collator, directly using ChainApi (where
+// prospective-parachains is not available).
+async fn fetch_min_relay_parents_for_collator<Sender>(
+	leaf_hash: Hash,
+	leaf_number: BlockNumber,
+	sender: &mut Sender,
+) -> Result<Option<BlockNumber>, FetchError>
+where
+	Sender: SubsystemSender<ProspectiveParachainsMessage>
+		+ SubsystemSender<RuntimeApiMessage>
+		+ SubsystemSender<ChainApiMessage>,
 {
-	let min_relay_parents_raw = {
-		let (tx, rx) = oneshot::channel();
-		sender
-			.send_message(ProspectiveParachainsMessage::GetMinimumRelayParents(leaf_hash, tx))
-			.await;
+	// Fetch the session of the leaf. We must make sure that we stop at the ancestor which has a
+	// different session index.
+	let required_session =
+		recv_runtime(request_session_index_for_child(leaf_hash, sender).await).await?;
 
-		match rx.await {
-			Ok(m) => m,
-			Err(_) => return Err(FetchError::ProspectiveParachainsUnavailable),
+	let scheduling_lookahead =
+		fetch_scheduling_lookahead(leaf_hash, required_session, sender).await?;
+
+	let mut min = leaf_number;
+
+	// Fetch the ancestors, up to (scheduling_lookahead - 1).
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(ChainApiMessage::Ancestors {
+			hash: leaf_hash,
+			k: scheduling_lookahead.saturating_sub(1) as usize,
+			response_channel: tx,
+		})
+		.await;
+	let hashes = rx
+		.await
+		.map_err(|_| FetchError::ChainApiUnavailable)?
+		.map_err(|err| FetchError::ChainApiError(leaf_hash, err))?;
+
+	for hash in hashes {
+		// The relay chain cannot accept blocks backed from previous sessions, with
+		// potentially previous validators. This is a technical limitation we need to
+		// respect here.
+		let session = recv_runtime(request_session_index_for_child(hash, sender).await).await?;
+
+		if session == required_session {
+			// We should never underflow here, the ChainAPI stops at genesis block.
+			min = min.saturating_sub(1);
+		} else {
+			break
 		}
-	};
+	}
 
-	let leaf_header = {
-		let (tx, rx) = oneshot::channel();
-		sender.send_message(ChainApiMessage::BlockHeader(leaf_hash, tx)).await;
-
-		match rx.await {
-			Ok(Ok(Some(header))) => header,
-			Ok(Ok(None)) =>
-				return Err(FetchError::BlockHeaderUnavailable(
-					leaf_hash,
-					BlockHeaderUnavailableReason::Unknown,
-				)),
-			Ok(Err(e)) =>
-				return Err(FetchError::BlockHeaderUnavailable(
-					leaf_hash,
-					BlockHeaderUnavailableReason::Internal(e),
-				)),
-			Err(_) =>
-				return Err(FetchError::BlockHeaderUnavailable(
-					leaf_hash,
-					BlockHeaderUnavailableReason::SubsystemUnavailable,
-				)),
-		}
-	};
-
-	let min_min = min_relay_parents_raw.iter().map(|x| x.1).min().unwrap_or(leaf_header.number);
-	let relevant_paras = min_relay_parents_raw.iter().map(|x| x.0).collect();
-	let expected_ancestry_len = (leaf_header.number.saturating_sub(min_min) as usize) + 1;
-
-	let ancestry = if leaf_header.number > 0 {
-		let mut next_ancestor_number = leaf_header.number - 1;
-		let mut next_ancestor_hash = leaf_header.parent_hash;
-
-		let mut ancestry = Vec::with_capacity(expected_ancestry_len);
-		ancestry.push(leaf_hash);
-
-		// Ensure all ancestors up to and including `min_min` are in the
-		// block storage. When views advance incrementally, everything
-		// should already be present.
-		while next_ancestor_number >= min_min {
-			let parent_hash = if let Some(info) = block_info_storage.get(&next_ancestor_hash) {
-				info.parent_hash
-			} else {
-				// load the header and insert into block storage.
-				let (tx, rx) = oneshot::channel();
-				sender.send_message(ChainApiMessage::BlockHeader(next_ancestor_hash, tx)).await;
-
-				let header = match rx.await {
-					Ok(Ok(Some(header))) => header,
-					Ok(Ok(None)) =>
-						return Err(FetchError::BlockHeaderUnavailable(
-							next_ancestor_hash,
-							BlockHeaderUnavailableReason::Unknown,
-						)),
-					Ok(Err(e)) =>
-						return Err(FetchError::BlockHeaderUnavailable(
-							next_ancestor_hash,
-							BlockHeaderUnavailableReason::Internal(e),
-						)),
-					Err(_) =>
-						return Err(FetchError::BlockHeaderUnavailable(
-							next_ancestor_hash,
-							BlockHeaderUnavailableReason::SubsystemUnavailable,
-						)),
-				};
-
-				block_info_storage.insert(
-					next_ancestor_hash,
-					BlockInfo {
-						block_number: next_ancestor_number,
-						parent_hash: header.parent_hash,
-						maybe_allowed_relay_parents: None,
-					},
-				);
-
-				header.parent_hash
-			};
-
-			ancestry.push(next_ancestor_hash);
-			if next_ancestor_number == 0 {
-				break
-			}
-
-			next_ancestor_number -= 1;
-			next_ancestor_hash = parent_hash;
-		}
-
-		ancestry
-	} else {
-		vec![leaf_hash]
-	};
-
-	let fetched_ancestry = FetchSummary {
-		minimum_ancestor_number: min_min,
-		leaf_number: leaf_header.number,
-		relevant_paras,
-	};
-
-	let allowed_relay_parents = AllowedRelayParents {
-		minimum_relay_parents: min_relay_parents_raw.iter().cloned().collect(),
-		allowed_relay_parents_contiguous: ancestry,
-	};
-
-	let leaf_block_info = BlockInfo {
-		parent_hash: leaf_header.parent_hash,
-		block_number: leaf_header.number,
-		maybe_allowed_relay_parents: Some(allowed_relay_parents),
-	};
-
-	block_info_storage.insert(leaf_hash, leaf_block_info);
-
-	Ok(fetched_ancestry)
+	Ok(Some(min))
 }
 
 #[cfg(test)]
@@ -408,7 +642,7 @@ mod tests {
 	use crate::TimeoutExt;
 	use assert_matches::assert_matches;
 	use futures::future::{join, FutureExt};
-	use polkadot_node_subsystem::AllMessages;
+	use polkadot_node_subsystem::{messages::RuntimeApiRequest, AllMessages};
 	use polkadot_node_subsystem_test_helpers::{
 		make_subsystem_context, TestSubsystemContextHandle,
 	};
@@ -514,12 +748,80 @@ mod tests {
 		);
 	}
 
+	async fn assert_scheduling_lookahead_request(
+		virtual_overseer: &mut VirtualOverseer,
+		leaf: Hash,
+		lookahead: u32,
+	) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(
+					leaf_hash,
+					RuntimeApiRequest::SchedulingLookahead(
+						_,
+						tx
+					)
+				)
+			) => {
+				assert_eq!(leaf, leaf_hash, "received unexpected leaf hash");
+				tx.send(Ok(lookahead)).unwrap();
+			}
+		);
+	}
+
+	async fn assert_session_index_request(
+		virtual_overseer: &mut VirtualOverseer,
+		leaf: Hash,
+		session: u32,
+	) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(
+					leaf_hash,
+					RuntimeApiRequest::SessionIndexForChild(
+						tx
+					)
+				)
+			) => {
+				assert_eq!(leaf, leaf_hash, "received unexpected leaf hash");
+				tx.send(Ok(session)).unwrap();
+			}
+		);
+	}
+
+	async fn assert_ancestors_request(
+		virtual_overseer: &mut VirtualOverseer,
+		leaf: Hash,
+		expected_ancestor_len: u32,
+		response: Vec<Hash>,
+	) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::ChainApi(
+				ChainApiMessage::Ancestors {
+					hash: leaf_hash,
+					k,
+					response_channel: tx
+				}
+			) => {
+				assert_eq!(leaf, leaf_hash, "received unexpected leaf hash");
+				assert_eq!(k, expected_ancestor_len as usize);
+
+				tx.send(Ok(response)).unwrap();
+			}
+		);
+	}
+
 	#[test]
 	fn construct_fresh_view() {
 		let pool = TaskExecutor::new();
 		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
 
 		let mut view = View::default();
+
+		assert_eq!(view.collating_for, None);
 
 		// Chain B.
 		const PARA_A_MIN_PARENT: u32 = 4;
@@ -528,15 +830,17 @@ mod tests {
 		let prospective_response = vec![(PARA_A, PARA_A_MIN_PARENT), (PARA_B, PARA_B_MIN_PARENT)];
 
 		let leaf = CHAIN_B.last().unwrap();
+		let leaf_idx = CHAIN_B.len() - 1;
 		let min_min_idx = (PARA_B_MIN_PARENT - GENESIS_NUMBER - 1) as usize;
 
 		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
-			let paras = res.expect("`activate_leaf` timed out").unwrap();
-			assert_eq!(paras, vec![PARA_A, PARA_B]);
+			res.expect("`activate_leaf` timed out").unwrap();
 		});
 		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[leaf_idx..]).await;
 			assert_min_relay_parents_request(&mut ctx_handle, leaf, prospective_response).await;
-			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[min_min_idx..]).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[min_min_idx..leaf_idx])
+				.await;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
@@ -558,6 +862,28 @@ mod tests {
 					allowed_relay_parents.allowed_relay_parents_contiguous,
 					expected_ancestry
 				);
+
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, None), Some(&expected_ancestry[..]));
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_A)), Some(&expected_ancestry[..(PARA_A_MIN_PARENT - 1) as usize]));
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)), Some(&expected_ancestry[..]));
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
+
+				assert_eq!(view.leaves.len(), 1);
+				assert!(view.leaves.contains_key(leaf));
+				assert!(view.paths_via_relay_parent(&CHAIN_B[0]).is_empty());
+				assert!(view.paths_via_relay_parent(&CHAIN_A[0]).is_empty());
+				assert_eq!(
+					view.paths_via_relay_parent(&CHAIN_B[min_min_idx]),
+					vec![CHAIN_B[min_min_idx..].to_vec()]
+				);
+				assert_eq!(
+					view.paths_via_relay_parent(&CHAIN_B[min_min_idx + 1]),
+					vec![CHAIN_B[min_min_idx..].to_vec()]
+				);
+				assert_eq!(
+					view.paths_via_relay_parent(&leaf),
+					vec![CHAIN_B[min_min_idx..].to_vec()]
+				);
 			}
 		);
 
@@ -566,18 +892,186 @@ mod tests {
 		let prospective_response = vec![(PARA_C, PARA_C_MIN_PARENT)];
 		let leaf = CHAIN_A.last().unwrap();
 		let blocks = [&[GENESIS_HASH], CHAIN_A].concat();
+		let leaf_idx = blocks.len() - 1;
 
 		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
-			let paras = res.expect("`activate_leaf` timed out").unwrap();
-			assert_eq!(paras, vec![PARA_C]);
+			res.expect("`activate_leaf` timed out").unwrap();
 		});
 		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[leaf_idx..]).await;
 			assert_min_relay_parents_request(&mut ctx_handle, leaf, prospective_response).await;
-			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[..leaf_idx]).await;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
 		assert_eq!(view.leaves.len(), 2);
+
+		let leaf_info =
+			view.block_info_storage.get(leaf).expect("block must be present in storage");
+		assert_matches!(
+			leaf_info.maybe_allowed_relay_parents,
+			Some(ref allowed_relay_parents) => {
+				assert_eq!(allowed_relay_parents.minimum_relay_parents[&PARA_C], GENESIS_NUMBER);
+				let expected_ancestry: Vec<Hash> =
+					blocks[..].iter().rev().copied().collect();
+				assert_eq!(
+					allowed_relay_parents.allowed_relay_parents_contiguous,
+					expected_ancestry
+				);
+
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, None), Some(&expected_ancestry[..]));
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)), Some(&expected_ancestry[..]));
+
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_A)).unwrap().is_empty());
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)).unwrap().is_empty());
+			}
+		);
+	}
+
+	#[test]
+	fn construct_fresh_view_single_para() {
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+		let mut view = View::new(Some(PARA_A));
+
+		assert_eq!(view.collating_for, Some(PARA_A));
+
+		// Chain B.
+		const PARA_A_MIN_PARENT: u32 = 4;
+
+		let current_session = 2;
+
+		let leaf = CHAIN_B.last().unwrap();
+		let leaf_idx = CHAIN_B.len() - 1;
+		let min_min_idx = (PARA_A_MIN_PARENT - GENESIS_NUMBER - 1) as usize;
+
+		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
+			res.expect("`activate_leaf` timed out").unwrap();
+		});
+		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[leaf_idx..]).await;
+
+			assert_session_index_request(&mut ctx_handle, *leaf, current_session).await;
+
+			assert_scheduling_lookahead_request(&mut ctx_handle, *leaf, PARA_A_MIN_PARENT + 1)
+				.await;
+
+			assert_ancestors_request(
+				&mut ctx_handle,
+				*leaf,
+				PARA_A_MIN_PARENT,
+				CHAIN_B[min_min_idx..leaf_idx].iter().copied().rev().collect(),
+			)
+			.await;
+
+			for hash in CHAIN_B[min_min_idx..leaf_idx].into_iter().rev() {
+				assert_session_index_request(&mut ctx_handle, *hash, current_session).await;
+			}
+
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[min_min_idx..leaf_idx])
+				.await;
+		};
+		futures::executor::block_on(join(fut, overseer_fut));
+
+		for i in min_min_idx..(CHAIN_B.len() - 1) {
+			// No allowed relay parents constructed for ancestry.
+			assert!(view.known_allowed_relay_parents_under(&CHAIN_B[i], None).is_none());
+		}
+
+		let leaf_info =
+			view.block_info_storage.get(leaf).expect("block must be present in storage");
+		assert_matches!(
+			leaf_info.maybe_allowed_relay_parents,
+			Some(ref allowed_relay_parents) => {
+				assert_eq!(allowed_relay_parents.minimum_relay_parents[&PARA_A], PARA_A_MIN_PARENT);
+				let expected_ancestry: Vec<Hash> =
+					CHAIN_B[min_min_idx..].iter().rev().copied().collect();
+				assert_eq!(
+					allowed_relay_parents.allowed_relay_parents_contiguous,
+					expected_ancestry
+				);
+
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, None), Some(&expected_ancestry[..]));
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_A)), Some(&expected_ancestry[..]));
+
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)).unwrap().is_empty());
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
+
+				assert!(view.paths_via_relay_parent(&CHAIN_A[0]).is_empty());
+				assert_eq!(
+					view.paths_via_relay_parent(&CHAIN_B[min_min_idx]),
+					vec![CHAIN_B[min_min_idx..].to_vec()]
+				);
+			}
+		);
+
+		// Suppose the whole test chain A is allowed up to genesis for para A, but the genesis block
+		// is in a different session.
+		let leaf = CHAIN_A.last().unwrap();
+		let blocks = [&[GENESIS_HASH], CHAIN_A].concat();
+		let leaf_idx = blocks.len() - 1;
+
+		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
+			res.expect("`activate_leaf` timed out").unwrap();
+		});
+
+		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[leaf_idx..]).await;
+
+			assert_session_index_request(&mut ctx_handle, *leaf, current_session).await;
+
+			assert_scheduling_lookahead_request(&mut ctx_handle, *leaf, blocks.len() as u32 + 1)
+				.await;
+
+			assert_ancestors_request(
+				&mut ctx_handle,
+				*leaf,
+				blocks.len() as u32,
+				blocks[..leaf_idx].iter().rev().copied().collect(),
+			)
+			.await;
+
+			for hash in blocks[1..leaf_idx].into_iter().rev() {
+				assert_session_index_request(&mut ctx_handle, *hash, current_session).await;
+			}
+
+			assert_session_index_request(&mut ctx_handle, GENESIS_HASH, 0).await;
+
+			// We won't request for the genesis block
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[1..leaf_idx]).await;
+		};
+
+		futures::executor::block_on(join(fut, overseer_fut));
+
+		assert_eq!(view.leaves.len(), 2);
+
+		let leaf_info =
+			view.block_info_storage.get(leaf).expect("block must be present in storage");
+		assert_matches!(
+			leaf_info.maybe_allowed_relay_parents,
+			Some(ref allowed_relay_parents) => {
+				assert_eq!(allowed_relay_parents.minimum_relay_parents[&PARA_A], 1);
+				let expected_ancestry: Vec<Hash> =
+					CHAIN_A[..].iter().rev().copied().collect();
+				assert_eq!(
+					allowed_relay_parents.allowed_relay_parents_contiguous,
+					expected_ancestry
+				);
+
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, None), Some(&expected_ancestry[..]));
+				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_A)), Some(&expected_ancestry[..]));
+
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)).unwrap().is_empty());
+				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
+
+				assert!(view.paths_via_relay_parent(&GENESIS_HASH).is_empty());
+				assert_eq!(
+					view.paths_via_relay_parent(&CHAIN_A[0]),
+					vec![CHAIN_A.to_vec()]
+				);
+			}
+		);
 	}
 
 	#[test]
@@ -595,15 +1089,20 @@ mod tests {
 		let prospective_response = vec![(PARA_A, PARA_A_MIN_PARENT)];
 
 		let fut = view.activate_leaf(ctx.sender(), leaf_a).timeout(TIMEOUT).map(|res| {
-			let paras = res.expect("`activate_leaf` timed out").unwrap();
-			assert_eq!(paras, vec![PARA_A]);
+			res.expect("`activate_leaf` timed out").unwrap();
 		});
 		let overseer_fut = async {
+			assert_block_header_requests(
+				&mut ctx_handle,
+				CHAIN_B,
+				&CHAIN_B[(leaf_a_number - 1)..leaf_a_number],
+			)
+			.await;
 			assert_min_relay_parents_request(&mut ctx_handle, &leaf_a, prospective_response).await;
 			assert_block_header_requests(
 				&mut ctx_handle,
 				CHAIN_B,
-				&CHAIN_B[min_min_idx..leaf_a_number],
+				&CHAIN_B[min_min_idx..(leaf_a_number - 1)],
 			)
 			.await;
 		};
@@ -617,15 +1116,20 @@ mod tests {
 		let prospective_response = vec![(PARA_B, PARA_B_MIN_PARENT)];
 
 		let fut = view.activate_leaf(ctx.sender(), leaf_b).timeout(TIMEOUT).map(|res| {
-			let paras = res.expect("`activate_leaf` timed out").unwrap();
-			assert_eq!(paras, vec![PARA_B]);
+			res.expect("`activate_leaf` timed out").unwrap();
 		});
 		let overseer_fut = async {
+			assert_block_header_requests(
+				&mut ctx_handle,
+				CHAIN_B,
+				&CHAIN_B[(leaf_b_number - 1)..leaf_b_number],
+			)
+			.await;
 			assert_min_relay_parents_request(&mut ctx_handle, &leaf_b, prospective_response).await;
 			assert_block_header_requests(
 				&mut ctx_handle,
 				CHAIN_B,
-				&CHAIN_B[leaf_a_number..leaf_b_number], // Note the expected range.
+				&CHAIN_B[leaf_a_number..(leaf_b_number - 1)], // Note the expected range.
 			)
 			.await;
 		};
@@ -665,13 +1169,15 @@ mod tests {
 			.timeout(TIMEOUT)
 			.map(|res| res.unwrap().unwrap());
 		let overseer_fut = async {
-			assert_min_relay_parents_request(&mut ctx_handle, &leaf_a, prospective_response).await;
 			assert_block_header_requests(
 				&mut ctx_handle,
 				CHAIN_B,
-				&CHAIN_B[min_a_idx..=leaf_a_idx],
+				&CHAIN_B[leaf_a_idx..(leaf_a_idx + 1)],
 			)
 			.await;
+			assert_min_relay_parents_request(&mut ctx_handle, &leaf_a, prospective_response).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[min_a_idx..leaf_a_idx])
+				.await;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
@@ -689,8 +1195,11 @@ mod tests {
 			.timeout(TIMEOUT)
 			.map(|res| res.expect("`activate_leaf` timed out").unwrap());
 		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &blocks[(blocks.len() - 1)..])
+				.await;
 			assert_min_relay_parents_request(&mut ctx_handle, &leaf_b, prospective_response).await;
-			assert_block_header_requests(&mut ctx_handle, CHAIN_B, blocks).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &blocks[..(blocks.len() - 1)])
+				.await;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
@@ -721,19 +1230,83 @@ mod tests {
 
 		let prospective_response = vec![(PARA_A, PARA_A_MIN_PARENT)];
 		let fut = view.activate_leaf(ctx.sender(), GENESIS_HASH).timeout(TIMEOUT).map(|res| {
-			let paras = res.expect("`activate_leaf` timed out").unwrap();
-			assert_eq!(paras, vec![PARA_A]);
+			res.expect("`activate_leaf` timed out").unwrap();
 		});
 		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, &[GENESIS_HASH], &[GENESIS_HASH]).await;
 			assert_min_relay_parents_request(&mut ctx_handle, &GENESIS_HASH, prospective_response)
 				.await;
-			assert_block_header_requests(&mut ctx_handle, &[GENESIS_HASH], &[GENESIS_HASH]).await;
 		};
 		futures::executor::block_on(join(fut, overseer_fut));
 
 		assert_matches!(
 			view.known_allowed_relay_parents_under(&GENESIS_HASH, None),
-			Some(hashes) if !hashes.is_empty()
+			Some(hashes) if hashes == &[GENESIS_HASH]
 		);
+	}
+
+	#[test]
+	fn path_with_fork() {
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+		let mut view = View::default();
+
+		assert_eq!(view.collating_for, None);
+
+		// Chain A
+		let prospective_response = vec![(PARA_A, 0)]; // was PARA_A_MIN_PARENT
+		let leaf = CHAIN_A.last().unwrap();
+		let blocks = [&[GENESIS_HASH], CHAIN_A].concat();
+		let leaf_idx = blocks.len() - 1;
+
+		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
+			res.expect("`activate_leaf` timed out").unwrap();
+		});
+		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[leaf_idx..]).await;
+			assert_min_relay_parents_request(&mut ctx_handle, leaf, prospective_response).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[..leaf_idx]).await;
+		};
+		futures::executor::block_on(join(fut, overseer_fut));
+
+		// Chain B
+		let prospective_response = vec![(PARA_A, 1)];
+
+		let leaf = CHAIN_B.last().unwrap();
+		let leaf_idx = CHAIN_B.len() - 1;
+
+		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
+			res.expect("`activate_leaf` timed out").unwrap();
+		});
+		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[leaf_idx..]).await;
+			assert_min_relay_parents_request(&mut ctx_handle, leaf, prospective_response).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[0..leaf_idx]).await;
+		};
+		futures::executor::block_on(join(fut, overseer_fut));
+
+		assert_eq!(view.leaves.len(), 2);
+
+		let mut paths_to_genesis = view.paths_via_relay_parent(&GENESIS_HASH);
+		paths_to_genesis.sort();
+		let mut expected_paths_to_genesis = vec![
+			[GENESIS_HASH].iter().chain(CHAIN_A.iter()).copied().collect::<Vec<_>>(),
+			[GENESIS_HASH].iter().chain(CHAIN_B.iter()).copied().collect::<Vec<_>>(),
+		];
+		expected_paths_to_genesis.sort();
+		assert_eq!(paths_to_genesis, expected_paths_to_genesis);
+
+		let path_to_leaf_in_a = view.paths_via_relay_parent(&CHAIN_A[1]);
+		let expected_path_to_leaf_in_a =
+			vec![[GENESIS_HASH].iter().chain(CHAIN_A.iter()).copied().collect::<Vec<_>>()];
+		assert_eq!(path_to_leaf_in_a, expected_path_to_leaf_in_a);
+
+		let path_to_leaf_in_b = view.paths_via_relay_parent(&CHAIN_B[4]);
+		let expected_path_to_leaf_in_b =
+			vec![[GENESIS_HASH].iter().chain(CHAIN_B.iter()).copied().collect::<Vec<_>>()];
+		assert_eq!(path_to_leaf_in_b, expected_path_to_leaf_in_b);
+
+		assert_eq!(view.paths_via_relay_parent(&Hash::repeat_byte(0x0A)), Vec::<Vec<Hash>>::new());
 	}
 }

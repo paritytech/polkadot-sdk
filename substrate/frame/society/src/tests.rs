@@ -18,7 +18,7 @@
 //! Tests for the module.
 
 use super::*;
-use migrations::old;
+use migrations::v0;
 use mock::*;
 
 use frame_support::{assert_noop, assert_ok};
@@ -32,41 +32,41 @@ use RuntimeOrigin as Origin;
 #[test]
 fn migration_works() {
 	EnvBuilder::new().founded(false).execute(|| {
-		use old::Vote::*;
+		use v0::Vote::*;
 
 		// Initialise the old storage items.
 		Founder::<Test>::put(10);
 		Head::<Test>::put(30);
-		old::Members::<Test, ()>::put(vec![10, 20, 30]);
-		old::Vouching::<Test, ()>::insert(30, Vouching);
-		old::Vouching::<Test, ()>::insert(40, Banned);
-		old::Strikes::<Test, ()>::insert(20, 1);
-		old::Strikes::<Test, ()>::insert(30, 2);
-		old::Strikes::<Test, ()>::insert(40, 5);
-		old::Payouts::<Test, ()>::insert(20, vec![(1, 1)]);
-		old::Payouts::<Test, ()>::insert(
+		v0::Members::<Test, ()>::put(vec![10, 20, 30]);
+		v0::Vouching::<Test, ()>::insert(30, Vouching);
+		v0::Vouching::<Test, ()>::insert(40, Banned);
+		v0::Strikes::<Test, ()>::insert(20, 1);
+		v0::Strikes::<Test, ()>::insert(30, 2);
+		v0::Strikes::<Test, ()>::insert(40, 5);
+		v0::Payouts::<Test, ()>::insert(20, vec![(1, 1)]);
+		v0::Payouts::<Test, ()>::insert(
 			30,
 			(0..=<Test as Config>::MaxPayouts::get())
 				.map(|i| (i as u64, i as u64))
 				.collect::<Vec<_>>(),
 		);
-		old::SuspendedMembers::<Test, ()>::insert(40, true);
+		v0::SuspendedMembers::<Test, ()>::insert(40, true);
 
-		old::Defender::<Test, ()>::put(20);
-		old::DefenderVotes::<Test, ()>::insert(10, Approve);
-		old::DefenderVotes::<Test, ()>::insert(20, Approve);
-		old::DefenderVotes::<Test, ()>::insert(30, Reject);
+		v0::Defender::<Test, ()>::put(20);
+		v0::DefenderVotes::<Test, ()>::insert(10, Approve);
+		v0::DefenderVotes::<Test, ()>::insert(20, Approve);
+		v0::DefenderVotes::<Test, ()>::insert(30, Reject);
 
-		old::SuspendedCandidates::<Test, ()>::insert(50, (10, Deposit(100)));
+		v0::SuspendedCandidates::<Test, ()>::insert(50, (10, Deposit(100)));
 
-		old::Candidates::<Test, ()>::put(vec![
+		v0::Candidates::<Test, ()>::put(vec![
 			Bid { who: 60, kind: Deposit(100), value: 200 },
 			Bid { who: 70, kind: Vouch(30, 30), value: 100 },
 		]);
-		old::Votes::<Test, ()>::insert(60, 10, Approve);
-		old::Votes::<Test, ()>::insert(70, 10, Reject);
-		old::Votes::<Test, ()>::insert(70, 20, Approve);
-		old::Votes::<Test, ()>::insert(70, 30, Approve);
+		v0::Votes::<Test, ()>::insert(60, 10, Approve);
+		v0::Votes::<Test, ()>::insert(70, 10, Reject);
+		v0::Votes::<Test, ()>::insert(70, 20, Approve);
+		v0::Votes::<Test, ()>::insert(70, 30, Approve);
 
 		let bids = (0..=<Test as Config>::MaxBids::get())
 			.map(|i| Bid {
@@ -75,7 +75,7 @@ fn migration_works() {
 				value: 10u64 + i as u64,
 			})
 			.collect::<Vec<_>>();
-		old::Bids::<Test, ()>::put(bids);
+		v0::Bids::<Test, ()>::put(bids);
 
 		migrations::from_original::<Test, ()>(&mut [][..]).expect("migration failed");
 		migrations::assert_internal_consistency::<Test, ()>();
@@ -272,7 +272,7 @@ fn bidding_works() {
 		// 40, now a member, can vote for 50
 		assert_ok!(Society::vote(Origin::signed(40), 50, true));
 		conclude_intake(true, None);
-		run_to_block(12);
+		System::run_to_block::<AllPalletsWithSystem>(12);
 		// 50 is now a member
 		assert_eq!(members(), vec![10, 30, 40, 50]);
 		// Pot is increased by 1000, and 500 is paid out. Total payout so far is 1200.
@@ -281,8 +281,8 @@ fn bidding_works() {
 		// No more candidates satisfy the requirements
 		assert_eq!(candidacies(), vec![]);
 		assert_ok!(Society::defender_vote(Origin::signed(10), true)); // Keep defender around
-															  // Next period
-		run_to_block(16);
+																// Next period
+		System::run_to_block::<AllPalletsWithSystem>(16);
 		// Same members
 		assert_eq!(members(), vec![10, 30, 40, 50]);
 		// Pot is increased by 1000 again
@@ -294,7 +294,7 @@ fn bidding_works() {
 		// Candidate 60 is voted in.
 		assert_ok!(Society::vote(Origin::signed(50), 60, true));
 		conclude_intake(true, None);
-		run_to_block(20);
+		System::run_to_block::<AllPalletsWithSystem>(20);
 		// 60 joins as a member
 		assert_eq!(members(), vec![10, 30, 40, 50, 60]);
 		// Pay them
@@ -368,7 +368,7 @@ fn rejecting_skeptic_on_approved_is_punished() {
 		}
 		conclude_intake(true, None);
 		assert_eq!(Members::<Test>::get(10).unwrap().strikes, 0);
-		run_to_block(12);
+		System::run_to_block::<AllPalletsWithSystem>(12);
 		assert_eq!(members(), vec![10, 20, 30, 40]);
 		assert_eq!(Members::<Test>::get(skeptic).unwrap().strikes, 1);
 	});
@@ -418,7 +418,7 @@ fn slash_payout_works() {
 			Payouts::<Test>::get(20),
 			PayoutRecord { paid: 0, payouts: vec![(8, 500)].try_into().unwrap() }
 		);
-		run_to_block(8);
+		System::run_to_block::<AllPalletsWithSystem>(8);
 		// payout should be here, but 500 less
 		assert_ok!(Society::payout(RuntimeOrigin::signed(20)));
 		assert_eq!(Balances::free_balance(20), 550);
@@ -541,7 +541,7 @@ fn suspended_candidate_rejected_works() {
 			assert_ok!(Society::vote(Origin::signed(30), x, true));
 		}
 
-		// Voting continues, as no canidate is clearly accepted yet and the founder chooses not to
+		// Voting continues, as no candidate is clearly accepted yet and the founder chooses not to
 		// act.
 		conclude_intake(false, None);
 		assert_eq!(members(), vec![10, 20, 30]);
@@ -558,7 +558,7 @@ fn suspended_candidate_rejected_works() {
 		assert_eq!(Balances::reserved_balance(40), 0);
 		assert_eq!(Balances::free_balance(Society::account_id()), 9990);
 
-		// Founder manually bestows membership on 50 and and kicks 70.
+		// Founder manually bestows membership on 50 and kicks 70.
 		assert_ok!(Society::bestow_membership(Origin::signed(10), 50));
 		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
 		assert_eq!(candidates(), vec![60, 70]);
@@ -1315,7 +1315,7 @@ fn drop_candidate_works() {
 		assert_ok!(Society::vote(Origin::signed(10), 40, false));
 		assert_ok!(Society::vote(Origin::signed(20), 40, false));
 		assert_ok!(Society::vote(Origin::signed(30), 40, false));
-		run_to_block(12);
+		System::run_to_block::<AllPalletsWithSystem>(12);
 		assert_ok!(Society::drop_candidate(Origin::signed(50), 40));
 		// 40 candidacy has gone.
 		assert_eq!(candidates(), vec![]);

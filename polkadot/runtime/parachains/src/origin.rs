@@ -16,9 +16,9 @@
 
 //! Declaration of the parachain specific origin and a pallet that hosts it.
 
-use primitives::Id as ParaId;
+use core::result;
+use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::BadOrigin;
-use sp_std::result;
 
 pub use pallet::*;
 
@@ -58,6 +58,7 @@ pub mod pallet {
 		Clone,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		sp_core::RuntimeDebug,
 		scale_info::TypeInfo,
 		MaxEncodedLen,

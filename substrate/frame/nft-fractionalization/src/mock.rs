@@ -49,7 +49,7 @@ construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
@@ -57,20 +57,9 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = ConstU32<50>;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 }
 
 impl pallet_assets::Config for Test {
@@ -88,6 +77,7 @@ impl pallet_assets::Config for Test {
 	type MetadataDepositPerByte = ConstU64<1>;
 	type ApprovalDeposit = ConstU64<1>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type CallbackHandle = ();
@@ -126,6 +116,7 @@ impl pallet_nfts::Config for Test {
 	type OffchainSignature = Signature;
 	type OffchainPublic = AccountPublic;
 	type WeightInfo = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 	pallet_nfts::runtime_benchmarks_enabled! {
 		type Helper = ();
 	}

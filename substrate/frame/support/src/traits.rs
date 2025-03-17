@@ -22,8 +22,9 @@
 pub mod tokens;
 pub use tokens::{
 	currency::{
-		ActiveIssuanceOf, Currency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
-		ReservableCurrency, TotalIssuanceOf, VestingSchedule,
+		ActiveIssuanceOf, Currency, InspectLockableCurrency, LockIdentifier, LockableCurrency,
+		NamedReservableCurrency, ReservableCurrency, TotalIssuanceOf, VestedTransfer,
+		VestingSchedule,
 	},
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
@@ -36,7 +37,7 @@ mod members;
 pub use members::{AllowAll, DenyAll, Filter};
 pub use members::{
 	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Equals, Everything,
-	EverythingBut, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
+	EverythingBut, FromContains, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
 	RankedMembers, RankedMembersSwapHandler, SortedMembers, TheseExcept,
 };
 
@@ -56,13 +57,13 @@ pub use filter::{ClearFilterGuard, FilterStack, FilterStackGuard, InstanceFilter
 mod misc;
 pub use misc::{
 	defensive_prelude::{self, *},
-	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
-	ConstU16, ConstU32, ConstU64, ConstU8, DefensiveMax, DefensiveMin, DefensiveSaturating,
-	DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly, EstimateCallFee,
-	ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime, IsSubType, IsType,
-	Len, OffchainWorker, OnKilledAccount, OnNewAccount, PrivilegeCmp, SameOrOther, Time,
-	TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque,
-	WrapperOpaque,
+	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
+	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, DefensiveMax, DefensiveMin,
+	DefensiveSaturating, DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly,
+	EstimateCallFee, ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime,
+	InherentBuilder, IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount,
+	OnNewAccount, PrivilegeCmp, SameOrOther, SignedTransactionBuilder, Time, TryCollect, TryDrop,
+	TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};
@@ -86,14 +87,18 @@ mod hooks;
 pub use hooks::GenesisBuild;
 pub use hooks::{
 	BeforeAllRuntimeMigrations, BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis,
-	OnIdle, OnInitialize, OnRuntimeUpgrade, OnTimestampSet,
+	OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, OnTimestampSet, PostInherents,
+	PostTransactions, PreInherents, UncheckedOnRuntimeUpgrade,
 };
 
 pub mod schedule;
 mod storage;
+#[cfg(feature = "experimental")]
+pub use storage::MaybeConsideration;
 pub use storage::{
-	Consideration, Footprint, Incrementable, Instance, LinearStoragePrice, PartialStorageInfoTrait,
-	StorageInfo, StorageInfoTrait, StorageInstance, TrackedStorageKey, WhitelistedStorageKeys,
+	Consideration, ConstantStoragePrice, Footprint, Incrementable, Instance, LinearStoragePrice,
+	PartialStorageInfoTrait, StorageInfo, StorageInfoTrait, StorageInstance, TrackedStorageKey,
+	WhitelistedStorageKeys,
 };
 
 mod dispatch;
@@ -106,7 +111,7 @@ pub use dispatch::{
 };
 
 mod voting;
-pub use voting::{ClassCountOf, PollStatus, Polling, VoteTally};
+pub use voting::{ClassCountOf, NoOpPoll, PollStatus, Polling, VoteTally};
 
 mod preimages;
 pub use preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePreimage};
@@ -128,6 +133,9 @@ pub mod dynamic_params;
 
 pub mod tasks;
 pub use tasks::Task;
+
+mod proving;
+pub use proving::*;
 
 #[cfg(feature = "try-runtime")]
 mod try_runtime;

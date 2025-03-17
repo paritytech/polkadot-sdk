@@ -1,0 +1,22 @@
+name: Inform of new command action
+
+on:
+  issue_comment:
+    types: [ created ]
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    # Temporary disable the bot until the new command bot works properly
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, 'bot ')
+    steps:
+      - name: Inform that the new command exist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'We have migrated the command bot to GHA<br/><br/>Please, see the new usage instructions <a href="https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/commands-readme.md">here</a> or <a href="https://forum.parity.io/t/streamlining-weight-generation-and-more-the-new-cmd-bot/2411">here</a>. Soon the old commands will be disabled.'
+            })

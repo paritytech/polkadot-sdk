@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Extrinsic to restore corrupted staking ledgers
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR adds a new extrinsic `Call::restore_ledger ` gated by `StakingAdmin` origin that restores a corrupted staking ledger. This extrinsic will be used to recover ledgers that were affected by the issue discussed in https://github.com/paritytech/polkadot-sdk/issues/3245.
+      The extrinsic will re-write the storage items associated with a stash account provided as input parameter. The data used to reset the ledger can be either i) fetched on-chain or ii) partially/totally set by the input parameters of the call.
+      
+      Changes introduced:
+        - Adds `Call::restore_ledger ` extrinsic to recover a corrupted ledger;
+        - Adds trait `frame_support::traits::currency::InspectLockableCurrency` to allow external pallets to read current locks given an account and lock ID;
+        - Implements the `InspectLockableCurrency` in the pallet-balances.
+        - Adds staking locks try-runtime checks (https://github.com/paritytech/polkadot-sdk/issues/3751)
+
+crates: 
+ - name: pallet-staking
+ - name: pallet-balances

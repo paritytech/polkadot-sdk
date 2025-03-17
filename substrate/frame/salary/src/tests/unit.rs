@@ -17,23 +17,15 @@
 
 //! The crate's tests.
 
-use std::collections::BTreeMap;
-
-use core::cell::RefCell;
-use frame_support::{
-	assert_noop, assert_ok, derive_impl,
-	pallet_prelude::Weight,
-	parameter_types,
-	traits::{tokens::ConvertRank, ConstU64},
-};
-use sp_runtime::{traits::Identity, BuildStorage, DispatchResult};
-
 use crate as pallet_salary;
 use crate::*;
+use core::cell::RefCell;
+use frame::{deps::sp_runtime::traits::Identity, testing_prelude::*, traits::tokens::ConvertRank};
+use std::collections::BTreeMap;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -46,7 +38,7 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, 0));
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -124,7 +116,7 @@ impl RankedMembers for TestClub {
 	}
 	fn demote(who: &Self::AccountId) -> DispatchResult {
 		CLUB.with(|club| match club.borrow().get(who) {
-			None => Err(sp_runtime::DispatchError::Unavailable),
+			None => Err(DispatchError::Unavailable),
 			Some(&0) => {
 				club.borrow_mut().remove(&who);
 				Ok(())
@@ -156,9 +148,9 @@ impl Config for Test {
 	type Budget = Budget;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestState::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
@@ -508,7 +500,7 @@ fn zero_payment_fails() {
 }
 
 #[test]
-fn unregistered_bankrupcy_fails_gracefully() {
+fn unregistered_bankruptcy_fails_gracefully() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		set_rank(1, 2);
@@ -532,7 +524,7 @@ fn unregistered_bankrupcy_fails_gracefully() {
 }
 
 #[test]
-fn registered_bankrupcy_fails_gracefully() {
+fn registered_bankruptcy_fails_gracefully() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		set_rank(1, 2);
@@ -561,7 +553,7 @@ fn registered_bankrupcy_fails_gracefully() {
 }
 
 #[test]
-fn mixed_bankrupcy_fails_gracefully() {
+fn mixed_bankruptcy_fails_gracefully() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		set_rank(1, 2);
@@ -589,7 +581,7 @@ fn mixed_bankrupcy_fails_gracefully() {
 }
 
 #[test]
-fn other_mixed_bankrupcy_fails_gracefully() {
+fn other_mixed_bankruptcy_fails_gracefully() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		set_rank(1, 2);
