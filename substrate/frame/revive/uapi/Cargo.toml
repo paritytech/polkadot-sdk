@@ -7,6 +7,7 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "Exposes all the host functions that a contract can import."
+publish = false
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true

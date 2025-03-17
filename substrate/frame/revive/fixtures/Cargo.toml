@@ -7,6 +7,9 @@ license.workspace = true
 description = "Fixtures for testing and benchmarking"
 publish = false
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [lints]
 workspace = true
 
