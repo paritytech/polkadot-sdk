@@ -11,6 +11,20 @@ crates:
   - name: polkadot-node-subsystem-util
     bump: major
   - name: polkadot-statement-distribution
+    bump: major
+  - name: polkadot-availability-distribution
+    bump: patch
+  - name: polkadot-availability-recovery
+    bump: patch
+  - name: polkadot-collator-protocol
+    bump: patch
+  - name: polkadot-node-collation-generation
+    bump: patch
+  - name: polkadot-node-core-av-store
+    bump: patch
+  - name: polkadot-node-core-backing
     bump: patch
   - name: polkadot-node-core-dispute-coordinator
-    bump: none
+    bump: patch
+  - name: polkadot-node-core-provisioner
+    bump: patch
