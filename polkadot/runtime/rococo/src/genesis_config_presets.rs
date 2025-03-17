@@ -137,6 +137,7 @@ fn default_parachains_host_configuration(
 			lookahead: 3,
 			group_rotation_frequency: 20,
 			paras_availability_period: 4,
+			num_cores: 1,
 			..Default::default()
 		},
 		..Default::default()

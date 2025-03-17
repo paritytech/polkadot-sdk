@@ -76,6 +76,11 @@ pub mod pallet {
 
 			T::DbWeight::get().reads_writes(1, 0)
 		}
+
+		fn on_genesis() {
+			let authorities = pallet_aura::Authorities::<T>::get();
+			Authorities::<T>::put(authorities);
+		}
 	}
 
 	/// Serves as cache for the authorities.

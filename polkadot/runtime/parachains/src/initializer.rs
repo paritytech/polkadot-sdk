@@ -304,7 +304,7 @@ impl<T: Config> Pallet<T> {
 
 		if session_index == 0 {
 			// Genesis session should be immediately enacted.
-			Self::apply_new_session(0, validators, queued);
+			Self::apply_new_session(0, validators.clone(), queued.clone());
 		} else {
 			BufferedSessionChanges::<T>::mutate(|v| {
 				v.push(BufferedSessionChange { validators, queued, session_index })

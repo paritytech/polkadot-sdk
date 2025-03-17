@@ -574,6 +574,9 @@ pub trait Hooks<BlockNumber> {
 	/// Note that this hook is executed in an externality environment, provided by
 	/// `sp_io::TestExternalities`. This makes it possible to access the storage.
 	fn integrity_test() {}
+
+	/// Run this on genesis
+	fn on_genesis() {}
 }
 
 /// A trait to define the build function of a genesis config for both runtime and pallets.
