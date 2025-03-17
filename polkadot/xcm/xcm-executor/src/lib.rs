@@ -459,6 +459,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					error.clone(),
 					self.context.message_id,
 				);
+				if Config::XcmRecorder::should_record() {
+					Config::XcmRecorder::record_last_event();
+				}
 				Err(error.into())
 			},
 		}
@@ -854,6 +857,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 							error,
 							self.context.message_id,
 						);
+						if Config::XcmRecorder::should_record() {
+							Config::XcmRecorder::record_last_event();
+						}
 						*r = Err(ExecutorError {
 							index: i as u32,
 							xcm_error: error,

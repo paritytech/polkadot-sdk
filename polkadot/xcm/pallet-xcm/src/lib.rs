@@ -846,6 +846,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
 
+	#[pallet::storage]
+	pub(crate) type EmittedEvent<T: Config> = StorageValue<_, <T as frame_system::Config>::RuntimeEvent>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
@@ -2589,6 +2592,9 @@ impl<T: Config> Pallet<T> {
 
 				XcmDryRunApiError::VersionedConversionFailed
 			})?;
+		if let Some(failed_event) = Pallet::<Runtime>::emitted_event() {
+			tracing::debug!("Failed event: {:?}", failed_event);
+		}
 
 		// Should only get messages from this call since we cleared previous ones.
 		let forwarded_xcms =
@@ -3502,6 +3508,8 @@ impl<T: Config> CheckSuspension for Pallet<T> {
 }
 
 impl<T: Config> RecordXcm for Pallet<T> {
+	type RuntimeEvent = <T as frame_system::Config>::RuntimeEvent;
+
 	fn should_record() -> bool {
 		ShouldRecordXcm::<T>::get()
 	}
@@ -3516,6 +3524,21 @@ impl<T: Config> RecordXcm for Pallet<T> {
 
 	fn record(xcm: Xcm<()>) {
 		RecordedXcm::<T>::put(xcm);
+	}
+
+	fn record_last_event() {
+		let records = frame_system::Pallet::<T>::events();
+		if let Some(record) = records.last() {
+			let event = record.event.clone();
+			tracing::debug!("Record last event: {:?}", event);
+			EmittedEvent::<T>::put(event);
+		}
+	}
+
+	fn emitted_event() -> Option<Self::RuntimeEvent> {
+		let event = EmittedEvent::<T>::get();
+		tracing::debug!("Emitted event: {:?}", event);
+		event
 	}
 }
 
