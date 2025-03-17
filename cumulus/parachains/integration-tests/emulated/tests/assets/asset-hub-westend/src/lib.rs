@@ -79,8 +79,12 @@ mod imports {
 		},
 		westend_emulated_chain::{
 			genesis::ED as WESTEND_ED,
-			westend_runtime::xcm_config::{
-				UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+			westend_runtime::{
+				governance::pallet_custom_origins::Origin::Treasurer,
+				xcm_config::{
+					UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+				},
+				Dmp,
 			},
 			WestendRelayPallet as WestendPallet,
 		},

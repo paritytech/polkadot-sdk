@@ -482,7 +482,7 @@ impl OverheadCmd {
 		let database_source = self.database_config(
 			&base_path.path().to_path_buf(),
 			self.database_cache_size()?.unwrap_or(1024),
-			self.database()?.unwrap_or(Database::RocksDb),
+			self.database()?.unwrap_or(Database::Auto),
 		)?;
 
 		let backend = new_db_backend(DatabaseSettings {

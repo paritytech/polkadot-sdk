@@ -93,6 +93,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 
 #[cfg(test)]

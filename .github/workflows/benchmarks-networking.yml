@@ -92,6 +92,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "cargo"
+          name: ${{ env.BENCH }}
           output-file-path: ./charts/${{ env.BENCH }}.txt
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
@@ -103,6 +104,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "cargo"
+          name: ${{ env.BENCH }}
           output-file-path: ./charts/${{ env.BENCH }}.txt
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}

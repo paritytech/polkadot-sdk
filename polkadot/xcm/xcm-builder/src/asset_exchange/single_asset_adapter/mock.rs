@@ -82,6 +82,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
+	type Holder = ();
 	type CallbackHandle = ();
 }
 
@@ -97,6 +98,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
+	type Holder = ();
 	type CallbackHandle = ();
 }
 
@@ -218,6 +220,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = ();
+	type XcmEventEmitter = ();
 	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();
@@ -339,6 +342,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 	pallet_balances::GenesisConfig::<Runtime> {
 		balances: vec![(0, INITIAL_BALANCE), (1, INITIAL_BALANCE), (2, INITIAL_BALANCE)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

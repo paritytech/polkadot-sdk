@@ -38,7 +38,7 @@ extern crate alloc;
 /// For our tests
 extern crate self as frame_metadata_hash_extension;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{pallet_prelude::Weight, DebugNoBound};
 use frame_system::Config;
 use scale_info::TypeInfo;
@@ -52,7 +52,7 @@ use sp_runtime::{
 mod tests;
 
 /// The mode of [`CheckMetadataHash`].
-#[derive(Decode, Encode, PartialEq, Debug, TypeInfo, Clone, Copy, Eq)]
+#[derive(Decode, Encode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo, Clone, Copy, Eq)]
 enum Mode {
 	Disabled,
 	Enabled,
@@ -113,7 +113,7 @@ impl MetadataHash {
 /// environment variable is for example set by the `substrate-wasm-builder` when the feature for
 /// generating the metadata hash is enabled. If the environment variable is not set and `mode = 1`
 /// is passed, the transaction is rejected with [`UnknownTransaction::CannotLookup`].
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DebugNoBound)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo, DebugNoBound)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckMetadataHash<T> {
 	_phantom: core::marker::PhantomData<T>,

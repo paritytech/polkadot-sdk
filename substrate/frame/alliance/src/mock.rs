@@ -126,7 +126,7 @@ impl pallet_identity::Config for Test {
 	type WeightInfo = ();
 }
 
-#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Clone, Debug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo)]
 pub struct AccountU64(u64);
 impl IdentifyAccount for AccountU64 {
 	type AccountId = u64;
@@ -283,6 +283,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(8, 1000),
 			(9, 1000),
 		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

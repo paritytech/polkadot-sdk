@@ -396,7 +396,7 @@ fn relay_commands_add_remove_username_authority() {
 		);
 	});
 
-	// Now, remove the username authority with another priviledged XCM call.
+	// Now, remove the username authority with another privileged XCM call.
 	Westend::execute_with(|| {
 		type Runtime = <Westend as Chain>::Runtime;
 		type RuntimeCall = <Westend as Chain>::RuntimeCall;

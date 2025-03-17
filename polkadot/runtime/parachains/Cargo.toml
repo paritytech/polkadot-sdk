@@ -47,7 +47,6 @@ pallet-mmr = { workspace = true, optional = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-timestamp = { workspace = true }
-pallet-vesting = { workspace = true }
 
 polkadot-primitives = { workspace = true }
 xcm = { workspace = true }
@@ -96,7 +95,6 @@ std = [
 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-timestamp/std",
-	"pallet-vesting/std",
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-primitives/std",
@@ -122,6 +120,7 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
@@ -131,7 +130,6 @@ runtime-benchmarks = [
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-vesting/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"sp-application-crypto",
@@ -156,7 +154,6 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
-	"pallet-vesting/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 runtime-metrics = [
