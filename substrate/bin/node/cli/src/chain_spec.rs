@@ -314,65 +314,38 @@ pub fn testnet_genesis(
 	let (initial_authorities, endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 
-	serde_json::json!({
-		"balances": {
-			"balances": endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect::<Vec<_>>(),
-		},
-		"session": {
-			"keys": initial_authorities
-				.iter()
-				.map(|x| {
-					(
-						x.0.clone(),
-						x.0.clone(),
-						session_keys(
-							x.2.clone(),
-							x.3.clone(),
-							x.4.clone(),
-							x.5.clone(),
-							x.6.clone(),
-							x.7.clone(),
-						),
-					)
-				})
-				.collect::<Vec<_>>(),
-		},
-		"staking": {
-			"validatorCount": initial_authorities.len() as u32,
-			"minimumValidatorCount": initial_authorities.len() as u32,
-			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
-			"slashRewardFraction": Perbill::from_percent(10),
-			"stakers": stakers.clone(),
-		},
-		"elections": {
-			"members": endowed_accounts
-				.iter()
-				.take((num_endowed_accounts + 1) / 2)
-				.cloned()
-				.map(|member| (member, STASH))
-				.collect::<Vec<_>>(),
-		},
-		"technicalCommittee": {
-			"members": endowed_accounts
-				.iter()
-				.take((num_endowed_accounts + 1) / 2)
-				.cloned()
-				.collect::<Vec<_>>(),
-		},
-		"sudo": { "key": Some(root_key.clone()) },
-		"babe": {
-			"epochConfig": Some(kitchensink_runtime::BABE_GENESIS_EPOCH_CONFIG),
-		},
-		"society": { "pot": 0 },
-		"assets": {
-			// This asset is used by the NIS pallet as counterpart currency.
-			"assets": vec![(9, Sr25519Keyring::Alice.to_account_id(), true, 1)],
-		},
-		"nominationPools": {
-			"minCreateBond": 10 * DOLLARS,
-			"minJoinBond": 1 * DOLLARS,
-		},
-	})
+	let staking_playground_config = if cfg!(feature = "staking-playground") {
+		Some(get_staking_playground_config())
+	} else {
+		None
+	};
+
+	// Todo: After #7748 is done, we can refactor this to avoid
+	// calling into the native runtime.
+	kitchensink_runtime::genesis_config_presets::kitchensink_genesis(
+		initial_authorities
+			.iter()
+			.map(|x| {
+				(
+					x.0.clone(),
+					// stash account is controller
+					x.0.clone(),
+					session_keys(
+						x.2.clone(),
+						x.3.clone(),
+						x.4.clone(),
+						x.5.clone(),
+						x.6.clone(),
+						x.7.clone(),
+					),
+				)
+			})
+			.collect(),
+		root_key,
+		endowed_accounts,
+		stakers,
+		staking_playground_config,
+	)
 }
 
 fn get_staking_playground_config() -> StakingPlaygroundConfig {
