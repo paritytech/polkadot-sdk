@@ -502,7 +502,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								);
 								prior.accumulate(unlock_at, balance)
 							}
-						} else if v.1.as_standard().is_some_and(|s| s == !approved) {
+						} else if v.1.as_standard().is_some_and(|s| s != approved) {
 							// Unsuccessful vote, use special hook to lock the funds too in case of
 							// conviction.
 							if let Some(to_lock) =
