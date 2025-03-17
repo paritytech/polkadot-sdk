@@ -21,7 +21,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
@@ -85,7 +85,9 @@ impl From<MessageSendError> for &'static str {
 }
 
 /// The origin of an inbound message.
-#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug,
+)]
 pub enum AggregateMessageOrigin {
 	/// The message came from the para-chain itself.
 	Here,

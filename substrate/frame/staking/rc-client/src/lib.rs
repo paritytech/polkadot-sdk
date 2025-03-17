@@ -66,7 +66,7 @@ enum SessionCalls {
 }
 
 // An offence on the relay chain. Based on [`sp_staking::offence::OffenceDetails`].
-#[derive(Encode, Decode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
 pub struct Offence {
 	offender: AccountId32,
 	reporters: Vec<AccountId32>,

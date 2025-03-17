@@ -61,9 +61,9 @@ use xcm_builder::{
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
-		DropAssets, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
-		RecordXcm, TransactAsset, TransferType, VersionChangeNotifier, WeightBounds,
-		XcmAssetTransfers,
+		DropAssets, EventEmitter, MatchesFungible, OnResponse, Properties, QueryHandler,
+		QueryResponseStatus, RecordXcm, TransactAsset, TransferType, VersionChangeNotifier,
+		WeightBounds, XcmAssetTransfers,
 	},
 	AssetsInHolding,
 };
@@ -402,13 +402,51 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> EventEmitter for Pallet<T> {
+		fn emit_sent_event(
+			origin: Location,
+			destination: Location,
+			message: Option<Xcm<()>>,
+			message_id: XcmHash,
+		) {
+			Self::deposit_event(Event::Sent {
+				origin,
+				destination,
+				message: message.unwrap_or_default(),
+				message_id,
+			});
+		}
+
+		fn emit_send_failure_event(
+			origin: Location,
+			destination: Location,
+			error: SendError,
+			message_id: XcmHash,
+		) {
+			Self::deposit_event(Event::SendFailed { origin, destination, error, message_id });
+		}
+
+		fn emit_process_failure_event(origin: Location, error: XcmError, message_id: XcmHash) {
+			Self::deposit_event(Event::ProcessXcmError { origin, error, message_id });
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Execution of an XCM message was attempted.
 		Attempted { outcome: xcm::latest::Outcome },
-		/// A XCM message was sent.
+		/// An XCM message was sent.
 		Sent { origin: Location, destination: Location, message: Xcm<()>, message_id: XcmHash },
+		/// An XCM message failed to send.
+		SendFailed {
+			origin: Location,
+			destination: Location,
+			error: SendError,
+			message_id: XcmHash,
+		},
+		/// An XCM message failed to process.
+		ProcessXcmError { origin: Location, error: XcmError, message_id: XcmHash },
 		/// Query response received which does not match a registered query. This may be because a
 		/// matching query was never registered, it may be because it is a duplicate response, or
 		/// because the query timed out.
@@ -508,7 +546,17 @@ pub mod pallet {
 	}
 
 	#[pallet::origin]
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		RuntimeDebug,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum Origin {
 		/// It comes from somewhere in the XCM space wanting to transact.
 		Xcm(Location),
@@ -2514,6 +2562,7 @@ impl<T: Config> Pallet<T> {
 	pub fn dry_run_call<Runtime, Router, OriginCaller, RuntimeCall>(
 		origin: OriginCaller,
 		call: RuntimeCall,
+		result_xcms_version: XcmVersion,
 	) -> Result<CallDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
 	where
 		Runtime: crate::Config,
@@ -2528,9 +2577,28 @@ impl<T: Config> Pallet<T> {
 		frame_system::Pallet::<Runtime>::reset_events();
 		let result = call.dispatch(origin.into());
 		crate::Pallet::<Runtime>::set_record_xcm(false);
-		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm();
+		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm()
+			.map(|xcm| VersionedXcm::<()>::from(xcm).into_version(result_xcms_version))
+			.transpose()
+			.map_err(|()| {
+				tracing::error!(
+					target: "xcm::DryRunApi::dry_run_call",
+					"Local xcm version conversion failed"
+				);
+
+				XcmDryRunApiError::VersionedConversionFailed
+			})?;
+
 		// Should only get messages from this call since we cleared previous ones.
-		let forwarded_xcms = Router::get_messages();
+		let forwarded_xcms =
+			Self::convert_forwarded_xcms(result_xcms_version, Router::get_messages()).inspect_err(
+				|error| {
+					tracing::error!(
+						target: "xcm::DryRunApi::dry_run_call",
+						?error, "Forwarded xcms version conversion failed with error"
+					);
+				},
+			)?;
 		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()
 				.map(|record| record.event.clone())
@@ -2563,6 +2631,7 @@ impl<T: Config> Pallet<T> {
 			);
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
+		let xcm_version = xcm.identify_version();
 		let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
 			tracing::error!(
 				target: "xcm::DryRunApi::dry_run_xcm",
@@ -2571,7 +2640,11 @@ impl<T: Config> Pallet<T> {
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
 		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
+
+		// To make sure we only record events from current call.
+		Router::clear_messages();
+		frame_system::Pallet::<Runtime>::reset_events();
+
 		let result = xcm_executor::XcmExecutor::<XcmConfig>::prepare_and_execute(
 			origin_location,
 			xcm,
@@ -2579,12 +2652,43 @@ impl<T: Config> Pallet<T> {
 			Weight::MAX, // Max limit available for execution.
 			Weight::zero(),
 		);
-		let forwarded_xcms = Router::get_messages();
+		let forwarded_xcms = Self::convert_forwarded_xcms(xcm_version, Router::get_messages())
+			.inspect_err(|error| {
+				tracing::error!(
+					target: "xcm::DryRunApi::dry_run_xcm",
+					?error, "Forwarded xcms version conversion failed with error"
+				);
+			})?;
 		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()
 				.map(|record| record.event.clone())
 				.collect();
 		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
+	}
+
+	fn convert_xcms(
+		xcm_version: XcmVersion,
+		xcms: Vec<VersionedXcm<()>>,
+	) -> Result<Vec<VersionedXcm<()>>, ()> {
+		xcms.into_iter()
+			.map(|xcm| xcm.into_version(xcm_version))
+			.collect::<Result<Vec<_>, ()>>()
+	}
+
+	fn convert_forwarded_xcms(
+		xcm_version: XcmVersion,
+		forwarded_xcms: Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>,
+	) -> Result<Vec<(VersionedLocation, Vec<VersionedXcm<()>>)>, XcmDryRunApiError> {
+		forwarded_xcms
+			.into_iter()
+			.map(|(dest, forwarded_xcms)| {
+				let dest = dest.into_version(xcm_version)?;
+				let forwarded_xcms = Self::convert_xcms(xcm_version, forwarded_xcms)?;
+
+				Ok((dest, forwarded_xcms))
+			})
+			.collect::<Result<Vec<_>, ()>>()
+			.map_err(|()| XcmDryRunApiError::VersionedConversionFailed)
 	}
 
 	/// Given a list of asset ids, returns the correct API response for

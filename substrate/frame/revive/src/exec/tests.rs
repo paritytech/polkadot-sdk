@@ -33,7 +33,7 @@ use crate::{
 	AddressMapper, Error,
 };
 use assert_matches::assert_matches;
-use frame_support::{assert_err, assert_noop, assert_ok, parameter_types};
+use frame_support::{assert_err, assert_ok, parameter_types};
 use frame_system::{AccountInfo, EventRecord, Phase};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
@@ -376,19 +376,16 @@ fn delegate_call_missing_contract() {
 		let origin = Origin::from_account_id(ALICE);
 		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 55).unwrap();
 
-		// contract code missing
-		assert_noop!(
-			MockStack::run_call(
-				origin.clone(),
-				BOB_ADDR,
-				&mut GasMeter::<Test>::new(GAS_LIMIT),
-				&mut storage_meter,
-				U256::zero(),
-				vec![],
-				false,
-			),
-			ExecError { error: Error::<Test>::CodeNotFound.into(), origin: ErrorOrigin::Callee }
-		);
+		// contract code missing should still succeed to mimic EVM behavior.
+		assert_ok!(MockStack::run_call(
+			origin.clone(),
+			BOB_ADDR,
+			&mut GasMeter::<Test>::new(GAS_LIMIT),
+			&mut storage_meter,
+			U256::zero(),
+			vec![],
+			false,
+		));
 
 		// add missing contract code
 		place_contract(&CHARLIE, missing_ch);
@@ -2631,17 +2628,14 @@ fn last_frame_output_is_always_reset() {
 		);
 		assert_eq!(ctx.ext.last_frame_output(), &Default::default());
 
-		// An unknown code hash to fail the delegate_call on the first condition.
+		// An unknown code hash should succeed but clear the output.
 		*ctx.ext.last_frame_output_mut() = output_revert();
-		assert_eq!(
-			ctx.ext.delegate_call(
-				Weight::zero(),
-				U256::zero(),
-				H160([0xff; 20]),
-				Default::default()
-			),
-			Err(Error::<Test>::CodeNotFound.into())
-		);
+		assert_ok!(ctx.ext.delegate_call(
+			Weight::zero(),
+			U256::zero(),
+			H160([0xff; 20]),
+			Default::default()
+		));
 		assert_eq!(ctx.ext.last_frame_output(), &Default::default());
 
 		// An unknown code hash to fail instantiation on the first condition.

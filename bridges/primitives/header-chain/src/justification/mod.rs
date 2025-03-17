@@ -31,7 +31,7 @@ pub use verification::{
 };
 
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HeaderId};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature};
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug, SaturatedConversion};
@@ -42,7 +42,7 @@ use sp_std::prelude::*;
 ///
 /// This particular proof is used to prove that headers on a bridged chain
 /// (so not our chain) have been finalized correctly.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct GrandpaJustification<Header: HeaderT> {
 	/// The round (voting period) this justification is valid for.

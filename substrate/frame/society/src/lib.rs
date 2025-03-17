@@ -463,7 +463,18 @@ pub struct IntakeRecord<AccountId, Balance> {
 pub type IntakeRecordFor<T, I> =
 	IntakeRecord<<T as frame_system::Config>::AccountId, BalanceOf<T, I>>;
 
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct GroupParams<Balance> {
 	max_members: u32,
 	max_intake: u32,

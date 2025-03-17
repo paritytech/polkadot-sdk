@@ -78,7 +78,16 @@ use sp_std::{fmt::Debug, prelude::*};
 pub use crate::weights::measured::pallet_election_provider_multi_block_verifier::*;
 
 /// Errors that can happen in the feasibility check.
-#[derive(Debug, Eq, PartialEq, codec::Encode, codec::Decode, scale_info::TypeInfo, Clone)]
+#[derive(
+	Debug,
+	Eq,
+	PartialEq,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	Clone,
+)]
 pub enum FeasibilityError {
 	/// Wrong number of winners presented.
 	WrongWinnerCount,

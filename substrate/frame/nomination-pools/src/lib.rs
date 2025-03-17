@@ -355,7 +355,7 @@ extern crate alloc;
 
 use adapter::{Member, Pool, StakeStrategy};
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
-use codec::Codec;
+use codec::{Codec, DecodeWithMemTracking};
 use core::{fmt::Debug, ops::Div};
 use frame_support::{
 	defensive, defensive_assert, ensure,
@@ -364,7 +364,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
 		tokens::{Fortitude, Preservation},
-		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
+		Contains, Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
 	DefaultNoBound, PalletError,
 };
@@ -422,7 +422,16 @@ pub type BlockNumberFor<T> =
 pub const POINTS_TO_BALANCE_INIT_RATIO: u32 = 1;
 
 /// Possible operations on the configuration values of this pallet.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq, Clone)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	PartialEq,
+	Clone,
+)]
 pub enum ConfigOp<T: Codec + Debug> {
 	/// Don't change.
 	Noop,
@@ -441,7 +450,7 @@ pub enum BondType {
 }
 
 /// How to increase the bond of a member.
-#[derive(Encode, Decode, Clone, Copy, Debug, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Copy, Debug, PartialEq, Eq, TypeInfo)]
 pub enum BondExtra<Balance> {
 	/// Take from the free balance.
 	FreeBalance(Balance),
@@ -457,7 +466,18 @@ enum AccountType {
 }
 
 /// The permission a pool member can set for other accounts to claim rewards on their behalf.
-#[derive(Encode, Decode, MaxEncodedLen, Clone, Copy, Debug, PartialEq, Eq, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	Clone,
+	Copy,
+	Debug,
+	PartialEq,
+	Eq,
+	TypeInfo,
+)]
 pub enum ClaimPermission {
 	/// Only the pool member themselves can claim their rewards.
 	Permissioned,
@@ -671,7 +691,17 @@ impl<T: Config> PoolMember<T> {
 }
 
 /// A pool's possible states.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, RuntimeDebugNoBound, Clone, Copy)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	PartialEq,
+	RuntimeDebugNoBound,
+	Clone,
+	Copy,
+)]
 pub enum PoolState {
 	/// The pool is open to be joined, and is working normally.
 	Open,
@@ -704,7 +734,18 @@ pub struct PoolRoles<AccountId> {
 }
 
 // A pool's possible commission claiming permissions.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum CommissionClaimPermission<AccountId> {
 	Permissionless,
 	Account(AccountId),
@@ -918,7 +959,9 @@ impl<T: Config> Commission<T> {
 /// blocks that must elapse before commission updates are allowed again.
 ///
 /// Commission change rates are not applied to decreases in commission.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Debug, PartialEq, Copy, Clone)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Debug, PartialEq, Copy, Clone,
+)]
 pub struct CommissionChangeRate<BlockNumber> {
 	/// The maximum amount the commission can be updated by per `min_delay` period.
 	pub max_increase: Perbill,
@@ -1686,6 +1729,9 @@ pub mod pallet {
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
+
+		/// Restrict some accounts from participating in a nomination pool.
+		type Filter: Contains<Self::AccountId>;
 	}
 
 	/// The sum of funds across all pools.
@@ -2006,9 +2052,14 @@ pub mod pallet {
 		NotMigrated,
 		/// This call is not allowed in the current state of the pallet.
 		NotSupported,
+		/// Account is restricted from participation in pools. This may happen if the account is
+		/// staking in another way already.
+		Restricted,
 	}
 
-	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
+	#[derive(
+		Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, PalletError, RuntimeDebug,
+	)]
 	pub enum DefensiveError {
 		/// There isn't enough space in the unbond pool.
 		NotEnoughSpaceInUnbondPool,
@@ -2043,8 +2094,9 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Stake funds with a pool. The amount to bond is transferred from the member to the pool
-		/// account and immediately increases the pools bond.
+		/// Stake funds with a pool. The amount to bond is delegated (or transferred based on
+		/// [`adapter::StakeStrategyType`]) from the member to the pool account and immediately
+		/// increases the pool's bond.
 		///
 		/// The method of transferring the amount to the pool account is determined by
 		/// [`adapter::StakeStrategyType`]. If the pool is configured to use
@@ -2068,6 +2120,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// ensure pool is not in an un-migrated state.
 			ensure!(!Self::api_pool_needs_delegate_migration(pool_id), Error::<T>::NotMigrated);
+
+			// ensure account is not restricted from joining the pool.
+			ensure!(!T::Filter::contains(&who), Error::<T>::Restricted);
 
 			ensure!(amount >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
 			// If a member already exists that means they already belong to a pool
@@ -3103,12 +3158,16 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _caller = ensure_signed(origin)?;
 
+			// ensure `DelegateStake` strategy is used.
 			ensure!(
 				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
 				Error::<T>::NotSupported
 			);
 
+			// ensure member is not restricted from joining the pool.
 			let member_account = T::Lookup::lookup(member_account)?;
+			ensure!(!T::Filter::contains(&member_account), Error::<T>::Restricted);
+
 			let member =
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
 
@@ -3437,6 +3496,9 @@ impl<T: Config> Pallet<T> {
 		bouncer: AccountIdLookupOf<T>,
 		pool_id: PoolId,
 	) -> DispatchResult {
+		// ensure depositor is not restricted from joining the pool.
+		ensure!(!T::Filter::contains(&who), Error::<T>::Restricted);
+
 		let root = T::Lookup::lookup(root)?;
 		let nominator = T::Lookup::lookup(nominator)?;
 		let bouncer = T::Lookup::lookup(bouncer)?;
@@ -3510,6 +3572,9 @@ impl<T: Config> Pallet<T> {
 		member_account: T::AccountId,
 		extra: BondExtra<BalanceOf<T>>,
 	) -> DispatchResult {
+		// ensure account is not restricted from joining the pool.
+		ensure!(!T::Filter::contains(&member_account), Error::<T>::Restricted);
+
 		if signer != member_account {
 			ensure!(
 				ClaimPermissions::<T>::get(&member_account).can_bond_extra(),
@@ -4177,5 +4242,13 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 				tvl.saturating_reduce(amount);
 			});
 		}
+	}
+}
+
+/// A utility struct that provides a way to check if a given account is a pool member.
+pub struct AllPoolMembers<T: Config>(PhantomData<T>);
+impl<T: Config> Contains<T::AccountId> for AllPoolMembers<T> {
+	fn contains(t: &T::AccountId) -> bool {
+		PoolMembers::<T>::contains_key(t)
 	}
 }

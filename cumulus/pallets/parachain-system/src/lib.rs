@@ -30,7 +30,7 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeLimit, Encode};
 use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -60,7 +60,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
-use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
@@ -752,10 +752,6 @@ pub mod pallet {
 		HostConfigurationNotAvailable,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
-		/// No code upgrade has been authorized.
-		NothingAuthorized,
-		/// The given code upgrade has not been authorized.
-		Unauthorized,
 	}
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
@@ -1634,7 +1630,13 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 
 		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
 			.iter()
-			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.map(|encoded_message| {
+				VersionedXcm::<()>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &encoded_message[..],
+				)
+				.unwrap()
+			})
 			.collect();
 
 		if messages.is_empty() {

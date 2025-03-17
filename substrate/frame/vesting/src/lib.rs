@@ -59,7 +59,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchResult,

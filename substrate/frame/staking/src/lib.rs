@@ -344,13 +344,13 @@ mod pallet;
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
 		tokens::fungible::{Credit, Debt},
-		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+		ConstU32, Contains, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
@@ -448,7 +448,18 @@ impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
 }
 
 /// A destination account for payment.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum RewardDestination<AccountId> {
 	/// Pay into the stash account, increasing the amount at stake accordingly.
 	Staked,
@@ -465,7 +476,18 @@ pub enum RewardDestination<AccountId> {
 }
 
 /// Preference of what happens regarding validation.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	Default,
+	MaxEncodedLen,
+)]
 pub struct ValidatorPrefs {
 	/// Reward that validator takes up-front; only the rest is split between themselves and
 	/// nominators.
@@ -478,7 +500,17 @@ pub struct ValidatorPrefs {
 }
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
@@ -598,6 +630,52 @@ impl<T: Config> StakingLedger<T> {
 			legacy_claimed_rewards: self.legacy_claimed_rewards,
 			controller: self.controller,
 		}
+	}
+
+	/// Sets ledger total to the `new_total`.
+	///
+	/// Removes entries from `unlocking` upto `amount` starting from the oldest first.
+	fn update_total_stake(mut self, new_total: BalanceOf<T>) -> Self {
+		let old_total = self.total;
+		self.total = new_total;
+		debug_assert!(
+			new_total <= old_total,
+			"new_total {:?} must be <= old_total {:?}",
+			new_total,
+			old_total
+		);
+
+		let to_withdraw = old_total.defensive_saturating_sub(new_total);
+		// accumulator to keep track of how much is withdrawn.
+		// First we take out from active.
+		let mut withdrawn = BalanceOf::<T>::zero();
+
+		// first we try to remove stake from active
+		if self.active >= to_withdraw {
+			self.active -= to_withdraw;
+			return self
+		} else {
+			withdrawn += self.active;
+			self.active = BalanceOf::<T>::zero();
+		}
+
+		// start removing from the oldest chunk.
+		while let Some(last) = self.unlocking.last_mut() {
+			if withdrawn.defensive_saturating_add(last.value) <= to_withdraw {
+				withdrawn += last.value;
+				self.unlocking.pop();
+			} else {
+				let diff = to_withdraw.defensive_saturating_sub(withdrawn);
+				withdrawn += diff;
+				last.value -= diff;
+			}
+
+			if withdrawn >= to_withdraw {
+				break
+			}
+		}
+
+		self
 	}
 
 	/// Re-bond funds that were scheduled for unlocking.
@@ -997,6 +1075,7 @@ where
 	Eq,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -1299,6 +1378,24 @@ impl<T: Config> EraInfo<T> {
 		<ErasTotalStake<T>>::mutate(era, |total_stake| {
 			*total_stake += stake;
 		});
+	}
+}
+
+/// A utility struct that provides a way to check if a given account is a staker.
+///
+/// This struct implements the `Contains` trait, allowing it to determine whether
+/// a particular account is currently staking by checking if the account exists in
+/// the staking ledger.
+pub struct AllStakers<T: Config>(core::marker::PhantomData<T>);
+
+impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
+	/// Checks if the given account ID corresponds to a staker.
+	///
+	/// # Returns
+	/// - `true` if the account has an entry in the staking ledger (indicating it is staking).
+	/// - `false` otherwise.
+	fn contains(account: &T::AccountId) -> bool {
+		Ledger::<T>::contains_key(account)
 	}
 }
 

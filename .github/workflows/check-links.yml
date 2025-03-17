@@ -18,8 +18,11 @@ permissions:
   packages: read
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   link-checker:
     runs-on: ubuntu-latest
+    needs: isdraft
     timeout-minutes: 10
     steps:
       - name: Restore lychee cache

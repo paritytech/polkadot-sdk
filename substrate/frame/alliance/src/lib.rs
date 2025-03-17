@@ -204,7 +204,17 @@ pub enum MemberRole {
 }
 
 /// The type of item that may be deemed unscrupulous.
-#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum UnscrupulousItem<AccountId, Url> {
 	AccountId(AccountId),
 	Website(Url),

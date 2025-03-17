@@ -209,7 +209,7 @@ use sp_runtime::{
 };
 
 pub use bounds::DataProviderBounds;
-pub use codec::{Decode, Encode, MaxEncodedLen};
+pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 /// Re-export the solution generation macro.
 pub use frame_election_provider_solution_type::generate_solution_type;
 pub use frame_support::{traits::Get, weights::Weight, BoundedVec, DefaultNoBound};
@@ -830,7 +830,9 @@ pub type VoterOf<D> =
 	Voter<<D as ElectionDataProvider>::AccountId, <D as ElectionDataProvider>::MaxVotesPerVoter>;
 
 /// A bounded vector of supports. Bounded equivalent to [`sp_npos_elections::Supports`].
-#[derive(Default, Debug, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(
+	Default, Debug, Encode, Decode, DecodeWithMemTracking, scale_info::TypeInfo, MaxEncodedLen,
+)]
 #[codec(mel_bound(AccountId: MaxEncodedLen, Bound: Get<u32>))]
 #[scale_info(skip_type_params(Bound))]
 pub struct BoundedSupport<AccountId, Bound: Get<u32>> {
@@ -906,7 +908,7 @@ impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
 /// corresponds to the bound of the maximum winners that the bounded supports may contain.
 ///
 /// With the bounds, we control the maximum size of a bounded supports instance.
-#[derive(Encode, Decode, TypeInfo, DefaultNoBound, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, DefaultNoBound, MaxEncodedLen)]
 #[codec(mel_bound(AccountId: MaxEncodedLen, BOuter: Get<u32>, BInner: Get<u32>))]
 #[scale_info(skip_type_params(BOuter, BInner))]
 pub struct BoundedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>>(

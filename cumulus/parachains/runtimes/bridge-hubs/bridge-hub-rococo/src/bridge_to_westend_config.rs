@@ -95,7 +95,6 @@ pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = BridgeRelayersTransac
 		RelayersForLegacyLaneIdsMessagesInstance,
 		PriorityBoostPerMessage,
 	>,
-	LaneIdOf<Runtime, WithBridgeHubWestendMessagesInstance>,
 >;
 bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundBridgeHubWestendMessages);
 

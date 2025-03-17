@@ -103,6 +103,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 	let mut cli = Cli::<CliConfig>::from_args();
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
+	#[allow(deprecated)]
 	match &cli.subcommand {
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -148,6 +149,9 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
+		Some(Subcommand::ChainSpecBuilder(cmd)) =>
+			cmd.run().map_err(|err| sc_cli::Error::Application(err.into())),
+
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			let polkadot_cli =
@@ -222,6 +226,14 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			let polkadot_cli =
 				RelayChainCli::<CliConfig>::new(runner.config(), cli.relay_chain_args.iter());
 			let collator_options = cli.run.collator_options();
+
+			if cli.experimental_use_slot_based {
+				log::warn!(
+					"Deprecated: The flag --experimental-use-slot-based is no longer \
+				supported. Please use --authoring slot-based instead. This feature will be removed \
+				after May 2025."
+				);
+			}
 
 			runner.run_node_until_exit(|config| async move {
 				let node_spec =
