@@ -2592,9 +2592,6 @@ impl<T: Config> Pallet<T> {
 
 				XcmDryRunApiError::VersionedConversionFailed
 			})?;
-		if let Some(failed_event) = Pallet::<Runtime>::emitted_event() {
-			tracing::debug!("Failed event: {:?}", failed_event);
-		}
 
 		// Should only get messages from this call since we cleared previous ones.
 		let forwarded_xcms =
@@ -2606,10 +2603,14 @@ impl<T: Config> Pallet<T> {
 					);
 				},
 			)?;
-		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
+		let mut events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()
 				.map(|record| record.event.clone())
 				.collect();
+		if let Some(failed_event) = Pallet::<Runtime>::emitted_event() {
+			tracing::debug!("Failed event: {:?}", failed_event);
+			event.push(failed_event);
+		}
 		Ok(CallDryRunEffects {
 			local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 			forwarded_xcms,
@@ -3532,6 +3533,7 @@ impl<T: Config> RecordXcm for Pallet<T> {
 			let event = record.event.clone();
 			tracing::debug!("Record last event: {:?}", event);
 			EmittedEvent::<T>::put(event);
+			Self::emitted_event();
 		}
 	}
 
