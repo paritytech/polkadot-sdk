@@ -143,6 +143,7 @@ mod tests {
 	};
 
 	use codec::Encode;
+	use frame_support::pallet_prelude::Hooks;
 	use sp_core::{
 		crypto::key_types::DUMMY,
 		offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt, StorageKind},
@@ -151,6 +152,7 @@ mod tests {
 	use sp_state_machine::BasicExternalities;
 
 	use frame_support::traits::{KeyOwnerProofSystem, OnInitialize};
+	use frame_system::pallet_prelude::BlockNumberFor;
 
 	type Historical = Pallet<Test>;
 
@@ -174,6 +176,10 @@ mod tests {
 		crate::GenesisConfig::<Test> { keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
+
+		BasicExternalities::execute_with_storage(&mut t, || {
+			<Session as Hooks<BlockNumberFor<Test>>>::on_genesis();
+		});
 
 		let mut ext = sp_io::TestExternalities::new(t);
 
@@ -233,7 +239,7 @@ mod tests {
 			force_new_session();
 
 			System::set_block_number(1);
-			Session::on_initialize(1);
+			<Session as OnInitialize<BlockNumberFor<Test>>>::on_initialize(1);
 
 			// "on-chain"
 			onchain::store_current_session_validator_set_to_offchain::<Test>();
@@ -248,7 +254,7 @@ mod tests {
 
 		ext.execute_with(|| {
 			System::set_block_number(2);
-			Session::on_initialize(2);
+			<Session as OnInitialize<BlockNumberFor<Test>>>::on_initialize(2);
 			assert_eq!(<SessionModule<Test>>::current_index(), 2);
 
 			// "off-chain"
