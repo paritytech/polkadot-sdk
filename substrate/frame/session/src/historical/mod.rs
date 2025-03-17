@@ -380,8 +380,7 @@ pub(crate) mod tests {
 	use sp_runtime::{key_types::DUMMY, testing::UintAuthorityId, BuildStorage};
 	use sp_state_machine::BasicExternalities;
 
-	use frame_support::traits::{Hooks, KeyOwnerProofSystem, OnInitialize};
-	use frame_system::pallet_prelude::BlockNumberFor;
+	use frame_support::traits::{KeyOwnerProofSystem, OnGenesis, OnInitialize};
 
 	type Historical = Pallet<Test>;
 
@@ -401,7 +400,7 @@ pub(crate) mod tests {
 			.assimilate_storage(&mut t)
 			.unwrap();
 		BasicExternalities::execute_with_storage(&mut t, || {
-			<Session as Hooks<BlockNumberFor<Test>>>::on_genesis();
+			Session::on_genesis();
 		});
 		sp_io::TestExternalities::new(t)
 	}
@@ -413,7 +412,7 @@ pub(crate) mod tests {
 			force_new_session();
 
 			System::set_block_number(1);
-			<Session as OnInitialize<BlockNumberFor<Test>>>::on_initialize(1);
+			Session::on_initialize(1);
 
 			let encoded_key_1 = UintAuthorityId(1).encode();
 			let proof = Historical::prove((DUMMY, &encoded_key_1[..])).unwrap();
@@ -425,7 +424,7 @@ pub(crate) mod tests {
 			force_new_session();
 
 			System::set_block_number(2);
-			<Session as OnInitialize<BlockNumberFor<Test>>>::on_initialize(2);
+			Session::on_initialize(2);
 
 			assert!(Historical::historical_root(proof.session).is_some());
 			assert!(Session::current_index() > proof.session);
@@ -437,7 +436,7 @@ pub(crate) mod tests {
 
 			force_new_session();
 			System::set_block_number(3);
-			<Session as OnInitialize<BlockNumberFor<Test>>>::on_initialize(3);
+			Session::on_initialize(3);
 		});
 	}
 
@@ -449,7 +448,7 @@ pub(crate) mod tests {
 				force_new_session();
 
 				System::set_block_number(i);
-				<Session as OnInitialize<BlockNumberFor<Test>>>::on_initialize(i);
+				Session::on_initialize(i);
 			}
 
 			assert_eq!(<StoredRange<Test>>::get(), Some((0, 100)));
@@ -479,7 +478,7 @@ pub(crate) mod tests {
 				force_new_session();
 
 				System::set_block_number(i);
-				<Session as OnInitialize<BlockNumberFor<Test>>>::on_initialize(i);
+				Session::on_initialize(i);
 			}
 
 			assert_eq!(<StoredRange<Test>>::get(), Some((100, 200)));
