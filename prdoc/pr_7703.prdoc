@@ -9,4 +9,8 @@ doc:
       on_vote and on_remove_vote.
 crates: 
 - name: pallet-conviction-voting
+  bump: major
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
   bump: minor
