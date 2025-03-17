@@ -277,15 +277,17 @@ mod benchmarks {
 		let bounty_update_period = T::BountyUpdatePeriod::get();
 		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
 		set_block_number::<T>(inactivity_timeout.saturating_add(1u32.into()));
-		let caller: T::AccountId = whitelisted_caller();
-		let signed_caller: T::RuntimeOrigin = RawOrigin::Signed(caller.clone()).into();
 
 		// If `BountyUpdatePeriod` overflows the inactivity timeout the benchmark still
 		// executes the slash
-		let origin = if Pallet::<T>::treasury_block_number() <= inactivity_timeout {
-			T::RejectOrigin::try_successful_origin().unwrap_or_else(|_| signed_caller)
+		let origin: T::RuntimeOrigin = if Pallet::<T>::treasury_block_number() <= inactivity_timeout
+		{
+			let child_curator = bounty_setup.child_curator;
+			T::RejectOrigin::try_successful_origin()
+				.unwrap_or_else(|_| RawOrigin::Signed(child_curator).into())
 		} else {
-			signed_caller
+			let caller = whitelisted_caller();
+			RawOrigin::Signed(caller).into()
 		};
 
 		#[extrinsic_call]
