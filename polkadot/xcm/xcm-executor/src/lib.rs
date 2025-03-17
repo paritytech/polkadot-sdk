@@ -453,15 +453,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			Err(error) => {
 				tracing::debug!(target: "xcm::send", ?error, "XCM failed to deliver with error");
-				if Config::XcmRecorder::should_record() {
-					Config::XcmRecorder::record_event("error.emit_send_failure_event()".to_string());
-				}
 				Config::XcmEventEmitter::emit_send_failure_event(
 					self.original_origin.clone(),
 					dest,
 					error.clone(),
 					self.context.message_id,
 				);
+				if Config::XcmRecorder::should_record() {
+					Config::XcmRecorder::record_last_event();
+				}
 				Err(error.into())
 			},
 		}
@@ -858,7 +858,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 							self.context.message_id,
 						);
 						if Config::XcmRecorder::should_record() {
-							Config::XcmRecorder::record_event("emit_process_failure_event".to_string());
+							Config::XcmRecorder::record_last_event();
 						}
 						*r = Err(ExecutorError {
 							index: i as u32,
