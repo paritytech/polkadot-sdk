@@ -69,6 +69,19 @@ where
 
 /// Marker trait to identify whether the scheme is not aggregatable thus changing
 /// the implementation of the scheme parts such as Proof Of Possession or other specifics.
+///
+/// This is specifically because implementation of proof of possession for aggregatable schemes
+/// is security critical.
+///
+/// We would like to prevent aggregatable scheme from unknowingly generating signatures
+/// which aggregate to false albeit valid proof of possession aka rouge key attack.
+/// We ensure that by separating signing and generating pop at the API level.
+///
+/// Rouge key attack however is not immediately applicable to non-aggregatable scheme
+/// when even if an honest signing oracle is tricked to sign a rogue pop, it is not
+/// possible to aggregate it to generate a valid proof for a key the attack does not
+/// possess. Therefore we do not require non-aggregatable schemes to prevent PoP
+/// confirming signatures at API level
 pub trait NonAggregatable {}
 
 impl<T> ProofOfPossessionVerifier for T
