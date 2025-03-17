@@ -30,7 +30,7 @@ use codec::DecodeAll;
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{outgoing::Requests, ReqProtocolNames},
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, ObservedRole, Versioned,
+	v1 as protocol_v1, v3 as protocol_v3, ObservedRole, Versioned,
 };
 use polkadot_node_subsystem::{FromOrchestra, OverseerSignal};
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
@@ -365,64 +365,6 @@ fn send_messages_to_peers() {
 					WireMessage::ProtocolMessage(message_v1).encode(),
 				)
 			);
-		}
-		virtual_overseer
-	});
-}
-
-#[test]
-fn network_protocol_versioning_send() {
-	test_harness(|test_harness| async move {
-		let TestHarness { mut network_handle, mut virtual_overseer } = test_harness;
-
-		let peer_ids: Vec<_> = (0..2).map(|_| PeerId::random()).collect();
-		let peers = [(peer_ids[0], PeerSet::Collation), (peer_ids[1], PeerSet::Collation)];
-
-		for &(peer_id, peer_set) in &peers {
-			network_handle
-				.connect_peer(peer_id, peer_set, ObservedRole::Full)
-				.timeout(TIMEOUT)
-				.await
-				.expect("Timeout does not occur");
-		}
-
-		// send a collation protocol message.
-
-		{
-			let collator_protocol_message = protocol_v2::CollatorProtocolMessage::Declare(
-				Sr25519Keyring::Alice.public().into(),
-				0_u32.into(),
-				dummy_collator_signature(),
-			);
-
-			let msg =
-				protocol_v2::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
-
-			let receivers = vec![peer_ids[0], peer_ids[1]];
-
-			virtual_overseer
-				.send(FromOrchestra::Communication {
-					msg: NetworkBridgeTxMessage::SendCollationMessages(vec![(
-						receivers.clone(),
-						Versioned::V2(msg.clone()),
-					)]),
-				})
-				.await;
-
-			for peer in &receivers {
-				assert_eq!(
-					network_handle
-						.next_network_action()
-						.timeout(TIMEOUT)
-						.await
-						.expect("Timeout does not occur"),
-					NetworkAction::WriteNotification(
-						*peer,
-						PeerSet::Collation,
-						WireMessage::ProtocolMessage(msg.clone()).encode(),
-					)
-				);
-			}
 		}
 		virtual_overseer
 	});
