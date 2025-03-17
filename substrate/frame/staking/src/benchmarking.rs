@@ -1156,12 +1156,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn manual_slash() -> Result<(), BenchmarkError> {
-		let era = EraIndex::zero();
-		CurrentEra::<T>::put(era);
-		ErasStartSessionIndex::<T>::insert(era, 0);
-		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
-
 		// Create a validator with nominators
+		// This will add exposure for our validator in the current era.
 		let (validator_stash, _nominators) = create_validator_with_nominators::<T>(
 			T::MaxExposurePageSize::get() as u32,
 			T::MaxExposurePageSize::get() as u32,
@@ -1170,6 +1166,8 @@ mod benchmarks {
 			RewardDestination::Staked,
 		)?;
 
+		let era = CurrentEra::<T>::get().unwrap();
+		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 		let slash_fraction = Perbill::from_percent(10);
 
 		#[extrinsic_call]
