@@ -926,15 +926,15 @@ pub struct HooksHandler;
 
 impl HooksHandler {
 	fn last_on_vote_data() -> Option<(u64, u8, AccountVote<u64>)> {
-		LAST_ON_VOTE_DATA.with(|data| data.borrow().clone())
+		LAST_ON_VOTE_DATA.with(|data| *data.borrow())
 	}
 
 	fn last_on_remove_vote_data() -> Option<(u64, u8, Status)> {
-		LAST_ON_REMOVE_VOTE_DATA.with(|data| data.borrow().clone())
+		LAST_ON_REMOVE_VOTE_DATA.with(|data| *data.borrow())
 	}
 
 	fn last_locked_if_unsuccessful_vote_data() -> Option<(u64, u8)> {
-		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| data.borrow().clone())
+		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow())
 	}
 
 	fn reset() {
@@ -967,7 +967,7 @@ impl VotingHooks<u64, u8, u64> for HooksHandler {
 		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| {
 			*data.borrow_mut() = Some((*who, ref_index));
 
-			REMOVE_VOTE_LOCKED_AMOUNT.with(|data| data.borrow().clone())
+			REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow())
 		})
 	}
 
