@@ -151,8 +151,8 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = crate::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = crate::ExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = NullIdentity;
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
@@ -634,11 +634,6 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 	);
 }
 
-/// Progress by n block.
-pub(crate) fn advance_blocks(n: u64) {
-	run_to_block(System::block_number() + n);
-}
-
 /// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
 pub(crate) fn start_session(end_session_idx: SessionIndex) {
 	let period = Period::get();
@@ -771,14 +766,18 @@ pub(crate) fn on_offence_now(
 	on_offence_in_era(offenders, slash_fraction, now)
 }
 
+pub(crate) fn offence_from(
+	offender: AccountId,
+	reporter: Option<AccountId>,
+) -> OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>> {
+	OffenceDetails {
+		offender: (offender, ()),
+		reporters: reporter.map(|r| vec![(r)]).unwrap_or_default(),
+	}
+}
+
 pub(crate) fn add_slash(who: &AccountId) {
-	on_offence_now(
-		&[OffenceDetails {
-			offender: (*who, Staking::eras_stakers(active_era(), who)),
-			reporters: vec![],
-		}],
-		&[Perbill::from_percent(10)],
-	);
+	on_offence_now(&[offence_from(*who, None)], &[Perbill::from_percent(10)]);
 }
 
 /// Make all validator and nominator request their payment
