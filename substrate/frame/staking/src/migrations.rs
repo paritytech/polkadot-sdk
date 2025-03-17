@@ -26,8 +26,6 @@ use frame_support::{
 };
 
 #[cfg(feature = "try-runtime")]
-use frame_support::ensure;
-#[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
 /// Used for release versioning up to v12.
