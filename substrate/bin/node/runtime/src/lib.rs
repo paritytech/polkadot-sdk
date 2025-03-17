@@ -1167,6 +1167,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type MaxBackersPerWinner = multi_block_impls::MaxBackersPerWinner;
 	type ElectionBounds = ElectionBoundsMultiPhase;
 	type BenchmarkingConfig = ElectionProviderBenchmarkConfig;
+	type BlockNumberProvider = System;
 	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
 }
 

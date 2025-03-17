@@ -218,6 +218,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type ElectionBounds = ElectionBounds;
 	type BenchmarkingConfig = NoopElectionProviderBenchmarkConfig;
+	type BlockNumberProvider = System;
 	type WeightInfo = ();
 }
 
