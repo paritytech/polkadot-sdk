@@ -31,6 +31,7 @@ use mock::{
 	DeliveryFees, ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent,
 	TestClient,
 };
+use crate::mock::TestRuntime;
 
 // Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
 // on "AssetHub". He wants to make sure he has enough for fees, so before he calls the
@@ -480,13 +481,19 @@ fn dry_run_error_event_check() {
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
 
-		let xcm_call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
-			dest: VersionedLocation::from((Parent, Parachain(1000))).into(),
-			beneficiary: VersionedLocation::from(AccountId32 { id: [0u8; 32], network: None })
-				.into(),
-			assets: VersionedAssets::from((Parent, 1984u128)).into(),
-			fee_asset_item: 0,
-			weight_limit: Unlimited,
+		let xcm_call = RuntimeCall::XcmPallet({
+			let result = pallet_xcm::Call::transfer_assets {
+				dest: VersionedLocation::from((Parent, Parachain(1000))).into(),
+				beneficiary: VersionedLocation::from(AccountId32 { id: [0u8; 32], network: None })
+					.into(),
+				assets: VersionedAssets::from((Parent, 1984u128)).into(),
+				fee_asset_item: 0,
+				weight_limit: Unlimited,
+			};
+			let event = pallet_xcm::EmittedEvent::<TestRuntime>::get();
+			println!("*** xcm_call() => {:?}", event);
+
+			result
 		});
 
 		let origin = OriginCaller::system(RawOrigin::Signed(who));

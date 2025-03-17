@@ -847,7 +847,7 @@ pub mod pallet {
 	pub(crate) type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
 
 	#[pallet::storage]
-	pub(crate) type EmittedEvent<T: Config> = StorageValue<_, <T as frame_system::Config>::RuntimeEvent>;
+	pub type EmittedEvent<T: Config> = StorageValue<_, <T as frame_system::Config>::RuntimeEvent>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -1338,7 +1338,7 @@ pub mod pallet {
 			let (fees_transfer_type, assets_transfer_type) =
 				Self::find_fee_and_assets_transfer_types(&assets, fee_asset_item, &dest)?;
 
-			Self::do_transfer_assets(
+			let result = Self::do_transfer_assets(
 				origin,
 				dest,
 				Either::Left(beneficiary),
@@ -1347,7 +1347,11 @@ pub mod pallet {
 				fee_asset_item,
 				fees_transfer_type,
 				weight_limit,
-			)
+			);
+			let event = EmittedEvent::<T>::get();
+			tracing::debug!(?event, "*** transfer_assets()");
+
+			result
 		}
 
 		/// Claims assets trapped on this pallet because of leftover assets during XCM execution.
@@ -1846,6 +1850,8 @@ impl<T: Config> Pallet<T> {
 		);
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 		outcome.clone().ensure_complete().map_err(|error| {
+			let event = EmittedEvent::<T>::get();
+			tracing::debug!(?event, "*** execute_xcm_transfer()");
 			tracing::error!(
 				target: "xcm::pallet_xcm::execute_xcm_transfer",
 				?error, "XCM execution failed with error with outcome: {:?}", outcome
@@ -2579,7 +2585,13 @@ impl<T: Config> Pallet<T> {
 		Router::clear_messages();
 		// ...and reset events to make sure we only record events from current call.
 		frame_system::Pallet::<Runtime>::reset_events();
+		if let Some(failed_event) = Pallet::<Runtime>::emitted_event() {
+			tracing::debug!("Failed event: {:?}", failed_event);
+		}
 		let result = call.dispatch(origin.into());
+		if let Some(failed_event) = Pallet::<Runtime>::emitted_event() {
+			tracing::debug!("Failed event: {:?}", failed_event);
+		}
 		crate::Pallet::<Runtime>::set_record_xcm(false);
 		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm()
 			.map(|xcm| VersionedXcm::<()>::from(xcm).into_version(result_xcms_version))
@@ -3531,15 +3543,16 @@ impl<T: Config> RecordXcm for Pallet<T> {
 		let records = frame_system::Pallet::<T>::events();
 		if let Some(record) = records.last() {
 			let event = record.event.clone();
-			tracing::debug!("Record last event: {:?}", event);
+			tracing::debug!(?event, "-> Recording the last event");
 			EmittedEvent::<T>::put(event);
-			Self::emitted_event();
+			let event = EmittedEvent::<T>::get();
+			tracing::debug!(?event, "<- Recorded the last event");
 		}
 	}
 
 	fn emitted_event() -> Option<Self::RuntimeEvent> {
 		let event = EmittedEvent::<T>::get();
-		tracing::debug!("Emitted event: {:?}", event);
+		tracing::debug!(?event, "Emitted");
 		event
 	}
 }
