@@ -210,7 +210,7 @@ pub trait Config: <INSERT_CUSTOM_PALLET_NAME>::Config { }
 
 // See:
 // - Substrate TCR https://github.com/parity-samples/substrate-tcr
-// - Substrate Kitties https://shawntabrizi.github.io/substrate-collectables-workshop/#/
+// - Substrate Kitties https://www.shawntabrizi.com/substrate-collectables-workshop/#/
 
 \## Genesis Config
 
