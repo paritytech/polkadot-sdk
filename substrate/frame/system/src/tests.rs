@@ -958,6 +958,7 @@ fn reclaim_works() {
 	});
 }
 
+#[test]
 fn test_event_segment() {
 	new_test_ext().execute_with(|| {
 		// Set the `EventSegmentSize` to 0, the event will store in `Events` instead of `EventSegments`
