@@ -16,12 +16,35 @@
 // limitations under the License.
 
 use frame_support::{derive_impl, parameter_types, traits::WithdrawReasons};
-use sp_runtime::{traits::Identity, BuildStorage};
+use serde::{Deserialize, Serialize};
+use sp_runtime::{traits::Identity, BuildStorage, FixedU64};
 
 use super::*;
 use crate as pallet_vesting;
 
 type Block = frame_system::mocking::MockBlock<Test>;
+#[derive(
+	Encode,
+	Decode,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+	Ord,
+	PartialOrd,
+	Serialize,
+	Deserialize,
+)]
+pub enum MockRuntimeHoldReason {
+	Reason,
+	Reason2,
+}
+impl frame_support::traits::VariantCount for MockRuntimeHoldReason {
+	const VARIANT_COUNT: u32 = 2;
+}
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -42,6 +65,8 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type ExistentialDeposit = ExistentialDeposit;
+	type RuntimeHoldReason = MockRuntimeHoldReason;
+	type DoneSlashHandler = (BalanceSlasher<Test, FixedU64>,);
 }
 parameter_types! {
 	pub const MinVestedTransfer: u64 = 256 * 2;
@@ -53,7 +78,7 @@ impl Config for Test {
 	type BlockNumberToBalance = Identity;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
-	const MAX_VESTING_SCHEDULES: u32 = 3;
+	const MAX_VESTING_SCHEDULES: u32 = 4;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
