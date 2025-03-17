@@ -42,6 +42,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-balances = { optional = true, workspace = true }
+pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-uapi.workspace = true
 pallet-revive-uapi.default-features = true
 pallet-revive-proc-macro.workspace = true
@@ -64,7 +65,7 @@ subxt-signer = { workspace = true, optional = true, features = [
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
-pallet-revive-fixtures = { default-features = true, path = "fixtures" }
+pallet-revive-fixtures = { workspace = true, default-features = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 hex-literal = { workspace = true }
@@ -93,6 +94,7 @@ std = [
 	"jsonrpsee",
 	"log/std",
 	"pallet-balances?/std",
+	"pallet-revive-fixtures?/std",
 	"pallet-transaction-payment/std",
 	"polkavm/std",
 	"rlp/std",
@@ -114,6 +116,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-revive-fixtures",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
