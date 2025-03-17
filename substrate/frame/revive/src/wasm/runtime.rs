@@ -46,14 +46,6 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
 
-enum StorageValue {
-	Memory { ptr: u32, len: u32 },
-	Value(Vec<u8>),
-}
-enum StorageReadMode {
-	ErrorIfMissing,
-	ZeroIfMissing,
-}
 /// Abstraction over the memory access within syscalls.
 ///
 /// The reason for this abstraction is that we run syscalls on the host machine when
@@ -614,6 +606,23 @@ fn extract_hi_lo(reg: u64) -> (u32, u32) {
 	((reg >> 32) as u32, reg as u32)
 }
 
+/// Represents different forms of storage values for operations.
+enum StorageValue {
+	/// Used for variable-length values in traditional storage functions.
+	Memory { ptr: u32, len: u32 },
+	/// Used to implement Ethereum SSTORE-like semantics for fixed-size (256-bit) key and values.
+	Value(Vec<u8>),
+}
+
+/// Determines behavior when a key doesn't exist during storage read operations.
+enum StorageReadMode {
+	/// Return KeyNotFound error code when the key doesn't exist.
+	/// Used in traditional variable-length storage functions.
+	ErrorIfMissing,
+	/// Write zeros to the output buffer when the key doesn't exist.
+	/// Used to implement Ethereum SLOAD-like semantics for fixed-size (256-bit) key and output.
+	ZeroIfMissing,
+}
 /// Can only be used for one call.
 pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
@@ -891,9 +900,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			}
 		};
 
-		let (value_len, _) = match &value {
-			StorageValue::Memory { ptr: _, len } => (*len, None),
-			StorageValue::Value(data) => (data.len() as u32, Some(data.clone())),
+		let value_len = match &value {
+			StorageValue::Memory { ptr: _, len } => *len,
+			StorageValue::Value(data) => data.len() as u32,
 		};
 
 		let max_size = self.ext.max_value_size();
@@ -904,15 +913,15 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 
-		let value_data = match value {
+		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
 			StorageValue::Value(data) => Some(data),
 		};
 
 		let write_outcome = if transient {
-			self.ext.set_transient_storage(&key, value_data, false)?
+			self.ext.set_transient_storage(&key, value, false)?
 		} else {
-			self.ext.set_storage(&key, value_data, false)?
+			self.ext.set_storage(&key, value, false)?
 		};
 
 		self.adjust_gas(charged, costs(value_len, write_outcome.old_len()));
@@ -977,7 +986,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			// For fixed-size operations use write_fixed_sandbox_output
 			if out_len_ptr == SENTINEL {
 				let mut fixed_output = [0u8; 32];
-				let len = std::cmp::min(value.len(), 32);
+				let len = core::cmp::min(value.len(), 32);
 				fixed_output[..len].copy_from_slice(&value[..len]);
 
 				self.write_fixed_sandbox_output(
@@ -1289,6 +1298,27 @@ pub mod env {
 		)
 	}
 
+	/// Sets the storage at a fixed 256-bit key with a fixed 256-bit value.
+	/// See [`pallet_revive_uapi::HostFn::set_storage_or_clear`].
+	#[stable]
+	#[mutating]
+	fn set_storage_or_clear(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		key_ptr: u32,
+		value_ptr: u32,
+	) -> Result<u32, TrapReason> {
+		let _ = Self::is_transient(flags)?;
+		let value = memory.read_array::<32>(value_ptr)?;
+
+		if value.iter().all(|&b| b == 0) {
+			self.clear_storage(memory, flags, key_ptr, SENTINEL)
+		} else {
+			self.set_storage(memory, flags, key_ptr, SENTINEL, StorageValue::Value(value.to_vec()))
+		}
+	}
+
 	/// Retrieve the value under the given key from storage.
 	/// See [`pallet_revive_uapi::HostFn::get_storage`]
 	#[stable]
@@ -1310,6 +1340,29 @@ pub mod env {
 			out_len_ptr,
 			StorageReadMode::ErrorIfMissing,
 		)
+	}
+
+	/// Reads the storage at a fixed 256-bit key and writes back a fixed 256-bit value.
+	/// See [`pallet_revive_uapi::HostFn::get_storage_or_zero`].
+	#[stable]
+	fn get_storage_or_zero(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		key_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		let _ = self.get_storage(
+			memory,
+			flags,
+			key_ptr,
+			SENTINEL,
+			out_ptr,
+			SENTINEL,
+			StorageReadMode::ZeroIfMissing,
+		)?;
+
+		Ok(())
 	}
 
 	/// Make a call to another contract.
@@ -1886,50 +1939,6 @@ pub mod env {
 	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
 		Ok(self.ext.gas_meter().gas_left().ref_time())
-	}
-
-	/// Sets the storage at a fixed 256-bit key with a fixed 256-bit value.
-	/// See [`pallet_revive_uapi::HostFn::set_storage_or_clear`].
-	#[stable]
-	#[mutating]
-	fn set_storage_or_clear(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		value_ptr: u32,
-	) -> Result<u32, TrapReason> {
-		let _ = Self::is_transient(flags)?;
-		let value = memory.read_array::<32>(value_ptr)?;
-
-		if value.iter().all(|&b| b == 0) {
-			self.clear_storage(memory, flags, key_ptr, SENTINEL)
-		} else {
-			self.set_storage(memory, flags, key_ptr, SENTINEL, StorageValue::Value(value.to_vec()))
-		}
-	}
-
-	/// Reads the storage at a fixed 256-bit key and writes back a fixed 256-bit value.
-	/// See [`pallet_revive_uapi::HostFn::get_storage_or_zero`].
-	#[stable]
-	fn get_storage_or_zero(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		out_ptr: u32,
-	) -> Result<(), TrapReason> {
-		let _ = self.get_storage(
-			memory,
-			flags,
-			key_ptr,
-			SENTINEL,
-			out_ptr,
-			SENTINEL,
-			StorageReadMode::ZeroIfMissing,
-		)?;
-
-		Ok(())
 	}
 
 	/// Call into the chain extension provided by the chain if any.
