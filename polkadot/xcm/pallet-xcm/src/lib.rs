@@ -849,6 +849,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type EmittedEvent<T: Config> = StorageValue<_, <T as frame_system::Config>::RuntimeEvent>;
 
+	#[pallet::storage]
+	pub type EmittedEventAsString<T: Config> = StorageValue<_, String, ValueQuery>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
@@ -3539,20 +3542,18 @@ impl<T: Config> RecordXcm for Pallet<T> {
 		RecordedXcm::<T>::put(xcm);
 	}
 
-	fn record_last_event() {
-		let records = frame_system::Pallet::<T>::events();
-		if let Some(record) = records.last() {
-			let event = record.event.clone();
-			tracing::debug!(?event, "-> Recording the last event");
-			EmittedEvent::<T>::put(event);
-			let event = EmittedEvent::<T>::get();
-			tracing::debug!(?event, "<- Recorded the last event");
-		}
+	fn record_event(event: String) {
+		tracing::debug!(?event, "-> Recording the last event");
+		EmittedEventAsString::<T>::put(format!("{:?}", event.clone()));
+		// EmittedEvent::<T>::put(event);
+		let event = EmittedEvent::<T>::get();
+		tracing::debug!(?event, "<- Recorded the last event");
 	}
 
 	fn emitted_event() -> Option<Self::RuntimeEvent> {
 		let event = EmittedEvent::<T>::get();
-		tracing::debug!(?event, "Emitted");
+		let event_as_string = EmittedEventAsString::<T>::get();
+		tracing::debug!(?event, ?event_as_string, "Emitted");
 		event
 	}
 }

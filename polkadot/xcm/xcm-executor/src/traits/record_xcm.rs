@@ -32,7 +32,7 @@ pub trait RecordXcm {
 	/// Record `xcm`.
 	fn record(xcm: Xcm<()>);
 	/// Record the last event.
-	fn record_last_event();
+	fn record_event(event: String);
 	/// Get emitted events.
 	fn emitted_event() -> Option<Self::RuntimeEvent>;
 }
@@ -52,7 +52,7 @@ impl RecordXcm for () {
 
 	fn record(_: Xcm<()>) {}
 
-	fn record_last_event() {}
+	fn record_event(_event: String) {}
 
 	fn emitted_event() -> Option<Self::RuntimeEvent> { None }
 }

@@ -26,12 +26,12 @@ use xcm_runtime_apis::{
 };
 
 mod mock;
+use crate::mock::TestRuntime;
 use mock::{
 	fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
 	DeliveryFees, ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent,
 	TestClient,
 };
-use crate::mock::TestRuntime;
 
 // Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]`
 // on "AssetHub". He wants to make sure he has enough for fees, so before he calls the
