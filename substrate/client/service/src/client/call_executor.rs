@@ -227,7 +227,6 @@ where
 
 		let trie_backend = state.as_trie_backend();
 
-		// TODO: is this correct?
 		let try_pending_code = TryPendingCode::No;
 		let state_runtime_code =
 			sp_state_machine::backend::BackendRuntimeCode::new(trie_backend, try_pending_code);
