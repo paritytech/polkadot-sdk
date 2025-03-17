@@ -21,7 +21,7 @@
 
 use alloc::vec;
 use frame_benchmarking::{v2::*, BenchmarkError};
-use frame_support::{assert_ok, ensure};
+use frame_support::ensure;
 use frame_system::RawOrigin;
 use pallet_bounties::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;
