@@ -35,8 +35,7 @@ use polkadot_node_subsystem::{
 	SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	request_availability_cores, request_session_index_for_child, runtime::request_node_features,
-	TimeoutExt,
+	request_availability_cores, request_node_features, request_session_index_for_child, TimeoutExt,
 };
 use polkadot_primitives::{
 	node_features::FeatureIndex,
@@ -203,7 +202,9 @@ async fn handle_active_leaves_update(
 			.map_err(Error::CanceledSessionIndex)??;
 		if per_session.get(&session_index).is_none() {
 			let elastic_scaling_mvp = request_node_features(leaf.hash, session_index, sender)
-				.await?
+				.await
+				.await
+				.map_err(Error::CanceledNodeFeatures)??
 				.get(FeatureIndex::ElasticScalingMVP as usize)
 				.map(|b| *b)
 				.unwrap_or(false);

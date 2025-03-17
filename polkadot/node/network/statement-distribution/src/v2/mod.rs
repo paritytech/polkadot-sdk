@@ -43,9 +43,8 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf,
 };
 use polkadot_node_subsystem_util::{
-	backing_implicit_view::View as ImplicitView,
-	reputation::ReputationAggregator,
-	runtime::{request_min_backing_votes, request_node_features, ClaimQueueSnapshot},
+	backing_implicit_view::View as ImplicitView, reputation::ReputationAggregator,
+	request_min_backing_votes, request_node_features, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
 	node_features::FeatureIndex,
@@ -631,9 +630,17 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			};
 
 			let minimum_backing_votes =
-				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).await?;
+				request_min_backing_votes(new_relay_parent, session_index, ctx.sender())
+					.await
+					.await
+					.map_err(JfyiError::RuntimeApiUnavailable)?
+					.map_err(JfyiError::FetchMinimumBackingVotes)?;
 			let node_features =
-				request_node_features(new_relay_parent, session_index, ctx.sender()).await?;
+				request_node_features(new_relay_parent, session_index, ctx.sender())
+					.await
+					.await
+					.map_err(JfyiError::RuntimeApiUnavailable)?
+					.map_err(JfyiError::FetchNodeFeatures)?;
 			let mut per_session_state = PerSessionState::new(
 				session_info,
 				&state.keystore,

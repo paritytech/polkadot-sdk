@@ -48,7 +48,7 @@ use polkadot_primitives::{
 		ScrapedOnChainVotes,
 	},
 	AsyncBackingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, EncodeAs, ExecutorParams,
-	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, OccupiedCoreAssumption,
+	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, NodeFeatures, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode,
 	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
@@ -314,6 +314,8 @@ specialize_requests! {
 	fn request_claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>>; ClaimQueue;
 	fn request_para_backing_state(para_id: ParaId) -> Option<BackingState>; ParaBackingState;
 	fn request_backing_constraints(para_id: ParaId) -> Option<Constraints>; BackingConstraints;
+	fn request_min_backing_votes(session_index: SessionIndex) -> u32; MinimumBackingVotes;
+	fn request_node_features(session_index: SessionIndex) -> NodeFeatures; NodeFeatures;
 
 }
 

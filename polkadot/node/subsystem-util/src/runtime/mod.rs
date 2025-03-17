@@ -44,9 +44,9 @@ use std::collections::{BTreeMap, VecDeque};
 use crate::{
 	request_availability_cores, request_candidate_events, request_claim_queue,
 	request_disabled_validators, request_from_runtime, request_key_ownership_proof,
-	request_on_chain_votes, request_session_executor_params, request_session_index_for_child,
-	request_session_info, request_submit_report_dispute_lost, request_unapplied_slashes,
-	request_validation_code_by_hash, request_validator_groups,
+	request_node_features, request_on_chain_votes, request_session_executor_params,
+	request_session_index_for_child, request_session_info, request_submit_report_dispute_lost,
+	request_unapplied_slashes, request_validation_code_by_hash, request_validator_groups,
 };
 
 /// Errors that can happen on runtime fetches.
@@ -235,7 +235,8 @@ impl RuntimeInfo {
 
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let node_features = request_node_features(parent, session_index, sender).await?;
+			let node_features =
+				request_node_features(parent, session_index, sender).await.await??;
 			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
 			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
 				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
@@ -461,37 +462,6 @@ where
 			key_ownership_proof,
 			sender,
 		)
-		.await,
-	)
-	.await
-}
-
-/// Request the min backing votes value.
-pub async fn request_min_backing_votes(
-	parent: Hash,
-	session_index: SessionIndex,
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<u32> {
-	recv_runtime(
-		request_from_runtime(parent, sender, |tx| {
-			RuntimeApiRequest::MinimumBackingVotes(session_index, tx)
-		})
-		.await,
-	)
-	.await
-}
-
-/// Request the node features enabled in the runtime.
-/// Pass in the session index for caching purposes, as it should only change on session boundaries.
-pub async fn request_node_features(
-	parent: Hash,
-	session_index: SessionIndex,
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<NodeFeatures> {
-	recv_runtime(
-		request_from_runtime(parent, sender, |tx| {
-			RuntimeApiRequest::NodeFeatures(session_index, tx)
-		})
 		.await,
 	)
 	.await

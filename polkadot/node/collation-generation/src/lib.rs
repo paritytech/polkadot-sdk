@@ -44,9 +44,9 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	request_claim_queue, request_persisted_validation_data, request_session_index_for_child,
-	request_validation_code_hash, request_validators,
-	runtime::{request_node_features, ClaimQueueSnapshot},
+	request_claim_queue, request_node_features, request_persisted_validation_data,
+	request_session_index_for_child, request_validation_code_hash, request_validators,
+	runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
 	collator_signature_payload,
@@ -509,7 +509,8 @@ impl SessionInfoCache {
 		let n_validators =
 			request_validators(relay_parent, &mut sender.clone()).await.await??.len();
 
-		let node_features = request_node_features(relay_parent, session_index, sender).await?;
+		let node_features =
+			request_node_features(relay_parent, session_index, sender).await.await??;
 
 		let info = PerSessionInfo {
 			v2_receipts: node_features

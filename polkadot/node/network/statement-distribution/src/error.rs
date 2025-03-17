@@ -81,6 +81,12 @@ pub enum Error {
 	#[error("Fetching claim queue failed {0:?}")]
 	FetchClaimQueue(RuntimeApiError),
 
+	#[error("Fetching minimum backing votes failed {0:?}")]
+	FetchMinimumBackingVotes(RuntimeApiError),
+
+	#[error("Fetching node features failed {0:?}")]
+	FetchNodeFeatures(RuntimeApiError),
+
 	#[error("Attempted to share statement when not a validator or not assigned")]
 	InvalidShare,
 
