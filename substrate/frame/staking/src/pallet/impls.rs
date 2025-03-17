@@ -1296,7 +1296,7 @@ impl<T: Config> Pallet<T> {
 
 		for (details, slash_fraction) in offenders.zip(slash_fractions) {
 			let stash = &details.offender;
-			let exposure = Self::eras_stakers(active_era, stash);
+			let exposure = Self::eras_stakers(slash_era, stash);
 
 			// Skip if the validator is invulnerable.
 			if invulnerables.contains(stash) {
