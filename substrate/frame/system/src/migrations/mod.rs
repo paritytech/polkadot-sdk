@@ -121,9 +121,14 @@ pub fn migrate_from_dual_to_triple_ref_count<V: V2ToV3, T: Config>() -> Weight {
 	Weight::MAX
 }
 
-/// Migrate from `Events` to `EventSegments` when `T::EventSegmentSize > 0`
-pub fn migrate_from_events_to_event_segments<T: Config>() -> Weight {
+/// Migration that clean up the event from the previous block
+///
+/// NOTE: This is needed because `reset_events` may not properly clean up
+/// the event from the previous block when the `EventSegmentSize` config is
+/// changed in the new runtime.
+pub fn migrate_event_from_previous_block<T: Config>() -> Weight {
 	Events::<T>::kill();
+	let r = EventSegments::<T>::clear(u32::max_value(), None);
 	UnclearedEventCount::<T>::set(0);
-	T::DbWeight::get().writes(2u64)
+	T::DbWeight::get().writes(2u64 + r.unique as u64)
 }
