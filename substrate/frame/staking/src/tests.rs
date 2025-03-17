@@ -49,7 +49,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	SessionIndex, Stake, StakingInterface,
+	SessionIndex, StakingInterface,
 };
 use substrate_test_utils::assert_eq_uvec;
 
@@ -4346,7 +4346,7 @@ fn offences_weight_calculated_correctly() {
 		let zero_offence_weight =
 			<Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1);
 		assert_eq!(
-			Staking::on_offence(&[], &[Perbill::from_percent(50)], 0),
+			<Staking as OnOffenceHandler<_, _, _>>::on_offence(&[], &[Perbill::from_percent(50)], 0),
 			zero_offence_weight
 		);
 
@@ -4367,7 +4367,7 @@ fn offences_weight_calculated_correctly() {
 			})
 			.collect();
 		assert_eq!(
-			Staking::on_offence(
+			<Staking as OnOffenceHandler<_, _, _>>::on_offence(
 				&offenders,
 				&[Perbill::from_percent(50)],
 				0,
@@ -4393,7 +4393,7 @@ fn offences_weight_calculated_correctly() {
 		;
 
 		assert_eq!(
-			Staking::on_offence(
+			<Staking as OnOffenceHandler<_, _, _>>::on_offence(
 				&one_offender,
 				&[Perbill::from_percent(50)],
 				0,
@@ -4716,72 +4716,6 @@ fn restricted_accounts_can_only_withdraw() {
 		start_active_era(9);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(bob), 0));
 	})
-}
-
-#[test]
-fn permissionless_withdraw_overstake() {
-	ExtBuilder::default().build_and_execute(|| {
-		// Given Alice, Bob and Charlie with some stake.
-		let alice = 301;
-		let bob = 302;
-		let charlie = 303;
-		let _ = Balances::make_free_balance_be(&alice, 500);
-		let _ = Balances::make_free_balance_be(&bob, 500);
-		let _ = Balances::make_free_balance_be(&charlie, 500);
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), 100, RewardDestination::Staked));
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(bob), 100, RewardDestination::Staked));
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(charlie), 100, RewardDestination::Staked));
-
-		// WHEN: charlie is partially unbonding.
-		assert_ok!(Staking::unbond(RuntimeOrigin::signed(charlie), 90));
-		let charlie_ledger = StakingLedger::<Test>::get(StakingAccount::Stash(charlie)).unwrap();
-
-		// AND: alice and charlie ledger having higher value than actual stake.
-		Ledger::<Test>::insert(alice, StakingLedger::<Test>::new(alice, 200));
-		Ledger::<Test>::insert(
-			charlie,
-			StakingLedger { stash: charlie, total: 200, active: 200 - 90, ..charlie_ledger },
-		);
-
-		// THEN overstake can be permissionlessly withdrawn.
-		System::reset_events();
-
-		// Alice stake is corrected.
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&alice).unwrap(),
-			Stake { total: 200, active: 200 }
-		);
-		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), alice));
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&alice).unwrap(),
-			Stake { total: 100, active: 100 }
-		);
-
-		// Charlie who is partially withdrawing also gets their stake corrected.
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&charlie).unwrap(),
-			Stake { total: 200, active: 110 }
-		);
-		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), charlie));
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&charlie).unwrap(),
-			Stake { total: 200 - 100, active: 110 - 100 }
-		);
-
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![
-				Event::Withdrawn { stash: alice, amount: 200 - 100 },
-				Event::Withdrawn { stash: charlie, amount: 200 - 100 }
-			]
-		);
-
-		// but Bob ledger is fine and that cannot be withdrawn.
-		assert_noop!(
-			Staking::withdraw_overstake(RuntimeOrigin::signed(1), bob),
-			Error::<Test>::BoundNotMet
-		);
-	});
 }
 
 mod election_data_provider {
@@ -8806,6 +8740,92 @@ mod hold_migration {
 	}
 
 	#[test]
+	fn overstaked_and_partially_unbonding() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// GIVEN alice who is a nominator with T::OldCurrency.
+			let alice = 300;
+			// 1000 + ED
+			let _ = Balances::make_free_balance_be(&alice, 1001);
+			let stake = 600;
+			let reserved_by_another_pallet = 400;
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(alice),
+				stake,
+				RewardDestination::Staked
+			));
+
+			// AND Alice is partially unbonding.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 300));
+
+			// AND Alice has some funds reserved with another pallet.
+			assert_ok!(Balances::reserve(&alice, reserved_by_another_pallet));
+
+			// convert stake to T::OldCurrency.
+			testing_utils::migrate_to_old_currency::<Test>(alice);
+			assert_eq!(asset::staked::<Test>(&alice), 0);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), stake);
+
+			// ledger has correct amount staked.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: stake, active: stake - 300 })
+			);
+
+			// Alice becomes overstaked by withdrawing some staked balance.
+			assert_ok!(Balances::transfer_allow_death(
+				RuntimeOrigin::signed(alice),
+				10,
+				reserved_by_another_pallet
+			));
+
+			let expected_force_withdraw = reserved_by_another_pallet;
+
+			// ledger mutation would fail in this case before migration because of failing hold.
+			assert_noop!(
+				Staking::unbond(RuntimeOrigin::signed(alice), 100),
+				Error::<Test>::NotEnoughFunds
+			);
+
+			// clear events
+			System::reset_events();
+
+			// WHEN alice currency is migrated.
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+
+			// THEN
+			let expected_hold = stake - expected_force_withdraw;
+			// ensure no lock
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+			// ensure stake and hold are same.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				// expected stake is 0 since force withdrawn (400) is taken out completely of
+				// active stake.
+				Ok(Stake { total: expected_hold, active: 0 })
+			);
+
+			assert_eq!(asset::staked::<Test>(&alice), expected_hold);
+			// ensure events are emitted.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::CurrencyMigrated {
+					stash: alice,
+					force_withdraw: expected_force_withdraw
+				}]
+			);
+
+			// ensure cannot migrate again.
+			assert_noop!(
+				Staking::migrate_currency(RuntimeOrigin::signed(1), alice),
+				Error::<Test>::AlreadyMigrated
+			);
+
+			// unbond works after migration.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
+		});
+	}
+
+	#[test]
 	fn virtual_staker_consumer_provider_dec() {
 		// Ensure virtual stakers consumer and provider count is decremented.
 		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
@@ -9269,5 +9289,185 @@ mod paged_slashing {
 				]
 			);
 		});
+	}
+
+	// Tests for manual_slash extrinsic
+	// Covers the following scenarios:
+	// 1. Basic slashing functionality - verifies root origin slashing works correctly
+	// 2. Slashing with a lower percentage - should have no effect
+	// 3. Slashing with a higher percentage - should increase the slash amount
+	// 4. Slashing in non-existent eras - should fail with an error
+	// 5. Slashing in previous eras - should work within history depth
+	#[test]
+	fn manual_slashing_works() {
+		ExtBuilder::default().validator_count(2).build_and_execute(|| {
+			// setup: Start with era 0
+			start_active_era(0);
+
+			let validator_stash = 11;
+			let initial_balance = Staking::slashable_balance_of(&validator_stash);
+			assert!(initial_balance > 0, "Validator must have stake to be slashed");
+
+			// scenario 1: basic slashing works
+			// this verifies that the manual_slash extrinsic properly slashes a validator when
+			// called with root origin
+			let current_era = CurrentEra::<Test>::get().unwrap();
+			let slash_fraction_1 = Perbill::from_percent(25);
+
+			// only root can call this function
+			assert_noop!(
+				Staking::manual_slash(
+					RuntimeOrigin::signed(10),
+					validator_stash,
+					current_era,
+					slash_fraction_1
+				),
+				BadOrigin
+			);
+
+			// root can slash
+			assert_ok!(Staking::manual_slash(
+				RuntimeOrigin::root(),
+				validator_stash,
+				current_era,
+				slash_fraction_1
+			));
+
+			// process offence
+			advance_blocks(1);
+
+			// check if balance was slashed correctly (25%)
+			let balance_after_first_slash = Staking::slashable_balance_of(&validator_stash);
+			let expected_balance_1 = initial_balance - (initial_balance / 4); // 25% slash
+
+			assert!(
+				balance_after_first_slash <= expected_balance_1 &&
+					balance_after_first_slash >= expected_balance_1 - 5,
+				"First slash was not applied correctly. Expected around {}, got {}",
+				expected_balance_1,
+				balance_after_first_slash
+			);
+
+			// clear events from first slash
+			System::reset_events();
+
+			// scenario 2: slashing with a smaller fraction has no effect
+			// when a validator has already been slashed by a higher percentage,
+			// attempting to slash with a lower percentage should have no effect
+			let slash_fraction_2 = Perbill::from_percent(10); // Smaller than 25%
+			assert_ok!(Staking::manual_slash(
+				RuntimeOrigin::root(),
+				validator_stash,
+				current_era,
+				slash_fraction_2
+			));
+
+			// balance should not change because we already slashed with a higher percentage
+			let balance_after_second_slash = Staking::slashable_balance_of(&validator_stash);
+			assert_eq!(
+				balance_after_first_slash, balance_after_second_slash,
+				"Balance changed after slashing with smaller fraction"
+			);
+
+			// with the new implementation, we should see an OffenceReported event
+			// but no Slashed event yet as the slash will be queued
+			let has_offence_reported = System::events().iter().any(|record| {
+				matches!(
+					record.event,
+					RuntimeEvent::Staking(Event::<Test>::OffenceReported {
+						validator,
+						fraction,
+						..
+					}) if validator == validator_stash && fraction == slash_fraction_2
+				)
+			});
+			assert!(has_offence_reported, "No OffenceReported event was emitted");
+
+			// verify no Slashed event was emitted yet (since it's queued for later processing)
+			let no_slashed_events = !System::events().iter().any(|record| {
+				matches!(record.event, RuntimeEvent::Staking(Event::<Test>::Slashed { .. }))
+			});
+			assert!(no_slashed_events, "A Slashed event was incorrectly emitted immediately");
+
+			// clear events again
+			System::reset_events();
+
+			// scenario 3: slashing with a larger fraction works
+			// when a validator is slashed with a higher percentage than previous slashes,
+			// their stake should be further reduced to match the new larger slash percentage
+			let slash_fraction_3 = Perbill::from_percent(50); // Larger than 25%
+			assert_ok!(Staking::manual_slash(
+				RuntimeOrigin::root(),
+				validator_stash,
+				current_era,
+				slash_fraction_3
+			));
+
+			// process offence
+			advance_blocks(1);
+
+			// check if balance was further slashed (from 75% to 50% of original)
+			let balance_after_third_slash = Staking::slashable_balance_of(&validator_stash);
+			let expected_balance_3 = initial_balance / 2; // 50% of original
+
+			assert!(
+				balance_after_third_slash <= expected_balance_3 &&
+					balance_after_third_slash >= expected_balance_3 - 5,
+				"Third slash was not applied correctly. Expected around {}, got {}",
+				expected_balance_3,
+				balance_after_third_slash
+			);
+
+			// verify a Slashed event was emitted
+			assert!(
+				System::events().iter().any(|record| {
+					matches!(
+						record.event,
+						RuntimeEvent::Staking(Event::<Test>::Slashed { staker, .. })
+						if staker == validator_stash
+					)
+				}),
+				"No Slashed event was emitted after effective slash"
+			);
+
+			// scenario 4: slashing in a non-existent era fails
+			// the manual_slash extrinsic should validate that the era exists within history depth
+			assert_noop!(
+				Staking::manual_slash(
+					RuntimeOrigin::root(),
+					validator_stash,
+					999,
+					slash_fraction_1
+				),
+				Error::<Test>::InvalidEraToReward
+			);
+
+			// move to next era
+			start_active_era(1);
+
+			// scenario 5: slashing in previous era still works
+			// as long as the era is within history depth, validators can be slashed for past eras
+			assert_ok!(Staking::manual_slash(
+				RuntimeOrigin::root(),
+				validator_stash,
+				0,
+				Perbill::from_percent(75)
+			));
+
+			// process offence
+			advance_blocks(1);
+
+			// check balance was further reduced
+			let balance_after_fifth_slash = Staking::slashable_balance_of(&validator_stash);
+			let expected_balance_5 = initial_balance / 4; // 25% of original (75% slashed)
+
+			assert!(
+				balance_after_fifth_slash <= expected_balance_5 &&
+					balance_after_fifth_slash >= expected_balance_5 - 5,
+				"Fifth slash was not applied correctly. Expected around {}, got {}",
+				expected_balance_5,
+				balance_after_fifth_slash
+			);
+		})
 	}
 }

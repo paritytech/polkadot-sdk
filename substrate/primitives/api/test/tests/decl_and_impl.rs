@@ -81,7 +81,8 @@ impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn something_with_block(_: Block) -> Block {
+		// Ensure that we accept `mut`
+		fn something_with_block(mut _block: Block) -> Block {
 			unimplemented!()
 		}
 

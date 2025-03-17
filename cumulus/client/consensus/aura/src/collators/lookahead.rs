@@ -409,6 +409,7 @@ where
 								parent_header.clone(),
 								*relay_parent_header.state_root(),
 								*relay_parent_header.number(),
+								validation_data.max_pov_size,
 							);
 						}
 
