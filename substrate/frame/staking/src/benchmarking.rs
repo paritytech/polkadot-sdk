@@ -140,6 +140,7 @@ pub fn create_validator_with_nominators<T: Config>(
 
 	// Create reward pool
 	let total_payout = asset::existential_deposit::<T>()
+		.max(1u32.into())
 		.saturating_mul(upper_bound.into())
 		.saturating_mul(1000u32.into());
 	<ErasValidatorReward<T>>::insert(era, total_payout);
@@ -366,7 +367,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>()).max(1u32.into());
 
 		// setup the worst case list scenario.
 
@@ -436,7 +437,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		add_slashing_spans::<T>(&stash, s);
-		let amount = asset::existential_deposit::<T>() * 5u32.into(); // Half of total
+		let amount = asset::existential_deposit::<T>().max(1u32.into()) * 5u32.into(); // Half of total
 		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
 		CurrentEra::<T>::put(EraIndex::max_value());
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
@@ -462,7 +463,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>()).max(1u32.into());;
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -587,7 +588,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>()).max(1u32.into());;
 
 		// setup a worst case list scenario. Note we don't care about the destination position,
 		// because we are just doing an insert into the origin position.
@@ -620,7 +621,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>()).max(1u32.into());;
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -781,7 +782,7 @@ mod benchmarks {
 		// Clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>()).max(1u32.into());;
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -936,7 +937,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>()).max(1u32.into());;
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -1046,7 +1047,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>()).max(1u32.into());;
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
