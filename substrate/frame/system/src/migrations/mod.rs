@@ -18,7 +18,7 @@
 //! Migrate the reference counting state.
 
 use super::LOG_TARGET;
-use crate::{Config, Events, Pallet, UnclearedEventCount};
+use crate::{Config, Events, EventSegments, Pallet, UnclearedEventCount};
 use codec::{Decode, Encode, FullCodec};
 use frame_support::{
 	pallet_prelude::ValueQuery, traits::PalletInfoAccess, weights::Weight, Blake2_128Concat,
