@@ -289,6 +289,14 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
+	#[pallet::extra_constants]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Gets this pallet's derived pot account.
+		fn pot_account() -> T::AccountId {
+			Self::account_id()
+		}
+	}
+
 	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
 	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
 	///
