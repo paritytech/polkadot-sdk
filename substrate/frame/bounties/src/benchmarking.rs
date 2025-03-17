@@ -146,7 +146,8 @@ benchmarks_instance_pallet! {
 		);
 	}
 
-	// Worst case when curator is inactive and any sender unassigns the curator.
+	// Worst case when curator is inactive and any sender unassigns the curator, 
+	// or if `BountyUpdatePeriod` is large enough and `RejectOrigin` executes the call.
 	unassign_curator {
 		setup_pot_account::<T, I>();
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
@@ -155,18 +156,15 @@ benchmarks_instance_pallet! {
 		let bounty_update_period = T::BountyUpdatePeriod::get();
 		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
 		set_block_number::<T, I>(inactivity_timeout.saturating_add(2u32.into()));
-		let caller = whitelisted_caller();
-	}: {
-		let res = Pallet::<T, I>::unassign_curator(RawOrigin::Signed(caller).into(), bounty_id);
 
-		// If `BountyUpdatePeriod` overflowed the inactivity timeout, the call will fail (which is fine)
-		// but we need to handle it.
-		if Pallet::<T, I>::treasury_block_number() <= inactivity_timeout {
-			  assert!(res.is_err());
+		// If `BountyUpdatePeriod` overflows the inactivity timeout the benchmark still executes the slash
+		let origin = if Pallet::<T, I>::treasury_block_number() <= inactivity_timeout {
+			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?
 		} else {
-			  res?;
-		}
-	}
+			let caller: T::AccountId = whitelisted_caller();
+			RawOrigin::Signed(caller.clone()).into()
+		};
+	}: _<T::RuntimeOrigin>(origin, bounty_id)
 
 	accept_curator {
 		setup_pot_account::<T, I>();

@@ -267,7 +267,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Worst case when curator is inactive and any sender un-assigns the curator.
+	// Worst case when curator is inactive and any sender un-assigns the curator,
+	// or if `BountyUpdatePeriod` is large enough and `RejectOrigin` executes the call.
 	#[benchmark]
 	fn unassign_curator() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
@@ -276,24 +277,21 @@ mod benchmarks {
 		let bounty_update_period = T::BountyUpdatePeriod::get();
 		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
 		set_block_number::<T>(inactivity_timeout.saturating_add(1u32.into()));
-		let caller: T::AccountId = whitelisted_caller();
 
-		#[block]
-		{
-			let res = Pallet::<T>::unassign_curator(
-				RawOrigin::Signed(caller).into(),
-				bounty_setup.bounty_id,
-				bounty_setup.child_bounty_id,
-			);
+		// If `BountyUpdatePeriod` overflows the inactivity timeout the benchmark still executes the slash
+		let origin = if Pallet::<T>::treasury_block_number() <= inactivity_timeout {
+			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?
+		} else {
+			let caller: T::AccountId = whitelisted_caller();
+			RawOrigin::Signed(caller.clone()).into()
+		};
 
-			// If `BountyUpdatePeriod` overflowed the inactivity timeout, the call will fail (which
-			// is fine) but we need to handle it.
-			if Pallet::<T>::treasury_block_number() <= inactivity_timeout {
-				assert!(res.is_err());
-			} else {
-				assert_ok!(res);
-			}
-		}
+		#[extrinsic_call]
+		_(
+			origin as T::RuntimeOrigin,
+			bounty_setup.bounty_id,
+			bounty_setup.child_bounty_id,
+		);
 
 		Ok(())
 	}
