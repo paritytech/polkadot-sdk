@@ -648,7 +648,7 @@ bitvec = { version = "1.0.1", default-features = false }
 blake2 = { version = "0.10.4", default-features = false }
 blake2b_simd = { version = "1.0.2", default-features = false }
 blake3 = { version = "1.5" }
-bounded-collections = { version = "0.2.3", default-features = false }
+bounded-collections = { version = "0.2.4", default-features = false }
 bounded-vec = { version = "0.7" }
 bp-asset-hub-rococo = { path = "bridges/chains/chain-asset-hub-rococo", default-features = false }
 bp-asset-hub-westend = { path = "bridges/chains/chain-asset-hub-westend", default-features = false }
