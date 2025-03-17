@@ -226,6 +226,13 @@ impl<C> WeighedMessage<C> {
 	}
 }
 
+#[derive(Debug, Clone, Copy)]
+enum FeesSource {
+	JitWithdraw,
+	HoldingRegister,
+	FeesRegister,
+}
+
 impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Config> {
 	type Prepared = WeighedMessage<Config::RuntimeCall>;
 	fn prepare(
@@ -567,48 +574,22 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let asset_to_pay_for_fees =
 			self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
 		tracing::trace!(target: "xcm::fees", ?asset_to_pay_for_fees);
-		// We withdraw or take from holding the asset the user wants to use for fee payment.
-		let withdrawn_fee_asset: AssetsInHolding = if self.fees_mode.jit_withdraw {
-			let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
-			Config::AssetTransactor::withdraw_asset(
-				&asset_to_pay_for_fees,
-				origin,
-				Some(&self.context),
-			)?;
-			tracing::trace!(target: "xcm::fees", ?asset_needed_for_fees);
-			asset_to_pay_for_fees.clone().into()
+
+		let fees_source = if self.fees_mode.jit_withdraw {
+			// We withdraw or take from holding the asset the user wants to use for fee payment.
+			FeesSource::JitWithdraw
+		} else if self.fees.is_empty() {
+			// Means `BuyExecution` was used, we'll find the fees in the `holding` register.
+			FeesSource::HoldingRegister
 		} else {
-			// This condition exists to support `BuyExecution` while the ecosystem
-			// transitions to `PayFees`.
-			let assets_to_pay_delivery_fees: AssetsInHolding = if self.fees.is_empty() {
-				// Means `BuyExecution` was used, we'll find the fees in the `holding` register.
-				self.holding
-					.try_take(asset_to_pay_for_fees.clone().into())
-					.map_err(|e| {
-						tracing::error!(target: "xcm::fees", ?e, ?asset_to_pay_for_fees,
-							"Holding doesn't hold enough for fees");
-						XcmError::NotHoldingFees
-					})?
-					.into()
-			} else {
-				// Means `PayFees` was used, we'll find the fees in the `fees` register.
-				self.fees
-					.try_take(asset_to_pay_for_fees.clone().into())
-					.map_err(|e| {
-						tracing::error!(target: "xcm::fees", ?e, ?asset_to_pay_for_fees,
-							"Fees register doesn't hold enough for fees");
-						XcmError::NotHoldingFees
-					})?
-					.into()
-			};
-			tracing::trace!(target: "xcm::fees", ?assets_to_pay_delivery_fees);
-			let mut iter = assets_to_pay_delivery_fees.fungible_assets_iter();
-			let asset = iter.next().ok_or(XcmError::NotHoldingFees)?;
-			asset.into()
+			// Means `PayFees` was used, we'll find the fees in the `fees` register.
+			FeesSource::FeesRegister
 		};
+		let withdrawn_fee_asset = self.withdraw_fee_asset(&asset_to_pay_for_fees, fees_source)?;
+
 		// We perform the swap, if needed, to pay fees.
 		let paid = if asset_to_pay_for_fees.id != asset_needed_for_fees.id {
-			let swapped_asset: Assets = Config::AssetExchanger::exchange_asset(
+			let swapped_asset = Config::AssetExchanger::exchange_asset(
 				self.origin_ref(),
 				withdrawn_fee_asset.clone().into(),
 				&asset_needed_for_fees.clone().into(),
@@ -620,9 +601,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					?given_assets, "Swap was deemed necessary but couldn't be done for withdrawn_fee_asset: {:?} and asset_needed_for_fees: {:?}", withdrawn_fee_asset.clone(), asset_needed_for_fees,
 				);
 				XcmError::FeesNotMet
-			})?
-			.into();
-			swapped_asset
+			})?;
+
+			let (needed, change) = Self::get_fungible_needed_and_change(
+				swapped_asset,
+				&asset_needed_for_fees.id,
+				&asset_to_pay_for_fees.id,
+			)
+			.ok_or(XcmError::FeesNotMet)?;
+
+			self.deposit_fee_asset(change, fees_source)?;
+
+			needed.into()
 		} else {
 			// If the asset wanted to pay for fees is the one that was needed,
 			// we don't need to do any swap.
@@ -631,6 +621,69 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		};
 		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
+	}
+
+	fn withdraw_fee_asset(
+		&mut self,
+		asset: &Asset,
+		fees_source: FeesSource,
+	) -> Result<Asset, XcmError> {
+		tracing::trace!(target: "xcm::withdraw_fee_asset", ?asset, ?fees_source);
+
+		let fees = match fees_source {
+			FeesSource::JitWithdraw => {
+				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				Config::AssetTransactor::withdraw_asset(&asset, origin, Some(&self.context))?
+			},
+			FeesSource::HoldingRegister =>
+				self.holding.try_take(asset.clone().into()).map_err(|e| {
+					tracing::error!(target: "xcm::withdraw_fee_asset", ?e, ?asset,
+							"Holding doesn't hold enough for fees");
+					XcmError::NotHoldingFees
+				})?,
+			FeesSource::FeesRegister => self.fees.try_take(asset.clone().into()).map_err(|e| {
+				tracing::error!(target: "xcm::withdraw_fee_asset", ?e, ?asset,
+							"Fees register doesn't hold enough for fees");
+				XcmError::NotHoldingFees
+			})?,
+		};
+
+		let asset = fees.fungible_assets_iter().next().ok_or(XcmError::NotHoldingFees)?;
+
+		Ok(asset)
+	}
+
+	fn deposit_fee_asset(&mut self, asset: Asset, fees_source: FeesSource) -> XcmResult {
+		tracing::trace!(target: "xcm::deposit_fee_asset", ?asset, ?fees_source);
+
+		match fees_source {
+			FeesSource::JitWithdraw => {
+				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				Config::AssetTransactor::deposit_asset(&asset, origin, Some(&self.context))?;
+			},
+			FeesSource::HoldingRegister => {
+				self.holding.subsume_assets(asset.clone().into());
+			},
+			FeesSource::FeesRegister => {
+				self.fees.subsume_assets(asset.clone().into());
+			},
+		}
+
+		Ok(())
+	}
+
+	fn get_fungible_needed_and_change(
+		assets: AssetsInHolding,
+		needed_asset_id: &AssetId,
+		change_asset_id: &AssetId,
+	) -> Option<(Asset, Asset)> {
+		let needed_amount = assets.fungible.get(needed_asset_id).cloned()?;
+		let change_amount = assets.fungible.get(change_asset_id).cloned().unwrap_or_default();
+
+		let needed: Asset = (needed_asset_id.clone(), needed_amount).into();
+		let change: Asset = (change_asset_id.clone(), change_amount).into();
+
+		Some((needed, change))
 	}
 
 	/// Calculates the amount of asset used in `PayFees` or `BuyExecution` that would be
