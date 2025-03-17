@@ -59,16 +59,16 @@ pub trait VoteTally<Votes, Class> {
 	/// users.
 	fn setup(class: Class, granularity: Perbill);
 }
-pub enum PollStatus<Tally, Moment, Class> {
+pub enum PollStatus<Tally, Moment, Class, Origin> {
 	None,
-	Ongoing(Tally, Class),
+	Ongoing(Tally, Class, Origin),
 	Completed(Moment, bool),
 }
 
-impl<Tally, Moment, Class> PollStatus<Tally, Moment, Class> {
-	pub fn ensure_ongoing(self) -> Option<(Tally, Class)> {
+impl<Tally, Moment, Class, Origin> PollStatus<Tally, Moment, Class, Origin> {
+	pub fn ensure_ongoing(self) -> Option<(Tally, Class, Origin)> {
 		match self {
-			Self::Ongoing(t, c) => Some((t, c)),
+			Self::Ongoing(t, c, o) => Some((t, c, o)),
 			_ => None,
 		}
 	}
@@ -85,6 +85,7 @@ pub trait Polling<Tally> {
 	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
 	type Votes: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
 	type Class: Parameter + Member + Ord + PartialOrd + MaxEncodedLen;
+	type Origin;
 	type Moment;
 
 	/// Provides a vec of values that `T` may take.
@@ -94,16 +95,18 @@ pub trait Polling<Tally> {
 	/// referendum.
 	///
 	/// Don't use this if you might mutate - use `try_access_poll` instead.
-	fn as_ongoing(index: Self::Index) -> Option<(Tally, Self::Class)>;
+	fn as_ongoing(index: Self::Index) -> Option<(Tally, Self::Class, Self::Origin)>;
 
 	fn access_poll<R>(
 		index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> R,
+		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class, &Self::Origin>) -> R,
 	) -> R;
 
 	fn try_access_poll<R>(
 		index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> Result<R, DispatchError>,
+		f: impl FnOnce(
+			PollStatus<&mut Tally, Self::Moment, Self::Class, &Self::Origin>,
+		) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError>;
 
 	/// Create an ongoing majority-carries poll of given class lasting given period for the purpose
@@ -134,25 +137,28 @@ impl<Tally> Polling<Tally> for NoOpPoll {
 	type Votes = u32;
 	type Class = u16;
 	type Moment = u64;
+	type Origin = ();
 
 	fn classes() -> Vec<Self::Class> {
 		vec![]
 	}
 
-	fn as_ongoing(_index: Self::Index) -> Option<(Tally, Self::Class)> {
+	fn as_ongoing(_index: Self::Index) -> Option<(Tally, Self::Class, Self::Origin)> {
 		None
 	}
 
 	fn access_poll<R>(
 		_index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> R,
+		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class, &Self::Origin>) -> R,
 	) -> R {
 		f(PollStatus::None)
 	}
 
 	fn try_access_poll<R>(
 		_index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> Result<R, DispatchError>,
+		f: impl FnOnce(
+			PollStatus<&mut Tally, Self::Moment, Self::Class, &Self::Origin>,
+		) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
 		f(PollStatus::None)
 	}

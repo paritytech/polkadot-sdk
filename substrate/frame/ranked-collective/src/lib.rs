@@ -640,7 +640,7 @@ pub mod pallet {
 					match status {
 						PollStatus::None | PollStatus::Completed(..) =>
 							Err(Error::<T, I>::NotPolling)?,
-						PollStatus::Ongoing(ref mut tally, class) => {
+						PollStatus::Ongoing(ref mut tally, class, _) => {
 							match Voting::<T, I>::get(&poll, &who) {
 								Some(Aye(votes)) => {
 									tally.bare_ayes.saturating_dec();
