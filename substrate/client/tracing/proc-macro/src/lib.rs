@@ -100,7 +100,6 @@ use syn::{Error, Expr, ItemFn, Path, Result};
 /// 2020-10-16 08:12:58  [open-harbor-1619] 〽️ Prometheus server started at 127.0.0.1:9615
 /// 2020-10-16 08:12:58  [open-harbor-1619] Listening for new connections on 127.0.0.1:9944.
 /// ```
-
 #[proc_macro_attribute]
 pub fn prefix_logs_with(arg: TokenStream, item: TokenStream) -> TokenStream {
 	// Ensure an argument was provided.
