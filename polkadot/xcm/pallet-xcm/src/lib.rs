@@ -2609,7 +2609,7 @@ impl<T: Config> Pallet<T> {
 				.collect();
 		if let Some(failed_event) = Pallet::<Runtime>::emitted_event() {
 			tracing::debug!("Failed event: {:?}", failed_event);
-			event.push(failed_event);
+			events.push(failed_event);
 		}
 		Ok(CallDryRunEffects {
 			local_xcm: local_xcm.map(VersionedXcm::<()>::from),
