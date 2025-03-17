@@ -215,13 +215,13 @@ See [the `bridge-hubs` readme](parachains/runtimes/bridge-hubs/README.md) for de
 
 ### Paseo
 
-[Paseo](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fpaseo.rpc.amforc.com#/explorer) is the newest testnet for Polkadot, 
+[Paseo](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fpaseo.rpc.amforc.com#/explorer) is the newest testnet for Polkadot,
 replacing Rococo as a decentralised, community run, stable testnet for Parachain teams and dapp developers to build on.
 For more information, check the [Paseo repo](https://github.com/paseo-network).
 
 ### Westend
 
-[Westend](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwestend-rpc.polkadot.io#/explorer) is a long running testnet for Polkadot, 
+[Westend](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwestend-rpc.polkadot.io#/explorer) is a long running testnet for Polkadot,
 primarily intended to provide a testing environment for Parity to test the latest changes in the SDK.
 
 ### Testnet Parachains
