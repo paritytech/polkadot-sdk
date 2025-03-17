@@ -26,6 +26,9 @@ ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 hex-literal = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
+num-bigint = { workspace = true }
+num-integer = { workspace = true }
+num-traits = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.21.0", default-features = false }
 polkavm-common = { version = "0.21.0", default-features = false, optional = true }
@@ -37,15 +40,19 @@ serde = { features = [
 	"alloc",
 	"derive",
 ], workspace = true, default-features = false }
+
+# Polkadot SDK Dependencies
+bn = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro.workspace = true
 pallet-revive-uapi = { workspace = true, features = ["scale"] }
-pallet-transaction-payment.workspace = true
-sp-api.workspace = true
-sp-arithmetic.workspace = true
+pallet-transaction-payment = { workspace = true }
+ripemd = { workspace = true }
+sp-api = { workspace = true }
+sp-arithmetic = { workspace = true }
 sp-consensus-aura = { workspace = true, optional = true }
 sp-consensus-babe = { workspace = true, optional = true }
 sp-consensus-slots = { workspace = true, optional = true }
@@ -87,11 +94,16 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"num-bigint/std",
+	"num-integer/std",
+	"num-traits/std",
+	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
 	"pallet-transaction-payment/std",
 	"polkavm-common?/std",
 	"polkavm/std",
 	"rand?/std",
+	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
 	"serde/std",
