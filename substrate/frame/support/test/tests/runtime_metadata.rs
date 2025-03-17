@@ -82,7 +82,7 @@ sp_api::decl_runtime_apis! {
 
 // Module to emulate having the implementation in a different file.
 mod apis {
-	use super::{Block, BlockT, Runtime};
+	use super::{ext, Block, Runtime};
 
 	sp_api::impl_runtime_apis! {
 		impl crate::Api<Block> for Runtime {
@@ -103,16 +103,24 @@ mod apis {
 			fn wild_card(_: u32) {}
 		}
 
-		impl sp_api::Core<Block> for Runtime {
-			fn version() -> sp_version::RuntimeVersion {
-				unimplemented!()
-			}
-			fn execute_block(_: Block) {
-				unimplemented!()
-			}
-			fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
-				unimplemented!()
-			}
+		external_impls!{ext}
+	}
+}
+
+#[sp_api::impl_runtime_apis_ext]
+mod ext {
+
+	external_impls! {super, crate::apis}
+
+	impl sp_api::Core<Block> for Runtime {
+		fn version() -> sp_version::RuntimeVersion {
+			unimplemented!()
+		}
+		fn execute_block(_: Block) {
+			unimplemented!()
+		}
+		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
+			unimplemented!()
 		}
 	}
 }

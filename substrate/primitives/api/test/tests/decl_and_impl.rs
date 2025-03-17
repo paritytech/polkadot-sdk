@@ -25,7 +25,6 @@ use substrate_test_runtime_client::runtime::{Block, Hash};
 /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro in a real
 /// runtime.
 pub struct Runtime {}
-
 decl_runtime_apis! {
 	pub trait Api {
 		fn test(data: u64);
@@ -39,6 +38,14 @@ decl_runtime_apis! {
 	pub trait ApiWithCustomVersion {
 		fn same_name();
 		#[changed_in(2)]
+		fn same_name() -> String;
+	}
+
+	pub trait Example {
+		fn same_name() -> String;
+	}
+
+	pub trait Example2 {
 		fn same_name() -> String;
 	}
 
@@ -142,6 +149,28 @@ impl_runtime_apis! {
 		}
 		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			unimplemented!()
+		}
+	}
+	external_impls!{ext, ext2}
+}
+
+#[sp_api::impl_runtime_apis_ext]
+mod ext {
+	external_impls! {super}
+
+	impl super::Example<Block> for Runtime {
+		fn same_name() -> String {
+			"example".to_string()
+		}
+	}
+}
+
+#[sp_api::impl_runtime_apis_ext]
+mod ext2 {
+	external_impls! {super}
+	impl super::Example2<Block> for Runtime {
+		fn same_name() -> String {
+			"example".to_string()
 		}
 	}
 }
@@ -367,4 +396,11 @@ fn runtime_api_metadata_matches_version_implemented() {
 			"staging_one",
 		],
 	);
+	assert_has_api_with_methods("Example", &["same_name"]);
+}
+
+#[test]
+fn runtime_api_works_with_ext() {
+	check_runtime_api_versions_contains::<dyn Example<Block>>();
+	check_runtime_api_versions_contains::<dyn Example2<Block>>();
 }
