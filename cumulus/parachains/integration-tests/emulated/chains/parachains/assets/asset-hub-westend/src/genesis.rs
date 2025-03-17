@@ -26,8 +26,9 @@ use emulated_integration_tests_common::{
 	SAFE_XCM_VERSION, USDT_ID, WETH,
 };
 use parachains_common::{AccountId, Balance};
-use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+use xcm::{latest::prelude::*, opaque::latest::WESTEND_GENESIS_HASH};
+use xcm_builder::ExternalConsensusLocationsConverterFor;
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
@@ -35,12 +36,16 @@ pub const USDT_ED: Balance = 70_000;
 
 parameter_types! {
 	pub AssetHubWestendAssetOwner: AccountId = Keyring::Alice.to_account_id();
-	pub EthereumSovereignAccount: AccountId = EthereumLocationsConverterFor::<AccountId>::convert_location(
-		&xcm::v5::Location::new(
+	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
+	pub AssetHubWestendUniversalLocation: InteriorLocation = [GlobalConsensus(WestendGlobalConsensusNetwork::get()), Parachain(PARA_ID)].into();
+	pub EthereumSovereignAccount: AccountId = ExternalConsensusLocationsConverterFor::<
+			AssetHubWestendUniversalLocation,
+			AccountId,
+		>::convert_location(&Location::new(
 			2,
-			[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
-		),
-	).unwrap();
+			[Junction::GlobalConsensus(EthereumNetwork::get())],
+		))
+		.unwrap();
 }
 
 pub fn genesis() -> Storage {
@@ -101,10 +106,7 @@ pub fn genesis() -> Storage {
 				),
 				// Ether
 				(
-					xcm::v5::Location::new(
-						2,
-						[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
-					),
+					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
 					EthereumSovereignAccount::get(),
 					true,
 					ED,
@@ -114,8 +116,8 @@ pub fn genesis() -> Storage {
 					xcm::v5::Location::new(
 						2,
 						[
-							xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get()),
-							xcm::v5::Junction::AccountKey20 { network: None, key: WETH.into() },
+							GlobalConsensus(EthereumNetwork::get()),
+							AccountKey20 { network: None, key: WETH.into() },
 						],
 					),
 					EthereumSovereignAccount::get(),

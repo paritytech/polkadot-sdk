@@ -558,25 +558,6 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		(ethereum_sovereign.clone(), INITIAL_FUND),
 	]);
 
-	// Register ETH
-	AssetHubRococo::execute_with(|| {
-		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-		type RuntimeOrigin = <AssetHubRococo as Chain>::RuntimeOrigin;
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			origin_location.clone(),
-			ethereum_sovereign.into(),
-			true,
-			1000,
-		));
-
-		assert_expected_events!(
-			AssetHubRococo,
-			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::ForceCreated { .. }) => {},
-			]
-		);
-	});
 	const ETH_AMOUNT: u128 = 1_000_000_000_000_000_000;
 
 	BridgeHubRococo::execute_with(|| {

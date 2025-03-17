@@ -754,6 +754,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 	)
 	.appended_with(asset_id.clone().interior)
 	.unwrap();
+
 	// Register token
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;

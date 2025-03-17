@@ -27,7 +27,7 @@ westend-emulated-chain = { workspace = true, default-features = true }
 
 # Polkadot
 xcm = { workspace = true }
+xcm-builder = { workspace = true, default-features = true }
 
 # Bridges
 bp-bridge-hub-westend = { workspace = true }
-snowbridge-inbound-queue-primitives = { workspace = true, default-features = true }

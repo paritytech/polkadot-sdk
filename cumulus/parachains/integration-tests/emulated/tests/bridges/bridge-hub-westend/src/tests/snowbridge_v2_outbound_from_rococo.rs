@@ -21,35 +21,7 @@ use crate::{
 	},
 };
 use frame_support::traits::fungibles::Mutate;
-use snowbridge_core::AssetMetadata;
 use xcm::latest::AssetTransferFilter;
-
-pub(crate) fn asset_hub_westend_location() -> Location {
-	Location::new(
-		2,
-		[
-			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
-			Parachain(AssetHubWestend::para_id().into()),
-		],
-	)
-}
-pub(crate) fn bridge_hub_westend_location() -> Location {
-	Location::new(
-		2,
-		[
-			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
-			Parachain(BridgeHubWestend::para_id().into()),
-		],
-	)
-}
-
-// ROC and wROC
-pub(crate) fn roc_at_ah_rococo() -> Location {
-	Parent.into()
-}
-pub(crate) fn bridged_roc_at_ah_westend() -> Location {
-	Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))])
-}
 
 pub(crate) fn create_foreign_on_ah_westend(id: xcm::opaque::v5::Location, sufficient: bool) {
 	let owner = AssetHubWestend::account_id_of(ALICE);
@@ -166,28 +138,6 @@ pub(crate) fn assert_bridge_hub_westend_message_received() {
 			]
 		);
 	})
-}
-
-pub fn register_roc_on_bh() {
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
-
-		// Register ROC on BH
-		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
-			RuntimeOrigin::root(),
-			Box::new(VersionedLocation::from(bridged_roc_at_ah_westend())),
-			AssetMetadata {
-				name: "roc".as_bytes().to_vec().try_into().unwrap(),
-				symbol: "roc".as_bytes().to_vec().try_into().unwrap(),
-				decimals: 12,
-			},
-		));
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::RegisterToken { .. }) => {},]
-		);
-	});
 }
 
 #[test]

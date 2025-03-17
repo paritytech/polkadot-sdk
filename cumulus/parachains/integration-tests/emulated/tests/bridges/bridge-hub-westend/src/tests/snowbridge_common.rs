@@ -340,6 +340,12 @@ pub(crate) fn set_up_eth_and_dot_pool_on_penpal() {
 	create_pool_with_native_on!(PenpalB, eth_location(), true, ethereum_sovereign.clone());
 }
 
+pub(crate) fn set_up_eth_and_dot_pool_on_rococo() {
+	let ethereum_sovereign = snowbridge_sovereign();
+	AssetHubRococo::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	create_pool_with_native_on!(AssetHubRococo, eth_location(), true, ethereum_sovereign.clone());
+}
+
 pub fn register_pal_on_bh() {
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
@@ -396,6 +402,123 @@ pub fn erc20_token_location(token_id: H160) -> Location {
 		[
 			GlobalConsensus(EthereumNetwork::get().into()),
 			AccountKey20 { network: None, key: token_id.into() },
+		],
+	)
+}
+
+// ROC and wROC
+pub(crate) fn roc_at_ah_rococo() -> Location {
+	Parent.into()
+}
+pub(crate) fn bridged_roc_at_ah_westend() -> Location {
+	Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))])
+}
+
+pub(crate) fn create_foreign_on_ah_westend(id: xcm::opaque::v5::Location, sufficient: bool) {
+	let owner = AssetHubWestend::account_id_of(ALICE);
+	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
+}
+
+// set up pool
+pub(crate) fn set_up_pool_with_wnd_on_ah_westend(
+	asset: Location,
+	is_foreign: bool,
+	initial_fund: u128,
+	initial_liquidity: u128,
+) {
+	let wnd: Location = Parent.into();
+	AssetHubWestend::fund_accounts(vec![(AssetHubWestendSender::get(), initial_fund)]);
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		let owner = AssetHubWestendSender::get();
+		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
+
+		if is_foreign {
+			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
+				signed_owner.clone(),
+				asset.clone().into(),
+				owner.clone().into(),
+				initial_fund,
+			));
+		} else {
+			let asset_id = match asset.interior.last() {
+				Some(GeneralIndex(id)) => *id as u32,
+				_ => unreachable!(),
+			};
+			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
+				signed_owner.clone(),
+				asset_id.into(),
+				owner.clone().into(),
+				initial_fund,
+			));
+		}
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
+			signed_owner.clone(),
+			Box::new(wnd.clone()),
+			Box::new(asset.clone()),
+		));
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
+			signed_owner.clone(),
+			Box::new(wnd),
+			Box::new(asset),
+			initial_liquidity,
+			initial_liquidity,
+			1,
+			1,
+			owner.into()
+		));
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
+			]
+		);
+	});
+}
+
+pub fn register_roc_on_bh() {
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+
+		// Register ROC on BH
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
+			RuntimeOrigin::root(),
+			Box::new(VersionedLocation::from(bridged_roc_at_ah_westend())),
+			AssetMetadata {
+				name: "roc".as_bytes().to_vec().try_into().unwrap(),
+				symbol: "roc".as_bytes().to_vec().try_into().unwrap(),
+				decimals: 12,
+			},
+		));
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::RegisterToken { .. }) => {},]
+		);
+	});
+}
+
+pub(crate) fn asset_hub_westend_location() -> Location {
+	Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(AssetHubWestend::para_id().into()),
+		],
+	)
+}
+pub(crate) fn bridge_hub_westend_location() -> Location {
+	Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(BridgeHubWestend::para_id().into()),
 		],
 	)
 }
