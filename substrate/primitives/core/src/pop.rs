@@ -32,11 +32,14 @@ where
 	/// produce a "signature" with unique hash context that should
 	/// never be used in other signatures. This proves that
 	/// that the secret key is known to the prover. While prevent
-	/// malicious actors to trick an honest party to sign their
-	/// public key to mount a rogue key attack (See: Section 4.3 of
+	/// malicious actors to trick an honest party to sign an
+	/// unpossessed public key resulting in a rogue key attack (See: Section 4.3 of
 	/// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
 	///   signatures against rogue-key attacks. In , Annual {{International Conference}} on the
 	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer.
+    /// While we enforce hash context separation at the library level in aggregatable schemes, it
+    /// remains as an advisory for the default implementation using signature API used for
+    /// non-aggregatable schemes
 	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self) -> Self::Signature {
 		let pub_key_as_bytes = self.public().to_raw_vec();
