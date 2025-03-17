@@ -3543,10 +3543,10 @@ impl<T: Config> RecordXcm for Pallet<T> {
 		let records = frame_system::Pallet::<T>::events();
 		if let Some(record) = records.last() {
 			let event = record.event.clone();
-			tracing::debug!(?event, "-> Recording the last event");
+			tracing::debug!(?event, "-> Recording");
 			EmittedEvent::<T>::put(event);
 			let event = EmittedEvent::<T>::get();
-			tracing::debug!(?event, "<- Recorded the last event");
+			tracing::debug!(?event, "<- Recorded");
 		}
 	}
 

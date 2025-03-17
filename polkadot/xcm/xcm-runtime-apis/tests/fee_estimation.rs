@@ -480,9 +480,9 @@ fn dry_run_error_event_check() {
 	new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
-
+		sp_tracing::init_for_tests();
 		let xcm_call = RuntimeCall::XcmPallet({
-			let result = pallet_xcm::Call::transfer_assets {
+			let inner_call = pallet_xcm::Call::transfer_assets {
 				dest: VersionedLocation::from((Parent, Parachain(1000))).into(),
 				beneficiary: VersionedLocation::from(AccountId32 { id: [0u8; 32], network: None })
 					.into(),
@@ -491,9 +491,9 @@ fn dry_run_error_event_check() {
 				weight_limit: Unlimited,
 			};
 			let event = pallet_xcm::EmittedEvent::<TestRuntime>::get();
-			println!("*** xcm_call() => {:?}", event);
+			sp_tracing::tracing::debug!(?inner_call, ?event, "*** xcm_call()");
 
-			result
+			inner_call
 		});
 
 		let origin = OriginCaller::system(RawOrigin::Signed(who));
@@ -511,7 +511,7 @@ fn dry_run_error_event_check() {
 			} else {
 				assert!(false, "Expected LocalExecutionIncomplete error");
 			}
-			println!("dry_run_effects.emitted_events={:?}", dry_run_effects.emitted_events);
+			sp_tracing::tracing::debug!("dry_run_effects.emitted_events={:?}", dry_run_effects.emitted_events);
 			assert!(dry_run_effects.emitted_events.is_empty());
 		});
 		assert!(log_capture.contains("xcm::pallet_xcm::execute_xcm_transfer: origin=Location"));

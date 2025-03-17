@@ -282,6 +282,8 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 
 		while !message.0.is_empty() {
 			let result = vm.process(message);
+			let event = Config::XcmRecorder::emitted_event();
+			tracing::debug!("Emitted? {}", event.is_some());
 			tracing::trace!(target: "xcm::execute", ?result, "Message executed");
 			message = if let Err(error) = result {
 				vm.total_surplus.saturating_accrue(error.weight);
