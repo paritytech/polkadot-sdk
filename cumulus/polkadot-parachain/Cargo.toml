@@ -22,6 +22,7 @@ hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+clap = { features = ["derive"], workspace = true }
 
 # Local
 asset-hub-rococo-runtime = { workspace = true, default-features = true }
@@ -51,7 +52,6 @@ sp-keyring = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 
 # Cumulus
-clap = { features = ["derive"], workspace = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 
 [build-dependencies]

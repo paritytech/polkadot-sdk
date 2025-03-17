@@ -66,14 +66,3 @@ impl ExportChainSpecCmd {
 		Ok(())
 	}
 }
-impl CliConfiguration for ExportChainSpecCmd {
-	// If ExportChainSpecCmd doesn’t have shared_params, you must provide some implementation.
-	fn shared_params(&self) -> &SharedParams {
-		unimplemented!("ExportChainSpecCmd does not implement shared_params")
-	}
-
-	// Implement the chain_id method to return the chain identifier.
-	fn chain_id(&self, _is_dev: bool) -> Result<String> {
-		Ok(self.chain.clone())
-	}
-}
