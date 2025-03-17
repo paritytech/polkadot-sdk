@@ -29,6 +29,7 @@ use sp_runtime::{
 	},
 };
 use std::{
+	collections::HashMap,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -299,11 +300,12 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	/// To perform pruning we need the tags that each extrinsic provides and to avoid calling
 	/// into runtime too often we first look up all extrinsics that are in the pool and get
 	/// their provided tags from there. Otherwise we query the runtime at the `parent` block.
-	pub async fn prune(
+	pub async fn prune<Block: BlockT, Api: ChainApi<Block = Block>>(
 		&self,
 		at: &HashAndNumber<B::Block>,
 		parent: <B::Block as BlockT>::Hash,
 		extrinsics: &[RawExtrinsicFor<B>],
+		known_xts_to_tags: HashMap<ExtrinsicHash<Api>, Option<Vec<Tag>>>,
 	) {
 		log::debug!(
 			target: LOG_TARGET,
@@ -320,7 +322,6 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		// Option<Vec<Tag>>)`)
 		let all = extrinsics.iter().zip(in_pool_tags.into_iter());
 		let mut validated_counter: usize = 0;
-
 		let mut future_tags = Vec::new();
 		let now = Instant::now();
 		for (extrinsic, in_pool_tags) in all {
@@ -330,8 +331,10 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 				// if it's not found in the pool query the runtime at parent block
 				// to get validity info and tags that the extrinsic provides.
 				None => {
-					// Avoid validating block txs if the pool is empty
-					if !self.validated_pool.status().is_empty() {
+					let xts_hash = self.hash_of(extrinsic);
+					if let Some(tags) = known_xts_to_tags.get(&xts_hash).flatten() {
+						future_tags.extend(tags.clone());
+					} else if !self.validated_pool.status().is_empty() {
 						validated_counter = validated_counter + 1;
 						let validity = self
 							.validated_pool
