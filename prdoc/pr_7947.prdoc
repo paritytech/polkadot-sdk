@@ -1,0 +1,15 @@
+title: Snowbridge - Update TransferToken command gas limit.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Transfering certain ERC20 tokens require more gas than 100_000 gas. An example is LDO token which requires 140_000 gas.
+      This change updates the gas limit to 200_000 and also updates the default fees for testnet runtimes.
+
+crates:
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: snowbridge-core
+    bump: minor
