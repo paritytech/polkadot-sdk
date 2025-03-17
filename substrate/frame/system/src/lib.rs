@@ -1080,8 +1080,7 @@ pub mod pallet {
 	/// At the moment, we only allow one upgrade to be scheduled at the next block after pending
 	/// code is set.
 	#[pallet::storage]
-	pub(super) type UpgradeScheduledAt<T: Config> =
-		StorageValue<_, Option<BlockNumberFor<T>>, ValueQuery>;
+	pub(super) type UpgradeScheduledAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// True if we have upgraded so that `type RefCount` is `u32`. False (default) if not.
 	#[pallet::storage]
@@ -1595,7 +1594,7 @@ impl<T: Config> Pallet<T> {
 		let current_number = Pallet::<T>::block_number();
 		let scheduled_at = current_number + One::one();
 
-		UpgradeScheduledAt::<T>::put(Some(scheduled_at));
+		UpgradeScheduledAt::<T>::put(scheduled_at);
 		storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
 	}
 
@@ -1606,13 +1605,13 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `true` if the pending code upgrade was applied.
 	pub fn maybe_apply_pending_code_upgrade() -> bool {
-		let maybe_pending_upgrade = UpgradeScheduledAt::<T>::get();
-
-		if let Some(scheduled_at) = maybe_pending_upgrade {
+		if UpgradeScheduledAt::<T>::exists() {
+			let scheduled_at = UpgradeScheduledAt::<T>::get();
 			let current_number = Pallet::<T>::block_number();
+
 			// Only enact the pending code upgrade if it is scheduled to be enacted in this block.
 			if scheduled_at == current_number {
-				UpgradeScheduledAt::<T>::put(None::<BlockNumberFor<T>>);
+				UpgradeScheduledAt::<T>::kill();
 				let new_code = storage::unhashed::get_raw(well_known_keys::PENDING_CODE);
 				let Some(new_code) = new_code else {
 					// should never happen
