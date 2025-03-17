@@ -13,8 +13,14 @@ The outputs of a stable release are:
 
    built for the `x86_64-unknown-linux-gnu` and `aarch64-apple-darwin` targets. The gpg signatures and sha256 checksums.
 
-- The runtimes for Westend and its system parachains
+- The runtimes for Westend and its system parachains.
 - The new crate versions published to `crates.io`.
+- Debian package for the polkadot binary.
+- Docker images for:
+   - `polkadot` (includes `polkadot-execute-worker` & `polkadot-prepare-worker`)
+   - `polkadot-parachain`
+   - `polkadot-omni-node`
+   - `chain-spec-builder`
 
 
 # Timeline
@@ -30,10 +36,9 @@ This three month period between `stable` releases includes a 1.5 month QA period
 
 # Setup
 
-We have two branches: `master` and `stableYYMM`. `master` is the main development branch where normal Pull Requests are
-opened. Developers need to mostly only care about this branch.
-The `stableYYMM` branch contains a version of the code that is ready to be released. Its contents should be always audited.
-Merging to it is restricted to [Backports](#backports). Each `stableYYMM` branch corresponds to the corresponding stable release, which is in the maintenance period.
+We have two types of branches related to the releases: `master` and `stableYYMM`:
+- `master` is the main development branch where normal Pull Requests are opened. Developers need to mostly only care about this branch.
+- `stableYYMM` branch contains a version of the code that is ready to be released. Each `stableYYMM` branch corresponds to the corresponding stable release, which is in the maintenance or in a QA period. Its contents should be always audited.Merging to it is restricted to [Backports](#backports).
 
 # Versioning
 
@@ -139,6 +144,7 @@ From the forked polkadot-sdk repository in the [paritytech-release org](https://
 From the main polkadot-sdk repository in the paritytech org:
 
 1. Synchronize templates using [Synchronize templates](/.github/workflows/misc-sync-templates.yml)
+2. Update the [Release Registry](https://github.com/paritytech/release-registry/) follwoing the [instructions](https://github.com/paritytech/release-registry?tab=readme-ov-file#maintenance) in the repo with the actual release dates.
 
 ## Patch release for the latest stable version
 
