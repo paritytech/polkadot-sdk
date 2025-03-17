@@ -261,10 +261,6 @@ benchmarks_instance_pallet! {
 		// Add our asset to the holding.
 		holding.push(asset.clone());
 
-<<<<<<< HEAD
-		// Checked account starts at zero
-		assert!(T::CheckedAccount::get().map_or(true, |(c, _)| T::TransactAsset::balance(&c).is_zero()));
-=======
 		let dest_location =  T::valid_destination()?;
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
@@ -273,7 +269,6 @@ benchmarks_instance_pallet! {
 			&dest_location,
 			FeeReason::ChargeFees,
 		);
->>>>>>> c4b8ec12 (Use non-native token to benchmark xcm on asset hub (#7893))
 
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding.into());
@@ -292,9 +287,6 @@ benchmarks_instance_pallet! {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let asset = T::get_asset();
 		let mut holding = T::worst_case_holding(1);
-<<<<<<< HEAD
-		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
-=======
 		let dest_location =  T::valid_destination()?;
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
@@ -303,7 +295,6 @@ benchmarks_instance_pallet! {
 			&dest_location,
 			FeeReason::ChargeFees,
 		);
->>>>>>> c4b8ec12 (Use non-native token to benchmark xcm on asset hub (#7893))
 
 		// Add our asset to the holding.
 		holding.push(asset.clone());

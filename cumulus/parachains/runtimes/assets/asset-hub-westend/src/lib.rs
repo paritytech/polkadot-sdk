@@ -1743,12 +1743,8 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-<<<<<<< HEAD
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
-=======
 			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
 			use frame_support::assert_ok;
->>>>>>> c4b8ec12 (Use non-native token to benchmark xcm on asset hub (#7893))
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
