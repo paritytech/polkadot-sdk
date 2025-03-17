@@ -1168,7 +1168,6 @@ mod benchmarks {
 			false,
 			true,
 			RewardDestination::Staked,
-			era,
 		)?;
 
 		let slash_fraction = Perbill::from_percent(10);
