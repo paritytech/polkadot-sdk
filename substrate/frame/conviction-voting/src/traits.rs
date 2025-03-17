@@ -23,6 +23,11 @@ use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
+
+/// Represents the differents states of a referendum.
+/// None: The referendum is not started.
+/// Ongoing: The referendum is ongoing.
+/// Completed: The referendum is finished.
 #[derive(
 	Encode,
 	Decode,
@@ -45,12 +50,10 @@ pub trait VotingHooks<AccountId, Index, Balance> {
 	fn on_vote(who: &AccountId, ref_index: Index, vote: AccountVote<Balance>) -> DispatchResult;
 
 	// Called when removed vote is executed.
-	// is_finished indicates the state of the referendum = None if referendum is cancelled, Ongoing
-	// if referendum is ongoing and Completed when finished.
 	fn on_remove_vote(who: &AccountId, ref_index: Index, status: Status);
 
-	// Called when removed vote is executed and voter lost the direction to possibly lock some
-	// balance. Can return an amount that should be locked for the conviction time.
+	// Called when a vote is unsuccessful.
+	// Returns the amount of locked balance, which is `None` in the default implementation.
 	fn lock_balance_on_unsuccessful_vote(who: &AccountId, ref_index: Index) -> Option<Balance>;
 
 	/// Will be called by benchmarking before calling `on_vote` in a benchmark.

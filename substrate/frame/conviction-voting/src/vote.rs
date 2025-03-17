@@ -92,6 +92,10 @@ pub enum AccountVote<Balance> {
 	SplitAbstain { aye: Balance, nay: Balance, abstain: Balance },
 }
 
+
+/// present the conditions under which an account's Funds are locked after a voting action.
+/// - `Status(bool)`: Implement a locking period if the referendum passed and `bool` is `true`.
+/// - `Always`: lock the funds regardless of the outcome of the referendum.
 #[derive(
 	Copy,
 	Clone,
@@ -106,7 +110,7 @@ pub enum LockedIf {
 
 impl<Balance: Saturating> AccountVote<Balance> {
 	/// Returns `Some` of the lock periods that the account is locked for, assuming that the
-	/// referendum passed iff `approved` is `true`.
+	/// referendum passed if `approved` is `true`.
 	pub fn locked_if(self, approved: LockedIf) -> Option<(u32, Balance)> {
 		// winning side: can only be removed after the lock period ends.
 		match (self, approved) {
