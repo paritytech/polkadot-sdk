@@ -653,7 +653,7 @@ fn lone_hold_consideration_works() {
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10);
 
 			assert_ok!(Balances::hold(&TestId::Foo, &who, 5));
-			assert_eq!(events(), [RuntimeEvent::Balances(crate::Event::Held { reason: TestId::Foo, who: who.clone(), amount: 10 }), RuntimeEvent::Balances(crate::Event::Held { reason: TestId::Foo, who: who.clone(), amount: 5 })]);
+			assert_eq!(events(), [RuntimeEvent::Balances(crate::Event::Held { reason: TestId::Foo, who: who.clone(), amount: 10 }), RuntimeEvent::Balances(crate::Event::Held { reason: TestId::Foo, who, amount: 5 })]);
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 15);
 
 			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
