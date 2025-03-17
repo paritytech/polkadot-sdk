@@ -89,7 +89,8 @@ also have `major` version bumps through backports.
 
 **From `stable` to `master`**
 
-Backports to `master` only happen after a `stable` or `patch` release has been made for the current stable release, and include node version and spec version bumps, plus reorganizing the prdoc files (they should go into the appropriate release folder under the [prdoc](./proc) folder).
+Backports to `master` only happen after a `stable` or `patch` release has been made for the current stable release, and include node version and spec version bumps, plus reorganizing the prdoc files (they should go into the appropriate release folder under the [prdoc](./proc) folder).  
+This is done by the release team to keep things organized. Developers need not to care about such backports.
 
 # Processes
 
