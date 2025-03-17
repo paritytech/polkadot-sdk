@@ -2639,7 +2639,7 @@ fn reporters_receive_their_slice() {
 
 		assert_eq!(Staking::eras_stakers(active_era(), &11).total, initial_balance);
 
-		on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(50)]);
+		on_offence_now(&[offence_from(11, Some(vec![1, 2]))], &[Perbill::from_percent(50)]);
 
 		// F1 * (reward_proportion * slash - 0)
 		// 50% * (10% * initial_balance / 2)
@@ -3196,47 +3196,52 @@ fn remove_deferred() {
 
 #[test]
 fn remove_multi_deferred() {
-	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
-		mock::start_active_era(1);
+	ExtBuilder::default()
+		.slash_defer_duration(2)
+		.validator_count(4)
+		.set_status(41, StakerStatus::Validator)
+		.set_status(51, StakerStatus::Validator)
+		.build_and_execute(|| {
+			mock::start_active_era(1);
 
-		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000);
-		assert_eq!(asset::stakeable_balance::<Test>(&101), 2000);
+			assert_eq!(asset::stakeable_balance::<Test>(&11), 1000);
+			assert_eq!(asset::stakeable_balance::<Test>(&101), 2000);
 
-		on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(10)]);
+			on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(10)]);
 
-		on_offence_now(&[offence_from(21, None)], &[Perbill::from_percent(10)]);
+			on_offence_now(&[offence_from(21, None)], &[Perbill::from_percent(10)]);
 
-		on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(25)]);
+			on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(25)]);
 
-		on_offence_now(&[offence_from(42, None)], &[Perbill::from_percent(25)]);
+			on_offence_now(&[offence_from(41, None)], &[Perbill::from_percent(25)]);
 
-		on_offence_now(&[offence_from(69, None)], &[Perbill::from_percent(25)]);
+			on_offence_now(&[offence_from(51, None)], &[Perbill::from_percent(25)]);
 
-		assert_eq!(UnappliedSlashes::<Test>::get(&4).len(), 5);
+			assert_eq!(UnappliedSlashes::<Test>::get(&4).len(), 5);
 
-		// fails if list is not sorted
-		assert_noop!(
-			Staking::cancel_deferred_slash(RuntimeOrigin::root(), 1, vec![2, 0, 4]),
-			Error::<Test>::NotSortedAndUnique
-		);
-		// fails if list is not unique
-		assert_noop!(
-			Staking::cancel_deferred_slash(RuntimeOrigin::root(), 1, vec![0, 2, 2]),
-			Error::<Test>::NotSortedAndUnique
-		);
-		// fails if bad index
-		assert_noop!(
-			Staking::cancel_deferred_slash(RuntimeOrigin::root(), 1, vec![1, 2, 3, 4, 5]),
-			Error::<Test>::InvalidSlashIndex
-		);
+			// fails if list is not sorted
+			assert_noop!(
+				Staking::cancel_deferred_slash(RuntimeOrigin::root(), 1, vec![2, 0, 4]),
+				Error::<Test>::NotSortedAndUnique
+			);
+			// fails if list is not unique
+			assert_noop!(
+				Staking::cancel_deferred_slash(RuntimeOrigin::root(), 1, vec![0, 2, 2]),
+				Error::<Test>::NotSortedAndUnique
+			);
+			// fails if bad index
+			assert_noop!(
+				Staking::cancel_deferred_slash(RuntimeOrigin::root(), 1, vec![1, 2, 3, 4, 5]),
+				Error::<Test>::InvalidSlashIndex
+			);
 
-		assert_ok!(Staking::cancel_deferred_slash(RuntimeOrigin::root(), 4, vec![0, 2, 4]));
+			assert_ok!(Staking::cancel_deferred_slash(RuntimeOrigin::root(), 4, vec![0, 2, 4]));
 
-		let slashes = UnappliedSlashes::<Test>::get(&4);
-		assert_eq!(slashes.len(), 2);
-		assert_eq!(slashes[0].validator, 21);
-		assert_eq!(slashes[1].validator, 42);
-	})
+			let slashes = UnappliedSlashes::<Test>::get(&4);
+			assert_eq!(slashes.len(), 2);
+			assert_eq!(slashes[0].validator, 21);
+			assert_eq!(slashes[1].validator, 41);
+		})
 }
 
 #[test]
@@ -4690,7 +4695,7 @@ fn offences_weight_calculated_correctly() {
 		);
 
 		// On Offence with one offenders, Applied
-		let one_offender = [offence_from(11, Some(1))];
+		let one_offender = [offence_from(11, Some(vec![1]))];
 
 		let n = 1; // Number of offenders
 		let rw = 3 + 3 * n; // rw reads and writes
