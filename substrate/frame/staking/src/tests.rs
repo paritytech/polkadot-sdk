@@ -2573,8 +2573,8 @@ fn slashing_performed_according_exposure() {
 		// Handle an offence with a historical exposure.
 		on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(50)]);
 
-		// The stash account should be slashed for 250 (50% of 500).
-		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000 - 250);
+		// The stash account should be slashed for 500 (50% of 1000).
+		assert_eq!(asset::stakeable_balance::<Test>(&11), 500);
 	});
 }
 
@@ -2660,14 +2660,14 @@ fn subsequent_reports_in_same_span_pay_out_less() {
 
 		assert_eq!(Staking::eras_stakers(active_era(), &11).total, initial_balance);
 
-		on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(20)]);
+		on_offence_now(&[offence_from(11, Some(vec![1]))], &[Perbill::from_percent(20)]);
 
 		// F1 * (reward_proportion * slash - 0)
 		// 50% * (10% * initial_balance * 20%)
 		let reward = (initial_balance / 5) / 20;
 		assert_eq!(asset::total_balance::<Test>(&1), 10 + reward);
 
-		on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(50)]);
+		on_offence_now(&[offence_from(11, Some(vec![1]))], &[Perbill::from_percent(50)]);
 
 		let prior_payout = reward;
 
@@ -4669,10 +4669,12 @@ fn offences_weight_calculated_correctly() {
 			zero_offence_weight
 		);
 
-		// On Offence with N offenders, Unapplied: 4 Reads, 1 Write + 4 Reads, 5 Writes
+		// On Offence with N offenders, Unapplied: 4 Reads, 1 Write + 4 Reads, 5 Writes, 2 Reads + 2
+		// Writes for `SessionInterface::report_offence` call.
 		let n_offence_unapplied_weight = <Test as frame_system::Config>::DbWeight::get()
 			.reads_writes(4, 1) +
-			<Test as frame_system::Config>::DbWeight::get().reads_writes(4, 5);
+			<Test as frame_system::Config>::DbWeight::get().reads_writes(4, 5) +
+			<Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2);
 
 		let offenders: Vec<
 			OffenceDetails<
@@ -4709,7 +4711,8 @@ fn offences_weight_calculated_correctly() {
 			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(6, 5)
 			// `reward_cost` * reporters (1)
 			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2)
-		;
+			// `SessionInterface::report_offence`
+			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2);
 
 		assert_eq!(
 			<Staking as OnOffenceHandler<_, _, _>>::on_offence(
