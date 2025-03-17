@@ -1,0 +1,26 @@
+title: '[pallet-revive] backports 2503'
+doc:
+- audience: Runtime Dev
+  description: |-
+    backport revive PRs:
+    - #7928 [pallet-revive] Fix pallet-revive-fixtures build.rs
+    - #7879 [pallet-revive] Support blocktag in eth_getLogs RPC
+    - #7848 [pallet-revive] Add support for eip1898 block notation
+    - #7844 [pallet-revive] fixture as dev dep
+    - #7827 [revive-rpc] allow using legacy data field
+    - #7810 [pallet-revive] precompiles 2->9
+
+    - **bump asset-hub-westend spec version**
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-mock-network
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch

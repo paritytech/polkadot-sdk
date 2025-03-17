@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, ReturnErrorCode};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api, ReturnErrorCode};
 
 const INPUT: [u8; 8] = [0u8, 1, 34, 51, 68, 85, 102, 119];
 const REVERTED_INPUT: [u8; 7] = [1u8, 34, 51, 68, 85, 102, 119];
@@ -122,9 +122,9 @@ pub extern "C" fn call() {
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee,
-		load_code_ref_time, // just enough to load the contract
+		load_code_ref_time,   // just enough to load the contract
 		load_code_proof_size, // just enough to load the contract
-		&[u8::MAX; 32], // No deposit limit.
+		&[u8::MAX; 32],       // No deposit limit.
 		&value,
 		&INPUT,
 		None,
