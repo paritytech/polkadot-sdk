@@ -26,7 +26,6 @@ use xcm_runtime_apis::{
 };
 
 mod mock;
-use crate::mock::TestRuntime;
 use mock::{
 	fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
 	DeliveryFees, ExistentialDeposit, HereLocation, OriginCaller, RuntimeCall, RuntimeEvent,
@@ -481,19 +480,13 @@ fn dry_run_error_event_check() {
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
 		sp_tracing::init_for_tests();
-		let xcm_call = RuntimeCall::XcmPallet({
-			let inner_call = pallet_xcm::Call::transfer_assets {
-				dest: VersionedLocation::from((Parent, Parachain(1000))).into(),
-				beneficiary: VersionedLocation::from(AccountId32 { id: [0u8; 32], network: None })
-					.into(),
-				assets: VersionedAssets::from((Parent, 1984u128)).into(),
-				fee_asset_item: 0,
-				weight_limit: Unlimited,
-			};
-			let event = pallet_xcm::EmittedEvent::<TestRuntime>::get();
-			sp_tracing::tracing::debug!(?inner_call, ?event, "*** xcm_call()");
-
-			inner_call
+		let xcm_call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
+			dest: VersionedLocation::from((Parent, Parachain(1000))).into(),
+			beneficiary: VersionedLocation::from(AccountId32 { id: [0u8; 32], network: None })
+				.into(),
+			assets: VersionedAssets::from((Parent, 1984u128)).into(),
+			fee_asset_item: 0,
+			weight_limit: Unlimited,
 		});
 
 		let origin = OriginCaller::system(RawOrigin::Signed(who));

@@ -282,8 +282,6 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 
 		while !message.0.is_empty() {
 			let result = vm.process(message);
-			let event = Config::XcmRecorder::emitted_event();
-			tracing::debug!("Emitted? {}", event.is_some());
 			tracing::trace!(target: "xcm::execute", ?result, "Message executed");
 			message = if let Err(error) = result {
 				vm.total_surplus.saturating_accrue(error.weight);
@@ -293,6 +291,12 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				vm.drop_error_handler();
 				vm.take_appendix()
 			}
+		}
+
+
+
+		if Config::XcmRecorder::should_record() {
+			Config::XcmRecorder::record_last_event();
 		}
 
 		vm.post_process(xcm_weight)
@@ -461,9 +465,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					error.clone(),
 					self.context.message_id,
 				);
-				if Config::XcmRecorder::should_record() {
-					Config::XcmRecorder::record_last_event();
-				}
 				Err(error.into())
 			},
 		}
@@ -859,9 +860,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 							error,
 							self.context.message_id,
 						);
-						if Config::XcmRecorder::should_record() {
-							Config::XcmRecorder::record_last_event();
-						}
 						*r = Err(ExecutorError {
 							index: i as u32,
 							xcm_error: error,
