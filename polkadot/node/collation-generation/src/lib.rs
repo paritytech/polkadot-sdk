@@ -53,7 +53,7 @@ use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{
 		transpose_claim_queue, CandidateDescriptorV2, CandidateReceiptV2 as CandidateReceipt,
-		ClaimQueueOffset, CommittedCandidateReceiptV2, TransposedClaimQueue, UMPSignal,
+		CommittedCandidateReceiptV2, TransposedClaimQueue,
 	},
 	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
 	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
@@ -390,17 +390,13 @@ impl CollationGenerationSubsystem {
 						};
 
 					let (cs_index, cq_offset) = ump_signals
-						.into_iter()
-						.find_map(|signal| match signal {
-							UMPSignal::SelectCore(core_sel, cq_off) =>
-								Some((core_sel.0 as usize, cq_off)),
-							_ => None,
-						})
-						.unwrap_or((i, ClaimQueueOffset(0)));
+						.core_selector()
+						.map(|(cs_index, cq_offset)| (cs_index.0 as usize, cq_offset.0 as usize))
+						.unwrap_or((i, 0));
 
 					// Identify the cores to build collations on using the given claim queue offset.
 					let cores_to_build_on = claim_queue
-						.iter_claims_at_depth(cq_offset.0 as usize)
+						.iter_claims_at_depth(cq_offset)
 						.filter_map(|(core_idx, para_id)| {
 							(para_id == task_config.para_id).then_some(core_idx)
 						})
@@ -411,7 +407,7 @@ impl CollationGenerationSubsystem {
 							target: LOG_TARGET,
 							?para_id,
 							"no core is assigned to para at depth {}",
-							cq_offset.0,
+							cq_offset,
 						);
 						return
 					}

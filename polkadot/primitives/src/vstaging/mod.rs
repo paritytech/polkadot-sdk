@@ -421,11 +421,11 @@ impl<H: Copy> From<CandidateReceiptV2<H>> for super::v8::CandidateReceipt<H> {
 
 /// A strictly increasing sequence number, typically this would be the least significant byte of the
 /// block number.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct CoreSelector(pub u8);
 
 /// An offset in the relay chain claim queue.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub struct ClaimQueueOffset(pub u8);
 
 /// Approved PeerId type. PeerIds in polkadot should typically be 32 bytes long but for identity
@@ -444,6 +444,30 @@ pub enum UMPSignal {
 	ApprovedPeer(ApprovedPeerId),
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, Default)]
+/// User-friendly representation of a candidate's UMP signals.
+pub struct CandidateUMPSignals {
+	select_core: Option<(CoreSelector, ClaimQueueOffset)>,
+	approved_peer: Option<ApprovedPeerId>,
+}
+
+impl CandidateUMPSignals {
+	/// Get the core selector UMP signal.
+	pub fn core_selector(&self) -> Option<(CoreSelector, ClaimQueueOffset)> {
+		self.select_core
+	}
+
+	/// Get a reference to the approved peer UMP signal.
+	pub fn approved_peer(&self) -> Option<&ApprovedPeerId> {
+		self.approved_peer.as_ref()
+	}
+
+	/// Returns `true` if UMP signals are empty.
+	pub fn is_empty(&self) -> bool {
+		self.select_core.is_none() && self.approved_peer.is_none()
+	}
+}
+
 /// Separator between `XCM` and `UMPSignal`.
 pub const UMP_SEPARATOR: Vec<u8> = vec![];
 
@@ -456,7 +480,8 @@ pub fn skip_ump_signals<'a>(
 
 impl CandidateCommitments {
 	/// Returns the core selector and claim queue offset determined by `UMPSignal::SelectCore`
-	/// commitment, if present.
+	/// commitment, if present. This function should only be called if the `ApprovedPeerUmpSignal`
+	/// node feature is disabled, as it only permits.
 	fn core_selector_before_approved_peer_allowed(
 		&self,
 	) -> Result<Option<(CoreSelector, ClaimQueueOffset)>, CommittedCandidateReceiptError> {
@@ -487,30 +512,47 @@ impl CandidateCommitments {
 	pub fn ump_signals(
 		&self,
 		allow_approved_peer_signal: bool,
-	) -> Result<Vec<UMPSignal>, CommittedCandidateReceiptError> {
+	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
+		let mut res = CandidateUMPSignals { select_core: None, approved_peer: None };
+
 		if !allow_approved_peer_signal {
-			let maybe_core_selector = self.core_selector_before_approved_peer_allowed()?;
-			return Ok(maybe_core_selector
-				.into_iter()
-				.map(|(sel, off)| UMPSignal::SelectCore(sel, off))
-				.collect())
+			res.select_core = self.core_selector_before_approved_peer_allowed()?;
+
+			return Ok(res)
 		}
 
 		let mut signals_iter =
 			self.upward_messages.iter().skip_while(|message| *message != &UMP_SEPARATOR);
-		let mut res = Vec::with_capacity(2);
 
 		// Process first signal
 		let Some(first_signal) = signals_iter.next() else { return Ok(res) };
-		let first_signal = UMPSignal::decode(&mut first_signal.as_slice())
-			.map_err(|_| CommittedCandidateReceiptError::UmpSignalDecode)?;
-		res.push(first_signal);
+		match UMPSignal::decode(&mut first_signal.as_slice())
+			.map_err(|_| CommittedCandidateReceiptError::UmpSignalDecode)?
+		{
+			UMPSignal::ApprovedPeer(approved_peer_id) => {
+				res.approved_peer = Some(approved_peer_id);
+			},
+			UMPSignal::SelectCore(core_selector, cq_offset) => {
+				res.select_core = Some((core_selector, cq_offset));
+			},
+		};
 
 		// Process second signal
 		let Some(second_signal) = signals_iter.next() else { return Ok(res) };
-		let second_signal = UMPSignal::decode(&mut second_signal.as_slice())
-			.map_err(|_| CommittedCandidateReceiptError::UmpSignalDecode)?;
-		res.push(second_signal);
+		match UMPSignal::decode(&mut second_signal.as_slice())
+			.map_err(|_| CommittedCandidateReceiptError::UmpSignalDecode)?
+		{
+			UMPSignal::ApprovedPeer(approved_peer_id) if res.approved_peer.is_none() => {
+				res.approved_peer = Some(approved_peer_id);
+			},
+			UMPSignal::SelectCore(core_selector, cq_offset) if res.select_core.is_none() => {
+				res.select_core = Some((core_selector, cq_offset));
+			},
+			_ => {
+				// This means that we got duplicate UMP signals.
+				return Err(CommittedCandidateReceiptError::DuplicateUMPSignals)
+			},
+		};
 
 		// At most two signals are allowed
 		if signals_iter.next().is_some() {
@@ -552,6 +594,9 @@ pub enum CommittedCandidateReceiptError {
 	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
 	#[cfg_attr(feature = "std", error("Too many UMP signals"))]
 	TooManyUMPSignals,
+	/// Duplicated UMP signal.
+	#[cfg_attr(feature = "std", error("Duplicate UMP signals"))]
+	DuplicateUMPSignals,
 	/// If the parachain runtime started sending ump signals, v1 descriptors are no longer
 	/// allowed.
 	#[cfg_attr(feature = "std", error("Version 1 receipt does not support ump signals"))]
@@ -647,12 +692,20 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 }
 
 impl<H: Copy> CommittedCandidateReceiptV2<H> {
-	/// Performs checks on the UMP signals.
+	/// Performs checks on the UMP signals and returns them.
+	///
+	/// Also checks if descriptor core index is equal to the committed core index.
+	///
+	/// Params:
+	/// - `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
+	/// a mapping between `ParaId` and the cores assigned per depth.
+	/// - `allow_approved_peer_signal` should be true if the `ApprovedPeerUmpSignal` node feature
+	///   bit is enabled. If it is not, `ApprovedPeer` UMP signals are not allowed.
 	pub fn check_ump_signals(
 		&self,
 		cores_per_para: &TransposedClaimQueue,
 		allow_approved_peer_signal: bool,
-	) -> Result<Vec<UMPSignal>, CommittedCandidateReceiptError> {
+	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
 		let signals = self.commitments.ump_signals(allow_approved_peer_signal)?;
 
 		match self.descriptor.version() {
@@ -663,7 +716,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 					return Err(CommittedCandidateReceiptError::UMPSignalWithV1Decriptor)
 				} else {
 					// Nothing else to check for v1 descriptors.
-					return Ok(vec![])
+					return Ok(CandidateUMPSignals::default())
 				}
 			},
 			CandidateDescriptorVersion::V2 => {},
@@ -673,17 +726,14 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 
 		// Check the core index
 		let (maybe_core_index_selector, cq_offset) = signals
-			.iter()
-			.find_map(|signal| match signal {
-				UMPSignal::SelectCore(selected_core, cq_offset) =>
-					Some((Some(selected_core.clone()), cq_offset.clone())),
-				_ => None,
-			})
+			.core_selector()
+			.map(|(selector, offset)| (Some(selector.clone()), offset.clone()))
 			.unwrap_or_else(|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)));
 
 		self.check_core_index(cores_per_para, maybe_core_index_selector, cq_offset)?;
 
-		// Nothing to check for the approved peer. If everything passed so far, return the signals.
+		// Nothing to further check for the approved peer. If everything passed so far, return the
+		// signals.
 		Ok(signals)
 	}
 
