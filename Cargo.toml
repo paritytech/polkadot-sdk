@@ -379,6 +379,7 @@ members = [
 	"substrate/frame/membership",
 	"substrate/frame/merkle-mountain-range",
 	"substrate/frame/message-queue",
+	"substrate/frame/meta-tx",
 	"substrate/frame/metadata-hash-extension",
 	"substrate/frame/migrations",
 	"substrate/frame/mixnet",
@@ -962,6 +963,7 @@ pallet-insecure-randomness-collective-flip = { path = "substrate/frame/insecure-
 pallet-lottery = { default-features = false, path = "substrate/frame/lottery" }
 pallet-membership = { path = "substrate/frame/membership", default-features = false }
 pallet-message-queue = { path = "substrate/frame/message-queue", default-features = false }
+pallet-meta-tx = { path = "substrate/frame/meta-tx", default-features = false }
 pallet-migrations = { path = "substrate/frame/migrations", default-features = false }
 pallet-minimal-template = { path = "templates/minimal/pallets/template", default-features = false }
 pallet-mixnet = { default-features = false, path = "substrate/frame/mixnet" }
