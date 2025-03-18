@@ -2164,6 +2164,9 @@ impl_runtime_apis! {
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
 					use xcm::latest::MAX_ITEMS_IN_ASSETS;
 
+					let wnd: Location = Parent.into();
+					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+
 					// Simulate the maximum possible assets for 'give' and 'receive'
 					let mut give_assets = XcmAssets::new();
 					let mut receive_assets = XcmAssets::new();
@@ -2172,10 +2175,31 @@ impl_runtime_apis! {
 					for i in 0..MAX_ITEMS_IN_ASSETS {
 						let asset_id: AssetId = Location::new(1, [Parachain((2000 + i) as u32)]).into();
 
-						// TODO: Create pool
+						// Create pool
+						assert_ok!(ForeignAssets::mint(
+							RuntimeOrigin::root(),
+							asset_id.clone().into(),
+							account.clone().into(),
+							3 * UNITS,
+						));
+						assert_ok!(AssetConversion::create_pool(
+							RuntimeOrigin::root(),
+							wnd.clone().into(),
+							asset_id.clone().into(),
+						));
+						assert_ok!(AssetConversion::add_liquidity(
+							RuntimeOrigin::root(),
+							wnd.clone().into(),
+							asset_id.clone().into(),
+							1 * UNITS,
+							2 * UNITS,
+							1,
+							1,
+							account.clone().into(),
+						));
 
-						give_assets.push((asset_id.clone(), 1_000_000 * UNITS).into());
-						receive_assets.push((asset_id, 500_000 * UNITS).into());
+						give_assets.push((asset_id.clone(), 1 * UNITS).into());
+						receive_assets.push((asset_id, 2 * UNITS).into());
 					}
 
 					Ok((give_assets.into(), receive_assets.into()))
