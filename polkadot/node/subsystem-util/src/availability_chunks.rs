@@ -51,9 +51,9 @@ pub fn availability_chunk_indices(
 	core_index: CoreIndex,
 ) -> Result<Vec<ChunkIndex>, polkadot_erasure_coding::Error> {
 	let identity = (0..n_validators).map(|index| ChunkIndex(index as u32));
-	if let Some(&true) = node_features
+	if node_features
 		.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
-		.as_deref()
+		.unwrap_or_default()
 	{
 		let systematic_threshold = systematic_recovery_threshold(n_validators)? as u32;
 		let core_start_pos = core_index.0 * systematic_threshold;
