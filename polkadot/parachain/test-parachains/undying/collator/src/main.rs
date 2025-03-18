@@ -29,7 +29,7 @@ use std::{
 use test_parachain_undying_collator::Collator;
 
 mod cli;
-use cli::Cli;
+use cli::{Cli, MalusType};
 
 fn main() -> Result<()> {
 	let cli = Cli::from_args();
@@ -100,11 +100,13 @@ fn main() -> Result<()> {
 						prepare_workers_hard_max_num: None,
 						prepare_workers_soft_max_num: None,
 						enable_approval_voting_parallel: false,
+						keep_finalized_for: None,
 					},
 				)
 				.map_err(|e| e.to_string())?;
 				let mut overseer_handle = full_node
 					.overseer_handle
+					.clone()
 					.expect("Overseer handle should be initialized for collators");
 
 				let genesis_head_hex =
@@ -120,9 +122,16 @@ fn main() -> Result<()> {
 
 				let config = CollationGenerationConfig {
 					key: collator.collator_key(),
-					collator: Some(
-						collator.create_collation_function(full_node.task_manager.spawn_handle()),
-					),
+					// If the collator is malicious, disable the collation function
+					// (set to None) and manually handle collation submission later.
+					collator: if cli.run.malus_type == MalusType::None {
+						Some(
+							collator
+								.create_collation_function(full_node.task_manager.spawn_handle()),
+						)
+					} else {
+						None
+					},
 					para_id,
 				};
 				overseer_handle
@@ -132,6 +141,16 @@ fn main() -> Result<()> {
 				overseer_handle
 					.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
 					.await;
+
+				// If the collator is configured to behave maliciously, simulate the specified
+				// malicious behavior.
+				if cli.run.malus_type == MalusType::DuplicateCollations {
+					collator.send_same_collations_to_all_assigned_cores(
+						&full_node,
+						overseer_handle,
+						para_id,
+					);
+				}
 
 				Ok(full_node.task_manager)
 			})

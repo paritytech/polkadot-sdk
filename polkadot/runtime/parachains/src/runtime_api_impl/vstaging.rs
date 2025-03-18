@@ -45,3 +45,14 @@ pub fn backing_constraints<T: initializer::Config>(
 		future_validation_code: constraints_v11.future_validation_code,
 	})
 }
+
+/// Implementation for `scheduling_lookahead` function from the runtime API
+pub fn scheduling_lookahead<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().scheduler_params.lookahead
+}
+
+/// Implementation for `validation_code_bomb_limit` function from the runtime API
+pub fn validation_code_bomb_limit<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().max_code_size *
+		configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO
+}

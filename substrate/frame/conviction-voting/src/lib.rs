@@ -37,7 +37,6 @@ use frame_support::{
 		ReservableCurrency, WithdrawReasons,
 	},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, Perbill,
@@ -55,6 +54,7 @@ pub use self::{
 	vote::{AccountVote, Casting, Delegating, Vote, Voting},
 	weights::WeightInfo,
 };
+use sp_runtime::traits::BlockNumberProvider;
 
 #[cfg(test)]
 mod tests;
@@ -64,25 +64,28 @@ pub mod benchmarking;
 
 const CONVICTION_VOTING_ID: LockIdentifier = *b"pyconvot";
 
+pub type BlockNumberFor<T, I> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BalanceOf<T, I = ()> =
+pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type VotingOf<T, I = ()> = Voting<
+pub type VotingOf<T, I = ()> = Voting<
 	BalanceOf<T, I>,
 	<T as frame_system::Config>::AccountId,
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	PollIndexOf<T, I>,
 	<T as Config<I>>::MaxVotes,
 >;
 #[allow(dead_code)]
 type DelegatingOf<T, I = ()> =
-	Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T>>;
+	Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T, I>>;
 pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout>;
 pub type VotesOf<T, I = ()> = BalanceOf<T, I>;
-type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
 #[cfg(feature = "runtime-benchmarks")]
-type IndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
-type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
+pub type IndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
+pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -94,7 +97,7 @@ pub mod pallet {
 		traits::ClassCountOf,
 		Twox64Concat,
 	};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 	use sp_runtime::BoundedVec;
 
 	#[pallet::pallet]
@@ -109,14 +112,14 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// Currency type with which voting happens.
 		type Currency: ReservableCurrency<Self::AccountId>
-			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>
+			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self, I>>
 			+ fungible::Inspect<Self::AccountId>;
 
 		/// The implementation of the logic which conducts polls.
 		type Polls: Polling<
 			TallyOf<Self, I>,
 			Votes = BalanceOf<Self, I>,
-			Moment = BlockNumberFor<Self>,
+			Moment = BlockNumberFor<Self, I>,
 		>;
 
 		/// The maximum amount of tokens which may be used for voting. May just be
@@ -136,7 +139,9 @@ pub mod pallet {
 		/// It should be no shorter than enactment period to ensure that in the case of an approval,
 		/// those successful voters are locked into the consequences that their votes entail.
 		#[pallet::constant]
-		type VoteLockingPeriod: Get<BlockNumberFor<Self>>;
+		type VoteLockingPeriod: Get<BlockNumberFor<Self, I>>;
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	/// All voting for a particular voter in a particular voting class. We store the balance for the
@@ -479,7 +484,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							let unlock_at = end.saturating_add(
 								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
 							);
-							let now = frame_system::Pallet::<T>::block_number();
+							let now = T::BlockNumberProvider::current_block_number();
 							if now < unlock_at {
 								ensure!(
 									matches!(scope, UnvoteScope::Any),
@@ -620,7 +625,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							&class,
 							conviction.votes(balance),
 						);
-						let now = frame_system::Pallet::<T>::block_number();
+						let now = T::BlockNumberProvider::current_block_number();
 						let lock_periods = conviction.lock_periods().into();
 						prior.accumulate(
 							now.saturating_add(
@@ -666,7 +671,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// a security hole) but may be reduced from what they are currently.
 	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) {
 		let class_lock_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
-			voting.rejig(frame_system::Pallet::<T>::block_number());
+			voting.rejig(T::BlockNumberProvider::current_block_number());
 			voting.locked_balance()
 		});
 		let lock_needed = ClassLocksFor::<T, I>::mutate(who, |locks| {

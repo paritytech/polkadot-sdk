@@ -30,11 +30,8 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"group_rotation_frequency": 4,
-								"lookahead": 2,
-								"max_candidate_depth": 3,
-								"allowed_ancestry_len": 2,
-							},
+								"group_rotation_frequency": 4
+							}
 						}
 					}
 				}))

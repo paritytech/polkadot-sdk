@@ -68,7 +68,6 @@ hex-literal = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
-tiny-keccak = { features = ["keccak"], workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, default-features = true }

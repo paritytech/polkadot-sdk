@@ -85,6 +85,7 @@ pub mod pallet {
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
 	{
 		#[deprecated = "second"]
+		#[codec(index = 1)]
 		A,
 		#[deprecated = "first"]
 		#[codec(index = 0)]
@@ -101,6 +102,7 @@ pub mod pallet {
 		OrdNoBound,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		TypeInfo,
 		MaxEncodedLen,
 	)]
@@ -157,20 +159,13 @@ fn pallet_metadata() {
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			// Result should be this, but instead we get the result below
-			// see: https://github.com/paritytech/parity-scale-codec/issues/507
-			//
-			// DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([
-			// 	(codec::Compact(0), DeprecationStatusIR::Deprecated { note: "first", since: None
-			// }), 	(
-			// 		codec::Compact(1),
-			// 		DeprecationStatusIR::Deprecated { note: "second", since: None }
-			// 	)
-			// ])),
-			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
-				codec::Compact(0),
-				DeprecationStatusIR::Deprecated { note: "first", since: None }
-			),])),
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([
+				(codec::Compact(0), DeprecationStatusIR::Deprecated { note: "first", since: None }),
+				(
+					codec::Compact(1),
+					DeprecationStatusIR::Deprecated { note: "second", since: None }
+				)
+			])),
 			meta.deprecation_info
 		);
 	}

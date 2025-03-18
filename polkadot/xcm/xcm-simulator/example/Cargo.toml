@@ -52,3 +52,6 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
+
+[dev-dependencies]
+sp-tracing = { features = ["test-utils"], workspace = true }

@@ -45,7 +45,6 @@ serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 snowbridge-pallet-ethereum-client-fixtures = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

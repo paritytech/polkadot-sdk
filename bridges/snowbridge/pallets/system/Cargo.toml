@@ -41,7 +41,6 @@ pallet-balances = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 snowbridge-pallet-outbound-queue = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

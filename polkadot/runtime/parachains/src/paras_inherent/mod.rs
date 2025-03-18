@@ -329,7 +329,7 @@ impl<T: Config> Pallet<T> {
 						})
 						.collect(),
 					parent_number,
-					config.async_backing_params.allowed_ancestry_len,
+					config.scheduler_params.lookahead,
 				);
 			});
 		}
