@@ -110,7 +110,7 @@ use frame_support::traits::PalletInfoAccess;
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	NetworkId, NonFungible, ParentThen, Response, XCM_VERSION,
 };
 
 use xcm_runtime_apis::{
@@ -168,6 +168,9 @@ parameter_types! {
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
 	pub const SS58Prefix: u8 = 42;
+	pub RandomParaId: ParaId = ParaId::new(43211234);
+	pub RandomParaLocation: Location = ParentThen(Parachain(
+		RandomParaId::get().into()).into()).into();
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -1910,10 +1913,6 @@ impl_runtime_apis! {
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			parameter_types! {
-				pub const RandomParaId: ParaId = ParaId::new(43211234);
-				pub const RandomParaLocation: Location = ParentThen(Parachain(
-					RandomParaId::get().into()).into()).into();
-
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					WestendLocation::get(),
 					ExistentialDeposit::get()
@@ -2105,7 +2104,7 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
+				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
 					RandomParaLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));

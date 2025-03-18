@@ -18,7 +18,7 @@ use super::{
 	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
 	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	ToRococoXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee,
-	XcmpQueue,
+	XcmpQueue, RandomParaLocation
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -340,12 +340,18 @@ pub type WaivedLocations = (
 	AmbassadorEntities,
 );
 
+// parameter_types! {
+// 	pub RandomParaId: ParaId = ParaId::new(43211234);
+// 	pub RandomParaLocation: Location = ParentThen(Parachain(
+// 		RandomParaId::get().into()).into()).into();
+// }
+
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
 /// - WND with the parent Relay Chain and sibling system parachains; and
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
-	ConcreteAssetFromSystem<WestendLocation>,
+	ConcreteAssetFromSystem<RandomParaLocation>,
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
 );
 
