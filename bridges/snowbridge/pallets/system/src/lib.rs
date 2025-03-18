@@ -635,20 +635,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// The set of registered agents
-		pub fn agents(agent_id: &AgentId) -> Option<()> {
-			Agents::<T>::get(agent_id)
-		}
-
-		/// The set of registered channels
-		pub fn channels(channel_id: &ChannelId) -> Option<Channel> {
-			Channels::<T>::get(channel_id)
-		}
-
-		pub fn parameters() -> PricingParametersOf<T> {
-			PricingParameters::<T>::get()
-		}
-
 		/// Send `command` to the Gateway on the Channel identified by `channel_id`
 		fn send(channel_id: ChannelId, command: Command, pays_fee: PaysFee<T>) -> DispatchResult {
 			let message = Message { id: None, channel_id, command };

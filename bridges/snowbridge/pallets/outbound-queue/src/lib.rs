@@ -277,21 +277,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Hashes of the ABI-encoded messages in the `Messages` storage value.
-		pub fn message_leaves() -> Vec<H256> {
-			MessageLeaves::<T>::get()
-		}
-
-		/// The current operating mode of the pallet.
-		pub fn operating_mode() -> BasicOperatingMode {
-			OperatingMode::<T>::get()
-		}
-
 		/// Generate a messages commitment and insert it into the header digest
 		pub(crate) fn commit() {
 			let count = MessageLeaves::<T>::decode_len().unwrap_or_default() as u64;
 			if count == 0 {
-				return;
+				return
 			}
 
 			// Create merkle root of messages

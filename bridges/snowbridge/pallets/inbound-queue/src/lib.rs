@@ -252,7 +252,7 @@ pub mod pallet {
 			// Verify message nonce
 			<Nonce<T>>::try_mutate(envelope.channel_id, |nonce| -> DispatchResult {
 				if *nonce == u64::MAX {
-					return Err(Error::<T>::MaxNonceReached.into());
+					return Err(Error::<T>::MaxNonceReached.into())
 				}
 				if envelope.nonce != nonce.saturating_add(1) {
 					Err(Error::<T>::InvalidNonce.into())
@@ -321,11 +321,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// The current operating mode of the pallet.
-		pub fn operating_mode() -> BasicOperatingMode {
-			OperatingMode::<T>::get()
-		}
-
 		pub fn do_convert(
 			message_id: H256,
 			message: VersionedMessage,

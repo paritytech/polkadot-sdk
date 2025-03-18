@@ -2,7 +2,7 @@ title: Removed pallet::getter from Snowbridge pallets
 doc:
   - audience: Runtime Dev
     description: |
-        This pr removes all pallet::getter occurrences from Snowbridge pallets, replacing them with explicit implementations.
+        This pr removes all pallet::getter occurrences from Snowbridge pallets.
 
 crates:
   - name: snowbridge-pallet-ethereum-client
