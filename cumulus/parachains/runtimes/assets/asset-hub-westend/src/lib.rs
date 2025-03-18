@@ -2162,16 +2162,15 @@ impl_runtime_apis! {
 				}
 
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
-					use xcm_executor::traits::Convert;
+					use xcm::latest::MAX_ITEMS_IN_ASSETS;
 
 					// Simulate the maximum possible assets for 'give' and 'receive'
-					let mut give_assets = MultiAssets::new();
-					let mut receive_assets = MultiAssets::new();
+					let mut give_assets = XcmAssets::new();
+					let mut receive_assets = XcmAssets::new();
 
 					// Loop large asset types for maximum complexity
-					let max_assets = 1_000;
-					for i in 0..max_assets {
-						let asset_id = AssetId::Concrete(Location::new(1, [Parachain(2000 + i)]));
+					for i in 0..MAX_ITEMS_IN_ASSETS {
+						let asset_id: AssetId = Location::new(1, [Parachain((2000 + i) as u32)]).into();
 						give_assets.push((asset_id.clone(), 1_000_000 * UNITS).into());
 						receive_assets.push((asset_id, 500_000 * UNITS).into());
 					}
