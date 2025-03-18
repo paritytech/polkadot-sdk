@@ -48,14 +48,15 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
+	node_features::FeatureIndex,
 	vstaging::{
 		transpose_claim_queue, CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 		CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
-	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, PersistedValidationData,
-	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
-	ValidationCodeHash, ValidatorId,
+	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, NodeFeatures,
+	PersistedValidationData, PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex,
+	ValidationCode, ValidationCodeHash, ValidatorId,
 };
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;
@@ -230,6 +231,25 @@ where
 				return
 			};
 
+			let maybe_node_features = match util::runtime::request_node_features(
+				relay_parent,
+				session_index,
+				&mut sender,
+			)
+			.await
+			{
+				Ok(maybe_node_features) => Some(maybe_node_features.unwrap_or_default()),
+				Err(err) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						?relay_parent,
+						?err,
+						"Unable to fetch node features"
+					);
+					None
+				},
+			};
+
 			let res = validate_candidate_exhaustive(
 				session_index,
 				validation_host,
@@ -242,6 +262,7 @@ where
 				&metrics,
 				maybe_claim_queue,
 				validation_code_bomb_limit,
+				maybe_node_features,
 			)
 			.await;
 
@@ -860,6 +881,7 @@ async fn validate_candidate_exhaustive(
 	metrics: &Metrics,
 	maybe_claim_queue: Option<ClaimQueueSnapshot>,
 	validation_code_bomb_limit: u32,
+	maybe_node_features: Option<NodeFeatures>,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
 	let validation_code_hash = validation_code.hash();
@@ -1030,17 +1052,34 @@ async fn validate_candidate_exhaustive(
 								return Err(ValidationFailed(error.into()))
 							};
 
-							if let Err(err) = committed_candidate_receipt
-								.check_core_index(&transpose_claim_queue(claim_queue.0))
-							{
+							let Some(node_features) = maybe_node_features else {
+								let error = "cannot fetch node features from the runtime";
+								gum::warn!(
+									target: LOG_TARGET,
+									?relay_parent,
+									error
+								);
+
+								return Err(ValidationFailed(error.into()))
+							};
+
+							let allow_approved_peer_signal = node_features
+								.get(FeatureIndex::ApprovedPeerUmpSignal as usize)
+								.map(|b| *b)
+								.unwrap_or(false);
+
+							if let Err(err) = committed_candidate_receipt.check_ump_signals(
+								&transpose_claim_queue(claim_queue.0),
+								allow_approved_peer_signal,
+							) {
 								gum::warn!(
 									target: LOG_TARGET,
 									candidate_hash = ?candidate_receipt.hash(),
-									"Candidate core index is invalid: {}",
+									"Invalid UMP signals: {}",
 									err
 								);
 								return Ok(ValidationResult::Invalid(
-									InvalidCandidate::InvalidCoreIndex,
+									InvalidCandidate::InvalidUMPSignals(err),
 								))
 							}
 						},

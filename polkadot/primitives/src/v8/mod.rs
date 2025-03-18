@@ -2110,10 +2110,12 @@ pub mod node_features {
 		/// See [RFC-103](https://github.com/polkadot-fellows/RFCs/pull/103) for details.
 		/// Only enable if at least 2/3 of nodes support the feature.
 		CandidateReceiptV2 = 3,
+		/// Enables support for sending an approved PeerId as a UMP signal
+		ApprovedPeerUmpSignal = 4,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		FirstUnassigned = 4,
+		FirstUnassigned = 5,
 	}
 }
 

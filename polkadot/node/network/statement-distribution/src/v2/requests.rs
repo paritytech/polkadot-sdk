@@ -32,8 +32,8 @@
 use super::{
 	seconded_and_sufficient, CandidateDescriptorVersion, TransposedClaimQueue,
 	BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT, COST_IMPROPERLY_DECODED_RESPONSE,
-	COST_INVALID_CORE_INDEX, COST_INVALID_RESPONSE, COST_INVALID_SESSION_INDEX,
-	COST_INVALID_SIGNATURE, COST_UNREQUESTED_RESPONSE_STATEMENT,
+	COST_INVALID_RESPONSE, COST_INVALID_SESSION_INDEX, COST_INVALID_SIGNATURE,
+	COST_INVALID_UMP_SIGNALS, COST_UNREQUESTED_RESPONSE_STATEMENT,
 	COST_UNSUPPORTED_DESCRIPTOR_VERSION, REQUEST_RETRY_DELAY,
 };
 use crate::LOG_TARGET;
@@ -570,6 +570,7 @@ impl UnhandledResponse {
 		disabled_mask: BitVec<u8, Lsb0>,
 		transposed_cq: &TransposedClaimQueue,
 		allow_v2_descriptors: bool,
+		allow_approved_peer_ump_signal: bool,
 	) -> ResponseValidationOutput {
 		let UnhandledResponse {
 			response: TaggedResponse { identifier, requested_peer, props, response },
@@ -656,6 +657,7 @@ impl UnhandledResponse {
 			disabled_mask,
 			transposed_cq,
 			allow_v2_descriptors,
+			allow_approved_peer_ump_signal,
 		);
 
 		if let CandidateRequestStatus::Complete { .. } = output.request_status {
@@ -678,6 +680,7 @@ fn validate_complete_response(
 	disabled_mask: BitVec<u8, Lsb0>,
 	transposed_cq: &TransposedClaimQueue,
 	allow_v2_descriptors: bool,
+	allow_approved_peer_ump_signal: bool,
 ) -> ResponseValidationOutput {
 	let RequestProperties { backing_threshold, mut unwanted_mask } = props;
 
@@ -741,16 +744,19 @@ fn validate_complete_response(
 			);
 			return invalid_candidate_output(COST_UNSUPPORTED_DESCRIPTOR_VERSION)
 		}
-		// Validate the core index.
-		if let Err(err) = response.candidate_receipt.check_core_index(transposed_cq) {
+		// Validate the ump signals.
+		if let Err(err) = response
+			.candidate_receipt
+			.check_ump_signals(transposed_cq, allow_approved_peer_ump_signal)
+		{
 			gum::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?err,
 				peer = ?requested_peer,
-				"Received candidate has invalid core index"
+				"Received candidate has invalid UMP signals"
 			);
-			return invalid_candidate_output(COST_INVALID_CORE_INDEX)
+			return invalid_candidate_output(COST_INVALID_UMP_SIGNALS)
 		}
 
 		// Check if `session_index` of relay parent matches candidate descriptor
