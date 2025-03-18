@@ -524,6 +524,11 @@ impl CandidateCommitments {
 		let mut signals_iter =
 			self.upward_messages.iter().skip_while(|message| *message != &UMP_SEPARATOR);
 
+		if signals_iter.next().is_none() {
+			// No UMP separator
+			return Ok(res)
+		}
+
 		// Process first signal
 		let Some(first_signal) = signals_iter.next() else { return Ok(res) };
 		match UMPSignal::decode(&mut first_signal.as_slice())
