@@ -623,7 +623,7 @@ impl HostFn for HostFnImpl {
 	fn new_query(
 		responder: &[u8],
 		maybe_notify: &[u8],
-		timeout: &[u8],
+		timeout: &[u8; 32],
 		output: &mut [u8; 32],
 	) -> Result {
 		let ret_code = unsafe {

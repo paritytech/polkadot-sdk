@@ -745,7 +745,7 @@ pub trait HostFn: private::Sealed {
 	/// - `timeout`: The timeout for the query to be responded to.
 	/// - `output`: The output buffer to write the query id.
 	#[unstable_hostfn]
-	fn new_query(responder: &[u8], maybe_notify: &[u8], timeout: &[u8; 32], output: &mut [u8; 32]);
+	fn new_query(responder: &[u8], maybe_notify: &[u8], timeout: &[u8; 32], output: &mut [u8; 32]) -> Result;
 }
 
 mod private {
