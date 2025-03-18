@@ -1,21 +1,23 @@
+use crate::session_rotation::Eras;
+
 use super::*;
 
 #[test]
 fn rewards_with_nominator_should_work() {
 	ExtBuilder::default().nominate(true).session_per_era(3).build_and_execute(|| {
-		let init_balance_11 = asset::total_balance::<Test>(&11);
-		let init_balance_21 = asset::total_balance::<Test>(&21);
-		let init_balance_101 = asset::total_balance::<Test>(&101);
+		let init_balance_11 = asset::total_balance::<T>(&11);
+		let init_balance_21 = asset::total_balance::<T>(&21);
+		let init_balance_101 = asset::total_balance::<T>(&101);
 
 		// Set payees
-		Payee::<Test>::insert(11, RewardDestination::Account(11));
-		Payee::<Test>::insert(21, RewardDestination::Account(21));
-		Payee::<Test>::insert(101, RewardDestination::Account(101));
+		Payee::<T>::insert(11, RewardDestination::Account(11));
+		Payee::<T>::insert(21, RewardDestination::Account(21));
+		Payee::<T>::insert(101, RewardDestination::Account(101));
 
-		Pallet::<Test>::reward_by_ids(vec![(11, 50)]);
-		Pallet::<Test>::reward_by_ids(vec![(11, 50)]);
+		Eras::<T>::reward_active_era(vec![(11, 50)]);
+		Eras::<T>::reward_active_era(vec![(11, 50)]);
 		// This is the second validator of the current elected set.
-		Pallet::<Test>::reward_by_ids(vec![(21, 50)]);
+		Eras::<T>::reward_active_era(vec![(21, 50)]);
 
 		// Compute total payout now for whole duration of the session.
 		let validator_payout_0 = validator_payout_for(time_per_era());
@@ -23,11 +25,11 @@ fn rewards_with_nominator_should_work() {
 
 		assert_eq_uvec!(Session::validators(), vec![11, 21]);
 
-		assert_eq!(asset::total_balance::<Test>(&11), init_balance_11);
-		assert_eq!(asset::total_balance::<Test>(&21), init_balance_21);
-		assert_eq!(asset::total_balance::<Test>(&101), init_balance_101);
+		assert_eq!(asset::total_balance::<T>(&11), init_balance_11);
+		assert_eq!(asset::total_balance::<T>(&21), init_balance_21);
+		assert_eq!(asset::total_balance::<T>(&101), init_balance_101);
 		assert_eq!(
-			ErasRewardPoints::<Test>::get(active_era()),
+			ErasRewardPoints::<T>::get(active_era()),
 			EraRewardPoints {
 				total: 50 * 3,
 				individual: vec![(11, 100), (21, 50)].into_iter().collect(),
@@ -57,7 +59,7 @@ fn rewards_with_nominator_should_work() {
 		assert_eq!(mock::RewardRemainderUnbalanced::get(), maximum_payout - validator_payout_0);
 
 		// make note of total issuance before rewards.
-		let pre_issuance = asset::total_issuance::<Test>();
+		let pre_issuance = asset::total_issuance::<T>();
 
 		mock::make_all_reward_payment(1);
 		assert_eq!(
@@ -73,21 +75,21 @@ fn rewards_with_nominator_should_work() {
 		);
 
 		// total issuance should have increased
-		let post_issuance = asset::total_issuance::<Test>();
+		let post_issuance = asset::total_issuance::<T>();
 		assert_eq!(post_issuance, pre_issuance + validator_payout_0);
 
 		assert_eq_error_rate!(
-			asset::total_balance::<Test>(&11),
+			asset::total_balance::<T>(&11),
 			init_balance_11 + part_for_11 * validator_payout_0 * 2 / 3,
 			2,
 		);
 		assert_eq_error_rate!(
-			asset::total_balance::<Test>(&21),
+			asset::total_balance::<T>(&21),
 			init_balance_21 + part_for_21 * validator_payout_0 * 1 / 3,
 			2,
 		);
 		assert_eq_error_rate!(
-			asset::total_balance::<Test>(&101),
+			asset::total_balance::<T>(&101),
 			init_balance_101 +
 				part_for_101_from_11 * validator_payout_0 * 2 / 3 +
 				part_for_101_from_21 * validator_payout_0 * 1 / 3,
@@ -95,7 +97,7 @@ fn rewards_with_nominator_should_work() {
 		);
 
 		assert_eq_uvec!(Session::validators(), vec![11, 21]);
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(vec![(11, 1)]);
 
 		// Compute total payout now for whole duration as other parameter won't change
 		let total_payout_1 = validator_payout_for(time_per_era());
@@ -118,20 +120,20 @@ fn rewards_with_nominator_should_work() {
 		);
 
 		mock::make_all_reward_payment(2);
-		assert_eq!(asset::total_issuance::<Test>(), post_issuance + total_payout_1);
+		assert_eq!(asset::total_issuance::<T>(), post_issuance + total_payout_1);
 
 		assert_eq_error_rate!(
-			asset::total_balance::<Test>(&11),
+			asset::total_balance::<T>(&11),
 			init_balance_11 + part_for_11 * (validator_payout_0 * 2 / 3 + total_payout_1),
 			2,
 		);
 		assert_eq_error_rate!(
-			asset::total_balance::<Test>(&21),
+			asset::total_balance::<T>(&21),
 			init_balance_21 + part_for_21 * validator_payout_0 * 1 / 3,
 			2,
 		);
 		assert_eq_error_rate!(
-			asset::total_balance::<Test>(&101),
+			asset::total_balance::<T>(&101),
 			init_balance_101 +
 				part_for_101_from_11 * (validator_payout_0 * 2 / 3 + total_payout_1) +
 				part_for_101_from_21 * validator_payout_0 * 1 / 3,
@@ -199,8 +201,8 @@ fn nominating_and_rewards_should_work() {
 			);
 
 			// reward our two winning validators
-			Pallet::<Test>::reward_by_ids(vec![(41, 1)]);
-			Pallet::<Test>::reward_by_ids(vec![(21, 1)]);
+			Eras::<T>::reward_active_era(vec![(41, 1)]);
+			Eras::<T>::reward_active_era(vec![(21, 1)]);
 
 			Session::roll_until_active_era(2);
 
@@ -217,7 +219,7 @@ fn nominating_and_rewards_should_work() {
 
 			// 11 now has more votes
 			assert_eq_uvec!(Session::validators(), vec![11, 41]);
-			assert_eq!(ErasStakersPaged::<Test>::iter_prefix_values((active_era(),)).count(), 2);
+			assert_eq!(ErasStakersPaged::<T>::iter_prefix_values((active_era(),)).count(), 2);
 			assert_eq!(
 				Staking::eras_stakers(active_era(), &11),
 				Exposure {
@@ -283,7 +285,7 @@ fn reward_destination_staked() {
 		// initial conditions
 		assert!(Session::validators().contains(&11));
 		assert_eq!(Staking::payee(11.into()), Some(RewardDestination::Staked));
-		assert_eq!(asset::total_balance::<Test>(&11), 1001);
+		assert_eq!(asset::total_balance::<T>(&11), 1001);
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect {
@@ -296,12 +298,12 @@ fn reward_destination_staked() {
 		);
 
 		// reward era 1 and payout at era 2
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(vec![(11, 1)]);
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 
 		mock::make_all_reward_payment(1);
-		assert_eq!(ErasClaimedRewards::<Test>::get(1, &11), vec![0]);
+		assert_eq!(ErasClaimedRewards::<T>::get(1, &11), vec![0]);
 
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -323,7 +325,7 @@ fn reward_destination_staked() {
 			}
 		);
 		// balance also updated
-		assert_eq!(asset::total_balance::<Test>(&11), 1001 + 7500);
+		assert_eq!(asset::total_balance::<T>(&11), 1001 + 7500);
 	});
 }
 
@@ -333,7 +335,7 @@ fn reward_destination_stash() {
 		// initial conditions
 		assert!(Session::validators().contains(&11));
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
-		assert_eq!(asset::total_balance::<Test>(&11), 1001);
+		assert_eq!(asset::total_balance::<T>(&11), 1001);
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect {
@@ -346,12 +348,12 @@ fn reward_destination_stash() {
 		);
 
 		// reward era 1 and payout at era 2
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(vec![(11, 1)]);
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 
 		mock::make_all_reward_payment(1);
-		assert_eq!(ErasClaimedRewards::<Test>::get(1, &11), vec![0]);
+		assert_eq!(ErasClaimedRewards::<T>::get(1, &11), vec![0]);
 
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -362,7 +364,7 @@ fn reward_destination_stash() {
 		);
 
 		// ledger same, balance increased
-		assert_eq!(asset::total_balance::<Test>(&11), 1001 + 7500);
+		assert_eq!(asset::total_balance::<T>(&11), 1001 + 7500);
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect {
@@ -383,7 +385,7 @@ fn reward_destination_account() {
 		assert!(Session::validators().contains(&11));
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Account(7)));
 
-		assert_eq!(asset::total_balance::<Test>(&11), 1001);
+		assert_eq!(asset::total_balance::<T>(&11), 1001);
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect {
@@ -396,12 +398,12 @@ fn reward_destination_account() {
 		);
 
 		// reward era 1 and payout at era 2
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		Eras::<T>::reward_active_era(vec![(11, 1)]);
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 
 		mock::make_all_reward_payment(1);
-		assert_eq!(ErasClaimedRewards::<Test>::get(1, &11), vec![0]);
+		assert_eq!(ErasClaimedRewards::<T>::get(1, &11), vec![0]);
 
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -412,7 +414,7 @@ fn reward_destination_account() {
 		);
 
 		// balance and ledger the same, 7 is unded
-		assert_eq!(asset::total_balance::<Test>(&11), 1001);
+		assert_eq!(asset::total_balance::<T>(&11), 1001);
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect {
@@ -423,6 +425,72 @@ fn reward_destination_account() {
 				unlocking: Default::default(),
 			}
 		);
-		assert_eq!(asset::total_balance::<Test>(&7), 7500);
+		assert_eq!(asset::total_balance::<T>(&7), 7500);
+	});
+}
+
+#[test]
+fn validator_prefs_no_commission() {
+	ExtBuilder::default().build_and_execute(|| {
+		Eras::<T>::reward_active_era(vec![(11, 1)]);
+
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		mock::make_all_reward_payment(1);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
+				Event::Rewarded { stash: 11, dest: RewardDestination::Staked, amount: 6000 },
+				Event::Rewarded { stash: 101, dest: RewardDestination::Staked, amount: 1500 }
+			]
+		);
+	});
+}
+
+#[test]
+fn validator_prefs_100_commission() {
+	ExtBuilder::default().build_and_execute(|| {
+		let commission = Perbill::from_percent(100);
+		Eras::<T>::reward_active_era(vec![(11, 1)]);
+
+		Eras::<T>::set_validator_prefs(1, &11, ValidatorPrefs { commission, ..Default::default() });
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		mock::make_all_reward_payment(1);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
+				Event::Rewarded { stash: 11, dest: RewardDestination::Staked, amount: 7500 }
+			]
+		);
+	});
+}
+
+#[test]
+fn validator_payment_some_commission_prefs_work() {
+	ExtBuilder::default().build_and_execute(|| {
+		let commission = Perbill::from_percent(40);
+		Eras::<T>::reward_active_era(vec![(11, 1)]);
+
+		Eras::<T>::set_validator_prefs(1, &11, ValidatorPrefs { commission, ..Default::default() });
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		mock::make_all_reward_payment(1);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
+				Event::Rewarded { stash: 11, dest: RewardDestination::Staked, amount: 6600 },
+				Event::Rewarded { stash: 101, dest: RewardDestination::Staked, amount: 900 }
+			]
+		);
 	});
 }

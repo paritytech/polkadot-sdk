@@ -72,7 +72,7 @@ pub mod pallet {
 	use super::*;
 	use codec::HasCompact;
 
-	use crate::{BenchmarkingConfig, PagedExposureMetadata, SnapshotStatus};
+	use crate::{PagedExposureMetadata, SnapshotStatus};
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 
 	/// The in-code storage version.
@@ -354,14 +354,6 @@ pub mod pallet {
 		/// another way (such as pools).
 		type Filter: Contains<Self::AccountId>;
 
-		/// Some parameters of the benchmarking.
-		#[cfg(feature = "std")]
-		type BenchmarkingConfig: BenchmarkingConfig;
-
-		#[cfg(not(feature = "std"))]
-		#[pallet::no_default]
-		type BenchmarkingConfig: BenchmarkingConfig;
-
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -413,8 +405,6 @@ pub mod pallet {
 			type MaxDisabledValidators = ConstU32<100>;
 			type EventListeners = ();
 			type Filter = Nothing;
-			#[cfg(feature = "std")]
-			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
 		}
 	}
@@ -960,6 +950,7 @@ pub mod pallet {
 		}
 	}
 
+	// TODO: remove unused.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -1006,6 +997,11 @@ pub mod pallet {
 		Withdrawn {
 			stash: T::AccountId,
 			amount: BalanceOf<T>,
+		},
+		/// A subsequent event of `Withdrawn`, indicating that `stash` was fully removed from the
+		/// system.
+		StakerRemoved {
+			stash: T::AccountId,
 		},
 		/// A nominator has been kicked from a validator.
 		Kicked {

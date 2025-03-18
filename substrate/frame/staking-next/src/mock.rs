@@ -18,9 +18,7 @@
 //! Test utilities
 
 use crate::{
-	self as pallet_staking_next,
-	session_rotation::{Eras, Rotator},
-	*,
+	self as pallet_staking_next, session_rotation::{Eras, Rotator}, *
 };
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -38,7 +36,7 @@ use sp_core::ConstBool;
 use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage};
-use sp_staking::{OnStakingUpdate, SessionIndex};
+use sp_staking::{currency_to_vote::SaturatingCurrencyToVote, OnStakingUpdate, SessionIndex};
 
 pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
 pub(crate) const BLOCK_TIME: u64 = 1000;
@@ -62,7 +60,7 @@ parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
-	pub const BondingDuration: EraIndex = 3;
+	pub static BondingDuration: EraIndex = 3;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
@@ -358,8 +356,9 @@ impl EraPayout<Balance> for OneTokenPerMillisecond {
 	}
 }
 
-#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::pallet::pallet::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type RewardRemainder = RewardRemainderMock;
@@ -377,6 +376,7 @@ impl crate::pallet::pallet::Config for Test {
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
+	type BondingDuration = BondingDuration;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
@@ -384,6 +384,10 @@ impl crate::pallet::pallet::Config for Test {
 	type PlanningEraOffset = PlanningEraOffset;
 	type Filter = MockedRestrictList;
 	type RcClientInterface = session_mock::Session;
+	type CurrencyBalance = Balance;
+	type CurrencyToVote = SaturatingCurrencyToVote;
+	type Slash = ();
+	type WeightInfo = ();
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -445,72 +449,80 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
-	pub fn existential_deposit(self, existential_deposit: Balance) -> Self {
+	pub(crate) fn existential_deposit(self, existential_deposit: Balance) -> Self {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = existential_deposit);
 		self
 	}
-	pub fn planning_era_offset(self, offset: SessionIndex) -> Self {
+	pub(crate) fn max_unlock_chunks(self, max: u32) -> Self {
+		MaxUnlockingChunks::set(max);
+		self
+	}
+	pub(crate) fn bonding_duration(self, bonding_duration: EraIndex) -> Self {
+		BondingDuration::set(bonding_duration);
+		self
+	}
+	pub(crate) fn planning_era_offset(self, offset: SessionIndex) -> Self {
 		PlanningEraOffset::set(offset);
 		self
 	}
-	pub fn nominate(mut self, nominate: bool) -> Self {
+	pub(crate) fn nominate(mut self, nominate: bool) -> Self {
 		self.nominate = nominate;
 		self
 	}
-	pub fn no_flush_events(mut self) -> Self {
+	pub(crate) fn no_flush_events(mut self) -> Self {
 		self.flush_events = false;
 		self
 	}
-	pub fn validator_count(mut self, count: u32) -> Self {
+	pub(crate) fn validator_count(mut self, count: u32) -> Self {
 		self.validator_count = count;
 		self
 	}
-	pub fn minimum_validator_count(mut self, count: u32) -> Self {
+	pub(crate) fn minimum_validator_count(mut self, count: u32) -> Self {
 		self.minimum_validator_count = count;
 		self
 	}
-	pub fn slash_defer_duration(self, eras: EraIndex) -> Self {
+	pub(crate) fn slash_defer_duration(self, eras: EraIndex) -> Self {
 		SlashDeferDuration::set(eras);
 		self
 	}
-	pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
+	pub(crate) fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
 		self.invulnerables = BoundedVec::try_from(invulnerables)
 			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables");
 		self
 	}
-	pub fn session_per_era(self, length: SessionIndex) -> Self {
+	pub(crate) fn session_per_era(self, length: SessionIndex) -> Self {
 		SessionsPerEra::set(length);
 		self
 	}
-	pub fn period(self, length: BlockNumber) -> Self {
+	pub(crate) fn period(self, length: BlockNumber) -> Self {
 		Period::set(length);
 		self
 	}
-	pub fn has_stakers(mut self, has: bool) -> Self {
+	pub(crate) fn has_stakers(mut self, has: bool) -> Self {
 		self.has_stakers = has;
 		self
 	}
-	pub fn offset(self, offset: BlockNumber) -> Self {
+	pub(crate) fn offset(self, offset: BlockNumber) -> Self {
 		OFFSET.with(|v| *v.borrow_mut() = offset);
 		self
 	}
-	pub fn min_nominator_bond(mut self, amount: Balance) -> Self {
+	pub(crate) fn min_nominator_bond(mut self, amount: Balance) -> Self {
 		self.min_nominator_bond = amount;
 		self
 	}
-	pub fn min_validator_bond(mut self, amount: Balance) -> Self {
+	pub(crate) fn min_validator_bond(mut self, amount: Balance) -> Self {
 		self.min_validator_bond = amount;
 		self
 	}
-	pub fn set_status(mut self, who: AccountId, status: StakerStatus<AccountId>) -> Self {
+	pub(crate) fn set_status(mut self, who: AccountId, status: StakerStatus<AccountId>) -> Self {
 		self.status.insert(who, status);
 		self
 	}
-	pub fn set_stake(mut self, who: AccountId, stake: Balance) -> Self {
+	pub(crate) fn set_stake(mut self, who: AccountId, stake: Balance) -> Self {
 		self.stakes.insert(who, stake);
 		self
 	}
-	pub fn add_staker(
+	pub(crate) fn add_staker(
 		mut self,
 		stash: AccountId,
 		stake: Balance,
@@ -519,23 +531,23 @@ impl ExtBuilder {
 		self.stakers.push((stash, stake, status));
 		self
 	}
-	pub fn exposures_page_size(self, max: u32) -> Self {
+	pub(crate) fn exposures_page_size(self, max: u32) -> Self {
 		MaxExposurePageSize::set(max);
 		self
 	}
-	pub fn balance_factor(mut self, factor: Balance) -> Self {
+	pub(crate) fn balance_factor(mut self, factor: Balance) -> Self {
 		self.balance_factor = factor;
 		self
 	}
-	pub fn multi_page_election_provider(self, pages: PageIndex) -> Self {
+	pub(crate) fn multi_page_election_provider(self, pages: PageIndex) -> Self {
 		Pages::set(pages);
 		self
 	}
-	pub fn max_winners_per_page(self, max: u32) -> Self {
+	pub(crate) fn max_winners_per_page(self, max: u32) -> Self {
 		MaxWinnersPerPage::set(max);
 		self
 	}
-	pub fn try_state(self, enable: bool) -> Self {
+	pub(crate) fn try_state(self, enable: bool) -> Self {
 		SkipTryStateCheck::set(!enable);
 		self
 	}
@@ -586,10 +598,10 @@ impl ExtBuilder {
 
 		let aux_balances = vec![
 			// aux accounts
-			(1, 10 * self.balance_factor),
-			(2, 20 * self.balance_factor),
-			(3, 300 * self.balance_factor),
-			(4, 400 * self.balance_factor),
+			(1, ed + 10 * self.balance_factor),
+			(2, ed + 20 * self.balance_factor),
+			(3, ed + 300 * self.balance_factor),
+			(4, ed + 400 * self.balance_factor),
 			// This allows us to have a total_payout different from 0.
 			(999, 1_000_000_000_000),
 		];
@@ -884,6 +896,7 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 	all.into_iter().skip(seen).collect()
 }
 
+#[deprecated]
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(asset::stakeable_balance::<Test>(who), Balances::reserved_balance(who))
 }

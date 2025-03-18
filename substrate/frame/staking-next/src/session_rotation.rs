@@ -87,6 +87,7 @@ use frame_support::{
 };
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{Exposure, Page, PagedExposureMetadata, SessionIndex};
+use alloc::vec::Vec;
 
 /// A handler for all era-based storage items.
 ///
@@ -398,7 +399,7 @@ impl<T: Config> Rotator<T> {
 			defensive!("Active era must always be available.");
 			return;
 		};
-		let planned_era = CurrentEra::<T>::get().unwrap_or(0);
+		let current_planned_era = Self::planning_era();
 		let starting = end_index + 1;
 		// the session after the starting session.
 		let planning = starting + 1;
@@ -411,20 +412,20 @@ impl<T: Config> Rotator<T> {
 			activation_timestamp,
 			planning
 		);
-		log!(info, "Era: active {:?}, planned {:?}", active_era.index, planned_era);
+		log!(info, "Era: active {:?}, planned {:?}", active_era.index, current_planned_era);
 
 		match activation_timestamp {
-			Some((time, id)) if id == planned_era => {
+			Some((time, id)) if id == current_planned_era => {
 				// We rotate the era if we have the activation timestamp.
 				Self::start_era(&active_era, starting, time);
 			},
-			Some((time, id)) => {
+			Some((_time, id)) => {
 				// RC has done something wrong -- we received the wrong ID. Don't start a new era.
 				crate::log!(
 					warn,
 					"received wrong ID with activation timestamp. Got {}, expected {}",
 					id,
-					planned_era
+					current_planned_era
 				);
 			},
 			None => (),
@@ -445,14 +446,14 @@ impl<T: Config> Rotator<T> {
 			Forcing::ForceNone => false,
 		};
 
-		let has_pending_era = active_era.index < planned_era;
+		let has_pending_era = active_era.index < current_planned_era;
 		match (should_plan_era, has_pending_era) {
 			(false, _) => {
 				// nothing to consider
 			},
 			(true, false) => {
 				// happy path
-				Self::plan_new_era(&active_era, planned_era, starting);
+				Self::plan_new_era();
 			},
 			(true, true) => {
 				// we are waiting for to start the previously planned era, we cannot plan a new era
@@ -460,15 +461,15 @@ impl<T: Config> Rotator<T> {
 				crate::log!(
 					warn,
 					"time to plan a new era {}, but waiting for the activation of the previous.",
-					planned_era
+					current_planned_era
 				);
 			},
 		}
 
 		Pallet::<T>::deposit_event(Event::SessionRotated {
 			starting_session: starting,
-			active_era: ActiveEra::<T>::get().map(|a| a.index).defensive_unwrap_or(0),
-			planned_era: CurrentEra::<T>::get().defensive_unwrap_or(0),
+			active_era: Self::active_era(),
+			planned_era: Self::planning_era(),
 		});
 	}
 
@@ -570,21 +571,12 @@ impl<T: Config> Rotator<T> {
 	/// Plans a new era by kicking off the election process.
 	///
 	/// The newly planned era is targeted to activate in the next session.
-	fn plan_new_era(
-		active_era: &ActiveEraInfo,
-		planned_era: EraIndex,
-		starting_session: SessionIndex,
-	) {
-		if planned_era == active_era.index + 1 {
-			// era already planned, no need to plan again.
-			return;
-		}
-
-		debug_assert!(planned_era == active_era.index);
-
-		log!(debug, "Planning new era: {:?}, sending election start signal", planned_era + 1);
-		CurrentEra::<T>::put(planned_era + 1);
-		let _ = T::ElectionProvider::start();
+	fn plan_new_era() {
+		CurrentEra::<T>::mutate(|x| {
+			*x = Some(x.unwrap_or(0) + 1);
+			log!(debug, "Planning new era: {:?}, sending election start signal", x.unwrap());
+			let _ = T::ElectionProvider::start();
+		})
 	}
 
 	/// Returns whether we are at the session where we should plan the new era.

@@ -269,13 +269,12 @@ impl pallet_staking_next::Config for Runtime {
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
-	type BenchmarkingConfig = pallet_staking_next::TestBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking_next::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
 	type PlanningEraOffset = ConstU32<2>;
-	type RcClientInterface = StakingRcClient;
+	type RcClientInterface = StakingNextRcClient;
 }
 
 impl pallet_staking_next_rc_client::Config for Runtime {

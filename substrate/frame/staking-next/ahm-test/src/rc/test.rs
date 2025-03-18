@@ -237,8 +237,7 @@ fn upon_receiving_election_queue_and_activate_next_session() {
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 4,
 						validator_points: vec![],
-						activation_timestamp: Some((150000, 0)),
-						// ------------ ^^ This is the session when we rotate a new validator set.
+						activation_timestamp: Some((150000, 1)),
 						leftover: false
 					})
 				),]
@@ -314,7 +313,7 @@ fn upon_receiving_election_queue_and_activate_next_session() {
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 6,
 						validator_points: vec![],
-						activation_timestamp: Some((210000, 0)),
+						activation_timestamp: Some((210000, 2)),
 						leftover: false
 					})
 				)]

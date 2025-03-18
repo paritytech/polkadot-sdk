@@ -265,9 +265,19 @@ impl<T: Config> StakingLedger<T> {
 				// if not virtual staker, clear locks.
 				asset::kill_stake::<T>(&ledger.stash)?;
 			}
-
+			Pallet::<T>::deposit_event(crate::Event::<T>::StakerRemoved {
+				stash: ledger.stash.clone(),
+			});
 			Ok(())
 		})?
+	}
+
+	#[cfg(feature = "std")]
+	pub(crate) fn assert_stash_killed(stash: T::AccountId) {
+		assert!(!Ledger::<T>::contains_key(&stash));
+		assert!(!Bonded::<T>::contains_key(&stash));
+		assert!(!Payee::<T>::contains_key(&stash));
+		assert!(!VirtualStakers::<T>::contains_key(&stash));
 	}
 }
 

@@ -229,7 +229,6 @@ impl pallet_staking_next::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type BenchmarkingConfig = pallet_staking_next::TestBenchmarkingConfig;
 	type BondingDuration = BondingDuration;
 	type SessionsPerEra = SessionsPerEra;
 	type PlanningEraOffset = PlanningEraOffset;
