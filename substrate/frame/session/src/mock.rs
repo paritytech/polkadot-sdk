@@ -30,7 +30,8 @@ use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
 use frame_support::{
-	derive_impl, parameter_types, traits::{ConstU64, WithdrawReasons, Currency, ReservableCurrency, SignedImbalance}
+	derive_impl, parameter_types, traits::{ConstU64, WithdrawReasons, Currency, ReservableCurrency, 
+	SignedImbalance, NamedReservableCurrency, BalanceStatus}
 };
 
 impl_opaque_keys! {
@@ -106,8 +107,8 @@ parameter_types! {
 	pub static ValidatorAccounts: BTreeMap<u64, u64> = BTreeMap::new();
 	pub static CurrencyBalance: u64 = 100;
 	pub const KeyDeposit: u64 = 10;
-	// Track reserved balances for test accounts
-	pub static ReservedBalances: BTreeMap<u64, u64> = BTreeMap::new();
+	// Track reserved balances for test accounts - use Vecs for simplicity
+	pub static ReservedBalances: BTreeMap<u64, BTreeMap<Vec<u8>, u64>> = BTreeMap::new();
 }
 
 pub struct TestShouldEndSession;
@@ -258,6 +259,19 @@ impl Convert<u64, Option<u64>> for TestValidatorIdOf {
 // `UpToLimitWithReEnablingDisablingStrategy``
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
+// Type to represent session keys in the test
+pub type SessionKeysId = [u8; 12];
+pub const TEST_SESSION_KEYS_ID: SessionKeysId = *b"session_keys";
+
+// Define TestReserveIdentifier with the necessary traits
+#[derive(Debug, Clone, PartialEq, Eq, codec::Encode, codec::Decode, scale_info::TypeInfo)]
+pub struct TestReserveIdentifier;
+impl Get<SessionKeysId> for TestReserveIdentifier {
+	fn get() -> SessionKeysId {
+		TEST_SESSION_KEYS_ID
+	}
+}
+
 impl Config for Test {
 	type ShouldEndSession = TestShouldEndSession;
 	#[cfg(feature = "historical")]
@@ -274,6 +288,7 @@ impl Config for Test {
 		disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
 	type Currency = pallet_balances::Pallet<Test>;
+	type ReserveIdentifier = TestReserveIdentifier;
 	type KeyDeposit = KeyDeposit;
 }
 
@@ -379,7 +394,11 @@ pub mod pallet_balances {
 		}
 
 		fn reserved_balance(who: &u64) -> Self::Balance {
-			ReservedBalances::get().get(who).cloned().unwrap_or(0)
+			// Sum up all reserved balances for the account
+			ReservedBalances::get()
+				.get(who)
+				.map(|reserves| reserves.values().sum())
+				.unwrap_or(0)
 		}
 
 		fn reserve(who: &u64, amount: Self::Balance) -> DispatchResult {
@@ -387,9 +406,13 @@ pub mod pallet_balances {
 				return Err(DispatchError::Other("InsufficientBalance"))
 			}
 			
+			// Use an empty ID for anonymous reserves
+			let id = Vec::new();
+			
 			// Update the reserved balance
 			ReservedBalances::mutate(|balances| {
-				let reserved = balances.entry(*who).or_insert(0);
+				let account_reserves = balances.entry(*who).or_insert_with(BTreeMap::new);
+				let reserved = account_reserves.entry(id).or_insert(0);
 				*reserved += amount;
 			});
 			
@@ -397,16 +420,32 @@ pub mod pallet_balances {
 		}
 
 		fn unreserve(who: &u64, amount: Self::Balance) -> Self::Balance {
+			// Use an empty ID for anonymous reserves
+			let id = Vec::new();
+			
 			// Get the current reserved amount
 			let mut remaining = amount;
 			ReservedBalances::mutate(|balances| {
-				let reserved = balances.entry(*who).or_insert(0);
-				if *reserved >= amount {
-					*reserved -= amount;
-					remaining = 0;
-				} else {
-					remaining = amount - *reserved;
-					*reserved = 0;
+				if let Some(account_reserves) = balances.get_mut(who) {
+					if let Some(reserved) = account_reserves.get_mut(&id) {
+						if *reserved >= amount {
+							*reserved -= amount;
+							remaining = 0;
+						} else {
+							remaining = amount - *reserved;
+							*reserved = 0;
+						}
+						
+						// Clean up empty reserves
+						if *reserved == 0 {
+							account_reserves.remove(&id);
+						}
+					}
+					
+					// Clean up empty accounts
+					if account_reserves.is_empty() {
+						balances.remove(who);
+					}
 				}
 			});
 			
@@ -422,6 +461,98 @@ pub mod pallet_balances {
 			_: &u64,
 			_: Self::Balance,
 			_: frame_support::traits::BalanceStatus,
+		) -> Result<Self::Balance, DispatchError> {
+			Ok(0)
+		}
+	}
+	
+	impl<T> NamedReservableCurrency<u64> for Pallet<T> {
+		type ReserveIdentifier = [u8; 12];
+		
+		fn reserved_balance_named(id: &Self::ReserveIdentifier, who: &u64) -> Self::Balance {
+			// Convert fixed array to Vec for lookup
+			let id_vec = id.to_vec();
+			
+			ReservedBalances::get()
+				.get(who)
+				.and_then(|reserves| reserves.get(&id_vec))
+				.cloned()
+				.unwrap_or(0)
+		}
+		
+		fn slash_reserved_named(
+			_id: &Self::ReserveIdentifier,
+			_who: &u64,
+			_amount: Self::Balance,
+		) -> (Self::NegativeImbalance, Self::Balance) {
+			((), 0)
+		}
+		
+		fn reserve_named(
+			id: &Self::ReserveIdentifier,
+			who: &u64,
+			amount: Self::Balance,
+		) -> DispatchResult {
+			if !Self::can_reserve(who, amount) {
+				return Err(DispatchError::Other("InsufficientBalance"))
+			}
+			
+			// Convert fixed array to Vec for storage
+			let id_vec = id.to_vec();
+			
+			// Update the reserved balance
+			ReservedBalances::mutate(|balances| {
+				let account_reserves = balances.entry(*who).or_insert_with(BTreeMap::new);
+				let reserved = account_reserves.entry(id_vec).or_insert(0);
+				*reserved += amount;
+			});
+			
+			Ok(())
+		}
+		
+		fn unreserve_named(
+			id: &Self::ReserveIdentifier,
+			who: &u64,
+			amount: Self::Balance,
+		) -> Self::Balance {
+			// Convert fixed array to Vec for lookup/storage
+			let id_vec = id.to_vec();
+			
+			// Get the current reserved amount
+			let mut remaining = amount;
+			ReservedBalances::mutate(|balances| {
+				if let Some(account_reserves) = balances.get_mut(who) {
+					if let Some(reserved) = account_reserves.get_mut(&id_vec) {
+						if *reserved >= amount {
+							*reserved -= amount;
+							remaining = 0;
+						} else {
+							remaining = amount - *reserved;
+							*reserved = 0;
+						}
+						
+						// Clean up empty reserves
+						if *reserved == 0 {
+							account_reserves.remove(&id_vec);
+						}
+					}
+					
+					// Clean up empty accounts
+					if account_reserves.is_empty() {
+						balances.remove(who);
+					}
+				}
+			});
+			
+			remaining
+		}
+		
+		fn repatriate_reserved_named(
+			_id: &Self::ReserveIdentifier,
+			_slashed: &u64,
+			_beneficiary: &u64,
+			_amount: Self::Balance,
+			_status: BalanceStatus,
 		) -> Result<Self::Balance, DispatchError> {
 			Ok(0)
 		}

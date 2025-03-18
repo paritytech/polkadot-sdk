@@ -130,7 +130,8 @@ use frame_support::{
 	ensure,
 	traits::{
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
-		OneSessionHandler, ValidatorRegistration, ValidatorSet, Currency, ReservableCurrency,
+		OneSessionHandler, ValidatorRegistration, ValidatorSet, Currency, NamedReservableCurrency,
+		ReservableCurrency,
 	},
 	weights::Weight,
 	Parameter,
@@ -397,6 +398,10 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	/// A simple identifier for session keys.
+	#[derive(codec::Encode, codec::Decode, codec::MaxEncodedLen, scale_info::TypeInfo, Debug, PartialEq, Eq, Clone)]
+	pub struct SessionKeysReserveId;
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
@@ -437,8 +442,11 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		
-		/// The currency type to reserve when setting keys.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// The currency type for reserving when setting keys.
+		type Currency: NamedReservableCurrency<Self::AccountId>;
+		
+		/// The reserve identifier type.
+		type ReserveIdentifier: Get<<Self::Currency as NamedReservableCurrency<Self::AccountId>>::ReserveIdentifier> + TypeInfo + 'static;
 		
 		/// The amount to be reserved when setting keys.
 		#[pallet::constant]
@@ -860,7 +868,13 @@ impl<T: Config> Pallet<T> {
 		// For new registrations, ensure the account has enough funds for the deposit
 		if is_new_registration {
 			let deposit = T::KeyDeposit::get();
-			ensure!(T::Currency::can_reserve(account, deposit), Error::<T>::InsufficientFunds);
+			let _= T::ReserveIdentifier::get();
+			// Since NamedReservableCurrency doesn't directly expose can_reserve,
+			// we need to use the normal reserve method for checking
+			ensure!(
+				<T::Currency as ReservableCurrency<_>>::can_reserve(account, deposit),
+				Error::<T>::InsufficientFunds
+			);
 		}
 		
 		// Now that we've checked funds, proceed with setting keys
@@ -870,7 +884,8 @@ impl<T: Config> Pallet<T> {
 		// Reserve deposit if this is a new registration
 		if is_new_registration {
 			let deposit = T::KeyDeposit::get();
-			T::Currency::reserve(account, deposit)?;
+			let id = T::ReserveIdentifier::get();
+			T::Currency::reserve_named(&id, account, deposit)?;
 			
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
@@ -937,9 +952,10 @@ impl<T: Config> Pallet<T> {
 			Self::clear_key_owner(*id, key_data);
 		}
 		
-		// Unreserve the deposit
+		// Unreserve the deposit using the named reserve
 		let deposit = T::KeyDeposit::get();
-		let _ = T::Currency::unreserve(account, deposit);
+		let id = T::ReserveIdentifier::get();
+		let _ = T::Currency::unreserve_named(&id, account, deposit);
 		
 		// Emit an event for the unreserved funds
 		Self::deposit_event(Event::<T>::KeysFundsUnreserved { 
