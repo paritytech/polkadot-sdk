@@ -1167,6 +1167,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 // for every function.
 #[define_env]
 pub mod env {
+    use xcm_builder::QueryController;
+
 	/// Noop function used to benchmark the time it takes to execute an empty function.
 	///
 	/// Marked as stable because it needs to be called from benchmarks even when the benchmarked
@@ -2146,7 +2148,7 @@ pub mod env {
 		output_ptr: u32,
 	) -> Result<(), TrapReason> {
 		use xcm::v5::{Junction, Location};
-		use xcm_builder::QueryHandler;
+		use xcm_builder::{QueryHandler, QueryController, QueryControllerWeightInfo};
 
 		self.charge_gas(RuntimeCosts::CopyFromContract(responder_len))?;
 		let responder: Location = memory.read_as_unbounded(responder_ptr, responder_len)?;
@@ -2172,7 +2174,8 @@ pub mod env {
 		let querier =
 			Location::new(0, [Junction::AccountId32 { network: None, id: account_bytes }]);
 
-		// TODO: Charge weight for the `new_query` call
+		let weight = <<E::T as Config>::Xcm as QueryController<_, _>>::WeightInfo::query();
+		self.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 		let query_id =
 			<<E::T as Config>::Xcm>::new_query(responder, maybe_notify, timeout, querier);
 
