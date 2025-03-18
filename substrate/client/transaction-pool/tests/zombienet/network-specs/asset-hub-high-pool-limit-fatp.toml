@@ -1,0 +1,66 @@
+[settings]
+timeout = 1500
+
+[relaychain]
+default_image = "parity/polkadot:latest"
+default_command = "polkadot"
+chain = "rococo-local"
+
+[[relaychain.nodes]]
+name = "alice"
+rpc_port = 9944
+validator = true
+
+[[relaychain.nodes]]
+name = "bob"
+rpc_port = 9945
+validator = true
+
+[[parachains]]
+id = 2000
+chain = "asset-hub-rococo-local"
+default_command = "polkadot-parachain"
+default_image = "parity/polkadot-parachain:latest"
+cumulus_based = true
+default_args = [
+	"--force-authoring",
+	"--pool-kbytes 2048000",
+	"--pool-limit 500000",
+	"--pool-type=fork-aware",
+	"--rpc-max-connections 15000",
+	"--rpc-max-response-size 150",
+	"--rpc-max-subscriptions-per-connection=128000",
+	"--state-pruning=1024",
+	"-laura::cumulus=info",
+	"-lbasic-authorship=info",
+	"-lpeerset=info",
+	"-lsub-libp2p=info",
+	"-lsync=info",
+	"-ltxpool=debug",
+]
+[parachains.genesis.runtimeGenesis.patch.balances]
+devAccounts = [
+	100,
+	1000000000000000000,
+	"//Sender//{}",
+]
+
+[[parachains.collators]]
+name = "charlie"
+validator = false
+rpc_port = 9933
+
+[[parachains.collators]]
+name = "dave"
+validator = true
+rpc_port = 9934
+
+[[parachains.collators]]
+name = "eve"
+validator = true
+rpc_port = 9935
+
+[[parachains.collators]]
+name = "ferdie"
+validator = true
+rpc_port = 9936
