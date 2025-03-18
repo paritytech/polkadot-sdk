@@ -31,8 +31,8 @@ use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
 	vstaging::{
-		CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector,
-		MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
+		CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset,
+		CommittedCandidateReceiptError, CoreSelector, MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
 	},
 	CandidateDescriptor, CoreIndex, GroupIndex, HeadData, Id as ParaId, OccupiedCoreAssumption,
 	SessionInfo, UpwardMessage, ValidatorId, DEFAULT_SCHEDULING_LOOKAHEAD,
@@ -531,6 +531,7 @@ fn session_index_checked_only_in_backing() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 	.unwrap();
 
@@ -549,6 +550,7 @@ fn session_index_checked_only_in_backing() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 	.unwrap();
 
@@ -574,6 +576,7 @@ fn session_index_checked_only_in_backing() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 	.unwrap();
 
@@ -673,6 +676,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Some(Default::default()),
 	))
 	.unwrap();
 
@@ -752,6 +756,7 @@ fn invalid_session_or_core_index() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Some(Default::default()),
 	))
 	.unwrap();
 
@@ -769,6 +774,7 @@ fn invalid_session_or_core_index() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Some(Default::default()),
 	))
 	.unwrap();
 
@@ -788,9 +794,15 @@ fn invalid_session_or_core_index() {
 		&Default::default(),
 		Some(Default::default()),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Some(Default::default()),
 	))
 	.unwrap();
-	assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidCoreIndex));
+	assert_matches!(
+		result,
+		ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
+			CommittedCandidateReceiptError::NoAssignment
+		))
+	);
 
 	let result = executor::block_on(validate_candidate_exhaustive(
 		1,
@@ -804,9 +816,15 @@ fn invalid_session_or_core_index() {
 		&Default::default(),
 		Some(Default::default()),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Some(Default::default()),
 	))
 	.unwrap();
-	assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidCoreIndex));
+	assert_matches!(
+		result,
+		ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
+			CommittedCandidateReceiptError::NoAssignment
+		))
+	);
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		1,
@@ -820,6 +838,7 @@ fn invalid_session_or_core_index() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 	.unwrap();
 
@@ -846,6 +865,7 @@ fn invalid_session_or_core_index() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 	.unwrap();
 
@@ -876,6 +896,7 @@ fn invalid_session_or_core_index() {
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq.clone())),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Some(Default::default()),
 	))
 	.unwrap();
 
@@ -900,6 +921,7 @@ fn invalid_session_or_core_index() {
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Some(Default::default()),
 	))
 	.unwrap();
 
@@ -945,9 +967,15 @@ fn invalid_session_or_core_index() {
 			&Default::default(),
 			Some(Default::default()),
 			VALIDATION_CODE_BOMB_LIMIT,
+			Some(Default::default()),
 		))
 		.unwrap();
-		assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidCoreIndex));
+		assert_matches!(
+			result,
+			ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
+				CommittedCandidateReceiptError::UMPSignalWithV1Decriptor
+			))
+		);
 	}
 
 	// Validation doesn't fail for approvals and disputes, core/session index is not checked.
@@ -964,6 +992,7 @@ fn invalid_session_or_core_index() {
 			&Default::default(),
 			Default::default(),
 			VALIDATION_CODE_BOMB_LIMIT,
+			Default::default(),
 		))
 		.unwrap();
 
@@ -1021,6 +1050,7 @@ fn candidate_validation_bad_return_is_invalid() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 	.unwrap();
 
@@ -1106,6 +1136,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 	.unwrap();
 
@@ -1150,6 +1181,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 	.unwrap();
 
@@ -1268,6 +1300,7 @@ fn candidate_validation_retry_on_error_helper(
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 }
 
@@ -1314,6 +1347,7 @@ fn candidate_validation_timeout_is_internal_error() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)));
@@ -1364,6 +1398,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 	.unwrap();
 
@@ -1417,6 +1452,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Default::default(),
 	))
 	.unwrap();
 
@@ -1479,6 +1515,7 @@ fn compressed_code_works() {
 		&Default::default(),
 		Some(Default::default()),
 		VALIDATION_CODE_BOMB_LIMIT,
+		Some(Default::default()),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));
