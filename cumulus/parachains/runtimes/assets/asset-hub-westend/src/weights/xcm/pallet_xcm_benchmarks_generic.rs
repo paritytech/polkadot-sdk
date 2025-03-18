@@ -148,7 +148,6 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 673_000 picoseconds.
 		Weight::from_parts(727_000, 0)
 	}
-	}
 	pub fn clear_origin() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
