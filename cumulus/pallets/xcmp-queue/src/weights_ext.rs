@@ -18,11 +18,22 @@
 use crate::weights::WeightInfo;
 
 use frame_support::weights::Weight;
+use sp_runtime::SaturatedConversion;
 
 /// Extended weight info.
 pub trait WeightInfoExt: WeightInfo {
-	fn enqueue_xcmp_message() -> Weight {
-		Self::enqueue_n_bytes_xcmp_message(0)
+	fn enqueue_xcmp_message(size_in_bytes: usize, new_page: bool) -> Weight {
+		let size_in_bytes = size_in_bytes.saturated_into();
+		match new_page {
+			true => Self::enqueue_n_bytes_xcmp_message(size_in_bytes),
+			false => {
+				let size_overhead = Self::enqueue_n_bytes_xcmp_message(size_in_bytes) -
+					Self::enqueue_n_bytes_xcmp_message(0);
+				Self::enqueue_2_empty_xcmp_messages()
+					.saturating_sub(Self::enqueue_n_bytes_xcmp_message(0))
+					.saturating_add(size_overhead)
+			},
+		}
 	}
 }
 

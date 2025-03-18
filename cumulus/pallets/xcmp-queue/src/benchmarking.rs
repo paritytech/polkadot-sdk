@@ -55,7 +55,7 @@ mod benchmarks {
 		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
 		{
-			Pallet::<T>::enqueue_xcmp_message(0.into(), msg, &mut WeightMeter::new()).unwrap();
+			Pallet::<T>::enqueue_xcmp_message(0.into(), msg).unwrap();
 		}
 		let fp_after = T::XcmpQueue::footprint(0.into());
 		assert_eq!(fp_after.ready_pages, fp_before.ready_pages + 1);
@@ -77,8 +77,8 @@ mod benchmarks {
 		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
 		{
-			Pallet::<T>::enqueue_xcmp_message(0.into(), msg_1, &mut WeightMeter::new()).unwrap();
-			Pallet::<T>::enqueue_xcmp_message(0.into(), msg_2, &mut WeightMeter::new()).unwrap();
+			Pallet::<T>::enqueue_xcmp_message(0.into(), msg_1).unwrap();
+			Pallet::<T>::enqueue_xcmp_message(0.into(), msg_2).unwrap();
 		}
 		let fp_after = T::XcmpQueue::footprint(0.into());
 		assert_eq!(fp_after.ready_pages, fp_before.ready_pages + 1);
