@@ -983,47 +983,46 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		if let Some(value) = outcome {
 			self.adjust_gas(charged, costs(value.len() as u32));
 
-			// For fixed-size operations use write_fixed_sandbox_output
-			if out_len_ptr == SENTINEL {
-				let mut fixed_output = [0u8; 32];
-				let len = core::cmp::min(value.len(), 32);
-				fixed_output[..len].copy_from_slice(&value[..len]);
+			match read_mode {
+				StorageReadMode::ZeroIfMissing => {
+					let mut fixed_output = [0u8; 32];
+					let len = core::cmp::min(value.len(), 32);
+					fixed_output[..len].copy_from_slice(&value[..len]);
 
-				self.write_fixed_sandbox_output(
-					memory,
-					out_ptr,
-					&fixed_output,
-					false,
-					already_charged,
-				)?;
-			} else {
-				self.write_sandbox_output(
-					memory,
-					out_ptr,
-					out_len_ptr,
-					&value,
-					false,
-					already_charged,
-				)?;
+					self.write_fixed_sandbox_output(
+						memory,
+						out_ptr,
+						&fixed_output,
+						false,
+						already_charged,
+					)?;
+					Ok(ReturnErrorCode::Success)
+				},
+				StorageReadMode::ErrorIfMissing => {
+					// preserve original behavior
+					self.write_sandbox_output(
+						memory,
+						out_ptr,
+						out_len_ptr,
+						&value,
+						false,
+						already_charged,
+					)?;
+					Ok(ReturnErrorCode::Success)
+				},
 			}
-
-			Ok(ReturnErrorCode::Success)
 		} else {
 			self.adjust_gas(charged, costs(0));
 
 			match read_mode {
 				StorageReadMode::ZeroIfMissing => {
-					if out_len_ptr == SENTINEL {
-						self.write_fixed_sandbox_output(
-							memory,
-							out_ptr,
-							&[0u8; 32],
-							false,
-							already_charged,
-						)?;
-					} else {
-						memory.write(out_len_ptr, &0u32.encode())?;
-					}
+					self.write_fixed_sandbox_output(
+						memory,
+						out_ptr,
+						&[0u8; 32],
+						false,
+						already_charged,
+					)?;
 					Ok(ReturnErrorCode::Success)
 				},
 				StorageReadMode::ErrorIfMissing => Ok(ReturnErrorCode::KeyNotFound),
