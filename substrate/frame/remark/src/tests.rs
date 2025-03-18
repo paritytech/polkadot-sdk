@@ -19,8 +19,7 @@
 
 use super::{Error, Event, Pallet as Remark};
 use crate::mock::*;
-use frame::testing_prelude::*;
-use frame::benchmarking::prelude::*;
+use frame::{benchmarking::prelude::*, testing_prelude::*};
 
 #[test]
 fn generates_event() {

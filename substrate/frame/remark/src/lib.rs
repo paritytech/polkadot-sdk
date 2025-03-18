@@ -71,7 +71,11 @@ pub mod pallet {
 			let content_hash = blake2_256(&remark);
 			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index()
 				.ok_or_else(|| Error::<T>::BadContext)?;
-			frame::deps::sp_io::transaction_index::index(extrinsic_index, remark.len() as u32, content_hash);
+			frame::deps::sp_io::transaction_index::index(
+				extrinsic_index,
+				remark.len() as u32,
+				content_hash,
+			);
 			Self::deposit_event(Event::Stored { sender, content_hash: content_hash.into() });
 			Ok(().into())
 		}
