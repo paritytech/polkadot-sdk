@@ -192,6 +192,31 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn remove_lease() -> Result<(), BenchmarkError> {
+		let task = 1u32;
+		let until = 10u32;
+
+		// Assume Leases to be almost filled for worst case
+		let mut leases = vec![
+			LeaseRecordItem { task, until };
+			T::MaxLeasedCores::get().saturating_sub(1) as usize
+		];
+		let task = 2u32;
+		leases.push(LeaseRecordItem { task, until });
+		Leases::<T>::put(BoundedVec::try_from(leases).unwrap());
+
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, task);
+
+		assert_eq!(Leases::<T>::get().len(), T::MaxLeasedCores::get().saturating_sub(1) as usize);
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn start_sales(n: Linear<0, { MAX_CORE_COUNT.into() }>) -> Result<(), BenchmarkError> {
 		let config = new_config_record::<T>();
 		Configuration::<T>::put(config.clone());
@@ -543,26 +568,22 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(30_000_000u32.into()),
+			T::Currency::minimum_balance().saturating_add(T::MinimumCreditPurchase::get()),
 		);
 		T::Currency::set_balance(&Broker::<T>::account_id(), T::Currency::minimum_balance());
-
-		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
-			.expect("Offer not high enough for configuration.");
-
-		let recipient: T::AccountId = account("recipient", 0, SEED);
-
-		Broker::<T>::do_pool(region, None, recipient, Final)
-			.map_err(|_| BenchmarkError::Weightless)?;
 
 		let beneficiary: RelayAccountIdOf<T> = account("beneficiary", 0, SEED);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), 20_000_000u32.into(), beneficiary.clone());
+		_(RawOrigin::Signed(caller.clone()), T::MinimumCreditPurchase::get(), beneficiary.clone());
 
 		assert_last_event::<T>(
-			Event::CreditPurchased { who: caller, beneficiary, amount: 20_000_000u32.into() }
-				.into(),
+			Event::CreditPurchased {
+				who: caller,
+				beneficiary,
+				amount: T::MinimumCreditPurchase::get(),
+			}
+			.into(),
 		);
 
 		Ok(())
@@ -1200,6 +1221,33 @@ mod benches {
 		{
 			T::Coretime::on_new_timeslice(timeslice);
 		}
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_assignment() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+
+		advance_to::<T>(2);
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
+		);
+
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
+			.expect("Offer not high enough for configuration.");
+
+		Broker::<T>::do_assign(region, None, 1000, Provisional)
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, region);
 
 		Ok(())
 	}

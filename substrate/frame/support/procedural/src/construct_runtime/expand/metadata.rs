@@ -45,6 +45,7 @@ pub fn expand_runtime_metadata(
 			let index = &decl.index;
 			let storage = expand_pallet_metadata_storage(&filtered_names, runtime, decl);
 			let calls = expand_pallet_metadata_calls(&filtered_names, runtime, decl);
+			let view_functions = expand_pallet_metadata_view_functions(runtime, decl);
 			let event = expand_pallet_metadata_events(&filtered_names, runtime, decl);
 			let constants = expand_pallet_metadata_constants(runtime, decl);
 			let errors = expand_pallet_metadata_errors(runtime, decl);
@@ -59,6 +60,7 @@ pub fn expand_runtime_metadata(
 					index: #index,
 					storage: #storage,
 					calls: #calls,
+					view_functions: #view_functions,
 					event: #event,
 					constants: #constants,
 					error: #errors,
@@ -69,20 +71,6 @@ pub fn expand_runtime_metadata(
 			}
 		})
 		.collect::<Vec<_>>();
-
-	let view_functions = pallet_declarations.iter().map(|decl| {
-		let name = &decl.name;
-		let path = &decl.path;
-		let instance = decl.instance.as_ref().into_iter();
-		let attr = decl.get_attributes();
-
-		quote! {
-			#attr
-			#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_view_functions_metadata(
-				::core::stringify!(#name)
-			)
-		}
-	});
 
 	quote! {
 		impl #runtime {
@@ -156,10 +144,6 @@ pub fn expand_runtime_metadata(
 						event_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeEvent>(),
 						error_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeError>(),
 					},
-					view_functions: #scrate::__private::metadata_ir::RuntimeViewFunctionsIR {
-						ty: #scrate::__private::scale_info::meta_type::<RuntimeViewFunction>(),
-						groups: #scrate::__private::sp_std::vec![ #(#view_functions),* ],
-					}
 				}
 			}
 
@@ -213,6 +197,15 @@ fn expand_pallet_metadata_calls(
 		}
 	} else {
 		quote!(None)
+	}
+}
+
+fn expand_pallet_metadata_view_functions(runtime: &Ident, decl: &Pallet) -> TokenStream {
+	let path = &decl.path;
+	let instance = decl.instance.as_ref().into_iter();
+
+	quote! {
+		#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_view_functions_metadata()
 	}
 }
 

@@ -325,7 +325,7 @@ pub trait HostFn: private::Sealed {
 		salt: Option<&[u8; 32]>,
 	) -> Result;
 
-	/// Load the latest block timestamp into the supplied buffer
+	/// Load the latest block timestamp in seconds into the supplied buffer
 	///
 	/// # Parameters
 	///
@@ -533,27 +533,6 @@ pub trait HostFn: private::Sealed {
 	#[unstable_hostfn]
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
 
-	/// Recovers the ECDSA public key from the given message hash and signature.
-	///
-	/// Writes the public key into the given output buffer.
-	/// Assumes the secp256k1 curve.
-	///
-	/// # Parameters
-	///
-	/// - `signature`: The signature bytes.
-	/// - `message_hash`: The message hash bytes.
-	/// - `output`: A reference to the output data buffer to write the public key.
-	///
-	/// # Errors
-	///
-	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
-	#[unstable_hostfn]
-	fn ecdsa_recover(
-		signature: &[u8; 65],
-		message_hash: &[u8; 32],
-		output: &mut [u8; 33],
-	) -> Result;
-
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// it into the supplied buffer.
 	///
@@ -567,20 +546,6 @@ pub trait HostFn: private::Sealed {
 	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
 	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
-
-	/// Computes the sha2_256 32-bit hash on the given input buffer.
-	///
-	/// - The `input` and `output` buffer may overlap.
-	/// - The output buffer is expected to hold at least 32 bits.
-	/// - It is the callers responsibility to provide an output buffer that is large enough to hold
-	///   the expected amount of bytes returned by the hash function.
-	///
-	/// # Parameters
-	///
-	/// - `input`: The input data buffer.
-	/// - `output`: The output buffer to write the hash result to.
-	#[unstable_hostfn]
-	fn hash_sha2_256(input: &[u8], output: &mut [u8; 32]);
 
 	/// Computes the blake2_256 32-bit hash on the given input buffer.
 	///
@@ -620,18 +585,6 @@ pub trait HostFn: private::Sealed {
 	/// Returns `true` if the address belongs to a contract.
 	#[unstable_hostfn]
 	fn is_contract(address: &[u8; 20]) -> bool;
-
-	/// Lock a new delegate dependency to the contract.
-	///
-	/// Traps if the maximum number of delegate_dependencies is reached or if
-	/// the delegate dependency already exists.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
-	///   otherwise.
-	#[unstable_hostfn]
-	fn lock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	///
@@ -722,17 +675,6 @@ pub trait HostFn: private::Sealed {
 	/// - The deletion queue is full.
 	#[unstable_hostfn]
 	fn terminate(beneficiary: &[u8; 20]) -> !;
-
-	/// Removes the delegate dependency from the contract.
-	///
-	/// Traps if the delegate dependency does not exist.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
-	///   otherwise.
-	#[unstable_hostfn]
-	fn unlock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Stores the amount of weight left into the supplied buffer.
 	/// The data is encoded as Weight.

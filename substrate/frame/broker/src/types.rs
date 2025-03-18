@@ -19,7 +19,7 @@ use crate::{
 	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, RCBlockNumberOf, TaskId,
 	CORE_MASK_BITS,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
 use frame_system::Config as SConfig;
 use scale_info::TypeInfo;
@@ -42,7 +42,18 @@ pub type CoreMaskBitCount = u32;
 pub type SignedCoreMaskBitCount = i32;
 
 /// Whether a core assignment is revokable or not.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum Finality {
 	/// The region remains with the same owner allowing the assignment to be altered.
 	Provisional,
@@ -51,7 +62,18 @@ pub enum Finality {
 }
 
 /// Self-describing identity for a Region of Bulk Coretime.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct RegionId {
 	/// The timeslice at which this Region begins.
 	pub begin: Timeslice,
@@ -91,7 +113,17 @@ pub struct RegionRecord<AccountId, Balance> {
 pub type RegionRecordOf<T> = RegionRecord<<T as SConfig>::AccountId, BalanceOf<T>>;
 
 /// An distinct item which can be scheduled on a Polkadot Core.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct ScheduleItem {
 	/// The regularity parts in which this Item will be scheduled on the Core.
 	pub mask: CoreMask,
@@ -259,7 +291,17 @@ pub type LeasesRecordOf<T> = LeasesRecord<<T as Config>::MaxLeasedCores>;
 ///
 /// The blocknumber is the relay chain block height `until` which the original request
 /// for revenue was made.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct OnDemandRevenueRecord<RelayBlockNumber, RelayBalance> {
 	/// The height of the Relay-chain at the time the revenue request was made.
 	pub until: RelayBlockNumber,
@@ -271,7 +313,17 @@ pub type OnDemandRevenueRecordOf<T> =
 	OnDemandRevenueRecord<RelayBlockNumberOf<T>, RelayBalanceOf<T>>;
 
 /// Configuration of this pallet.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct ConfigRecord<RelayBlockNumber> {
 	/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
 	/// `Coretime::assign` API used to inform the Relay-chain.

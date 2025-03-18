@@ -26,6 +26,7 @@ pub use mmr_lib;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::fmt;
 use scale_info::TypeInfo;
 use sp_debug_derive::RuntimeDebug;
@@ -362,7 +363,7 @@ pub struct LeafProof<Hash> {
 }
 
 /// An MMR ancestry proof for a prior mmr root.
-#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct AncestryProof<Hash> {
 	/// Peaks of the ancestor's mmr
 	pub prev_peaks: Vec<Hash>,

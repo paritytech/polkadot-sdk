@@ -23,7 +23,55 @@ use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// Input of a `GenericTransaction`
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct InputOrData {
+	#[serde(skip_serializing_if = "Option::is_none")]
+	input: Option<Bytes>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	data: Option<Bytes>,
+}
+
+impl From<Bytes> for InputOrData {
+	fn from(value: Bytes) -> Self {
+		InputOrData { input: Some(value), data: None }
+	}
+}
+
+impl From<Vec<u8>> for InputOrData {
+	fn from(value: Vec<u8>) -> Self {
+		InputOrData { input: Some(Bytes(value)), data: None }
+	}
+}
+
+impl InputOrData {
+	/// Get the input as `Bytes`.
+	pub fn to_bytes(self) -> Bytes {
+		match self {
+			InputOrData { input: Some(input), data: _ } => input,
+			InputOrData { input: None, data: Some(data) } => data,
+			_ => Default::default(),
+		}
+	}
+
+	/// Get the input as `Vec<u8>`.
+	pub fn to_vec(self) -> Vec<u8> {
+		self.to_bytes().0
+	}
+}
+
+fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrData, D::Error> {
+	let value = InputOrData::deserialize(d)?;
+	match &value {
+        InputOrData { input: Some(input), data: Some(data) } if input != data =>
+            Err(serde::de::Error::custom("Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data")),
+        _ => Ok(value),
+    }
+}
 
 /// Block object
 #[derive(
@@ -119,9 +167,7 @@ impl Default for BlockNumberOrTag {
 }
 
 /// Block number, tag, or block hash
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, Serialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum BlockNumberOrTagOrHash {
 	/// Block number
@@ -134,6 +180,79 @@ pub enum BlockNumberOrTagOrHash {
 impl Default for BlockNumberOrTagOrHash {
 	fn default() -> Self {
 		BlockNumberOrTagOrHash::BlockTag(Default::default())
+	}
+}
+
+// Support nested object notation as defined in  https://eips.ethereum.org/EIPS/eip-1898
+impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
+	fn deserialize<D>(de: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'a>,
+	{
+		#[derive(Deserialize)]
+		#[serde(untagged)]
+		pub enum BlockNumberOrTagOrHashWithAlias {
+			BlockTag(BlockTag),
+			U256(U256),
+			BlockNumber {
+				#[serde(rename = "blockNumber")]
+				block_number: U256,
+			},
+			H256(H256),
+			BlockHash {
+				#[serde(rename = "blockHash")]
+				block_hash: H256,
+			},
+		}
+
+		let r = BlockNumberOrTagOrHashWithAlias::deserialize(de)?;
+		Ok(match r {
+			BlockNumberOrTagOrHashWithAlias::BlockTag(val) => BlockNumberOrTagOrHash::BlockTag(val),
+			BlockNumberOrTagOrHashWithAlias::U256(val) |
+			BlockNumberOrTagOrHashWithAlias::BlockNumber { block_number: val } =>
+				BlockNumberOrTagOrHash::U256(val),
+			BlockNumberOrTagOrHashWithAlias::H256(val) |
+			BlockNumberOrTagOrHashWithAlias::BlockHash { block_hash: val } =>
+				BlockNumberOrTagOrHash::H256(val),
+		})
+	}
+}
+
+/// filter
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct Filter {
+	/// Address(es)
+	pub address: Option<AddressOrAddresses>,
+	/// from block
+	#[serde(rename = "fromBlock", skip_serializing_if = "Option::is_none")]
+	pub from_block: Option<BlockNumberOrTag>,
+	/// to block
+	#[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
+	pub to_block: Option<BlockNumberOrTag>,
+	/// Restricts the logs returned to the single block
+	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
+	pub block_hash: Option<H256>,
+	/// Topics
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub topics: Option<FilterTopics>,
+}
+
+/// Filter results
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(untagged)]
+pub enum FilterResults {
+	/// new block or transaction hashes
+	Hashes(Vec<H256>),
+	/// new logs
+	Logs(Vec<Log>),
+}
+impl Default for FilterResults {
+	fn default() -> Self {
+		FilterResults::Hashes(Default::default())
 	}
 }
 
@@ -169,8 +288,8 @@ pub struct GenericTransaction {
 	#[serde(rename = "gasPrice", skip_serializing_if = "Option::is_none")]
 	pub gas_price: Option<U256>,
 	/// input data
-	#[serde(alias = "data", skip_serializing_if = "Option::is_none")]
-	pub input: Option<Bytes>,
+	#[serde(flatten, deserialize_with = "deserialize_input_or_data")]
+	pub input: InputOrData,
 	/// max fee per blob gas
 	/// The maximum total fee per gas the sender is willing to pay for blob gas in wei
 	#[serde(rename = "maxFeePerBlobGas", skip_serializing_if = "Option::is_none")]
@@ -326,6 +445,26 @@ impl Default for TransactionUnsigned {
 /// Access list
 pub type AccessList = Vec<AccessListEntry>;
 
+/// Address(es)
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(untagged)]
+pub enum AddressOrAddresses {
+	/// Address
+	Address(Address),
+	/// Addresses
+	Addresses(Addresses),
+}
+impl Default for AddressOrAddresses {
+	fn default() -> Self {
+		AddressOrAddresses::Address(Default::default())
+	}
+}
+
+/// hex encoded address
+pub type Addresses = Vec<Address>;
+
 /// Block tag
 /// `earliest`: The lowest numbered block the client has available; `finalized`: The most recent
 /// crypto-economically secure block, cannot be re-orged outside of manual intervention driven by
@@ -353,6 +492,9 @@ pub enum BlockTag {
 	Pending,
 }
 
+/// Filter Topics
+pub type FilterTopics = Vec<FilterTopic>;
+
 #[derive(
 	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
 )]
@@ -377,17 +519,17 @@ pub struct Log {
 	/// address
 	pub address: Address,
 	/// block hash
-	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
-	pub block_hash: Option<H256>,
+	#[serde(rename = "blockHash")]
+	pub block_hash: H256,
 	/// block number
-	#[serde(rename = "blockNumber", skip_serializing_if = "Option::is_none")]
-	pub block_number: Option<U256>,
+	#[serde(rename = "blockNumber")]
+	pub block_number: U256,
 	/// data
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub data: Option<Bytes>,
 	/// log index
-	#[serde(rename = "logIndex", skip_serializing_if = "Option::is_none")]
-	pub log_index: Option<U256>,
+	#[serde(rename = "logIndex")]
+	pub log_index: U256,
 	/// removed
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub removed: Option<bool>,
@@ -398,8 +540,8 @@ pub struct Log {
 	#[serde(rename = "transactionHash")]
 	pub transaction_hash: H256,
 	/// transaction index
-	#[serde(rename = "transactionIndex", skip_serializing_if = "Option::is_none")]
-	pub transaction_index: Option<U256>,
+	#[serde(rename = "transactionIndex")]
+	pub transaction_index: U256,
 }
 
 /// Syncing progress
@@ -602,6 +744,23 @@ pub struct AccessListEntry {
 	pub address: Address,
 	#[serde(rename = "storageKeys")]
 	pub storage_keys: Vec<H256>,
+}
+
+/// Filter Topic List Entry
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(untagged)]
+pub enum FilterTopic {
+	/// Single Topic Match
+	Single(H256),
+	/// Multiple Topic Match
+	Multiple(Vec<H256>),
+}
+impl Default for FilterTopic {
+	fn default() -> Self {
+		FilterTopic::Single(Default::default())
+	}
 }
 
 /// Signed 1559 Transaction

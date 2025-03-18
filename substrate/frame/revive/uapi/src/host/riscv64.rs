@@ -121,7 +121,6 @@ mod sys {
 		pub fn block_number(out_ptr: *mut u8);
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn block_author(out_ptr: *mut u8);
-		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_blake2_128(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -133,11 +132,6 @@ mod sys {
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
 		pub fn call_runtime(call_ptr: *const u8, call_len: u32) -> ReturnCode;
-		pub fn ecdsa_recover(
-			signature_ptr: *const u8,
-			message_hash_ptr: *const u8,
-			out_ptr: *mut u8,
-		) -> ReturnCode;
 		pub fn sr25519_verify(
 			signature_ptr: *const u8,
 			pub_key_ptr: *const u8,
@@ -147,8 +141,6 @@ mod sys {
 		pub fn set_code_hash(code_hash_ptr: *const u8);
 		pub fn ecdsa_to_eth_address(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn instantiation_nonce() -> u64;
-		pub fn lock_delegate_dependency(code_hash_ptr: *const u8);
-		pub fn unlock_delegate_dependency(code_hash_ptr: *const u8);
 		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32) -> ReturnCode;
 		pub fn xcm_send(
 			dest_ptr: *const u8,
@@ -513,26 +505,9 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn ecdsa_recover(
-		signature: &[u8; 65],
-		message_hash: &[u8; 32],
-		output: &mut [u8; 33],
-	) -> Result {
-		let ret_code = unsafe {
-			sys::ecdsa_recover(signature.as_ptr(), message_hash.as_ptr(), output.as_mut_ptr())
-		};
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
 		let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
 		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn hash_sha2_256(input: &[u8], output: &mut [u8; 32]) {
-		unsafe { sys::hash_sha2_256(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
 	}
 
 	#[unstable_hostfn]
@@ -549,11 +524,6 @@ impl HostFn for HostFnImpl {
 	fn is_contract(address: &[u8; 20]) -> bool {
 		let ret_val = unsafe { sys::is_contract(address.as_ptr()) };
 		ret_val.into_bool()
-	}
-
-	#[unstable_hostfn]
-	fn lock_delegate_dependency(code_hash: &[u8; 32]) {
-		unsafe { sys::lock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
 	#[unstable_hostfn]
@@ -606,11 +576,6 @@ impl HostFn for HostFnImpl {
 	fn terminate(beneficiary: &[u8; 20]) -> ! {
 		unsafe { sys::terminate(beneficiary.as_ptr()) }
 		panic!("terminate does not return");
-	}
-
-	#[unstable_hostfn]
-	fn unlock_delegate_dependency(code_hash: &[u8; 32]) {
-		unsafe { sys::unlock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
 	#[unstable_hostfn]
