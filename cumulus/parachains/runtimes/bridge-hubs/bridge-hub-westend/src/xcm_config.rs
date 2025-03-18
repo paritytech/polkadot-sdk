@@ -220,7 +220,7 @@ impl xcm_executor::Config for XcmConfig {
 				WestendLocation,
 				EthereumNetwork,
 				Self::AssetTransactor,
-				crate::EthereumOutboundQueueV2,
+				crate::EthereumOutboundQueue,
 			>,
 			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 		),

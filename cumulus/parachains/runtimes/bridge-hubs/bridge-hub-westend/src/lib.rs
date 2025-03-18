@@ -42,7 +42,6 @@ use bridge_runtime_common::extensions::{
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
-use frame_support::traits::Contains;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{

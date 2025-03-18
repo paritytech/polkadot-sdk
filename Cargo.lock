@@ -1147,6 +1147,7 @@ dependencies = [
  "snowbridge-inbound-queue-primitives",
  "snowbridge-outbound-queue-primitives",
  "snowbridge-pallet-system-frontend",
+ "snowbridge-runtime-common",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -22135,7 +22136,9 @@ name = "snowbridge-runtime-common"
 version = "0.2.0"
 dependencies = [
  "frame-support",
+ "frame-system",
  "log",
+ "pallet-xcm",
  "parity-scale-codec",
  "snowbridge-core",
  "snowbridge-outbound-queue-primitives",

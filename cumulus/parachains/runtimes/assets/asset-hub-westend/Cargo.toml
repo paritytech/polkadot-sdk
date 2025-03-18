@@ -110,6 +110,7 @@ pallet-xcm-bridge-hub-router = { workspace = true }
 snowbridge-inbound-queue-primitives = { workspace = true }
 snowbridge-outbound-queue-primitives = { workspace = true }
 snowbridge-pallet-system-frontend = { workspace = true }
+snowbridge-runtime-common = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
@@ -160,6 +161,7 @@ runtime-benchmarks = [
 	"polkadot-runtime-common/runtime-benchmarks",
 	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"snowbridge-pallet-system-frontend/runtime-benchmarks",
+	"snowbridge-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -204,6 +206,7 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"snowbridge-pallet-system-frontend/try-runtime",
+	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 std = [
@@ -269,6 +272,7 @@ std = [
 	"snowbridge-inbound-queue-primitives/std",
 	"snowbridge-outbound-queue-primitives/std",
 	"snowbridge-pallet-system-frontend/std",
+	"snowbridge-runtime-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",

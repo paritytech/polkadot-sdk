@@ -1,6 +1,9 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+use frame_support::assert_noop;
+use snowbridge_core::AssetMetadata;
+use sp_runtime::DispatchError::BadOrigin;
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,6 +21,7 @@ use crate::{
 	tests::{
 		snowbridge_common::*,
 		snowbridge_v2_outbound::{EthereumSystemFrontend, EthereumSystemFrontendCall},
+		usdt_at_ah_westend,
 	},
 };
 use xcm::v5::AssetTransferFilter;
@@ -164,6 +168,53 @@ fn export_from_non_system_parachain_will_fail() {
 		assert_expected_events!(
 			BridgeHubWestend,
 			vec![RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed{ success: false, .. }) => {},]
+		);
+	});
+}
+
+#[test]
+pub fn register_usdt_not_from_owner_on_asset_hub_will_fail() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_noop!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
+				// The owner is Alice, while AssetHubWestendReceiver is Bob, so it should fail
+				RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+				bx!(VersionedLocation::from(usdt_at_ah_westend())),
+				AssetMetadata {
+					name: "usdt".as_bytes().to_vec().try_into().unwrap(),
+					symbol: "usdt".as_bytes().to_vec().try_into().unwrap(),
+					decimals: 6,
+				}
+			),
+			BadOrigin
+		);
+	});
+}
+
+#[test]
+pub fn register_relay_token_from_asset_hub_user_origin_will_fail() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_noop!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
+				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				bx!(VersionedLocation::from(Location { parents: 1, interior: [].into() })),
+				AssetMetadata {
+					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
+					decimals: 12,
+				},
+			),
+			BadOrigin
 		);
 	});
 }

@@ -13,7 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{imports::*, tests::snowbridge_common::*};
+use crate::{
+	imports::*,
+	tests::{snowbridge_common::*, usdt_at_ah_westend},
+};
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumOutboundQueueV2,
 };
@@ -140,8 +143,8 @@ pub fn register_relay_token_from_asset_hub_with_sudo() {
 	});
 }
 
-#[allow(dead_code)]
-pub fn register_relay_token_from_asset_hub_user_origin() {
+#[test]
+pub fn register_usdt_from_owner_on_asset_hub() {
 	fund_on_bh();
 	register_assets_on_ah();
 	fund_on_ah();
@@ -150,13 +153,13 @@ pub fn register_relay_token_from_asset_hub_user_origin() {
 
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
-				RuntimeOrigin::signed(AssetHubWestendSender::get()),
-				bx!(VersionedLocation::from(Location { parents: 1, interior: [].into() })),
+				RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+				bx!(VersionedLocation::from(usdt_at_ah_westend())),
 				AssetMetadata {
-					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
-					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
-					decimals: 12,
-				},
+					name: "usdt".as_bytes().to_vec().try_into().unwrap(),
+					symbol: "usdt".as_bytes().to_vec().try_into().unwrap(),
+					decimals: 6,
+				}
 			)
 		);
 	});

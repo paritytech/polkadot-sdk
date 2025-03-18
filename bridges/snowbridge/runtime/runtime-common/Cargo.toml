@@ -17,15 +17,16 @@ exclude-from-umbrella = true
 [dependencies]
 codec = { workspace = true }
 frame-support = { workspace = true }
+frame-system = { workspace = true }
 log = { workspace = true }
+pallet-xcm = { workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-outbound-queue-primitives = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-std = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
-
-snowbridge-core = { workspace = true }
-snowbridge-outbound-queue-primitives = { workspace = true }
 
 [dev-dependencies]
 
@@ -34,7 +35,9 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",
+	"frame-system/std",
 	"log/std",
+	"pallet-xcm/std",
 	"snowbridge-core/std",
 	"snowbridge-outbound-queue-primitives/std",
 	"sp-arithmetic/std",
@@ -45,8 +48,15 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-xcm/try-runtime",
 ]

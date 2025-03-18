@@ -295,6 +295,14 @@ fn register_rococo_asset_on_ethereum_from_rah() {
 		],
 	);
 
+	AssetHubWestend::force_create_foreign_asset(
+		bridged_asset_at_wah.clone(),
+		sa_of_rah_on_wah.clone(),
+		true,
+		ASSET_MIN_BALANCE,
+		vec![],
+	);
+
 	let call =
 		EthereumSystemFrontend::EthereumSystemFrontend(EthereumSystemFrontendCall::RegisterToken {
 			asset_id: Box::new(VersionedLocation::from(bridged_asset_at_wah.clone())),
