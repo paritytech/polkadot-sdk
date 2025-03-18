@@ -20,7 +20,7 @@
 use super::{Error, Event, Pallet as Remark};
 use crate::mock::*;
 use frame::testing_prelude::*;
-use frame::benchmarking::prelude::{RawOrigin, *};
+use frame::benchmarking::prelude::*;
 
 #[test]
 fn generates_event() {
