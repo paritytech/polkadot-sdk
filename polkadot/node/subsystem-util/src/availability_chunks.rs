@@ -27,9 +27,9 @@ pub fn availability_chunk_index(
 	core_index: CoreIndex,
 	validator_index: ValidatorIndex,
 ) -> Result<ChunkIndex, polkadot_erasure_coding::Error> {
-	if let Some(&true) = node_features
+	if node_features
 		.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
-		.as_deref()
+		.unwrap_or_default()
 	{
 		let systematic_threshold = systematic_recovery_threshold(n_validators)? as u32;
 		let core_start_pos = core_index.0 * systematic_threshold;
