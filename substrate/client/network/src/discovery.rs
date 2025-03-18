@@ -902,7 +902,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						let ev = DiscoveryOut::UnroutablePeer(peer);
 						return Poll::Ready(ToSwarm::GenerateEvent(ev))
 					},
-					KademliaEvent::RoutablePeer { peer, address } => {
+					KademliaEvent::RoutablePeer { .. } => {
 						// Generate nothing, because the address was not added to the routing table,
 						// so we will not be able to connect to the peer.
 					},
