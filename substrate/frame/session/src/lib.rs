@@ -130,7 +130,7 @@ use frame_support::{
 	ensure,
 	traits::{
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
-		OneSessionHandler, ValidatorRegistration, ValidatorSet,
+		OneSessionHandler, ValidatorRegistration, ValidatorSet, Currency, ReservableCurrency,
 	},
 	weights::Weight,
 	Parameter,
@@ -436,6 +436,13 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+		
+		/// The currency type to reserve when setting keys.
+		type Currency: ReservableCurrency<Self::AccountId>;
+		
+		/// The amount to be reserved when setting keys.
+		#[pallet::constant]
+		type KeyDeposit: Get<<Self::Currency as Currency<Self::AccountId>>::Balance>;
 	}
 
 	#[pallet::genesis_config]
@@ -558,6 +565,10 @@ pub mod pallet {
 		ValidatorDisabled { validator: T::ValidatorId },
 		/// Validator has been re-enabled.
 		ValidatorReenabled { validator: T::ValidatorId },
+		/// Funds have been reserved for setting keys.
+		KeysFundsReserved { account: T::AccountId, amount: <<T as Config>::Currency as Currency<T::AccountId>>::Balance },
+		/// Funds have been unreserved when purging keys.
+		KeysFundsUnreserved { account: T::AccountId, amount: <<T as Config>::Currency as Currency<T::AccountId>>::Balance },
 	}
 
 	/// Error for the session pallet.
@@ -573,6 +584,8 @@ pub mod pallet {
 		NoKeys,
 		/// Key setting account is not live, so it's impossible to associate keys.
 		NoAccount,
+		/// Insufficient funds for setting keys.
+		InsufficientFunds,
 	}
 
 	#[pallet::hooks]
@@ -836,10 +849,32 @@ impl<T: Config> Pallet<T> {
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
 		ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
+		
+		// Check if this will be a new registration
+		let is_new_registration = Self::load_keys(&who).is_none();
+		
+		// For new registrations, ensure the account has enough funds for the deposit
+		if is_new_registration {
+			let deposit = T::KeyDeposit::get();
+			ensure!(T::Currency::can_reserve(account, deposit), Error::<T>::InsufficientFunds);
+		}
+		
+		// Now that we've checked funds, proceed with setting keys
 		let old_keys = Self::inner_set_keys(&who, keys)?;
+		
+		// Reserve deposit if this is a new registration (no old keys)
 		if old_keys.is_none() {
+			let deposit = T::KeyDeposit::get();
+			T::Currency::reserve(account, deposit)?;
+			
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
+			
+			// Emit an event for the reserved funds
+			Self::deposit_event(Event::<T>::KeysFundsReserved { 
+				account: account.clone(),
+				amount: deposit,
+			});
 		}
 
 		Ok(())
@@ -898,6 +933,17 @@ impl<T: Config> Pallet<T> {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
 		}
+		
+		// Unreserve the deposit
+		let deposit = T::KeyDeposit::get();
+		let _ = T::Currency::unreserve(account, deposit);
+		
+		// Emit an event for the unreserved funds
+		Self::deposit_event(Event::<T>::KeysFundsUnreserved { 
+			account: account.clone(),
+			amount: deposit,
+		});
+		
 		frame_system::Pallet::<T>::dec_consumers(account);
 
 		Ok(())

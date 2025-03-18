@@ -22,7 +22,7 @@ use crate::mock::{
 	authorities, before_session_end_called, force_new_session, new_test_ext,
 	reset_before_session_end_called, session_changed, set_next_validators, set_session_length,
 	PreUpgradeMockSessionKeys, RuntimeOrigin, Session, SessionChanged, System, Test,
-	TestSessionChanged, TestValidatorIdOf,
+	TestSessionChanged, TestValidatorIdOf, MockSessionKeys, ValidatorAccounts,
 };
 
 use codec::Decode;
@@ -480,5 +480,45 @@ fn test_migration_v1() {
 		crate::migrations::historical::pre_migrate::<Test, Historical>();
 		crate::migrations::historical::migrate::<Test, Historical>();
 		crate::migrations::historical::post_migrate::<Test, Historical>();
+	});
+}
+
+#[test]
+fn set_keys_should_fail_with_insufficient_funds() {
+	new_test_ext().execute_with(|| {
+		// Account 999 is mocked to always have insufficient funds
+		let account_id = 999;
+		let keys = MockSessionKeys { dummy: UintAuthorityId(account_id).into() };
+		frame_system::Pallet::<Test>::inc_providers(&account_id);
+		// Make sure we have a validator ID
+		ValidatorAccounts::mutate(|m| {
+			m.insert(account_id, account_id);
+		});
+		
+		// Attempt to set keys with an account that has insufficient funds
+		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
+		// Should fail with InsufficientFunds error
+		assert_noop!(res, Error::<Test>::InsufficientFunds);
+	});
+}
+
+#[test]
+fn set_keys_should_reserve_funds() {
+	new_test_ext().execute_with(|| {
+		// Account 1000 is mocked to have sufficient funds
+		let account_id = 1000;
+		let keys = MockSessionKeys { dummy: UintAuthorityId(account_id).into() };
+		
+		// Make sure we have a validator ID
+		ValidatorAccounts::mutate(|m| {
+			m.insert(account_id, account_id);
+		});
+		
+		// Attempt to set keys
+		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
+		assert_ok!(res);
+		
+		// Check that the funds were reserved
+		assert_eq!(frame_system::Pallet::<Test>::providers(&account_id), Some(1));
 	});
 }

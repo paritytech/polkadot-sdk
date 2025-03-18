@@ -29,7 +29,9 @@ use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
 use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
-use frame_support::{derive_impl, parameter_types, traits::ConstU64};
+use frame_support::{
+	derive_impl, parameter_types, traits::{ConstU64, WithdrawReasons, Currency, ReservableCurrency, SignedImbalance}
+};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -102,6 +104,8 @@ parameter_types! {
 	// Stores if `on_before_session_end` was called
 	pub static BeforeSessionEndCalled: bool = false;
 	pub static ValidatorAccounts: BTreeMap<u64, u64> = BTreeMap::new();
+	pub static CurrencyBalance: u64 = 100;
+	pub const KeyDeposit: u64 = 10;
 }
 
 pub struct TestShouldEndSession;
@@ -267,10 +271,137 @@ impl Config for Test {
 	type DisablingStrategy =
 		disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
+	type Currency = pallet_balances::Pallet<Test>;
+	type KeyDeposit = KeyDeposit;
 }
 
 #[cfg(feature = "historical")]
 impl crate::historical::Config for Test {
 	type FullIdentification = u64;
 	type FullIdentificationOf = sp_runtime::traits::ConvertInto;
+}
+
+mod pallet_balances {
+	use super::*;
+	use frame_support::pallet_prelude::*;
+
+	pub struct Pallet<T>(core::marker::PhantomData<T>);
+
+	impl<T> Currency<u64> for Pallet<T> {
+		type Balance = u64;
+		type PositiveImbalance = ();
+		type NegativeImbalance = ();
+
+		fn total_balance(_: &u64) -> Self::Balance {
+			CurrencyBalance::get()
+		}
+
+		fn can_slash(_: &u64, _: Self::Balance) -> bool {
+			true
+		}
+
+		fn total_issuance() -> Self::Balance {
+			0
+		}
+
+		fn minimum_balance() -> Self::Balance {
+			0
+		}
+
+		fn burn(_: Self::Balance) -> Self::PositiveImbalance {
+			()
+		}
+
+		fn issue(_: Self::Balance) -> Self::NegativeImbalance {
+			()
+		}
+
+		fn free_balance(_: &u64) -> Self::Balance {
+			CurrencyBalance::get()
+		}
+
+		fn ensure_can_withdraw(
+			_: &u64,
+			_: Self::Balance,
+			_: WithdrawReasons,
+			_: Self::Balance,
+		) -> DispatchResult {
+			Ok(())
+		}
+
+		fn transfer(
+			_: &u64,
+			_: &u64,
+			_: Self::Balance,
+			_: frame_support::traits::ExistenceRequirement,
+		) -> DispatchResult {
+			Ok(())
+		}
+
+		fn slash(_: &u64, _: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+			((), 0)
+		}
+
+		fn deposit_into_existing(_: &u64, _: Self::Balance) -> Result<Self::PositiveImbalance, DispatchError> {
+			Ok(())
+		}
+
+		fn deposit_creating(_: &u64, _: Self::Balance) -> Self::PositiveImbalance {
+			()
+		}
+
+		fn withdraw(
+			_: &u64,
+			_: Self::Balance,
+			_: WithdrawReasons,
+			_: frame_support::traits::ExistenceRequirement,
+		) -> Result<Self::NegativeImbalance, DispatchError> {
+			Ok(())
+		}
+
+		fn make_free_balance_be(
+			_: &u64,
+			_: Self::Balance,
+		) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
+			frame_support::traits::SignedImbalance::Positive(())
+		}
+	}
+
+	impl<T> ReservableCurrency<u64> for Pallet<T> {
+		fn can_reserve(who: &u64, amount: Self::Balance) -> bool {
+			// Account 999 is special and always has insufficient funds for testing
+			if *who == 999 {
+				return false
+			}
+			CurrencyBalance::get() >= amount
+		}
+
+		fn reserved_balance(_: &u64) -> Self::Balance {
+			0
+		}
+
+		fn reserve(who: &u64, amount: Self::Balance) -> DispatchResult {
+			if !Self::can_reserve(who, amount) {
+				return Err(DispatchError::Other("InsufficientBalance"))
+			}
+			Ok(())
+		}
+
+		fn unreserve(_: &u64, _: Self::Balance) -> Self::Balance {
+			0
+		}
+
+		fn slash_reserved(_: &u64, _: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+			((), 0)
+		}
+
+		fn repatriate_reserved(
+			_: &u64,
+			_: &u64,
+			_: Self::Balance,
+			_: frame_support::traits::BalanceStatus,
+		) -> Result<Self::Balance, DispatchError> {
+			Ok(0)
+		}
+	}
 }
