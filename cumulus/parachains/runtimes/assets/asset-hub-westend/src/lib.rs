@@ -2168,7 +2168,7 @@ impl_runtime_apis! {
 					let mut give_assets = XcmAssets::new();
 					let mut receive_assets = XcmAssets::new();
 
-					// Loop large asset types for maximum complexity
+					// Setup AssetHubWestend assets
 					for i in 0..MAX_ITEMS_IN_ASSETS {
 						let asset_id: AssetId = Location::new(1, [Parachain((2000 + i) as u32)]).into();
 						give_assets.push((asset_id.clone(), 1_000_000 * UNITS).into());
