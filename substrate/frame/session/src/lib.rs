@@ -484,7 +484,7 @@ pub mod pallet {
 			for (account, val, keys) in
 				self.keys.iter().chain(self.non_authority_keys.iter()).cloned()
 			{
-				Pallet::<T>::inner_set_keys(&val, keys)
+				Pallet::<T>::inner_set_keys(&val, keys, None)
 					.expect("genesis config must not contain duplicates; qed");
 				if frame_system::Pallet::<T>::inc_consumers_without_limit(&account).is_err() {
 					// This will leak a provider reference, however it only happens once (at
@@ -853,8 +853,9 @@ impl<T: Config> Pallet<T> {
 
 		ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
 		
-		// Check if this will be a new registration
-		let is_new_registration = Self::load_keys(&who).is_none();
+		// Load keys once to avoid redundant storage reads
+		let old_keys = Self::load_keys(&who);
+		let is_new_registration = old_keys.is_none();
 		
 		// For new registrations, ensure the account has enough funds for the deposit
 		if is_new_registration {
@@ -863,10 +864,11 @@ impl<T: Config> Pallet<T> {
 		}
 		
 		// Now that we've checked funds, proceed with setting keys
-		let old_keys = Self::inner_set_keys(&who, keys)?;
+		// Pass old_keys to avoid another storage read
+		Self::inner_set_keys(&who, keys, old_keys)?;
 		
-		// Reserve deposit if this is a new registration (no old keys)
-		if old_keys.is_none() {
+		// Reserve deposit if this is a new registration
+		if is_new_registration {
 			let deposit = T::KeyDeposit::get();
 			T::Currency::reserve(account, deposit)?;
 			
@@ -892,35 +894,33 @@ impl<T: Config> Pallet<T> {
 	fn inner_set_keys(
 		who: &T::ValidatorId,
 		keys: T::Keys,
+		old_keys_opt: Option<T::Keys>,
 	) -> Result<Option<T::Keys>, DispatchError> {
-		let old_keys = Self::load_keys(who);
-
+		// First, check for duplicates without modifying storage
 		for id in T::Keys::key_ids() {
 			let key = keys.get_raw(*id);
-
-			// ensure keys are without duplication.
 			ensure!(
 				Self::key_owner(*id, key).map_or(true, |owner| &owner == who),
 				Error::<T>::DuplicatedKey,
 			);
 		}
-
+		
+		// After all duplicate checks have passed, update storage
 		for id in T::Keys::key_ids() {
 			let key = keys.get_raw(*id);
-
-			if let Some(old) = old_keys.as_ref().map(|k| k.get_raw(*id)) {
-				if key == old {
-					continue
+			
+			if let Some(old_key) = old_keys_opt.as_ref().map(|k| k.get_raw(*id)) {
+				if key != old_key {
+					Self::clear_key_owner(*id, old_key);
+					Self::put_key_owner(*id, key, who);
 				}
-
-				Self::clear_key_owner(*id, old);
+			} else {
+				Self::put_key_owner(*id, key, who);
 			}
-
-			Self::put_key_owner(*id, key, who);
 		}
 
 		Self::put_keys(who, &keys);
-		Ok(old_keys)
+		Ok(old_keys_opt)
 	}
 
 	fn do_purge_keys(account: &T::AccountId) -> DispatchResult {
