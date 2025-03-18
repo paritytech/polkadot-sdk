@@ -1563,19 +1563,19 @@ impl<T: Config> QueryHandler for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-    /// The ongoing queries.
-    pub fn query(query_id: &QueryId) -> Option<QueryStatus<BlockNumberFor<T>>> {
-        Queries::<T>::get(query_id)
-    }
+	/// The ongoing queries.
+	pub fn query(query_id: &QueryId) -> Option<QueryStatus<BlockNumberFor<T>>> {
+		Queries::<T>::get(query_id)
+	}
 
-    /// The existing asset traps.
-    ///
-    /// Key is the blake2 256 hash of (origin, versioned `Assets`) pair.
-    /// Value is the number of times this pair has been trapped
-    /// (usually just 1 if it exists at all).
-    pub fn asset_trap(trap_id: &H256) -> u32 {
-        AssetTraps::<T>::get(trap_id)
-    }
+	/// The existing asset traps.
+	///
+	/// Key is the blake2 256 hash of (origin, versioned `Assets`) pair.
+	/// Value is the number of times this pair has been trapped
+	/// (usually just 1 if it exists at all).
+	pub fn asset_trap(trap_id: &H256) -> u32 {
+		AssetTraps::<T>::get(trap_id)
+	}
 
 	/// Find `TransferType`s for `assets` and fee identified through `fee_asset_item`, when
 	/// transferring to `dest`.
