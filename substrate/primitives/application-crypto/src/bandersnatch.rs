@@ -52,8 +52,8 @@ impl RuntimePublic for Public {
 	}
 
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
-		let sig = AppSignature::from(signature.clone());
-		let pub_key = AppPublic::from(self.clone());
+		let sig = AppSignature::from(*signature);
+		let pub_key = AppPublic::from(*self);
 		<AppPublic as CryptoType>::Pair::verify(&sig, msg.as_ref(), &pub_key)
 	}
 
@@ -64,8 +64,8 @@ impl RuntimePublic for Public {
 	}
 
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
-		let pop = AppSignature::from(pop.clone());
-		let pub_key = AppPublic::from(self.clone());
+		let pop = AppSignature::from(*pop);
+		let pub_key = AppPublic::from(*self);
 		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&pop, &pub_key)
 	}
 

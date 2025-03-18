@@ -61,8 +61,8 @@ impl RuntimePublic for Public {
 	}
 
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
-		let pop = AppSignature::from(pop.clone());
-		let pub_key = AppPublic::from(self.clone());
+		let pop = AppSignature::from(*pop);
+		let pub_key = AppPublic::from(*self);
 		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&pop, &pub_key)
 	}
 
