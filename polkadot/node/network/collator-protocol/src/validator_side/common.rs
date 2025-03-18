@@ -37,7 +37,10 @@ pub const VALID_INCLUDED_CANDIDATE_BUMP: u8 = 10;
 
 pub const INACTIVITY_SLASH: u8 = 1;
 
-pub const INSTANT_FETCH_REP_THRESHOLD: Score = 0;
+pub const INSTANT_FETCH_REP_THRESHOLD: Score = 20;
+
+// In millis
+pub const UNDER_THRESHOLD_FETCH_DELAY: u128 = 1000;
 
 pub const INVALID_COLLATION_SLASH: Score = 100;
 

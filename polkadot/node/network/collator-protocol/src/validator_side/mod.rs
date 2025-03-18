@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::time::SystemTime;
+
 use futures::{channel::oneshot, select, FutureExt, StreamExt};
 
 use sp_keystore::KeystorePtr;
@@ -329,6 +331,7 @@ impl State {
 
 		// We have a result here but it's not worth affecting reputations, because advertisements
 		// are cheap and quickly triaged.
+		let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
 		match self
 			.collation_manager
 			.try_accept_advertisement(
@@ -339,6 +342,7 @@ impl State {
 					relay_parent,
 					prospective_candidate: maybe_prospective_candidate.unwrap(),
 				},
+				now,
 			)
 			.await
 		{

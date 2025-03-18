@@ -19,7 +19,8 @@ use crate::{
 	validator_side::{
 		common::{
 			Advertisement, CollationFetchError, CollationFetchOutcome, CollationFetchResponse,
-			FetchedCollation, FAILED_FETCH_SLASH,
+			FetchedCollation, FAILED_FETCH_SLASH, INSTANT_FETCH_REP_THRESHOLD,
+			UNDER_THRESHOLD_FETCH_DELAY,
 		},
 		peer_manager::PeerManager,
 	},
@@ -43,7 +44,10 @@ use polkadot_primitives::{
 };
 use requests::PendingRequests;
 use sp_keystore::KeystorePtr;
-use std::collections::{hash_map::Entry, BTreeSet, HashMap, HashSet, VecDeque};
+use std::{
+	collections::{hash_map::Entry, BTreeSet, HashMap, HashSet, VecDeque},
+	time::{SystemTime, UNIX_EPOCH},
+};
 
 mod requests;
 
@@ -162,13 +166,14 @@ impl CollationManager {
 	pub async fn try_launch_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		_peer_manager: &PeerManager,
+		peer_manager: &PeerManager,
 	) {
 		// Advertisements and collations are up to date.
 		// Claim queue states for leaves are also up to date.
 		// Launch requests when it makes sense.
 		let mut requests = vec![];
 		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
+		let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
 		for leaf in leaves {
 			let free_slots = self.claim_queue_state.free_slots(&leaf);
@@ -186,26 +191,41 @@ impl CollationManager {
 					for advertisement in per_rp.eligible_advertisements(&para_id).filter(|adv| {
 						!self.fetching.contains(&adv.prospective_candidate.candidate_hash)
 					}) {
-						// This here may also claim a slot of another leaf if eligible.
-						if self.claim_queue_state.claim_pending_slot(
-							&advertisement.prospective_candidate.candidate_hash,
-							&advertisement.relay_parent,
-							&para_id,
-						) {
-							let req = self.fetching.launch(&advertisement);
-							requests.push(Requests::CollationFetchingV2(req));
-							continue 'per_slot
+						let Some(peer_rep) =
+							peer_manager.connected_peer_rep(&para_id, &advertisement.peer_id)
+						else {
+							// Is the peer no longer connected? Impossible, as its advertisements
+							// should no longer exist.
+							continue
+						};
+						let Some(advertisement_timestamp) =
+							per_rp.advertisement_timestamps.get(advertisement)
+						else {
+							continue
+						};
+
+						let doesnt_have_better_peers = false;
+						let time_since_advertisement = now.saturating_sub(*advertisement_timestamp);
+						if peer_rep >= INSTANT_FETCH_REP_THRESHOLD ||
+							time_since_advertisement >= UNDER_THRESHOLD_FETCH_DELAY ||
+							doesnt_have_better_peers
+						{
+							// This here may also claim a slot of another leaf if eligible.
+							if self.claim_queue_state.claim_pending_slot(
+								&advertisement.prospective_candidate.candidate_hash,
+								&advertisement.relay_parent,
+								&para_id,
+							) {
+								let req = self.fetching.launch(&advertisement);
+								requests.push(Requests::CollationFetchingV2(req));
+								continue 'per_slot
+							}
+						} else {
+							gum::debug!(
+								target: LOG_TARGET,
+								"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
+							);
 						}
-
-						// let peer_rep =
-						// 	peer_manager.connected_peer_rep(&para_id, peer_id).unwrap();
-
-						// if peer_rep >= INSTANT_FETCH_REP_THRESHOLD {
-						// 	over_threshold = Some(*advertisement);
-						// 	break 'per_rp;
-						// } else {
-						// we need to arm some timer
-						// }
 					}
 				}
 			}
@@ -230,9 +250,11 @@ impl CollationManager {
 
 		let mut cancelled_fetches = vec![];
 		for peer in peers_to_remove {
-			for collations in self.per_relay_parent.values_mut() {
-				if let Some(removed_advertisements) = collations.advertisements.remove(&peer) {
+			for per_rp in self.per_relay_parent.values_mut() {
+				if let Some(removed_advertisements) = per_rp.advertisements.remove(&peer) {
 					for advertisement in removed_advertisements {
+						per_rp.advertisement_timestamps.remove(&advertisement);
+
 						if self
 							.fetching
 							.contains(&advertisement.prospective_candidate.candidate_hash)
@@ -258,12 +280,13 @@ impl CollationManager {
 		&mut self,
 		sender: &mut Sender,
 		advertisement: Advertisement,
+		timestamp: u128,
 	) -> std::result::Result<(), AdvertisementError> {
-		let Some(collations) = self.per_relay_parent.get_mut(&advertisement.relay_parent) else {
+		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.relay_parent) else {
 			return Err(AdvertisementError::OutOfOurView)
 		};
 
-		let advertisements = collations
+		let advertisements = per_rp
 			.advertisements
 			.entry(advertisement.peer_id)
 			.or_insert_with(|| Default::default());
@@ -289,6 +312,7 @@ impl CollationManager {
 		}
 
 		advertisements.insert(advertisement);
+		per_rp.advertisement_timestamps.insert(advertisement, timestamp);
 
 		Ok(())
 	}
@@ -297,10 +321,11 @@ impl CollationManager {
 		let (advertisement, res) = res;
 		self.fetching.completed(&advertisement.prospective_candidate.candidate_hash);
 
-		let collations = self.per_relay_parent.entry(advertisement.relay_parent).or_default();
-		if let Some(advertisements) = collations.advertisements.get_mut(&advertisement.peer_id) {
+		let per_rp = self.per_relay_parent.entry(advertisement.relay_parent).or_default();
+		if let Some(advertisements) = per_rp.advertisements.get_mut(&advertisement.peer_id) {
 			advertisements.remove(&advertisement);
 		}
+		per_rp.advertisement_timestamps.remove(&advertisement);
 
 		let outcome = match res {
 			Err(CollationFetchError::Cancelled) => {
@@ -409,7 +434,7 @@ impl CollationManager {
 
 				// It can't be a duplicate, because we check before initiating fetch. TODO: with the
 				// old protocol version, it can be.
-				collations.fetched_collations.insert(
+				per_rp.fetched_collations.insert(
 					advertisement.prospective_candidate.candidate_hash,
 					advertisement.peer_id,
 				);
@@ -456,6 +481,7 @@ impl CollationManager {
 #[derive(Default)]
 struct PerRelayParent {
 	advertisements: HashMap<PeerId, HashSet<Advertisement>>,
+	advertisement_timestamps: HashMap<Advertisement, u128>,
 	// Only kept to make sure that we don't re-request the same collations and so that we know who
 	// to punish for supplying an invalid collation.
 	fetched_collations: HashMap<CandidateHash, PeerId>,
