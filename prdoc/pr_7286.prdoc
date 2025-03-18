@@ -6,15 +6,20 @@ doc:
     This PR addresses [issue #6352](https://github.com/paritytech/polkadot-sdk/issues/6352), which proposes cleaning up the codebase by assuming that the FeatureIndex::ElasticScalingMVP feature is always enabled.
 
     ## Integration
-    - Removed the traces of the `elastic_scaling_mvp`  scaling limitation   (provisioner)
-    - Removed the traces of `inject_core_index` scaling limitation   (backing)
+    -Provisioner
+    Removed code paths that enforced the elastic_scaling_mvp limitation.
+    - Backing Module Changes
+    Eliminated the conditional injection of the core index (via inject_core_index) since dynamic core allocation is now the default behavior.
+    - Polkadot runtime parachains src-paras_inherent-tests
+    Tests have been simplified by removing calls to set_node_feature for FeatureIndex::ElasticScalingMVP.
 
     ## Review Notes
-    - The inject_core_index flag is used to support elastic scaling. When true, the core index is injected into the BackedCandidate, enabling dynamic core allocation and deallocation.
-    - I removed this check in the backing file since we assume elastic scaling is enabled.
+    - All tests now run under the assumption that elastic scaling is enabled by default, reducing complexity and potential for misconfiguration.
 
 crates:
 - name: polkadot-node-core-backing
   bump: patch
 - name: polkadot-node-core-provisioner
   bump: patch
+- name: polkadot-runtime-parachains
+	bump: patch
