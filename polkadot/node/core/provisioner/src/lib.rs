@@ -203,10 +203,7 @@ async fn handle_active_leaves_update(
 			let prospective_parachains_mode =
 				prospective_parachains_mode(sender, leaf.hash).await?;
 
-			per_session.insert(
-				session_index,
-				PerSession { prospective_parachains_mode },
-			);
+			per_session.insert(session_index, PerSession { prospective_parachains_mode });
 		}
 
 		let session_info = per_session.get(&session_index).expect("Just inserted");
@@ -280,18 +277,13 @@ async fn send_inherent_data_bg<Context>(
 			"Sending inherent data in background."
 		);
 
-		let send_result = send_inherent_data(
-			&leaf,
-			&signed_bitfields,
-			return_senders,
-			&mut sender,
-			&metrics,
-		) // Make sure call is not taking forever:
-		.timeout(SEND_INHERENT_DATA_TIMEOUT)
-		.map(|v| match v {
-			Some(r) => r,
-			None => Err(Error::SendInherentDataTimeout),
-		});
+		let send_result =
+			send_inherent_data(&leaf, &signed_bitfields, return_senders, &mut sender, &metrics) // Make sure call is not taking forever:
+				.timeout(SEND_INHERENT_DATA_TIMEOUT)
+				.map(|v| match v {
+					Some(r) => r,
+					None => Err(Error::SendInherentDataTimeout),
+				});
 
 		match send_result.await {
 			Err(err) => {
@@ -330,8 +322,9 @@ fn note_provisionable_data(
 	provisionable_data: ProvisionableData,
 ) {
 	match provisionable_data {
-		ProvisionableData::Bitfield(_, signed_bitfield) =>
-			per_relay_parent.signed_bitfields.push(signed_bitfield),
+		ProvisionableData::Bitfield(_, signed_bitfield) => {
+			per_relay_parent.signed_bitfields.push(signed_bitfield)
+		},
 		// We choose not to punish these forms of misbehavior for the time being.
 		// Risks from misbehavior are sufficiently mitigated at the protocol level
 		// via reputation changes. Punitive actions here may become desirable
@@ -413,9 +406,7 @@ async fn send_inherent_data(
 		"Selected bitfields"
 	);
 
-	let candidates =
-		select_candidates(&availability_cores, &bitfields, leaf, from_job)
-			.await?;
+	let candidates = select_candidates(&availability_cores, &bitfields, leaf, from_job).await?;
 
 	gum::trace!(
 		target: LOG_TARGET,
@@ -478,7 +469,7 @@ fn select_availability_bitfields(
 	'a: for bitfield in bitfields.iter().cloned() {
 		if bitfield.payload().0.len() != cores.len() {
 			gum::debug!(target: LOG_TARGET, ?leaf_hash, "dropping bitfield due to length mismatch");
-			continue
+			continue;
 		}
 
 		let is_better = selected
@@ -492,7 +483,7 @@ fn select_availability_bitfields(
 				?leaf_hash,
 				"dropping bitfield due to duplication - the better one is kept"
 			);
-			continue
+			continue;
 		}
 
 		for (idx, _) in cores.iter().enumerate().filter(|v| !v.1.is_occupied()) {
@@ -504,7 +495,7 @@ fn select_availability_bitfields(
 					?leaf_hash,
 					"dropping invalid bitfield - bit is set for an unoccupied core"
 				);
-				continue 'a
+				continue 'a;
 			}
 		}
 
@@ -603,7 +594,7 @@ async fn request_backable_candidates(
 				?para_id,
 				"No backable candidate returned by prospective parachains",
 			);
-			continue
+			continue;
 		}
 
 		selected_candidates.insert(para_id, response);
@@ -627,13 +618,8 @@ async fn select_candidates(
 		"before GetBackedCandidates"
 	);
 
-	let selected_candidates = request_backable_candidates(
-		availability_cores,
-		bitfields,
-		leaf,
-		sender,
-	)
-	.await?;
+	let selected_candidates =
+		request_backable_candidates(availability_cores, bitfields, leaf, sender).await?;
 	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backable candidates");
 
 	// now get the backed candidates corresponding to these candidate receipts
@@ -658,7 +644,7 @@ async fn select_candidates(
 		for candidate in para_candidates {
 			if candidate.candidate().commitments.new_validation_code.is_some() {
 				if with_validation_code {
-					break
+					break;
 				} else {
 					with_validation_code = true;
 				}
@@ -733,7 +719,7 @@ fn bitfields_indicate_availability(
 					availability_len,
 				);
 
-				return false
+				return false;
 			},
 			Some(mut bit_mut) => *bit_mut |= bitfield.payload().0[core_idx],
 		}
