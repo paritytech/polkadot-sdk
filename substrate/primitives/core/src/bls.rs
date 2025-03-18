@@ -23,10 +23,13 @@
 //! Chaum-Pedersen proof uses the same hash-to-field specified in RFC 9380 for the field of the BLS
 //! curve.
 
-use crate::crypto::{
-	CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
+use crate::{
+	crypto::{
+		CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes, SecretStringError,
+		SignatureBytes, UncheckedFrom,
+	},
+	pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 };
-use crate::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 
 use alloc::vec::Vec;
 

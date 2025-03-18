@@ -20,9 +20,8 @@
 use core::marker::PhantomData;
 
 use crate::crypto::{
-	ByteArray, CryptoType, DeriveError, DeriveJunction, Pair as PairT,
-	Public as PublicT, PublicBytes, SecretStringError,
-	Signature as SignatureT, SignatureBytes, UncheckedFrom,
+	ByteArray, CryptoType, DeriveError, DeriveJunction, Pair as PairT, Public as PublicT,
+	PublicBytes, SecretStringError, Signature as SignatureT, SignatureBytes, UncheckedFrom,
 };
 
 use crate::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};

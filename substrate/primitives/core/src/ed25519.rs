@@ -17,11 +17,13 @@
 
 //! Simple Ed25519 API.
 
-use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction,
-	Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes,
+use crate::{
+	crypto::{
+		ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+		PublicBytes, SecretStringError, SignatureBytes,
+	},
+	pop::NonAggregatable,
 };
-use crate::pop::NonAggregatable;
 
 use ed25519_zebra::{SigningKey, VerificationKey};
 
@@ -161,8 +163,10 @@ mod tests {
 	use super::*;
 	#[cfg(feature = "serde")]
 	use crate::crypto::Ss58Codec;
-	use crate::crypto::DEV_PHRASE;
-	use crate::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+	use crate::{
+		crypto::DEV_PHRASE,
+		pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	};
 	use serde_json;
 
 	#[test]

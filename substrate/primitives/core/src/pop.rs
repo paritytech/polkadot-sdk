@@ -17,7 +17,7 @@
 
 //! Utilities for proving possession of a particular public key
 
-use crate::crypto::{CryptoType, Pair, ByteArray};
+use crate::crypto::{ByteArray, CryptoType, Pair};
 
 /// The context which attached to pop message to attest its purpose.
 pub const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
@@ -37,9 +37,9 @@ where
 	/// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
 	///   signatures against rogue-key attacks. In , Annual {{International Conference}} on the
 	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer.
-    /// While we enforce hash context separation at the library level in aggregatable schemes, it
-    /// remains as an advisory for the default implementation using signature API used for
-    /// non-aggregatable schemes
+	/// While we enforce hash context separation at the library level in aggregatable schemes, it
+	/// remains as an advisory for the default implementation using signature API used for
+	/// non-aggregatable schemes
 	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self) -> Self::Signature {
 		let pub_key_as_bytes = self.public().to_raw_vec();

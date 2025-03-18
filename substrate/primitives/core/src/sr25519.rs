@@ -22,10 +22,10 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{
-	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError,
+use crate::{
+	crypto::{CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError},
+	pop::NonAggregatable,
 };
-use crate::pop::NonAggregatable;
 
 use alloc::vec::Vec;
 #[cfg(feature = "full_crypto")]
@@ -592,10 +592,7 @@ pub mod vrf {
 mod tests {
 	use super::{vrf::*, *};
 	use crate::{
-		crypto::{
-			Ss58Codec, VrfPublic, VrfSecret,
-			DEV_ADDRESS, DEV_PHRASE,
-		},
+		crypto::{Ss58Codec, VrfPublic, VrfSecret, DEV_ADDRESS, DEV_PHRASE},
 		pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 		ByteArray as _,
 	};

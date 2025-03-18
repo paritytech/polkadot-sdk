@@ -22,11 +22,13 @@
 
 #[cfg(feature = "full_crypto")]
 use crate::crypto::VrfSecret;
-use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction,
-	Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
+use crate::{
+	crypto::{
+		ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+		PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
+	},
+	pop::NonAggregatable,
 };
-use crate::pop::NonAggregatable;
 
 use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
@@ -784,10 +786,10 @@ pub mod ring_vrf {
 #[cfg(test)]
 mod tests {
 	use super::{ring_vrf::*, vrf::*, *};
-	use crate::crypto::{
-		VrfPublic, VrfSecret, DEV_PHRASE,
+	use crate::{
+		crypto::{VrfPublic, VrfSecret, DEV_PHRASE},
+		pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	};
-	use crate::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 
 	const DEV_SEED: &[u8; SEED_SERIALIZED_SIZE] = &[0xcb; SEED_SERIALIZED_SIZE];
 	const TEST_DOMAIN_SIZE: u32 = 1024;

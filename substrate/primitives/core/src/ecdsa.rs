@@ -17,11 +17,13 @@
 
 //! Simple ECDSA secp256k1 API.
 
-use crate::crypto::{
-	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	PublicBytes, SecretStringError, SignatureBytes,
+use crate::{
+	crypto::{
+		CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes,
+		SecretStringError, SignatureBytes,
+	},
+	pop::NonAggregatable,
 };
-use crate::pop::NonAggregatable;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -332,11 +334,13 @@ impl NonAggregatable for Pair {}
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::crypto::{
-		set_default_ss58_version, PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry,
-		Ss58Codec, DEV_PHRASE,
+	use crate::{
+		crypto::{
+			set_default_ss58_version, PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry,
+			Ss58Codec, DEV_PHRASE,
+		},
+		pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	};
-	use crate::pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 	use serde_json;
 
 	#[test]
