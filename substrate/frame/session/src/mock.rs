@@ -31,7 +31,10 @@ use sp_state_machine::BasicExternalities;
 
 use frame_support::{
 	derive_impl, parameter_types, traits::{ConstU64, WithdrawReasons, Currency, ReservableCurrency, 
-	SignedImbalance, NamedReservableCurrency, BalanceStatus}
+	SignedImbalance, tokens::{fungible::{
+		hold::{Mutate as HoldMutate, Inspect as HoldInspect, Unbalanced as UnbalancedHold},
+		Inspect as FungibleInspect, Unbalanced as FungibleUnbalanced, Dust
+	}, Preservation, Fortitude}}, 
 };
 
 impl_opaque_keys! {
@@ -263,10 +266,10 @@ pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 pub type SessionKeysId = [u8; 12];
 pub const TEST_SESSION_KEYS_ID: SessionKeysId = *b"session_keys";
 
-// Define TestReserveIdentifier with the necessary traits
+// Define TestHoldReason with the necessary traits
 #[derive(Debug, Clone, PartialEq, Eq, codec::Encode, codec::Decode, scale_info::TypeInfo)]
-pub struct TestReserveIdentifier;
-impl Get<SessionKeysId> for TestReserveIdentifier {
+pub struct TestHoldReason;
+impl Get<SessionKeysId> for TestHoldReason {
 	fn get() -> SessionKeysId {
 		TEST_SESSION_KEYS_ID
 	}
@@ -288,7 +291,7 @@ impl Config for Test {
 		disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
 	type Currency = pallet_balances::Pallet<Test>;
-	type ReserveIdentifier = TestReserveIdentifier;
+	type HoldReason = TestHoldReason;
 	type KeyDeposit = KeyDeposit;
 }
 
@@ -301,6 +304,10 @@ impl crate::historical::Config for Test {
 pub mod pallet_balances {
 	use super::*;
 	use frame_support::pallet_prelude::*;
+	use frame_support::traits::{
+		tokens::{WithdrawConsequence, Provenance, DepositConsequence},
+		fungible::Dust,
+	};
 
 	pub struct Pallet<T>(core::marker::PhantomData<T>);
 
@@ -466,12 +473,76 @@ pub mod pallet_balances {
 		}
 	}
 	
-	impl<T> NamedReservableCurrency<u64> for Pallet<T> {
-		type ReserveIdentifier = [u8; 12];
+	impl<T> FungibleInspect<u64> for Pallet<T> {
+		type Balance = u64;
 		
-		fn reserved_balance_named(id: &Self::ReserveIdentifier, who: &u64) -> Self::Balance {
+		fn total_issuance() -> Self::Balance {
+			CurrencyBalance::get()
+		}
+		
+		fn minimum_balance() -> Self::Balance {
+			0
+		}
+		
+		fn balance(_who: &u64) -> Self::Balance {
+			CurrencyBalance::get()
+		}
+		
+		fn total_balance(_who: &u64) -> Self::Balance {
+			CurrencyBalance::get()
+		}
+		
+		fn reducible_balance(
+			_who: &u64, 
+			_keep_alive: Preservation, 
+			_force: Fortitude,
+		) -> Self::Balance {
+			CurrencyBalance::get()
+		}
+		
+		fn can_deposit(
+			_who: &u64,
+			_amount: Self::Balance,
+			_provenance: Provenance,
+		) -> DepositConsequence {
+			DepositConsequence::Success
+		}
+		
+		fn can_withdraw(
+			who: &u64,
+			amount: Self::Balance,
+		) -> WithdrawConsequence<Self::Balance> {
+			if *who == 999 || amount > CurrencyBalance::get() {
+				WithdrawConsequence::BalanceLow
+			} else {
+				WithdrawConsequence::Success
+			}
+		}
+	}
+	
+	impl<T> FungibleUnbalanced<u64> for Pallet<T> {
+		fn handle_dust(_dust: Dust<u64, Self>) {
+			// No-op in mock
+		}
+		
+		fn write_balance(
+			_who: &u64, 
+			_amount: Self::Balance
+		) -> Result<Option<Self::Balance>, DispatchError> {
+			Ok(None)
+		}
+		
+		fn set_total_issuance(_amount: Self::Balance) {
+			// No-op in mock
+		}
+	}
+	
+	impl<T> HoldInspect<u64> for Pallet<T> {
+		type Reason = SessionKeysId;
+		
+		fn balance_on_hold(reason: &Self::Reason, who: &u64) -> Self::Balance {
 			// Convert fixed array to Vec for lookup
-			let id_vec = id.to_vec();
+			let id_vec = reason.to_vec();
 			
 			ReservedBalances::get()
 				.get(who)
@@ -480,81 +551,42 @@ pub mod pallet_balances {
 				.unwrap_or(0)
 		}
 		
-		fn slash_reserved_named(
-			_id: &Self::ReserveIdentifier,
-			_who: &u64,
-			_amount: Self::Balance,
-		) -> (Self::NegativeImbalance, Self::Balance) {
-			((), 0)
+		fn total_balance_on_hold(who: &u64) -> Self::Balance {
+			// Sum up all held balances for the account
+			ReservedBalances::get()
+				.get(who)
+				.map(|holds| holds.values().sum())
+				.unwrap_or(0)
 		}
 		
-		fn reserve_named(
-			id: &Self::ReserveIdentifier,
+		fn can_hold(_reason: &Self::Reason, who: &u64, amount: Self::Balance) -> bool {
+			// Account 999 is special and always has insufficient funds for testing
+			if *who == 999 {
+				return false
+			}
+			CurrencyBalance::get() >= amount
+		}
+	}
+	
+	impl<T> UnbalancedHold<u64> for Pallet<T> {
+		fn set_balance_on_hold(
+			reason: &Self::Reason,
 			who: &u64,
 			amount: Self::Balance,
 		) -> DispatchResult {
-			if !Self::can_reserve(who, amount) {
-				return Err(DispatchError::Other("InsufficientBalance"))
-			}
-			
 			// Convert fixed array to Vec for storage
-			let id_vec = id.to_vec();
+			let id_vec = reason.to_vec();
 			
-			// Update the reserved balance
+			// Update the held balance
 			ReservedBalances::mutate(|balances| {
-				let account_reserves = balances.entry(*who).or_insert_with(BTreeMap::new);
-				let reserved = account_reserves.entry(id_vec).or_insert(0);
-				*reserved += amount;
+				let account_holds = balances.entry(*who).or_insert_with(BTreeMap::new);
+				account_holds.insert(id_vec, amount);
 			});
 			
 			Ok(())
 		}
-		
-		fn unreserve_named(
-			id: &Self::ReserveIdentifier,
-			who: &u64,
-			amount: Self::Balance,
-		) -> Self::Balance {
-			// Convert fixed array to Vec for lookup/storage
-			let id_vec = id.to_vec();
-			
-			// Get the current reserved amount
-			let mut remaining = amount;
-			ReservedBalances::mutate(|balances| {
-				if let Some(account_reserves) = balances.get_mut(who) {
-					if let Some(reserved) = account_reserves.get_mut(&id_vec) {
-						if *reserved >= amount {
-							*reserved -= amount;
-							remaining = 0;
-						} else {
-							remaining = amount - *reserved;
-							*reserved = 0;
-						}
-						
-						// Clean up empty reserves
-						if *reserved == 0 {
-							account_reserves.remove(&id_vec);
-						}
-					}
-					
-					// Clean up empty accounts
-					if account_reserves.is_empty() {
-						balances.remove(who);
-					}
-				}
-			});
-			
-			remaining
-		}
-		
-		fn repatriate_reserved_named(
-			_id: &Self::ReserveIdentifier,
-			_slashed: &u64,
-			_beneficiary: &u64,
-			_amount: Self::Balance,
-			_status: BalanceStatus,
-		) -> Result<Self::Balance, DispatchError> {
-			Ok(0)
-		}
 	}
+	
+	impl<T> HoldMutate<u64> for Pallet<T> {}
 }
+

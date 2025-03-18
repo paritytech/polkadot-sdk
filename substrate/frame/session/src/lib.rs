@@ -130,8 +130,8 @@ use frame_support::{
 	ensure,
 	traits::{
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
-		OneSessionHandler, ValidatorRegistration, ValidatorSet, Currency, NamedReservableCurrency,
-		ReservableCurrency,
+		OneSessionHandler, ValidatorRegistration, ValidatorSet,
+		fungible::{hold::Mutate as HoldMutate, hold::Inspect as HoldInspect, Inspect}, 
 	},
 	weights::Weight,
 	Parameter,
@@ -398,9 +398,9 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
-	/// A simple identifier for session keys.
+	/// A simple identifier for session keys hold reason.
 	#[derive(codec::Encode, codec::Decode, codec::MaxEncodedLen, scale_info::TypeInfo, Debug, PartialEq, Eq, Clone)]
-	pub struct SessionKeysReserveId;
+	pub struct SessionKeysHoldReason;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -442,19 +442,19 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		
-		/// The currency type for reserving when setting keys.
-		type Currency: NamedReservableCurrency<Self::AccountId>;
+		/// The currency type for placing holds when setting keys.
+		type Currency: HoldMutate<Self::AccountId> + Inspect<Self::AccountId>;
 		
-		/// The reserve identifier type.
-		type ReserveIdentifier: Get<<Self::Currency as NamedReservableCurrency<Self::AccountId>>::ReserveIdentifier> + TypeInfo + 'static;
+		/// The hold reason type.
+		type HoldReason: Get<<Self::Currency as HoldInspect<Self::AccountId>>::Reason> + TypeInfo + 'static;
 		
-		/// The amount to be reserved when setting keys.
+		/// The amount to be held when setting keys.
 		#[pallet::constant]
 		type KeyDeposit: Get<BalanceOf<Self>>;
 	}
 
 	// Add a type alias for the balance
-	type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -576,10 +576,10 @@ pub mod pallet {
 		ValidatorDisabled { validator: T::ValidatorId },
 		/// Validator has been re-enabled.
 		ValidatorReenabled { validator: T::ValidatorId },
-		/// Funds have been reserved for setting keys.
-		KeysFundsReserved { account: T::AccountId, amount: <<T as Config>::Currency as Currency<T::AccountId>>::Balance },
-		/// Funds have been unreserved when purging keys.
-		KeysFundsUnreserved { account: T::AccountId, amount: <<T as Config>::Currency as Currency<T::AccountId>>::Balance },
+		/// Funds have been held for setting keys.
+		KeysFundsHeld { account: T::AccountId, amount: BalanceOf<T> },
+		/// Funds have been released when purging keys.
+		KeysFundsReleased { account: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	/// Error for the session pallet.
@@ -868,11 +868,9 @@ impl<T: Config> Pallet<T> {
 		// For new registrations, ensure the account has enough funds for the deposit
 		if is_new_registration {
 			let deposit = T::KeyDeposit::get();
-			let _= T::ReserveIdentifier::get();
-			// Since NamedReservableCurrency doesn't directly expose can_reserve,
-			// we need to use the normal reserve method for checking
+			let reason = T::HoldReason::get();
 			ensure!(
-				<T::Currency as ReservableCurrency<_>>::can_reserve(account, deposit),
+				<T::Currency as HoldInspect<_>>::can_hold(&reason, account, deposit),
 				Error::<T>::InsufficientFunds
 			);
 		}
@@ -881,17 +879,17 @@ impl<T: Config> Pallet<T> {
 		// Pass old_keys to avoid another storage read
 		Self::inner_set_keys(&who, keys, old_keys)?;
 		
-		// Reserve deposit if this is a new registration
+		// Place deposit on hold if this is a new registration
 		if is_new_registration {
 			let deposit = T::KeyDeposit::get();
-			let id = T::ReserveIdentifier::get();
-			T::Currency::reserve_named(&id, account, deposit)?;
+			let reason = T::HoldReason::get();
+			T::Currency::hold(&reason, account, deposit)?;
 			
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
 			
-			// Emit an event for the reserved funds
-			Self::deposit_event(Event::<T>::KeysFundsReserved { 
+			// Emit an event for the held funds
+			Self::deposit_event(Event::<T>::KeysFundsHeld { 
 				account: account.clone(),
 				amount: deposit,
 			});
@@ -952,16 +950,17 @@ impl<T: Config> Pallet<T> {
 			Self::clear_key_owner(*id, key_data);
 		}
 		
-		// Unreserve the deposit using the named reserve
-		let deposit = T::KeyDeposit::get();
-		let id = T::ReserveIdentifier::get();
-		let _ = T::Currency::unreserve_named(&id, account, deposit);
+		// Release the deposit from hold
+		let reason = T::HoldReason::get();
 		
-		// Emit an event for the unreserved funds
-		Self::deposit_event(Event::<T>::KeysFundsUnreserved { 
-			account: account.clone(),
-			amount: deposit,
-		});
+		// Use release_all to handle the case where the exact amount might not be available
+		if let Ok(released) = T::Currency::release_all(&reason, account, frame_support::traits::tokens::Precision::BestEffort) {
+			// Emit an event for the released funds
+			Self::deposit_event(Event::<T>::KeysFundsReleased { 
+				account: account.clone(),
+				amount: released,
+			});
+		}
 		
 		frame_system::Pallet::<T>::dec_consumers(account);
 
