@@ -28,8 +28,7 @@ use scale_info::meta_type;
 use frame_support::{derive_impl, pallet_prelude::PalletInfoAccess, view_functions::ViewFunction};
 use sp_io::hashing::twox_128;
 use sp_metadata_ir::{
-	DeprecationStatusIR, PalletViewFunctionMethodMetadataIR,
-	PalletViewFunctionMethodParamMetadataIR,
+	DeprecationStatusIR, PalletViewFunctionMetadataIR, PalletViewFunctionParamMetadataIR,
 };
 use sp_runtime::testing::TestXt;
 
@@ -139,7 +138,7 @@ fn metadata_ir_definitions() {
 		pretty_assertions::assert_eq!(
 			pallet1.view_functions,
 			vec![
-				PalletViewFunctionMethodMetadataIR {
+				PalletViewFunctionMetadataIR {
 					name: "get_value",
 					id: get_value_id,
 					inputs: vec![],
@@ -147,10 +146,10 @@ fn metadata_ir_definitions() {
 					docs: vec![" Query value with no input args."],
 					deprecation_info: DeprecationStatusIR::NotDeprecated,
 				},
-				PalletViewFunctionMethodMetadataIR {
+				PalletViewFunctionMetadataIR {
 					name: "get_value_with_arg",
 					id: get_value_with_arg_id,
-					inputs: vec![PalletViewFunctionMethodParamMetadataIR {
+					inputs: vec![PalletViewFunctionParamMetadataIR {
 						name: "key",
 						ty: meta_type::<u32>()
 					},],

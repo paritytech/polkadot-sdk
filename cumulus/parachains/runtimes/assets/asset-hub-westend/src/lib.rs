@@ -101,10 +101,12 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+	Version as XcmVersion,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::PalletInfoAccess;
+
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
@@ -1339,7 +1341,7 @@ impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
 ///
 /// Ideally this would be done automatically (see
 /// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
-/// time, and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
+/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
 /// doing it manually.
 pub struct InitStorageVersions;
 
@@ -1725,8 +1727,8 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
@@ -1888,6 +1890,7 @@ impl_runtime_apis! {
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
+			use frame_support::assert_ok;
 			use sp_storage::TrackedStorageKey;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
@@ -2003,9 +2006,27 @@ impl_runtime_apis! {
 				}
 
 				fn get_asset() -> Asset {
+					use frame_benchmarking::whitelisted_caller;
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let account = whitelisted_caller();
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let asset_id = 1984;
+					assert_ok!(Assets::force_create(
+						RuntimeOrigin::root(),
+						asset_id.into(),
+						account.into(),
+						true,
+						1u128,
+					));
+					let amount = 1_000_000u128;
+					let asset_location = Location::new(0, [PalletInstance(50), GeneralIndex(u32::from(asset_id).into())]);
+
 					Asset {
-						id: AssetId(WestendLocation::get()),
-						fun: Fungible(ExistentialDeposit::get()),
+						id: AssetId(asset_location),
+						fun: Fungible(amount),
 					}
 				}
 			}
@@ -2106,9 +2127,26 @@ impl_runtime_apis! {
 				type TrustedReserve = TrustedReserve;
 
 				fn get_asset() -> Asset {
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let asset_id = 1984;
+					assert_ok!(Assets::force_create(
+						RuntimeOrigin::root(),
+						asset_id.into(),
+						account.clone().into(),
+						true,
+						1u128,
+					));
+					let amount = 1_000_000u128;
+					let asset_location = Location::new(0, [PalletInstance(50), GeneralIndex(u32::from(asset_id).into())]);
+
 					Asset {
-						id: AssetId(WestendLocation::get()),
-						fun: Fungible(UNITS),
+						id: AssetId(asset_location),
+						fun: Fungible(amount),
 					}
 				}
 			}

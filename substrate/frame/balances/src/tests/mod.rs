@@ -23,7 +23,7 @@ use crate::{
 	self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet, TotalIssuance,
 	DEFAULT_ADDRESS_URI,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
@@ -58,6 +58,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Copy,
 	Clone,
 	Eq,

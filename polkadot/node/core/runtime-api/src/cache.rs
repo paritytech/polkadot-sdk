@@ -77,6 +77,7 @@ pub(crate) struct RequestResultCache {
 	claim_queue: LruMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 	backing_constraints: LruMap<(Hash, ParaId), Option<Constraints>>,
 	scheduling_lookahead: LruMap<SessionIndex, u32>,
+	validation_code_bomb_limits: LruMap<SessionIndex, u32>,
 }
 
 impl Default for RequestResultCache {
@@ -116,6 +117,7 @@ impl Default for RequestResultCache {
 			claim_queue: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			backing_constraints: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			scheduling_lookahead: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			validation_code_bomb_limits: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -590,6 +592,16 @@ impl RequestResultCache {
 	) {
 		self.scheduling_lookahead.insert(session_index, scheduling_lookahead);
 	}
+
+	/// Cache the validation code bomb limit for a session
+	pub(crate) fn cache_validation_code_bomb_limit(&mut self, session: SessionIndex, limit: u32) {
+		self.validation_code_bomb_limits.insert(session, limit);
+	}
+
+	/// Get the validation code bomb limit for a session if cached
+	pub(crate) fn validation_code_bomb_limit(&mut self, session: SessionIndex) -> Option<u32> {
+		self.validation_code_bomb_limits.get(&session).copied()
+	}
 }
 
 pub(crate) enum RequestResult {
@@ -642,4 +654,5 @@ pub(crate) enum RequestResult {
 	CandidatesPendingAvailability(Hash, ParaId, Vec<CommittedCandidateReceipt>),
 	BackingConstraints(Hash, ParaId, Option<Constraints>),
 	SchedulingLookahead(SessionIndex, u32),
+	ValidationCodeBombLimit(SessionIndex, u32),
 }

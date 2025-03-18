@@ -28,8 +28,8 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Inspect, Mutate, Mutate as FunMutate,
 		},
-		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, OnUnbalanced, UnixTime,
+		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		InspectLockableCurrency, Nothing, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedBTreeSet, BoundedVec,
@@ -71,6 +71,7 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 
 	use crate::{BenchmarkingConfig, PagedExposureMetadata, SnapshotStatus};
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
@@ -120,6 +121,8 @@ pub mod pallet {
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
 			+ codec::FullCodec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Copy
 			+ MaybeSerializeDeserialize
 			+ core::fmt::Debug
@@ -331,6 +334,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
+		#[pallet::no_default_bounds]
+		/// Filter some accounts from participating in staking.
+		///
+		/// This is useful for example to blacklist an account that is participating in staking in
+		/// another way (such as pools).
+		type Filter: Contains<Self::AccountId>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -390,6 +400,7 @@ pub mod pallet {
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxDisabledValidators = ConstU32<100>;
 			type EventListeners = ();
+			type Filter = Nothing;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -1145,6 +1156,9 @@ pub mod pallet {
 		AlreadyMigrated,
 		/// Era not yet started.
 		EraNotStarted,
+		/// Account is restricted from participation in staking. This may happen if the account is
+		/// staking in another way already, such as via pool.
+		Restricted,
 	}
 
 	#[pallet::hooks]
@@ -1402,6 +1416,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
@@ -1449,6 +1465,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -2032,6 +2049,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
+
+			ensure!(!T::Filter::contains(&ledger.stash), Error::<T>::Restricted);
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
@@ -2587,6 +2606,64 @@ pub mod pallet {
 			slashing::apply_slash::<T>(unapplied_slash, slash_era);
 
 			Ok(Pays::No.into())
+		}
+
+		/// This function allows governance to manually slash a validator and is a
+		/// **fallback mechanism**.
+		///
+		/// The dispatch origin must be `T::AdminOrigin`.
+		///
+		/// ## Parameters
+		/// - `validator_stash` - The stash account of the validator to slash.
+		/// - `era` - The era in which the validator was in the active set.
+		/// - `slash_fraction` - The percentage of the stake to slash, expressed as a Perbill.
+		///
+		/// ## Behavior
+		///
+		/// The slash will be applied using the standard slashing mechanics, respecting the
+		/// configured `SlashDeferDuration`.
+		///
+		/// This means:
+		/// - If the validator was already slashed by a higher percentage for the same era, this
+		///   slash will have no additional effect.
+		/// - If the validator was previously slashed by a lower percentage, only the difference
+		///   will be applied.
+		/// - The slash will be deferred by `SlashDeferDuration` eras before being enacted.
+		#[pallet::call_index(33)]
+		#[pallet::weight(T::WeightInfo::manual_slash())]
+		pub fn manual_slash(
+			origin: OriginFor<T>,
+			validator_stash: T::AccountId,
+			era: EraIndex,
+			slash_fraction: Perbill,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			// Check era is valid
+			let current_era = CurrentEra::<T>::get().ok_or(Error::<T>::InvalidEraToReward)?;
+			let history_depth = T::HistoryDepth::get();
+			ensure!(
+				era <= current_era && era >= current_era.saturating_sub(history_depth),
+				Error::<T>::InvalidEraToReward
+			);
+
+			let offence_details = sp_staking::offence::OffenceDetails {
+				offender: validator_stash.clone(),
+				reporters: Vec::new(),
+			};
+
+			// Get the session index for the era
+			let session_index =
+				ErasStartSessionIndex::<T>::get(era).ok_or(Error::<T>::InvalidEraToReward)?;
+
+			// Create the offence and report it through on_offence system
+			let _ = Self::on_offence(
+				core::iter::once(offence_details),
+				&[slash_fraction],
+				session_index,
+			);
+
+			Ok(())
 		}
 	}
 }
