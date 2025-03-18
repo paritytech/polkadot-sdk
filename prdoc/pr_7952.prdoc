@@ -1,0 +1,20 @@
+title: Add expensive scenario for asset exchange
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces an implementation for `worst_case_asset_exchange()` in the `AssetHubWestend` benchmarking setup, partially addressing #7943.
+
+    ### **Key Changes**
+    - Implemented `worst_case_asset_exchange()` to model a maximum workload scenario.
+    - This lays the groundwork for generating accurate weight benchmarks in subsequent steps.
+
+    ### **Integration Notes**
+    - This change should have minimal impact on existing functionality since `worst_case_asset_exchange()` was previously unimplemented.
+    - Future integration steps include generating weights, backporting changes to stable2503, and deploying on `AssetHubWestend`.
+
+    ### **Review Notes**
+    - Reviewers should focus on the logic for constructing the "worst case" asset exchange scenario.
+    - Suggestions for improving complexity modelling or ensuring edge case coverage are welcome.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
