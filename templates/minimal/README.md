@@ -213,7 +213,7 @@ Previously minimal template's development chains:
 
 ## Getting Help
 
-- 🧑‍🏫 To learn about Polkadot in general, [docs.polkadot.com](https://docs.polkadot.com/) website is a good starting point.
+- 🧑‍🏫 To learn about Polkadot in general, [docs.Polkadot.com](https://docs.polkadot.com/) website is a good starting point.
 
 - 🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are
 the Polkadot SDK documentation resources.
