@@ -5,6 +5,7 @@ doc:
     description: |
       Transfering certain ERC20 tokens require more gas than 100_000 gas. An example is LDO token which requires 140_000 gas.
       This change updates the gas limit to 200_000 and also updates the default fees for testnet runtimes.
+      NOTE: make sure to update the relevant runtime fees to account for this change.
 
 crates:
   - name: asset-hub-westend-runtime
