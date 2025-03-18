@@ -106,6 +106,8 @@ parameter_types! {
 	pub static ValidatorAccounts: BTreeMap<u64, u64> = BTreeMap::new();
 	pub static CurrencyBalance: u64 = 100;
 	pub const KeyDeposit: u64 = 10;
+	// Track reserved balances for test accounts
+	pub static ReservedBalances: BTreeMap<u64, u64> = BTreeMap::new();
 }
 
 pub struct TestShouldEndSession;
@@ -281,7 +283,7 @@ impl crate::historical::Config for Test {
 	type FullIdentificationOf = sp_runtime::traits::ConvertInto;
 }
 
-mod pallet_balances {
+pub mod pallet_balances {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 
@@ -376,19 +378,39 @@ mod pallet_balances {
 			CurrencyBalance::get() >= amount
 		}
 
-		fn reserved_balance(_: &u64) -> Self::Balance {
-			0
+		fn reserved_balance(who: &u64) -> Self::Balance {
+			ReservedBalances::get().get(who).cloned().unwrap_or(0)
 		}
 
 		fn reserve(who: &u64, amount: Self::Balance) -> DispatchResult {
 			if !Self::can_reserve(who, amount) {
 				return Err(DispatchError::Other("InsufficientBalance"))
 			}
+			
+			// Update the reserved balance
+			ReservedBalances::mutate(|balances| {
+				let reserved = balances.entry(*who).or_insert(0);
+				*reserved += amount;
+			});
+			
 			Ok(())
 		}
 
-		fn unreserve(_: &u64, _: Self::Balance) -> Self::Balance {
-			0
+		fn unreserve(who: &u64, amount: Self::Balance) -> Self::Balance {
+			// Get the current reserved amount
+			let mut remaining = amount;
+			ReservedBalances::mutate(|balances| {
+				let reserved = balances.entry(*who).or_insert(0);
+				if *reserved >= amount {
+					*reserved -= amount;
+					remaining = 0;
+				} else {
+					remaining = amount - *reserved;
+					*reserved = 0;
+				}
+			});
+			
+			remaining
 		}
 
 		fn slash_reserved(_: &u64, _: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {

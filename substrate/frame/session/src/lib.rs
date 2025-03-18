@@ -442,8 +442,11 @@ pub mod pallet {
 		
 		/// The amount to be reserved when setting keys.
 		#[pallet::constant]
-		type KeyDeposit: Get<<Self::Currency as Currency<Self::AccountId>>::Balance>;
+		type KeyDeposit: Get<BalanceOf<Self>>;
 	}
+
+	// Add a type alias for the balance
+	type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
