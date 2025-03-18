@@ -78,17 +78,7 @@
 
 extern crate alloc;
 
-use frame_support::traits::{
-	fungible::{self, Inspect as FunInspect, Mutate as FunMutate},
-	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
-};
-pub use pallet::*;
-use sp_arithmetic::{traits::Unsigned, RationalArg};
-use sp_core::TypedGet;
-use sp_runtime::{
-	traits::{Convert, ConvertBack},
-	DispatchError, Perquintill,
-};
+pub mod weights;
 
 mod benchmarking;
 pub mod migration;
@@ -96,7 +86,21 @@ pub mod migration;
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod weights;
+
+pub use pallet::*;
+pub use weights::WeightInfo;
+
+use alloc::{vec, vec::Vec};
+use frame::prelude::*;
+use fungible::{
+	Balanced as FunBalanced, Inspect as FunInspect, Mutate as FunMutate,
+	MutateHold as FunMutateHold,
+};
+use nonfungible::{Inspect as NftInspect, Transfer as NftTransfer};
+use tokens::{Balance, Restriction::*};
+use Fortitude::*;
+use Precision::*;
+use Preservation::*;
 
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::nis";
@@ -173,36 +177,9 @@ impl BenchmarkSetup for () {
 	fn create_counterpart_asset() {}
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
-	use super::{FunInspect, FunMutate};
-	pub use crate::weights::WeightInfo;
-	use alloc::{vec, vec::Vec};
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{
-			fungible::{self, hold::Mutate as FunHoldMutate, Balanced as FunBalanced},
-			nonfungible::{Inspect as NftInspect, Transfer as NftTransfer},
-			tokens::{
-				Balance,
-				Fortitude::Polite,
-				Precision::{BestEffort, Exact},
-				Preservation::Expendable,
-				Restriction::{Free, OnHold},
-			},
-			Defensive, DefensiveSaturating, OnUnbalanced,
-		},
-		PalletId,
-	};
-	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, *};
-	use sp_arithmetic::{PerThing, Perquintill};
-	use sp_runtime::{
-		traits::{
-			AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, Saturating,
-			Zero,
-		},
-		Rounding, TokenError,
-	};
+	use super::*;
 
 	pub(crate) type BlockNumberFor<T> =
 		<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
@@ -233,7 +210,7 @@ pub mod pallet {
 		type Currency: FunInspect<Self::AccountId, Balance = Self::CurrencyBalance>
 			+ FunMutate<Self::AccountId>
 			+ FunBalanced<Self::AccountId>
-			+ FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+			+ FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;

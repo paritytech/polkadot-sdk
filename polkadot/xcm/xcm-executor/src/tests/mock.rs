@@ -17,7 +17,7 @@
 //! Mock types and XcmConfig for all executor unit tests.
 
 use alloc::collections::btree_map::BTreeMap;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cell::RefCell;
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
@@ -64,7 +64,9 @@ pub struct TestOrigin;
 ///
 /// Doesn't dispatch anything, has an empty implementation of [`Dispatchable`] that
 /// just returns `Ok` with an empty [`PostDispatchInfo`].
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo)]
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
+)]
 pub struct TestCall;
 impl Dispatchable for TestCall {
 	type RuntimeOrigin = TestOrigin;
@@ -286,6 +288,7 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = TestCall;
 	type XcmSender = TestSender;
+	type XcmEventEmitter = ();
 	type AssetTransactor = TestAssetTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();
