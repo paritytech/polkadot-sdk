@@ -2164,9 +2164,9 @@ impl_runtime_apis! {
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
 					use xcm::latest::MAX_ITEMS_IN_ASSETS;
 
-					let wnd: Location = Parent.into();
+					let relay_location = WestendLocation::get();
 					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
-					let signed_origin = RuntimeOrigin::signed(account.clone());
+					let origin = RuntimeOrigin::signed(account.clone());
 
 					// Simulate the maximum possible assets for 'give' and 'receive'
 					let mut give_assets = XcmAssets::new();
@@ -2174,38 +2174,30 @@ impl_runtime_apis! {
 
 					// Setup assets and pools
 					for i in 0..MAX_ITEMS_IN_ASSETS {
-						let asset_id: AssetId = Location::new(1, [Parachain((2000 + i) as u32)]).into();
+						let asset_location = Location::new(1, [Parachain((2000 + i) as u32)]);
+						let asset_id = AssetId(asset_location.clone());
 
 						// Mint foreign asset
-						assert_ok!(ForeignAssets::mint(
-							signed_origin.clone(),
-							asset_id.clone().into(),
-							account.clone().into(),
-							3 * UNITS,
-						));
-
+						ForeignAssets::mint(origin.clone(), asset_location.clone().into(), account.clone().into(), 3_000 * UNITS)
+							.map_err(|_| BenchmarkError::Override)?;
 						// Create pool
-						assert_ok!(AssetConversion::create_pool(
-							signed_origin.clone(),
-							wnd.clone().into(),
-							asset_id.clone().into(),
-						));
-
+						AssetConversion::create_pool(origin.clone(), relay_location.clone().into(), asset_location.clone().into())
+							.map_err(|_| BenchmarkError::Override)?;
 						// Add liquidity
-						assert_ok!(AssetConversion::add_liquidity(
-							signed_origin.clone(),
-							wnd.clone().into(),
-							asset_id.clone().into(),
-							1 * UNITS,  // wnd amount
-							2 * UNITS,  // asset_id amount
-							1,          // min wnd
-							1,          // min asset_id
+						AssetConversion::add_liquidity(
+							origin.clone(),
+							relay_location.clone().into(),
+							asset_location.clone().into(),
+							1_000 * UNITS,
+							2_000 * UNITS,
+							1,
+							1,
 							account.clone().into(),
-						));
+						)
+						.map_err(|_| BenchmarkError::Override)?;
 
-						// Adjust give/receive to match pool ratio (1 wnd : 2 asset_id)
-						give_assets.push((wnd.clone().into(), 1 * UNITS).into());      // Give 1 wnd
-						receive_assets.push((asset_id.clone(), 2 * UNITS).into());    // Receive 2 asset_id
+						give_assets.push((AssetId(relay_location.clone()), 1_000 * UNITS).into());
+						receive_assets.push((asset_id, 2_000 * UNITS).into());
 					}
 
 					Ok((give_assets.into(), receive_assets.into()))
