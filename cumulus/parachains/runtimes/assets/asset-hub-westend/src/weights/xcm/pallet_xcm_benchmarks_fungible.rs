@@ -176,31 +176,6 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
 	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	// Storage: `Assets::Asset` (r:1 w:1)
-	// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-	// Storage: `Assets::Account` (r:1 w:1)
-	// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-	// Storage: `System::Account` (r:1 w:1)
-	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
-	// Proof: `ParachainSystem::HostConfiguration` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	// Storage: `ParachainSystem::PendingUpwardMessages` (r:1 w:1)
-	// Proof: `ParachainSystem::PendingUpwardMessages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	pub fn deposit_reserve_asset() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `425`
-		//  Estimated: `3890`
-		// Minimum execution time: 70_293_000 picoseconds.
-		Weight::from_parts(73_276_000, 3890)
-			.saturating_add(T::DbWeight::get().reads(8))
-			.saturating_add(T::DbWeight::get().writes(4))
-	}
-	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
-	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
-	// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)
-	// Proof: `PolkadotXcm::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	// Storage: `Assets::Asset` (r:1 w:0)
 	// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
 	// Storage: `ParachainSystem::HostConfiguration` (r:1 w:0)
