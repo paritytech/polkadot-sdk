@@ -239,13 +239,6 @@ mod enter {
 		let config = default_config();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				injected_core,
-			)
-			.unwrap();
 
 			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
@@ -348,13 +341,6 @@ mod enter {
 		let config = default_config();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
-			)
-			.unwrap();
 
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
@@ -1702,14 +1688,6 @@ mod enter {
 		let config = default_config();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
-			)
-			.unwrap();
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -1771,13 +1749,6 @@ mod enter {
 		let config = default_config();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
 
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
@@ -1838,14 +1809,6 @@ mod enter {
 		let config = default_config();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -1901,14 +1864,6 @@ mod enter {
 		let config = default_config();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
-			)
-			.unwrap();
-
 			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
@@ -1955,14 +1910,6 @@ mod enter {
 		let config = default_config();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
-			)
-			.unwrap();
-
 			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
@@ -2022,14 +1969,6 @@ mod enter {
 		let config = default_config();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
-			)
-			.unwrap();
-
 			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
@@ -2095,14 +2034,6 @@ mod enter {
 		let config = default_config();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
-			)
-			.unwrap();
-
 			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
