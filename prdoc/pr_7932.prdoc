@@ -1,0 +1,9 @@
+title: Removed pallet::getter from pallet-election-provider-multi-block
+doc:
+  - audience: Runtime Dev
+    description: |
+      This pr removes all pallet::getter occurrences from pallet-election-provider-multi-block, replacing them with explicit implementations.
+
+crates:
+  - name: pallet-election-provider-multi-block
+    bump: patch
