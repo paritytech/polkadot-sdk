@@ -23,13 +23,8 @@ use frame_support::{
 	traits::fungible::{Inspect, Mutate},
 	weights::Weight,
 };
-<<<<<<< HEAD
-use sp_runtime::traits::{Bounded, Zero};
-use xcm::latest::{prelude::*, MAX_ITEMS_IN_ASSETS};
-=======
 use sp_runtime::traits::Bounded;
-use xcm::latest::{prelude::*, AssetTransferFilter, MAX_ITEMS_IN_ASSETS};
->>>>>>> c4b8ec12 (Use non-native token to benchmark xcm on asset hub (#7893))
+use xcm::latest::{prelude::*, MAX_ITEMS_IN_ASSETS};
 use xcm_executor::traits::{ConvertLocation, FeeReason, TransactAsset};
 
 benchmarks_instance_pallet! {
@@ -266,10 +261,6 @@ benchmarks_instance_pallet! {
 		// Add our asset to the holding.
 		holding.push(asset.clone());
 
-<<<<<<< HEAD
-		// Checked account starts at zero
-		assert!(T::CheckedAccount::get().map_or(true, |(c, _)| T::TransactAsset::balance(&c).is_zero()));
-=======
 		let dest_location =  T::valid_destination()?;
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
@@ -278,7 +269,6 @@ benchmarks_instance_pallet! {
 			&dest_location,
 			FeeReason::ChargeFees,
 		);
->>>>>>> c4b8ec12 (Use non-native token to benchmark xcm on asset hub (#7893))
 
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding.into());
@@ -293,42 +283,6 @@ benchmarks_instance_pallet! {
 	} verify {
 	}
 
-<<<<<<< HEAD
-=======
-	initiate_transfer {
-		let (sender_account, sender_location) = account_and_location::<T>(1);
-		let asset = T::get_asset();
-		let mut holding = T::worst_case_holding(1);
-		let dest_location =  T::valid_destination()?;
-
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
-			&sender_location,
-			&dest_location,
-			FeeReason::ChargeFees,
-		);
-
-		// Add our asset to the holding.
-		holding.push(asset.clone());
-
-		let mut executor = new_executor::<T>(sender_location);
-		executor.set_holding(holding.into());
-		let instruction = Instruction::<XcmCallOf<T>>::InitiateTransfer {
-			destination: dest_location,
-			// ReserveDeposit is the most expensive filter.
-			remote_fees: Some(AssetTransferFilter::ReserveDeposit(asset.clone().into())),
-			// It's more expensive if we reanchor the origin.
-			preserve_origin: true,
-			assets: vec![AssetTransferFilter::ReserveDeposit(asset.into())],
-			remote_xcm: Xcm::new(),
-		};
-		let xcm = Xcm(vec![instruction]);
-	}: {
-		executor.bench_process(xcm)?;
-	} verify {
-	}
-
->>>>>>> c4b8ec12 (Use non-native token to benchmark xcm on asset hub (#7893))
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::fungible::mock::new_test_ext(),
