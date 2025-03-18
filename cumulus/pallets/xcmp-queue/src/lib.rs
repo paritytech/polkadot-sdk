@@ -48,7 +48,10 @@ mod benchmarking;
 #[cfg(feature = "bridging")]
 pub mod bridging;
 pub mod weights;
+pub mod weights_ext;
+
 pub use weights::WeightInfo;
+pub use weights_ext::WeightInfoExt;
 
 extern crate alloc;
 
@@ -164,7 +167,7 @@ pub mod pallet {
 		type PriceForSiblingDelivery: PriceForMessageDelivery<Id = ParaId>;
 
 		/// The weight information of this pallet.
-		type WeightInfo: WeightInfo;
+		type WeightInfo: WeightInfoExt;
 	}
 
 	#[pallet::call]
