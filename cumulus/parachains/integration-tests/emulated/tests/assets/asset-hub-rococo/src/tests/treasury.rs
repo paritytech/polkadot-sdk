@@ -83,7 +83,7 @@ fn spend_roc_on_asset_hub() {
 			})),
 		});
 
-		// Dispatched from Root to `despatch_as` `Signed(treasury_account)`.
+		// Dispatched from Root to `dispatch_as` `Signed(treasury_account)`.
 		assert_ok!(teleport_call.dispatch(root));
 
 		assert_expected_events!(

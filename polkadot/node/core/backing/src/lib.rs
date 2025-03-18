@@ -233,7 +233,6 @@ struct PerRelayParentState {
 	fallbacks: HashMap<CandidateHash, AttestingData>,
 	/// The minimum backing votes threshold.
 	minimum_backing_votes: u32,
-	/// ElasticScalingMVP is enabled.
 	/// The number of cores.
 	n_cores: u32,
 	/// Claim queue state. If the runtime API is not available, it'll be populated with info from
