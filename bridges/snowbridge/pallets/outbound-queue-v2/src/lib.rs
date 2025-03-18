@@ -230,16 +230,13 @@ pub mod pallet {
 		StorageMap<_, Identity, u64, PendingOrder<BlockNumberFor<T>>, OptionQuery>;
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
-	where
-		T::AccountId: AsRef<[u8]>,
-	{
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			// Remove storage from previous block
 			Messages::<T>::kill();
 			MessageLeaves::<T>::kill();
 			// Reserve some weight for the `on_finalize` handler
-			T::WeightInfo::commit()
+			T::WeightInfo::on_initialize() + T::WeightInfo::commit()
 		}
 
 		fn on_finalize(_: BlockNumberFor<T>) {

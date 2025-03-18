@@ -177,7 +177,13 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Hashing = Keccak256;
 	type MessageQueue = MessageQueue;
+	// Maximum payload size for outbound messages.
 	type MaxMessagePayloadSize = ConstU32<2048>;
+	// Maximum number of outbound messages that can be committed per block.
+	// It's benchmarked, including the entire process flow(initialize,submit,commit) in the
+	// worst-case, Benchmark results in `../weights/snowbridge_pallet_outbound_queue_v2.
+	// rs` show that the `process` function consumes less than 1% of the block capacity, which is
+	// safe enough.
 	type MaxMessagesPerBlock = ConstU32<32>;
 	type GasMeter = ConstantGasMeterV2;
 	type Balance = Balance;
