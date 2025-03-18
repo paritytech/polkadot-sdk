@@ -8,8 +8,12 @@ doc:
 
 crates:
   - name: asset-hub-westend-runtime
-    bump: minor
+    bump: patch
   - name: asset-hub-rococo-runtime
-    bump: minor
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
   - name: snowbridge-core
-    bump: minor
+    bump: patch
