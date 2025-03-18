@@ -35,6 +35,7 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
 
 // Cumulus
+use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use polkadot_primitives::{AssignmentId, ValidatorId};
 
@@ -61,6 +62,8 @@ pub const PENPAL_B_ID: u32 = 2001;
 pub const ASSET_HUB_ROCOCO_ID: u32 = 1000;
 pub const ASSET_HUB_WESTEND_ID: u32 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
+
+pub const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
 
 parameter_types! {
 	pub PenpalATeleportableAssetLocation: xcm::v5::Location
