@@ -33,7 +33,7 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::Perbill;
+use sp_runtime::{BoundedVec, Perbill};
 use westend_runtime_constants::currency::UNITS as WND;
 
 /// Helper function to generate stash, controller and session key from seed
@@ -128,8 +128,8 @@ fn default_parachains_host_configuration(
 		zeroth_delay_tranche_width: 0,
 		minimum_validation_upgrade_delay: 5,
 		async_backing_params: AsyncBackingParams {
-			max_candidate_depth: 3,
-			allowed_ancestry_len: 2,
+			max_candidate_depth: 0,
+			allowed_ancestry_len: 0,
 		},
 		node_features: bitvec::vec::BitVec::from_element(
 			1u8 << (FeatureIndex::ElasticScalingMVP as usize) |
@@ -202,7 +202,10 @@ fn westend_testnet_genesis(
 				.iter()
 				.map(|x| (x.0.clone(), x.0.clone(), STASH, StakerStatus::<AccountId>::Validator))
 				.collect::<Vec<_>>(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			invulnerables: BoundedVec::try_from(
+					initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>()
+				)
+				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			force_era: Forcing::NotForcing,
 			slash_reward_fraction: Perbill::from_percent(10),
 		},
@@ -373,7 +376,10 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 				.iter()
 				.map(|x| (x.0.clone(), x.0.clone(), STASH, StakerStatus::<AccountId>::Validator))
 				.collect::<Vec<_>>(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			invulnerables: BoundedVec::try_from(
+					initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>()
+				)
+				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			force_era: Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
 		},

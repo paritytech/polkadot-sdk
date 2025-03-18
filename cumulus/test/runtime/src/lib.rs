@@ -27,6 +27,10 @@ pub mod wasm_spec_version_incremented {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
+pub mod elastic_scaling_500ms {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
+}
 pub mod elastic_scaling_mvp {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_mvp.rs"));
@@ -35,6 +39,11 @@ pub mod elastic_scaling_mvp {
 pub mod elastic_scaling {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
+}
+
+pub mod elastic_scaling_multi_block_slot {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_multi_block_slot.rs"));
 }
 
 mod genesis_config_presets;
@@ -98,22 +107,32 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(not(feature = "elastic-scaling"))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 4;
-#[cfg(not(feature = "elastic-scaling"))]
-const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+#[cfg(all(
+	feature = "elastic-scaling-multi-block-slot",
+	not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms"))
+))]
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
+
+#[cfg(all(
+	feature = "elastic-scaling-500ms",
+	not(any(feature = "elastic-scaling", feature = "elastic-scaling-multi-block-slot"))
+))]
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 
 #[cfg(feature = "elastic-scaling")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 7;
-#[cfg(feature = "elastic-scaling")]
-const BLOCK_PROCESSING_VELOCITY: u32 = 4;
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 
-#[cfg(not(feature = "elastic-scaling"))]
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-#[cfg(feature = "elastic-scaling")]
-pub const MILLISECS_PER_BLOCK: u64 = 2000;
+#[cfg(not(any(
+	feature = "elastic-scaling",
+	feature = "elastic-scaling-500ms",
+	feature = "elastic-scaling-multi-block-slot"
+)))]
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+// The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 2 + 2;
+
+pub const SLOT_DURATION: u64 = 6000;
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
@@ -159,7 +178,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
 // These time units are defined in number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+pub const MINUTES: BlockNumber = 60_000 / (SLOT_DURATION as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
@@ -237,7 +256,10 @@ impl cumulus_pallet_weight_reclaim::Config for Runtime {
 }
 
 parameter_types! {
-	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
+	pub const MinimumPeriod: u64 = 0;
+}
+
+parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const SessionLength: BlockNumber = 10 * MINUTES;
 	pub const Offset: u32 = 0;

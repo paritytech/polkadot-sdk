@@ -477,8 +477,8 @@ fn test_migration_v1() {
 		);
 		StorageVersion::new(0).put::<Historical>();
 
-		crate::migrations::v1::pre_migrate::<Test, Historical>();
-		crate::migrations::v1::migrate::<Test, Historical>();
-		crate::migrations::v1::post_migrate::<Test, Historical>();
+		crate::migrations::historical::pre_migrate::<Test, Historical>();
+		crate::migrations::historical::migrate::<Test, Historical>();
+		crate::migrations::historical::post_migrate::<Test, Historical>();
 	});
 }

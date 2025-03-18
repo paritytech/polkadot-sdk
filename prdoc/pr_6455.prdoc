@@ -6,3 +6,4 @@ doc:
 crates:
 - name: sc-network
   validate: false
+  bump: none

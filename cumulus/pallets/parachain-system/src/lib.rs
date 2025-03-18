@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -30,7 +30,7 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeLimit, Encode};
 use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -60,7 +60,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
-use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
@@ -309,8 +309,12 @@ pub mod pallet {
 			<UpgradeRestrictionSignal<T>>::kill();
 			let relay_upgrade_go_ahead = <UpgradeGoAhead<T>>::take();
 
-			let vfp = <ValidationData<T>>::get()
-				.expect("set_validation_data inherent needs to be present in every block!");
+			let vfp = <ValidationData<T>>::get().expect(
+				r"Missing required set_validation_data inherent. This inherent must be
+				present in every block. This error typically occurs when the set_validation_data
+				execution failed and was rejected by the block builder. Check earlier log entries
+				for the specific cause of the failure.",
+			);
 
 			LastRelayChainBlockNumber::<T>::put(vfp.relay_parent_number);
 
@@ -748,10 +752,6 @@ pub mod pallet {
 		HostConfigurationNotAvailable,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
-		/// No code upgrade has been authorized.
-		NothingAuthorized,
-		/// The given code upgrade has not been authorized.
-		Unauthorized,
 	}
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
@@ -1630,7 +1630,13 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 
 		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
 			.iter()
-			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.map(|encoded_message| {
+				VersionedXcm::<()>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &encoded_message[..],
+				)
+				.unwrap()
+			})
 			.collect();
 
 		if messages.is_empty() {

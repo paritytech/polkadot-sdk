@@ -85,7 +85,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -218,7 +218,7 @@ impl<BlockNumber: core::fmt::Debug> core::fmt::Debug for OffchainErr<BlockNumber
 pub type AuthIndex = u32;
 
 /// Heartbeat which is sent/received.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Heartbeat<BlockNumber>
 where
 	BlockNumber: PartialEq + Eq + Decode + Encode,

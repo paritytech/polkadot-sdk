@@ -45,10 +45,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::ReputationAggregator,
-	runtime::{
-		request_min_backing_votes, request_node_features, ClaimQueueSnapshot,
-		ProspectiveParachainsMode,
-	},
+	runtime::{request_min_backing_votes, request_node_features, ClaimQueueSnapshot},
 };
 use polkadot_primitives::{
 	node_features::FeatureIndex,
@@ -163,11 +160,11 @@ pub(crate) const REQUEST_RETRY_DELAY: Duration = Duration::from_secs(1);
 struct PerRelayParentState {
 	local_validator: Option<LocalValidatorState>,
 	statement_store: StatementStore,
-	seconding_limit: usize,
 	session: SessionIndex,
 	transposed_cq: TransposedClaimQueue,
 	groups_per_para: HashMap<ParaId, Vec<GroupIndex>>,
 	disabled_validators: HashSet<ValidatorIndex>,
+	assignments_per_group: HashMap<GroupIndex, Vec<ParaId>>,
 }
 
 impl PerRelayParentState {
@@ -304,8 +301,6 @@ impl PerSessionState {
 
 pub(crate) struct State {
 	/// The utility for managing the implicit and explicit views in a consistent way.
-	///
-	/// We only feed leaves which have prospective parachains enabled to this view.
 	implicit_view: ImplicitView,
 	candidates: Candidates,
 	per_relay_parent: HashMap<Hash, PerRelayParentState>,
@@ -572,23 +567,14 @@ pub(crate) async fn handle_network_update<Context>(
 	}
 }
 
-/// If there is a new leaf, this should only be called for leaves which support
-/// prospective parachains.
+/// Called on new leaf updates.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
 pub(crate) async fn handle_active_leaves_update<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	activated: &ActivatedLeaf,
-	leaf_mode: ProspectiveParachainsMode,
 	metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
-	let max_candidate_depth = match leaf_mode {
-		ProspectiveParachainsMode::Disabled => return Ok(()),
-		ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } => max_candidate_depth,
-	};
-
-	let seconding_limit = max_candidate_depth + 1;
-
 	state
 		.implicit_view
 		.activate_leaf(ctx.sender(), activated.hash)
@@ -697,26 +683,20 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				.map_err(JfyiError::FetchClaimQueue)?,
 		);
 
-		let local_validator = per_session.local_validator.and_then(|v| {
-			if let LocalValidatorIndex::Active(idx) = v {
-				find_active_validator_state(
-					idx,
-					&per_session.groups,
-					&group_rotation_info,
-					&claim_queue,
-					seconding_limit,
-				)
-			} else {
-				Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
-			}
-		});
-
-		let groups_per_para = determine_groups_per_para(
+		let (groups_per_para, assignments_per_group) = determine_group_assignments(
 			per_session.groups.all().len(),
 			group_rotation_info,
 			&claim_queue,
 		)
 		.await;
+
+		let local_validator = per_session.local_validator.and_then(|v| {
+			if let LocalValidatorIndex::Active(idx) = v {
+				find_active_validator_state(idx, &per_session.groups, &assignments_per_group)
+			} else {
+				Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
+			}
+		});
 
 		let transposed_cq = transpose_claim_queue(claim_queue.0);
 
@@ -725,11 +705,11 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			PerRelayParentState {
 				local_validator,
 				statement_store: StatementStore::new(&per_session.groups),
-				seconding_limit,
 				session: session_index,
 				groups_per_para,
 				disabled_validators,
 				transposed_cq,
+				assignments_per_group,
 			},
 		);
 	}
@@ -769,9 +749,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 fn find_active_validator_state(
 	validator_index: ValidatorIndex,
 	groups: &Groups,
-	group_rotation_info: &GroupRotationInfo,
-	claim_queue: &ClaimQueueSnapshot,
-	seconding_limit: usize,
+	assignments_per_group: &HashMap<GroupIndex, Vec<ParaId>>,
 ) -> Option<LocalValidatorState> {
 	if groups.all().is_empty() {
 		return None
@@ -779,17 +757,17 @@ fn find_active_validator_state(
 
 	let our_group = groups.by_validator_index(validator_index)?;
 
-	let core_index = group_rotation_info.core_for_group(our_group, groups.all().len());
-	let paras_assigned_to_core = claim_queue.iter_claims_for_core(&core_index).copied().collect();
 	let group_validators = groups.get(our_group)?.to_owned();
+	let paras_assigned_to_core = assignments_per_group.get(&our_group).cloned().unwrap_or_default();
+	let seconding_limit = paras_assigned_to_core.len();
 
 	Some(LocalValidatorState {
 		active: Some(ActiveValidatorState {
 			index: validator_index,
 			group: our_group,
-			assignments: paras_assigned_to_core,
 			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
 				.expect("group is non-empty because we are in it; qed"),
+			assignments: paras_assigned_to_core.clone(),
 		}),
 		grid_tracker: GridTracker::default(),
 	})
@@ -1231,13 +1209,14 @@ pub(crate) async fn share_local_statement<Context>(
 		return Err(JfyiError::InvalidShare)
 	}
 
+	let seconding_limit = local_assignments.len();
+
 	if is_seconded &&
-		per_relay_parent.statement_store.seconded_count(&local_index) ==
-			per_relay_parent.seconding_limit
+		per_relay_parent.statement_store.seconded_count(&local_index) >= seconding_limit
 	{
 		gum::warn!(
 			target: LOG_TARGET,
-			limit = ?per_relay_parent.seconding_limit,
+			limit = ?seconding_limit,
 			"Local node has issued too many `Seconded` statements",
 		);
 		return Err(JfyiError::InvalidShare)
@@ -2183,12 +2162,14 @@ async fn provide_candidate_to_grid<Context>(
 	}
 }
 
-// Utility function to populate per relay parent `ParaId` to `GroupIndex` mappings.
-async fn determine_groups_per_para(
+// Utility function to populate:
+// - per relay parent `ParaId` to `GroupIndex` mappings.
+// - per `GroupIndex` claim queue assignments
+async fn determine_group_assignments(
 	n_cores: usize,
 	group_rotation_info: GroupRotationInfo,
 	claim_queue: &ClaimQueueSnapshot,
-) -> HashMap<ParaId, Vec<GroupIndex>> {
+) -> (HashMap<ParaId, Vec<GroupIndex>>, HashMap<GroupIndex, Vec<ParaId>>) {
 	// Determine the core indices occupied by each para at the current relay parent. To support
 	// on-demand parachains we also consider the core indices at next blocks.
 	let schedule: HashMap<CoreIndex, Vec<ParaId>> = claim_queue
@@ -2197,16 +2178,19 @@ async fn determine_groups_per_para(
 		.collect();
 
 	let mut groups_per_para = HashMap::new();
+	let mut assignments_per_group = HashMap::with_capacity(schedule.len());
+
 	// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
 	for (core_index, paras) in schedule {
 		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
+		assignments_per_group.insert(group_index, paras.clone());
 
 		for para in paras {
 			groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index);
 		}
 	}
 
-	groups_per_para
+	(groups_per_para, assignments_per_group)
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
@@ -2351,10 +2335,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 	reputation: &mut ReputationAggregator,
 ) -> Option<ManifestImportSuccess<'a>> {
 	// 1. sanity checks: peer is connected, relay-parent in state, para ID matches group index.
-	let peer_state = match peers.get(&peer) {
-		None => return None,
-		Some(p) => p,
-	};
+	let peer_state = peers.get(&peer)?;
 
 	let relay_parent_state = match per_relay_parent.get_mut(&relay_parent) {
 		None => {
@@ -2370,10 +2351,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		Some(s) => s,
 	};
 
-	let per_session = match per_session.get(&relay_parent_state.session) {
-		None => return None,
-		Some(s) => s,
-	};
+	let per_session = per_session.get(&relay_parent_state.session)?;
 
 	if relay_parent_state.local_validator.is_none() {
 		if per_session.is_not_validator() {
@@ -2398,10 +2376,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		return None
 	}
 
-	let grid_topology = match per_session.grid_view.as_ref() {
-		None => return None,
-		Some(x) => x,
-	};
+	let grid_topology = per_session.grid_view.as_ref()?;
 
 	let sender_index = grid_topology
 		.iter_sending_for_group(manifest_summary.claimed_group_index, manifest_kind)
@@ -2436,11 +2411,18 @@ async fn handle_incoming_manifest_common<'a, Context>(
 
 	let local_validator = relay_parent_state.local_validator.as_mut().expect("checked above; qed");
 
+	let seconding_limit = relay_parent_state
+		.assignments_per_group
+		.get(&group_index)?
+		.iter()
+		.filter(|para| para == &&para_id)
+		.count();
+
 	let acknowledge = match local_validator.grid_tracker.import_manifest(
 		grid_topology,
 		&per_session.groups,
 		candidate_hash,
-		relay_parent_state.seconding_limit,
+		seconding_limit,
 		manifest_summary,
 		manifest_kind,
 		sender_index,
@@ -3015,7 +2997,7 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 		let relay_parent_state = state.per_relay_parent.get(&relay_parent)?;
 		let per_session = state.per_session.get(&relay_parent_state.session)?;
 		let group = per_session.groups.get(group_index)?;
-		let seconding_limit = relay_parent_state.seconding_limit;
+		let seconding_limit = relay_parent_state.assignments_per_group.get(&group_index)?.len();
 
 		// Request nothing which would be an 'over-seconded' statement.
 		let mut unwanted_mask = StatementFilter::blank(group.len());

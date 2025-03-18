@@ -155,7 +155,7 @@ impl ClaimQueueState {
 	fn get_window<'a>(
 		&'a mut self,
 		relay_parent: &'a Hash,
-	) -> impl Iterator<Item = &mut ClaimInfo> + 'a {
+	) -> impl Iterator<Item = &'a mut ClaimInfo> + 'a {
 		let mut window = self
 			.block_state
 			.iter_mut()
