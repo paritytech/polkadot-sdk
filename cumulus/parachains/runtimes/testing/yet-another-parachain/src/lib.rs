@@ -57,7 +57,7 @@ pub use frame_support::{
 		Everything, HandleMessage, IsInVec, Nothing, QueueFootprint, Randomness, TransformOrigin,
 	},
 	weights::{
-		constants::{BlockExecutionWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
+		constants::{BlockExecutionWeight, WEIGHT_REF_TIME_PER_SECOND},
 		ConstantMultiplier, IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 		WeightToFeePolynomial,
 	},
@@ -168,6 +168,12 @@ parameter_types! {
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
 	pub const SS58Prefix: u8 = 42;
+	// We assume the whole parachain state fits into the trie cache
+	// Numbers are from <https://github.com/paritytech/polkadot-sdk/pull/7867>
+	pub const InMemoryDbWeight: RuntimeDbWeight = RuntimeDbWeight {
+		read: 9_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
+		write: 28_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
+	};
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -199,7 +205,7 @@ impl frame_system::Config for Runtime {
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
-	type DbWeight = RocksDbWeight;
+	type DbWeight = InMemoryDbWeight;
 	type BaseCallFilter = frame_support::traits::Everything;
 	type SystemWeightInfo = ();
 	type BlockWeights = RuntimeBlockWeights;
