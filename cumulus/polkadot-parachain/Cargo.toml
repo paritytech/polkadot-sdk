@@ -17,12 +17,12 @@ name = "polkadot-parachain"
 path = "src/main.rs"
 
 [dependencies]
+clap = { features = ["derive"], workspace = true }
 color-eyre = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-clap = { features = ["derive"], workspace = true }
 
 # Local
 asset-hub-rococo-runtime = { workspace = true, default-features = true }

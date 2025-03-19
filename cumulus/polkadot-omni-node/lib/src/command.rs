@@ -14,15 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{cli, cli::{Cli, RelayChainCli, Subcommand}, common::{
-	chain_spec::{Extensions, LoadSpec},
-	runtime::{
-		AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
-		RuntimeResolver,
+use crate::{
+	cli,
+	cli::{Cli, RelayChainCli, Subcommand},
+	common::{
+		chain_spec::{Extensions, LoadSpec},
+		runtime::{
+			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
+			RuntimeResolver,
+		},
+		types::Block,
+		NodeBlock, NodeExtraArgs,
 	},
-	types::Block,
-	NodeBlock, NodeExtraArgs,
-}, fake_runtime_api, nodes::DynNodeSpecExt, runtime::BlockNumber};
+	fake_runtime_api,
+	nodes::DynNodeSpecExt,
+	runtime::BlockNumber,
+};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
@@ -225,17 +232,20 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			if let Some(handler) = &cmd_config.custom_command_handler {
 				match handler.handle_command(&cmd_name, &cmd_matches) {
 					Some(Ok(())) => Ok(()),
-					Some(Err(e)) => Err(sc_cli::Error::Application(Box::new(
-						std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-					))),
-					None => Err(sc_cli::Error::Application(Box::new(
-						std::io::Error::new(std::io::ErrorKind::Other, "Custom command not handled")
-					))),
+					Some(Err(e)) => Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						e.to_string(),
+					)))),
+					None => Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						"Custom command not handled",
+					)))),
 				}
 			} else {
-				Err(sc_cli::Error::Application(Box::new(
-					std::io::Error::new(std::io::ErrorKind::Other, "Custom command provided but no handler registered")
-				)))
+				Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					"Custom command provided but no handler registered",
+				))))
 			}
 		},
 		None => {

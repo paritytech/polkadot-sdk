@@ -22,13 +22,12 @@
 mod chain_spec;
 
 use clap::ArgMatches;
-use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
-use polkadot_omni_node_lib::chain_spec::{LoadSpec};
-use polkadot_omni_node_lib::cli::CustomCommandHandler;
-use color_eyre::eyre::{Result, eyre};
-use sc_cli::ExportChainSpecCmd;
-use sc_cli::clap::FromArgMatches;
-
+use color_eyre::eyre::{eyre, Result};
+use polkadot_omni_node_lib::{
+	chain_spec::LoadSpec, cli::CustomCommandHandler, run, CliConfig as CliConfigT, RunConfig,
+	NODE_VERSION,
+};
+use sc_cli::{clap::FromArgMatches, ExportChainSpecCmd};
 
 struct CustomCmdHandler;
 
@@ -76,7 +75,7 @@ fn main() -> color_eyre::eyre::Result<()> {
 	let config = RunConfig::new(
 		Box::new(chain_spec::RuntimeResolver),
 		Box::new(chain_spec::ChainSpecLoader),
-		Some(Box::new(CustomCmdHandler))
+		Some(Box::new(CustomCmdHandler)),
 	);
 	Ok(run::<CliConfig>(config)?)
 }

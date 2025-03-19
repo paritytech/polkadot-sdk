@@ -77,7 +77,11 @@ pub trait CustomCommandHandler {
 	/// - `Some(Ok(()))` if the command was recognized and executed successfully.
 	/// - `Some(Err(e))` if the command was recognized but failed.
 	/// - `None` if the command is not recognized.
-	fn handle_command(&self, cmd: &str, matches: &clap::ArgMatches) -> Option<color_eyre::eyre::Result<()>>;
+	fn handle_command(
+		&self,
+		cmd: &str,
+		matches: &clap::ArgMatches,
+	) -> Option<color_eyre::eyre::Result<()>>;
 }
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
@@ -155,7 +159,7 @@ pub enum Subcommand {
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
 	subcommand_negates_reqs = true,
-	allow_external_subcommands = true,
+	allow_external_subcommands = true
 )]
 pub struct Cli<Config: CliConfig> {
 	#[arg(skip)]
