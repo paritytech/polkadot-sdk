@@ -31,7 +31,7 @@ use polkadot_primitives::{
 	vstaging::{
 		CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
 	},
-	CollatorPair, PersistedValidationData,
+	CollatorPair, NodeFeatures, PersistedValidationData,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
 use rstest::rstest;

@@ -43,9 +43,8 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf,
 };
 use polkadot_node_subsystem_util::{
-	backing_implicit_view::View as ImplicitView,
-	reputation::ReputationAggregator,
-	runtime::{request_min_backing_votes, request_node_features, ClaimQueueSnapshot},
+	backing_implicit_view::View as ImplicitView, reputation::ReputationAggregator,
+	request_min_backing_votes, request_node_features, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
 	node_features::FeatureIndex,
@@ -599,11 +598,13 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 	for new_relay_parent in new_relay_parents.iter().cloned() {
 		let disabled_validators: HashSet<_> =
-			polkadot_node_subsystem_util::runtime::get_disabled_validators_with_fallback(
-				ctx.sender(),
+			polkadot_node_subsystem_util::request_disabled_validators(
 				new_relay_parent,
+				ctx.sender(),
 			)
 			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
 			.map_err(JfyiError::FetchDisabledValidators)?
 			.into_iter()
 			.collect();
@@ -642,14 +643,22 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			};
 
 			let minimum_backing_votes =
-				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).await?;
+				request_min_backing_votes(new_relay_parent, session_index, ctx.sender())
+					.await
+					.await
+					.map_err(JfyiError::RuntimeApiUnavailable)?
+					.map_err(JfyiError::FetchMinimumBackingVotes)?;
 			let node_features =
-				request_node_features(new_relay_parent, session_index, ctx.sender()).await?;
+				request_node_features(new_relay_parent, session_index, ctx.sender())
+					.await
+					.await
+					.map_err(JfyiError::RuntimeApiUnavailable)?
+					.map_err(JfyiError::FetchNodeFeatures)?;
 			let mut per_session_state = PerSessionState::new(
 				session_info,
 				&state.keystore,
 				minimum_backing_votes,
-				node_features.unwrap_or(NodeFeatures::EMPTY),
+				node_features,
 			);
 			if let Some(topology) = state.unused_topologies.remove(&session_index) {
 				per_session_state.supply_topology(&topology.topology, topology.local_index);

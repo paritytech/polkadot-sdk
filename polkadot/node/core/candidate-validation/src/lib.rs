@@ -231,24 +231,30 @@ where
 				return
 			};
 
-			let maybe_node_features = match util::runtime::request_node_features(
-				relay_parent,
-				session_index,
-				&mut sender,
-			)
-			.await
-			{
-				Ok(maybe_node_features) => Some(maybe_node_features.unwrap_or_default()),
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?relay_parent,
-						?err,
-						"Unable to fetch node features"
-					);
-					None
-				},
-			};
+			let maybe_node_features =
+				match util::request_node_features(relay_parent, session_index, &mut sender)
+					.await
+					.await
+				{
+					Ok(Ok(node_features)) => Some(node_features),
+					Err(oneshot::Canceled) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?relay_parent,
+							"Canceled node features request"
+						);
+						None
+					},
+					Ok(Err(err)) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?relay_parent,
+							?err,
+							"Unable to fetch node features"
+						);
+						None
+					},
+				};
 
 			let res = validate_candidate_exhaustive(
 				session_index,

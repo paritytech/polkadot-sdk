@@ -510,12 +510,8 @@ fn store_pov_and_queries_work() {
 
 				let query_all_chunks_res = query_all_chunks(
 					&mut virtual_overseer,
-					availability_chunk_indices(
-						Some(&node_features),
-						n_validators as usize,
-						core_index,
-					)
-					.unwrap(),
+					availability_chunk_indices(&node_features, n_validators as usize, core_index)
+						.unwrap(),
 					candidate_hash,
 				)
 				.await;
@@ -596,12 +592,8 @@ fn store_pov_and_queries_work() {
 
 				let query_all_chunks_res = query_all_chunks(
 					&mut virtual_overseer,
-					availability_chunk_indices(
-						Some(&node_features),
-						n_validators as usize,
-						core_index,
-					)
-					.unwrap(),
+					availability_chunk_indices(&node_features, n_validators as usize, core_index)
+						.unwrap(),
 					candidate_hash,
 				)
 				.await;
@@ -618,7 +610,7 @@ fn store_pov_and_queries_work() {
 					.await
 					.unwrap();
 					let expected_chunk_index = availability_chunk_index(
-						Some(&node_features),
+						&node_features,
 						n_validators as usize,
 						core_index,
 						ValidatorIndex(validator_index),
@@ -723,7 +715,8 @@ fn query_all_chunks_works() {
 		}
 
 		let chunk_indices =
-			availability_chunk_indices(None, n_validators as usize, CoreIndex(0)).unwrap();
+			availability_chunk_indices(&NodeFeatures::EMPTY, n_validators as usize, CoreIndex(0))
+				.unwrap();
 
 		assert_eq!(
 			query_all_chunks(&mut virtual_overseer, chunk_indices.clone(), candidate_hash_1)
