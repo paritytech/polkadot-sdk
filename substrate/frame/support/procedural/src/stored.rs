@@ -1,10 +1,10 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, Data, DeriveInput, Ident, Meta, Token, TypeParamBound,
+    parse_macro_input, Data, DeriveInput, Ident, Token, TypeParamBound,
 };
 use syn::punctuated::Punctuated;
-use syn::parse::{Parse, ParseStream};
+use syn::parse::{Parse, ParseStream, Parser}; // Added Parser trait
 
 /// A helper struct to hold a comma-separated list of identifiers, ie no_bounds(A, B, C).
 #[derive(Default)]
@@ -24,6 +24,7 @@ impl Parse for IdentList {
 /// - Parses attribute no_bounds and mel_bounds arguments to determine type parameters that should not be bounded,
 ///   and those for which additional bounds may be applied later (mel_bounds is not used for now).
 /// - Adds default trait bounds to any type parameter that should be bounded.
+/// - Conditionally adds #[codec(mel_bound(...))] for generic parameters not listed in no_bounds.
 /// - Generates the necessary derive attributes and other metadata required for storage in a substrate runtime.
 /// - Adjusts those attributes based on whether the item is a struct or an enum.
 /// - Utilizes the NoBound version of the derives if there's a type parameter that should be unbounded.
@@ -41,6 +42,33 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         // Add standard trait bounds to any generics that need bounds still.
         add_normal_trait_bounds(&mut input.generics, &no_bound_params);
     }
+
+    // Compute #[codec(mel_bound(...))] if no_bounds is provided.
+    // We add bounds for any generic type parameter not listed in no_bounds.
+    let codec_mel_bound_attr = if !no_bound_params.is_empty() {
+        let all_generics: Vec<_> = input.generics.params.iter().filter_map(|param| {
+            if let syn::GenericParam::Type(type_param) = param {
+                Some(&type_param.ident)
+            } else {
+                None
+            }
+        }).collect();
+        let mel_bound_gens: Vec<_> = all_generics.into_iter()
+            .filter(|ident| !no_bound_params.contains(ident))
+            .collect();
+        if !mel_bound_gens.is_empty() {
+            let bounds = mel_bound_gens.iter().map(|ident| {
+                quote! { #ident: MaxEncodedLen }
+            });
+            quote! {
+                #[codec(mel_bound( #(#bounds),* ))]
+            }
+        } else {
+            quote! {}
+        }
+    } else {
+        quote! {}
+    };
 
     let span = input.ident.span();
     let (partial_eq_i, eq_i, clone_i, debug_i) =
@@ -99,6 +127,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         #common_derives
         #mem_tracking_derive
         #skip_list
+        #codec_mel_bound_attr
         #(#attrs)*
     };
 
@@ -163,11 +192,10 @@ fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Vec<Ident>) {
     if args.is_empty() {
         return (no_bounds, mel_bounds);
     }
-    let parsed = syn::punctuated::Punctuated::<syn::NestedMeta, Token![,]>::parse_terminated
-        .parse2(args)
+    let parsed = Punctuated::<syn::Meta, Token![,]>::parse_terminated.parse2(args.into())
         .unwrap_or_default();
-    for nested_meta in parsed {
-        if let syn::NestedMeta::Meta(syn::Meta::List(meta_list)) = nested_meta {
+    for meta in parsed {
+        if let syn::Meta::List(meta_list) = meta {
             if let Some(ident) = meta_list.path.get_ident() {
                 if ident == "no_bounds" {
                     let ident_list: IdentList = syn::parse2(meta_list.tokens).unwrap_or_default();
