@@ -1689,6 +1689,7 @@ impl_runtime_apis! {
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
+			use frame_support::assert_ok;
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
@@ -1813,9 +1814,27 @@ impl_runtime_apis! {
 				}
 
 				fn get_asset() -> Asset {
+					use frame_benchmarking::whitelisted_caller;
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let account = whitelisted_caller();
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let asset_id = 1984;
+					assert_ok!(Assets::force_create(
+						RuntimeOrigin::root(),
+						asset_id.into(),
+						account.into(),
+						true,
+						1u128,
+					));
+					let amount = 1_000_000u128;
+					let asset_location = Location::new(0, [PalletInstance(50), GeneralIndex(u32::from(asset_id).into())]);
+
 					Asset {
-						id: AssetId(Location::parent()),
-						fun: Fungible(ExistentialDeposit::get()),
+						id: AssetId(asset_location),
+						fun: Fungible(amount),
 					}
 				}
 			}
@@ -1909,9 +1928,26 @@ impl_runtime_apis! {
 				type TrustedReserve = TrustedReserve;
 
 				fn get_asset() -> Asset {
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let asset_id = 1984;
+					assert_ok!(Assets::force_create(
+						RuntimeOrigin::root(),
+						asset_id.into(),
+						account.clone().into(),
+						true,
+						1u128,
+					));
+					let amount = 1_000_000u128;
+					let asset_location = Location::new(0, [PalletInstance(50), GeneralIndex(u32::from(asset_id).into())]);
+
 					Asset {
-						id: AssetId(TokenLocation::get()),
-						fun: Fungible(UNITS),
+						id: AssetId(asset_location),
+						fun: Fungible(amount),
 					}
 				}
 			}
