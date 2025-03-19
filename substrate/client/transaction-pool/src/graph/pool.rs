@@ -334,6 +334,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 					let xts_hash = self.hash_of(extrinsic);
 					if let Some(tags) = inactive_views_xts_to_tags.get(&xts_hash).unwrap_or(&None) {
 						future_tags.extend(tags.clone());
+						log::trace!(target: LOG_TARGET,"[{:?}] prune::inactive_view_tags {:?}", xts_hash, tags);
 					} else if !self.validated_pool.status().is_empty() {
 						// and if that's not the case, query the runtime at parent block
 						// to get validity info and tags that the extrinsic provides.

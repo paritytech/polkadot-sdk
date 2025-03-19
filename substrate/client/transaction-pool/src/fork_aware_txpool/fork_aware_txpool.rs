@@ -1464,7 +1464,7 @@ where
 			.collect::<HashMap<ExtrinsicHash<ChainApi>, Option<Vec<Tag>>>>(),
 		);
 
-        info!(target: LOG_TARGET, "update_view_with_fork: transactions to provide tags len: {}", xts_to_tags.len())
+        info!(target: LOG_TARGET, "update_view_with_fork: txs to tags map: {}", xts_to_tags.len())
 
 		future::join_all(tree_route.enacted().iter().map(|hn| {
 			let api = api.clone();
