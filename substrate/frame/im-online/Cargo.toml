@@ -60,4 +60,5 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-session/try-runtime"
 ]

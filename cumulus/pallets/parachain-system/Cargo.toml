@@ -103,6 +103,7 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks"
 ]
 
 try-runtime = [
