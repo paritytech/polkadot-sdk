@@ -41,8 +41,8 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{BackedCandidate, CoreState},
-	CandidateHash, CoreIndex, Hash, Id as ParaId, NodeFeatures, SessionIndex,
-	SignedAvailabilityBitfield, ValidatorIndex,
+	CandidateHash, CoreIndex, Hash, Id as ParaId, SessionIndex, SignedAvailabilityBitfield,
+	ValidatorIndex,
 };
 use std::collections::{BTreeMap, HashMap};
 
@@ -75,11 +75,6 @@ impl ProvisionerSubsystem {
 	}
 }
 
-/// Per-session info we need for the provisioner subsystem.
-pub struct PerSession {
-	prospective_parachains_mode: ProspectiveParachainsMode,
-}
-
 /// A per-relay-parent state for the provisioning subsystem.
 pub struct PerRelayParent {
 	leaf: ActivatedLeaf,
@@ -89,7 +84,7 @@ pub struct PerRelayParent {
 }
 
 impl PerRelayParent {
-	fn new(leaf: ActivatedLeaf, per_session: &PerSession) -> Self {
+	fn new(leaf: ActivatedLeaf) -> Self {
 		Self {
 			leaf,
 			signed_bitfields: Vec::new(),
@@ -119,17 +114,10 @@ impl<Context> ProvisionerSubsystem {
 async fn run<Context>(mut ctx: Context, metrics: Metrics) -> FatalResult<()> {
 	let mut inherent_delays = InherentDelays::new();
 	let mut per_relay_parent = HashMap::new();
-	let mut per_session = LruMap::new(ByLength::new(2));
 
 	loop {
-		let result = run_iteration(
-			&mut ctx,
-			&mut per_relay_parent,
-			&mut per_session,
-			&mut inherent_delays,
-			&metrics,
-		)
-		.await;
+		let result =
+			run_iteration(&mut ctx, &mut per_relay_parent, &mut inherent_delays, &metrics).await;
 
 		match result {
 			Ok(()) => break,
@@ -144,7 +132,6 @@ async fn run<Context>(mut ctx: Context, metrics: Metrics) -> FatalResult<()> {
 async fn run_iteration<Context>(
 	ctx: &mut Context,
 	per_relay_parent: &mut HashMap<Hash, PerRelayParent>,
-	per_session: &mut LruMap<SessionIndex, PerSession>,
 	inherent_delays: &mut InherentDelays,
 	metrics: &Metrics,
 ) -> Result<(), Error> {
@@ -154,7 +141,7 @@ async fn run_iteration<Context>(
 				// Map the error to ensure that the subsystem exits when the overseer is gone.
 				match from_overseer.map_err(Error::OverseerExited)? {
 					FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) =>
-						handle_active_leaves_update(ctx.sender(), update, per_relay_parent, per_session, inherent_delays).await?,
+						handle_active_leaves_update(ctx.sender(), update, per_relay_parent, inherent_delays).await?,
 					FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 					FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 					FromOrchestra::Communication { msg } => {
@@ -186,7 +173,6 @@ async fn handle_active_leaves_update(
 	sender: &mut impl overseer::ProvisionerSenderTrait,
 	update: ActiveLeavesUpdate,
 	per_relay_parent: &mut HashMap<Hash, PerRelayParent>,
-	per_session: &mut LruMap<SessionIndex, PerSession>,
 	inherent_delays: &mut InherentDelays,
 ) -> Result<(), Error> {
 	gum::trace!(target: LOG_TARGET, "Handle ActiveLeavesUpdate");
@@ -195,22 +181,9 @@ async fn handle_active_leaves_update(
 	}
 
 	if let Some(leaf) = update.activated {
-		let session_index = request_session_index_for_child(leaf.hash, sender)
-			.await
-			.await
-			.map_err(Error::CanceledSessionIndex)??;
-		if per_session.get(&session_index).is_none() {
-			let prospective_parachains_mode =
-				prospective_parachains_mode(sender, leaf.hash).await?;
-
-			per_session.insert(session_index, PerSession { prospective_parachains_mode });
-		}
-
-		let session_info = per_session.get(&session_index).expect("Just inserted");
-
 		gum::trace!(target: LOG_TARGET, leaf_hash=?leaf.hash, "Adding delay");
 		let delay_fut = Delay::new(PRE_PROPOSE_TIMEOUT).map(move |_| leaf.hash).boxed();
-		per_relay_parent.insert(leaf.hash, PerRelayParent::new(leaf, session_info));
+		per_relay_parent.insert(leaf.hash, PerRelayParent::new(leaf));
 		inherent_delays.push(delay_fut);
 	}
 
@@ -322,9 +295,8 @@ fn note_provisionable_data(
 	provisionable_data: ProvisionableData,
 ) {
 	match provisionable_data {
-		ProvisionableData::Bitfield(_, signed_bitfield) => {
-			per_relay_parent.signed_bitfields.push(signed_bitfield)
-		},
+		ProvisionableData::Bitfield(_, signed_bitfield) =>
+			per_relay_parent.signed_bitfields.push(signed_bitfield),
 		// We choose not to punish these forms of misbehavior for the time being.
 		// Risks from misbehavior are sufficiently mitigated at the protocol level
 		// via reputation changes. Punitive actions here may become desirable

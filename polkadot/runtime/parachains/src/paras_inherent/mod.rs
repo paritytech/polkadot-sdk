@@ -923,8 +923,8 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 			continue;
 		}
 
-		if unchecked_bitfield.unchecked_payload().0.clone() & disputed_bitfield.0.clone()
-			!= all_zeros
+		if unchecked_bitfield.unchecked_payload().0.clone() & disputed_bitfield.0.clone() !=
+			all_zeros
 		{
 			log::trace!(
 				target: LOG_TARGET,
@@ -1343,8 +1343,8 @@ fn filter_backed_statements_from_disabled_validators<
 		// By filtering votes we might render the candidate invalid and cause a failure in
 		// [`process_candidates`]. To avoid this we have to perform a sanity check here. If there
 		// are not enough backing votes after filtering we will remove the whole candidate.
-		if bc.validity_votes().len()
-			< effective_minimum_backing_votes(validator_group.len(), minimum_backing_votes)
+		if bc.validity_votes().len() <
+			effective_minimum_backing_votes(validator_group.len(), minimum_backing_votes)
 		{
 			log::debug!(
 				target: LOG_TARGET,
