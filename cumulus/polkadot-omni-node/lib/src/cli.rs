@@ -77,11 +77,7 @@ pub trait CustomCommandHandler {
 	/// - `Some(Ok(()))` if the command was recognized and executed successfully.
 	/// - `Some(Err(e))` if the command was recognized but failed.
 	/// - `None` if the command is not recognized.
-	fn handle_command(
-		&self,
-		cmd: &str,
-		matches: &clap::ArgMatches,
-	) -> Option<color_eyre::eyre::Result<()>>;
+	fn handle_command(&self, subcommand: &str, args: &[String]) -> Option<sc_cli::Result<()>>;
 }
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]

@@ -60,7 +60,11 @@ impl RunConfig {
 		chain_spec_loader: Box<dyn LoadSpec>,
 		custom_command_handler: Option<Box<dyn cli::CustomCommandHandler>>,
 	) -> Self {
-		RunConfig { chain_spec_loader, runtime_resolver, custom_command_handler }
+		RunConfig {
+			runtime_resolver,
+			chain_spec_loader,
+			custom_command_handler,
+		}
 	}
 }
 
@@ -225,27 +229,25 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			}
 		},
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
-		Some(cli::Subcommand::Custom(ref ext)) => {
-			let ext_owned = ext.clone();
-			let cmd_name: String = ext_owned.get(0).cloned().unwrap_or_default();
-			let cmd_matches = clap::Command::new(&cmd_name).get_matches_from(ext_owned);
-			if let Some(handler) = &cmd_config.custom_command_handler {
-				match handler.handle_command(&cmd_name, &cmd_matches) {
-					Some(Ok(())) => Ok(()),
-					Some(Err(e)) => Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						e.to_string(),
-					)))),
-					None => Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						"Custom command not handled",
-					)))),
+		Some(Subcommand::Custom(ref ext)) => {
+			if !ext.is_empty() {
+				// The first element is the command name; the rest are its arguments.
+				let subcommand = ext[0].clone();
+				let args = ext[1..].to_vec();
+				if let Some(ref handler) = cmd_config.custom_command_handler {
+					handler.handle_command(&subcommand, &args)
+						.unwrap_or_else(|| Err(sc_cli::Error::Application(Box::new(
+							std::io::Error::new(std::io::ErrorKind::Other, "Custom command not handled")
+						))))
+				} else {
+					Err(sc_cli::Error::Application(Box::new(
+						std::io::Error::new(std::io::ErrorKind::Other, "Custom command provided but no handler registered")
+					)))
 				}
 			} else {
-				Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
-					std::io::ErrorKind::Other,
-					"Custom command provided but no handler registered",
-				))))
+				Err(sc_cli::Error::Application(Box::new(
+					std::io::Error::new(std::io::ErrorKind::Other, "No custom command provided")
+				)))
 			}
 		},
 		None => {
