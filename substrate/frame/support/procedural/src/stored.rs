@@ -1,12 +1,12 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, Data, DeriveInput, Ident, Token, TypeParamBound, Type,
+    parse_macro_input, Data, DeriveInput, Ident, Token, Type, TypeParamBound,
 };
 use syn::punctuated::Punctuated;
-use syn::parse::{Parse, ParseStream, Parser}; // Import Parser trait
+use syn::parse::{Parse, ParseStream, Parser};
 
-/// A helper struct to hold a comma-separated list of identifiers, ie no_bounds(A, B, C).
+/// A helper struct to hold a comma-separated list of identifiers, e.g. no_bounds(A, B, C).
 #[derive(Default)]
 struct IdentList(Punctuated<Ident, Token![,]>);
 
@@ -18,23 +18,26 @@ impl Parse for IdentList {
 }
 
 /// Represents a single mel_bounds item, e.g.:
-/// - `S`        (shorthand for `S: MaxEncodedLen`)
-/// - `T: Default` (explicit bound, used as-is)
+/// - `S`            (shorthand for `S: MaxEncodedLen`)
+/// - `T: Default`   (explicit bound, used as-is)
+/// - Complex types like `BlockNumberFor<T>` are allowed.
 struct MelBoundItem {
-    ident: Ident,
+    ty: Type,
     bound: Option<Type>,
 }
 
 impl Parse for MelBoundItem {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let ident: Ident = input.parse()?;
+        // Parse an arbitrary type (which could be a simple identifier or a more complex type).
+        let ty: Type = input.parse()?;
+        // If a colon is present, parse the explicit bound.
         let bound = if input.peek(Token![:]) {
             let _colon: Token![:] = input.parse()?;
             Some(input.parse()?)
         } else {
             None
         };
-        Ok(MelBoundItem { ident, bound })
+        Ok(MelBoundItem { ty, bound })
     }
 }
 
@@ -57,13 +60,13 @@ impl Parse for MelBoundList {
 ///   precedence over `no_bounds` for generating the codec attribute.
 /// - Adds default trait bounds to any type parameter that should be bounded.
 /// - Conditionally adds `#[codec(mel_bound(...))]`:
-///     - If `mel_bounds` is provided, each bare generic (e.g. `S`) is expanded to `S: MaxEncodedLen`,
-///       while an explicit bound (e.g. `T: Default`) is used as-is.
+///     - If `mel_bounds` is provided, each bare item (e.g. `S` or `BlockNumberFor<T>`)
+///       is expanded to `...: MaxEncodedLen` unless an explicit bound is provided.
 ///     - Otherwise, if `no_bounds` is provided, then all generics not listed in `no_bounds` get
-///       the `: MaxEncodedLen` bound.
+///       `: MaxEncodedLen` (even if that results in an empty list, the attribute is still added).
 /// - Generates the necessary derive attributes and other metadata required for storage.
 pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
-    // Parse the stored attribute arguments.
+    // Parse stored attribute arguments.
     // Returns a tuple: (no_bounds identifiers, optional mel_bounds items)
     let (no_bound_params, mel_bound_params) = parse_stored_args(attr);
     let mut input = parse_macro_input!(input as DeriveInput);
@@ -78,23 +81,19 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     // Compute the #[codec(mel_bound(...))] attribute.
-    // If mel_bounds is provided, use it exclusively.
-    // For each mel_bounds item, if no explicit bound is provided, add `: MaxEncodedLen`.
     let codec_mel_bound_attr = if let Some(mel_bounds) = mel_bound_params {
         let bounds = mel_bounds.into_iter().map(|item| {
-            let ident = item.ident;
-            if let Some(bound) = item.bound {
-                quote! { #ident: #bound }
+            let MelBoundItem { ty, bound } = item;
+            if let Some(explicit_bound) = bound {
+                quote! { #ty: #explicit_bound }
             } else {
-                quote! { #ident: MaxEncodedLen }
+                quote! { #ty: MaxEncodedLen }
             }
         });
         quote! {
             #[codec(mel_bound( #(#bounds),* ))]
         }
     } else if !no_bound_params.is_empty() {
-        // Otherwise, if no_bounds is provided, add MaxEncodedLen for every generic
-        // not listed in no_bounds.
         let all_generics: Vec<_> = input.generics.params.iter().filter_map(|param| {
             if let syn::GenericParam::Type(type_param) = param {
                 Some(&type_param.ident)
@@ -133,7 +132,6 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             )
         };
 
-    // Add scale_info attribute if necessary.
     let skip_list = if should_nobound_derive && !no_bound_params.is_empty() {
         quote! {
             #[scale_info(skip_type_params(#(#no_bound_params),*))]
@@ -142,12 +140,10 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    // Add cfg_attr for DecodeWithMemTracking.
     let mem_tracking_derive = quote! {
         #[cfg_attr(test, derive(DecodeWithMemTracking))]
     };
 
-    // Extract input parts.
     let struct_ident = &input.ident;
     let (_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
     let generics = &input.generics;
@@ -175,7 +171,6 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         #(#attrs)*
     };
 
-    // Generate the final output based on whether the input is a struct or an enum.
     let expanded = match input.data {
         Data::Struct(ref data_struct) => match data_struct.fields {
             syn::Fields::Named(ref fields) => {
@@ -224,8 +219,8 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
 
 /// Extracts type parameters from the attribute arguments for no_bounds and mel_bounds.
 /// For example, given:
-///   #[stored(no_bounds(A, B), mel_bounds(S, T: Default))]
-/// this function extracts A and B into no_bounds and S, T (with their optional bounds) into mel_bounds.
+///   #[stored(no_bounds(A, B), mel_bounds(U, BlockNumberFor<T>))]
+/// this function extracts A and B into no_bounds and U, BlockNumberFor<T> into mel_bounds.
 fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<MelBoundItem>>) {
     let mut no_bounds = Vec::new();
     let mut mel_bounds: Option<Vec<MelBoundItem>> = None;
