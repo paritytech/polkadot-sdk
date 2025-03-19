@@ -17,25 +17,15 @@
 
 use crate::*;
 use core::marker::PhantomData;
-use frame_support::{
-	pallet_prelude::*,
-	traits::{Get, OnRuntimeUpgrade},
-};
-use sp_runtime::Weight;
-
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::{prelude::*, try_runtime::TryRuntimeError};
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 
-type SystemBlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
-
 pub mod v0 {
 	use super::*;
-	use frame_support::{pallet_prelude::OptionQuery, storage_alias, Blake2_128Concat};
 
-	#[storage_alias]
+	#[frame::storage_alias]
 	pub type Receipts<T: Config> =
 		StorageMap<Pallet<T>, Blake2_128Concat, ReceiptIndex, OldReceiptRecordOf<T>, OptionQuery>;
 	pub type OldReceiptRecordOf<T> = ReceiptRecord<
@@ -44,7 +34,7 @@ pub mod v0 {
 		BalanceOf<T>,
 	>;
 
-	#[storage_alias]
+	#[frame::storage_alias]
 	pub type Summary<T: Config> = StorageValue<Pallet<T>, OldSummaryRecordOf<T>, ValueQuery>;
 	pub type OldSummaryRecordOf<T> = SummaryRecord<SystemBlockNumberFor<T>, BalanceOf<T>>;
 }
@@ -56,7 +46,7 @@ pub mod switch_block_number_provider {
 	const TARGET: &'static str = "runtime::nis::migration::change_block_number_provider";
 
 	pub trait BlockNumberConversion<T: Config> {
-		fn convert_block_number(block_number: SystemBlockNumberFor<T>) -> BlockNumberFor<T>;
+		fn convert_block_number(block_number: SystemBlockNumberFor<T>) -> ProvidedBlockNumber<T>;
 	}
 
 	pub struct MigrateBlockNumber<T, BlockConverter>(PhantomData<T>, PhantomData<BlockConverter>);
@@ -163,12 +153,13 @@ mod tests {
 		migration::switch_block_number_provider::{BlockNumberConversion, MigrateBlockNumber},
 		mock::{Test, *},
 	};
-	use sp_runtime::Perquintill;
 
 	pub struct TestConverter;
 
 	impl BlockNumberConversion<Test> for TestConverter {
-		fn convert_block_number(block_number: SystemBlockNumberFor<Test>) -> BlockNumberFor<Test> {
+		fn convert_block_number(
+			block_number: SystemBlockNumberFor<Test>,
+		) -> ProvidedBlockNumber<Test> {
 			block_number
 		}
 	}

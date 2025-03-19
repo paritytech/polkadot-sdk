@@ -98,6 +98,7 @@ use fungible::{
 };
 use nonfungible::{Inspect as NftInspect, Transfer as NftTransfer};
 use tokens::{Balance, Restriction::*};
+use BlockNumberFor as SystemBlockNumberFor;
 use Fortitude::*;
 use Precision::*;
 use Preservation::*;
@@ -181,16 +182,16 @@ impl BenchmarkSetup for () {
 pub mod pallet {
 	use super::*;
 
-	pub(crate) type BlockNumberFor<T> =
+	pub(crate) type ProvidedBlockNumber<T> =
 		<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 	type DebtOf<T> =
 		fungible::Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 	pub(crate) type ReceiptRecordOf<T> =
-		ReceiptRecord<<T as frame_system::Config>::AccountId, BlockNumberFor<T>, BalanceOf<T>>;
+		ReceiptRecord<<T as frame_system::Config>::AccountId, ProvidedBlockNumber<T>, BalanceOf<T>>;
 	type IssuanceInfoOf<T> = IssuanceInfo<BalanceOf<T>>;
-	pub(crate) type SummaryRecordOf<T> = SummaryRecord<BlockNumberFor<T>, BalanceOf<T>>;
+	pub(crate) type SummaryRecordOf<T> = SummaryRecord<ProvidedBlockNumber<T>, BalanceOf<T>>;
 	type BidOf<T> = Bid<BalanceOf<T>, <T as frame_system::Config>::AccountId>;
 	type QueueTotalsTypeOf<T> = BoundedVec<(u32, BalanceOf<T>), <T as Config>::QueueCount>;
 
@@ -265,7 +266,7 @@ pub mod pallet {
 		/// The base period for the duration queues. This is the common multiple across all
 		/// supported freezing durations that can be bid upon.
 		#[pallet::constant]
-		type BasePeriod: Get<BlockNumberFor<Self>>;
+		type BasePeriod: Get<ProvidedBlockNumber<Self>>;
 
 		/// The minimum amount of funds that may be placed in a bid. Note that this
 		/// does not actually limit the amount which may be represented in a receipt since bids may
@@ -286,7 +287,7 @@ pub mod pallet {
 		/// A larger value results in fewer storage hits each block, but a slower period to get to
 		/// the target.
 		#[pallet::constant]
-		type IntakePeriod: Get<BlockNumberFor<Self>>;
+		type IntakePeriod: Get<ProvidedBlockNumber<Self>>;
 
 		/// The maximum amount of bids that can consolidated into receipts in a single intake. A
 		/// larger value here means less of the block available for transactions should there be a
@@ -296,7 +297,7 @@ pub mod pallet {
 
 		/// The maximum proportion which may be thawed and the period over which it is reset.
 		#[pallet::constant]
-		type ThawThrottle: Get<(Perquintill, BlockNumberFor<Self>)>;
+		type ThawThrottle: Get<(Perquintill, ProvidedBlockNumber<Self>)>;
 
 		/// Abstracted source of block numbers for this pallet.
 		///
@@ -410,7 +411,7 @@ pub mod pallet {
 
 	/// Get last processed intake block.
 	#[pallet::storage]
-	pub type LastProcessedBlock<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type LastProcessedBlock<T> = StorageValue<_, ProvidedBlockNumber<T>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -426,7 +427,7 @@ pub mod pallet {
 			/// The identity of the receipt.
 			index: ReceiptIndex,
 			/// The block number at which the receipt may be thawed.
-			expiry: BlockNumberFor<T>,
+			expiry: ProvidedBlockNumber<T>,
 			/// The owner of the receipt.
 			who: T::AccountId,
 			/// The proportion of the effective total issuance which the receipt represents.
@@ -1085,7 +1086,7 @@ pub mod pallet {
 
 		pub(crate) fn process_queue(
 			duration: u32,
-			now: BlockNumberFor<T>,
+			now: ProvidedBlockNumber<T>,
 			our_account: &T::AccountId,
 			issuance: &IssuanceInfo<BalanceOf<T>>,
 			max_bids: u32,
@@ -1129,7 +1130,7 @@ pub mod pallet {
 
 		pub(crate) fn process_bid(
 			mut bid: BidOf<T>,
-			expiry: BlockNumberFor<T>,
+			expiry: ProvidedBlockNumber<T>,
 			_our_account: &T::AccountId,
 			issuance: &IssuanceInfo<BalanceOf<T>>,
 			remaining: &mut BalanceOf<T>,

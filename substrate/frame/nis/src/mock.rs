@@ -145,7 +145,7 @@ impl Default for ExtBuilder {
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-		pallet_balances::GenesisConfig::<Test, Instance1> {
+		pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
 			balances: vec![(1, 100), (2, 100), (3, 100), (4, 100)],
 			..Default::default()
 		}

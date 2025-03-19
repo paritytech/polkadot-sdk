@@ -242,7 +242,7 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), 0);
-    
+
 		assert!(Receipts::<T>::get(0).is_none());
 
 		Ok(())
