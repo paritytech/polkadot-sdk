@@ -14,9 +14,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 use crate::{
-	client::SubstrateBlock,
+	client::{SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::{
 		revive::{calls::types::EthTransact, events::ContractEmitted},
 		system::events::ExtrinsicSuccess,
@@ -37,16 +36,22 @@ use sp_core::keccak_256;
 pub struct ReceiptExtractor {
 	/// The native to eth decimal ratio, used to calculated gas from native fees.
 	native_to_eth_ratio: u32,
+
+	/// Earliest block number to consider when searching for transaction receipts.
+	earliest_receipt_block: Option<SubstrateBlockNumber>,
 }
 
 impl ReceiptExtractor {
 	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
-	pub fn new(native_to_eth_ratio: u32) -> Self {
-		Self { native_to_eth_ratio }
+	pub fn new(
+		native_to_eth_ratio: u32,
+		earliest_receipt_block: Option<SubstrateBlockNumber>,
+	) -> Self {
+		Self { native_to_eth_ratio, earliest_receipt_block }
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] and  from an extrinsic.
-	pub async fn extract_from_extrinsic(
+	async fn extract_from_extrinsic(
 		&self,
 		block: &SubstrateBlock,
 		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
@@ -139,6 +144,13 @@ impl ReceiptExtractor {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
+		if let Some(earliest_receipt_block) = self.earliest_receipt_block {
+			if block.number() < earliest_receipt_block {
+				log::trace!(target: LOG_TARGET, "Block number {block_number} is less than earliest receipt block {earliest_receipt_block}. Skipping.", block_number = block.number(), earliest_receipt_block = earliest_receipt_block);
+				return Ok(vec![]);
+			}
+		}
+
 		// Filter extrinsics from pallet_revive
 		let extrinsics = block.extrinsics().await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());

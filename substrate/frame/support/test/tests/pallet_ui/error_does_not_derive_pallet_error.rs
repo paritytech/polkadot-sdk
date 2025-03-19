@@ -30,7 +30,7 @@ mod pallet {
 	}
 }
 
-#[derive(scale_info::TypeInfo, codec::Encode, codec::Decode)]
+#[derive(scale_info::TypeInfo, codec::Encode, codec::Decode, codec::DecodeWithMemTracking)]
 enum MyError {}
 
 fn main() {}
