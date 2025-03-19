@@ -45,7 +45,12 @@ mod benchmarks {
 	/// The message will be added on a new page and also, the `BookState` will be added
 	/// to the ready ring.
 	#[benchmark]
-	fn enqueue_n_bytes_xcmp_message(n: Linear<0, { MaxXcmpMessageLenOf::<T>::get() }>) {
+	fn enqueue_n_bytes_xcmp_message(n: Linear<1, { MaxXcmpMessageLenOf::<T>::get() }>) {
+		#[cfg(test)]
+		{
+			mock::EnqueuedMessages::set(vec![]);
+		}
+
 		let msg = BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::try_from(vec![0; n as usize]).unwrap();
 		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
@@ -62,6 +67,11 @@ mod benchmarks {
 	/// to the ready ring.
 	#[benchmark]
 	fn enqueue_2_empty_xcmp_messages() {
+		#[cfg(test)]
+		{
+			mock::EnqueuedMessages::set(vec![]);
+		}
+
 		let msg_1 = BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::default();
 		let msg_2 = BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::default();
 		let fp_before = T::XcmpQueue::footprint(0.into());
