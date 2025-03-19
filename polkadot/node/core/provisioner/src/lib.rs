@@ -35,8 +35,7 @@ use polkadot_node_subsystem::{
 	SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	request_availability_cores, request_session_index_for_child, runtime::request_node_features,
-	TimeoutExt,
+	request_availability_cores, request_node_features, request_session_index_for_child, TimeoutExt,
 };
 use polkadot_primitives::{
 	node_features::FeatureIndex,
