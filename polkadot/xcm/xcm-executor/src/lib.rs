@@ -273,7 +273,6 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				"Barrier blocked execution",
 			);
 
-			// Return Outcome::Incomplete instead of Outcome::Error
 			return Outcome::Incomplete {
 				used: xcm_weight,         // Weight consumed before the error
 				error: XcmError::Barrier, // The error that occurred
