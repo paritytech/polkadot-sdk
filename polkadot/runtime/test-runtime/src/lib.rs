@@ -928,7 +928,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(11)]
+	#[api_version(12)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
@@ -1088,6 +1088,10 @@ sp_api::impl_runtime_apis! {
 
 		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
 			runtime_impl::candidates_pending_availability::<Runtime>(para_id)
+		}
+
+		fn validation_code_bomb_limit() -> u32 {
+			parachains_staging_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
 		}
 	}
 
