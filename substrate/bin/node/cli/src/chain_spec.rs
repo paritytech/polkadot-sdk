@@ -22,7 +22,7 @@ use polkadot_sdk::*;
 
 use crate::chain_spec::sc_service::Properties;
 use kitchensink_runtime::{
-	genesis_config_presets::{session_keys, Staker, StakingPlaygroundConfig, STASH},
+	genesis_config_presets::{session_keys, Staker, STASH},
 	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
