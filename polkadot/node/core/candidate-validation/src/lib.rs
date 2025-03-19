@@ -190,67 +190,65 @@ where
 			exec_kind,
 			response_sender,
 			..
-		} =>
-			async move {
-				let _timer = metrics.time_validate_from_exhaustive();
-				let relay_parent = candidate_receipt.descriptor.relay_parent();
+		} => async move {
+			let _timer = metrics.time_validate_from_exhaustive();
+			let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-				let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
-				let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
-					let error = "cannot fetch session index from the runtime";
-					gum::warn!(
-						target: LOG_TARGET,
-						?relay_parent,
-						error,
-					);
+			let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
+			let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
+				let error = "cannot fetch session index from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
 
-					let _ = response_sender
-						.send(Err(ValidationFailed("Session index not found".to_string())));
-					return
-				};
+				let _ = response_sender
+					.send(Err(ValidationFailed("Session index not found".to_string())));
+				return
+			};
 
-				// This will return a default value for the limit if runtime API is not available.
-				// however we still error out if there is a weird runtime API error.
-				let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
-					relay_parent,
-					session_index,
-					&mut sender,
-				)
-				.await
-				else {
-					let error = "cannot fetch validation code bomb limit from the runtime";
-					gum::warn!(
-						target: LOG_TARGET,
-						?relay_parent,
-						error,
-					);
+			// This will return a default value for the limit if runtime API is not available.
+			// however we still error out if there is a weird runtime API error.
+			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
+				relay_parent,
+				session_index,
+				&mut sender,
+			)
+			.await
+			else {
+				let error = "cannot fetch validation code bomb limit from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
 
-					let _ = response_sender.send(Err(ValidationFailed(
-						"Validation code bomb limit not available".to_string(),
-					)));
-					return
-				};
+				let _ = response_sender.send(Err(ValidationFailed(
+					"Validation code bomb limit not available".to_string(),
+				)));
+				return
+			};
 
-				let res = validate_candidate_exhaustive(
-					session_index,
-					validation_host,
-					validation_data,
-					validation_code,
-					candidate_receipt,
-					pov,
-					executor_params,
-					exec_kind,
-					&metrics,
-					maybe_claim_queue,
-					validation_code_bomb_limit,
-				)
-				.await;
+			let res = validate_candidate_exhaustive(
+				session_index,
+				validation_host,
+				validation_data,
+				validation_code,
+				candidate_receipt,
+				pov,
+				executor_params,
+				exec_kind,
+				&metrics,
+				maybe_claim_queue,
+				validation_code_bomb_limit,
+			)
+			.await;
 
-
-				metrics.on_validation_event(&res);
-				let _ = response_sender.send(res);
-			}
-			.boxed(),
+			metrics.on_validation_event(&res);
+			let _ = response_sender.send(res);
+		}
+		.boxed(),
 		CandidateValidationMessage::PreCheck {
 			relay_parent,
 			validation_code_hash,
