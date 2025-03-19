@@ -6,7 +6,7 @@ use syn::{
 use syn::punctuated::Punctuated;
 use syn::parse::{Parse, ParseStream};
 
-/// A helper struct to hold a comma-separated list of identifiers, ie `no_bounds(A, B, C)`.
+/// A helper struct to hold a comma-separated list of identifiers, ie no_bounds(A, B, C).
 #[derive(Default)]
 struct IdentList(Punctuated<Ident, Token![,]>);
 
@@ -21,14 +21,15 @@ impl Parse for IdentList {
 /// runtime storage.
 ///
 /// It does the following:
-/// - Parses attribute no_bounds argument to determine type parameters that should not be bounded.
+/// - Parses attribute no_bounds and mel_bounds arguments to determine type parameters that should not be bounded,
+///   and those for which additional bounds may be applied later (mel_bounds is not used for now).
 /// - Adds default trait bounds to any type parameter that should be bounded.
 /// - Generates the necessary derive attributes and other metadata required for storage in a substrate runtime.
 /// - Adjusts those attributes based on whether the item is a struct or an enum.
-/// - Utilizes the `NoBound` version of the derives if there's a type parameter that should be unbounded.
+/// - Utilizes the NoBound version of the derives if there's a type parameter that should be unbounded.
 pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     // Initial parsing.
-    let no_bound_params = parse_no_bounds_from_args(attr);
+    let (no_bound_params, _mel_bound_params) = parse_stored_args(attr);
     let mut input = parse_macro_input!(input as DeriveInput);
 
     // Remove the #[stored] attribute to prevent re-emission.
@@ -143,7 +144,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             // Unions are not supported.
             return syn::Error::new_spanned(
                 &input,
-                "The `#[stored]` attribute cannot be used on unions."
+                "The #[stored] attribute cannot be used on unions."
             )
             .to_compile_error()
             .into()
@@ -153,28 +154,36 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-/// Extract a list of type parameters that should not be bounded from the attribute arguments.
-///
-/// For example, given `#[stored(no_bounds(A, B))]`, this function extracts A and B.
-fn parse_no_bounds_from_args(args: TokenStream) -> Vec<Ident> {
+/// Extracts type parameters from the attribute arguments for no_bounds and mel_bounds.
+/// For example, given #[stored(no_bounds(A, B), mel_bounds(X, Y))], this function extracts
+/// A and B into no_bounds and X and Y into mel_bounds.
+fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Vec<Ident>) {
+    let mut no_bounds = Vec::new();
+    let mut mel_bounds = Vec::new();
     if args.is_empty() {
-        return Vec::new();
+        return (no_bounds, mel_bounds);
     }
-    // Parse the arguments into a Meta representation.
-    let meta = syn::parse::<Meta>(args).unwrap();
-    // Check if the attribute is "no_bounds".
-    if meta.path().is_ident("no_bounds") {
-        if let Meta::List(meta_list) = meta {
-            // Parse the inner tokens as an IdentList.
-            let ident_list: IdentList = syn::parse2(meta_list.tokens).unwrap_or_default();
-            return ident_list.0.into_iter().collect();
+    let parsed = syn::punctuated::Punctuated::<syn::NestedMeta, Token![,]>::parse_terminated
+        .parse2(args)
+        .unwrap_or_default();
+    for nested_meta in parsed {
+        if let syn::NestedMeta::Meta(syn::Meta::List(meta_list)) = nested_meta {
+            if let Some(ident) = meta_list.path.get_ident() {
+                if ident == "no_bounds" {
+                    let ident_list: IdentList = syn::parse2(meta_list.tokens).unwrap_or_default();
+                    no_bounds.extend(ident_list.0.into_iter());
+                } else if ident == "mel_bounds" {
+                    let ident_list: IdentList = syn::parse2(meta_list.tokens).unwrap_or_default();
+                    mel_bounds.extend(ident_list.0.into_iter());
+                }
+            }
         }
     }
-    Vec::new()
+    (no_bounds, mel_bounds)
 }
 
 /// Adds standard trait bounds to generic parameters of the input type,
-/// except for those parameters listed in `no_bound_params`.
+/// except for those parameters listed in no_bound_params.
 fn add_normal_trait_bounds(
     generics: &mut syn::Generics,
     no_bound_params: &[Ident],
