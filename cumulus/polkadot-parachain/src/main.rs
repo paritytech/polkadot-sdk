@@ -21,7 +21,7 @@
 
 mod chain_spec;
 
-use clap::{Parser};
+use clap::Parser;
 use polkadot_omni_node_lib::{
 	chain_spec::LoadSpec, cli::CustomCommandHandler, run, CliConfig as CliConfigT, RunConfig,
 	NODE_VERSION,
@@ -40,16 +40,20 @@ impl CustomCommandHandler for MyCustomCommandHandler {
 			// Parse the arguments into an ExportChainSpecCmd using Clap.
 			let export_cmd = match ExportChainSpecCmd::try_parse_from(full_args) {
 				Ok(cmd) => cmd,
-				Err(e) => return Some(Err(sc_cli::Error::Application(Box::new(
-					std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-				)))),
+				Err(e) =>
+					return Some(Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						e.to_string(),
+					))))),
 			};
 			// Load the chain spec using your local chain spec loader.
 			let spec = match chain_spec::ChainSpecLoader.load_spec(&export_cmd.chain) {
 				Ok(spec) => spec,
-				Err(e) => return Some(Err(sc_cli::Error::Application(Box::new(
-					std::io::Error::new(std::io::ErrorKind::Other, e)
-				)))),
+				Err(e) =>
+					return Some(Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						e,
+					))))),
 			};
 			return Some(export_cmd.run(spec));
 		}

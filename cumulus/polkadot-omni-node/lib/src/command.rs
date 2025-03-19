@@ -60,11 +60,7 @@ impl RunConfig {
 		chain_spec_loader: Box<dyn LoadSpec>,
 		custom_command_handler: Option<Box<dyn cli::CustomCommandHandler>>,
 	) -> Self {
-		RunConfig {
-			runtime_resolver,
-			chain_spec_loader,
-			custom_command_handler,
-		}
+		RunConfig { runtime_resolver, chain_spec_loader, custom_command_handler }
 	}
 }
 
@@ -235,19 +231,23 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				let subcommand = ext[0].clone();
 				let args = ext[1..].to_vec();
 				if let Some(ref handler) = cmd_config.custom_command_handler {
-					handler.handle_command(&subcommand, &args)
-						.unwrap_or_else(|| Err(sc_cli::Error::Application(Box::new(
-							std::io::Error::new(std::io::ErrorKind::Other, "Custom command not handled")
+					handler.handle_command(&subcommand, &args).unwrap_or_else(|| {
+						Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
+							std::io::ErrorKind::Other,
+							"Custom command not handled",
 						))))
+					})
 				} else {
-					Err(sc_cli::Error::Application(Box::new(
-						std::io::Error::new(std::io::ErrorKind::Other, "Custom command provided but no handler registered")
-					)))
+					Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						"Custom command provided but no handler registered",
+					))))
 				}
 			} else {
-				Err(sc_cli::Error::Application(Box::new(
-					std::io::Error::new(std::io::ErrorKind::Other, "No custom command provided")
-				)))
+				Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					"No custom command provided",
+				))))
 			}
 		},
 		None => {
