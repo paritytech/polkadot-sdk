@@ -19,7 +19,6 @@ pub async fn assert_para_throughput(
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 	let mut candidate_count: HashMap<ParaId, u32> = HashMap::new();
 	let mut current_block_count = 0;
-	let mut had_first_session_change = false;
 
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
@@ -27,11 +26,7 @@ pub async fn assert_para_throughput(
 		let events = block.events().await?;
 		let is_session_change = events.has::<rococo::session::events::NewSession>()?;
 
-		if !had_first_session_change && is_session_change {
-			had_first_session_change = true;
-		}
-
-		if had_first_session_change && !is_session_change {
+		if !is_session_change {
 			current_block_count += 1;
 
 			for event in events.find::<rococo::para_inclusion::events::CandidateBacked>() {
