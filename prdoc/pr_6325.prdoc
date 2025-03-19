@@ -1,0 +1,47 @@
+title: '[Tx ext stage 2: 3/4]  use `#[pallet::authorize(...)]` to migrate unsigned
+  in system: tasks + apply_authorized_call'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    ## Meta
+
+    This PR is part of 4 PR:
+    * https://github.com/paritytech/polkadot-sdk/pull/6323
+    * https://github.com/paritytech/polkadot-sdk/pull/6324
+    * https://github.com/paritytech/polkadot-sdk/pull/6325
+    * https://github.com/paritytech/polkadot-sdk/pull/6326
+
+    ## Description
+
+    Migrate tasks and apply_authorized_call to general transaction with `pallet::authorize`.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: frame-system-benchmarking
+  bump: major
+- name: frame-system
+  bump: major
+- name: frame-support-procedural
+  bump: major
