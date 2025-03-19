@@ -24,6 +24,10 @@ use sp_runtime::SaturatedConversion;
 pub trait WeightInfoExt: WeightInfo {
 	fn enqueue_xcmp_message(size_in_bytes: usize, new_page: bool) -> Weight {
 		let size_in_bytes = size_in_bytes.saturated_into();
+		// The first message for a certain origin consumes some extra reads and writes.
+		// Also, the first message on a page consumes 1 extra write.
+		// For simplicity let's just consider that the first message on a page is also
+		// the first message for that origin.
 		match new_page {
 			true => Self::enqueue_n_bytes_xcmp_message(size_in_bytes),
 			false => {

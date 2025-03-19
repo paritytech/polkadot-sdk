@@ -20,7 +20,7 @@ use crate::*;
 use alloc::vec;
 use codec::DecodeAll;
 use frame_benchmarking::v2::*;
-use frame_support::traits::Hooks;
+use frame_support::{assert_ok, traits::Hooks};
 use frame_system::RawOrigin;
 use xcm::MAX_INSTRUCTIONS_TO_DECODE;
 
@@ -55,7 +55,7 @@ mod benchmarks {
 		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
 		{
-			Pallet::<T>::enqueue_xcmp_message(0.into(), msg).unwrap();
+			assert_ok!(Pallet::<T>::enqueue_xcmp_message(0.into(), msg));
 		}
 		let fp_after = T::XcmpQueue::footprint(0.into());
 		assert_eq!(fp_after.ready_pages, fp_before.ready_pages + 1);
@@ -77,8 +77,8 @@ mod benchmarks {
 		let fp_before = T::XcmpQueue::footprint(0.into());
 		#[block]
 		{
-			Pallet::<T>::enqueue_xcmp_message(0.into(), msg_1).unwrap();
-			Pallet::<T>::enqueue_xcmp_message(0.into(), msg_2).unwrap();
+			assert_ok!(Pallet::<T>::enqueue_xcmp_message(0.into(), msg_1));
+			assert_ok!(Pallet::<T>::enqueue_xcmp_message(0.into(), msg_2));
 		}
 		let fp_after = T::XcmpQueue::footprint(0.into());
 		assert_eq!(fp_after.ready_pages, fp_before.ready_pages + 1);

@@ -789,7 +789,9 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						}
 					},
 				XcmpMessageFormat::ConcatenatedVersionedXcm => {
-					let mut new_page = true;
+					// We need to know if the current message is the first on the current XCMP page
+					// for weight metering accuracy.
+					let mut is_first_xcm_on_page = true;
 					while !data.is_empty() {
 						let Ok(xcm) = Self::take_first_concatenated_xcm(&mut data, &mut meter)
 						else {
@@ -801,7 +803,10 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						// message queue page. This is not always true, but it's a good enough
 						// estimation.
 						if meter
-							.try_consume(T::WeightInfo::enqueue_xcmp_message(xcm.len(), new_page))
+							.try_consume(T::WeightInfo::enqueue_xcmp_message(
+								xcm.len(),
+								is_first_xcm_on_page,
+							))
 							.is_err()
 						{
 							defensive!(
@@ -820,7 +825,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							break
 						}
 
-						new_page = false;
+						is_first_xcm_on_page = false;
 					}
 				},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
