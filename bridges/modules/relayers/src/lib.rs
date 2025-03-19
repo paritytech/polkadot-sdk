@@ -235,6 +235,30 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Relayers that have reserved some of their balance to get free priority boost
+		/// for their message delivery transactions.
+		pub fn registered_relayer(
+			relayer: &T::AccountId,
+		) -> Option<Registration<BlockNumberFor<T>, T::Balance>> {
+			RegisteredRelayers::<T, I>::get(relayer)
+		}
+
+		/// Map of the relayer => accumulated reward.
+		pub fn relayer_reward<EncodeLikeAccountId, EncodeLikeReward>(
+			key1: EncodeLikeAccountId,
+			key2: EncodeLikeReward,
+		) -> Option<<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Value>
+		where
+			EncodeLikeAccountId: codec::EncodeLike<
+				<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key1,
+			>,
+			EncodeLikeReward: codec::EncodeLike<
+				<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key2,
+			>,
+		{
+			RelayerRewards::<T, I>::get(key1, key2)
+		}
+
 		fn do_claim_rewards(
 			relayer: T::AccountId,
 			reward_kind: T::Reward,
@@ -289,7 +313,7 @@ pub mod pallet {
 
 			// registration is inactive if relayer stake is less than required
 			if registration.stake < Self::required_stake() {
-				return false
+				return false;
 			}
 
 			// registration is inactive if it ends soon
@@ -297,7 +321,7 @@ pub mod pallet {
 				.valid_till
 				.saturating_sub(frame_system::Pallet::<T>::block_number());
 			if remaining_lease <= Self::required_registration_lease() {
-				return false
+				return false;
 			}
 
 			true
@@ -319,7 +343,7 @@ pub mod pallet {
 						relayer,
 					);
 
-					return
+					return;
 				},
 			};
 			let slash_destination = slash_destination.into_account();
@@ -380,7 +404,7 @@ pub mod pallet {
 			reward_balance: T::RewardBalance,
 		) {
 			if reward_balance.is_zero() {
-				return
+				return;
 			}
 
 			RelayerRewards::<T, I>::mutate(
@@ -512,7 +536,6 @@ pub mod pallet {
 
 	/// Map of the relayer => accumulated reward.
 	#[pallet::storage]
-	#[pallet::getter(fn relayer_reward)]
 	pub type RelayerRewards<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Hasher1,
@@ -530,7 +553,6 @@ pub mod pallet {
 	/// priority and will be rejected (without significant tip) in case if registered
 	/// relayer is present.
 	#[pallet::storage]
-	#[pallet::getter(fn registered_relayer)]
 	pub type RegisteredRelayers<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -606,7 +628,8 @@ mod tests {
 				150,
 			));
 			// check if registered
-			let registration = Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER).unwrap();
+			let registration =
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER).unwrap();
 			assert_eq!(registration, Registration { valid_till: 150, stake: Stake::get() });
 
 			// slash and deregister
@@ -787,7 +810,7 @@ mod tests {
 			));
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
 			assert_eq!(
-				Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER),
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER),
 				Some(Registration { valid_till: 150, stake: Stake::get() }),
 			);
 
@@ -855,7 +878,7 @@ mod tests {
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
 			assert_eq!(Balances::free_balance(REGISTER_RELAYER), free_balance + 1);
 			assert_eq!(
-				Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER),
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER),
 				Some(Registration { valid_till: 150, stake: Stake::get() }),
 			);
 
@@ -919,7 +942,7 @@ mod tests {
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
 			assert_eq!(Balances::free_balance(REGISTER_RELAYER), free_balance - 1);
 			assert_eq!(
-				Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER),
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER),
 				Some(Registration { valid_till: 150, stake: Stake::get() }),
 			);
 
