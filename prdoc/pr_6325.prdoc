@@ -33,5 +33,3 @@ crates:
   bump: major
 - name: frame-system
   bump: major
-- name: frame-support-procedural
-  bump: major
