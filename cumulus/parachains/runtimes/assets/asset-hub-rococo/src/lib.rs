@@ -37,6 +37,7 @@ use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
+use bp_asset_hub_rococo::CreateForeignAssetDeposit;
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector};
 use sp_api::impl_runtime_apis;
@@ -48,7 +49,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, Permill,
 };
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
-use bp_asset_hub_rococo::CreateForeignAssetDeposit;
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;

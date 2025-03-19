@@ -79,9 +79,7 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 	// Fund AssetHub sovereign account so that it can pay execution fees.
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
 	// Fund Snowbridge Sovereign to satisfy ED.
-	AssetHubWestend::fund_accounts(vec![
-		(snowbridge_sovereign(), INITIAL_FUND),
-	]);
+	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
