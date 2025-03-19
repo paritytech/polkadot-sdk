@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add migrations prelude to frame umbrella crate
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds the `migrations_prelude` to the frame umbrella crate. This prelude can now be imported
+      into your pallet's migration.rs file, providing you the necessary types. This update also removes the
+      `try_runtime` module from the umbrella crate. You can now find those types under `migrations_prelude`
+      ,`testing_prelude`, or `prelude`.
+
+crates:
+- name: polkadot-sdk-frame
+  bump: minor
+- name: pallet-multisig
+  bump: none
+- name: pallet-assets-freezer
+  bump: none
