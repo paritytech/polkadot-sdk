@@ -606,22 +606,37 @@ fn extract_hi_lo(reg: u64) -> (u32, u32) {
 	((reg >> 32) as u32, reg as u32)
 }
 
-/// Represents different forms of storage values for operations.
+/// By abstracting these two forms under a single `StorageValue` enum, the runtime can choose the
+/// appropriate handling logic depending
+/// on whether the storage value is coming from memory (variable-length) or is provided inline as a
+/// fixed-size value to avoid reading the value twice(in case of set_storage_or_clear).
 enum StorageValue {
-	/// Used for variable-length values in traditional storage functions.
+	/// Indicates that the storage value should be read from a memory buffer.
+	/// - `ptr`: A pointer to the start of the data in sandbox memory.
+	/// - `len`: The length (in bytes) of the data.
 	Memory { ptr: u32, len: u32 },
-	/// Used to implement Ethereum SSTORE-like semantics for fixed-size (256-bit) key and values.
+
+	/// Indicates that the storage value is provided inline as a fixed-size (256-bit) value.
+	/// This is used by set_storage_or_clear() to avoid double reads.
+	/// This variant is used to implement Ethereum SSTORE-like semantics.
 	Value(Vec<u8>),
 }
 
-/// Determines behavior when a key doesn't exist during storage read operations.
+/// Controls the output behavior for storage reads, both when a key is found and when it is not.
+///
+/// - `Standard`: Use the traditional behavior:
+///     - If the key is missing, return a KeyNotFound error.
+///     - Otherwise, return the full stored value using the caller’s provided output length.
+/// - `EthSemantics`: Emulate Ethereum’s fixed 256-bit (32-byte) output:
+///     - Always write a 32-byte value into the output buffer.
+///     - If the key is missing, write 32 bytes of zeros.
 enum StorageReadMode {
-	/// Return KeyNotFound error code when the key doesn't exist.
-	/// Used in traditional variable-length storage functions.
-	ErrorIfMissing,
-	/// Write zeros to the output buffer when the key doesn't exist.
-	/// Used to implement Ethereum SLOAD-like semantics for fixed-size (256-bit) key and output.
-	ZeroIfMissing,
+	/// Standard mode: if the key exists, the full stored value is returned
+	/// using the caller‑provided output length.
+	Standard(u32),
+	/// Ethereum commpatible mode: always write a 32-byte value into the output buffer.
+	/// If the key is missing, write 32 bytes of zeros.
+	EthSemantics,
 }
 /// Can only be used for one call.
 pub struct Runtime<'a, E: Ext, M: ?Sized> {
@@ -961,7 +976,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_ptr: u32,
 		key_len: u32,
 		out_ptr: u32,
-		out_len_ptr: u32,
 		read_mode: StorageReadMode,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
@@ -984,9 +998,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.adjust_gas(charged, costs(value.len() as u32));
 
 			match read_mode {
-				StorageReadMode::ZeroIfMissing => {
+				StorageReadMode::EthSemantics => {
 					let mut fixed_output = [0u8; 32];
-					let len = core::cmp::min(value.len(), 32);
+					let len = core::cmp::min(value.len(), fixed_output.len());
 					fixed_output[..len].copy_from_slice(&value[..len]);
 
 					self.write_fixed_sandbox_output(
@@ -998,8 +1012,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					)?;
 					Ok(ReturnErrorCode::Success)
 				},
-				StorageReadMode::ErrorIfMissing => {
-					// preserve original behavior
+				StorageReadMode::Standard(out_len_ptr) => {
 					self.write_sandbox_output(
 						memory,
 						out_ptr,
@@ -1015,7 +1028,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.adjust_gas(charged, costs(0));
 
 			match read_mode {
-				StorageReadMode::ZeroIfMissing => {
+				StorageReadMode::EthSemantics => {
 					self.write_fixed_sandbox_output(
 						memory,
 						out_ptr,
@@ -1025,7 +1038,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					)?;
 					Ok(ReturnErrorCode::Success)
 				},
-				StorageReadMode::ErrorIfMissing => Ok(ReturnErrorCode::KeyNotFound),
+				StorageReadMode::Standard(_) => Ok(ReturnErrorCode::KeyNotFound),
 			}
 		}
 	}
@@ -1308,7 +1321,6 @@ pub mod env {
 		key_ptr: u32,
 		value_ptr: u32,
 	) -> Result<u32, TrapReason> {
-		let _ = Self::is_transient(flags)?;
 		let value = memory.read_array::<32>(value_ptr)?;
 
 		if value.iter().all(|&b| b == 0) {
@@ -1336,8 +1348,7 @@ pub mod env {
 			key_ptr,
 			key_len,
 			out_ptr,
-			out_len_ptr,
-			StorageReadMode::ErrorIfMissing,
+			StorageReadMode::Standard(out_len_ptr),
 		)
 	}
 
@@ -1357,8 +1368,7 @@ pub mod env {
 			key_ptr,
 			SENTINEL,
 			out_ptr,
-			SENTINEL,
-			StorageReadMode::ZeroIfMissing,
+			StorageReadMode::EthSemantics,
 		)?;
 
 		Ok(())
