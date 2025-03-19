@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::imports::*;
-use frame_support::traits::ProcessMessageError;
 
 use codec::Encode;
 use frame_support::sp_runtime::traits::Dispatchable;
@@ -135,7 +134,7 @@ fn relay_commands_add_registrar_wrong_origin() {
 				assert_expected_events!(
 					PeopleWestend,
 					vec![
-						RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed { error: ProcessMessageError::Unsupported, .. }) => {},
+						RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: false, .. }) => {},
 					]
 				);
 			} else {
