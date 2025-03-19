@@ -608,6 +608,7 @@ runtime-full = [
 	"pallet-asset-tx-payment",
 	"pallet-assets",
 	"pallet-assets-freezer",
+	"pallet-assets-holder",
 	"pallet-atomic-swap",
 	"pallet-aura",
 	"pallet-authority-discovery",
