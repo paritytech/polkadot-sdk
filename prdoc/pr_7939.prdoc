@@ -1,0 +1,52 @@
+title: Revert pallet-staking changes which should be released as a separate pallet
+doc:
+- audience: Runtime Dev
+  description: |-
+    Revert changes to staking pallet for AssetHubNext because they will be released as a separate pallet.
+crates:
+- name: sp-staking
+  bump: major
+- name: polkadot-sdk
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: pallet-babe
+  bump: major
+- name: frame-election-provider-support
+  bump: major
+- name: frame-election-provider-solution-type
+  bump: major
+- name: sp-npos-elections
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: pallet-bags-list
+  bump: major
+- name: pallet-grandpa
+  bump: major
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: pallet-election-provider-support-benchmarking
+  bump: major
+- name: pallet-fast-unstake
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-beefy
+  bump: major
+- name: pallet-delegated-staking
+  bump: major
+- name: pallet-elections-phragmen
+  bump: major
+- name: pallet-nomination-pools-benchmarking
+  bump: major
+- name: pallet-offences-benchmarking
+  bump: major
+- name: pallet-session-benchmarking
+  bump: major
+- name: pallet-root-offences
+  bump: major
+- name: cumulus-pov-validator
+  bump: major
