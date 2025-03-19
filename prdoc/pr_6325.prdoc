@@ -1,21 +1,11 @@
-title: '[Tx ext stage 2: 3/4]  use `#[pallet::authorize(...)]` to migrate unsigned
+title: `Use `#[pallet::authorize(...)]` to migrate unsigned transaction to general transaction in frame-system
   in system: tasks + apply_authorized_call'
 doc:
 - audience:
   - Runtime Dev
   - Runtime User
   description: |-
-    ## Meta
-
-    This PR is part of 4 PR:
-    * https://github.com/paritytech/polkadot-sdk/pull/6323
-    * https://github.com/paritytech/polkadot-sdk/pull/6324
-    * https://github.com/paritytech/polkadot-sdk/pull/6325
-    * https://github.com/paritytech/polkadot-sdk/pull/6326
-
-    ## Description
-
-    Migrate tasks and apply_authorized_call to general transaction with `pallet::authorize`.
+    In frame-system, migrate `tasks` and `apply_authorized_call` to general transaction using `#[pallet::authorize(..)]`. Unsigned transaction are kept for backward compatibility.
 crates:
 - name: asset-hub-rococo-runtime
   bump: major
