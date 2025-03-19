@@ -1189,6 +1189,33 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn manual_slash() -> Result<(), BenchmarkError> {
+		let era = EraIndex::zero();
+		CurrentEra::<T>::put(era);
+		ErasStartSessionIndex::<T>::insert(era, 0);
+		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
+
+		// Create a validator with nominators
+		let (validator_stash, _nominators) = create_validator_with_nominators::<T>(
+			T::MaxExposurePageSize::get() as u32,
+			T::MaxExposurePageSize::get() as u32,
+			false,
+			true,
+			RewardDestination::Staked,
+			era,
+		)?;
+
+		let slash_fraction = Perbill::from_percent(10);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, validator_stash.clone(), era, slash_fraction);
+
+		assert!(ValidatorSlashInEra::<T>::get(era, &validator_stash).is_some());
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Staking,
 		crate::mock::ExtBuilder::default().has_stakers(true),

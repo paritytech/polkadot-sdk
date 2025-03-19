@@ -300,7 +300,6 @@ pub type TxExtension = (
 	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
 	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	frame_system::WeightReclaim<Runtime>,
 );
