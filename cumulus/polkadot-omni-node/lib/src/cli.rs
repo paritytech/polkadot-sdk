@@ -145,7 +145,7 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
 	/// Custom subcommand to allow extensions.
-	#[clap(external_subcommand)]
+	#[command(external_subcommand)]
 	Custom(Vec<String>),
 }
 
@@ -154,7 +154,8 @@ pub enum Subcommand {
 #[command(
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
-	subcommand_negates_reqs = true
+	subcommand_negates_reqs = true,
+	allow_external_subcommands = true,
 )]
 pub struct Cli<Config: CliConfig> {
 	#[arg(skip)]
