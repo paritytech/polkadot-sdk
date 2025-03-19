@@ -24,7 +24,6 @@ use futures::{
 	channel::oneshot, future::BoxFuture, prelude::*, stream::FuturesUnordered, FutureExt,
 };
 use futures_timer::Delay;
-use schnellru::{ByLength, LruMap};
 
 use polkadot_node_subsystem::{
 	messages::{
@@ -34,11 +33,8 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemError,
 };
-use polkadot_node_subsystem_util::{
-	request_availability_cores, request_node_features, request_session_index_for_child, TimeoutExt,
-};
+use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt};
 use polkadot_primitives::{
-	node_features::FeatureIndex,
 	vstaging::{BackedCandidate, CoreState},
 	CandidateHash, CoreIndex, Hash, Id as ParaId, SessionIndex, SignedAvailabilityBitfield,
 	ValidatorIndex,

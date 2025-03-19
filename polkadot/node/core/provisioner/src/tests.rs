@@ -661,7 +661,6 @@ mod select_candidates {
 				select_candidates(
 					&[],
 					&[],
-					false,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
@@ -740,7 +739,6 @@ mod select_candidates {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
-					false,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
@@ -843,7 +841,6 @@ mod select_candidates {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
-					true,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
@@ -861,8 +858,7 @@ mod select_candidates {
 
 	#[rstest]
 	#[case(true)]
-	#[case(false)]
-	fn one_core_per_para(#[case] elastic_scaling_mvp: bool) {
+	fn one_core_per_para(#[case] _elastic_scaling_mvp: bool) {
 		let mock_cores = mock_availability_cores_one_per_para();
 
 		// why those particular indices? see the comments on mock_availability_cores()
@@ -888,7 +884,6 @@ mod select_candidates {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
-					elastic_scaling_mvp,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
@@ -965,56 +960,6 @@ mod select_candidates {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
-					true,
-					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
-					&mut tx,
-				)
-				.await
-				.unwrap();
-
-				assert_eq!(result.len(), expected_candidates_clone.len());
-				result.into_iter().for_each(|c| {
-					assert!(
-						expected_candidates_clone
-							.iter()
-							.any(|c2| c.candidate().corresponds_to(&c2.receipt())),
-						"Failed to find candidate: {:?}",
-						c,
-					)
-				});
-			},
-		)
-	}
-
-	#[test]
-	fn multiple_cores_per_para_elastic_scaling_mvp_disabled() {
-		let mock_cores = mock_availability_cores_multiple_per_para();
-
-		// why those particular indices? see the comments on mock_availability_cores()
-		let expected_candidates: Vec<_> = vec![1, 4, 7, 8, 10];
-
-		let (candidates, expected_candidates) =
-			make_candidates(mock_cores.len(), expected_candidates);
-
-		let mut required_ancestors: HashMap<Vec<CandidateHash>, Ancestors> = HashMap::new();
-		required_ancestors.insert(
-			vec![candidates[4]],
-			vec![CandidateHash(Hash::from_low_u64_be(41))].into_iter().collect(),
-		);
-		required_ancestors.insert(
-			vec![candidates[8]],
-			vec![CandidateHash(Hash::from_low_u64_be(81))].into_iter().collect(),
-		);
-
-		let mock_cores_clone = mock_cores.clone();
-		let expected_candidates_clone = expected_candidates.clone();
-		test_harness(
-			|r| mock_overseer(r, mock_cores_clone, expected_candidates, required_ancestors),
-			|mut tx: TestSubsystemSender| async move {
-				let result = select_candidates(
-					&mock_cores,
-					&[],
-					false,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
@@ -1076,7 +1021,6 @@ mod select_candidates {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
-					false,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
