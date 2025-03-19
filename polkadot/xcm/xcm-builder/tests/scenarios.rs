@@ -334,8 +334,6 @@ fn reserve_based_transfer_works() {
 		);
 	});
 }
-<<<<<<< HEAD
-=======
 
 /// Scenario:
 /// A recursive XCM that triggers itself via `SetAppendix`.
@@ -441,4 +439,3 @@ fn recursive_xcm_execution_fail() {
 		);
 	});
 }
->>>>>>> 21927dd4 (Fix XCM Barrier Rejection Handling to Return Incomplete with Weight (#7843))
