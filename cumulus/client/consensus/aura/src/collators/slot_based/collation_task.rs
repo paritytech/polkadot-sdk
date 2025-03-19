@@ -126,6 +126,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		validation_code_hash,
 		relay_parent,
 		core_index,
+		max_pov_size,
 	} = message;
 
 	let hash = parachain_candidate.block.header().hash();
@@ -160,6 +161,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 					parent_header.clone(),
 					relay_parent_header.state_root,
 					relay_parent_header.number,
+					max_pov_size,
 				);
 			} else {
 				tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {relay_parent:?}");

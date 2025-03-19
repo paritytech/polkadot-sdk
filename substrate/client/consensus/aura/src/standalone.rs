@@ -141,7 +141,7 @@ where
 		})?;
 
 	let signature = signature
-		.clone()
+		.as_slice()
 		.try_into()
 		.map_err(|_| ConsensusError::InvalidSignature(signature, public.to_raw_vec()))?;
 

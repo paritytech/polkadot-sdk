@@ -13,7 +13,6 @@ exclude_all_private = true
 accept = [
 	# Ok
 	"200",
-
 	# Rate limited - GitHub likes to throw this.
 	"429",
 ]
@@ -27,7 +26,6 @@ exclude = [
 	# Place holders (no need to fix these):
 	"http://visitme/",
 	"https://visitme/",
-
 	# TODO meta issue: <https://github.com/paritytech/polkadot-sdk/issues/134>
 	"https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs",
 	"https://docs.substrate.io/rustdocs/latest/sp_api/macro.decl_runtime_apis.html",
@@ -48,18 +46,18 @@ exclude = [
 	"https://w3f.github.io/parachain-implementers-guide/node/index.html",
 	"https://w3f.github.io/parachain-implementers-guide/protocol-chain-selection.html",
 	"https://w3f.github.io/parachain-implementers-guide/runtime/session_info.html",
-
 	# Behind a captcha (code 403):
 	"https://chainlist.org/chain/*",
 	"https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/",
 	"https://polymesh.network",
 	"https://www.reddit.com/r/rust/comments/3spfh1/does_collect_allocate_more_than_once_while/",
-
 	# 403 rate limited:
 	"https://etherscan.io/block/11090290",
 	"https://subscan.io/",
 	"https://substrate.stackexchange.com/.*",
-
+	# Broken for link-checker CI, but works in browser and local machine
+	"http://www.gnu.org/licenses/",
+	"https://www.gnu.org/licenses/",
 	# Exclude strings which contain templates like {} and {:?}
 	"%7B%7D",
 	"%7B:\\?}",

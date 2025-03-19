@@ -31,10 +31,10 @@ jobs:
 
       - name: Generate token
         id: generate_token
-        uses: tibdex/github-app-token@v2.1.0
+        uses: actions/create-github-app-token@v1
         with:
-          app_id: ${{ secrets.CMD_BOT_APP_ID }}
-          private_key: ${{ secrets.CMD_BOT_APP_KEY }}
+          app_id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+          private_key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
 
       - name: Create backport pull requests
         uses: korthout/backport-action@v3

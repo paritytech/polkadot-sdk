@@ -1,6 +1,6 @@
 name: Release - RC automation
 on:
-  # TODO: Activate it and delete old branches patterns, when the release process from stable is setteled
+  # TODO: Activate it and delete old branches patterns, when the release process from stable is settled
   #push:
     # branches:
     #   # Catches release-polkadot-v1.2.3, release-v1.2.3-rc1, etc
