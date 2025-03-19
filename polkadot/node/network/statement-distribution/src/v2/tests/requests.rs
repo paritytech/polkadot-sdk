@@ -26,7 +26,9 @@ use sc_network::config::{
 	IncomingRequest as RawIncomingRequest, OutgoingResponse as RawOutgoingResponse,
 };
 
-use polkadot_primitives::vstaging::MutateDescriptorV2;
+use polkadot_primitives::vstaging::{
+	ClaimQueueOffset, CoreSelector, MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
+};
 use rstest::rstest;
 
 #[rstest]
@@ -39,6 +41,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 		group_size,
 		local_validator: LocalRole::Validator,
 		allow_v2_descriptors,
+		allow_approved_peer_signal: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -197,12 +200,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count, group_size, ..Default::default() };
 
 	// use a scheduling_lookahead of two to restrict the per-core seconding limit to 2.
 	let scheduling_lookahead = 2;
@@ -476,12 +474,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 fn peer_reported_for_not_enough_statements() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count, group_size, ..Default::default() };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -663,12 +656,7 @@ fn peer_reported_for_not_enough_statements() {
 #[test]
 fn peer_reported_for_duplicate_statements() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count: 20, group_size, ..Default::default() };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -816,12 +804,7 @@ fn peer_reported_for_duplicate_statements() {
 #[test]
 fn peer_reported_for_providing_statements_with_invalid_signatures() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count: 20, group_size, ..Default::default() };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -952,6 +935,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 		group_size,
 		local_validator: LocalRole::Validator,
 		allow_v2_descriptors: true,
+		allow_approved_peer_signal: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -1061,7 +1045,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_a && r == COST_INVALID_CORE_INDEX.into() => { }
+					if p == peer_a && r == COST_INVALID_UMP_SIGNALS.into() => { }
 			);
 		}
 
@@ -1234,6 +1218,7 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 		group_size,
 		local_validator: LocalRole::Validator,
 		allow_v2_descriptors,
+		allow_approved_peer_signal: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -1342,7 +1327,7 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 			.await;
 
 			let expected_rep_change = if allow_v2_descriptors {
-				COST_INVALID_CORE_INDEX.into()
+				COST_INVALID_UMP_SIGNALS.into()
 			} else {
 				COST_UNSUPPORTED_DESCRIPTOR_VERSION.into()
 			};
@@ -1356,15 +1341,180 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 		overseer
 	});
 }
-#[test]
-fn peer_reported_for_providing_statements_with_wrong_validator_id() {
+
+#[rstest]
+#[case(false)]
+#[case(true)]
+fn approved_peer_ump_signal(#[case] allow_approved_peer_signal: bool) {
 	let group_size = 3;
 	let config = TestConfig {
 		validator_count: 20,
 		group_size,
 		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
+		allow_v2_descriptors: true,
+		allow_approved_peer_signal,
 	};
+
+	let relay_parent = Hash::repeat_byte(1);
+	let peer_a = PeerId::random();
+	let peer_b = PeerId::random();
+	let peer_c = PeerId::random();
+
+	test_harness(config, |state, mut overseer| async move {
+		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
+
+		let test_leaf = state.make_dummy_leaf(relay_parent);
+
+		let (mut candidate, pvd) = make_candidate_v2(
+			relay_parent,
+			1,
+			local_para,
+			test_leaf.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+
+		candidate.descriptor.set_core_index(CoreIndex(local_group_index.0));
+		candidate.descriptor.set_session_index(1);
+		candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
+
+		let candidate_hash = candidate.hash();
+
+		let other_group_validators = state.group_validators(local_group_index, true);
+		let v_a = other_group_validators[0];
+		let v_b = other_group_validators[1];
+
+		// peer A is in group, has relay parent in view.
+		// peer B is in group, has no relay parent in view.
+		// peer C is not in group, has relay parent in view.
+		{
+			connect_peer(
+				&mut overseer,
+				peer_a.clone(),
+				Some(vec![state.discovery_id(v_a)].into_iter().collect()),
+			)
+			.await;
+
+			connect_peer(
+				&mut overseer,
+				peer_b.clone(),
+				Some(vec![state.discovery_id(v_b)].into_iter().collect()),
+			)
+			.await;
+
+			connect_peer(&mut overseer, peer_c.clone(), None).await;
+
+			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
+			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
+		}
+
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
+
+		// Peer in cluster sends a statement, triggering a request.
+		{
+			let a_seconded = state
+				.sign_statement(
+					v_a,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+
+			send_peer_message(
+				&mut overseer,
+				peer_a.clone(),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
+			);
+		}
+
+		// Send a request to peer and mock its response to include a valid candidate.
+		{
+			let b_seconded = state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+			let statements = vec![b_seconded.clone()];
+
+			handle_sent_request(
+				&mut overseer,
+				peer_a,
+				candidate_hash,
+				StatementFilter::blank(group_size),
+				candidate.clone(),
+				pvd.clone(),
+				statements,
+			)
+			.await;
+
+			if allow_approved_peer_signal {
+				assert_matches!(
+					overseer.recv().await,
+					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+						if p == peer_a && r == BENEFIT_VALID_STATEMENT.into() => { }
+				);
+				assert_matches!(
+					overseer.recv().await,
+					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+						if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
+				);
+
+				assert_matches!(
+					overseer.recv().await,
+					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+						peers,
+						Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
+							protocol_v2::StatementDistributionMessage::Statement(
+								r,
+								s,
+							)
+						))
+					)) => {
+						assert_eq!(peers, vec![peer_a.clone()]);
+						assert_eq!(r, relay_parent);
+						assert_eq!(s.unchecked_payload(), &CompactStatement::Seconded(candidate_hash));
+						assert_eq!(s.unchecked_validator_index(), v_b);
+					}
+				);
+
+				answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
+			} else {
+				assert_matches!(
+					overseer.recv().await,
+					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+						if p == peer_a && r == COST_INVALID_UMP_SIGNALS.into() => { }
+				);
+			}
+		}
+		overseer
+	});
+}
+
+#[test]
+fn peer_reported_for_providing_statements_with_wrong_validator_id() {
+	let group_size = 3;
+	let config = TestConfig { validator_count: 20, group_size, ..Default::default() };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -1489,12 +1639,7 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 #[test]
 fn disabled_validators_added_to_unwanted_mask() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count: 20, group_size, ..Default::default() };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_disabled = PeerId::random();
@@ -1655,12 +1800,7 @@ fn disabled_validators_added_to_unwanted_mask() {
 #[test]
 fn disabling_works_from_relay_parent_not_the_latest_state() {
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count: 20,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count: 20, group_size, ..Default::default() };
 
 	let relay_1 = Hash::repeat_byte(1);
 	let relay_2 = Hash::repeat_byte(2);
@@ -1854,12 +1994,7 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 
 #[test]
 fn local_node_sanity_checks_incoming_requests() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count: 20, group_size: 3, ..Default::default() };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -2055,12 +2190,7 @@ fn local_node_sanity_checks_incoming_requests() {
 
 #[test]
 fn local_node_checks_that_peer_can_request_before_responding() {
-	let config = TestConfig {
-		validator_count: 20,
-		group_size: 3,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count: 20, group_size: 3, ..Default::default() };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -2254,12 +2384,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 fn local_node_respects_statement_mask() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count, group_size, ..Default::default() };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -2496,12 +2621,7 @@ fn local_node_respects_statement_mask() {
 fn should_delay_before_retrying_dropped_requests() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		allow_v2_descriptors: false,
-	};
+	let config = TestConfig { validator_count, group_size, ..Default::default() };
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();

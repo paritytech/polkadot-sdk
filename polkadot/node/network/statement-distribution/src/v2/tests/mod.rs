@@ -81,6 +81,20 @@ struct TestConfig {
 	local_validator: LocalRole,
 	// allow v2 descriptors (feature bit)
 	allow_v2_descriptors: bool,
+	// allow approved peer ump signals (feature bit)
+	allow_approved_peer_signal: bool,
+}
+
+impl Default for TestConfig {
+	fn default() -> Self {
+		Self {
+			validator_count: 20,
+			group_size: 3,
+			local_validator: LocalRole::Validator,
+			allow_v2_descriptors: false,
+			allow_approved_peer_signal: false,
+		}
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -175,9 +189,14 @@ impl TestState {
 		};
 
 		let mut node_features = NodeFeatures::new();
+		node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
+
 		if config.allow_v2_descriptors {
-			node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
 			node_features.set(FeatureIndex::CandidateReceiptV2 as usize, true);
+		}
+
+		if config.allow_approved_peer_signal {
+			node_features.set(FeatureIndex::ApprovedPeerUmpSignal as usize, true);
 		}
 
 		TestState { config, local, validators, session_info, req_sender, node_features }

@@ -1151,6 +1151,7 @@ mod tests {
 				disabled_mask.clone(),
 				&Default::default(),
 				false,
+				false,
 			);
 			assert_eq!(
 				output,
@@ -1191,6 +1192,7 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask,
 				&Default::default(),
+				false,
 				false,
 			);
 			assert_eq!(
@@ -1278,6 +1280,7 @@ mod tests {
 				disabled_mask,
 				&Default::default(),
 				false,
+				false,
 			);
 			assert_eq!(
 				output,
@@ -1361,6 +1364,7 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask,
 				&Default::default(),
+				false,
 				false,
 			);
 			assert_eq!(
@@ -1501,6 +1505,7 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask.clone(),
 				&Default::default(),
+				false,
 				false,
 			);
 
