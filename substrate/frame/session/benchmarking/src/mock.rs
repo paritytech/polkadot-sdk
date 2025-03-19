@@ -31,7 +31,6 @@ use sp_runtime::{traits::IdentityLookup, BuildStorage, KeyTypeId};
 
 type AccountId = u64;
 type Nonce = u32;
-type Balance = u64;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
