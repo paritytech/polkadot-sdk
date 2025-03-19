@@ -17,8 +17,11 @@
 
 //! Helper methods for npos-elections.
 
-use crate::{Assignment, Error, IdentifierT, PerThing128, StakedAssignment, VoteWeight};
-use alloc::vec::Vec;
+use crate::{
+	Assignment, Error, ExtendedBalance, IdentifierT, PerThing128, StakedAssignment, Supports,
+	VoteWeight,
+};
+use alloc::{collections::BTreeMap, vec::Vec};
 use sp_arithmetic::PerThing;
 
 /// Converts a vector of ratio assignments into ones with absolute budget value.
