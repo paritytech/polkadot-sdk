@@ -27,7 +27,7 @@ use crate::{
 	},
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
-	limits,
+	limits, pure_precompiles,
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
@@ -1005,6 +1005,7 @@ fn transient_storage_limit_in_call() {
 fn deploy_and_call_other_contract() {
 	let (caller_wasm, _caller_code_hash) = compile_module("caller_contract").unwrap();
 	let (callee_wasm, callee_code_hash) = compile_module("return_with_data").unwrap();
+	let code_load_weight = crate::wasm::code_load_weight(callee_wasm.len() as u32);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
@@ -1032,7 +1033,12 @@ fn deploy_and_call_other_contract() {
 
 		// Call BOB contract, which attempts to instantiate and call the callee contract and
 		// makes various assertions on the results from those calls.
-		assert_ok!(builder::call(caller_addr).data(callee_code_hash.as_ref().to_vec()).build());
+		assert_ok!(builder::call(caller_addr)
+			.data(
+				(callee_code_hash, code_load_weight.ref_time(), code_load_weight.proof_size())
+					.encode()
+			)
+			.build());
 
 		assert_eq!(
 			System::events(),
@@ -2296,47 +2302,6 @@ fn call_runtime_reentrancy_guarded() {
 		// Call to runtime should fail because of the re-entrancy guard
 		assert_return_code!(result, RuntimeReturnCode::CallRuntimeFailed);
 	});
-}
-
-#[test]
-fn ecdsa_recover() {
-	let (wasm, _code_hash) = compile_module("ecdsa_recover").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Instantiate the ecdsa_recover contract.
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(100_000)
-			.build_and_unwrap_contract();
-
-		#[rustfmt::skip]
-		let signature: [u8; 65] = [
-			161, 234, 203,  74, 147, 96,  51, 212,   5, 174, 231,   9, 142,  48, 137, 201,
-			162, 118, 192,  67, 239, 16,  71, 216, 125,  86, 167, 139,  70,   7,  86, 241,
-			 33,  87, 154, 251,  81, 29, 160,   4, 176, 239,  88, 211, 244, 232, 232,  52,
-			211, 234, 100, 115, 230, 47,  80,  44, 152, 166,  62,  50,   8,  13,  86, 175,
-			 28,
-		];
-		#[rustfmt::skip]
-		let message_hash: [u8; 32] = [
-			162, 28, 244, 179, 96, 76, 244, 178, 188,  83, 230, 248, 143, 106,  77, 117,
-			239, 95, 244, 171, 65, 95,  62, 153, 174, 166, 182,  28, 130,  73, 196, 208
-		];
-		#[rustfmt::skip]
-		const EXPECTED_COMPRESSED_PUBLIC_KEY: [u8; 33] = [
-			  2, 121, 190, 102, 126, 249, 220, 187, 172, 85, 160,  98, 149, 206, 135, 11,
-			  7,   2, 155, 252, 219,  45, 206,  40, 217, 89, 242, 129,  91,  22, 248, 23,
-			152,
-		];
-		let mut params = vec![];
-		params.extend_from_slice(&signature);
-		params.extend_from_slice(&message_hash);
-		assert!(params.len() == 65 + 32);
-		let result = builder::bare_call(addr).data(params).build_and_unwrap_result();
-		assert!(!result.did_revert());
-		assert_eq!(result.data, EXPECTED_COMPRESSED_PUBLIC_KEY);
-	})
 }
 
 #[test]
@@ -4428,12 +4393,14 @@ fn tracing_works_for_transfers() {
 		trace(&mut tracer, || {
 			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
 		});
+
+		let traces = tracer.collect_traces();
 		assert_eq!(
-			tracer.collect_traces(),
+			traces,
 			vec![CallTrace {
 				from: ALICE_ADDR,
 				to: BOB_ADDR,
-				value: U256::from(10_000_000),
+				value: Some(U256::from(10_000_000)),
 				call_type: CallType::Call,
 				..Default::default()
 			},]
@@ -4442,20 +4409,19 @@ fn tracing_works_for_transfers() {
 }
 
 #[test]
-#[ignore = "does not collect the gas_used properly"]
 fn tracing_works() {
 	use crate::evm::*;
 	use CallType::*;
 	let (code, _code_hash) = compile_module("tracing").unwrap();
 	let (wasm_callee, _) = compile_module("tracing_callee").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 
 		let Contract { addr: addr_callee, .. } =
 			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_contract();
 
 		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(code)).value(10_000_000).build_and_unwrap_contract();
 
 		let tracer_options = vec![
 			( false , vec![]),
@@ -4499,60 +4465,74 @@ fn tracing_works() {
 				vec![CallTrace {
 					from: ALICE_ADDR,
 					to: addr,
-					input: (3u32, addr_callee).encode(),
+					input: (3u32, addr_callee).encode().into(),
 					call_type: Call,
 					logs: logs.clone(),
+					value: Some(U256::from(0)),
 					calls: vec![
 						CallTrace {
 							from: addr,
 							to: addr_callee,
-							input: 2u32.encode(),
+							input: 2u32.encode().into(),
 							output: hex_literal::hex!(
 										"08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001a546869732066756e6374696f6e20616c77617973206661696c73000000000000"
 									).to_vec().into(),
-							revert_reason: Some(
-								"execution reverted: This function always fails".to_string()
-							),
+							revert_reason: Some("revert: This function always fails".to_string()),
 							error: Some("execution reverted".to_string()),
 							call_type: Call,
+							value: Some(U256::from(0)),
 							..Default::default()
 						},
 						CallTrace {
 							from: addr,
 							to: addr,
-							input: (2u32, addr_callee).encode(),
+							input: (2u32, addr_callee).encode().into(),
 							call_type: Call,
 							logs: logs.clone(),
+							value: Some(U256::from(0)),
 							calls: vec![
 								CallTrace {
 									from: addr,
 									to: addr_callee,
-									input: 1u32.encode(),
+									input: 1u32.encode().into(),
 									output: Default::default(),
 									error: Some("ContractTrapped".to_string()),
 									call_type: Call,
+									value: Some(U256::from(0)),
 									..Default::default()
 								},
 								CallTrace {
 									from: addr,
 									to: addr,
-									input: (1u32, addr_callee).encode(),
+									input: (1u32, addr_callee).encode().into(),
 									call_type: Call,
 									logs: logs.clone(),
+									value: Some(U256::from(0)),
 									calls: vec![
 										CallTrace {
 											from: addr,
 											to: addr_callee,
-											input: 0u32.encode(),
+											input: 0u32.encode().into(),
 											output: 0u32.to_le_bytes().to_vec().into(),
 											call_type: Call,
+											value: Some(U256::from(0)),
 											..Default::default()
 										},
 										CallTrace {
 											from: addr,
 											to: addr,
-											input: (0u32, addr_callee).encode(),
+											input: (0u32, addr_callee).encode().into(),
 											call_type: Call,
+											value: Some(U256::from(0)),
+											calls: vec![
+												CallTrace {
+													from: addr,
+													to: BOB_ADDR,
+													value: Some(U256::from(100)),
+													call_type: CallType::Call,
+													..Default::default()
+												}
+											],
 											..Default::default()
 										},
 									],
@@ -4567,4 +4547,84 @@ fn tracing_works() {
 			);
 		}
 	});
+}
+
+#[test]
+fn unknown_precompiles_revert() {
+	let (code, _code_hash) = compile_module("read_only_call").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let cases: Vec<(H160, Box<dyn FnOnce(_)>)> = vec![
+			(
+				H160::from_low_u64_be(0x2),
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::ContractTrapped);
+				}),
+			),
+			(
+				H160::from_low_u64_be(0xff),
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::ContractTrapped);
+				}),
+			),
+			(
+				H160::from_low_u64_be(0x1ff),
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+		];
+
+		for (callee_addr, assert_result) in cases {
+			let result =
+				builder::bare_call(addr).data((callee_addr, [0u8; 0]).encode()).build().result;
+			assert_result(result);
+		}
+	});
+}
+
+#[test]
+fn ecrecover_precompile_works() {
+	use hex_literal::hex;
+
+	let cases = vec![
+			(
+				hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"),
+				hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b").to_vec(),
+			),
+			(
+				hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000000173b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"),
+				[0u8; 0].to_vec(),
+			),
+		];
+
+	for (input, output) in cases {
+		let (code, _code_hash) = compile_module("call_and_return").unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.value(1000)
+				.build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data((pure_precompiles::ECRECOVER, 100u64, input).encode())
+				.build_and_unwrap_result();
+
+			test_utils::get_balance(&<Test as Config>::AddressMapper::to_account_id(
+				&pure_precompiles::ECRECOVER,
+			));
+			assert_eq!(
+				test_utils::get_balance(&<Test as Config>::AddressMapper::to_account_id(
+					&pure_precompiles::ECRECOVER
+				)),
+				101u64
+			);
+			assert_eq!(result.data, output);
+			assert_eq!(result.flags, ReturnFlags::empty());
+		});
+	}
 }

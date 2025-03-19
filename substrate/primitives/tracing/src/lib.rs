@@ -255,3 +255,189 @@ macro_rules! enter_span {
 		$crate::enter_span!($crate::span!($lvl, $name))
 	};
 }
+
+#[cfg(feature = "test-utils")]
+pub mod test_log_capture {
+	use std::{
+		io::Write,
+		sync::{Arc, Mutex},
+	};
+	use tracing::level_filters::LevelFilter;
+	use tracing_subscriber::fmt::{
+		format::{DefaultFields, Format},
+		MakeWriter, Subscriber,
+	};
+
+	/// A reusable log capturing struct for unit tests.
+	/// Captures logs written during test execution for assertions.
+	///
+	/// # Examples
+	/// ```
+	/// use sp_tracing::test_log_capture::LogCapture;
+	/// use std::io::Write;
+	///
+	/// let mut log_capture = LogCapture::new();
+	/// writeln!(log_capture, "Test log message").unwrap();
+	/// assert!(log_capture.contains("Test log message"));
+	/// ```
+	pub struct LogCapture {
+		buffer: Arc<Mutex<Vec<u8>>>,
+	}
+
+	impl LogCapture {
+		/// Creates a new `LogCapture` instance with an internal buffer.
+		///
+		/// # Examples
+		/// ```
+		/// use sp_tracing::test_log_capture::LogCapture;
+		///
+		/// let log_capture = LogCapture::new();
+		/// assert!(log_capture.get_logs().is_empty());
+		/// ```
+		pub fn new() -> Self {
+			LogCapture { buffer: Arc::new(Mutex::new(Vec::new())) }
+		}
+
+		/// Checks if the captured logs contain a specific substring.
+		///
+		/// # Examples
+		/// ```
+		/// use sp_tracing::test_log_capture::LogCapture;
+		/// use std::io::Write;
+		///
+		/// let mut log_capture = LogCapture::new();
+		/// writeln!(log_capture, "Hello, world!").unwrap();
+		/// assert!(log_capture.contains("Hello"));
+		/// assert!(!log_capture.contains("Goodbye"));
+		/// ```
+		pub fn contains(&self, expected: &str) -> bool {
+			let logs = self.get_logs();
+			logs.contains(expected)
+		}
+
+		/// Retrieves the captured logs as a `String`.
+		///
+		/// # Examples
+		/// ```
+		/// use sp_tracing::test_log_capture::LogCapture;
+		/// use std::io::Write;
+		///
+		/// let mut log_capture = LogCapture::new();
+		/// writeln!(log_capture, "Log entry").unwrap();
+		/// assert_eq!(log_capture.get_logs().trim(), "Log entry");
+		/// ```
+		pub fn get_logs(&self) -> String {
+			String::from_utf8(self.buffer.lock().unwrap().clone()).unwrap()
+		}
+
+		/// Returns a clone of the internal buffer for use in `MakeWriter`.
+		pub fn writer(&self) -> Self {
+			LogCapture { buffer: Arc::clone(&self.buffer) }
+		}
+	}
+
+	impl Write for LogCapture {
+		/// Writes log data into the internal buffer.
+		fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+			let mut logs = self.buffer.lock().unwrap();
+			logs.extend_from_slice(buf);
+			Ok(buf.len())
+		}
+
+		/// Flushes the internal buffer (no-op in this implementation).
+		fn flush(&mut self) -> std::io::Result<()> {
+			Ok(())
+		}
+	}
+
+	impl<'a> MakeWriter<'a> for LogCapture {
+		type Writer = Self;
+
+		/// Provides a `MakeWriter` implementation for `tracing_subscriber`.
+		fn make_writer(&'a self) -> Self::Writer {
+			self.writer()
+		}
+	}
+
+	/// Initialises a log capture utility for testing.
+	///
+	/// This function sets up a `LogCapture` instance to capture logs during test execution.
+	/// It also configures a `tracing_subscriber` with the specified maximum log level
+	/// and a writer that directs logs to `LogCapture`.
+	///
+	/// # Arguments
+	///
+	/// * `max_level` - The maximum log level to capture, which can be converted into `LevelFilter`.
+	///
+	/// # Returns
+	///
+	/// A tuple containing:
+	/// - `LogCapture`: The log capture instance.
+	/// - `Subscriber`: A configured `tracing_subscriber` that captures logs.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// use sp_tracing::{
+	///     test_log_capture::init_log_capture,
+	///     tracing::{info, subscriber, Level},
+	/// };
+	///
+	/// let (log_capture, subscriber) = init_log_capture(Level::INFO);
+	/// subscriber::with_default(subscriber, || {
+	///     info!("This log will be captured");
+	///     assert!(log_capture.contains("This log will be captured"));
+	/// });
+	/// ```
+	pub fn init_log_capture(
+		max_level: impl Into<LevelFilter>,
+	) -> (LogCapture, Subscriber<DefaultFields, Format, LevelFilter, LogCapture>) {
+		// Create a new log capture instance
+		let log_capture = LogCapture::new();
+
+		// Configure a tracing subscriber to use the log capture as the writer
+		let subscriber = tracing_subscriber::fmt()
+			.with_max_level(max_level) // Set the max log level
+			.with_writer(log_capture.writer()) // Use LogCapture as the writer
+			.finish();
+
+		(log_capture, subscriber)
+	}
+
+	/// Macro for capturing logs during test execution.
+	///
+	/// It sets up a log subscriber with an optional maximum log level and captures the output.
+	///
+	/// # Examples
+	/// ```
+	/// use sp_tracing::{
+	///     capture_test_logs,
+	///     tracing::{info, warn, Level},
+	/// };
+	///
+	/// let log_capture = capture_test_logs!(Level::WARN, {
+	///     info!("Captured info message");
+	///     warn!("Captured warning");
+	/// });
+	///
+	/// assert!(!log_capture.contains("Captured log message"));
+	/// assert!(log_capture.contains("Captured warning"));
+	/// ```
+	#[macro_export]
+	macro_rules! capture_test_logs {
+		// Case when max_level is provided
+		($max_level:expr, $test:block) => {{
+			let (log_capture, subscriber) =
+				sp_tracing::test_log_capture::init_log_capture($max_level);
+
+			sp_tracing::tracing::subscriber::with_default(subscriber, || $test);
+
+			log_capture
+		}};
+
+		// Case when max_level is omitted (defaults to DEBUG)
+		($test:block) => {{
+			capture_test_logs!(sp_tracing::tracing::Level::DEBUG, $test)
+		}};
+	}
+}

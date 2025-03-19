@@ -1350,7 +1350,8 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 		.into()
 }
 
-/// Allows to authorize some general transactions with specific call.
+/// Allows to authorize some general transactions with specific dispatchable functions
+/// (dispatchable functions a.k.a. calls).
 ///
 /// This attribute allows to specify a special validation logic for a specific call.
 /// A general transaction with this specific call can then be validated by the given function,
@@ -1387,8 +1388,13 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///     impl<T: Config> Pallet<T> {
 ///         #[pallet::weight(Weight::zero())]
 ///         #[pallet::authorize(|_source, foo| if *foo == 42 {
+///             // The amount to refund, here we refund nothing
 ///             let refund = Weight::zero();
-///             let validity = ValidTransaction::default();
+///             // The validity, here we accept the call and it provides itself.
+///             // See `ValidTransaction` for more information.
+///             let validity = ValidTransaction::with_tag_prefix("my-pallet")
+///                 .and_provides("some_call")
+///                 .into();
 ///             Ok((validity, refund))
 ///         } else {
 ///             Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
@@ -1461,7 +1467,8 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///   function. This attribute is similar to `#[pallet::weight]`:
 ///   * it can be ignore in `dev_mode`
 ///   * it can be automatically infered from weight info. For the call `foo` the function
-///     `authorize_foo` in the weight info will be used.
+///     `authorize_foo` in the weight info will be used. (weight info needs to be provided in the
+///     call attribute: `#[pallet::call(weight = T::WeightInfo)]`).
 ///   * it can be a fixed value like `Weight::from_all(0)` (not recommended in production).
 ///
 ///   The weight must be small enough so that nodes don't get DDOS by validating transactions.

@@ -7,7 +7,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::marker::PhantomData;
 use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
 use scale_info::TypeInfo;
@@ -127,7 +127,9 @@ pub struct MessageToXcm<
 }
 
 /// Reason why a message conversion failed.
-#[derive(Copy, Clone, TypeInfo, PalletError, Encode, Decode, RuntimeDebug)]
+#[derive(
+	Copy, Clone, TypeInfo, PalletError, Encode, Decode, DecodeWithMemTracking, RuntimeDebug,
+)]
 pub enum ConvertMessageError {
 	/// The message version is not supported for conversion.
 	UnsupportedVersion,

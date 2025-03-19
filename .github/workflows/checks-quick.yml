@@ -15,7 +15,10 @@ concurrency:
 permissions: {}
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   fmt:
@@ -37,6 +40,7 @@ jobs:
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
   check-dependency-rules:
     runs-on: ubuntu-latest
+    needs: isdraft
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
@@ -84,6 +88,7 @@ jobs:
           echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"
   check-workspace:
     runs-on: ubuntu-latest
+    needs: isdraft
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.0 (22. Sep 2023)
@@ -102,6 +107,7 @@ jobs:
         run: python3 .github/scripts/deny-git-deps.py .
   check-markdown:
     runs-on: ubuntu-latest
+    needs: isdraft
     timeout-minutes: 20
     steps:
       - name: Checkout sources
@@ -154,6 +160,7 @@ jobs:
           fi
   check-fail-ci:
     runs-on: ubuntu-latest
+    needs: isdraft
     container:
       # there's no "rg" in ci-unified, and tools is a smaller image anyway
       image: "paritytech/tools:latest"
@@ -179,6 +186,7 @@ jobs:
           GIT_DEPTH: 1
   check-readme:
     runs-on: ubuntu-latest
+    needs: isdraft
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

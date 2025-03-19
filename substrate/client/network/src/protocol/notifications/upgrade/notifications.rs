@@ -50,6 +50,9 @@ use std::{
 	vec,
 };
 
+/// Logging target for the file.
+const LOG_TARGET: &str = "sub-libp2p::notification::upgrade";
+
 /// Maximum allowed size of the two handshake messages, in bytes.
 const MAX_HANDSHAKE_SIZE: usize = 1024;
 
@@ -210,7 +213,7 @@ where
 	/// Sends the handshake in order to inform the remote that we accept the substream.
 	pub fn send_handshake(&mut self, message: impl Into<Vec<u8>>) {
 		if !matches!(self.handshake, NotificationsInSubstreamHandshake::NotSent) {
-			error!(target: "sub-libp2p", "Tried to send handshake twice");
+			error!(target: LOG_TARGET, "Tried to send handshake twice");
 			return
 		}
 
@@ -349,7 +352,7 @@ impl NotificationsOut {
 	) -> Self {
 		let initial_message = initial_message.into();
 		if initial_message.len() > MAX_HANDSHAKE_SIZE {
-			error!(target: "sub-libp2p", "Outbound networking handshake is above allowed protocol limit");
+			error!(target: LOG_TARGET, "Outbound networking handshake is above allowed protocol limit");
 		}
 
 		let mut protocol_names = fallback_names;
@@ -464,7 +467,7 @@ where
 			Poll::Pending => {},
 			Poll::Ready(Some(_)) => {
 				error!(
-					target: "sub-libp2p",
+					target: LOG_TARGET,
 					"Unexpected incoming data in `NotificationsOutSubstream`",
 				);
 			},

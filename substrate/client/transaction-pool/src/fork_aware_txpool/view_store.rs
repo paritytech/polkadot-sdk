@@ -20,7 +20,7 @@
 
 use super::{
 	multi_view_listener::{MultiViewListener, TxStatusStream},
-	view::View,
+	view::{View, ViewPoolObserver},
 };
 use crate::{
 	fork_aware_txpool::dropped_watcher::MultiViewDroppedWatcherController,
@@ -33,9 +33,13 @@ use crate::{
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus};
+use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TxInvalidityReportMap};
 use sp_blockchain::TreeRoute;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::{
+	generic::BlockId,
+	traits::Block as BlockT,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+};
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	sync::Arc,
@@ -58,8 +62,13 @@ where
 
 /// Helper type representing the callback allowing to trigger per-transaction events on
 /// `ValidatedPool`'s listener.
-type RemovalListener<ChainApi> =
-	Arc<dyn Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>) + Send + Sync>;
+type RemovalCallback<ChainApi> = Arc<
+	dyn Fn(
+			&mut crate::graph::EventDispatcher<ChainApi, ViewPoolObserver<ChainApi>>,
+			ExtrinsicHash<ChainApi>,
+		) + Send
+		+ Sync,
+>;
 
 /// Helper struct to maintain the context for pending transaction removal, executed for
 /// newly inserted views.
@@ -70,7 +79,7 @@ where
 	/// Hash of the transaction that will be removed,
 	xt_hash: ExtrinsicHash<ChainApi>,
 	/// Action that shall be executed on underlying `ValidatedPool`'s listener.
-	listener_action: RemovalListener<ChainApi>,
+	listener_action: RemovalCallback<ChainApi>,
 }
 
 /// This enum represents an action that should be executed on the newly built
@@ -115,7 +124,7 @@ where
 	/// Creates new unprocessed instance of pending transaction removal.
 	fn new_removal_action(
 		xt_hash: ExtrinsicHash<ChainApi>,
-		listener: RemovalListener<ChainApi>,
+		listener: RemovalCallback<ChainApi>,
 	) -> Self {
 		Self {
 			processed: false,
@@ -257,7 +266,7 @@ where
 					target: LOG_TARGET,
 					?tx_hash,
 					%error,
-					"submit_local: err"
+					"submit_local failed"
 				);
 				Err(error)
 			},
@@ -306,7 +315,7 @@ where
 					target: LOG_TARGET,
 					?tx_hash,
 					%error,
-					"submit_and_watch: err"
+					"submit_and_watch failed"
 				);
 				return Err(error);
 			},
@@ -669,6 +678,72 @@ where
 		);
 	}
 
+	/// Reports invalid transactions to the view store.
+	///
+	/// This function accepts an array of tuples, each containing a transaction hash and an
+	/// optional error encountered during the transaction execution at a specific (also optional)
+	/// block.
+	///
+	/// Removal operation applies to provided transactions. Their descendants can be removed from
+	/// the view, but will not be invalidated or banned.
+	///
+	/// Invalid future and stale transaction will be removed only from given `at` view, and will be
+	/// kept in the view_store. Such transaction will not be reported in returned vector. They
+	/// also will not be banned from re-entering the pool (however can be rejected from re-entring
+	/// the view). No event will be triggered.
+	///
+	/// For other errors, the transaction will be removed from the view_store, and it will be
+	/// included in the returned vector. Additionally, transactions provided as input will be banned
+	/// from re-entering the pool.
+	///
+	/// If the tuple's error is None, the transaction will be forcibly removed from the view_store,
+	/// banned and included into the returned vector.
+	///
+	/// For every transaction removed from the view_store (excluding descendants) an Invalid event
+	/// is triggered.
+	///
+	/// Returns the list of actually removed transactions from the mempool, which were included in
+	/// the provided input list.
+	pub(crate) fn report_invalid(
+		&self,
+		at: Option<Block::Hash>,
+		invalid_tx_errors: TxInvalidityReportMap<ExtrinsicHash<ChainApi>>,
+	) -> Vec<TransactionFor<ChainApi>> {
+		let mut remove_from_view = vec![];
+		let mut remove_from_pool = vec![];
+
+		invalid_tx_errors.into_iter().for_each(|(hash, e)| match e {
+			Some(TransactionValidityError::Invalid(
+				InvalidTransaction::Future | InvalidTransaction::Stale,
+			)) => {
+				remove_from_view.push(hash);
+			},
+			_ => {
+				remove_from_pool.push(hash);
+			},
+		});
+
+		// transaction removed from view, won't be included into the final result, as they may still
+		// be in the pool.
+		at.map(|at| {
+			self.get_view_at(at, true)
+				.map(|(view, _)| view.remove_subtree(&remove_from_view, |_, _| {}))
+		});
+
+		let mut removed = vec![];
+		for tx_hash in &remove_from_pool {
+			let removed_from_pool = self.remove_transaction_subtree(*tx_hash, |_, _| {});
+			removed_from_pool
+				.iter()
+				.find(|tx| tx.hash == *tx_hash)
+				.map(|tx| removed.push(tx.clone()));
+		}
+
+		self.listener.transactions_invalidated(&remove_from_pool);
+
+		removed
+	}
+
 	/// Replaces an existing transaction in the view_store with a new one.
 	///
 	/// Attempts to replace a transaction identified by `replaced` with a new transaction `xt`.
@@ -724,7 +799,7 @@ where
 					));
 				},
 				PreInsertAction::RemoveSubtree(ref removal) => {
-					view.remove_subtree(removal.xt_hash, &*removal.listener_action);
+					view.remove_subtree(&[removal.xt_hash], &*removal.listener_action);
 				},
 			}
 		}
@@ -804,10 +879,12 @@ where
 		&self,
 		xt_hash: ExtrinsicHash<ChainApi>,
 		listener_action: F,
-	) -> Vec<ExtrinsicHash<ChainApi>>
+	) -> Vec<TransactionFor<ChainApi>>
 	where
-		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>)
-			+ Clone
+		F: Fn(
+				&mut crate::graph::EventDispatcher<ChainApi, ViewPoolObserver<ChainApi>>,
+				ExtrinsicHash<ChainApi>,
+			) + Clone
 			+ Send
 			+ Sync
 			+ 'static,
@@ -827,8 +904,8 @@ where
 			.iter()
 			.chain(self.inactive_views.read().iter())
 			.filter(|(_, view)| view.is_imported(&xt_hash))
-			.flat_map(|(_, view)| view.remove_subtree(xt_hash, &listener_action))
-			.filter(|xt_hash| seen.insert(*xt_hash))
+			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], &listener_action))
+			.filter_map(|xt| seen.insert(xt.hash).then(|| xt.clone()))
 			.collect();
 
 		if let Some(removal_action) = self.pending_txs_tasks.write().get_mut(&xt_hash) {

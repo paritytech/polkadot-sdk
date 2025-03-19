@@ -85,6 +85,7 @@ mod benchmarks {
 
 		let call = Call::<T>::set_foo_using_authorize { new_foo: 42 };
 		let source = TransactionSource::External;
+		Foo::<T>::kill();
 
 		// We use a block with specific code to benchmark the closure.
 		#[block]

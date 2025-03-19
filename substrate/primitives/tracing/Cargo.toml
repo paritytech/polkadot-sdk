@@ -40,3 +40,4 @@ std = [
 	"tracing/std",
 	"with-tracing",
 ]
+test-utils = ["std"]

@@ -234,9 +234,14 @@ pub mod pallet {
 			_source: TransactionSource,
 			new_foo: &u32,
 		| -> TransactionValidityWithRefund {
-			if *new_foo == 42 {
+			if *new_foo == 42 && Foo::<T>::get().is_none() {
+				// This is the amount to refund, here we refund nothing.
 				let refund = Weight::zero();
-				let validity = ValidTransaction::default();
+				// The transaction needs to give a provided tag.
+				// See `ValidTransaction` documentation.
+				let validity = ValidTransaction::with_tag_prefix("pallet-kitchen-sink")
+					.and_provides("set_foo_using_authorize")
+					.into();
 				Ok((validity, refund))
 			} else {
 				Err(InvalidTransaction::Call.into())

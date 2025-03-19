@@ -517,12 +517,15 @@ pub trait SignMessage<T: SigningTypes> {
 		TPayload: SignedPayload<T>;
 }
 
-/// Interface for creating a transaction with for a call that will be authorized.
+/// Interface for creating a transaction for a call that will be authorized.
 ///
-/// This interface allows to define the transaction extension that will be used alongside this call
-/// to create the transaction.
+/// Authorized calls are calls that has some specific validation logic execute in the transaction
+/// extension: [`crate::AuthorizeCall`].
+/// The authorization logic is defined on the call with the attribute:
+/// [`frame_support::pallet_macros::authorize`].
 ///
-/// For more information about authorized call see [`frame_support::pallet_prelude::authorize`].
+/// This trait allows the runtime to define the extension to be used when creating an authorized
+/// transaction. It can be used in the offchain worker to create a transaction from a call.
 pub trait CreateAuthorizedTransaction<LocalCall>: CreateTransaction<LocalCall> {
 	/// Create the transaction extension to be used alongside an authorized call.
 	///

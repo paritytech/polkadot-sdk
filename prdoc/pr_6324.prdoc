@@ -2,15 +2,16 @@ title: Introduce `#[pallet::authorize(...)]` macro attribute and `AuthorizeCall`
 doc:
 - audience: Runtime Dev
   description: |
-    Some calls such as `claim` or `apply_authorized_upgrade` wants to be valid depending on the
+    Extrinsics with calls such as `claim` or `apply_authorized_upgrade` wants to be valid depending on the
     parameters of the call or/and the state of the chain.
+    Valid in the sense of transaction validity, if the extrinsic is not valid it can't be included in a (valid) block.
     For instance `claim` is valid if the signature given as a parameter of the call is valid and if the state of the chain contains some pending claim.
     Or the `apply_authorized_upgrade` is valid if the code given as a paramter of the call match the authorized hashed code on chain.
     Those operation don't require a signed origin and are currently achieved using `ValidateUnsigned`.
     This PR introduce a new pallet attribute `#[pallet::authorize(...)]` and a new system transaction extension `AuthorizeCall` to ease such operations.
     This change is part of the broader plan for extrinsics: https://github.com/paritytech/polkadot-sdk/issues/2415.
 
-    The usage of `pallet::authorize` can be found in the rust documentation. It takes a function to define the validation logic. Another attribute `pallet::weight_of_authorize` is introduce, it takes a function to define the weight of the validation logic.
+    The usage of `pallet::authorize` can be found in the rust documentation. It takes a function to define the validation logic. Another attribute `pallet::weight_of_authorize` is introduced, it takes a function to define the weight of the validation logic.
 
     The runtime must now use the new system transaction extension `AuthorizeCall` in their transaction extension pipeline. It is suggested to put it first.
     ```
@@ -66,8 +67,6 @@ crates:
 - name: people-westend-runtime
   bump: major
 - name: penpal-runtime
-  bump: major
-- name: contracts-rococo-runtime
   bump: major
 - name: glutton-westend-runtime
   bump: major

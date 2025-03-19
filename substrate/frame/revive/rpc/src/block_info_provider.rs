@@ -38,6 +38,11 @@ pub trait BlockInfoProvider: Send + Sync {
 	/// Return the latest ingested block.
 	async fn latest_block(&self) -> Option<Arc<SubstrateBlock>>;
 
+	/// Return the latest block number
+	async fn latest_block_number(&self) -> Option<SubstrateBlockNumber> {
+		return self.latest_block().await.map(|block| block.number());
+	}
+
 	/// Get block by block_number.
 	async fn block_by_number(
 		&self,
@@ -223,6 +228,10 @@ pub mod test {
 
 		async fn latest_block(&self) -> Option<Arc<SubstrateBlock>> {
 			None
+		}
+
+		async fn latest_block_number(&self) -> Option<SubstrateBlockNumber> {
+			Some(2u32)
 		}
 
 		async fn block_by_number(

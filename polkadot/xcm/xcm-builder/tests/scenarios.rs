@@ -322,3 +322,101 @@ fn reserve_based_transfer_works() {
 		);
 	});
 }
+
+/// Scenario:
+/// A recursive XCM that triggers itself via `SetAppendix`.
+/// The execution should fail due to inner filter.
+#[test]
+fn recursive_xcm_execution_fail() {
+	use crate::mock::*;
+	use frame_support::traits::{Everything, Nothing, ProcessMessageError};
+	use staging_xcm_builder::*;
+	use std::ops::ControlFlow;
+	use xcm::opaque::latest::prelude::*;
+	use xcm_executor::traits::{DenyExecution, Properties, ShouldExecute};
+
+	// Dummy filter to allow all
+	struct AllowAll;
+	impl ShouldExecute for AllowAll {
+		fn should_execute<RuntimeCall>(
+			_: &Location,
+			_: &mut [Instruction<RuntimeCall>],
+			_: Weight,
+			_: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			Ok(())
+		}
+	}
+
+	// Dummy filter which denies `ClearOrigin`
+	struct DenyClearOrigin;
+	impl DenyExecution for DenyClearOrigin {
+		fn deny_execution<RuntimeCall>(
+			_: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_: Weight,
+			_: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearOrigin => Err(ProcessMessageError::Unsupported),
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			Ok(())
+		}
+	}
+
+	struct XcmTestConfig;
+	impl xcm_executor::Config for XcmTestConfig {
+		type RuntimeCall = RuntimeCall;
+		type XcmSender = TestXcmRouter;
+		type AssetTransactor = LocalAssetTransactor;
+		type OriginConverter = ();
+		type IsReserve = ();
+		type IsTeleporter = TrustedTeleporters;
+		type UniversalLocation = UniversalLocation;
+		type Barrier = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll>;
+		type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
+		type Trader = FixedRateOfFungible<KsmPerSecondPerByte, ()>;
+		type ResponseHandler = XcmPallet;
+		type AssetTrap = XcmPallet;
+		type AssetLocker = ();
+		type AssetExchanger = ();
+		type AssetClaims = XcmPallet;
+		type SubscriptionService = XcmPallet;
+		type PalletInstancesInfo = AllPalletsWithSystem;
+		type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
+		type FeeManager = ();
+		type MessageExporter = ();
+		type UniversalAliases = Nothing;
+		type CallDispatcher = RuntimeCall;
+		type SafeCallFilter = Everything;
+		type Aliasers = Nothing;
+		type TransactionalProcessor = ();
+		type HrmpNewChannelOpenRequestHandler = ();
+		type HrmpChannelAcceptedHandler = ();
+		type HrmpChannelClosingHandler = ();
+		type XcmRecorder = XcmPallet;
+	}
+
+	let para_acc: AccountId = ParaId::from(PARA_ID).into_account_truncating();
+	let balances = vec![(ALICE, INITIAL_BALANCE), (para_acc.clone(), INITIAL_BALANCE)];
+	let origin = Parachain(PARA_ID);
+	let message = Xcm(vec![SetAppendix(Xcm(vec![SetAppendix(Xcm(vec![ClearOrigin]))]))]);
+	let mut hash = fake_message_hash(&message);
+	let weight = BaseXcmWeight::get() * 3;
+
+	kusama_like_with_balances(balances).execute_with(|| {
+		let outcome = XcmExecutor::<XcmTestConfig>::prepare_and_execute(
+			origin,
+			message,
+			&mut hash,
+			weight,
+			Weight::zero(),
+		);
+
+		assert_eq!(outcome, Outcome::Error { error: XcmError::Barrier });
+	});
+}

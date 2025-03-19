@@ -19,7 +19,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::storage::Storage;
-use sp_runtime::Perbill;
+use sp_runtime::{BoundedVec, Perbill};
 
 // Polkadot
 use polkadot_primitives::{AssignmentId, ValidatorId};
@@ -87,7 +87,13 @@ pub fn genesis() -> Storage {
 				.iter()
 				.map(|x| (x.0.clone(), x.1.clone(), STASH, pallet_staking::StakerStatus::Validator))
 				.collect(),
-			invulnerables: validators::initial_authorities().iter().map(|x| x.0.clone()).collect(),
+			invulnerables: BoundedVec::try_from(
+				validators::initial_authorities()
+					.iter()
+					.map(|x| x.0.clone())
+					.collect::<Vec<_>>(),
+			)
+			.expect("Limit for staking invulnerables must be less than initial authorities."),
 			force_era: pallet_staking::Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()

@@ -18,7 +18,9 @@
 use crate::Config;
 use frame_support::{
 	dispatch::DispatchInfo,
-	pallet_prelude::{Decode, DispatchResult, Encode, TransactionSource, TypeInfo, Weight},
+	pallet_prelude::{
+		Decode, DecodeWithMemTracking, DispatchResult, Encode, TransactionSource, TypeInfo, Weight,
+	},
 	traits::Authorize,
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -30,8 +32,20 @@ use sp_runtime::{
 	transaction_validity::TransactionValidityError,
 };
 
+/// A transaction extension that authorizes some calls (i.e. dispatchable functions) to be
+/// included in the block.
+///
+/// This transaction extension use the runtime implementation of the trait
+/// [`Authorize`](frame_support::traits::Authorize) to set the validity of the transaction.
 #[derive(
-	Encode, Decode, CloneNoBound, EqNoBound, PartialEqNoBound, TypeInfo, RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	DecodeWithMemTracking,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct AuthorizeCall<T>(core::marker::PhantomData<T>);

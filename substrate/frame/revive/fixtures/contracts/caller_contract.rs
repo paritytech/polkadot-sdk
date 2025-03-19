@@ -31,7 +31,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(code_hash: &[u8; 32],);
+	input!(code_hash: &[u8; 32], load_code_ref_time: u64, load_code_proof_size: u64,);
 
 	// The value to transfer on instantiation and calls. Chosen to be greater than existential
 	// deposit.
@@ -49,8 +49,9 @@ pub extern "C" fn call() {
 
 	// Fail to deploy the contract since it returns a non-zero exit status.
 	let res = api::instantiate(
-		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
-		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		u64::MAX,       /* How much ref_time weight to devote for the execution. u64::MAX = use
+		                 * all. */
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
 		&value,
 		&reverted_input_deploy,
@@ -62,8 +63,9 @@ pub extern "C" fn call() {
 
 	// Fail to deploy the contract due to insufficient ref_time weight.
 	let res = api::instantiate(
-		1u64,           // too little ref_time weight
-		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		1u64, // too little ref_time weight
+		u64::MAX, /* How much proof_size weight to devote for the execution. u64::MAX =
+		       * use all. */
 		&[u8::MAX; 32], // No deposit limit.
 		&value,
 		&input_deploy,
@@ -75,7 +77,8 @@ pub extern "C" fn call() {
 
 	// Fail to deploy the contract due to insufficient proof_size weight.
 	let res = api::instantiate(
-		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX,       /* How much ref_time weight to devote for the execution. u64::MAX = use
+		                 * all. */
 		1u64,           // Too little proof_size weight
 		&[u8::MAX; 32], // No deposit limit.
 		&value,
@@ -90,8 +93,9 @@ pub extern "C" fn call() {
 	let mut callee = [0u8; 20];
 
 	api::instantiate(
-		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
-		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		u64::MAX,       /* How much ref_time weight to devote for the execution. u64::MAX = use
+		                 * all. */
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
 		&value,
 		&input_deploy,
@@ -118,8 +122,8 @@ pub extern "C" fn call() {
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee,
-		1u64,           // Too little ref_time weight.
-		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		load_code_ref_time, // just enough to load the contract
+		load_code_proof_size, // just enough to load the contract
 		&[u8::MAX; 32], // No deposit limit.
 		&value,
 		&INPUT,
@@ -132,7 +136,7 @@ pub extern "C" fn call() {
 		uapi::CallFlags::empty(),
 		&callee,
 		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
-		1u64,     // too little proof_size weight
+		load_code_proof_size, //just enough to load the contract
 		&[u8::MAX; 32], // No deposit limit.
 		&value,
 		&INPUT,

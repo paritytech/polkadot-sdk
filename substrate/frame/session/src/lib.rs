@@ -106,6 +106,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod disabling;
 #[cfg(feature = "historical")]
 pub mod historical;
 pub mod migrations;
@@ -123,6 +124,7 @@ use core::{
 	marker::PhantomData,
 	ops::{Rem, Sub},
 };
+use disabling::DisablingStrategy;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -136,12 +138,25 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
-	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
+	ConsensusEngineId, DispatchError, KeyTypeId, Perbill, Permill, RuntimeAppPublic,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{offence::OffenceSeverity, SessionIndex};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+pub(crate) const LOG_TARGET: &str = "runtime::session";
+
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: crate::LOG_TARGET,
+			concat!("[{:?}] 💸 ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
 
 /// Decides whether the session should be ended.
 pub trait ShouldEndSession<BlockNumber> {
@@ -375,7 +390,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -385,7 +400,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
-		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A stable ID for a validator.
 		type ValidatorId: Member
@@ -415,6 +430,9 @@ pub mod pallet {
 
 		/// The keys.
 		type Keys: OpaqueKeys + Member + Parameter + MaybeSerializeDeserialize;
+
+		/// `DisablingStragegy` controls how validators are disabled
+		type DisablingStrategy: DisablingStrategy<Self>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -518,7 +536,7 @@ pub mod pallet {
 	/// disabled using binary search. It gets cleared when `on_session_ending` returns
 	/// a new set of identities.
 	#[pallet::storage]
-	pub type DisabledValidators<T> = StorageValue<_, Vec<u32>, ValueQuery>;
+	pub type DisabledValidators<T> = StorageValue<_, Vec<(u32, OffenceSeverity)>, ValueQuery>;
 
 	/// The next session keys for a validator.
 	#[pallet::storage]
@@ -532,10 +550,14 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {
+	pub enum Event<T: Config> {
 		/// New session has happened. Note that the argument is the session index, not the
 		/// block number as the type might suggest.
 		NewSession { session_index: SessionIndex },
+		/// Validator has been disabled.
+		ValidatorDisabled { validator: T::ValidatorId },
+		/// Validator has been re-enabled.
+		ValidatorReenabled { validator: T::ValidatorId },
 	}
 
 	/// Error for the session pallet.
@@ -631,7 +653,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Public function to access the disabled validators.
 	pub fn disabled_validators() -> Vec<u32> {
-		DisabledValidators::<T>::get()
+		DisabledValidators::<T>::get().iter().map(|(i, _)| *i).collect()
 	}
 
 	/// Move on to next session. Register new validator set and session keys. Changes to the
@@ -639,13 +661,12 @@ impl<T: Config> Pallet<T> {
 	/// punishment after a fork.
 	pub fn rotate_session() {
 		let session_index = CurrentIndex::<T>::get();
-		log::trace!(target: "runtime::session", "rotating session {:?}", session_index);
-
 		let changed = QueuedChanged::<T>::get();
 
 		// Inform the session handlers that a session is going to end.
 		T::SessionHandler::on_before_session_ending();
 		T::SessionManager::end_session(session_index);
+		log!(trace, "ending_session {:?}", session_index);
 
 		// Get queued session keys and validators.
 		let session_keys = QueuedKeys::<T>::get();
@@ -661,11 +682,17 @@ impl<T: Config> Pallet<T> {
 		// Increment session index.
 		let session_index = session_index + 1;
 		CurrentIndex::<T>::put(session_index);
-
 		T::SessionManager::start_session(session_index);
+		log::trace!(target: "runtime::session", "starting_session {:?}", session_index);
 
 		// Get next validator set.
 		let maybe_next_validators = T::SessionManager::new_session(session_index + 1);
+		log::trace!(
+			target: "runtime::session",
+			"planning_session {:?} with {:?} validators",
+			session_index + 1,
+			maybe_next_validators.as_ref().map(|v| v.len())
+		);
 		let (next_validators, next_identities_changed) =
 			if let Some(validators) = maybe_next_validators {
 				// NOTE: as per the documentation on `OnSessionEnding`, we consider
@@ -719,36 +746,21 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
+	///
+	/// Note: This sets the OffenceSeverity to the lowest value.
 	pub fn disable_index(i: u32) -> bool {
-		if i >= Validators::<T>::decode_len().unwrap_or(0) as u32 {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
 			return false
 		}
 
 		DisabledValidators::<T>::mutate(|disabled| {
-			if let Err(index) = disabled.binary_search(&i) {
-				disabled.insert(index, i);
+			if let Err(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
+				disabled.insert(index, (i, OffenceSeverity(Perbill::zero())));
 				T::SessionHandler::on_disabled(i);
 				return true
 			}
 
 			false
-		})
-	}
-
-	/// Re-enable the validator of index `i`, returns `false` if the validator was already enabled.
-	pub fn enable_index(i: u32) -> bool {
-		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
-			return false
-		}
-
-		// If the validator is not disabled, return false.
-		DisabledValidators::<T>::mutate(|disabled| {
-			if let Ok(index) = disabled.binary_search(&i) {
-				disabled.remove(index);
-				true
-			} else {
-				false
-			}
 		})
 	}
 
@@ -915,6 +927,47 @@ impl<T: Config> Pallet<T> {
 	fn clear_key_owner(id: KeyTypeId, key_data: &[u8]) {
 		KeyOwner::<T>::remove((id, key_data));
 	}
+
+	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
+		DisabledValidators::<T>::mutate(|disabled| {
+			let decision = T::DisablingStrategy::decision(&validator, severity, &disabled);
+
+			if let Some(offender_idx) = decision.disable {
+				// Check if the offender is already disabled
+				match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
+					// Offender is already disabled, update severity if the new one is higher
+					Ok(index) => {
+						let (_, old_severity) = &mut disabled[index];
+						if severity > *old_severity {
+							*old_severity = severity;
+						}
+					},
+					Err(index) => {
+						// Offender is not disabled, add to `DisabledValidators` and disable it
+						disabled.insert(index, (offender_idx, severity));
+						// let the session handlers know that a validator got disabled
+						T::SessionHandler::on_disabled(offender_idx);
+
+						// Emit event that a validator got disabled
+						Self::deposit_event(Event::ValidatorDisabled {
+							validator: validator.clone(),
+						});
+					},
+				}
+			}
+
+			if let Some(reenable_idx) = decision.reenable {
+				// Remove the validator from `DisabledValidators` and re-enable it.
+				if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index)
+				{
+					disabled.remove(index);
+					// Emit event that a validator got re-enabled
+					let reenabled_stash = Validators::<T>::get()[reenable_idx as usize].clone();
+					Self::deposit_event(Event::ValidatorReenabled { validator: reenabled_stash });
+				}
+			}
+		});
+	}
 }
 
 impl<T: Config> ValidatorRegistration<T::ValidatorId> for Pallet<T> {
@@ -950,11 +1003,11 @@ impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
 
 impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
-		DisabledValidators::<T>::get().binary_search(&index).is_ok()
+		DisabledValidators::<T>::get().binary_search_by_key(&index, |(i, _)| *i).is_ok()
 	}
 
 	fn disabled_validators() -> Vec<u32> {
-		DisabledValidators::<T>::get()
+		Self::disabled_validators()
 	}
 }
 

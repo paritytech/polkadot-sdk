@@ -62,6 +62,11 @@ impl<Hash> DroppedTransaction<Hash> {
 	pub fn new_enforced_by_limts(tx_hash: Hash) -> Self {
 		Self { reason: DroppedReason::LimitsEnforced, tx_hash }
 	}
+
+	/// Creates a new instance with reason set to `DroppedReason::Invalid`.
+	pub fn new_invalid(tx_hash: Hash) -> Self {
+		Self { reason: DroppedReason::Invalid, tx_hash }
+	}
 }
 
 /// Provides reason of why transactions was dropped.
@@ -71,10 +76,13 @@ pub enum DroppedReason<Hash> {
 	Usurped(Hash),
 	/// Transaction was dropped because of internal pool limits being enforced.
 	LimitsEnforced,
+	/// Transaction was dropped because of being invalid.
+	Invalid,
 }
 
 /// Dropped-logic related event from the single view.
-pub type ViewStreamEvent<C> = crate::graph::TransactionStatusEvent<ExtrinsicHash<C>, BlockHash<C>>;
+pub type ViewStreamEvent<C> =
+	crate::fork_aware_txpool::view::TransactionStatusEvent<ExtrinsicHash<C>, BlockHash<C>>;
 
 /// Dropped-logic stream of events coming from the single view.
 type ViewStream<C> = Pin<Box<dyn futures::Stream<Item = ViewStreamEvent<C>> + Send>>;
@@ -255,7 +263,12 @@ where
 		let (tx_hash, status) = event;
 		match status {
 			TransactionStatus::Future => {
-				self.future_transaction_views.entry(tx_hash).or_default().insert(block_hash);
+				// see note below:
+				if let Some(mut views_keeping_tx_valid) = self.transaction_views(tx_hash) {
+					views_keeping_tx_valid.get_mut().insert(block_hash);
+				} else {
+					self.future_transaction_views.entry(tx_hash).or_default().insert(block_hash);
+				}
 			},
 			TransactionStatus::Ready | TransactionStatus::InBlock(..) => {
 				// note: if future transaction was once seen as the ready we may want to treat it
@@ -279,12 +292,23 @@ where
 						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 					}
 				} else {
-					debug!(target: LOG_TARGET, ?tx_hash, "dropped_watcher: removing (non-tracked) tx");
+					debug!(target: LOG_TARGET, ?tx_hash, "dropped_watcher: removing (non-tracked dropped) tx");
 					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 				}
 			},
 			TransactionStatus::Usurped(by) =>
 				return Some(DroppedTransaction::new_usurped(tx_hash, by)),
+			TransactionStatus::Invalid => {
+				if let Some(mut views_keeping_tx_valid) = self.transaction_views(tx_hash) {
+					views_keeping_tx_valid.get_mut().remove(&block_hash);
+					if views_keeping_tx_valid.get().is_empty() {
+						return Some(DroppedTransaction::new_invalid(tx_hash))
+					}
+				} else {
+					debug!(target: LOG_TARGET, ?tx_hash, "dropped_watcher: removing (non-tracked invalid) tx");
+					return Some(DroppedTransaction::new_invalid(tx_hash))
+				}
+			},
 			_ => {},
 		};
 		None

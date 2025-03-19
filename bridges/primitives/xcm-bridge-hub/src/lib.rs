@@ -22,7 +22,7 @@
 use bp_messages::LaneIdType;
 use bp_runtime::{AccountIdOf, BalanceOf, Chain};
 pub use call_info::XcmBridgeHubCall;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure, sp_runtime::RuntimeDebug, CloneNoBound, PalletError, PartialEqNoBound,
 	RuntimeDebugNoBound,
@@ -59,6 +59,7 @@ pub type XcmAsPlainPayload = sp_std::vec::Vec<u8>;
 	Copy,
 	Decode,
 	Encode,
+	DecodeWithMemTracking,
 	Eq,
 	Ord,
 	PartialOrd,
@@ -197,7 +198,9 @@ pub struct BridgeLocations {
 }
 
 /// Errors that may happen when we check bridge locations.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo,
+)]
 pub enum BridgeLocationsError {
 	/// Origin or destination locations are not universal.
 	NonUniversalLocation,

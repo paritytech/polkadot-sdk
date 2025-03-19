@@ -36,7 +36,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
 	pallet_prelude::TransactionSource,
@@ -81,7 +81,7 @@ pub mod pallet {
 }
 
 /// A [`TransactionExtension`] that skips the wrapped extension if the dispatchable is feeless.
-#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq)]
 pub struct SkipCheckIfFeeless<T, S>(pub S, core::marker::PhantomData<T>);
 
 // Make this extension "invisible" from the outside (ie metadata type information)

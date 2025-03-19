@@ -26,6 +26,7 @@ use crate::{
 	evm::runtime::GAS_PRICE,
 	exec::{Ext, Key, MomentOf},
 	limits,
+	pure_precompiles::Precompile,
 	storage::WriteOutcome,
 	ConversionPrecision, Pallet as Contracts, *,
 };
@@ -259,14 +260,19 @@ mod benchmarks {
 	}
 
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
-	// the execution engine. This does **not** include the actual execution for which the gas meter
-	// is responsible. This is achieved by generating all code to the `deploy` function
-	// which is in the wasm module but not executed on `call`.
-	// The results are supposed to be used as `call_with_code_per_byte(c) -
-	// call_with_code_per_byte(0)`.
+	// the execution engine.
+	//
+	// `call_with_code_per_byte(c) - call_with_code_per_byte(0)`
+	//
+	// This does **not** include the actual execution for which the gas meter
+	// is responsible. The code used here will just return on call.
+	//
+	// We expect the influence of `c` to be none in this benchmark because every instruction that
+	// is not in the first basic block is never read. We are primarily interested in the
+	// `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_code_per_byte(
-		c: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
 	) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::sized(c), vec![])?;
@@ -286,11 +292,46 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Measure the amount of time it takes to compile a single basic block.
+	//
+	// (basic_block_compilation(1) - basic_block_compilation(0)).ref_time()
+	//
+	// This is needed because the interpreter will always compile a whole basic block at
+	// a time. To prevent a contract from triggering compilation without doing any execution
+	// we will always charge one max sized block per contract call.
+	//
+	// We ignore the proof size component when using this benchmark as this is already accounted
+	// for in `call_with_code_per_byte`.
+	#[benchmark(pov_mode = Measured)]
+	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			WasmModule::with_num_instructions(limits::code::BASIC_BLOCK_SIZE),
+			vec![],
+		)?;
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[block]
+		{
+			Pallet::<T>::call(
+				RawOrigin::Signed(instance.caller.clone()).into(),
+				instance.address,
+				value,
+				Weight::MAX,
+				storage_deposit,
+				vec![],
+			)?;
+		}
+
+		Ok(())
+	}
+
 	// `c`: Size of the code in bytes.
 	// `i`: Size of the input in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
-		c: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
 		i: Linear<0, { limits::code::BLOB_BYTES }>,
 	) {
 		let input = vec![42u8; i as usize];
@@ -416,7 +457,9 @@ mod benchmarks {
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn upload_code(c: Linear<0, { limits::code::BLOB_BYTES }>) {
+	fn upload_code(
+		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
+	) {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::sized(c);
@@ -1903,30 +1946,21 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_ecdsa_recover() {
-		let message_hash = sp_io::hashing::blake2_256("Hello world".as_bytes());
-		let key_type = sp_core::crypto::KeyTypeId(*b"code");
-		let signature = {
-			let pub_key = sp_io::crypto::ecdsa_generate(key_type, None);
-			let sig = sp_io::crypto::ecdsa_sign_prehashed(key_type, &pub_key, &message_hash)
-				.expect("Generates signature");
-			AsRef::<[u8; 65]>::as_ref(&sig).to_vec()
-		};
-
-		build_runtime!(runtime, memory: [signature, message_hash, [0u8; 33], ]);
+	fn ecdsa_recover() {
+		use hex_literal::hex;
+		let input = hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549");
+		let expected = hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
+
 		#[block]
 		{
-			result = runtime.bench_ecdsa_recover(
-				memory.as_mut_slice(),
-				0,       // signature_ptr
-				65,      // message_hash_ptr
-				65 + 32, // output_ptr
-			);
+			result = pure_precompiles::ECRecover::execute(ext.gas_meter_mut(), &input);
 		}
 
-		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_eq!(result.unwrap().data, expected);
 	}
 
 	// Only calling the function itself for the list of
