@@ -704,7 +704,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 			return vec![]
 		}
 
-		let invalid = self.remove_subtree(hashes, |listener, removed_tx_hash| {
+		let invalid = self.remove_subtree(hashes, true, |listener, removed_tx_hash| {
 			listener.invalid(&removed_tx_hash);
 		});
 
@@ -779,8 +779,8 @@ impl<B: ChainApi> ValidatedPool<B> {
 	/// This function traverses the dependency graph of transactions and removes the specified
 	/// transaction along with all its descendant transactions from the pool.
 	///
-	/// The root transaction will be banned from re-entrering the pool. Descendant transactions may
-	/// be re-submitted to the pool if required.
+	/// The root transactions will be banned from re-entrering the pool if `ban_transactions` is
+	/// true. Descendant transactions may be re-submitted to the pool if required.
 	///
 	/// A `listener_action` callback function is invoked for every transaction that is removed,
 	/// providing a reference to the pool's listener and the hash of the removed transaction. This
@@ -791,13 +791,16 @@ impl<B: ChainApi> ValidatedPool<B> {
 	pub fn remove_subtree<F>(
 		&self,
 		hashes: &[ExtrinsicHash<B>],
+		ban_transactions: bool,
 		listener_action: F,
 	) -> Vec<TransactionFor<B>>
 	where
 		F: Fn(&mut Listener<B>, ExtrinsicHash<B>),
 	{
-		// temporarily ban invalid transactions
-		self.rotator.ban(&Instant::now(), hashes.iter().cloned());
+		// temporarily ban removed transactions if requested
+		if ban_transactions {
+			self.rotator.ban(&Instant::now(), hashes.iter().cloned());
+		};
 		let removed = self.pool.write().remove_subtree(hashes);
 
 		removed

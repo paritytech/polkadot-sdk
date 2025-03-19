@@ -53,6 +53,18 @@ macro_rules! log_xt {
         }
     };
 }
+macro_rules! log_xt_debug {
+    (data: $datatype:ident, target: $target:expr, $($arg:tt)+) => {
+        $crate::common::tracing_log_xt::log_xt!(data: $datatype, target: $target, tracing::Level::DEBUG, $($arg)+);
+    };
+    (target: $target:expr, $tx_collection:expr, $text_with_format:expr) => {
+        $crate::common::tracing_log_xt::log_xt!(data: hash, target: $target, tracing::Level::DEBUG, $tx_collection, $text_with_format);
+    };
+    (target: $target:expr, $tx_collection:expr, $text_with_format:expr, $($arg:expr)*) => {
+        $crate::common::tracing_log_xt::log_xt!(data: hash, target: $target, tracing::Level::DEBUG, $tx_collection, $text_with_format, $($arg)*);
+    };
+}
+
 macro_rules! log_xt_trace {
     (data: $datatype:ident, target: $target:expr, $($arg:tt)+) => {
         $crate::common::tracing_log_xt::log_xt!(data: $datatype, target: $target, tracing::Level::TRACE, $($arg)+);
@@ -66,4 +78,5 @@ macro_rules! log_xt_trace {
 }
 
 pub(crate) use log_xt;
+pub(crate) use log_xt_debug;
 pub(crate) use log_xt_trace;
