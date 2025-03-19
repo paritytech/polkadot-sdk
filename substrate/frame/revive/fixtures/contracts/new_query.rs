@@ -29,14 +29,15 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		responder: [u8],
+		512,
+		responder: &[u8; 3],
+        timeout: &[u8; 32],
 		maybe_notify: [u8],
-		timeout: &[u8; 32],
-	);
+    );
 
 	let mut query_id = [0u8; 32];
 	
 	#[allow(deprecated)]
-	api::new_query(responder, maybe_notify, timeout, &mut query_id);
+	let _ = api::new_query(responder, maybe_notify, timeout, &mut query_id);
 	api::return_value(uapi::ReturnFlags::empty(), &query_id);
 }

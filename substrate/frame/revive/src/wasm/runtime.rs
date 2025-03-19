@@ -595,7 +595,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 				log::error!(target: LOG_TARGET, "polkavm execution error: {error}");
 				Some(Err(Error::<E::T>::ExecutionFailed.into()))
 			},
-			Ok(Finished) => 
+			Ok(Finished) =>
 				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
 			Ok(Trap) => Some(Err(Error::<E::T>::ContractTrapped.into())),
 			Ok(Segfault(_)) => Some(Err(Error::<E::T>::ExecutionFailed.into())),
@@ -1167,8 +1167,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 // for every function.
 #[define_env]
 pub mod env {
-    use xcm_builder::QueryController;
-
 	/// Noop function used to benchmark the time it takes to execute an empty function.
 	///
 	/// Marked as stable because it needs to be called from benchmarks even when the benchmarked
