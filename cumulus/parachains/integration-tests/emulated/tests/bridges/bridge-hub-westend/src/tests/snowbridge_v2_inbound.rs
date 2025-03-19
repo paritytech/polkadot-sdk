@@ -334,7 +334,7 @@ fn send_weth_v2() {
 				// Check that excess fees were paid to the beneficiary
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
-					owner: *owner == beneficiary_acc_bytes.clone().into(),
+					owner: *owner == beneficiary_acc_bytes.into(),
 				},
 			]
 		);
@@ -373,7 +373,7 @@ fn register_and_send_multiple_tokens_v2() {
 	let beneficiary_acc_id: H256 = H256::random();
 	let beneficiary_acc_bytes: [u8; 32] = beneficiary_acc_id.into();
 	let beneficiary =
-		Location::new(0, AccountId32 { network: None, id: beneficiary_acc_id.clone().into() });
+		Location::new(0, AccountId32 { network: None, id: beneficiary_acc_id.into() });
 
 	// To satisfy ED
 	AssetHubWestend::fund_accounts(vec![(
@@ -1003,7 +1003,7 @@ fn invalid_claimer_does_not_fail_the_message() {
 				// Leftover fees deposited to beneficiary
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
-					owner: *owner == beneficiary_acc.clone().into(),
+					owner: *owner == beneficiary_acc.into(),
 				},
 			]
 		);

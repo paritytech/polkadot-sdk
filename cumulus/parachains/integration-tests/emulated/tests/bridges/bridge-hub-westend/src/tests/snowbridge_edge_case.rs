@@ -191,7 +191,7 @@ fn export_from_system_parachain_but_not_root_will_fail() {
 	let sub_location = PalletInstance(100);
 	let assethub_pallet_sovereign = BridgeHubWestend::sovereign_account_id_of(Location::new(
 		1,
-		[Parachain(AssetHubWestend::para_id().into()), sub_location.clone()],
+		[Parachain(AssetHubWestend::para_id().into()), sub_location],
 	));
 	BridgeHubWestend::fund_accounts(vec![(assethub_pallet_sovereign.clone(), INITIAL_FUND)]);
 
