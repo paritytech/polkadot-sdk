@@ -2180,10 +2180,10 @@ impl_runtime_apis! {
 
 						// Mint foreign asset
 						ForeignAssets::mint(origin.clone(), asset_location.clone().into(), account.clone().into(), 3_000 * UNITS)
-							.map_err(|_| BenchmarkError::Override)?;
+							.map_err(|_| BenchmarkError::Stop("Failed to mint foreign asset!"))?;
 						// Create pool
 						AssetConversion::create_pool(origin.clone(), relay_location.clone().into(), asset_location.clone().into())
-							.map_err(|_| BenchmarkError::Override)?;
+							.map_err(|_| BenchmarkError::Stop("Failed to create pool!"))?;
 						// Add liquidity
 						AssetConversion::add_liquidity(
 							origin.clone(),
@@ -2195,7 +2195,7 @@ impl_runtime_apis! {
 							1,
 							account.clone().into(),
 						)
-						.map_err(|_| BenchmarkError::Override)?;
+						.map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
 
 						give_assets.push((AssetId(relay_location.clone()), 1_000 * UNITS).into());
 						receive_assets.push((asset_id, 2_000 * UNITS).into());
