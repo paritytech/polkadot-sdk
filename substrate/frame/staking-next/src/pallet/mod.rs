@@ -514,6 +514,7 @@ pub mod pallet {
 	pub type MaxNominatorsCount<T> = StorageValue<_, u32, OptionQuery>;
 
 	// --- AUDIT NOTE: the following storage items should only be controlled by `Rotator`
+
 	/// The current planned era index.
 	///
 	/// This is the latest planned era, depending on how the Session pallet queues the validator
