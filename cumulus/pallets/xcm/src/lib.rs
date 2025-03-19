@@ -58,7 +58,17 @@ pub mod pallet {
 	}
 
 	/// Origin for the parachains module.
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, MaxEncodedLen)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		RuntimeDebug,
+		MaxEncodedLen,
+	)]
 	#[pallet::origin]
 	pub enum Origin {
 		/// It comes from the (parent) relay chain.

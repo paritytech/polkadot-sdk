@@ -105,7 +105,7 @@ pub mod pallet {
 
 	/// A map that stores freezes applied on an account for a given AssetId.
 	#[pallet::storage]
-	pub(super) type Freezes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type Freezes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
@@ -120,7 +120,7 @@ pub mod pallet {
 
 	/// A map that stores the current total frozen balance for every account on a given AssetId.
 	#[pallet::storage]
-	pub(super) type FrozenBalances<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type FrozenBalances<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,

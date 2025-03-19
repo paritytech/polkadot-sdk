@@ -25,9 +25,8 @@
     "/dns/collectives-westend-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWMAgVm1PnsLVfxoDLCbYv1DgnN6tjcRQbrq8xhbwo4whE",
     "/dns/westend-collectives-boot-ng.dwellir.com/tcp/30340/p2p/12D3KooWPFM93jgm4pgxx8PM8WJKAJF49qia8jRB95uciUQwYh7m",
     "/dns/westend-collectives-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWPFM93jgm4pgxx8PM8WJKAJF49qia8jRB95uciUQwYh7m",
-    "/dns/wch13.rotko.net/tcp/33593/p2p/12D3KooWPG85zhuSRoyptjLkFD4iJFistjiBmc15JgQ96B4fdXYr",
-    "/dns/wch13.rotko.net/tcp/34593/ws/p2p/12D3KooWPG85zhuSRoyptjLkFD4iJFistjiBmc15JgQ96B4fdXYr",
-    "/dns/wch13.rotko.net/tcp/35593/wss/p2p/12D3KooWPG85zhuSRoyptjLkFD4iJFistjiBmc15JgQ96B4fdXYr",
+    "/dns/collectives-westend.boot.rotko.net/tcp/33031/p2p/12D3KooWPG85zhuSRoyptjLkFD4iJFistjiBmc15JgQ96B4fdXYr",
+    "/dns/collectives-westend.boot.rotko.net/tcp/30435/wss/p2p/12D3KooWPG85zhuSRoyptjLkFD4iJFistjiBmc15JgQ96B4fdXYr",
     "/dns/collectives-westend.bootnodes.polkadotters.com/tcp/30529/p2p/12D3KooWAFkXNSBfyPduZVgfS7pj5NuVpbU8Ee5gHeF8wvos7Yqn",
     "/dns/collectives-westend.bootnodes.polkadotters.com/tcp/30531/wss/p2p/12D3KooWAFkXNSBfyPduZVgfS7pj5NuVpbU8Ee5gHeF8wvos7Yqn",
     "/dns/collectives-westend-01.bootnode.stkd.io/tcp/30633/wss/p2p/12D3KooWFH7UZnWESzuRSgrLvNSfALjtpr9PmG7QGyRNCizWEHcd"
