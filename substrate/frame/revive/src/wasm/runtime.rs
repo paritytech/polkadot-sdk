@@ -605,11 +605,7 @@ fn already_charged(_: u32) -> Option<RuntimeCosts> {
 fn extract_hi_lo(reg: u64) -> (u32, u32) {
 	((reg >> 32) as u32, reg as u32)
 }
-
-/// By abstracting these two forms under a single `StorageValue` enum, the runtime can choose the
-/// appropriate handling logic depending
-/// on whether the storage value is coming from memory (variable-length) or is provided inline as a
-/// fixed-size value to avoid reading the value twice(in case of set_storage_or_clear).
+/// Provides storage variants to support standard and Etheruem compatible semantics.
 enum StorageValue {
 	/// Indicates that the storage value should be read from a memory buffer.
 	/// - `ptr`: A pointer to the start of the data in sandbox memory.
@@ -623,17 +619,10 @@ enum StorageValue {
 }
 
 /// Controls the output behavior for storage reads, both when a key is found and when it is not.
-///
-/// - `Standard`: Use the traditional behavior:
-///     - If the key is missing, return a KeyNotFound error.
-///     - Otherwise, return the full stored value using the caller’s provided output length.
-/// - `EthSemantics`: Emulate Ethereum’s fixed 256-bit (32-byte) output:
-///     - Always write a 32-byte value into the output buffer.
-///     - If the key is missing, write 32 bytes of zeros.
 enum StorageReadMode {
 	/// Standard mode: if the key exists, the full stored value is returned
 	/// using the caller‑provided output length.
-	Standard(u32),
+	Standard { output_len_ptr: u32 },
 	/// Ethereum commpatible mode: always write a 32-byte value into the output buffer.
 	/// If the key is missing, write 32 bytes of zeros.
 	EthSemantics,
@@ -1012,7 +1001,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					)?;
 					Ok(ReturnErrorCode::Success)
 				},
-				StorageReadMode::Standard(out_len_ptr) => {
+				StorageReadMode::Standard { output_len_ptr: out_len_ptr } => {
 					self.write_sandbox_output(
 						memory,
 						out_ptr,
@@ -1038,7 +1027,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					)?;
 					Ok(ReturnErrorCode::Success)
 				},
-				StorageReadMode::Standard(_) => Ok(ReturnErrorCode::KeyNotFound),
+				StorageReadMode::Standard { .. } => Ok(ReturnErrorCode::KeyNotFound),
 			}
 		}
 	}
@@ -1348,7 +1337,7 @@ pub mod env {
 			key_ptr,
 			key_len,
 			out_ptr,
-			StorageReadMode::Standard(out_len_ptr),
+			StorageReadMode::Standard { output_len_ptr: out_len_ptr },
 		)
 	}
 
