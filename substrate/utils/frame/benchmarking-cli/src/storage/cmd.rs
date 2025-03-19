@@ -26,12 +26,12 @@ use sp_runtime::traits::{Block as BlockT, HashingFor};
 use sp_state_machine::Storage;
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
 
-use clap::{Args, Parser};
+use clap::{ArgAction, Args, Parser};
 use log::info;
 use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
-use std::{default, fmt::Debug, path::PathBuf, sync::Arc};
+use std::{fmt::Debug, path::PathBuf, sync::Arc};
 
 use super::template::TemplateData;
 use crate::shared::{new_rng, HostInfoParams, WeightParams};
