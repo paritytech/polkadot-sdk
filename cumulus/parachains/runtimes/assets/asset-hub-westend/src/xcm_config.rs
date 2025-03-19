@@ -552,7 +552,7 @@ pub type XcmRouter = WithUniqueTopic<(
 )>;
 
 parameter_types! {
-	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
+	pub Collectives: Location = Location::new(1, [Parachain(COLLECTIVES_ID)]);
 }
 
 impl pallet_xcm::Config for Runtime {
