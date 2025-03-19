@@ -14,21 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	cli::{Cli, RelayChainCli, Subcommand},
-	common::{
-		chain_spec::{Extensions, LoadSpec},
-		runtime::{
-			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
-			RuntimeResolver,
-		},
-		types::Block,
-		NodeBlock, NodeExtraArgs,
+use crate::{cli, cli::{Cli, RelayChainCli, Subcommand}, common::{
+	chain_spec::{Extensions, LoadSpec},
+	runtime::{
+		AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
+		RuntimeResolver,
 	},
-	fake_runtime_api,
-	nodes::DynNodeSpecExt,
-	runtime::BlockNumber,
-};
+	types::Block,
+	NodeBlock, NodeExtraArgs,
+}, fake_runtime_api, nodes::DynNodeSpecExt, runtime::BlockNumber};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
@@ -48,6 +42,8 @@ pub struct RunConfig {
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
+	/// Optional custom command handler.
+	pub custom_command_handler: Option<Box<dyn cli::CustomCommandHandler>>,
 }
 
 impl RunConfig {
@@ -55,8 +51,9 @@ impl RunConfig {
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
+		custom_command_handler: Option<Box<dyn cli::CustomCommandHandler>>,
 	) -> Self {
-		RunConfig { chain_spec_loader, runtime_resolver }
+		RunConfig { chain_spec_loader, runtime_resolver, custom_command_handler }
 	}
 }
 
@@ -221,6 +218,26 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			}
 		},
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
+		Some(cli::Subcommand::Custom(ref ext)) => {
+			let ext_owned = ext.clone();
+			let cmd_name: String = ext_owned.get(0).cloned().unwrap_or_default();
+			let cmd_matches = clap::Command::new(&cmd_name).get_matches_from(ext_owned);
+			if let Some(handler) = &cmd_config.custom_command_handler {
+				match handler.handle_command(&cmd_name, &cmd_matches) {
+					Some(Ok(())) => Ok(()),
+					Some(Err(e)) => Err(sc_cli::Error::Application(Box::new(
+						std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+					))),
+					None => Err(sc_cli::Error::Application(Box::new(
+						std::io::Error::new(std::io::ErrorKind::Other, "Custom command not handled")
+					))),
+				}
+			} else {
+				Err(sc_cli::Error::Application(Box::new(
+					std::io::Error::new(std::io::ErrorKind::Other, "Custom command provided but no handler registered")
+				)))
+			}
+		},
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
 			let polkadot_cli =

@@ -6,7 +6,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// http://www.apache.org/licenses/LICENSE-2.0
+// 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,13 +21,33 @@
 
 mod chain_spec;
 
-use clap::{Command, CommandFactory, FromArgMatches};
-use color_eyre::eyre;
-use polkadot_omni_node_lib::{
-	chain_spec::LoadSpec, cli::Cli as OmniCli, run, CliConfig as CliConfigT, RunConfig,
-	NODE_VERSION,
-};
+use clap::ArgMatches;
+use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
+use polkadot_omni_node_lib::chain_spec::{LoadSpec};
+use polkadot_omni_node_lib::cli::CustomCommandHandler;
+use color_eyre::eyre::{Result, eyre};
 use sc_cli::ExportChainSpecCmd;
+use sc_cli::clap::FromArgMatches;
+
+
+struct CustomCmdHandler;
+
+impl CustomCommandHandler for CustomCmdHandler {
+	fn handle_command(&self, cmd: &str, matches: &ArgMatches) -> Option<Result<()>> {
+		if cmd == "export-chain-spec" {
+			let export_cmd = match ExportChainSpecCmd::from_arg_matches(matches) {
+				Ok(cmd) => cmd,
+				Err(e) => return Some(Err(eyre!(e))),
+			};
+			let spec = match chain_spec::ChainSpecLoader.load_spec(&export_cmd.chain) {
+				Ok(spec) => spec,
+				Err(e) => return Some(Err(eyre!(e))),
+			};
+			return Some(Ok(export_cmd.run(spec).ok()?));
+		}
+		None
+	}
+}
 
 struct CliConfig;
 
@@ -50,31 +70,13 @@ impl CliConfigT for CliConfig {
 	}
 }
 
-fn main() -> eyre::Result<()> {
+fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
 
-	// Build the omni-node CLI command with version info.
-	let mut cmd: Command = OmniCli::<CliConfig>::command().version(NODE_VERSION);
-
-	// Add our export command under the new name "export-chain-spec".
-	cmd = cmd.subcommand(ExportChainSpecCmd::command().name("export-chain-spec"));
-
-	// Parse the combined CLI.
-	let matches = cmd.get_matches();
-
-	// If the export-chain-spec subcommand is invoked, execute that branch.
-	if let Some(export_matches) = matches.subcommand_matches("export-chain-spec") {
-		// Clone the matches to get an owned mutable instance.
-		let mut export_matches_owned = export_matches.clone();
-		let export_cmd = ExportChainSpecCmd::from_arg_matches_mut(&mut export_matches_owned)?;
-		let loader = chain_spec::ChainSpecLoader;
-		let spec = loader.load_spec(&export_cmd.chain).map_err(|e: String| eyre::eyre!(e))?;
-		export_cmd.run(spec).map_err(Into::into)
-	} else {
-		let config = RunConfig::new(
-			Box::new(chain_spec::RuntimeResolver),
-			Box::new(chain_spec::ChainSpecLoader),
-		);
-		Ok(run::<CliConfig>(config)?)
-	}
+	let config = RunConfig::new(
+		Box::new(chain_spec::RuntimeResolver),
+		Box::new(chain_spec::ChainSpecLoader),
+		Some(Box::new(CustomCmdHandler))
+	);
+	Ok(run::<CliConfig>(config)?)
 }

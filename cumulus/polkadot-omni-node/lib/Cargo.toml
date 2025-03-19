@@ -25,6 +25,7 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+color-eyre = { workspace = true }
 
 # Local
 jsonrpsee = { features = ["server"], workspace = true }

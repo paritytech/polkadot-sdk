@@ -15418,6 +15418,7 @@ dependencies = [
  "assert_cmd",
  "async-trait",
  "clap 4.5.13",
+ "color-eyre",
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",

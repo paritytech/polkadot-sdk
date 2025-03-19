@@ -68,6 +68,17 @@ pub trait CliConfig {
 	fn copyright_start_year() -> u16;
 }
 
+/// Trait for handling custom commands.
+pub trait CustomCommandHandler {
+	/// * `cmd` is the name of the command (e.g. "export-chain-spec").
+	/// * `matches` contains the parsed arguments (if any) for this custom command.
+	///
+	/// Return:
+	/// - `Some(Ok(()))` if the command was recognized and executed successfully.
+	/// - `Some(Err(e))` if the command was recognized but failed.
+	/// - `None` if the command is not recognized.
+	fn handle_command(&self, cmd: &str, matches: &clap::ArgMatches) -> Option<color_eyre::eyre::Result<()>>;
+}
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
@@ -132,6 +143,10 @@ pub enum Subcommand {
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
+
+	/// Custom subcommand to allow extensions.
+	#[clap(external_subcommand)]
+	Custom(Vec<String>),
 }
 
 /// CLI Options shipped with `polkadot-omni-node`.
