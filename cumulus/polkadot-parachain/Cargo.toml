@@ -37,7 +37,10 @@ parachains-common = { workspace = true, default-features = true }
 penpal-runtime = { workspace = true }
 people-rococo-runtime = { workspace = true }
 people-westend-runtime = { workspace = true }
-polkadot-omni-node-lib = { features = ["rococo-native", "westend-native"], workspace = true }
+polkadot-omni-node-lib = { features = [
+	"rococo-native",
+	"westend-native",
+], workspace = true }
 rococo-parachain-runtime = { workspace = true }
 
 # Substrate
