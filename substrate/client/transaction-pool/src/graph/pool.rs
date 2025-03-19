@@ -305,7 +305,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		at: &HashAndNumber<B::Block>,
 		parent: <B::Block as BlockT>::Hash,
 		extrinsics: &[RawExtrinsicFor<B>],
-		known_xts_to_tags: &HashMap<ExtrinsicHash<B>, Option<Vec<Tag>>>,
+		inactive_views_txs_to_tags: Arc<HashMap<ExtrinsicHash<B>, Option<Vec<Tag>>>>,
 	) {
 		log::debug!(
 			target: LOG_TARGET,
@@ -328,13 +328,15 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 			match in_pool_tags {
 				// reuse the tags for extrinsics that were found in the pool
 				Some(tags) => future_tags.extend(tags),
-				// if it's not found in the pool query the runtime at parent block
-				// to get validity info and tags that the extrinsic provides.
 				None => {
+					// if it's not found in the pool, check if the extrinsic `provides`
+					// tags are known (from inactive views, queried at an upper level)
 					let xts_hash = self.hash_of(extrinsic);
-					if let Some(tags) = known_xts_to_tags.get(&xts_hash).unwrap_or(&None) {
+					if let Some(tags) = inactive_views_xts_to_tags.get(&xts_hash).unwrap_or(&None) {
 						future_tags.extend(tags.clone());
 					} else if !self.validated_pool.status().is_empty() {
+						// and if that's not the case, query the runtime at parent block
+						// to get validity info and tags that the extrinsic provides.
 						validated_counter = validated_counter + 1;
 						let validity = self
 							.validated_pool

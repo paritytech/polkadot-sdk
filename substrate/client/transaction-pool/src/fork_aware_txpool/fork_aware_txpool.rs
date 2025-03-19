@@ -1417,43 +1417,61 @@ where
 		// transactions with those hashes from the retracted blocks.
 		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
 
-		// Create a map from all enacted blocks extrinsics, and their `provides` tags.
-		let xts_to_tags = future::join_all(tree_route.enacted().iter().map(|hn| {
-			let api = api.clone();
-			async move {
-				let hn_view = self.view_store.get_view_at(hn.hash, true);
-				let hn_extrinsics = api
-					.block_body(hn.hash)
-					.await
-					.unwrap_or_else(|e| {
-						log::warn!(target: LOG_TARGET, "Prune known transactions: error request: {}", e);
-						None
-					})
-					.unwrap_or_default();
-
-				let hn_xts_hashes = hn_extrinsics
+		// Create a map from (retracted blocks + common block)'s extrinsics to their `provides`
+		// tags.
+		let inactive_views_txs_to_tags = Arc::new(
+			future::join_all(
+				tree_route
+					.retracted()
 					.iter()
-					.filter_map(|tx| hn_view.as_ref().map(|(inner, _)| inner.pool.hash_of(tx)))
-					.collect::<Vec<_>>();
-				let hn_xts_provides_tags = hn_view
-					.map(|(inner, _)| inner.pool.validated_pool().extrinsics_tags(&hn_xts_hashes))
-					.unwrap_or(vec![None; hn_xts_hashes.len()]);
-				hn_xts_hashes
-					.into_iter()
-					.zip(hn_xts_provides_tags.into_iter())
-					.into_iter()
-					.collect::<Vec<(ExtrinsicHash<ChainApi>, Option<Vec<Tag>>)>>()
-			}
-		}))
-		.await
-		.into_iter()
-		.flatten()
-		.collect::<HashMap<ExtrinsicHash<ChainApi>, Option<Vec<Tag>>>>();
+					.chain(std::iter::once(tree_route.common_block()))
+					.map(|hn| {
+						let api = api.clone();
+						async move {
+							// Fetch extrinsics.
+							let view = self.view_store.get_view_at(hn.hash, true);
+							let txs = api
+								.block_body(hn.hash)
+								.await
+								.unwrap_or_else(|e| {
+									log::warn!(target: LOG_TARGET, "Block txs: error request: {}", e);
+									None
+								})
+								.unwrap_or_default();
+
+							let txs_hashes = txs
+								.iter()
+								.filter_map(|tx| {
+									view.as_ref().map(|(inner, _)| inner.pool.hash_of(tx))
+								})
+								.collect::<Vec<_>>();
+							let txs_provides_tags = view
+								.map(|(inner, _)| {
+									inner.pool.validated_pool().extrinsics_tags(&xts_hashes)
+								})
+								.unwrap_or(vec![None; xts_hashes.len()]);
+							xts_hashes
+								.into_iter()
+								.zip(xts_provides_tags.into_iter())
+								.into_iter()
+								.collect::<Vec<(ExtrinsicHash<ChainApi>, Option<Vec<Tag>>)>>()
+						}
+					}),
+			)
+			.await
+			.into_iter()
+			.flatten()
+			.collect::<HashMap<ExtrinsicHash<ChainApi>, Option<Vec<Tag>>>>(),
+		);
+
+        info!(target: LOG_TARGET, "update_view_with_fork: transactions to provide tags len: {}", xts_to_tags.len())
 
 		future::join_all(tree_route.enacted().iter().map(|hn| {
 			let api = api.clone();
-			let value = xts_to_tags.clone();
-			async move { (hn, crate::prune_known_txs_for_block(hn, &*api, &view.pool, &value).await) }
+			let inactive_views_txs_to_tags = txs_to_tags.clone();
+			async move {
+				(hn, crate::prune_known_txs_for_block(hn, &*api, &view.pool, inactive_views_xts_to_tags).await)
+			}
 		}))
 		.await
 		.into_iter()
