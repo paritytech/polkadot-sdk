@@ -255,6 +255,8 @@ struct CollatorMessage<Block: BlockT> {
 	pub validation_code_hash: ValidationCodeHash,
 	/// Core index that this block should be submitted on
 	pub core_index: CoreIndex,
+	/// Maximum pov size. Currently needed only for exporting PoV.
+	pub max_pov_size: u32,
 }
 
 /// Fetch the `CoreSelector` and `ClaimQueueOffset` for `parent_hash`.
