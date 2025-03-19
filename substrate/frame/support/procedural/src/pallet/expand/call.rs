@@ -296,7 +296,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		.iter()
 		.zip(args_name.iter())
 		.zip(args_type.iter())
-		.map(|((method, arg_name), arg_type)| {
+		.zip(cfg_attrs.iter())
+		.map(|(((method, arg_name), arg_type), cfg_attr)| {
 			if let Some(authorize_def) = &method.authorize {
 				let authorize_fn = &authorize_def.expr;
 				let attr_fn_getter = syn::Ident::new(
@@ -312,6 +313,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					//
 					// Then we wrap this into an implementation for `Pallet` in order to get access
 					// to `Self` as `Pallet` instead of `Call`.
+					#cfg_attr
 					impl<#type_impl_gen> Pallet<#type_use_gen> #where_clause {
 						#[doc(hidden)]
 						fn #attr_fn_getter() -> impl Fn(
@@ -569,10 +571,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
-		#(
-			#cfg_attrs
-			#authorize_fn_pallet_impl
-		)*
+		#( #authorize_fn_pallet_impl )*
 
 		impl<#type_impl_gen> #frame_support::traits::Authorize for #call_ident<#type_use_gen>
 			#where_clause
