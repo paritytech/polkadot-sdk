@@ -569,7 +569,10 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
-		#( #authorize_fn_pallet_impl )*
+		#(
+			#cfg_attrs
+			#authorize_fn_pallet_impl
+		)*
 
 		impl<#type_impl_gen> #frame_support::traits::Authorize for #call_ident<#type_use_gen>
 			#where_clause

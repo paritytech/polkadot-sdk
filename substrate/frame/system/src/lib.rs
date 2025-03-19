@@ -2374,9 +2374,9 @@ impl<T: Config> Pallet<T> {
 					propagate: true,
 				})
 			}
-		} else {
-			Err(InvalidTransaction::Call.into())
 		}
+
+		Err(InvalidTransaction::Call.into())
 	}
 
 	/// Validate the call to `do_task` and return the validity of the transaction.
