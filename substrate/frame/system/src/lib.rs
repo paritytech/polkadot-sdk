@@ -820,17 +820,11 @@ pub mod pallet {
 				return Err(Error::<T>::FailedTask.into())
 			}
 
-			let task_weight = task.weight();
-
 			// Emit a success event, if your design includes events for this pallet.
 			Self::deposit_event(Event::TaskCompleted { task });
 
 			// Return success.
-			if skip_validity {
-				Ok(Some(task_weight).into())
-			} else {
-				Ok(().into())
-			}
+			Ok(().into())
 		}
 
 		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
@@ -880,8 +874,8 @@ pub mod pallet {
 			DispatchClass::Operational,
 		))]
 		#[pallet::authorize(|_source, code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v| (v, Weight::zero())))]
-		// weight of authorize is already included in the call weight. (As `ValidateUnsigned` also
-		// needs this weight).
+		// weight of authorize is already included in the call weight. (Because `ValidateUnsigned`
+		// also needs this weight).
 		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn apply_authorized_upgrade(
 			_: OriginFor<T>,
