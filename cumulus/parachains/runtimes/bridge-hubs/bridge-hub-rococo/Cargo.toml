@@ -308,6 +308,7 @@ try-runtime = [
 	"snowbridge-pallet-inbound-queue/try-runtime",
 	"snowbridge-pallet-outbound-queue/try-runtime",
 	"snowbridge-pallet-system/try-runtime",
+	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 
