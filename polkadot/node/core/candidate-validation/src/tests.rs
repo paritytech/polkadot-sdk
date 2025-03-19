@@ -30,6 +30,7 @@ use polkadot_node_subsystem_test_helpers::{make_subsystem_context, TestSubsystem
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
+	node_features,
 	vstaging::{
 		CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset,
 		CommittedCandidateReceiptError, CoreSelector, MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
@@ -471,129 +472,12 @@ impl ValidationBackend for MockValidateCandidateBackend {
 	}
 }
 
-#[test]
-fn session_index_checked_only_in_backing() {
-	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
-
-	let pov = PoV { block_data: BlockData(vec![1; 32]) };
-	let head_data = HeadData(vec![1, 1, 1]);
-	let validation_code = ValidationCode(vec![2; 16]);
-
-	let descriptor = make_valid_candidate_descriptor_v2(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		CoreIndex(0),
-		100,
-		dummy_hash(),
-		pov.hash(),
-		validation_code.hash(),
-		head_data.hash(),
-		dummy_hash(),
-	);
-	let check = perform_basic_checks(
-		&descriptor,
-		validation_data.max_pov_size,
-		&pov,
-		&validation_code.hash(),
-	);
-	assert!(check.is_ok());
-
-	let validation_result = WasmValidationResult {
-		head_data,
-		new_validation_code: Some(vec![2, 2, 2].into()),
-		upward_messages: Default::default(),
-		horizontal_messages: Default::default(),
-		processed_downward_messages: 0,
-		hrmp_watermark: 0,
-	};
-
-	let commitments = CandidateCommitments {
-		head_data: validation_result.head_data.clone(),
-		upward_messages: validation_result.upward_messages.clone(),
-		horizontal_messages: validation_result.horizontal_messages.clone(),
-		new_validation_code: validation_result.new_validation_code.clone(),
-		processed_downward_messages: validation_result.processed_downward_messages,
-		hrmp_watermark: validation_result.hrmp_watermark,
-	};
-
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
-
-	// The session index is invalid
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-		validation_data.clone(),
-		validation_code.clone(),
-		candidate_receipt.clone(),
-		Arc::new(pov.clone()),
-		ExecutorParams::default(),
-		PvfExecKind::Backing(dummy_hash()),
-		&Default::default(),
-		Default::default(),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
-	))
-	.unwrap();
-
-	assert_matches!(v, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
-
-	// Approval doesn't fail since the check is ommited.
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-		validation_data.clone(),
-		validation_code.clone(),
-		candidate_receipt.clone(),
-		Arc::new(pov.clone()),
-		ExecutorParams::default(),
-		PvfExecKind::Approval,
-		&Default::default(),
-		Default::default(),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
-	))
-	.unwrap();
-
-	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
-		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
-		assert_eq!(outputs.upward_messages, Vec::<UpwardMessage>::new());
-		assert_eq!(outputs.horizontal_messages, Vec::new());
-		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
-		assert_eq!(outputs.hrmp_watermark, 0);
-		assert_eq!(used_validation_data, validation_data);
-	});
-
-	// Approval doesn't fail since the check is ommited.
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
-		validation_data.clone(),
-		validation_code,
-		candidate_receipt,
-		Arc::new(pov),
-		ExecutorParams::default(),
-		PvfExecKind::Dispute,
-		&Default::default(),
-		Default::default(),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
-	))
-	.unwrap();
-
-	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
-		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
-		assert_eq!(outputs.upward_messages, Vec::<UpwardMessage>::new());
-		assert_eq!(outputs.horizontal_messages, Vec::new());
-		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
-		assert_eq!(outputs.hrmp_watermark, 0);
-		assert_eq!(used_validation_data, validation_data);
-	});
-}
-
 #[rstest]
 #[case(true)]
 #[case(false)]
 fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
+	use polkadot_primitives::node_features;
+
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
@@ -643,11 +527,19 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		hrmp_watermark: 0,
 	};
 
+	let mut node_features = NodeFeatures::default();
+
 	if v2_descriptor {
+		node_features.resize(node_features::FeatureIndex::FirstUnassigned as usize, false);
+		node_features.set(node_features::FeatureIndex::ApprovedPeerUmpSignal as u8 as usize, true);
+
 		validation_result.upward_messages.force_push(UMP_SEPARATOR);
 		validation_result
 			.upward_messages
 			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+		validation_result
+			.upward_messages
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 	}
 
 	let commitments = CandidateCommitments {
@@ -676,7 +568,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
 		VALIDATION_CODE_BOMB_LIMIT,
-		Some(Default::default()),
+		Some(node_features),
 	))
 	.unwrap();
 
@@ -690,11 +582,13 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 	});
 }
 
-#[test]
-fn invalid_session_or_core_index() {
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
-	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let pov: PoV = PoV { block_data: BlockData(vec![1; 32]) };
 	let head_data = HeadData(vec![1, 1, 1]);
 	let validation_code = ValidationCode(vec![2; 16]);
 
@@ -719,7 +613,7 @@ fn invalid_session_or_core_index() {
 	assert!(check.is_ok());
 
 	let mut validation_result = WasmValidationResult {
-		head_data,
+		head_data: head_data.clone(),
 		new_validation_code: Some(vec![2, 2, 2].into()),
 		upward_messages: Default::default(),
 		horizontal_messages: Default::default(),
@@ -744,195 +638,125 @@ fn invalid_session_or_core_index() {
 	let mut candidate_receipt =
 		CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
-	let err = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-		validation_data.clone(),
-		validation_code.clone(),
-		candidate_receipt.clone(),
-		Arc::new(pov.clone()),
-		ExecutorParams::default(),
-		PvfExecKind::Backing(dummy_hash()),
-		&Default::default(),
-		Default::default(),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Some(Default::default()),
-	))
-	.unwrap();
+	let mut node_features = NodeFeatures::default();
+	if approved_peer_ump_enabled {
+		node_features.resize(node_features::FeatureIndex::FirstUnassigned as usize, false);
+		node_features.set(node_features::FeatureIndex::ApprovedPeerUmpSignal as u8 as usize, true);
+	}
 
-	assert_matches!(err, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
+	// Invalid session index.
+	for exec_kind in
+		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
+	{
+		let err = executor::block_on(validate_candidate_exhaustive(
+			1,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt.clone(),
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			exec_kind,
+			&Default::default(),
+			Default::default(),
+			VALIDATION_CODE_BOMB_LIMIT,
+			Some(node_features.clone()),
+		))
+		.unwrap();
 
-	let err = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-		validation_data.clone(),
-		validation_code.clone(),
-		candidate_receipt.clone(),
-		Arc::new(pov.clone()),
-		ExecutorParams::default(),
-		PvfExecKind::BackingSystemParas(dummy_hash()),
-		&Default::default(),
-		Default::default(),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Some(Default::default()),
-	))
-	.unwrap();
-
-	assert_matches!(err, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
+		assert_matches!(err, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
+	}
 
 	candidate_receipt.descriptor.set_session_index(1);
 
-	let result = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-		validation_data.clone(),
-		validation_code.clone(),
-		candidate_receipt.clone(),
-		Arc::new(pov.clone()),
-		ExecutorParams::default(),
-		PvfExecKind::Backing(dummy_hash()),
-		&Default::default(),
-		Some(Default::default()),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Some(Default::default()),
-	))
-	.unwrap();
-	assert_matches!(
-		result,
-		ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
-			CommittedCandidateReceiptError::NoAssignment
+	// Candidate has no assignments but a core selector.
+	for exec_kind in
+		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
+	{
+		let result = executor::block_on(validate_candidate_exhaustive(
+			1,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt.clone(),
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			exec_kind,
+			&Default::default(),
+			Some(Default::default()),
+			VALIDATION_CODE_BOMB_LIMIT,
+			Some(node_features.clone()),
 		))
-	);
+		.unwrap();
+		assert_matches!(
+			result,
+			ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
+				CommittedCandidateReceiptError::NoAssignment
+			))
+		);
+	}
 
-	let result = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-		validation_data.clone(),
-		validation_code.clone(),
-		candidate_receipt.clone(),
-		Arc::new(pov.clone()),
-		ExecutorParams::default(),
-		PvfExecKind::BackingSystemParas(dummy_hash()),
-		&Default::default(),
-		Some(Default::default()),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Some(Default::default()),
-	))
-	.unwrap();
-	assert_matches!(
-		result,
-		ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
-			CommittedCandidateReceiptError::NoAssignment
+	// Validation doesn't fail for approvals and disputes, core/session index is not checked.
+	for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
+		let v = executor::block_on(validate_candidate_exhaustive(
+			1,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt.clone(),
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			exec_kind,
+			&Default::default(),
+			Default::default(),
+			VALIDATION_CODE_BOMB_LIMIT,
+			Default::default(),
 		))
-	);
+		.unwrap();
 
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-		validation_data.clone(),
-		validation_code.clone(),
-		candidate_receipt.clone(),
-		Arc::new(pov.clone()),
-		ExecutorParams::default(),
-		PvfExecKind::Approval,
-		&Default::default(),
-		Default::default(),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
-	))
-	.unwrap();
-
-	// Validation doesn't fail for approvals, core/session index is not checked.
-	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
-		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
-		assert_eq!(outputs.upward_messages, commitments.upward_messages);
-		assert_eq!(outputs.horizontal_messages, Vec::new());
-		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
-		assert_eq!(outputs.hrmp_watermark, 0);
-		assert_eq!(used_validation_data, validation_data);
-	});
-
-	// Dispute check passes because we don't check core or session index
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-		validation_data.clone(),
-		validation_code.clone(),
-		candidate_receipt.clone(),
-		Arc::new(pov.clone()),
-		ExecutorParams::default(),
-		PvfExecKind::Dispute,
-		&Default::default(),
-		Default::default(),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
-	))
-	.unwrap();
-
-	// Validation doesn't fail for disputes, core/session index is not checked.
-	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
-		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
-		assert_eq!(outputs.upward_messages, commitments.upward_messages);
-		assert_eq!(outputs.horizontal_messages, Vec::new());
-		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
-		assert_eq!(outputs.hrmp_watermark, 0);
-		assert_eq!(used_validation_data, validation_data);
-	});
+		assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+			assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+			assert_eq!(outputs.upward_messages, commitments.upward_messages);
+			assert_eq!(outputs.horizontal_messages, Vec::new());
+			assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+			assert_eq!(outputs.hrmp_watermark, 0);
+			assert_eq!(used_validation_data, validation_data);
+		});
+	}
 
 	// Populate claim queue.
 	let mut cq = BTreeMap::new();
 	let _ = cq.insert(CoreIndex(0), vec![1.into(), 2.into()].into());
 	let _ = cq.insert(CoreIndex(1), vec![1.into(), 2.into()].into());
 
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-		validation_data.clone(),
-		validation_code.clone(),
-		candidate_receipt.clone(),
-		Arc::new(pov.clone()),
-		ExecutorParams::default(),
-		PvfExecKind::Backing(dummy_hash()),
-		&Default::default(),
-		Some(ClaimQueueSnapshot(cq.clone())),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Some(Default::default()),
-	))
-	.unwrap();
+	for exec_kind in
+		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
+	{
+		let v = executor::block_on(validate_candidate_exhaustive(
+			1,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt.clone(),
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			exec_kind,
+			&Default::default(),
+			Some(ClaimQueueSnapshot(cq.clone())),
+			VALIDATION_CODE_BOMB_LIMIT,
+			Some(node_features.clone()),
+		))
+		.unwrap();
 
-	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
-		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
-		assert_eq!(outputs.upward_messages, commitments.upward_messages);
-		assert_eq!(outputs.horizontal_messages, Vec::new());
-		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
-		assert_eq!(outputs.hrmp_watermark, 0);
-		assert_eq!(used_validation_data, validation_data);
-	});
-
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-		validation_data.clone(),
-		validation_code.clone(),
-		candidate_receipt.clone(),
-		Arc::new(pov.clone()),
-		ExecutorParams::default(),
-		PvfExecKind::BackingSystemParas(dummy_hash()),
-		&Default::default(),
-		Some(ClaimQueueSnapshot(cq)),
-		VALIDATION_CODE_BOMB_LIMIT,
-		Some(Default::default()),
-	))
-	.unwrap();
-
-	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
-		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
-		assert_eq!(outputs.upward_messages, commitments.upward_messages);
-		assert_eq!(outputs.horizontal_messages, Vec::new());
-		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
-		assert_eq!(outputs.hrmp_watermark, 0);
-		assert_eq!(used_validation_data, validation_data);
-	});
+		assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+			assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+			assert_eq!(outputs.upward_messages, commitments.upward_messages);
+			assert_eq!(outputs.horizontal_messages, Vec::new());
+			assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+			assert_eq!(outputs.hrmp_watermark, 0);
+			assert_eq!(used_validation_data, validation_data);
+		});
+	}
 
 	// Test that a v1 candidate that outputs the core selector UMP signal is invalid.
 	let descriptor_v1 = make_valid_candidate_descriptor(
@@ -967,7 +791,7 @@ fn invalid_session_or_core_index() {
 			&Default::default(),
 			Some(Default::default()),
 			VALIDATION_CODE_BOMB_LIMIT,
-			Some(Default::default()),
+			Some(node_features.clone()),
 		))
 		.unwrap();
 		assert_matches!(
@@ -993,6 +817,95 @@ fn invalid_session_or_core_index() {
 			Default::default(),
 			VALIDATION_CODE_BOMB_LIMIT,
 			Default::default(),
+		))
+		.unwrap();
+
+		assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+			assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+			assert_eq!(outputs.upward_messages, commitments.upward_messages);
+			assert_eq!(outputs.horizontal_messages, Vec::new());
+			assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+			assert_eq!(outputs.hrmp_watermark, 0);
+			assert_eq!(used_validation_data, validation_data);
+		});
+	}
+
+	// Test that a v2 candidate that outputs an approved peer id is only valid if the node feature
+	// is enabled.
+	let descriptor = make_valid_candidate_descriptor_v2(
+		ParaId::from(1_u32),
+		dummy_hash(),
+		CoreIndex(1),
+		1,
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		head_data.hash(),
+		dummy_hash(),
+	);
+	let mut validation_result = validation_result.clone();
+
+	validation_result
+		.upward_messages
+		.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
+
+	let mut commitments = commitments.clone();
+	commitments.upward_messages = validation_result.upward_messages.clone();
+
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+	for exec_kind in
+		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
+	{
+		let v = executor::block_on(validate_candidate_exhaustive(
+			1,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt.clone(),
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			exec_kind,
+			&Default::default(),
+			Some(ClaimQueueSnapshot(cq.clone())),
+			VALIDATION_CODE_BOMB_LIMIT,
+			Some(node_features.clone()),
+		))
+		.unwrap();
+
+		if approved_peer_ump_enabled {
+			assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+				assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+				assert_eq!(outputs.upward_messages, commitments.upward_messages);
+				assert_eq!(outputs.horizontal_messages, Vec::new());
+				assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+				assert_eq!(outputs.hrmp_watermark, 0);
+				assert_eq!(used_validation_data, validation_data);
+			});
+		} else {
+			assert_matches!(
+				v,
+				ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
+					CommittedCandidateReceiptError::TooManyUMPSignals
+				))
+			);
+		}
+	}
+
+	// Validation doesn't fail for approvals and disputes, ump signals are not checked.
+	for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
+		let v = executor::block_on(validate_candidate_exhaustive(
+			1,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt.clone(),
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			exec_kind,
+			&Default::default(),
+			Some(ClaimQueueSnapshot(cq.clone())),
+			VALIDATION_CODE_BOMB_LIMIT,
+			Some(node_features.clone()),
 		))
 		.unwrap();
 
