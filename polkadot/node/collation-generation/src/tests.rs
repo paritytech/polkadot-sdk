@@ -29,7 +29,7 @@ use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	node_features,
 	vstaging::{CandidateDescriptorVersion, CoreSelector, UMPSignal, UMP_SEPARATOR},
-	CollatorPair, PersistedValidationData,
+	CollatorPair, NodeFeatures, PersistedValidationData,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
 use rstest::rstest;
