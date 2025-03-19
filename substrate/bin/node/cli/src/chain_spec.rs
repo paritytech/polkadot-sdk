@@ -344,24 +344,6 @@ pub fn testnet_genesis(
 	)
 }
 
-fn get_staking_playground_config() -> StakingPlaygroundConfig {
-	let random_validators =
-		std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
-	let random_nominators = std::option_env!("NOMINATORS")
-		.map(|s| s.parse::<u32>().unwrap())
-		.unwrap_or(3000);
-
-	let validator_count = std::option_env!("VALIDATOR_COUNT")
-		.map(|v| v.parse::<u32>().unwrap())
-		.unwrap_or(100);
-
-	StakingPlaygroundConfig {
-		dev_stakers: (random_validators, random_nominators),
-		validator_count,
-		minimum_validator_count: 10,
-	}
-}
-
 fn props() -> Properties {
 	let mut properties = Properties::new();
 	properties.insert("tokenDecimals".to_string(), 12.into());
