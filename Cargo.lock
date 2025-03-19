@@ -2381,8 +2381,6 @@ dependencies = [
  "frame-support 40.0.0-rc1",
  "sp-api 36.0.0-rc1",
  "sp-std 14.0.0",
- "sp-trie 29.0.0",
- "trie-db 0.30.0",
 ]
 
 [[package]]
@@ -2429,7 +2427,7 @@ dependencies = [
  "sp-state-machine 0.44.1-rc1",
  "sp-std 14.0.0",
  "sp-trie 38.0.1-rc1",
- "trie-db",
+ "trie-db 0.30.0",
 ]
 
 [[package]]
@@ -4901,23 +4899,11 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-consensus-slots 0.32.0",
- "sp-core 28.0.0",
- "sp-crypto-hashing 0.1.0",
- "sp-externalities 0.25.0",
- "sp-inherents 26.0.0",
- "sp-io 30.0.0",
- "sp-keyring 31.0.0",
- "sp-runtime 31.0.1",
- "sp-state-machine 0.35.0",
- "sp-std 14.0.0",
- "sp-tracing 16.0.0",
- "sp-trie 29.0.0",
- "sp-version 29.0.0",
- "staging-xcm 7.0.1",
- "staging-xcm-builder 7.0.0",
- "trie-db 0.30.0",
- "trie-standardmap",
+ "sp-core 35.0.1-rc1",
+ "sp-io 39.0.1-rc1",
+ "sp-runtime 40.2.0-rc1",
+ "sp-tracing 17.0.1",
+ "staging-xcm 16.0.0-rc1",
 ]
 
 [[package]]
@@ -4955,6 +4941,53 @@ dependencies = [
  "staging-xcm 14.2.0",
  "staging-xcm-builder 17.0.1",
  "trie-db 0.29.1",
+]
+
+[[package]]
+name = "cumulus-pallet-parachain-system"
+version = "0.19.0-rc1"
+dependencies = [
+ "assert_matches",
+ "bytes",
+ "cumulus-pallet-parachain-system-proc-macro 0.6.0",
+ "cumulus-primitives-core 0.18.0-rc1",
+ "cumulus-primitives-parachain-inherent 0.18.0-rc1",
+ "cumulus-primitives-proof-size-hostfunction 0.11.0",
+ "cumulus-test-client",
+ "cumulus-test-relay-sproof-builder 0.18.0-rc1",
+ "cumulus-test-runtime",
+ "environmental",
+ "frame-benchmarking 40.0.0-rc1",
+ "frame-support 40.0.0-rc1",
+ "frame-system 40.0.0-rc1",
+ "futures",
+ "hex-literal",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-message-queue 43.0.0-rc1",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 16.0.0-rc1",
+ "polkadot-runtime-parachains 19.0.0-rc1",
+ "rand 0.8.5",
+ "sc-client-api",
+ "scale-info",
+ "sp-consensus-slots 0.41.0",
+ "sp-core 35.0.1-rc1",
+ "sp-crypto-hashing 0.1.0",
+ "sp-externalities 0.30.0",
+ "sp-inherents 35.0.0",
+ "sp-io 39.0.1-rc1",
+ "sp-keyring 41.0.0-rc1",
+ "sp-runtime 40.2.0-rc1",
+ "sp-state-machine 0.44.1-rc1",
+ "sp-std 14.0.0",
+ "sp-tracing 17.0.1",
+ "sp-trie 38.0.1-rc1",
+ "sp-version 38.0.0",
+ "staging-xcm 16.0.0-rc1",
+ "staging-xcm-builder 19.0.0-rc1",
+ "trie-db 0.30.0",
+ "trie-standardmap",
 ]
 
 [[package]]
@@ -14889,56 +14922,15 @@ dependencies = [
 name = "pallet-remark"
 version = "40.0.0-rc1"
 dependencies = [
- "alloy-core",
- "array-bytes",
- "assert_matches",
- "derive_more 0.99.17",
- "environmental",
- "ethabi-decode 2.0.0",
- "ethereum-types 0.15.1",
- "frame-benchmarking 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
- "hex-literal",
- "impl-trait-for-tuples",
- "log",
- "num-bigint",
- "num-integer",
- "num-traits",
- "pallet-balances 28.0.0",
- "pallet-proxy 28.0.0",
- "pallet-revive-fixtures 0.1.0",
- "pallet-revive-proc-macro 0.1.0",
- "pallet-revive-uapi 0.1.0",
- "pallet-timestamp 27.0.0",
- "pallet-transaction-payment 28.0.0",
- "pallet-utility 28.0.0",
+ "frame-benchmarking 40.0.0-rc1",
+ "frame-support 40.0.0-rc1",
+ "frame-system 40.0.0-rc1",
  "parity-scale-codec",
- "paste",
- "polkavm 0.21.0",
- "polkavm-common 0.21.0",
- "pretty_assertions",
- "rand 0.8.5",
- "rand_pcg",
- "ripemd",
- "rlp 0.6.1",
  "scale-info",
  "serde",
- "serde_json",
- "sp-api 26.0.0",
- "sp-arithmetic 23.0.0",
- "sp-consensus-aura 0.32.0",
- "sp-consensus-babe 0.32.0",
- "sp-consensus-slots 0.32.0",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-keystore 0.34.0",
- "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
- "staging-xcm 7.0.1",
- "staging-xcm-builder 7.0.0",
- "substrate-bn",
- "subxt-signer",
+ "sp-core 35.0.1-rc1",
+ "sp-io 39.0.1-rc1",
+ "sp-runtime 40.2.0-rc1",
 ]
 
 [[package]]
@@ -14989,6 +14981,9 @@ dependencies = [
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
  "pallet-balances 41.0.0-rc1",
  "pallet-proxy 40.0.0-rc1",
  "pallet-revive-fixtures 0.3.0-rc1",
@@ -15004,6 +14999,7 @@ dependencies = [
  "pretty_assertions",
  "rand 0.8.5",
  "rand_pcg",
+ "ripemd",
  "rlp 0.6.1",
  "scale-info",
  "secp256k1 0.28.2",
@@ -15021,6 +15017,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "staging-xcm 16.0.0-rc1",
  "staging-xcm-builder 19.0.0-rc1",
+ "substrate-bn",
  "subxt-signer",
 ]
 
@@ -15062,19 +15059,6 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-fixtures"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cargo_metadata",
- "pallet-revive-uapi 0.1.0",
- "polkavm-linker 0.21.0",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "toml 0.8.19",
-]
-
-[[package]]
-name = "pallet-revive-fixtures"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a38c27f1531f36e5327f3084eb24cf1c9dd46b372e030c0169e843ce363105e"
@@ -15093,6 +15077,8 @@ name = "pallet-revive-fixtures"
 version = "0.3.0-rc1"
 dependencies = [
  "anyhow",
+ "cargo_metadata",
+ "pallet-revive-uapi 0.3.0-rc1",
  "polkavm-linker 0.21.0",
  "sp-core 35.0.1-rc1",
  "sp-io 39.0.1-rc1",
@@ -27501,18 +27487,10 @@ version = "38.0.0-rc1"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "parking_lot 0.12.3",
- "pretty_assertions",
- "rand 0.8.5",
- "smallvec",
- "sp-core 28.0.0",
- "sp-externalities 0.25.0",
- "sp-panic-handler 13.0.0",
- "sp-runtime 31.0.1",
- "sp-trie 29.0.0",
- "thiserror 1.0.65",
- "tracing",
- "trie-db 0.30.0",
+ "scale-info",
+ "serde",
+ "sp-core 35.0.1-rc1",
+ "sp-runtime 40.2.0-rc1",
 ]
 
 [[package]]
@@ -27599,7 +27577,7 @@ dependencies = [
  "sp-trie 38.0.1-rc1",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.30.0",
 ]
 
 [[package]]
@@ -27795,16 +27773,10 @@ dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
- "schnellru",
- "sp-core 28.0.0",
- "sp-externalities 0.25.0",
- "sp-runtime 31.0.1",
- "thiserror 1.0.65",
- "tracing",
- "trie-bench",
- "trie-db 0.30.0",
- "trie-root",
- "trie-standardmap",
+ "sp-core 35.0.1-rc1",
+ "sp-inherents 35.0.0",
+ "sp-runtime 40.2.0-rc1",
+ "sp-trie 38.0.1-rc1",
 ]
 
 [[package]]
@@ -27900,7 +27872,7 @@ dependencies = [
  "thiserror 1.0.65",
  "tracing",
  "trie-bench",
- "trie-db",
+ "trie-db 0.30.0",
  "trie-root",
  "trie-standardmap",
 ]
@@ -28949,10 +28921,10 @@ dependencies = [
  "sc-rpc-api",
  "serde",
  "serde_json",
- "sp-core 28.0.0",
- "sp-runtime 31.0.1",
- "sp-state-machine 0.35.0",
- "sp-trie 29.0.0",
+ "sp-core 35.0.1-rc1",
+ "sp-runtime 40.2.0-rc1",
+ "sp-state-machine 0.44.1-rc1",
+ "sp-trie 38.0.1-rc1",
  "trie-db 0.30.0",
 ]
 
