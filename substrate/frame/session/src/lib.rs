@@ -131,6 +131,7 @@ use frame_support::{
 	traits::{
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
 		OneSessionHandler, ValidatorRegistration, ValidatorSet,
+		fungible::{hold::Mutate as HoldMutate, hold::Inspect as HoldInspect, Inspect}, 
 	},
 	weights::Weight,
 	Parameter,
@@ -397,6 +398,10 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	/// A simple identifier for session keys hold reason.
+	#[derive(codec::Encode, codec::Decode, codec::MaxEncodedLen, scale_info::TypeInfo, Debug, PartialEq, Eq, Clone)]
+	pub struct SessionKeysHoldReason;
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
@@ -436,7 +441,20 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+		
+		/// The currency type for placing holds when setting keys.
+		type Currency: HoldMutate<Self::AccountId> + Inspect<Self::AccountId>;
+		
+		/// The hold reason type.
+		type HoldReason: Get<<Self::Currency as HoldInspect<Self::AccountId>>::Reason> + TypeInfo + 'static;
+		
+		/// The amount to be held when setting keys.
+		#[pallet::constant]
+		type KeyDeposit: Get<BalanceOf<Self>>;
 	}
+
+	// Add a type alias for the balance
+	type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -474,7 +492,7 @@ pub mod pallet {
 			for (account, val, keys) in
 				self.keys.iter().chain(self.non_authority_keys.iter()).cloned()
 			{
-				Pallet::<T>::inner_set_keys(&val, keys)
+				Pallet::<T>::inner_set_keys(&val, keys, None)
 					.expect("genesis config must not contain duplicates; qed");
 				if frame_system::Pallet::<T>::inc_consumers_without_limit(&account).is_err() {
 					// This will leak a provider reference, however it only happens once (at
@@ -558,6 +576,10 @@ pub mod pallet {
 		ValidatorDisabled { validator: T::ValidatorId },
 		/// Validator has been re-enabled.
 		ValidatorReenabled { validator: T::ValidatorId },
+		/// Funds have been held for setting keys.
+		KeysFundsHeld { account: T::AccountId, amount: BalanceOf<T> },
+		/// Funds have been released when purging keys.
+		KeysFundsReleased { account: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	/// Error for the session pallet.
@@ -573,6 +595,8 @@ pub mod pallet {
 		NoKeys,
 		/// Key setting account is not live, so it's impossible to associate keys.
 		NoAccount,
+		/// Insufficient funds for setting keys.
+		InsufficientFunds,
 	}
 
 	#[pallet::hooks]
@@ -836,10 +860,39 @@ impl<T: Config> Pallet<T> {
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
 		ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
-		let old_keys = Self::inner_set_keys(&who, keys)?;
-		if old_keys.is_none() {
+		
+		// Load keys once to avoid redundant storage reads
+		let old_keys = Self::load_keys(&who);
+		let is_new_registration = old_keys.is_none();
+		
+		// For new registrations, ensure the account has enough funds for the deposit
+		if is_new_registration {
+			let deposit = T::KeyDeposit::get();
+			let reason = T::HoldReason::get();
+			ensure!(
+				<T::Currency as HoldInspect<_>>::can_hold(&reason, account, deposit),
+				Error::<T>::InsufficientFunds
+			);
+		}
+		
+		// Now that we've checked funds, proceed with setting keys
+		// Pass old_keys to avoid another storage read
+		Self::inner_set_keys(&who, keys, old_keys)?;
+		
+		// Place deposit on hold if this is a new registration
+		if is_new_registration {
+			let deposit = T::KeyDeposit::get();
+			let reason = T::HoldReason::get();
+			T::Currency::hold(&reason, account, deposit)?;
+			
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
+			
+			// Emit an event for the held funds
+			Self::deposit_event(Event::<T>::KeysFundsHeld { 
+				account: account.clone(),
+				amount: deposit,
+			});
 		}
 
 		Ok(())
@@ -854,35 +907,33 @@ impl<T: Config> Pallet<T> {
 	fn inner_set_keys(
 		who: &T::ValidatorId,
 		keys: T::Keys,
+		old_keys_opt: Option<T::Keys>,
 	) -> Result<Option<T::Keys>, DispatchError> {
-		let old_keys = Self::load_keys(who);
-
+		// First, check for duplicates without modifying storage
 		for id in T::Keys::key_ids() {
 			let key = keys.get_raw(*id);
-
-			// ensure keys are without duplication.
 			ensure!(
 				Self::key_owner(*id, key).map_or(true, |owner| &owner == who),
 				Error::<T>::DuplicatedKey,
 			);
 		}
-
+		
+		// After all duplicate checks have passed, update storage
 		for id in T::Keys::key_ids() {
 			let key = keys.get_raw(*id);
-
-			if let Some(old) = old_keys.as_ref().map(|k| k.get_raw(*id)) {
-				if key == old {
-					continue
+			
+			if let Some(old_key) = old_keys_opt.as_ref().map(|k| k.get_raw(*id)) {
+				if key != old_key {
+					Self::clear_key_owner(*id, old_key);
+					Self::put_key_owner(*id, key, who);
 				}
-
-				Self::clear_key_owner(*id, old);
+			} else {
+				Self::put_key_owner(*id, key, who);
 			}
-
-			Self::put_key_owner(*id, key, who);
 		}
 
 		Self::put_keys(who, &keys);
-		Ok(old_keys)
+		Ok(old_keys_opt)
 	}
 
 	fn do_purge_keys(account: &T::AccountId) -> DispatchResult {
@@ -898,6 +949,19 @@ impl<T: Config> Pallet<T> {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
 		}
+		
+		// Release the deposit from hold
+		let reason = T::HoldReason::get();
+		
+		// Use release_all to handle the case where the exact amount might not be available
+		if let Ok(released) = T::Currency::release_all(&reason, account, frame_support::traits::tokens::Precision::BestEffort) {
+			// Emit an event for the released funds
+			Self::deposit_event(Event::<T>::KeysFundsReleased { 
+				account: account.clone(),
+				amount: released,
+			});
+		}
+		
 		frame_system::Pallet::<T>::dec_consumers(account);
 
 		Ok(())

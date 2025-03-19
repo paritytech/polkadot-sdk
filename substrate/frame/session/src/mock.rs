@@ -29,7 +29,13 @@ use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
 use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
-use frame_support::{derive_impl, parameter_types, traits::ConstU64};
+use frame_support::{
+	derive_impl, parameter_types, traits::{ConstU64, WithdrawReasons, Currency, ReservableCurrency, 
+	SignedImbalance, tokens::{fungible::{
+		hold::{Mutate as HoldMutate, Inspect as HoldInspect, Unbalanced as UnbalancedHold},
+		Inspect as FungibleInspect, Unbalanced as FungibleUnbalanced, Dust
+	}, Preservation, Fortitude}}, 
+};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -102,6 +108,10 @@ parameter_types! {
 	// Stores if `on_before_session_end` was called
 	pub static BeforeSessionEndCalled: bool = false;
 	pub static ValidatorAccounts: BTreeMap<u64, u64> = BTreeMap::new();
+	pub static CurrencyBalance: u64 = 100;
+	pub const KeyDeposit: u64 = 10;
+	// Track reserved balances for test accounts - use Vecs for simplicity
+	pub static ReservedBalances: BTreeMap<u64, BTreeMap<Vec<u8>, u64>> = BTreeMap::new();
 }
 
 pub struct TestShouldEndSession;
@@ -252,6 +262,19 @@ impl Convert<u64, Option<u64>> for TestValidatorIdOf {
 // `UpToLimitWithReEnablingDisablingStrategy``
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
+// Type to represent session keys in the test
+pub type SessionKeysId = [u8; 12];
+pub const TEST_SESSION_KEYS_ID: SessionKeysId = *b"session_keys";
+
+// Define TestHoldReason with the necessary traits
+#[derive(Debug, Clone, PartialEq, Eq, codec::Encode, codec::Decode, scale_info::TypeInfo)]
+pub struct TestHoldReason;
+impl Get<SessionKeysId> for TestHoldReason {
+	fn get() -> SessionKeysId {
+		TEST_SESSION_KEYS_ID
+	}
+}
+
 impl Config for Test {
 	type ShouldEndSession = TestShouldEndSession;
 	#[cfg(feature = "historical")]
@@ -267,6 +290,9 @@ impl Config for Test {
 	type DisablingStrategy =
 		disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
+	type Currency = pallet_balances::Pallet<Test>;
+	type HoldReason = TestHoldReason;
+	type KeyDeposit = KeyDeposit;
 }
 
 #[cfg(feature = "historical")]
@@ -274,3 +300,293 @@ impl crate::historical::Config for Test {
 	type FullIdentification = u64;
 	type FullIdentificationOf = sp_runtime::traits::ConvertInto;
 }
+
+pub mod pallet_balances {
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use frame_support::traits::{
+		tokens::{WithdrawConsequence, Provenance, DepositConsequence},
+		fungible::Dust,
+	};
+
+	pub struct Pallet<T>(core::marker::PhantomData<T>);
+
+	impl<T> Currency<u64> for Pallet<T> {
+		type Balance = u64;
+		type PositiveImbalance = ();
+		type NegativeImbalance = ();
+
+		fn total_balance(_: &u64) -> Self::Balance {
+			CurrencyBalance::get()
+		}
+
+		fn can_slash(_: &u64, _: Self::Balance) -> bool {
+			true
+		}
+
+		fn total_issuance() -> Self::Balance {
+			0
+		}
+
+		fn minimum_balance() -> Self::Balance {
+			0
+		}
+
+		fn burn(_: Self::Balance) -> Self::PositiveImbalance {
+			()
+		}
+
+		fn issue(_: Self::Balance) -> Self::NegativeImbalance {
+			()
+		}
+
+		fn free_balance(_: &u64) -> Self::Balance {
+			CurrencyBalance::get()
+		}
+
+		fn ensure_can_withdraw(
+			_: &u64,
+			_: Self::Balance,
+			_: WithdrawReasons,
+			_: Self::Balance,
+		) -> DispatchResult {
+			Ok(())
+		}
+
+		fn transfer(
+			_: &u64,
+			_: &u64,
+			_: Self::Balance,
+			_: frame_support::traits::ExistenceRequirement,
+		) -> DispatchResult {
+			Ok(())
+		}
+
+		fn slash(_: &u64, _: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+			((), 0)
+		}
+
+		fn deposit_into_existing(_: &u64, _: Self::Balance) -> Result<Self::PositiveImbalance, DispatchError> {
+			Ok(())
+		}
+
+		fn deposit_creating(_: &u64, _: Self::Balance) -> Self::PositiveImbalance {
+			()
+		}
+
+		fn withdraw(
+			_: &u64,
+			_: Self::Balance,
+			_: WithdrawReasons,
+			_: frame_support::traits::ExistenceRequirement,
+		) -> Result<Self::NegativeImbalance, DispatchError> {
+			Ok(())
+		}
+
+		fn make_free_balance_be(
+			_: &u64,
+			_: Self::Balance,
+		) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
+			frame_support::traits::SignedImbalance::Positive(())
+		}
+	}
+
+	impl<T> ReservableCurrency<u64> for Pallet<T> {
+		fn can_reserve(who: &u64, amount: Self::Balance) -> bool {
+			// Account 999 is special and always has insufficient funds for testing
+			if *who == 999 {
+				return false
+			}
+			CurrencyBalance::get() >= amount
+		}
+
+		fn reserved_balance(who: &u64) -> Self::Balance {
+			// Sum up all reserved balances for the account
+			ReservedBalances::get()
+				.get(who)
+				.map(|reserves| reserves.values().sum())
+				.unwrap_or(0)
+		}
+
+		fn reserve(who: &u64, amount: Self::Balance) -> DispatchResult {
+			if !Self::can_reserve(who, amount) {
+				return Err(DispatchError::Other("InsufficientBalance"))
+			}
+			
+			// Use an empty ID for anonymous reserves
+			let id = Vec::new();
+			
+			// Update the reserved balance
+			ReservedBalances::mutate(|balances| {
+				let account_reserves = balances.entry(*who).or_insert_with(BTreeMap::new);
+				let reserved = account_reserves.entry(id).or_insert(0);
+				*reserved += amount;
+			});
+			
+			Ok(())
+		}
+
+		fn unreserve(who: &u64, amount: Self::Balance) -> Self::Balance {
+			// Use an empty ID for anonymous reserves
+			let id = Vec::new();
+			
+			// Get the current reserved amount
+			let mut remaining = amount;
+			ReservedBalances::mutate(|balances| {
+				if let Some(account_reserves) = balances.get_mut(who) {
+					if let Some(reserved) = account_reserves.get_mut(&id) {
+						if *reserved >= amount {
+							*reserved -= amount;
+							remaining = 0;
+						} else {
+							remaining = amount - *reserved;
+							*reserved = 0;
+						}
+						
+						// Clean up empty reserves
+						if *reserved == 0 {
+							account_reserves.remove(&id);
+						}
+					}
+					
+					// Clean up empty accounts
+					if account_reserves.is_empty() {
+						balances.remove(who);
+					}
+				}
+			});
+			
+			remaining
+		}
+
+		fn slash_reserved(_: &u64, _: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+			((), 0)
+		}
+
+		fn repatriate_reserved(
+			_: &u64,
+			_: &u64,
+			_: Self::Balance,
+			_: frame_support::traits::BalanceStatus,
+		) -> Result<Self::Balance, DispatchError> {
+			Ok(0)
+		}
+	}
+	
+	impl<T> FungibleInspect<u64> for Pallet<T> {
+		type Balance = u64;
+		
+		fn total_issuance() -> Self::Balance {
+			CurrencyBalance::get()
+		}
+		
+		fn minimum_balance() -> Self::Balance {
+			0
+		}
+		
+		fn balance(_who: &u64) -> Self::Balance {
+			CurrencyBalance::get()
+		}
+		
+		fn total_balance(_who: &u64) -> Self::Balance {
+			CurrencyBalance::get()
+		}
+		
+		fn reducible_balance(
+			_who: &u64, 
+			_keep_alive: Preservation, 
+			_force: Fortitude,
+		) -> Self::Balance {
+			CurrencyBalance::get()
+		}
+		
+		fn can_deposit(
+			_who: &u64,
+			_amount: Self::Balance,
+			_provenance: Provenance,
+		) -> DepositConsequence {
+			DepositConsequence::Success
+		}
+		
+		fn can_withdraw(
+			who: &u64,
+			amount: Self::Balance,
+		) -> WithdrawConsequence<Self::Balance> {
+			if *who == 999 || amount > CurrencyBalance::get() {
+				WithdrawConsequence::BalanceLow
+			} else {
+				WithdrawConsequence::Success
+			}
+		}
+	}
+	
+	impl<T> FungibleUnbalanced<u64> for Pallet<T> {
+		fn handle_dust(_dust: Dust<u64, Self>) {
+			// No-op in mock
+		}
+		
+		fn write_balance(
+			_who: &u64, 
+			_amount: Self::Balance
+		) -> Result<Option<Self::Balance>, DispatchError> {
+			Ok(None)
+		}
+		
+		fn set_total_issuance(_amount: Self::Balance) {
+			// No-op in mock
+		}
+	}
+	
+	impl<T> HoldInspect<u64> for Pallet<T> {
+		type Reason = SessionKeysId;
+		
+		fn balance_on_hold(reason: &Self::Reason, who: &u64) -> Self::Balance {
+			// Convert fixed array to Vec for lookup
+			let id_vec = reason.to_vec();
+			
+			ReservedBalances::get()
+				.get(who)
+				.and_then(|reserves| reserves.get(&id_vec))
+				.cloned()
+				.unwrap_or(0)
+		}
+		
+		fn total_balance_on_hold(who: &u64) -> Self::Balance {
+			// Sum up all held balances for the account
+			ReservedBalances::get()
+				.get(who)
+				.map(|holds| holds.values().sum())
+				.unwrap_or(0)
+		}
+		
+		fn can_hold(_reason: &Self::Reason, who: &u64, amount: Self::Balance) -> bool {
+			// Account 999 is special and always has insufficient funds for testing
+			if *who == 999 {
+				return false
+			}
+			CurrencyBalance::get() >= amount
+		}
+	}
+	
+	impl<T> UnbalancedHold<u64> for Pallet<T> {
+		fn set_balance_on_hold(
+			reason: &Self::Reason,
+			who: &u64,
+			amount: Self::Balance,
+		) -> DispatchResult {
+			// Convert fixed array to Vec for storage
+			let id_vec = reason.to_vec();
+			
+			// Update the held balance
+			ReservedBalances::mutate(|balances| {
+				let account_holds = balances.entry(*who).or_insert_with(BTreeMap::new);
+				account_holds.insert(id_vec, amount);
+			});
+			
+			Ok(())
+		}
+	}
+	
+	impl<T> HoldMutate<u64> for Pallet<T> {}
+}
+
