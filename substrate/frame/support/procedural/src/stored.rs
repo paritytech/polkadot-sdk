@@ -25,6 +25,7 @@ impl Parse for IdentList {
 ///   and those for which additional bounds may be applied later (mel_bounds is not used for now).
 /// - Adds default trait bounds to any type parameter that should be bounded.
 /// - Conditionally adds #[codec(mel_bound(...))] for generic parameters not listed in no_bounds.
+///   If all generics are listed, it will still add #[codec(mel_bound())].
 /// - Generates the necessary derive attributes and other metadata required for storage in a substrate runtime.
 /// - Adjusts those attributes based on whether the item is a struct or an enum.
 /// - Utilizes the NoBound version of the derives if there's a type parameter that should be unbounded.
@@ -56,15 +57,11 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         let mel_bound_gens: Vec<_> = all_generics.into_iter()
             .filter(|ident| !no_bound_params.contains(ident))
             .collect();
-        if !mel_bound_gens.is_empty() {
-            let bounds = mel_bound_gens.iter().map(|ident| {
-                quote! { #ident: MaxEncodedLen }
-            });
-            quote! {
-                #[codec(mel_bound( #(#bounds),* ))]
-            }
-        } else {
-            quote! {}
+        let bounds = mel_bound_gens.iter().map(|ident| {
+            quote! { #ident: MaxEncodedLen }
+        });
+        quote! {
+            #[codec(mel_bound( #(#bounds),* ))]
         }
     } else {
         quote! {}
@@ -192,7 +189,8 @@ fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Vec<Ident>) {
     if args.is_empty() {
         return (no_bounds, mel_bounds);
     }
-    let parsed = Punctuated::<syn::Meta, Token![,]>::parse_terminated.parse2(args.into())
+    let parsed = Punctuated::<syn::Meta, Token![,]>::parse_terminated
+        .parse2(args.into())
         .unwrap_or_default();
     for meta in parsed {
         if let syn::Meta::List(meta_list) = meta {
