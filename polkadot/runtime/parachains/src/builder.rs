@@ -764,14 +764,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							.collect();
 
 						// Don't inject core when it is available in descriptor.
-						let core_idx = if candidate.descriptor.core_index().is_some() {
-							None
-						} else {
-							configuration::ActiveConfig::<T>::get()
-								.node_features
-								.get(FeatureIndex::ElasticScalingMVP as usize)
-								.and_then(|the_bit| if *the_bit { Some(core_idx) } else { None })
-						};
+						// TODO: we could add a test helper. BUT there is no code on the client that
+						// is doing this.
 
 						BackedCandidate::<T::Hash>::new(
 							candidate,
