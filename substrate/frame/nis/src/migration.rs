@@ -17,7 +17,10 @@
 
 use crate::*;
 use core::marker::PhantomData;
-use frame::{prelude::*, try_runtime::TryRuntimeError};
+use frame::prelude::*;
+
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
