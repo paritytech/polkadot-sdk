@@ -1089,21 +1089,6 @@ sp_api::impl_runtime_apis! {
 		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
 			runtime_impl::candidates_pending_availability::<Runtime>(para_id)
 		}
-<<<<<<< HEAD
-=======
-
-		fn backing_constraints(para_id: ParaId) -> Option<Constraints> {
-			staging_runtime_impl::backing_constraints::<Runtime>(para_id)
-		}
-
-		fn scheduling_lookahead() -> u32 {
-			staging_runtime_impl::scheduling_lookahead::<Runtime>()
-		}
-
-		fn validation_code_bomb_limit() -> u32 {
-			staging_runtime_impl::validation_code_bomb_limit::<Runtime>()
-		}
->>>>>>> f02134c8 (Dynamic uncompressed code size limit (#7760))
 	}
 
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {

@@ -347,26 +347,9 @@ pub trait RuntimeApiSubsystemClient {
 		at: Hash,
 		para_id: Id,
 	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError>;
-<<<<<<< HEAD
-=======
-
-	// == v12 ==
-	/// Get the constraints on the actions that can be taken by a new parachain
-	/// block.
-	async fn backing_constraints(
-		&self,
-		at: Hash,
-		para_id: Id,
-	) -> Result<Option<Constraints>, ApiError>;
-
-	// === v12 ===
-	/// Fetch the scheduling lookahead value
-	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, ApiError>;
-
 	// === v12 ===
 	/// Fetch the maximum uncompressed code size.
 	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError>;
->>>>>>> f02134c8 (Dynamic uncompressed code size limit (#7760))
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -644,25 +627,9 @@ where
 	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError> {
 		self.client.runtime_api().claim_queue(at)
 	}
-<<<<<<< HEAD
-=======
-
-	async fn backing_constraints(
-		&self,
-		at: Hash,
-		para_id: Id,
-	) -> Result<Option<Constraints>, ApiError> {
-		self.client.runtime_api().backing_constraints(at, para_id)
-	}
-
-	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, ApiError> {
-		self.client.runtime_api().scheduling_lookahead(at)
-	}
-
 	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError> {
 		self.client.runtime_api().validation_code_bomb_limit(at)
 	}
->>>>>>> f02134c8 (Dynamic uncompressed code size limit (#7760))
 }
 
 impl<Client, Block> HeaderBackend<Block> for DefaultSubsystemClient<Client>

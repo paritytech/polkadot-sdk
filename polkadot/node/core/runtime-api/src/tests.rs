@@ -307,25 +307,9 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, ApiError> {
 		todo!("Not required for tests")
 	}
-<<<<<<< HEAD
-=======
-
-	async fn scheduling_lookahead(&self, _: Hash) -> Result<u32, ApiError> {
-		todo!("Not required for tests")
-	}
-
-	async fn backing_constraints(
-		&self,
-		_at: Hash,
-		_para_id: ParaId,
-	) -> Result<Option<Constraints>, ApiError> {
-		todo!("Not required for tests")
-	}
-
 	async fn validation_code_bomb_limit(&self, _: Hash) -> Result<u32, ApiError> {
 		todo!("Not required for tests")
 	}
->>>>>>> f02134c8 (Dynamic uncompressed code size limit (#7760))
 }
 
 #[test]

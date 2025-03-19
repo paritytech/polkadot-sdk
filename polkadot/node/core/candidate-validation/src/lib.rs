@@ -195,72 +195,44 @@ where
 				let _timer = metrics.time_validate_from_exhaustive();
 				let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-<<<<<<< HEAD
 				let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
+				let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
+					let error = "cannot fetch session index from the runtime";
+					gum::warn!(
+						target: LOG_TARGET,
+						?relay_parent,
+						error,
+					);
 
-				let maybe_expected_session_index =
-					match util::request_session_index_for_child(relay_parent, &mut sender)
-						.await
-						.await
-					{
-						Ok(Ok(expected_session_index)) => Some(expected_session_index),
-						_ => None,
-					};
-=======
-			let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
-			let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
-				let error = "cannot fetch session index from the runtime";
-				gum::warn!(
-					target: LOG_TARGET,
-					?relay_parent,
-					error,
-				);
+					let _ = response_sender
+						.send(Err(ValidationFailed("Session index not found".to_string())));
+					return
+				};
 
-				let _ = response_sender
-					.send(Err(ValidationFailed("Session index not found".to_string())));
-				return
-			};
+				// This will return a default value for the limit if runtime API is not available.
+				// however we still error out if there is a weird runtime API error.
+				let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
+					relay_parent,
+					session_index,
+					&mut sender,
+				)
+				.await
+				else {
+					let error = "cannot fetch validation code bomb limit from the runtime";
+					gum::warn!(
+						target: LOG_TARGET,
+						?relay_parent,
+						error,
+					);
 
-			// This will return a default value for the limit if runtime API is not available.
-			// however we still error out if there is a weird runtime API error.
-			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
-				relay_parent,
-				session_index,
-				&mut sender,
-			)
-			.await
-			else {
-				let error = "cannot fetch validation code bomb limit from the runtime";
-				gum::warn!(
-					target: LOG_TARGET,
-					?relay_parent,
-					error,
-				);
-
-				let _ = response_sender.send(Err(ValidationFailed(
-					"Validation code bomb limit not available".to_string(),
-				)));
-				return
-			};
-
-			let res = validate_candidate_exhaustive(
-				session_index,
-				validation_host,
-				validation_data,
-				validation_code,
-				candidate_receipt,
-				pov,
-				executor_params,
-				exec_kind,
-				&metrics,
-				maybe_claim_queue,
-				validation_code_bomb_limit,
-			)
-			.await;
->>>>>>> f02134c8 (Dynamic uncompressed code size limit (#7760))
+					let _ = response_sender.send(Err(ValidationFailed(
+						"Validation code bomb limit not available".to_string(),
+					)));
+					return
+				};
 
 				let res = validate_candidate_exhaustive(
-					maybe_expected_session_index,
+					session_index,
 					validation_host,
 					validation_data,
 					validation_code,
@@ -270,8 +242,10 @@ where
 					exec_kind,
 					&metrics,
 					maybe_claim_queue,
+					validation_code_bomb_limit,
 				)
 				.await;
+
 
 				metrics.on_validation_event(&res);
 				let _ = response_sender.send(res);
@@ -545,6 +519,24 @@ where
 	// There is still a chance to be a previous session authority, but this extra work does not
 	// affect the finalization.
 	is_past_present_or_future_authority && !is_present_validator
+}
+
+async fn get_session_index<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<SessionIndex>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let Ok(Ok(session_index)) =
+		util::request_session_index_for_child(relay_parent, sender).await.await
+	else {
+		gum::warn!(
+			target: LOG_TARGET,
+			?relay_parent,
+			"cannot fetch session index from runtime API",
+		);
+		return None
+	};
+
+	Some(session_index)
 }
 
 // Sends PVF with unknown code hashes to the validation host returning the list of code hashes sent.

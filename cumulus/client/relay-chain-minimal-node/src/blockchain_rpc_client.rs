@@ -454,25 +454,9 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.parachain_host_candidates_pending_availability(at, para_id)
 			.await?)
 	}
-<<<<<<< HEAD
-=======
-
-	async fn backing_constraints(
-		&self,
-		at: Hash,
-		para_id: ParaId,
-	) -> Result<Option<Constraints>, ApiError> {
-		Ok(self.rpc_client.parachain_host_backing_constraints(at, para_id).await?)
-	}
-
-	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, sp_api::ApiError> {
-		Ok(self.rpc_client.parachain_host_scheduling_lookahead(at).await?)
-	}
-
 	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_validation_code_bomb_limit(at).await?)
 	}
->>>>>>> f02134c8 (Dynamic uncompressed code size limit (#7760))
 }
 
 #[async_trait::async_trait]

@@ -2156,21 +2156,6 @@ sp_api::impl_runtime_apis! {
 		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
 			parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
 		}
-<<<<<<< HEAD
-=======
-
-		fn backing_constraints(para_id: ParaId) -> Option<Constraints> {
-			parachains_staging_runtime_api_impl::backing_constraints::<Runtime>(para_id)
-		}
-
-		fn scheduling_lookahead() -> u32 {
-			parachains_staging_runtime_api_impl::scheduling_lookahead::<Runtime>()
-		}
-
-		fn validation_code_bomb_limit() -> u32 {
-			parachains_staging_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
-		}
->>>>>>> f02134c8 (Dynamic uncompressed code size limit (#7760))
 	}
 
 	#[api_version(5)]

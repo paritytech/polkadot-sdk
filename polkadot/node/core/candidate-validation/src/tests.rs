@@ -925,8 +925,6 @@ fn invalid_session_or_core_index() {
 		assert_eq!(outputs.hrmp_watermark, 0);
 		assert_eq!(used_validation_data, validation_data);
 	});
-<<<<<<< HEAD
-=======
 
 	// Test that a v1 candidate that outputs the core selector UMP signal is invalid.
 	let descriptor_v1 = make_valid_candidate_descriptor(
@@ -992,7 +990,6 @@ fn invalid_session_or_core_index() {
 			assert_eq!(used_validation_data, validation_data);
 		});
 	}
->>>>>>> f02134c8 (Dynamic uncompressed code size limit (#7760))
 }
 
 #[test]
@@ -1497,12 +1494,8 @@ fn compressed_code_works() {
 		ExecutorParams::default(),
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
-<<<<<<< HEAD
-		Default::default(),
-=======
 		Some(Default::default()),
 		VALIDATION_CODE_BOMB_LIMIT,
->>>>>>> f02134c8 (Dynamic uncompressed code size limit (#7760))
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));
