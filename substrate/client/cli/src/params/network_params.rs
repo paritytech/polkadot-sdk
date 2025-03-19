@@ -178,11 +178,10 @@ pub struct NetworkParams {
 		long,
 		value_enum,
 		value_name = "NETWORK_BACKEND",
-		default_value_t = NetworkBackendType::Libp2p,
 		ignore_case = true,
 		verbatim_doc_comment
 	)]
-	pub network_backend: NetworkBackendType,
+	pub network_backend: Option<NetworkBackendType>,
 }
 
 impl NetworkParams {
@@ -278,7 +277,7 @@ impl NetworkParams {
 			yamux_window_size: None,
 			ipfs_server: self.ipfs_server,
 			sync_mode: self.sync.into(),
-			network_backend: self.network_backend.into(),
+			network_backend: self.network_backend.map(Into::into),
 		}
 	}
 }

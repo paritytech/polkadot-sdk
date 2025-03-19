@@ -176,9 +176,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
+          VERSIONED_ASSET="${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm"
+          mv "${{ env.ASSET }}" "$VERSIONED_ASSET"
+
           gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
-            --repo paritytech/polkadot-sdk \
-            '${{ env.ASSET }}#${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm'
+            --repo paritytech/polkadot-sdk "$VERSIONED_ASSET"
 
   publish-release-artifacts:
     needs: [ validate-inputs, publish-release-draft ]

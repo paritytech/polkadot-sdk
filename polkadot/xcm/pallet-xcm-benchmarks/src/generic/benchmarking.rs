@@ -240,7 +240,9 @@ benchmarks! {
 		let instruction = Instruction::ExecuteWithOrigin { descendant_origin: Some(who.clone()), xcm: Xcm(vec![]) };
 		let xcm = Xcm(vec![instruction]);
 	}: {
-		executor.bench_process(xcm)?;
+		executor
+			.bench_process(xcm)
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 	} verify {
 		assert_eq!(
 			executor.origin(),

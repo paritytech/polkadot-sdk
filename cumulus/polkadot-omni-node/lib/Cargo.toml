@@ -102,6 +102,7 @@ substrate-state-trie-migration-rpc.workspace = true
 substrate-state-trie-migration-rpc.default-features = true
 polkadot-cli.workspace = true
 polkadot-cli.default-features = true
+polkadot-cli.features = ["service"]
 polkadot-primitives.workspace = true
 polkadot-primitives.default-features = true
 cumulus-client-cli.workspace = true
