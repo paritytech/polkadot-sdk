@@ -138,7 +138,7 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
-	ConsensusEngineId, DispatchError, KeyTypeId, Perbill, Permill, RuntimeAppPublic,
+	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
 use sp_staking::{offence::OffenceSeverity, SessionIndex};
 
@@ -958,6 +958,19 @@ impl<T: Config> Pallet<T> {
 		Self::disable_index_with_severity(i, default_severity)
 	}
 
+	/// Disable the validator identified by `c`. (If using with the staking pallet,
+	/// this would be their *stash* account.)
+	///
+	/// Returns `false` either if the validator could not be found or it was already
+	/// disabled.
+	pub fn disable(c: &T::ValidatorId) -> bool {
+		Validators::<T>::get()
+			.iter()
+			.position(|i| i == c)
+			.map(|i| Self::disable_index(i as u32))
+			.unwrap_or(false)
+	}
+
 	/// Re-enable the validator of index `i`, returns `false` if the validator was not disabled.
 	pub fn reenable_index(i: u32) -> bool {
 		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
@@ -1050,6 +1063,10 @@ impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 
 	fn disabled_validators() -> Vec<u32> {
 		Self::disabled_validators()
+	}
+
+	fn disabled_validators_with_severities() -> Vec<(u32, OffenceSeverity)> {
+		Self::disabled_validators_with_severities()
 	}
 }
 
