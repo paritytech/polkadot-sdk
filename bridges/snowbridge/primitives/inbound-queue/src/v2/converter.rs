@@ -137,7 +137,7 @@ where
 		for asset in &message.assets {
 			match asset {
 				EthereumAsset::NativeTokenERC20 { token_id, value } => {
-					ensure!(token_id.clone() != H160::zero(), ConvertMessageError::InvalidAsset);
+					ensure!(*token_id != H160::zero(), ConvertMessageError::InvalidAsset);
 					let token_location: Location = Location::new(
 						2,
 						[
