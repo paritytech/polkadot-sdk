@@ -553,7 +553,6 @@ with-tracing = [
 	"sp-tracing?/with-tracing",
 	"sp-tracing?/with-tracing",
 ]
-
 runtime-full = [
 	"assets-common",
 	"binary-merkle-tree",
