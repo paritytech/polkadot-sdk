@@ -17,7 +17,7 @@
 //! XCM sender for relay chain.
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{DecodeLimit, Encode};
 use core::marker::PhantomData;
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -27,7 +27,7 @@ use polkadot_runtime_parachains::{
 	dmp, FeeTracker,
 };
 use sp_runtime::FixedPointNumber;
-use xcm::prelude::*;
+use xcm::{prelude::*, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 use SendError::*;
 
@@ -122,7 +122,7 @@ where
 		let para = id.into();
 		let price = P::price_for_delivery(para, &xcm);
 		let versioned_xcm = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?;
-		versioned_xcm.validate_xcm_nesting().map_err(|()| ExceedsMaxMessageSize)?;
+		versioned_xcm.check_is_decodable().map_err(|()| ExceedsMaxMessageSize)?;
 		let blob = versioned_xcm.encode();
 		dmp::Pallet::<T>::can_queue_downward_message(&config, &para, &blob)
 			.map_err(Into::<SendError>::into)?;
@@ -159,12 +159,22 @@ impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P
 				let decoded_messages: Vec<VersionedXcm<()>> = messages
 					.iter()
 					.map(|downward_message| {
-						let message = VersionedXcm::<()>::decode(&mut &downward_message.msg[..]).unwrap();
-						log::trace!(target: "xcm::DownwardMessageQueues::get_messages", "Message: {:?}, sent at: {:?}", message, downward_message.sent_at);
+						let message = VersionedXcm::<()>::decode_all_with_depth_limit(
+							MAX_XCM_DECODE_DEPTH,
+							&mut &downward_message.msg[..],
+						)
+						.unwrap();
+						log::trace!(
+							target: "xcm::DownwardMessageQueues::get_messages",
+							"Message: {:?}, sent at: {:?}", message, downward_message.sent_at
+						);
 						message
 					})
 					.collect();
-				(VersionedLocation::from(Location::from(Parachain(para_id.into()))), decoded_messages)
+				(
+					VersionedLocation::from(Location::from(Parachain(para_id.into()))),
+					decoded_messages,
+				)
 			})
 			.collect()
 	}
