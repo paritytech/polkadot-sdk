@@ -2164,7 +2164,8 @@ impl_runtime_apis! {
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
 					use xcm::latest::MAX_ITEMS_IN_ASSETS;
 
-					let relay_location = WestendLocation::get();
+					let native_asset_location = WestendLocation::get();
+					let native_asset_id = AssetId(native_asset_location.clone());
 					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
 					let origin = RuntimeOrigin::signed(account.clone());
 
