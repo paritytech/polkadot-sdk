@@ -195,7 +195,7 @@ pub trait ChildBountyManager<Balance> {
 	fn child_bounties_count(bounty_id: BountyIndex) -> BountyIndex;
 
 	/// Take total curator fees of children-bounty curators.
-	fn children_curator_fees(bounty_id: BountyIndex) -> Balance;
+	fn take_children_curator_fees(bounty_id: BountyIndex) -> Balance;
 
 	/// Hook called when a parent bounty is removed.
 	fn bounty_removed(bounty_id: BountyIndex);
@@ -404,10 +404,9 @@ pub mod pallet {
 				BountyApprovals::<T, I>::try_append(bounty_id)
 					.map_err(|()| Error::<T, I>::TooManyQueued)?;
 
+				Self::deposit_event(Event::<T, I>::BountyApproved { index: bounty_id });
 				Ok(())
 			})?;
-
-			Self::deposit_event(Event::<T, I>::BountyApproved { index: bounty_id });
 			Ok(())
 		}
 
@@ -677,14 +676,7 @@ pub mod pallet {
 					let err_amount = T::Currency::unreserve(&curator, bounty.curator_deposit);
 					debug_assert!(err_amount.is_zero());
 
-					// Get total child bounties curator fees, and subtract it from the parent
-					// curator fee (the fee in present referenced bounty, `self`).
-					let children_fee = T::ChildBountyManager::children_curator_fees(bounty_id);
-					debug_assert!(children_fee <= fee);
-
-					let final_fee = fee.saturating_sub(children_fee);
-					let res =
-						T::Currency::transfer(&bounty_account, &curator, final_fee, AllowDeath); // should not fail
+					let res = T::Currency::transfer(&bounty_account, &curator, fee, AllowDeath); // should not fail
 					debug_assert!(res.is_ok());
 					let res =
 						T::Currency::transfer(&bounty_account, &beneficiary, payout, AllowDeath); // should not fail
@@ -693,7 +685,6 @@ pub mod pallet {
 					*maybe_bounty = None;
 
 					BountyDescriptions::<T, I>::remove(bounty_id);
-					T::ChildBountyManager::bounty_removed(bounty_id);
 
 					Self::deposit_event(Event::<T, I>::BountyClaimed {
 						index: bounty_id,
@@ -1068,7 +1059,7 @@ impl<Balance: Zero> ChildBountyManager<Balance> for () {
 		Default::default()
 	}
 
-	fn children_curator_fees(_bounty_id: BountyIndex) -> Balance {
+	fn take_children_curator_fees(_bounty_id: BountyIndex) -> Balance {
 		Zero::zero()
 	}
 
