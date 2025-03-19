@@ -39,6 +39,7 @@ polkadot-parachain-primitives = { workspace = true }
 
 [dev-dependencies]
 polkadot-primitives-test-helpers = { workspace = true }
+rstest = { workspace = true }
 
 [features]
 default = ["std"]
