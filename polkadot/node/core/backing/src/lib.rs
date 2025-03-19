@@ -107,7 +107,6 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
 	vstaging::{
 		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
