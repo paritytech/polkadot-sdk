@@ -75,6 +75,23 @@ pub fn assignment_staked_to_ratio_normalized<A: IdentifierT, P: PerThing128>(
 	Ok(ratio)
 }
 
+/// Convert some [`Supports`]s into vector of [`StakedAssignment`]
+pub fn supports_to_staked_assignment<A: IdentifierT>(
+	supports: Supports<A>,
+) -> Vec<StakedAssignment<A>> {
+	let mut staked: BTreeMap<A, Vec<(A, ExtendedBalance)>> = BTreeMap::new();
+	for (target, support) in supports {
+		for (voter, amount) in support.voters {
+			staked.entry(voter).or_default().push((target.clone(), amount))
+		}
+	}
+
+	staked
+		.into_iter()
+		.map(|(who, distribution)| StakedAssignment { who, distribution })
+		.collect::<Vec<_>>()
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

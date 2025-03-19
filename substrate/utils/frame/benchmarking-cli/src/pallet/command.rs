@@ -647,7 +647,10 @@ impl PalletCmd {
 	fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
 		let include = self.pallet.clone().unwrap_or_default();
 
-		let included = include.is_empty() || include == "*" || include.as_bytes() == pallet;
+		let included = include.is_empty() ||
+			include == "*" ||
+			include == "all" ||
+			include.as_bytes() == pallet;
 		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
 
 		included && !excluded

@@ -314,11 +314,7 @@ pub fn testnet_genesis(
 	let (initial_authorities, endowed_accounts, stakers) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 
-	let staking_playground_config = if cfg!(feature = "staking-playground") {
-		Some(get_staking_playground_config())
-	} else {
-		None
-	};
+	let staking_playground_config = None;
 
 	// Todo: After #7748 is done, we can refactor this to avoid
 	// calling into the native runtime.
