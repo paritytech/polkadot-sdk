@@ -782,17 +782,8 @@ fn backing_second_works() {
 // Test that the candidate reaches quorum successfully.
 #[rstest]
 #[case(true)]
-#[case(false)]
 fn backing_works(#[case] elastic_scaling_mvp: bool) {
 	let mut test_state = TestState::default();
-	if elastic_scaling_mvp {
-		test_state
-			.node_features
-			.resize((node_features::FeatureIndex::ElasticScalingMVP as u8 + 1) as usize, false);
-		test_state
-			.node_features
-			.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
-	}
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
@@ -918,11 +909,8 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 
 		let (validator_indices, maybe_core_index) =
 			candidates[0].validator_indices_and_core_index(elastic_scaling_mvp);
-		if elastic_scaling_mvp {
-			assert_eq!(maybe_core_index.unwrap(), CoreIndex(0));
-		} else {
-			assert!(maybe_core_index.is_none());
-		}
+
+		assert_eq!(maybe_core_index.unwrap(), CoreIndex(0));
 
 		assert_eq!(
 			validator_indices,
@@ -1575,8 +1563,8 @@ fn backing_works_while_validation_ongoing() {
 			.validity_votes()
 			.contains(&ValidityAttestation::Explicit(signed_c.signature().clone())));
 		assert_eq!(
-			candidates[0].validator_indices_and_core_index(false),
-			(bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 0, 1, 1].as_bitslice(), None)
+			candidates[0].validator_indices_and_core_index(true),
+			(bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 0, 1, 1].as_bitslice(), Some(CoreIndex(0)))
 		);
 
 		virtual_overseer
@@ -2225,7 +2213,7 @@ fn candidate_backing_reorders_votes() {
 		group_id: core_idx,
 	};
 
-	let backed = table_attested_to_backed(attested, &table_context, false).unwrap();
+	let backed = table_attested_to_backed(attested, &table_context).unwrap();
 
 	let expected_bitvec = {
 		let mut validator_indices = BitVec::<u8, bitvec::order::Lsb0>::with_capacity(6);
@@ -2243,8 +2231,8 @@ fn candidate_backing_reorders_votes() {
 		vec![fake_attestation(1).into(), fake_attestation(3).into(), fake_attestation(5).into()];
 
 	assert_eq!(
-		backed.validator_indices_and_core_index(false),
-		(expected_bitvec.as_bitslice(), None)
+		backed.validator_indices_and_core_index(true),
+		(expected_bitvec.as_bitslice(),  Some(CoreIndex(10)))
 	);
 	assert_eq!(backed.validity_votes(), expected_attestations);
 }

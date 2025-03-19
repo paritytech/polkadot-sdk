@@ -24,6 +24,6 @@ crates:
   - name: polkadot-node-core-backing
     bump: patch
   - name: polkadot-node-core-provisioner
-    bump: patch
+    bump: major
   - name: polkadot-runtime-parachains
     bump: patch
