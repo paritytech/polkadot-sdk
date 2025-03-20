@@ -1431,23 +1431,21 @@ impl
 		));
 		let token_second = alloc::boxed::Box::new(asset_id);
 
-		assert_ok!(
-			AssetConversion::create_pool(
-				RuntimeOrigin::signed(lp_provider.clone()),
-				token_native.clone(),
-				token_second.clone()
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native.clone(),
+			token_second.clone()
 		));
 
-		assert_ok!(
-			AssetConversion::add_liquidity(
-				RuntimeOrigin::signed(lp_provider.clone()),
-				token_native,
-				token_second,
-				(u32::MAX / 2).into(), // 1 desired
-				u32::MAX.into(),       // 2 desired
-				1,                     // 1 min
-				1,                     // 2 min
-				lp_provider,
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native,
+			token_second,
+			(u32::MAX / 8).into(), // 1 desired
+			u32::MAX.into(),       // 2 desired
+			1,                     // 1 min
+			1,                     // 2 min
+			lp_provider,
 		));
 	}
 }
