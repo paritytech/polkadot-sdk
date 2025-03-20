@@ -454,6 +454,9 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.parachain_host_candidates_pending_availability(at, para_id)
 			.await?)
 	}
+	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, sp_api::ApiError> {
+		Ok(self.rpc_client.parachain_host_validation_code_bomb_limit(at).await?)
+	}
 }
 
 #[async_trait::async_trait]

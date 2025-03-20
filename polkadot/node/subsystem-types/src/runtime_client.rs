@@ -347,6 +347,9 @@ pub trait RuntimeApiSubsystemClient {
 		at: Hash,
 		para_id: Id,
 	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError>;
+	// === v12 ===
+	/// Fetch the maximum uncompressed code size.
+	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -623,6 +626,9 @@ where
 
 	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError> {
 		self.client.runtime_api().claim_queue(at)
+	}
+	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError> {
+		self.client.runtime_api().validation_code_bomb_limit(at)
 	}
 }
 

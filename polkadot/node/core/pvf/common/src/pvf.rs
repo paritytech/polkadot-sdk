@@ -28,6 +28,8 @@ use std::{fmt, sync::Arc, time::Duration};
 pub struct PvfPrepData {
 	/// Wasm code (maybe compressed)
 	maybe_compressed_code: Arc<Vec<u8>>,
+	/// Maximum uncompressed code size.
+	validation_code_bomb_limit: u32,
 	/// Wasm code hash.
 	code_hash: ValidationCodeHash,
 	/// Executor environment parameters for the session for which artifact is prepared
@@ -45,11 +47,19 @@ impl PvfPrepData {
 		executor_params: ExecutorParams,
 		prep_timeout: Duration,
 		prep_kind: PrepareJobKind,
+		validation_code_bomb_limit: u32,
 	) -> Self {
 		let maybe_compressed_code = Arc::new(code);
 		let code_hash = sp_crypto_hashing::blake2_256(&maybe_compressed_code).into();
 		let executor_params = Arc::new(executor_params);
-		Self { maybe_compressed_code, code_hash, executor_params, prep_timeout, prep_kind }
+		Self {
+			maybe_compressed_code,
+			code_hash,
+			executor_params,
+			prep_timeout,
+			prep_kind,
+			validation_code_bomb_limit,
+		}
 	}
 
 	/// Returns validation code hash
@@ -77,6 +87,11 @@ impl PvfPrepData {
 		self.prep_kind
 	}
 
+	/// Returns validation code bomb limit.
+	pub fn validation_code_bomb_limit(&self) -> u32 {
+		self.validation_code_bomb_limit
+	}
+
 	/// Creates a structure for tests.
 	#[cfg(feature = "test-utils")]
 	pub fn from_discriminator_and_timeout(num: u32, timeout: Duration) -> Self {
@@ -86,6 +101,7 @@ impl PvfPrepData {
 			ExecutorParams::default(),
 			timeout,
 			PrepareJobKind::Compilation,
+			30 * 1024 * 1024,
 		)
 	}
 

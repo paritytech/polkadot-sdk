@@ -183,6 +183,8 @@ where
 			ClaimQueue(relay_parent, sender) => {
 				self.requests_cache.cache_claim_queue(relay_parent, sender);
 			},
+			ValidationCodeBombLimit(session_index, limit) =>
+				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit),
 		}
 	}
 
@@ -340,6 +342,15 @@ where
 			},
 			Request::ClaimQueue(sender) =>
 				query!(claim_queue(), sender).map(|sender| Request::ClaimQueue(sender)),
+			Request::ValidationCodeBombLimit(index, sender) => {
+				if let Some(value) = self.requests_cache.validation_code_bomb_limit(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value));
+					None
+				} else {
+					Some(Request::ValidationCodeBombLimit(index, sender))
+				}
+			},
 		}
 	}
 
@@ -651,6 +662,13 @@ where
 			claim_queue(),
 			ver = Request::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
 			sender
+		),
+		Request::ValidationCodeBombLimit(index, sender) => query!(
+			ValidationCodeBombLimit,
+			validation_code_bomb_limit(),
+			ver = Request::VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
 		),
 	}
 }
