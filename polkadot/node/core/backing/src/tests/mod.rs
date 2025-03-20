@@ -1564,7 +1564,10 @@ fn backing_works_while_validation_ongoing() {
 			.contains(&ValidityAttestation::Explicit(signed_c.signature().clone())));
 		assert_eq!(
 			candidates[0].validator_indices_and_core_index(true),
-			(bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 0, 1, 1].as_bitslice(), Some(CoreIndex(0)))
+			(
+				bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 0, 1, 1].as_bitslice(),
+				Some(CoreIndex(0))
+			)
 		);
 
 		virtual_overseer
@@ -2232,7 +2235,7 @@ fn candidate_backing_reorders_votes() {
 
 	assert_eq!(
 		backed.validator_indices_and_core_index(true),
-		(expected_bitvec.as_bitslice(),  Some(CoreIndex(10)))
+		(expected_bitvec.as_bitslice(), Some(CoreIndex(10)))
 	);
 	assert_eq!(backed.validity_votes(), expected_attestations);
 }

@@ -856,9 +856,7 @@ mod select_candidates {
 		)
 	}
 
-	#[rstest]
-	#[case(true)]
-	fn one_core_per_para(#[case] _elastic_scaling_mvp: bool) {
+	fn one_core_per_para() {
 		let mock_cores = mock_availability_cores_one_per_para();
 
 		// why those particular indices? see the comments on mock_availability_cores()
