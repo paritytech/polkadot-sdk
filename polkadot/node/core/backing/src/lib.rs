@@ -99,9 +99,10 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::View as ImplicitView,
-	request_claim_queue, request_disabled_validators, request_session_executor_params,
-	request_session_index_for_child, request_validator_groups, request_validators,
-	runtime::{self, request_min_backing_votes, ClaimQueueSnapshot},
+	request_claim_queue, request_disabled_validators, request_min_backing_votes,
+	request_node_features, request_session_executor_params, request_session_index_for_child,
+	request_validator_groups, request_validators,
+	runtime::{self, ClaimQueueSnapshot},
 	Validator,
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
@@ -125,7 +126,6 @@ use polkadot_statement_table::{
 	Context as TableContextTrait, Table,
 };
 use sp_keystore::KeystorePtr;
-use util::runtime::request_node_features;
 
 mod error;
 
@@ -260,7 +260,7 @@ struct PerSessionCache {
 	/// Cache for storing validators list, retrieved from the runtime.
 	validators_cache: LruMap<SessionIndex, Arc<Vec<ValidatorId>>>,
 	/// Cache for storing node features, retrieved from the runtime.
-	node_features_cache: LruMap<SessionIndex, Option<NodeFeatures>>,
+	node_features_cache: LruMap<SessionIndex, NodeFeatures>,
 	/// Cache for storing executor parameters, retrieved from the runtime.
 	executor_params_cache: LruMap<SessionIndex, Arc<ExecutorParams>>,
 	/// Cache for storing the minimum backing votes threshold, retrieved from the runtime.
@@ -322,15 +322,20 @@ impl PerSessionCache {
 		session_index: SessionIndex,
 		parent: Hash,
 		sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-	) -> Result<Option<NodeFeatures>, Error> {
+	) -> Result<NodeFeatures, RuntimeApiError> {
 		// Try to get the node features from the cache.
 		if let Some(node_features) = self.node_features_cache.get(&session_index) {
 			return Ok(node_features.clone());
 		}
 
 		// Fetch the node features from the runtime since it was not in the cache.
-		let node_features: Option<NodeFeatures> =
-			request_node_features(parent, session_index, sender).await?;
+		let node_features = request_node_features(parent, session_index, sender)
+			.await
+			.await
+			.map_err(|err| RuntimeApiError::Execution {
+				runtime_api_name: "NodeFeatures",
+				source: Arc::new(err),
+			})??;
 
 		// Cache the fetched node features for future use.
 		self.node_features_cache.insert(session_index, node_features.clone());
@@ -389,10 +394,11 @@ impl PerSessionCache {
 		// Fetch the value from the runtime since it was not in the cache.
 		let minimum_backing_votes = request_min_backing_votes(parent, session_index, sender)
 			.await
+			.await
 			.map_err(|err| RuntimeApiError::Execution {
 				runtime_api_name: "MinimumBackingVotes",
 				source: Arc::new(err),
-			})?;
+			})??;
 
 		// Cache the fetched value for future use.
 		self.minimum_backing_votes_cache.insert(session_index, minimum_backing_votes);
@@ -1152,10 +1158,8 @@ async fn construct_per_relay_parent_state<Context>(
 	let validators = per_session_cache.validators(session_index, parent, ctx.sender()).await;
 	let validators = try_runtime_api!(validators);
 
-	let node_features = per_session_cache
-		.node_features(session_index, parent, ctx.sender())
-		.await?
-		.unwrap_or(NodeFeatures::EMPTY);
+	let node_features = per_session_cache.node_features(session_index, parent, ctx.sender()).await;
+	let node_features = try_runtime_api!(node_features);
 
 	let inject_core_index = node_features
 		.get(FeatureIndex::ElasticScalingMVP as usize)
