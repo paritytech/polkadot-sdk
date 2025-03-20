@@ -163,6 +163,9 @@ impl<T: frame_system::Config> WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	pub fn exchange_asset() -> Weight {
+		Weight::from_parts(3_000_000, 0) // TODO: Replace with actual benchmark results
+	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
