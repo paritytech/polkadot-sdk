@@ -2190,7 +2190,7 @@ impl_runtime_apis! {
 							2_000 * UNITS,
 							1,
 							1,
-							account.clone().into(),
+							account.into(),
 						)
 						.map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
 
