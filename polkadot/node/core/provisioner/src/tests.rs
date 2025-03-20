@@ -263,7 +263,6 @@ mod select_candidates {
 		BlockNumber, CandidateCommitments, PersistedValidationData,
 	};
 	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
-	use rstest::rstest;
 	use std::ops::Not;
 	use CoreState::{Free, Scheduled};
 
@@ -855,7 +854,7 @@ mod select_candidates {
 			},
 		)
 	}
-
+	#[test]
 	fn one_core_per_para() {
 		let mock_cores = mock_availability_cores_one_per_para();
 

@@ -36,8 +36,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt};
 use polkadot_primitives::{
 	vstaging::{BackedCandidate, CoreState},
-	CandidateHash, CoreIndex, Hash, Id as ParaId, SessionIndex, SignedAvailabilityBitfield,
-	ValidatorIndex,
+	CandidateHash, CoreIndex, Hash, Id as ParaId, SignedAvailabilityBitfield, ValidatorIndex,
 };
 use std::collections::{BTreeMap, HashMap};
 
@@ -136,7 +135,7 @@ async fn run_iteration<Context>(
 				// Map the error to ensure that the subsystem exits when the overseer is gone.
 				match from_overseer.map_err(Error::OverseerExited)? {
 					FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) =>
-						handle_active_leaves_update(ctx.sender(), update, per_relay_parent, inherent_delays).await?,
+						handle_active_leaves_update(update, per_relay_parent, inherent_delays).await?,
 					FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 					FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 					FromOrchestra::Communication { msg } => {
@@ -165,7 +164,6 @@ async fn run_iteration<Context>(
 }
 
 async fn handle_active_leaves_update(
-	sender: &mut impl overseer::ProvisionerSenderTrait,
 	update: ActiveLeavesUpdate,
 	per_relay_parent: &mut HashMap<Hash, PerRelayParent>,
 	inherent_delays: &mut InherentDelays,

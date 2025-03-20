@@ -15080,7 +15080,6 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "rstest",
  "sp-application-crypto 30.0.0",
  "sp-keystore 0.34.0",
  "thiserror 1.0.65",
