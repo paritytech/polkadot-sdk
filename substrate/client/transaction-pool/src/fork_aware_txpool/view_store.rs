@@ -647,8 +647,7 @@ where
 	///
 	/// Invalid future and stale transaction will be removed only from given `at` view, and will be
 	/// kept in the view_store. Such transaction will not be reported in returned vector. They
-	/// also will not be banned from re-entering the pool (however can be rejected from re-entring
-	/// the view). No event will be triggered.
+	/// also will not be banned from re-entering the pool. No event will be triggered.
 	///
 	/// For other errors, the transaction will be removed from the view_store, and it will be
 	/// included in the returned vector. Additionally, transactions provided as input will be banned
@@ -685,7 +684,7 @@ where
 		// be in the pool.
 		at.map(|at| {
 			self.get_view_at(at, true)
-				.map(|(view, _)| view.remove_subtree(&remove_from_view, |_, _| {}))
+				.map(|(view, _)| view.remove_subtree(&remove_from_view, false, |_, _| {}))
 		});
 
 		let mut removed = vec![];
@@ -757,7 +756,7 @@ where
 					));
 				},
 				PreInsertAction::RemoveSubtree(ref removal) => {
-					view.remove_subtree(&[removal.xt_hash], &*removal.listener_action);
+					view.remove_subtree(&[removal.xt_hash], true, &*removal.listener_action);
 				},
 			}
 		}
@@ -862,7 +861,7 @@ where
 			.iter()
 			.chain(self.inactive_views.read().iter())
 			.filter(|(_, view)| view.is_imported(&xt_hash))
-			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], &listener_action))
+			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], true, &listener_action))
 			.filter_map(|xt| seen.insert(xt.hash).then(|| xt.clone()))
 			.collect();
 
