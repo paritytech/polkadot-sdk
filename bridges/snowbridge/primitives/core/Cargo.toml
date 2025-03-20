@@ -55,4 +55,10 @@ std = [
 ]
 serde = ["dep:serde", "scale-info/serde"]
 runtime-benchmarks = [
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
 ]
