@@ -12,6 +12,7 @@ use parachain_template_runtime::{
 use polkadot_sdk::*;
 
 // Cumulus Imports
+use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
 #[docify::export(lookahead_collator)]
@@ -253,7 +254,12 @@ pub async fn start_parachain_node(
 	let backend = params.backend.clone();
 	let mut task_manager = params.task_manager;
 
-	let (relay_chain_interface, collator_key) = build_relay_chain_interface(
+	let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
+	let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
+	let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
+	let parachain_public_addresses = parachain_config.network.public_addresses.clone();
+
+	let (relay_chain_interface, collator_key, paranode_rx) = build_relay_chain_interface(
 		polkadot_config,
 		&parachain_config,
 		telemetry_worker_handle,
@@ -327,7 +333,7 @@ pub async fn start_parachain_node(
 		config: parachain_config,
 		keystore: params.keystore_container.keystore(),
 		backend: backend.clone(),
-		network,
+		network.clone(),
 		sync_service: sync_service.clone(),
 		system_rpc_tx,
 		tx_handler_controller,
@@ -386,6 +392,19 @@ pub async fn start_parachain_node(
 		recovery_handle: Box::new(overseer_handle.clone()),
 		sync_service: sync_service.clone(),
 	})?;
+
+	start_bootnode_tasks(StartBootnodeTasksParams {
+		para_id,
+		task_manager: &mut task_manager,
+		relay_chain_interface: relay_chain_interface.clone(),
+		relay_chain_fork_id,
+		request_receiver: paranode_rx,
+		parachain_network: network,
+		advertise_non_global_ips,
+		parachain_genesis_hash: client.chain_info().genesis_hash.as_ref().to_vec(),
+		parachain_fork_id,
+		parachain_public_addresses,
+	});
 
 	if validator {
 		start_consensus(
