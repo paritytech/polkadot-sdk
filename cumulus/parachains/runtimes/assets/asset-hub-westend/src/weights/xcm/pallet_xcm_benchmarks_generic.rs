@@ -368,4 +368,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 765_000 picoseconds.
 		Weight::from_parts(848_000, 0)
 	}
+	pub fn exchange_asset() -> Weight {
+		Weight::from_parts(3_000_000, 0) // TODO: Replace with actual benchmark results
+	}
 }
