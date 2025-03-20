@@ -2162,8 +2162,6 @@ impl_runtime_apis! {
 				}
 
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
-					use frame_support::traits::Currency;
-
 					let native_asset_location = WestendLocation::get();
 					let native_asset_id = AssetId(native_asset_location.clone());
 					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
@@ -2175,15 +2173,6 @@ impl_runtime_apis! {
 					let asset_location = Location::new(1, [Parachain(2001)]);
 					let asset_id = AssetId(asset_location.clone());
 
-					ForeignAssets::force_create(
-						origin.clone(),
-						asset_location.clone().into(),
-						account.clone().into(),
-						true,
-						1,
-					).map_err(|_| BenchmarkError::Stop("Failed to create foreign asset!"))?;
-
-					let _ = Balances::deposit_creating(&account.clone(), (3_000 * UNITS).into());
 					ForeignAssets::mint(
 						origin.clone(),
 						asset_location.clone().into(),
@@ -2205,7 +2194,7 @@ impl_runtime_apis! {
 						2_000 * UNITS,
 						1,
 						1,
-						account,
+						account.into(),
 					).map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
 
 					give_assets.push((native_asset_id, 1_000 * UNITS).into());
