@@ -554,6 +554,8 @@ impl identity_migrator::Config for Runtime {
 
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+	pub RandomParaId: ParaId = ParaId::new(43211234);
+	pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 }
 
 impl pallet_migrations::Config for Runtime {
@@ -968,9 +970,6 @@ impl_runtime_apis! {
 					RelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-
-				pub RandomParaId: ParaId = ParaId::new(43211234);
-				pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {

@@ -520,6 +520,8 @@ parameter_types! {
 	pub const AnnouncementDepositBase: Balance = deposit(1, 48);
 	pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
 	pub const MaxPending: u16 = 32;
+	pub RandomParaId: ParaId = ParaId::new(43211234);
+	pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 }
 
 impl pallet_proxy::Config for Runtime {
@@ -970,9 +972,6 @@ impl_runtime_apis! {
 					RelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-
-				pub RandomParaId: ParaId = ParaId::new(43211234);
-				pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {

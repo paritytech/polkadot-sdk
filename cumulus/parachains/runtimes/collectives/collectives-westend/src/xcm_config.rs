@@ -15,8 +15,8 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, Fellows, ParachainInfo,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TransactionByteFee, WeightToFee, WestendTreasuryAccount, XcmpQueue,
+	ParachainSystem, PolkadotXcm, RandomParaLocation, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, TransactionByteFee, WeightToFee, WestendTreasuryAccount, XcmpQueue,
 };
 use frame_support::{
 	parameter_types,
@@ -184,7 +184,7 @@ pub type WaivedLocations = (
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - DOT with the parent Relay Chain and sibling parachains.
-pub type TrustedTeleporters = ConcreteAssetFromSystem<WndLocation>;
+pub type TrustedTeleporters = ConcreteAssetFromSystem<RandomParaLocation>;
 
 /// We allow locations to alias into their own child locations, as well as
 /// AssetHub to alias into anything.
