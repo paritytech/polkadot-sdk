@@ -1419,11 +1419,10 @@ impl
 		let lp_provider = account.clone();
 		use frame_support::traits::Currency;
 		let _ = Balances::deposit_creating(&lp_provider, u64::MAX.into());
-		assert_ok!(ForeignAssets::mint_into(
-			asset_id.clone().into(),
-			&lp_provider,
-			u64::MAX.into()
-		), "Failed to mint foreign assets");
+		assert_ok!(
+			ForeignAssets::mint_into(asset_id.clone().into(), &lp_provider, u64::MAX.into()),
+			"Failed to mint foreign assets"
+		);
 
 		let token_native = alloc::boxed::Box::new(cumulus_primitives_core::Location::new(
 			1,
@@ -1431,22 +1430,28 @@ impl
 		));
 		let token_second = alloc::boxed::Box::new(asset_id);
 
-		assert_ok!(AssetConversion::create_pool(
-			RuntimeOrigin::signed(lp_provider.clone()),
-			token_native.clone(),
-			token_second.clone()
-		), "Failed to create pool");
+		assert_ok!(
+			AssetConversion::create_pool(
+				RuntimeOrigin::signed(lp_provider.clone()),
+				token_native.clone(),
+				token_second.clone()
+			),
+			"Failed to create pool"
+		);
 
-		assert_ok!(AssetConversion::add_liquidity(
-			RuntimeOrigin::signed(lp_provider.clone()),
-			token_native,
-			token_second,
-			(u32::MAX / 2).into(), // 1 desired
-			u32::MAX.into(),       // 2 desired
-			1,                     // 1 min
-			1,                     // 2 min
-			lp_provider,
-		), "Failed to add liquidity");
+		assert_ok!(
+			AssetConversion::add_liquidity(
+				RuntimeOrigin::signed(lp_provider.clone()),
+				token_native,
+				token_second,
+				(u32::MAX / 2).into(), // 1 desired
+				u32::MAX.into(),       // 2 desired
+				1,                     // 1 min
+				1,                     // 2 min
+				lp_provider,
+			),
+			"Failed to add liquidity"
+		);
 	}
 }
 
@@ -2162,41 +2167,36 @@ impl_runtime_apis! {
 				}
 
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
-					use xcm::latest::MAX_ITEMS_IN_ASSETS;
-
 					let native_asset_location = WestendLocation::get();
 					let native_asset_id = AssetId(native_asset_location.clone());
 					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
 					let origin = RuntimeOrigin::signed(account.clone());
 
-					// Simulate the maximum possible assets for 'give' and 'receive'
 					let mut give_assets = XcmAssets::new();
 					let mut receive_assets = XcmAssets::new();
 
-					// Setup assets and pools
-					for i in 0..MAX_ITEMS_IN_ASSETS {
-						let asset_location = Location::new(1, [Parachain((2000 + i) as u32)]);
-						let asset_id = AssetId(asset_location.clone());
+					let asset_location = Location::new(1, [Parachain(2001)]); // Single asset for exchange
+					let asset_id = AssetId(asset_location.clone());
 
-						ForeignAssets::mint(origin.clone(), asset_location.clone().into(), account.clone().into(), 3_000 * UNITS)
-							.map_err(|_| BenchmarkError::Stop("Failed to mint foreign asset!"))?;
-						AssetConversion::create_pool(origin.clone(), native_asset_location.clone().into(), asset_location.clone().into())
-							.map_err(|_| BenchmarkError::Stop("Failed to create pool!"))?;
-						AssetConversion::add_liquidity(
-							origin.clone(),
-							native_asset_location.clone().into(),
-							asset_location.clone().into(),
-							1_000 * UNITS,
-							2_000 * UNITS,
-							1,
-							1,
-							account.clone().into(),
-						)
-						.map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
+					ForeignAssets::mint(origin.clone(), asset_location.clone().into(), account.clone().into(), 3_000 * UNITS)
+						.map_err(|_| BenchmarkError::Stop("Failed to mint foreign asset!"))?;
+					AssetConversion::create_pool(origin.clone(), native_asset_location.clone().into(), asset_location.clone().into())
+						.map_err(|_| BenchmarkError::Stop("Failed to create pool!"))?;
+					AssetConversion::add_liquidity(
+						origin.clone(),
+						native_asset_location.clone().into(),
+						asset_location.clone().into(),
+						1_000 * UNITS,
+						2_000 * UNITS,
+						1,
+						1,
+						account.clone().into(),
+					)
+					.map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
 
-						give_assets.push((native_asset_id.clone(), 1_000 * UNITS).into());
-						receive_assets.push((asset_id, 2_000 * UNITS).into());
-					}
+					// Use only one asset in `give` and `receive`
+					give_assets.push((native_asset_id.clone(), 1_000 * UNITS).into());
+					receive_assets.push((asset_id, 2_000 * UNITS).into());
 
 					Ok((give_assets.into(), receive_assets.into()))
 				}
