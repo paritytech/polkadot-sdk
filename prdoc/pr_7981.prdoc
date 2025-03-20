@@ -1,14 +1,10 @@
-title: Bump parachains runtime api to 13
+title: Bump ParachainHost runtime API to 13
 doc:
-- audience: Runtime Dev
+- audience: [Runtime Dev, Node Dev]
   description: |-
-    We need to bump 2 runtime APIs to 13, because we are [backporting](https://github.com/paritytech/polkadot-sdk/pull/7824) validation code bomb API to 2412-4 patch which is supposed to be included in next fellowship release.
-
-    Details here: https://github.com/paritytech/polkadot-sdk/pull/7824#discussion_r2004824416
-
-    Should only be merged if https://github.com/paritytech/polkadot-sdk/pull/7824 is merged in 2412-4 patch.
-
-    Important note: on Westend, runtime needs to be upgraded first, then validators.
+    Bump `backing_constraints` and `scheduling_lookahead` API version to 13.
+    The `validation_code_bomb_limit` API remains at version 12.
+    Bump all ParachainHost runtime to version 13 in all test runtimes.
 crates:
 - name: polkadot-node-subsystem-types
   bump: minor
