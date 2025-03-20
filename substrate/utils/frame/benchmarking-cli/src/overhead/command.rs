@@ -677,10 +677,6 @@ impl CliConfiguration for OverheadCmd {
 			Ok(None)
 		}
 	}
-
-	fn force_in_memory_trie_cache(&self) -> Result<bool> {
-		Ok(self.import_params().map(|x| x.force_in_memory_trie_cache).unwrap_or_default())
-	}
 }
 
 #[cfg(test)]

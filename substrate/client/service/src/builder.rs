@@ -263,50 +263,10 @@ where
 			},
 		)?;
 
-		// Populate the trie cache to keep it in memory
-		if config.force_in_memory_trie_cache {
-			let storage_root = client.usage_info().chain.best_hash;
-			let keys = client.storage_keys(storage_root, None, None)?.collect::<Vec<_>>();
-			let total_count = keys.len();
-			let chunks = (1..=10).map(|i| (i * total_count / 10, i * 10)).collect::<Vec<_>>();
-
-			info!("Populating trie cache with {} keys started", total_count);
-			for (index, key) in keys.into_iter().enumerate() {
-				if let Some((_, percentage)) = chunks.iter().find(|(i, _)| *i == index + 1) {
-					info!("Read {}% of keys", percentage);
-				}
-				match child_info(key.0.clone()) {
-					Some(info) => {
-						for child_key in
-							client.child_storage_keys(storage_root, info.clone(), None, None)?
-						{
-							let _ = client
-								.child_storage(storage_root, &info, &child_key)
-								.expect("Checked above to exist")
-								.ok_or("Value unexpectedly empty")?;
-						}
-					},
-					None => {
-						let _ = client
-							.storage(storage_root, &key)
-							.expect("Checked above to exist")
-							.ok_or("Value unexpectedly empty");
-					},
-				}
-			}
-		}
-
 		client
 	};
 
 	Ok((client, backend, keystore_container, task_manager))
-}
-
-fn child_info(key: Vec<u8>) -> Option<ChildInfo> {
-	let prefixed_key = PrefixedStorageKey::new(key);
-	ChildType::from_prefixed_key(&prefixed_key).and_then(|(child_type, storage_key)| {
-		(child_type == ChildType::ParentKeyId).then(|| ChildInfo::new_default(storage_key))
-	})
 }
 
 /// Creates a [`NativeElseWasmExecutor`](sc_executor::NativeElseWasmExecutor) according to

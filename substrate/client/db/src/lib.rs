@@ -304,8 +304,6 @@ pub struct DatabaseSettings {
 	///
 	/// If `None` is given, the cache is disabled.
 	pub trie_cache_maximum_size: Option<usize>,
-	/// Force the trie cache to be in memory.
-	pub force_in_memory_trie_cache: bool,
 	/// Requested state pruning mode.
 	pub state_pruning: Option<PruningMode>,
 	/// Where to find the database.
@@ -1173,7 +1171,6 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
-			force_in_memory_trie_cache: false,
 		};
 
 		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
@@ -1227,33 +1224,6 @@ impl<Block: BlockT> Backend<Block> {
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
-		let shared_trie_cache = if config.force_in_memory_trie_cache {
-			// 16GB is 50% of the reference hardware
-			const MIN_TRIE_CACHE_SIZE: u64 = 1024 * 1024 * 1024 * 16;
-			let system_memory = sysinfo::System::new_all();
-			let total_memory = system_memory.total_memory();
-			let available_memory = system_memory.available_memory();
-			let forced_cache_size = (total_memory / 2).max(MIN_TRIE_CACHE_SIZE);
-			if forced_cache_size > available_memory {
-				error!(
-					"Not enough memory to force in-memory trie cache. Using minimum size of {} bytes. System memory: total {} bytes, available {} bytes",
-					MIN_TRIE_CACHE_SIZE,
-					total_memory,
-					available_memory,
-				);
-				return Err(sp_blockchain::Error::Backend(
-					"Not enough memory to force in-memory trie cache".to_string(),
-				));
-			}
-			Some(SharedTrieCache::new(sp_trie::cache::CacheSize::new(
-				forced_cache_size.try_into().unwrap_or(usize::MAX),
-			)))
-		} else {
-			config.trie_cache_maximum_size.map(|maximum_size| {
-				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
-			})
-		};
-
 		let backend = Backend {
 			storage: Arc::new(storage_db),
 			offchain_storage,
@@ -1265,7 +1235,9 @@ impl<Block: BlockT> Backend<Block> {
 			state_usage: Arc::new(StateUsageStats::new()),
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
-			shared_trie_cache,
+			shared_trie_cache: config.trie_cache_maximum_size.map(|maximum_size| {
+				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
+			}),
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
@@ -2797,7 +2769,6 @@ pub(crate) mod tests {
 		let backend = Backend::<Block>::new(
 			DatabaseSettings {
 				trie_cache_maximum_size: Some(16 * 1024 * 1024),
-				force_in_memory_trie_cache: false,
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,

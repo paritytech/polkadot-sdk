@@ -214,7 +214,6 @@ impl Configuration {
 	pub fn db_config(&self) -> sc_client_db::DatabaseSettings {
 		sc_client_db::DatabaseSettings {
 			trie_cache_maximum_size: self.trie_cache_maximum_size,
-			force_in_memory_trie_cache: self.force_in_memory_trie_cache,
 			state_pruning: self.state_pruning.clone(),
 			source: self.database.clone(),
 			blocks_pruning: self.blocks_pruning,
