@@ -13,10 +13,7 @@ sol! {
 
 /// Delivery receipt
 #[derive(Clone, RuntimeDebug)]
-pub struct DeliveryReceipt<AccountId>
-where
-	AccountId: From<[u8; 32]> + Clone,
-{
+pub struct DeliveryReceipt {
 	/// The address of the outbound queue on Ethereum that emitted this message as an event log
 	pub gateway: H160,
 	/// The nonce of the dispatched message
@@ -24,7 +21,7 @@ where
 	/// Delivery status
 	pub success: bool,
 	/// The reward address
-	pub reward_address: AccountId,
+	pub reward_address: [u8; 32],
 }
 
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
@@ -33,10 +30,7 @@ pub enum DeliveryReceiptDecodeError {
 	DecodeAccountFailed,
 }
 
-impl<AccountId> TryFrom<&Log> for DeliveryReceipt<AccountId>
-where
-	AccountId: From<[u8; 32]> + Clone,
-{
+impl TryFrom<&Log> for DeliveryReceipt {
 	type Error = DeliveryReceiptDecodeError;
 
 	fn try_from(log: &Log) -> Result<Self, Self::Error> {
@@ -45,13 +39,11 @@ where
 		let event = InboundMessageDispatched::decode_raw_log(topics, &log.data, true)
 			.map_err(|_| DeliveryReceiptDecodeError::DecodeLogFailed)?;
 
-		let account: AccountId = AccountId::from(event.reward_address.0);
-
 		Ok(Self {
 			gateway: log.address,
 			nonce: event.nonce,
 			success: event.success,
-			reward_address: account,
+			reward_address: event.reward_address.0,
 		})
 	}
 }

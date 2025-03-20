@@ -105,7 +105,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
-			reward_address: reward_account,
+			reward_address: reward_account.into(),
 			success: true,
 		};
 
@@ -260,7 +260,7 @@ fn transfer_relay_token_from_ah() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
-			reward_address: reward_account,
+			reward_address: reward_account.into(),
 			success: true,
 		};
 
@@ -346,7 +346,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
-			reward_address: reward_account,
+			reward_address: reward_account.into(),
 			success: true,
 		};
 
@@ -441,7 +441,7 @@ fn transact_with_agent_from_asset_hub() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
-			reward_address: reward_account,
+			reward_address: reward_account.into(),
 			success: true,
 		};
 
@@ -557,7 +557,7 @@ fn register_token_from_penpal() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
-			reward_address: reward_account,
+			reward_address: reward_account.into(),
 			success: true,
 		};
 
@@ -721,7 +721,7 @@ fn invalid_nonce_for_delivery_receipt_fails() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
-			reward_address: reward_account,
+			reward_address: reward_account.into(),
 			success: true,
 		};
 

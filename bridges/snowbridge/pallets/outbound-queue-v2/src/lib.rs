@@ -64,6 +64,9 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod fixture;
+
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
 	sol_types::SolValue,
@@ -76,7 +79,7 @@ use frame_support::{
 	traits::{tokens::Balance, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
-use snowbridge_core::{BasicOperatingMode, TokenId};
+use snowbridge_core::BasicOperatingMode;
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::{
 	v2::{
@@ -87,14 +90,16 @@ use snowbridge_outbound_queue_primitives::{
 };
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Hash, MaybeEquivalence},
+	traits::{BlockNumberProvider, Hash},
 	DigestItem,
 };
 use sp_std::prelude::*;
 pub use types::{PendingOrder, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
-use xcm::latest::{Location, NetworkId};
-type DeliveryReceiptOf<T> = DeliveryReceipt<<T as frame_system::Config>::AccountId>;
+use xcm::prelude::NetworkId;
+
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_beacon_primitives::BeaconHeader;
 
 pub use pallet::*;
 
@@ -149,7 +154,8 @@ pub mod pallet {
 		type RewardPayment: RewardLedger<Self::AccountId, Self::RewardKind, u128>;
 		/// Ethereum NetworkId
 		type EthereumNetwork: Get<NetworkId>;
-		type ConvertAssetId: MaybeEquivalence<TokenId, Location>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type Helper: BenchmarkHelper<Self>;
 	}
 
 	#[pallet::event]
@@ -244,11 +250,13 @@ pub mod pallet {
 		}
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelper<T> {
+		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
+	}
+
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	where
-		T::AccountId: From<[u8; 32]>,
-	{
+	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::submit_delivery_receipt())]
 		pub fn submit_delivery_receipt(
@@ -261,7 +269,7 @@ pub mod pallet {
 			T::Verifier::verify(&event.event_log, &event.proof)
 				.map_err(|e| Error::<T>::Verification(e))?;
 
-			let receipt = DeliveryReceiptOf::<T>::try_from(&event.event_log)
+			let receipt = DeliveryReceipt::try_from(&event.event_log)
 				.map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			Self::process_delivery_receipt(relayer, receipt)
@@ -368,11 +376,8 @@ pub mod pallet {
 		/// Process a delivery receipt from a relayer, to allocate the relayer reward.
 		pub fn process_delivery_receipt(
 			relayer: <T as frame_system::Config>::AccountId,
-			receipt: DeliveryReceiptOf<T>,
-		) -> DispatchResult
-		where
-			<T as frame_system::Config>::AccountId: From<[u8; 32]>,
-		{
+			receipt: DeliveryReceipt,
+		) -> DispatchResult {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == receipt.gateway, Error::<T>::InvalidGateway);
 

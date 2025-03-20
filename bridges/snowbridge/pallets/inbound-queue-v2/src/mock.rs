@@ -27,7 +27,6 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>},
 		InboundQueue: inbound_queue_v2::{Pallet, Call, Storage, Event<T>},
 	}
 );
@@ -85,13 +84,6 @@ parameter_types! {
 	};
 }
 
-impl snowbridge_pallet_ethereum_client::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type ForkVersions = ChainForkVersions;
-	type FreeHeadersInterval = ConstU32<32>;
-	type WeightInfo = ();
-}
-
 // Mock verifier
 pub struct MockVerifier;
 
@@ -107,7 +99,7 @@ impl Verifier for MockVerifier {
 const GATEWAY_ADDRESS: [u8; 20] = hex!["b1185ede04202fe62d38f5db72f71e38ff3e8305"];
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
+impl<T: Config> BenchmarkHelper<T> for Test {
 	// not implemented since the MockVerifier is used for tests
 	fn initialize_storage(_: BeaconHeader, _: H256) {}
 }

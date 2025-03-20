@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
+use crate::fixture::make_submit_delivery_proof_message;
 use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::{traits::Hooks, BoundedVec};
+use frame_system::RawOrigin;
 use snowbridge_outbound_queue_primitives::v2::{Command, Initializer, Message};
 use sp_core::{H160, H256};
 
@@ -18,6 +20,7 @@ use crate::Pallet as OutboundQueue;
 )]
 mod benchmarks {
 	use super::*;
+	use frame_support::assert_ok;
 
 	/// Build `Upgrade` message with `MaxMessagePayloadSize`, in the worst-case.
 	fn build_message<T: Config>() -> (Message, OutboundMessage) {
@@ -142,6 +145,34 @@ mod benchmarks {
 				OutboundQueue::<T>::do_process_message(origin, &message).unwrap();
 			}
 			OutboundQueue::<T>::commit();
+		}
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn submit_delivery_receipt() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+
+		let message = make_submit_delivery_proof_message();
+
+		T::Helper::initialize_storage(message.finalized_header, message.block_roots_root);
+
+		let receipt = DeliveryReceipt::try_from(&message.event.event_log).unwrap();
+
+		let order = PendingOrder {
+			nonce: receipt.nonce,
+			fee: 0,
+			block_number: frame_system::Pallet::<T>::current_block_number(),
+		};
+		<PendingOrders<T>>::insert(receipt.nonce, order);
+
+		#[block]
+		{
+			assert_ok!(OutboundQueue::<T>::submit_delivery_receipt(
+				RawOrigin::Signed(caller.clone()).into(),
+				Box::new(message.event),
+			));
 		}
 
 		Ok(())

@@ -9,7 +9,7 @@ use snowbridge_beacon_primitives::{
 	types::deneb, AncestryProof, BeaconHeader, ExecutionProof, NextSyncCommitteeUpdate,
 	SyncAggregate, SyncCommittee, VersionedExecutionPayloadHeader,
 };
-use snowbridge_inbound_queue_primitives::{EventProof, InboundQueueFixture, Log, Proof};
+use snowbridge_inbound_queue_primitives::{EventFixture, EventProof, Log, Proof};
 use sp_core::U256;
 use sp_std::{boxed::Box, vec};
 
@@ -1225,8 +1225,8 @@ pub fn make_execution_proof() -> Box<ExecutionProof> {
     })
 }
 
-pub fn make_inbound_fixture() -> InboundQueueFixture {
-	InboundQueueFixture {
+pub fn make_inbound_fixture() -> EventFixture {
+	EventFixture {
         event: EventProof {
             event_log: 	Log {
                 address: hex!("eda338e4dc46038493b885327842fd3e301cab39").into(),
