@@ -12,7 +12,7 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 [![StackExchange](https://img.shields.io/badge/StackExchange-Community%20&%20Support-222222?logo=stackexchange)](https://substrate.stackexchange.com/)&nbsp;&nbsp;![GitHub contributors](https://img.shields.io/github/contributors/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub commit activity](https://img.shields.io/github/commit-activity/m/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub last commit](https://img.shields.io/github/last-commit/paritytech/polkadot-sdk)
 
 > The Polkadot SDK repository provides all the components needed to start building on the
-> [Polkadot](https://polkadot.network) network, a multi-chain blockchain platform that enables
+> [Polkadot](https://polkadot.com/) network, a multi-chain blockchain platform that enables
 > different blockchains to interoperate and share information in a secure and scalable way.
 
 </div>
