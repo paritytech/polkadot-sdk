@@ -8,4 +8,4 @@ doc:
 
 crates:
   - name: sc-rpc-spec-v2
-    bump: patch
+    bump: major
