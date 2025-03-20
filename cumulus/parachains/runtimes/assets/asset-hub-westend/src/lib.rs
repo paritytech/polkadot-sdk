@@ -2184,7 +2184,7 @@ impl_runtime_apis! {
 							.map_err(|_| BenchmarkError::Stop("Failed to create pool!"))?;
 						AssetConversion::add_liquidity(
 							origin.clone(),
-							native_asset_location.clone().into(),
+							native_asset_location.into(),
 							asset_location.clone().into(),
 							1_000 * UNITS,
 							2_000 * UNITS,
