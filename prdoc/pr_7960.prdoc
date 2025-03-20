@@ -1,0 +1,22 @@
+title: Stabilize pallet view functions
+doc:
+- audience: Runtime Dev
+  description: |-
+    Pallet view functions are no longer marked as experimental, and their use is suggested starting from this PR.
+
+    Your feedback is more than welcome.
+
+    See [docs](https://paritytech.github.io/polkadot-sdk/master/frame_support/pallet_macros/attr.view_functions_experimental.html) for a quick introduction. For more context, you can look at:
+
+    - #4722
+    - #7412
+    - #7830 : discussion on possible changes to pallet view functions
+crates:
+- name: pallet-example-view-functions
+  bump: patch
+- name: pallet-proxy
+  bump: patch
+- name: frame-support-procedural
+  bump: patch
+- name: frame-support
+  bump: patch
