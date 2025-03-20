@@ -2197,7 +2197,7 @@ impl_runtime_apis! {
 						)
 						.map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
 
-						give_assets.push((AssetId(native_asset_location.clone()), 1_000 * UNITS).into());
+						give_assets.push((native_asset_id.clone(), 1_000 * UNITS).into());
 						receive_assets.push((asset_id, 2_000 * UNITS).into());
 					}
 
