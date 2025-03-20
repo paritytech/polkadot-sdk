@@ -224,12 +224,9 @@ mod enter {
 	}
 
 	#[rstest]
-	#[case(true, true)]
-	#[case(false, true)]
-	fn include_backed_candidates_elastic_scaling(
-		#[case] v2_descriptor: bool,
-		#[case] injected_core: bool,
-	) {
+	#[case(true)]
+	#[case(false)]
+	fn include_backed_candidates_elastic_scaling(#[case] v2_descriptor: bool) {
 		// ParaId 0 has one pending candidate on core 0.
 		// ParaId 1 has one pending candidate on core 1.
 		// ParaId 2 has three pending candidates on cores 2, 3 and 4.
@@ -242,7 +239,7 @@ mod enter {
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::ElasticScalingMVP as u8,
-				injected_core,
+				true,
 			)
 			.unwrap();
 
@@ -4073,7 +4070,6 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled,
 						false,
 					),
 					expected_backed_candidates_with_core,
@@ -4103,7 +4099,6 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled,
 						v2_descriptor,
 					),
 					expected_backed_candidates_with_core,
@@ -4128,7 +4123,6 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled,
 						false,
 					),
 					expected_backed_candidates_with_core
@@ -4161,7 +4155,6 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled,
 						false,
 					),
 					expected_backed_candidates_with_core
@@ -4202,7 +4195,6 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
-					core_index_enabled,
 					false,
 				);
 
@@ -4273,7 +4265,6 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
-					core_index_enabled,
 					false,
 				);
 
@@ -4317,7 +4308,6 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
-					core_index_enabled,
 					false,
 				);
 
@@ -4354,7 +4344,6 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					set,
 					scheduled,
-					core_index_enabled,
 					false,
 				);
 
@@ -4398,7 +4387,6 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
-					core_index_enabled,
 					v2_descriptor,
 				);
 
@@ -4435,7 +4423,6 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
-					core_index_enabled,
 					v2_descriptor,
 				);
 
@@ -4468,7 +4455,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedRelayParents::<Test>::get(),
-					core_index_enabled,
 				);
 				assert_eq!(expected_backed_candidates_with_core, before);
 			});
@@ -4536,7 +4522,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedRelayParents::<Test>::get(),
-					core_index_enabled,
 				);
 				assert_eq!(before.len(), expected_backed_candidates_with_core.len());
 
@@ -4624,7 +4609,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedRelayParents::<Test>::get(),
-					core_index_enabled,
 				);
 
 				assert_eq!(expected_backed_candidates_with_core.len(), 1);
@@ -4656,7 +4640,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedRelayParents::<Test>::get(),
-					true,
 				);
 
 				untouched.get_mut(&ParaId::from(1)).unwrap().remove(1);
@@ -4678,7 +4661,6 @@ mod sanitizers {
 					filter_backed_statements_from_disabled_validators::<Test>(
 						&mut expected_backed_candidates_with_core,
 						&shared::AllowedRelayParents::<Test>::get(),
-						true,
 					);
 
 					untouched.remove(&ParaId::from(1)).unwrap();
