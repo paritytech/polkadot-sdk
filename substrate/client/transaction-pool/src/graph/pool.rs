@@ -305,7 +305,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		at: &HashAndNumber<B::Block>,
 		parent: <B::Block as BlockT>::Hash,
 		extrinsics: &[RawExtrinsicFor<B>],
-		inactive_views_txs_to_tags: Arc<HashMap<ExtrinsicHash<B>, Option<Vec<Tag>>>>,
+		inactive_views_xts_to_tags: Arc<HashMap<ExtrinsicHash<B>, Option<Vec<Tag>>>>,
 	) {
 		log::debug!(
 			target: LOG_TARGET,

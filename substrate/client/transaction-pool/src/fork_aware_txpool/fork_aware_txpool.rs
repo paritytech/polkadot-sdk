@@ -1419,7 +1419,7 @@ where
 
 		// Create a map from (retracted blocks + common block)'s extrinsics to their `provides`
 		// tags.
-		let inactive_views_txs_to_tags = Arc::new(
+		let inactive_views_xts_to_tags = Arc::new(
 			future::join_all(
 				tree_route
 					.retracted()
@@ -1430,7 +1430,7 @@ where
 						async move {
 							// Fetch extrinsics.
 							let view = self.view_store.get_view_at(hn.hash, true);
-							let txs = api
+							let xts = api
 								.block_body(hn.hash)
 								.await
 								.unwrap_or_else(|e| {
@@ -1439,13 +1439,13 @@ where
 								})
 								.unwrap_or_default();
 
-							let txs_hashes = txs
+							let xts_hashes = xts
 								.iter()
-								.filter_map(|tx| {
-									view.as_ref().map(|(inner, _)| inner.pool.hash_of(tx))
+								.filter_map(|xts| {
+									view.as_ref().map(|(inner, _)| inner.pool.hash_of(xts))
 								})
 								.collect::<Vec<_>>();
-							let txs_provides_tags = view
+							let xts_provides_tags = view
 								.map(|(inner, _)| {
 									inner.pool.validated_pool().extrinsics_tags(&xts_hashes)
 								})
@@ -1464,13 +1464,22 @@ where
 			.collect::<HashMap<ExtrinsicHash<ChainApi>, Option<Vec<Tag>>>>(),
 		);
 
-        info!(target: LOG_TARGET, "update_view_with_fork: txs to tags map: {}", xts_to_tags.len())
+		info!(target: LOG_TARGET, "update_view_with_fork: txs to tags map: {}", inactive_views_xts_to_tags.len());
 
 		future::join_all(tree_route.enacted().iter().map(|hn| {
 			let api = api.clone();
-			let inactive_views_txs_to_tags = txs_to_tags.clone();
+			let inactive_views_xts_to_tags = inactive_views_xts_to_tags.clone();
 			async move {
-				(hn, crate::prune_known_txs_for_block(hn, &*api, &view.pool, inactive_views_xts_to_tags).await)
+				(
+					hn,
+					crate::prune_known_txs_for_block(
+						hn,
+						&*api,
+						&view.pool,
+						inactive_views_xts_to_tags,
+					)
+					.await,
+				)
 			}
 		}))
 		.await
