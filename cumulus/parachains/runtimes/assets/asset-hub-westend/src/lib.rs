@@ -1419,10 +1419,11 @@ impl
 		let lp_provider = account.clone();
 		use frame_support::traits::Currency;
 		let _ = Balances::deposit_creating(&lp_provider, u64::MAX.into());
-		assert_ok!(
-			ForeignAssets::mint_into(asset_id.clone().into(), &lp_provider, u64::MAX.into()),
-			"Failed to mint foreign assets"
-		);
+		assert_ok!(ForeignAssets::mint_into(
+			asset_id.clone().into(),
+			&lp_provider,
+			u64::MAX.into()
+		));
 
 		let token_native = alloc::boxed::Box::new(cumulus_primitives_core::Location::new(
 			1,
@@ -1435,9 +1436,7 @@ impl
 				RuntimeOrigin::signed(lp_provider.clone()),
 				token_native.clone(),
 				token_second.clone()
-			),
-			"Failed to create pool"
-		);
+		));
 
 		assert_ok!(
 			AssetConversion::add_liquidity(
@@ -1449,9 +1448,7 @@ impl
 				1,                     // 1 min
 				1,                     // 2 min
 				lp_provider,
-			),
-			"Failed to add liquidity"
-		);
+		));
 	}
 }
 
