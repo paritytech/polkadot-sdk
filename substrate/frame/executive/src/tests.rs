@@ -24,7 +24,7 @@ use sp_core::H256;
 use sp_runtime::{
 	generic::{DigestItem, Era},
 	testing::{Block, Digest, Header},
-	traits::{Block as BlockT, Header as HeaderT, TransactionExtension},
+	traits::{Block as BlockT, Header as HeaderT, LazyExtrinsic, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidityError, UnknownTransaction, ValidTransaction,
 	},
@@ -32,7 +32,7 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	assert_err, assert_ok, derive_impl,
+	assert_err, derive_impl,
 	migrations::MultiStepMigrator,
 	pallet_prelude::*,
 	parameter_types,
@@ -591,7 +591,7 @@ fn balance_transfer_dispatch_works() {
 		.assimilate_storage(&mut t)
 		.unwrap();
 	let xt = UncheckedXt::new_signed(call_transfer(2, 69), 1, 1.into(), tx_ext(0, 0));
-	let weight = xt.get_dispatch_info().total_weight() +
+	let weight = xt.clone().expect_as_full().get_dispatch_info().total_weight() +
 		<Runtime as frame_system::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
@@ -794,8 +794,8 @@ fn block_weight_and_size_is_stored_per_tx() {
 		1.into(),
 		tx_ext(2, 0),
 	);
-	let len = xt.clone().encode().len() as u32;
-	let extension_weight = xt.extension_weight();
+	let len = xt.encode().len() as u32;
+	let extension_weight = xt.clone().expect_as_full().extension_weight();
 	let transfer_weight = <<Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_allow_death();
 	let mut t = new_test_ext(2);
 	t.execute_with(|| {
@@ -1296,7 +1296,7 @@ fn try_execute_block_works() {
 /// Same as `extrinsic_while_exts_forbidden_errors` but using the try-runtime function.
 #[test]
 #[cfg(feature = "try-runtime")]
-#[should_panic = "Only inherents allowed"]
+#[should_panic = "Only inherents are allowed in this block"]
 fn try_execute_tx_forbidden_errors() {
 	let xt1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
 	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
@@ -1320,68 +1320,6 @@ fn try_execute_tx_forbidden_errors() {
 			frame_try_runtime::TryStateSelect::All,
 		)
 		.unwrap();
-	});
-}
-
-/// Check that `ensure_inherents_are_first` reports the correct indices.
-#[test]
-fn ensure_inherents_are_first_works() {
-	let in1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
-	let in2 = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
-	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
-
-	// Mocked empty header:
-	let header = new_test_ext(1).execute_with(|| {
-		Executive::initialize_block(&Header::new_from_number(1));
-		Executive::finalize_block()
-	});
-
-	new_test_ext(1).execute_with(|| {
-		assert_ok!(Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![]),), 0);
-		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![xt2.clone()]),),
-			0
-		);
-		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(header.clone(), vec![in1.clone()])),
-			1
-		);
-		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![in1.clone(), xt2.clone()]
-			),),
-			1
-		);
-		assert_ok!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![in2.clone(), in1.clone(), xt2.clone()]
-			),),
-			2
-		);
-
-		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), in1.clone()]
-			),),
-			Err(1)
-		);
-		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), xt2.clone(), in1.clone()]
-			),),
-			Err(2)
-		);
-		assert_eq!(
-			Runtime::ensure_inherents_are_first(&Block::new(
-				header.clone(),
-				vec![xt2.clone(), xt2.clone(), xt2.clone(), in2.clone()]
-			),),
-			Err(3)
-		);
 	});
 }
 
@@ -1438,7 +1376,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 			match header {
 				Err(e) => {
-					let err = e.downcast::<&str>().unwrap();
+					let err = e.downcast::<String>().unwrap();
 					assert_eq!(*err, "Only inherents are allowed in this block");
 					assert!(
 						MbmActive::get() && n_tx > 0,
@@ -1538,14 +1476,17 @@ fn post_inherent_called_after_all_optional_inherents() {
 
 #[test]
 fn is_inherent_works() {
-	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
-	assert!(Runtime::is_inherent(&ext));
-	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::optional_inherent {}));
-	assert!(Runtime::is_inherent(&ext));
+	let mut ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
+	assert!(Runtime::is_inherent(&ext.expect_as_full()));
+	let mut ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::optional_inherent {}));
+	assert!(Runtime::is_inherent(&ext.expect_as_full()));
 
-	let ext = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
-	assert!(!Runtime::is_inherent(&ext));
+	let mut ext = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
+	assert!(!Runtime::is_inherent(&ext.expect_as_full()));
 
-	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::allowed_unsigned {}));
-	assert!(!Runtime::is_inherent(&ext), "Unsigned ext are not automatically inherents");
+	let mut ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::allowed_unsigned {}));
+	assert!(
+		!Runtime::is_inherent(&ext.expect_as_full()),
+		"Unsigned ext are not automatically inherents"
+	);
 }

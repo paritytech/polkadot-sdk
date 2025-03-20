@@ -53,7 +53,7 @@ use sp_core::{
 use sp_npos_elections::EvaluateSupport;
 use sp_runtime::{
 	bounded_vec,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup, LazyExtrinsic},
 	BuildStorage, PerU16, Perbill,
 };
 pub use staking::*;
@@ -625,8 +625,12 @@ pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>
 				.clone()
 				.into_iter()
 				.map(|uxt| <Extrinsic as codec::Decode>::decode(&mut &*uxt).unwrap())
-				.for_each(|xt| {
-					xt.function.dispatch(frame_system::RawOrigin::None.into()).unwrap();
+				.for_each(|mut xt| {
+					xt.expect_as_full()
+						.call
+						.clone()
+						.dispatch(frame_system::RawOrigin::None.into())
+						.unwrap();
 				});
 			pool.try_write().unwrap().transactions.clear();
 		}

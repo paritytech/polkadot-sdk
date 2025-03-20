@@ -1620,12 +1620,13 @@ mod base_miner {
 
 #[cfg(test)]
 mod offchain_worker_miner {
-	use crate::{verifier::Verifier, CommonError};
-	use frame_support::traits::Hooks;
-	use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
-
 	use super::*;
-	use crate::mock::*;
+	use crate::{mock::*, verifier::Verifier, CommonError};
+	use frame_support::traits::Hooks;
+	use sp_runtime::{
+		offchain::storage_lock::{BlockAndTime, StorageLock},
+		traits::LazyExtrinsic,
+	};
 
 	#[test]
 	fn lock_prevents_frequent_execution() {
@@ -1751,11 +1752,11 @@ mod offchain_worker_miner {
 			// OCW must have submitted now
 
 			let encoded = pool.read().transactions[0].clone();
-			let extrinsic: Extrinsic = codec::Decode::decode(&mut &*encoded).unwrap();
-			let call = extrinsic.function;
+			let mut extrinsic: Extrinsic = codec::Decode::decode(&mut &*encoded).unwrap();
+			let call = extrinsic.expect_as_full().call;
 			assert!(matches!(
 				call,
-				crate::mock::RuntimeCall::UnsignedPallet(
+				&crate::mock::RuntimeCall::UnsignedPallet(
 					crate::unsigned::Call::submit_unsigned { .. }
 				)
 			));

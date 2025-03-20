@@ -1327,6 +1327,8 @@ pub trait Block:
 	fn header(&self) -> &Self::Header;
 	/// Returns a reference to the list of extrinsics.
 	fn extrinsics(&self) -> &[Self::Extrinsic];
+	/// Returns a mutable reference to the list of extrinsics.
+	fn extrinsics_mut(&mut self) -> &mut [Self::Extrinsic];
 	/// Split the block into header and list of extrinsics.
 	fn deconstruct(self) -> (Self::Header, Vec<Self::Extrinsic>);
 	/// Creates new block from header and extrinsics.
@@ -1399,6 +1401,40 @@ where
 
 	fn is_bare(&self) -> bool {
 		<Self as Extrinsic>::is_bare(&self)
+	}
+}
+
+/// An extrinsic on which we can get access to the call.
+pub trait BaseExtrinsicCall: ExtrinsicLike {
+	/// The type of the call.
+	type Call;
+}
+
+/// An extrinsic on which we can get access to call.
+pub trait ExtrinsicCall: BaseExtrinsicCall {
+	/// Get the call of the extrinsic.
+	fn call(&self) -> &Self::Call;
+}
+
+/// An extrinsic that will be lazily decoded.
+pub trait LazyExtrinsic<'a>: ExtrinsicLike + BaseExtrinsicCall {
+	/// A structure similar to this one, but with all the fields referencing decoded values.
+	type FullExtrinsicRef: ExtrinsicLike + ExtrinsicCall;
+
+	/// Get the call of the extrinsic. Decode on the spot if needed.
+	fn try_get_or_decode_call(&mut self) -> Result<&Self::Call, codec::Error>;
+
+	/// Tries to return a similar structure, but with all the fields referencing decoded values.
+	fn try_as_full(&'a mut self) -> Result<Self::FullExtrinsicRef, codec::Error>;
+
+	/// Tries to return a similar structure, but with all the fields referencing decoded values.
+	///
+	/// In case of an error it panics.
+	fn expect_as_full(&'a mut self) -> Self::FullExtrinsicRef
+	where
+		Self: Sized,
+	{
+		self.try_as_full().expect("Error while lazy decoding extrinsic")
 	}
 }
 
@@ -1569,7 +1605,7 @@ impl Dispatchable for () {
 }
 
 /// Dispatchable impl containing an arbitrary value which panics if it actually is dispatched.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
 pub struct FakeDispatchable<Inner>(pub Inner);
 impl<Inner> From<Inner> for FakeDispatchable<Inner> {
 	fn from(inner: Inner) -> Self {

@@ -20,8 +20,9 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, transaction_extension::TransactionExtension, Checkable, Dispatchable, ExtrinsicLike,
-		ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
+		self, transaction_extension::TransactionExtension, BaseExtrinsicCall, Checkable,
+		Dispatchable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount,
+		LazyExtrinsic, MaybeDisplay, Member, SignaturePayload,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -29,7 +30,10 @@ use crate::{
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
-use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Error, Input};
+use codec::{
+	Compact, CountedInput, Decode, DecodeWithMemLimit, DecodeWithMemTracking, Encode, EncodeLike,
+	Input,
+};
 use core::fmt;
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;
@@ -58,6 +62,9 @@ pub const LEGACY_EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 4;
 /// This version needs to be bumped if there are breaking changes to the extension used in the
 /// [UncheckedExtrinsic] implementation.
 const EXTENSION_VERSION: ExtensionVersion = 0;
+
+/// Maximum heap size for a runtime call (in bytes).
+pub const MAX_CALL_HEAP_SIZE: usize = 8 * 1024 * 1024; // 8 MiB
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
 pub type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
@@ -102,7 +109,7 @@ where
 	Signature: Decode,
 	Extension: Decode,
 {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let version_and_type = input.read_byte()?;
 
 		let version = version_and_type & VERSION_MASK;
@@ -197,6 +204,69 @@ where
 	}
 }
 
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum LazyCall<T, const MAX_HEAP_SIZE: usize> {
+	Encoded(Vec<u8>),
+	Decoded(T),
+}
+
+impl<T: DecodeWithMemLimit, const MAX_HEAP_SIZE: usize> LazyCall<T, MAX_HEAP_SIZE> {
+	fn from_call(call: T) -> Self {
+		Self::Decoded(call)
+	}
+
+	fn try_from_input<I: Input>(input: &mut I, len: u32) -> Result<Self, codec::Error> {
+		let mut bytes = vec![0u8; len as usize];
+		input.read(&mut bytes[..])?;
+		Ok(Self::Encoded(bytes))
+	}
+
+	/// Tries to get the decoded value as a reference.
+	///
+	/// If the value is not decoded yet, it will be decoded on the spot and cached.
+	pub fn try_get_or_decode(&mut self) -> Result<&T, codec::Error> {
+		if let LazyCall::Encoded(bytes) = self {
+			let call = T::decode_with_mem_limit(&mut &bytes[..], MAX_HEAP_SIZE)?;
+			*self = Self::Decoded(call);
+		}
+
+		Ok(match self {
+			LazyCall::Encoded(_) => unreachable!(),
+			LazyCall::Decoded(call) => call,
+		})
+	}
+
+	/// Takes `self` and tries to convert it into a decoded value.
+	pub fn try_into_decoded(mut self) -> Result<T, codec::Error> {
+		let _ = self.try_get_or_decode()?;
+		Ok(match self {
+			LazyCall::Encoded(_) => unreachable!(),
+			LazyCall::Decoded(call) => call,
+		})
+	}
+}
+
+impl<T: Clone + DecodeWithMemLimit, const MAX_HEAP_SIZE: usize> LazyCall<T, MAX_HEAP_SIZE> {
+	/// Tries to return the decoded value as an owned object.
+	///
+	/// This method doesn't cache the decoded value.
+	pub fn try_decode(&self) -> Result<T, codec::Error> {
+		Ok(match self {
+			LazyCall::Encoded(bytes) => T::decode_with_mem_limit(&mut &bytes[..], MAX_HEAP_SIZE)?,
+			LazyCall::Decoded(call) => call.clone(),
+		})
+	}
+}
+
+impl<T: Encode, const MAX_HEAP_SIZE: usize> Encode for LazyCall<T, MAX_HEAP_SIZE> {
+	fn encode(&self) -> Vec<u8> {
+		match self {
+			LazyCall::Encoded(bytes) => bytes.to_vec(),
+			LazyCall::Decoded(val) => val.encode(),
+		}
+	}
+}
+
 /// An extrinsic right from the external world. This is unchecked and so can contain a signature.
 ///
 /// An extrinsic is formally described as any external data that is originating from the outside of
@@ -230,8 +300,11 @@ pub struct UncheckedExtrinsic<Address, Call, Signature, Extension> {
 	/// Information regarding the type of extrinsic this is (inherent or transaction) as well as
 	/// associated extension (`Extension`) data if it's a transaction and a possible signature.
 	pub preamble: Preamble<Address, Signature, Extension>,
-	/// The function that should be called.
-	pub function: Call,
+	/// The function that should be called. It is initially stored in the form that it is provided
+	/// (encoded/decoded) and if needed it will be decoded (and probably also cached)
+	/// the first time it is accessed.
+	#[codec(skip)]
+	pub call: LazyCall<Call, MAX_CALL_HEAP_SIZE>,
 }
 
 /// Manual [`TypeInfo`] implementation because of custom encoding. The data is a valid encoded
@@ -268,7 +341,9 @@ where
 	}
 }
 
-impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Signature, Extension> {
+impl<Address, Call: DecodeWithMemTracking, Signature, Extension>
+	UncheckedExtrinsic<Address, Call, Signature, Extension>
+{
 	/// New instance of a bare (ne unsigned) extrinsic. This could be used for an inherent or an
 	/// old-school "unsigned transaction" (which are new being deprecated in favour of general
 	/// transactions).
@@ -290,17 +365,17 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 
 	/// Create an `UncheckedExtrinsic` from a `Preamble` and the actual `Call`.
 	pub fn from_parts(function: Call, preamble: Preamble<Address, Signature, Extension>) -> Self {
-		Self { preamble, function }
+		Self { preamble, call: LazyCall::from_call(function) }
 	}
 
 	/// New instance of a bare (ne unsigned) extrinsic.
 	pub fn new_bare(function: Call) -> Self {
-		Self { preamble: Preamble::Bare(EXTRINSIC_FORMAT_VERSION), function }
+		Self::from_parts(function, Preamble::Bare(EXTRINSIC_FORMAT_VERSION))
 	}
 
 	/// New instance of a bare (ne unsigned) extrinsic on extrinsic format version 4.
 	pub fn new_bare_legacy(function: Call) -> Self {
-		Self { preamble: Preamble::Bare(LEGACY_EXTRINSIC_FORMAT_VERSION), function }
+		Self::from_parts(function, Preamble::Bare(LEGACY_EXTRINSIC_FORMAT_VERSION))
 	}
 
 	/// New instance of an old-school signed transaction on extrinsic format version 4.
@@ -310,25 +385,41 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 		signature: Signature,
 		tx_ext: Extension,
 	) -> Self {
-		Self { preamble: Preamble::Signed(signed, signature, tx_ext), function }
+		Self::from_parts(function, Preamble::Signed(signed, signature, tx_ext))
 	}
 
 	/// New instance of an new-school unsigned transaction.
 	pub fn new_transaction(function: Call, tx_ext: Extension) -> Self {
-		Self { preamble: Preamble::General(EXTENSION_VERSION, tx_ext), function }
+		Self::from_parts(function, Preamble::General(EXTENSION_VERSION, tx_ext))
 	}
 }
 
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> ExtrinsicLike
+impl<Address, Call: Encode, Signature, Extension>
+	UncheckedExtrinsic<Address, Call, Signature, Extension>
+{
+	/// Replaces the call with an encoded instance of itself if needed.
+	pub fn with_encoded_call(mut self) -> Self {
+		self.call = LazyCall::Encoded(self.call.encode());
+		self
+	}
+}
+
+impl<Address, Call, Signature, Extension> ExtrinsicLike
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
-	fn is_bare(&self) -> bool {
-		matches!(self.preamble, Preamble::Bare(_))
-	}
-
 	fn is_signed(&self) -> Option<bool> {
 		Some(matches!(self.preamble, Preamble::Signed(..)))
 	}
+
+	fn is_bare(&self) -> bool {
+		matches!(self.preamble, Preamble::Bare(_))
+	}
+}
+
+impl<Address, Call, Signature, Extra> BaseExtrinsicCall
+	for UncheckedExtrinsic<Address, Call, Signature, Extra>
+{
+	type Call = Call;
 }
 
 // TODO: Migrate existing extension pipelines to support current `Signed` transactions as `General`
@@ -339,7 +430,7 @@ impl<LookupSource, AccountId, Call, Signature, Extension, Lookup> Checkable<Look
 	for UncheckedExtrinsic<LookupSource, Call, Signature, Extension>
 where
 	LookupSource: Member + MaybeDisplay,
-	Call: Encode + Member + Dispatchable,
+	Call: Encode + DecodeWithMemTracking + Member + Dispatchable,
 	Signature: Member + traits::Verify,
 	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountId>,
 	Extension: Encode + TransactionExtension<Call>,
@@ -349,11 +440,16 @@ where
 	type Checked = CheckedExtrinsic<AccountId, Call, Extension>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
-		Ok(match self.preamble {
+		let preamble = self.preamble;
+		let function = self
+			.call
+			.try_into_decoded()
+			.map_err(|_| InvalidTransaction::UnableToDecodeCall)?;
+		Ok(match preamble {
 			Preamble::Signed(signed, signature, tx_ext) => {
 				let signed = lookup.lookup(signed)?;
 				// The `Implicit` is "implicitly" included in the payload.
-				let raw_payload = SignedPayload::new(self.function, tx_ext)?;
+				let raw_payload = SignedPayload::new(function, tx_ext)?;
 				if !raw_payload.using_encoded(|payload| signature.verify(payload, &signed)) {
 					return Err(InvalidTransaction::BadProof.into())
 				}
@@ -362,10 +458,9 @@ where
 			},
 			Preamble::General(extension_version, tx_ext) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(extension_version, tx_ext),
-				function: self.function,
+				function,
 			},
-			Preamble::Bare(_) =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare(_) => CheckedExtrinsic { format: ExtrinsicFormat::Bare, function },
 		})
 	}
 
@@ -374,20 +469,21 @@ where
 		self,
 		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
-		Ok(match self.preamble {
+		let preamble = self.preamble;
+		let function = self
+			.call
+			.try_into_decoded()
+			.map_err(|_| InvalidTransaction::UnableToDecodeCall)?;
+		Ok(match preamble {
 			Preamble::Signed(signed, _, tx_ext) => {
 				let signed = lookup.lookup(signed)?;
-				CheckedExtrinsic {
-					format: ExtrinsicFormat::Signed(signed, tx_ext),
-					function: self.function,
-				}
+				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, tx_ext), function }
 			},
 			Preamble::General(extension_version, tx_ext) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(extension_version, tx_ext),
-				function: self.function,
+				function,
 			},
-			Preamble::Bare(_) =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare(_) => CheckedExtrinsic { format: ExtrinsicFormat::Bare, function },
 		})
 	}
 }
@@ -399,48 +495,27 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	type TransactionExtensions = Extension;
 }
 
-impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
-	UncheckedExtrinsic<Address, Call, Signature, Extension>
-{
-	/// Returns the weight of the extension of this transaction, if present. If the transaction
-	/// doesn't use any extension, the weight returned is equal to zero.
-	pub fn extension_weight(&self) -> Weight {
-		match &self.preamble {
-			Preamble::Bare(_) => Weight::zero(),
-			Preamble::Signed(_, _, ext) | Preamble::General(_, ext) => ext.weight(&self.function),
-		}
-	}
-}
-
 impl<Address, Call, Signature, Extension> Decode
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
 	Address: Decode,
 	Signature: Decode,
-	Call: Decode,
+	Call: DecodeWithMemTracking,
 	Extension: Decode,
 {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
 		// This is a little more complicated than usual since the binary format must be compatible
 		// with SCALE's generic `Vec<u8>` type. Basically this just means accepting that there
 		// will be a prefix of vector length.
 		let expected_length: Compact<u32> = Decode::decode(input)?;
-		let before_length = input.remaining_len()?;
+		let mut input = CountedInput::new(input);
 
-		let preamble = Decode::decode(input)?;
-		let function = Decode::decode(input)?;
+		let preamble = Decode::decode(&mut input)?;
 
-		if let Some((before_length, after_length)) =
-			input.remaining_len()?.and_then(|a| before_length.map(|b| (b, a)))
-		{
-			let length = before_length.saturating_sub(after_length);
+		let encoded_call_size = expected_length.0.saturating_sub(input.count() as u32);
+		let call = LazyCall::try_from_input(&mut input, encoded_call_size)?;
 
-			if length != expected_length.0 as usize {
-				return Err("Invalid length prefix".into())
-			}
-		}
-
-		Ok(Self { preamble, function })
+		Ok(Self { preamble, call })
 	}
 }
 
@@ -454,7 +529,7 @@ where
 {
 	fn encode(&self) -> Vec<u8> {
 		let mut tmp = self.preamble.encode();
-		self.function.encode_to(&mut tmp);
+		self.call.encode_to(&mut tmp);
 
 		let compact_len = codec::Compact::<u32>(tmp.len() as u32);
 
@@ -491,8 +566,8 @@ impl<Address: Encode, Signature: Encode, Call: Encode, Extension: Encode> serde:
 }
 
 #[cfg(feature = "serde")]
-impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extension: Decode> serde::Deserialize<'a>
-	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+impl<'a, Address: Decode, Signature: Decode, Call: DecodeWithMemTracking, Extension: Decode>
+	serde::Deserialize<'a> for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
 	where
@@ -501,6 +576,77 @@ impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extension: Decode> se
 		let r = sp_core::bytes::deserialize(de)?;
 		Self::decode(&mut &r[..])
 			.map_err(|e| serde::de::Error::custom(format!("Decode error: {}", e)))
+	}
+}
+
+impl<'a, Address, Call: DecodeWithMemTracking, Signature, Extension> LazyExtrinsic<'a>
+	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+where
+	Self: 'a,
+{
+	type FullExtrinsicRef = FullUncheckedExtrinsicRef<'a, Address, Call, Signature, Extension>;
+
+	fn try_get_or_decode_call(&mut self) -> Result<&Self::Call, codec::Error> {
+		self.call.try_get_or_decode()
+	}
+
+	fn try_as_full(&'a mut self) -> Result<Self::FullExtrinsicRef, codec::Error> {
+		Ok(FullUncheckedExtrinsicRef {
+			preamble: &self.preamble,
+			call: self.call.try_get_or_decode()?,
+		})
+	}
+}
+
+/// A shadow structure referencing the fields in an `UncheckedExtrinsic`.
+///
+/// While `UncheckedExtrinsic` can store the call either in an encoded or a decoded form,
+/// this structure will always reference the decoded call.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct FullUncheckedExtrinsicRef<'a, Address, Call, Signature, Extension> {
+	/// Information regarding the type of extrinsic this is (inherent or transaction) as well as
+	/// associated extension (`Extension`) data if it's a transaction and a possible signature.
+	pub preamble: &'a Preamble<Address, Signature, Extension>,
+	/// The function that should be called.
+	pub call: &'a Call,
+}
+
+impl<'a, Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
+	FullUncheckedExtrinsicRef<'a, Address, Call, Signature, Extension>
+{
+	/// Returns the weight of the extension of this transaction, if present. If the transaction
+	/// doesn't use any extension, the weight returned is equal to zero.
+	pub fn extension_weight(&self) -> Weight {
+		match &self.preamble {
+			Preamble::Bare(_) => Weight::zero(),
+			Preamble::Signed(_, _, ext) | Preamble::General(_, ext) => ext.weight(&self.call),
+		}
+	}
+}
+
+impl<'a, Address, Call, Signature, Extension> ExtrinsicLike
+	for FullUncheckedExtrinsicRef<'a, Address, Call, Signature, Extension>
+{
+	fn is_signed(&self) -> Option<bool> {
+		Some(matches!(self.preamble, Preamble::Signed(..)))
+	}
+
+	fn is_bare(&self) -> bool {
+		matches!(self.preamble, Preamble::Bare(_))
+	}
+}
+
+impl<'a, Address, Call, Signature, Extra> BaseExtrinsicCall
+	for FullUncheckedExtrinsicRef<'a, Address, Call, Signature, Extra>
+{
+	type Call = Call;
+}
+
+impl<'a, Address, Call, Signature, Extra> ExtrinsicCall
+	for FullUncheckedExtrinsicRef<'a, Address, Call, Signature, Extra>
+{
+	fn call(&self) -> &Call {
+		self.call
 	}
 }
 
@@ -771,9 +917,12 @@ mod tests {
 	#[test]
 	fn unsigned_codec_should_work() {
 		let call: TestCall = vec![0u8; 0].into();
-		let ux = Ex::new_bare(call);
+		let ux = Ex::new_bare(call.clone());
 		let encoded = ux.encode();
-		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
+		assert_eq!(
+			Ex::decode(&mut &encoded[..]).unwrap().try_as_full(),
+			Ok(FullUncheckedExtrinsicRef { preamble: &ux.preamble, call: &call })
+		);
 	}
 
 	#[test]
@@ -784,32 +933,41 @@ mod tests {
 		let length = Compact::<u32>::decode(&mut &encoded[..]).unwrap();
 		Compact(length.0 + 10).encode_to(&mut &mut encoded[..1]);
 
-		assert_eq!(Ex::decode(&mut &encoded[..]), Err("Invalid length prefix".into()));
+		assert_eq!(Ex::decode(&mut &encoded[..]), Err("Not enough data to fill buffer".into()));
 	}
 
 	#[test]
 	fn transaction_codec_should_work() {
-		let ux = Ex::new_transaction(vec![0u8; 0].into(), DummyExtension);
+		let call: TestCall = vec![0u8; 0].into();
+		let ux = Ex::new_transaction(call.clone(), DummyExtension);
 		let encoded = ux.encode();
-		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
+		assert_eq!(
+			Ex::decode(&mut &encoded[..]).unwrap().try_as_full(),
+			Ok(FullUncheckedExtrinsicRef { preamble: &ux.preamble, call: &call })
+		);
 	}
 
 	#[test]
 	fn signed_codec_should_work() {
+		let call: TestCall = vec![0u8; 0].into();
 		let ux = Ex::new_signed(
-			vec![0u8; 0].into(),
+			call.clone(),
 			TEST_ACCOUNT,
 			TestSig(TEST_ACCOUNT, (vec![0u8; 0], DummyExtension).encode()),
 			DummyExtension,
 		);
 		let encoded = ux.encode();
-		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
+		assert_eq!(
+			Ex::decode(&mut &encoded[..]).unwrap().try_as_full(),
+			Ok(FullUncheckedExtrinsicRef { preamble: &ux.preamble, call: &call })
+		);
 	}
 
 	#[test]
 	fn large_signed_codec_should_work() {
+		let call: TestCall = vec![0u8; 0].into();
 		let ux = Ex::new_signed(
-			vec![0u8; 0].into(),
+			call.clone(),
 			TEST_ACCOUNT,
 			TestSig(
 				TEST_ACCOUNT,
@@ -818,7 +976,10 @@ mod tests {
 			DummyExtension,
 		);
 		let encoded = ux.encode();
-		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
+		assert_eq!(
+			Ex::decode(&mut &encoded[..]).unwrap().try_as_full(),
+			Ok(FullUncheckedExtrinsicRef { preamble: &ux.preamble, call: &call })
+		);
 	}
 
 	#[test]
@@ -884,10 +1045,14 @@ mod tests {
 
 	#[test]
 	fn encoding_matches_vec() {
-		let ex = Ex::new_bare(vec![0u8; 0].into());
+		let call: TestCall = vec![0u8; 0].into();
+		let ex = Ex::new_bare(call.clone());
 		let encoded = ex.encode();
-		let decoded = Ex::decode(&mut encoded.as_slice()).unwrap();
-		assert_eq!(decoded, ex);
+		let mut decoded = Ex::decode(&mut encoded.as_slice()).unwrap();
+		assert_eq!(
+			decoded.try_as_full(),
+			Ok(FullUncheckedExtrinsicRef { preamble: &ex.preamble, call: &call })
+		);
 		let as_vec: Vec<u8> = Decode::decode(&mut encoded.as_slice()).unwrap();
 		assert_eq!(as_vec.encode(), encoded);
 	}
@@ -924,9 +1089,9 @@ mod tests {
 			);
 
 		let encoded_old_ux = old_ux.encode();
-		let decoded_old_ux = Ex::decode(&mut &encoded_old_ux[..]).unwrap();
+		let mut decoded_old_ux = Ex::decode(&mut &encoded_old_ux[..]).unwrap();
 
-		assert_eq!(decoded_old_ux.function, call);
+		assert_eq!(decoded_old_ux.expect_as_full().call, &call);
 		assert_eq!(
 			decoded_old_ux.preamble,
 			Preamble::Signed(signed, legacy_signature.clone(), extension.clone())
@@ -961,9 +1126,9 @@ mod tests {
 			);
 
 		let encoded_old_ux = old_ux.encode();
-		let decoded_old_ux = Ex::decode(&mut &encoded_old_ux[..]).unwrap();
+		let mut decoded_old_ux = Ex::decode(&mut &encoded_old_ux[..]).unwrap();
 
-		assert_eq!(decoded_old_ux.function, call);
+		assert_eq!(decoded_old_ux.expect_as_full().call, &call);
 		assert_eq!(
 			decoded_old_ux.preamble,
 			Preamble::Signed(signed, signature.clone(), extension.clone())
@@ -987,9 +1152,9 @@ mod tests {
 			);
 
 		let encoded_old_ux = old_ux.encode();
-		let decoded_old_ux = Ex::decode(&mut &encoded_old_ux[..]).unwrap();
+		let mut decoded_old_ux = Ex::decode(&mut &encoded_old_ux[..]).unwrap();
 
-		assert_eq!(decoded_old_ux.function, call);
+		assert_eq!(decoded_old_ux.expect_as_full().call, &call);
 		assert_eq!(decoded_old_ux.preamble, Preamble::Bare(LEGACY_EXTRINSIC_FORMAT_VERSION));
 
 		let new_legacy_ux = Ex::new_bare_legacy(call.clone());
@@ -997,12 +1162,37 @@ mod tests {
 
 		let new_ux = Ex::new_bare(call.clone());
 		let encoded_new_ux = new_ux.encode();
-		let decoded_new_ux = Ex::decode(&mut &encoded_new_ux[..]).unwrap();
-		assert_eq!(new_ux, decoded_new_ux);
+		let mut decoded_new_ux = Ex::decode(&mut &encoded_new_ux[..]).unwrap();
+		assert_eq!(
+			decoded_new_ux.try_as_full(),
+			Ok(FullUncheckedExtrinsicRef { preamble: &new_ux.preamble, call: &call })
+		);
 
 		let new_checked = new_ux.check(&IdentityLookup::<TestAccountId>::default()).unwrap();
 		let old_checked =
 			decoded_old_ux.check(&IdentityLookup::<TestAccountId>::default()).unwrap();
 		assert_eq!(new_checked, old_checked);
+	}
+
+	#[test]
+	fn max_call_heap_size_should_be_checked() {
+		// Should be able to decode an `UncheckedExtrinsic` that contains a call with
+		// heap size < `MAX_CALL_HEAP_SIZE`
+		let call: TestCall = vec![0u8; MAX_CALL_HEAP_SIZE - 1].into();
+		let ux = Ex::new_bare(call.clone());
+		let encoded = ux.encode();
+		assert_eq!(
+			Ex::decode(&mut &encoded[..]).unwrap().try_as_full(),
+			Ok(FullUncheckedExtrinsicRef { preamble: &ux.preamble, call: &call })
+		);
+
+		// Otherwise should fail
+		let ux = Ex::new_bare(vec![0u8; MAX_CALL_HEAP_SIZE].into());
+		let encoded = ux.encode();
+		assert_eq!(
+			Ex::decode(&mut &encoded[..]).unwrap().try_as_full(),
+			Err(codec::Error::from("Heap memory limit exceeded while decoding")
+				.chain("Could not decode `FakeDispatchable.0`"))
+		);
 	}
 }

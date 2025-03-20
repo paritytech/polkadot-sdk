@@ -230,13 +230,13 @@
 
 #[docify::export]
 pub mod call_data {
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use sp_runtime::{traits::Dispatchable, DispatchResultWithInfo};
 
 	// The outer enum composes calls within
 	// different pallets together. We have two
 	// pallets, "PalletA" and "PalletB".
-	#[derive(Encode, Decode, Clone)]
+	#[derive(Encode, Decode, DecodeWithMemTracking, Clone)]
 	pub enum Call {
 		#[codec(index = 0)]
 		PalletA(PalletACall),
@@ -247,13 +247,13 @@ pub mod call_data {
 	// An inner enum represents the calls within
 	// a specific pallet. "PalletA" has one call,
 	// "Foo".
-	#[derive(Encode, Decode, Clone)]
+	#[derive(Encode, Decode, DecodeWithMemTracking, Clone)]
 	pub enum PalletACall {
 		#[codec(index = 0)]
 		Foo(String),
 	}
 
-	#[derive(Encode, Decode, Clone)]
+	#[derive(Encode, Decode, DecodeWithMemTracking, Clone)]
 	pub enum PalletBCall {
 		#[codec(index = 0)]
 		Bar(String),

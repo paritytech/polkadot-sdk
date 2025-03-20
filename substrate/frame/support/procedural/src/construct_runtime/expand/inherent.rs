@@ -27,23 +27,28 @@ pub fn expand_outer_inherent(
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream,
 ) -> TokenStream {
+	let mut pallet_positions = Vec::new();
 	let mut pallet_names = Vec::new();
 	let mut pallet_attrs = Vec::new();
 	let mut query_inherent_part_macros = Vec::new();
 
-	for pallet_decl in pallet_decls {
-		if pallet_decl.exists_part("Inherent") {
-			let name = &pallet_decl.name;
-			let path = &pallet_decl.path;
-			let attr = pallet_decl.get_attributes();
+	for (pallet_pos, pallet_decl) in pallet_decls
+		.iter()
+		.filter(|pallet_decl| pallet_decl.exists_part("Inherent"))
+		.enumerate()
+	{
+		let name = &pallet_decl.name;
+		let path = &pallet_decl.path;
+		let attr = pallet_decl.get_attributes();
 
-			pallet_names.push(name);
-			pallet_attrs.push(attr);
-			query_inherent_part_macros.push(quote! {
-				#path::__substrate_inherent_check::is_inherent_part_defined!(#name);
-			});
-		}
+		pallet_positions.push(pallet_pos);
+		pallet_names.push(name);
+		pallet_attrs.push(attr);
+		query_inherent_part_macros.push(quote! {
+			#path::__substrate_inherent_check::is_inherent_part_defined!(#name);
+		});
 	}
+	let pallet_count = pallet_positions.len();
 
 	quote! {
 		#( #query_inherent_part_macros )*
@@ -51,7 +56,8 @@ pub fn expand_outer_inherent(
 		trait InherentDataExt {
 			fn create_extrinsics(&self) ->
 				#scrate::__private::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>;
-			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult;
+			fn expect_decode_and_check_extrinsics(&self, block: &mut #block) ->
+				#scrate::inherent::CheckInherentsResult;
 		}
 
 		impl InherentDataExt for #scrate::inherent::InherentData {
@@ -76,10 +82,12 @@ pub fn expand_outer_inherent(
 				inherents
 			}
 
-			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult {
+			fn expect_decode_and_check_extrinsics(&self, block: &mut #block) ->
+				#scrate::inherent::CheckInherentsResult
+			{
 				use #scrate::inherent::{ProvideInherent, IsFatalError};
-				use #scrate::traits::{IsSubType, ExtrinsicCall};
-				use #scrate::sp_runtime::traits::Block as _;
+				use #scrate::traits::IsSubType;
+				use #scrate::sp_runtime::traits::{Block as _, LazyExtrinsic};
 				use #scrate::__private::{sp_inherents::Error, log};
 
 				let mut result = #scrate::inherent::CheckInherentsResult::new();
@@ -110,22 +118,22 @@ pub fn expand_outer_inherent(
 					}
 				}
 
-				for xt in block.extrinsics() {
+				let mut pallet_has_inherent = #scrate::__private::vec![false; #pallet_count];
+				for xt in block.extrinsics_mut() {
 					// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
 					if !(#scrate::sp_runtime::traits::ExtrinsicLike::is_bare(xt)) {
 						break
 					}
 
-					let mut is_inherent = false;
-
+					let call = LazyExtrinsic::try_get_or_decode_call(xt)
+						.expect("Could not decode extrinsic call");
 					#(
 						#pallet_attrs
 						{
-							let call = <#unchecked_extrinsic as ExtrinsicCall>::call(xt);
 							if let Some(call) = IsSubType::<_>::is_sub_type(call) {
 								if #pallet_names::is_inherent(call) {
-									is_inherent = true;
+									pallet_has_inherent[#pallet_positions] = true;
 									if let Err(e) = #pallet_names::check_inherent(call, self) {
 										handle_put_error_result(result.put_error(
 											#pallet_names::INHERENT_IDENTIFIER, &e
@@ -134,41 +142,23 @@ pub fn expand_outer_inherent(
 											return result;
 										}
 									}
+									continue
 								}
 							}
 						}
 					)*
 
 					// Inherents are before any other extrinsics.
-					// No module marked it as inherent thus it is not.
-					if !is_inherent {
-						break
-					}
+					// No module marked it as inherent (it didn't reach a `continue` statement),
+					// thus it is not.
+					break
 				}
 
 				#(
 					#pallet_attrs
 					match #pallet_names::is_inherent_required(self) {
 						Ok(Some(e)) => {
-							let found = block.extrinsics().iter().any(|xt| {
-								let is_bare = #scrate::sp_runtime::traits::ExtrinsicLike::is_bare(xt);
-
-								if is_bare {
-									let call = <
-										#unchecked_extrinsic as ExtrinsicCall
-									>::call(xt);
-									if let Some(call) = IsSubType::<_>::is_sub_type(call) {
-										#pallet_names::is_inherent(&call)
-									} else {
-										false
-									}
-								} else {
-									// Signed extrinsics are not inherents.
-									false
-								}
-							});
-
-							if !found {
+							if !pallet_has_inherent[#pallet_positions] {
 								handle_put_error_result(result.put_error(
 									#pallet_names::INHERENT_IDENTIFIER, &e
 								));
@@ -194,7 +184,9 @@ pub fn expand_outer_inherent(
 		}
 
 		impl #scrate::traits::IsInherent<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic> for #runtime {
-			fn is_inherent(ext: &<#block as #scrate::sp_runtime::traits::Block>::Extrinsic) -> bool {
+			fn is_inherent(
+				ext: &<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic as #scrate::sp_runtime::traits::LazyExtrinsic>::FullExtrinsicRef
+			) -> bool {
 				use #scrate::inherent::ProvideInherent;
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 
@@ -204,10 +196,10 @@ pub fn expand_outer_inherent(
 					return false
 				}
 
+				let call = ExtrinsicCall::call(ext);
 				#(
 					#pallet_attrs
 					{
-						let call = <#unchecked_extrinsic as ExtrinsicCall>::call(ext);
 						if let Some(call) = IsSubType::<_>::is_sub_type(call) {
 							if <#pallet_names as ProvideInherent>::is_inherent(&call) {
 								return true;
@@ -216,28 +208,6 @@ pub fn expand_outer_inherent(
 					}
 				)*
 				false
-			}
-		}
-
-		impl #scrate::traits::EnsureInherentsAreFirst<#block> for #runtime {
-			fn ensure_inherents_are_first(block: &#block) -> Result<u32, u32> {
-				use #scrate::inherent::ProvideInherent;
-				use #scrate::traits::{IsSubType, ExtrinsicCall};
-				use #scrate::sp_runtime::traits::Block as _;
-
-				let mut num_inherents = 0u32;
-
-				for (i, xt) in block.extrinsics().iter().enumerate() {
-					if <Self as #scrate::traits::IsInherent<_>>::is_inherent(xt) {
-						if num_inherents != i as u32 {
-							return Err(i as u32);
-						}
-
-						num_inherents += 1; // Safe since we are in an `enumerate` loop.
-					}
-				}
-
-				Ok(num_inherents)
 			}
 		}
 	}
