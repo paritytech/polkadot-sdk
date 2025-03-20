@@ -76,10 +76,7 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 				)
 				.with_chain("asset-hub-westend-local")
 				.with_collator(|n| {
-					n.with_name("collator").validator(true).with_args(vec![
-						// ("--force-in-memory-trie-cache").into(),
-						("-linfo").into(),
-					])
+					n.with_name("collator").validator(true).with_args(vec![("-linfo").into()])
 				})
 		})
 		.build()
@@ -128,8 +125,6 @@ async fn setup_accounts(
 			.collect::<Result<Vec<_>, _>>()?;
 		submit_txs(txs).await?;
 	}
-	log::info!("Sleeping for 30 seconds to finalize the transfer");
-	tokio::time::sleep(std::time::Duration::from_secs(30)).await;
 
 	let alice_nonce = para_client.tx().account_nonce(&alice_account_id).await?;
 	let params = subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new()
@@ -137,9 +132,7 @@ async fn setup_accounts(
 		.build();
 	para_client
 		.tx()
-		.sign_and_submit_then_watch(&asset_hub_westend::tx().revive().map_account(), alice, params)
-		.await?
-		.wait_for_finalized_success()
+		.sign_and_submit(&asset_hub_westend::tx().revive().map_account(), alice, params)
 		.await?;
 
 	for chunk in keys.chunks(CHUNK_SIZE) {
@@ -157,8 +150,6 @@ async fn setup_accounts(
 			.collect::<Result<Vec<_>, _>>()?;
 		submit_txs(txs).await?;
 	}
-	log::info!("Sleeping for 30 seconds to finalize the mapping");
-	tokio::time::sleep(std::time::Duration::from_secs(30)).await;
 
 	Ok(())
 }
