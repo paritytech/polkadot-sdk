@@ -371,19 +371,16 @@ pub mod vrf {
 /// Bandersnatch Ring-VRF types and operations.
 pub mod ring_vrf {
 	use super::{vrf::*, *};
-	use bandersnatch::{RingContext as RingContextImpl, RingVerifierKey as RingVerifierKeyImpl};
+	use bandersnatch::{RingProofParams, RingVerifierKey as RingVerifierKeyImpl};
 	pub use bandersnatch::{RingProver, RingVerifier};
 
 	// Max size of serialized ring-vrf context given `domain_len`.
 	pub(crate) fn ring_context_serialized_size(ring_size: usize) -> usize {
-		// const G1_POINT_COMPRESSED_SIZE: usize = 48;
-		// const G2_POINT_COMPRESSED_SIZE: usize = 96;
 		const G1_POINT_UNCOMPRESSED_SIZE: usize = 96;
 		const G2_POINT_UNCOMPRESSED_SIZE: usize = 192;
 		const OVERHEAD_SIZE: usize = 16;
 		const G2_POINTS_NUM: usize = 2;
-		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSuite>(ring_size);
-		let g1_points_num = 3 * domain_size as usize + 1;
+		let g1_points_num = ark_ec_vrfs::ring::pcs_domain_size::<BandersnatchSuite>(ring_size);
 		OVERHEAD_SIZE +
 			g1_points_num * G1_POINT_UNCOMPRESSED_SIZE +
 			G2_POINTS_NUM * G2_POINT_UNCOMPRESSED_SIZE
@@ -439,12 +436,12 @@ pub mod ring_vrf {
 	///
 	/// Generic parameter `R` represents the ring size.
 	#[derive(Clone)]
-	pub struct RingContext<const R: usize>(RingContextImpl);
+	pub struct RingContext<const R: usize>(RingProofParams);
 
 	impl<const R: usize> RingContext<R> {
 		/// Build an dummy instance for testing purposes.
 		pub fn new_testing() -> Self {
-			Self(RingContextImpl::from_seed(R, [0; 32]))
+			Self(RingProofParams::from_seed(R, [0; 32]))
 		}
 
 		/// Get the keyset max size.
@@ -479,7 +476,7 @@ pub mod ring_vrf {
 		/// retain the full `RingContext` for ring signature verification. Instead, the
 		/// `VerifierKey` contains only the essential information needed to verify ring proofs.
 		pub fn verifier_no_context(verifier_key: RingVerifierKey) -> RingVerifier {
-			RingContextImpl::verifier_no_context(verifier_key.0, R)
+			RingProofParams::verifier_no_context(verifier_key.0, R)
 		}
 
 		fn make_ring_vector(public_keys: &[Public]) -> Vec<bandersnatch::AffinePoint> {
@@ -488,7 +485,7 @@ pub mod ring_vrf {
 				.iter()
 				.map(|pk| {
 					AffinePoint::deserialize_compressed_unchecked(pk.as_slice())
-						.unwrap_or(RingContextImpl::padding_point())
+						.unwrap_or(RingProofParams::padding_point())
 				})
 				.collect()
 		}
@@ -508,7 +505,7 @@ pub mod ring_vrf {
 		fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 			let mut buf = vec![0; ring_context_serialized_size(R)];
 			input.read(&mut buf[..])?;
-			let ctx = RingContextImpl::deserialize_uncompressed_unchecked(buf.as_slice())
+			let ctx = RingProofParams::deserialize_uncompressed_unchecked(buf.as_slice())
 				.map_err(|_| "RingContext decode error")?;
 			Ok(RingContext(ctx))
 		}
@@ -612,13 +609,19 @@ mod tests {
 
 	#[test]
 	fn backend_assumptions_sanity_check() {
-		use bandersnatch::{Input, RingContext as RingContextImpl};
-		const OVERHEAD_SIZE: usize = 257;
+		use bandersnatch::{Input, RingProofParams};
 
-		let ctx = RingContextImpl::from_seed(TEST_RING_SIZE, [0_u8; 32]);
+		let ctx = RingProofParams::from_seed(TEST_RING_SIZE, [0_u8; 32]);
 
-		let domain_size = ark_ec_vrfs::ring::domain_size::<BandersnatchSuite>(TEST_RING_SIZE);
-		assert_eq!(ctx.max_ring_size(), domain_size - OVERHEAD_SIZE);
+		let domain_size = ark_ec_vrfs::ring::pcs_domain_size::<BandersnatchSuite>(TEST_RING_SIZE);
+		assert_eq!(domain_size, ctx.pcs.powers_in_g1.len());
+		let domain_size2 =
+			ark_ec_vrfs::ring::pcs_domain_size::<BandersnatchSuite>(ctx.max_ring_size());
+		assert_eq!(domain_size, domain_size2);
+		assert_eq!(
+			ark_ec_vrfs::ring::max_ring_size_from_pcs_domain_size::<BandersnatchSuite>(domain_size),
+			ctx.max_ring_size()
+		);
 
 		assert_eq!(ctx.uncompressed_size(), ring_context_serialized_size(TEST_RING_SIZE));
 
