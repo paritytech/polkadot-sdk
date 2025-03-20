@@ -54,6 +54,8 @@ impl BenchmarkHelper<RuntimeOrigin> for () {
 	fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 		RuntimeOrigin::from(pallet_xcm_origin::Origin(location))
 	}
+
+	fn initialize_storage(_: Location, _: Location) {}
 }
 
 parameter_types! {

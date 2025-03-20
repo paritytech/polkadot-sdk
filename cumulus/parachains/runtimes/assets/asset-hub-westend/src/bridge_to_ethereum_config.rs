@@ -37,9 +37,10 @@ use benchmark_helpers::DoNothingRouter;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
-	use crate::RuntimeOrigin;
+	use crate::{xcm_config::LocationToAccountId, ForeignAssets, RuntimeOrigin};
 	use codec::Encode;
 	use xcm::prelude::*;
+	use xcm_executor::traits::ConvertLocation;
 
 	pub struct DoNothingRouter;
 	impl SendXcm for DoNothingRouter {
@@ -60,6 +61,18 @@ pub mod benchmark_helpers {
 	impl snowbridge_pallet_system_frontend::BenchmarkHelper<RuntimeOrigin> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+		}
+
+		fn initialize_storage(asset_location: Location, asset_owner: Location) {
+			let asset_owner = LocationToAccountId::convert_location(&asset_owner).unwrap();
+			ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				asset_location,
+				asset_owner.into(),
+				true,
+				1,
+			)
+			.unwrap()
 		}
 	}
 }

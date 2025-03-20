@@ -68,6 +68,7 @@ where
 	O: OriginTrait,
 {
 	fn make_xcm_origin(location: Location) -> O;
+	fn initialize_storage(asset_location: Location, asset_owner: Location);
 }
 
 #[frame_support::pallet]
