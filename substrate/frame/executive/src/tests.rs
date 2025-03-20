@@ -462,6 +462,7 @@ parameter_types! {
 }
 
 type TxExtension = (
+	frame_system::AuthorizeCall<Runtime>,
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
@@ -571,6 +572,7 @@ impl MultiStepMigrator for MockedModeGetter {
 
 fn tx_ext(nonce: u64, fee: Balance) -> TxExtension {
 	(
+		frame_system::AuthorizeCall::<Runtime>::new(),
 		frame_system::CheckEra::from(Era::Immortal),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
