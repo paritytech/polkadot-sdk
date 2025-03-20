@@ -34,7 +34,7 @@ pub const RING_SIZE: usize = 1024;
 /// Bandersnatch VRF [`RingContext`] specialization for Sassafras using [`RING_SIZE`].
 pub type RingContext = sp_core::bandersnatch::ring_vrf::RingContext<RING_SIZE>;
 
-/// TODO
+/// Input for slot claim
 pub fn slot_claim_input(randomness: &Randomness, slot: Slot, epoch: u64) -> VrfInput {
 	let v = [b"sassafras-ticket", randomness.as_slice(), &slot.to_le_bytes(), &epoch.to_le_bytes()]
 		.concat();
