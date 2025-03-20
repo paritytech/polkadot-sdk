@@ -74,7 +74,6 @@ impl ChainInfoCmd {
 	{
 		let db_config = sc_client_db::DatabaseSettings {
 			trie_cache_maximum_size: config.trie_cache_maximum_size,
-			force_in_memory_trie_cache: config.force_in_memory_trie_cache,
 			state_pruning: config.state_pruning.clone(),
 			source: config.database.clone(),
 			blocks_pruning: config.blocks_pruning,

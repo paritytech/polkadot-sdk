@@ -487,7 +487,6 @@ impl OverheadCmd {
 
 		let backend = new_db_backend(DatabaseSettings {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
-			force_in_memory_trie_cache: self.force_in_memory_trie_cache()?,
 			state_pruning: None,
 			blocks_pruning: BlocksPruning::KeepAll,
 			source: database_source,

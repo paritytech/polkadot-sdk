@@ -252,13 +252,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(self.import_params().map(|x| x.trie_cache_maximum_size()).unwrap_or_default())
 	}
 
-	/// Get the force in memory trie cache.
-	///
-	/// By default this is retrieved from `ImportParams` if it is available. Otherwise its `false`.
-	fn force_in_memory_trie_cache(&self) -> Result<bool> {
-		Ok(self.import_params().map(|x| x.force_in_memory_trie_cache()).unwrap_or_default())
-	}
-
 	/// Get the state pruning mode.
 	///
 	/// By default this is retrieved from `PruningMode` if it is available. Otherwise its

@@ -19131,7 +19131,6 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
  "substrate-test-runtime-client",
- "sysinfo",
  "tempfile",
 ]
 

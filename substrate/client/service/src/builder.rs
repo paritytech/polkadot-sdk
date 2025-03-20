@@ -90,7 +90,6 @@ use sp_consensus::block_validation::{
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
-use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use std::{
 	str::FromStr,
 	sync::Arc,

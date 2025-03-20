@@ -70,8 +70,6 @@ pub struct Configuration {
 	///
 	/// If `None` is given the cache is disabled.
 	pub trie_cache_maximum_size: Option<usize>,
-	/// Force the trie cache to be in memory.
-	pub force_in_memory_trie_cache: bool,
 	/// State pruning settings.
 	pub state_pruning: Option<PruningMode>,
 	/// Number of blocks to keep in the db.

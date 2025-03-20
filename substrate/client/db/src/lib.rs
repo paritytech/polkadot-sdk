@@ -42,7 +42,7 @@ mod upgrade;
 mod utils;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, error, trace, warn};
+use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use std::{
 	collections::{HashMap, HashSet},

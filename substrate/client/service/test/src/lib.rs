@@ -235,7 +235,6 @@ fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 		keystore: KeystoreConfig::Path { path: root.join("key"), password: None },
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(16 * 1024 * 1024),
-		force_in_memory_trie_cache: false,
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
 		chain_spec: Box::new((*spec).clone()),
