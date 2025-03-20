@@ -528,7 +528,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			database: self.database_config(&config_dir, database_cache_size, database)?,
 			data_path: config_dir,
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
-			force_in_memory_trie_cache: self.force_in_memory_trie_cache()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
 			executor: ExecutorConfiguration {
