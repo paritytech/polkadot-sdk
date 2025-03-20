@@ -1441,7 +1441,7 @@ impl
 			RuntimeOrigin::signed(lp_provider.clone()),
 			token_native,
 			token_second,
-			(u32::MAX / 8).into(), // 1 desired
+			(u32::MAX / 2).into(), // 1 desired
 			u32::MAX.into(),       // 2 desired
 			1,                     // 1 min
 			1,                     // 2 min
