@@ -37,7 +37,6 @@ use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt_v2, dummy_hash, validator_pubkeys,
 };
 use polkadot_statement_table::v2::Misbehavior;
-use rstest::rstest;
 use sp_application_crypto::AppCrypto;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
@@ -780,9 +779,8 @@ fn backing_second_works() {
 }
 
 // Test that the candidate reaches quorum successfully.
-#[rstest]
-#[case(true)]
-fn backing_works(#[case] elastic_scaling_mvp: bool) {
+#[test]
+fn backing_works() {
 	let mut test_state = TestState::default();
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
@@ -908,7 +906,7 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 		assert_eq!(candidates[0].validity_votes().len(), 3);
 
 		let (validator_indices, maybe_core_index) =
-			candidates[0].validator_indices_and_core_index(elastic_scaling_mvp);
+			candidates[0].validator_indices_and_core_index(true);
 
 		assert_eq!(maybe_core_index.unwrap(), CoreIndex(0));
 
