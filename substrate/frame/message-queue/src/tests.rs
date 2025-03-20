@@ -2139,3 +2139,73 @@ fn force_set_head_works() {
 		assert_ring(&[There, Here]);
 	});
 }
+
+fn call_check_messages_footprint(
+	origin: MessageOrigin,
+	sizes: &[u32],
+	total_pages_limit: u32,
+) -> Result<u32, (u32, usize)> {
+	let mut msgs = vec![];
+	for size in sizes {
+		let msg =
+			BoundedVec::<u8, MaxMessageLenOf<Test>>::try_from(vec![0; *size as usize]).unwrap();
+		msgs.push(msg)
+	}
+
+	MessageQueue::check_messages_footprint(
+		origin,
+		msgs.iter().map(|msg| msg.as_bounded_slice()),
+		total_pages_limit,
+	)
+}
+
+#[test]
+fn check_messages_footprint_works() {
+	use crate::tests::MessageOrigin::*;
+
+	let max_message_len = MaxMessageLenOf::<Test>::get();
+	let header_size = ItemHeader::<<Test as Config>::Size>::max_encoded_len() as u32;
+
+	build_and_execute::<Test>(|| {
+		// Perform some checks with an empty queue
+		assert_eq!(call_check_messages_footprint(Here, &[max_message_len], 0), Err((0, 0)));
+		assert_eq!(call_check_messages_footprint(Here, &[max_message_len], 1), Ok(1));
+
+		assert_eq!(call_check_messages_footprint(Here, &[max_message_len, 1], 1), Err((1, 1)));
+		assert_eq!(call_check_messages_footprint(Here, &[max_message_len, 1], 2), Ok(2));
+		assert_eq!(
+			call_check_messages_footprint(Here, &[max_message_len - 2 * header_size, 1, 1], 1),
+			Err((1, 2))
+		);
+
+		// Fill a little over 1 page
+		MessageQueue::enqueue_message(msg("A".repeat(max_message_len as usize).as_str()), Here);
+		MessageQueue::enqueue_message(msg(""), Here);
+		// Now, let's perform some more checks
+		assert_eq!(
+			call_check_messages_footprint(Here, &[max_message_len - header_size], 1),
+			Err((0, 0))
+		);
+		assert_eq!(call_check_messages_footprint(Here, &[max_message_len - header_size], 2), Ok(0));
+
+		assert_eq!(
+			call_check_messages_footprint(Here, &[max_message_len - header_size, 1], 2),
+			Err((0, 1))
+		);
+		assert_eq!(
+			call_check_messages_footprint(Here, &[max_message_len - header_size, 1], 3),
+			Ok(1)
+		);
+		assert_eq!(
+			call_check_messages_footprint(
+				Here,
+				&[max_message_len - header_size, max_message_len - 2 * header_size, 1, 1],
+				3
+			),
+			Err((1, 3))
+		);
+
+		// Check that we can append messages to a different origin
+		assert_eq!(call_check_messages_footprint(There, &[max_message_len], 1), Ok(1));
+	});
+}

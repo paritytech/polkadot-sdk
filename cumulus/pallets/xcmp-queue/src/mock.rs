@@ -187,6 +187,14 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		footprint.ready_pages = footprint.pages;
 		footprint
 	}
+
+	fn check_messages_footprint<'a>(
+		_origin: ParaId,
+		_msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		_total_pages_limit: u32,
+	) -> Result<u32, (u32, usize)> {
+		Ok(0)
+	}
 }
 
 parameter_types! {

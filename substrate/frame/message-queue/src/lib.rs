@@ -294,21 +294,36 @@ impl<
 		}
 	}
 
+	fn pos(&self) -> usize {
+		self.heap.len()
+	}
+
+	/// Check if a message can be appended to a page at the provided position.
+	///
+	/// On success, returns the resulting position in the page where new messages can be appended.
+	fn check_can_append_message(pos: usize, message_len: usize) -> Result<usize, ()> {
+		let payload_len = message_len;
+		let header_size = ItemHeader::<Size>::max_encoded_len();
+		let data_len = header_size.saturating_add(payload_len);
+		let heap_size = HeapSize::get().into() as usize;
+		let new_pos = pos.saturating_add(data_len);
+		if new_pos <= heap_size {
+			Ok(new_pos)
+		} else {
+			Err(())
+		}
+	}
+
 	/// Try to append one message to a page.
 	fn try_append_message<T: Config>(
 		&mut self,
 		message: BoundedSlice<u8, MaxMessageLenOf<T>>,
 	) -> Result<(), ()> {
-		let pos = self.heap.len();
+		let pos = self.pos();
 		let payload_len = message.len();
-		let data_len = ItemHeader::<Size>::max_encoded_len().saturating_add(payload_len);
+		Self::check_can_append_message(pos, payload_len)?;
 		let payload_len = payload_len.saturated_into();
 		let header = ItemHeader::<Size> { payload_len, is_processed: false };
-		let heap_size: u32 = HeapSize::get().into();
-		if (heap_size as usize).saturating_sub(self.heap.len()) < data_len {
-			// Can't fit.
-			return Err(())
-		}
 
 		let mut heap = core::mem::take(&mut self.heap).into_inner();
 		header.using_encoded(|h| heap.extend_from_slice(h));
@@ -1800,5 +1815,47 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 
 	fn footprint(origin: MessageOriginOf<T>) -> QueueFootprint {
 		BookStateFor::<T>::get(&origin).into()
+	}
+
+	fn check_messages_footprint<'a>(
+		origin: MessageOriginOf<T>,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> Result<u32, (u32, usize)> {
+		let mut new_pages_count = 0;
+		let mut total_pages_count = 0;
+		let mut current_page_pos: usize = T::HeapSize::get().into() as usize;
+
+		let book = BookStateFor::<T>::get(&origin);
+		if book.end > book.begin {
+			total_pages_count = book.end - book.begin;
+			if let Some(page) = Pages::<T>::get(origin, book.end - 1) {
+				current_page_pos = page.pos();
+			}
+		}
+
+		let mut msgs = msgs.enumerate().peekable();
+		while let Some((idx, msg)) = msgs.peek() {
+			if total_pages_count > total_pages_limit {
+				return Err((new_pages_count.saturating_sub(1), *idx));
+			}
+
+			match Page::<T::Size, T::HeapSize>::check_can_append_message(
+				current_page_pos,
+				msg.len(),
+			) {
+				Ok(new_pos) => {
+					current_page_pos = new_pos;
+					msgs.next();
+				},
+				Err(_) => {
+					new_pages_count += 1;
+					total_pages_count += 1;
+					current_page_pos = 0;
+				},
+			}
+		}
+
+		Ok(new_pages_count)
 	}
 }

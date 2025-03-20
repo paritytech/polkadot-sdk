@@ -637,6 +637,30 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
+	fn enqueue_xcmp_messages(
+		sender: ParaId,
+		xcms: &[BoundedVec<u8, MaxXcmpMessageLenOf<T>>],
+	) -> Result<(), ()> {
+		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
+		let (xcms, new_page_count) = match T::XcmpQueue::check_messages_footprint(
+			sender,
+			xcms.iter().map(|xcm| xcm.as_bounded_slice()),
+			drop_threshold,
+		) {
+			Ok(new_page_count) => (xcms, new_page_count),
+			Err((new_page_count, drop_idx)) => {
+				// This should not happen since the channel should have been suspended in
+				// [`on_queue_changed`].
+				log::error!("XCMP queue for sibling {:?} is full; dropping messages.", sender);
+				(&xcms[..drop_idx], new_page_count)
+			},
+		};
+		// TODO: consume weight
+
+		T::XcmpQueue::enqueue_messages(xcms.iter().map(|xcm| xcm.as_bounded_slice()), sender);
+		Ok(())
+	}
+
 	fn enqueue_xcmp_message(
 		sender: ParaId,
 		xcm: BoundedVec<u8, MaxXcmpMessageLenOf<T>>,
