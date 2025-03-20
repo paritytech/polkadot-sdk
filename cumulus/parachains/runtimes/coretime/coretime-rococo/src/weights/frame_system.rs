@@ -186,7 +186,7 @@ impl<T: frame_system::Config> frame_system::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `System::AuthorizedUpgrade` (r:1 w:0)
 	/// Proof: `System::AuthorizedUpgrade` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
-	fn authorize_apply_authorized_upgrade() -> Weight {
+	fn validate_apply_authorized_upgrade() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `22`
 		//  Estimated: `1518`

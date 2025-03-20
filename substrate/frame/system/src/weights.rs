@@ -80,7 +80,7 @@ pub trait WeightInfo {
 	fn kill_prefix(p: u32, ) -> Weight;
 	fn authorize_upgrade() -> Weight;
 	fn apply_authorized_upgrade() -> Weight;
-	fn authorize_apply_authorized_upgrade() -> Weight;
+	fn validate_apply_authorized_upgrade() -> Weight;
 }
 
 /// Weights for `frame_system` using the Substrate node and recommended hardware.
@@ -199,7 +199,7 @@ impl<T: crate::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::AuthorizedUpgrade` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockMigrations::Cursor` (r:1 w:0)
 	/// Proof: `MultiBlockMigrations::Cursor` (`max_values`: Some(1), `max_size`: Some(65550), added: 66045, mode: `MaxEncodedLen`)
-	fn authorize_apply_authorized_upgrade() -> Weight {
+	fn validate_apply_authorized_upgrade() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `164`
 		//  Estimated: `67035`
@@ -324,7 +324,7 @@ impl WeightInfo for () {
 	/// Proof: `System::AuthorizedUpgrade` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockMigrations::Cursor` (r:1 w:0)
 	/// Proof: `MultiBlockMigrations::Cursor` (`max_values`: Some(1), `max_size`: Some(65550), added: 66045, mode: `MaxEncodedLen`)
-	fn authorize_apply_authorized_upgrade() -> Weight {
+	fn validate_apply_authorized_upgrade() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `164`
 		//  Estimated: `67035`

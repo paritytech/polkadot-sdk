@@ -173,7 +173,7 @@ impl<T: frame_system::Config> frame_system::WeightInfo for WeightInfo<T> {
 	/// Proof: `System::AuthorizedUpgrade` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
 	/// Storage: `MultiBlockMigrations::Cursor` (r:1 w:0)
 	/// Proof: `MultiBlockMigrations::Cursor` (`max_values`: Some(1), `max_size`: Some(65550), added: 66045, mode: `MaxEncodedLen`)
-	fn authorize_apply_authorized_upgrade() -> Weight {
+	fn validate_apply_authorized_upgrade() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `26`
 		//  Estimated: `67035`

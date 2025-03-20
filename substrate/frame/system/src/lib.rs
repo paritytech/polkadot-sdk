@@ -875,8 +875,10 @@ pub mod pallet {
 			DispatchClass::Operational,
 		))]
 		#[pallet::authorize(|_source, code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v| (v, Weight::zero())))]
-		// weight of authorize is already included in the call weight. (Because `ValidateUnsigned`
-		// also needs this weight).
+		// Because the weight of both "validate unsigned" and "authorize" logic needs to be added
+		// to the weight of the extrinsic, and because "validate unsigned" weight must be included
+		// in the call weight, the "authorize weight is also included in the call weight.
+		// Thus we set it to zero here.
 		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn apply_authorized_upgrade(
 			_: OriginFor<T>,
