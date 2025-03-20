@@ -1,4 +1,4 @@
-title: `Use `#[pallet::authorize(...)]` to migrate unsigned transaction to general transaction in frame-system
+title: 'Use `#[pallet::authorize(...)]` to migrate unsigned transaction to general transaction in frame-system
   in system: tasks + apply_authorized_call'
 doc:
 - audience:

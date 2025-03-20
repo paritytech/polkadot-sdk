@@ -806,6 +806,7 @@ pub mod pallet {
 		// Weight of task validation is already part of the task weight.
 		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
+			// Authorize function checks the validity of the task.
 			let skip_validity = origin.as_system_ref() == Some(&RawOrigin::Authorized);
 
 			if !skip_validity {

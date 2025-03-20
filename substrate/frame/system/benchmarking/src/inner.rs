@@ -231,6 +231,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// The benchmark for the authorize function for the call `apply_authorized_upgrade`.
 	#[benchmark]
 	fn authorize_apply_authorized_upgrade() -> Result<(), BenchmarkError> {
 		let runtime_blob = T::prepare_set_code_data();
