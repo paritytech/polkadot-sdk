@@ -2,250 +2,210 @@ title: '[stable2412] pallet-revive: remove related crates from umbrella'
 doc:
 - audience: Todo
   description: |-
-    # Description
-
-    When building `polkadot-sdk-parachain-template` workspace (`cargo build --workspace --all-features`), based on `stable2412` dependencies (https://github.com/paritytech/polkadot-sdk-parachain-template/pull/26), it fails with an error like below.
-    <details>
-      <summary><b>error message</b></summary>
-    error[E0080]: evaluation of constant value failed
-      --> /home/ubuntu/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sc-network-0.47.0/src/protocol/message.rs:79:40
-       |
-    79 |     #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
-       |                                           ^^^^^^ the evaluated program panicked at 'Found variants that have duplicate indexes. Both `Consensus` and `RemoteCallResponse` have the index `6`. Use different indexes for each variant.', /home/ubuntu/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sc-network-0.47.0/src/protocol/message.rs:79:43
-       |
-       = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `::core::panic` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-    error[E0080]: evaluation of constant value failed
-      --> /home/ubuntu/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sc-network-0.47.0/src/protocol/message.rs:79:48
-       |
-    79 |     #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
-       |                                                   ^^^^^^ the evaluated program panicked at 'Found variants that have duplicate indexes. Both `Consensus` and `RemoteCallResponse` have the index `6`. Use different indexes for each variant.', /home/ubuntu/.cargo/registry/src/index.crates.io-6f17d22bba15001f/sc-network-0.47.0/src/protocol/message.rs:79:51
-       |
-       = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `::core::panic` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-    For more information about this error, try `rustc --explain E0080`.
-    error: could not compile `sc-network` (lib) due to 2 previous errors
-    </details>
-
-    The root cause is `sc-network 0.47.0` (which builds fine when >=0.48.0), a dependency of `pallet-revive-eth-rpc 0.2.0`, which is a dependency of `polkadot-sdk 0.12.1`, used for various things in `polkadot-sdk-parachain-template` repo. While investigating how to fix the issue on `stable2412`, I discovered a few things:
-
-    1. `pallet-revive 0.3.1` can not build with `runtime-benchmarks` based on latest `stable2412`, and it is also a dependency of `pallet-revive-eth-rpc 0.2.0`, and pulled by `polkadot-sdk 0.12.1` for its `runtime-benchmarks` feature.
-
-    2. Based on some chats started here: https://github.com/paritytech/polkadot-sdk/pull/7844#issuecomment-2714856647, we identified that `pallet-revive/pallet-revive-eth-rpc` were set with `publish = false` for a good reason and it shouldn't have changed here: https://github.com/paritytech/polkadot-sdk/commit/31b5923aba564b8fdf280e514171cb0a102faa9a. We also identified as a potential fix what this PR does, meaning removing the `pallet-revive/pallet-revive-eth-rpc` dependency of `polkadot-sdk`. I removed the other dependencies as well since I feel it does not make sense to still keep them once `pallet-revive` is out.
-
-    3. Releasing correct crates for `pallet-revive*` and use them in `polkadot-sdk` isn't yet necessary IMO, since some things still need to be polished, and given their builds fail when building certain features, they are not usable by users fully, so maybe not worth keeping partial working functionality around just for the sake of having the crates in `polkadot-sdk` - please challenge this if you think differently. Ideally, we will make these pallets available for developers to use via `polkadot-sdk` when all builds correctly with all features.
-
-    ## Integration
-
-    Runtime/Node devs will not be able to reference `pallet-revive*` pallets anymore via `polkadot-sdk`, so this is a breaking change, but if their usage is close to zero by polkadot devs we can tune it down and consider it a minor change for `polkadot-sdk`.
-
-    ## Review Notes
-
-    1. If we think this requires a major bump for `polkadot-sdk`.. then we can't look at the PR as a fix for `stable2412` and associated published `polkadot-sdk` version. If we consider `pallet-revive` logic not being necessarily used by polkadot devs so not very breaking from usage perspective, then we can go with a minor bump and finally have a working `polkadot-sdk` for `stable2412.
-
-    2. We also considered fixing `pallet-revive` & `pallet-revive-eth-rpc` on `stable2412`, and publish correct versions on `crates.io`, and then follow with a `polkadot-sdk` publish that depends on them, and in the end `polkadot-sdk-parachain-template` workspace would build successfully based on `stable2412` crates, but this is more work which could've been done by now if it was necessary - e.g. in a scenario where actual developers were using them (instead of setting the crates with `publish = false`), so I think it makes sense to remove them for now from `polkadot-sdk`.
-
-    3. ~IMO this PR should be backported to stable2503 too. Releasing `polkadot-sdk` with `pallet-revive*` dependencies can be done with the June release if things are more stable by then.~ We actually want to fix `pallet-revive*` crates for stable2503, so must be kept in master and 2503 branch.
+	Fixes `polkadot-sdk` building for `stable2412`. It removes its dependency on `pallet-revive*` crates, which
+	aren't publishable as part of `stable2412` release & patch releases. Minor updates were brought to a bunch
+	of other crates to allow their compilation in test profile, to enable granular testing and rapid feedback
+	of crates for next `stable2412` patch releases.
 crates:
 - name: polkadot-sdk
-  bump: major
+  bump: minor
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
 - name: pallet-xcm-benchmarks
-  bump: major
+  bump: minor
 - name: polkadot-overseer
-  bump: major
+  bump: minor
 - name: polkadot
-  bump: major
+  bump: minor
 - name: bridge-runtime-common
-  bump: major
+  bump: minor
 - name: pallet-bridge-messages
-  bump: major
+  bump: minor
 - name: pallet-bridge-relayers
-  bump: major
+  bump: minor
 - name: pallet-xcm-bridge-hub
-  bump: major
+  bump: minor
 - name: snowbridge-pallet-inbound-queue
-  bump: major
+  bump: minor
 - name: snowbridge-pallet-outbound-queue
-  bump: major
+  bump: minor
 - name: snowbridge-pallet-system
-  bump: major
+  bump: minor
 - name: snowbridge-core
-  bump: major
+  bump: minor
 - name: pallet-collator-selection
-  bump: major
+  bump: minor
 - name: cumulus-pallet-parachain-system
-  bump: major
+  bump: minor
 - name: cumulus-pallet-xcmp-queue
-  bump: major
+  bump: minor
 - name: pallet-collective-content
-  bump: major
+  bump: minor
 - name: asset-hub-rococo-runtime
-  bump: major
+  bump: minor
 - name: bridge-hub-rococo-runtime
-  bump: major
+  bump: minor
 - name: bridge-hub-westend-runtime
-  bump: major
+  bump: minor
 - name: collectives-westend-runtime
-  bump: major
+  bump: minor
 - name: coretime-rococo-runtime
-  bump: major
+  bump: minor
 - name: coretime-westend-runtime
-  bump: major
+  bump: minor
 - name: people-rococo-runtime
-  bump: major
+  bump: minor
 - name: people-westend-runtime
-  bump: major
+  bump: minor
 - name: cumulus-primitives-storage-weight-reclaim
-  bump: major
+  bump: minor
 - name: polkadot-node-metrics
-  bump: major
+  bump: minor
 - name: polkadot-service
-  bump: major
+  bump: minor
 - name: polkadot-runtime-common
-  bump: major
+  bump: minor
 - name: polkadot-runtime-parachains
-  bump: major
+  bump: minor
 - name: rococo-runtime
-  bump: major
+  bump: minor
 - name: westend-runtime
-  bump: major
+  bump: minor
 - name: pallet-xcm
-  bump: major
+  bump: minor
 - name: staging-xcm-builder
-  bump: major
+  bump: minor
 - name: xcm-runtime-apis
-  bump: major
+  bump: minor
 - name: sc-client-db
-  bump: major
+  bump: minor
 - name: polkadot-sdk-frame
-  bump: major
+  bump: minor
 - name: pallet-alliance
-  bump: major
+  bump: minor
 - name: pallet-asset-conversion
-  bump: major
+  bump: minor
 - name: pallet-asset-conversion-ops
-  bump: major
+  bump: minor
 - name: pallet-asset-rate
-  bump: major
+  bump: minor
 - name: pallet-assets-freezer
-  bump: major
+  bump: minor
 - name: pallet-assets
-  bump: major
+  bump: minor
 - name: pallet-atomic-swap
-  bump: major
+  bump: minor
 - name: pallet-aura
-  bump: major
+  bump: minor
 - name: pallet-babe
-  bump: major
+  bump: minor
 - name: pallet-balances
-  bump: major
+  bump: minor
 - name: pallet-beefy-mmr
-  bump: major
+  bump: minor
 - name: pallet-beefy
-  bump: major
+  bump: minor
 - name: pallet-bounties
-  bump: major
+  bump: minor
 - name: pallet-child-bounties
-  bump: major
+  bump: minor
 - name: pallet-collective
-  bump: major
+  bump: minor
 - name: pallet-contracts
-  bump: major
+  bump: minor
 - name: pallet-conviction-voting
-  bump: major
+  bump: minor
 - name: pallet-delegated-staking
-  bump: major
+  bump: minor
 - name: pallet-democracy
-  bump: major
+  bump: minor
 - name: pallet-election-provider-multi-phase
-  bump: major
+  bump: minor
 - name: pallet-elections-phragmen
-  bump: major
+  bump: minor
 - name: pallet-dev-mode
-  bump: major
+  bump: minor
 - name: frame-executive
-  bump: major
+  bump: minor
 - name: pallet-fast-unstake
-  bump: major
+  bump: minor
 - name: pallet-glutton
-  bump: major
+  bump: minor
 - name: pallet-grandpa
-  bump: major
+  bump: minor
 - name: pallet-identity
-  bump: major
+  bump: minor
 - name: pallet-im-online
-  bump: major
+  bump: minor
 - name: pallet-indices
-  bump: major
+  bump: minor
 - name: pallet-lottery
-  bump: major
+  bump: minor
 - name: pallet-migrations
-  bump: major
+  bump: minor
 - name: pallet-multisig
-  bump: major
+  bump: minor
 - name: pallet-nft-fractionalization
-  bump: major
+  bump: minor
 - name: pallet-nfts
-  bump: major
+  bump: minor
 - name: pallet-nis
-  bump: major
+  bump: minor
 - name: pallet-nomination-pools-benchmarking
-  bump: major
+  bump: minor
 - name: pallet-offences-benchmarking
-  bump: major
+  bump: minor
 - name: pallet-parameters
-  bump: major
+  bump: minor
 - name: pallet-preimage
-  bump: major
+  bump: minor
 - name: pallet-proxy
-  bump: major
+  bump: minor
 - name: pallet-recovery
-  bump: major
+  bump: minor
 - name: pallet-referenda
-  bump: major
+  bump: minor
 - name: pallet-root-offences
-  bump: major
+  bump: minor
 - name: pallet-scheduler
-  bump: major
+  bump: minor
 - name: pallet-scored-pool
-  bump: major
+  bump: minor
 - name: pallet-session-benchmarking
-  bump: major
+  bump: minor
 - name: pallet-society
-  bump: major
+  bump: minor
 - name: pallet-staking
-  bump: major
+  bump: minor
 - name: pallet-state-trie-migration
-  bump: major
+  bump: minor
 - name: pallet-statement
-  bump: major
+  bump: minor
 - name: frame-support
-  bump: major
+  bump: minor
 - name: frame-support-procedural
-  bump: major
+  bump: minor
 - name: pallet-tips
-  bump: major
+  bump: minor
 - name: pallet-transaction-payment
-  bump: major
+  bump: minor
 - name: pallet-asset-conversion-tx-payment
-  bump: major
+  bump: minor
 - name: pallet-asset-tx-payment
-  bump: major
+  bump: minor
 - name: pallet-transaction-storage
-  bump: major
+  bump: minor
 - name: pallet-treasury
-  bump: major
+  bump: minor
 - name: pallet-uniques
-  bump: major
+  bump: minor
 - name: pallet-utility
-  bump: major
+  bump: minor
 - name: pallet-verify-signature
-  bump: major
+  bump: minor
 - name: pallet-vesting
-  bump: major
+  bump: minor
 - name: pallet-whitelist
-  bump: major
+  bump: minor
 - name: frame-benchmarking-cli
-  bump: major
+  bump: minor
