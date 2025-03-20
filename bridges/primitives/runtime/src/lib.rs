@@ -52,6 +52,8 @@ pub use storage_proof::{
 };
 pub use storage_types::BoundedStorageValue;
 
+extern crate alloc;
+
 pub mod extensions;
 pub mod messages;
 
@@ -59,11 +61,12 @@ mod chain;
 mod storage_proof;
 mod storage_types;
 
+// Re-export macro to avoid include paste dependency everywhere
+pub use sp_runtime::paste;
+
 // Re-export for usage in macro.
 #[doc(hidden)]
 pub mod private {
-	#[doc(hidden)]
-	pub use sp_runtime::paste;
 	#[doc(hidden)]
 	pub use alloc::vec::Vec;
 }
@@ -475,7 +478,7 @@ pub trait StaticStrProvider {
 #[macro_export]
 macro_rules! generate_static_str_provider {
 	($str:expr) => {
-		$crate::private::paste::item! {
+		$crate::paste::item! {
 			pub struct [<Str $str>];
 
 			impl $crate::StaticStrProvider for [<Str $str>] {
