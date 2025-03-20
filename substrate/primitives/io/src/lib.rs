@@ -838,7 +838,7 @@ pub trait Crypto {
 			use ed25519_dalek::Verifier;
 
 			let Ok(public_key) = ed25519_dalek::VerifyingKey::from_bytes(&pub_key.0) else {
-				return false
+				return false;
 			};
 
 			let sig = ed25519_dalek::Signature::from_bytes(&sig.0);
@@ -1147,7 +1147,7 @@ pub trait Crypto {
 		sig: &[u8; 65],
 		msg: &[u8; 32],
 	) -> Result<[u8; 64], EcdsaVerifyError> {
-		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
+		let rid = RecoveryId::try_from(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
 			.map_err(|_| EcdsaVerifyError::BadV)?;
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
@@ -1193,7 +1193,7 @@ pub trait Crypto {
 		sig: &[u8; 65],
 		msg: &[u8; 32],
 	) -> Result<[u8; 33], EcdsaVerifyError> {
-		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
+		let rid = RecoveryId::try_from(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
 			.map_err(|_| EcdsaVerifyError::BadV)?;
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;

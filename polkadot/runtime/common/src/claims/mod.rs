@@ -587,7 +587,7 @@ impl<T: Config> Pallet<T> {
 
 		let vesting = Vesting::<T>::get(&signer);
 		if vesting.is_some() && T::VestingSchedule::vesting_balance(&dest).is_some() {
-			return Err(Error::<T>::VestedBalanceExists.into())
+			return Err(Error::<T>::VestedBalanceExists.into());
 		}
 
 		// We first need to deposit the balance to ensure that the account exists.
@@ -698,17 +698,19 @@ where
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod secp_utils {
 	use super::*;
+	use secp256k1::{Message, Secp256k1, SECP256K1};
 
-	pub fn public(secret: &libsecp256k1::SecretKey) -> libsecp256k1::PublicKey {
-		libsecp256k1::PublicKey::from_secret_key(secret)
+	pub fn public(secret: &secp256k1::SecretKey) -> secp256k1::PublicKey {
+		let secp = Secp256k1::new();
+		secp256k1::PublicKey::from_secret_key(&secp, &secret)
 	}
-	pub fn eth(secret: &libsecp256k1::SecretKey) -> EthereumAddress {
+	pub fn eth(secret: &secp256k1::SecretKey) -> EthereumAddress {
 		let mut res = EthereumAddress::default();
 		res.0.copy_from_slice(&keccak_256(&public(secret).serialize()[1..65])[12..]);
 		res
 	}
 	pub fn sig<T: Config>(
-		secret: &libsecp256k1::SecretKey,
+		secret: &secp256k1::SecretKey,
 		what: &[u8],
 		extra: &[u8],
 	) -> EcdsaSignature {
@@ -716,10 +718,13 @@ mod secp_utils {
 			&to_ascii_hex(what)[..],
 			extra,
 		));
-		let (sig, recovery_id) = libsecp256k1::sign(&libsecp256k1::Message::parse(&msg), secret);
+
+		let message = Message::from_digest_slice(&msg).unwrap();
+		let (recovery_id, sig) =
+			SECP256K1.sign_ecdsa_recoverable(&message, &secret).serialize_compact();
 		let mut r = [0u8; 65];
-		r[0..64].copy_from_slice(&sig.serialize()[..]);
-		r[64] = recovery_id.serialize();
+		r[0..64].copy_from_slice(&sig[..]);
+		r[64] = recovery_id as u8;
 		EcdsaSignature(r)
 	}
 }
