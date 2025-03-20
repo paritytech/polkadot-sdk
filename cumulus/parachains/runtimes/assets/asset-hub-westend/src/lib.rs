@@ -2162,6 +2162,7 @@ impl_runtime_apis! {
 				}
 
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
+					log::debug!(">>> worst_case_asset_exchange()");
 					let native_asset_location = WestendLocation::get();
 					let native_asset_id = AssetId(native_asset_location.clone());
 					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
@@ -2170,28 +2171,44 @@ impl_runtime_apis! {
 					let mut give_assets = XcmAssets::new();
 					let mut receive_assets = XcmAssets::new();
 
-					let asset_location = Location::new(1, [Parachain(2001)]); // Single asset for exchange
+					let asset_location = Location::new(1, [Parachain(2001)]);
 					let asset_id = AssetId(asset_location.clone());
 
-					ForeignAssets::mint(origin.clone(), asset_location.clone().into(), account.clone().into(), 3_000 * UNITS)
-						.map_err(|_| BenchmarkError::Stop("Failed to mint foreign asset!"))?;
-					AssetConversion::create_pool(origin.clone(), native_asset_location.clone().into(), asset_location.clone().into())
-						.map_err(|_| BenchmarkError::Stop("Failed to create pool!"))?;
+					log::debug!("Minting foreign asset ...");
+					ForeignAssets::mint(
+						origin.clone(),
+						asset_location.clone().into(),
+						account.clone().into(),
+						3_000 * UNITS,
+					).map_err(|_| BenchmarkError::Stop("Failed to mint foreign asset!"))?;
+
+					log::debug!("Creating pool ...");
+					AssetConversion::create_pool(
+						origin.clone(),
+						native_asset_location.clone().into(),
+						asset_location.clone().into(),
+					).map_err(|_| BenchmarkError::Stop("Failed to create pool!"))?;
+
+					log::debug!("Adding liquidity ...");
 					AssetConversion::add_liquidity(
 						origin.clone(),
-						native_asset_location.into(),
+						native_asset_location.clone().into(),
 						asset_location.clone().into(),
 						1_000 * UNITS,
 						2_000 * UNITS,
 						1,
 						1,
 						account.into(),
-					)
-					.map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
+					).map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
 
 					// Use only one asset in `give` and `receive`
 					give_assets.push((native_asset_id.clone(), 1_000 * UNITS).into());
 					receive_assets.push((asset_id, 2_000 * UNITS).into());
+
+					// Debug logs to inspect encoded data before dispatch
+					log::debug!("Encoded give_assets: {:?}", give_assets.encode());
+					log::debug!("Encoded receive_assets: {:?}", receive_assets.encode());
+					log::debug!("<<< worst_case_asset_exchange()");
 
 					Ok((give_assets.into(), receive_assets.into()))
 				}
