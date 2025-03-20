@@ -22,14 +22,14 @@ use polkadot_test_client::{
 	construct_transfer_extrinsic, BlockBuilderExt, Client, ClientBlockImportExt,
 	DefaultTestClientBuilderExt, InitPolkadotBlockBuilder, TestClientBuilder, TestClientBuilderExt,
 };
-use sp_consensus::{BlockOrigin, SyncOracle};
+use sp_consensus::BlockOrigin;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
 use futures::{executor::block_on, poll, task::Poll};
 
 mod dummy;
-use dummy::DummySyncOracle;
+use dummy::{DummyNetworkService, DummySyncOracle};
 
 fn build_client_backend_and_block() -> (Arc<Client>, PBlock, RelayChainInProcessInterface) {
 	let builder = TestClientBuilder::new();
@@ -38,14 +38,20 @@ fn build_client_backend_and_block() -> (Arc<Client>, PBlock, RelayChainInProcess
 
 	let block_builder = client.init_polkadot_block_builder();
 	let block = block_builder.build().expect("Finalizes the block").block;
-	let dummy_syncing: Arc<dyn SyncOracle + Sync + Send> = Arc::new(DummySyncOracle {});
 
 	let (tx, _rx) = metered::channel(30);
 	let mock_handle = Handle::new(tx);
+
 	(
 		client.clone(),
 		block,
-		RelayChainInProcessInterface::new(client, backend, dummy_syncing, mock_handle),
+		RelayChainInProcessInterface::new(
+			client,
+			backend,
+			Arc::new(DummySyncOracle {}),
+			mock_handle,
+			Arc::new(DummyNetworkService {}),
+		),
 	)
 }
 
