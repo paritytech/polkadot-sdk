@@ -65,7 +65,7 @@
 //!
 //! - Define a `FixedVelocityConsensusHook` using our capacity, velocity, and relay slot duration
 //! constants. Use this to set the parachain system `ConsensusHook` property.
-#![doc = item:/templates/parachain/runtime/src/lib.rs", item:ConsensusHook)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/src/lib.rs", item:ConsensusHook)]
 //! ```ignore
 //! impl cumulus_pallet_parachain_system::Config for Runtime {
 //!     ..
