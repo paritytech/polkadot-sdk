@@ -1,0 +1,35 @@
+title: 'Use `#[pallet::authorize(...)]` to migrate unsigned transaction to general transaction in frame-system
+  in system: tasks + apply_authorized_call'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    In frame-system, migrate `tasks` and `apply_authorized_call` to general transaction using `#[pallet::authorize(..)]`. Unsigned transaction are kept for backward compatibility.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: frame-system-benchmarking
+  bump: major
+- name: frame-system
+  bump: major
