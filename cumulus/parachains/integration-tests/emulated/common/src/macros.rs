@@ -745,3 +745,67 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 		}
 	};
 }
+
+#[macro_export]
+macro_rules! test_cross_chain_alias {
+	( $sender_para:ty, $receiver_para:ty, $origin:expr, $target:expr, $ed:expr, $expected_success:expr ) => {
+		$crate::macros::paste::paste! {
+			use xcm::latest::AssetTransferFilter;
+			let para_destination = <$sender_para>::sibling_location_of(<$receiver_para>::para_id());
+			let account: AccountId = $origin.into();
+
+			$sender_para::fund_accounts(vec![(account.clone(), $ed * 100)]);
+			<$sender_para>::execute_with(|| {
+				type RuntimeEvent = <$sender_para as $crate::macros::Chain>::RuntimeEvent;
+				let fees: Asset = (Location::parent(), 5 * $ed).into();
+				let total_fees: Asset = (Location::parent(), 10 * $ed).into();
+				let xcm_message = Xcm::<()>(vec![
+					WithdrawAsset(total_fees.into()),
+					PayFees { asset: fees.clone() },
+					InitiateTransfer {
+						destination: para_destination,
+						remote_fees: Some(AssetTransferFilter::Teleport(fees.into())),
+						preserve_origin: true,
+						assets: vec![],
+						remote_xcm: Xcm(vec![
+							// try to alias into `account`
+							AliasOrigin($target.clone().into()),
+							RefundSurplus,
+							DepositAsset {
+								assets: Wild(AllCounted(1)),
+								beneficiary: $target.into(),
+							},
+						]),
+					},
+					RefundSurplus,
+					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: account.clone().into() },
+				]);
+
+				let signed_origin = <$sender_para as Chain>::RuntimeOrigin::signed(account.into());
+				assert_ok!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::execute(
+					signed_origin,
+					bx!(xcm::VersionedXcm::from(xcm_message.into())),
+					Weight::MAX
+				));
+				assert_expected_events!(
+					$sender_para,
+					vec![
+						RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { .. }) => {},
+					]
+				);
+			});
+
+			<$receiver_para>::execute_with(|| {
+				type RuntimeEvent = <$receiver_para as $crate::macros::Chain>::RuntimeEvent;
+				assert_expected_events!(
+					$receiver_para,
+					vec![
+						RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+							success, ..
+						}) => { success: *success == $expected_success, },
+					]
+				);
+			});
+		}
+	};
+}
