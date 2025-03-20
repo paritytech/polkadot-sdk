@@ -68,7 +68,7 @@
 //! But, let's not forget that this is information that *we know*, and the Rust compiler does not.
 //! All that the rust compiler knows about this type is *ONLY* what the trait bounds of
 //! [`frame_system::Config::RuntimeCall`] are specifying:
-#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/substrate/frame/system/src/lib.rs", item:system_runtime_call)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"substrate/frame/system/src/lib.rs", item:system_runtime_call)]
 //!
 //! So, when at a given pallet, one accesses `<T as frame_system::Config>::RuntimeCall`, the type is
 //! extremely opaque from the perspective of the Rust compiler.

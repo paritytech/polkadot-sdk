@@ -20,8 +20,8 @@
 //! access to the boilerplate of building your node.
 //!
 //! A group of host functions can always be grouped to gether as a tuple:
-#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/substrate/primitives/io/src/lib.rs", item:SubstrateHostFunctions)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"substrate/primitives/io/src/lib.rs", item:SubstrateHostFunctions)]
 //!
 //! The host functions are attached to the node side's [`sc_executor::WasmExecutor`]. For example in
 //! the minimal template, the setup looks as follows:
-#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/minimal/node/src/service.rs", item:FullClient)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"templates/minimal/node/src/service.rs", item:FullClient)]

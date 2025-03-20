@@ -31,7 +31,7 @@
 //! ```
 //!
 //! For clarity, the actual implementation in Substrate looks like this:
-#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/substrate/primitives/runtime/src/generic/unchecked_extrinsic.rs", item:unchecked_extrinsic_encode_impl)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"substrate/primitives/runtime/src/generic/unchecked_extrinsic.rs", item:unchecked_extrinsic_encode_impl)]
 //!
 //! Let's look at how each of these details is constructed:
 //!

@@ -33,7 +33,7 @@
 //!
 //! This example from the parachain-template shows a type definition that includes the correct
 //! host functions.
-#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/node/src/service.rs", item:wasm_executor)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"templates/parachain/node/src/service.rs", item:wasm_executor)]
 //!
 //! > **Note:**
 //! >
@@ -50,7 +50,7 @@
 //! [`new_full_parts`](sc_service::new_full_parts). Replace this
 //! with [`new_full_parts_record_import`](sc_service::new_full_parts_record_import) and
 //! pass `true` as the last parameter to enable import recording.
-#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/node/src/service.rs", item:component_instantiation)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"templates/parachain/node/src/service.rs", item:component_instantiation)]
 //!
 //! > **Note:**
 //! >
@@ -68,7 +68,7 @@
 //! the whole PoV size of the transactions.
 //! The extension will check the size of the storage proof before and after an extrinsic execution.
 //! It reclaims the difference between the calculated size and the benchmarked size.
-#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/src/lib.rs", item:template_signed_extra)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"templates/parachain/runtime/src/lib.rs", item:template_signed_extra)]
 //!
 //! ## Optional: Verify that reclaim works
 //!
