@@ -477,7 +477,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Approves a bounty proposal, transfering funds from the treasury to the bounty account.
+		/// Approve a bounty proposal, initiating the payout of funds from the treasury to the bounty account.
 		///
 		/// ## Dispatch Origin
 		/// Must be [`Config::SpendOrigin`] with the `Success` value being at least
@@ -781,7 +781,7 @@ pub mod pallet {
 						let update_due = Self::treasury_block_number()
 							.saturating_add(T::BountyUpdatePeriod::get());
 						bounty.status =
-							BountyStatus::Active { curator: curator.clone(), update_due };
+							BountyStatus::Active { curator: curator.clone(), curator_stash: stash, update_due };
 
 						Self::deposit_event(Event::<T, I>::CuratorAccepted {
 							bounty_id,
