@@ -13,4 +13,4 @@ crates:
   - name: frame-support-procedural
     bump: major
   - name: bridge-hub-westend-runtime
-    bump: none
+    bump: patch

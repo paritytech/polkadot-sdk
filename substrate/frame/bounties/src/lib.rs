@@ -300,7 +300,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self, I>>;
 
-		/// Bounty duration in blocks.
+		/// The time limit for a curator to act before a bounty expires.
+		///
+		/// The period that starts when a curator is approved, during which they must execute or
+		/// update the bounty via `extend_bounty_expiry`. If missed, the bounty expires, and the
+		/// curator may be slashed. If `BlockNumberFor::MAX`, bounties stay active indefinitely,
+		/// removing the need for `extend_bounty_expiry`.
 		#[pallet::constant]
 		type BountyUpdatePeriod: Get<BlockNumberFor<Self, I>>;
 
@@ -773,14 +778,10 @@ pub mod pallet {
 
 						bounty.curator_deposit = deposit;
 
-						let update_due =
-							Self::treasury_block_number() + T::BountyUpdatePeriod::get();
-
-						bounty.status = BountyStatus::Active {
-							curator: curator.clone(),
-							curator_stash: stash,
-							update_due,
-						};
+						let update_due = Self::treasury_block_number()
+							.saturating_add(T::BountyUpdatePeriod::get());
+						bounty.status =
+							BountyStatus::Active { curator: curator.clone(), update_due };
 
 						Self::deposit_event(Event::<T, I>::CuratorAccepted {
 							bounty_id,
@@ -1077,9 +1078,9 @@ pub mod pallet {
 				match bounty.status {
 					BountyStatus::Active { ref curator, ref mut update_due, .. } => {
 						ensure!(*curator == signer, Error::<T, I>::RequireCurator);
-						*update_due = (Self::treasury_block_number() +
-							T::BountyUpdatePeriod::get())
-						.max(*update_due);
+						*update_due = Self::treasury_block_number()
+							.saturating_add(T::BountyUpdatePeriod::get())
+							.max(*update_due);
 					},
 					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 				}
