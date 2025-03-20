@@ -49,8 +49,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	request_claim_queue, request_session_index_for_child,
-	runtime::request_node_features,
+	request_claim_queue, request_node_features, request_session_index_for_child,
 };
 use polkadot_primitives::{
 	node_features,
@@ -1283,8 +1282,9 @@ where
 			.map_err(Error::CancelledSessionIndex)??;
 
 		let v2_receipts = request_node_features(*leaf, session_index, sender)
-			.await?
-			.unwrap_or_default()
+			.await
+			.await
+			.map_err(Error::CancelledNodeFeatures)??
 			.get(node_features::FeatureIndex::CandidateReceiptV2 as usize)
 			.map(|b| *b)
 			.unwrap_or(false);

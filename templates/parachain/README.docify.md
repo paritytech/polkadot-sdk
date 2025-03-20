@@ -252,10 +252,12 @@ relay chain network (see [Parachain Template node](#parachain-template-node) set
 
 ## Getting Help
 
-- 🧑‍🏫 To learn about Polkadot in general, [Polkadot.network](https://polkadot.network/) website is a good starting point.
+- 🧑‍🏫 To learn about Polkadot in general, [docs.Polkadot.com](https://docs.polkadot.com/) website is a good starting point.
 
 - 🧑‍🔧 For technical introduction, [here](https://github.com/paritytech/polkadot-sdk#-documentation) are
   the Polkadot SDK documentation resources.
 
 - 👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
   [Substrate StackExchange](https://substrate.stackexchange.com/).
+- 👥You can also reach out on the [Official Polkdot discord server](https://polkadot-discord.w3f.tools/)
+- 🧑Reach out on [Telegram](https://t.me/substratedevs) for more questions and discussions
