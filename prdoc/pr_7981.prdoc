@@ -1,0 +1,20 @@
+title: Bump parachains runtime api to 13
+doc:
+- audience: Runtime Dev
+  description: |-
+    We need to bump 2 runtime APIs to 13, because we are [backporting](https://github.com/paritytech/polkadot-sdk/pull/7824) validation code bomb API to 2412-4 patch which is supposed to be included in next fellowship release.
+
+    Details here: https://github.com/paritytech/polkadot-sdk/pull/7824#discussion_r2004824416
+
+    Should only be merged if https://github.com/paritytech/polkadot-sdk/pull/7824 is merged in 2412-4 patch.
+
+    Important note: on Westend, runtime needs to be upgraded first, then validators.
+crates:
+- name: polkadot-node-subsystem-types
+  bump: minor
+- name: polkadot-primitives
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
