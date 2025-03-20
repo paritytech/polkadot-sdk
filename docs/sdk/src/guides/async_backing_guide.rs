@@ -65,7 +65,7 @@
 //!
 //! - Define a `FixedVelocityConsensusHook` using our capacity, velocity, and relay slot duration
 //! constants. Use this to set the parachain system `ConsensusHook` property.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", ConsensusHook)]
+#![doc = item:/templates/parachain/runtime/src/lib.rs", item:ConsensusHook)]
 //! ```ignore
 //! impl cumulus_pallet_parachain_system::Config for Runtime {
 //!     ..
@@ -101,7 +101,7 @@
 //!
 //! 6. Update `sp_consensus_aura::AuraApi::slot_duration` in `sp_api::impl_runtime_apis` to match
 //!    the constant `SLOT_DURATION`
-#![doc = docify::embed!("../../templates/parachain/runtime/src/apis.rs", impl_slot_duration)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/src/apis.rs", item:impl_slot_duration)]
 //!
 //! 7. Implement the `AuraUnincludedSegmentApi`, which allows the collator client to query its
 //!    runtime to determine whether it should author a block.
@@ -118,7 +118,7 @@
 //!
 //! - Inside the `impl_runtime_apis!` block for your runtime, implement the
 //!   `cumulus_primitives_aura::AuraUnincludedSegmentApi` as shown below.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/apis.rs", impl_can_build_upon)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/src/apis.rs", item:impl_can_build_upon)]
 //!
 //! **Note:** With a capacity of 1 we have an effective velocity of ½ even when velocity is
 //! configured to some larger value. This is because capacity will be filled after a single block is
@@ -129,7 +129,7 @@
 //! 8. If your `runtime/src/lib.rs` provides a `CheckInherents` type to `register_validate_block`,
 //!    remove it. `FixedVelocityConsensusHook` makes it unnecessary. The following example shows how
 //!    `register_validate_block` should look after removing `CheckInherents`.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", register_validate_block)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/src/lib.rs", item:register_validate_block)]
 //!
 //!
 //! ## Phase 2 - Update Parachain Nodes
@@ -137,7 +137,7 @@
 //! This phase consists of plugging in the new lookahead collator node.
 //!
 //! 1. Import `cumulus_primitives_core::ValidationCode` to `node/src/service.rs`.
-#![doc = docify::embed!("../../templates/parachain/node/src/service.rs", cumulus_primitives)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/node/src/service.rs", item:cumulus_primitives)]
 //!
 //! 2. In `node/src/service.rs`, modify `sc_service::spawn_tasks` to use a clone of `Backend` rather
 //!    than the original
@@ -167,7 +167,7 @@
 //! ```
 //!
 //! 4. In `node/src/service.rs` import the lookahead collator rather than the basic collator
-#![doc = docify::embed!("../../templates/parachain/node/src/service.rs", lookahead_collator)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/node/src/service.rs", item:lookahead_collator)]
 //!
 //! 5. In `start_consensus()` replace the `BasicAuraParams` struct with `AuraParams`
 //!    - Change the struct type from `BasicAuraParams` to `AuraParams`
@@ -209,20 +209,20 @@
 //!
 //! 1. Configure `pallet_aura`, setting `AllowMultipleBlocksPerSlot` to true in
 //!    `runtime/src/lib.rs`.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/configs/mod.rs", aura_config)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/src/configs/mod.rs", item:aura_config)]
 //!
 //! 2. Increase the maximum `UNINCLUDED_SEGMENT_CAPACITY` in `runtime/src/lib.rs`.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", async_backing_params)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/src/lib.rs", item:async_backing_params)]
 //!
 //! 3. Decrease `MILLISECS_PER_BLOCK` to 6000.
 //!
 //! - Note: For a parachain which measures time in terms of its own block number rather than by
 //!   relay block number it may be preferable to increase velocity. Changing block time may cause
 //!   complications, requiring additional changes. See the section “Timing by Block Number”.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", block_times)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/src/lib.rs", item:block_times)]
 //!
 //! 4. Update `MAXIMUM_BLOCK_WEIGHT` to reflect the increased time available for block production.
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", max_block_weight)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/src/lib.rs", item:max_block_weight)]
 //!
 //! 5. Add a feature flagged alternative for `MinimumPeriod` in `pallet_timestamp`. The type should
 //!    be `ConstU64<0>` with the feature flag experimental, and `ConstU64<{SLOT_DURATION / 2}>`

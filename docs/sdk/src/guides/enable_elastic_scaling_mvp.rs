@@ -86,7 +86,7 @@
 //! This phase consists of plugging in the new slot-based collator.
 //!
 //! 1. In `node/src/service.rs` import the slot based collator instead of the lookahead collator.
-#![doc = docify::embed!("../../cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", slot_based_colator_import)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", item:slot_based_colator_import)]
 //!
 //! 2. In `start_consensus()`
 //!     - Remove the `overseer_handle` param (also remove the
@@ -95,7 +95,7 @@
 //!     `slot_offset` field with a   value of `Duration::from_secs(1)`.
 //!     - Replace the single future returned by `aura::run` with the two futures returned by it and
 //!     spawn them as separate tasks:
-#![doc = docify::embed!("../../cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", launch_slot_based_collator)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", item:launch_slot_based_collator)]
 //!
 //! 3. In `start_parachain_node()` remove the `overseer_handle` param passed to `start_consensus`.
 //!

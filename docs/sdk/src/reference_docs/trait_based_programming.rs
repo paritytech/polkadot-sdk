@@ -104,7 +104,7 @@
 //!
 //! The above example is almost identical to the well-known (and somewhat notorious) `type
 //! BalanceOf` that is often used in the context of [`frame::traits::fungible`].
-#![doc = docify::embed!("../../substrate/frame/fast-unstake/src/types.rs", BalanceOf)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/substrate/frame/fast-unstake/src/types.rs", item:BalanceOf)]
 //!
 //! ## Additional Resources
 //!

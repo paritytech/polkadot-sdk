@@ -46,7 +46,7 @@
 //! From the runtime side only the
 //! [`CheckMetadataHash`](frame_metadata_hash_extension::CheckMetadataHash) needs to be added to the
 //! list of signed extension:
-#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", template_signed_extra)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/src/lib.rs", item:template_signed_extra)]
 //!
 //! > **Note:**
 //! >
@@ -72,7 +72,7 @@
 //!
 //! The metadata hash generation needs to be enabled when building the wasm binary. The
 //! `substrate-wasm-builder` supports this out of the box:
-#![doc = docify::embed!("../../templates/parachain/runtime/build.rs", template_enable_metadata_hash)]
+#![doc = docify::embed!(git:"https://github.com/paritytech/polkadot-sdk.git", path:"/templates/parachain/runtime/build.rs", item:template_enable_metadata_hash)]
 //!
 //! > **Note:**
 //! >
