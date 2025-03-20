@@ -53,6 +53,7 @@ pub mod pallet {
 			FullIdentificationOf = pallet_staking::NullIdentity,
 		>
 	{
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 

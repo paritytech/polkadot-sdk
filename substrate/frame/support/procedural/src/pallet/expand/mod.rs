@@ -80,6 +80,8 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let doc_only = doc_only::expand_doc_only(&mut def);
 	let composites = composite::expand_composites(&mut def);
 
+	let warnings = def.config.warnings;
+
 	def.item.attrs.insert(
 		0,
 		syn::parse_quote!(
@@ -100,6 +102,9 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 	);
 
 	let new_items = quote::quote!(
+		#(
+			#warnings
+		)*
 		#metadata_docs
 		#constants
 		#pallet_struct
