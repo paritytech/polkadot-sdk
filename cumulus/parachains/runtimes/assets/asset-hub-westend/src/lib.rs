@@ -2178,13 +2178,10 @@ impl_runtime_apis! {
 						let asset_location = Location::new(1, [Parachain((2000 + i) as u32)]);
 						let asset_id = AssetId(asset_location.clone());
 
-						// Mint foreign asset
 						ForeignAssets::mint(origin.clone(), asset_location.clone().into(), account.clone().into(), 3_000 * UNITS)
 							.map_err(|_| BenchmarkError::Stop("Failed to mint foreign asset!"))?;
-						// Create pool
 						AssetConversion::create_pool(origin.clone(), native_asset_location.clone().into(), asset_location.clone().into())
 							.map_err(|_| BenchmarkError::Stop("Failed to create pool!"))?;
-						// Add liquidity
 						AssetConversion::add_liquidity(
 							origin.clone(),
 							native_asset_location.clone().into(),
