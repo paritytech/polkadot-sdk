@@ -2167,9 +2167,6 @@ impl_runtime_apis! {
 					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
 					let origin = RuntimeOrigin::signed(account.clone());
 
-					let mut give_assets = XcmAssets::new();
-					let mut receive_assets = XcmAssets::new();
-
 					let asset_location = Location::new(1, [Parachain(2001)]);
 					let asset_id = AssetId(asset_location.clone());
 
@@ -2197,10 +2194,10 @@ impl_runtime_apis! {
 						account.into(),
 					).map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
 
-					give_assets.push((native_asset_id, 1_000 * UNITS).into());
-					receive_assets.push((asset_id, 2_000 * UNITS).into());
+					let give_assets: XcmAssets = (native_asset_id, 1_000 * UNITS).into();
+					let receive_assets: XcmAssets = (asset_id, 2_000 * UNITS).into();
 
-					Ok((give_assets.into(), receive_assets.into()))
+					Ok((give_assets, receive_assets))
 				}
 
 				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
