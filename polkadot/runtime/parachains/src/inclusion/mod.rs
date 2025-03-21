@@ -628,6 +628,7 @@ impl<T: Config> Pallet<T> {
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
+		core_index_enabled: bool,
 	) -> Result<
 		Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
 		DispatchError,
@@ -687,8 +688,12 @@ impl<T: Config> Pallet<T> {
 					group_validators(group_idx).ok_or_else(|| Error::<T>::InvalidGroupIndex)?;
 
 				// Check backing vote count and validity.
-				let (backers, backer_idx_and_attestation) =
-					Self::check_backing_votes(candidate, &validators, group_vals)?;
+				let (backers, backer_idx_and_attestation) = Self::check_backing_votes(
+					candidate,
+					&validators,
+					group_vals,
+					core_index_enabled,
+				)?;
 
 				// Found a valid candidate.
 				latest_head_data = candidate.candidate().commitments.head_data.clone();
@@ -755,6 +760,7 @@ impl<T: Config> Pallet<T> {
 		backed_candidate: &BackedCandidate<T::Hash>,
 		validators: &[ValidatorId],
 		group_vals: Vec<ValidatorIndex>,
+		core_index_enabled: bool,
 	) -> Result<(BitVec<u8, BitOrderLsb0>, Vec<(ValidatorIndex, ValidityAttestation)>), Error<T>> {
 		let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
 
@@ -764,7 +770,8 @@ impl<T: Config> Pallet<T> {
 			session_index: shared::CurrentSessionIndex::<T>::get(),
 		};
 
-		let (validator_indices, _) = backed_candidate.validator_indices_and_core_index(true);
+		let (validator_indices, _) =
+			backed_candidate.validator_indices_and_core_index(core_index_enabled);
 
 		// check the signatures in the backing and that it is a majority.
 		let maybe_amount_validated = polkadot_primitives::check_candidate_backing(

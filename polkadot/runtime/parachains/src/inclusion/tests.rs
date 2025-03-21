@@ -1265,6 +1265,7 @@ fn candidate_checks() {
 				&allowed_relay_parents,
 				&BTreeMap::new(),
 				&group_validators,
+				false
 			),
 			Ok(Default::default())
 		);
@@ -1352,6 +1353,7 @@ fn candidate_checks() {
 					.into_iter()
 					.collect(),
 					&group_validators,
+					false
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1372,6 +1374,7 @@ fn candidate_checks() {
 				.into_iter()
 				.collect(),
 				&group_validators,
+				false,
 			)
 			.unwrap();
 
@@ -1408,6 +1411,7 @@ fn candidate_checks() {
 					&allowed_relay_parents,
 					&vec![(chain_b, vec![(backed_b_3, CoreIndex(3))])].into_iter().collect(),
 					&group_validators,
+					false
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1443,6 +1447,7 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
+					false
 				),
 				Error::<Test>::InsufficientBacking
 			);
@@ -1465,6 +1470,7 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
+					false
 				),
 				Error::<Test>::InvalidBacking
 			);
@@ -1524,6 +1530,7 @@ fn candidate_checks() {
 					.into_iter()
 					.collect(),
 					&group_validators,
+					false
 				),
 				Error::<Test>::DisallowedRelayParent
 			);
@@ -1563,6 +1570,7 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
+					false,
 				)
 				.expect("candidate is accepted with bad collator signature");
 
@@ -1643,6 +1651,7 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
+					false
 				),
 				Error::<Test>::PrematureCodeUpgrade
 			);
@@ -1677,6 +1686,7 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
+					false,
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1712,6 +1722,7 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
+					false
 				),
 				Error::<Test>::InvalidValidationCodeHash
 			);
@@ -1747,6 +1758,7 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
+					false
 				),
 				Error::<Test>::ParaHeadMismatch
 			);
@@ -1912,6 +1924,7 @@ fn backing_works() {
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
+			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -2199,6 +2212,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
+			true,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -2383,6 +2397,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 				.into_iter()
 				.collect::<BTreeMap<_, _>>(),
 			group_validators,
+			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -2601,6 +2616,7 @@ fn check_allowed_relay_parents() {
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
+			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 	});
@@ -2805,6 +2821,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 					.into_iter()
 					.collect::<BTreeMap<_, _>>(),
 				&group_validators,
+				false,
 			)
 			.expect("candidates scheduled, in order, and backed");
 
