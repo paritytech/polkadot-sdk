@@ -333,7 +333,8 @@ where
 				target: LOG_TARGET,
 				xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0),
 				"view::submit_many at:{}",
-				self.at.hash);
+				self.at.hash
+			);
 			self.pool.submit_at(&self.at, xts).await
 		} else {
 			self.pool.submit_at(&self.at, xts).await
@@ -655,6 +656,7 @@ where
 	pub fn remove_subtree<F>(
 		&self,
 		hashes: &[ExtrinsicHash<ChainApi>],
+		ban_transactions: bool,
 		listener_action: F,
 	) -> Vec<TransactionFor<ChainApi>>
 	where
@@ -663,6 +665,8 @@ where
 			ExtrinsicHash<ChainApi>,
 		),
 	{
-		self.pool.validated_pool().remove_subtree(hashes, listener_action)
+		self.pool
+			.validated_pool()
+			.remove_subtree(hashes, ban_transactions, listener_action)
 	}
 }
