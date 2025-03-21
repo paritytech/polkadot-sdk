@@ -1,0 +1,27 @@
+title: '[AHM] Replace Validator FullIdentification from `Exposure` to `Existence`'
+doc:
+- audience: Todo
+  description: |-
+    closes https://github.com/paritytech/polkadot-sdk/issues/6344.
+
+    ## TODO
+    - [ ] TryStateCheck to see existing offence report decodes correctly.
+crates:
+- name: pallet-babe
+  bump: major
+- name: pallet-beefy
+  bump: major
+- name: pallet-grandpa
+  bump: major
+- name: pallet-offences-benchmarking
+  bump: major
+- name: pallet-root-offences
+  bump: major
+- name: pallet-session-benchmarking
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-staking-ah-client
+  bump: major

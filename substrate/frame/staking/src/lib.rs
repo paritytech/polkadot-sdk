@@ -344,7 +344,9 @@ mod pallet;
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
+use codec::{
+	Decode, DecodeWithMemTracking, Encode, EncodeLike, HasCompact, Input, MaxEncodedLen, Output,
+};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
@@ -653,7 +655,7 @@ impl<T: Config> StakingLedger<T> {
 		// first we try to remove stake from active
 		if self.active >= to_withdraw {
 			self.active -= to_withdraw;
-			return self
+			return self;
 		} else {
 			withdrawn += self.active;
 			self.active = BalanceOf::<T>::zero();
@@ -671,7 +673,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if withdrawn >= to_withdraw {
-				break
+				break;
 			}
 		}
 
@@ -698,7 +700,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if unlocking_balance >= value {
-				break
+				break;
 			}
 		}
 
@@ -735,7 +737,7 @@ impl<T: Config> StakingLedger<T> {
 		slash_era: EraIndex,
 	) -> BalanceOf<T> {
 		if slash_amount.is_zero() {
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		use sp_runtime::PerThing as _;
@@ -828,7 +830,7 @@ impl<T: Config> StakingLedger<T> {
 		let mut slashed_unlocking = BTreeMap::<_, _>::new();
 		for i in slash_chunks_priority {
 			if remaining_slash.is_zero() {
-				break
+				break;
 			}
 
 			if let Some(chunk) = self.unlocking.get_mut(i).defensive() {
@@ -836,7 +838,7 @@ impl<T: Config> StakingLedger<T> {
 				// write the new slashed value of this chunk to the map.
 				slashed_unlocking.insert(chunk.era, chunk.value);
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -1116,8 +1118,10 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
+#[deprecated(note = "Use `ExistenceOf` or `ExistenceOrLegacyExposureOf` instead")]
 pub struct ExposureOf<T>(core::marker::PhantomData<T>);
 
+#[allow(deprecated)]
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
 	for ExposureOf<T>
 {
@@ -1127,10 +1131,64 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	}
 }
 
-pub struct NullIdentity;
-impl<T> Convert<T, Option<()>> for NullIdentity {
-	fn convert(_: T) -> Option<()> {
-		Some(())
+/// A marker type representing the presence of a validator. Encodes as a unit type.
+pub type Existence = ();
+
+/// A converter type that returns `Some(())` if the validator exists in the current active era,
+/// otherwise `None`. This serves as a lightweight presence check for validators.
+pub struct ExistenceOf<T>(core::marker::PhantomData<T>);
+impl<T: Config> Convert<T::AccountId, Option<Existence>> for ExistenceOf<T> {
+	fn convert(validator: T::AccountId) -> Option<Existence> {
+		Validators::<T>::contains_key(&validator).then_some(())
+	}
+}
+
+/// A compatibility wrapper type used to represent the presence of a validator in the current era.
+/// Encodes as type [`Existence`] but can decode from legacy [`Exposure`] values for backward
+/// compatibility.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, RuntimeDebug, TypeInfo, DecodeWithMemTracking)]
+pub enum ExistenceOrLegacyExposure<A, B: HasCompact> {
+	/// Validator exists in the current era.
+	Exists,
+	/// Legacy `Exposure` data, retained for decoding compatibility.
+	Exposure(Exposure<A, B>),
+}
+
+/// Converts a validator account ID to a Some([`ExistenceOrLegacyExposure::Exists`]) if the
+/// validator exists in the current era, otherwise `None`.
+pub struct ExistenceOrLegacyExposureOf<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>>
+	for ExistenceOrLegacyExposureOf<T>
+{
+	fn convert(
+		validator: T::AccountId,
+	) -> Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> {
+		Validators::<T>::contains_key(&validator).then_some(ExistenceOrLegacyExposure::Exists)
+	}
+}
+
+impl<A, B: HasCompact> Encode for ExistenceOrLegacyExposure<A, B> {
+	fn encode_to<T: Output + ?Sized>(&self, _: &mut T) {}
+}
+
+impl<A, B: HasCompact> MaxEncodedLen for ExistenceOrLegacyExposure<A, B> {
+	fn max_encoded_len() -> usize {
+		0
+	}
+}
+
+impl<A, B: HasCompact> EncodeLike for ExistenceOrLegacyExposure<A, B> {}
+
+impl<A, B: HasCompact> Decode for ExistenceOrLegacyExposure<A, B>
+where
+	Exposure<A, B>: Decode,
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
+		match input.remaining_len() {
+			Ok(Some(x)) if x > 0 => Ok(ExistenceOrLegacyExposure::Exposure(Decode::decode(input)?)),
+			_ => Ok(ExistenceOrLegacyExposure::Exists),
+		}
 	}
 }
 
@@ -1278,7 +1336,7 @@ impl<T: Config> EraInfo<T> {
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
 			// nevertheless don't do anything since the page already exist in claimed rewards.
-			return
+			return;
 		}
 
 		// add page to claimed entries
@@ -1417,4 +1475,56 @@ pub struct TestBenchmarkingConfig;
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
+}
+
+#[cfg(test)]
+mod test {
+	use crate::ExistenceOrLegacyExposure;
+	use codec::{Decode, Encode};
+	use sp_staking::{Exposure, IndividualExposure};
+
+	#[test]
+	fn existence_encodes_decodes_correctly() {
+		let encoded_existence = ExistenceOrLegacyExposure::<u32, u32>::Exists.encode();
+		assert!(encoded_existence.is_empty());
+
+		// try decoding the existence
+		let decoded_existence =
+			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_existence.as_slice())
+				.unwrap();
+		assert!(matches!(decoded_existence, ExistenceOrLegacyExposure::Exists));
+
+		// check that round-trip encoding works
+		assert_eq!(encoded_existence, decoded_existence.encode());
+	}
+
+	#[test]
+	fn legacy_existence_encodes_decodes_correctly() {
+		let legacy_exposure = Exposure::<u32, u32> {
+			total: 1,
+			own: 2,
+			others: vec![IndividualExposure { who: 3, value: 4 }],
+		};
+
+		let encoded_legacy_exposure = legacy_exposure.encode();
+
+		// try decoding the legacy exposure
+		let decoded_legacy_exposure =
+			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_legacy_exposure.as_slice())
+				.unwrap();
+		assert!(matches!(
+			decoded_legacy_exposure,
+			ExistenceOrLegacyExposure::Exposure(Exposure {
+				total: 1,
+				own: 2,
+				others: ref i
+			}) if *i == vec![IndividualExposure { who: 3, value: 4 }]
+		));
+
+		// encoding again removes the exposure.
+		assert_eq!(
+			ExistenceOrLegacyExposure::<u32, u32>::Exists.encode(),
+			decoded_legacy_exposure.encode()
+		);
+	}
 }
