@@ -641,7 +641,7 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
-				decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
+				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
