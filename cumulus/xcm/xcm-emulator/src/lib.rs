@@ -38,8 +38,7 @@ pub use frame_support::{
 	assert_ok,
 	sp_runtime::{
 		traits::{Convert, Dispatchable, Header as HeaderT},
-		Digest,
-		DispatchResult,
+		Digest, DispatchResult,
 	},
 	traits::{
 		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
