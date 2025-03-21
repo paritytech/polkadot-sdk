@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DisabledValidators_Storage_Instance","MigrateDisabledToSession","OldUnappliedSlashes_Storage_Instance","VersionUncheckedMigrateV16ToV17"],"type":["DisabledValidators","MigrateV16ToV17","OldUnappliedSlashes"]};

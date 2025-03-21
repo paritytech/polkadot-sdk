@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["account","approvals","asset","metadata","next_asset_id"]};

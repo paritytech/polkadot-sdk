@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["asset_traps","current_migration","locked_fungibles","queries","query_counter","recorded_xcm","remote_locked_fungibles","safe_xcm_version","should_record_xcm","supported_version","version_discovery_queue","version_notifiers","version_notify_targets","xcm_execution_suspended"]};

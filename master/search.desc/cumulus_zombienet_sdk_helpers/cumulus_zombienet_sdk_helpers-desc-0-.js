@@ -1,0 +1,1 @@
+searchState.loadedDescShard("cumulus_zombienet_sdk_helpers", 0, "Create a batch call to assign cores to a parachain.")

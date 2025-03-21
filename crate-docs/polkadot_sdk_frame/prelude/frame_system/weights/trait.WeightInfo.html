@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for frame_system."><title>WeightInfo in polkadot_sdk_frame::prelude::frame_system::weights - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.apply_authorized_upgrade">apply_authorized_upgrade</a></li><li><a href="#tymethod.authorize_upgrade">authorize_upgrade</a></li><li><a href="#tymethod.kill_prefix">kill_prefix</a></li><li><a href="#tymethod.kill_storage">kill_storage</a></li><li><a href="#tymethod.remark">remark</a></li><li><a href="#tymethod.remark_with_event">remark_with_event</a></li><li><a href="#tymethod.set_code">set_code</a></li><li><a href="#tymethod.set_heap_pages">set_heap_pages</a></li><li><a href="#tymethod.set_storage">set_storage</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_sdk_frame::prelude::frame_system::weights</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../../index.html">prelude</a>::<wbr><a href="../index.html">frame_system</a>::<wbr><a href="index.html">weights</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+    // Required methods
+    fn <a href="#tymethod.remark" class="fn">remark</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remark_with_event" class="fn">remark_with_event</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_heap_pages" class="fn">set_heap_pages</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_code" class="fn">set_code</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.kill_storage" class="fn">kill_storage</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.kill_prefix" class="fn">kill_prefix</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.authorize_upgrade" class="fn">authorize_upgrade</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.apply_authorized_upgrade" class="fn">apply_authorized_upgrade</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for frame_system.</p>
+</div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.remark" class="method"><h4 class="code-header">fn <a href="#tymethod.remark" class="fn">remark</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section><section id="tymethod.remark_with_event" class="method"><h4 class="code-header">fn <a href="#tymethod.remark_with_event" class="fn">remark_with_event</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section><section id="tymethod.set_heap_pages" class="method"><h4 class="code-header">fn <a href="#tymethod.set_heap_pages" class="fn">set_heap_pages</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section><section id="tymethod.set_code" class="method"><h4 class="code-header">fn <a href="#tymethod.set_code" class="fn">set_code</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section><section id="tymethod.set_storage" class="method"><h4 class="code-header">fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section><section id="tymethod.kill_storage" class="method"><h4 class="code-header">fn <a href="#tymethod.kill_storage" class="fn">kill_storage</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section><section id="tymethod.kill_prefix" class="method"><h4 class="code-header">fn <a href="#tymethod.kill_prefix" class="fn">kill_prefix</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section><section id="tymethod.authorize_upgrade" class="method"><h4 class="code-header">fn <a href="#tymethod.authorize_upgrade" class="fn">authorize_upgrade</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section><section id="tymethod.apply_authorized_upgrade" class="method"><h4 class="code-header">fn <a href="#tymethod.apply_authorized_upgrade" class="fn">apply_authorized_upgrade</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="small-section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="../trait.WeightInfo.html" title="trait polkadot_sdk_frame::prelude::frame_system::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.remark" class="method trait-impl"><a href="#method.remark" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remark" class="fn">remark</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>The range of component <code>b</code> is <code>[0, 3932160]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remark_with_event" class="method trait-impl"><a href="#method.remark_with_event" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remark_with_event" class="fn">remark_with_event</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>The range of component <code>b</code> is <code>[0, 3932160]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_heap_pages" class="method trait-impl"><a href="#method.set_heap_pages" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_heap_pages" class="fn">set_heap_pages</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: System Digest (r:1 w:1)
+Proof Skipped: System Digest (max_values: Some(1), max_size: None, mode: Measured)
+Storage: unknown <code>0x3a686561707061676573</code> (r:0 w:1)
+Proof Skipped: unknown <code>0x3a686561707061676573</code> (r:0 w:1)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_code" class="method trait-impl"><a href="#method.set_code" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_code" class="fn">set_code</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: System Digest (r:1 w:1)
+Proof Skipped: System Digest (max_values: Some(1), max_size: None, mode: Measured)
+Storage: unknown <code>0x3a636f6465</code> (r:0 w:1)
+Proof Skipped: unknown <code>0x3a636f6465</code> (r:0 w:1)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_storage" class="method trait-impl"><a href="#method.set_storage" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: Skipped Metadata (r:0 w:0)
+Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
+The range of component <code>i</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.kill_storage" class="method trait-impl"><a href="#method.kill_storage" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.kill_storage" class="fn">kill_storage</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: Skipped Metadata (r:0 w:0)
+Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
+The range of component <code>i</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.kill_prefix" class="method trait-impl"><a href="#method.kill_prefix" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.kill_prefix" class="fn">kill_prefix</a>(p: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: Skipped Metadata (r:0 w:0)
+Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
+The range of component <code>p</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.authorize_upgrade" class="method trait-impl"><a href="#method.authorize_upgrade" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.authorize_upgrade" class="fn">authorize_upgrade</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>System::AuthorizedUpgrade</code> (r:0 w:1)
+Proof: <code>System::AuthorizedUpgrade</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(33), added: 528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.apply_authorized_upgrade" class="method trait-impl"><a href="#method.apply_authorized_upgrade" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.apply_authorized_upgrade" class="fn">apply_authorized_upgrade</a>() -&gt; <a class="struct" href="../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a></h4></section></summary><div class="docblock"><p>Storage: <code>System::AuthorizedUpgrade</code> (r:1 w:1)
+Proof: <code>System::AuthorizedUpgrade</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(33), added: 528, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Digest</code> (r:1 w:1)
+Proof: <code>System::Digest</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: UNKNOWN KEY <code>0x3a636f6465</code> (r:0 w:1)
+Proof: UNKNOWN KEY <code>0x3a636f6465</code> (r:0 w:1)</p>
+</div></details></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.WeightInfo.html" title="trait polkadot_sdk_frame::prelude::frame_system::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct polkadot_sdk_frame::prelude::frame_system::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;<span class="where fmt-newline">where
+    T: <a class="trait" href="../trait.Config.html" title="trait polkadot_sdk_frame::prelude::frame_system::Config">Config</a>,</span></h3></section></div><script src="../../../../trait.impl/frame_system/weights/trait.WeightInfo.js" data-ignore-extern-crates="std,frame_system" async></script></section></div></main></body></html>

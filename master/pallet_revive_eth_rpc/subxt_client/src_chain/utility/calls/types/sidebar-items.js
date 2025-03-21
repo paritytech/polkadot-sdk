@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["as_derivative","batch","batch_all","dispatch_as","dispatch_as_fallible","force_batch","if_else","with_weight"],"struct":["AsDerivative","Batch","BatchAll","DispatchAs","DispatchAsFallible","ForceBatch","IfElse","WithWeight"]};

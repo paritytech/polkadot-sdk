@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["FrozenBalances","Param0","Param1"]};

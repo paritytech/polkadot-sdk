@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["set_validation_data","sudo_send_upward_message"],"struct":["SetValidationData","SudoSendUpwardMessage"]};

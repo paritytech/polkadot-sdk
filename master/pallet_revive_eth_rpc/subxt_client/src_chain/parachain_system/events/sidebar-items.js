@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["downward_messages_processed","downward_messages_received","upward_message_sent","validation_function_applied"],"struct":["DownwardMessagesProcessed","DownwardMessagesReceived","UpwardMessageSent","ValidationFunctionApplied","ValidationFunctionDiscarded","ValidationFunctionStored"]};

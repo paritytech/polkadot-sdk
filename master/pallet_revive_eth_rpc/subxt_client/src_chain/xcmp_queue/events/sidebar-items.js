@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["xcmp_message_sent"],"struct":["XcmpMessageSent"]};

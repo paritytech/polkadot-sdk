@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["dry_run_call","dry_run_xcm"],"struct":["DryRunCall","DryRunXcm"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_shell_chain_spec","shell_testnet_genesis"],"type":["ShellChainSpec"]};

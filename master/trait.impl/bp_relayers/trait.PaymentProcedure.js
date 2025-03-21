@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["bp_relayers",[]],["bridge_hub_westend_runtime",[["impl <a class=\"trait\" href=\"bp_relayers/trait.PaymentProcedure.html\" title=\"trait bp_relayers::PaymentProcedure\">PaymentProcedure</a>&lt;&lt;&lt;<a class=\"enum\" href=\"sp_runtime/enum.MultiSignature.html\" title=\"enum sp_runtime::MultiSignature\">MultiSignature</a> as <a class=\"trait\" href=\"sp_runtime/traits/trait.Verify.html\" title=\"trait sp_runtime::traits::Verify\">Verify</a>&gt;::<a class=\"associatedtype\" href=\"sp_runtime/traits/trait.Verify.html#associatedtype.Signer\" title=\"type sp_runtime::traits::Verify::Signer\">Signer</a> as <a class=\"trait\" href=\"sp_runtime/traits/trait.IdentifyAccount.html\" title=\"trait sp_runtime::traits::IdentifyAccount\">IdentifyAccount</a>&gt;::<a class=\"associatedtype\" href=\"sp_runtime/traits/trait.IdentifyAccount.html#associatedtype.AccountId\" title=\"type sp_runtime::traits::IdentifyAccount::AccountId\">AccountId</a>, <a class=\"enum\" href=\"bridge_hub_westend_runtime/bridge_common_config/enum.BridgeReward.html\" title=\"enum bridge_hub_westend_runtime::bridge_common_config::BridgeReward\">BridgeReward</a>, <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.84.1/std/primitive.u128.html\">u128</a>&gt; for <a class=\"struct\" href=\"bridge_hub_westend_runtime/bridge_common_config/struct.BridgeRewardPayer.html\" title=\"struct bridge_hub_westend_runtime::bridge_common_config::BridgeRewardPayer\">BridgeRewardPayer</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[18,1445]}

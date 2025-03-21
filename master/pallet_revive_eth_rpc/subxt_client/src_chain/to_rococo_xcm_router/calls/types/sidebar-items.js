@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["report_bridge_status"],"struct":["ReportBridgeStatus"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["is_trusted_reserve","is_trusted_teleporter"],"struct":["IsTrustedReserve","IsTrustedTeleporter"]};

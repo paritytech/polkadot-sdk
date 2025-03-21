@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ASSET_HUB_ID","BRIDGE_HUB_ID","COLLECTIVES_ID"],"struct":["SystemParachains"]};

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes" />
+  <style>
+    html {
+      font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      font-size: 16px;
+    }
+
+    body {
+      margin: 8px;
+    }
+
+    header {
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    main {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .small {
+      font-size: 0.75rem;
+    }
+
+    footer {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-label {
+      margin-right: 4px;
+    }
+
+    .benchmark-set {
+      margin: 8px 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .benchmark-title {
+      font-size: 2rem;
+      word-break: break-word;
+      text-align: center;
+      margin-bottom: 0.4em;
+    }
+
+    .benchmark-desc {
+      text-align: center;
+      margin-bottom: 2em;
+    }
+
+    .benchmark-subtitle {
+      font-size: 1.5rem;
+      word-break: break-word;
+      text-align: center;
+      margin-bottom: 0.4em;
+    }
+
+    .benchmark-graphs {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .benchmark-chart {
+      max-width: 1000px;
+    }
+  </style>
+  <title>Benchmarks</title>
+</head>
+
+<body>
+  <header id="header">
+    <div class="header-item">
+      <strong class="header-label">Last Update:</strong>
+      <span id="last-update"></span>
+    </div>
+    <div class="header-item">
+      <strong class="header-label">Repository:</strong>
+      <a id="repository-link" rel="noopener"></a>
+    </div>
+  </header>
+  <main id="main"></main>
+  <footer>
+    <div>
+      <button id="dl-button">Download data as JSON</button>
+    </div>
+    <div class="small">Powered by <a rel="noopener"
+        href="https://github.com/marketplace/actions/continuous-benchmark">github-action-benchmark</a></div>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.2/dist/Chart.min.js"></script>
+  <script src="data.js"></script>
+  <script id="main-script">
+    'use strict';
+    (function () {
+      // Colors from https://github.com/github/linguist/blob/master/lib/linguist/languages.yml
+      const toolColors = {
+        "libp2p/serially": '#a8539e70',
+        "libp2p/with_backpressure": '#a8539e',
+        "litep2p/serially": '#dea58470',
+        "litep2p/with_backpressure": '#dea584',
+        cargo: '#dea584',
+        go: '#00add8',
+        benchmarkjs: '#f1e05a',
+        benchmarkluau: '#000080',
+        pytest: '#3572a5',
+        googlecpp: '#f34b7d',
+        catch2: '#f34b7d',
+        julia: '#a270ba',
+        jmh: '#b07219',
+        benchmarkdotnet: '#178600',
+        customBiggerIsBetter: '#38ff38',
+        customSmallerIsBetter: '#ff3838',
+        _: '#333333'
+      };
+
+      function init() {
+        function collectBenchesPerTestCase(entries) {
+          const map = new Map();
+          for (const entry of entries) {
+            const { commit, date, tool, benches } = entry;
+            for (const bench of benches) {
+              const result = { commit, date, tool, bench };
+              const arr = map.get(bench.name);
+              if (arr === undefined) {
+                map.set(bench.name, [result]);
+              } else {
+                arr.push(result);
+              }
+            }
+          }
+          return map;
+        }
+
+        const data = window.BENCHMARK_DATA;
+
+        // Render header
+        document.getElementById('last-update').textContent = new Date(data.lastUpdate).toString();
+        const repoLink = document.getElementById('repository-link');
+        repoLink.href = data.repoUrl;
+        repoLink.textContent = data.repoUrl;
+
+        // Render footer
+        document.getElementById('dl-button').onclick = () => {
+          const dataUrl = 'data:,' + JSON.stringify(data, null, 2);
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = 'benchmark_data.json';
+          a.click();
+        };
+        // Prepare data points for charts
+        return Object.keys(data.entries).map(name => ({
+          name,
+          dataSet: collectBenchesPerTestCase(data.entries[name]),
+        }));
+      }
+
+      function renderAllChars(dataSets) {
+        function getPayloadSize(benchName) {
+          const parts = benchName.split('/');
+          // Get the last part that ends with B (e.g., 64B, 1KB, etc.)
+          const payloadPart = parts.findLast(part => part.endsWith('B'));
+          return payloadPart || 'unknown_payload';
+        }
+
+        function renderCombinedGraph(parent, title, datasets) {
+          const unitConversion = {
+            'ns': 1e-6,
+            'µs': 1e-3,
+            'ms': 1,
+            's': 1e3
+          };
+
+          function convertValue(value, unit) {
+            const NOTIFICATIONS_COUNT = 100;
+            const perNotification = value / NOTIFICATIONS_COUNT;
+            const conversionFactor = unitConversion[unit] || 1;
+            return perNotification * conversionFactor;
+          }
+
+          datasets.forEach(ds => {
+            ds.benches.forEach(d => {
+              d.bench.value = convertValue(d.bench.value, d.bench.unit.split('/')[0]);
+              d.bench.unit = 'ms';
+            });
+          });
+
+          const canvas = document.createElement('canvas');
+          canvas.className = 'benchmark-chart';
+          parent.appendChild(canvas);
+
+          const data = {
+            labels: datasets[0].benches.map(d => d.commit.id.slice(0, 7)),
+            datasets: datasets.map(ds => ({
+              label: ds.name,
+              data: ds.benches.map(d => d.bench.value),
+              borderColor: ds.color,
+              fill: false
+            })),
+          };
+
+          const options = {
+            scales: {
+              xAxes: [
+                {
+                  scaleLabel: {
+                    display: false,
+                    labelString: '',
+                  },
+                }
+              ],
+              yAxes: [
+                {
+                  scaleLabel: {
+                    display: true,
+                    labelString: 'ms',
+                  },
+                  ticks: {
+                    beginAtZero: false,
+                  }
+                }
+              ],
+            },
+            tooltips: {
+              callbacks: {
+                afterTitle: items => {
+                  const { index } = items[0];
+                  const data = datasets[0].benches[index];
+                  return '\n' + data.commit.message + '\n\n' + data.commit.timestamp + ' committed by @' + data.commit.committer.username + '\n';
+                },
+                label: item => {
+                  const dataset = datasets[item.datasetIndex];
+                  const bench = dataset.benches[item.index].bench;
+                  let label = `${dataset.name}: ${item.value} ${bench.unit}`;
+                  return label;
+                },
+                afterLabel: item => {
+                  const bench = datasets[item.datasetIndex].benches[item.index].bench;
+                  return bench.extra ? '\n' + bench.extra : '';
+                }
+              }
+            },
+            onClick: (_mouseEvent, activeElems) => {
+              if (activeElems.length === 0) {
+                return;
+              }
+              const index = activeElems[0]._index;
+              const url = datasets[0].benches[index].commit.url;
+              window.open(url, '_blank');
+            },
+          };
+
+          new Chart(canvas, {
+            type: 'line',
+            data,
+            options,
+          });
+        }
+
+        const main = document.getElementById('main');
+
+        for (const { name, dataSet } of dataSets) {
+          const titleElem = document.createElement('h1');
+          titleElem.className = 'benchmark-title';
+          titleElem.textContent = name;
+          main.appendChild(titleElem);
+
+          const descriptionElem = document.createElement('div');
+          descriptionElem.className = 'benchmark-desc';
+          descriptionElem.textContent = 'Time to send and receive a message of the appropriate size, smaller is better';
+          main.appendChild(descriptionElem);
+
+          // Group benchmarks by payload size
+          const payloadGroups = new Map();
+          for (const [benchName, benches] of dataSet.entries()) {
+            const payloadSize = getPayloadSize(benchName);
+            if (!payloadGroups.has(payloadSize)) {
+              payloadGroups.set(payloadSize, []);
+            }
+
+            const parts = benchName.split('/');
+            const p2pIndex = parts.findIndex(part => part.includes('p2p'));
+            const name = `${parts[p2pIndex]}/${parts[p2pIndex + 1]}`;
+            const color = toolColors[name] || toolColors['_'];
+            payloadGroups.get(payloadSize).push({
+              name,
+              benches,
+              color
+            });
+          }
+
+          // Create a chart for each payload size
+          for (const [payloadSize, datasets] of payloadGroups) {
+            const setElem = document.createElement('div');
+            setElem.className = 'benchmark-set';
+            main.appendChild(setElem);
+
+            const nameElem = document.createElement('h2');
+            nameElem.className = 'benchmark-subtitle';
+            nameElem.textContent = `${payloadSize}`;
+            setElem.appendChild(nameElem);
+
+            const graphsElem = document.createElement('div');
+            graphsElem.className = 'benchmark-graphs';
+            setElem.appendChild(graphsElem);
+
+            renderCombinedGraph(graphsElem, payloadSize, datasets);
+          }
+        }
+      }
+
+      renderAllChars(init()); // Start
+    })();
+  </script>
+</body>
+
+</html>

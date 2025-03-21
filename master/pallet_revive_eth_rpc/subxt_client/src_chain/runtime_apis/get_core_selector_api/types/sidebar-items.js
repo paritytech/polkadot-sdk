@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["core_selector"],"struct":["CoreSelector"]};

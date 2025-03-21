@@ -1,0 +1,1 @@
+searchState.loadedDescShard("bags_list", 0, "Running\nActions of a <code>SortedListProvider</code> that we fuzz.\nReturns the argument unchanged.\nGet a mutable reference to the inner from the outer.\nGet a reference to the inner from the outer.\nCalls <code>U::from(self)</code>.")

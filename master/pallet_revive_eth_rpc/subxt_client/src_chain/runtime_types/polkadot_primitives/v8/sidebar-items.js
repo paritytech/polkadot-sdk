@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["UpgradeGoAhead","UpgradeRestriction"],"mod":["async_backing"],"struct":["AbridgedHostConfiguration","AbridgedHrmpChannel","PersistedValidationData"]};

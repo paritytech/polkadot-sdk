@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Error` type in crate `pallet_revive_eth_rpc`."><title>Error in pallet_revive_eth_rpc::subxt_client::src_chain::polkadot_xcm::events::notify_target_send_fail - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../../static.files/rustdoc-42caa33d.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../../../" data-static-root-path="../../../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../../../../../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Error</a></h2><h3><a href="#aliased-type">Aliased type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.AssetNotFound" title="AssetNotFound">AssetNotFound</a></li><li><a href="#variant.BadOrigin" title="BadOrigin">BadOrigin</a></li><li><a href="#variant.Barrier" title="Barrier">Barrier</a></li><li><a href="#variant.DestinationUnsupported" title="DestinationUnsupported">DestinationUnsupported</a></li><li><a href="#variant.ExceedsMaxMessageSize" title="ExceedsMaxMessageSize">ExceedsMaxMessageSize</a></li><li><a href="#variant.ExceedsStackLimit" title="ExceedsStackLimit">ExceedsStackLimit</a></li><li><a href="#variant.ExpectationFalse" title="ExpectationFalse">ExpectationFalse</a></li><li><a href="#variant.ExportError" title="ExportError">ExportError</a></li><li><a href="#variant.FailedToDecode" title="FailedToDecode">FailedToDecode</a></li><li><a href="#variant.FailedToTransactAsset" title="FailedToTransactAsset">FailedToTransactAsset</a></li><li><a href="#variant.FeesNotMet" title="FeesNotMet">FeesNotMet</a></li><li><a href="#variant.HoldingWouldOverflow" title="HoldingWouldOverflow">HoldingWouldOverflow</a></li><li><a href="#variant.InvalidLocation" title="InvalidLocation">InvalidLocation</a></li><li><a href="#variant.LocationCannotHold" title="LocationCannotHold">LocationCannotHold</a></li><li><a href="#variant.LocationFull" title="LocationFull">LocationFull</a></li><li><a href="#variant.LocationNotInvertible" title="LocationNotInvertible">LocationNotInvertible</a></li><li><a href="#variant.LockError" title="LockError">LockError</a></li><li><a href="#variant.MaxWeightInvalid" title="MaxWeightInvalid">MaxWeightInvalid</a></li><li><a href="#variant.NameMismatch" title="NameMismatch">NameMismatch</a></li><li><a href="#variant.NoDeal" title="NoDeal">NoDeal</a></li><li><a href="#variant.NoPermission" title="NoPermission">NoPermission</a></li><li><a href="#variant.NotDepositable" title="NotDepositable">NotDepositable</a></li><li><a href="#variant.NotHoldingFees" title="NotHoldingFees">NotHoldingFees</a></li><li><a href="#variant.NotWithdrawable" title="NotWithdrawable">NotWithdrawable</a></li><li><a href="#variant.Overflow" title="Overflow">Overflow</a></li><li><a href="#variant.PalletNotFound" title="PalletNotFound">PalletNotFound</a></li><li><a href="#variant.ReanchorFailed" title="ReanchorFailed">ReanchorFailed</a></li><li><a href="#variant.TooExpensive" title="TooExpensive">TooExpensive</a></li><li><a href="#variant.TooManyAssets" title="TooManyAssets">TooManyAssets</a></li><li><a href="#variant.Transport" title="Transport">Transport</a></li><li><a href="#variant.Trap" title="Trap">Trap</a></li><li><a href="#variant.Unanchored" title="Unanchored">Unanchored</a></li><li><a href="#variant.UnhandledXcmVersion" title="UnhandledXcmVersion">UnhandledXcmVersion</a></li><li><a href="#variant.Unimplemented" title="Unimplemented">Unimplemented</a></li><li><a href="#variant.UnknownClaim" title="UnknownClaim">UnknownClaim</a></li><li><a href="#variant.Unroutable" title="Unroutable">Unroutable</a></li><li><a href="#variant.UntrustedReserveLocation" title="UntrustedReserveLocation">UntrustedReserveLocation</a></li><li><a href="#variant.UntrustedTeleportLocation" title="UntrustedTeleportLocation">UntrustedTeleportLocation</a></li><li><a href="#variant.VersionIncompatible" title="VersionIncompatible">VersionIncompatible</a></li><li><a href="#variant.WeightLimitReached" title="WeightLimitReached">WeightLimitReached</a></li><li><a href="#variant.WeightNotComputable" title="WeightNotComputable">WeightNotComputable</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>polkadot_<wbr>xcm::<wbr>events::<wbr>notify_<wbr>target_<wbr>send_<wbr>fail</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../../../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../../../index.html">subxt_client</a>::<wbr><a href="../../../index.html">src_chain</a>::<wbr><a href="../../index.html">polkadot_xcm</a>::<wbr><a href="../index.html">events</a>::<wbr><a href="index.html">notify_target_send_fail</a></span><h1>Type Alias <span class="type">Error</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-49">Source</a> </span></div><pre class="rust item-decl"><code>pub type Error = <a class="enum" href="../../../runtime_types/xcm/v5/traits/enum.Error.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::xcm::v5::traits::Error">Error</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Error {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 41 variants</span></summary>    Overflow,
+    Unimplemented,
+    UntrustedReserveLocation,
+    UntrustedTeleportLocation,
+    LocationFull,
+    LocationNotInvertible,
+    BadOrigin,
+    InvalidLocation,
+    AssetNotFound,
+    FailedToTransactAsset,
+    NotWithdrawable,
+    LocationCannotHold,
+    ExceedsMaxMessageSize,
+    DestinationUnsupported,
+    Transport,
+    Unroutable,
+    UnknownClaim,
+    FailedToDecode,
+    MaxWeightInvalid,
+    NotHoldingFees,
+    TooExpensive,
+    Trap(<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u64.html">u64</a>),
+    ExpectationFalse,
+    PalletNotFound,
+    NameMismatch,
+    VersionIncompatible,
+    HoldingWouldOverflow,
+    ExportError,
+    ReanchorFailed,
+    NoDeal,
+    FeesNotMet,
+    LockError,
+    NoPermission,
+    Unanchored,
+    NotDepositable,
+    TooManyAssets,
+    UnhandledXcmVersion,
+    WeightLimitReached(Static&lt;<a class="struct" href="../../../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>&gt;),
+    Barrier,
+    WeightNotComputable,
+    ExceedsStackLimit,
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.Overflow" class="variant"><a href="#variant.Overflow" class="anchor">§</a><h3 class="code-header">Overflow</h3></section><section id="variant.Unimplemented" class="variant"><a href="#variant.Unimplemented" class="anchor">§</a><h3 class="code-header">Unimplemented</h3></section><section id="variant.UntrustedReserveLocation" class="variant"><a href="#variant.UntrustedReserveLocation" class="anchor">§</a><h3 class="code-header">UntrustedReserveLocation</h3></section><section id="variant.UntrustedTeleportLocation" class="variant"><a href="#variant.UntrustedTeleportLocation" class="anchor">§</a><h3 class="code-header">UntrustedTeleportLocation</h3></section><section id="variant.LocationFull" class="variant"><a href="#variant.LocationFull" class="anchor">§</a><h3 class="code-header">LocationFull</h3></section><section id="variant.LocationNotInvertible" class="variant"><a href="#variant.LocationNotInvertible" class="anchor">§</a><h3 class="code-header">LocationNotInvertible</h3></section><section id="variant.BadOrigin" class="variant"><a href="#variant.BadOrigin" class="anchor">§</a><h3 class="code-header">BadOrigin</h3></section><section id="variant.InvalidLocation" class="variant"><a href="#variant.InvalidLocation" class="anchor">§</a><h3 class="code-header">InvalidLocation</h3></section><section id="variant.AssetNotFound" class="variant"><a href="#variant.AssetNotFound" class="anchor">§</a><h3 class="code-header">AssetNotFound</h3></section><section id="variant.FailedToTransactAsset" class="variant"><a href="#variant.FailedToTransactAsset" class="anchor">§</a><h3 class="code-header">FailedToTransactAsset</h3></section><section id="variant.NotWithdrawable" class="variant"><a href="#variant.NotWithdrawable" class="anchor">§</a><h3 class="code-header">NotWithdrawable</h3></section><section id="variant.LocationCannotHold" class="variant"><a href="#variant.LocationCannotHold" class="anchor">§</a><h3 class="code-header">LocationCannotHold</h3></section><section id="variant.ExceedsMaxMessageSize" class="variant"><a href="#variant.ExceedsMaxMessageSize" class="anchor">§</a><h3 class="code-header">ExceedsMaxMessageSize</h3></section><section id="variant.DestinationUnsupported" class="variant"><a href="#variant.DestinationUnsupported" class="anchor">§</a><h3 class="code-header">DestinationUnsupported</h3></section><section id="variant.Transport" class="variant"><a href="#variant.Transport" class="anchor">§</a><h3 class="code-header">Transport</h3></section><section id="variant.Unroutable" class="variant"><a href="#variant.Unroutable" class="anchor">§</a><h3 class="code-header">Unroutable</h3></section><section id="variant.UnknownClaim" class="variant"><a href="#variant.UnknownClaim" class="anchor">§</a><h3 class="code-header">UnknownClaim</h3></section><section id="variant.FailedToDecode" class="variant"><a href="#variant.FailedToDecode" class="anchor">§</a><h3 class="code-header">FailedToDecode</h3></section><section id="variant.MaxWeightInvalid" class="variant"><a href="#variant.MaxWeightInvalid" class="anchor">§</a><h3 class="code-header">MaxWeightInvalid</h3></section><section id="variant.NotHoldingFees" class="variant"><a href="#variant.NotHoldingFees" class="anchor">§</a><h3 class="code-header">NotHoldingFees</h3></section><section id="variant.TooExpensive" class="variant"><a href="#variant.TooExpensive" class="anchor">§</a><h3 class="code-header">TooExpensive</h3></section><section id="variant.Trap" class="variant"><a href="#variant.Trap" class="anchor">§</a><h3 class="code-header">Trap(<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.u64.html">u64</a>)</h3></section><section id="variant.ExpectationFalse" class="variant"><a href="#variant.ExpectationFalse" class="anchor">§</a><h3 class="code-header">ExpectationFalse</h3></section><section id="variant.PalletNotFound" class="variant"><a href="#variant.PalletNotFound" class="anchor">§</a><h3 class="code-header">PalletNotFound</h3></section><section id="variant.NameMismatch" class="variant"><a href="#variant.NameMismatch" class="anchor">§</a><h3 class="code-header">NameMismatch</h3></section><section id="variant.VersionIncompatible" class="variant"><a href="#variant.VersionIncompatible" class="anchor">§</a><h3 class="code-header">VersionIncompatible</h3></section><section id="variant.HoldingWouldOverflow" class="variant"><a href="#variant.HoldingWouldOverflow" class="anchor">§</a><h3 class="code-header">HoldingWouldOverflow</h3></section><section id="variant.ExportError" class="variant"><a href="#variant.ExportError" class="anchor">§</a><h3 class="code-header">ExportError</h3></section><section id="variant.ReanchorFailed" class="variant"><a href="#variant.ReanchorFailed" class="anchor">§</a><h3 class="code-header">ReanchorFailed</h3></section><section id="variant.NoDeal" class="variant"><a href="#variant.NoDeal" class="anchor">§</a><h3 class="code-header">NoDeal</h3></section><section id="variant.FeesNotMet" class="variant"><a href="#variant.FeesNotMet" class="anchor">§</a><h3 class="code-header">FeesNotMet</h3></section><section id="variant.LockError" class="variant"><a href="#variant.LockError" class="anchor">§</a><h3 class="code-header">LockError</h3></section><section id="variant.NoPermission" class="variant"><a href="#variant.NoPermission" class="anchor">§</a><h3 class="code-header">NoPermission</h3></section><section id="variant.Unanchored" class="variant"><a href="#variant.Unanchored" class="anchor">§</a><h3 class="code-header">Unanchored</h3></section><section id="variant.NotDepositable" class="variant"><a href="#variant.NotDepositable" class="anchor">§</a><h3 class="code-header">NotDepositable</h3></section><section id="variant.TooManyAssets" class="variant"><a href="#variant.TooManyAssets" class="anchor">§</a><h3 class="code-header">TooManyAssets</h3></section><section id="variant.UnhandledXcmVersion" class="variant"><a href="#variant.UnhandledXcmVersion" class="anchor">§</a><h3 class="code-header">UnhandledXcmVersion</h3></section><section id="variant.WeightLimitReached" class="variant"><a href="#variant.WeightLimitReached" class="anchor">§</a><h3 class="code-header">WeightLimitReached(Static&lt;<a class="struct" href="../../../../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>&gt;)</h3></section><section id="variant.Barrier" class="variant"><a href="#variant.Barrier" class="anchor">§</a><h3 class="code-header">Barrier</h3></section><section id="variant.WeightNotComputable" class="variant"><a href="#variant.WeightNotComputable" class="anchor">§</a><h3 class="code-header">WeightNotComputable</h3></section><section id="variant.ExceedsStackLimit" class="variant"><a href="#variant.ExceedsStackLimit" class="anchor">§</a><h3 class="code-header">ExceedsStackLimit</h3></section></div><script src="../../../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/xcm/v5/traits/enum.Error.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::polkadot_xcm::events::notify_target_send_fail::Error" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Call` type in crate `pallet_revive_eth_rpc`."><title>Call in pallet_revive_eth_rpc::subxt_client::src_chain::utility::calls::types::with_weight - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../../../static.files/rustdoc-42caa33d.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../../../../" data-static-root-path="../../../../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../../../../../../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../../../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Call</a></h2><h3><a href="#aliased-type">Aliased type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.AssetConversion" title="AssetConversion">AssetConversion</a></li><li><a href="#variant.AssetConversionMigration" title="AssetConversionMigration">AssetConversionMigration</a></li><li><a href="#variant.AssetRewards" title="AssetRewards">AssetRewards</a></li><li><a href="#variant.Assets" title="Assets">Assets</a></li><li><a href="#variant.Balances" title="Balances">Balances</a></li><li><a href="#variant.CollatorSelection" title="CollatorSelection">CollatorSelection</a></li><li><a href="#variant.CumulusXcm" title="CumulusXcm">CumulusXcm</a></li><li><a href="#variant.ForeignAssets" title="ForeignAssets">ForeignAssets</a></li><li><a href="#variant.MessageQueue" title="MessageQueue">MessageQueue</a></li><li><a href="#variant.MultiBlockMigrations" title="MultiBlockMigrations">MultiBlockMigrations</a></li><li><a href="#variant.Multisig" title="Multisig">Multisig</a></li><li><a href="#variant.NftFractionalization" title="NftFractionalization">NftFractionalization</a></li><li><a href="#variant.Nfts" title="Nfts">Nfts</a></li><li><a href="#variant.ParachainInfo" title="ParachainInfo">ParachainInfo</a></li><li><a href="#variant.ParachainSystem" title="ParachainSystem">ParachainSystem</a></li><li><a href="#variant.PolkadotXcm" title="PolkadotXcm">PolkadotXcm</a></li><li><a href="#variant.PoolAssets" title="PoolAssets">PoolAssets</a></li><li><a href="#variant.Proxy" title="Proxy">Proxy</a></li><li><a href="#variant.Revive" title="Revive">Revive</a></li><li><a href="#variant.Session" title="Session">Session</a></li><li><a href="#variant.StateTrieMigration" title="StateTrieMigration">StateTrieMigration</a></li><li><a href="#variant.System" title="System">System</a></li><li><a href="#variant.Timestamp" title="Timestamp">Timestamp</a></li><li><a href="#variant.ToRococoXcmRouter" title="ToRococoXcmRouter">ToRococoXcmRouter</a></li><li><a href="#variant.Uniques" title="Uniques">Uniques</a></li><li><a href="#variant.Utility" title="Utility">Utility</a></li><li><a href="#variant.XcmpQueue" title="XcmpQueue">XcmpQueue</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>utility::<wbr>calls::<wbr>types::<wbr>with_<wbr>weight</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../../../../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../../../../index.html">subxt_client</a>::<wbr><a href="../../../../index.html">src_chain</a>::<wbr><a href="../../../index.html">utility</a>::<wbr><a href="../../index.html">calls</a>::<wbr><a href="../index.html">types</a>::<wbr><a href="index.html">with_weight</a></span><h1>Type Alias <span class="type">Call</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-49">Source</a> </span></div><pre class="rust item-decl"><code>pub type Call = <a class="enum" href="../../../../runtime_types/asset_hub_westend_runtime/enum.RuntimeCall.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::asset_hub_westend_runtime::RuntimeCall">RuntimeCall</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Call {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 27 variants</span></summary>    System(<a class="enum" href="../../../../runtime_types/frame_system/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_system::pallet::Call">Call</a>),
+    ParachainSystem(<a class="enum" href="../../../../runtime_types/cumulus_pallet_parachain_system/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::cumulus_pallet_parachain_system::pallet::Call">Call</a>),
+    Timestamp(<a class="enum" href="../../../../runtime_types/pallet_timestamp/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_timestamp::pallet::Call">Call</a>),
+    ParachainInfo(<a class="enum" href="../../../../runtime_types/staging_parachain_info/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::staging_parachain_info::pallet::Call">Call</a>),
+    MultiBlockMigrations(<a class="enum" href="../../../../runtime_types/pallet_migrations/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_migrations::pallet::Call">Call</a>),
+    Balances(<a class="enum" href="../../../../runtime_types/pallet_balances/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_balances::pallet::Call">Call</a>),
+    CollatorSelection(<a class="enum" href="../../../../runtime_types/pallet_collator_selection/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_collator_selection::pallet::Call">Call</a>),
+    Session(<a class="enum" href="../../../../runtime_types/pallet_session/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_session::pallet::Call">Call</a>),
+    XcmpQueue(<a class="enum" href="../../../../runtime_types/cumulus_pallet_xcmp_queue/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::cumulus_pallet_xcmp_queue::pallet::Call">Call</a>),
+    PolkadotXcm(<a class="enum" href="../../../../runtime_types/pallet_xcm/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_xcm::pallet::Call">Call</a>),
+    CumulusXcm(<a class="enum" href="../../../../runtime_types/cumulus_pallet_xcm/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::cumulus_pallet_xcm::pallet::Call">Call</a>),
+    ToRococoXcmRouter(<a class="enum" href="../../../../runtime_types/pallet_xcm_bridge_hub_router/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_xcm_bridge_hub_router::pallet::Call">Call</a>),
+    MessageQueue(<a class="enum" href="../../../../runtime_types/pallet_message_queue/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_message_queue::pallet::Call">Call</a>),
+    Utility(<a class="enum" href="../../../../runtime_types/pallet_utility/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_utility::pallet::Call">Call</a>),
+    Multisig(<a class="enum" href="../../../../runtime_types/pallet_multisig/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_multisig::pallet::Call">Call</a>),
+    Proxy(<a class="enum" href="../../../../runtime_types/pallet_proxy/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_proxy::pallet::Call">Call</a>),
+    Assets(<a class="enum" href="../../../../runtime_types/pallet_assets/pallet/enum.Call1.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_assets::pallet::Call1">Call1</a>),
+    Uniques(<a class="enum" href="../../../../runtime_types/pallet_uniques/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_uniques::pallet::Call">Call</a>),
+    Nfts(<a class="enum" href="../../../../runtime_types/pallet_nfts/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nfts::pallet::Call">Call</a>),
+    ForeignAssets(<a class="enum" href="../../../../runtime_types/pallet_assets/pallet/enum.Call2.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_assets::pallet::Call2">Call2</a>),
+    NftFractionalization(<a class="enum" href="../../../../runtime_types/pallet_nft_fractionalization/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nft_fractionalization::pallet::Call">Call</a>),
+    PoolAssets(<a class="enum" href="../../../../runtime_types/pallet_assets/pallet/enum.Call3.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_assets::pallet::Call3">Call3</a>),
+    AssetConversion(<a class="enum" href="../../../../runtime_types/pallet_asset_conversion/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_asset_conversion::pallet::Call">Call</a>),
+    Revive(<a class="enum" href="../../../../runtime_types/pallet_revive/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_revive::pallet::Call">Call</a>),
+    AssetRewards(<a class="enum" href="../../../../runtime_types/pallet_asset_rewards/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_asset_rewards::pallet::Call">Call</a>),
+    StateTrieMigration(<a class="enum" href="../../../../runtime_types/pallet_state_trie_migration/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_state_trie_migration::pallet::Call">Call</a>),
+    AssetConversionMigration(<a class="enum" href="../../../../runtime_types/pallet_asset_conversion_ops/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_asset_conversion_ops::pallet::Call">Call</a>),
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.System" class="variant"><a href="#variant.System" class="anchor">§</a><h3 class="code-header">System(<a class="enum" href="../../../../runtime_types/frame_system/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_system::pallet::Call">Call</a>)</h3></section><section id="variant.ParachainSystem" class="variant"><a href="#variant.ParachainSystem" class="anchor">§</a><h3 class="code-header">ParachainSystem(<a class="enum" href="../../../../runtime_types/cumulus_pallet_parachain_system/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::cumulus_pallet_parachain_system::pallet::Call">Call</a>)</h3></section><section id="variant.Timestamp" class="variant"><a href="#variant.Timestamp" class="anchor">§</a><h3 class="code-header">Timestamp(<a class="enum" href="../../../../runtime_types/pallet_timestamp/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_timestamp::pallet::Call">Call</a>)</h3></section><section id="variant.ParachainInfo" class="variant"><a href="#variant.ParachainInfo" class="anchor">§</a><h3 class="code-header">ParachainInfo(<a class="enum" href="../../../../runtime_types/staging_parachain_info/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::staging_parachain_info::pallet::Call">Call</a>)</h3></section><section id="variant.MultiBlockMigrations" class="variant"><a href="#variant.MultiBlockMigrations" class="anchor">§</a><h3 class="code-header">MultiBlockMigrations(<a class="enum" href="../../../../runtime_types/pallet_migrations/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_migrations::pallet::Call">Call</a>)</h3></section><section id="variant.Balances" class="variant"><a href="#variant.Balances" class="anchor">§</a><h3 class="code-header">Balances(<a class="enum" href="../../../../runtime_types/pallet_balances/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_balances::pallet::Call">Call</a>)</h3></section><section id="variant.CollatorSelection" class="variant"><a href="#variant.CollatorSelection" class="anchor">§</a><h3 class="code-header">CollatorSelection(<a class="enum" href="../../../../runtime_types/pallet_collator_selection/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_collator_selection::pallet::Call">Call</a>)</h3></section><section id="variant.Session" class="variant"><a href="#variant.Session" class="anchor">§</a><h3 class="code-header">Session(<a class="enum" href="../../../../runtime_types/pallet_session/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_session::pallet::Call">Call</a>)</h3></section><section id="variant.XcmpQueue" class="variant"><a href="#variant.XcmpQueue" class="anchor">§</a><h3 class="code-header">XcmpQueue(<a class="enum" href="../../../../runtime_types/cumulus_pallet_xcmp_queue/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::cumulus_pallet_xcmp_queue::pallet::Call">Call</a>)</h3></section><section id="variant.PolkadotXcm" class="variant"><a href="#variant.PolkadotXcm" class="anchor">§</a><h3 class="code-header">PolkadotXcm(<a class="enum" href="../../../../runtime_types/pallet_xcm/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_xcm::pallet::Call">Call</a>)</h3></section><section id="variant.CumulusXcm" class="variant"><a href="#variant.CumulusXcm" class="anchor">§</a><h3 class="code-header">CumulusXcm(<a class="enum" href="../../../../runtime_types/cumulus_pallet_xcm/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::cumulus_pallet_xcm::pallet::Call">Call</a>)</h3></section><section id="variant.ToRococoXcmRouter" class="variant"><a href="#variant.ToRococoXcmRouter" class="anchor">§</a><h3 class="code-header">ToRococoXcmRouter(<a class="enum" href="../../../../runtime_types/pallet_xcm_bridge_hub_router/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_xcm_bridge_hub_router::pallet::Call">Call</a>)</h3></section><section id="variant.MessageQueue" class="variant"><a href="#variant.MessageQueue" class="anchor">§</a><h3 class="code-header">MessageQueue(<a class="enum" href="../../../../runtime_types/pallet_message_queue/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_message_queue::pallet::Call">Call</a>)</h3></section><section id="variant.Utility" class="variant"><a href="#variant.Utility" class="anchor">§</a><h3 class="code-header">Utility(<a class="enum" href="../../../../runtime_types/pallet_utility/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_utility::pallet::Call">Call</a>)</h3></section><section id="variant.Multisig" class="variant"><a href="#variant.Multisig" class="anchor">§</a><h3 class="code-header">Multisig(<a class="enum" href="../../../../runtime_types/pallet_multisig/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_multisig::pallet::Call">Call</a>)</h3></section><section id="variant.Proxy" class="variant"><a href="#variant.Proxy" class="anchor">§</a><h3 class="code-header">Proxy(<a class="enum" href="../../../../runtime_types/pallet_proxy/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_proxy::pallet::Call">Call</a>)</h3></section><section id="variant.Assets" class="variant"><a href="#variant.Assets" class="anchor">§</a><h3 class="code-header">Assets(<a class="enum" href="../../../../runtime_types/pallet_assets/pallet/enum.Call1.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_assets::pallet::Call1">Call1</a>)</h3></section><section id="variant.Uniques" class="variant"><a href="#variant.Uniques" class="anchor">§</a><h3 class="code-header">Uniques(<a class="enum" href="../../../../runtime_types/pallet_uniques/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_uniques::pallet::Call">Call</a>)</h3></section><section id="variant.Nfts" class="variant"><a href="#variant.Nfts" class="anchor">§</a><h3 class="code-header">Nfts(<a class="enum" href="../../../../runtime_types/pallet_nfts/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nfts::pallet::Call">Call</a>)</h3></section><section id="variant.ForeignAssets" class="variant"><a href="#variant.ForeignAssets" class="anchor">§</a><h3 class="code-header">ForeignAssets(<a class="enum" href="../../../../runtime_types/pallet_assets/pallet/enum.Call2.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_assets::pallet::Call2">Call2</a>)</h3></section><section id="variant.NftFractionalization" class="variant"><a href="#variant.NftFractionalization" class="anchor">§</a><h3 class="code-header">NftFractionalization(<a class="enum" href="../../../../runtime_types/pallet_nft_fractionalization/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nft_fractionalization::pallet::Call">Call</a>)</h3></section><section id="variant.PoolAssets" class="variant"><a href="#variant.PoolAssets" class="anchor">§</a><h3 class="code-header">PoolAssets(<a class="enum" href="../../../../runtime_types/pallet_assets/pallet/enum.Call3.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_assets::pallet::Call3">Call3</a>)</h3></section><section id="variant.AssetConversion" class="variant"><a href="#variant.AssetConversion" class="anchor">§</a><h3 class="code-header">AssetConversion(<a class="enum" href="../../../../runtime_types/pallet_asset_conversion/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_asset_conversion::pallet::Call">Call</a>)</h3></section><section id="variant.Revive" class="variant"><a href="#variant.Revive" class="anchor">§</a><h3 class="code-header">Revive(<a class="enum" href="../../../../runtime_types/pallet_revive/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_revive::pallet::Call">Call</a>)</h3></section><section id="variant.AssetRewards" class="variant"><a href="#variant.AssetRewards" class="anchor">§</a><h3 class="code-header">AssetRewards(<a class="enum" href="../../../../runtime_types/pallet_asset_rewards/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_asset_rewards::pallet::Call">Call</a>)</h3></section><section id="variant.StateTrieMigration" class="variant"><a href="#variant.StateTrieMigration" class="anchor">§</a><h3 class="code-header">StateTrieMigration(<a class="enum" href="../../../../runtime_types/pallet_state_trie_migration/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_state_trie_migration::pallet::Call">Call</a>)</h3></section><section id="variant.AssetConversionMigration" class="variant"><a href="#variant.AssetConversionMigration" class="anchor">§</a><h3 class="code-header">AssetConversionMigration(<a class="enum" href="../../../../runtime_types/pallet_asset_conversion_ops/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_asset_conversion_ops::pallet::Call">Call</a>)</h3></section></div><script src="../../../../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/asset_hub_westend_runtime/enum.RuntimeCall.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::utility::calls::types::with_weight::Call" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

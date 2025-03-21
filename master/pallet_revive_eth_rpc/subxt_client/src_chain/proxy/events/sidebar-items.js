@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["announced","proxy_added","proxy_executed","proxy_removed","pure_created"],"struct":["Announced","ProxyAdded","ProxyExecuted","ProxyRemoved","PureCreated"]};

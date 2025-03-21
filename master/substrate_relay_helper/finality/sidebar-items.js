@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["relay_single_header","run"],"mod":["initialize","source","target"],"struct":["DirectSubmitGrandpaFinalityProofCallBuilder","FinalitySyncPipelineAdapter"],"trait":["BaseSubstrateFinalitySyncPipeline","SubmitFinalityProofCallBuilder","SubstrateFinalitySyncPipeline"]};

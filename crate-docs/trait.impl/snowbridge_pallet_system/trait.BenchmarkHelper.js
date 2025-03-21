@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"bridge_hub_rococo_runtime":[["impl <a class=\"trait\" href=\"snowbridge_pallet_system/trait.BenchmarkHelper.html\" title=\"trait snowbridge_pallet_system::BenchmarkHelper\">BenchmarkHelper</a>&lt;<a class=\"struct\" href=\"bridge_hub_rococo_runtime/struct.RuntimeOrigin.html\" title=\"struct bridge_hub_rococo_runtime::RuntimeOrigin\">RuntimeOrigin</a>&gt; for <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.75.0/std/primitive.unit.html\">()</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

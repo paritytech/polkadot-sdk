@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ASSET_HUB_WESTEND_PARACHAIN_ID"],"enum":["Call","XcmBridgeHubRouterCall"],"fn":["build_congestion_message"],"struct":["XcmBridgeHubRouterTransactCallMaxWeight"]};
