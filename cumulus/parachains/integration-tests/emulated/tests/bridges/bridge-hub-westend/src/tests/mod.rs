@@ -33,6 +33,16 @@ pub(crate) fn asset_hub_rococo_location() -> Location {
 	)
 }
 
+pub(crate) fn asset_hub_westend_location() -> Location {
+	Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(AssetHubWestend::para_id().into()),
+		],
+	)
+}
+
 pub(crate) fn bridge_hub_rococo_location() -> Location {
 	Location::new(
 		2,
