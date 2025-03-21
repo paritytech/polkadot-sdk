@@ -15,6 +15,7 @@
 // limitations under the License.
 
 use crate::{
+	cli,
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
 		chain_spec::{Extensions, LoadSpec},
@@ -38,6 +39,7 @@ use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
+use crate::cli::{ExtraSubcommand};
 
 const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
@@ -48,15 +50,21 @@ pub struct RunConfig {
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
+	/// Optional custom command handler.
+	pub extra_command_provider: Option<Box<dyn cli::ExtraCommandProvider<Command = ExtraSubcommand>>>,
 }
 
 impl RunConfig {
-	/// Create a new `RunConfig`
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
+		extra_command_provider: Option<Box<dyn cli::ExtraCommandProvider<Command = ExtraSubcommand>>>,
 	) -> Self {
-		RunConfig { chain_spec_loader, runtime_resolver }
+		RunConfig {
+			runtime_resolver,
+			chain_spec_loader,
+			extra_command_provider,
+		}
 	}
 }
 
@@ -101,6 +109,16 @@ fn new_node_spec(
 /// Parse command line arguments into service configuration.
 pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
 	let mut cli = Cli::<CliConfig>::from_args();
+
+	if let Some(ref extra_cmd) = cli.extra {
+		return if let Some(ref provider) = cmd_config.extra_command_provider {
+			provider.handle_command(extra_cmd)
+		} else {
+			Err(sc_cli::Error::Application(Box::new(
+				std::io::Error::new(std::io::ErrorKind::Other, "Extra command provided but no provider registered")
+			)))
+		}
+	}
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
 	#[allow(deprecated)]

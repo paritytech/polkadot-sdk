@@ -68,6 +68,17 @@ pub trait CliConfig {
 	fn copyright_start_year() -> u16;
 }
 
+/// Trait for handling custom commands.
+pub trait ExtraCommandProvider {
+	/// The parser for the extra commands.
+	type Command: clap::Subcommand;
+	/// Handle the extra command.
+	///
+	/// Return:
+	/// - `Ok(())` if handled successfully,
+	/// - an error if the command was recognized but failed.
+	fn handle_command(&self, cmd: &Self::Command) -> sc_cli::Result<()>;
+}
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
@@ -134,12 +145,19 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
+#[derive(Debug, clap::Subcommand, Clone)]
+#[command(about = "Extra subcommands for extending the CLI")]
+pub enum ExtraSubcommand {
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
+}
+
 /// CLI Options shipped with `polkadot-omni-node`.
 #[derive(clap::Parser)]
 #[command(
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
-	subcommand_negates_reqs = true
+	subcommand_negates_reqs = true,
 )]
 pub struct Cli<Config: CliConfig> {
 	#[arg(skip)]
@@ -148,6 +166,10 @@ pub struct Cli<Config: CliConfig> {
 	/// Possible subcommands. See [`Subcommand`].
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
+
+	/// Possible additional subcommands. See [`ExtraSubcommand`].
+	#[command(subcommand)]
+	pub extra: Option<ExtraSubcommand>,
 
 	/// The shared parameters with all cumulus-based parachain nodes.
 	#[command(flatten)]
