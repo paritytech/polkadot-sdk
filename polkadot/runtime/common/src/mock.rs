@@ -263,7 +263,7 @@ pub fn conclude_pvf_checking<T: paras::Config>(
 		};
 		let signature = key.sign(&statement.signing_payload());
 		let _ = paras::Pallet::<T>::include_pvf_check_statement(
-			frame_system::Origin::<T>::None.into(),
+			frame_system::Origin::<T>::Authorized.into(),
 			statement,
 			signature.into(),
 		);

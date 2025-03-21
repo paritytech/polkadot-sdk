@@ -66,6 +66,28 @@ where
 	}
 }
 
+impl<C> frame_system::offchain::CreateTransaction<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type Extension = ();
+	fn create_transaction(
+		call: <Self as frame_system::offchain::CreateTransactionBase<C>>::RuntimeCall,
+		extension: Self::Extension,
+	) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<C> frame_system::offchain::CreateAuthorizedTransaction<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_extension() -> Self::Extension {
+		()
+	}
+}
+
 const NORMAL_RATIO: Perbill = Perbill::from_percent(75);
 parameter_types! {
 	pub BlockWeights: limits::BlockWeights =

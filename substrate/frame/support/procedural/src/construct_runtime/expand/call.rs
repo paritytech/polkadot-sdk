@@ -28,7 +28,6 @@ pub fn expand_outer_dispatch(
 ) -> TokenStream {
 	let mut variant_defs = TokenStream::new();
 	let mut variant_patterns = Vec::new();
-	let mut variant_usages = Vec::new();
 	let mut query_call_part_macros = Vec::new();
 	let mut pallet_names = Vec::new();
 	let mut pallet_attrs = Vec::new();
@@ -47,7 +46,6 @@ pub fn expand_outer_dispatch(
 			#[codec(index = #index)]
 			#name( #scrate::dispatch::CallableCallFor<#name, #runtime> ),
 		});
-		variant_usages.push(quote!( #scrate::dispatch::CallableCallFor<#name, #runtime> ));
 		variant_patterns.push(quote!(RuntimeCall::#name(call)));
 		pallet_names.push(name);
 		pallet_attrs.push(attr);
@@ -219,15 +217,8 @@ pub fn expand_outer_dispatch(
 			fn authorize(
 				&self,
 				source: #scrate::pallet_prelude::TransactionSource,
-			) -> ::core::option::Option<
-				::core::result::Result<
-					(
-						#scrate::pallet_prelude::ValidTransaction,
-						#scrate::pallet_prelude::Weight,
-					),
-					#scrate::pallet_prelude::TransactionValidityError
-				>
-			> {
+			) -> ::core::option::Option<#scrate::pallet_prelude::TransactionValidityWithRefund>
+			{
 				match self {
 					#(
 						#pallet_attrs

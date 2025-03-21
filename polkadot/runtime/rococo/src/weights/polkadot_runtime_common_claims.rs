@@ -180,4 +180,10 @@ impl<T: frame_system::Config> polkadot_runtime_common::claims::WeightInfo for We
 			.saturating_add(Weight::from_parts(0, 3517))
 			.saturating_add(T::DbWeight::get().reads(2))
 	}
+	fn authorize_claim() -> Weight {
+		Weight::zero()
+	}
+	fn authorize_claim_attest() -> Weight {
+		Weight::zero()
+	}
 }

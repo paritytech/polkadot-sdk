@@ -74,7 +74,7 @@ fn create_claim_attest<T: Config>(input: u32) -> DispatchResult {
 mod benchmarks {
 	use super::*;
 
-	// Benchmark `claim` including `validate_unsigned` logic.
+	// Benchmark `claim` including `authorize` logic.
 	#[benchmark]
 	fn claim() -> Result<(), BenchmarkError> {
 		let c = MAX_CLAIMS;
@@ -102,10 +102,12 @@ mod benchmarks {
 
 		#[block]
 		{
+			use frame_support::pallet_prelude::Authorize;
 			let call = <Call<T> as Decode>::decode(&mut &*call_enc)
 				.expect("call is encoded above, encoding must be correct");
-			super::Pallet::<T>::validate_unsigned(source, &call)
-				.map_err(|e| -> &'static str { e.into() })?;
+			call.authorize(TransactionSource::External)
+				.expect("Call give some authorization")
+				.expect("Authorization is valid");
 			call.dispatch_bypass_filter(RawOrigin::None.into())?;
 		}
 
@@ -132,7 +134,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Benchmark `claim_attest` including `validate_unsigned` logic.
+	// Benchmark `claim_attest` including `authorize` logic.
 	#[benchmark]
 	fn claim_attest() -> Result<(), BenchmarkError> {
 		let c = MAX_CLAIMS;
@@ -166,10 +168,12 @@ mod benchmarks {
 
 		#[block]
 		{
+			use frame_support::pallet_prelude::Authorize;
 			let call = <Call<T> as Decode>::decode(&mut &*call_enc)
 				.expect("call is encoded above, encoding must be correct");
-			super::Pallet::<T>::validate_unsigned(source, &call)
-				.map_err(|e| -> &'static str { e.into() })?;
+			call.authorize(TransactionSource::External)
+				.expect("Call give some authorization")
+				.expect("Authorization is valid");
 			call.dispatch_bypass_filter(RawOrigin::None.into())?;
 		}
 

@@ -21,12 +21,18 @@
 
 use super::*;
 use crate::mock::*;
-use frame_support::{assert_noop, dispatch};
+use frame_support::{assert_noop, dispatch::GetDispatchInfo};
+use frame_system::offchain::CreateAuthorizedTransaction;
 use sp_core::offchain::{
 	testing::{TestOffchainExt, TestTransactionPoolExt},
 	OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 };
-use sp_runtime::testing::UintAuthorityId;
+use sp_runtime::{
+	testing::UintAuthorityId,
+	traits::{Applyable, Checkable},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+	ApplyExtrinsicResult,
+};
 
 #[test]
 fn test_unresponsiveness_slash_fraction() {
@@ -50,6 +56,59 @@ fn test_unresponsiveness_slash_fraction() {
 		dummy_offence.slash_fraction(17),
 		Perbill::from_parts(46200000), // 4.62%
 	);
+}
+
+#[test]
+fn should_report_offline_validators_legacy() {
+	new_test_ext().execute_with(|| {
+		// given
+		let block = 1;
+		System::set_block_number(block);
+		// buffer new validators
+		advance_session();
+		// enact the change and buffer another one
+		let validators = vec![1, 2, 3, 4, 5, 6];
+		Validators::mutate(|l| *l = Some(validators.clone()));
+		advance_session();
+
+		// when
+		// we end current session and start the next one
+		advance_session();
+
+		// then
+		let offences = Offences::take();
+		assert_eq!(
+			offences,
+			vec![(
+				vec![],
+				UnresponsivenessOffence {
+					session_index: 2,
+					validator_set_count: 3,
+					offenders: vec![(1, 1), (2, 2), (3, 3),],
+				}
+			)]
+		);
+
+		// should not report when heartbeat is sent
+		for (idx, v) in validators.into_iter().take(4).enumerate() {
+			let _ = heartbeat(block, 3, idx as u32, v.into(), Session::validators(), true).unwrap();
+		}
+		advance_session();
+
+		// then
+		let offences = Offences::take();
+		assert_eq!(
+			offences,
+			vec![(
+				vec![],
+				UnresponsivenessOffence {
+					session_index: 3,
+					validator_set_count: 6,
+					offenders: vec![(5, 5), (6, 6),],
+				}
+			)]
+		);
+	});
 }
 
 #[test]
@@ -85,7 +144,8 @@ fn should_report_offline_validators() {
 
 		// should not report when heartbeat is sent
 		for (idx, v) in validators.into_iter().take(4).enumerate() {
-			let _ = heartbeat(block, 3, idx as u32, v.into(), Session::validators()).unwrap();
+			let _ =
+				heartbeat(block, 3, idx as u32, v.into(), Session::validators(), false).unwrap();
 		}
 		advance_session();
 
@@ -111,7 +171,8 @@ fn heartbeat(
 	authority_index: u32,
 	id: UintAuthorityId,
 	validators: Vec<u64>,
-) -> dispatch::DispatchResult {
+	legacy: bool,
+) -> ApplyExtrinsicResult {
 	let heartbeat = Heartbeat {
 		block_number,
 		session_index,
@@ -120,16 +181,57 @@ fn heartbeat(
 	};
 	let signature = id.sign(&heartbeat.encode()).unwrap();
 
-	ImOnline::pre_dispatch(&crate::Call::heartbeat {
-		heartbeat: heartbeat.clone(),
-		signature: signature.clone(),
-	})
-	.map_err(|e| match e {
-		TransactionValidityError::Invalid(InvalidTransaction::Custom(INVALID_VALIDATORS_LEN)) =>
-			"invalid validators len",
-		e @ _ => <&'static str>::from(e),
-	})?;
-	ImOnline::heartbeat(RuntimeOrigin::none(), heartbeat, signature)
+	let call = Call::heartbeat { heartbeat, signature };
+
+	let tx = if legacy {
+		UncheckedExtrinsic::new_bare(call.into())
+	} else {
+		<Runtime as CreateAuthorizedTransaction<Call<Runtime>>>::create_authorized_transaction(
+			call.into(),
+		)
+	};
+
+	let info = tx.get_dispatch_info();
+	let len = tx.using_encoded(|e| e.len());
+
+	let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())?;
+
+	checked.apply::<Runtime>(&info, len).map(|r| r.map(|_| ()).map_err(|e| e.error))
+}
+
+#[test]
+fn should_mark_online_validator_when_heartbeat_is_received_legacy() {
+	new_test_ext().execute_with(|| {
+		advance_session();
+		// given
+		Validators::mutate(|l| *l = Some(vec![1, 2, 3, 4, 5, 6]));
+		assert_eq!(Session::validators(), Vec::<u64>::new());
+		// enact the change and buffer another one
+		advance_session();
+
+		assert_eq!(Session::current_index(), 2);
+		assert_eq!(Session::validators(), vec![1, 2, 3]);
+
+		assert!(!ImOnline::is_online(0));
+		assert!(!ImOnline::is_online(1));
+		assert!(!ImOnline::is_online(2));
+
+		// when
+		let _ = heartbeat(1, 2, 0, 1.into(), Session::validators(), true).unwrap();
+
+		// then
+		assert!(ImOnline::is_online(0));
+		assert!(!ImOnline::is_online(1));
+		assert!(!ImOnline::is_online(2));
+
+		// and when
+		let _ = heartbeat(1, 2, 2, 3.into(), Session::validators(), true).unwrap();
+
+		// then
+		assert!(ImOnline::is_online(0));
+		assert!(!ImOnline::is_online(1));
+		assert!(ImOnline::is_online(2));
+	});
 }
 
 #[test]
@@ -150,7 +252,7 @@ fn should_mark_online_validator_when_heartbeat_is_received() {
 		assert!(!ImOnline::is_online(2));
 
 		// when
-		let _ = heartbeat(1, 2, 0, 1.into(), Session::validators()).unwrap();
+		let _ = heartbeat(1, 2, 0, 1.into(), Session::validators(), false).unwrap();
 
 		// then
 		assert!(ImOnline::is_online(0));
@@ -158,12 +260,43 @@ fn should_mark_online_validator_when_heartbeat_is_received() {
 		assert!(!ImOnline::is_online(2));
 
 		// and when
-		let _ = heartbeat(1, 2, 2, 3.into(), Session::validators()).unwrap();
+		let _ = heartbeat(1, 2, 2, 3.into(), Session::validators(), false).unwrap();
 
 		// then
 		assert!(ImOnline::is_online(0));
 		assert!(!ImOnline::is_online(1));
 		assert!(ImOnline::is_online(2));
+	});
+}
+
+#[test]
+fn late_heartbeat_and_invalid_keys_len_should_fail_legacy() {
+	new_test_ext().execute_with(|| {
+		advance_session();
+		// given
+		Validators::mutate(|l| *l = Some(vec![1, 2, 3, 4, 5, 6]));
+		assert_eq!(Session::validators(), Vec::<u64>::new());
+		// enact the change and buffer another one
+		advance_session();
+
+		assert_eq!(Session::current_index(), 2);
+		assert_eq!(Session::validators(), vec![1, 2, 3]);
+
+		// when
+		assert_noop!(
+			heartbeat(1, 3, 0, 1.into(), Session::validators(), true),
+			TransactionValidityError::Invalid(InvalidTransaction::Stale)
+		);
+		assert_noop!(
+			heartbeat(1, 1, 0, 1.into(), Session::validators(), true),
+			TransactionValidityError::Invalid(InvalidTransaction::Stale)
+		);
+
+		// invalid validators_len
+		assert_noop!(
+			heartbeat(1, 2, 0, 1.into(), vec![], false),
+			TransactionValidityError::Invalid(InvalidTransaction::Custom(INVALID_VALIDATORS_LEN)),
+		);
 	});
 }
 
@@ -182,16 +315,19 @@ fn late_heartbeat_and_invalid_keys_len_should_fail() {
 
 		// when
 		assert_noop!(
-			heartbeat(1, 3, 0, 1.into(), Session::validators()),
-			"Transaction is outdated"
+			heartbeat(1, 3, 0, 1.into(), Session::validators(), false),
+			TransactionValidityError::Invalid(InvalidTransaction::Stale)
 		);
 		assert_noop!(
-			heartbeat(1, 1, 0, 1.into(), Session::validators()),
-			"Transaction is outdated"
+			heartbeat(1, 1, 0, 1.into(), Session::validators(), false),
+			TransactionValidityError::Invalid(InvalidTransaction::Stale)
 		);
 
 		// invalid validators_len
-		assert_noop!(heartbeat(1, 2, 0, 1.into(), vec![]), "invalid validators len");
+		assert_noop!(
+			heartbeat(1, 2, 0, 1.into(), vec![], false),
+			TransactionValidityError::Invalid(InvalidTransaction::Custom(INVALID_VALIDATORS_LEN)),
+		);
 	});
 }
 
@@ -224,7 +360,7 @@ fn should_generate_heartbeats() {
 		assert_eq!(state.read().transactions.len(), 2);
 
 		// check stuff about the transaction.
-		let ex: Extrinsic = Decode::decode(&mut &*transaction).unwrap();
+		let ex: UncheckedExtrinsic = Decode::decode(&mut &*transaction).unwrap();
 		let heartbeat = match ex.function {
 			crate::mock::RuntimeCall::ImOnline(crate::Call::heartbeat { heartbeat, .. }) =>
 				heartbeat,
@@ -258,7 +394,7 @@ fn should_cleanup_received_heartbeats_on_session_end() {
 		assert_eq!(Session::validators(), vec![1, 2, 3]);
 
 		// send an heartbeat from authority id 0 at session 2
-		let _ = heartbeat(1, 2, 0, 1.into(), Session::validators()).unwrap();
+		let _ = heartbeat(1, 2, 0, 1.into(), Session::validators(), false).unwrap();
 
 		// the heartbeat is stored
 		assert!(!super::pallet::ReceivedHeartbeats::<Runtime>::get(2, 0).is_none());
@@ -338,7 +474,7 @@ fn should_not_send_a_report_if_already_online() {
 		// All validators have `0` as their session key, but we should only produce 1 heartbeat.
 		assert_eq!(pool_state.read().transactions.len(), 0);
 		// check stuff about the transaction.
-		let ex: Extrinsic = Decode::decode(&mut &*transaction).unwrap();
+		let ex: UncheckedExtrinsic = Decode::decode(&mut &*transaction).unwrap();
 		let heartbeat = match ex.function {
 			crate::mock::RuntimeCall::ImOnline(crate::Call::heartbeat { heartbeat, .. }) =>
 				heartbeat,
