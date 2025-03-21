@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742557984768,
+  "lastUpdate": 1742564439222,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
@@ -81529,6 +81529,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.000018383659999999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gorka.irazoki@gmail.com",
+            "name": "girazoki",
+            "username": "girazoki"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a514f6d3753189c21a6b68d38cc6289999de047",
+          "message": "Add digest processor xcm emulator (#7915)\n\nCurrently parachains are injecting through the xcm-emulator the default\ndigests in each block, something that can prevent testing certain\nconsensus aspects.\n\nWe propose to add the type `DigestProvider`, which needs to implement\nthe trait `Convert<blockNumber, Digest>`. The idea is that we can call\nthe implementation of this trait before initializing every block, and\nthus, allowing us to inject custom digests provided by this trait.\n\nObviously the default behavior persists if you set this type to `().`\n\nThe utilization of the `Convert` trait was arbitrary, as it was the\neasiest to accomplish the solution. I am not against using a custom\ntrait defined for this purpose if that is preferred.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-03-21T12:38:10Z",
+          "tree_id": "78e2ca8681b711c0fc851bde1f674792eb9527c6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a514f6d3753189c21a6b68d38cc6289999de047"
+        },
+        "date": 1742564421855,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63625.37999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52946.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.3403910197199997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000017534000000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001684313,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001684313,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000017534000000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005644320570000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 11.778595754109965,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.385475009520001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.355840833329999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 1.8679285198999878,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.4714373696899764,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 3.373042113712446,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.3518786813800006,
             "unit": "seconds"
           }
         ]
