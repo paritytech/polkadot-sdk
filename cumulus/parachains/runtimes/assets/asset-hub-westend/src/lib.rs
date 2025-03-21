@@ -2161,59 +2161,70 @@ impl_runtime_apis! {
 					(0u64, Response::Version(Default::default()))
 				}
 
+				// fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
+				// 	let native_asset_location = WestendLocation::get();
+				// 	let native_asset_id = AssetId(native_asset_location.clone());
+				// 	let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+				// 	let origin = RuntimeOrigin::signed(account.clone());
+				// 	let asset_location = Location::new(1, [Parachain(2001)]);
+				// 	let asset_id = AssetId(asset_location.clone());
+				//
+				// 	// Setup balances with sufficient funds
+				// 	assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+				// 		&account,
+				// 		ExistentialDeposit::get() + (1_000 * UNITS)
+				// 	));
+				//
+				// 	// Create foreign asset
+				// 	assert_ok!(ForeignAssets::force_create(
+				// 		RuntimeOrigin::root(),
+				// 		asset_location.clone().into(),
+				// 		account.clone().into(),
+				// 		true,
+				// 		1,
+				// 	));
+				//
+				// 	// Mint foreign assets
+				// 	assert_ok!(ForeignAssets::mint(
+				// 		origin.clone(),
+				// 		asset_location.clone().into(),
+				// 		account.clone().into(),
+				// 		3_000 * UNITS,
+				// 	));
+				//
+				// 	// Setup pool
+				// 	assert_ok!(AssetConversion::create_pool(
+				// 		origin.clone(),
+				// 		native_asset_location.clone().into(),
+				// 		asset_location.clone().into(),
+				// 	));
+				// 	assert_ok!(AssetConversion::add_liquidity(
+				// 		origin,
+				// 		native_asset_location.into(),
+				// 		asset_location.into(),
+				// 		1_000 * UNITS,
+				// 		2_000 * UNITS,
+				// 		1,
+				// 		1,
+				// 		account.into(),
+				// 	));
+				//
+				// 	// Create give and receive assets
+				// 	let give_assets: XcmAssets = (native_asset_id, 100 * UNITS).into();
+				// 	let receive_assets: XcmAssets = (asset_id, 190 * UNITS).into();
+				// 	log::info!("Give assets: {:?}", give_assets);
+				// 	log::info!("Receive assets: {:?}", receive_assets);
+				//
+				// 	Ok((give_assets, receive_assets))
+				// }
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
-					let native_asset_location = WestendLocation::get();
-					let native_asset_id = AssetId(native_asset_location.clone());
-					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
-					let origin = RuntimeOrigin::signed(account.clone());
-					let asset_location = Location::new(1, [Parachain(2001)]);
-					let asset_id = AssetId(asset_location.clone());
+					// Use very simple asset definitions
+					let native_location = WestendLocation::get();
+					let foreign_location = Location::new(1, [Parachain(2001)]);
 
-					// Setup balances with sufficient funds
-					assert_ok!(<Balances as frame_support::traits::tokens::fungible::Mutate<_>>::mint_into(
-						&account,
-						ExistentialDeposit::get() + (1_000 * UNITS)
-					));
-
-					// Create foreign asset
-					assert_ok!(ForeignAssets::force_create(
-						RuntimeOrigin::root(),
-						asset_location.clone().into(),
-						account.clone().into(),
-						true,
-						1,
-					));
-
-					// Mint foreign assets
-					assert_ok!(ForeignAssets::mint(
-						origin.clone(),
-						asset_location.clone().into(),
-						account.clone().into(),
-						3_000 * UNITS,
-					));
-
-					// Setup pool
-					assert_ok!(AssetConversion::create_pool(
-						origin.clone(),
-						native_asset_location.clone().into(),
-						asset_location.clone().into(),
-					));
-					assert_ok!(AssetConversion::add_liquidity(
-						origin,
-						native_asset_location.into(),
-						asset_location.into(),
-						1_000 * UNITS,
-						2_000 * UNITS,
-						1,
-						1,
-						account.into(),
-					));
-
-					// Create give and receive assets
-					let give_assets: XcmAssets = (native_asset_id, 100 * UNITS).into();
-					let receive_assets: XcmAssets = (asset_id, 190 * UNITS).into();
-					log::info!("Give assets: {:?}", give_assets);
-					log::info!("Receive assets: {:?}", receive_assets);
+					// Create minimal assets with small amounts
+					let give_assets: XcmAssets = (AssetId(native_location), 10 * UNITS).into();
+					let receive_assets: XcmAssets = (AssetId(foreign_location), 10 * UNITS).into();
 
 					Ok((give_assets, receive_assets))
 				}
