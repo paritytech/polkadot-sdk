@@ -24,6 +24,7 @@ sp-runtime.workspace = true
 cumulus-pallet-parachain-system.workspace = true
 
 [dev-dependencies]
+rstest = { workspace = true }
 # Cumulus
 cumulus-pallet-parachain-system = { default-features = true, path = "../parachain-system" }
 cumulus-primitives-core = { default-features = true, path = "../../primitives/core" }

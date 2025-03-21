@@ -223,6 +223,14 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				RelayChainCli::<CliConfig>::new(runner.config(), cli.relay_chain_args.iter());
 			let collator_options = cli.run.collator_options();
 
+			if cli.experimental_use_slot_based {
+				log::warn!(
+					"Deprecated: The flag --experimental-use-slot-based is no longer \
+				supported. Please use --authoring slot-based instead. This feature will be removed \
+				after May 2025."
+				);
+			}
+
 			runner.run_node_until_exit(|config| async move {
 				let node_spec =
 					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
