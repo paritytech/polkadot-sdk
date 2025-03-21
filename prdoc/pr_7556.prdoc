@@ -1,35 +1,7 @@
 title: '[WIP] Add in memory trie cache'
 doc:
 - audience: Node Dev
-  description: "# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/7533.\n\
-    \nWe\u2019re launching smart contracts on AssetHub, so we expect many small reads\
-    \ and writes during contract execution. The current performance is insufficient.\
-    \ We aim to reduce storage access time by fitting the entire Trie cache into memory.\n\
-    \nThe current task involves fitting the state into memory based on a CLI flag\
-    \ or runtime configuration. It requires warming up the state and performing sanity\
-    \ checks to ensure memory usage remains within reasonable limits; otherwise, it\
-    \ should abort gracefully.\n\nHere is a breakdown of the task by parts. The current\
-    \ statements are not rock solid and may change over time.\n\n**Configuration.**\
-    \ For a proof of concept, we will start with a CLI flag. After successful testing,\
-    \ it may be changed to a runtime configuration.\n\n**Warm up.** In a given CLI\
-    \ configuration, we populate the trie cache with values from the database using\
-    \ a best hash as a storage root.\n\n**Sanity checks.** We can start by stating\
-    \ that the trie cache can use up to 50% of the total system memory, but it cannot\
-    \ be less than 16 GB (50% of the reference hardware). If we find that our requirements\
-    \ haven't been met or our cache is full from the start, we should abort.\n\n**Aborting.**\
-    \ If we don\u2019t have enough memory, it means we already know from the start\
-    \ that the node will underperform. Simply generating an error won\u2019t help,\
-    \ as we can\u2019t rely on node owners to monitor the logs carefully. At this\
-    \ stage, a node shutdown seems like a better solution.\n\n## Integration\n\nTested\
-    \ on a snapshot from westend-asset-hub. Populating Trie cache with 975801 keys\
-    \ took 88s.\n\nWe should take into account increased memory usage for caching.\n\
-    \n\n\n## Review Notes\n\nCurrent PR should be suitable for initial testing. Here\
-    \ are some tasks to complete:\n- [ ] Test performance to ensure the Trie cache\
-    \ optimization meets the desired access time improvements.\n- [ ] Document the\
-    \ CLI flag usage and configuration options for node operators.\n- [ ] Document\
-    \ that we ignore Trie cache size configuration from CLI if we fit the state into\
-    \ memory\n- [ ] Update documentation with information on memory usage policies\
-    \ and abort scenarios."
+  description: "To increase the performance of smart contracts on AssetHub, reducing storage access time, we fit Trie cache into memory and warm up the state based on a CLI flag."
 crates:
 - name: sc-cli
   bump: patch
