@@ -1,6 +1,6 @@
 [package]
 name = "sp-io"
-version = "30.0.0"
+version = "39.0.1-rc1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -28,13 +28,13 @@ secp256k1 = { features = [
 	"global-context",
 	"recovery",
 ], optional = true, workspace = true, default-features = true }
-sp-core = { workspace = true }
-sp-crypto-hashing = { workspace = true }
-sp-externalities = { workspace = true }
+sp-core.workspace = true
+sp-crypto-hashing.workspace = true
+sp-externalities.workspace = true
 sp-keystore = { optional = true, workspace = true }
-sp-runtime-interface = { workspace = true }
+sp-runtime-interface.workspace = true
 sp-state-machine = { optional = true, workspace = true }
-sp-tracing = { workspace = true }
+sp-tracing.workspace = true
 sp-trie = { optional = true, workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true }
@@ -105,8 +105,3 @@ improved_panic_error_reporting = []
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
 bls-experimental = ["sp-keystore/bls-experimental"]
-
-# This feature adds Bandersnatch crypto primitives.
-# It should not be used in production since the implementation and interface may still
-# be subject to significant changes.
-bandersnatch-experimental = ["sp-keystore/bandersnatch-experimental"]

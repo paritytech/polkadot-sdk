@@ -1,12 +1,13 @@
 [package]
 name = "pallet-revive-fixtures"
-version = "0.1.0"
+version = "0.3.0-rc1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Fixtures for testing and benchmarking"
 homepage.workspace = true
 repository.workspace = true
+rust-version = "1.84"
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true
@@ -16,11 +17,13 @@ workspace = true
 
 [dependencies]
 anyhow = { workspace = true, default-features = true, optional = true }
-sp-core = { workspace = true, default-features = true, optional = true }
-sp-io = { workspace = true, default-features = true, optional = true }
+sp-core = { workspace = true, optional = true, default-features = true }
+sp-io = { workspace = true, optional = true, default-features = true }
 
 [build-dependencies]
 anyhow = { workspace = true, default-features = true }
+cargo_metadata = { workspace = true }
+pallet-revive-uapi = { workspace = true }
 polkavm-linker = { version = "0.21.0" }
 toml = { workspace = true }
 

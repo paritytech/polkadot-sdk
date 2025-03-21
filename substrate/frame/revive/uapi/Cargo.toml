@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive-uapi"
-version = "0.1.0"
+version = "0.3.0-rc1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -17,7 +17,7 @@ codec = { features = [
 	"derive",
 	"max-encoded-len",
 ], optional = true, workspace = true }
-pallet-revive-proc-macro = { workspace = true }
+pallet-revive-proc-macro.workspace = true
 paste = { workspace = true }
 scale-info = { features = ["derive"], optional = true, workspace = true }
 
