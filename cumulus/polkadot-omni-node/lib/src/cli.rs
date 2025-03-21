@@ -69,15 +69,15 @@ pub trait CliConfig {
 }
 
 /// Trait for handling custom commands.
-pub trait CustomCommandHandler {
-	/// * `cmd` is the name of the command (e.g. "export-chain-spec").
-	/// * `matches` contains the parsed arguments (if any) for this custom command.
+pub trait ExtraCommandProvider {
+	/// The parser for the extra commands.
+	type Command: clap::Subcommand;
+	/// Handle the extra command.
 	///
 	/// Return:
-	/// - `Some(Ok(()))` if the command was recognized and executed successfully.
-	/// - `Some(Err(e))` if the command was recognized but failed.
-	/// - `None` if the command is not recognized.
-	fn handle_command(&self, subcommand: &str, args: &[String]) -> Option<sc_cli::Result<()>>;
+	/// - `Ok(())` if handled successfully,
+	/// - an error if the command was recognized but failed.
+	fn handle_command(&self, cmd: &Self::Command) -> sc_cli::Result<()>;
 }
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
@@ -143,10 +143,13 @@ pub enum Subcommand {
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
+}
 
-	/// Custom subcommand to allow extensions.
-	#[command(external_subcommand)]
-	Custom(Vec<String>),
+#[derive(Debug, clap::Subcommand, Clone)]
+#[command(about = "Extra subcommands for extending the CLI")]
+pub enum ExtraSubcommand {
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 }
 
 /// CLI Options shipped with `polkadot-omni-node`.
@@ -155,7 +158,6 @@ pub enum Subcommand {
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
 	subcommand_negates_reqs = true,
-	allow_external_subcommands = true
 )]
 pub struct Cli<Config: CliConfig> {
 	#[arg(skip)]
@@ -164,6 +166,10 @@ pub struct Cli<Config: CliConfig> {
 	/// Possible subcommands. See [`Subcommand`].
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
+
+	/// Possible additional subcommands. See [`ExtraSubcommand`].
+	#[command(subcommand)]
+	pub extra: Option<ExtraSubcommand>,
 
 	/// The shared parameters with all cumulus-based parachain nodes.
 	#[command(flatten)]

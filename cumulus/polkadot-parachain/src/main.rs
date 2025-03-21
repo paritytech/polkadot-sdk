@@ -21,45 +21,41 @@
 
 mod chain_spec;
 
-use clap::Parser;
-use polkadot_omni_node_lib::{
-	chain_spec::LoadSpec, cli::CustomCommandHandler, run, CliConfig as CliConfigT, RunConfig,
-	NODE_VERSION,
-};
-use sc_cli::ExportChainSpecCmd;
+use std::io;
+use clap::{Parser, Subcommand};
+use polkadot_omni_node_lib::{chain_spec::LoadSpec, cli, run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
+use polkadot_omni_node_lib::cli::ExtraCommandProvider;
+use sc_cli::{ExportChainSpecCmd, RunCmd};
+use sc_cli::Error::Application;
 
-struct MyCustomCommandHandler;
+pub struct ExportChainSpecExtra;
 
-impl CustomCommandHandler for MyCustomCommandHandler {
-	fn handle_command(&self, subcommand: &str, args: &[String]) -> Option<sc_cli::Result<()>> {
-		if subcommand == "export-chain-spec" {
-			// Reconstruct the full argument vector; first element is the command name.
-			let full_args = std::iter::once(subcommand.to_string())
-				.chain(args.iter().cloned())
-				.collect::<Vec<String>>();
-			// Parse the arguments into an ExportChainSpecCmd using Clap.
-			let export_cmd = match ExportChainSpecCmd::try_parse_from(full_args) {
-				Ok(cmd) => cmd,
-				Err(e) =>
-					return Some(Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						e.to_string(),
-					))))),
-			};
-			// Load the chain spec using your local chain spec loader.
-			let spec = match chain_spec::ChainSpecLoader.load_spec(&export_cmd.chain) {
-				Ok(spec) => spec,
-				Err(e) =>
-					return Some(Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						e,
-					))))),
-			};
-			return Some(export_cmd.run(spec));
+impl ExtraCommandProvider for ExportChainSpecExtra {
+	type Command = super::cli::ExtraSubcommand;
+	fn handle_command(&self, cmd: &Self::Command) -> sc_cli::Result<()> {
+		match cmd {
+			super::cli::ExtraSubcommand::ExportChainSpec(ref export_cmd) => {
+				let spec = chain_spec::ChainSpecLoader.load_spec(&export_cmd.chain)
+					.map_err(|e| Application(Box::new(
+						io::Error::new(io::ErrorKind::Other, e)
+					)))?;
+				export_cmd.run(spec)
+			}
 		}
-		None
 	}
 }
+
+#[derive(Debug, Parser)]
+#[command(author, version, about, long_about = None)]
+struct ParachainCli {
+	#[clap(flatten)]
+	pub run: RunCmd,
+	#[clap(subcommand)]
+	pub built_in: Option<cli::Subcommand>,
+	#[clap(subcommand)]
+	pub extra: Option<cli::ExtraSubcommand>,
+}
+
 
 struct CliConfig;
 
@@ -88,7 +84,7 @@ fn main() -> color_eyre::eyre::Result<()> {
 	let config = RunConfig::new(
 		Box::new(chain_spec::RuntimeResolver),
 		Box::new(chain_spec::ChainSpecLoader),
-		Some(Box::new(MyCustomCommandHandler)),
+		Some(Box::new(ExportChainSpecExtra)),
 	);
 	Ok(run::<CliConfig>(config)?)
 }

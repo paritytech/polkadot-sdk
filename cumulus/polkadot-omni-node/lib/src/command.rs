@@ -39,6 +39,7 @@ use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
+use crate::cli::{ExtraSubcommand};
 
 const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
@@ -50,17 +51,20 @@ pub struct RunConfig {
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
 	/// Optional custom command handler.
-	pub custom_command_handler: Option<Box<dyn cli::CustomCommandHandler>>,
+	pub extra_command_provider: Option<Box<dyn cli::ExtraCommandProvider<Command = ExtraSubcommand>>>,
 }
 
 impl RunConfig {
-	/// Create a new `RunConfig`
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
-		custom_command_handler: Option<Box<dyn cli::CustomCommandHandler>>,
+		extra_command_provider: Option<Box<dyn cli::ExtraCommandProvider<Command = ExtraSubcommand>>>,
 	) -> Self {
-		RunConfig { runtime_resolver, chain_spec_loader, custom_command_handler }
+		RunConfig {
+			runtime_resolver,
+			chain_spec_loader,
+			extra_command_provider,
+		}
 	}
 }
 
@@ -105,6 +109,16 @@ fn new_node_spec(
 /// Parse command line arguments into service configuration.
 pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
 	let mut cli = Cli::<CliConfig>::from_args();
+
+	if let Some(ref extra_cmd) = cli.extra {
+		return if let Some(ref provider) = cmd_config.extra_command_provider {
+			provider.handle_command(extra_cmd)
+		} else {
+			Err(sc_cli::Error::Application(Box::new(
+				std::io::Error::new(std::io::ErrorKind::Other, "Extra command provided but no provider registered")
+			)))
+		}
+	}
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
 	#[allow(deprecated)]
@@ -225,31 +239,6 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			}
 		},
 		Some(Subcommand::Key(cmd)) => Ok(cmd.run(&cli)?),
-		Some(Subcommand::Custom(ref ext)) => {
-			if !ext.is_empty() {
-				// The first element is the command name; the rest are its arguments.
-				let subcommand = ext[0].clone();
-				let args = ext[1..].to_vec();
-				if let Some(ref handler) = cmd_config.custom_command_handler {
-					handler.handle_command(&subcommand, &args).unwrap_or_else(|| {
-						Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
-							std::io::ErrorKind::Other,
-							"Custom command not handled",
-						))))
-					})
-				} else {
-					Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						"Custom command provided but no handler registered",
-					))))
-				}
-			} else {
-				Err(sc_cli::Error::Application(Box::new(std::io::Error::new(
-					std::io::ErrorKind::Other,
-					"No custom command provided",
-				))))
-			}
-		},
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
 			let polkadot_cli =

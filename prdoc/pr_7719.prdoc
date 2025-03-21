@@ -12,6 +12,6 @@ crates:
 - name: polkadot-cli
   bump: major
 - name: polkadot-parachain-bin
-  bump: major
+  bump: patch
 - name: polkadot-omni-node-lib
   bump: major
