@@ -37,8 +37,8 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: |
-          cargo build --locked --quiet --release -p asset-hub-westend-runtime --features runtime-benchmarks
-          cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
+          forklift cargo build --locked --quiet --release -p asset-hub-westend-runtime --features runtime-benchmarks
+          forklift cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
 
   runtime-matrix:
     runs-on: ubuntu-latest
@@ -83,7 +83,7 @@ jobs:
         run: |
           RUNTIME_BLOB_NAME=$(echo $PACKAGE_NAME | sed 's/-/_/g').compact.compressed.wasm
           RUNTIME_BLOB_PATH=./target/release/wbuild/$PACKAGE_NAME/$RUNTIME_BLOB_NAME
-          cargo build --release --locked -p $PACKAGE_NAME -p frame-omni-bencher --features=${{ matrix.runtime.bench_features }} --quiet
+          forklift cargo build --release --locked -p $PACKAGE_NAME -p frame-omni-bencher --features=${{ matrix.runtime.bench_features }} --quiet
           echo "Running short benchmarking for PACKAGE_NAME=$PACKAGE_NAME and RUNTIME_BLOB_PATH=$RUNTIME_BLOB_PATH"
           ls -lrt $RUNTIME_BLOB_PATH
 
