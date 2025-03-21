@@ -20,7 +20,7 @@ hex = { workspace = true, default-features = true }
 log = { workspace = true }
 num-traits = { workspace = true, default-features = true }
 rbtag = { workspace = true }
-structopt = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
 strum = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 
