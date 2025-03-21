@@ -51,6 +51,8 @@ pub mod weights;
 pub mod weights_ext;
 
 pub use weights::WeightInfo;
+#[cfg(feature = "test-utils")]
+pub use weights_ext::check_weight_info_ext_accuracy;
 pub use weights_ext::WeightInfoExt;
 
 extern crate alloc;
@@ -640,6 +642,7 @@ impl<T: Config> Pallet<T> {
 	fn enqueue_xcmp_messages(
 		sender: ParaId,
 		xcms: &[BoundedVec<u8, MaxXcmpMessageLenOf<T>>],
+		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
 		let (xcms, new_page_count) = match T::XcmpQueue::check_messages_footprint(
@@ -655,7 +658,14 @@ impl<T: Config> Pallet<T> {
 				(&xcms[..drop_idx], new_page_count)
 			},
 		};
-		// TODO: consume weight
+
+		let xcms_size = xcms.iter().map(|xcm| xcm.len()).sum();
+		let required_weight =
+			T::WeightInfo::enqueue_xcmp_messages(new_page_count, xcms.len(), xcms_size);
+		if meter.try_consume(required_weight).is_err() {
+			log::error!("Out of weight: cannot enqueue XCMP messages; dropping batch");
+			return Err(())
+		}
 
 		T::XcmpQueue::enqueue_messages(xcms.iter().map(|xcm| xcm.as_bounded_slice()), sender);
 		Ok(())
