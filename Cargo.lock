@@ -7940,15 +7940,18 @@ dependencies = [
 
 [[package]]
 name = "hyper-tls"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6183ddfa99b85da61a140bea0efc93fdf56ceaa041b37d553518030827f9905"
+checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
 dependencies = [
  "bytes",
- "hyper 0.14.29",
+ "http-body-util",
+ "hyper 1.6.0",
+ "hyper-util",
  "native-tls",
  "tokio",
  "tokio-native-tls",
+ "tower-service",
 ]
 
 [[package]]
@@ -8172,7 +8175,7 @@ dependencies = [
  "ipnet",
  "log",
  "rtnetlink",
- "system-configuration",
+ "system-configuration 0.5.1",
  "tokio",
  "windows 0.51.1",
 ]
@@ -18155,12 +18158,10 @@ dependencies = [
  "http-body 0.4.5",
  "hyper 0.14.29",
  "hyper-rustls 0.24.2",
- "hyper-tls",
  "ipnet",
  "js-sys",
  "log",
  "mime",
- "native-tls",
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
@@ -18170,9 +18171,8 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "sync_wrapper 0.1.2",
- "system-configuration",
+ "system-configuration 0.5.1",
  "tokio",
- "tokio-native-tls",
  "tokio-rustls 0.24.1",
  "tower-service",
  "url",
@@ -18191,19 +18191,23 @@ checksum = "a77c62af46e79de0a562e1a9849205ffcb7fc1238876e9bd743357570e04046f"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "encoding_rs",
  "futures-channel",
  "futures-core",
  "futures-util",
+ "h2 0.4.5",
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
  "hyper 1.6.0",
  "hyper-rustls 0.27.3",
+ "hyper-tls",
  "hyper-util",
  "ipnet",
  "js-sys",
  "log",
  "mime",
+ "native-tls",
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
@@ -18215,7 +18219,9 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "sync_wrapper 1.0.1",
+ "system-configuration 0.6.1",
  "tokio",
+ "tokio-native-tls",
  "tokio-rustls 0.26.0",
  "tower-service",
  "url",
@@ -25514,7 +25520,18 @@ checksum = "ba3a3adc5c275d719af8cb4272ea1c4a6d668a777f37e115f6d11ddbc1c8e0e7"
 dependencies = [
  "bitflags 1.3.2",
  "core-foundation",
- "system-configuration-sys",
+ "system-configuration-sys 0.5.0",
+]
+
+[[package]]
+name = "system-configuration"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c879d448e9d986b661742763247d3693ed13609438cf3d006f51f5368a5ba6b"
+dependencies = [
+ "bitflags 2.6.0",
+ "core-foundation",
+ "system-configuration-sys 0.6.0",
 ]
 
 [[package]]
@@ -25522,6 +25539,16 @@ name = "system-configuration-sys"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a75fb188eb626b924683e3b95e3a48e63551fcfb51949de2f06a9d91dbee93c9"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+]
+
+[[package]]
+name = "system-configuration-sys"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e1d1b10ced5ca923a1fcb8d03e96b8d3268065d724548c0211415ff6ac6bac4"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -28497,15 +28524,15 @@ dependencies = [
 
 [[package]]
 name = "zombienet-configuration"
-version = "0.2.24"
+version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03caa9f916aedb12e8443521c87604fe54fbde163a58018780108d86761310dc"
+checksum = "f4e0e7e93b56f7fdea2e732399caff7f773a1ef4c19a98a24514b390f832504e"
 dependencies = [
  "anyhow",
  "lazy_static",
  "multiaddr 0.18.1",
  "regex",
- "reqwest 0.11.27",
+ "reqwest 0.12.9",
  "serde",
  "serde_json",
  "thiserror 1.0.65",
@@ -28518,9 +28545,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-orchestrator"
-version = "0.2.24"
+version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8330f46e4584a306ed567702307a697b8a2771681233548263f5bc3f639fcdec"
+checksum = "4a36a3983d7c06e30f585ba99e983c5d28b9622b44d8e5ba11a9718d2712c418"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28532,7 +28559,7 @@ dependencies = [
  "multiaddr 0.18.1",
  "rand 0.8.5",
  "regex",
- "reqwest 0.11.27",
+ "reqwest 0.12.9",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -28551,9 +28578,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-prom-metrics-parser"
-version = "0.2.24"
+version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a52a796a1521cf6420cc6384eac9ef25a146d453b568969774af643f3ecdc97"
+checksum = "70f596e81ddcd8c6d70abcd8f6b336dac6bfdd7a94f1fce3696b8889231084b0"
 dependencies = [
  "pest",
  "pest_derive",
@@ -28562,9 +28589,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-provider"
-version = "0.2.24"
+version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7121ed12016baf318afdcaa96e59d134a3299f40ad5cb67fa6e8ae561db97d26"
+checksum = "0431363423a2a378a24d4148056e80cdf45911f238a2e597d4eb2b8a3b2ae334"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28575,7 +28602,7 @@ dependencies = [
  "kube",
  "nix 0.29.0",
  "regex",
- "reqwest 0.11.27",
+ "reqwest 0.12.9",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -28593,9 +28620,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-sdk"
-version = "0.2.24"
+version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "732a89935216d4cde1e538075af2f9e0e974e49895004694ab113c7040725ae5"
+checksum = "f725d029b34acea1e5de4df09835de70594d828db57338c528dea52753be9343"
 dependencies = [
  "async-trait",
  "futures",
@@ -28611,9 +28638,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-support"
-version = "0.2.24"
+version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f0c215aa994335125b75f9ad7c227a4ae6c281c074a6e6a42800f2fdfa59c8b"
+checksum = "e3cfa5555e6725c65e1dfbec6fcd49ef2799ac1a89d4fe56255ed21882275cee"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -28621,7 +28648,7 @@ dependencies = [
  "nix 0.29.0",
  "rand 0.8.5",
  "regex",
- "reqwest 0.11.27",
+ "reqwest 0.12.9",
  "thiserror 1.0.65",
  "tokio",
  "tracing",
