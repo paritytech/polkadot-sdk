@@ -1,4 +1,4 @@
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
@@ -31,7 +31,7 @@ impl<T: Into<QueuedMessage>> From<T> for VersionedQueuedMessage {
 
 mod v1 {
 	use crate::{pricing::UD60x18, ChannelId};
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use ethabi::Token;
 	use scale_info::TypeInfo;
 	use sp_core::{RuntimeDebug, H160, H256, U256};
@@ -55,7 +55,9 @@ mod v1 {
 	}
 
 	/// The operating mode of Channels and Gateway contract on Ethereum.
-	#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+	#[derive(
+		Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, RuntimeDebug, TypeInfo,
+	)]
 	pub enum OperatingMode {
 		/// Normal operations. Allow sending and receiving messages.
 		Normal,
@@ -271,7 +273,7 @@ mod v1 {
 
 	/// Representation of a call to the initializer of an implementation contract.
 	/// The initializer has the following ABI signature: `initialize(bytes)`.
-	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Initializer {
 		/// ABI-encoded params of type `bytes` to pass to the initializer
 		pub params: Vec<u8>,
@@ -389,7 +391,18 @@ pub trait SendMessageFeeProvider {
 }
 
 /// Reasons why sending to Ethereum could not be initiated
-#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, PalletError, TypeInfo)]
+#[derive(
+	Copy,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	PalletError,
+	TypeInfo,
+)]
 pub enum SendError {
 	/// Message is too large to be safely executed on Ethereum
 	MessageTooLarge,

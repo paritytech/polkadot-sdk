@@ -41,10 +41,6 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 								"num_cores": 2,
 								"max_validators_per_core": 1
 							},
-							"async_backing_params": {
-								"max_candidate_depth": 6,
-								"allowed_ancestry_len": 2
-							}
 						}
 					}
 				}))

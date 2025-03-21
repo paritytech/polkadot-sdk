@@ -44,9 +44,9 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	request_claim_queue, request_persisted_validation_data, request_session_index_for_child,
-	request_validation_code_hash, request_validators,
-	runtime::{request_node_features, ClaimQueueSnapshot},
+	request_claim_queue, request_node_features, request_persisted_validation_data,
+	request_session_index_for_child, request_validation_code_hash, request_validators,
+	runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
 	collator_signature_payload,
@@ -56,8 +56,7 @@ use polkadot_primitives::{
 		ClaimQueueOffset, CommittedCandidateReceiptV2, TransposedClaimQueue,
 	},
 	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
-	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
-	ValidationCodeHash,
+	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
 use sp_core::crypto::Pair;
@@ -510,9 +509,8 @@ impl SessionInfoCache {
 		let n_validators =
 			request_validators(relay_parent, &mut sender.clone()).await.await??.len();
 
-		let node_features = request_node_features(relay_parent, session_index, sender)
-			.await?
-			.unwrap_or(NodeFeatures::EMPTY);
+		let node_features =
+			request_node_features(relay_parent, session_index, sender).await.await??;
 
 		let info = PerSessionInfo {
 			v2_receipts: node_features

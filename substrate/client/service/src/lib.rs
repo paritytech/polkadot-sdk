@@ -40,7 +40,7 @@ use std::{
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
-use log::{debug, error, warn};
+use log::{debug, error, trace, warn};
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
 use sc_network::{
 	config::MultiaddrWithPeerId, service::traits::NetworkService, NetworkBackend, NetworkBlock,
@@ -538,7 +538,7 @@ where
 			{
 				Ok(_) => {
 					let elapsed = start.elapsed();
-					debug!(target: sc_transaction_pool::LOG_TARGET, "import transaction: {elapsed:?}");
+					trace!(target: sc_transaction_pool::LOG_TARGET, "import transaction: {elapsed:?}");
 					TransactionImport::NewGood
 				},
 				Err(e) => match e.into_pool_error() {
