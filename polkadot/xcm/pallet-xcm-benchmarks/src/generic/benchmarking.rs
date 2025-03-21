@@ -697,6 +697,9 @@ mod benchmarks {
 	#[benchmark]
 	fn exchange_asset() -> Result<(), BenchmarkError> {
 		let (give, want) = T::worst_case_asset_exchange().map_err(|_| BenchmarkError::Skip)?;
+		log::info!("Give assets: {:?}", give);
+		log::info!("Want assets: {:?}", want);
+
 		let assets = give.clone();
 
 		let mut executor = new_executor::<T>(Default::default());

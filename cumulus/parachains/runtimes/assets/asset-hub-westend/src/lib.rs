@@ -2169,13 +2169,13 @@ impl_runtime_apis! {
 					let asset_location = Location::new(1, [Parachain(2001)]);
 					let asset_id = AssetId(asset_location.clone());
 
-					// Setup balances
-					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+					// Setup balances with sufficient funds
+					assert_ok!(<Balances as frame_support::traits::tokens::fungible::Mutate<_>>::mint_into(
 						&account,
 						ExistentialDeposit::get() + (1_000 * UNITS)
 					));
 
-					// Create and mint foreign assets
+					// Create foreign asset
 					assert_ok!(ForeignAssets::force_create(
 						RuntimeOrigin::root(),
 						asset_location.clone().into(),
@@ -2183,6 +2183,8 @@ impl_runtime_apis! {
 						true,
 						1,
 					));
+
+					// Mint foreign assets
 					assert_ok!(ForeignAssets::mint(
 						origin.clone(),
 						asset_location.clone().into(),
@@ -2207,9 +2209,11 @@ impl_runtime_apis! {
 						account.into(),
 					));
 
-					// Create give and receive assets with more realistic expectations
-					let give_assets: XcmAssets = (native_asset_id, 100 * UNITS).into(); // Smaller amount to reduce complexity
-					let receive_assets: XcmAssets = (asset_id, 190 * UNITS).into();     // Slightly less than 2:1 ratio to account for slippage
+					// Create give and receive assets
+					let give_assets: XcmAssets = (native_asset_id, 100 * UNITS).into();
+					let receive_assets: XcmAssets = (asset_id, 190 * UNITS).into();
+					log::info!("Give assets: {:?}", give_assets);
+					log::info!("Receive assets: {:?}", receive_assets);
 
 					Ok((give_assets, receive_assets))
 				}
