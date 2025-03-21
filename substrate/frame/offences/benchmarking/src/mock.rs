@@ -111,7 +111,6 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
-	pub const Sort: bool = true;
 }
 
 pub struct OnChainSeqPhragmen;
@@ -120,9 +119,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinnersPerPage = ConstU32<100>;
-	type MaxBackersPerWinner = ConstU32<100>;
-	type Sort = Sort;
+	type MaxWinners = ConstU32<100>;
 	type Bounds = ElectionsBounds;
 }
 

@@ -27,7 +27,6 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
-use pallet_staking::NullIdentity;
 use sp_runtime::{traits::IdentityLookup, BuildStorage, KeyTypeId};
 
 type AccountId = u64;
@@ -69,7 +68,7 @@ impl pallet_timestamp::Config for Test {
 }
 impl pallet_session::historical::Config for Test {
 	type FullIdentification = ();
-	type FullIdentificationOf = NullIdentity;
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -120,7 +119,6 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
-	pub const Sort: bool = true;
 }
 
 pub struct OnChainSeqPhragmen;
@@ -129,9 +127,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, sp_runtime::Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinnersPerPage = ConstU32<100>;
-	type MaxBackersPerWinner = ConstU32<100>;
-	type Sort = Sort;
+	type MaxWinners = ConstU32<100>;
 	type Bounds = ElectionsBounds;
 }
 

@@ -31,7 +31,7 @@ use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
 use sp_core::{
 	crypto::{Pair, VrfSecret},
-	ConstBool, U256,
+	U256,
 };
 use sp_io;
 use sp_runtime::{
@@ -39,7 +39,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	testing::{Digest, DigestItem, Header, TestXt},
 	traits::{Header as _, OpaqueKeys},
-	BoundedVec, BuildStorage, Perbill,
+	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -152,9 +152,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<DummyValidatorId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinnersPerPage = ConstU32<100>;
-	type MaxBackersPerWinner = ConstU32<100>;
-	type Sort = ConstBool<true>;
+	type MaxWinners = ConstU32<100>;
 	type Bounds = ElectionsBounds;
 }
 
@@ -346,7 +344,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 		validator_count: 8,
 		force_era: pallet_staking::Forcing::ForceNew,
 		minimum_validator_count: 0,
-		invulnerables: BoundedVec::new(),
+		invulnerables: vec![],
 		..Default::default()
 	};
 
