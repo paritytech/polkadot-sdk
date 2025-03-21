@@ -704,10 +704,10 @@ mod benchmarks {
 		// let instruction =
 		// 	Instruction::ExchangeAsset { give: assets.into(), want: want.clone(), maximal: true };
 		// let xcm = Xcm(vec![instruction]);
-		// #[block]
-		// {
-		// 	executor.bench_process(xcm)?;
-		// }
+		#[block]
+		{
+			// executor.bench_process(xcm)?;
+		}
 		// assert_eq!(executor.holding(), &want.into());
 		Ok(())
 	}
