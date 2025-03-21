@@ -239,6 +239,12 @@ impl frame_support::traits::EstimateNextSessionRotation<u32> for TestNextSession
 	}
 }
 
+impl crate::paras::FreezeParaStoragesAccess for Test {
+	type Scheduler = Test;
+    type Inclusion = Test;
+	type Dmp = Test;
+}
+
 impl crate::paras::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = crate::paras::TestWeightInfo;
@@ -247,6 +253,7 @@ impl crate::paras::Config for Test {
 	type NextSessionRotation = TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type FreezeParaStoragesAccess = Test;
 }
 
 impl crate::dmp::Config for Test {}

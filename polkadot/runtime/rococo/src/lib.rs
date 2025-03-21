@@ -1027,6 +1027,12 @@ parameter_types! {
 	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 }
 
+impl parachains_paras::FreezeParaStoragesAccess for Runtime {
+	type Inclusion = Runtime;
+	type Scheduler = Runtime;
+	type Dmp = Runtime;
+}
+
 impl parachains_paras::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::polkadot_runtime_parachains_paras::WeightInfo<Runtime>;
@@ -1035,7 +1041,9 @@ impl parachains_paras::Config for Runtime {
 	type NextSessionRotation = Babe;
 	type OnNewHead = Registrar;
 	type AssignCoretime = CoretimeAssignmentProvider;
+	type FreezeParaStoragesAccess = Runtime;
 }
+
 
 parameter_types! {
 	/// Amount of weight that can be spent per block to service messages.
