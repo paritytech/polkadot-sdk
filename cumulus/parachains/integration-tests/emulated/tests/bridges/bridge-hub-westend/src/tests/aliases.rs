@@ -31,30 +31,23 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 	let target = origin.clone();
 	let fees = WESTEND_ED * 10;
 
-	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+	PenpalB::mint_foreign_asset(
+		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
 		Location::parent(),
 		origin.clone(),
 		fees * 10,
 	);
 
-	// On Asset Hub we don't want to support aliasing from other chains:
-	// - there is no real world demand for it, the direction is usually reversed, users already have
-	//   accounts on AH and want to use them cross-chain on other chains,
-	// - without real world demand, it's better to keep AH permissions as tight as possible.
-	// Aliasing same account doesn't work on AH.
+	// On Bridge Hub we don't want to support aliasing from other chains: there is no real world
+	// demand for it, only low-level power users (like relayers) directly interact with Bridge
+	// Hub. They don't need aliasing to operate cross-chain they can operate locally.
+	// Aliasing same account doesn't work on BH.
 	test_cross_chain_alias!(
 		vec![
-			// between BH and AH: denied
-			(BridgeHubWestend, AssetHubWestend, TELEPORT_FEES, DENIED),
-			// between Collectives and AH: denied
-			(CollectivesWestend, AssetHubWestend, TELEPORT_FEES, DENIED),
-			// between Coretime and AH: denied
-			(CoretimeWestend, AssetHubWestend, TELEPORT_FEES, DENIED),
-			// between People and AH: denied
-			(PeopleWestend, AssetHubWestend, TELEPORT_FEES, DENIED),
-			// between Penpal and AH: denied
-			(PenpalA, AssetHubWestend, RESERVE_TRANSFER_FEES, DENIED)
+			// between AH and BH: denied
+			(AssetHubWestend, BridgeHubWestend, TELEPORT_FEES, DENIED),
+			// between Penpal and BH: denied
+			(PenpalB, BridgeHubWestend, RESERVE_TRANSFER_FEES, DENIED)
 		],
 		origin,
 		target,
