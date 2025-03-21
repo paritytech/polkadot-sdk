@@ -49,7 +49,7 @@ pub enum MethodResult {
 impl MethodResult {
 	/// Constructs a successful result.
 	pub fn ok(result: impl Into<String>) -> MethodResult {
-		MethodResult::Ok(MethodResultOk { success: true, result: result.into() })
+		MethodResult::Ok(MethodResultOk { success: true, value: result.into() })
 	}
 
 	/// Constructs an error result.
@@ -65,7 +65,7 @@ pub struct MethodResultOk {
 	/// Method was successful.
 	success: bool,
 	/// The result of the method.
-	pub result: String,
+	pub value: String,
 }
 
 /// The error result of an RPC method.
@@ -92,7 +92,7 @@ mod tests {
 		let ok = MethodResult::ok("hello");
 
 		let ser = serde_json::to_string(&ok).unwrap();
-		let exp = r#"{"success":true,"result":"hello"}"#;
+		let exp = r#"{"success":true,"value":"hello"}"#;
 		assert_eq!(ser, exp);
 
 		let ok_dec: MethodResult = serde_json::from_str(exp).unwrap();
