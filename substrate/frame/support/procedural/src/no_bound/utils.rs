@@ -19,7 +19,6 @@
 
 use std::collections::HashSet;
 use syn::{DeriveInput, GenericParam, TypeParamBound};
-use quote::quote;
 
 /// Applies a bound (e.g. `::core::clone::Clone`) to all type parameters listed in the
 /// #[still_bind(...)] attribute of the input.

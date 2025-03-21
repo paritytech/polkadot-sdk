@@ -18,13 +18,17 @@
 use proc_macro2::Span;
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, Data, DeriveInput, Fields};
+use super::utils::apply_still_bind;
 
-/// Derive Default but do not bound any generic.
+/// Derive Default but do not bound any generic. Optionally select which generics will still be bound with `still_bind(...)`.
 pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let input = syn::parse_macro_input!(input as DeriveInput);
+	let mut input = syn::parse_macro_input!(input as DeriveInput);
+
+	if let Err(e) = apply_still_bind(&mut input, quote::quote!(::core::default::Default)) {
+		return e.to_compile_error().into();
+	}
 
 	let name = &input.ident;
-
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	let impl_ = match input.data {

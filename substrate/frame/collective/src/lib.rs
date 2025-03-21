@@ -63,6 +63,8 @@ use frame_support::{
 		InitializeMembers, MaybeConsideration, StorageVersion,
 	},
 	weights::Weight,
+	stored, PartialEqNoBound, EqNoBound, CloneNoBound, RuntimeDebugNoBound, 
+	DebugNoBound, DefaultNoBound, OrdNoBound, PartialOrdNoBound
 };
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -136,21 +138,28 @@ impl DefaultVote for MoreThanMajorityThenPrimeDefaultVote {
 	}
 }
 
+mod root {
+use super::*;
+
 /// Origin for the collective module.
-#[derive(
-	PartialEq,
-	Eq,
-	Clone,
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(I))]
-#[codec(mel_bound(AccountId: MaxEncodedLen))]
-pub enum RawOrigin<AccountId, I> {
+// #[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen, DecodeWithMemTracking)]
+// #[scale_info(skip_type_params(I))]
+// #[codec(mel_bound(AccountId: MaxEncodedLen))]
+// #[stored(mel_bounds(AccountId: MaxEncodedLen))]
+// #[stored(no_bounds(I))]
+// #[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+// #[scale_info(skip_type_params(I))]
+// alright, so the issue was that I was constraining struct trait implementations
+// down the line by adding in those extra bounds. The reason I was adding those
+// bounds was so the correct generics would be bounded when using NoBounds.
+// This was to avoid changing those derives, but now that I've realized that's a no go
+// my only option is to change the bounds themselves.
+// So what should the attribute be called? I guess just no_bounds_for(), that makes sense
+// to me. 
+#[derive(RuntimeDebugNoBound)]
+#[still_bind(AccountId)]
+pub struct Rawzies<AccountId, I: Default>(AccountId, I);
+pub enum RawOrigin<AccountId, I: Default> {
 	/// It has been condoned by a given number of members of the collective from a given total.
 	Members(MemberCount, MemberCount),
 	/// It has been condoned by a single member of the collective.
@@ -158,7 +167,12 @@ pub enum RawOrigin<AccountId, I> {
 	/// Dummy to manage the fact we have instancing.
 	_Phantom(PhantomData<I>),
 }
-
+// Alright.. so there's no max encoded len no bound, but it looks like that was specified through
+// the use of codec(mel_bound()) which would tell you explicitly which ones to bound and implicitly
+// which ones won't be bounded. And my system doesn't account for that, just always bounding everything
+// so basically I just need to add that codec tag for any generic that is bounded
+}
+use root::RawOrigin;
 impl<AccountId, I> GetBacking for RawOrigin<AccountId, I> {
 	fn get_backing(&self) -> Option<Backing> {
 		match self {

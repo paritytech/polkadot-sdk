@@ -19,9 +19,11 @@
 
 pub mod clone;
 pub mod debug;
+pub mod runtime_debug;
 pub mod default;
 pub mod ord;
 pub mod partial_eq;
+pub mod eq;
 pub mod partial_ord;
 
 mod utils;
