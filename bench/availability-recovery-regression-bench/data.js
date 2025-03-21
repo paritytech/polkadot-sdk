@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742557937299,
+  "lastUpdate": 1742564389142,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -49359,6 +49359,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.278765376833334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gorka.irazoki@gmail.com",
+            "name": "girazoki",
+            "username": "girazoki"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a514f6d3753189c21a6b68d38cc6289999de047",
+          "message": "Add digest processor xcm emulator (#7915)\n\nCurrently parachains are injecting through the xcm-emulator the default\ndigests in each block, something that can prevent testing certain\nconsensus aspects.\n\nWe propose to add the type `DigestProvider`, which needs to implement\nthe trait `Convert<blockNumber, Digest>`. The idea is that we can call\nthe implementation of this trait before initializing every block, and\nthus, allowing us to inject custom digests provided by this trait.\n\nObviously the default behavior persists if you set this type to `().`\n\nThe utilization of the `Convert` trait was arbitrary, as it was the\neasiest to accomplish the solution. I am not against using a custom\ntrait defined for this purpose if that is preferred.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-03-21T12:38:10Z",
+          "tree_id": "78e2ca8681b711c0fc851bde1f674792eb9527c6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a514f6d3753189c21a6b68d38cc6289999de047"
+        },
+        "date": 1742564371783,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.228864772366668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19628305363333332,
             "unit": "seconds"
           }
         ]
