@@ -696,17 +696,17 @@ mod benchmarks {
 
 	#[benchmark]
 	fn exchange_asset() -> Result<(), BenchmarkError> {
-		// let (give, want) = T::worst_case_asset_exchange().map_err(|_| BenchmarkError::Skip)?;
-		// let assets = give.clone();
-		//
-		// let mut executor = new_executor::<T>(Default::default());
-		// executor.set_holding(give.into());
-		// let instruction =
-		// 	Instruction::ExchangeAsset { give: assets.into(), want: want.clone(), maximal: true };
-		// let xcm = Xcm(vec![instruction]);
+		let (give, want) = T::worst_case_asset_exchange().map_err(|_| BenchmarkError::Skip)?;
+		let assets = give.clone();
+
+		let mut executor = new_executor::<T>(Default::default());
+		executor.set_holding(give.into());
+		let instruction =
+			Instruction::ExchangeAsset { give: assets.into(), want: want.clone(), maximal: true };
+		let xcm = Xcm(vec![instruction]);
 		#[block]
 		{
-			// executor.bench_process(xcm)?;
+			executor.bench_process(xcm)?;
 		}
 		// assert_eq!(executor.holding(), &want.into());
 		Ok(())
