@@ -33,7 +33,6 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
 	vstaging::{
 		BackedCandidate, CandidateDescriptorV2, ClaimQueueOffset,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreSelector,
@@ -762,16 +761,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								ValidityAttestation::Explicit(sig.clone())
 							})
 							.collect();
-
-						// Don't inject core when it is available in descriptor.
-						let core_idx = if candidate.descriptor.core_index().is_some() {
-							None
-						} else {
-							configuration::ActiveConfig::<T>::get()
-								.node_features
-								.get(FeatureIndex::ElasticScalingMVP as usize)
-								.and_then(|the_bit| if *the_bit { Some(core_idx) } else { None })
-						};
 
 						BackedCandidate::<T::Hash>::new(
 							candidate,
