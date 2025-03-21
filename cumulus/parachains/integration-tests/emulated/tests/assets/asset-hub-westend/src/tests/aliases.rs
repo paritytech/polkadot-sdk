@@ -61,3 +61,37 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 		fees
 	);
 }
+
+#[test]
+fn account_on_sibling_syschain_cannot_alias_into_different_local_account() {
+	// origin and target are different accounts on different chains
+	let origin: AccountId = [1; 32].into();
+	let target: AccountId = [2; 32].into();
+	let fees = WESTEND_ED * 10;
+
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		Location::parent(),
+		origin.clone(),
+		fees * 10,
+	);
+
+	// Aliasing different account on different chains
+	test_cross_chain_alias!(
+		vec![
+			// between BH and AH: denied
+			(BridgeHubWestend, AssetHubWestend, TELEPORT_FEES, DENIED),
+			// between Collectives and AH: denied
+			(CollectivesWestend, AssetHubWestend, TELEPORT_FEES, DENIED),
+			// between Coretime and AH: denied
+			(CoretimeWestend, AssetHubWestend, TELEPORT_FEES, DENIED),
+			// between People and AH: denied
+			(PeopleWestend, AssetHubWestend, TELEPORT_FEES, DENIED),
+			// between Penpal and AH: denied
+			(PenpalA, AssetHubWestend, RESERVE_TRANSFER_FEES, DENIED)
+		],
+		origin,
+		target,
+		fees
+	);
+}
