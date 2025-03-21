@@ -207,7 +207,8 @@ impl frame_system::Config for Runtime {
 	type OnKilledAccount = ();
 	type DbWeight = InMemoryDbWeight;
 	type BaseCallFilter = frame_support::traits::Everything;
-	type SystemWeightInfo = ();
+	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Self>;
+	type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Self>;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type SS58Prefix = SS58Prefix;
@@ -224,7 +225,7 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = ConstU64<0>;
-	type WeightInfo = ();
+	type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Self>;
 }
 
 parameter_types! {
@@ -240,7 +241,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
+	type WeightInfo = pallet_balances::weights::SubstrateWeight<Self>;
 	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
@@ -258,7 +259,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightInfo = ();
+	type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Self>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -300,7 +301,7 @@ impl HandleMessage for DmpSink {
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
-	type WeightInfo = ();
+	type WeightInfo = cumulus_pallet_parachain_system::weights::SubstrateWeight<Self>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
