@@ -15,6 +15,7 @@
 
 use crate::imports::*;
 
+mod aliases;
 mod asset_transfers;
 mod claim_assets;
 mod register_bridged_assets;
