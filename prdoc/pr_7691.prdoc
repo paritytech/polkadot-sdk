@@ -1,0 +1,10 @@
+title: Ensure SetTopic is Always Applied in XCM Execution
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR ensures every XCM processed in `xcm::execute` applies the `SetTopic` instruction to improve traceability.
+crates:
+- name: staging-xcm-builder
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch
