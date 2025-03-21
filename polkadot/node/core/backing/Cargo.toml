@@ -33,7 +33,6 @@ futures = { features = ["thread-pool"], workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
-rstest = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
