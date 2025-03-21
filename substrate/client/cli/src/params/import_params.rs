@@ -80,16 +80,36 @@ pub struct ImportParams {
 	/// Providing `0` will disable the cache.
 	#[arg(long, value_name = "Bytes", default_value_t = 1024 * 1024 * 1024)]
 	pub trie_cache_size: usize,
+
+	/// Force the state cache to be in memory.
+	///
+	/// Sets the state cache size to 50% of the total system memory but not less than 16GB.
+	#[arg(long, default_value_t = false, conflicts_with = "trie_cache_size")]
+	pub force_in_memory_trie_cache: bool,
 }
 
 impl ImportParams {
 	/// Specify the trie cache maximum size.
 	pub fn trie_cache_maximum_size(&self) -> Option<usize> {
+		if self.force_in_memory_trie_cache() {
+			// 16GB is 50% of the reference hardware
+			const MIN_FORCED_TRIE_CACHE_SIZE: usize = 1024 * 1024 * 1024 * 16;
+			let system_memory = sysinfo::System::new_all();
+			let total_memory = system_memory.total_memory();
+
+			return Some(((total_memory / 2) as usize).max(MIN_FORCED_TRIE_CACHE_SIZE));
+		}
+
 		if self.trie_cache_size == 0 {
 			None
 		} else {
 			Some(self.trie_cache_size)
 		}
+	}
+
+	/// Specify if the state cache should be in memory.
+	pub fn force_in_memory_trie_cache(&self) -> bool {
+		self.force_in_memory_trie_cache
 	}
 
 	/// Get the WASM execution method from the parameters

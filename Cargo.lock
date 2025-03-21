@@ -16779,13 +16779,17 @@ name = "polkadot-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "asset-hub-westend-runtime",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
+ "futures",
  "log",
+ "pallet-revive",
  "parity-scale-codec",
  "polkadot-primitives",
  "serde",
  "serde_json",
+ "sp-core 28.0.0",
  "substrate-build-script-utils",
  "subwasmlib",
  "subxt 0.38.1",
@@ -19208,6 +19212,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
+ "sysinfo",
  "tempfile",
  "thiserror 1.0.65",
  "tokio",
@@ -19270,6 +19275,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
  "substrate-test-runtime-client",
+ "sysinfo",
  "tempfile",
 ]
 
