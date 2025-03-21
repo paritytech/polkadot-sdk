@@ -2218,15 +2218,10 @@ impl_runtime_apis! {
 				// 	Ok((give_assets, receive_assets))
 				// }
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
-					// Use very simple asset definitions
-					let native_location = WestendLocation::get();
-					let foreign_location = Location::new(1, [Parachain(2001)]);
-
-					// Create minimal assets with small amounts
-					let give_assets: XcmAssets = (AssetId(native_location), 10 * UNITS).into();
-					let receive_assets: XcmAssets = (AssetId(foreign_location), 10 * UNITS).into();
-
-					Ok((give_assets, receive_assets))
+					let origin = WestendLocation::get();
+					let assets: XcmAssets = (AssetId(origin.clone()), 10 * UNITS).into();
+					let assets2: XcmAssets = (AssetId(Location::new(1, [Parachain(2001)])), 10 * UNITS).into();
+					Ok((assets, assets2))
 				}
 
 				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
