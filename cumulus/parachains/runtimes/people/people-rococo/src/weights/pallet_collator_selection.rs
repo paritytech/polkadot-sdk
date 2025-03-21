@@ -94,6 +94,9 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 			.saturating_add(Weight::from_parts(0, 37).saturating_mul(b.into()))
 			.saturating_add(Weight::from_parts(0, 53).saturating_mul(c.into()))
 	}
+	fn withdraw_unbonded() -> Weight {
+		Weight::zero()
+	}
 	/// Storage: `CollatorSelection::CandidateList` (r:1 w:0)
 	/// Proof: `CollatorSelection::CandidateList` (`max_values`: Some(1), `max_size`: Some(4802), added: 5297, mode: `MaxEncodedLen`)
 	/// Storage: `CollatorSelection::Invulnerables` (r:1 w:1)
