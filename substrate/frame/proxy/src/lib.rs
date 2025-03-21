@@ -332,7 +332,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let pure = Self::pure_account(&who, &proxy_type, index, None);
+			let (pure, ext_index) = Self::pure_account(&who, &proxy_type, index, None);
 			ensure!(!Proxies::<T>::contains_key(&pure), Error::<T>::Duplicate);
 
 			let proxy_def =
@@ -349,6 +349,7 @@ pub mod pallet {
 				who,
 				proxy_type,
 				disambiguation_index: index,
+				ext_index,
 			});
 
 			Ok(())
@@ -384,7 +385,7 @@ pub mod pallet {
 			let spawner = T::Lookup::lookup(spawner)?;
 
 			let when = (height, ext_index);
-			let proxy = Self::pure_account(&spawner, &proxy_type, index, Some(when));
+			let (proxy, _) = Self::pure_account(&spawner, &proxy_type, index, Some(when));
 			ensure!(proxy == who, Error::<T>::NoPermission);
 
 			let (_, deposit) = Proxies::<T>::take(&who);
@@ -662,6 +663,9 @@ pub mod pallet {
 			who: T::AccountId,
 			proxy_type: T::ProxyType,
 			disambiguation_index: u16,
+			/// Extrinsic index of the call to `create_pure`.
+			/// Required to use `kill_proxy`.
+			ext_index: u32
 		},
 		/// An announcement was placed to make a call in the future.
 		Announced { real: T::AccountId, proxy: T::AccountId, call_hash: CallHashOf<T> },
@@ -792,17 +796,20 @@ impl<T: Config> Pallet<T> {
 		proxy_type: &T::ProxyType,
 		index: u16,
 		maybe_when: Option<(BlockNumberFor<T>, u32)>,
-	) -> T::AccountId {
+	) -> (T::AccountId, u32) {
 		let (height, ext_index) = maybe_when.unwrap_or_else(|| {
 			(
 				T::BlockNumberProvider::current_block_number(),
 				frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
 			)
 		});
+
 		let entropy = (b"modlpy/proxy____", who, height, ext_index, proxy_type, index)
 			.using_encoded(blake2_256);
-		Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
-			.expect("infinite length input; no invalid inputs for type; qed")
+		let pure_proxy_acc_id = Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+			.expect("infinite length input; no invalid inputs for type; qed");
+
+		(pure_proxy_acc_id, ext_index)
 	}
 
 	/// Register a proxy account for the delegator that is able to make calls on its behalf.
