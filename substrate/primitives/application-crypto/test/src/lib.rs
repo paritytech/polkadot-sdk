@@ -23,3 +23,8 @@ mod ecdsa;
 mod ed25519;
 #[cfg(test)]
 mod sr25519;
+#[cfg(all(test, feature = "bls-experimental"))]
+mod bls381;
+
+#[cfg(all(test, feature = "bls-experimental"))]
+mod ecdsa_bls381;

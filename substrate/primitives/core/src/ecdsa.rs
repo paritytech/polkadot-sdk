@@ -17,9 +17,12 @@
 
 //! Simple ECDSA secp256k1 API.
 
-use crate::crypto::{
-	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes,
-	SecretStringError, SignatureBytes,
+use crate::{
+	crypto::{
+		CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes,
+		SecretStringError, SignatureBytes,
+	},
+	pop::NonAggregatable,
 };
 
 #[cfg(not(feature = "std"))]
@@ -326,12 +329,17 @@ impl CryptoType for Pair {
 	type Pair = Pair;
 }
 
+impl NonAggregatable for Pair {}
+
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::crypto::{
-		set_default_ss58_version, PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry,
-		Ss58Codec, DEV_PHRASE,
+	use crate::{
+		crypto::{
+			set_default_ss58_version, PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry,
+			Ss58Codec, DEV_PHRASE,
+		},
+		pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	};
 	use serde_json;
 
@@ -628,5 +636,14 @@ mod test {
 		let msg = sp_crypto_hashing::blake2_256(b"this is a different message");
 		let key = sig.recover_prehashed(&msg).unwrap();
 		assert_ne!(pair.public(), key);
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_pop_should_fail() {
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let pop = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(&pop, &pair.public()));
+		assert_eq!(Pair::verify_proof_of_possession(&pop, &other_pair.public()), false);
 	}
 }
