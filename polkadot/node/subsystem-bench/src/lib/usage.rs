@@ -32,14 +32,14 @@ impl std::fmt::Display for BenchmarkUsage {
 		write!(
 			f,
 			"\n{}\n{}\n\n{}\n{}\n",
-			format!("{:<64}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
+			format!("{:<64}{:>12}{:>12}", "Network usage", "total", "per block").blue(),
 			self.network_usage
 				.iter()
 				.map(|v| v.to_string())
 				.sorted()
 				.collect::<Vec<String>>()
 				.join("\n"),
-			format!("{:<64}{:>12}{:>12}", "CPU usage, seconds", "total", "per block").blue(),
+			format!("{:<64}{:>12}{:>12}", "CPU usage", "total", "per block").blue(),
 			self.cpu_usage
 				.iter()
 				.map(|v| v.to_string())

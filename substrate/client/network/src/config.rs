@@ -582,6 +582,10 @@ impl NotificationConfig for NonDefaultSetConfig {
 	fn protocol_name(&self) -> &ProtocolName {
 		&self.protocol_name
 	}
+
+	fn allow_non_reserved(&mut self, in_peers: u32, out_peers: u32) {
+		self.allow_non_reserved(in_peers, out_peers);
+	}
 }
 
 /// Network service configuration.
