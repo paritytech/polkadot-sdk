@@ -9,6 +9,9 @@ repository.workspace = true
 description = "A mock network for testing pallet-revive."
 publish = false
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [lints]
 workspace = true
 
@@ -81,6 +84,7 @@ std = [
 	"sp-runtime/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"pallet-revive-fixtures/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",

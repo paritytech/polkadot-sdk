@@ -82,7 +82,7 @@ fn create_cargo_toml<'a>(
 	entries: impl Iterator<Item = &'a Entry>,
 	output_dir: &Path,
 ) -> Result<()> {
-	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/Cargo.toml"))?;
+	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/_Cargo.toml"))?;
 	let mut set_dep = |name, path| -> Result<()> {
 		cargo_toml["dependencies"][name]["path"] = toml::Value::String(
 			fixtures_dir.join(path).canonicalize()?.to_str().unwrap().to_string(),

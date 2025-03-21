@@ -156,4 +156,5 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-support-test/try-runtime"
 ]

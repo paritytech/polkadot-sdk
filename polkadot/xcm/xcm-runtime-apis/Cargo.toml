@@ -42,8 +42,21 @@ std = [
 	"sp-weights/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"pallet-xcm/std",
+	"xcm-builder/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"frame-executive/std",
+	"frame-system/std",
+	"sp-io/std",
+	"log/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"frame-system/runtime-benchmarks"
 ]

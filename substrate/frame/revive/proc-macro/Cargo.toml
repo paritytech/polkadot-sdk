@@ -7,6 +7,10 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "Procedural macros used in pallet_revive"
+publish = false
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
 
 [lints]
 workspace = true

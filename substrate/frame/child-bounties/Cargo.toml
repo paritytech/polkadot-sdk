@@ -56,6 +56,7 @@ runtime-benchmarks = [
 	"pallet-bounties/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -63,4 +64,5 @@ try-runtime = [
 	"pallet-bounties/try-runtime",
 	"pallet-treasury/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-balances/try-runtime"
 ]
