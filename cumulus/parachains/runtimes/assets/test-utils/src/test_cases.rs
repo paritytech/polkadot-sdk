@@ -485,7 +485,7 @@ pub fn teleports_for_foreign_assets_works<
 						id: AssetId(Location::parent()),
 						fun: Fungible(buy_execution_fee_amount),
 					},
-					weight_limit: Limited(Weight::from_parts(403531000, 65536)),
+					weight_limit: Unlimited,
 				},
 				// Process teleported asset
 				ReceiveTeleportedAsset(Assets::from(vec![Asset {

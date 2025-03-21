@@ -1264,8 +1264,8 @@ fn cancel_named_periodic_scheduling_works() {
 
 #[test]
 fn scheduler_respects_weight_limits() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 * 2 });
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
@@ -1292,8 +1292,8 @@ fn scheduler_respects_weight_limits() {
 
 #[test]
 fn retry_respects_weight_limits() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		// schedule 42
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 * 2 });
 		assert_ok!(Scheduler::do_schedule(
@@ -1344,8 +1344,8 @@ fn retry_respects_weight_limits() {
 
 #[test]
 fn try_schedule_retry_respects_weight_limits() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let service_agendas_weight = <Test as Config>::WeightInfo::service_agendas_base();
 		let service_agenda_weight = <Test as Config>::WeightInfo::service_agenda_base(
 			<Test as Config>::MaxScheduledPerBlock::get(),
@@ -1404,8 +1404,8 @@ fn try_schedule_retry_respects_weight_limits() {
 /// Permanently overweight calls are not deleted but also not executed.
 #[test]
 fn scheduler_does_not_delete_permanently_overweight_call() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight });
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
@@ -1430,10 +1430,10 @@ fn scheduler_does_not_delete_permanently_overweight_call() {
 
 #[test]
 fn scheduler_handles_periodic_failure() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
-	let max_per_block = <Test as Config>::MaxScheduledPerBlock::get();
-
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+		let max_per_block = <Test as Config>::MaxScheduledPerBlock::get();
+
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: (max_weight / 3) * 2 });
 		let bound = Preimage::bound(call).unwrap();
 
@@ -1472,9 +1472,9 @@ fn scheduler_handles_periodic_failure() {
 
 #[test]
 fn scheduler_handles_periodic_unavailable_preimage() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
-
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: (max_weight / 3) * 2 });
 		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
 		let len = call.using_encoded(|x| x.len()) as u32;
@@ -1518,8 +1518,8 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 
 #[test]
 fn scheduler_respects_priority_ordering() {
-	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 });
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
@@ -1636,8 +1636,9 @@ fn on_initialize_weight_is_correct() {
 		));
 
 		// Will include the named periodic only
+		<Test as Config>::BlockNumberProvider::set_block_number(1);
 		assert_eq!(
-			Scheduler::on_initialize(1),
+			Scheduler::on_initialize(42), // BN unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, true) +
@@ -1648,8 +1649,9 @@ fn on_initialize_weight_is_correct() {
 		assert_eq!(logger::log(), vec![(root(), 2600u32)]);
 
 		// Will include anon and anon periodic
+		<Test as Config>::BlockNumberProvider::set_block_number(2);
 		assert_eq!(
-			Scheduler::on_initialize(2),
+			Scheduler::on_initialize(123), // BN unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(2) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, false, true) +
@@ -1663,8 +1665,9 @@ fn on_initialize_weight_is_correct() {
 		assert_eq!(logger::log(), vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32)]);
 
 		// Will include named only
+		<Test as Config>::BlockNumberProvider::set_block_number(3);
 		assert_eq!(
-			Scheduler::on_initialize(3),
+			Scheduler::on_initialize(555), // BN unused
 			TestWeightInfo::service_agendas_base() +
 				TestWeightInfo::service_agenda_base(1) +
 				<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, false) +
@@ -1678,7 +1681,8 @@ fn on_initialize_weight_is_correct() {
 		);
 
 		// Will contain none
-		let actual_weight = Scheduler::on_initialize(4);
+		<Test as Config>::BlockNumberProvider::set_block_number(4);
+		let actual_weight = Scheduler::on_initialize(444); // BN unused
 		assert_eq!(
 			actual_weight,
 			TestWeightInfo::service_agendas_base() + TestWeightInfo::service_agenda_base(0)
@@ -2116,6 +2120,18 @@ fn migration_to_v4_works() {
 	});
 }
 
+impl Into<OriginCaller> for u32 {
+	fn into(self) -> OriginCaller {
+		match self {
+			3u32 => system::RawOrigin::Root.into(),
+			2u32 => system::RawOrigin::None.into(),
+			101u32 => system::RawOrigin::Signed(101).into(),
+			102u32 => system::RawOrigin::Signed(102).into(),
+			_ => unreachable!("test make no use of it"),
+		}
+	}
+}
+
 #[test]
 fn test_migrate_origin() {
 	new_test_ext().execute_with(|| {
@@ -2149,18 +2165,6 @@ fn test_migrate_origin() {
 				}),
 			];
 			frame_support::migration::put_storage_value(b"Scheduler", b"Agenda", &k, old);
-		}
-
-		impl Into<OriginCaller> for u32 {
-			fn into(self) -> OriginCaller {
-				match self {
-					3u32 => system::RawOrigin::Root.into(),
-					2u32 => system::RawOrigin::None.into(),
-					101u32 => system::RawOrigin::Signed(101).into(),
-					102u32 => system::RawOrigin::Signed(102).into(),
-					_ => unreachable!("test make no use of it"),
-				}
-			}
 		}
 
 		Scheduler::migrate_origin::<u32>();
@@ -3033,5 +3037,42 @@ fn unavailable_call_is_detected() {
 		);
 		// It should not be requested anymore.
 		assert!(!Preimage::is_requested(&hash));
+	});
+}
+
+#[test]
+fn postponed_task_is_still_available() {
+	new_test_ext().execute_with(|| {
+		let service_agendas_weight = <Test as Config>::WeightInfo::service_agendas_base();
+		let service_agenda_weight = <Test as Config>::WeightInfo::service_agenda_base(
+			<Test as Config>::MaxScheduledPerBlock::get(),
+		);
+
+		assert_ok!(Scheduler::schedule(
+			RuntimeOrigin::root(),
+			4,
+			None,
+			128,
+			Box::new(RuntimeCall::from(frame_system::Call::remark {
+				remark: vec![0u8; 3 * 1024 * 1024],
+			}))
+		));
+		System::run_to_block::<AllPalletsWithSystem>(3);
+		// Scheduled calls are in the agenda.
+		assert_eq!(Agenda::<Test>::get(4).len(), 1);
+
+		let old_weight = MaximumSchedulerWeight::get();
+		MaximumSchedulerWeight::set(&service_agenda_weight.saturating_add(service_agendas_weight));
+
+		System::run_to_block::<AllPalletsWithSystem>(4);
+
+		// The task should still be there.
+		assert_eq!(Agenda::<Test>::get(4).iter().filter(|a| a.is_some()).count(), 1);
+		System::assert_last_event(crate::Event::AgendaIncomplete { when: 4 }.into());
+
+		// Now it should get executed
+		MaximumSchedulerWeight::set(&old_weight);
+		System::run_to_block::<AllPalletsWithSystem>(5);
+		assert!(Agenda::<Test>::get(4).is_empty());
 	});
 }

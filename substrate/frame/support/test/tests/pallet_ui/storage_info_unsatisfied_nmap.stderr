@@ -9,7 +9,7 @@ error[E0277]: the trait bound `Bar: MaxEncodedLen` is not satisfied
 ...  |
 41 | |     #[pallet::storage]
 42 | |     type Foo<T> = StorageNMap<_, Key<Twox64Concat, Bar>, u32>;
-   | |____________^ the trait `MaxEncodedLen` is not implemented for `Bar`, which is required by `frame_support::pallet_prelude::StorageNMap<_GeneratedPrefixForStorageFoo<T>, NMapKey<frame_support::Twox64Concat, Bar>, u32>: StorageInfoTrait`
+   | |____________^ the trait `MaxEncodedLen` is not implemented for `Bar`
    |
    = help: the following other types implement trait `MaxEncodedLen`:
              ()
@@ -22,4 +22,5 @@ error[E0277]: the trait bound `Bar: MaxEncodedLen` is not satisfied
              (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7)
            and $N others
    = note: required for `NMapKey<frame_support::Twox64Concat, Bar>` to implement `KeyGeneratorMaxEncodedLen`
-   = note: required for `frame_support::pallet_prelude::StorageNMap<_GeneratedPrefixForStorageFoo<T>, NMapKey<frame_support::Twox64Concat, Bar>, u32>` to implement `StorageInfoTrait`
+   = note: required for `StorageNMap<_GeneratedPrefixForStorageFoo<T>, Key<..., ...>, ...>` to implement `StorageInfoTrait`
+   = note: consider using `--verbose` to print the full type name to the console

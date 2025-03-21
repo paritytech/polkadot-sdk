@@ -1,0 +1,11 @@
+title: '[AHM] child bounties and recovery: make more stuff public'
+doc:
+- audience: Runtime Dev
+  description: |
+    Make some items in the child-bounties and recovery pallet public to reduce code-duplication for
+    the Asset Hub migration.
+crates:
+- name: pallet-child-bounties
+  bump: minor
+- name: pallet-recovery
+  bump: minor

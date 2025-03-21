@@ -400,6 +400,7 @@ fn construct_runtime_final_expansion(
 
 	let dispatch = expand::expand_outer_dispatch(&name, system_pallet, &pallets, &scrate);
 	let tasks = expand::expand_outer_task(&name, &pallets, &scrate);
+	let query = expand::expand_outer_query(&name, &pallets, &scrate);
 	let metadata = expand::expand_runtime_metadata(
 		&name,
 		&pallets,
@@ -491,6 +492,8 @@ fn construct_runtime_final_expansion(
 		#dispatch
 
 		#tasks
+
+		#query
 
 		#metadata
 
@@ -650,16 +653,7 @@ pub(crate) fn decl_pallet_runtime_setup(
 		.collect::<Vec<_>>();
 	let pallet_attrs = pallet_declarations
 		.iter()
-		.map(|pallet| {
-			pallet.cfg_pattern.iter().fold(TokenStream2::new(), |acc, pattern| {
-				let attr = TokenStream2::from_str(&format!("#[cfg({})]", pattern.original()))
-					.expect("was successfully parsed before; qed");
-				quote! {
-					#acc
-					#attr
-				}
-			})
-		})
+		.map(|pallet| pallet.get_attributes())
 		.collect::<Vec<_>>();
 
 	quote!(
