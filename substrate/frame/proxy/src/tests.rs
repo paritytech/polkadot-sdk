@@ -596,16 +596,9 @@ fn pure_works() {
 		);
 
 		// Actually kill the pure proxy.
-		assert_ok!(
-			Proxy::kill_pure(RuntimeOrigin::signed(anon), 1, ProxyType::Any, 0, 1, 0)
-		);
+		assert_ok!(Proxy::kill_pure(RuntimeOrigin::signed(anon), 1, ProxyType::Any, 0, 1, 0));
 		System::assert_last_event(
-			ProxyEvent::PureKilled {
-				pure: anon,
-				who: 1,
-				proxy_type: ProxyType::Any,
-			}
-			.into(),
+			ProxyEvent::PureKilled { pure: anon, who: 1, proxy_type: ProxyType::Any }.into(),
 		);
 	});
 }
