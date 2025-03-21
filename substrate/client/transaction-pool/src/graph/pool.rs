@@ -331,7 +331,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 				None => {
 					// if it's not found in the pool, check if the extrinsic `provides`
 					// tags are known (from inactive views, queried at an upper level)
-					let xts_hash = self.hash_of(extrinsic);
+					let xt_hash = self.hash_of(extrinsic);
 					if let Some(tags) = known_provides_tags.get(&xts_hash) {
 						future_tags.extend(tags.clone());
 						log::trace!(target: LOG_TARGET,"[{:?}] prune::inactive_view_tags {:?}", xts_hash, tags);
