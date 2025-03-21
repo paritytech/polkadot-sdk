@@ -386,7 +386,6 @@ impl BenchDb {
 	) -> (Client, std::sync::Arc<Backend>, TaskExecutor) {
 		let db_config = sc_client_db::DatabaseSettings {
 			trie_cache_maximum_size: Some(16 * 1024 * 1024),
-			force_in_memory_trie_cache: true,
 			state_pruning: Some(PruningMode::ArchiveAll),
 			source: database_type.into_settings(dir.into()),
 			blocks_pruning: sc_client_db::BlocksPruning::KeepAll,

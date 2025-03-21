@@ -1483,7 +1483,6 @@ fn doesnt_import_blocks_that_revert_finality() {
 		Backend::new(
 			DatabaseSettings {
 				trie_cache_maximum_size: Some(1 << 20),
-				force_in_memory_trie_cache: false,
 				state_pruning: Some(PruningMode::ArchiveAll),
 				blocks_pruning: BlocksPruning::KeepAll,
 				source: DatabaseSource::RocksDb { path: tmp.path().into(), cache_size: 1024 },
@@ -1761,7 +1760,6 @@ fn returns_status_for_pruned_blocks() {
 		Backend::new(
 			DatabaseSettings {
 				trie_cache_maximum_size: Some(1 << 20),
-				force_in_memory_trie_cache: false,
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				blocks_pruning: BlocksPruning::KeepFinalized,
 				source: DatabaseSource::RocksDb { path: tmp.path().into(), cache_size: 1024 },

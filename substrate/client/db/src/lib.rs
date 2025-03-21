@@ -304,8 +304,6 @@ pub struct DatabaseSettings {
 	///
 	/// If `None` is given, the cache is disabled.
 	pub trie_cache_maximum_size: Option<usize>,
-	/// Force the trie cache to be in memory.
-	pub force_in_memory_trie_cache: bool,
 	/// Requested state pruning mode.
 	pub state_pruning: Option<PruningMode>,
 	/// Where to find the database.
@@ -1173,7 +1171,6 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
-			force_in_memory_trie_cache: false,
 		};
 
 		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
@@ -2787,7 +2784,6 @@ pub(crate) mod tests {
 		let backend = Backend::<Block>::new(
 			DatabaseSettings {
 				trie_cache_maximum_size: Some(16 * 1024 * 1024),
-				force_in_memory_trie_cache: false,
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,

@@ -119,7 +119,6 @@ fn create_backend(config: BenchmarkConfig, temp_dir: &TempDir) -> Backend<Block>
 
 	let settings = DatabaseSettings {
 		trie_cache_maximum_size,
-		force_in_memory_trie_cache: true,
 		state_pruning: Some(PruningMode::ArchiveAll),
 		source: DatabaseSource::ParityDb { path },
 		blocks_pruning: BlocksPruning::KeepAll,
