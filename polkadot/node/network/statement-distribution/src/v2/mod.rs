@@ -50,8 +50,8 @@ use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{transpose_claim_queue, CandidateDescriptorVersion, TransposedClaimQueue},
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, SessionIndex, SessionInfo, SignedStatement,
-	SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
+	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo,
+	SignedStatement, SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
 };
 
 use sp_keystore::KeystorePtr;
@@ -138,8 +138,8 @@ const COST_INACCURATE_ADVERTISEMENT: Rep =
 	Rep::CostMajor("Peer advertised a candidate inaccurately");
 const COST_UNSUPPORTED_DESCRIPTOR_VERSION: Rep =
 	Rep::CostMajor("Candidate Descriptor version is not supported");
-const COST_INVALID_CORE_INDEX: Rep =
-	Rep::CostMajor("Candidate Descriptor contains an invalid core index");
+const COST_INVALID_UMP_SIGNALS: Rep =
+	Rep::CostMajor("Candidate Descriptor contains invalid ump signals");
 const COST_INVALID_SESSION_INDEX: Rep =
 	Rep::CostMajor("Candidate Descriptor contains an invalid session index");
 
@@ -227,6 +227,7 @@ struct PerSessionState {
 	local_validator: Option<LocalValidatorIndex>,
 	// `true` if v2 candidate receipts are allowed by the runtime
 	allow_v2_descriptors: bool,
+	allow_approved_peer_ump_signal: bool,
 }
 
 impl PerSessionState {
@@ -234,7 +235,7 @@ impl PerSessionState {
 		session_info: SessionInfo,
 		keystore: &KeystorePtr,
 		backing_threshold: u32,
-		allow_v2_descriptors: bool,
+		node_features: NodeFeatures,
 	) -> Self {
 		let groups = Groups::new(session_info.validator_groups.clone(), backing_threshold);
 		let mut authority_lookup = HashMap::new();
@@ -254,7 +255,14 @@ impl PerSessionState {
 			authority_lookup,
 			grid_view: None,
 			local_validator,
-			allow_v2_descriptors,
+			allow_v2_descriptors: node_features
+				.get(FeatureIndex::CandidateReceiptV2 as usize)
+				.map(|b| *b)
+				.unwrap_or(false),
+			allow_approved_peer_ump_signal: node_features
+				.get(FeatureIndex::ApprovedPeerUmpSignal as usize)
+				.map(|b| *b)
+				.unwrap_or(false),
 		}
 	}
 
@@ -295,6 +303,11 @@ impl PerSessionState {
 	/// Returns `true` if v2 candidate receipts are enabled
 	fn candidate_receipt_v2_enabled(&self) -> bool {
 		self.allow_v2_descriptors
+	}
+
+	/// Returns `true` if `ApprovedPeer` ump signals are allowed
+	fn allow_approved_peer_ump_signal(&self) -> bool {
+		self.allow_approved_peer_ump_signal
 	}
 }
 
@@ -645,10 +658,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				session_info,
 				&state.keystore,
 				minimum_backing_votes,
-				node_features
-					.get(FeatureIndex::CandidateReceiptV2 as usize)
-					.map(|b| *b)
-					.unwrap_or(false),
+				node_features,
 			);
 			if let Some(topology) = state.unused_topologies.remove(&session_index) {
 				per_session_state.supply_topology(&topology.topology, topology.local_index);
@@ -3126,6 +3136,7 @@ pub(crate) async fn handle_response<Context>(
 			disabled_mask,
 			&relay_parent_state.transposed_cq,
 			per_session.candidate_receipt_v2_enabled(),
+			per_session.allow_approved_peer_ump_signal(),
 		);
 
 		for (peer, rep) in res.reputation_changes {

@@ -53,7 +53,7 @@ use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{
 		transpose_claim_queue, CandidateDescriptorV2, CandidateReceiptV2 as CandidateReceipt,
-		ClaimQueueOffset, CommittedCandidateReceiptV2, TransposedClaimQueue,
+		CommittedCandidateReceiptV2, TransposedClaimQueue,
 	},
 	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
 	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, ValidationCodeHash,
@@ -238,6 +238,7 @@ impl CollationGenerationSubsystem {
 			&mut self.metrics,
 			session_info.v2_receipts,
 			&transpose_claim_queue(claim_queue),
+			session_info.approved_peer_ump_signal,
 		)
 		.await?;
 
@@ -373,25 +374,28 @@ impl CollationGenerationSubsystem {
 					let mut commitments = CandidateCommitments::default();
 					commitments.upward_messages = collation.upward_messages.clone();
 
-					let (cs_index, cq_offset) = match commitments.core_selector() {
-						// Use the CoreSelector's index if provided.
-						Ok(Some((sel, off))) => (sel.0 as usize, off),
-						// Fallback to the sequential index if no CoreSelector is provided.
-						Ok(None) => (i, ClaimQueueOffset(0)),
-						Err(err) => {
-							gum::debug!(
-								target: LOG_TARGET,
-								?para_id,
-								"error processing UMP signals: {}",
-								err
-							);
-							return
-						},
-					};
+					let ump_signals =
+						match commitments.ump_signals(session_info.approved_peer_ump_signal) {
+							Ok(signals) => signals,
+							Err(err) => {
+								gum::debug!(
+									target: LOG_TARGET,
+									?para_id,
+									"error processing UMP signals: {}",
+									err
+								);
+								return
+							},
+						};
+
+					let (cs_index, cq_offset) = ump_signals
+						.core_selector()
+						.map(|(cs_index, cq_offset)| (cs_index.0 as usize, cq_offset.0 as usize))
+						.unwrap_or((i, 0));
 
 					// Identify the cores to build collations on using the given claim queue offset.
 					let cores_to_build_on = claim_queue
-						.iter_claims_at_depth(cq_offset.0 as usize)
+						.iter_claims_at_depth(cq_offset)
 						.filter_map(|(core_idx, para_id)| {
 							(para_id == task_config.para_id).then_some(core_idx)
 						})
@@ -402,7 +406,7 @@ impl CollationGenerationSubsystem {
 							target: LOG_TARGET,
 							?para_id,
 							"no core is assigned to para at depth {}",
-							cq_offset.0,
+							cq_offset,
 						);
 						return
 					}
@@ -448,6 +452,7 @@ impl CollationGenerationSubsystem {
 						&metrics,
 						session_info.v2_receipts,
 						&transposed_claim_queue,
+						session_info.approved_peer_ump_signal,
 					)
 					.await
 					{
@@ -486,6 +491,7 @@ impl<Context> CollationGenerationSubsystem {
 #[derive(Clone)]
 struct PerSessionInfo {
 	v2_receipts: bool,
+	approved_peer_ump_signal: bool,
 	n_validators: usize,
 }
 
@@ -517,6 +523,10 @@ impl SessionInfoCache {
 				.get(FeatureIndex::CandidateReceiptV2 as usize)
 				.map(|b| *b)
 				.unwrap_or(false),
+			approved_peer_ump_signal: node_features
+				.get(FeatureIndex::ApprovedPeerUmpSignal as usize)
+				.map(|b| *b)
+				.unwrap_or(false),
 			n_validators,
 		};
 		self.0.insert(session_index, info);
@@ -545,6 +555,7 @@ async fn construct_and_distribute_receipt(
 	metrics: &Metrics,
 	v2_receipts: bool,
 	transposed_claim_queue: &TransposedClaimQueue,
+	approved_peer_ump_signal: bool,
 ) -> Result<()> {
 	let PreparedCollation {
 		collation,
@@ -615,12 +626,16 @@ async fn construct_and_distribute_receipt(
 			commitments,
 		};
 
-		ccr.check_core_index(&transposed_claim_queue)
+		ccr.check_ump_signals(&transposed_claim_queue, approved_peer_ump_signal)
 			.map_err(Error::CandidateReceiptCheck)?;
 
 		ccr.to_plain()
 	} else {
-		if commitments.core_selector().map_err(Error::CandidateReceiptCheck)?.is_some() {
+		if !commitments
+			.ump_signals(approved_peer_ump_signal)
+			.map_err(Error::CandidateReceiptCheck)?
+			.is_empty()
+		{
 			gum::warn!(
 				target: LOG_TARGET,
 				?pov_hash,
