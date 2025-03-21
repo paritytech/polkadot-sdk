@@ -46,6 +46,7 @@ use frame_support::{
 use frame_system::pallet_prelude::{BlockNumberFor, *};
 pub use pallet::*;
 use scale_info::TypeInfo;
+use sp_core::H256;
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
@@ -192,7 +193,6 @@ pub mod pallet {
 		parameter_types,
 	};
 	use frame_system::Config as SysConfig;
-	use sp_core::H256;
 	use sp_runtime::traits::Dispatchable;
 	use xcm_executor::traits::{MatchesFungible, WeightBounds};
 
@@ -698,7 +698,6 @@ pub mod pallet {
 
 	/// The ongoing queries.
 	#[pallet::storage]
-	#[pallet::getter(fn query)]
 	pub(super) type Queries<T: Config> =
 		StorageMap<_, Blake2_128Concat, QueryId, QueryStatus<BlockNumberFor<T>>, OptionQuery>;
 
@@ -707,7 +706,6 @@ pub mod pallet {
 	/// Key is the blake2 256 hash of (origin, versioned `Assets`) pair. Value is the number of
 	/// times this pair has been trapped (usually just 1 if it exists at all).
 	#[pallet::storage]
-	#[pallet::getter(fn asset_trap)]
 	pub(super) type AssetTraps<T: Config> = StorageMap<_, Identity, H256, u32, ValueQuery>;
 
 	/// Default version to encode XCM when latest version of destination is unknown. If `None`,
@@ -1565,6 +1563,20 @@ impl<T: Config> QueryHandler for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// The ongoing queries.
+	pub fn query(query_id: &QueryId) -> Option<QueryStatus<BlockNumberFor<T>>> {
+		Queries::<T>::get(query_id)
+	}
+
+	/// The existing asset traps.
+	///
+	/// Key is the blake2 256 hash of (origin, versioned `Assets`) pair.
+	/// Value is the number of times this pair has been trapped
+	/// (usually just 1 if it exists at all).
+	pub fn asset_trap(trap_id: &H256) -> u32 {
+		AssetTraps::<T>::get(trap_id)
+	}
+
 	/// Find `TransferType`s for `assets` and fee identified through `fee_asset_item`, when
 	/// transferring to `dest`.
 	///

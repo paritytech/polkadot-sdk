@@ -239,7 +239,7 @@ fn query_response_fires() {
 			}) if q == query_id,
 		)));
 		assert_eq!(
-			polkadot_test_runtime::Xcm::query(query_id),
+			polkadot_test_runtime::Xcm::query(&query_id),
 			Some(QueryStatus::Ready {
 				response: VersionedResponse::from(Response::ExecutionResult(None)),
 				at: 2u32.into()
