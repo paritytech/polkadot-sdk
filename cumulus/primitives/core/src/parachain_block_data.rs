@@ -36,10 +36,10 @@ pub mod v0 {
 
 	impl<Block: BlockT> From<ParachainBlockData<Block>> for super::ParachainBlockData<Block> {
 		fn from(block_data: ParachainBlockData<Block>) -> Self {
-			Self::new(alloc::vec![(
-				Block::new(block_data.header, block_data.extrinsics),
+			Self::new(
+				alloc::vec![Block::new(block_data.header, block_data.extrinsics)],
 				block_data.storage_proof,
-			)])
+			)
 		}
 	}
 }
@@ -51,47 +51,47 @@ pub mod v0 {
 #[derive(codec::Encode, codec::Decode, Clone)]
 pub enum ParachainBlockData<Block: BlockT> {
 	#[codec(index = 1)]
-	V1(Vec<(Block, CompactProof)>),
+	V1 { blocks: Vec<Block>, proof: CompactProof },
 }
 
 impl<Block: BlockT> ParachainBlockData<Block> {
 	/// Creates a new instance of `Self`.
-	pub fn new(blocks: Vec<(Block, CompactProof)>) -> Self {
-		Self::V1(blocks)
+	pub fn new(blocks: Vec<Block>, proof: CompactProof) -> Self {
+		Self::V1 { blocks, proof }
 	}
 
-	/// Returns an iterator yielding references to the stored blocks.
-	pub fn blocks(&self) -> impl Iterator<Item = &Block> {
+	/// Returns references to the stored blocks.
+	pub fn blocks(&self) -> &[Block] {
 		match self {
-			Self::V1(blocks) => blocks.iter().map(|e| &e.0),
+			Self::V1 { blocks, .. } => &blocks,
 		}
 	}
 
-	/// Returns an iterator yielding mutable references to the stored blocks.
-	pub fn blocks_mut(&mut self) -> impl Iterator<Item = &mut Block> {
+	/// Returns mutable references to the stored blocks.
+	pub fn blocks_mut(&mut self) -> &mut [Block] {
 		match self {
-			Self::V1(blocks) => blocks.iter_mut().map(|e| &mut e.0),
+			Self::V1 { ref mut blocks, .. } => blocks,
 		}
 	}
 
-	/// Returns an iterator yielding the stored blocks.
-	pub fn into_blocks(self) -> impl Iterator<Item = Block> {
+	/// Returns the stored blocks.
+	pub fn into_blocks(self) -> Vec<Block> {
 		match self {
-			Self::V1(blocks) => blocks.into_iter().map(|e| e.0),
+			Self::V1 { blocks, .. } => blocks,
 		}
 	}
 
-	/// Returns an iterator yielding references to the stored proofs.
-	pub fn proofs(&self) -> impl Iterator<Item = &CompactProof> {
+	/// Returns a reference to the stored proof.
+	pub fn proof(&self) -> &CompactProof {
 		match self {
-			Self::V1(blocks) => blocks.iter().map(|e| &e.1),
+			Self::V1 { proof, .. } => proof,
 		}
 	}
 
 	/// Deconstruct into the inner parts.
-	pub fn into_inner(self) -> Vec<(Block, CompactProof)> {
+	pub fn into_inner(self) -> (Vec<Block>, CompactProof) {
 		match self {
-			Self::V1(blocks) => blocks,
+			Self::V1 { blocks, proof } => (blocks, proof),
 		}
 	}
 
@@ -100,9 +100,9 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 		tracing::info!(
 			target: "cumulus",
 			"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
-			self.blocks().map(|b| b.header().encoded_size()).sum::<usize>() as f64 / 1024f64,
-			self.blocks().map(|b| b.extrinsics().encoded_size()).sum::<usize>() as f64 / 1024f64,
-			self.proofs().map(|p| p.encoded_size()).sum::<usize>() as f64 / 1024f64,
+			self.blocks().iter().map(|b| b.header().encoded_size()).sum::<usize>() as f64 / 1024f64,
+			self.blocks().iter().map(|b| b.extrinsics().encoded_size()).sum::<usize>() as f64 / 1024f64,
+			self.proof().encoded_size() as f64 / 1024f64,
 		);
 	}
 
@@ -111,18 +111,14 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 	/// Returns `None` if there is not exactly one block.
 	pub fn as_v0(&self) -> Option<v0::ParachainBlockData<Block>> {
 		match self {
-			Self::V1(blocks) => {
+			Self::V1 { blocks, proof } => {
 				if blocks.len() != 1 {
 					return None
 				}
 
-				blocks.first().map(|(block, storage_proof)| {
+				blocks.first().map(|block| {
 					let (header, extrinsics) = block.clone().deconstruct();
-					v0::ParachainBlockData {
-						header,
-						extrinsics,
-						storage_proof: storage_proof.clone(),
-					}
+					v0::ParachainBlockData { header, extrinsics, storage_proof: proof.clone() }
 				})
 			},
 		}

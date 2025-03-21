@@ -247,7 +247,7 @@ where
 			.ok()
 			.flatten()?;
 
-		let block_data = ParachainBlockData::<Block>::new(vec![(block, compact_proof)]);
+		let block_data = ParachainBlockData::<Block>::new(vec![block], compact_proof);
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
 			block_data: BlockData(if api_version >= 3 {

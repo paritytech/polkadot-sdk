@@ -397,7 +397,7 @@ where
 				{
 					Ok(Some((collation, block_data))) => {
 						let Some(new_block_header) =
-							block_data.blocks().nth(0).map(|b| b.header().clone())
+							block_data.blocks().first().map(|b| b.header().clone())
 						else {
 							tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
 							break

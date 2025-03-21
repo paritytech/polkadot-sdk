@@ -1,6 +1,5 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -9,11 +8,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Parachain PoV recovery
 //!
@@ -432,9 +431,9 @@ where
 			return
 		};
 
-		let blocks_and_proofs = block_data.into_inner();
+		let blocks = block_data.into_blocks();
 
-		let Some(parent) = blocks_and_proofs.first().map(|(b, _)| *b.header().parent_hash()) else {
+		let Some(parent) = blocks.first().map(|b| *b.header().parent_hash()) else {
 			tracing::debug!(
 				target: LOG_TARGET,
 				?block_hash,
@@ -461,7 +460,7 @@ where
 						"Waiting for recovery of parent.",
 					);
 
-					blocks_and_proofs.into_iter().for_each(|(b, _)| {
+					blocks.into_iter().for_each(|b| {
 						self.waiting_for_parent
 							.entry(*b.header().parent_hash())
 							.or_default()
@@ -495,7 +494,7 @@ where
 			_ => (),
 		}
 
-		self.import_blocks(blocks_and_proofs.into_iter().map(|d| d.0));
+		self.import_blocks(blocks.into_iter());
 	}
 
 	/// Import the given `blocks`.

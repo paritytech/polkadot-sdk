@@ -262,7 +262,7 @@ where
 			);
 
 			if let Some((collation, block_data)) = maybe_collation {
-				let Some(block_hash) = block_data.blocks().nth(0).map(|b| b.hash()) else {
+				let Some(block_hash) = block_data.blocks().first().map(|b| b.hash()) else {
 					continue
 				};
 				let result_sender =
