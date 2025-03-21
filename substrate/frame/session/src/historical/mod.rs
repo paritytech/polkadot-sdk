@@ -70,6 +70,9 @@ pub mod pallet {
 	/// Config necessary for the historical pallet.
 	#[pallet::config]
 	pub trait Config: pallet_session::Config + frame_system::Config {
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// Full identification of the validator.
 		type FullIdentification: Parameter;
 
@@ -92,6 +95,15 @@ pub mod pallet {
 	/// The range of historical sessions we store. [first, last)
 	#[pallet::storage]
 	pub type StoredRange<T> = StorageValue<_, (SessionIndex, SessionIndex), OptionQuery>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T> {
+		/// The merkle root of the validators of the said session were stored
+		RootStored { index: SessionIndex },
+		/// The merkle roots of up to this session index were pruned
+		RootsPruned { up_to: SessionIndex }
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -118,7 +130,9 @@ impl<T: Config> Pallet<T> {
 			} else {
 				Some((new_start, end))
 			}
-		})
+		});
+
+		Self::deposit_event(Event::<T>::RootsPruned { up_to });
 	}
 
 	fn full_id_validators() -> Vec<(T::ValidatorId, T::FullIdentification)> {
@@ -189,7 +203,10 @@ impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHi
 		if let Some(new_validators) = new_validators_and_id {
 			let count = new_validators.len() as ValidatorCount;
 			match ProvingTrie::<T>::generate_for(new_validators) {
-				Ok(trie) => <HistoricalSessions<T>>::insert(new_index, &(trie.root, count)),
+				Ok(trie) => {
+					<HistoricalSessions<T>>::insert(new_index, &(trie.root, count));
+					Pallet::<T>::deposit_event(Event::RootStored { index: new_index });
+				},
 				Err(reason) => {
 					print("Failed to generate historical ancestry-inclusion proof.");
 					print(reason);
@@ -199,6 +216,7 @@ impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHi
 			let previous_index = new_index.saturating_sub(1);
 			if let Some(previous_session) = <HistoricalSessions<T>>::get(previous_index) {
 				<HistoricalSessions<T>>::insert(new_index, previous_session);
+				Pallet::<T>::deposit_event(Event::RootStored { index: new_index });
 			}
 		}
 

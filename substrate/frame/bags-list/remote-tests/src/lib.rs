@@ -87,7 +87,8 @@ pub fn display_and_check_bags<Runtime: RuntimeT<Instance1>>(
 
 		for id in bag.std_iter().map(|node| node.std_id().clone()) {
 			let vote_weight =
-				<Runtime as pallet_bags_list::Config<Instance1>>::ScoreProvider::score(&id);
+				<Runtime as pallet_bags_list::Config<Instance1>>::ScoreProvider::score(&id)
+					.unwrap();
 			let vote_weight_thresh_u64: u64 = (*vote_weight_thresh)
 				.try_into()
 				.map_err(|_| "runtime must configure score to at most u64 to use this test")

@@ -197,7 +197,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_nothing() {
-		T::DataProvider::set_next_election(sp_runtime::traits::Bounded::max_value());
 		assert!(CurrentPhase::<T>::get().is_off());
 
 		#[block]
