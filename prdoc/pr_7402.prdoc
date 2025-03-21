@@ -69,7 +69,7 @@ crates:
 - name: asset-hub-westend-runtime
   bump: major
 - name: polkadot-sdk
-  bump: major
+  bump: patch
 - name: bridge-hub-common
   bump: major
 - name: emulated-integration-tests-common
