@@ -24,9 +24,8 @@
 use crate::utils::{
 	create_exchangeable_host_function_ident, create_function_ident_with_version,
 	create_host_function_ident, generate_crate_access, get_function_argument_names,
-	get_function_argument_names_and_types_without_ref, get_function_argument_types,
-	get_function_argument_types_ref_and_mut, get_function_argument_types_without_ref,
-	get_function_arguments, get_runtime_interface, RuntimeInterfaceFunction,
+	get_function_argument_names_and_types, get_function_argument_types, get_function_arguments,
+	get_runtime_interface, RuntimeInterfaceFunction,
 };
 
 use syn::{
@@ -63,7 +62,7 @@ pub fn generate(trait_def: &ItemTrait, is_wasm_only: bool) -> Result<TokenStream
 		/// The implementations of the extern host functions. This special implementation module
 		/// is required to change the extern host functions signature to
 		/// `unsafe fn name(args) -> ret` to make the function implementations exchangeable.
-		#[cfg(not(feature = "std"))]
+		#[cfg(substrate_runtime)]
 		mod extern_host_function_impls {
 			use super::*;
 
@@ -83,12 +82,14 @@ fn generate_extern_host_function(
 	trait_name: &Ident,
 ) -> Result<TokenStream> {
 	let crate_ = generate_crate_access();
-	let args = get_function_arguments(&method.sig);
-	let arg_types = get_function_argument_types_without_ref(&method.sig);
-	let arg_types2 = get_function_argument_types_without_ref(&method.sig);
+
+	let mut unpacked_sig = method.sig.clone();
+	crate::utils::unpack_inner_types_in_signature(&mut unpacked_sig);
+	let unpacked_args = get_function_arguments(&unpacked_sig);
+	let unpacked_return_value = &unpacked_sig.output;
+
+	let arg_types = get_function_argument_types(&method.sig);
 	let arg_names = get_function_argument_names(&method.sig);
-	let arg_names2 = get_function_argument_names(&method.sig);
-	let arg_names3 = get_function_argument_names(&method.sig);
 	let function = &method.sig.ident;
 	let ext_function = create_host_function_ident(&method.sig.ident, version, trait_name);
 	let doc_string = format!(
@@ -106,16 +107,43 @@ fn generate_extern_host_function(
 	};
 
 	let convert_return_value = match return_value {
-		ReturnType::Default => quote!(),
+		ReturnType::Default => quote! { __runtime_interface_result_ },
 		ReturnType::Type(_, ref ty) => quote! {
-			<#ty as #crate_::wasm::FromFFIValue>::from_ffi_value(result)
+			<#ty as #crate_::wasm::FromFFIValue>::from_ffi_value(__runtime_interface_result_)
 		},
 	};
+
+	let mut call_into_ffi_value = Vec::new();
+	let mut drop_args = Vec::new();
+	let mut ffi_names = Vec::new();
+	for (nth, arg) in get_function_arguments(&method.sig).enumerate() {
+		let arg_name = &arg.pat;
+		let arg_ty = &arg.ty;
+		let ffi_name =
+			Ident::new(&format!("__runtime_interface_ffi_value_{}_", nth), arg.pat.span());
+		let destructor_name =
+			Ident::new(&format!("__runtime_interface_arg_destructor_{}_", nth), arg.pat.span());
+
+		ffi_names.push(ffi_name.clone());
+
+		call_into_ffi_value.push(quote! {
+			let mut #arg_name = #arg_name;
+			let (#ffi_name, #destructor_name) = <#arg_ty as #crate_::wasm::IntoFFIValue>::into_ffi_value(&mut #arg_name);
+		});
+
+		drop_args.push(quote! {
+			#[allow(dropping_copy_types)]
+			::core::mem::drop(#destructor_name);
+		});
+	}
+
+	// Drop in the reverse order to construction.
+	drop_args.reverse();
 
 	Ok(quote! {
 		#(#cfg_attrs)*
 		#[doc = #doc_string]
-		pub fn #function ( #( #args ),* ) #return_value {
+		pub fn #function ( #( #unpacked_args ),* ) #unpacked_return_value {
 			#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi))]
 			extern "C" {
 				pub fn #ext_function (
@@ -123,15 +151,9 @@ fn generate_extern_host_function(
 				) #ffi_return_value;
 			}
 
-			// Generate all wrapped ffi values.
-			#(
-				let #arg_names2 = <#arg_types2 as #crate_::wasm::IntoFFIValue>::into_ffi_value(
-					&#arg_names2,
-				);
-			)*
-
-			let result = unsafe { #ext_function( #( #arg_names3.get() ),* ) };
-
+			#(#call_into_ffi_value)*
+			let __runtime_interface_result_ = unsafe { #ext_function( #( #ffi_names ),* ) };
+			#(#drop_args)*
 			#convert_return_value
 		}
 	})
@@ -139,6 +161,9 @@ fn generate_extern_host_function(
 
 /// Generate the host exchangeable function for the given method.
 fn generate_exchangeable_host_function(method: &TraitItemFn) -> Result<TokenStream> {
+	let mut method = method.clone();
+	crate::utils::unpack_inner_types_in_signature(&mut method.sig);
+
 	let crate_ = generate_crate_access();
 	let arg_types = get_function_argument_types(&method.sig);
 	let function = &method.sig.ident;
@@ -149,7 +174,7 @@ fn generate_exchangeable_host_function(method: &TraitItemFn) -> Result<TokenStre
 
 	Ok(quote! {
 		#(#cfg_attrs)*
-		#[cfg(not(feature = "std"))]
+		#[cfg(substrate_runtime)]
 		#[allow(non_upper_case_globals)]
 		#[doc = #doc_string]
 		pub static #exchangeable_function : #crate_::wasm::ExchangeableFunction<
@@ -182,10 +207,10 @@ fn generate_host_functions_struct(
 		#(#host_function_impls)*
 
 		/// Provides implementations for the extern host functions.
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		pub struct HostFunctions;
 
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		impl #crate_::sp_wasm_interface::HostFunctions for HostFunctions {
 			fn host_functions() -> Vec<&'static dyn #crate_::sp_wasm_interface::Function> {
 				let mut host_functions_list = Vec::new();
@@ -222,7 +247,6 @@ fn generate_host_function_implementation(
 	let signature = generate_wasm_interface_signature_for_host_function(&method.sig)?;
 
 	let fn_name = create_function_ident_with_version(&method.sig.ident, version);
-	let ref_and_mut = get_function_argument_types_ref_and_mut(&method.sig);
 
 	// List of variable names containing WASM FFI-compatible arguments.
 	let mut ffi_names = Vec::new();
@@ -246,9 +270,7 @@ fn generate_host_function_implementation(
 	// List of code snippets to convert static FFI args (`u32`, etc.) into native Rust types.
 	let mut convert_args_static_ffi_to_host = Vec::new();
 
-	for ((host_name, host_ty), ref_and_mut) in
-		get_function_argument_names_and_types_without_ref(&method.sig).zip(ref_and_mut)
-	{
+	for (host_name, host_ty) in get_function_argument_names_and_types(&method.sig) {
 		let ffi_name = generate_ffi_value_var_name(&host_name)?;
 		let host_name_ident = match *host_name {
 			Pat::Ident(ref pat_ident) => pat_ident.ident.clone(),
@@ -267,23 +289,15 @@ fn generate_host_function_implementation(
 		);
 		convert_args_static_ffi_to_host.push(quote! {
 			let mut #host_name = <#host_ty as #crate_::host::FromFFIValue>::from_ffi_value(__function_context__, #ffi_name)
-				.map_err(|err| format!("{}: {}", err, #convert_arg_error))?;
+				.map_err(|err| #crate_::alloc::format!("{}: {}", err, #convert_arg_error))?;
 		});
 
-		let ref_and_mut_tokens =
-			ref_and_mut.map(|(token_ref, token_mut)| quote!(#token_ref #token_mut));
-
-		host_names_with_ref.push(quote! { #ref_and_mut_tokens #host_name });
-
-		if ref_and_mut.map(|(_, token_mut)| token_mut.is_some()).unwrap_or(false) {
-			copy_data_into_ref_mut_args.push(quote! {
-				<#host_ty as #crate_::host::IntoPreallocatedFFIValue>::into_preallocated_ffi_value(
-					#host_name,
-					__function_context__,
-					#ffi_name,
-				)?;
-			});
-		}
+		host_names_with_ref.push(
+			quote! { <#host_ty as #crate_::host::FromFFIValue>::take_from_owned(&mut #host_name) },
+		);
+		copy_data_into_ref_mut_args.push(quote! {
+			<#host_ty as #crate_::host::FromFFIValue>::write_back_into_runtime(#host_name, __function_context__, #ffi_name)?;
+		});
 
 		let arg_count_mismatch_error = format!(
 			"missing argument '{}': number of arguments given to '{}' from interface '{}' does not match the expected number of arguments",
@@ -292,9 +306,9 @@ fn generate_host_function_implementation(
 			trait_name
 		);
 		convert_args_dynamic_ffi_to_static_ffi.push(quote! {
-			let #ffi_name = args.next().ok_or_else(|| #arg_count_mismatch_error.to_owned())?;
+			let #ffi_name = args.next().ok_or_else(|| #crate_::alloc::borrow::ToOwned::to_owned(#arg_count_mismatch_error))?;
 			let #ffi_name: #ffi_ty = #crate_::sp_wasm_interface::TryFromValue::try_from_value(#ffi_name)
-				.ok_or_else(|| #convert_arg_error.to_owned())?;
+				.ok_or_else(|| #crate_::alloc::borrow::ToOwned::to_owned(#convert_arg_error))?;
 		});
 	}
 
@@ -341,16 +355,16 @@ fn generate_host_function_implementation(
 
 	let implementation = quote! {
 		#(#cfg_attrs)*
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		struct #struct_name;
 
 		#(#cfg_attrs)*
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		impl #struct_name {
 			fn call(
 				__function_context__: &mut dyn #crate_::sp_wasm_interface::FunctionContext,
 				#(#ffi_args_prototype),*
-			) -> std::result::Result<#ffi_return_ty, String> {
+			) -> ::core::result::Result<#ffi_return_ty, #crate_::alloc::string::String> {
 				#(#convert_args_static_ffi_to_host)*
 				let __result__ = #fn_name(#(#host_names_with_ref),*);
 				#(#copy_data_into_ref_mut_args)*
@@ -360,7 +374,7 @@ fn generate_host_function_implementation(
 		}
 
 		#(#cfg_attrs)*
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		impl #crate_::sp_wasm_interface::Function for #struct_name {
 			fn name(&self) -> &str {
 				#name
@@ -374,7 +388,7 @@ fn generate_host_function_implementation(
 				&self,
 				__function_context__: &mut dyn #crate_::sp_wasm_interface::FunctionContext,
 				args: &mut dyn Iterator<Item = #crate_::sp_wasm_interface::Value>,
-			) -> std::result::Result<Option<#crate_::sp_wasm_interface::Value>, String> {
+			) -> ::core::result::Result<Option<#crate_::sp_wasm_interface::Value>, #crate_::alloc::string::String> {
 				#(#convert_args_dynamic_ffi_to_static_ffi)*
 				let __result__ = Self::call(
 					__function_context__,
@@ -391,7 +405,7 @@ fn generate_host_function_implementation(
 		registry.register_static(
 			#crate_::sp_wasm_interface::Function::name(&#struct_name),
 			|mut caller: #crate_::sp_wasm_interface::wasmtime::Caller<T::State>, #(#ffi_args_prototype),*|
-				-> std::result::Result<#ffi_return_ty, #crate_::sp_wasm_interface::anyhow::Error>
+				-> ::core::result::Result<#ffi_return_ty, #crate_::sp_wasm_interface::anyhow::Error>
 			{
 				T::with_function_context(caller, move |__function_context__| {
 					let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -404,12 +418,12 @@ fn generate_host_function_implementation(
 						Ok(result) => result,
 						Err(panic) => {
 							let message =
-								if let Some(message) = panic.downcast_ref::<String>() {
-									format!("host code panicked while being called by the runtime: {}", message)
+								if let Some(message) = panic.downcast_ref::<#crate_::alloc::string::String>() {
+									#crate_::alloc::format!("host code panicked while being called by the runtime: {}", message)
 								} else if let Some(message) = panic.downcast_ref::<&'static str>() {
-									format!("host code panicked while being called by the runtime: {}", message)
+									#crate_::alloc::format!("host code panicked while being called by the runtime: {}", message)
 								} else {
-									"host code panicked while being called by the runtime".to_owned()
+									#crate_::alloc::borrow::ToOwned::to_owned("host code panicked while being called by the runtime")
 								};
 							return Err(#crate_::sp_wasm_interface::anyhow::Error::msg(message));
 						}
@@ -436,7 +450,7 @@ fn generate_wasm_interface_signature_for_host_function(sig: &Signature) -> Resul
 		},
 		ReturnType::Default => quote!(None),
 	};
-	let arg_types = get_function_argument_types_without_ref(sig).map(|ty| {
+	let arg_types = get_function_argument_types(sig).map(|ty| {
 		quote! {
 			<<#ty as #crate_::RIType>::FFIType as #crate_::sp_wasm_interface::IntoValue>::VALUE_TYPE
 		}
@@ -444,7 +458,7 @@ fn generate_wasm_interface_signature_for_host_function(sig: &Signature) -> Resul
 
 	Ok(quote! {
 		#crate_::sp_wasm_interface::Signature {
-			args: std::borrow::Cow::Borrowed(&[ #( #arg_types ),* ][..]),
+			args: #crate_::alloc::borrow::Cow::Borrowed(&[ #( #arg_types ),* ][..]),
 			return_value: #return_value,
 		}
 	})
