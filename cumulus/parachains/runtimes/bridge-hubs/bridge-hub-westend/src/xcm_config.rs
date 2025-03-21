@@ -16,8 +16,8 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
+	ParachainSystem, PolkadotXcm, RandomParaLocation, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
 use frame_support::{
 	parameter_types,
@@ -175,7 +175,7 @@ pub type WaivedLocations = (
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - NativeToken with the parent Relay Chain and sibling parachains.
-pub type TrustedTeleporters = ConcreteAssetFromSystem<WestendLocation>;
+pub type TrustedTeleporters = ConcreteAssetFromSystem<RandomParaLocation>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {

@@ -15,7 +15,7 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
+	RandomParaLocation, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use crate::{TransactionByteFee, CENTS};
 use frame_support::{
@@ -216,7 +216,7 @@ impl xcm_executor::Config for XcmConfig {
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
 	/// Only allow teleportation of WND amongst the system.
-	type IsTeleporter = ConcreteAssetFromSystem<RelayLocation>;
+	type IsTeleporter = ConcreteAssetFromSystem<RandomParaLocation>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
