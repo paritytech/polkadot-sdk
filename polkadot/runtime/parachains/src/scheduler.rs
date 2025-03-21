@@ -401,7 +401,6 @@ impl<T: Config> Pallet<T> {
 		
 		ClaimQueue::<T>::mutate(|la| {
 			let cq = la.entry(core_idx).or_default();
-			let frozen_paras = crate::paras::FrozenParas::<T>::get();
 			let mut n_lookahead_used = cq.len() as u32;
 
 			// If the claim queue used to be empty, we need to double the first assignment.
@@ -418,7 +417,7 @@ impl<T: Config> Pallet<T> {
 						Assignment::Pool { para_id, ..} => para_id
 					};
 
-					if !frozen_paras.contains(&para_id) {
+					if !crate::paras::FrozenParas::<T>::contains_key(&para_id) {
 						cq.push_back(assignment.clone());
 						cq.push_back(assignment);
 						n_lookahead_used += 2;
@@ -434,7 +433,7 @@ impl<T: Config> Pallet<T> {
 						Assignment::Bulk(id) => id,
 						Assignment::Pool { para_id, ..} => para_id
 					};
-					if !frozen_paras.contains(&para_id) {
+					if !crate::paras::FrozenParas::<T>::contains_key(&para_id) {
 						cq.push_back(assignment);
 					}
 				} else {
