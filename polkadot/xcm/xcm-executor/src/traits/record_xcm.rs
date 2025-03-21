@@ -20,6 +20,8 @@ use xcm::latest::Xcm;
 
 /// Trait for recording XCMs.
 pub trait RecordXcm {
+	type RuntimeEvent;
+
 	/// Whether or not we should record incoming XCMs.
 	fn should_record() -> bool;
 	/// Enable or disable recording.
@@ -29,9 +31,15 @@ pub trait RecordXcm {
 	fn recorded_xcm() -> Option<Xcm<()>>;
 	/// Record `xcm`.
 	fn record(xcm: Xcm<()>);
+	/// Record the last event.
+	fn record_last_event();
+	/// Get emitted events.
+	fn emitted_event() -> Option<Self::RuntimeEvent>;
 }
 
 impl RecordXcm for () {
+	type RuntimeEvent = ();
+
 	fn should_record() -> bool {
 		false
 	}
@@ -43,4 +51,8 @@ impl RecordXcm for () {
 	}
 
 	fn record(_: Xcm<()>) {}
+
+	fn record_last_event() {}
+
+	fn emitted_event() -> Option<Self::RuntimeEvent> { None }
 }

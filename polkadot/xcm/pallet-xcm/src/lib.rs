@@ -326,6 +326,7 @@ pub mod pallet {
 				))
 			})()
 			.map_err(|e: DispatchError| {
+				tracing::error!(target: "xcm::pallet_xcm::execute", ?e, "XCM execution failed with dispatch error");
 				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
 			})?;
 
@@ -844,6 +845,9 @@ pub mod pallet {
 	/// implementation in the XCM executor configuration.
 	#[pallet::storage]
 	pub(crate) type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
+
+	#[pallet::storage]
+	pub type EmittedEvent<T: Config> = StorageValue<_, <T as frame_system::Config>::RuntimeEvent>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -2599,10 +2603,14 @@ impl<T: Config> Pallet<T> {
 					);
 				},
 			)?;
-		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
+		let mut events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()
 				.map(|record| record.event.clone())
 				.collect();
+		if let Some(failed_event) = Pallet::<Runtime>::emitted_event() {
+			tracing::debug!("Failed event: {:?}", failed_event);
+			events.push(failed_event);
+		}
 		Ok(CallDryRunEffects {
 			local_xcm: local_xcm.map(VersionedXcm::<()>::from),
 			forwarded_xcms,
@@ -3501,6 +3509,8 @@ impl<T: Config> CheckSuspension for Pallet<T> {
 }
 
 impl<T: Config> RecordXcm for Pallet<T> {
+	type RuntimeEvent = <T as frame_system::Config>::RuntimeEvent;
+
 	fn should_record() -> bool {
 		ShouldRecordXcm::<T>::get()
 	}
@@ -3515,6 +3525,25 @@ impl<T: Config> RecordXcm for Pallet<T> {
 
 	fn record(xcm: Xcm<()>) {
 		RecordedXcm::<T>::put(xcm);
+	}
+
+	fn record_last_event() {
+		let records = frame_system::Pallet::<T>::events();
+		if let Some(record) = records.last() {
+			let event = record.event.clone();
+			tracing::debug!(?event, "-> Recording");
+			EmittedEvent::<T>::put(event);
+		} else {
+			tracing::debug!("-> Missing");
+		};
+		let event = EmittedEvent::<T>::get();
+		tracing::debug!(?event, "<- Recorded");
+	}
+
+	fn emitted_event() -> Option<Self::RuntimeEvent> {
+		let event = EmittedEvent::<T>::get();
+		tracing::debug!(?event, "Emitted");
+		event
 	}
 }
 

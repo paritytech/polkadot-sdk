@@ -29,7 +29,7 @@ pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-xcm = { workspace = true }
 sp-io = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-tracing = { features = ["test-utils"], workspace = true, default-features = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 
