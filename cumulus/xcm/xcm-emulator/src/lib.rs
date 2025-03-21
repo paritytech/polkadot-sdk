@@ -264,7 +264,7 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
-	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
+	type DigestProvider: sp_runtime::traits::Convert<BlockNumberFor<Self::Runtime>, Digest>;
 
 	fn init();
 
@@ -660,7 +660,7 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{Chain, Convert, HeadData, Network, Hooks, Encode, Parachain, TestExt};
 
 					let para_id = Self::para_id().into();
 
