@@ -48,7 +48,7 @@ use sp_runtime::{
 	traits::{
 		AtLeast32Bit, Block as BlockT, Header as HeaderT, NumberFor, SaturatedConversion, Zero,
 	},
-	transaction_validity::TransactionValidityError,
+	transaction_validity::{TransactionTag as Tag, TransactionValidityError},
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -593,6 +593,7 @@ pub async fn prune_known_txs_for_block<
 	at: &HashAndNumber<Block>,
 	api: &Api,
 	pool: &graph::Pool<Api, L>,
+	known_provides_tags: Arc<HashMap<ExtrinsicHash<Api>, Vec<Tag>>>,
 ) -> Vec<ExtrinsicHash<Api>> {
 	let extrinsics = api
 		.block_body(at.hash)
@@ -619,7 +620,7 @@ pub async fn prune_known_txs_for_block<
 
 	log_xt_trace!(target: LOG_TARGET, &hashes, "[{:?}] Pruning transaction.");
 
-	pool.prune(at, *header.parent_hash(), &extrinsics).await;
+	pool.prune(at, *header.parent_hash(), &extrinsics, known_provides_tags).await;
 	hashes
 }
 
@@ -669,7 +670,10 @@ where
 		}
 
 		future::join_all(
-			tree_route.enacted().iter().map(|h| prune_known_txs_for_block(h, &*api, &*pool)),
+			tree_route
+				.enacted()
+				.iter()
+				.map(|h| prune_known_txs_for_block(h, &*api, &*pool, Arc::default())),
 		)
 		.await
 		.into_iter()
