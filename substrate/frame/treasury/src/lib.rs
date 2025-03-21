@@ -743,6 +743,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T, I>::PayoutError)?;
 
 			spend.status = PaymentState::Attempted { id };
+			spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
 			Spends::<T, I>::insert(index, spend);
 
 			Self::deposit_event(Event::<T, I>::Paid { index, payment_id: id });
