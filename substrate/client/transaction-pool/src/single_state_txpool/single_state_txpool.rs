@@ -593,7 +593,7 @@ pub async fn prune_known_txs_for_block<
 	at: &HashAndNumber<Block>,
 	api: &Api,
 	pool: &graph::Pool<Api, L>,
-	inactive_views_txs_to_tags: Arc<HashMap<ExtrinsicHash<Api>, Option<Vec<Tag>>>>,
+	known_provides_tags: Arc<HashMap<ExtrinsicHash<Api>, Vec<Tag>>>,
 ) -> Vec<ExtrinsicHash<Api>> {
 	let extrinsics = api
 		.block_body(at.hash)
@@ -620,8 +620,7 @@ pub async fn prune_known_txs_for_block<
 
 	log_xt_trace!(target: LOG_TARGET, &hashes, "[{:?}] Pruning transaction.");
 
-	pool.prune(at, *header.parent_hash(), &extrinsics, inactive_views_txs_to_tags)
-		.await;
+	pool.prune(at, *header.parent_hash(), &extrinsics, known_provides_tags).await;
 	hashes
 }
 

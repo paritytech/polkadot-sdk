@@ -1395,6 +1395,64 @@ where
 		}
 	}
 
+	/// Fetches the 'provides' tags associated to transactions part of blocks
+	/// of a retracted fork.
+	///
+	/// The 'provides' tags of transactions from retracted blocks are found
+	/// in inactive views. They can be used as a cache in the procces of transactions
+	/// prunning from the new best view in case of handling a new best block part of
+	/// a new fork. Usually the new best view can have 'provides' for part of the
+	/// transactions on the enacted fork, but the rest need to be revalidated, which
+	/// is costly, so using the inactive view's 'provides' tags for those transactions
+	/// saves time.
+	async fn provides_tags_from_inactive_views(
+		&self,
+		tree_route: &TreeRoute<Block>,
+	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
+		future::join_all(
+			tree_route
+				.retracted()
+				.iter()
+				.chain(std::iter::once(tree_route.common_block()))
+				.map(|hn| {
+					let api = self.api.clone();
+					async move {
+						let view = self.view_store.get_view_at(hn.hash, true);
+						let xts = api
+							.block_body(hn.hash)
+							.await
+							.unwrap_or_else(|e| {
+								log::warn!(target: LOG_TARGET, "provides_tags_from_inactive_views: block_body error request: {}", e);
+								None
+							})
+							.unwrap_or_default();
+						let xts_hashes = xts
+							.iter()
+							.filter_map(|xts| {
+								view.as_ref().map(|(inner, _)| inner.pool.hash_of(xts))
+							})
+							.collect::<Vec<_>>();
+
+						let xts_provides_tags = view
+							.map(|(inner, _)| {
+								inner.pool.validated_pool().extrinsics_tags(&xts_hashes)
+							})
+							.unwrap_or(vec![]);
+						xts_hashes
+							.into_iter()
+							.zip(xts_provides_tags.into_iter())
+							.into_iter()
+							.filter_map(|(hash, tags)| tags.map(|inner| (hash, inner)))
+							.collect::<Vec<(ExtrinsicHash<ChainApi>, Vec<Tag>)>>()
+					}
+				}),
+		)
+		.await
+		.into_iter()
+		.flatten()
+		.collect()
+	}
+
 	/// Updates the view with the transactions from the given tree route.
 	///
 	/// Transactions from the retracted blocks are resubmitted to the given view. Tags for
@@ -1419,66 +1477,19 @@ where
 
 		// Create a map from (retracted blocks + common block)'s extrinsics to their `provides`
 		// tags.
-		let inactive_views_xts_to_tags = Arc::new(
-			future::join_all(
-				tree_route
-					.retracted()
-					.iter()
-					.chain(std::iter::once(tree_route.common_block()))
-					.map(|hn| {
-						let api = api.clone();
-						async move {
-							// Fetch extrinsics.
-							let view = self.view_store.get_view_at(hn.hash, true);
-							let xts = api
-								.block_body(hn.hash)
-								.await
-								.unwrap_or_else(|e| {
-									log::warn!(target: LOG_TARGET, "Block txs: error request: {}", e);
-									None
-								})
-								.unwrap_or_default();
+		let known_provides_tags =
+			Arc::new(self.provides_tags_from_inactive_views(tree_route).await);
 
-							let xts_hashes = xts
-								.iter()
-								.filter_map(|xts| {
-									view.as_ref().map(|(inner, _)| inner.pool.hash_of(xts))
-								})
-								.collect::<Vec<_>>();
-							let xts_provides_tags = view
-								.map(|(inner, _)| {
-									inner.pool.validated_pool().extrinsics_tags(&xts_hashes)
-								})
-								.unwrap_or(vec![None; xts_hashes.len()]);
-							xts_hashes
-								.into_iter()
-								.zip(xts_provides_tags.into_iter())
-								.into_iter()
-								.collect::<Vec<(ExtrinsicHash<ChainApi>, Option<Vec<Tag>>)>>()
-						}
-					}),
-			)
-			.await
-			.into_iter()
-			.flatten()
-			.collect::<HashMap<ExtrinsicHash<ChainApi>, Option<Vec<Tag>>>>(),
-		);
-
-		info!(target: LOG_TARGET, "update_view_with_fork: txs to tags map: {}", inactive_views_xts_to_tags.len());
+		info!(target: LOG_TARGET, "update_view_with_fork: txs to tags map: {}", known_provides_tags.len());
 
 		future::join_all(tree_route.enacted().iter().map(|hn| {
 			let api = api.clone();
-			let inactive_views_xts_to_tags = inactive_views_xts_to_tags.clone();
+			let known_provides_tags = known_provides_tags.clone();
 			async move {
 				(
 					hn,
-					crate::prune_known_txs_for_block(
-						hn,
-						&*api,
-						&view.pool,
-						inactive_views_xts_to_tags,
-					)
-					.await,
+					crate::prune_known_txs_for_block(hn, &*api, &view.pool, known_provides_tags)
+						.await,
 				)
 			}
 		}))

@@ -305,7 +305,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		at: &HashAndNumber<B::Block>,
 		parent: <B::Block as BlockT>::Hash,
 		extrinsics: &[RawExtrinsicFor<B>],
-		inactive_views_xts_to_tags: Arc<HashMap<ExtrinsicHash<B>, Option<Vec<Tag>>>>,
+		known_provides_tags: Arc<HashMap<ExtrinsicHash<B>, Vec<Tag>>>,
 	) {
 		log::debug!(
 			target: LOG_TARGET,
@@ -332,7 +332,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 					// if it's not found in the pool, check if the extrinsic `provides`
 					// tags are known (from inactive views, queried at an upper level)
 					let xts_hash = self.hash_of(extrinsic);
-					if let Some(tags) = inactive_views_xts_to_tags.get(&xts_hash).unwrap_or(&None) {
+					if let Some(tags) = known_provides_tags.get(&xts_hash) {
 						future_tags.extend(tags.clone());
 						log::trace!(target: LOG_TARGET,"[{:?}] prune::inactive_view_tags {:?}", xts_hash, tags);
 					} else if !self.validated_pool.status().is_empty() {
