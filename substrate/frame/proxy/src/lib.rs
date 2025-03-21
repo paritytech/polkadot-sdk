@@ -391,6 +391,8 @@ pub mod pallet {
 			let (_, deposit) = Proxies::<T>::take(&who);
 			T::Currency::unreserve(&spawner, deposit);
 
+			Self::deposit_event(Event::PureKilled { pure: who, who: spawner, proxy_type });
+
 			Ok(())
 		}
 
@@ -666,6 +668,11 @@ pub mod pallet {
 			/// Extrinsic index of the call to `create_pure`.
 			/// Required to use `kill_proxy`.
 			ext_index: u32
+		},
+		PureKilled {
+			pure: T::AccountId,
+			who: T::AccountId,
+			proxy_type: T::ProxyType,
 		},
 		/// An announcement was placed to make a call in the future.
 		Announced { real: T::AccountId, proxy: T::AccountId, call_hash: CallHashOf<T> },
