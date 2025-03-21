@@ -25,6 +25,7 @@ sp-runtime = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
+log = "0.4.22"
 
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }

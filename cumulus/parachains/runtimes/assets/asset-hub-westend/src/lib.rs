@@ -2166,15 +2166,16 @@ impl_runtime_apis! {
 					let native_asset_id = AssetId(native_asset_location.clone());
 					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
 					let origin = RuntimeOrigin::signed(account.clone());
-
 					let asset_location = Location::new(1, [Parachain(2001)]);
 					let asset_id = AssetId(asset_location.clone());
 
-					// setup assets
-					assert_ok!(<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+					// Setup balances
+					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
 						&account,
 						ExistentialDeposit::get() + (1_000 * UNITS)
 					));
+
+					// Create and mint foreign assets
 					assert_ok!(ForeignAssets::force_create(
 						RuntimeOrigin::root(),
 						asset_location.clone().into(),
@@ -2189,7 +2190,7 @@ impl_runtime_apis! {
 						3_000 * UNITS,
 					));
 
-					// setup pool
+					// Setup pool
 					assert_ok!(AssetConversion::create_pool(
 						origin.clone(),
 						native_asset_location.clone().into(),
@@ -2206,8 +2207,9 @@ impl_runtime_apis! {
 						account.into(),
 					));
 
-					let give_assets: XcmAssets = (native_asset_id, 5_000 * UNITS).into();
-					let receive_assets: XcmAssets = (asset_id, 1_000 * UNITS).into();
+					// Create give and receive assets with more realistic expectations
+					let give_assets: XcmAssets = (native_asset_id, 100 * UNITS).into(); // Smaller amount to reduce complexity
+					let receive_assets: XcmAssets = (asset_id, 190 * UNITS).into();     // Slightly less than 2:1 ratio to account for slippage
 
 					Ok((give_assets, receive_assets))
 				}
