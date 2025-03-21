@@ -52,8 +52,10 @@ pub struct SecurityStatus {
 	/// Whether Secure Validator Mode is enabled. This mode enforces that all required security
 	/// features are present. All features are enabled on a best-effort basis regardless.
 	pub secure_validator_mode: bool,
-	/// Whether the landlock features we use are fully available on this system.
-	pub can_enable_landlock: bool,
+	/// Whether the landlock FS features we use are fully available on this system.
+	pub can_enable_landlock_fs: bool,
+	/// Whether the landlock network features we use are fully available on this system.
+	pub can_enable_landlock_net: bool,
 	/// Whether the seccomp features we use are fully available on this system.
 	pub can_enable_seccomp: bool,
 	/// Whether we are able to unshare the user namespace and change the filesystem root.
@@ -100,8 +102,12 @@ mod tests {
 			"secure_validator_mode is false for default security status"
 		);
 		assert!(
-			!status.can_enable_landlock,
-			"can_enable_landlock is false for default security status"
+			!status.can_enable_landlock_fs,
+			"can_enable_landlock_fs is false for default security status"
+		);
+		assert!(
+			!status.can_enable_landlock_net,
+			"can_enable_landlock_net is false for default security status"
 		);
 		assert!(
 			!status.can_enable_seccomp,
