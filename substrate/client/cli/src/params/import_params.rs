@@ -82,7 +82,7 @@ pub struct ImportParams {
 	pub trie_cache_size: usize,
 
 	/// Force the state cache to be in memory.
-	#[arg(long, default_value_t = false)]
+	#[arg(long, default_value_t = false, conflicts_with = "trie_cache_size")]
 	pub force_in_memory_trie_cache: bool,
 }
 
