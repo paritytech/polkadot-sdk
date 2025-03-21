@@ -47,6 +47,12 @@ fn fill_queues<T: Config>() -> Result<(), DispatchError> {
 	Ok(())
 }
 
+fn set_block_number<T: Config>(
+	n: <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber,
+) {
+	<T as crate::Config>::BlockNumberProvider::set_block_number(n);
+}
+
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -203,7 +209,7 @@ mod benchmarks {
 		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Pallet::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
-		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
+		set_block_number::<T>(Receipts::<T>::get(0).unwrap().expiry);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), 0, None);
@@ -231,7 +237,7 @@ mod benchmarks {
 		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Pallet::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Pallet::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
-		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
+		set_block_number::<T>(Receipts::<T>::get(0).unwrap().expiry);
 		Pallet::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
 
 		#[extrinsic_call]
