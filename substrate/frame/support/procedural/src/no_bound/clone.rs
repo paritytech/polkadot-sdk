@@ -17,31 +17,15 @@
 
 use syn::spanned::Spanned;
 use std::collections::HashSet;
+use super::utils::apply_still_bind;
 
 /// Derive Clone but do not bound any generic. Optionally select which generics are still bounded with `still_bind(...)`.
 pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
 
-    // Look for a #[still_bind(...)] attribute.
-    let still_bind_set = if let Some(attr) = input.attrs.iter().find(|attr| attr.path().is_ident("still_bind")) {
-        match attr.parse_args_with(syn::punctuated::Punctuated::<syn::Ident, syn::Token![,]>::parse_terminated) {
-            Ok(ids) => Some(ids.into_iter().collect::<HashSet<_>>()),
-            Err(e) => return syn::Error::new(attr.span(), e).to_compile_error().into(),
-        }
-    } else {
-        None
-    };
-
-    // If the attribute is present, add a Clone bound to any type parameter listed.
-    if let Some(ref bind_set) = still_bind_set {
-        for param in input.generics.params.iter_mut() {
-            if let syn::GenericParam::Type(ref mut type_param) = param {
-                if bind_set.contains(&type_param.ident) {
-                    type_param.bounds.push(syn::parse_quote!(::core::clone::Clone));
-                }
-            }
-        }
-    }
+	if let Err(e) = apply_still_bind(&mut input, quote::quote!(::core::clone::Clone)) {
+		return e.to_compile_error().into();
+	}
 
     let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -127,4 +111,3 @@ pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 	)
 	.into()
 }
-
