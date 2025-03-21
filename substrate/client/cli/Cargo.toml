@@ -51,6 +51,7 @@ sp-keystore = { workspace = true, default-features = true }
 sp-panic-handler = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+sysinfo = { workspace = true }
 tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = true, default-features = true }
 
 [dev-dependencies]

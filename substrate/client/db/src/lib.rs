@@ -42,7 +42,7 @@ mod upgrade;
 mod utils;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, error, trace, warn};
+use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use std::{
 	collections::{HashMap, HashSet},
@@ -1227,32 +1227,22 @@ impl<Block: BlockT> Backend<Block> {
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
-		let shared_trie_cache = if config.force_in_memory_trie_cache {
-			// 16GB is 50% of the reference hardware
-			const MIN_TRIE_CACHE_SIZE: u64 = 1024 * 1024 * 1024 * 16;
+		let shared_trie_cache = config.trie_cache_maximum_size.map(|maximum_size| {
 			let system_memory = sysinfo::System::new_all();
-			let total_memory = system_memory.total_memory();
 			let available_memory = system_memory.available_memory();
-			let forced_cache_size = (total_memory / 2).max(MIN_TRIE_CACHE_SIZE);
-			if forced_cache_size > available_memory {
-				error!(
-					"Not enough memory to force in-memory trie cache. Using minimum size of {} bytes. System memory: total {} bytes, available {} bytes",
-					MIN_TRIE_CACHE_SIZE,
-					total_memory,
-					available_memory,
-				);
+			let total_memory = system_memory.total_memory();
+
+			if maximum_size as u64 > available_memory {
 				return Err(sp_blockchain::Error::Backend(
-					"Not enough memory to force in-memory trie cache".to_string(),
+					format!(
+						"Not enough memory to initialize shared trie cache. Cache size: {} bytes. System memory: available {} bytes, total {} bytes",
+						maximum_size, available_memory, total_memory,
+					)
 				));
 			}
-			Some(SharedTrieCache::new(sp_trie::cache::CacheSize::new(
-				forced_cache_size.try_into().unwrap_or(usize::MAX),
-			)))
-		} else {
-			config.trie_cache_maximum_size.map(|maximum_size| {
-				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
-			})
-		};
+
+			Ok(SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size)))
+		}).transpose()?;
 
 		let backend = Backend {
 			storage: Arc::new(storage_db),

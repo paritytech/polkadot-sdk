@@ -19069,6 +19069,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
+ "sysinfo",
  "tempfile",
  "thiserror 1.0.65",
  "tokio",
