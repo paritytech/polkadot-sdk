@@ -1,0 +1,24 @@
+title: 'Fix: [Referenda Tracks] Resolve representation issues that are breaking PJS apps'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    The PR #2072 introduces a change in the representation of the `name` field, from a `&str` to a `[u8; N]` array. This is because 
+    tracks can be retrieves from storage, and thus, a static string representation doesn't meet with the storage traits requirements.
+
+    This PR encapsulates this array into a `StringLike` structure that allows representing the value as a `str` for SCALE and metadata
+    purposes. This is to avoid breaking changes.
+
+    This PR also reverts the representation of the `Tracks` constant as a tuple of `(TrackId, TrackInfo)` to accomplish the same
+    purpose of avoid breaking changes to runtime users and clients.
+crates:
+- name: pallet-referenda
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: kitchensink-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
