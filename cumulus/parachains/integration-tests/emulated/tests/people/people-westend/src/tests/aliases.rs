@@ -19,17 +19,42 @@ use crate::imports::*;
 
 use emulated_integration_tests_common::{macros::AccountId, test_cross_chain_alias};
 
+const ALLOWED: bool = true;
+const DENIED: bool = false;
+
+const TELEPORT_FEES: bool = true;
+const RESERVE_TRANSFER_FEES: bool = false;
+
 #[test]
 fn account_on_sibling_syschain_aliases_into_same_local_account() {
+	// origin and target are the same account on different chains
 	let origin: AccountId = [1; 32].into();
 	let target = origin.clone();
-	let expected_success = true;
+	let fees = WESTEND_ED * 10;
+
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		Location::parent(),
+		origin.clone(),
+		fees * 10,
+	);
+
+	// Aliasing same account on different chains
 	test_cross_chain_alias!(
-		AssetHubWestend,
-		PeopleWestend,
+		vec![
+			// between AH and People: allowed
+			(AssetHubWestend, PeopleWestend, TELEPORT_FEES, ALLOWED),
+			// between BH and People: allowed
+			(BridgeHubWestend, PeopleWestend, TELEPORT_FEES, ALLOWED),
+			// between Collectives and People: allowed
+			(CollectivesWestend, PeopleWestend, TELEPORT_FEES, ALLOWED),
+			// between Coretime and People: allowed
+			(CoretimeWestend, PeopleWestend, TELEPORT_FEES, ALLOWED),
+			// between Penpal and People: denied
+			(PenpalA, PeopleWestend, RESERVE_TRANSFER_FEES, DENIED)
+		],
 		origin,
 		target,
-		WESTEND_ED,
-		expected_success
+		fees
 	);
 }
