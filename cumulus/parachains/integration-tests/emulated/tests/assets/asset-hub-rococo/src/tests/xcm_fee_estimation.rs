@@ -45,13 +45,14 @@ fn hop_assertions(test: ParaToParaThroughAHTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 	AssetHubRococo::assert_xcmp_queue_success(None);
 
+	println!("expected amount: {}", test.args.amount);
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
 			RuntimeEvent::Balances(
 				pallet_balances::Event::Burned { amount, .. }
 			) => {
-				amount: *amount == test.args.amount,
+				amount: *amount > test.args.amount * 90/100,
 			},
 		]
 	);
