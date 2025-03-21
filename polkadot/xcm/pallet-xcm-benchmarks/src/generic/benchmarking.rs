@@ -697,8 +697,8 @@ mod benchmarks {
 	#[benchmark]
 	fn exchange_asset() -> Result<(), BenchmarkError> {
 		let (give, want) = T::worst_case_asset_exchange().map_err(|_| BenchmarkError::Skip)?;
-		log::info!("Give assets: {:?}", give);
-		log::info!("Want assets: {:?}", want);
+		tracing::info!("Give assets: {:?}", give);
+		tracing::info!("Want assets: {:?}", want);
 
 		let assets = give.clone();
 
@@ -714,9 +714,9 @@ mod benchmarks {
 		let before = executor.holding().clone();
 		// Execute exchange
 		let after = executor.holding().clone();
-		log::info!("Holding before: {:?}", before);
-		log::info!("Holding after: {:?}", after);
-		log::info!("Want: {:?}", want);
+		tracing::info!("Holding before: {:?}", before);
+		tracing::info!("Holding after: {:?}", after);
+		tracing::info!("Want: {:?}", want);
 		// assert!(executor.holding().contains(&want.into()));
 		// assert_eq!(executor.holding(), &want.into());
 		Ok(())
