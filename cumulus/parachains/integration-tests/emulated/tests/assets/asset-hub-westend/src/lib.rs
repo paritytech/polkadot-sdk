@@ -23,6 +23,7 @@ mod imports {
 		pallet_prelude::Weight,
 		sp_runtime::{DispatchError, DispatchResult, ModuleError},
 		traits::fungibles::Inspect,
+		BoundedVec,
 	};
 
 	// Polkadot

@@ -186,7 +186,7 @@ pub mod prelude {
 			InteriorLocation,
 			Junction::{self, *},
 			Junctions::{self, Here},
-			Location, MaybeErrorCode,
+			Location, MaxAssetTransferFilters, MaybeErrorCode,
 			NetworkId::{self, *},
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
 			QueryResponseInfo, Reanchorable, Response, Result as XcmResult, SendError, SendResult,
@@ -210,6 +210,7 @@ pub mod prelude {
 parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
 	pub MaxPalletsInfo: u32 = 64;
+	pub MaxAssetTransferFilters: u32 = 6;
 }
 
 #[derive(
@@ -1097,7 +1098,7 @@ pub enum Instruction<Call> {
 		destination: Location,
 		remote_fees: Option<AssetTransferFilter>,
 		preserve_origin: bool,
-		assets: Vec<AssetTransferFilter>,
+		assets: BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 		remote_xcm: Xcm<()>,
 	},
 
