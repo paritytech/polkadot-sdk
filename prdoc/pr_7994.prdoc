@@ -1,7 +1,7 @@
 title: "Expose rpc_rate_limit* cli options to parachains"
 
 doc:
-  - audience: Node Dev
+  - audience: Node Operator
     description: |
      Expose rpc_rate_limit* cli options to parachains
 
