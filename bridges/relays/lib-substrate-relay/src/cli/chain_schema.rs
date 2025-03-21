@@ -16,8 +16,8 @@
 
 //! Primitives related to chain CLI options.
 
+use clap::Parser;
 use relay_substrate_client::{AccountKeyPairOf, ChainWithTransactions};
-use structopt::StructOpt;
 use strum::{EnumString, VariantNames};
 
 use relay_substrate_client::{ChainRuntimeVersion, ChainWithRuntimeVersion, SimpleRuntimeVersion};
@@ -25,7 +25,7 @@ use relay_substrate_client::{ChainRuntimeVersion, ChainWithRuntimeVersion, Simpl
 use crate::TransactionParams;
 
 #[doc = "Runtime version params."]
-#[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy, EnumString, VariantNames)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Parser, EnumString, VariantNames)]
 pub enum RuntimeVersionType {
 	/// Auto query version from chain
 	Auto,
@@ -41,16 +41,16 @@ macro_rules! declare_chain_runtime_version_params_cli_schema {
 	($chain:ident, $chain_prefix:ident) => {
 		bp_runtime::paste::item! {
 			#[doc = $chain " runtime version params."]
-			#[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy)]
+			#[derive(Debug, PartialEq, Eq, Clone, Copy, Parser)]
 			pub struct [<$chain RuntimeVersionParams>] {
 				#[doc = "The type of runtime version for chain " $chain]
-				#[structopt(long, default_value = "Bundle")]
+				#[arg(long, default_value = "Bundle")]
 				pub [<$chain_prefix _version_mode>]: RuntimeVersionType,
 				#[doc = "The custom sepc_version for chain " $chain]
-				#[structopt(long)]
+				#[arg(long)]
 				pub [<$chain_prefix _spec_version>]: Option<u32>,
 				#[doc = "The custom transaction_version for chain " $chain]
-				#[structopt(long)]
+				#[arg(long)]
 				pub [<$chain_prefix _transaction_version>]: Option<u32>,
 			}
 
@@ -96,13 +96,13 @@ macro_rules! declare_chain_connection_params_cli_schema {
 			// remove all obsolete arguments (separate URI components)
 
 			#[doc = $chain " connection params."]
-			#[derive(StructOpt, Debug, PartialEq, Eq, Clone)]
+			#[derive(Debug, PartialEq, Eq, Clone, Parser)]
 			pub struct [<$chain ConnectionParams>] {
 				#[doc = "WS endpoint of " $chain ": full URI."]
-				#[structopt(long)]
+				#[arg(long)]
 				pub [<$chain_prefix _uri>]: String,
 				#[doc = "Custom runtime version"]
-				#[structopt(flatten)]
+				#[command(flatten)]
 				pub [<$chain_prefix _runtime_version>]: [<$chain RuntimeVersionParams>],
 			}
 
@@ -133,24 +133,24 @@ macro_rules! declare_chain_signing_params_cli_schema {
 	($chain:ident, $chain_prefix:ident) => {
 		bp_runtime::paste::item! {
 			#[doc = $chain " signing params."]
-			#[derive(StructOpt, Debug, PartialEq, Eq, Clone)]
+			#[derive(Debug, PartialEq, Eq, Clone, Parser)]
 			pub struct [<$chain SigningParams>] {
 				#[doc = "The SURI of secret key to use when transactions are submitted to the " $chain " node."]
-				#[structopt(long)]
+				#[arg(long)]
 				pub [<$chain_prefix _signer>]: Option<String>,
 				#[doc = "The password for the SURI of secret key to use when transactions are submitted to the " $chain " node."]
-				#[structopt(long)]
+				#[arg(long)]
 				pub [<$chain_prefix _signer_password>]: Option<String>,
 
 				#[doc = "Path to the file, that contains SURI of secret key to use when transactions are submitted to the " $chain " node. Can be overridden with " $chain_prefix "_signer option."]
-				#[structopt(long)]
+				#[arg(long)]
 				pub [<$chain_prefix _signer_file>]: Option<std::path::PathBuf>,
 				#[doc = "Path to the file, that password for the SURI of secret key to use when transactions are submitted to the " $chain " node. Can be overridden with " $chain_prefix "_signer_password option."]
-				#[structopt(long)]
+				#[arg(long)]
 				pub [<$chain_prefix _signer_password_file>]: Option<std::path::PathBuf>,
 
 				#[doc = "Transactions mortality period, in blocks. MUST be a power of two in [4; 65536] range. MAY NOT be larger than `BlockHashCount` parameter of the chain system module."]
-				#[structopt(long)]
+				#[arg(long)]
 				pub [<$chain_prefix _transactions_mortality>]: Option<u32>,
 			}
 
