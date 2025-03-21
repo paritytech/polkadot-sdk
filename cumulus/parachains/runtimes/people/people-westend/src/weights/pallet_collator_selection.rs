@@ -94,30 +94,6 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 			.saturating_add(Weight::from_parts(0, 37).saturating_mul(b.into()))
 			.saturating_add(Weight::from_parts(0, 53).saturating_mul(c.into()))
 	}
-	fn update_bond(c: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `306 + c * (50 ±0)`
-		//  Estimated: `6287`
-		// Minimum execution time: 34_814_000 picoseconds.
-		Weight::from_parts(36_371_520, 0)
-			.saturating_add(Weight::from_parts(0, 6287))
-			// Standard Error: 2_391
-			.saturating_add(Weight::from_parts(201_700, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
-	fn take_candidate_slot(c: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `306 + c * (50 ±0)`
-		//  Estimated: `6287`
-		// Minimum execution time: 34_814_000 picoseconds.
-		Weight::from_parts(36_371_520, 0)
-			.saturating_add(Weight::from_parts(0, 6287))
-			// Standard Error: 2_391
-			.saturating_add(Weight::from_parts(201_700, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
 	fn withdraw_unbonded() -> Weight {
 		Weight::zero()
 	}

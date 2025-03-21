@@ -26,8 +26,6 @@ crates:
   bump: minor
 - name: people-westend-runtime
   bump: minor
-- name: contracts-rococo-runtime
-  bump: minor
 - name: penpal-runtime
   bump: minor
 - name: parachains-common
