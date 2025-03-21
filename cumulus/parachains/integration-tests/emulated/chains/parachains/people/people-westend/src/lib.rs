@@ -38,7 +38,6 @@ decl_test_parachains! {
 			LocationToAccountId: people_westend_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: people_westend_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
-			DigestProvider: (),
 		},
 		pallets = {
 			PolkadotXcm: people_westend_runtime::PolkadotXcm,

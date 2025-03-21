@@ -43,7 +43,6 @@ decl_test_parachains! {
 			LocationToAccountId: bridge_hub_westend_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: bridge_hub_westend_runtime::ParachainInfo,
 			MessageOrigin: bridge_hub_common::AggregateMessageOrigin,
-			DigestProvider: (),
 		},
 		pallets = {
 			PolkadotXcm: bridge_hub_westend_runtime::PolkadotXcm,

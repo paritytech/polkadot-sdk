@@ -600,7 +600,7 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
-					DigestProvider: $digest_provider:ty,
+					$( DigestProvider: $digest_provider:ty, )?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -641,7 +641,7 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
-				type DigestProvider = $digest_provider;
+				decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
@@ -740,6 +740,8 @@ macro_rules! decl_test_parachains {
 			$crate::__impl_check_assertion!($name, N);
 		)+
 	};
+	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
+	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
 }
 
 #[macro_export]

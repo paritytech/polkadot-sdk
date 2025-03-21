@@ -39,7 +39,6 @@ decl_test_parachains! {
 			LocationToAccountId: coretime_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: coretime_rococo_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
-			DigestProvider: (),
 		},
 		pallets = {
 			PolkadotXcm: coretime_rococo_runtime::PolkadotXcm,
