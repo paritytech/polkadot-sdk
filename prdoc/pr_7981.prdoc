@@ -1,0 +1,16 @@
+title: Bump ParachainHost runtime API to 13
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: |-
+    Bump `backing_constraints` and `scheduling_lookahead` API version to 13.
+    The `validation_code_bomb_limit` API remains at version 12.
+    Bump all ParachainHost runtime to version 13 in all test runtimes.
+crates:
+- name: polkadot-node-subsystem-types
+  bump: minor
+- name: polkadot-primitives
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
