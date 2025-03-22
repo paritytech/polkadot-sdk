@@ -108,7 +108,7 @@ fn stored_compiles() {
 		StorageValue<Pallet<T>, TupleWithGenericsSecondBound<u64, T>, OptionQuery>;
 	let _ = <TupleWithGenericsSecondBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Tuple struct with generics, both bound (double generics: pass T twice)
+	// Tuple struct with generics, both bound
 	#[stored(no_bounds(T, U))]
 	struct TupleWithGenericsBothBound<T: Config, U: Config>(BlockNumberFor<T>, BlockNumberFor<U>);
 	#[storage_alias]
@@ -211,7 +211,7 @@ fn stored_compiles() {
 		StorageValue<Pallet<T>, NamedWithGenericsSecondBound<u64, T>, OptionQuery>;
 	let _ = <NamedWithGenericsSecondBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Named struct with generics, both bound (double generics: T, T)
+	// Named struct with generics, both bound
 	#[stored(no_bounds(T, U))]
 	struct NamedWithGenericsBothBound<T: Config, U: Config> {
 		value: BlockNumberFor<T>,
@@ -386,4 +386,45 @@ fn stored_compiles() {
 	pub type GenericEnumFirstBoundWhereStorage<T: Config> =
 		StorageValue<Pallet<T>, GenericEnumFirstBoundWhere<T, u32>, OptionQuery>;
 	let _ = <GenericEnumFirstBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
+
+	// Empty mel_bound()
+	#[stored(no_bounds(T, U), mel_bound())]
+	enum EmptyMelBound<T: Config, U: Config> {
+		A(BlockNumberFor<T>),
+		B(BlockNumberFor<U>), {
+	}
+	#[storage_alias]
+	pub type EmptyMelBoundStorage<T: Config> =
+		StorageValue<Pallet<T>, EmptyMelBound<T, T>, OptionQuery>;
+	let _ = <EmptyMelBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
+
+	// Shorthand mel_bound()
+	#[stored(mel_bound(T, U))]
+	enum EmptyMelBound<T, U> {
+		A {
+			value: T,
+		},
+		B {
+			value: U,
+		},
+	}
+	#[storage_alias]
+	pub type EmptyMelBoundStorage<T: Config> =
+		StorageValue<Pallet<T>, EmptyMelBound<u32, u32>, OptionQuery>;
+	let _ = <EmptyMelBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
+
+	// Explicit mel_bound()
+	#[stored(mel_bound(T: MaxEncodedLen, U))]
+	enum ExplicitMelBound<T, U> {
+		A {
+			value: T,
+		},
+		B {
+			value: U,
+		},
+	}
+	#[storage_alias]
+	pub type ExplicitMelBoundStorage<T: Config> =
+		StorageValue<Pallet<T>, ExplicitMelBound<u32, u32>, OptionQuery>;
+	let _ = <ExplicitMelBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 }
