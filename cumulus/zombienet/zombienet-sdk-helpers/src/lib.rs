@@ -144,9 +144,6 @@ pub async fn assert_para_throughput(
 
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
-	// Wait for the first session, block production on the parachain will start after that.
-	wait_for_first_session_change(&mut blocks_sub).await?;
-
 	let mut session_change_seen_at = 0u32;
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
@@ -201,7 +198,9 @@ pub async fn assert_para_throughput(
 			candidate_count.entry(*para_id).or_default().1 = block_number;
 		}
 
-		if block_number - *start_height.get_or_insert_with(|| block_number - 1) >= stop_after {
+		if block_number - *start_height.get_or_insert_with(|| block_number.saturating_sub(1)) >=
+			stop_after
+		{
 			log::info!(
 				"Finished condition: block_height: {:?}, start_height: {:?}",
 				block.number(),

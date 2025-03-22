@@ -150,7 +150,7 @@ mod tests {
 	use sp_runtime::{testing::UintAuthorityId, BuildStorage};
 	use sp_state_machine::BasicExternalities;
 
-	use frame_support::traits::{KeyOwnerProofSystem, OnInitialize};
+	use frame_support::traits::{KeyOwnerProofSystem, OnGenesis, OnInitialize};
 
 	type Historical = Pallet<Test>;
 
@@ -174,6 +174,10 @@ mod tests {
 		crate::GenesisConfig::<Test> { keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
+
+		BasicExternalities::execute_with_storage(&mut t, || {
+			Session::on_genesis();
+		});
 
 		let mut ext = sp_io::TestExternalities::new(t);
 

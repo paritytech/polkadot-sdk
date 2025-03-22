@@ -209,10 +209,12 @@ impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
 impl<T: pallet_session::Config + Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	type Key = AssignmentId;
 
-	fn on_genesis_session<'a, I: 'a>(_validators: I)
+	fn on_genesis_session<'a, I: 'a>(validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
+		let assignment_keys: Vec<_> = validators.map(|(_, v)| v).collect();
+		AssignmentKeysUnsafe::<T>::set(assignment_keys);
 	}
 
 	fn on_new_session<'a, I: 'a>(_changed: bool, validators: I, _queued: I)
