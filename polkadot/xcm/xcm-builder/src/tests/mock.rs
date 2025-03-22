@@ -417,16 +417,17 @@ pub fn response(query_id: u64) -> Option<Response> {
 /// Mock implementation of the [`QueryHandler`] trait for creating XCM success queries and expecting
 /// responses.
 pub struct TestQueryHandler<T, BlockNumber>(core::marker::PhantomData<(T, BlockNumber)>);
-impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
+impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode + TryFrom<sp_core::U256>> QueryHandler
 	for TestQueryHandler<T, BlockNumber>
 {
 	type BlockNumber = BlockNumber;
 	type Error = XcmError;
 	type UniversalLocation = T::UniversalLocation;
+	type RuntimeCall = <T as Config>::RuntimeCall;
 
 	fn new_query(
 		responder: impl Into<Location>,
-		_maybe_notify: Option<(u8, u8)>,
+		_maybe_notify: Option<Self::RuntimeCall>,
 		_timeout: Self::BlockNumber,
 		_match_querier: impl Into<Location>,
 	) -> QueryId {

@@ -18,6 +18,7 @@ use crate::{Junctions::Here, Xcm};
 use codec::{Decode, Encode};
 use core::{fmt::Debug, result};
 use frame_support::{pallet_prelude::Get, parameter_types};
+use sp_runtime::traits::Dispatchable;
 use sp_arithmetic::traits::Zero;
 use sp_core::U256;
 use xcm::latest::{
@@ -115,11 +116,12 @@ pub trait QueryHandler {
 	type BlockNumber: Zero + Encode + TryFrom<U256>;
 	type Error;
 	type UniversalLocation: Get<InteriorLocation>;
+	type RuntimeCall: Dispatchable + Decode;
 
 	/// Attempt to create a new query ID and register it as a query that is yet to respond.
 	fn new_query(
 		responder: impl Into<Location>,
-		maybe_notify: Option<(u8, u8)>,
+		maybe_notify: Option<Self::RuntimeCall>,
 		timeout: Self::BlockNumber,
 		match_querier: impl Into<Location>,
 	) -> QueryId;
@@ -158,13 +160,14 @@ impl QueryHandler for () {
 	type BlockNumber = u64;
 	type Error = ();
 	type UniversalLocation = UniversalLocation;
+	type RuntimeCall = ();
 
 	fn take_response(_query_id: QueryId) -> QueryResponseStatus<Self::BlockNumber> {
 		QueryResponseStatus::NotFound
 	}
 	fn new_query(
 		_responder: impl Into<Location>,
-		_maybe_notify: Option<(u8, u8)>,
+		_maybe_notify: Option<Self::RuntimeCall>,
 		_timeout: Self::BlockNumber,
 		_match_querier: impl Into<Location>,
 	) -> QueryId {

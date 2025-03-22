@@ -2151,7 +2151,7 @@ pub mod env {
 		self.charge_gas(RuntimeCosts::CopyFromContract(responder_len))?;
 		let responder: Location = memory.read_as_unbounded(responder_ptr, responder_len)?;
 
-		let maybe_notify: Option<(u8, u8)> = if maybe_notify_len > 0 {
+		let maybe_notify: Option<<<E::T as Config>::Xcm as QueryHandler>::RuntimeCall> = if maybe_notify_len > 0 {
 			self.charge_gas(RuntimeCosts::CopyFromContract(maybe_notify_len))?;
 			let notify = memory.read_as_unbounded(maybe_notify_ptr, maybe_notify_len)?;
 			Some(notify)

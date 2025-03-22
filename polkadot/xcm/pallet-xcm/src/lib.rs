@@ -262,6 +262,7 @@ pub mod pallet {
 		/// The runtime `Call` type.
 		type RuntimeCall: Parameter
 			+ GetDispatchInfo
+			+ Decode
 			+ Dispatchable<
 				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
 				PostInfo = PostDispatchInfo,
@@ -419,24 +420,23 @@ pub mod pallet {
 		ResponseReady { query_id: QueryId, response: Response },
 		/// Query response has been received and query is removed. The registered notification has
 		/// been dispatched and executed successfully.
-		Notified { query_id: QueryId, pallet_index: u8, call_index: u8 },
+		Notified { query_id: QueryId, callback: <T as Config>::RuntimeCall },
 		/// Query response has been received and query is removed. The registered notification
 		/// could not be dispatched because the dispatch weight is greater than the maximum weight
 		/// originally budgeted by this runtime for the query result.
 		NotifyOverweight {
 			query_id: QueryId,
-			pallet_index: u8,
-			call_index: u8,
+			call: <T as Config>::RuntimeCall,
 			actual_weight: Weight,
 			max_budgeted_weight: Weight,
 		},
 		/// Query response has been received and query is removed. There was a general error with
 		/// dispatching the notification call.
-		NotifyDispatchError { query_id: QueryId, pallet_index: u8, call_index: u8 },
+		NotifyDispatchError { query_id: QueryId, callback: <T as Config>::RuntimeCall },
 		/// Query response has been received and query is removed. The dispatch was unable to be
 		/// decoded into a `Call`; this might be due to dispatch function having a signature which
 		/// is not `(origin, QueryId, Response)`.
-		NotifyDecodeFailed { query_id: QueryId, pallet_index: u8, call_index: u8 },
+		NotifyDecodeFailed { query_id: QueryId, callback: <T as Config>::RuntimeCall },
 		/// Expected query response has been received but the origin location of the response does
 		/// not match that expected. The query remains registered for a later, valid, response to
 		/// be received and acted upon.
@@ -611,7 +611,7 @@ pub mod pallet {
 
 	/// The status of a query.
 	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-	pub enum QueryStatus<BlockNumber> {
+	pub enum QueryStatus<BlockNumber, RuntimeCall> {
 		/// The query was sent but no response has yet been received.
 		Pending {
 			/// The `QueryResponse` XCM must have this origin to be considered a reply for this
@@ -620,7 +620,7 @@ pub mod pallet {
 			/// The `QueryResponse` XCM must have this value as the `querier` field to be
 			/// considered a reply for this query. If `None` then the querier is ignored.
 			maybe_match_querier: Option<VersionedLocation>,
-			maybe_notify: Option<(u8, u8)>,
+			maybe_notify: Option<RuntimeCall>,
 			timeout: BlockNumber,
 		},
 		/// The query is for an ongoing version notification subscription.
@@ -663,7 +663,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn query)]
 	pub(super) type Queries<T: Config> =
-		StorageMap<_, Blake2_128Concat, QueryId, QueryStatus<BlockNumberFor<T>>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, QueryId, QueryStatus<BlockNumberFor<T>, <T as Config>::RuntimeCall>, OptionQuery>;
 
 	/// The existing asset traps.
 	///
@@ -878,10 +878,10 @@ pub mod pallet {
 		use frame_support::traits::{PalletInfoAccess, StorageVersion};
 
 		#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-		enum QueryStatusV0<BlockNumber> {
+		enum QueryStatusV0<BlockNumber, RuntimeCall> {
 			Pending {
 				responder: VersionedLocation,
-				maybe_notify: Option<(u8, u8)>,
+				maybe_notify: Option<RuntimeCall>,
 				timeout: BlockNumber,
 			},
 			VersionNotifier {
@@ -893,8 +893,8 @@ pub mod pallet {
 				at: BlockNumber,
 			},
 		}
-		impl<B> From<QueryStatusV0<B>> for QueryStatus<B> {
-			fn from(old: QueryStatusV0<B>) -> Self {
+		impl<B, R> From<QueryStatusV0<B, R>> for QueryStatus<B, R> {
+			fn from(old: QueryStatusV0<B, R>) -> Self {
 				use QueryStatusV0::*;
 				match old {
 					Pending { responder, maybe_notify, timeout } => QueryStatus::Pending {
@@ -921,7 +921,7 @@ pub mod pallet {
 
 			if on_chain_storage_version < 1 {
 				let mut count = 0;
-				Queries::<T>::translate::<QueryStatusV0<BlockNumberFor<T>>, _>(|_key, value| {
+				Queries::<T>::translate::<QueryStatusV0<BlockNumberFor<T>, <T as Config>::RuntimeCall>, _>(|_key, value| {
 					count += 1;
 					Some(value.into())
 				});
@@ -1472,15 +1472,16 @@ impl<T: Config> QueryHandler for Pallet<T> {
 	type BlockNumber = BlockNumberFor<T>;
 	type Error = XcmError;
 	type UniversalLocation = T::UniversalLocation;
+	type RuntimeCall = <T as Config>::RuntimeCall;
 
 	/// Attempt to create a new query ID and register it as a query that is yet to respond.
 	fn new_query(
 		responder: impl Into<Location>,
-		maybe_notify: Option<(u8, u8)>,
+		maybe_notify: Option<Self::RuntimeCall>,
 		timeout: BlockNumberFor<T>,
 		match_querier: impl Into<Location>,
 	) -> QueryId {
-		Self::do_new_query(responder, maybe_notify, timeout, match_querier)
+		Self::do_new_query(responder, maybe_notify.map(|c| c.into()), timeout, match_querier)
 	}
 
 	/// To check the status of the query, use `fn query()` passing the resultant `QueryId`
@@ -2770,7 +2771,7 @@ impl<T: Config> Pallet<T> {
 	/// Create a new expectation of a query response with the querier being here.
 	fn do_new_query(
 		responder: impl Into<Location>,
-		maybe_notify: Option<(u8, u8)>,
+		maybe_notify: Option<<T as Config>::RuntimeCall>,
 		timeout: BlockNumberFor<T>,
 		match_querier: impl Into<Location>,
 	) -> u64 {
@@ -3389,52 +3390,31 @@ impl<T: Config> OnResponse for Pallet<T> {
 				let current_block = frame_system::Pallet::<T>::current_block_number();
 				let timeout_reached = current_block > timeout;
 				match (maybe_notify, timeout_reached) {
-					(Some((pallet_index, call_index)), false) => {
-						// This is a bit horrible, but we happen to know that the `Call` will
-						// be built by `(pallet_index: u8, call_index: u8, QueryId, Response)`.
-						// So we just encode that and then re-encode to a real Call.
-						let bare = (pallet_index, call_index, query_id, response);
-						if let Ok(call) = bare.using_encoded(|mut bytes| {
-							<T as Config>::RuntimeCall::decode(&mut bytes)
-						}) {
-							Queries::<T>::remove(query_id);
-							let weight = call.get_dispatch_info().call_weight;
-							if weight.any_gt(max_weight) {
-								let e = Event::NotifyOverweight {
-									query_id,
-									pallet_index,
-									call_index,
-									actual_weight: weight,
-									max_budgeted_weight: max_weight,
-								};
-								Self::deposit_event(e);
-								return Weight::zero()
-							}
-							let dispatch_origin = Origin::Response(origin.clone()).into();
-							match call.dispatch(dispatch_origin) {
-								Ok(post_info) => {
-									let e = Event::Notified { query_id, pallet_index, call_index };
-									Self::deposit_event(e);
-									post_info.actual_weight
-								},
-								Err(error_and_info) => {
-									let e = Event::NotifyDispatchError {
-										query_id,
-										pallet_index,
-										call_index,
-									};
-									Self::deposit_event(e);
-									// Not much to do with the result as it is. It's up to the
-									// parachain to ensure that the message makes sense.
-									error_and_info.post_info.actual_weight
-								},
-							}
-							.unwrap_or(weight)
-						} else {
-							let e =
-								Event::NotifyDecodeFailed { query_id, pallet_index, call_index };
+					(Some(call), false) => {
+						Queries::<T>::remove(query_id);
+						let weight = call.get_dispatch_info().call_weight;
+						if weight.any_gt(max_weight) {
+							let e = Event::NotifyOverweight {
+								query_id,
+								call,
+								actual_weight: weight,
+								max_budgeted_weight: max_weight,
+							};
 							Self::deposit_event(e);
-							Weight::zero()
+							return Weight::zero();
+						}
+						let dispatch_origin = Origin::Response(origin.clone()).into();
+						match call.clone().dispatch(dispatch_origin) {
+							Ok(post_info) => {
+								let e = Event::Notified { query_id, callback: call };
+								Self::deposit_event(e);
+								post_info.actual_weight.unwrap_or(weight)
+							},
+							Err(error_and_info) => {
+								let e = Event::NotifyDispatchError { query_id, callback: call };
+								Self::deposit_event(e);
+								error_and_info.post_info.actual_weight.unwrap_or(weight)
+							},
 						}
 					},
 					_ => {
