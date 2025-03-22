@@ -18,6 +18,7 @@ impl Parse for IdentList {
 }
 
 /// Represents a single mel_bounds item.
+#[derive(Clone)]
 struct MelBoundItem {
     ty: Type,
     bound: Option<Type>,
@@ -84,7 +85,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     // Compute the #[codec(mel_bound(...))] attribute.
     let codec_mel_bound_attr = if let Some(mel_bounds) = mel_bound_params {
-        let bounds = mel_bounds.into_iter().map(|item| {
+        let bounds_mel = mel_bounds.clone().into_iter().map(|item| {
             let MelBoundItem { ty, bound } = item;
             if let Some(explicit_bound) = bound {
                 quote! { #ty: #explicit_bound }
@@ -92,8 +93,35 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
                 quote! { #ty: MaxEncodedLen }
             }
         });
+        let bounds_encode = mel_bounds.clone().into_iter().map(|item| {
+            let MelBoundItem { ty, bound } = item;
+            if let Some(explicit_bound) = bound {
+                quote! { #ty: #explicit_bound }
+            } else {
+                quote! { #ty: Encode }
+            }
+        });
+        let bounds_decode = mel_bounds.clone().into_iter().map(|item| {
+            let MelBoundItem { ty, bound } = item;
+            if let Some(explicit_bound) = bound {
+                quote! { #ty: #explicit_bound }
+            } else {
+                quote! { #ty: Decode }
+            }
+        });
+        let bounds_decode_mem_tracking = mel_bounds.clone().into_iter().map(|item| {
+            let MelBoundItem { ty, bound } = item;
+            if let Some(explicit_bound) = bound {
+                quote! { #ty: #explicit_bound }
+            } else {
+                quote! { #ty: DecodeWithMemTracking }
+            }
+        });
         quote! {
-            #[codec(mel_bound( #(#bounds),* ))]
+            #[codec(encode_bound( #(#bounds_encode),*))]
+            #[codec(decode_bound( #(#bounds_decode),*))]
+            #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
+            #[codec(mel_bound( #(#bounds_mel),* ))]
         }
     } else if !no_bound_params.is_empty() {
         let all_generics: Vec<_> = input.generics.params.iter().filter_map(|param| {
@@ -106,11 +134,24 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         let mel_bound_gens: Vec<_> = all_generics.into_iter()
             .filter(|ident| !no_bound_params.contains(ident))
             .collect();
-        let bounds = mel_bound_gens.iter().map(|ident| {
+        let bounds_mel = mel_bound_gens.iter().map(|ident| {
             quote! { #ident: MaxEncodedLen }
         });
+        let bounds_encode = mel_bound_gens.iter().map(|ident| {
+            quote! { #ident: Encode }
+        });
+        let bounds_decode = mel_bound_gens.iter().map(|ident| {
+            quote! { #ident: Decode }
+        });
+        let bounds_decode_mem_tracking = mel_bound_gens.iter().map(|ident| {
+            quote! { #ident: DecodeWithMemTracking }
+        });
+
         quote! {
-            #[codec(mel_bound( #(#bounds),* ))]
+            #[codec(encode_bound( #(#bounds_encode),*))]
+            #[codec(decode_bound( #(#bounds_decode),*))]
+            #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
+            #[codec(mel_bound( #(#bounds_mel),* ))]
         }
     } else {
         quote! {}
@@ -144,9 +185,9 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             )
         };
 
-    let mem_tracking_derive = quote! {
-        #[cfg_attr(test, derive(DecodeWithMemTracking))]
-    };
+    // let mem_tracking_derive = quote! {
+    //     #[cfg_attr(test, derive(DecodeWithMemTracking))]
+    // };
 
     let struct_ident = &input.ident;
     let (_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
@@ -162,6 +203,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             #debug_i,
             Encode,
             Decode,
+            DecodeWithMemTracking,
             TypeInfo,
             MaxEncodedLen
         )]
@@ -169,7 +211,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     let common_attrs = quote! {
         #common_derives
-        #mem_tracking_derive
+        // #mem_tracking_derive
         #skip_list
         #codec_mel_bound_attr
         #still_bind_attr
