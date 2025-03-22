@@ -53,20 +53,20 @@ macro_rules! declare_relay_to_relay_bridge_schema {
 	($left_chain:ident, $right_chain:ident) => {
 		bp_runtime::paste::item! {
 			#[doc = $left_chain " and " $right_chain " headers+messages relay params."]
-			#[derive(Debug, PartialEq, StructOpt)]
+			#[derive(Debug, PartialEq, Parser)]
 			pub struct [<$left_chain $right_chain HeadersAndMessages>] {
-				#[structopt(flatten)]
+				#[arg(flatten)]
 				shared: HeadersAndMessagesSharedParams,
 
-				#[structopt(flatten)]
+				#[arg(flatten)]
 				left: [<$left_chain ConnectionParams>],
 				// default signer, which is always used to sign messages relay transactions on the left chain
-				#[structopt(flatten)]
+				#[arg(flatten)]
 				left_sign: [<$left_chain SigningParams>],
 
-				#[structopt(flatten)]
+				#[arg(flatten)]
 				right: [<$right_chain ConnectionParams>],
-				#[structopt(flatten)]
+				#[arg(flatten)]
 				// default signer, which is always used to sign messages relay transactions on the right chain
 				right_sign: [<$right_chain SigningParams>],
 			}
