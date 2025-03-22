@@ -45,6 +45,7 @@ use super::{
 	metrics::{ApiMetrics, ApiMetricsExt},
 };
 use crate::graph;
+use tracing::{trace, warn};
 
 /// The transaction pool logic for full client.
 pub struct FullChainApi<Client, Block> {
@@ -84,11 +85,11 @@ impl<Client, Block> FullChainApi<Client, Block> {
 		spawner: &impl SpawnEssentialNamed,
 	) -> Self {
 		let metrics = prometheus.map(ApiMetrics::register).and_then(|r| match r {
-			Err(err) => {
-				log::warn!(
+			Err(error) => {
+				warn!(
 					target: LOG_TARGET,
-					"Failed to register transaction pool api prometheus metrics: {:?}",
-					err,
+					?error,
+					"Failed to register transaction pool API Prometheus metrics"
 				);
 				None
 			},
@@ -280,7 +281,12 @@ where
 			}
 		})
 	});
-	log::trace!(target: LOG_TARGET, "[{h:?}] validate_transaction_blocking: at:{at:?} took:{:?}", s.elapsed());
-
+	trace!(
+		target: LOG_TARGET,
+		?h,
+		?at,
+		duration = ?s.elapsed(),
+		"validate_transaction_blocking"
+	);
 	result
 }

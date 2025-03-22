@@ -23,7 +23,6 @@
 use std::{cmp::Ordering, collections::HashSet, fmt, hash, sync::Arc, time::Instant};
 
 use crate::LOG_TARGET;
-use log::{trace, warn};
 use sc_transaction_pool_api::{error, InPoolTransaction, PoolStatus};
 use serde::Serialize;
 use sp_core::hexdisplay::HexDisplay;
@@ -34,6 +33,7 @@ use sp_runtime::{
 		TransactionTag as Tag,
 	},
 };
+use tracing::{trace, warn};
 
 use super::{
 	future::{FutureTransactions, WaitingTransaction},
@@ -318,10 +318,10 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		let tx = WaitingTransaction::new(tx, self.ready.provided_tags(), &self.recently_pruned);
 		trace!(
 			target: LOG_TARGET,
-			"[{:?}] Importing {:?} to {}",
-			tx.transaction.hash,
-			tx,
-			if tx.is_ready() { "ready" } else { "future" }
+			tx_hash = ?tx.transaction.hash,
+			?tx,
+			status = if tx.is_ready() { "ready" } else { "future" },
+			"Importing transaction"
 		);
 
 		// If all tags are not satisfied import to future.
@@ -373,22 +373,45 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 					// re-import them.
 					removed.append(&mut replaced);
 				},
-				Err(e @ error::Error::TooLowPriority { .. }) =>
+				Err(error @ error::Error::TooLowPriority { .. }) =>
 					if first {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
-						return Err(e)
+						trace!(
+							target: LOG_TARGET,
+							tx_hash = ?current_tx.hash,
+							?first,
+							%error,
+							"Error importing transaction"
+						);
+						return Err(error)
 					} else {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
+						trace!(
+							target: LOG_TARGET,
+							tx_hash = ?current_tx.hash,
+							?first,
+							?error,
+							"Error importing transaction"
+						);
 						removed.push(current_tx);
 						promoted.retain(|hash| *hash != current_hash);
 					},
 				// transaction failed to be imported.
-				Err(e) =>
+				Err(error) =>
 					if first {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
-						return Err(e)
+						trace!(
+							target: LOG_TARGET,
+							tx_hash = ?current_tx.hash,
+							?error,
+							"Error importing {first}"
+						);
+						return Err(error)
 					} else {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
+						trace!(
+							target: LOG_TARGET,
+							tx_hash = ?current_tx.hash,
+							first = ?first,
+							error = ?error,
+							"Error importing transaction"
+						);
 						failed.push(current_tx.hash.clone());
 					},
 			}
@@ -405,7 +428,11 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 			// since they depend on each other and will never get to the best iterator.
 			self.ready.remove_subtree(&promoted);
 
-			trace!(target: LOG_TARGET, "[{:?}] Cycle detected, bailing.", hash);
+			trace!(
+				target: LOG_TARGET,
+				?hash,
+				"Cycle detected, bailing."
+			);
 			return Err(error::Error::CycleDetected)
 		}
 
@@ -572,10 +599,12 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 			let hash = tx.transaction.hash.clone();
 			match self.import_to_ready(tx) {
 				Ok(res) => promoted.push(res),
-				Err(e) => {
+				Err(error) => {
 					warn!(
 						target: LOG_TARGET,
-						"[{:?}] Failed to promote during pruning: {:?}", hash, e,
+						?hash,
+						?error,
+						"Failed to promote during pruning."
 					);
 					failed.push(hash)
 				},
