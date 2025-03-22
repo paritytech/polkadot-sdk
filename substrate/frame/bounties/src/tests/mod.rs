@@ -15,23 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Traits for working with tokens and their associated datastructures.
+//! Tests for the bounties pallet.
 
-pub mod currency;
-pub mod fungible;
-pub mod fungibles;
-pub mod imbalance;
-mod misc;
-pub mod nonfungible;
-pub mod nonfungible_v2;
-pub mod nonfungibles;
-pub mod nonfungibles_v2;
-pub use imbalance::Imbalance;
-pub mod pay;
-pub use misc::{
-	AssetId, Balance, BalanceStatus, ConversionFromAssetBalance, ConversionToAssetBalance,
-	ConvertRank, DepositConsequence, ExistenceRequirement, Fortitude, GetSalary, IdAmount, Locker,
-	Precision, Preservation, Provenance, Restriction, UnityAssetBalanceConversion,
-	UnityOrOuterConversion, WithdrawConsequence, WithdrawReasons,
-};
-pub use pay::{Pay, PaymentStatus};
+#[cfg(test)]
+pub(crate) mod genesis;
+#[cfg(test)]
+pub(crate) mod migration;
+#[cfg(test)]
+pub(crate) mod mock;
+#[cfg(test)]
+pub(crate) mod unit;
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+pub(crate) mod utils;
