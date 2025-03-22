@@ -91,10 +91,8 @@ pub use sp_runtime::BuildStorage;
 
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use rococo_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
-use snowbridge_core::{
-	outbound::{Command, Fee},
-	AgentId, PricingParameters,
-};
+use snowbridge_core::{AgentId, PricingParameters};
+pub use snowbridge_outbound_queue_primitives::v1::{Command, ConstantGasMeter, Fee};
 use xcm::{latest::prelude::*, prelude::*, Version as XcmVersion};
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
@@ -1021,7 +1019,7 @@ impl_runtime_apis! {
 	}
 
 	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block, Balance> for Runtime {
-		fn prove_message(leaf_index: u64) -> Option<snowbridge_pallet_outbound_queue::MerkleProof> {
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_merkle_tree::MerkleProof> {
 			snowbridge_pallet_outbound_queue::api::prove_message::<Runtime>(leaf_index)
 		}
 

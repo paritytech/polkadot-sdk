@@ -11,9 +11,10 @@ use sp_core::H256;
 use xcm_executor::traits::ConvertLocation;
 
 use snowbridge_core::{
-	gwei, meth, outbound::ConstantGasMeter, sibling_sovereign_account, AgentId, AllowSiblingsOnly,
-	ParaId, PricingParameters, Rewards,
+	gwei, meth, sibling_sovereign_account, AgentId, AllowSiblingsOnly, ParaId, PricingParameters,
+	Rewards,
 };
+use snowbridge_outbound_queue_primitives::v1::ConstantGasMeter;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,
@@ -254,10 +255,6 @@ pub fn new_test_ext(genesis_build: bool) -> sp_io::TestExternalities {
 }
 
 // Test helpers
-
-pub fn make_xcm_origin(location: Location) -> RuntimeOrigin {
-	pallet_xcm_origin::Origin(location).into()
-}
 
 pub fn make_agent_id(location: Location) -> AgentId {
 	<Test as snowbridge_system::Config>::AgentIdOf::convert_location(&location)

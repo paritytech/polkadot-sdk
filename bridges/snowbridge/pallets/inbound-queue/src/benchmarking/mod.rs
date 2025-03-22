@@ -42,7 +42,7 @@ mod benchmarks {
 		{
 			assert_ok!(InboundQueue::<T>::submit(
 				RawOrigin::Signed(caller.clone()).into(),
-				create_message.message,
+				create_message.event,
 			));
 		}
 

@@ -81,6 +81,7 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 
 	AssetHubRococo::assert_xcmp_queue_success(None);
 
+	println!("expected_foreign_asset_id: {:?}", expected_foreign_asset_id);
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![

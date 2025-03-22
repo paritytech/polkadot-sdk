@@ -50,6 +50,8 @@ decl_test_parachains! {
 			EthereumSystem: bridge_hub_westend_runtime::EthereumSystem,
 			EthereumInboundQueue: bridge_hub_westend_runtime::EthereumInboundQueue,
 			EthereumOutboundQueue: bridge_hub_westend_runtime::EthereumOutboundQueue,
+			EthereumSystemV2: bridge_hub_westend_runtime::EthereumSystemV2,
+			BridgeRelayers: bridge_hub_westend_runtime::BridgeRelayers,
 		}
 	},
 }

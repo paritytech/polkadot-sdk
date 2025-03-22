@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use snowbridge_core::{inbound::Log, ChannelId};
+use snowbridge_core::ChannelId;
+use snowbridge_inbound_queue_primitives::Log;
 
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::prelude::*;

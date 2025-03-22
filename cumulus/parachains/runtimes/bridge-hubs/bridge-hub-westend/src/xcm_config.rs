@@ -19,6 +19,7 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
+use crate::bridge_to_ethereum_config::SnowbridgeFrontendLocation;
 use frame_support::{
 	parameter_types,
 	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
@@ -151,6 +152,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
+						Equals<SnowbridgeFrontendLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
@@ -224,8 +226,11 @@ impl xcm_executor::Config for XcmConfig {
 			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 		),
 	>;
-	type MessageExporter =
-		(XcmOverBridgeHubRococo, crate::bridge_to_ethereum_config::SnowbridgeExporter);
+	type MessageExporter = (
+		XcmOverBridgeHubRococo,
+		crate::bridge_to_ethereum_config::SnowbridgeExporterV2,
+		crate::bridge_to_ethereum_config::SnowbridgeExporter,
+	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;

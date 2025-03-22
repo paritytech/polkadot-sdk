@@ -12,11 +12,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{imports::*, tests::penpal_emulated_chain::penpal_runtime};
-use asset_hub_westend_runtime::xcm_config::{
-	bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee,
-	UniversalLocation as AssetHubWestendUniversalLocation,
+use crate::{
+	imports::*,
+	tests::{penpal_emulated_chain::penpal_runtime, snowbridge_common::snowbridge_sovereign},
 };
+use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumBeaconClient, EthereumInboundQueue,
 };
@@ -24,10 +24,16 @@ use codec::{Decode, Encode};
 use emulated_integration_tests_common::{PENPAL_B_ID, RESERVABLE_ASSET_ID};
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
-use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
-use snowbridge_core::{inbound::InboundQueueFixture, AssetMetadata, TokenIdOf};
+use rococo_westend_system_emulated_network::{
+	asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner,
+	penpal_emulated_chain::PARA_ID_B,
+};
+use snowbridge_core::{AssetMetadata, TokenIdOf};
+use snowbridge_inbound_queue_primitives::{
+	v1::{Command, Destination, MessageV1, VersionedMessage},
+	InboundQueueFixture,
+};
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
-use snowbridge_router_primitives::inbound::{Command, Destination, MessageV1, VersionedMessage};
 use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
@@ -63,65 +69,8 @@ pub fn send_inbound_message(fixture: InboundQueueFixture) -> DispatchResult {
 	.unwrap();
 	EthereumInboundQueue::submit(
 		BridgeHubWestendRuntimeOrigin::signed(BridgeHubWestendSender::get()),
-		fixture.message,
+		fixture.event,
 	)
-}
-
-/// Create an agent on Ethereum. An agent is a representation of an entity in the Polkadot
-/// ecosystem (like a parachain) on Ethereum.
-#[test]
-#[ignore]
-fn create_agent() {
-	let origin_para: u32 = 1001;
-	// Fund the origin parachain sovereign account so that it can pay execution fees.
-	BridgeHubWestend::fund_para_sovereign(origin_para.into(), INITIAL_FUND);
-
-	let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
-	let destination = Westend::child_location_of(BridgeHubWestend::para_id()).into();
-
-	let create_agent_call = SnowbridgeControl::Control(ControlCall::CreateAgent {});
-	// Construct XCM to create an agent for para 1001
-	let remote_xcm = VersionedXcm::from(Xcm(vec![
-		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-		DescendOrigin(Parachain(origin_para).into()),
-		Transact {
-			origin_kind: OriginKind::Xcm,
-			call: create_agent_call.encode().into(),
-			fallback_max_weight: None,
-		},
-	]));
-
-	// Westend Global Consensus
-	// Send XCM message from Relay Chain to Bridge Hub source Parachain
-	Westend::execute_with(|| {
-		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
-			sudo_origin,
-			bx!(destination),
-			bx!(remote_xcm),
-		));
-
-		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
-		// Check that the Transact message was sent
-		assert_expected_events!(
-			Westend,
-			vec![
-				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-			]
-		);
-	});
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		// Check that a message was sent to Ethereum to create the agent
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![
-				RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateAgent {
-					..
-				}) => {},
-			]
-		);
-	});
 }
 
 /// Tests the registering of a token as an asset on AssetHub.
@@ -129,6 +78,8 @@ fn create_agent() {
 fn register_weth_token_from_ethereum_to_asset_hub() {
 	// Fund AssetHub sovereign account so that it can pay execution fees.
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
+	// Fund Snowbridge Sovereign to satisfy ED.
+	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
@@ -160,15 +111,7 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 /// a token from Ethereum to AssetHub.
 #[test]
 fn send_weth_token_from_ethereum_to_asset_hub() {
-	let ethereum_network: NetworkId = EthereumNetwork::get().into();
-	let origin_location = Location::new(2, ethereum_network);
-	let ethereum_sovereign: AccountId = AssetHubWestend::execute_with(|| {
-		ExternalConsensusLocationsConverterFor::<
-			AssetHubWestendUniversalLocation,
-			AccountId,
-		>::convert_location(&origin_location)
-		.unwrap()
-	});
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
 
@@ -283,16 +226,8 @@ fn send_weth_from_ethereum_to_penpal() {
 	let weth_asset_location: Location =
 		(Parent, Parent, ethereum_network_v5, AccountKey20 { network: None, key: WETH }).into();
 
-	let origin_location = (Parent, Parent, ethereum_network_v5).into();
-
 	// Fund ethereum sovereign on AssetHub
-	let ethereum_sovereign: AccountId = AssetHubWestend::execute_with(|| {
-		ExternalConsensusLocationsConverterFor::<
-			AssetHubWestendUniversalLocation,
-			AccountId,
-		>::convert_location(&origin_location)
-		.unwrap()
-	});
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	// Create asset on the Penpal parachain.
@@ -393,18 +328,12 @@ fn send_weth_from_ethereum_to_penpal() {
 #[test]
 fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 	let ethereum_network: NetworkId = EthereumNetwork::get().into();
-	let origin_location = (Parent, Parent, ethereum_network).into();
+	let origin_location: Location = (Parent, Parent, ethereum_network).into();
 
 	use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
-	let ethereum_sovereign: AccountId = AssetHubWestend::execute_with(|| {
-		ExternalConsensusLocationsConverterFor::<
-			AssetHubWestendUniversalLocation,
-			AccountId,
-		>::convert_location(&origin_location)
-		.unwrap()
-	});
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 
 	AssetHubWestend::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubWestend::force_default_xcm_version(Some(XCM_VERSION));
@@ -416,25 +345,6 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		(ethereum_sovereign.clone(), INITIAL_FUND),
 	]);
 
-	// Register ETH
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			origin_location.clone(),
-			ethereum_sovereign.into(),
-			true,
-			1000,
-		));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::ForceCreated { .. }) => {},
-			]
-		);
-	});
 	const ETH_AMOUNT: u128 = 1_000_000_000_000_000_000;
 
 	BridgeHubWestend::execute_with(|| {
@@ -935,6 +845,120 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 	});
 }
 
+/// Tests sending a token to a 3rd party parachain, called PenPal. The token reserve is
+/// still located on AssetHub.
+#[test]
+fn send_token_from_ethereum_to_penpal() {
+	let asset_hub_sovereign = BridgeHubWestend::sovereign_account_id_of(Location::new(
+		1,
+		[Parachain(AssetHubWestend::para_id().into())],
+	));
+	// Fund AssetHub sovereign account so it can pay execution fees for the asset transfer
+	BridgeHubWestend::fund_accounts(vec![(asset_hub_sovereign.clone(), INITIAL_FUND)]);
+	// Fund PenPal receiver (covering ED)
+	PenpalB::fund_accounts(vec![(PenpalBReceiver::get(), INITIAL_FUND)]);
+
+	PenpalB::execute_with(|| {
+		assert_ok!(<PenpalB as Chain>::System::set_storage(
+			<PenpalB as Chain>::RuntimeOrigin::root(),
+			vec![(
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
+				Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode(),
+			)],
+		));
+	});
+
+	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
+
+	// The Weth asset location, identified by the contract address on Ethereum
+	let weth_asset_location: Location =
+		(Parent, Parent, ethereum_network_v5, AccountKey20 { network: None, key: WETH }).into();
+
+	// Fund ethereum sovereign on AssetHub
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+
+	// Create asset on the Penpal parachain.
+	PenpalB::execute_with(|| {
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
+			<PenpalB as Chain>::RuntimeOrigin::root(),
+			weth_asset_location.clone(),
+			asset_hub_sovereign.clone().into(),
+			false,
+			1000,
+		));
+
+		assert!(<PenpalB as PenpalBPallet>::ForeignAssets::asset_exists(
+			weth_asset_location.clone()
+		));
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
+			RuntimeOrigin::root(),
+			weth_asset_location.clone().try_into().unwrap(),
+			ethereum_sovereign.into(),
+			false,
+			1,
+		));
+
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
+			weth_asset_location.clone().try_into().unwrap(),
+		));
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let message = VersionedMessage::V1(MessageV1 {
+			chain_id: CHAIN_ID,
+			command: Command::SendToken {
+				token: WETH.into(),
+				destination: Destination::ForeignAccountId32 {
+					para_id: PARA_ID_B,
+					id: PenpalBReceiver::get().into(),
+					fee: 100_000_000_000u128,
+				},
+				amount: TOKEN_AMOUNT,
+				fee: XCM_FEE,
+			},
+		});
+		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
+		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+
+		// Check that the send token message was sent using xcm
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) =>{},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		// Check that the assets were issued on AssetHub
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+			]
+		);
+	});
+
+	PenpalB::execute_with(|| {
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+		// Check that the assets were issued on PenPal
+		assert_expected_events!(
+			PenpalB,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
+			]
+		);
+	});
+}
+
 #[test]
 fn transfer_relay_token() {
 	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(
@@ -950,17 +974,7 @@ fn transfer_relay_token() {
 
 	let expected_token_id = TokenIdOf::convert_location(&expected_asset_id).unwrap();
 
-	let ethereum_sovereign: AccountId = AssetHubWestend::execute_with(|| {
-		ExternalConsensusLocationsConverterFor::<
-			AssetHubWestendUniversalLocation,
-			[u8; 32],
-		>::convert_location(&Location::new(
-			2,
-			[GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap()
-		.into()
-	});
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 
 	// Register token
 	BridgeHubWestend::execute_with(|| {
@@ -1102,14 +1116,7 @@ fn transfer_ah_token() {
 
 	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
 
-	let ethereum_sovereign: AccountId = AssetHubWestend::execute_with(|| {
-		ExternalConsensusLocationsConverterFor::<
-			AssetHubWestendUniversalLocation,
-			[u8; 32],
-		>::convert_location(&ethereum_destination)
-		.unwrap()
-		.into()
-	});
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	let asset_id: Location =

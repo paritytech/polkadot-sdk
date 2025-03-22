@@ -24,6 +24,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
+use testnet_parachains_constants::rococo::currency::UNITS;
 use xcm::latest::prelude::*;
 
 /// `AssetHubRococo` Runtime `Call` enum.
@@ -45,6 +46,8 @@ pub enum Call {
 frame_support::parameter_types! {
 	/// Some sane weight to execute `xcm::Transact(pallet-xcm-bridge-hub-router::Call::report_bridge_status)`.
 	pub const XcmBridgeHubRouterTransactCallMaxWeight: frame_support::weights::Weight = frame_support::weights::Weight::from_parts(200_000_000, 6144);
+	/// Should match the `AssetDeposit` of the `ForeignAssets` pallet on Asset Hub.
+	pub const CreateForeignAssetDeposit: u128 = UNITS / 10;
 }
 
 /// Builds an (un)congestion XCM program with the `report_bridge_status` call for
