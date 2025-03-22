@@ -26,6 +26,7 @@ use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtim
 use snowbridge_core::{AssetMetadata, BasicOperatingMode};
 use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
 use snowbridge_pallet_outbound_queue_v2::Error;
+use sp_core::H256;
 use xcm::v5::AssetTransferFilter;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
@@ -105,6 +106,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			topic: H256::zero(),
 			reward_address: reward_account,
 			success: true,
 		};
@@ -260,6 +262,7 @@ fn transfer_relay_token_from_ah() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			topic: H256::zero(),
 			reward_address: reward_account,
 			success: true,
 		};
@@ -346,6 +349,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			topic: H256::zero(),
 			reward_address: reward_account,
 			success: true,
 		};
@@ -441,6 +445,7 @@ fn transact_with_agent_from_asset_hub() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			topic: H256::zero(),
 			reward_address: reward_account,
 			success: true,
 		};
@@ -557,6 +562,7 @@ fn register_token_from_penpal() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			topic: H256::zero(),
 			reward_address: reward_account,
 			success: true,
 		};
@@ -721,6 +727,7 @@ fn invalid_nonce_for_delivery_receipt_fails() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			topic: H256::zero(),
 			reward_address: reward_account,
 			success: true,
 		};

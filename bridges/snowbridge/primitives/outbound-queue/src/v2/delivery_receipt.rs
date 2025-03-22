@@ -4,11 +4,11 @@ use crate::Log;
 use alloy_core::{primitives::B256, sol, sol_types::SolEvent};
 use codec::Decode;
 use frame_support::pallet_prelude::{Encode, TypeInfo};
-use sp_core::{RuntimeDebug, H160};
+use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::prelude::*;
 
 sol! {
-	event InboundMessageDispatched(uint64 indexed nonce, bool success, bytes32 reward_address);
+	event InboundMessageDispatched(uint64 indexed nonce, bytes32 topic, bool success, bytes32 reward_address);
 }
 
 /// Delivery receipt
@@ -21,6 +21,8 @@ where
 	pub gateway: H160,
 	/// The nonce of the dispatched message
 	pub nonce: u64,
+	/// Message topic
+	pub topic: H256,
 	/// Delivery status
 	pub success: bool,
 	/// The reward address
@@ -50,6 +52,7 @@ where
 		Ok(Self {
 			gateway: log.address,
 			nonce: event.nonce,
+			topic: H256::from_slice(event.topic.as_ref()),
 			success: event.success,
 			reward_address: account,
 		})
