@@ -144,15 +144,7 @@ type BlockNumberFor<T, I = ()> =
 
 /// A bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Bounty<
-	AccountId,
-	Balance,
-	BlockNumber,
-	AssetKind,
-	PaymentId,
-	Beneficiary,
->
-{
+pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary> {
 	/// The account proposing it.
 	pub proposer: AccountId,
 	// TODO: new filed, migration required.
@@ -174,12 +166,10 @@ pub struct Bounty<
 	pub status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
 }
 
-
 // TODO: breaking changes to the stored type, migration required.
 /// The status of a bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>
-{
+pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 	/// The bounty is proposed and waiting for approval.
 	Proposed,
 	/// The bounty is approved and waiting to confirm the funds allocation.
@@ -252,7 +242,7 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>
 }
 
 /// The state of payments associated with each bounty and its `BountyStatus`.
-/// 
+///
 /// When a payment is initiated using `Paymaster::pay`, an asynchronous task is triggered.
 /// The call `check_payment_status` updates the payment state and advances the bounty lifecycle.
 /// The `process_payment` can be called to retry a payment in `Failed` state.
@@ -273,7 +263,10 @@ pub trait ChildBountyManager<Balance> {
 	/// Get the active child bounties for a parent bounty.
 	fn child_bounties_count(bounty_id: BountyIndex) -> BountyIndex;
 
-	/// Take total curator fees of children-bounty curators.
+	/// Calculate total value of child-bounties.
+	fn children_value(bounty_id: BountyIndex) -> Balance;
+
+	/// Calculate total curator fees of child-bounties.
 	fn children_curator_fees(bounty_id: BountyIndex) -> Balance;
 
 	/// Hook called when a parent bounty is removed.
@@ -477,7 +470,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Approve a bounty proposal, initiating the payout of funds from the treasury to the bounty account.
+		/// Approve a bounty proposal, initiating the payout of funds from the treasury to the
+		/// bounty account.
 		///
 		/// ## Dispatch Origin
 		/// Must be [`Config::SpendOrigin`] with the `Success` value being at least
@@ -780,8 +774,11 @@ pub mod pallet {
 
 						let update_due = Self::treasury_block_number()
 							.saturating_add(T::BountyUpdatePeriod::get());
-						bounty.status =
-							BountyStatus::Active { curator: curator.clone(), curator_stash: stash, update_due };
+						bounty.status = BountyStatus::Active {
+							curator: curator.clone(),
+							curator_stash: stash,
+							update_due,
+						};
 
 						Self::deposit_event(Event::<T, I>::CuratorAccepted {
 							bounty_id,
@@ -840,8 +837,8 @@ pub mod pallet {
 						bounty.status = BountyStatus::PendingPayout {
 							curator: signer,
 							beneficiary: beneficiary.clone(),
-							unlock_at: Self::treasury_block_number() +
-								T::BountyDepositPayoutDelay::get(),
+							unlock_at: Self::treasury_block_number()
+								.saturating_add(T::BountyDepositPayoutDelay::get()),
 							curator_stash: curator_stash.clone(),
 						};
 					},
@@ -1096,11 +1093,12 @@ pub mod pallet {
 		/// This call is a shortcut to calling `approve_bounty` and `propose_curator` separately.
 		///
 		/// ## Dispatch Origin
-		/// Must be called by `T::SpendOrigin`.
+		/// Must be [`Config::SpendOrigin`] with the `Success` value being at least `amount` of
+		/// `asset_kind` in the native asset. The amount of `asset_kind` is converted for assertion
+		/// using the [`Config::BalanceConverter`].
 		///
 		/// ## Details
-		/// - This function combines the logic of `approve_bounty` and `propose_curator` into a
-		///   single call.
+		/// - Combines the logic of `approve_bounty` and `propose_curator` into a single call.
 		/// - The bounty must be in the `Proposed` state.
 		/// - The `fee` must be lower than the bounty value.
 		/// - The treasury must have sufficient funds to approve the bounty.
@@ -1293,7 +1291,6 @@ pub mod pallet {
 							];
 							// Tiago: process_payment does not change bounty.status state. Should it
 							// change?
-
 							let succeeded = statuses.iter().filter(|i| i.is_ok()).count();
 							if succeeded > 0 {
 								Ok(Pays::Yes.into())
@@ -1629,16 +1626,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::PalletId::get().into_sub_account_truncating(("bt", id))
 	}
 
-	/// Return the amount of money in the bounty.
-	pub fn bounty_balance(id: BountyIndex) -> BalanceOf<T, I> {
-		// Tiago: Currency::free_balance accepts AccountId. Is this how I can get the balance of the
-		// bounty?
-		let native_account_id = T::PalletId::get().into_sub_account_truncating(("bt", id));
-		T::Currency::free_balance(&native_account_id)
-			// Must never be less than 0 but better be safe.
-			.saturating_sub(T::Currency::minimum_balance())
-	}
-
 	fn create_bounty(
 		proposer: T::AccountId,
 		description: Vec<u8>,
@@ -1689,18 +1676,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		fee: BalanceOf<T, I>,
 		value: BalanceOf<T, I>,
 	) -> (BalanceOf<T, I>, BalanceOf<T, I>) {
-		// Tiago: The payout should be the balance of the bounty account of asset_kind.
-		// if a child bounty is added and claimed, and parent-bounty is claimed the bounty.amount is
-		// returned and not the balance of the bounty account.
-		// right? how to handle this?
-		let payout = value - fee;
-
 		// Get total child bounties curator fees, and subtract it from the parent
 		// curator fee (the fee in present referenced bounty, `self`).
 		let children_fee = T::ChildBountyManager::children_curator_fees(bounty_id);
 		debug_assert!(children_fee <= fee);
-
 		let final_fee = fee.saturating_sub(children_fee);
+
+		// Get total child bounties value, and subtract it from the parent
+		// value (the value in present referenced bounty, `self`).
+		let children_value = T::ChildBountyManager::children_value(bounty_id);
+		debug_assert!(children_value <= value);
+		let value_remaining = value.saturating_sub(children_value);
+		let payout = value_remaining.saturating_sub(final_fee);
+
 		(final_fee, payout)
 	}
 }
@@ -1709,6 +1697,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 impl<Balance: Zero> ChildBountyManager<Balance> for () {
 	fn child_bounties_count(_bounty_id: BountyIndex) -> BountyIndex {
 		Default::default()
+	}
+
+	fn children_value(_bounty_id: BountyIndex) -> Balance {
+		Zero::zero()
 	}
 
 	fn children_curator_fees(_bounty_id: BountyIndex) -> Balance {

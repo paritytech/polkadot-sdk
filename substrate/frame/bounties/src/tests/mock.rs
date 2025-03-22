@@ -43,25 +43,11 @@ impl Pay for TestPay {
 	type Error = ();
 
 	fn pay(
-		from: &Self::Beneficiary,
+		_: &Self::Beneficiary,
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		// Tiago: I'm not sure how to handle balances of asset_kind
-		let balance_from = Balances::free_balance(*from).saturating_sub(amount);
-		assert_ok!(Balances::force_set_balance(
-			frame_system::RawOrigin::Root.into(),
-			*from,
-			balance_from,
-		));
-		let balance_to = Balances::free_balance(*to).saturating_add(amount);
-		assert_ok!(Balances::force_set_balance(
-			frame_system::RawOrigin::Root.into(),
-			*to,
-			balance_to,
-		));
-
 		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
 		Ok(LAST_ID.with(|lid| {
 			let x = *lid.borrow();
@@ -279,8 +265,8 @@ pub fn expect_events(e: Vec<BountiesEvent<Test>>) {
 	assert_eq!(last_events(e.len()), e);
 }
 
-pub fn get_payment_id(i: BountyIndex, to: Option<u128>) -> Option<u64> {
-	let bounty = pallet_bounties::Bounties::<Test>::get(i).expect("no bounty");
+pub fn get_payment_id(bounty_id: BountyIndex, to: Option<u128>) -> Option<u64> {
+	let bounty = pallet_bounties::Bounties::<Test>::get(bounty_id).expect("no bounty");
 
 	match bounty.status {
 		BountyStatus::Approved { payment_status: PaymentState::Attempted { id } } => Some(id),
@@ -308,9 +294,9 @@ pub fn get_payment_id(i: BountyIndex, to: Option<u128>) -> Option<u64> {
 	}
 }
 
-pub fn approve_payment(account_id: u128, bounty_index: BountyIndex, asset_id: u32, amount: u64) {
+pub fn approve_payment(account_id: u128, bounty_id: BountyIndex, asset_id: u32, amount: u64) {
 	assert_eq!(paid(account_id, asset_id), amount);
-	let payment_id = get_payment_id(bounty_index, Some(account_id)).expect("no payment attempt");
+	let payment_id = get_payment_id(bounty_id, Some(account_id)).expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Success);
-	assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(0), bounty_index));
+	assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(0), bounty_id));
 }
