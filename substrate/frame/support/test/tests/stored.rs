@@ -1,7 +1,6 @@
 use frame_support::{
-	construct_runtime, derive_impl, pallet_prelude::*, storage_alias, stored, CloneNoBound,
-	EqNoBound, PartialEqNoBound,
-	RuntimeDebugNoBound,
+	construct_runtime, derive_impl, storage_alias, stored,
+	pallet_prelude::{OptionQuery},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::sr25519;
@@ -387,20 +386,20 @@ fn stored_compiles() {
 		StorageValue<Pallet<T>, GenericEnumFirstBoundWhere<T, u32>, OptionQuery>;
 	let _ = <GenericEnumFirstBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Empty mel_bound()
+	// Empty codec_bound()
 	#[stored(no_bounds(T, U), mel_bound())]
-	enum EmptyMelBound<T: Config, U: Config> {
+	enum CodecBoundEmpty<T: Config, U: Config> {
 		A(BlockNumberFor<T>),
-		B(BlockNumberFor<U>), {
+		B(BlockNumberFor<U>),
 	}
 	#[storage_alias]
-	pub type EmptyMelBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, EmptyMelBound<T, T>, OptionQuery>;
-	let _ = <EmptyMelBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
+	pub type CodecBoundEmptyStorage<T: Config> =
+		StorageValue<Pallet<T>, CodecBoundEmpty<T, T>, OptionQuery>;
+	let _ = <CodecBoundEmptyStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Shorthand mel_bound()
+	// Shorthand codec_bound()
 	#[stored(mel_bound(T, U))]
-	enum EmptyMelBound<T, U> {
+	enum CodecBoundShorthand<T, U> {
 		A {
 			value: T,
 		},
@@ -409,13 +408,13 @@ fn stored_compiles() {
 		},
 	}
 	#[storage_alias]
-	pub type EmptyMelBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, EmptyMelBound<u32, u32>, OptionQuery>;
-	let _ = <EmptyMelBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
+	pub type CodecBoundShorthandStorage<T: Config> =
+		StorageValue<Pallet<T>, CodecBoundShorthand<u32, u32>, OptionQuery>;
+	let _ = <CodecBoundShorthandStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Explicit mel_bound()
+	// Explicit codec_bound()
 	#[stored(mel_bound(T: MaxEncodedLen, U))]
-	enum ExplicitMelBound<T, U> {
+	enum CodecBoundExplicit<T, U> {
 		A {
 			value: T,
 		},
@@ -424,7 +423,7 @@ fn stored_compiles() {
 		},
 	}
 	#[storage_alias]
-	pub type ExplicitMelBoundStorage<T: Config> =
-		StorageValue<Pallet<T>, ExplicitMelBound<u32, u32>, OptionQuery>;
-	let _ = <ExplicitMelBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
+	pub type CodecBoundExplicitStorage<T: Config> =
+		StorageValue<Pallet<T>, CodecBoundExplicit<u32, u32>, OptionQuery>;
+	let _ = <CodecBoundExplicitStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 }
