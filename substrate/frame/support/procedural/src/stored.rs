@@ -81,7 +81,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     let codec_bound_attr = if let Some(codec_bounds) = codec_bound_params {
-        let bounds_codec = codec_bounds.clone().into_iter().map(|item| {
+        let bounds_mel = codec_bounds.clone().into_iter().map(|item| {
             let CodecBoundItem { ty, bound } = item;
             if let Some(explicit_bound) = bound {
                 quote! { #ty: #explicit_bound }
@@ -117,7 +117,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             #[codec(encode_bound( #(#bounds_encode),*))]
             #[codec(decode_bound( #(#bounds_decode),*))]
             #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
-            #[codec(codec_bound( #(#bounds_codec),* ))]
+            #[codec(mel_bound( #(#bounds_mel),* ))]
         }
     } else if !skip_params.is_empty() {
         let all_generics: Vec<_> = input.generics.params.iter().filter_map(|param| {
@@ -130,7 +130,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         let codec_bound_gens: Vec<_> = all_generics.into_iter()
             .filter(|ident| !skip_params.contains(ident))
             .collect();
-        let bounds_codec = codec_bound_gens.iter().map(|ident| {
+        let bounds_mel = codec_bound_gens.iter().map(|ident| {
             quote! { #ident: ::#frame_support::__private::codec::MaxEncodedLen }
         });
         let bounds_encode = codec_bound_gens.iter().map(|ident| {
@@ -147,7 +147,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             #[codec(encode_bound( #(#bounds_encode),*))]
             #[codec(decode_bound( #(#bounds_decode),*))]
             #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
-            #[codec(codec_bound( #(#bounds_codec),* ))]
+            #[codec(mel_bound( #(#bounds_mel),* ))]
         }
     } else {
         quote! {}

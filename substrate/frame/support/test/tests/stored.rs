@@ -413,7 +413,7 @@ fn stored_compiles() {
 	let _ = <CodecBoundShorthandStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Explicit codec_bounds
-	#[stored(codec_bounds(T: MaxEncodedLen, U))]
+	#[stored(codec_bounds(T: codec::MaxEncodedLen + codec::DecodeWithMemTracking, U))]
 	enum CodecBoundExplicit<T, U> {
 		A {
 			value: T,
