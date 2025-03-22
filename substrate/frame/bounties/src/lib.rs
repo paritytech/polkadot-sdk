@@ -1262,6 +1262,9 @@ pub mod pallet {
 							ref mut beneficiary,
 							..
 						} => {
+							println!("curator_stash: {:?}", curator_stash);
+							println!("beneficiary: {:?}", beneficiary);
+
 							let (final_fee, payout) = Self::calculate_curator_fee_and_payout(
 								bounty_id,
 								bounty.fee,
@@ -1479,15 +1482,6 @@ pub mod pallet {
 								PaymentState::Attempted { id } =>
 									match T::Paymaster::check_payment(*id) {
 										PaymentStatus::Success => {
-											// Tiago: Do we need this?
-											// let res = T::Currency::transfer(
-											// 	&bounty_account,
-											// 	&Self::account_id(),
-											// 	balance,
-											// 	AllowDeath,
-											// ); // should not fail
-											// debug_assert!(res.is_ok());
-
 											// refund succeeded, cleanup the bounty
 											BountyDescriptions::<T, I>::remove(bounty_id);
 											T::ChildBountyManager::bounty_removed(bounty_id);
