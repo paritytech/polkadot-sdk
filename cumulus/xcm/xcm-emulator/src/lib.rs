@@ -37,8 +37,8 @@ pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessa
 pub use frame_support::{
 	assert_ok,
 	sp_runtime::{
-		traits::{Dispatchable, Header as HeaderT},
-		DispatchResult,
+		traits::{Convert, Dispatchable, Header as HeaderT},
+		Digest, DispatchResult,
 	},
 	traits::{
 		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
@@ -108,7 +108,6 @@ thread_local! {
 	/// Most recent `HeadData` of each parachain, encoded.
 	pub static LAST_HEAD: RefCell<HashMap<String, HashMap<u32, HeadData>>> = RefCell::new(HashMap::new());
 }
-
 pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
 	Origin: Chain + Clone,
@@ -264,6 +263,7 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
+	type DigestProvider: sp_runtime::traits::Convert<BlockNumberFor<Self::Runtime>, Digest>;
 
 	fn init();
 
@@ -599,6 +599,7 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
+					$( DigestProvider: $digest_provider:ty, )?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -639,6 +640,7 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
+				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
@@ -657,7 +659,7 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{Chain, Convert, HeadData, Network, Hooks, Encode, Parachain, TestExt};
 
 					let para_id = Self::para_id().into();
 
@@ -677,7 +679,10 @@ macro_rules! decl_test_parachains {
 							.expect("network not initialized?")
 							.clone()
 						);
-						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
+
+						let digest = <Self as Parachain>::DigestProvider::convert(block_number);
+
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
 						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumberFor<Self::Runtime>>>::on_initialize(block_number);
 
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
@@ -734,6 +739,8 @@ macro_rules! decl_test_parachains {
 			$crate::__impl_check_assertion!($name, N);
 		)+
 	};
+	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
+	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
 }
 
 #[macro_export]
