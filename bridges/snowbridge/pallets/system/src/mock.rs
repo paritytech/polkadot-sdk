@@ -72,17 +72,17 @@ mod pallet_xcm_origin {
 	pub struct EnsureXcm<F>(PhantomData<F>);
 	impl<O: OriginTrait + From<Origin>, F: Contains<Location>> EnsureOrigin<O> for EnsureXcm<F>
 	where
-		O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
+		for<'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 	{
 		type Success = Location;
 
 		fn try_origin(outer: O) -> Result<Self::Success, O> {
-			outer.try_with_caller(|caller| {
-				caller.try_into().and_then(|o| match o {
-					Origin(location) if F::contains(&location) => Ok(location),
-					o => Err(o.into()),
-				})
-			})
+			match outer.caller().try_into() {
+				Ok(Origin(location)) if F::contains(&location) => return Ok(location),
+				_ => (),
+			}
+
+			Err(outer)
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
