@@ -385,6 +385,11 @@ pub mod pallet {
 		RefundError,
 		/// No progress was made processing a refund
 		RefundInconclusive,
+		/// The spend origin is valid but the amount it is allowed to spend is lower than the
+		/// amount to be spent.
+		InsufficientPermission,
+		/// The balance of the asset kind is not convertible to the balance of the native asset.
+		FailedToConvertBalance,
 	}
 
 	#[pallet::event]
@@ -506,11 +511,8 @@ pub mod pallet {
 						bounty.value,
 						bounty.asset_kind.clone(),
 					)
-					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
-				ensure!(
-					native_amount <= max_amount,
-					pallet_treasury::Error::<T, I>::InsufficientPermission
-				);
+					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+				ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
 
 				// Tiago: is this the best way to use the SpendContext?
@@ -519,7 +521,7 @@ pub mod pallet {
 					let spend = context.spend_in_context.entry(max_amount).or_default();
 
 					if spend.checked_add(&native_amount).map(|s| s > max_amount).unwrap_or(true) {
-						Err(pallet_treasury::Error::<T, I>::InsufficientPermission)
+						Err(Error::<T, I>::InsufficientPermission)
 					} else {
 						*spend = spend.saturating_add(native_amount);
 						Ok(())
@@ -586,11 +588,8 @@ pub mod pallet {
 						bounty.value,
 						bounty.asset_kind.clone(),
 					)
-					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
-				ensure!(
-					native_amount <= max_amount,
-					pallet_treasury::Error::<T, I>::InsufficientPermission
-				);
+					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+				ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 
 				// Tiago: maybe we should come up with a different error
 				if bounty.status != BountyStatus::Funded {
@@ -1133,11 +1132,8 @@ pub mod pallet {
 						bounty.value,
 						bounty.asset_kind.clone(),
 					)
-					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
-				ensure!(
-					native_amount <= max_amount,
-					pallet_treasury::Error::<T, I>::InsufficientPermission
-				);
+					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+				ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
 				ensure!(fee < bounty.value, Error::<T, I>::InvalidFee);
 
@@ -1147,7 +1143,7 @@ pub mod pallet {
 					let spend = context.spend_in_context.entry(max_amount).or_default();
 
 					if spend.checked_add(&native_amount).map(|s| s > max_amount).unwrap_or(true) {
-						Err(pallet_treasury::Error::<T, I>::InsufficientPermission)
+						Err(Error::<T, I>::InsufficientPermission)
 					} else {
 						*spend = spend.saturating_add(native_amount);
 						Ok(())
@@ -1592,11 +1588,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn calculate_curator_deposit(
 		fee: &BalanceOf<T, I>,
 		asset_kind: T::AssetKind,
-	) -> Result<BalanceOf<T, I>, pallet_treasury::Error<T, I>> {
+	) -> Result<BalanceOf<T, I>, Error<T, I>> {
 		let fee = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
 			*fee, asset_kind,
 		)
-		.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
+		.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
 
 		let mut deposit = T::CuratorDepositMultiplier::get() * fee;
 
@@ -1639,7 +1635,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				value,
 				asset_kind.clone(),
 			)
-			.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
+			.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
 
 		ensure!(native_amount >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
 

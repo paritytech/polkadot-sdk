@@ -202,8 +202,6 @@ impl Config<Instance1> for Test {
 	type BenchmarkHelper = ();
 }
 
-pub type TreasuryError = pallet_treasury::Error<Test>;
-pub type TreasuryError1 = pallet_treasury::Error<Test, Instance1>;
 pub type TreasuryEvent = pallet_treasury::Event<Test>;
 pub type TreasuryEvent1 = pallet_treasury::Event<Test, Instance1>;
 

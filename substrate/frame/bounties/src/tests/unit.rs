@@ -20,8 +20,8 @@
 use super::{mock::*, utils::*};
 use crate as pallet_bounties;
 use crate::{
-	BadOrigin, Bounty, BountyStatus, Error, Event as BountiesEvent, PaymentState, PaymentStatus,
-	Pays, Permill, SystemBlockNumberFor,
+	BadOrigin, Bounty, BountyStatus, Error, Event as BountiesEvent, Instance1, PaymentState,
+	PaymentStatus, Pays, Permill, SystemBlockNumberFor,
 };
 
 use frame_support::{
@@ -249,7 +249,7 @@ fn approve_bounty_with_curator_works() {
 		SpendLimit::set(1);
 		assert_noop!(
 			Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), bounty_id, curator, fee),
-			TreasuryError::InsufficientPermission
+			Error::<Test>::InsufficientPermission
 		);
 
 		// When/Then
@@ -1255,7 +1255,7 @@ fn approve_bounty_insufficient_spend_limit_errors() {
 		SpendLimit::set(50);
 		assert_noop!(
 			Bounties::approve_bounty(RuntimeOrigin::root(), 0),
-			TreasuryError::InsufficientPermission
+			Error::<Test>::InsufficientPermission
 		);
 	});
 }
@@ -1278,7 +1278,7 @@ fn approve_bounty_instance1_insufficient_spend_limit_errors() {
 		SpendLimit1::set(50);
 		assert_noop!(
 			Bounties1::approve_bounty(RuntimeOrigin::root(), 0),
-			TreasuryError1::InsufficientPermission
+			Error::<Test, Instance1>::InsufficientPermission
 		);
 	});
 }
@@ -1304,7 +1304,7 @@ fn propose_curator_insufficient_spend_limit_errors() {
 		// 51 will not work since the limit is 50.
 		assert_noop!(
 			Bounties::propose_curator(RuntimeOrigin::root(), 0, 0, 0),
-			TreasuryError::InsufficientPermission
+			Error::<Test>::InsufficientPermission
 		);
 	});
 }
@@ -1329,7 +1329,7 @@ fn propose_curator_instance1_insufficient_spend_limit_errors() {
 		// 11 will not work since the limit is 10.
 		assert_noop!(
 			Bounties1::propose_curator(RuntimeOrigin::root(), 0, 0, 0),
-			TreasuryError1::InsufficientPermission
+			Error::<Test, Instance1>::InsufficientPermission
 		);
 	});
 }
