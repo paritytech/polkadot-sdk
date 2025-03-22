@@ -106,7 +106,7 @@ use sp_runtime::{
 		OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent, Permill,
+	ApplyExtrinsicResult, FixedU128, KeyTypeId, MultiSignature, MultiSigner, Percent, Permill,
 };
 use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
@@ -1665,6 +1665,35 @@ impl pallet_rc_migrator::Config for Runtime {
 	type RcPostMigrationCalls = ahm_phase1::CallsEnabledAfterMigration;
 }
 
+pub type MetaTxExtension = (
+	pallet_verify_signature::VerifySignature<Runtime>,
+	pallet_meta_tx::MetaTxMarker<Runtime>,
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckMortality<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
+
+impl pallet_meta_tx::Config for Runtime {
+	type WeightInfo = weights::pallet_meta_tx::WeightInfo<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Extension = MetaTxExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
+}
+
+impl pallet_verify_signature::Config for Runtime {
+	type Signature = MultiSignature;
+	type AccountIdentifier = MultiSigner;
+	type WeightInfo = weights::pallet_verify_signature::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
 #[frame_support::runtime(legacy_ordering)]
 mod runtime {
 	#[runtime::runtime]
@@ -1858,6 +1887,12 @@ mod runtime {
 	#[runtime::pallet_index(102)]
 	pub type RootTesting = pallet_root_testing;
 
+	#[runtime::pallet_index(103)]
+	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
+
+	#[runtime::pallet_index(104)]
+	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
+
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]
 	pub type Beefy = pallet_beefy;
@@ -2012,6 +2047,8 @@ mod benches {
 		[pallet_vesting, Vesting]
 		[pallet_whitelist, Whitelist]
 		[pallet_asset_rate, AssetRate]
+		[pallet_meta_tx, MetaTx]
+		[pallet_verify_signature, VerifySignature]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
@@ -2092,7 +2129,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(12)]
+	#[api_version(13)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
