@@ -104,10 +104,16 @@ fn xcm_enqueueing_multiple_times_works() {
 #[cfg_attr(debug_assertions, should_panic = "Could not enqueue XCMP messages.")]
 fn xcm_enqueueing_starts_dropping_on_overflow() {
 	new_test_ext().execute_with(|| {
-		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
+		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![
+			ClearOrigin;
+			MAX_INSTRUCTIONS_TO_DECODE as usize
+		]));
 		let data = (ConcatenatedVersionedXcm, xcm).encode();
-		// Its possible to enqueue 256 messages at most:
-		let limit = 256;
+		// It's possible to enqueue at most `limit` messages:
+		let max_message_len: u32 =
+			<<Test as Config>::XcmpQueue as EnqueueMessage<ParaId>>::MaxMessageLen::get();
+		let drop_threshold = <QueueConfig<Test>>::get().drop_threshold;
+		let limit = max_message_len as usize / data.len() * drop_threshold as usize;
 
 		XcmpQueue::handle_xcmp_messages(
 			repeat((1000.into(), 1, data.as_slice())).take(limit * 2),
