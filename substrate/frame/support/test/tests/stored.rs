@@ -84,7 +84,7 @@ fn stored_compiles() {
 	let _ = <TupleWithGenericsStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Tuple struct with generics, bound in first position
-	#[stored(no_bounds(T))]
+	#[stored(skip(T))]
 	struct TupleWithGenericsFirstBound<T: Config, U>(BlockNumberFor<T>, U);
 	#[storage_alias]
 	pub type TupleWithGenericsFirstBoundStorage<T: Config> =
@@ -92,7 +92,7 @@ fn stored_compiles() {
 	let _ = <TupleWithGenericsFirstBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
     // Tuple struct with generics, bound in first position, default in second
-	#[stored(no_bounds(T))]
+	#[stored(skip(T))]
 	struct TupleWithGenericsFirstBoundDefaultSecond<T: Config, U = ()>(BlockNumberFor<T>, U);
 	#[storage_alias]
 	pub type TupleWithGenericsFirstBoundDefaultSecondStorage<T: Config, U = ()> =
@@ -100,7 +100,7 @@ fn stored_compiles() {
 	let _ = <TupleWithGenericsFirstBoundDefaultSecondStorage<Runtime, ()> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Tuple struct with generics, bound in second position
-	#[stored(no_bounds(U))]
+	#[stored(skip(U))]
 	struct TupleWithGenericsSecondBound<T, U: Config>(T, BlockNumberFor<U>);
 	#[storage_alias]
 	pub type TupleWithGenericsSecondBoundStorage<T: Config> =
@@ -108,7 +108,7 @@ fn stored_compiles() {
 	let _ = <TupleWithGenericsSecondBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Tuple struct with generics, both bound
-	#[stored(no_bounds(T, U))]
+	#[stored(skip(T, U))]
 	struct TupleWithGenericsBothBound<T: Config, U: Config>(BlockNumberFor<T>, BlockNumberFor<U>);
 	#[storage_alias]
 	pub type TupleWithGenericsBothBoundStorage<T: Config> =
@@ -116,7 +116,7 @@ fn stored_compiles() {
 	let _ = <TupleWithGenericsBothBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Tuple struct with generics, bound in first position, where clause
-	#[stored(no_bounds(T))]
+	#[stored(skip(T))]
 	struct TupleWithGenericsFirstBoundWhere<T, U>(BlockNumberFor<T>, U)
 	where
 		T: Config;
@@ -126,7 +126,7 @@ fn stored_compiles() {
 	let _ = <TupleWithGenericsFirstBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Tuple struct with generics, bound in second position, where clause
-	#[stored(no_bounds(U))]
+	#[stored(skip(U))]
 	struct TupleWithGenericsSecondBoundWhere<T, U>(T, BlockNumberFor<U>)
 	where
 		U: Config;
@@ -136,7 +136,7 @@ fn stored_compiles() {
 	let _ = <TupleWithGenericsSecondBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Tuple struct with generics, both bound, where clause
-	#[stored(no_bounds(T, U))]
+	#[stored(skip(T, U))]
 	struct TupleWithGenericsBothBoundWhere<T, U>(BlockNumberFor<T>, BlockNumberFor<U>)
 	where
 		T: Config,
@@ -189,7 +189,7 @@ fn stored_compiles() {
 	let _ = <NamedWithGenericsStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Named struct with generics, bound in first field
-	#[stored(no_bounds(T))]
+	#[stored(skip(T))]
 	struct NamedWithGenericsFirstBound<T: Config, U> {
 		block: BlockNumberFor<T>,
 		value: U,
@@ -200,7 +200,7 @@ fn stored_compiles() {
 	let _ = <NamedWithGenericsFirstBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Named struct with generics, bound in second field
-	#[stored(no_bounds(U))]
+	#[stored(skip(U))]
 	struct NamedWithGenericsSecondBound<T, U: Config> {
 		value: T,
 		block: BlockNumberFor<U>,
@@ -211,7 +211,7 @@ fn stored_compiles() {
 	let _ = <NamedWithGenericsSecondBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Named struct with generics, both bound
-	#[stored(no_bounds(T, U))]
+	#[stored(skip(T, U))]
 	struct NamedWithGenericsBothBound<T: Config, U: Config> {
 		value: BlockNumberFor<T>,
 		block: BlockNumberFor<U>,
@@ -222,7 +222,7 @@ fn stored_compiles() {
 	let _ = <NamedWithGenericsBothBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Named struct with generics, bound in first field, where clause
-	#[stored(no_bounds(T))]
+	#[stored(skip(T))]
 	struct NamedWithGenericsFirstBoundWhere<T, U>
 	where
 		T: Config,
@@ -236,7 +236,7 @@ fn stored_compiles() {
 	let _ = <NamedWithGenericsFirstBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Named struct with generics, bound in second field, where clause
-	#[stored(no_bounds(U))]
+	#[stored(skip(U))]
 	struct NamedWithGenericsSecondBoundWhere<T, U>
 	where
 		U: Config,
@@ -250,7 +250,7 @@ fn stored_compiles() {
 	let _ = <NamedWithGenericsSecondBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Named struct with generics, both bound, where clause
-	#[stored(no_bounds(T, U))]
+	#[stored(skip(T, U))]
 	struct NamedWithGenericsBothBoundWhere<T, U>
 	where
 		T: Config,
@@ -318,7 +318,7 @@ fn stored_compiles() {
 		<GenericEnumStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Generic enum, first generic bounded
-	#[stored(no_bounds(T))]
+	#[stored(skip(T))]
 	enum GenericEnumFirstBound<T: Config, U> {
 		A(BlockNumberFor<T>),
 		B {
@@ -331,7 +331,7 @@ fn stored_compiles() {
 	let _ = <GenericEnumFirstBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
     // Generic enum, first bounded, second has default
-	#[stored(no_bounds(T))]
+	#[stored(skip(T))]
 	enum GenericEnumFirstBoundSecondDefault<T: Config, U = ()> {
 		A(BlockNumberFor<T>),
 		B {
@@ -344,7 +344,7 @@ fn stored_compiles() {
 	let _ = <GenericEnumFirstBoundSecondDefaultStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Generic enum, second bounded
-	#[stored(no_bounds(U))]
+	#[stored(skip(U))]
 	enum GenericEnumSecondBound<T, U: Config> {
 		A(T),
 		B {
@@ -357,7 +357,7 @@ fn stored_compiles() {
 	let _ = <GenericEnumSecondBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Generic enum, both bounded
-	#[stored(no_bounds(T, U))]
+	#[stored(skip(T, U))]
 	enum GenericEnumBothBound<T: Config, U: Config> {
 		A {
 			first: BlockNumberFor<T>,
@@ -371,7 +371,7 @@ fn stored_compiles() {
 	let _ = <GenericEnumBothBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Generic enum, trait bound in where clause
-	#[stored(no_bounds(T))]
+	#[stored(skip(T))]
 	enum GenericEnumFirstBoundWhere<T, U>
 	where
 		T: Config,
@@ -387,7 +387,7 @@ fn stored_compiles() {
 	let _ = <GenericEnumFirstBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Empty codec_bound()
-	#[stored(no_bounds(T, U), mel_bound())]
+	#[stored(skip(T, U), codec_bounds())]
 	enum CodecBoundEmpty<T: Config, U: Config> {
 		A(BlockNumberFor<T>),
 		B(BlockNumberFor<U>),
@@ -398,7 +398,7 @@ fn stored_compiles() {
 	let _ = <CodecBoundEmptyStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Shorthand codec_bound()
-	#[stored(mel_bound(T, U))]
+	#[stored(codec_bounds(T, U))]
 	enum CodecBoundShorthand<T, U> {
 		A {
 			value: T,
@@ -413,7 +413,7 @@ fn stored_compiles() {
 	let _ = <CodecBoundShorthandStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
 	// Explicit codec_bound()
-	#[stored(mel_bound(T: MaxEncodedLen, U))]
+	#[stored(codec_bounds(T: MaxEncodedLen, U))]
 	enum CodecBoundExplicit<T, U> {
 		A {
 			value: T,

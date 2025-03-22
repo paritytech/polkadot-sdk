@@ -7,7 +7,6 @@ use syn::punctuated::Punctuated;
 use syn::parse::{Parse, ParseStream, Parser};
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 
-/// A helper struct to hold a comma-separated list of identifiers, e.g. no_bounds(A, B, C).
 #[derive(Default)]
 struct IdentList(Punctuated<Ident, Token![,]>);
 
@@ -18,14 +17,13 @@ impl Parse for IdentList {
     }
 }
 
-/// Represents a single mel_bounds item.
 #[derive(Clone)]
-struct MelBoundItem {
+struct CodecBoundItem {
     ty: Type,
     bound: Option<Type>,
 }
 
-impl Parse for MelBoundItem {
+impl Parse for CodecBoundItem {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let ty: Type = input.parse()?;
         let bound = if input.peek(Token![:]) {
@@ -34,43 +32,35 @@ impl Parse for MelBoundItem {
         } else {
             None
         };
-        Ok(MelBoundItem { ty, bound })
+        Ok(CodecBoundItem { ty, bound })
     }
 }
 
-/// A helper struct to hold a comma-separated list of MelBoundItem.
 #[derive(Default)]
-struct MelBoundList(Punctuated<MelBoundItem, Token![,]>);
+struct CodecBoundList(Punctuated<CodecBoundItem, Token![,]>);
 
-impl Parse for MelBoundList {
+impl Parse for CodecBoundList {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let list = Punctuated::parse_terminated(input)?;
-        Ok(MelBoundList(list))
+        Ok(CodecBoundList(list))
     }
 }
 
-/// The #[stored] attribute.
 pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
-    // Parse stored attribute arguments.
-    let (no_bound_params, mel_bound_params) = parse_stored_args(attr);
+    let (skip_params, codec_bound_params) = parse_stored_args(attr);
     let mut input = parse_macro_input!(input as DeriveInput);
 
-    // Grab path.
     let frame_support = match generate_access_from_frame_or_crate("frame-support") {
 		Ok(path) => path,
 		Err(err) => return err.to_compile_error().into(),
 	};
 
-    // Remove the #[stored] attribute to prevent re-emission.
     input.attrs.retain(|attr| !attr.path().is_ident("stored"));
 
-    // We no longer add normal trait bounds.
-    // Instead, if no_bounds is provided, we add a #[still_bind(...)] attribute with the generics
-    // that are not listed in no_bounds.
-    let still_bind_attr = if !no_bound_params.is_empty() {
+    let still_bind_attr = if !skip_params.is_empty() {
         let still_bound_gens: Vec<_> = input.generics.params.iter().filter_map(|param| {
             if let syn::GenericParam::Type(type_param) = param {
-                if !no_bound_params.contains(&type_param.ident) {
+                if !skip_params.contains(&type_param.ident) {
                     Some(&type_param.ident)
                 } else {
                     None
@@ -90,34 +80,33 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    // Compute the #[codec(mel_bound(...))] attribute.
-    let codec_mel_bound_attr = if let Some(mel_bounds) = mel_bound_params {
-        let bounds_mel = mel_bounds.clone().into_iter().map(|item| {
-            let MelBoundItem { ty, bound } = item;
+    let codec_bound_attr = if let Some(codec_bounds) = codec_bound_params {
+        let bounds_codec = codec_bounds.clone().into_iter().map(|item| {
+            let CodecBoundItem { ty, bound } = item;
             if let Some(explicit_bound) = bound {
                 quote! { #ty: #explicit_bound }
             } else {
                 quote! { #ty: ::#frame_support::__private::codec::MaxEncodedLen }
             }
         });
-        let bounds_encode = mel_bounds.clone().into_iter().map(|item| {
-            let MelBoundItem { ty, bound } = item;
+        let bounds_encode = codec_bounds.clone().into_iter().map(|item| {
+            let CodecBoundItem { ty, bound } = item;
             if let Some(explicit_bound) = bound {
                 quote! { #ty: #explicit_bound }
             } else {
                 quote! { #ty: ::#frame_support::__private::codec::Encode }
             }
         });
-        let bounds_decode = mel_bounds.clone().into_iter().map(|item| {
-            let MelBoundItem { ty, bound } = item;
+        let bounds_decode = codec_bounds.clone().into_iter().map(|item| {
+            let CodecBoundItem { ty, bound } = item;
             if let Some(explicit_bound) = bound {
                 quote! { #ty: #explicit_bound }
             } else {
                 quote! { #ty: ::#frame_support::__private::codec::Decode }
             }
         });
-        let bounds_decode_mem_tracking = mel_bounds.clone().into_iter().map(|item| {
-            let MelBoundItem { ty, bound } = item;
+        let bounds_decode_mem_tracking = codec_bounds.clone().into_iter().map(|item| {
+            let CodecBoundItem { ty, bound } = item;
             if let Some(explicit_bound) = bound {
                 quote! { #ty: #explicit_bound }
             } else {
@@ -128,9 +117,9 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             #[codec(encode_bound( #(#bounds_encode),*))]
             #[codec(decode_bound( #(#bounds_decode),*))]
             #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
-            #[codec(mel_bound( #(#bounds_mel),* ))]
+            #[codec(codec_bound( #(#bounds_codec),* ))]
         }
-    } else if !no_bound_params.is_empty() {
+    } else if !skip_params.is_empty() {
         let all_generics: Vec<_> = input.generics.params.iter().filter_map(|param| {
             if let syn::GenericParam::Type(type_param) = param {
                 Some(&type_param.ident)
@@ -138,19 +127,19 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
                 None
             }
         }).collect();
-        let mel_bound_gens: Vec<_> = all_generics.into_iter()
-            .filter(|ident| !no_bound_params.contains(ident))
+        let codec_bound_gens: Vec<_> = all_generics.into_iter()
+            .filter(|ident| !skip_params.contains(ident))
             .collect();
-        let bounds_mel = mel_bound_gens.iter().map(|ident| {
+        let bounds_codec = codec_bound_gens.iter().map(|ident| {
             quote! { #ident: ::#frame_support::__private::codec::MaxEncodedLen }
         });
-        let bounds_encode = mel_bound_gens.iter().map(|ident| {
+        let bounds_encode = codec_bound_gens.iter().map(|ident| {
             quote! { #ident: ::#frame_support::__private::codec::Encode }
         });
-        let bounds_decode = mel_bound_gens.iter().map(|ident| {
+        let bounds_decode = codec_bound_gens.iter().map(|ident| {
             quote! { #ident: ::#frame_support::__private::codec::Decode }
         });
-        let bounds_decode_mem_tracking = mel_bound_gens.iter().map(|ident| {
+        let bounds_decode_mem_tracking = codec_bound_gens.iter().map(|ident| {
             quote! { #ident: ::#frame_support::__private::codec::DecodeWithMemTracking }
         });
 
@@ -158,35 +147,33 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             #[codec(encode_bound( #(#bounds_encode),*))]
             #[codec(decode_bound( #(#bounds_decode),*))]
             #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
-            #[codec(mel_bound( #(#bounds_mel),* ))]
+            #[codec(codec_bound( #(#bounds_codec),* ))]
         }
     } else {
         quote! {}
     };
 
-    // Retain the skip_list attribute as before.
-    let skip_list = if !no_bound_params.is_empty() {
+    let skip_list = if !skip_params.is_empty() {
         quote! {
-            #[scale_info(skip_type_params(#(#no_bound_params),*))]
+            #[scale_info(skip_type_params(#(#skip_params),*))]
         }
     } else {
         quote! {}
     };
 
-    let prefix = if !no_bound_params.is_empty() {
+    let prefix = if !skip_params.is_empty() {
         quote! { #frame_support }
     } else {
         quote! { #frame_support::pallet_prelude }
     };
 
     let (partial_eq_i, eq_i, clone_i, debug_i) =
-        if !no_bound_params.is_empty() {
+        if !skip_params.is_empty() {
             (
                 quote! { ::#prefix::PartialEqNoBound },
                 quote! { ::#prefix::EqNoBound },
                 quote! { ::#prefix::CloneNoBound },
                 quote! { ::#prefix::RuntimeDebugNoBound },
-                // Ident::new("RuntimeDebugNoBound", span),
             )
         } else {
             (
@@ -196,10 +183,6 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
                 quote! { ::#prefix::RuntimeDebug },
             )
         };
-
-    // let mem_tracking_derive = quote! {
-    //     #[cfg_attr(test, derive(DecodeWithMemTracking))]
-    // };
 
     let struct_ident = &input.ident;
     let (_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
@@ -223,9 +206,8 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     let common_attrs = quote! {
         #common_derives
-        // #mem_tracking_derive
         #skip_list
-        #codec_mel_bound_attr
+        #codec_bound_attr
         #still_bind_attr
         #(#attrs)*
     };
@@ -276,12 +258,11 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-/// Extracts type parameters from the attribute arguments for no_bounds and mel_bounds.
-fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<MelBoundItem>>) {
-    let mut no_bounds = Vec::new();
-    let mut mel_bounds: Option<Vec<MelBoundItem>> = None;
+fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<CodecBoundItem>>) {
+    let mut skip = Vec::new();
+    let mut codec_bounds: Option<Vec<CodecBoundItem>> = None;
     if args.is_empty() {
-        return (no_bounds, None);
+        return (skip, None);
     }
     let parsed = Punctuated::<syn::Meta, Token![,]>::parse_terminated
         .parse2(args.into())
@@ -289,15 +270,15 @@ fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<MelBoundItem>
     for meta in parsed {
         if let syn::Meta::List(meta_list) = meta {
             if let Some(ident) = meta_list.path.get_ident() {
-                if ident == "no_bounds" {
+                if ident == "skip" {
                     let ident_list: IdentList = syn::parse2(meta_list.tokens).unwrap_or_default();
-                    no_bounds.extend(ident_list.0.into_iter());
-                } else if ident == "mel_bounds" {
-                    let mel_bound_list: MelBoundList = syn::parse2(meta_list.tokens).unwrap_or_default();
-                    mel_bounds = Some(mel_bound_list.0.into_iter().collect());
+                    skip.extend(ident_list.0.into_iter());
+                } else if ident == "codec_bounds" {
+                    let codec_bound_list: CodecBoundList = syn::parse2(meta_list.tokens).unwrap_or_default();
+                    codec_bounds = Some(codec_bound_list.0.into_iter().collect());
                 }
             }
         }
     }
-    (no_bounds, mel_bounds)
+    (skip, codec_bounds)
 }
