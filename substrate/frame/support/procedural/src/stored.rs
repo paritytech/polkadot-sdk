@@ -5,6 +5,7 @@ use syn::{
 };
 use syn::punctuated::Punctuated;
 use syn::parse::{Parse, ParseStream, Parser};
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 
 /// A helper struct to hold a comma-separated list of identifiers, e.g. no_bounds(A, B, C).
 #[derive(Default)]
@@ -54,6 +55,12 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     let (no_bound_params, mel_bound_params) = parse_stored_args(attr);
     let mut input = parse_macro_input!(input as DeriveInput);
 
+    // Grab path.
+    let frame_support = match generate_access_from_frame_or_crate("frame-support") {
+		Ok(path) => path,
+		Err(err) => return err.to_compile_error().into(),
+	};
+
     // Remove the #[stored] attribute to prevent re-emission.
     input.attrs.retain(|attr| !attr.path().is_ident("stored"));
 
@@ -90,7 +97,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             if let Some(explicit_bound) = bound {
                 quote! { #ty: #explicit_bound }
             } else {
-                quote! { #ty: MaxEncodedLen }
+                quote! { #ty: ::#frame_support::__private::codec::MaxEncodedLen }
             }
         });
         let bounds_encode = mel_bounds.clone().into_iter().map(|item| {
@@ -98,7 +105,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             if let Some(explicit_bound) = bound {
                 quote! { #ty: #explicit_bound }
             } else {
-                quote! { #ty: Encode }
+                quote! { #ty: ::#frame_support::__private::codec::Encode }
             }
         });
         let bounds_decode = mel_bounds.clone().into_iter().map(|item| {
@@ -106,7 +113,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             if let Some(explicit_bound) = bound {
                 quote! { #ty: #explicit_bound }
             } else {
-                quote! { #ty: Decode }
+                quote! { #ty: ::#frame_support::__private::codec::Decode }
             }
         });
         let bounds_decode_mem_tracking = mel_bounds.clone().into_iter().map(|item| {
@@ -114,7 +121,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             if let Some(explicit_bound) = bound {
                 quote! { #ty: #explicit_bound }
             } else {
-                quote! { #ty: DecodeWithMemTracking }
+                quote! { #ty: ::#frame_support::__private::codec::DecodeWithMemTracking }
             }
         });
         quote! {
@@ -135,16 +142,16 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             .filter(|ident| !no_bound_params.contains(ident))
             .collect();
         let bounds_mel = mel_bound_gens.iter().map(|ident| {
-            quote! { #ident: MaxEncodedLen }
+            quote! { #ident: ::#frame_support::__private::codec::MaxEncodedLen }
         });
         let bounds_encode = mel_bound_gens.iter().map(|ident| {
-            quote! { #ident: Encode }
+            quote! { #ident: ::#frame_support::__private::codec::Encode }
         });
         let bounds_decode = mel_bound_gens.iter().map(|ident| {
-            quote! { #ident: Decode }
+            quote! { #ident: ::#frame_support::__private::codec::Decode }
         });
         let bounds_decode_mem_tracking = mel_bound_gens.iter().map(|ident| {
-            quote! { #ident: DecodeWithMemTracking }
+            quote! { #ident: ::#frame_support::__private::codec::DecodeWithMemTracking }
         });
 
         quote! {
@@ -166,22 +173,27 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    // Choose derive macros. (Left unchanged.)
-    let span = input.ident.span();
+    let prefix = if !no_bound_params.is_empty() {
+        quote! { #frame_support }
+    } else {
+        quote! { #frame_support::pallet_prelude }
+    };
+
     let (partial_eq_i, eq_i, clone_i, debug_i) =
         if !no_bound_params.is_empty() {
             (
-                Ident::new("PartialEqNoBound", span),
-                Ident::new("EqNoBound", span),
-                Ident::new("CloneNoBound", span),
-                Ident::new("RuntimeDebugNoBound", span),
+                quote! { ::#prefix::PartialEqNoBound },
+                quote! { ::#prefix::EqNoBound },
+                quote! { ::#prefix::CloneNoBound },
+                quote! { ::#prefix::RuntimeDebugNoBound },
+                // Ident::new("RuntimeDebugNoBound", span),
             )
         } else {
             (
-                Ident::new("PartialEq", span),
-                Ident::new("Eq", span),
-                Ident::new("Clone", span),
-                Ident::new("RuntimeDebug", span),
+                quote! { ::core::cmp::PartialEq },
+                quote! { ::core::cmp::Eq },
+                quote! { ::core::clone::Clone },
+                quote! { ::#prefix::RuntimeDebug },
             )
         };
 
@@ -201,11 +213,11 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             #clone_i,
             #eq_i,
             #debug_i,
-            Encode,
-            Decode,
-            DecodeWithMemTracking,
-            TypeInfo,
-            MaxEncodedLen
+            ::#frame_support::__private::codec::MaxEncodedLen,
+			::#frame_support::__private::codec::Encode,
+			::#frame_support::__private::codec::Decode,
+            ::#frame_support::__private::codec::DecodeWithMemTracking,
+			::#frame_support::__private::scale_info::TypeInfo,
         )]
     };
 
