@@ -42,7 +42,7 @@ the API docs of our Rust crates. Includes:
 <!-- markdownlint-disable-next-line MD013 -->
 ![Current Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-latest.svg)&nbsp;&nbsp;![Next Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-next.svg)
 
-The Polkadot SDK is released every three months as a `stableYYMM` release. They are supported for
+The Polkadot SDK is released every three months as a `Polkadot stableYYMM` release. Each stable release is supported for
 one year with patches. See the next upcoming versions in the [Release
 Registry](https://github.com/paritytech/release-registry/) and more docs in [RELEASE.md](./docs/RELEASE.md).
 
