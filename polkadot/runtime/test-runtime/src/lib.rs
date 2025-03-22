@@ -729,6 +729,7 @@ pub mod pallet_test_notifier {
 				.map_err(|_| Error::<T>::BadAccountFormat)?;
 			let qid = <pallet_xcm::Pallet<T> as XcmQueryHandler>::new_query(
 				Junction::AccountId32 { network: None, id },
+				None,
 				100u32.into(),
 				Here,
 			);
