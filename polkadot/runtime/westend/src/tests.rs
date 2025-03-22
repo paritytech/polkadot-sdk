@@ -263,7 +263,14 @@ mod remote_tests {
 			transport,
 			state_snapshot: maybe_state_snapshot.clone(),
 			child_trie: false,
-			pallets: vec!["Staking".into(), "System".into(), "Balances".into()],
+			pallets: vec![
+				"Staking".into(),
+				"System".into(),
+				"Balances".into(),
+				"NominationPools".into(),
+				"DelegatedStaking".into(),
+				"VoterList".into(),
+			],
 			..Default::default()
 		};
 		let mut ext = Builder::<Block>::default()
@@ -286,8 +293,11 @@ mod remote_tests {
 
 			let mut success = 0;
 			let mut err = 0;
+			let mut no_migration_needed = 0;
 			let mut force_withdraw_acc = 0;
-			// iterate over all pools
+			let mut force_withdraw_count = 0;
+			let mut max_force_withdraw = 0;
+			// iterate over all stakers
 			pallet_staking::Ledger::<Runtime>::iter().for_each(|(ctrl, ledger)| {
 				match pallet_staking::Pallet::<Runtime>::migrate_currency(
 					RuntimeOrigin::signed(alice.clone()).into(),
@@ -299,23 +309,32 @@ mod remote_tests {
 						let force_withdraw = ledger.total - updated_ledger.total;
 						if force_withdraw > 0 {
 							force_withdraw_acc += force_withdraw;
-							log::info!(target: "remote_test", "Force withdraw from stash {:?}: value {:?}", ledger.stash, force_withdraw);
+							force_withdraw_count += 1;
+							max_force_withdraw = max_force_withdraw.max(force_withdraw);
+							log::debug!(target: "remote_test", "Force withdraw from stash {:?}: value {:?}", ledger.stash, force_withdraw);
 						}
 						success += 1;
 					},
 					Err(e) => {
-						log::error!(target: "remote_test", "Error migrating {:?}: {:?}", ledger.stash, e);
-						err += 1;
+						if e == pallet_staking::Error::<Runtime>::AlreadyMigrated.into() {
+							no_migration_needed += 1;
+						} else {
+							log::error!(target: "remote_test", "Error migrating {:?}: {:?}", ledger.stash, e);
+							err += 1;
+						}
 					},
 				}
 			});
 
 			log::info!(
 				target: "remote_test",
-				"Migration stats: success: {}, err: {}, total force withdrawn stake: {}",
+				"Migration stats: success: {}, err: {}, total force withdrawn stake: {}, count {}, maximum amount {}, no_migration_needed: {}",
 				success,
 				err,
-				force_withdraw_acc
+				force_withdraw_acc,
+				force_withdraw_count,
+				max_force_withdraw,
+				no_migration_needed
 			);
 		});
 
