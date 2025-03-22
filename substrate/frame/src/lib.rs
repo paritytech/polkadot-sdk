@@ -189,7 +189,7 @@ pub mod prelude {
 	/// `frame_system`'s parent crate, which is mandatory in all pallets build with this crate.
 	///
 	/// Conveniently, the keyword `frame_system` is in scope as one uses `use
-	/// polkadot_sdk_frame::prelude::*`
+	/// polkadot_sdk_frame::prelude::*`.
 	#[doc(inline)]
 	pub use frame_system;
 
@@ -199,13 +199,17 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
-	/// Dispatch types from `frame-support`, other fundamental traits
+	/// Dispatch types from `frame-support`, other fundamental traits.
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, FindAuthor, IsSubType,
-		MapSuccess, NoOpPoll, OnRuntimeUpgrade, OnTimestampSet, OneSessionHandler, RankedMembers,
-		RankedMembersSwapHandler, VariantCount, VariantCountOf,
+	pub use frame_support::{
+		traits::{
+			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
+			Everything, FindAuthor, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade,
+			OnTimestampSet, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			RankedMembersSwapHandler, VariantCount, VariantCountOf,
+		},
+		PalletId,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -222,6 +226,7 @@ pub mod prelude {
 
 	/// All hashing related things.
 	pub use super::cryptography::*;
+	pub use super::hashing::*;
 
 	/// All account related things.
 	pub use super::account::*;
@@ -229,12 +234,15 @@ pub mod prelude {
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
+	/// All token related types and traits.
+	pub use super::token::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, IsMember, OpaqueKeys,
-		ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
-		TrailingZeroInput, ValidateUnsigned,
+		AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, DispatchInfoOf,
+		Dispatchable, IsMember, OpaqueKeys, ReduceBy, ReplaceWithDefault, SaturatedConversion,
+		Saturating, StaticLookup, TrailingZeroInput, ValidateUnsigned,
 	};
 
 	/// Bounded storage related types.
@@ -545,6 +553,20 @@ pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }
 
+/// All token related types and traits.
+pub mod token {
+	pub use frame_support::traits::{
+		tokens,
+		tokens::{
+			currency, fungible, fungibles, imbalance, nonfungible, nonfungible_v2, nonfungibles,
+			nonfungibles_v2, pay, AssetId, BalanceStatus, DepositConsequence, ExistenceRequirement,
+			Fortitude, Pay, Precision, Preservation, Provenance, WithdrawConsequence,
+			WithdrawReasons,
+		},
+		OnUnbalanced,
+	};
+}
+
 /// All derive macros used in frame.
 ///
 /// This is already part of the [`prelude`].
@@ -556,6 +578,13 @@ pub mod derive {
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	pub use scale_info::TypeInfo;
+	pub use serde;
+	/// The `serde` `Serialize`/`Deserialize` derive macros and traits.
+	///
+	/// You will either need to add `serde` as a dependency in your crate's `Cargo.toml`
+	/// or specify the `#[serde(crate = "PATH_TO_THIS_CRATE::serde")]` attribute that points
+	/// to the path where serde can be found.
+	pub use serde::{Deserialize, Serialize};
 	pub use sp_runtime::RuntimeDebug;
 }
 
