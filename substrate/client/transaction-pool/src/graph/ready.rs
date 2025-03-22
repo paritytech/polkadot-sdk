@@ -24,10 +24,10 @@ use std::{
 };
 
 use crate::LOG_TARGET;
-use log::trace;
 use sc_transaction_pool_api::error;
 use serde::Serialize;
 use sp_runtime::{traits::Member, transaction_validity::TransactionTag as Tag};
+use tracing::trace;
 
 use super::{
 	base_pool::Transaction,
@@ -313,7 +313,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 				}
 
 				// add to removed
-				trace!(target: LOG_TARGET, "[{:?}] Removed as part of the subtree.", hash);
+				trace!(target: LOG_TARGET, ?hash, "Removed as part of the subtree.");
 				removed.push(tx.transaction.transaction);
 			}
 		}
@@ -521,8 +521,8 @@ impl<Hash: hash::Hash + Member, Ex> BestIterator<Hash, Ex> {
 		if let Some(to_report) = self.all.get(&tx.hash) {
 			trace!(
 				target: LOG_TARGET,
-				"[{:?}] best-iterator: Reported as invalid. Will skip sub-chains while iterating.",
-				to_report.transaction.transaction.hash
+				hash = ?to_report.transaction.transaction.hash,
+				"best-iterator: Reported as invalid. Will skip sub-chains while iterating."
 			);
 			for hash in &to_report.unlocks {
 				self.invalid.insert(hash.clone());
@@ -544,7 +544,8 @@ impl<Hash: hash::Hash + Member, Ex> Iterator for BestIterator<Hash, Ex> {
 			if self.invalid.contains(hash) {
 				trace!(
 					target: LOG_TARGET,
-					"[{:?}] Skipping invalid child transaction while iterating.", hash,
+					?hash,
+					"Skipping invalid child transaction while iterating."
 				);
 				continue
 			}
