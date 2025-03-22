@@ -386,7 +386,7 @@ fn stored_compiles() {
 		StorageValue<Pallet<T>, GenericEnumFirstBoundWhere<T, u32>, OptionQuery>;
 	let _ = <GenericEnumFirstBoundWhereStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Empty codec_bound
+	// Empty codec_bounds
 	#[stored(skip(T, U), codec_bounds())]
 	enum CodecBoundEmpty<T: Config, U: Config> {
 		A(BlockNumberFor<T>),
@@ -397,7 +397,7 @@ fn stored_compiles() {
 		StorageValue<Pallet<T>, CodecBoundEmpty<T, T>, OptionQuery>;
 	let _ = <CodecBoundEmptyStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Shorthand codec_bound
+	// Shorthand codec_bounds
 	#[stored(codec_bounds(T, U))]
 	enum CodecBoundShorthand<T, U> {
 		A {
@@ -412,7 +412,7 @@ fn stored_compiles() {
 		StorageValue<Pallet<T>, CodecBoundShorthand<u32, u32>, OptionQuery>;
 	let _ = <CodecBoundShorthandStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-	// Explicit codec_bound
+	// Explicit codec_bounds
 	#[stored(codec_bounds(T: MaxEncodedLen, U))]
 	enum CodecBoundExplicit<T, U> {
 		A {
