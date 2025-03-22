@@ -1364,8 +1364,6 @@ pub mod pallet {
 									PaymentStatus::InProgress =>
 										return Err(Error::<T, I>::FundingInconclusive.into()),
 									PaymentStatus::Unknown | PaymentStatus::Failure => {
-										// TODO: should we assume payment has failed on unknown? not
-										// sure yet
 										*payment_status = PaymentState::Failed;
 										// user can retry from this tate
 										return Ok(Pays::No.into());
