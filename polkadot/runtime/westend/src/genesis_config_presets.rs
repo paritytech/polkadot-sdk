@@ -140,7 +140,6 @@ fn default_parachains_host_configuration(
 			lookahead: 3,
 			group_rotation_frequency: 20,
 			paras_availability_period: 4,
-			num_cores: 1,
 			..Default::default()
 		},
 		approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 5 },
