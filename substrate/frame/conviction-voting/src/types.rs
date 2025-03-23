@@ -17,35 +17,22 @@
 
 //! Miscellaneous additional datatypes.
 
-use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use core::{fmt::Debug, marker::PhantomData};
+use codec::DecodeWithMemTracking;
+use core::{marker::PhantomData};
 use frame_support::{
-	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	traits::VoteTally,
 };
-use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	RuntimeDebug,
 };
 
 use super::*;
 use crate::{AccountVote, Conviction, Vote};
 
 /// Info regarding an ongoing referendum.
-#[derive(
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(Total))]
-#[codec(mel_bound(Votes: MaxEncodedLen))]
-pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total> {
+#[frame_support::stored(skip(Total))]
+#[derive(DecodeWithMemTracking)]
+pub struct Tally<Votes, Total> {
 	/// The number of aye votes, expressed in terms of post-conviction lock-vote.
 	pub ayes: Votes,
 	/// The number of nay votes, expressed in terms of post-conviction lock-vote.
@@ -57,7 +44,7 @@ pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total
 }
 
 impl<
-		Votes: Clone + Default + PartialEq + Eq + Debug + Copy + AtLeast32BitUnsigned + TypeInfo + Codec,
+		Votes: Default + Copy + AtLeast32BitUnsigned,
 		Total: Get<Votes>,
 		Class,
 	> VoteTally<Votes, Class> for Tally<Votes, Total>
@@ -100,7 +87,7 @@ impl<
 }
 
 impl<
-		Votes: Clone + Default + PartialEq + Eq + Debug + Copy + AtLeast32BitUnsigned + TypeInfo + Codec,
+		Votes: Copy + AtLeast32BitUnsigned,
 		Total: Get<Votes>,
 	> Tally<Votes, Total>
 {
@@ -213,9 +200,8 @@ impl<
 }
 
 /// Amount of votes and capital placed in delegation for an account.
-#[derive(
-	Encode, Decode, Default, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
-)]
+#[frame_support::stored]
+#[derive(Default, Copy)]
 pub struct Delegations<Balance> {
 	/// The number of votes (this is post-conviction).
 	pub votes: Balance,

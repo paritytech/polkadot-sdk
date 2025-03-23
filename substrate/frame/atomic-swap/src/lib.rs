@@ -45,7 +45,7 @@ mod tests;
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::DecodeWithMemTracking;
 use core::{
 	marker::PhantomData,
 	ops::{Deref, DerefMut},
@@ -54,22 +54,10 @@ use frame::{
 	prelude::*,
 	traits::{BalanceStatus, Currency, ReservableCurrency},
 };
-use scale_info::TypeInfo;
 
 /// Pending atomic swap operation.
-#[derive(
-	Clone,
-	Eq,
-	PartialEq,
-	RuntimeDebugNoBound,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(T))]
-#[codec(mel_bound())]
+#[stored(skip(T))]
+#[derive(DecodeWithMemTracking)]
 pub struct PendingSwap<T: Config> {
 	/// Source of the swap.
 	pub source: T::AccountId,
@@ -102,19 +90,8 @@ pub trait SwapAction<AccountId, T: Config> {
 }
 
 /// A swap action that only allows transferring balances.
-#[derive(
-	Clone,
-	RuntimeDebug,
-	Eq,
-	PartialEq,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(C))]
-#[codec(mel_bound())]
+#[stored(skip(C), codec_bounds())]
+#[derive(DecodeWithMemTracking)]
 pub struct BalanceSwapAction<AccountId, C: ReservableCurrency<AccountId>> {
 	value: <C as Currency<AccountId>>::Balance,
 	_marker: PhantomData<C>,

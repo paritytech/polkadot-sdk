@@ -68,18 +68,8 @@ impl TypeInfo for Vote {
 }
 
 /// A vote for a referendum of a particular account.
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
-)]
+#[frame_support::stored]
+#[derive(Copy, DecodeWithMemTracking)]
 pub enum AccountVote<Balance> {
 	/// A standard vote, one-way (approve or reject) with a given amount of conviction.
 	Standard { vote: Vote, balance: Balance },
@@ -126,20 +116,8 @@ impl<Balance: Saturating> AccountVote<Balance> {
 }
 
 /// A "prior" lock, i.e. a lock for some now-forgotten reason.
-#[derive(
-	Encode,
-	Decode,
-	Default,
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
-)]
+#[frame_support::stored]
+#[derive(Default, Copy, Ord, PartialOrd)]
 pub struct PriorLock<BlockNumber, Balance>(BlockNumber, Balance);
 
 impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<BlockNumber, Balance> {
@@ -162,7 +140,7 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 }
 
 /// Information concerning the delegation of some voting power.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[frame_support::stored]
 pub struct Delegating<Balance, AccountId, BlockNumber> {
 	/// The amount of balance delegated.
 	pub balance: Balance,
@@ -178,9 +156,7 @@ pub struct Delegating<Balance, AccountId, BlockNumber> {
 }
 
 /// Information concerning the direct vote-casting of some voting power.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(MaxVotes))]
-#[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
+#[frame_support::stored(skip(MaxVotes))]
 pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
 where
 	MaxVotes: Get<u32>,
@@ -194,12 +170,7 @@ where
 }
 
 /// An indicator for what an account is doing; it can either be delegating or voting.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(MaxVotes))]
-#[codec(mel_bound(
-	Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen,
-	PollIndex: MaxEncodedLen,
-))]
+#[frame_support::stored(skip(MaxVotes))]
 pub enum Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
 where
 	MaxVotes: Get<u32>,

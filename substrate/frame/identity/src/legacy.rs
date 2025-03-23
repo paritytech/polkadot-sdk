@@ -17,11 +17,11 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 use alloc::vec;
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::DecodeWithMemTracking;
 #[cfg(feature = "runtime-benchmarks")]
 use enumflags2::BitFlag;
 use enumflags2::{bitflags, BitFlags};
-use frame_support::{traits::Get, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use frame_support::traits::Get;
 use scale_info::{build::Variants, Path, Type, TypeInfo};
 use sp_runtime::{BoundedVec, RuntimeDebug};
 
@@ -65,19 +65,8 @@ impl TypeInfo for IdentityField {
 ///
 /// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
 /// fields in a backwards compatible way through a specialized `Decode` impl.
-#[derive(
-	CloneNoBound,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	EqNoBound,
-	MaxEncodedLen,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-)]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(FieldLimit))]
+#[frame_support::stored(skip(FieldLimit))]
+#[derive(DecodeWithMemTracking)]
 pub struct IdentityInfo<FieldLimit: Get<u32>> {
 	/// Additional fields of the identity that are not catered for with the struct's explicit
 	/// fields.
