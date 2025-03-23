@@ -1,0 +1,27 @@
+title: Optimize origin checks
+doc:
+- audience: Runtime Dev
+  description: Optimize origin checks, avoid cloning and conversion when not needed.
+crates:
+- name: snowbridge-pallet-system
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: pallet-collective
+  bump: major
+- name: pallet-ranked-collective
+  bump: major
+- name: pallet-society
+  bump: major
+- name: frame-support
+  bump: major
+- name: frame-system
+  bump: major
+- name: pallet-treasury
+  bump: major
