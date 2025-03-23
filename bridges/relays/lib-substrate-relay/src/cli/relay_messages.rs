@@ -23,8 +23,8 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use sp_core::Pair;
 use clap::Parser;
+use sp_core::Pair;
 
 use bp_messages::MessageNonce;
 use bp_runtime::HeaderIdProvider;

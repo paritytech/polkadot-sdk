@@ -24,9 +24,9 @@ use crate::{
 	finality_base::engine::Engine,
 };
 use bp_runtime::Chain as ChainBase;
+use clap::Parser;
 use relay_substrate_client::{AccountKeyPairOf, Chain, UnsignedTransaction};
 use sp_core::Pair;
-use clap::Parser;
 
 /// Bridge initialization params.
 #[derive(Parser)]

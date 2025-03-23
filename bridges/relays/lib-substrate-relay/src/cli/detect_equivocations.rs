@@ -23,8 +23,8 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use relay_substrate_client::{ChainWithTransactions, Client};
 use clap::Parser;
+use relay_substrate_client::{ChainWithTransactions, Client};
 
 /// Start equivocation detection loop.
 #[derive(Parser)]

@@ -16,10 +16,10 @@
 
 //! Deal with CLI args of substrate-to-substrate relay.
 
+use clap::Parser;
 use rbtag::BuildInfo;
 use sp_runtime::traits::TryConvert;
 use std::str::FromStr;
-use clap::Parser;
 
 pub mod bridge;
 pub mod chain_schema;

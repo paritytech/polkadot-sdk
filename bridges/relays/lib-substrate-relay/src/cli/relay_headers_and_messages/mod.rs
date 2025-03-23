@@ -31,8 +31,8 @@ pub mod relay_to_relay;
 pub mod relay_to_parachain;
 
 use async_trait::async_trait;
-use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use clap::Parser;
+use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use futures::{FutureExt, TryFutureExt};
 
