@@ -46,7 +46,6 @@ impl Parse for CodecBoundList {
     }
 }
 
-// Pre clean.
 pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     let (skip_params, codec_bound_params) = parse_stored_args(attr);
     let mut input = parse_macro_input!(input as DeriveInput);
@@ -235,10 +234,9 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             },
         },
         Data::Enum(ref data_enum) => {
-            let variant_tokens: Vec<_> = data_enum.variants
+            let variant_tokens = data_enum.variants
                 .iter()
-                .map(|variant| quote! { #variant })
-                .collect();
+                .map(|variant| quote! { #variant });
             quote! {
                 #common_attrs
                 #vis enum #struct_ident #generics #where_clause {
@@ -261,7 +259,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
 
 fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<CodecBoundItem>>) {
     let mut skip = Vec::new();
-    let mut codec_bounds: Option<Vec<CodecBoundItem>> = None;
+    let mut codec_bounds = None;
     if args.is_empty() {
         return (skip, None);
     }
@@ -272,10 +270,12 @@ fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<CodecBoundIte
         if let syn::Meta::List(meta_list) = meta {
             if let Some(ident) = meta_list.path.get_ident() {
                 if ident == "skip" {
-                    let ident_list: IdentList = syn::parse2(meta_list.tokens).unwrap_or_default();
+                    let ident_list: IdentList =
+                        syn::parse2(meta_list.tokens).unwrap_or_default();
                     skip.extend(ident_list.0.into_iter());
                 } else if ident == "codec_bounds" {
-                    let codec_bound_list: CodecBoundList = syn::parse2(meta_list.tokens).unwrap_or_default();
+                    let codec_bound_list: CodecBoundList =
+                        syn::parse2(meta_list.tokens).unwrap_or_default();
                     codec_bounds = Some(codec_bound_list.0.into_iter().collect());
                 }
             }
