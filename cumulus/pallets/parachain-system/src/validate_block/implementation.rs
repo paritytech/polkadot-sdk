@@ -172,7 +172,7 @@ where
 	let num_blocks = blocks.len();
 
 	// Create the db
-	let mut db = match proof.to_memory_db(Some(parent_header.state_root())) {
+	let db = match proof.to_memory_db(Some(parent_header.state_root())) {
 		Ok((db, _)) => db,
 		Err(_) => panic!("Compact proof decoding failure."),
 	};
