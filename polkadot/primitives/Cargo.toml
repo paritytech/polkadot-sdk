@@ -36,9 +36,6 @@ sp-std = { workspace = true, optional = true }
 polkadot-core-primitives = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 
-[dev-dependencies]
-polkadot-primitives-test-helpers = { workspace = true }
-
 [features]
 default = ["std"]
 std = [

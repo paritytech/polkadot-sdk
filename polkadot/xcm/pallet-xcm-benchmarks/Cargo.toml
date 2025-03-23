@@ -34,9 +34,8 @@ sp-tracing = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 # temp
 pallet-xcm = { workspace = true, default-features = true }
-polkadot-runtime-common = { workspace = true, default-features = true }
-# westend-runtime = { path = "../../runtime/westend", features = ["runtime-benchmarks"] }
 polkadot-primitives = { workspace = true, default-features = true }
+polkadot-runtime-common = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
