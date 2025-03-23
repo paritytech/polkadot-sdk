@@ -131,9 +131,9 @@ where
 
 						if state.parent_storage_keys.len() == 0 && state.state_root.len() == 0 {
 							// hack for para override wasm
-							// todo: needs to refactor
+							// TODO: needs to refactor
 							let current_code_para_1000_k: Vec<u8> = hex!("cd710b30bd2eab0352ddcc26417aa194e2d1c22ba0a888147714a3487bd51c63b6ff6f7d467b87a9e8030000").into();
-							let para_1000_code_hash_kv = state.key_values.iter().find(|(k,v)| k == &current_code_para_1000_k);
+							let para_1000_code_hash_kv = state.key_values.iter().find(|(k,_v)| k == &current_code_para_1000_k);
 							let para_1000_code_hash_kv = para_1000_code_hash_kv.unwrap();
 							let mut session_current_index_value: Vec<u8> = vec![];
 							// DO NOT override paraSessionInfo anymore
@@ -179,7 +179,7 @@ where
 								// 	return None;
 								// }
 
-								let current_code_para_1000: Vec<u8> = hex!("cd710b30bd2eab0352ddcc26417aa194e2d1c22ba0a888147714a3487bd51c63b6ff6f7d467b87a9e8030000").into();
+								let _current_code_para_1000: Vec<u8> = hex!("cd710b30bd2eab0352ddcc26417aa194e2d1c22ba0a888147714a3487bd51c63b6ff6f7d467b87a9e8030000").into();
 								let code_refs_prefix = "cd710b30bd2eab0352ddcc26417aa1948c27d984a48a10b1ebf28036a4a4444b";
 								let code_by_hash_ref = "cd710b30bd2eab0352ddcc26417aa194383e6dcb39e0be0a2e6aeb8b94951ab6";
 								// if key.starts_with(&p) {
@@ -192,7 +192,7 @@ where
 								let code_by_hash_ref_prefix_1000_k = hex::decode(code_by_hash_ref_prefix_1000).unwrap();
 
 								if key == &code_refs_prefix_1000_k {
-									let inject_kv = injects_iter.find(|(k,v)| k.starts_with(&hex!("cd710b30bd2eab0352ddcc26417aa1948c27d984a48a10b1ebf28036a4a4444b")));
+									let inject_kv = injects_iter.find(|(k,_v)| k.starts_with(&hex!("cd710b30bd2eab0352ddcc26417aa1948c27d984a48a10b1ebf28036a4a4444b")));
 									if let Some((k,v)) = inject_kv {
 										debug!(target: LOG_TARGET, "code_refs(1000) old key: {}", hex::encode(key));
 										debug!(target: LOG_TARGET, "code_refs(1000) old value: {}", hex::encode(value));
@@ -204,7 +204,7 @@ where
 								}
 
 								if key == &code_by_hash_ref_prefix_1000_k {
-									let inject_kv = injects_iter.find(|(k,v)| k.starts_with(&hex!("cd710b30bd2eab0352ddcc26417aa194383e6dcb39e0be0a2e6aeb8b94951ab6")));
+									let inject_kv = injects_iter.find(|(k,_v)| k.starts_with(&hex!("cd710b30bd2eab0352ddcc26417aa194383e6dcb39e0be0a2e6aeb8b94951ab6")));
 									if let Some((k,v)) = inject_kv {
 										debug!(target: LOG_TARGET, "code_by_hash(1000) old key: {}", hex::encode(key));
 										debug!(target: LOG_TARGET, "code_by_hash(1000) old value: {}", HexDisplay::from(value));
