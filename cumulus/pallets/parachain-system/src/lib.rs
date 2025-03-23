@@ -1247,7 +1247,7 @@ impl<T: Config> Pallet<T> {
 				.head();
 			let target_head = channel.mqc_head.unwrap_or_default();
 
-			assert!(cur_head == target_head);
+			assert!(cur_head == target_head, "cur_head is not the same as target_head");
 		}
 
 		<LastHrmpMqcHeads<T>>::put(running_mqc_heads);

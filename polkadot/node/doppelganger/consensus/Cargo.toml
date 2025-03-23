@@ -25,6 +25,9 @@ polkadot-primitives = { workspace = true, features = ["std"], default-features =
 codec = { version = "3.6.12", default-features = false, package = "parity-scale-codec" }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = []
