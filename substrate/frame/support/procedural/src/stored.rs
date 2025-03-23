@@ -105,18 +105,18 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
                 quote! { #ty: ::#frame_support::__private::codec::Decode }
             }
         });
-        let bounds_decode_mem_tracking = codec_bounds.clone().into_iter().map(|item| {
-            let CodecBoundItem { ty, bound } = item;
-            if let Some(explicit_bound) = bound {
-                quote! { #ty: #explicit_bound }
-            } else {
-                quote! { #ty: ::#frame_support::__private::codec::DecodeWithMemTracking }
-            }
-        });
+        // let bounds_decode_mem_tracking = codec_bounds.clone().into_iter().map(|item| {
+        //     let CodecBoundItem { ty, bound } = item;
+        //     if let Some(explicit_bound) = bound {
+        //         quote! { #ty: #explicit_bound }
+        //     } else {
+        //         quote! { #ty: ::#frame_support::__private::codec::DecodeWithMemTracking }
+        //     }
+        // });
         quote! {
             #[codec(encode_bound( #(#bounds_encode),*))]
             #[codec(decode_bound( #(#bounds_decode),*))]
-            #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
+            // #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
             #[codec(mel_bound( #(#bounds_mel),* ))]
         }
     } else if !skip_params.is_empty() {
@@ -139,14 +139,14 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         let bounds_decode = codec_bound_gens.iter().map(|ident| {
             quote! { #ident: ::#frame_support::__private::codec::Decode }
         });
-        let bounds_decode_mem_tracking = codec_bound_gens.iter().map(|ident| {
-            quote! { #ident: ::#frame_support::__private::codec::DecodeWithMemTracking }
-        });
+        // let bounds_decode_mem_tracking = codec_bound_gens.iter().map(|ident| {
+        //     quote! { #ident: ::#frame_support::__private::codec::DecodeWithMemTracking }
+        // });
 
         quote! {
             #[codec(encode_bound( #(#bounds_encode),*))]
             #[codec(decode_bound( #(#bounds_decode),*))]
-            #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
+            // #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
             #[codec(mel_bound( #(#bounds_mel),* ))]
         }
     } else {
@@ -199,7 +199,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             ::#frame_support::__private::codec::MaxEncodedLen,
 			::#frame_support::__private::codec::Encode,
 			::#frame_support::__private::codec::Decode,
-            ::#frame_support::__private::codec::DecodeWithMemTracking,
+            // ::#frame_support::__private::codec::DecodeWithMemTracking,
 			::#frame_support::__private::scale_info::TypeInfo,
         )]
     };
