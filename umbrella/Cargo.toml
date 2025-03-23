@@ -102,6 +102,7 @@ std = [
 	"pallet-lottery?/std",
 	"pallet-membership?/std",
 	"pallet-message-queue?/std",
+	"pallet-meta-tx?/std",
 	"pallet-migrations?/std",
 	"pallet-mixnet?/std",
 	"pallet-mmr?/std",
@@ -299,6 +300,7 @@ runtime-benchmarks = [
 	"pallet-lottery?/runtime-benchmarks",
 	"pallet-membership?/runtime-benchmarks",
 	"pallet-message-queue?/runtime-benchmarks",
+	"pallet-meta-tx?/runtime-benchmarks",
 	"pallet-migrations?/runtime-benchmarks",
 	"pallet-mmr?/runtime-benchmarks",
 	"pallet-multisig?/runtime-benchmarks",
@@ -439,6 +441,7 @@ try-runtime = [
 	"pallet-lottery?/try-runtime",
 	"pallet-membership?/try-runtime",
 	"pallet-message-queue?/try-runtime",
+	"pallet-meta-tx?/try-runtime",
 	"pallet-migrations?/try-runtime",
 	"pallet-mixnet?/try-runtime",
 	"pallet-mmr?/try-runtime",
@@ -511,6 +514,7 @@ serde = [
 	"pallet-conviction-voting?/serde",
 	"pallet-democracy?/serde",
 	"pallet-message-queue?/serde",
+	"pallet-meta-tx?/serde",
 	"pallet-offences?/serde",
 	"pallet-parameters?/serde",
 	"pallet-referenda?/serde",
@@ -654,6 +658,7 @@ runtime-full = [
 	"pallet-lottery",
 	"pallet-membership",
 	"pallet-message-queue",
+	"pallet-meta-tx",
 	"pallet-migrations",
 	"pallet-mixnet",
 	"pallet-mmr",
@@ -1499,6 +1504,11 @@ path = "../substrate/frame/membership"
 default-features = false
 optional = true
 path = "../substrate/frame/message-queue"
+
+[dependencies.pallet-meta-tx]
+default-features = false
+optional = true
+path = "../substrate/frame/meta-tx"
 
 [dependencies.pallet-migrations]
 default-features = false
