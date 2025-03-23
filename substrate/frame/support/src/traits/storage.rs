@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 pub use sp_core::storage::TrackedStorageKey;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{Convert, Member, Saturating},
+	traits::{Convert, Member},
 	DispatchError, RuntimeDebug,
 };
 
@@ -292,9 +292,7 @@ macro_rules! impl_incrementable {
 		$(
 			impl Incrementable for $type {
 				fn increment(&self) -> Option<Self> {
-					let mut val = self.clone();
-					val.saturating_inc();
-					Some(val)
+					self.checked_add(1)
 				}
 
 				fn initial_value() -> Option<Self> {
@@ -331,6 +329,14 @@ mod tests {
 	use super::*;
 	use crate::BoundedVec;
 	use sp_core::{ConstU32, ConstU64};
+
+	#[test]
+	fn incrementable_works() {
+		assert_eq!(0u8.increment(), Some(1));
+		assert_eq!(1u8.increment(), Some(2));
+
+		assert_eq!(u8::MAX.increment(), None);
+	}
 
 	#[test]
 	fn linear_storage_price_works() {

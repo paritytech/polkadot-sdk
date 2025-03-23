@@ -495,6 +495,8 @@ pub mod pallet {
 		RefcountOverOrUnderflow,
 		/// Unsupported precompile address
 		UnsupportedPrecompileAddress,
+		/// Precompile Error
+		PrecompileFailure,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -1159,7 +1161,7 @@ where
 			Err(_) => return Err(EthTransactError::Message("Failed to convert value".into())),
 		};
 
-		let input = tx.input.clone().unwrap_or_default().0;
+		let input = tx.input.clone().to_vec();
 
 		let extract_error = |err| {
 			if err == Error::<T>::TransferFailed.into() ||
