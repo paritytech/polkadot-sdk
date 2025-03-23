@@ -46,6 +46,7 @@ impl Parse for CodecBoundList {
     }
 }
 
+// Pre clean.
 pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     let (skip_params, codec_bound_params) = parse_stored_args(attr);
     let mut input = parse_macro_input!(input as DeriveInput);
