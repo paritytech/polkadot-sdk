@@ -78,7 +78,7 @@ async fn batch_revalidate<Api: ChainApi>(
 		Ok(None) => {
 			trace!(
 				target: LOG_TARGET,
-			   ?at,
+				   ?at,
 				"Revalidation skipped: could not get block number"
 			);
 			return
@@ -86,7 +86,7 @@ async fn batch_revalidate<Api: ChainApi>(
 		Err(error) => {
 			trace!(
 				target: LOG_TARGET,
-				   ?at,
+				?at,
 				?error,
 				"Revalidation skipped at block."
 			);
@@ -122,7 +122,7 @@ async fn batch_revalidate<Api: ChainApi>(
 				trace!(
 					target: LOG_TARGET,
 					?ext_hash,
-				   ?error,
+					?error,
 					"Unknown during revalidation."
 				);
 			},
@@ -143,7 +143,7 @@ async fn batch_revalidate<Api: ChainApi>(
 				trace!(
 					target: LOG_TARGET,
 					?ext_hash,
-					   ?error,
+					?error,
 					"Removing due to error during revalidation."
 				);
 				invalid_hashes.push(ext_hash);
