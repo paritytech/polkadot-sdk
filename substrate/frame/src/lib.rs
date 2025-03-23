@@ -207,7 +207,7 @@ pub mod prelude {
 			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
 			Everything, FindAuthor, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade,
 			OnTimestampSet, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-			RankedMembersSwapHandler, VariantCount, VariantCountOf,
+			VariantCount, VariantCountOf,
 		},
 		PalletId,
 	};
@@ -226,7 +226,6 @@ pub mod prelude {
 
 	/// All hashing related things.
 	pub use super::cryptography::*;
-	pub use super::hashing::*;
 
 	/// All account related things.
 	pub use super::account::*;
