@@ -81,37 +81,17 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     let codec_bound_attr = if let Some(codec_bounds) = codec_bound_params {
-        let bounds_mel = codec_bounds.clone().into_iter().map(|item| {
-            let CodecBoundItem { ty, bound } = item;
-            if let Some(explicit_bound) = bound {
-                quote! { #ty: #explicit_bound }
-            } else {
-                quote! { #ty: ::#frame_support::__private::codec::MaxEncodedLen }
-            }
+        let bounds_mel = codec_bounds.iter().map(|item| {
+            bound_clause(item, quote! { ::#frame_support::__private::codec::MaxEncodedLen })
         });
-        let bounds_encode = codec_bounds.clone().into_iter().map(|item| {
-            let CodecBoundItem { ty, bound } = item;
-            if let Some(explicit_bound) = bound {
-                quote! { #ty: #explicit_bound }
-            } else {
-                quote! { #ty: ::#frame_support::__private::codec::Encode }
-            }
+        let bounds_encode = codec_bounds.iter().map(|item| {
+            bound_clause(item, quote! { ::#frame_support::__private::codec::Encode })
         });
-        let bounds_decode = codec_bounds.clone().into_iter().map(|item| {
-            let CodecBoundItem { ty, bound } = item;
-            if let Some(explicit_bound) = bound {
-                quote! { #ty: #explicit_bound }
-            } else {
-                quote! { #ty: ::#frame_support::__private::codec::Decode }
-            }
+        let bounds_decode = codec_bounds.iter().map(|item| {
+            bound_clause(item, quote! { ::#frame_support::__private::codec::Decode })
         });
-        // let bounds_decode_mem_tracking = codec_bounds.clone().into_iter().map(|item| {
-        //     let CodecBoundItem { ty, bound } = item;
-        //     if let Some(explicit_bound) = bound {
-        //         quote! { #ty: #explicit_bound }
-        //     } else {
-        //         quote! { #ty: ::#frame_support::__private::codec::DecodeWithMemTracking }
-        //     }
+        // let bounds_decode_with_mem_tracking = codec_bounds.iter().map(|item| {
+        //     bound_clause(item, quote! { ::#frame_support::__private::codec::DecodeWithMemTracking })
         // });
         quote! {
             #[codec(encode_bound( #(#bounds_encode),*))]
@@ -282,4 +262,13 @@ fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<CodecBoundIte
         }
     }
     (skip, codec_bounds)
+}
+
+fn bound_clause(item: &CodecBoundItem, default_bound: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    let ty = &item.ty;
+    if let Some(ref explicit_bound) = item.bound {
+        quote! { #ty: #explicit_bound }
+    } else {
+        quote! { #ty: #default_bound }
+    }
 }
