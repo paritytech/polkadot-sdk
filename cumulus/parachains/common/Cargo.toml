@@ -35,6 +35,7 @@ sp-runtime = { workspace = true }
 # Polkadot
 pallet-xcm = { workspace = true }
 polkadot-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
