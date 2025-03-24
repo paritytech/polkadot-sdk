@@ -507,7 +507,7 @@ fn pop_assignment_for_core_works() {
 
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
-		assert_eq!(CoretimeAssigner::pop_assignment_for_core(core_idx), None);
+		assert_eq!(CoretimeAssigner::advance_assignments(|_| false), BTreeMap::new());
 
 		// Case 2: Assignment pool
 		assert_ok!(CoretimeAssigner::assign_core(
@@ -520,8 +520,8 @@ fn pop_assignment_for_core_works() {
 		run_to_block(21, |n| if n == 21 { Some(Default::default()) } else { None });
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Pool { para_id, core_index: 0.into() })
+			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
+			Some(&para_id)
 		);
 
 		// Case 3: Assignment task
@@ -535,8 +535,8 @@ fn pop_assignment_for_core_works() {
 		run_to_block(31, |n| if n == 31 { Some(Default::default()) } else { None });
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(para_id))
+			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
+			Some(&para_id)
 		);
 	});
 }
