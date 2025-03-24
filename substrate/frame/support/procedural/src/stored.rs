@@ -120,34 +120,29 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    let scale_skip_attr = if !skip_params.is_empty() {
-        quote! {
+    let use_no_bounds_derives = !skip_params.is_empty();
+
+    let mut scale_skip_attr = quote! {};
+    if use_no_bounds_derives {
+        scale_skip_attr = quote! {
             #[scale_info(skip_type_params(#(#skip_params),*))]
         }
-    } else {
-        quote! {}
-    };
-
-    let prefix = if !skip_params.is_empty() {
-        quote! { #frame_support }
-    } else {
-        quote! { #frame_support::pallet_prelude }
-    };
-
+    }
+    
     let (partial_eq_i, eq_i, clone_i, debug_i) =
-        if !skip_params.is_empty() {
+        if use_no_bounds_derives {
             (
-                quote! { ::#prefix::PartialEqNoBound },
-                quote! { ::#prefix::EqNoBound },
-                quote! { ::#prefix::CloneNoBound },
-                quote! { ::#prefix::RuntimeDebugNoBound },
+                quote! { ::#frame_support::PartialEqNoBound },
+                quote! { ::#frame_support::EqNoBound },
+                quote! { ::#frame_support::CloneNoBound },
+                quote! { ::#frame_support::RuntimeDebugNoBound },
             )
         } else {
             (
                 quote! { ::core::cmp::PartialEq },
                 quote! { ::core::cmp::Eq },
                 quote! { ::core::clone::Clone },
-                quote! { ::#prefix::RuntimeDebug },
+                quote! { ::#frame_support::pallet_prelude::RuntimeDebug },
             )
         };
 
