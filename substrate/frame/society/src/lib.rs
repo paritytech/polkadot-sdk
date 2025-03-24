@@ -1393,7 +1393,7 @@ pub mod pallet {
 		///
 		/// The dispatch origin for this call must be _Signed_ and must be the bidder.
 		///
-		/// The transaction fees is waived if the deposit is changed after poking/reconsideration.
+		/// The transaction fee is waived if the deposit is changed after poking/reconsideration.
 		///
 		/// Emits `DepositPoked` if successful.
 		#[pallet::call_index(20)]
