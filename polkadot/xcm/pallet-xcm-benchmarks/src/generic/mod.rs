@@ -75,10 +75,12 @@ pub mod pallet {
 
 		/// Return an origin, ticket, and assets that can be trapped and claimed.
 		fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError>;
-
-		/// Asset used to pay for fees. Used to buy weight in benchmarks, for example in
+		
+		/// The worst case buy execution weight limit and
+		/// asset to trigger the Trader::buy_execution in the XCM executor
+		/// Used to buy weight in benchmarks, for example in
 		/// `refund_surplus`.
-		fn fee_asset() -> Result<Asset, BenchmarkError>;
+		fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError>;
 
 		/// Return an unlocker, owner and assets that can be locked and unlocked.
 		fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError>;
@@ -106,13 +108,6 @@ pub mod pallet {
 				module_name: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::module_name(),
 				crate_version: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::crate_version(),
 			}
-		}
-
-		/// The worst case buy execution weight limit and
-		/// asset to trigger the Trader::buy_execution in the XCM executor
-		/// By default returns ((AssetId(Here.into()), 100_000_000u128), Unlimited)
-		fn worst_case_buy_execution() -> Result<(Asset, WeightLimit), BenchmarkError> {
-			Ok(((AssetId(Junctions::Here.into()), 100_000_000u128).into(), WeightLimit::Unlimited))
 		}
 	}
 

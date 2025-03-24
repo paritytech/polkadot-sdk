@@ -104,7 +104,7 @@ mod benchmarks {
 
 		// The worst case we want for buy execution in terms of
 		// fee asset and weight
-		let (fee_asset, weight_limit) = T::worst_case_buy_execution()?;
+		let (fee_asset, weight_limit) = T::worst_case_for_trader()?;
 
 		let instruction = Instruction::<XcmCallOf<T>>::BuyExecution {
 			fees: fee_asset,
@@ -129,7 +129,7 @@ mod benchmarks {
 		// Set some weight to be paid for.
 		executor.set_message_weight(Weight::from_parts(100_000_000, 100_000));
 
-		let fee_asset: Asset = T::fee_asset().unwrap();
+		let (fee_asset, _): (Asset, WeightLimit) = T::worst_case_for_trader().unwrap();
 
 		let instruction = Instruction::<XcmCallOf<T>>::PayFees { asset: fee_asset };
 
@@ -209,7 +209,8 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(Default::default());
 		let holding_assets = T::worst_case_holding(1);
 		// We can already buy execution since we'll load the holding register manually
-		let asset_for_fees = T::fee_asset().unwrap();
+		let (asset_for_fees, _): (Asset, WeightLimit) = T::worst_case_for_trader().unwrap();
+
 		let previous_xcm = Xcm(vec![BuyExecution {
 			fees: asset_for_fees,
 			weight_limit: Limited(Weight::from_parts(1337, 1337)),
