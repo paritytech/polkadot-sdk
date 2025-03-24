@@ -745,7 +745,7 @@ pub mod pallet {
 		}
 
 		/// Poke / update deposits for recovery configurations and active recoveries.
-		/// 
+		///
 		/// This can be used by accounts to possibly lower their locked amount.
 		///
 		/// The dispatch origin for this call must be _Signed_.
@@ -757,7 +757,7 @@ pub mod pallet {
 		///
 		/// If any deposit is updated, the difference will be reserved/unreserved from the caller's
 		/// account.
-		/// 
+		///
 		/// The transaction is made free if any deposit is updated and paid otherwise.
 		///
 		/// Emits `DepositPoked` if any deposit is updated.
@@ -814,7 +814,8 @@ pub mod pallet {
 
 			// Update active recovery deposit for all active recoveries
 			for lost_account in active_recoveries {
-				deposit_updated |= Self::update_active_recovery_deposit(&who, &lost_account, new_deposit)?;
+				deposit_updated |=
+					Self::update_active_recovery_deposit(&who, &lost_account, new_deposit)?;
 			}
 
 			Ok(if deposit_updated { Pays::No } else { Pays::Yes }.into())
@@ -849,38 +850,42 @@ impl<T: Config> Pallet<T> {
 		lost_account: &T::AccountId,
 		new_deposit: BalanceOf<T>,
 	) -> Result<bool, DispatchError> {
-		<ActiveRecoveries<T>>::try_mutate(lost_account, who, |maybe_recovery| -> Result<bool, DispatchError> {
-			let recovery = maybe_recovery.as_mut().ok_or(Error::<T>::NotStarted)?;
-			let old_deposit = recovery.deposit;
+		<ActiveRecoveries<T>>::try_mutate(
+			lost_account,
+			who,
+			|maybe_recovery| -> Result<bool, DispatchError> {
+				let recovery = maybe_recovery.as_mut().ok_or(Error::<T>::NotStarted)?;
+				let old_deposit = recovery.deposit;
 
-			// Skip if deposit hasn't changed
-			if recovery.deposit == new_deposit {
-				return Ok(false);
-			}
-
-			// Update deposit
-			if new_deposit > old_deposit {
-				let extra = new_deposit.saturating_sub(old_deposit);
-				T::Currency::reserve(who, extra)?;
-			} else {
-				let excess = old_deposit.saturating_sub(new_deposit);
-				let remaining_unreserved = T::Currency::unreserve(who, excess);
-				if !remaining_unreserved.is_zero() {
-					defensive!(
-						"Failed to unreserve full amount. (Requested, Actual)",
-						(excess, excess.saturating_sub(remaining_unreserved))
-					);
+				// Skip if deposit hasn't changed
+				if recovery.deposit == new_deposit {
+					return Ok(false);
 				}
-			}
-			recovery.deposit = new_deposit;
 
-			Self::deposit_event(Event::<T>::DepositPoked {
-				who: who.clone(),
-				kind: DepositKind::ActiveRecovery,
-				old_deposit,
-				new_deposit,
-			});
-			Ok(true)
-		})
+				// Update deposit
+				if new_deposit > old_deposit {
+					let extra = new_deposit.saturating_sub(old_deposit);
+					T::Currency::reserve(who, extra)?;
+				} else {
+					let excess = old_deposit.saturating_sub(new_deposit);
+					let remaining_unreserved = T::Currency::unreserve(who, excess);
+					if !remaining_unreserved.is_zero() {
+						defensive!(
+							"Failed to unreserve full amount. (Requested, Actual)",
+							(excess, excess.saturating_sub(remaining_unreserved))
+						);
+					}
+				}
+				recovery.deposit = new_deposit;
+
+				Self::deposit_event(Event::<T>::DepositPoked {
+					who: who.clone(),
+					kind: DepositKind::ActiveRecovery,
+					old_deposit,
+					new_deposit,
+				});
+				Ok(true)
+			},
+		)
 	}
 }
