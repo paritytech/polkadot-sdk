@@ -37,7 +37,7 @@ mod imports {
 		penpal_emulated_chain::{PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner},
 		people_westend_emulated_chain::{
 			people_westend_runtime::{
-				xcm_config::XcmConfig as PeopleWestendXcmConfig,
+				self, xcm_config::XcmConfig as PeopleWestendXcmConfig,
 				ExistentialDeposit as PeopleWestendExistentialDeposit,
 			},
 			PeopleWestendParaPallet as PeopleWestendPallet,
