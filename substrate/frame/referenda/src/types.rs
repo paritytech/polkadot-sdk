@@ -19,13 +19,13 @@
 
 use super::*;
 use alloc::borrow::Cow;
-use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
 	Parameter,
 };
-use scale_info::TypeInfo;
+use scale_info::{Type, TypeInfo};
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
 use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
 
@@ -118,13 +118,61 @@ pub struct Deposit<AccountId, Balance> {
 
 pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
 
+/// Helper structure to treat a `[u8; N]` array as a string.
+///
+/// This is a temporary fix (see [#7671](https://github.com/paritytech/polkadot-sdk/pull/7671)) in
+/// order to stop `polkadot.js` apps to fail when trying to decode the `name` field in `TrackInfo`.
+#[derive(Clone, Eq, DecodeWithMemTracking, PartialEq, Debug)]
+pub struct StringLike<const N: usize>(pub [u8; N]);
+
+impl<const N: usize> TypeInfo for StringLike<N> {
+	type Identity = <&'static str as TypeInfo>::Identity;
+
+	fn type_info() -> Type {
+		<&str as TypeInfo>::type_info()
+	}
+}
+
+impl<const N: usize> MaxEncodedLen for StringLike<N> {
+	fn max_encoded_len() -> usize {
+		<Compact<u32> as MaxEncodedLen>::max_encoded_len().saturating_add(N)
+	}
+}
+
+impl<const N: usize> Encode for StringLike<N> {
+	fn encode(&self) -> Vec<u8> {
+		use codec::Compact;
+		(Compact(N as u32), self.0).encode()
+	}
+}
+
+impl<const N: usize> Decode for StringLike<N> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let Compact(size): Compact<u32> = Decode::decode(input)?;
+		if size != N as u32 {
+			return Err("Invalid size".into());
+		}
+
+		let bytes: [u8; N] = Decode::decode(input)?;
+		Ok(Self(bytes))
+	}
+}
+
+/// Detailed information about the configuration of a referenda track. Used for internal storage.
+pub type TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> =
+	TrackDetails<Balance, Moment, [u8; N]>;
+
+/// Detailed information about the configuration of a referenda track. Used for const querying.
+pub type ConstTrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> =
+	TrackDetails<Balance, Moment, StringLike<N>>;
+
 /// Detailed information about the configuration of a referenda track
 #[derive(
 	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
 )]
-pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
+pub struct TrackDetails<Balance, Moment, Name> {
 	/// Name of this track.
-	pub name: [u8; N],
+	pub name: Name,
 	/// A limit for the number of referenda on this track that can be being decided at once.
 	/// For Root origin this should generally be just one.
 	pub max_deciding: u32,
@@ -794,5 +842,21 @@ mod tests {
 			BadTracksInfo::check_integrity(),
 			Err("The tracks that were returned by `tracks` were not sorted by `Id`")
 		);
+	}
+
+	#[test]
+	fn encoding_and_decoding_of_string_like_structure_works() {
+		let string_like = StringLike::<13>(*b"hello, world!");
+		let encoded: Vec<u8> = string_like.encode();
+
+		let decoded_as_vec: Vec<u8> =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as Vec<u8> should work");
+		assert_eq!(decoded_as_vec.len(), 13);
+		let decoded_as_str: alloc::string::String =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as str should work");
+		assert_eq!(decoded_as_str.len(), 13);
+		let decoded_as_string_like: StringLike<13> =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as StringLike should work");
+		assert_eq!(decoded_as_string_like.0.len(), 13);
 	}
 }
