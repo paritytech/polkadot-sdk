@@ -97,7 +97,7 @@ impl TryConvert<RcProxyType, ProxyType> for RcToProxyType {
 			RcProxyType::NonTransfer => Ok(ProxyType::NonTransfer),
 			RcProxyType::Governance => Ok(ProxyType::Governance),
 			RcProxyType::Staking => Ok(ProxyType::Staking),
-			RcProxyType::SudoBalances => Err(p),      // Does not exist on AH
+			RcProxyType::SudoBalances => Err(p), // Does not exist on AH
 			RcProxyType::IdentityJudgement => Err(p), // Does not exist on AH
 			RcProxyType::CancelProxy => Ok(ProxyType::CancelProxy),
 			RcProxyType::Auction => Err(p), // Does not exist on AH

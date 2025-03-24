@@ -11,6 +11,7 @@ repository.workspace = true
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
 frame-benchmarking = { workspace = true, optional = true }
+frame-election-provider-support = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 hex-literal = { workspace = true }
@@ -20,6 +21,7 @@ pallet-asset-rate = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-conviction-voting = { workspace = true }
+pallet-election-provider-multi-block = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-multisig = { workspace = true }

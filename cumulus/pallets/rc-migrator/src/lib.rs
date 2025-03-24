@@ -335,7 +335,7 @@ pub mod pallet {
 		+ pallet_treasury::Config
 		+ pallet_asset_rate::Config
 		+ pallet_slots::Config
-		+ pallet_crowdloan::Config
+		+ pallet_crowdloan::Config //+ pallet_staking::Config
 	{
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;

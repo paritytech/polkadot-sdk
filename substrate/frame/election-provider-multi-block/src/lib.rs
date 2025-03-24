@@ -982,27 +982,27 @@ pub mod pallet {
 
 	/// Desired number of targets to elect for this round.
 	#[pallet::storage]
-	type DesiredTargets<T> = StorageValue<_, u32>;
+	pub type DesiredTargets<T> = StorageValue<_, u32>;
 	/// Paginated voter snapshot. At most [`T::Pages`] keys will exist.
 	#[pallet::storage]
-	type PagedVoterSnapshot<T: Config> =
+	pub type PagedVoterSnapshot<T: Config> =
 		StorageMap<_, Twox64Concat, PageIndex, VoterPageOf<T::MinerConfig>>;
 	/// Same as [`PagedVoterSnapshot`], but it will store the hash of the snapshot.
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedVoterSnapshotHash<T: Config> = StorageMap<_, Twox64Concat, PageIndex, T::Hash>;
+	pub type PagedVoterSnapshotHash<T: Config> = StorageMap<_, Twox64Concat, PageIndex, T::Hash>;
 	/// Paginated target snapshot.
 	///
 	/// For the time being, since we assume one pages of targets, at most ONE key will exist.
 	#[pallet::storage]
-	type PagedTargetSnapshot<T: Config> =
+	pub type PagedTargetSnapshot<T: Config> =
 		StorageMap<_, Twox64Concat, PageIndex, BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>>;
 	/// Same as [`PagedTargetSnapshot`], but it will store the hash of the snapshot.
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedTargetSnapshotHash<T: Config> = StorageMap<_, Twox64Concat, PageIndex, T::Hash>;
+	pub type PagedTargetSnapshotHash<T: Config> = StorageMap<_, Twox64Concat, PageIndex, T::Hash>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);

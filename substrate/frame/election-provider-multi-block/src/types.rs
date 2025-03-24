@@ -170,19 +170,19 @@ impl<T: Default + Clone + Debug, Bound: frame_support::traits::Get<u32>> PadSolu
 // NOTE on naming conventions: type aliases that end with `Of` should always be `Of<T: Config>`.
 
 /// Alias for a voter, parameterized by the miner config.
-pub(crate) type VoterOf<T> = frame_election_provider_support::Voter<
+pub type VoterOf<T> = frame_election_provider_support::Voter<
 	<T as MinerConfig>::AccountId,
 	<T as MinerConfig>::MaxVotesPerVoter,
 >;
 
 /// Alias for a page of voters, parameterized by this crate's config.
-pub(crate) type VoterPageOf<T> = BoundedVec<VoterOf<T>, <T as MinerConfig>::VoterSnapshotPerBlock>;
+pub type VoterPageOf<T> = BoundedVec<VoterOf<T>, <T as MinerConfig>::VoterSnapshotPerBlock>;
 
 /// Alias for all pages of voters, parameterized by this crate's config.
-pub(crate) type AllVoterPagesOf<T> = BoundedVec<VoterPageOf<T>, <T as MinerConfig>::Pages>;
+pub type AllVoterPagesOf<T> = BoundedVec<VoterPageOf<T>, <T as MinerConfig>::Pages>;
 
 /// Maximum number of items that [`AllVoterPagesOf`] can contain, when flattened.
-pub(crate) struct MaxFlattenedVoters<T: MinerConfig>(sp_std::marker::PhantomData<T>);
+pub struct MaxFlattenedVoters<T: MinerConfig>(sp_std::marker::PhantomData<T>);
 impl<T: MinerConfig> Get<u32> for MaxFlattenedVoters<T> {
 	fn get() -> u32 {
 		T::VoterSnapshotPerBlock::get().saturating_mul(T::Pages::get())
@@ -193,7 +193,7 @@ impl<T: MinerConfig> Get<u32> for MaxFlattenedVoters<T> {
 /// flattened into one outer, unbounded `Vec` type.
 ///
 /// This is bounded by [`MaxFlattenedVoters`].
-pub(crate) type AllVoterPagesFlattenedOf<T> = BoundedVec<VoterOf<T>, MaxFlattenedVoters<T>>;
+pub type AllVoterPagesFlattenedOf<T> = BoundedVec<VoterOf<T>, MaxFlattenedVoters<T>>;
 
 /// Encodes the length of a solution or a snapshot.
 ///
