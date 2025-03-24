@@ -48,7 +48,10 @@ mod benchmarking;
 #[cfg(feature = "bridging")]
 pub mod bridging;
 pub mod weights;
+pub mod weights_ext;
+
 pub use weights::WeightInfo;
+pub use weights_ext::WeightInfoExt;
 
 extern crate alloc;
 
@@ -164,7 +167,7 @@ pub mod pallet {
 		type PriceForSiblingDelivery: PriceForMessageDelivery<Id = ParaId>;
 
 		/// The weight information of this pallet.
-		type WeightInfo: WeightInfo;
+		type WeightInfo: WeightInfoExt;
 	}
 
 	#[pallet::call]
@@ -637,13 +640,7 @@ impl<T: Config> Pallet<T> {
 	fn enqueue_xcmp_message(
 		sender: ParaId,
 		xcm: BoundedVec<u8, MaxXcmpMessageLenOf<T>>,
-		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
-		if meter.try_consume(T::WeightInfo::enqueue_xcmp_message()).is_err() {
-			defensive!("Out of weight: cannot enqueue XCMP messages; dropping msg");
-			return Err(())
-		}
-
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
 		let fp = T::XcmpQueue::footprint(sender);
 		// Assume that it will not fit into the current page:
@@ -791,7 +788,10 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							},
 						}
 					},
-				XcmpMessageFormat::ConcatenatedVersionedXcm =>
+				XcmpMessageFormat::ConcatenatedVersionedXcm => {
+					// We need to know if the current message is the first on the current XCMP page
+					// for weight metering accuracy.
+					let mut is_first_xcm_on_page = true;
 					while !data.is_empty() {
 						let Ok(xcm) = Self::take_first_concatenated_xcm(&mut data, &mut meter)
 						else {
@@ -799,14 +799,35 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							break
 						};
 
-						if let Err(()) = Self::enqueue_xcmp_message(sender, xcm, &mut meter) {
+						// For simplicity, we consider that each new XCMP page results in a new
+						// message queue page. This is not always true, but it's a good enough
+						// estimation.
+						if meter
+							.try_consume(T::WeightInfo::enqueue_xcmp_message(
+								xcm.len(),
+								is_first_xcm_on_page,
+							))
+							.is_err()
+						{
+							defensive!(
+								"Out of weight: cannot enqueue XCMP messages; dropping msg; \
+								Used weight: ",
+								meter.consumed_ratio()
+							);
+							break;
+						}
+
+						if let Err(()) = Self::enqueue_xcmp_message(sender, xcm) {
 							defensive!(
 								"Could not enqueue XCMP messages. Used weight: ",
 								meter.consumed_ratio()
 							);
 							break
 						}
-					},
+
+						is_first_xcm_on_page = false;
+					}
+				},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
 					defensive!("Blob messages are unhandled - dropping");
 					continue
