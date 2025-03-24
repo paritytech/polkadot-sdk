@@ -927,13 +927,6 @@ fn backing_works() {
 #[test]
 fn get_backed_candidate_preserves_order() {
 	let mut test_state = TestState::default();
-	test_state
-		.node_features
-		.resize((node_features::FeatureIndex::ElasticScalingMVP as u8 + 1) as usize, false);
-	test_state
-		.node_features
-		.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
-
 	// Set a single validator as the first validator group. It simplifies the test.
 	test_state.validator_groups.0[0] = vec![ValidatorIndex(2)];
 	// Add another validator group for the third core.
