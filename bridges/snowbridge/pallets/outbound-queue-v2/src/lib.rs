@@ -170,9 +170,11 @@ pub mod pallet {
 		},
 		/// Message was not committed due to some failure condition, like an overweight message.
 		MessageRejected {
-			/// ID of the message
+			/// ID of the message, if known (e.g. if a message is corrupt, the ID will not be
+			/// known).
 			id: Option<H256>,
-			/// The nonce assigned to this message
+			/// The nonce assigned to this message, if known (e.g. if a message is corrupt, the
+			/// nonce will not be known).
 			nonce: Option<u64>,
 			/// The error that was returned.
 			error: ProcessMessageError,
