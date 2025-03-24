@@ -19,27 +19,8 @@ import shutil
 
 from cargo_workspace import Workspace
 
-"""
-Crate names that should be excluded from the umbrella crate.
-"""
-def exclude(crate):
-	name = crate.name
-	if crate.metadata.get("polkadot-sdk.exclude-from-umbrella", False):
-		return True
-
-	# No fuzzers or examples:
-	if "example" in name or name.endswith("fuzzer"):
-		return True
-
-	# No runtime crates:
-	if name.endswith("-runtime"):
-		# Note: this is a bit hacky. We should use custom crate metadata instead.
-		return name != "sp-runtime" and name != "bp-runtime" and name != "frame-try-runtime"
-
-	return False
-
 def main(path, version):
-	delete_umbrella(path)
+	reset_umbrella(path)
 	workspace = Workspace.from_path(path)
 	print(f'Indexed {workspace}')
 
@@ -119,6 +100,36 @@ def main(path, version):
 		"tuples-96": [],
 	}
 
+	SKIP_FEATURES = [
+		"default",
+		"std",
+		"no_std",
+		"runtime-benchmarks",
+		"try-runtime",
+		"serde",
+		"experimental",
+		"with-tracing",
+		"tuples-96",
+		"tuples-128",
+	]
+	SKIP_PATTERNS = ["bench", "fuzz", "rococo", "test"]
+
+	should_skip = lambda feature: feature in SKIP_FEATURES or any(
+		pattern in feature for pattern in SKIP_PATTERNS
+	)
+
+	# Add features <DEP-NAME>_<DEP-FEATURE> to enable specific feature of dependency
+	for dep, _ in all_crates:
+		dep_path = os.path.dirname(dep.abs_path)
+		manifest_path = os.path.join(dep_path, "Cargo.toml")
+		with open(manifest_path, "r") as f:
+			manifest = toml.load(f)
+			for feature in manifest.get("features", {}):
+				if should_skip(feature):
+					continue
+				dep_feature_pair = f"{dep.name}_{feature}"
+				features[dep_feature_pair] = [f"{dep.name}?/{feature}"]
+
 	manifest = {
 		"package": {
 			"name": "polkadot-sdk",
@@ -176,20 +187,40 @@ def main(path, version):
 	add_to_workspace(workspace.path)
 
 """
-Delete the umbrella folder and remove the umbrella crate from the workspace.
+Remove the umbrella crate from the workspace and restore the crate to a blank slate.
 """
-def delete_umbrella(path):
-	# remove the umbrella crate from the workspace
-	manifest = os.path.join(path, "Cargo.toml")
-	manifest = open(manifest, "r").read()
-	manifest = re.sub(r'\s+"umbrella",\n', "", manifest)
-	with open(os.path.join(path, "Cargo.toml"), "w") as f:
-		f.write(manifest)
-	umbrella_dir = os.path.join(path, "umbrella")
-	if os.path.exists(umbrella_dir):
-		print(f"Deleting {umbrella_dir}")
-		os.remove(os.path.join(umbrella_dir, "Cargo.toml"))
-		shutil.rmtree(os.path.join(umbrella_dir, "src"))
+def reset_umbrella(path):
+    manifest_path = os.path.join(path, "Cargo.toml")
+    manifest = open(manifest_path, "r").read()
+    manifest = re.sub(r'\s+"umbrella",\n', "", manifest)
+    with open(manifest_path, "w") as f:
+        f.write(manifest)
+
+    umbrella_dir = os.path.join(path, "umbrella")
+    print(f"Cleaning up {umbrella_dir}")
+    if os.path.exists(os.path.join(umbrella_dir, "Cargo.toml")):
+        os.remove(os.path.join(umbrella_dir, "Cargo.toml"))
+    if os.path.exists(os.path.join(umbrella_dir, "src")):
+        shutil.rmtree(os.path.join(umbrella_dir, "src"))
+
+"""
+Crate names that should be excluded from the umbrella crate.
+"""
+def exclude(crate):
+	name = crate.name
+	if crate.metadata.get("polkadot-sdk.exclude-from-umbrella", False):
+		return True
+
+	# No fuzzers or examples:
+	if "example" in name or name.endswith("fuzzer"):
+		return True
+
+	# No runtime crates:
+	if name.endswith("-runtime"):
+		# Note: this is a bit hacky. We should use custom crate metadata instead.
+		return name != "sp-runtime" and name != "bp-runtime" and name != "frame-try-runtime"
+
+	return False
 
 """
 Create the umbrella crate and add it to the workspace.
