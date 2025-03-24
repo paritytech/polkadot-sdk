@@ -18,8 +18,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     outputs:
-      LABELS: ${{ steps.check_labels.outputs.LABELS}}
-      found: ${{ steps.check_labels.outputs.found}}
+      LABELS: ${{ steps.check_labels.outputs.LABELS }}
+      found: ${{ steps.check_labels.outputs.found }}
 
     # The 'github.event.pull_request.merged' ensures that it got into master:
     if: >
@@ -45,12 +45,11 @@ jobs:
             echo "found=false" >> $GITHUB_OUTPUT
           fi
 
-
   backport:
     name: Backport pull request
     runs-on: ubuntu-latest
-    needs: [ check-labels ]
-    if: ${{ needs.check-labels.outputs.found  == 'true' }}
+    needs: [check-labels]
+    if: ${{ needs.check-labels.outputs.found == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,36 +70,49 @@ jobs:
           private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
 
       - name: Create backport pull requests
-        uses: korthout/backport-action@v3
-        id: backport
-        with:
-          target_branches: ${{ steps.branches.outputs.BACKPORT_BRANCHES }}
-          merge_commits: skip
-          github_token: ${{ steps.generate_token.outputs.token }}
-          pull_description: |
-            Backport #${pull_number} into `${target_branch}` from ${pull_author}.
+        id: create_backports
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          BACKPORT_BRANCHES: ${{ steps.branches.outputs.BACKPORT_BRANCHES }}
+        run: |
+          for branch in $BACKPORT_BRANCHES; do
+            echo "Creating backport for branch: $branch"
 
-            See the [documentation](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) on how to use this bot.
+            # Create a new branch for the backport
+            BACKPORT_BRANCH="backport-${{ github.event.pull_request.number }}-to-${branch}"
+            git fetch origin $branch
+            git checkout -b $BACKPORT_BRANCH origin/$branch
 
-            <!--
-              # To be used by other automation, do not modify:
-              original-pr-number: #${pull_number}
-            -->
-          pull_title: |
-            [${target_branch}] Backport #${pull_number}
-          experimental: >
-            {
-              "conflict_resolution": "draft_commit_conflicts"
+            # Cherry-pick the merged commit
+            git cherry-pick -x ${{ github.event.pull_request.merge_commit_sha }} || {
+              echo "Conflict detected. Creating draft PR for manual resolution."
+              git add .
+              git commit -m "BACKPORT-CONFLICT: Resolve conflicts for backport #${{ github.event.pull_request.number }}"
             }
-          copy_assignees: true
-          label_pattern: ^A4-backport-stable
+
+            gh auth setup-git
+
+            git push origin $BACKPORT_BRANCH
+
+            gh pr create \
+              --base $branch \
+              --head $BACKPORT_BRANCH \
+              --title "[${branch}] Backport #${{ github.event.pull_request.number }}" \
+              --body "Backport #${{ github.event.pull_request.number}} into \`${branch}\` from ${{ github.event.pull_request.user.login }}. 
+                      See the [documentation](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) on how to use this bot.
+                    <!--
+                      # To be used by other automation, do not modify:
+                      original-pr-number: #${{ github.event.pull_request.number }}
+                    -->"
+
+          done
 
       - name: Label Backports
-        if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
+        if: ${{ steps.create_backports.conclusion == 'success' }}
         uses: actions/github-script@v7
         with:
           script: |
-            const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
+            const pullNumbers = '${{ steps.create_backports.outputs.created_pull_numbers }}'.split(' ');
 
             for (const pullNumber of pullNumbers) {
               await github.rest.issues.addLabels({
@@ -113,11 +125,11 @@ jobs:
             }
 
       - name: Request Review
-        if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
+        if: ${{ steps.create_backports.conclusion == 'success' }}
         uses: actions/github-script@v7
         with:
           script: |
-            const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
+            const pullNumbers = '${{ steps.create_backports.outputs.created_pull_numbers }}'.split(' ');
             const reviewer = '${{ github.event.pull_request.user.login }}';
 
             for (const pullNumber of pullNumbers) {
