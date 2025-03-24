@@ -53,6 +53,7 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+/// Supports the migration of Validator Disabling from pallet-staking to pallet-session
 pub mod v17 {
 	use super::*;
 
