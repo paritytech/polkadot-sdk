@@ -34,15 +34,14 @@ sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
 finality-grandpa = { features = ["derive-codec"], workspace = true, default-features = true }
-frame-benchmarking = { default-features = true, path = "../benchmarking" }
-frame-election-provider-support = { default-features = true, path = "../election-provider-support" }
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-offences = { default-features = true, path = "../offences" }
-pallet-staking = { default-features = true, path = "../staking" }
-pallet-staking-reward-curve = { default-features = true, path = "../staking/reward-curve" }
-pallet-timestamp = { default-features = true, path = "../timestamp" }
-sp-keyring = { default-features = true, path = "../../primitives/keyring" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+frame-benchmarking = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-offences = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

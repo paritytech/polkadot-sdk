@@ -23,18 +23,20 @@ frame-election-provider-support.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 log = { workspace = true }
-pallet-authorship.workspace = true
-pallet-session = { features = ["historical"], workspace = true }
+pallet-authorship = { workspace = true }
+pallet-session = { features = [
+	"historical",
+], workspace = true }
 rand = { features = ["alloc"], workspace = true }
-rand_chacha = { workspace = true }
+rand_chacha = { optional = true, workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
-sp-core.workspace = true
-sp-io.workspace = true
+sp-io = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
+
 
 [dev-dependencies]
 frame-benchmarking = { default-features = true, path = "../benchmarking" }
@@ -45,9 +47,10 @@ pallet-balances = { default-features = true, path = "../balances" }
 pallet-staking-reward-curve = { default-features = true, path = "reward-curve" }
 pallet-timestamp = { default-features = true, path = "../timestamp" }
 rand_chacha = { workspace = true, default-features = true }
-sp-npos-elections = { default-features = true, path = "../../primitives/npos-elections" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
-substrate-test-utils = { path = "../../test-utils" }
+sp-core = { workspace = true, default-features = true }
+sp-npos-elections = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
@@ -62,10 +65,10 @@ std = [
 	"pallet-session/std",
 	"rand/std",
 	"rand_chacha/std",
+	"pallet-timestamp/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-application-crypto/std",
-	"sp-core/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -76,6 +79,10 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]

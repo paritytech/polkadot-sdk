@@ -21,12 +21,10 @@ frame-election-provider-solution-type.default-features = true
 frame-support.workspace = true
 frame-system.workspace = true
 scale-info = { features = ["derive"], workspace = true }
-sp-arithmetic.workspace = true
-sp-core.workspace = true
-sp-npos-elections.workspace = true
-sp-runtime.workspace = true
-sp-std.workspace = true
-
+sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-npos-elections = { workspace = true }
+sp-runtime = { workspace = true }
 
 [dev-dependencies]
 rand = { features = ["small_rng"], workspace = true, default-features = true }
@@ -45,7 +43,6 @@ std = [
 	"sp-core/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
