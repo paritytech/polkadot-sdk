@@ -600,6 +600,7 @@ impl PalletCmd {
 				let benchmark_name = &benchmark.name;
 				if extrinsic.is_empty() ||
 					extrinsic.as_bytes() == &b"*"[..] ||
+					extrinsic.as_bytes() == &b"all"[..] ||
 					extrinsics.contains(&&benchmark_name[..])
 				{
 					benchmarks_to_run.push((

@@ -10,21 +10,19 @@ crates:
 - name: sp-staking
   bump: major
 - name: polkadot-sdk
-  bump: major
+  bump: patch
 - name: polkadot-runtime-parachains
-  bump: major
+  bump: patch
 - name: pallet-babe
-  bump: major
+  bump: patch
 - name: frame-election-provider-support
-  bump: major
-- name: frame-election-provider-solution-type
   bump: major
 - name: sp-npos-elections
   bump: major
 - name: pallet-staking
   bump: major
 - name: pallet-bags-list
-  bump: major
+  bump: patch
 - name: pallet-grandpa
   bump: major
 - name: pallet-election-provider-multi-phase
@@ -32,22 +30,20 @@ crates:
 - name: pallet-election-provider-support-benchmarking
   bump: major
 - name: pallet-fast-unstake
-  bump: major
+  bump: patch
 - name: frame-benchmarking-cli
   bump: major
 - name: pallet-beefy
   bump: major
 - name: pallet-delegated-staking
-  bump: major
+  bump: patch
 - name: pallet-elections-phragmen
-  bump: major
+  bump: patch
 - name: pallet-nomination-pools-benchmarking
-  bump: major
+  bump: patch
 - name: pallet-offences-benchmarking
-  bump: major
+  bump: patch
 - name: pallet-session-benchmarking
-  bump: major
+  bump: patch
 - name: pallet-root-offences
-  bump: major
-- name: cumulus-pov-validator
-  bump: major
+  bump: patch
