@@ -71,10 +71,7 @@ fn submit_candidates<T: Config>(
 				RawOrigin::Signed(account.clone()).into(),
 				candidate_count::<T>(),
 			)
-			.map_err(|e| {
-				log::error!(target: crate::LOG_TARGET, "failed to submit candidacy: {:?}", e);
-				"failed to submit candidacy"
-			})?;
+			.map_err(|_| "failed to submit candidacy")?;
 			Ok(account)
 		})
 		.collect::<Result<_, _>>()
@@ -155,10 +152,6 @@ mod benchmarks {
 	// -- Signed ones
 	#[benchmark]
 	fn vote_equal(v: Linear<1, { T::MaxVotesPerVoter::get() }>) -> Result<(), BenchmarkError> {
-		assert!(
-			T::MaxCandidates::get() > T::MaxVotesPerVoter::get(),
-			"MaxCandidates should be more than MaxVotesPerVoter"
-		);
 		clean::<T>();
 
 		// create a bunch of candidates.
@@ -466,9 +459,6 @@ mod benchmarks {
 		let all_candidates = submit_candidates_with_self_vote::<T>(c, "candidates")?;
 		let _ =
 			distribute_voters::<T>(all_candidates, v.saturating_sub(c), votes_per_voter as usize)?;
-		log::info!(target: crate::LOG_TARGET, "[v = {:?}]voters: {:?}",v, v.saturating_sub(c));
-		log::info!(target: crate::LOG_TARGET, "votes_per_voter: {:?}",votes_per_voter);
-		log::info!(target: crate::LOG_TARGET, "candidates: {:?}",c);
 
 		#[block]
 		{
