@@ -20,7 +20,18 @@ emulated-integration-tests-common.workspace = true
 parachains-common.workspace = true
 parachains-common.default-features = true
 testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }
+<<<<<<< HEAD
 westend-emulated-chain.workspace = true
 westend-emulated-chain.default-features = true
 xcm.workspace = true
 bp-bridge-hub-westend.workspace = true
+=======
+westend-emulated-chain = { workspace = true, default-features = true }
+
+# Polkadot
+xcm = { workspace = true }
+xcm-builder = { workspace = true, default-features = true }
+
+# Bridges
+bp-bridge-hub-westend = { workspace = true }
+>>>>>>> 98c6ffce (Snowbridge V2 (#7402))

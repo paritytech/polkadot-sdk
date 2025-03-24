@@ -63,8 +63,13 @@ use xcm_builder::{
 	AccountId32Aliases, AliasOriginRootUsingFilter, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	AsPrefixedGeneralIndex, ConvertedConcreteId, DescribeAllTerminal, DescribeFamily,
+<<<<<<< HEAD
 	EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter,
 	FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete,
+=======
+	DescribeTerminus, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
+>>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
@@ -105,6 +110,7 @@ pub type LocationToAccountId = (
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign locations alias into accounts according to a hash of their standard description.
+<<<<<<< HEAD
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 	// Different global consensus parachain sovereign account.
 	// (Used for over-bridge transfers and reserve processing)
@@ -112,6 +118,11 @@ pub type LocationToAccountId = (
 	// Ethereum contract sovereign account.
 	// (Used to get convert ethereum contract locations to sovereign account)
 	EthereumLocationsConverterFor<AccountId>,
+=======
+	HashedDescription<AccountId, (DescribeTerminus, DescribeFamily<DescribeAllTerminal>)>,
+	// Different global consensus locations sovereign accounts.
+	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
+>>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 );
 
 /// Means for transacting assets on this chain.

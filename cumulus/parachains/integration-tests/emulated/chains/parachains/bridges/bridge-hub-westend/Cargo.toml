@@ -11,6 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
+<<<<<<< HEAD
 frame-support.workspace = true
 sp-core.workspace = true
 sp-keyring.workspace = true
@@ -22,4 +23,24 @@ bridge-hub-westend-runtime.default-features = true
 emulated-integration-tests-common.workspace = true
 parachains-common.workspace = true
 parachains-common.default-features = true
+=======
+
+# Substrate
+frame-support = { workspace = true }
+sp-core = { workspace = true }
+sp-keyring = { workspace = true }
+
+# Polkadot Dependencies
+xcm = { workspace = true }
+
+# Bridge dependencies
+bp-messages = { workspace = true }
+pallet-bridge-relayers = { workspace = true }
+
+# Cumulus
+bridge-hub-common = { workspace = true }
+bridge-hub-westend-runtime = { workspace = true, default-features = true }
+emulated-integration-tests-common = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
+>>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }

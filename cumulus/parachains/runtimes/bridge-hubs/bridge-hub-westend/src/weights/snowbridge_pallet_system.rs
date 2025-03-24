@@ -65,6 +65,7 @@ impl<T: frame_system::Config> snowbridge_pallet_system::WeightInfo for WeightInf
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+<<<<<<< HEAD
 	/// Storage: EthereumSystem Agents (r:1 w:1)
 	/// Proof: EthereumSystem Agents (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
 	/// Storage: System Account (r:2 w:2)
@@ -170,6 +171,65 @@ impl<T: frame_system::Config> snowbridge_pallet_system::WeightInfo for WeightInf
 		// Minimum execution time: 30_000_000 picoseconds.
 		Weight::from_parts(30_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 3517))
+=======
+	/// Storage: `EthereumSystem::Channels` (r:1 w:0)
+	/// Proof: `EthereumSystem::Channels` (`max_values`: None, `max_size`: Some(76), added: 2551, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumSystem::PricingParameters` (r:1 w:0)
+	/// Proof: `EthereumSystem::PricingParameters` (`max_values`: Some(1), `max_size`: Some(112), added: 607, mode: `MaxEncodedLen`)
+	/// Storage: `MessageQueue::BookStateFor` (r:1 w:1)
+	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(136), added: 2611, mode: `MaxEncodedLen`)
+	/// Storage: `MessageQueue::ServiceHead` (r:1 w:1)
+	/// Proof: `MessageQueue::ServiceHead` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
+	/// Storage: `MessageQueue::Pages` (r:0 w:1)
+	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(105549), added: 108024, mode: `MaxEncodedLen`)
+	fn set_operating_mode() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `218`
+		//  Estimated: `3601`
+		// Minimum execution time: 29_658_000 picoseconds.
+		Weight::from_parts(30_447_000, 0)
+			.saturating_add(Weight::from_parts(0, 3601))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	/// Storage: `EthereumSystem::Channels` (r:1 w:0)
+	/// Proof: `EthereumSystem::Channels` (`max_values`: None, `max_size`: Some(76), added: 2551, mode: `MaxEncodedLen`)
+	/// Storage: `MessageQueue::BookStateFor` (r:1 w:1)
+	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(136), added: 2611, mode: `MaxEncodedLen`)
+	/// Storage: `MessageQueue::ServiceHead` (r:1 w:1)
+	/// Proof: `MessageQueue::ServiceHead` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
+	/// Storage: `MessageQueue::Pages` (r:0 w:1)
+	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(105549), added: 108024, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumSystem::PricingParameters` (r:0 w:1)
+	/// Proof: `EthereumSystem::PricingParameters` (`max_values`: Some(1), `max_size`: Some(112), added: 607, mode: `MaxEncodedLen`)
+	fn set_pricing_parameters() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `218`
+		//  Estimated: `3601`
+		// Minimum execution time: 34_149_000 picoseconds.
+		Weight::from_parts(35_016_000, 0)
+			.saturating_add(Weight::from_parts(0, 3601))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
+	/// Storage: `EthereumSystem::Channels` (r:1 w:0)
+	/// Proof: `EthereumSystem::Channels` (`max_values`: None, `max_size`: Some(76), added: 2551, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumSystem::PricingParameters` (r:1 w:0)
+	/// Proof: `EthereumSystem::PricingParameters` (`max_values`: Some(1), `max_size`: Some(112), added: 607, mode: `MaxEncodedLen`)
+	/// Storage: `MessageQueue::BookStateFor` (r:1 w:1)
+	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(136), added: 2611, mode: `MaxEncodedLen`)
+	/// Storage: `MessageQueue::ServiceHead` (r:1 w:1)
+	/// Proof: `MessageQueue::ServiceHead` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
+	/// Storage: `MessageQueue::Pages` (r:0 w:1)
+	/// Proof: `MessageQueue::Pages` (`max_values`: None, `max_size`: Some(105549), added: 108024, mode: `MaxEncodedLen`)
+	fn set_token_transfer_fees() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `218`
+		//  Estimated: `3601`
+		// Minimum execution time: 31_403_000 picoseconds.
+		Weight::from_parts(32_813_000, 0)
+			.saturating_add(Weight::from_parts(0, 3601))
+>>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}

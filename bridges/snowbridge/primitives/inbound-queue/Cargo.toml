@@ -1,0 +1,87 @@
+[package]
+<<<<<<< HEAD:bridges/snowbridge/primitives/router/Cargo.toml
+name = "snowbridge-router-primitives"
+description = "Snowbridge Router Primitives"
+version = "0.19.0-rc1"
+=======
+name = "snowbridge-inbound-queue-primitives"
+description = "Snowbridge Inbound Queue Primitives"
+version = "0.9.0"
+>>>>>>> 98c6ffce (Snowbridge V2 (#7402)):bridges/snowbridge/primitives/inbound-queue/Cargo.toml
+authors = ["Snowfork <contact@snowfork.com>"]
+edition.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+[dependencies]
+alloy-core = { workspace = true, features = ["sol-types"] }
+codec = { workspace = true }
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+<<<<<<< HEAD:bridges/snowbridge/primitives/router/Cargo.toml
+frame-support.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+xcm.workspace = true
+xcm-executor.workspace = true
+snowbridge-core.workspace = true
+=======
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
+
+snowbridge-beacon-primitives = { workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-verification-primitives = { workspace = true }
+>>>>>>> 98c6ffce (Snowbridge V2 (#7402)):bridges/snowbridge/primitives/inbound-queue/Cargo.toml
+
+hex = { workspace = true, default-features = false }
+hex-literal = { workspace = true, default-features = true }
+
+[dev-dependencies]
+
+[features]
+default = ["std"]
+std = [
+	"alloy-core/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"hex/std",
+	"log/std",
+	"scale-info/std",
+	"snowbridge-beacon-primitives/std",
+	"snowbridge-core/std",
+	"snowbridge-verification-primitives/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]

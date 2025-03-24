@@ -14,13 +14,25 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+<<<<<<< HEAD
 frame-support.workspace = true
 snowbridge-core.workspace = true
 snowbridge-outbound-queue-merkle-tree.workspace = true
 sp-api.workspace = true
 sp-std.workspace = true
+=======
+frame-support = { workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-merkle-tree = { workspace = true }
+snowbridge-outbound-queue-primitives = { workspace = true }
+sp-api = { workspace = true }
+sp-std = { workspace = true }
+>>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 
 [features]
 default = ["std"]
@@ -28,7 +40,8 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"snowbridge-core/std",
-	"snowbridge-outbound-queue-merkle-tree/std",
+	"snowbridge-merkle-tree/std",
+	"snowbridge-outbound-queue-primitives/std",
 	"sp-api/std",
 	"sp-std/std",
 ]
