@@ -36,6 +36,7 @@ mod nested {
 
 		#[pallet::config]
 		pub trait Config: frame_system::Config {
+			#[allow(deprecated)]
 			type RuntimeEvent: From<Event<Self>>
 				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		}
@@ -95,6 +96,7 @@ pub mod module {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
