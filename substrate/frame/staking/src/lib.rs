@@ -443,7 +443,7 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo, Clone, PartialEq, Eq)]
 pub struct EraRewardPoints<AccountId: Ord> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,

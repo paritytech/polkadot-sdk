@@ -561,7 +561,7 @@ pub mod pallet {
 	/// the page. Should only be accessed through `EraInfo`.
 	///
 	/// This is cleared after [`Config::HistoryDepth`] eras.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	#[pallet::unbounded]
 	pub type ErasStakersPaged<T: Config> = StorageNMap<
 		_,
@@ -580,7 +580,7 @@ pub mod pallet {
 	/// been claimed.
 	///
 	/// It is removed after [`Config::HistoryDepth`] eras.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	#[pallet::unbounded]
 	pub type ClaimedRewards<T: Config> = StorageDoubleMap<
 		_,
@@ -598,7 +598,7 @@ pub mod pallet {
 	///
 	/// Is it removed after [`Config::HistoryDepth`] eras.
 	// If prefs hasn't been set or has been removed then 0 commission is returned.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type ErasValidatorPrefs<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -612,19 +612,19 @@ pub mod pallet {
 	/// The total validator era payout for the last [`Config::HistoryDepth`] eras.
 	///
 	/// Eras that haven't finished yet or has been removed doesn't have reward.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	#[pallet::unbounded]
 	pub type ErasRewardPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T::AccountId>, ValueQuery>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type ErasTotalStake<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
@@ -659,7 +659,7 @@ pub mod pallet {
 	///
 	/// Any offences tied to an era older than `BondingDuration` are automatically dropped.
 	/// Processing always prioritizes the oldest era first.
-	#[pallet::storage]
+	#[pallet::storage] // Special
 	pub type OffenceQueue<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -680,7 +680,7 @@ pub mod pallet {
 	///
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
-	#[pallet::storage]
+	#[pallet::storage] // Special
 	pub type OffenceQueueEras<T: Config> = StorageValue<_, BoundedVec<u32, T::BondingDuration>>;
 
 	/// Tracks the currently processed offence record from the `OffenceQueue`.
@@ -695,12 +695,12 @@ pub mod pallet {
 	///
 	/// This ensures that offences are processed incrementally, preventing excessive computation
 	/// in a single block while maintaining correct slashing behavior.
-	#[pallet::storage]
+	#[pallet::storage] // Special
 	pub type ProcessingOffence<T: Config> =
 		StorageValue<_, (EraIndex, T::AccountId, slashing::OffenceRecord<T::AccountId>)>;
 
 	/// All unapplied slashes that are queued for later.
-	#[pallet::storage]
+	#[pallet::storage] // Special: Translate with see: https://github.com/paritytech/polkadot-sdk/blob/43ea306f6307dff908551cb91099ef6268502ee0/substrate/frame/staking/src/pallet/mod.rs#L693, https://github.com/paritytech/polkadot-sdk/blob/43ea306f6307dff908551cb91099ef6268502ee0/substrate/frame/staking/src/migrations.rs#L91
 	pub type UnappliedSlashes<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -716,13 +716,13 @@ pub mod pallet {
 	///
 	/// Must contains information for eras for the range:
 	/// `[active_era - bounding_duration; active_era]`
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	#[pallet::unbounded]
 	pub type BondedEras<T: Config> = StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
 
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,

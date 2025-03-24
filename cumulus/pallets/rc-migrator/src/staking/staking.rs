@@ -19,7 +19,8 @@
 use crate::*;
 pub use frame_election_provider_support::PageIndex;
 use pallet_staking::{
-	ActiveEraInfo, Forcing, Nominations, RewardDestination, StakingLedger, ValidatorPrefs,
+	ActiveEraInfo, EraRewardPoints, Forcing, Nominations, RewardDestination, StakingLedger,
+	ValidatorPrefs,
 };
 use sp_runtime::{Perbill, Percent};
 use sp_staking::{EraIndex, ExposurePage, Page, PagedExposureMetadata, SessionIndex};
@@ -53,6 +54,13 @@ pub enum StakingStage<AccountId> {
 	ErasStartSessionIndex(Option<EraIndex>),
 	ErasStakersOverview(Option<(EraIndex, AccountId)>),
 	ErasStakersPaged(Option<(EraIndex, AccountId, Page)>),
+	ClaimedRewards(Option<(EraIndex, AccountId)>),
+	ErasValidatorPrefs(Option<(EraIndex, AccountId)>),
+	ErasValidatorReward(Option<EraIndex>),
+	ErasRewardPoints(Option<EraIndex>),
+	ErasTotalStake(Option<EraIndex>),
+	BondedEras,
+	ValidatorSlashInEra(Option<(EraIndex, AccountId)>),
 	Finished,
 }
 
@@ -134,6 +142,34 @@ pub enum StakingMessage<T: pallet_staking::Config> {
 		validator: AccountIdOf<T>,
 		page: Page,
 		exposure: ExposurePage<AccountIdOf<T>, BalanceOf<T>>,
+	},
+	ClaimedRewards {
+		era: EraIndex,
+		validator: AccountIdOf<T>,
+		rewards: Vec<Page>,
+	},
+	ErasValidatorPrefs {
+		era: EraIndex,
+		validator: AccountIdOf<T>,
+		prefs: ValidatorPrefs,
+	},
+	ErasValidatorReward {
+		era: EraIndex,
+		reward: BalanceOf<T>,
+	},
+	ErasRewardPoints {
+		era: EraIndex,
+		points: EraRewardPoints<AccountIdOf<T>>,
+	},
+	ErasTotalStake {
+		era: EraIndex,
+		total_stake: BalanceOf<T>,
+	},
+	BondedEras(Vec<(EraIndex, SessionIndex)>),
+	ValidatorSlashInEra {
+		era: EraIndex,
+		validator: AccountIdOf<T>,
+		slash: (Perbill, BalanceOf<T>),
 	},
 }
 
@@ -400,6 +436,131 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 								exposure,
 							});
 							StakingStage::ErasStakersPaged(Some((era, validator, page)))
+						},
+						None => StakingStage::ClaimedRewards(None),
+					}
+				},
+				StakingStage::ClaimedRewards(progress) => {
+					let mut iter = if let Some(progress) = progress {
+						pallet_staking::ClaimedRewards::<T>::iter_from(
+							pallet_staking::ClaimedRewards::<T>::hashed_key_for(
+								progress.0, progress.1,
+							),
+						)
+					} else {
+						pallet_staking::ClaimedRewards::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((era, validator, rewards)) => {
+							pallet_staking::ClaimedRewards::<T>::remove(&era, &validator);
+							messages.push(StakingMessage::ClaimedRewards {
+								era,
+								validator: validator.clone(),
+								rewards,
+							});
+							StakingStage::ClaimedRewards(Some((era, validator)))
+						},
+						None => StakingStage::ErasValidatorPrefs(None),
+					}
+				},
+				StakingStage::ErasValidatorPrefs(progress) => {
+					let mut iter = if let Some(progress) = progress {
+						pallet_staking::ErasValidatorPrefs::<T>::iter_from(
+							pallet_staking::ErasValidatorPrefs::<T>::hashed_key_for(
+								progress.0, progress.1,
+							),
+						)
+					} else {
+						pallet_staking::ErasValidatorPrefs::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((era, validator, prefs)) => {
+							pallet_staking::ErasValidatorPrefs::<T>::remove(&era, &validator);
+							messages.push(StakingMessage::ErasValidatorPrefs {
+								era,
+								validator: validator.clone(),
+								prefs,
+							});
+							StakingStage::ErasValidatorPrefs(Some((era, validator)))
+						},
+						None => StakingStage::ErasValidatorReward(None),
+					}
+				},
+				StakingStage::ErasValidatorReward(era) => {
+					let mut iter = if let Some(era) = era {
+						pallet_staking::ErasValidatorReward::<T>::iter_from_key(era)
+					} else {
+						pallet_staking::ErasValidatorReward::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((era, reward)) => {
+							pallet_staking::ErasValidatorReward::<T>::remove(&era);
+							messages.push(StakingMessage::ErasValidatorReward { era, reward });
+							StakingStage::ErasValidatorReward(Some(era))
+						},
+						None => StakingStage::ErasRewardPoints(None),
+					}
+				},
+				StakingStage::ErasRewardPoints(era) => {
+					let mut iter = if let Some(era) = era {
+						pallet_staking::ErasRewardPoints::<T>::iter_from_key(era)
+					} else {
+						pallet_staking::ErasRewardPoints::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((era, points)) => {
+							pallet_staking::ErasRewardPoints::<T>::remove(&era);
+							messages.push(StakingMessage::ErasRewardPoints { era, points });
+							StakingStage::ErasRewardPoints(Some(era))
+						},
+						None => StakingStage::ErasTotalStake(None),
+					}
+				},
+				StakingStage::ErasTotalStake(era) => {
+					let mut iter = if let Some(era) = era {
+						pallet_staking::ErasTotalStake::<T>::iter_from_key(era)
+					} else {
+						pallet_staking::ErasTotalStake::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((era, total_stake)) => {
+							pallet_staking::ErasTotalStake::<T>::remove(&era);
+							messages.push(StakingMessage::ErasTotalStake { era, total_stake });
+							StakingStage::ErasTotalStake(Some(era))
+						},
+						None => StakingStage::BondedEras,
+					}
+				},
+				StakingStage::BondedEras => {
+					let bonded_eras = pallet_staking::BondedEras::<T>::take();
+					messages.push(StakingMessage::BondedEras(bonded_eras));
+					StakingStage::ValidatorSlashInEra(None)
+				},
+				StakingStage::ValidatorSlashInEra(next) => {
+					let mut iter = if let Some(next) = next {
+						pallet_staking::ValidatorSlashInEra::<T>::iter_from(
+							pallet_staking::ValidatorSlashInEra::<T>::hashed_key_for(
+								next.0, next.1,
+							),
+						)
+					} else {
+						pallet_staking::ValidatorSlashInEra::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((era, validator, slash)) => {
+							pallet_staking::ValidatorSlashInEra::<T>::remove(&era, &validator);
+							messages.push(StakingMessage::ValidatorSlashInEra {
+								era,
+								validator: validator.clone(),
+								slash,
+							});
+							StakingStage::ValidatorSlashInEra(Some((era, validator)))
 						},
 						None => StakingStage::Finished,
 					}
