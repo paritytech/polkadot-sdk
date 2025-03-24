@@ -20,12 +20,11 @@
 use super::*;
 
 use crate as recovery;
-use frame_support::{derive_impl, parameter_types};
-use sp_runtime::BuildStorage;
+use frame::{deps::sp_io, testing_prelude::*};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,

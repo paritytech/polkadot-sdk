@@ -21,10 +21,7 @@ use super::*;
 
 use crate::Pallet;
 use alloc::{boxed::Box, vec, vec::Vec};
-use frame_benchmarking::v2::*;
-use frame_support::traits::{Currency, Get};
-use frame_system::RawOrigin;
-use sp_runtime::{traits::Bounded, Saturating};
+use frame::benchmarking::prelude::*;
 
 const SEED: u32 = 0;
 const DEFAULT_DELAY: u32 = 0;

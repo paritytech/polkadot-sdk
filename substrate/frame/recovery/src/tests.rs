@@ -18,8 +18,7 @@
 //! Tests for the module.
 
 use crate::{mock::*, *};
-use frame_support::{assert_noop, assert_ok, pallet_prelude::Pays, traits::Currency};
-use sp_runtime::{bounded_vec, traits::BadOrigin};
+use frame::{deps::sp_runtime::bounded_vec, testing_prelude::*};
 
 #[test]
 fn basic_setup_works() {
