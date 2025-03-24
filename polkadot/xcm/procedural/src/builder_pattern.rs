@@ -245,7 +245,6 @@ fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<To
 
 // Small helper enum to differentiate between fields that use a `BoundedVec`
 // and the rest.
-#[derive(Debug)]
 enum BoundedOrNormal {
 	Normal(Field),
 	Bounded(Field),
