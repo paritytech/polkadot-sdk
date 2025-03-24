@@ -18,6 +18,11 @@ impl<T: Config> ProcessMessage for Pallet<T> {
 	) -> Result<bool, ProcessMessageError> {
 		let weight = T::WeightInfo::do_process_message();
 		if meter.try_consume(weight).is_err() {
+			Self::deposit_event(Event::MessageRejected {
+				id: None,
+				nonce: None,
+				error: ProcessMessageError::Overweight(weight),
+			});
 			return Err(ProcessMessageError::Overweight(weight))
 		}
 		Self::do_process_message(origin, message)

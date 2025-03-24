@@ -4,7 +4,7 @@ use crate::{mock::*, *};
 use alloy_core::primitives::FixedBytes;
 
 use frame_support::{
-	assert_err, assert_noop, assert_ok,
+	assert_err, assert_ok,
 	traits::{Hooks, ProcessMessage, ProcessMessageError},
 	weights::WeightMeter,
 	BoundedVec,
@@ -86,7 +86,7 @@ fn process_message_yields_on_max_messages_per_block() {
 
 		let mut meter = WeightMeter::new();
 
-		assert_noop!(
+		assert_err!(
 			OutboundQueue::process_message(
 				message.encode().as_slice(),
 				origin,
@@ -95,6 +95,20 @@ fn process_message_yields_on_max_messages_per_block() {
 			),
 			ProcessMessageError::Yield
 		);
+
+		let events = System::events();
+		let last_event = events.last().expect("Expected at least one event").event.clone();
+
+		match last_event {
+			mock::RuntimeEvent::OutboundQueue(Event::MessageRejected {
+				id: None,
+				nonce: None,
+				error: ProcessMessageError::Yield,
+			}) => {},
+			_ => {
+				panic!("Expected Event::MessageRejected(Yield) but got {:?}", last_event);
+			},
+		}
 	})
 }
 
@@ -116,7 +130,27 @@ fn process_message_fails_on_max_nonce_reached() {
 			&mut meter,
 			&mut [0u8; 32],
 		);
-		assert_err!(result, ProcessMessageError::Unsupported)
+		assert_err!(result, ProcessMessageError::Unsupported);
+
+		let events = System::events();
+		let last_event = events.last().expect("Expected at least one event").event.clone();
+
+		match last_event {
+			mock::RuntimeEvent::OutboundQueue(Event::MessageRejected {
+				id: Some(id),
+				nonce: Some(nonce),
+				error: ProcessMessageError::Unsupported,
+			}) => {
+				assert_eq!(
+					id,
+					hex!("0000000000000000000000000000000000000000000000000000000000000001").into()
+				);
+				assert_eq!(nonce, 18446744073709551615);
+			},
+			_ => {
+				panic!("Expected Event::MessageRejected(Unsupported) but got {:?}", last_event);
+			},
+		}
 	})
 }
 
@@ -128,7 +162,7 @@ fn process_message_fails_on_overweight_message() {
 		let origin = AggregateMessageOrigin::SnowbridgeV2(H256::zero());
 		let message: Message = mock_message(sibling_id);
 		let mut meter = WeightMeter::with_limit(Weight::from_parts(1, 1));
-		assert_noop!(
+		assert_err!(
 			OutboundQueue::process_message(
 				message.encode().as_slice(),
 				origin,
@@ -137,6 +171,19 @@ fn process_message_fails_on_overweight_message() {
 			),
 			ProcessMessageError::Overweight(<Test as Config>::WeightInfo::do_process_message())
 		);
+		let events = System::events();
+		let last_event = events.last().expect("Expected at least one event").event.clone();
+
+		match last_event {
+			mock::RuntimeEvent::OutboundQueue(Event::MessageRejected {
+				id: None,
+				nonce: None,
+				error: ProcessMessageError::Overweight(_),
+			}) => {},
+			_ => {
+				panic!("Expected Event::MessageRejected(Overweight(_)) but got {:?}", last_event);
+			},
+		}
 	})
 }
 

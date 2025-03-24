@@ -168,6 +168,15 @@ pub mod pallet {
 			/// The nonce assigned to this message
 			nonce: u64,
 		},
+		/// Message was not committed due to some failure condition, like an overweight message.
+		MessageRejected {
+			/// ID of the message
+			id: Option<H256>,
+			/// The nonce assigned to this message
+			nonce: Option<u64>,
+			/// The error that was returned.
+			error: ProcessMessageError,
+		},
 		/// Some messages have been committed
 		MessagesCommitted {
 			/// Merkle root of the committed messages
@@ -296,17 +305,24 @@ pub mod pallet {
 
 			// Yield if the maximum number of messages has been processed this block.
 			// This ensures that the weight of `on_finalize` has a known maximum bound.
-			ensure!(
-				MessageLeaves::<T>::decode_len().unwrap_or(0) <
-					T::MaxMessagesPerBlock::get() as usize,
-				Yield
-			);
+			let current_len = MessageLeaves::<T>::decode_len().unwrap_or(0);
+			if current_len >= T::MaxMessagesPerBlock::get() as usize {
+				Self::deposit_event(Event::MessageRejected { id: None, nonce: None, error: Yield });
+				return Err(Yield);
+			}
 
 			let nonce = Nonce::<T>::get();
 
 			// Decode bytes into Message
 			let Message { origin, id, fee, commands } =
-				Message::decode(&mut message).map_err(|_| Corrupt)?;
+				Message::decode(&mut message).map_err(|_| {
+					Self::deposit_event(Event::MessageRejected {
+						id: None,
+						nonce: None,
+						error: Corrupt,
+					});
+					Corrupt
+				})?;
 
 			// Convert it to OutboundMessage and save into Messages storage
 			let commands: Vec<OutboundCommandWrapper> = commands
@@ -321,7 +337,14 @@ pub mod pallet {
 				origin,
 				nonce,
 				topic: id,
-				commands: commands.clone().try_into().map_err(|_| Corrupt)?,
+				commands: commands.clone().try_into().map_err(|_| {
+					Self::deposit_event(Event::MessageRejected {
+						id: Some(id),
+						nonce: Some(nonce),
+						error: Corrupt,
+					});
+					Corrupt
+				})?,
 			};
 			Messages::<T>::append(outbound_message);
 
@@ -358,7 +381,14 @@ pub mod pallet {
 			};
 			<PendingOrders<T>>::insert(nonce, order);
 
-			Nonce::<T>::set(nonce.checked_add(1).ok_or(Unsupported)?);
+			Nonce::<T>::set(nonce.checked_add(1).ok_or_else(|| {
+				Self::deposit_event(Event::MessageRejected {
+					id: Some(id),
+					nonce: Some(nonce),
+					error: Unsupported,
+				});
+				Unsupported
+			})?);
 
 			Self::deposit_event(Event::MessageAccepted { id, nonce });
 
