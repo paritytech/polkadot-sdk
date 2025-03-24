@@ -141,13 +141,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
                 quote! { ::#frame_support::pallet_prelude::RuntimeDebug },
             )
         };
-
-    let struct_ident = &input.ident;
-    let (_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
-    let generics = &input.generics;
-    let attrs = &input.attrs;
-    let vis = &input.vis;
-
+        
     let common_derives = quote! {
         #[derive(
             #partial_eq_i,
@@ -155,12 +149,18 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             #eq_i,
             #debug_i,
             ::#frame_support::__private::codec::MaxEncodedLen,
-			::#frame_support::__private::codec::Encode,
-			::#frame_support::__private::codec::Decode,
+            ::#frame_support::__private::codec::Encode,
+            ::#frame_support::__private::codec::Decode,
             // ::#frame_support::__private::codec::DecodeWithMemTracking,
-			::#frame_support::__private::scale_info::TypeInfo,
+            ::#frame_support::__private::scale_info::TypeInfo,
         )]
     };
+
+    let struct_ident = &input.ident;
+    let (_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
+    let generics = &input.generics;
+    let attrs = &input.attrs;
+    let vis = &input.vis;
 
     let common_attrs = quote! {
         #common_derives
