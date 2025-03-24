@@ -3,4 +3,5 @@
 
 mod async_backing_6_seconds_rate;
 mod duplicate_collations;
+mod parachains_max_tranche0;
 mod sync_backing;

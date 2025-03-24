@@ -112,14 +112,6 @@ zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0004-parachains-garbage-candidate.zndsl"
 
-zombienet-polkadot-functional-0006-parachains-max-tranche0:
-  extends:
-    - .zombienet-polkadot-common
-  script:
-    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-      --local-dir="${LOCAL_DIR}/functional"
-      --test="0006-parachains-max-tranche0.zndsl"
-
 zombienet-polkadot-functional-0007-dispute-freshly-finalized:
   extends:
     - .zombienet-polkadot-common
@@ -464,6 +456,22 @@ zombienet-polkadot-functional-duplicate-collations:
     - unset NEXTEST_FAILURE_OUTPUT
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::duplicate_collations::duplicate_collations_test
+
+zombienet-polkadot-functional-parachains-max-tranche0:
+  extends:
+    - .zombienet-polkadot-common
+  needs:
+    - job: build-polkadot-zombienet-tests
+      artifacts: true
+  before_script:
+    - !reference [".zombienet-polkadot-common", "before_script"]
+    - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - export X_INFRA_INSTANCE=spot # use spot by default
+  script:
+    # we want to use `--no-capture` in zombienet tests.
+    - unset NEXTEST_FAILURE_OUTPUT
+    - unset NEXTEST_SUCCESS_OUTPUT
+    - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::parachains_max_tranche0::parachains_max_tranche0_test
 
 zombienet-polkadot-disputes-slashing:
   extends:
