@@ -36,6 +36,10 @@ def exclude(crate):
 		# Note: this is a bit hacky. We should use custom crate metadata instead.
 		return name != "sp-runtime" and name != "bp-runtime" and name != "frame-try-runtime"
 
+	# Exclude snowbridge crates.
+	if name.startswith("snowbridge-"):
+		return True
+
 	return False
 
 def main(path, version):
