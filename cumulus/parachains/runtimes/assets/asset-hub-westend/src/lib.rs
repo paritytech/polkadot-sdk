@@ -2175,30 +2175,28 @@ impl_runtime_apis! {
 						ExistentialDeposit::get() + (1_000 * UNITS)
 					));
 
-					// Create foreign asset
-					assert_ok!(ForeignAssets::force_create(
+					ForeignAssets::force_create(
 						RuntimeOrigin::root(),
 						asset_location.clone().into(),
 						account.clone().into(),
 						true,
 						1,
-					));
+					).map_err(|_| BenchmarkError::Stop("Failed to create foreign asset!"))?;
 
-					// Mint foreign assets
-					assert_ok!(ForeignAssets::mint(
+					ForeignAssets::mint(
 						origin.clone(),
 						asset_location.clone().into(),
 						account.clone().into(),
 						3_000 * UNITS,
-					));
+					).map_err(|_| BenchmarkError::Stop("Failed to mint foreign asset!"))?;
 
 					// Setup pool
-					assert_ok!(AssetConversion::create_pool(
+					AssetConversion::create_pool(
 						origin.clone(),
 						native_asset_location.clone().into(),
 						asset_location.clone().into(),
-					));
-					assert_ok!(AssetConversion::add_liquidity(
+					).map_err(|_| BenchmarkError::Stop("Failed to create pool!"))?;
+					AssetConversion::add_liquidity(
 						origin,
 						native_asset_location.into(),
 						asset_location.into(),
@@ -2207,7 +2205,7 @@ impl_runtime_apis! {
 						1,
 						1,
 						account.into(),
-					));
+					).map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
 
 					// Create give and receive assets
 					let give_assets: XcmAssets = (native_asset_id, 500 * UNITS).into();
