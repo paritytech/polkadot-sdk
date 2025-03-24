@@ -57,24 +57,21 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     input.attrs.retain(|attr| !attr.path().is_ident("stored"));
 
-    let still_bind_attr = if !skip_params.is_empty() {
-        let still_bind_gens: Vec<_> = input.generics.params.iter().filter_map(|param| {
-            if let syn::GenericParam::Type(type_param) = param {
-                if !skip_params.contains(&type_param.ident) {
-                    Some(&type_param.ident)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }).collect();
-        if !still_bind_gens.is_empty() {
-            quote! {
-                #[still_bind( #(#still_bind_gens),* )]
-            }
+    let all_generics: Vec<_> = input.generics.params.iter().filter_map(|param| {
+        if let syn::GenericParam::Type(type_param) = param {
+            Some(&type_param.ident)
         } else {
-            quote! {}
+            None
+        }
+    }).collect();
+
+    let not_skipped_generics: Vec<_> = all_generics.into_iter()
+    .filter(|gen| !skip_params.contains(gen))
+    .collect();
+
+    let still_bind_attr = if !skip_params.is_empty() && !not_skipped_generics.is_empty() {
+        quote! {
+            #[still_bind( #(#not_skipped_generics),* )]
         }
     } else {
         quote! {}
@@ -100,26 +97,16 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             #[codec(mel_bound( #(#bounds_mel),* ))]
         }
     } else if !skip_params.is_empty() {
-        let all_generics: Vec<_> = input.generics.params.iter().filter_map(|param| {
-            if let syn::GenericParam::Type(type_param) = param {
-                Some(&type_param.ident)
-            } else {
-                None
-            }
-        }).collect();
-        let codec_bound_gens: Vec<_> = all_generics.into_iter()
-            .filter(|ident| !skip_params.contains(ident))
-            .collect();
-        let bounds_mel = codec_bound_gens.iter().map(|ident| {
+        let bounds_mel = not_skipped_generics.iter().map(|ident| {
             quote! { #ident: ::#frame_support::__private::codec::MaxEncodedLen }
         });
-        let bounds_encode = codec_bound_gens.iter().map(|ident| {
+        let bounds_encode = not_skipped_generics.iter().map(|ident| {
             quote! { #ident: ::#frame_support::__private::codec::Encode }
         });
-        let bounds_decode = codec_bound_gens.iter().map(|ident| {
+        let bounds_decode = not_skipped_generics.iter().map(|ident| {
             quote! { #ident: ::#frame_support::__private::codec::Decode }
         });
-        // let bounds_decode_mem_tracking = codec_bound_gens.iter().map(|ident| {
+        // let bounds_decode_mem_tracking = not_skipped_generics.iter().map(|ident| {
         //     quote! { #ident: ::#frame_support::__private::codec::DecodeWithMemTracking }
         // });
 
@@ -133,7 +120,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    let skip_list = if !skip_params.is_empty() {
+    let scale_skip_attr = if !skip_params.is_empty() {
         quote! {
             #[scale_info(skip_type_params(#(#skip_params),*))]
         }
@@ -187,7 +174,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     let common_attrs = quote! {
         #common_derives
         #still_bind_attr
-        #skip_list
+        #scale_skip_attr
         #codec_bound_attr
         #(#attrs)*
     };
