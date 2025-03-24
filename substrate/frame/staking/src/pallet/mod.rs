@@ -733,7 +733,7 @@ pub mod pallet {
 	>;
 
 	/// All slashing events on nominators, mapped by era to the highest slash value of the era.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type NominatorSlashInEra<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 

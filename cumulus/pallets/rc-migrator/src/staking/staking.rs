@@ -19,8 +19,8 @@
 use crate::*;
 pub use frame_election_provider_support::PageIndex;
 use pallet_staking::{
-	ActiveEraInfo, EraRewardPoints, Forcing, Nominations, RewardDestination, StakingLedger,
-	ValidatorPrefs,
+	slashing::SlashingSpans, ActiveEraInfo, EraRewardPoints, Forcing, Nominations,
+	RewardDestination, StakingLedger, ValidatorPrefs,
 };
 use sp_runtime::{Perbill, Percent};
 use sp_staking::{EraIndex, ExposurePage, Page, PagedExposureMetadata, SessionIndex};
@@ -61,6 +61,8 @@ pub enum StakingStage<AccountId> {
 	ErasTotalStake(Option<EraIndex>),
 	BondedEras,
 	ValidatorSlashInEra(Option<(EraIndex, AccountId)>),
+	NominatorSlashInEra(Option<(EraIndex, AccountId)>),
+	SlashingSpans(Option<AccountId>),
 	Finished,
 }
 
@@ -170,6 +172,15 @@ pub enum StakingMessage<T: pallet_staking::Config> {
 		era: EraIndex,
 		validator: AccountIdOf<T>,
 		slash: (Perbill, BalanceOf<T>),
+	},
+	NominatorSlashInEra {
+		era: EraIndex,
+		validator: AccountIdOf<T>,
+		slash: BalanceOf<T>,
+	},
+	SlashingSpans {
+		account: AccountIdOf<T>,
+		spans: SlashingSpans,
 	},
 }
 
@@ -561,6 +572,49 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 								slash,
 							});
 							StakingStage::ValidatorSlashInEra(Some((era, validator)))
+						},
+						None => StakingStage::NominatorSlashInEra(None),
+					}
+				},
+				StakingStage::NominatorSlashInEra(next) => {
+					let mut iter = if let Some(next) = next {
+						pallet_staking::NominatorSlashInEra::<T>::iter_from(
+							pallet_staking::NominatorSlashInEra::<T>::hashed_key_for(
+								next.0, next.1,
+							),
+						)
+					} else {
+						pallet_staking::NominatorSlashInEra::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((era, validator, slash)) => {
+							pallet_staking::NominatorSlashInEra::<T>::remove(&era, &validator);
+							messages.push(StakingMessage::NominatorSlashInEra {
+								era,
+								validator: validator.clone(),
+								slash,
+							});
+							StakingStage::NominatorSlashInEra(Some((era, validator)))
+						},
+						None => StakingStage::SlashingSpans(None),
+					}
+				},
+				StakingStage::SlashingSpans(account) => {
+					let mut iter = if let Some(account) = account {
+						pallet_staking::SlashingSpans::<T>::iter_from_key(account)
+					} else {
+						pallet_staking::SlashingSpans::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((account, spans)) => {
+							pallet_staking::SlashingSpans::<T>::remove(&account);
+							messages.push(StakingMessage::SlashingSpans {
+								account: account.clone(),
+								spans,
+							});
+							StakingStage::SlashingSpans(Some(account))
 						},
 						None => StakingStage::Finished,
 					}
