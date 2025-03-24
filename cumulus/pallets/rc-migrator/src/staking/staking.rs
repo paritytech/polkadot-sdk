@@ -51,6 +51,7 @@ pub enum StakingStage<AccountId> {
 	Validators(Option<AccountId>),
 	Nominators(Option<AccountId>),
 	VirtualStakers(Option<AccountId>),
+	ErasStartSessionIndex(Option<EraIndex>),
 	Finished,
 }
 
@@ -103,6 +104,7 @@ pub enum StakingMessage<T: pallet_staking::Config> {
 	Validators { stash: AccountIdOf<T>, validators: ValidatorPrefs },
 	Nominators { stash: AccountIdOf<T>, nominations: Nominations<T> },
 	VirtualStakers(AccountIdOf<T>),
+	ErasStartSessionIndex { era: EraIndex, session: SessionIndex },
 }
 
 pub type StakingMessageOf<T> = StakingMessage<T>;
@@ -303,6 +305,22 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 							pallet_staking::VirtualStakers::<T>::remove(&staker);
 							messages.push(StakingMessage::VirtualStakers(staker.clone()));
 							StakingStage::VirtualStakers(Some(staker))
+						},
+						None => StakingStage::ErasStartSessionIndex(None),
+					}
+				},
+				StakingStage::ErasStartSessionIndex(who) => {
+					let mut iter = if let Some(who) = who {
+						pallet_staking::ErasStartSessionIndex::<T>::iter_from_key(who)
+					} else {
+						pallet_staking::ErasStartSessionIndex::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((era, session)) => {
+							pallet_staking::ErasStartSessionIndex::<T>::remove(&era);
+							messages.push(StakingMessage::ErasStartSessionIndex { era, session });
+							StakingStage::ErasStartSessionIndex(Some(era))
 						},
 						None => StakingStage::Finished,
 					}

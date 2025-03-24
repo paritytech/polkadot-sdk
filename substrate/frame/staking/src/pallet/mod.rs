@@ -515,14 +515,14 @@ pub mod pallet {
 	///
 	/// This is the latest planned era, depending on how the Session pallet queues the validator
 	/// set, it might be active or not.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type CurrentEra<T> = StorageValue<_, EraIndex>;
 
 	/// The active era information, it holds index and start.
 	///
 	/// The active era is the era being currently rewarded. Validator set of this era must be
 	/// equal to [`SessionInterface::validators`].
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
 
 	/// The session index at which the era start for the last [`Config::HistoryDepth`] eras.
