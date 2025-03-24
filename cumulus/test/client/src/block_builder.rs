@@ -198,6 +198,6 @@ impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, C
 			.into_compact_proof::<<Header as HeaderT>::Hashing>(parent_state_root)
 			.expect("Creates the compact proof");
 
-		ParachainBlockData::new(vec![(built_block.block, storage_proof)])
+		ParachainBlockData::new(vec![built_block.block], storage_proof)
 	}
 }

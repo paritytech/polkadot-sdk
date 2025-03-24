@@ -454,10 +454,10 @@ mod tests {
 		let block =
 			ParachainBlockData::<Block>::decode(&mut &decompressed[..]).expect("Is a valid block");
 
-		assert_eq!(1, *block.blocks().nth(0).unwrap().header().number());
+		assert_eq!(1, *block.blocks()[0].header().number());
 
 		// Ensure that we did not include `:code` in the proof.
-		let proof = block.proofs().nth(0).unwrap().clone();
+		let proof = block.proof().clone();
 
 		let backend = sp_state_machine::create_proof_check_backend::<BlakeTwo256>(
 			*header.state_root(),

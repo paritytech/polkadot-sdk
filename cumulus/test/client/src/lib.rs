@@ -240,11 +240,12 @@ fn get_keystore() -> sp_keystore::KeystorePtr {
 /// Given parachain block data and a slot, seal the block with an aura seal. Assumes that the
 /// authorities of the test runtime are present in the keyring.
 pub fn seal_block(block: ParachainBlockData, client: &Client) -> ParachainBlockData {
+	let (blocks, proof) = block.into_inner();
+
 	ParachainBlockData::new(
-		block
-			.into_inner()
+		blocks
 			.into_iter()
-			.map(|(mut block, proof)| {
+			.map(|mut block| {
 				let parachain_slot =
 					find_pre_digest::<Block, <AuraId as AppCrypto>::Signature>(&block.header)
 						.unwrap();
@@ -263,8 +264,9 @@ pub fn seal_block(block: ParachainBlockData, client: &Client) -> ParachainBlockD
 				.expect("Should be able to create seal");
 				block.header.digest_mut().push(seal_digest);
 
-				(block, proof)
+				block
 			})
 			.collect::<Vec<_>>(),
+		proof,
 	)
 }
