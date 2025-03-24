@@ -77,48 +77,44 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    let codec_bound_attr = if let Some(codec_bounds) = codec_bound_params {
-        let bounds_mel = codec_bounds.iter().map(|item| {
-            bound_clause(item, quote! { ::#frame_support::__private::codec::MaxEncodedLen })
-        });
-        let bounds_encode = codec_bounds.iter().map(|item| {
-            bound_clause(item, quote! { ::#frame_support::__private::codec::Encode })
-        });
-        let bounds_decode = codec_bounds.iter().map(|item| {
-            bound_clause(item, quote! { ::#frame_support::__private::codec::Decode })
-        });
-        // let bounds_decode_with_mem_tracking = codec_bounds.iter().map(|item| {
-        //     bound_clause(item, quote! { ::#frame_support::__private::codec::DecodeWithMemTracking })
-        // });
-        quote! {
-            #[codec(encode_bound( #(#bounds_encode),*))]
-            #[codec(decode_bound( #(#bounds_decode),*))]
-            // #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
-            #[codec(mel_bound( #(#bounds_mel),* ))]
-        }
+    let mut codec_needed = true;
+    let mut codec_bound_attr = quote! {};
+    let (bounds_mel, bounds_encode, bounds_decode) = if let Some(codec_bounds) = codec_bound_params {
+        (
+            codec_bounds.iter()
+                .map(|item| explicit_or_default_bound(item, quote! { ::#frame_support::__private::codec::MaxEncodedLen }))
+                .collect::<Vec<_>>(),
+            codec_bounds.iter()
+                .map(|item| explicit_or_default_bound(item, quote! { ::#frame_support::__private::codec::Encode }))
+                .collect::<Vec<_>>(),
+            codec_bounds.iter()
+                .map(|item| explicit_or_default_bound(item, quote! { ::#frame_support::__private::codec::Decode }))
+                .collect::<Vec<_>>(),
+        )
     } else if !skip_params.is_empty() {
-        let bounds_mel = not_skipped_generics.iter().map(|ident| {
-            quote! { #ident: ::#frame_support::__private::codec::MaxEncodedLen }
-        });
-        let bounds_encode = not_skipped_generics.iter().map(|ident| {
-            quote! { #ident: ::#frame_support::__private::codec::Encode }
-        });
-        let bounds_decode = not_skipped_generics.iter().map(|ident| {
-            quote! { #ident: ::#frame_support::__private::codec::Decode }
-        });
-        // let bounds_decode_mem_tracking = not_skipped_generics.iter().map(|ident| {
-        //     quote! { #ident: ::#frame_support::__private::codec::DecodeWithMemTracking }
-        // });
+        (
+            not_skipped_generics.iter()
+                .map(|ident| quote! { #ident: ::#frame_support::__private::codec::MaxEncodedLen })
+                .collect::<Vec<_>>(),
+            not_skipped_generics.iter()
+                .map(|ident| quote! { #ident: ::#frame_support::__private::codec::Encode })
+                .collect::<Vec<_>>(),
+            not_skipped_generics.iter()
+                .map(|ident| quote! { #ident: ::#frame_support::__private::codec::Decode })
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        codec_needed = false;
+        (vec![], vec![], vec![])
+    };
 
-        quote! {
+    if codec_needed {
+        codec_bound_attr = quote! {
             #[codec(encode_bound( #(#bounds_encode),*))]
             #[codec(decode_bound( #(#bounds_decode),*))]
-            // #[codec(decode_with_mem_tracking_bound( #(#bounds_decode_mem_tracking),*))]
-            #[codec(mel_bound( #(#bounds_mel),* ))]
-        }
-    } else {
-        quote! {}
-    };
+            #[codec(mel_bound( #(#bounds_mel),*))]
+        };
+    }
 
     let use_no_bounds_derives = !skip_params.is_empty();
 
@@ -246,7 +242,7 @@ fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<CodecBoundIte
     (skip, codec_bounds)
 }
 
-fn bound_clause(item: &CodecBoundItem, default_bound: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+fn explicit_or_default_bound(item: &CodecBoundItem, default_bound: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
     let ty = &item.ty;
     if let Some(ref explicit_bound) = item.bound {
         quote! { #ty: #explicit_bound }
