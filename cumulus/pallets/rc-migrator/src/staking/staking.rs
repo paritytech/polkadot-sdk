@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Election Provider Multi-Block migration.
+//! Pallet staking migration.
 
 use crate::*;
 pub use frame_election_provider_support::PageIndex;
