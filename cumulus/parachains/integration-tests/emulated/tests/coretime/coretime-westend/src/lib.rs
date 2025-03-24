@@ -31,6 +31,7 @@ mod imports {
 		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::{
+			self,
 			coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
 			CoretimeWestendParaPallet as CoretimeWestendPallet,
 		},
