@@ -708,7 +708,7 @@ mod benchmarks {
 		{
 			executor.bench_process(xcm)?;
 		}
-		// assert_eq!(executor.holding(), &want.into());
+		assert_eq!(executor.holding(), &want.into());
 		Ok(())
 	}
 
