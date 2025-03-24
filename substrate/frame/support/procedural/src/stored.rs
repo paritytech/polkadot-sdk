@@ -170,7 +170,45 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
         #(#attrs)*
     };
 
-    let expanded = match input.data {
+    expand(&input, common_attrs, vis, struct_ident, generics, where_clause).into()
+}
+
+fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<CodecBoundItem>>) {
+    let mut skip = Vec::new();
+    let mut codec_bounds = None;
+    if args.is_empty() {
+        return (skip, None);
+    }
+    let parsed = Punctuated::<syn::Meta, Token![,]>::parse_terminated
+        .parse2(args.into())
+        .unwrap_or_default();
+    for meta in parsed {
+        if let syn::Meta::List(meta_list) = meta {
+            if let Some(ident) = meta_list.path.get_ident() {
+                if ident == "skip" {
+                    let ident_list: SkipList =
+                        syn::parse2(meta_list.tokens).unwrap_or_default();
+                    skip.extend(ident_list.0.into_iter());
+                } else if ident == "codec_bounds" {
+                    let codec_bound_list: CodecBoundList =
+                        syn::parse2(meta_list.tokens).unwrap_or_default();
+                    codec_bounds = Some(codec_bound_list.0.into_iter().collect());
+                }
+            }
+        }
+    }
+    (skip, codec_bounds)
+}
+
+fn expand(
+    input: &DeriveInput,
+    common_attrs: proc_macro2::TokenStream,
+    vis: &syn::Visibility,
+    struct_ident: &Ident,
+    generics: &syn::Generics,
+    where_clause: Option<&syn::WhereClause>,
+) -> proc_macro2::TokenStream {
+    match &input.data {
         Data::Struct(ref data_struct) => match data_struct.fields {
             syn::Fields::Named(ref fields) => {
                 quote! {
@@ -210,36 +248,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             .to_compile_error()
             .into()
         },
-    };
-
-    expanded.into()
-}
-
-fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<CodecBoundItem>>) {
-    let mut skip = Vec::new();
-    let mut codec_bounds = None;
-    if args.is_empty() {
-        return (skip, None);
     }
-    let parsed = Punctuated::<syn::Meta, Token![,]>::parse_terminated
-        .parse2(args.into())
-        .unwrap_or_default();
-    for meta in parsed {
-        if let syn::Meta::List(meta_list) = meta {
-            if let Some(ident) = meta_list.path.get_ident() {
-                if ident == "skip" {
-                    let ident_list: SkipList =
-                        syn::parse2(meta_list.tokens).unwrap_or_default();
-                    skip.extend(ident_list.0.into_iter());
-                } else if ident == "codec_bounds" {
-                    let codec_bound_list: CodecBoundList =
-                        syn::parse2(meta_list.tokens).unwrap_or_default();
-                    codec_bounds = Some(codec_bound_list.0.into_iter().collect());
-                }
-            }
-        }
-    }
-    (skip, codec_bounds)
 }
 
 fn explicit_or_default_bound(item: &CodecBoundItem, default_bound: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
