@@ -15,7 +15,7 @@
 
 use super::*;
 use crate as xcmp_queue;
-use core::{cmp::max, marker::PhantomData};
+use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
@@ -179,21 +179,30 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 				footprint.storage.size += m.len() as u64;
 			}
 		}
-		footprint.pages =
-			(footprint.storage.size as u32).div_ceil(<Self::MaxMessageLen as Get<u32>>::get());
-		if footprint.storage.count > 0 {
-			footprint.pages = max(footprint.pages, 1);
-		}
+		// Let's consider that we add one message per page
+		footprint.pages = footprint.storage.count as u32;
 		footprint.ready_pages = footprint.pages;
 		footprint
 	}
 
 	fn check_messages_footprint<'a>(
-		_origin: ParaId,
-		_msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
-		_total_pages_limit: u32,
+		origin: ParaId,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
 	) -> Result<u32, (u32, usize)> {
-		Ok(0)
+		// Let's consider that we add one message per page
+		let footprint = Self::footprint(origin);
+		let total_pages_count = footprint.pages + msgs.count() as u32;
+		match total_pages_limit.checked_sub(total_pages_count) {
+			Some(new_pages_count) => {
+				//debug
+				Ok(new_pages_count)
+			},
+			None => {
+				let new_pages_count = total_pages_limit.saturating_sub(footprint.pages);
+				Err((new_pages_count, new_pages_count as usize))
+			},
+		}
 	}
 }
 
