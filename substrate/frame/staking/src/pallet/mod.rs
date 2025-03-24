@@ -408,11 +408,11 @@ pub mod pallet {
 	}
 
 	/// The ideal number of active validators.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type ValidatorCount<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Minimum number of staking participants before emergency conditions are imposed.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type MinimumValidatorCount<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Any validators that may never be slashed or forcibly kicked. It's a Vec since they're
@@ -429,21 +429,21 @@ pub mod pallet {
 	pub type Bonded<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>;
 
 	/// The minimum active bond to become and maintain the role of a nominator.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type MinNominatorBond<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// The minimum active bond to become and maintain the role of a validator.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type MinValidatorBond<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// The minimum active nominator stake of the last successful election.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type MinimumActiveStake<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// The minimum amount of commission that validators can set.
 	///
 	/// If set to `0`, no limit exists.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type MinCommission<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
 	/// Map from all (unlocked) "controller" accounts to the info regarding the staking.
@@ -470,7 +470,7 @@ pub mod pallet {
 	/// The maximum validator count before we stop allowing new validators to join.
 	///
 	/// When this value is not set, no limits are enforced.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type MaxValidatorsCount<T> = StorageValue<_, u32, OptionQuery>;
 
 	/// The map from nominator stash key to their nomination preferences, namely the validators that
@@ -508,7 +508,7 @@ pub mod pallet {
 	/// The maximum nominator count before we stop allowing new validators to join.
 	///
 	/// When this value is not set, no limits are enforced.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type MaxNominatorsCount<T> = StorageValue<_, u32, OptionQuery>;
 
 	/// The current era index.
@@ -629,24 +629,24 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	/// Mode of era forcing.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
 
 	/// Maximum staked rewards, i.e. the percentage of the era inflation that
 	/// is used for stake rewards.
 	/// See [Era payout](./index.html#era-payout).
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
 
 	/// The percentage of the slash that is distributed to reporters.
 	///
 	/// The rest of the slashed value is handled by the `Slash`.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type SlashRewardFraction<T> = StorageValue<_, Perbill, ValueQuery>;
 
 	/// The amount of currency given to reporters of a slash event which was
 	/// canceled by extraordinary circumstances (e.g. governance).
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type CanceledSlashPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// Stores reported offences in a queue until they are processed in subsequent blocks.
@@ -718,13 +718,12 @@ pub mod pallet {
 	/// `[active_era - bounding_duration; active_era]`
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type BondedEras<T: Config> =
-		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+	pub type BondedEras<T: Config> = StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
 
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.
 	#[pallet::storage]
-	pub(crate) type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
+	pub type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
@@ -735,7 +734,7 @@ pub mod pallet {
 
 	/// All slashing events on nominators, mapped by era to the highest slash value of the era.
 	#[pallet::storage]
-	pub(crate) type NominatorSlashInEra<T: Config> =
+	pub type NominatorSlashInEra<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
 	/// Slashing spans for stash accounts.
@@ -747,7 +746,7 @@ pub mod pallet {
 	/// Records information about the maximum slash of a stash within a slashing span,
 	/// as well as how much reward has been paid out.
 	#[pallet::storage]
-	pub(crate) type SpanSlash<T: Config> = StorageMap<
+	pub type SpanSlash<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		(T::AccountId, slashing::SpanIndex),
@@ -758,21 +757,21 @@ pub mod pallet {
 	/// The last planned session scheduled by the session pallet.
 	///
 	/// This is basically in sync with the call to [`pallet_session::SessionManager::new_session`].
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
-	#[pallet::storage]
-	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
+	#[pallet::storage] // Done
+	pub type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
 	/// Voter snapshot progress status.
 	///
 	/// If the status is `Ongoing`, it keeps a cursor of the last voter retrieved to proceed when
 	/// creating the next snapshot page.
 	#[pallet::storage]
-	pub(crate) type VoterSnapshotStatus<T: Config> =
+	pub type VoterSnapshotStatus<T: Config> =
 		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
 
 	/// Keeps track of an ongoing multi-page election solution request.
@@ -781,12 +780,12 @@ pub mod pallet {
 	/// election process.
 	///
 	/// This is only set in multi-block elections. Should always be `None` otherwise.
-	#[pallet::storage]
-	pub(crate) type NextElectionPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
+	#[pallet::storage] // Done
+	pub type NextElectionPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
 
 	/// A bounded list of the "electable" stashes that resulted from a successful election.
 	#[pallet::storage]
-	pub(crate) type ElectableStashes<T: Config> =
+	pub type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 
 	#[pallet::genesis_config]

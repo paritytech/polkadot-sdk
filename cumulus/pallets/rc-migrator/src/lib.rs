@@ -56,7 +56,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze, MutateHold},
 		tokens::{Fortitude, Precision, Preservation},
-		Contains, Defensive, LockableCurrency, ReservableCurrency,
+		Contains, Defensive, LockableCurrency, ReservableCurrency, VariantCount,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -318,8 +318,10 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config:
 		frame_system::Config<AccountData = AccountData<u128>, AccountId = AccountId32>
-		+ pallet_balances::Config<Balance = u128>
-		+ hrmp::Config
+		+ pallet_balances::Config<
+			Balance = u128,
+			RuntimeHoldReason = <Self as crate::Config>::RuntimeHoldReason,
+		> + hrmp::Config
 		+ paras_registrar::Config
 		+ pallet_multisig::Config
 		+ pallet_proxy::Config
@@ -335,8 +337,13 @@ pub mod pallet {
 		+ pallet_treasury::Config
 		+ pallet_asset_rate::Config
 		+ pallet_slots::Config
-		+ pallet_crowdloan::Config //+ pallet_staking::Config
+		+ pallet_crowdloan::Config
+		+ pallet_staking::Config<
+			RuntimeHoldReason = <Self as crate::Config>::RuntimeHoldReason,
+			Currency = <Self as crate::Config>::Currency,
+		>
 	{
+		type RuntimeHoldReason: Parameter + VariantCount;
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The origin that can perform permissioned operations like setting the migration stage.
@@ -345,7 +352,7 @@ pub mod pallet {
 		type ManagerOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 		/// Native asset registry type.
 		type Currency: Mutate<Self::AccountId, Balance = u128>
-			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ MutateHold<Self::AccountId, Reason = <Self as crate::Config>::RuntimeHoldReason>
 			+ InspectFreeze<Self::AccountId, Id = Self::FreezeIdentifier>
 			+ MutateFreeze<Self::AccountId>
 			+ ReservableCurrency<Self::AccountId, Balance = u128>

@@ -386,7 +386,7 @@ impl<T: Config> AccountsMigrator<T> {
 			}
 		}
 
-		let holds: Vec<IdAmount<T::RuntimeHoldReason, T::Balance>> =
+		let holds: Vec<IdAmount<<T as crate::Config>::RuntimeHoldReason, T::Balance>> =
 			pallet_balances::Holds::<T>::get(&who).into();
 
 		for hold in &holds {
