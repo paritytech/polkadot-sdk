@@ -8,12 +8,12 @@ use syn::parse::{Parse, ParseStream, Parser};
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 
 #[derive(Default)]
-struct IdentList(Punctuated<Ident, Token![,]>);
+struct SkipList(Punctuated<Ident, Token![,]>);
 
-impl Parse for IdentList {
+impl Parse for SkipList {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let idents = Punctuated::<Ident, Token![,]>::parse_terminated(input)?;
-        Ok(IdentList(idents))
+        Ok(SkipList(idents))
     }
 }
 
@@ -186,9 +186,9 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     let common_attrs = quote! {
         #common_derives
+        #still_bind_attr
         #skip_list
         #codec_bound_attr
-        #still_bind_attr
         #(#attrs)*
     };
 
@@ -250,7 +250,7 @@ fn parse_stored_args(args: TokenStream) -> (Vec<Ident>, Option<Vec<CodecBoundIte
         if let syn::Meta::List(meta_list) = meta {
             if let Some(ident) = meta_list.path.get_ident() {
                 if ident == "skip" {
-                    let ident_list: IdentList =
+                    let ident_list: SkipList =
                         syn::parse2(meta_list.tokens).unwrap_or_default();
                     skip.extend(ident_list.0.into_iter());
                 } else if ident == "codec_bounds" {
