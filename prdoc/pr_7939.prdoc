@@ -21,20 +21,16 @@ crates:
   bump: major
 - name: pallet-staking
   bump: major
-- name: pallet-bags-list
-  bump: patch
 - name: pallet-grandpa
-  bump: major
+  bump: patch
 - name: pallet-election-provider-multi-phase
   bump: major
 - name: pallet-election-provider-support-benchmarking
-  bump: major
+  bump: patch
 - name: pallet-fast-unstake
   bump: patch
-- name: frame-benchmarking-cli
-  bump: major
 - name: pallet-beefy
-  bump: major
+  bump: patch
 - name: pallet-delegated-staking
   bump: patch
 - name: pallet-elections-phragmen
@@ -47,3 +43,5 @@ crates:
   bump: patch
 - name: pallet-root-offences
   bump: patch
+- name: westend-runtime
+  bump: major
