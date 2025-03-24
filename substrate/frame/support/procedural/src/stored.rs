@@ -69,13 +69,14 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     .filter(|gen| !skip_params.contains(gen))
     .collect();
 
-    let still_bind_attr = if !skip_params.is_empty() && !not_skipped_generics.is_empty() {
-        quote! {
+    let mut still_bind_attr = quote! {};
+    if !skip_params.is_empty() && !not_skipped_generics.is_empty() {
+        still_bind_attr = quote! {
             #[still_bind( #(#not_skipped_generics),* )]
         }
-    } else {
-        quote! {}
-    };
+    }
+
+    let use_no_bounds_derives = !skip_params.is_empty();
 
     let mut codec_needed = true;
     let mut codec_bound_attr = quote! {};
@@ -115,8 +116,6 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
             #[codec(mel_bound( #(#bounds_mel),*))]
         };
     }
-
-    let use_no_bounds_derives = !skip_params.is_empty();
 
     let mut scale_skip_attr = quote! {};
     if use_no_bounds_derives {
