@@ -75,6 +75,8 @@ jobs:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
           BACKPORT_BRANCHES: ${{ steps.branches.outputs.BACKPORT_BRANCHES }}
         run: |
+          gh auth login --with-token <<< $GITHUB_TOKEN
+
           for branch in $BACKPORT_BRANCHES; do
             echo "Creating backport for branch: $branch"
 
@@ -89,8 +91,6 @@ jobs:
               git add .
               git commit -m "BACKPORT-CONFLICT: Resolve conflicts for backport #${{ github.event.pull_request.number }}"
             }
-
-            gh auth setup-git
 
             git push origin $BACKPORT_BRANCH
 
