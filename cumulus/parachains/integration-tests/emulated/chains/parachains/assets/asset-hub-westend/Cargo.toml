@@ -20,7 +20,7 @@ emulated-integration-tests-common.workspace = true
 parachains-common.workspace = true
 parachains-common.default-features = true
 testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }
-westend-emulated-chain.workspace = true
-westend-emulated-chain.default-features = true
+westend-emulated-chain = { workspace = true, default-features = true }
 xcm.workspace = true
+xcm-builder = { workspace = true, default-features = true }
 bp-bridge-hub-westend.workspace = true

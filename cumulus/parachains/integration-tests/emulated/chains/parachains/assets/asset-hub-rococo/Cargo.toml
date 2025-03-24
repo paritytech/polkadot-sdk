@@ -24,4 +24,5 @@ parachains-common.default-features = true
 rococo-emulated-chain.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }
 xcm.workspace = true
+xcm-builder = { workspace = true, default-features = true }
 bp-bridge-hub-rococo.workspace = true
