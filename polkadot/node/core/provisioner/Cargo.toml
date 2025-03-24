@@ -29,4 +29,3 @@ polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
-
