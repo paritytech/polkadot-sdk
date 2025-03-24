@@ -593,14 +593,7 @@ pub async fn propagate_transaction_notifications<Block, ExPool>(
 			notification = notifications.next() => {
 				let Some(hash) = notification else { return };
 
-				let mut hashes = Vec::with_capacity(8);
-				hashes.push(hash);
-				// Drain the notifications that are readily available on `notifications`.
-				while let Some(hash) = notifications.next().now_or_never().flatten() {
-					hashes.push(hash);
-				}
-
-				tx_handler_controller.propagate_imported_transactions(hashes);
+				tx_handler_controller.propagate_transaction(hash);
 
 				tx_imported = true;
 			},
