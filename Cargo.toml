@@ -701,7 +701,7 @@ collectives-westend-runtime = { path = "cumulus/parachains/runtimes/collectives/
 color-eyre = { version = "0.6.3", default-features = false }
 color-print = { version = "0.3.4" }
 colored = { version = "2.0.4" }
-comfy-table = { version = "7.1.0", default-features = false }
+comfy-table = { version = "7.1.4", default-features = false }
 console = { version = "0.15.8" }
 const-hex = { version = "1.10.0", default-features = false }
 coretime-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo" }
@@ -876,7 +876,7 @@ mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
 mmr-lib = { version = "0.5.2", package = "ckb-merkle-mountain-range" }
 mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false }
-mockall = { version = "0.11.3" }
+mockall = { version = "0.13.1" }
 multiaddr = { version = "0.18.1" }
 multihash = { version = "0.19.1", default-features = false }
 multihash-codetable = { version = "0.1.1" }
@@ -1123,8 +1123,8 @@ prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = 
 prometheus-parse = { version = "0.2.2" }
 prost = { version = "0.12.4" }
 prost-build = { version = "0.13.2" }
-pyroscope = { version = "0.5.7" }
-pyroscope_pprofrs = { version = "0.2.7" }
+pyroscope = { version = "0.5.8" }
+pyroscope_pprofrs = { version = "0.2.8" }
 quick_cache = { version = "0.3" }
 quickcheck = { version = "1.0.3", default-features = false }
 quote = { version = "1.0.37" }
@@ -1318,7 +1318,6 @@ ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
 static_init = { version = "1.0.3" }
-structopt = { version = "0.3" }
 strum = { version = "0.26.3", default-features = false }
 subkey = { path = "substrate/bin/utils/subkey", default-features = false }
 substrate-bip39 = { path = "substrate/utils/substrate-bip39", default-features = false }
@@ -1359,7 +1358,7 @@ tokio = { version = "1.40.0", default-features = false }
 tokio-retry = { version = "0.3.0" }
 tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.4" }
-tokio-tungstenite = { version = "0.20.1" }
+tokio-tungstenite = { version = "0.26.2" }
 tokio-util = { version = "0.7.8" }
 toml = { version = "0.8.12" }
 toml_edit = { version = "0.19" }
@@ -1405,8 +1404,8 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.2.22" }
-zombienet-sdk = { version = "0.2.22" }
+zombienet-configuration = { version = "0.2.29" }
+zombienet-sdk = { version = "0.2.29" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
