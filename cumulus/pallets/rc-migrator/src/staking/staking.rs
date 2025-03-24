@@ -18,7 +18,7 @@
 
 use crate::*;
 pub use frame_election_provider_support::PageIndex;
-use pallet_staking::Forcing;
+use pallet_staking::{Forcing, RewardDestination, StakingLedger, ValidatorPrefs};
 use sp_core::H256;
 use sp_runtime::{Perbill, Percent};
 use sp_staking::SessionIndex;
@@ -44,6 +44,9 @@ pub enum StakingStage<AccountId> {
 	Values,
 	Invulnerables,
 	Bonded(Option<AccountId>),
+	Ledger(Option<AccountId>),
+	Payee(Option<AccountId>),
+	Validators(Option<AccountId>),
 	Finished,
 }
 
@@ -70,17 +73,30 @@ pub struct StakingValues<Balance> {
 
 pub type StakingValuesOf<T> = StakingValues<<T as pallet_staking::Config>::CurrencyBalance>;
 
-#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug, Clone, PartialEq, Eq)]
-pub enum StakingMessage<AccountId, Balance> {
-	Values(StakingValues<Balance>),
-	Invulnerables(Vec<AccountId>),
-	Bonded { stash: AccountId, controller: AccountId },
-}
+pub type BalanceOf<T> = <T as pallet_staking::Config>::CurrencyBalance;
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-pub type StakingMessageOf<T> = StakingMessage<
-	<T as frame_system::Config>::AccountId,
-	<T as pallet_staking::Config>::CurrencyBalance,
->;
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	RuntimeDebug,
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+)]
+#[scale_info(skip_type_params(T))]
+pub enum StakingMessage<T: pallet_staking::Config> {
+	Values(StakingValues<BalanceOf<T>>),
+	Invulnerables(Vec<AccountIdOf<T>>),
+	Bonded { stash: AccountIdOf<T>, controller: AccountIdOf<T> },
+	// Stupid staking pallet forces us to use `T` since its staking ledger requires that...
+	Ledger { controller: AccountIdOf<T>, ledger: StakingLedger<T> },
+	Payee { stash: AccountIdOf<T>, payment: RewardDestination<AccountIdOf<T>> },
+	Validators { stash: AccountIdOf<T>, validators: ValidatorPrefs },
+}
+pub type StakingMessageOf<T> = StakingMessage<T>;
 
 impl<T: Config> StakingMigrator<T> {
 	pub fn take_values() -> StakingValuesOf<T> {
@@ -156,8 +172,8 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 
 			inner_key = match inner_key {
 				StakingStage::Values => {
-					let Values = Self::take_values();
-					messages.push(StakingMessage::Values(Values));
+					let values = Self::take_values();
+					messages.push(StakingMessage::Values(values));
 					StakingStage::Invulnerables
 				},
 				StakingStage::Invulnerables => {
@@ -179,11 +195,65 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 								.push(StakingMessage::Bonded { stash: stash.clone(), controller });
 							StakingStage::Bonded(Some(stash))
 						},
+						None => StakingStage::Ledger(None),
+					}
+				},
+				StakingStage::Ledger(who) => {
+					let mut iter = if let Some(who) = who {
+						pallet_staking::Ledger::<T>::iter_from_key(who)
+					} else {
+						pallet_staking::Ledger::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((controller, ledger)) => {
+							pallet_staking::Ledger::<T>::remove(&controller);
+							messages.push(StakingMessage::Ledger {
+								controller: controller.clone(),
+								ledger,
+							});
+							StakingStage::Ledger(Some(controller))
+						},
+						None => StakingStage::Payee(None),
+					}
+				},
+				StakingStage::Payee(who) => {
+					let mut iter = if let Some(who) = who {
+						pallet_staking::Payee::<T>::iter_from_key(who)
+					} else {
+						pallet_staking::Payee::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((stash, payment)) => {
+							pallet_staking::Payee::<T>::remove(&stash);
+							messages.push(StakingMessage::Payee { stash: stash.clone(), payment });
+							StakingStage::Payee(Some(stash))
+						},
+						None => StakingStage::Validators(None),
+					}
+				},
+				StakingStage::Validators(who) => {
+					let mut iter = if let Some(who) = who {
+						pallet_staking::Validators::<T>::iter_from(
+							pallet_staking::Validators::<T>::hashed_key_for(who),
+						)
+					} else {
+						pallet_staking::Validators::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((stash, validators)) => {
+							pallet_staking::Validators::<T>::remove(&stash);
+							messages.push(StakingMessage::Validators {
+								stash: stash.clone(),
+								validators,
+							});
+							StakingStage::Validators(Some(stash))
+						},
 						None => StakingStage::Finished,
 					}
 				},
-
-				_ => todo!(),
 				StakingStage::Finished => {
 					break;
 				},

@@ -418,14 +418,14 @@ pub mod pallet {
 	/// Any validators that may never be slashed or forcibly kicked. It's a Vec since they're
 	/// easy to initialize and the performance hit is minimal (we expect no more than four
 	/// invulnerables) and restricted to testnets.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type Invulnerables<T: Config> =
 		StorageValue<_, BoundedVec<T::AccountId, T::MaxInvulnerables>, ValueQuery>;
 
 	/// Map from all locked "stash" accounts to the controller account.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type Bonded<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>;
 
 	/// The minimum active bond to become and maintain the role of a nominator.
@@ -450,20 +450,20 @@ pub mod pallet {
 	///
 	/// Note: All the reads and mutations to this storage *MUST* be done through the methods exposed
 	/// by [`StakingLedger`] to ensure data and lock consistency.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type Ledger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, StakingLedger<T>>;
 
 	/// Where the reward payment should be made. Keyed by stash.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type Payee<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, OptionQuery>;
 
 	/// The map from (wannabe) validator stash key to the preferences of that validator.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type Validators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, ValidatorPrefs, ValueQuery>;
 
