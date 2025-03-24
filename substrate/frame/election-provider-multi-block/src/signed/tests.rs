@@ -23,7 +23,6 @@ pub type T = Runtime;
 
 mod calls {
 	use super::*;
-	use crate::Phase;
 	use sp_runtime::{DispatchError, TokenError::FundsUnavailable};
 
 	#[test]
@@ -52,7 +51,7 @@ mod calls {
 	#[test]
 	fn cannot_register_if_not_signed() {
 		ExtBuilder::signed().build_and_execute(|| {
-			assert!(crate::Pallet::<T>::current_phase() != Phase::Signed);
+			assert!(!crate::Pallet::<T>::current_phase().is_signed());
 			assert_noop!(
 				SignedPallet::register(RuntimeOrigin::signed(99), Default::default()),
 				Error::<T>::PhaseNotSigned
@@ -212,15 +211,11 @@ mod calls {
 			assert_full_snapshot();
 
 			let score_from = |x| ElectionScore { minimal_stake: x, ..Default::default() };
-			let assert_held = |x| assert_eq!(balances(x), (95, 5));
-			let assert_unheld = |x| assert_eq!(balances(x), (100, 0));
 
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), score_from(100)));
 			assert_eq!(*Submissions::<Runtime>::leaderboard(0), vec![(91, score_from(100))]);
-			assert_held(91);
-			assert!(
-				matches!(signed_events().as_slice(), &[SignedEvent::Registered(_, x, _)] if x == 91)
-			);
+			assert_eq!(balances(91), (95, 5));
+			assert!(matches!(signed_events().as_slice(), &[SignedEvent::Registered(_, 91, _)]));
 
 			// weaker one comes while we have space.
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), score_from(90)));
@@ -228,11 +223,11 @@ mod calls {
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100))]
 			);
-			assert_held(92);
-			assert!(matches!(signed_events().as_slice(), &[
-					SignedEvent::Registered(..),
-					SignedEvent::Registered(_, x, _),
-				] if x == 92));
+			assert_eq!(balances(92), (95, 5));
+			assert!(matches!(
+				signed_events().as_slice(),
+				&[SignedEvent::Registered(..), SignedEvent::Registered(_, 92, _),]
+			));
 
 			// stronger one comes while we have have space.
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(93), score_from(110)));
@@ -240,12 +235,15 @@ mod calls {
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100)), (93, score_from(110))]
 			);
-			assert_held(93);
-			assert!(matches!(signed_events().as_slice(), &[
+			assert_eq!(balances(93), (95, 5));
+			assert!(matches!(
+				signed_events().as_slice(),
+				&[
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
-					SignedEvent::Registered(_, x, _),
-				] if x == 93));
+					SignedEvent::Registered(_, 93, _),
+				]
+			));
 
 			// weaker one comes while we don't have space.
 			assert_noop!(
@@ -256,7 +254,7 @@ mod calls {
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(92, score_from(90)), (91, score_from(100)), (93, score_from(110))]
 			);
-			assert_unheld(94);
+			assert_eq!(balances(94), (100, 0));
 			// no event has been emitted this time.
 			assert!(matches!(
 				signed_events().as_slice(),
@@ -279,12 +277,14 @@ mod calls {
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
-					SignedEvent::Discarded(_, 92),
+					SignedEvent::Ejected(_, 92),
 					SignedEvent::Registered(_, 94, _),
 				]
 			));
-			assert_held(94);
-			assert_unheld(92);
+			assert_eq!(balances(94), (95, 5));
+			// 92 is ejected, 1 unit of deposit is refunded, 4 units are slashed.
+			// see the default `EjectGraceRatio`.
+			assert_eq!(balances(92), (96, 0));
 
 			// another stronger one comes, only replace the weakest.
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(95), score_from(105)));
@@ -292,17 +292,18 @@ mod calls {
 				*Submissions::<Runtime>::leaderboard(0),
 				vec![(95, score_from(105)), (93, score_from(110)), (94, score_from(120))]
 			);
-			assert_held(95);
-			assert_unheld(91);
+			assert_eq!(balances(95), (95, 5));
+			// 91 is ejected, they get only a part of the deposit back.
+			assert_eq!(balances(91), (96, 0));
 			assert!(matches!(
 				signed_events().as_slice(),
 				&[
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
-					SignedEvent::Discarded(..),
+					SignedEvent::Ejected(..),
 					SignedEvent::Registered(..),
-					SignedEvent::Discarded(_, 91),
+					SignedEvent::Ejected(_, 91),
 					SignedEvent::Registered(_, 95, _),
 				]
 			));
@@ -467,6 +468,54 @@ mod e2e {
 				vec![99, 999, 92]
 			);
 
+			assert_eq!(
+				Submissions::<Runtime>::metadata_iter(0).collect::<Vec<_>>(),
+				vec![
+					(
+						92,
+						SubmissionMetadata {
+							deposit: 5,
+							fee: 1,
+							reward: 3,
+							claimed_score: ElectionScore {
+								minimal_stake: 110,
+								sum_stake: 130,
+								sum_stake_squared: 8650
+							},
+							pages: bounded_vec![false, false, false]
+						}
+					),
+					(
+						999,
+						SubmissionMetadata {
+							deposit: 8,
+							fee: 4,
+							reward: 3,
+							claimed_score: ElectionScore {
+								minimal_stake: 55,
+								sum_stake: 130,
+								sum_stake_squared: 8650
+							},
+							pages: bounded_vec![true, true, true]
+						}
+					),
+					(
+						99,
+						SubmissionMetadata {
+							deposit: 6,
+							fee: 2,
+							reward: 3,
+							claimed_score: ElectionScore {
+								minimal_stake: 10,
+								sum_stake: 10,
+								sum_stake_squared: 100
+							},
+							pages: bounded_vec![true, false, false]
+						}
+					)
+				]
+			);
+
 			roll_to_signed_validation_open();
 
 			// 92 is slashed in 3 blocks, 999 becomes rewarded in 3 blocks, , and 99 is discarded.
@@ -487,7 +536,7 @@ mod e2e {
 			roll_next();
 
 			assert_eq!(
-				signed_events(),
+				singed_events_since_last_call(),
 				vec![
 					Event::Registered(
 						0,
@@ -518,7 +567,6 @@ mod e2e {
 					),
 					Event::Slashed(0, 92, 5),
 					Event::Rewarded(0, 999, 7),
-					Event::Discarded(0, 99)
 				]
 			);
 
@@ -543,9 +591,39 @@ mod e2e {
 				]
 			);
 
-			assert_eq!(balances(99), (100, 0));
+			// 99 is discarded -- for now they have some deposit collected, which they have to
+			// manually collect next.
+			assert_eq!(balances(99), (94, 6));
+			// 999 has gotten their deposit back, plus fee and reward back.
 			assert_eq!(balances(999), (107, 0));
+			// 92 loses a part of their deposit for being ejected.
 			assert_eq!(balances(92), (95, 0));
+
+			// the data associated with 999 is already removed.
+			assert_ok!(Submissions::<Runtime>::ensure_killed_with(&999, 0));
+			// the data associated with 92 is already removed.
+			assert_ok!(Submissions::<Runtime>::ensure_killed_with(&92, 0));
+			// but not for 99
+			assert!(Submissions::<Runtime>::ensure_killed_with(&99, 0).is_err());
+
+			// we cannot cleanup just yet.
+			assert_noop!(
+				SignedPallet::clear_old_round_data(RuntimeOrigin::signed(99), 0),
+				Error::<T>::RoundNotOver
+			);
+
+			MultiBlock::rotate_round();
+
+			// now we can delete our stuff.
+			assert_ok!(SignedPallet::clear_old_round_data(RuntimeOrigin::signed(99), 0));
+			// our stuff is gone.
+			assert_ok!(Submissions::<Runtime>::ensure_killed_with(&99, 0));
+
+			// check events.
+			assert_eq!(singed_events_since_last_call(), vec![Event::Discarded(1, 99)]);
+
+			// 99 now has their deposit returned.
+			assert_eq!(balances(99), (100, 0));
 
 			// signed pallet should be in 100% clean state.
 			assert_ok!(Submissions::<Runtime>::ensure_killed(0));

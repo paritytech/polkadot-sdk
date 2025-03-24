@@ -554,6 +554,9 @@ pub mod pallet {
 		/// New session has happened. Note that the argument is the session index, not the
 		/// block number as the type might suggest.
 		NewSession { session_index: SessionIndex },
+		/// The `NewSession` event in the current block also implies a new validator set to be
+		/// queued.
+		NewQueued,
 		/// Validator has been disabled.
 		ValidatorDisabled { validator: T::ValidatorId },
 		/// Validator has been re-enabled.
@@ -698,6 +701,7 @@ impl<T: Config> Pallet<T> {
 				// NOTE: as per the documentation on `OnSessionEnding`, we consider
 				// the validator set as having changed even if the validators are the
 				// same as before, as underlying economic conditions may have changed.
+				Self::deposit_event(Event::<T>::NewQueued);
 				(validators, true)
 			} else {
 				(Validators::<T>::get(), false)

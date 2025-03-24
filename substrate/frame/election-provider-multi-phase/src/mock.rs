@@ -331,8 +331,16 @@ impl ElectionProvider for MockFallback {
 		unimplemented!()
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn duration() -> Self::BlockNumber {
+		0
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 }
 
@@ -402,7 +410,7 @@ impl MinerConfig for Runtime {
 impl crate::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type EstimateCallFee = frame_support::traits::ConstU32<8>;
+	type EstimateCallFee = frame_support::traits::ConstU64<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = BetterSignedThreshold;

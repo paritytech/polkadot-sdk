@@ -58,7 +58,7 @@ benchmarks_instance_pallet! {
 			]
 		);
 	}: {
-		let voters = List::<T, _>::iter();
+		let voters = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter();
 		let len = voters.collect::<Vec<_>>().len();
 		assert!(len as u32 == n, "len is {}, expected {}", len, n);
 	}
@@ -93,8 +93,48 @@ benchmarks_instance_pallet! {
 		);
 	}: {
 		// this should only go into one of the bags
-		let voters = List::<T, _>::iter().take(n as usize / 4 );
+		let voters = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter().take(n as usize / 4 );
 		let len = voters.collect::<Vec<_>>().len();
+		assert!(len as u32 == n / 4, "len is {}, expected {}", len, n / 4);
+	}
+
+	#[extra]
+	iter_next {
+		let n = 100;
+
+		// clear any pre-existing storage.
+		List::<T, _>::unsafe_clear();
+
+		// add n nodes, half to first bag and half to second bag.
+		let bag_thresh = T::BagThresholds::get()[0];
+		let second_bag_thresh = T::BagThresholds::get()[1];
+
+
+		for i in 0..n/2 {
+			let node: T::AccountId = account("node", i, 0);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh - One::one()));
+		}
+		for i in 0..n/2 {
+			let node: T::AccountId = account("node", i, 1);
+			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh + One::one()));
+		}
+		assert_eq!(
+			List::<T, _>::get_bags().into_iter().map(|(bag, nodes)| (bag, nodes.len())).collect::<Vec<_>>(),
+			vec![
+				(bag_thresh, (n / 2) as usize),
+				(second_bag_thresh, (n / 2) as usize),
+			]
+		);
+	}: {
+		// this should only go into one of the bags
+		let mut iter_var = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter();
+		let mut voters = Vec::<T::AccountId>::with_capacity((n/4) as usize);
+		for _ in 0..(n/4) {
+			let next = iter_var.next().unwrap();
+			voters.push(next);
+		}
+
+		let len = voters.len();
 		assert!(len as u32 == n / 4, "len is {}, expected {}", len, n / 4);
 	}
 
@@ -142,7 +182,7 @@ benchmarks_instance_pallet! {
 		// iter from someone in the 3rd bag, so this should touch ~75 nodes and 3 bags
 		let from: T::AccountId = account("node", 0, 2);
 	}: {
-		let voters = List::<T, _>::iter_from(&from).unwrap();
+		let voters = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter_from(&from).unwrap();
 		let len = voters.collect::<Vec<_>>().len();
 		assert!(len as u32 == 74, "len is {}, expected {}", len, 74);
 	}

@@ -31,7 +31,6 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use pallet_session::historical::IdentificationTuple;
-use pallet_staking::Pallet as Staking;
 use sp_runtime::Perbill;
 use sp_staking::offence::OnOffenceHandler;
 
@@ -46,7 +45,6 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config:
 		frame_system::Config
-		+ pallet_staking::Config
 		+ pallet_session::Config<ValidatorId = <Self as frame_system::Config>::AccountId>
 		+ pallet_session::historical::Config<
 			FullIdentification = (),
@@ -54,6 +52,7 @@ pub mod pallet {
 		>
 	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type OffenceHandler: OnOffenceHandler<Self::AccountId, IdentificationTuple<Self>, Weight>;
 	}
 
 	#[pallet::pallet]
@@ -116,12 +115,7 @@ pub mod pallet {
 		/// Submits the offence by calling the `on_offence` function.
 		fn submit_offence(offenders: &[OffenceDetails<T>], slash_fraction: &[Perbill]) {
 			let session_index = <pallet_session::Pallet<T> as frame_support::traits::ValidatorSet<T::AccountId>>::session_index();
-
-			<Staking<T> as OnOffenceHandler<
-				T::AccountId,
-				IdentificationTuple<T>,
-				Weight,
-			>>::on_offence(&offenders, &slash_fraction, session_index);
+			T::OffenceHandler::on_offence(&offenders, &slash_fraction, session_index);
 		}
 	}
 }
