@@ -2,7 +2,10 @@ title: Revert pallet-staking changes which should be released as a separate pall
 doc:
 - audience: Runtime Dev
   description: |-
-    Revert changes to staking pallet for AssetHubNext because they will be released as a separate pallet.
+    Revert multi-block election, slashing and staking client pallets.
+
+    Reverted PRs: #7582, #7424, #7282
+
 crates:
 - name: sp-staking
   bump: major
@@ -31,8 +34,6 @@ crates:
 - name: pallet-fast-unstake
   bump: major
 - name: frame-benchmarking-cli
-  bump: major
-- name: westend-runtime
   bump: major
 - name: pallet-beefy
   bump: major
