@@ -261,15 +261,6 @@ benchmarks_instance_pallet! {
 		// Add our asset to the holding.
 		holding.push(asset.clone());
 
-		let dest_location =  T::valid_destination()?;
-
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
-			&Default::default(),
-			&dest_location,
-			FeeReason::ChargeFees,
-		);
-
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding.into());
 		let instruction = Instruction::<XcmCallOf<T>>::InitiateTeleport {
