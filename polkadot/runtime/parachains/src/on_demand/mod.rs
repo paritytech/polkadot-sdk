@@ -45,7 +45,7 @@ extern crate alloc;
 mod tests;
 
 use crate::{configuration, paras};
-use alloc::collections::BTreeSet;
+use alloc::{vec::Vec, collections::BTreeSet};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{

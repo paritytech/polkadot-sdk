@@ -23,7 +23,6 @@ use crate::{
 	scheduler,
 	session_info, shared,
 	assigner_coretime::{PartsOf57600, CoreAssignment, self},
-	on_demand,
 };
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
