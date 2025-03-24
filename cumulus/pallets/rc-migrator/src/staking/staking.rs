@@ -22,7 +22,7 @@ use pallet_staking::{
 	ActiveEraInfo, Forcing, Nominations, RewardDestination, StakingLedger, ValidatorPrefs,
 };
 use sp_runtime::{Perbill, Percent};
-use sp_staking::{EraIndex, PagedExposureMetadata, SessionIndex};
+use sp_staking::{EraIndex, ExposurePage, Page, PagedExposureMetadata, SessionIndex};
 
 pub struct StakingMigrator<T> {
 	_phantom: PhantomData<T>,
@@ -52,6 +52,7 @@ pub enum StakingStage<AccountId> {
 	VirtualStakers(Option<AccountId>),
 	ErasStartSessionIndex(Option<EraIndex>),
 	ErasStakersOverview(Option<(EraIndex, AccountId)>),
+	ErasStakersPaged(Option<(EraIndex, AccountId, Page)>),
 	Finished,
 }
 
@@ -127,6 +128,12 @@ pub enum StakingMessage<T: pallet_staking::Config> {
 		era: EraIndex,
 		validator: AccountIdOf<T>,
 		exposure: PagedExposureMetadata<BalanceOf<T>>,
+	},
+	ErasStakersPaged {
+		era: EraIndex,
+		validator: AccountIdOf<T>,
+		page: Page,
+		exposure: ExposurePage<AccountIdOf<T>, BalanceOf<T>>,
 	},
 }
 
@@ -368,6 +375,31 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 								exposure,
 							});
 							StakingStage::ErasStakersOverview(Some((era, validator)))
+						},
+						None => StakingStage::ErasStakersPaged(None),
+					}
+				},
+				StakingStage::ErasStakersPaged(progress) => {
+					let mut iter = if let Some(progress) = progress {
+						pallet_staking::ErasStakersPaged::<T>::iter_from(
+							pallet_staking::ErasStakersPaged::<T>::hashed_key_for(progress),
+						)
+					} else {
+						pallet_staking::ErasStakersPaged::<T>::iter()
+					};
+
+					match iter.next() {
+						Some(((era, validator, page), exposure)) => {
+							pallet_staking::ErasStakersPaged::<T>::remove((
+								&era, &validator, &page,
+							));
+							messages.push(StakingMessage::ErasStakersPaged {
+								era,
+								validator: validator.clone(),
+								page,
+								exposure,
+							});
+							StakingStage::ErasStakersPaged(Some((era, validator, page)))
 						},
 						None => StakingStage::Finished,
 					}

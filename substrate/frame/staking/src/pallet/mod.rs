@@ -544,7 +544,7 @@ pub mod pallet {
 	///
 	/// Is it removed after [`Config::HistoryDepth`] eras.
 	/// If stakers hasn't been set or has been removed then empty overview is returned.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type ErasStakersOverview<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
