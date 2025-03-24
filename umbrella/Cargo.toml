@@ -88,7 +88,6 @@ std = [
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
 	"pallet-dev-mode?/std",
-	"pallet-election-provider-multi-block?/std",
 	"pallet-election-provider-multi-phase?/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen?/std",
@@ -137,8 +136,6 @@ std = [
 	"pallet-session?/std",
 	"pallet-skip-feeless-payment?/std",
 	"pallet-society?/std",
-	"pallet-staking-ah-client?/std",
-	"pallet-staking-rc-client?/std",
 	"pallet-staking-reward-fn?/std",
 	"pallet-staking-runtime-api?/std",
 	"pallet-staking?/std",
@@ -272,7 +269,6 @@ runtime-benchmarks = [
 	"pallet-core-fellowship?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
-	"pallet-election-provider-multi-block?/runtime-benchmarks",
 	"pallet-election-provider-multi-phase?/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
 	"pallet-elections-phragmen?/runtime-benchmarks",
@@ -313,8 +309,6 @@ runtime-benchmarks = [
 	"pallet-session-benchmarking?/runtime-benchmarks",
 	"pallet-skip-feeless-payment?/runtime-benchmarks",
 	"pallet-society?/runtime-benchmarks",
-	"pallet-staking-ah-client?/runtime-benchmarks",
-	"pallet-staking-rc-client?/runtime-benchmarks",
 	"pallet-staking?/runtime-benchmarks",
 	"pallet-state-trie-migration?/runtime-benchmarks",
 	"pallet-sudo?/runtime-benchmarks",
@@ -403,7 +397,6 @@ try-runtime = [
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
 	"pallet-dev-mode?/try-runtime",
-	"pallet-election-provider-multi-block?/try-runtime",
 	"pallet-election-provider-multi-phase?/try-runtime",
 	"pallet-elections-phragmen?/try-runtime",
 	"pallet-fast-unstake?/try-runtime",
@@ -446,8 +439,6 @@ try-runtime = [
 	"pallet-session?/try-runtime",
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
-	"pallet-staking-ah-client?/try-runtime",
-	"pallet-staking-rc-client?/try-runtime",
 	"pallet-staking?/try-runtime",
 	"pallet-state-trie-migration?/try-runtime",
 	"pallet-statement?/try-runtime",
@@ -610,7 +601,6 @@ runtime-full = [
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-dev-mode",
-	"pallet-election-provider-multi-block",
 	"pallet-election-provider-multi-phase",
 	"pallet-election-provider-support-benchmarking",
 	"pallet-elections-phragmen",
@@ -661,8 +651,6 @@ runtime-full = [
 	"pallet-skip-feeless-payment",
 	"pallet-society",
 	"pallet-staking",
-	"pallet-staking-ah-client",
-	"pallet-staking-rc-client",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
 	"pallet-staking-runtime-api",
@@ -1386,11 +1374,6 @@ default-features = false
 optional = true
 path = "../substrate/frame/examples/dev-mode"
 
-[dependencies.pallet-election-provider-multi-block]
-default-features = false
-optional = true
-path = "../substrate/frame/election-provider-multi-block"
-
 [dependencies.pallet-election-provider-multi-phase]
 default-features = false
 optional = true
@@ -1640,16 +1623,6 @@ path = "../substrate/frame/society"
 default-features = false
 optional = true
 path = "../substrate/frame/staking"
-
-[dependencies.pallet-staking-ah-client]
-default-features = false
-optional = true
-path = "../substrate/frame/staking/ah-client"
-
-[dependencies.pallet-staking-rc-client]
-default-features = false
-optional = true
-path = "../substrate/frame/staking/rc-client"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
