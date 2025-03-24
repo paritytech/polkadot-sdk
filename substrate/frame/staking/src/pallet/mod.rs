@@ -659,7 +659,7 @@ pub mod pallet {
 	///
 	/// Any offences tied to an era older than `BondingDuration` are automatically dropped.
 	/// Processing always prioritizes the oldest era first.
-	#[pallet::storage] // Special
+	#[pallet::storage] // Not Migrated
 	pub type OffenceQueue<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -680,7 +680,7 @@ pub mod pallet {
 	///
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
-	#[pallet::storage] // Special
+	#[pallet::storage] // Not Migrated
 	pub type OffenceQueueEras<T: Config> = StorageValue<_, BoundedVec<u32, T::BondingDuration>>;
 
 	/// Tracks the currently processed offence record from the `OffenceQueue`.
@@ -695,7 +695,7 @@ pub mod pallet {
 	///
 	/// This ensures that offences are processed incrementally, preventing excessive computation
 	/// in a single block while maintaining correct slashing behavior.
-	#[pallet::storage] // Special
+	#[pallet::storage] // Not Migrated
 	pub type ProcessingOffence<T: Config> =
 		StorageValue<_, (EraIndex, T::AccountId, slashing::OffenceRecord<T::AccountId>)>;
 
@@ -770,7 +770,7 @@ pub mod pallet {
 	///
 	/// If the status is `Ongoing`, it keeps a cursor of the last voter retrieved to proceed when
 	/// creating the next snapshot page.
-	#[pallet::storage]
+	#[pallet::storage] // Not migrated
 	pub type VoterSnapshotStatus<T: Config> =
 		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
 
@@ -780,11 +780,11 @@ pub mod pallet {
 	/// election process.
 	///
 	/// This is only set in multi-block elections. Should always be `None` otherwise.
-	#[pallet::storage] // Done
+	#[pallet::storage] // Not Migrated
 	pub type NextElectionPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
 
 	/// A bounded list of the "electable" stashes that resulted from a successful election.
-	#[pallet::storage]
+	#[pallet::storage] // Not Migrated
 	pub type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 

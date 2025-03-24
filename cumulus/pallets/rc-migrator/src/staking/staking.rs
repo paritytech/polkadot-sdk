@@ -87,7 +87,6 @@ pub struct StakingValues<Balance> {
 	pub canceled_slash_payout: Balance,
 	pub current_planned_session: SessionIndex,
 	pub chill_threshold: Option<Percent>,
-	pub next_election_page: Option<PageIndex>,
 }
 
 pub type StakingValuesOf<T> = StakingValues<<T as pallet_staking::Config>::CurrencyBalance>;
@@ -213,7 +212,6 @@ impl<T: Config> StakingMigrator<T> {
 			canceled_slash_payout: CanceledSlashPayout::<T>::take(),
 			current_planned_session: CurrentPlannedSession::<T>::take(),
 			chill_threshold: ChillThreshold::<T>::take(),
-			next_election_page: NextElectionPage::<T>::take(),
 		}
 	}
 
@@ -236,7 +234,6 @@ impl<T: Config> StakingMigrator<T> {
 		CanceledSlashPayout::<T>::set(values.canceled_slash_payout);
 		CurrentPlannedSession::<T>::put(values.current_planned_session);
 		ChillThreshold::<T>::set(values.chill_threshold);
-		NextElectionPage::<T>::set(values.next_election_page);
 	}
 }
 
