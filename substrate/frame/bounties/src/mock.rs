@@ -22,17 +22,16 @@
 use crate as pallet_bounties;
 use crate::{Event as BountiesEvent, *};
 
+use alloc::collections::btree_map::BTreeMap;
+use core::cell::RefCell;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{tokens::UnityAssetBalanceConversion, ConstU32, ConstU64, OnInitialize},
 	PalletId,
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
-use alloc::collections::btree_map::BTreeMap;
-use core::cell::RefCell;
 
 type Block = frame_system::mocking::MockBlock<Test>;
-
 
 thread_local! {
 	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
@@ -254,7 +253,6 @@ pub fn go_to_block(n: u64) {
 	<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(n);
 	<Treasury as OnInitialize<u64>>::on_initialize(n);
 }
-
 
 /// paid balance for a given account and asset ids
 pub fn paid(who: u128, asset_id: u32) -> u64 {

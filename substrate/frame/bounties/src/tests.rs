@@ -19,11 +19,9 @@
 
 #![cfg(test)]
 
-use super::*;
-use super::Event as BountiesEvent;
+use super::{Event as BountiesEvent, *};
 use crate as pallet_bounties;
-use crate::mock::*;
-use crate::mock::Bounties;
+use crate::mock::{Bounties, *};
 
 use frame_support::{
 	assert_noop, assert_ok,
