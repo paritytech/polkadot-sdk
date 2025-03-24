@@ -58,7 +58,7 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
     input.attrs.retain(|attr| !attr.path().is_ident("stored"));
 
     let still_bind_attr = if !skip_params.is_empty() {
-        let still_bound_gens: Vec<_> = input.generics.params.iter().filter_map(|param| {
+        let still_bind_gens: Vec<_> = input.generics.params.iter().filter_map(|param| {
             if let syn::GenericParam::Type(type_param) = param {
                 if !skip_params.contains(&type_param.ident) {
                     Some(&type_param.ident)
@@ -69,12 +69,12 @@ pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
                 None
             }
         }).collect();
-        if still_bound_gens.is_empty() {
-            quote! {}
-        } else {
+        if !still_bind_gens.is_empty() {
             quote! {
-                #[still_bind( #(#still_bound_gens),* )]
+                #[still_bind( #(#still_bind_gens),* )]
             }
+        } else {
+            quote! {}
         }
     } else {
         quote! {}
