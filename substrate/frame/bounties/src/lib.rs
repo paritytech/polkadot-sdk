@@ -88,10 +88,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
 pub mod migrations;
-#[cfg(any(test, feature = "runtime-benchmarks"))]
+mod benchmarking;
+mod mock;
 mod tests;
 pub mod weights;
 pub use pallet::*;

@@ -17,8 +17,10 @@
 
 //! bounties pallet tests.
 
+#![cfg(test)]
+
 use crate as pallet_bounties;
-use crate::{tests::utils::*, Event as BountiesEvent, *};
+use crate::{Event as BountiesEvent, *};
 
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
@@ -26,14 +28,19 @@ use frame_support::{
 	PalletId,
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
+use alloc::collections::btree_map::BTreeMap;
+use core::cell::RefCell;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-// This function directly jumps to a block number, and calls `on_initialize`.
-pub fn go_to_block(n: u64) {
-	<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(n);
-	<Treasury as OnInitialize<u64>>::on_initialize(n);
+
+thread_local! {
+	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
+	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
+	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
+	pub static TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
 }
+
 pub struct TestPay;
 impl Pay for TestPay {
 	type Beneficiary = u128;
@@ -240,6 +247,28 @@ impl ExtBuilder {
 			Bounties1::do_try_state().expect("All invariants must hold after a test");
 		})
 	}
+}
+
+// This function directly jumps to a block number, and calls `on_initialize`.
+pub fn go_to_block(n: u64) {
+	<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(n);
+	<Treasury as OnInitialize<u64>>::on_initialize(n);
+}
+
+
+/// paid balance for a given account and asset ids
+pub fn paid(who: u128, asset_id: u32) -> u64 {
+	PAID.with(|p| p.borrow().get(&(who, asset_id)).cloned().unwrap_or(0))
+}
+
+/// reduce paid balance for a given account and asset ids
+fn unpay(who: u128, asset_id: u32, amount: u64) {
+	PAID.with(|p| p.borrow_mut().entry((who, asset_id)).or_default().saturating_reduce(amount))
+}
+
+/// set status for a given payment id
+pub fn set_status(id: u64, s: PaymentStatus) {
+	STATUS.with(|m| m.borrow_mut().insert(id, s));
 }
 
 pub fn last_events(n: usize) -> Vec<BountiesEvent<Test>> {

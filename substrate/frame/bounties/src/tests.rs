@@ -17,12 +17,13 @@
 
 //! bounties pallet tests.
 
-use super::{mock::*, utils::*};
+#![cfg(test)]
+
+use super::*;
+use super::Event as BountiesEvent;
 use crate as pallet_bounties;
-use crate::{
-	BadOrigin, Bounty, BountyStatus, Error, Event as BountiesEvent, Instance1, PaymentState,
-	PaymentStatus, Pays, Permill, SystemBlockNumberFor,
-};
+use crate::mock::*;
+use crate::mock::Bounties;
 
 use frame_support::{
 	assert_noop, assert_ok,
@@ -1585,3 +1586,6 @@ fn accept_curator_sets_update_due_correctly() {
 		);
 	});
 }
+
+#[test]
+fn test_migration_v5() {}

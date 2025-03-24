@@ -76,6 +76,8 @@ mod benchmarking;
 pub mod migration;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod mock;
 pub mod weights;
 use core::marker::PhantomData;
 

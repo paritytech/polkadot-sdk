@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::{tests::utils::*, Pallet as Bounties};
+use crate::{Pallet as Bounties};
 
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{
@@ -112,8 +112,6 @@ fn initialize_approved_bounty<T: Config<I>, I: 'static>(
 	let approve_origin =
 		T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id)?;
-
-	approve_last_payment();
 	Ok(())
 }
 
@@ -210,8 +208,8 @@ benchmarks_instance_pallet! {
 	// Worst case when curator is inactive and any sender unassigns the curator,
 	// or if `BountyUpdatePeriod` is large enough and `RejectOrigin` executes the call.
 	unassign_curator {
-		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
-		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
+		let (caller, curator, asset_kind, fee, value, _curator_stash, _reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
+		let curator_lookup = T::Lookup::unlookup(curator);
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let bounty_update_period = T::BountyUpdatePeriod::get();
 		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
@@ -264,8 +262,6 @@ benchmarks_instance_pallet! {
 	}: close_bounty<T::RuntimeOrigin>(approve_origin, bounty_id)
 	verify {
 		let caller = account("caller", 0, SEED);
-		let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-		STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Success));
 		Bounties::<T, I>::check_payment_status(RawOrigin::Signed(caller).into(), bounty_id)?;
 		assert_last_event::<T, I>(Event::BountyCanceled { index: bounty_id }.into())
 	}
@@ -289,24 +285,17 @@ benchmarks_instance_pallet! {
 		let curator_lookup = T::Lookup::unlookup(curator);
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::approve_bounty_with_curator(approve_origin, bounty_id, curator_lookup, fee)?;
-		approve_last_payment();
 	}: check_payment_status<T::RuntimeOrigin>(RawOrigin::Signed(caller).into(), bounty_id)
 
 	check_payment_status_payout_attempted {
 		let (curator, bounty_id) = create_curator_and_award_bounty::<T, I>()?;
 		Bounties::<T, I>::claim_bounty(RawOrigin::Signed(curator.clone()).into(), bounty_id)?;
-		let curator_payment_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-		let beneficiary_payment_id = LAST_ID.with(|last_id| *last_id.borrow() - 2);
-		STATUS.with(|m| m.borrow_mut().insert(curator_payment_id, PaymentStatus::Success));
-		STATUS.with(|m| m.borrow_mut().insert(beneficiary_payment_id, PaymentStatus::Success));
 	}: check_payment_status<T::RuntimeOrigin>(RawOrigin::Signed(curator).into(), bounty_id)
 
 	check_payment_status_refund_attempted {
 		let (curator, bounty_id) = approve_bounty_and_accept_curator::<T, I>()?;
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::close_bounty(approve_origin.clone(), bounty_id)?;
-		let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-		approve_last_payment();
 	}: check_payment_status<T::RuntimeOrigin>(RawOrigin::Signed(curator).into(), bounty_id)
 
 	process_payment_approved {
@@ -314,17 +303,12 @@ benchmarks_instance_pallet! {
 		let bounty_id = create_proposed_bounty::<T, I>()?;
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id)?;
-		reject_last_payment();
 		Bounties::<T, I>::check_payment_status(RawOrigin::Signed(caller.clone()).into(), bounty_id)?;
 	}: process_payment<T::RuntimeOrigin>(RawOrigin::Signed(caller).into(), bounty_id)
 
 	process_payment_payout_attempted {
 		let (curator, bounty_id) = create_curator_and_award_bounty::<T, I>()?;
 		Bounties::<T, I>::claim_bounty(RawOrigin::Signed(curator.clone()).into(), bounty_id)?;
-		let curator_payment_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-		let beneficiary_payment_id = LAST_ID.with(|last_id| *last_id.borrow() - 2);
-		STATUS.with(|m| m.borrow_mut().insert(curator_payment_id, PaymentStatus::Failure));
-		STATUS.with(|m| m.borrow_mut().insert(beneficiary_payment_id, PaymentStatus::Failure));
 		Bounties::<T, I>::check_payment_status(RawOrigin::Signed(curator.clone()).into(), bounty_id)?;
 	}: process_payment<T::RuntimeOrigin>(RawOrigin::Signed(curator).into(), bounty_id)
 
@@ -332,9 +316,8 @@ benchmarks_instance_pallet! {
 		let (curator, bounty_id) = approve_bounty_and_accept_curator::<T, I>()?;
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::close_bounty(approve_origin.clone(), bounty_id)?;
-		reject_last_payment();
 		Bounties::<T, I>::check_payment_status(RawOrigin::Signed(curator.clone()).into(), bounty_id)?;
 	}: process_payment<T::RuntimeOrigin>(RawOrigin::Signed(curator).into(), bounty_id)
 
-	impl_benchmark_test_suite!(Bounties, crate::tests::mock::ExtBuilder::default().build(), crate::tests::mock::Test)
+	impl_benchmark_test_suite!(Bounties, crate::mock::ExtBuilder::default().build(), crate::mock::Test)
 }
