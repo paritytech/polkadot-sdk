@@ -134,7 +134,8 @@ where
 							// TODO: needs to refactor
 							let current_code_para_1000_k: Vec<u8> = hex!("cd710b30bd2eab0352ddcc26417aa194e2d1c22ba0a888147714a3487bd51c63b6ff6f7d467b87a9e8030000").into();
 							let para_1000_code_hash_kv = state.key_values.iter().find(|(k,_v)| k == &current_code_para_1000_k);
-							let para_1000_code_hash_kv = para_1000_code_hash_kv.unwrap();
+
+
 							let mut session_current_index_value: Vec<u8> = vec![];
 							// DO NOT override paraSessionInfo anymore
 							// we store the sessionInfo to override the current index later
@@ -185,33 +186,37 @@ where
 								// if key.starts_with(&p) {
 								// 	println!("[JAVIER_DEBUG]: key: {} value: {}", hex::encode(key), hex::encode(value));
 								// }
-								let code_refs_prefix_1000 = format!("{code_refs_prefix}{}", hex::encode(&para_1000_code_hash_kv.1));
-								let code_refs_prefix_1000_k = hex::decode(code_refs_prefix_1000).unwrap();
 
-								let code_by_hash_ref_prefix_1000 = format!("{code_by_hash_ref}{}", hex::encode(&para_1000_code_hash_kv.1));
-								let code_by_hash_ref_prefix_1000_k = hex::decode(code_by_hash_ref_prefix_1000).unwrap();
+								if let DoppelGangerContext::Relaychain = self.context {
+									let para_1000_code_hash_kv = para_1000_code_hash_kv.unwrap();
+									let code_refs_prefix_1000 = format!("{code_refs_prefix}{}", hex::encode(&para_1000_code_hash_kv.1));
+									let code_refs_prefix_1000_k = hex::decode(code_refs_prefix_1000).unwrap();
 
-								if key == &code_refs_prefix_1000_k {
-									let inject_kv = injects_iter.find(|(k,_v)| k.starts_with(&hex!("cd710b30bd2eab0352ddcc26417aa1948c27d984a48a10b1ebf28036a4a4444b")));
-									if let Some((k,v)) = inject_kv {
-										debug!(target: LOG_TARGET, "code_refs(1000) old key: {}", hex::encode(key));
-										debug!(target: LOG_TARGET, "code_refs(1000) old value: {}", hex::encode(value));
-										debug!(target: LOG_TARGET,"code_refs(1000) new key: {}", hex::encode(&k));
-										debug!(target: LOG_TARGET,"code_refs(1000) new value: {}", hex::encode(&v));
-										storage.top.insert(k.clone(), v.clone());
-										return Some((k.clone(), v.clone()))
+									let code_by_hash_ref_prefix_1000 = format!("{code_by_hash_ref}{}", hex::encode(&para_1000_code_hash_kv.1));
+									let code_by_hash_ref_prefix_1000_k = hex::decode(code_by_hash_ref_prefix_1000).unwrap();
+
+									if key == &code_refs_prefix_1000_k {
+										let inject_kv = injects_iter.find(|(k,_v)| k.starts_with(&hex!("cd710b30bd2eab0352ddcc26417aa1948c27d984a48a10b1ebf28036a4a4444b")));
+										if let Some((k,v)) = inject_kv {
+											debug!(target: LOG_TARGET, "code_refs(1000) old key: {}", hex::encode(key));
+											debug!(target: LOG_TARGET, "code_refs(1000) old value: {}", hex::encode(value));
+											debug!(target: LOG_TARGET,"code_refs(1000) new key: {}", hex::encode(&k));
+											debug!(target: LOG_TARGET,"code_refs(1000) new value: {}", hex::encode(&v));
+											storage.top.insert(k.clone(), v.clone());
+											return Some((k.clone(), v.clone()))
+										}
 									}
-								}
 
-								if key == &code_by_hash_ref_prefix_1000_k {
-									let inject_kv = injects_iter.find(|(k,_v)| k.starts_with(&hex!("cd710b30bd2eab0352ddcc26417aa194383e6dcb39e0be0a2e6aeb8b94951ab6")));
-									if let Some((k,v)) = inject_kv {
-										debug!(target: LOG_TARGET, "code_by_hash(1000) old key: {}", hex::encode(key));
-										debug!(target: LOG_TARGET, "code_by_hash(1000) old value: {}", HexDisplay::from(value));
-										debug!(target: LOG_TARGET,"code_by_hash(1000) new key: {}", hex::encode(&k));
-										debug!(target: LOG_TARGET,"code_by_hash(1000) new value: {}", HexDisplay::from(&v));
-										storage.top.insert(k.clone(), v.clone());
-										return Some((k.clone(), v.clone()))
+									if key == &code_by_hash_ref_prefix_1000_k {
+										let inject_kv = injects_iter.find(|(k,_v)| k.starts_with(&hex!("cd710b30bd2eab0352ddcc26417aa194383e6dcb39e0be0a2e6aeb8b94951ab6")));
+										if let Some((k,v)) = inject_kv {
+											debug!(target: LOG_TARGET, "code_by_hash(1000) old key: {}", hex::encode(key));
+											debug!(target: LOG_TARGET, "code_by_hash(1000) old value: {}", HexDisplay::from(value));
+											debug!(target: LOG_TARGET,"code_by_hash(1000) new key: {}", hex::encode(&k));
+											debug!(target: LOG_TARGET,"code_by_hash(1000) new value: {}", HexDisplay::from(&v));
+											storage.top.insert(k.clone(), v.clone());
+											return Some((k.clone(), v.clone()))
+										}
 									}
 								}
 
