@@ -18,10 +18,12 @@
 
 use crate::*;
 pub use frame_election_provider_support::PageIndex;
-use pallet_staking::{Forcing, RewardDestination, StakingLedger, ValidatorPrefs};
+use pallet_staking::{
+	ActiveEraInfo, Forcing, Nominations, RewardDestination, StakingLedger, ValidatorPrefs,
+};
 use sp_core::H256;
 use sp_runtime::{Perbill, Percent};
-use sp_staking::SessionIndex;
+use sp_staking::{EraIndex, SessionIndex};
 
 pub struct StakingMigrator<T> {
 	_phantom: PhantomData<T>,
@@ -47,6 +49,8 @@ pub enum StakingStage<AccountId> {
 	Ledger(Option<AccountId>),
 	Payee(Option<AccountId>),
 	Validators(Option<AccountId>),
+	Nominators(Option<AccountId>),
+	VirtualStakers(Option<AccountId>),
 	Finished,
 }
 
@@ -62,6 +66,8 @@ pub struct StakingValues<Balance> {
 	pub min_commission: Perbill,
 	pub max_validators_count: Option<u32>,
 	pub max_nominators_count: Option<u32>,
+	pub current_era: Option<EraIndex>,
+	pub active_era: Option<ActiveEraInfo>,
 	pub force_era: Forcing,
 	pub max_staked_rewards: Option<Percent>,
 	pub slash_reward_fraction: Perbill,
@@ -95,7 +101,10 @@ pub enum StakingMessage<T: pallet_staking::Config> {
 	Ledger { controller: AccountIdOf<T>, ledger: StakingLedger<T> },
 	Payee { stash: AccountIdOf<T>, payment: RewardDestination<AccountIdOf<T>> },
 	Validators { stash: AccountIdOf<T>, validators: ValidatorPrefs },
+	Nominators { stash: AccountIdOf<T>, nominations: Nominations<T> },
+	VirtualStakers(AccountIdOf<T>),
 }
+
 pub type StakingMessageOf<T> = StakingMessage<T>;
 
 impl<T: Config> StakingMigrator<T> {
@@ -111,6 +120,8 @@ impl<T: Config> StakingMigrator<T> {
 			min_commission: MinCommission::<T>::take(),
 			max_validators_count: MaxValidatorsCount::<T>::take(),
 			max_nominators_count: MaxNominatorsCount::<T>::take(),
+			current_era: CurrentEra::<T>::take(),
+			active_era: ActiveEra::<T>::take(),
 			force_era: ForceEra::<T>::take(),
 			max_staked_rewards: MaxStakedRewards::<T>::take(),
 			slash_reward_fraction: SlashRewardFraction::<T>::take(),
@@ -132,6 +143,8 @@ impl<T: Config> StakingMigrator<T> {
 		MinCommission::<T>::put(&values.min_commission);
 		MaxValidatorsCount::<T>::set(values.max_validators_count);
 		MaxNominatorsCount::<T>::set(values.max_nominators_count);
+		CurrentEra::<T>::set(values.current_era);
+		ActiveEra::<T>::set(values.active_era);
 		ForceEra::<T>::put(values.force_era);
 		MaxStakedRewards::<T>::set(values.max_staked_rewards);
 		SlashRewardFraction::<T>::set(values.slash_reward_fraction);
@@ -250,6 +263,46 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 								validators,
 							});
 							StakingStage::Validators(Some(stash))
+						},
+						None => StakingStage::Nominators(None),
+					}
+				},
+				StakingStage::Nominators(who) => {
+					let mut iter = if let Some(who) = who {
+						pallet_staking::Nominators::<T>::iter_from(
+							pallet_staking::Nominators::<T>::hashed_key_for(who),
+						)
+					} else {
+						pallet_staking::Nominators::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((stash, nominations)) => {
+							pallet_staking::Nominators::<T>::remove(&stash);
+							messages.push(StakingMessage::Nominators {
+								stash: stash.clone(),
+								nominations,
+							});
+							StakingStage::Nominators(Some(stash))
+						},
+						None => StakingStage::VirtualStakers(None),
+					}
+				},
+				StakingStage::VirtualStakers(who) => {
+					let mut iter = if let Some(who) = who {
+						pallet_staking::VirtualStakers::<T>::iter_from(
+							// Counted maps dont have the convenience function here
+							pallet_staking::VirtualStakers::<T>::hashed_key_for(who),
+						)
+					} else {
+						pallet_staking::VirtualStakers::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((staker, ())) => {
+							pallet_staking::VirtualStakers::<T>::remove(&staker);
+							messages.push(StakingMessage::VirtualStakers(staker.clone()));
+							StakingStage::VirtualStakers(Some(staker))
 						},
 						None => StakingStage::Finished,
 					}

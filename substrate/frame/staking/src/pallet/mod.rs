@@ -492,7 +492,7 @@ pub mod pallet {
 	/// [`Call::chill_other`] dispatchable by anyone.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type Nominators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
 
@@ -502,7 +502,7 @@ pub mod pallet {
 	/// are expected to be keyless accounts and hence should not be allowed to mutate their ledger
 	/// directly via this pallet. Instead, these accounts are managed by other pallets and accessed
 	/// via low level apis. We keep track of them to do minimal integrity checks.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type VirtualStakers<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
 
 	/// The maximum nominator count before we stop allowing new validators to join.
