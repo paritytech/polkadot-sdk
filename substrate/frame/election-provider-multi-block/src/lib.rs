@@ -697,12 +697,10 @@ pub mod pallet {
 	///
 	/// This is merely incremented once per every time that an upstream `elect` is called.
 	#[pallet::storage]
-	#[pallet::getter(fn round)]
 	pub type Round<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Current phase.
 	#[pallet::storage]
-	#[pallet::getter(fn current_phase)]
 	pub type CurrentPhase<T: Config> = StorageValue<_, Phase<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Wrapper struct for working with snapshots.
@@ -1009,6 +1007,16 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Internal counter for the number of rounds.
+	pub fn round() -> u32 {
+		Round::<T>::get()
+	}
+
+	/// Current phase.
+	pub fn current_phase() -> Phase<BlockNumberFor<T>> {
+		CurrentPhase::<T>::get()
+	}
+
 	/// Returns the most significant page of the snapshot.
 	///
 	/// Based on the contract of `ElectionDataProvider`, this is the first page that is filled.
