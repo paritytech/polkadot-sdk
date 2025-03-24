@@ -27,7 +27,6 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
-	node_features,
 	vstaging::{CoreState, MutateDescriptorV2, OccupiedCore},
 	BlockNumber, CandidateDescriptor, GroupRotationInfo, HeadData, Header, PersistedValidationData,
 	ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
