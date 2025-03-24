@@ -2210,7 +2210,7 @@ impl_runtime_apis! {
 					));
 
 					// Create give and receive assets
-					let give_assets: XcmAssets = (native_asset_id, 100 * UNITS).into();
+					let give_assets: XcmAssets = (native_asset_id, 106 * UNITS).into();
 					let receive_assets: XcmAssets = (asset_id, 190 * UNITS).into();
 					log::info!("Give assets: {:?}", give_assets);
 					log::info!("Receive assets: {:?}", receive_assets);
