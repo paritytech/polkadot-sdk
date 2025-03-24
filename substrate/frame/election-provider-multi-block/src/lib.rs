@@ -158,7 +158,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::types::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,

@@ -529,7 +529,7 @@ pub mod pallet {
 	///
 	/// Note: This tracks the starting session (i.e. session index when era start being active)
 	/// for the eras in `[CurrentEra - HISTORY_DEPTH, CurrentEra]`.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
 
 	/// Summary of validator exposure at a given era.

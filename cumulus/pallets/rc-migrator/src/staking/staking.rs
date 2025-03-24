@@ -21,9 +21,8 @@ pub use frame_election_provider_support::PageIndex;
 use pallet_staking::{
 	ActiveEraInfo, Forcing, Nominations, RewardDestination, StakingLedger, ValidatorPrefs,
 };
-use sp_core::H256;
 use sp_runtime::{Perbill, Percent};
-use sp_staking::{EraIndex, SessionIndex};
+use sp_staking::{EraIndex, PagedExposureMetadata, SessionIndex};
 
 pub struct StakingMigrator<T> {
 	_phantom: PhantomData<T>,
@@ -52,6 +51,7 @@ pub enum StakingStage<AccountId> {
 	Nominators(Option<AccountId>),
 	VirtualStakers(Option<AccountId>),
 	ErasStartSessionIndex(Option<EraIndex>),
+	ErasStakersOverview(Option<(EraIndex, AccountId)>),
 	Finished,
 }
 
@@ -97,14 +97,37 @@ pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub enum StakingMessage<T: pallet_staking::Config> {
 	Values(StakingValues<BalanceOf<T>>),
 	Invulnerables(Vec<AccountIdOf<T>>),
-	Bonded { stash: AccountIdOf<T>, controller: AccountIdOf<T> },
+	Bonded {
+		stash: AccountIdOf<T>,
+		controller: AccountIdOf<T>,
+	},
 	// Stupid staking pallet forces us to use `T` since its staking ledger requires that...
-	Ledger { controller: AccountIdOf<T>, ledger: StakingLedger<T> },
-	Payee { stash: AccountIdOf<T>, payment: RewardDestination<AccountIdOf<T>> },
-	Validators { stash: AccountIdOf<T>, validators: ValidatorPrefs },
-	Nominators { stash: AccountIdOf<T>, nominations: Nominations<T> },
+	Ledger {
+		controller: AccountIdOf<T>,
+		ledger: StakingLedger<T>,
+	},
+	Payee {
+		stash: AccountIdOf<T>,
+		payment: RewardDestination<AccountIdOf<T>>,
+	},
+	Validators {
+		stash: AccountIdOf<T>,
+		validators: ValidatorPrefs,
+	},
+	Nominators {
+		stash: AccountIdOf<T>,
+		nominations: Nominations<T>,
+	},
 	VirtualStakers(AccountIdOf<T>),
-	ErasStartSessionIndex { era: EraIndex, session: SessionIndex },
+	ErasStartSessionIndex {
+		era: EraIndex,
+		session: SessionIndex,
+	},
+	ErasStakersOverview {
+		era: EraIndex,
+		validator: AccountIdOf<T>,
+		exposure: PagedExposureMetadata<BalanceOf<T>>,
+	},
 }
 
 pub type StakingMessageOf<T> = StakingMessage<T>;
@@ -321,6 +344,30 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 							pallet_staking::ErasStartSessionIndex::<T>::remove(&era);
 							messages.push(StakingMessage::ErasStartSessionIndex { era, session });
 							StakingStage::ErasStartSessionIndex(Some(era))
+						},
+						None => StakingStage::ErasStakersOverview(None),
+					}
+				},
+				StakingStage::ErasStakersOverview(progress) => {
+					let mut iter = if let Some(progress) = progress {
+						pallet_staking::ErasStakersOverview::<T>::iter_from(
+							pallet_staking::ErasStakersOverview::<T>::hashed_key_for(
+								progress.0, progress.1,
+							),
+						)
+					} else {
+						pallet_staking::ErasStakersOverview::<T>::iter()
+					};
+
+					match iter.next() {
+						Some((era, validator, exposure)) => {
+							pallet_staking::ErasStakersOverview::<T>::remove(&era, &validator);
+							messages.push(StakingMessage::ErasStakersOverview {
+								era,
+								validator: validator.clone(),
+								exposure,
+							});
+							StakingStage::ErasStakersOverview(Some((era, validator)))
 						},
 						None => StakingStage::Finished,
 					}
