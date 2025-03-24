@@ -19,8 +19,9 @@
 use crate::*;
 pub use frame_election_provider_support::PageIndex;
 use pallet_staking::{
-	slashing::SlashingSpans, ActiveEraInfo, EraRewardPoints, Forcing, Nominations,
-	RewardDestination, StakingLedger, ValidatorPrefs,
+	slashing::{SlashingSpans, SpanIndex, SpanRecord},
+	ActiveEraInfo, EraRewardPoints, Forcing, Nominations, RewardDestination, StakingLedger,
+	ValidatorPrefs,
 };
 use sp_runtime::{Perbill, Percent};
 use sp_staking::{EraIndex, ExposurePage, Page, PagedExposureMetadata, SessionIndex};
@@ -181,6 +182,11 @@ pub enum StakingMessage<T: pallet_staking::Config> {
 	SlashingSpans {
 		account: AccountIdOf<T>,
 		spans: SlashingSpans,
+	},
+	SpanSlash {
+		account: AccountIdOf<T>,
+		span: SpanIndex,
+		slash: SpanRecord<BalanceOf<T>>,
 	},
 }
 

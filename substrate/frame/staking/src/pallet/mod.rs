@@ -738,14 +738,14 @@ pub mod pallet {
 		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
 	/// Slashing spans for stash accounts.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	#[pallet::unbounded]
 	pub type SlashingSpans<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, slashing::SlashingSpans>;
 
 	/// Records information about the maximum slash of a stash within a slashing span,
 	/// as well as how much reward has been paid out.
-	#[pallet::storage]
+	#[pallet::storage] // Done
 	pub type SpanSlash<T: Config> = StorageMap<
 		_,
 		Twox64Concat,

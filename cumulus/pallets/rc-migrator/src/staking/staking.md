@@ -43,3 +43,5 @@
 | `VoterSnapshotStatus` | No |
 | `NextElectionPage` | No |
 | `ElectableStashes` | No |
+| `ErasStakers` | TODO https://github.com/paritytech/polkadot-sdk/pull/7939 |
+| `ErasStakersClipped` | TODO https://github.com/paritytech/polkadot-sdk/pull/7939 |

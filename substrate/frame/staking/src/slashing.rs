@@ -188,7 +188,18 @@ impl SlashingSpans {
 }
 
 /// A slashing-span record for a particular stash.
-#[derive(Encode, Decode, Default, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Default,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+)]
 pub struct SpanRecord<Balance> {
 	pub slashed: Balance,
 	pub paid_out: Balance,
