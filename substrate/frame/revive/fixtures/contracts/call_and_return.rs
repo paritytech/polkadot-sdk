@@ -18,9 +18,9 @@
 //! This calls another contract as passed as its account id.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, ReturnErrorCode, ReturnFlags};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api, ReturnErrorCode, ReturnFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -30,14 +30,14 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		256,
+		512,
 		callee_addr: &[u8; 20],
 		value: u64,
 		callee_input: [u8],
 	);
 
 	// Call the callee
-	let mut output = [0u8; 32];
+	let mut output = [0u8; 512];
 	let output = &mut &mut output[..];
 
 	match api::call(
