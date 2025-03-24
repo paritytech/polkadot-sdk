@@ -2,28 +2,12 @@ title: Remove feature flag checks for Elastic Scaling MVP
 doc:
   - audience: Runtime Dev
     description: |
-      ## Description
-      This PR addresses [issue #6352](https://github.com/paritytech/polkadot-sdk/issues/6352),
-      which proposes cleaning up the codebase by assuming that the FeatureIndex::ElasticScalingMVP
-      feature is always enabled.
-
-      ## Integration
-      - Provisioner:
-        Removed code paths that enforced the elastic_scaling_mvp limitation.
-      - Backing Module Changes:
-        Eliminated the conditional injection of the core index (via inject_core_index)
-        since dynamic core allocation is now the default behaviour.
-      - Polkadot runtime parachains (src-paras_inherent-tests):
-        Tests have been simplified by removing calls to set_node_feature for
-        FeatureIndex::ElasticScalingMVP.
-
-      ## Review Notes
-      - All tests now operate under the assumption that elastic scaling is enabled
-        by default, which reduces complexity and minimizes the potential for misconfiguration.
+      This PR removes conditional checks for FeatureIndex::ElasticScalingMVP,
+      assuming elastic scaling is always enabled. This simplifies the backing
+      and provisioner logic by making dynamic core allocation the default
+      behavior.
 crates:
   - name: polkadot-node-core-backing
     bump: patch
   - name: polkadot-node-core-provisioner
     bump: major
-  - name: polkadot-runtime-parachains
-    bump: patch

@@ -1098,7 +1098,7 @@ fn core_index_from_statement(
 			"Invalid validator index: {:?}",
 			statement_validator_index
 		);
-		return None;
+		return None
 	};
 
 	// First check if the statement para id matches the core assignment.
@@ -2023,7 +2023,7 @@ async fn handle_second_message<Context>(
 			"Candidate backing was asked to second candidate with wrong PVD",
 		);
 
-		return Ok(());
+		return Ok(())
 	}
 
 	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
