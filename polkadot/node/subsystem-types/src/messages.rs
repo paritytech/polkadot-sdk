@@ -822,14 +822,14 @@ impl RuntimeApiRequest {
 	/// `candidates_pending_availability`
 	pub const CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = 11;
 
-	/// `backing_constraints`
-	pub const CONSTRAINTS_RUNTIME_REQUIREMENT: u32 = 12;
-
-	/// `SchedulingLookahead`
-	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 12;
-
 	/// `ValidationCodeBombLimit`
 	pub const VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT: u32 = 12;
+
+	/// `backing_constraints`
+	pub const CONSTRAINTS_RUNTIME_REQUIREMENT: u32 = 13;
+
+	/// `SchedulingLookahead`
+	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 13;
 }
 
 /// A message to the Runtime API subsystem.
