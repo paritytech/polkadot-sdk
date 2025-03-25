@@ -27,7 +27,7 @@ pub mod pallet {
 	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
 	use sp_runtime::traits::Dispatchable;
 	use xcm::latest::{
-		Asset, AssetId, Assets, InteriorLocation, Junction, Junctions, Location, NetworkId,
+		Asset, Assets, InteriorLocation, Junction, Location, NetworkId,
 		Response, WeightLimit,
 	};
 
