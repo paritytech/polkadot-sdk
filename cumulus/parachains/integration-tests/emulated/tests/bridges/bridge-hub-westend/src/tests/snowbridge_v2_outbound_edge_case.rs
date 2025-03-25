@@ -80,9 +80,9 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 			PayFees { asset: local_fee_asset_on_penpal.clone() },
 			InitiateTransfer {
 				destination: asset_hub(),
-				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
-					remote_fee_asset_on_ah.clone().into(),
-				))),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(
+					Definite(remote_fee_asset_on_ah.clone().into()),
+				)),
 				preserve_origin: true,
 				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(Definite(
 					remote_fee_asset_on_ethereum.clone().into(),
