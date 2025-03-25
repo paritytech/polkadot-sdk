@@ -254,8 +254,6 @@ pub trait DisabledValidators {
 
 	/// Returns all disabled validators
 	fn disabled_validators() -> Vec<u32>;
-
-	fn disabled_validators_with_severities() -> Vec<(u32, OffenceSeverity)>;
 }
 
 impl DisabledValidators for () {
@@ -264,10 +262,6 @@ impl DisabledValidators for () {
 	}
 
 	fn disabled_validators() -> Vec<u32> {
-		vec![]
-	}
-
-	fn disabled_validators_with_severities() -> Vec<(u32, OffenceSeverity)> {
 		vec![]
 	}
 }
