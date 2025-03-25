@@ -24,7 +24,7 @@ use crate::{
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
-use snowbridge_inbound_queue_primitives::v1::MessageToXcm;
+use snowbridge_router_primitives::inbound::MessageToXcm;
 use snowbridge_outbound_queue_primitives::v1::EthereumBlobExporter;
 
 use sp_core::H160;
@@ -37,7 +37,6 @@ use testnet_parachains_constants::rococo::{
 use crate::xcm_config::RelayNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
-use bp_asset_hub_rococo::CreateForeignAssetDeposit;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
 use hex_literal::hex;
 use pallet_xcm::EnsureXcm;
@@ -63,6 +62,7 @@ parameter_types! {
 
 parameter_types! {
 	pub const CreateAssetCall: [u8;2] = [53, 0];
+	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
@@ -87,7 +87,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type Helper = Runtime;
 	type MessageConverter = MessageToXcm<
 		CreateAssetCall,
-		CreateForeignAssetDeposit,
+		CreateAssetDeposit,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
 		AccountId,
 		Balance,

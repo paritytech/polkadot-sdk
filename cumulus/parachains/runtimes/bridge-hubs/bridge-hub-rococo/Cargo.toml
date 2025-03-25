@@ -118,6 +118,7 @@ snowbridge-pallet-ethereum-client = { workspace = true }
 snowbridge-pallet-inbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
+snowbridge-router-primitives = { workspace = true }
 snowbridge-runtime-common = { workspace = true }
 snowbridge-system-runtime-api = { workspace = true }
 

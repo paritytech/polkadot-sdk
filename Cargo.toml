@@ -676,8 +676,10 @@ bp-rococo = { path = "bridges/chains/chain-rococo", default-features = false }
 bp-runtime = { path = "bridges/primitives/runtime", default-features = false }
 bp-test-utils = { path = "bridges/primitives/test-utils", default-features = false }
 bp-westend = { path = "bridges/chains/chain-westend", default-features = false }
+bp-xcm-bridge = { path = "bridges/primitives/xcm-bridge", default-features = false }
 bp-xcm-bridge-hub = { path = "bridges/primitives/xcm-bridge-hub", default-features = false }
 bp-xcm-bridge-hub-router = { path = "bridges/primitives/xcm-bridge-hub-router", default-features = false }
+bp-xcm-bridge-router = { path = "bridges/primitives/xcm-bridge-router", default-features = false }
 bridge-hub-common = { path = "cumulus/parachains/runtimes/bridge-hubs/common", default-features = false }
 bridge-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo" }
 bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
@@ -1273,6 +1275,7 @@ snowbridge-pallet-outbound-queue-v2 = { path = "bridges/snowbridge/pallets/outbo
 snowbridge-pallet-system = { path = "bridges/snowbridge/pallets/system", default-features = false }
 snowbridge-pallet-system-frontend = { path = "bridges/snowbridge/pallets/system-frontend", default-features = false }
 snowbridge-pallet-system-v2 = { path = "bridges/snowbridge/pallets/system-v2", default-features = false }
+snowbridge-router-primitives = { path = "bridges/snowbridge/primitives/router", default-features = false }
 snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false }
 snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-common", default-features = false }
 snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false }

@@ -123,6 +123,7 @@ snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 snowbridge-pallet-system-v2 = { workspace = true }
+snowbridge-router-primitives = { workspace = true }
 snowbridge-runtime-common = { workspace = true }
 snowbridge-system-runtime-api = { workspace = true }
 snowbridge-system-v2-runtime-api = { workspace = true }

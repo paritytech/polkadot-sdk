@@ -21,12 +21,12 @@ use crate::{
 	Balances, BridgeRelayers, EthereumInboundQueue, EthereumOutboundQueue, EthereumOutboundQueueV2,
 	EthereumSystem, EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
 };
-use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
+use snowbridge_router_primitives::inbound::MessageToXcm;
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
 use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
@@ -77,6 +77,7 @@ parameter_types! {
 
 parameter_types! {
 	pub const CreateAssetCall: [u8;2] = [53, 0];
+	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
@@ -104,9 +105,9 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type GatewayAddress = EthereumGatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
-	type MessageConverter = snowbridge_inbound_queue_primitives::v1::MessageToXcm<
+	type MessageConverter = MessageToXcm<
 		CreateAssetCall,
-		CreateForeignAssetDeposit,
+		CreateAssetDeposit,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V1>,
 		AccountId,
 		Balance,
@@ -139,9 +140,9 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type Token = Balances;
 	type Balance = Balance;
 	type WeightToFee = WeightToFee;
-	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
+	type MessageConverter = MessageToXcm<
 		CreateAssetCall,
-		CreateForeignAssetDeposit,
+		CreateAssetDeposit,
 		EthereumNetwork,
 		InboundQueueV2Location,
 		EthereumSystem,
