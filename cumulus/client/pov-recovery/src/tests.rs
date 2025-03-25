@@ -1444,7 +1444,7 @@ async fn recovery_multiple_blocks_per_candidate() {
 		RecoveryDelayRange { min: Duration::from_millis(0), max: Duration::from_millis(0) };
 	let (_explicit_recovery_chan_tx, explicit_recovery_chan_rx) = mpsc::channel(10);
 	let candidates = make_candidate_chain(1..4);
-	let candidate = candidates.last().clone().unwrap();
+	let candidate = candidates.last().unwrap();
 	let headers = candidates
 		.iter()
 		.map(|c| Header::decode(&mut &c.commitments.head_data.0[..]).unwrap())
