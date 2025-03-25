@@ -531,6 +531,7 @@ fn transact_with_agent_from_asset_hub_without_any_asset_transfer() {
 			nonce: 0,
 			reward_address: reward_account,
 			success: true,
+			topic: Default::default(),
 		};
 
 		// Submit a delivery receipt
