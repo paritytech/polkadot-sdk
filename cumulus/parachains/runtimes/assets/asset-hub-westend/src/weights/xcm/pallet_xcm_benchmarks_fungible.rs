@@ -234,4 +234,14 @@ impl<T: frame_system::Config> WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
+
+	pub fn exchange_asset() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `159`
+		//  Estimated: `6196`
+		// Minimum execution time: 87_253_000 picoseconds.
+		Weight::from_parts(88_932_000, 6196)
+			.saturating_add(T::DbWeight::get().reads(9))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
 }
