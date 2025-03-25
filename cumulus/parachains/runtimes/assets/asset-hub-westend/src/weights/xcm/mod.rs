@@ -18,6 +18,7 @@ mod pallet_xcm_benchmarks_generic;
 
 use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
 use alloc::vec::Vec;
+use frame_support::traits::DefensiveMax;
 use frame_support::weights::Weight;
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
@@ -123,8 +124,10 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_reserve_asset())
 	}
-	fn exchange_asset(give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
-		give.weigh_assets(XcmGeneric::<Runtime>::exchange_asset())
+	fn exchange_asset(give: &AssetFilter, receive: &Assets, _maximal: &bool) -> Weight {
+		let give_weight = give.weigh_assets(XcmGeneric::<Runtime>::exchange_asset());
+		let receive_weight = receive.weigh_assets(XcmGeneric::<Runtime>::exchange_asset());
+		give_weight.max(receive_weight)
 	}
 	fn initiate_reserve_withdraw(
 		assets: &AssetFilter,
