@@ -56,8 +56,6 @@ crates:
     bump: major
   - name: penpal-runtime
     bump: major
-  - name: contracts-rococo-runtime
-    bump: major
   - name: rococo-parachain-runtime
     bump: major
   - name: pallet-contracts-mock-network
