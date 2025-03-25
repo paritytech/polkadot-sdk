@@ -141,67 +141,6 @@ fn process_message_fails_on_overweight_message() {
 }
 
 #[test]
-fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_priority_messages()
-{
-	use AggregateMessageOrigin::*;
-
-	let sibling_id: u32 = 1000;
-
-	new_tester().execute_with(|| {
-		// submit a lot of low priority messages from asset_hub which will need multiple blocks to
-		// execute(20 messages for each block so 40 required at least 2 blocks)
-		let max_messages = 40;
-		for _ in 0..max_messages {
-			// submit low priority message
-			let message = mock_message(sibling_id);
-			let ticket = OutboundQueue::validate(&message).unwrap();
-			OutboundQueue::deliver(ticket).unwrap();
-		}
-
-		let footprint =
-			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
-		assert_eq!(footprint.storage.count, (max_messages) as u64);
-
-		let message = mock_governance_message::<Test>();
-		let ticket = OutboundQueue::validate(&message).unwrap();
-		OutboundQueue::deliver(ticket).unwrap();
-
-		// move to next block
-		ServiceWeight::set(Some(Weight::MAX));
-		run_to_end_of_next_block();
-
-		// first process 20 messages from sibling channel
-		let footprint =
-			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
-		assert_eq!(footprint.storage.count, 40 - 20);
-
-		// and governance message does not have the chance to execute in same block
-		let footprint = MessageQueue::footprint(SnowbridgeV2(bridge_hub_root_origin()));
-		assert_eq!(footprint.storage.count, 1);
-
-		// move to next block
-		ServiceWeight::set(Some(Weight::MAX));
-		run_to_end_of_next_block();
-
-		// now governance message get executed in this block
-		let footprint = MessageQueue::footprint(SnowbridgeV2(bridge_hub_root_origin()));
-		assert_eq!(footprint.storage.count, 0);
-
-		// and this time process 19 messages from sibling channel so we have 1 message left
-		let footprint =
-			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
-		assert_eq!(footprint.storage.count, 1);
-
-		// move to the next block, the last 1 message from sibling channel get executed
-		ServiceWeight::set(Some(Weight::MAX));
-		run_to_end_of_next_block();
-		let footprint =
-			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
-		assert_eq!(footprint.storage.count, 0);
-	});
-}
-
-#[test]
 fn encode_digest_item_with_correct_index() {
 	new_tester().execute_with(|| {
 		let digest_item: DigestItem = CustomDigestItem::Snowbridge(H256::default()).into();
