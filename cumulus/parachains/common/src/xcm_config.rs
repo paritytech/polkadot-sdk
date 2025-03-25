@@ -260,39 +260,39 @@ mod tests {
 		let acc_13 = AccountId32 { network: None, id: [13u8; 32] };
 		// origin acc_42 on sibling system parachain aliases into local acc_42
 		assert!(AliasAccountId32FromSiblingSystemChain::contains(
-			&Location::new(1, [Parachain(1), acc_42.clone()]),
-			&Location::new(0, [acc_42.clone()])
+			&Location::new(1, [Parachain(1), acc_42]),
+			&Location::new(0, [acc_42])
 		));
 		// if target is not local account, always fails
 		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
-			&Location::new(1, [Parachain(1), acc_42.clone()]),
+			&Location::new(1, [Parachain(1), acc_42]),
 			&Location::new(0, [])
 		));
 		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
-			&Location::new(1, [Parachain(1), acc_42.clone()]),
+			&Location::new(1, [Parachain(1), acc_42]),
 			&Location::new(0, [Parachain(1)])
 		));
 		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
-			&Location::new(1, [Parachain(1), acc_42.clone()]),
+			&Location::new(1, [Parachain(1), acc_42]),
 			&Location::new(0, [GeneralIndex(42)])
 		));
 		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
-			&Location::new(1, [Parachain(1), acc_42.clone()]),
-			&Location::new(1, [acc_42.clone()])
+			&Location::new(1, [Parachain(1), acc_42]),
+			&Location::new(1, [acc_42])
 		));
 		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
-			&Location::new(1, [Parachain(1), acc_42.clone()]),
-			&Location::new(2, [acc_42.clone()])
+			&Location::new(1, [Parachain(1), acc_42]),
+			&Location::new(2, [acc_42])
 		));
 		// origin acc_13 on sibling system parachain CANNOT alias into local acc_42
 		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
-			&Location::new(1, [Parachain(1), acc_13.clone()]),
-			&Location::new(0, [acc_42.clone()])
+			&Location::new(1, [Parachain(1), acc_13]),
+			&Location::new(0, [acc_42])
 		));
 		// origin acc_42 on sibling non-system parachain CANNOT alias into local acc_42
 		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
-			&Location::new(1, [Parachain(LOWEST_PUBLIC_ID.into()), acc_42.clone()]),
-			&Location::new(0, [acc_42.clone()])
+			&Location::new(1, [Parachain(LOWEST_PUBLIC_ID.into()), acc_42]),
+			&Location::new(0, [acc_42])
 		));
 	}
 }
