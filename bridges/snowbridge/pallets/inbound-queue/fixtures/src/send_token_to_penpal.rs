@@ -7,13 +7,13 @@ use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, AncestryProof, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
-use snowbridge_core::inbound::{InboundQueueFixture, Log, Message, Proof};
+use snowbridge_inbound_queue_primitives::{EventProof, InboundQueueFixture, Log, Proof};
 use sp_core::U256;
 use sp_std::vec;
 
 pub fn make_send_token_to_penpal_message() -> InboundQueueFixture {
 	InboundQueueFixture {
-        message: Message {
+        event: EventProof {
             event_log: 	Log {
                 address: hex!("eda338e4dc46038493b885327842fd3e301cab39").into(),
                 topics: vec![
