@@ -470,7 +470,7 @@ fn test_migration_v1() {
 mod disabling_byzantine_threshold {
 	use super::*;
 	use crate::disabling::{DisablingStrategy, UpToLimitDisablingStrategy};
-	use sp_staking::offence::{OffenceError, OffenceSeverity};
+	use sp_staking::offence::OffenceSeverity;
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
@@ -536,7 +536,6 @@ mod disabling_byzantine_threshold {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let initially_disabled = vec![(1, MIN_OFFENDER_SEVERITY), (2, MAX_OFFENDER_SEVERITY)];
 			Validators::<Test>::put(ACTIVE_SET.to_vec());
-
 			let disabling_decision =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
@@ -552,7 +551,7 @@ mod disabling_byzantine_threshold {
 mod disabling_with_reenabling {
 	use super::*;
 	use crate::disabling::{DisablingStrategy, UpToLimitWithReEnablingDisablingStrategy};
-	use sp_staking::offence::{OffenceError, OffenceSeverity};
+	use sp_staking::offence::OffenceSeverity;
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
