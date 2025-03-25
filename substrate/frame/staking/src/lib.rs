@@ -557,6 +557,7 @@ pub enum SnapshotStatus<AccountId> {
 	CloneNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
@@ -866,7 +867,15 @@ impl<T: Config> StakingLedger<T> {
 
 /// A record of the nominations made by a specific account.
 #[derive(
-	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound,
+	EqNoBound,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]

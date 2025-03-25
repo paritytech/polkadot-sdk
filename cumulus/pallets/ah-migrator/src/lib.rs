@@ -699,6 +699,16 @@ pub mod pallet {
 			Self::do_receive_crowdloan_messages(messages).map_err(Into::into)
 		}
 
+		#[pallet::call_index(20)]
+		pub fn receive_staking_messages(
+			origin: OriginFor<T>,
+			messages: Vec<RcStakingMessageOf<T>>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			Self::do_receive_staking_messages(messages).map_err(Into::into)
+		}
+
 		/// Set the migration stage.
 		///
 		/// This call is intended for emergency use only and is guarded by the

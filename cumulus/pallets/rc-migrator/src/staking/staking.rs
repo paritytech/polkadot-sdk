@@ -100,7 +100,7 @@ pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 	Decode,
 	DecodeWithMemTracking,
 	TypeInfo,
-	RuntimeDebug,
+	RuntimeDebugNoBound,
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
