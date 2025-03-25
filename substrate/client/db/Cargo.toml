@@ -62,8 +62,8 @@ array-bytes = { workspace = true, default-features = true }
 default = []
 test-helpers = []
 runtime-benchmarks = [
+	"kitchensink-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"kitchensink-runtime/runtime-benchmarks"
 ]
 rocksdb = ["kvdb-rocksdb"]
 
