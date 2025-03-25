@@ -182,7 +182,14 @@ impl SendXcm for TestSendXcm {
 		Ok((pair, Assets::new()))
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&pair.1);
+		let message = pair.1.clone();
+		if message
+			.iter()
+			.any(|instr| matches!(instr, ExpectError(Some((1, XcmError::Unimplemented)))))
+		{
+			return Err(SendError::Transport("Intentional deliver failure used in tests".into()));
+		}
+		let hash = fake_message_hash(&message);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}
@@ -302,6 +309,7 @@ impl pallet_assets::Config for Test {
 	type MetadataDepositPerByte = ConstU128<1>;
 	type ApprovalDeposit = ConstU128<1>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
@@ -483,6 +491,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = XcmPallet;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>, Case<TrustedPaidParaForeign>);
@@ -715,7 +724,7 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 ) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-	pallet_balances::GenesisConfig::<Test> { balances }
+	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

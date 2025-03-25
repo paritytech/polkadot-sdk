@@ -17,21 +17,22 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 use crate::{
-	extract_receipts_from_block,
-	runtime::gas_from_fee,
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, ReceiptProvider, TransactionInfo, LOG_TARGET,
+	BlockInfoProvider, ReceiptExtractor, ReceiptProvider, TransactionInfo, LOG_TARGET,
 };
+use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, GenericTransaction, ReceiptInfo,
-		SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
+		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, CallTrace, Filter,
+		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
+		TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
+use sp_runtime::OpaqueExtrinsic;
 use sp_weights::Weight;
 use std::{ops::ControlFlow, sync::Arc, time::Duration};
 use subxt::{
@@ -48,7 +49,7 @@ use subxt::{
 	Config, OnlineClient,
 };
 use thiserror::Error;
-use tokio::{sync::RwLock, try_join};
+use tokio::sync::RwLock;
 
 use crate::subxt_client::{self, SrcChainConfig};
 
@@ -67,6 +68,14 @@ pub type Shared<T> = Arc<RwLock<T>>;
 /// The runtime balance type.
 pub type Balance = u128;
 
+/// The subscription type used to listen to new blocks.
+pub enum SubscriptionType {
+	/// Subscribe to the best blocks.
+	BestBlocks,
+	/// Subscribe to the finalized blocks.
+	FinalizedBlocks,
+}
+
 /// Unwrap the original `jsonrpsee::core::client::Error::Call` error.
 fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 	use subxt::backend::rpc::reconnecting_rpc_client;
@@ -80,47 +89,6 @@ fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 			}
 		},
 		_ => None,
-	}
-}
-
-/// Extract the revert message from a revert("msg") solidity statement.
-fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
-	let error_selector = exec_data.get(0..4)?;
-
-	match error_selector {
-		// assert(false)
-		[0x4E, 0x48, 0x7B, 0x71] => {
-			let panic_code: u32 = U256::from_big_endian(exec_data.get(4..36)?).try_into().ok()?;
-
-			// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
-			let msg = match panic_code {
-				0x00 => "generic panic",
-				0x01 => "assert(false)",
-				0x11 => "arithmetic underflow or overflow",
-				0x12 => "division or modulo by zero",
-				0x21 => "enum overflow",
-				0x22 => "invalid encoded storage byte array accessed",
-				0x31 => "out-of-bounds array access; popping on an empty array",
-				0x32 => "out-of-bounds access of an array or bytesN",
-				0x41 => "out of memory",
-				0x51 => "uninitialized function",
-				code => return Some(format!("execution reverted: unknown panic code: {code:#x}")),
-			};
-
-			Some(format!("execution reverted: {msg}"))
-		},
-		// revert(string)
-		[0x08, 0xC3, 0x79, 0xA0] => {
-			let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
-			if let Some(ethabi::Token::String(msg)) = decoded.first() {
-				return Some(format!("execution reverted: {msg}"))
-			}
-			Some("execution reverted".to_string())
-		},
-		_ => {
-			log::debug!(target: LOG_TARGET, "Unknown revert function selector: {error_selector:?}");
-			Some("execution reverted".to_string())
-		},
 	}
 }
 
@@ -142,9 +110,9 @@ pub enum ClientError {
 	/// A [`codec::Error`] wrapper error.
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
-	/// Contract reverted
+	/// Transcact call failed.
 	#[error("contract reverted")]
-	Reverted(EthTransactError),
+	TransactError(EthTransactError),
 	/// A decimal conversion failed.
 	#[error("conversion failed")]
 	ConversionFailed,
@@ -166,6 +134,9 @@ pub enum ClientError {
 	/// The cache is empty.
 	#[error("cache is empty")]
 	CacheEmpty,
+	/// Failed to filter logs.
+	#[error("Failed to filter logs")]
+	LogFilterFailed(#[from] anyhow::Error),
 }
 
 const REVERT_CODE: i32 = 3;
@@ -182,12 +153,16 @@ impl From<ClientError> for ErrorObjectOwned {
 					None,
 				)
 			},
-			ClientError::Reverted(EthTransactError::Data(data)) => {
-				let msg = extract_revert_message(&data).unwrap_or_default();
+			ClientError::TransactError(EthTransactError::Data(data)) => {
+				let msg = match decode_revert_reason(&data) {
+					Some(reason) => format!("execution reverted: {reason}"),
+					None => "execution reverted".to_string(),
+				};
+
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::Reverted(EthTransactError::Message(msg)) =>
+			ClientError::TransactError(EthTransactError::Message(msg)) =>
 				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
 			_ =>
 				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
@@ -203,6 +178,7 @@ pub struct Client {
 	rpc: LegacyRpcMethods<SrcChainConfig>,
 	receipt_provider: Arc<dyn ReceiptProvider>,
 	block_provider: Arc<dyn BlockInfoProvider>,
+	receipt_extractor: ReceiptExtractor,
 	chain_id: u64,
 	max_block_weight: Weight,
 }
@@ -210,6 +186,12 @@ pub struct Client {
 /// Fetch the chain ID from the substrate chain.
 async fn chain_id(api: &OnlineClient<SrcChainConfig>) -> Result<u64, ClientError> {
 	let query = subxt_client::constants().revive().chain_id();
+	api.constants().at(&query).map_err(|err| err.into())
+}
+
+/// Fetch the native_to_eth_ratio
+pub async fn native_to_eth_ratio(api: &OnlineClient<SrcChainConfig>) -> Result<u32, ClientError> {
+	let query = subxt_client::constants().revive().native_to_eth_ratio();
 	api.constants().at(&query).map_err(|err| err.into())
 }
 
@@ -239,12 +221,12 @@ pub async fn connect(
 	(OnlineClient<SrcChainConfig>, ReconnectingRpcClient, LegacyRpcMethods<SrcChainConfig>),
 	ClientError,
 > {
-	log::info!(target: LOG_TARGET, "Connecting to node at: {node_rpc_url} ...");
+	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
 	let rpc_client = ReconnectingRpcClient::builder()
 		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
 		.build(node_rpc_url.to_string())
 		.await?;
-	log::info!(target: LOG_TARGET, "Connected to node at: {node_rpc_url}");
+	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
 	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
 	let rpc = LegacyRpcMethods::<SrcChainConfig>::new(RpcClient::new(rpc_client.clone()));
@@ -259,6 +241,7 @@ impl Client {
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: Arc<dyn BlockInfoProvider>,
 		receipt_provider: Arc<dyn ReceiptProvider>,
+		receipt_extractor: ReceiptExtractor,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
@@ -269,6 +252,7 @@ impl Client {
 			rpc,
 			receipt_provider,
 			block_provider,
+			receipt_extractor,
 			chain_id,
 			max_block_weight,
 		})
@@ -284,18 +268,18 @@ impl Client {
 		F: Fn(SubstrateBlock) -> Fut + Send + Sync,
 		Fut: std::future::Future<Output = Result<ControlFlow<()>, ClientError>> + Send,
 	{
-		log::info!(target: LOG_TARGET, "Subscribing to past blocks");
+		log::info!(target: LOG_TARGET, "🔍 Subscribing to past blocks");
 		let mut block = self.api.blocks().at_latest().await.inspect_err(|err| {
 			log::error!(target: LOG_TARGET, "Failed to fetch latest block: {err:?}");
 		})?;
 
 		loop {
 			let block_number = block.number();
-			log::debug!(target: LOG_TARGET, "Processing block {block_number}");
+			log::trace!(target: LOG_TARGET, "Processing past block #{block_number}");
 
 			let parent_hash = block.header().parent_hash;
 			let control_flow = callback(block).await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
+				log::error!(target: LOG_TARGET, "Failed to process past block #{block_number}: {err:?}");
 			})?;
 
 			match control_flow {
@@ -318,19 +302,23 @@ impl Client {
 
 	/// Subscribe to new best blocks, and execute the async closure with
 	/// the extracted block and ethereum transactions
-	async fn subscribe_new_blocks<F, Fut>(&self, callback: F) -> Result<(), ClientError>
+	async fn subscribe_new_blocks<F, Fut>(
+		&self,
+		subscription_type: SubscriptionType,
+		callback: F,
+	) -> Result<(), ClientError>
 	where
 		F: Fn(SubstrateBlock) -> Fut + Send + Sync,
 		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
 	{
-		log::info!(target: LOG_TARGET, "Subscribing to new blocks");
-		let mut block_stream = match self.api.blocks().subscribe_best().await {
-			Ok(s) => s,
-			Err(err) => {
-				log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
-				return Err(err.into());
-			},
-		};
+		log::info!(target: LOG_TARGET, "🔍 Subscribing to new blocks");
+		let mut block_stream = match subscription_type {
+			SubscriptionType::BestBlocks => self.api.blocks().subscribe_best().await,
+			SubscriptionType::FinalizedBlocks => self.api.blocks().subscribe_finalized().await,
+		}
+		.inspect_err(|err| {
+			log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
+		})?;
 
 		while let Some(block) = block_stream.next().await {
 			let block = match block {
@@ -349,8 +337,10 @@ impl Client {
 				},
 			};
 
-			log::debug!(target: LOG_TARGET, "Pushing block: {}", block.number());
-			callback(block).await?;
+			log::trace!(target: LOG_TARGET, "Pushing block: {}", block.number());
+			if let Err(err) = callback(block).await {
+				log::error!(target: LOG_TARGET, "Failed to process block: {err:?}");
+			}
 		}
 
 		log::info!(target: LOG_TARGET, "Block subscription ended");
@@ -358,54 +348,42 @@ impl Client {
 	}
 
 	/// Start the block subscription, and populate the block cache.
-	pub fn subscribe_and_cache_blocks(&self, spawn_handle: &sc_service::SpawnEssentialTaskHandle) {
-		let client = self.clone();
-		spawn_handle.spawn("subscribe-blocks", None, async move {
-			let res = client
-				.subscribe_new_blocks(|block| async {
-					let receipts = extract_receipts_from_block(&block).await?;
+	pub async fn subscribe_and_cache_new_blocks(&self, subscription_type: SubscriptionType) {
+		let res = self
+			.subscribe_new_blocks(subscription_type, |block| async {
+				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
 
-					client.receipt_provider.insert(&block.hash(), &receipts).await;
-					if let Some(pruned) = client.block_provider.cache_block(block).await {
-						client.receipt_provider.remove(&pruned).await;
-					}
+				self.receipt_provider.insert(&block.hash(), &receipts).await;
+				if let Some(pruned) = self.block_provider.cache_block(block).await {
+					self.receipt_provider.remove(&pruned).await;
+				}
 
-					Ok(())
-				})
-				.await;
+				Ok(())
+			})
+			.await;
 
-			if let Err(err) = res {
-				log::error!(target: LOG_TARGET, "Block subscription error: {err:?}");
-			}
-		});
+		if let Err(err) = res {
+			log::error!(target: LOG_TARGET, "Block subscription error: {err:?}");
+		}
 	}
 
-	/// Start the block subscription, and populate the block cache.
-	pub async fn subscribe_and_cache_receipts(
-		&self,
-		oldest_block: Option<SubstrateBlockNumber>,
-	) -> Result<(), ClientError> {
-		let new_blocks_fut = self.subscribe_new_blocks(|block| async move {
-			let receipts = extract_receipts_from_block(&block).await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to extract receipts from block: {err:?}");
-			})?;
-			self.receipt_provider.insert(&block.hash(), &receipts).await;
-			Ok(())
-		});
+	/// Cache old blocks up to the given block number.
+	pub async fn cache_old_blocks(&self, oldest_block: SubstrateBlockNumber) {
+		let res = self
+			.subscribe_past_blocks(|block| async move {
+				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
+				self.receipt_provider.archive(&block.hash(), &receipts).await;
+				if block.number() <= oldest_block {
+					Ok(ControlFlow::Break(()))
+				} else {
+					Ok(ControlFlow::Continue(()))
+				}
+			})
+			.await;
 
-		let Some(oldest_block) = oldest_block else { return new_blocks_fut.await };
-
-		let old_blocks_fut = self.subscribe_past_blocks(|block| async move {
-			let receipts = extract_receipts_from_block(&block).await?;
-			self.receipt_provider.insert(&block.hash(), &receipts).await;
-			if block.number() == oldest_block {
-				Ok(ControlFlow::Break(()))
-			} else {
-				Ok(ControlFlow::Continue(()))
-			}
-		});
-
-		try_join!(new_blocks_fut, old_blocks_fut).map(|_| ())
+		if let Err(err) = res {
+			log::error!(target: LOG_TARGET, "Past Block subscription error: {err:?}");
+		}
 	}
 
 	/// Expose the storage API.
@@ -507,7 +485,7 @@ impl Client {
 	pub async fn receipt_by_hash_and_index(
 		&self,
 		block_hash: &H256,
-		transaction_index: &U256,
+		transaction_index: usize,
 	) -> Option<ReceiptInfo> {
 		self.receipt_provider
 			.receipt_by_block_hash_and_index(block_hash, transaction_index)
@@ -598,7 +576,7 @@ impl Client {
 		match result {
 			Err(err) => {
 				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
-				Err(ClientError::Reverted(err.0))
+				Err(ClientError::TransactError(err.0))
 			},
 			Ok(result) => Ok(result.0),
 		}
@@ -667,15 +645,150 @@ impl Client {
 		self.block_provider.block_by_number(block_number).await
 	}
 
+	pub async fn gas_price(&self, at: &BlockNumberOrTagOrHash) -> Result<U256, ClientError> {
+		let runtime_api = self.runtime_api(at).await?;
+		let payload = subxt_client::apis().revive_api().gas_price();
+		let gas_price = runtime_api.call(payload).await?;
+		Ok(*gas_price)
+	}
+	/// Get the transaction traces for the given block.
+	pub async fn trace_block_by_number(
+		&self,
+		block: BlockNumberOrTag,
+		tracer_config: TracerConfig,
+	) -> Result<Vec<TransactionTrace>, ClientError> {
+		let block_hash = match block {
+			BlockNumberOrTag::U256(n) => {
+				let block_number: SubstrateBlockNumber =
+					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
+				self.get_block_hash(block_number).await?
+			},
+			BlockNumberOrTag::BlockTag(_) => self.latest_block().await.map(|b| b.hash()),
+		}
+		.ok_or(ClientError::BlockNotFound)?;
+
+		let block = self
+			.rpc
+			.chain_get_block(Some(block_hash))
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
+
+		let header = block.block.header;
+		let parent_hash = header.parent_hash;
+		let exts = block
+			.block
+			.extrinsics
+			.into_iter()
+			.filter_map(|e| OpaqueExtrinsic::decode(&mut &e[..]).ok())
+			.collect::<Vec<_>>();
+
+		let params = ((header, exts), tracer_config).encode();
+
+		let bytes = self
+			.rpc
+			.state_call("ReviveApi_trace_block", Some(&params), Some(parent_hash))
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
+			})?;
+
+		let traces = Vec::<(u32, CallTrace)>::decode(&mut &bytes[..])?;
+
+		let mut hashes = self
+			.receipt_provider
+			.block_transaction_hashes(&block_hash)
+			.await
+			.ok_or(ClientError::EthExtrinsicNotFound)?;
+
+		let traces = traces
+			.into_iter()
+			.filter_map(|(index, trace)| {
+				Some(TransactionTrace { tx_hash: hashes.remove(&(index as usize))?, trace })
+			})
+			.collect();
+
+		Ok(traces)
+	}
+
+	/// Get the transaction traces for the given transaction.
+	pub async fn trace_transaction(
+		&self,
+		transaction_hash: H256,
+		tracer_config: TracerConfig,
+	) -> Result<CallTrace, ClientError> {
+		let ReceiptInfo { block_hash, transaction_index, .. } = self
+			.receipt_provider
+			.receipt_by_hash(&transaction_hash)
+			.await
+			.ok_or(ClientError::EthExtrinsicNotFound)?;
+
+		log::debug!(target: LOG_TARGET, "Found eth_tx at {block_hash:?} index:
+		 {transaction_index:?}");
+
+		let block = self
+			.rpc
+			.chain_get_block(Some(block_hash))
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
+
+		let header = block.block.header;
+		let parent_hash = header.parent_hash;
+		let exts = block
+			.block
+			.extrinsics
+			.into_iter()
+			.filter_map(|e| OpaqueExtrinsic::decode(&mut &e[..]).ok())
+			.collect::<Vec<_>>();
+
+		let params = ((header, exts), transaction_index.as_u32(), tracer_config).encode();
+		let bytes = self
+			.rpc
+			.state_call("ReviveApi_trace_tx", Some(&params), Some(parent_hash))
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
+			})?;
+
+		let trace = Option::<CallTrace>::decode(&mut &bytes[..])?;
+		trace.ok_or(ClientError::EthExtrinsicNotFound)
+	}
+
+	/// Get the transaction traces for the given block.
+	pub async fn trace_call(
+		&self,
+		transaction: GenericTransaction,
+		block: BlockNumberOrTag,
+		tracer_config: TracerConfig,
+	) -> Result<CallTrace, ClientError> {
+		let block_hash = match block {
+			BlockNumberOrTag::U256(n) => {
+				let block_number: SubstrateBlockNumber =
+					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
+				self.get_block_hash(block_number).await?
+			},
+			BlockNumberOrTag::BlockTag(_) => self.latest_block().await.map(|b| b.hash()),
+		};
+
+		let params = (transaction, tracer_config).encode();
+		let bytes = self
+			.rpc
+			.state_call("ReviveApi_trace_call", Some(&params), block_hash)
+			.await
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
+			})?;
+
+		Result::<CallTrace, EthTransactError>::decode(&mut &bytes[..])?
+			.map_err(ClientError::TransactError)
+	}
 	/// Get the EVM block for the given hash.
 	pub async fn evm_block(
 		&self,
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
-	) -> Result<Block, ClientError> {
+	) -> Block {
 		let runtime_api = self.api.runtime_api().at(block.hash());
-		let max_fee = Self::weight_to_fee(&runtime_api, self.max_block_weight()).await?;
-		let gas_limit = gas_from_fee(max_fee);
+		let gas_limit = Self::block_gas_limit(&runtime_api).await.unwrap_or_default();
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(&block).await.unwrap_or_default();
@@ -685,7 +798,7 @@ impl Client {
 		let state_root = header.state_root.0.into();
 		let extrinsics_root = header.extrinsics_root.0.into();
 
-		let receipts = extract_receipts_from_block(&block).await?;
+		let receipts = self.receipt_extractor.extract_from_block(&block).await.unwrap_or_default();
 		let gas_used =
 			receipts.iter().fold(U256::zero(), |acc, (_, receipt)| acc + receipt.gas_used);
 		let transactions = if hydrated_transactions {
@@ -702,7 +815,7 @@ impl Client {
 				.into()
 		};
 
-		Ok(Block {
+		Block {
 			hash: block.hash(),
 			parent_hash,
 			state_root,
@@ -710,26 +823,22 @@ impl Client {
 			number: header.number.into(),
 			timestamp: timestamp.into(),
 			difficulty: Some(0u32.into()),
-			base_fee_per_gas: Some(crate::GAS_PRICE.into()),
+			base_fee_per_gas: self.gas_price(&block.hash().into()).await.ok(),
 			gas_limit,
 			gas_used,
 			receipts_root: extrinsics_root,
 			transactions,
 			..Default::default()
-		})
+		}
 	}
 
 	/// Convert a weight to a fee.
-	async fn weight_to_fee(
+	async fn block_gas_limit(
 		runtime_api: &subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
-		weight: Weight,
-	) -> Result<Balance, ClientError> {
-		let payload = subxt_client::apis()
-			.transaction_payment_api()
-			.query_weight_to_fee(weight.into());
-
-		let fee = runtime_api.call(payload).await?;
-		Ok(fee)
+	) -> Result<U256, ClientError> {
+		let payload = subxt_client::apis().revive_api().block_gas_limit();
+		let gas_limit = runtime_api.call(payload).await?;
+		Ok(*gas_limit)
 	}
 
 	/// Get the chain ID.
@@ -740,5 +849,12 @@ impl Client {
 	/// Get the Max Block Weight.
 	pub fn max_block_weight(&self) -> Weight {
 		self.max_block_weight
+	}
+
+	/// Get the logs matching the given filter.
+	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
+		let logs =
+			self.receipt_provider.logs(filter).await.map_err(ClientError::LogFilterFailed)?;
+		Ok(logs)
 	}
 }

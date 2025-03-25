@@ -153,6 +153,29 @@ pub struct HashAndNumber<Block: BlockT> {
 	pub hash: Block::Hash,
 }
 
+impl<Block: BlockT> Eq for HashAndNumber<Block> {}
+
+impl<Block: BlockT> PartialEq for HashAndNumber<Block> {
+	fn eq(&self, other: &Self) -> bool {
+		self.number.eq(&other.number) && self.hash.eq(&other.hash)
+	}
+}
+
+impl<Block: BlockT> Ord for HashAndNumber<Block> {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		match self.number.cmp(&other.number) {
+			std::cmp::Ordering::Equal => self.hash.cmp(&other.hash),
+			result => result,
+		}
+	}
+}
+
+impl<Block: BlockT> PartialOrd for HashAndNumber<Block> {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(&other))
+	}
+}
+
 /// A tree-route from one block to another in the chain.
 ///
 /// All blocks prior to the pivot in the vector is the reverse-order unique ancestry
