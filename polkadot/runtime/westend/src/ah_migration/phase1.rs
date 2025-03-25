@@ -143,6 +143,7 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		AssignedSlots(..) => (ON, ON),
 		MultiBlockMigrations(..) => (ON, ON),
 		RootTesting(..) => (ON, ON),
+		MetaTx(..) => (ON, ON), // FAIL-CI @muharem check
 		IdentityMigrator(..) => (ON, ON),
 		// Exhaustive match. Compiler ensures that we did not miss any.
 	}

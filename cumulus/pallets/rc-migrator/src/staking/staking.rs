@@ -64,6 +64,7 @@ pub enum StakingStage<AccountId> {
 	ValidatorSlashInEra(Option<(EraIndex, AccountId)>),
 	NominatorSlashInEra(Option<(EraIndex, AccountId)>),
 	SlashingSpans(Option<AccountId>),
+	SpanSlash(Option<(AccountId, SpanIndex)>),
 	Finished,
 }
 
@@ -105,7 +106,7 @@ pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 	EqNoBound,
 )]
 #[scale_info(skip_type_params(T))]
-pub enum StakingMessage<T: pallet_staking::Config> {
+pub enum RcStakingMessage<T: pallet_staking::Config> {
 	Values(StakingValues<BalanceOf<T>>),
 	Invulnerables(Vec<AccountIdOf<T>>),
 	Bonded {
@@ -189,9 +190,9 @@ pub enum StakingMessage<T: pallet_staking::Config> {
 	},
 }
 
-pub type StakingMessageOf<T> = StakingMessage<T>;
+pub type RcStakingMessageOf<T> = RcStakingMessage<T>;
 
-impl<T: Config> StakingMigrator<T> {
+impl<T: pallet_staking::Config> StakingMigrator<T> {
 	pub fn take_values() -> StakingValuesOf<T> {
 		use pallet_staking::*;
 
@@ -268,12 +269,12 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 			inner_key = match inner_key {
 				StakingStage::Values => {
 					let values = Self::take_values();
-					messages.push(StakingMessage::Values(values));
+					messages.push(RcStakingMessage::Values(values));
 					StakingStage::Invulnerables
 				},
 				StakingStage::Invulnerables => {
 					let invulnerables = pallet_staking::Invulnerables::<T>::take();
-					messages.push(StakingMessage::Invulnerables(invulnerables.into_inner()));
+					messages.push(RcStakingMessage::Invulnerables(invulnerables.into_inner()));
 					StakingStage::Bonded(None)
 				},
 				StakingStage::Bonded(who) => {
@@ -286,8 +287,10 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((stash, controller)) => {
 							pallet_staking::Bonded::<T>::remove(&stash);
-							messages
-								.push(StakingMessage::Bonded { stash: stash.clone(), controller });
+							messages.push(RcStakingMessage::Bonded {
+								stash: stash.clone(),
+								controller,
+							});
 							StakingStage::Bonded(Some(stash))
 						},
 						None => StakingStage::Ledger(None),
@@ -303,7 +306,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((controller, ledger)) => {
 							pallet_staking::Ledger::<T>::remove(&controller);
-							messages.push(StakingMessage::Ledger {
+							messages.push(RcStakingMessage::Ledger {
 								controller: controller.clone(),
 								ledger,
 							});
@@ -322,7 +325,8 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((stash, payment)) => {
 							pallet_staking::Payee::<T>::remove(&stash);
-							messages.push(StakingMessage::Payee { stash: stash.clone(), payment });
+							messages
+								.push(RcStakingMessage::Payee { stash: stash.clone(), payment });
 							StakingStage::Payee(Some(stash))
 						},
 						None => StakingStage::Validators(None),
@@ -340,7 +344,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((stash, validators)) => {
 							pallet_staking::Validators::<T>::remove(&stash);
-							messages.push(StakingMessage::Validators {
+							messages.push(RcStakingMessage::Validators {
 								stash: stash.clone(),
 								validators,
 							});
@@ -361,7 +365,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((stash, nominations)) => {
 							pallet_staking::Nominators::<T>::remove(&stash);
-							messages.push(StakingMessage::Nominators {
+							messages.push(RcStakingMessage::Nominators {
 								stash: stash.clone(),
 								nominations,
 							});
@@ -383,7 +387,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((staker, ())) => {
 							pallet_staking::VirtualStakers::<T>::remove(&staker);
-							messages.push(StakingMessage::VirtualStakers(staker.clone()));
+							messages.push(RcStakingMessage::VirtualStakers(staker.clone()));
 							StakingStage::VirtualStakers(Some(staker))
 						},
 						None => StakingStage::ErasStartSessionIndex(None),
@@ -399,7 +403,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((era, session)) => {
 							pallet_staking::ErasStartSessionIndex::<T>::remove(&era);
-							messages.push(StakingMessage::ErasStartSessionIndex { era, session });
+							messages.push(RcStakingMessage::ErasStartSessionIndex { era, session });
 							StakingStage::ErasStartSessionIndex(Some(era))
 						},
 						None => StakingStage::ErasStakersOverview(None),
@@ -419,7 +423,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((era, validator, exposure)) => {
 							pallet_staking::ErasStakersOverview::<T>::remove(&era, &validator);
-							messages.push(StakingMessage::ErasStakersOverview {
+							messages.push(RcStakingMessage::ErasStakersOverview {
 								era,
 								validator: validator.clone(),
 								exposure,
@@ -443,7 +447,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 							pallet_staking::ErasStakersPaged::<T>::remove((
 								&era, &validator, &page,
 							));
-							messages.push(StakingMessage::ErasStakersPaged {
+							messages.push(RcStakingMessage::ErasStakersPaged {
 								era,
 								validator: validator.clone(),
 								page,
@@ -468,7 +472,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((era, validator, rewards)) => {
 							pallet_staking::ClaimedRewards::<T>::remove(&era, &validator);
-							messages.push(StakingMessage::ClaimedRewards {
+							messages.push(RcStakingMessage::ClaimedRewards {
 								era,
 								validator: validator.clone(),
 								rewards,
@@ -492,7 +496,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((era, validator, prefs)) => {
 							pallet_staking::ErasValidatorPrefs::<T>::remove(&era, &validator);
-							messages.push(StakingMessage::ErasValidatorPrefs {
+							messages.push(RcStakingMessage::ErasValidatorPrefs {
 								era,
 								validator: validator.clone(),
 								prefs,
@@ -512,7 +516,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((era, reward)) => {
 							pallet_staking::ErasValidatorReward::<T>::remove(&era);
-							messages.push(StakingMessage::ErasValidatorReward { era, reward });
+							messages.push(RcStakingMessage::ErasValidatorReward { era, reward });
 							StakingStage::ErasValidatorReward(Some(era))
 						},
 						None => StakingStage::ErasRewardPoints(None),
@@ -528,7 +532,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((era, points)) => {
 							pallet_staking::ErasRewardPoints::<T>::remove(&era);
-							messages.push(StakingMessage::ErasRewardPoints { era, points });
+							messages.push(RcStakingMessage::ErasRewardPoints { era, points });
 							StakingStage::ErasRewardPoints(Some(era))
 						},
 						None => StakingStage::ErasTotalStake(None),
@@ -544,7 +548,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((era, total_stake)) => {
 							pallet_staking::ErasTotalStake::<T>::remove(&era);
-							messages.push(StakingMessage::ErasTotalStake { era, total_stake });
+							messages.push(RcStakingMessage::ErasTotalStake { era, total_stake });
 							StakingStage::ErasTotalStake(Some(era))
 						},
 						None => StakingStage::BondedEras,
@@ -552,7 +556,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 				},
 				StakingStage::BondedEras => {
 					let bonded_eras = pallet_staking::BondedEras::<T>::take();
-					messages.push(StakingMessage::BondedEras(bonded_eras));
+					messages.push(RcStakingMessage::BondedEras(bonded_eras));
 					StakingStage::ValidatorSlashInEra(None)
 				},
 				StakingStage::ValidatorSlashInEra(next) => {
@@ -569,7 +573,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((era, validator, slash)) => {
 							pallet_staking::ValidatorSlashInEra::<T>::remove(&era, &validator);
-							messages.push(StakingMessage::ValidatorSlashInEra {
+							messages.push(RcStakingMessage::ValidatorSlashInEra {
 								era,
 								validator: validator.clone(),
 								slash,
@@ -593,7 +597,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((era, validator, slash)) => {
 							pallet_staking::NominatorSlashInEra::<T>::remove(&era, &validator);
-							messages.push(StakingMessage::NominatorSlashInEra {
+							messages.push(RcStakingMessage::NominatorSlashInEra {
 								era,
 								validator: validator.clone(),
 								slash,
@@ -613,11 +617,31 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					match iter.next() {
 						Some((account, spans)) => {
 							pallet_staking::SlashingSpans::<T>::remove(&account);
-							messages.push(StakingMessage::SlashingSpans {
+							messages.push(RcStakingMessage::SlashingSpans {
 								account: account.clone(),
 								spans,
 							});
 							StakingStage::SlashingSpans(Some(account))
+						},
+						None => StakingStage::SpanSlash(None),
+					}
+				},
+				StakingStage::SpanSlash(next) => {
+					let mut iter = if let Some(next) = next {
+						pallet_staking::SpanSlash::<T>::iter_from_key(next)
+					} else {
+						pallet_staking::SpanSlash::<T>::iter()
+					};
+
+					match iter.next() {
+						Some(((account, span), slash)) => {
+							pallet_staking::SpanSlash::<T>::remove((&account, &span));
+							messages.push(RcStakingMessage::SpanSlash {
+								account: account.clone(),
+								span,
+								slash,
+							});
+							StakingStage::SpanSlash(Some((account, span)))
 						},
 						None => StakingStage::Finished,
 					}

@@ -57,7 +57,7 @@ use frame_support::{
 	traits::{
 		fungible::{InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
 		Defensive, LockableCurrency, OriginTrait, QueryPreimage, ReservableCurrency, StorePreimage,
-		WithdrawReasons as LockWithdrawReasons,
+		VariantCount, WithdrawReasons as LockWithdrawReasons,
 	},
 };
 use frame_system::pallet_prelude::*;
@@ -74,6 +74,7 @@ use pallet_rc_migrator::{
 		bags_list::RcBagsListMessage,
 		fast_unstake::{FastUnstakeMigrator, RcFastUnstakeMessage},
 		nom_pools::*,
+		RcStakingMessage, RcStakingMessageOf,
 	},
 	vesting::RcVestingSchedule,
 	weights_ah::WeightInfo,
@@ -116,6 +117,7 @@ pub enum PalletEventName {
 	Crowdloan,
 	BagsList,
 	Vesting,
+	Staking,
 }
 
 /// The migration stage on the Asset Hub.
@@ -170,7 +172,10 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config:
 		frame_system::Config<AccountData = AccountData<u128>, AccountId = AccountId32>
-		+ pallet_balances::Config<Balance = u128>
+		+ pallet_balances::Config<
+			Balance = u128,
+			RuntimeHoldReason = <Self as crate::Config>::RuntimeHoldReason,
+		>
 		+ pallet_multisig::Config
 		+ pallet_proxy::Config
 		+ pallet_preimage::Config<Hash = H256>
@@ -186,7 +191,12 @@ pub mod pallet {
 		+ pallet_asset_rate::Config
 		+ pallet_timestamp::Config<Moment = u64> // Needed for testing
 		+ pallet_ah_ops::Config
+		+ pallet_staking::Config<
+			RuntimeHoldReason = <Self as crate::Config>::RuntimeHoldReason,
+			Currency = <Self as crate::Config>::Currency,
+		>
 	{
+		type RuntimeHoldReason: Parameter + VariantCount;
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The origin that can perform permissioned operations like setting the migration stage.
@@ -195,7 +205,7 @@ pub mod pallet {
 		type ManagerOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 		/// Native asset registry type.
 		type Currency: Mutate<Self::AccountId, Balance = u128>
-			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ MutateHold<Self::AccountId, Reason = <Self as crate::Config>::RuntimeHoldReason>
 			+ InspectFreeze<Self::AccountId, Id = Self::FreezeIdentifier>
 			+ MutateFreeze<Self::AccountId>
 			+ Unbalanced<Self::AccountId>
@@ -212,7 +222,7 @@ pub mod pallet {
 		/// Additionally requires the `Default` implementation for the benchmarking mocks.
 		type RcFreezeReason: Parameter + Default;
 		/// Relay Chain to Asset Hub Hold Reasons mapping.
-		type RcToAhHoldReason: Convert<Self::RcHoldReason, Self::RuntimeHoldReason>;
+		type RcToAhHoldReason: Convert<Self::RcHoldReason, <Self as crate::Config>::RuntimeHoldReason>;
 		/// Relay Chain to Asset Hub Freeze Reasons mapping.
 		type RcToAhFreezeReason: Convert<Self::RcFreezeReason, Self::FreezeIdentifier>;
 		/// The abridged Relay Chain Proxy Type.
@@ -276,6 +286,7 @@ pub mod pallet {
 		FailedToConvertCall,
 		/// Failed to bound a call.
 		FailedToBoundCall,
+		FailedToBoundVector,
 		/// Failed to send XCM message.
 		XcmError,
 		/// Failed to integrate a vesting schedule.
