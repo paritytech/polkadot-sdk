@@ -134,11 +134,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type Helper = Runtime;
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
 	type AssetHubParaId = ConstU32<ASSET_HUB_ID>;
-	type EthereumNetwork = EthereumNetwork;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type Token = Balances;
-	type Balance = Balance;
-	type WeightToFee = WeightToFee;
 	type MessageConverter = snowbridge_inbound_queue_primitives::v2::MessageToXcm<
 		CreateAssetCall,
 		CreateForeignAssetDeposit,

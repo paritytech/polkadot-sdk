@@ -4,7 +4,7 @@ use super::*;
 
 use crate::{self as inbound_queue_v2};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use hex_literal::hex;
 use scale_info::TypeInfo;
 use snowbridge_beacon_primitives::{
@@ -176,7 +176,6 @@ impl inbound_queue_v2::Config for Test {
 	type XcmSender = MockXcmSender;
 	type XcmExecutor = MockXcmExecutor;
 	type RewardPayment = ();
-	type EthereumNetwork = EthereumNetwork;
 	type GatewayAddress = GatewayAddress;
 	type AssetHubParaId = ConstU32<1000>;
 	type MessageConverter = MessageToXcm<
@@ -191,10 +190,7 @@ impl inbound_queue_v2::Config for Test {
 	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
-	type Balance = u128;
 	type WeightInfo = ();
-	type WeightToFee = IdentityFee<u128>;
-	type Token = Balances;
 	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
