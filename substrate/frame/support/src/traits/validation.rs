@@ -24,7 +24,7 @@ use sp_runtime::{
 	traits::{Convert, Zero},
 	BoundToRuntimeAppPublic, ConsensusEngineId, Permill, RuntimeAppPublic,
 };
-use sp_staking::{offence::OffenceSeverity, SessionIndex};
+use sp_staking::SessionIndex;
 
 /// A trait for online node inspection in a session.
 ///
