@@ -104,7 +104,7 @@ use xcm::latest::prelude::{
 };
 use xcm::{
 	latest::prelude::{AssetId, BodyId},
-	Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation,
+	Version as XcmVersion, VersionedAssetId, VersionedAssets, VersionedLocation,
 	VersionedXcm,
 };
 use xcm_runtime_apis::{

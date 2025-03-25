@@ -94,7 +94,7 @@ use assets_common::{
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::{
 	latest::prelude::AssetId,
-	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 	Version as XcmVersion,
 };
 
