@@ -1,0 +1,29 @@
+title: Benchmark the extrinsic `submit_delivery_receipt`
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: |-
+    To benchmark the extrinsic `submit_delivery_receipt`, which is missed in #7402. 
+    There are also some other refactoring and improvements for the benchmark.
+crates:
+- name: snowbridge-inbound-queue-primitives
+  bump: minor
+- name: snowbridge-outbound-queue-primitives
+  bump: minor
+- name: snowbridge-verification-primitives
+  bump: minor
+- name: snowbridge-pallet-ethereum-client-fixtures
+  bump: minor
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: minor
+- name: snowbridge-pallet-inbound-queue-v2-fixtures
+  bump: minor
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-westend-integration-tests
+  bump: minor
+- name: bridge-hub-rococo-integration-tests
+  bump: minor
+
+
