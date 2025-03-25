@@ -49,18 +49,28 @@ members = [
 	"bridges/snowbridge/pallets/ethereum-client",
 	"bridges/snowbridge/pallets/ethereum-client/fixtures",
 	"bridges/snowbridge/pallets/inbound-queue",
+	"bridges/snowbridge/pallets/inbound-queue-v2",
+	"bridges/snowbridge/pallets/inbound-queue-v2/fixtures",
 	"bridges/snowbridge/pallets/inbound-queue/fixtures",
 	"bridges/snowbridge/pallets/outbound-queue",
-	"bridges/snowbridge/pallets/outbound-queue/merkle-tree",
+	"bridges/snowbridge/pallets/outbound-queue-v2",
+	"bridges/snowbridge/pallets/outbound-queue-v2/runtime-api",
 	"bridges/snowbridge/pallets/outbound-queue/runtime-api",
 	"bridges/snowbridge/pallets/system",
+	"bridges/snowbridge/pallets/system-frontend",
+	"bridges/snowbridge/pallets/system-v2",
+	"bridges/snowbridge/pallets/system-v2/runtime-api",
 	"bridges/snowbridge/pallets/system/runtime-api",
 	"bridges/snowbridge/primitives/beacon",
 	"bridges/snowbridge/primitives/core",
 	"bridges/snowbridge/primitives/ethereum",
-	"bridges/snowbridge/primitives/router",
+	"bridges/snowbridge/primitives/inbound-queue",
+	"bridges/snowbridge/primitives/merkle-tree",
+	"bridges/snowbridge/primitives/outbound-queue",
+	"bridges/snowbridge/primitives/verification",
 	"bridges/snowbridge/runtime/runtime-common",
 	"bridges/snowbridge/runtime/test-common",
+	"bridges/snowbridge/test-utils",
 	"cumulus/bin/pov-validator",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
@@ -346,7 +356,6 @@ members = [
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
-	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
 	"substrate/frame/election-provider-support",
@@ -422,8 +431,6 @@ members = [
 	"substrate/frame/session/benchmarking",
 	"substrate/frame/society",
 	"substrate/frame/staking",
-	"substrate/frame/staking/ah-client",
-	"substrate/frame/staking/rc-client",
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",
 	"substrate/frame/staking/runtime-api",
@@ -701,7 +708,7 @@ collectives-westend-runtime = { path = "cumulus/parachains/runtimes/collectives/
 color-eyre = { version = "0.6.3", default-features = false }
 color-print = { version = "0.3.4" }
 colored = { version = "2.0.4" }
-comfy-table = { version = "7.1.0", default-features = false }
+comfy-table = { version = "7.1.4", default-features = false }
 console = { version = "0.15.8" }
 const-hex = { version = "1.10.0", default-features = false }
 coretime-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo" }
@@ -826,7 +833,14 @@ http = { version = "1.1" }
 http-body = { version = "1", default-features = false }
 http-body-util = { version = "0.1.2", default-features = false }
 hyper = { version = "1.3.1", default-features = false }
-hyper-rustls = { version = "0.27.3", default-features = false, features = ["http1", "http2", "logging", "ring", "rustls-native-certs", "tls12"] }
+hyper-rustls = { version = "0.27.3", default-features = false, features = [
+	"http1",
+	"http2",
+	"logging",
+	"ring",
+	"rustls-native-certs",
+	"tls12",
+] }
 hyper-util = { version = "0.1.5", default-features = false }
 impl-serde = { version = "0.5.0", default-features = false }
 impl-trait-for-tuples = { version = "0.2.2" }
@@ -876,7 +890,7 @@ mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
 mmr-lib = { version = "0.5.2", package = "ckb-merkle-mountain-range" }
 mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false }
-mockall = { version = "0.11.3" }
+mockall = { version = "0.13.1" }
 multiaddr = { version = "0.18.1" }
 multihash = { version = "0.19.1", default-features = false }
 multihash-codetable = { version = "0.1.1" }
@@ -1005,8 +1019,6 @@ pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", d
 pallet-skip-feeless-payment = { path = "substrate/frame/transaction-payment/skip-feeless-payment", default-features = false }
 pallet-society = { path = "substrate/frame/society", default-features = false }
 pallet-staking = { path = "substrate/frame/staking", default-features = false }
-pallet-staking-ah-client = { path = "substrate/frame/staking/ah-client", default-features = false }
-pallet-staking-rc-client = { path = "substrate/frame/staking/rc-client", default-features = false }
 pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false }
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
@@ -1123,8 +1135,8 @@ prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = 
 prometheus-parse = { version = "0.2.2" }
 prost = { version = "0.12.4" }
 prost-build = { version = "0.13.2" }
-pyroscope = { version = "0.5.7" }
-pyroscope_pprofrs = { version = "0.2.7" }
+pyroscope = { version = "0.5.8" }
+pyroscope_pprofrs = { version = "0.2.8" }
 quick_cache = { version = "0.3" }
 quickcheck = { version = "1.0.3", default-features = false }
 quote = { version = "1.0.37" }
@@ -1154,7 +1166,12 @@ rstest = { version = "0.18.2" }
 rustc-hash = { version = "1.1.0" }
 rustc-hex = { version = "2.1.0", default-features = false }
 rustix = { version = "0.36.7", default-features = false }
-rustls = { version = "0.23.18", default-features = false, features = ["logging", "ring", "std", "tls12"] }
+rustls = { version = "0.23.18", default-features = false, features = [
+	"logging",
+	"ring",
+	"std",
+	"tls12",
+] }
 rustversion = { version = "1.0.17" }
 rusty-fork = { version = "0.3.0", default-features = false }
 safe-mix = { version = "1.0", default-features = false }
@@ -1240,18 +1257,28 @@ smoldot-light = { version = "0.9.0", default-features = false }
 snowbridge-beacon-primitives = { path = "bridges/snowbridge/primitives/beacon", default-features = false }
 snowbridge-core = { path = "bridges/snowbridge/primitives/core", default-features = false }
 snowbridge-ethereum = { path = "bridges/snowbridge/primitives/ethereum", default-features = false }
-snowbridge-outbound-queue-merkle-tree = { path = "bridges/snowbridge/pallets/outbound-queue/merkle-tree", default-features = false }
+snowbridge-inbound-queue-primitives = { path = "bridges/snowbridge/primitives/inbound-queue", default-features = false }
+snowbridge-merkle-tree = { path = "bridges/snowbridge/primitives/merkle-tree", default-features = false }
+snowbridge-outbound-queue-primitives = { path = "bridges/snowbridge/primitives/outbound-queue", default-features = false }
 snowbridge-outbound-queue-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false }
+snowbridge-outbound-queue-v2-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue-v2/runtime-api", default-features = false }
 snowbridge-pallet-ethereum-client = { path = "bridges/snowbridge/pallets/ethereum-client", default-features = false }
 snowbridge-pallet-ethereum-client-fixtures = { path = "bridges/snowbridge/pallets/ethereum-client/fixtures", default-features = false }
 snowbridge-pallet-inbound-queue = { path = "bridges/snowbridge/pallets/inbound-queue", default-features = false }
 snowbridge-pallet-inbound-queue-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue/fixtures", default-features = false }
+snowbridge-pallet-inbound-queue-v2 = { path = "bridges/snowbridge/pallets/inbound-queue-v2", default-features = false }
+snowbridge-pallet-inbound-queue-v2-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue-v2/fixtures", default-features = false }
 snowbridge-pallet-outbound-queue = { path = "bridges/snowbridge/pallets/outbound-queue", default-features = false }
+snowbridge-pallet-outbound-queue-v2 = { path = "bridges/snowbridge/pallets/outbound-queue-v2", default-features = false }
 snowbridge-pallet-system = { path = "bridges/snowbridge/pallets/system", default-features = false }
-snowbridge-router-primitives = { path = "bridges/snowbridge/primitives/router", default-features = false }
+snowbridge-pallet-system-frontend = { path = "bridges/snowbridge/pallets/system-frontend", default-features = false }
+snowbridge-pallet-system-v2 = { path = "bridges/snowbridge/pallets/system-v2", default-features = false }
 snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false }
 snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-common", default-features = false }
 snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false }
+snowbridge-system-v2-runtime-api = { path = "bridges/snowbridge/pallets/system-v2/runtime-api", default-features = false }
+snowbridge-test-utils = { path = "bridges/snowbridge/test-utils" }
+snowbridge-verification-primitives = { path = "bridges/snowbridge/primitives/verification", default-features = false }
 soketto = { version = "0.8.0" }
 solochain-template-runtime = { path = "templates/solochain/runtime" }
 sp-api = { path = "substrate/primitives/api", default-features = false }
@@ -1318,7 +1345,6 @@ ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
 static_init = { version = "1.0.3" }
-structopt = { version = "0.3" }
 strum = { version = "0.26.3", default-features = false }
 subkey = { path = "substrate/bin/utils/subkey", default-features = false }
 substrate-bip39 = { path = "substrate/utils/substrate-bip39", default-features = false }
@@ -1359,7 +1385,7 @@ tokio = { version = "1.40.0", default-features = false }
 tokio-retry = { version = "0.3.0" }
 tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.4" }
-tokio-tungstenite = { version = "0.20.1" }
+tokio-tungstenite = { version = "0.26.2" }
 tokio-util = { version = "0.7.8" }
 toml = { version = "0.8.12" }
 toml_edit = { version = "0.19" }
@@ -1405,8 +1431,8 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.2.22" }
-zombienet-sdk = { version = "0.2.22" }
+zombienet-configuration = { version = "0.2.29" }
+zombienet-sdk = { version = "0.2.29" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
