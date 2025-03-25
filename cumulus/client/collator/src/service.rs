@@ -178,7 +178,7 @@ where
 	///
 	/// Returns `Ok(Some((CollationInfo, ApiVersion)))` on success, `Err(_)` on error or `Ok(None)`
 	/// if the runtime api isn't implemented by the runtime. `ApiVersion` being the version of the
-	/// [`CollectCollectionInfo`] runtime api.
+	/// [`CollectCollationInfo`] runtime api.
 	pub fn fetch_collation_info(
 		&self,
 		block_hash: Block::Hash,
