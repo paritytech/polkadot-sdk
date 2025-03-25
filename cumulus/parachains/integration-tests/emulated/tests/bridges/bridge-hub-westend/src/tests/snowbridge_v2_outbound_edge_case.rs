@@ -84,9 +84,9 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 					remote_fee_asset_on_ah.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(Definite(
 					remote_fee_asset_on_ethereum.clone().into(),
-				))],
+				))]),
 				remote_xcm: Xcm(vec![
 					DepositAsset { assets: Wild(All), beneficiary: penpal_user_location },
 					Transact {
