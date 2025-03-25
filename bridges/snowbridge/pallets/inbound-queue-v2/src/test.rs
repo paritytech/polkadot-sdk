@@ -5,7 +5,7 @@ use super::*;
 use crate::{mock::*, Error};
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
-use snowbridge_inbound_queue_primitives::{EventProof, Proof};
+use snowbridge_inbound_queue_primitives::{v2::XcmPayload, EventProof, Proof};
 use snowbridge_test_utils::mock_xcm::{set_charge_fees_override, set_sender_override};
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
@@ -44,6 +44,9 @@ fn test_submit_happy_path() {
 			)),
 			"no fees paid event emitted."
 		);
+
+		let final_value = REWARD_ALLOCATED.with(|counter| counter.get());
+		assert_eq!(final_value, 1, "Relayer reward should have been registered");
 	});
 }
 
@@ -323,5 +326,30 @@ fn test_switch_operating_mode() {
 		));
 
 		assert_ok!(InboundQueue::submit(origin, Box::new(event)));
+	});
+}
+
+#[test]
+fn zero_reward_does_not_register_reward() {
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+		let origin = H160::random();
+		assert_ok!(InboundQueue::process_message(
+			relayer,
+			Message {
+				nonce: 0,
+				assets: vec![],
+				xcm: XcmPayload::Raw(vec![]),
+				claimer: None,
+				execution_fee: 1_000_000_000,
+				relayer_fee: 0,
+				gateway: GatewayAddress::get(),
+				origin,
+				value: 3_000_000_000,
+			}
+		));
+
+		let final_value = REWARD_ALLOCATED.with(|counter| counter.get());
+		assert_eq!(final_value, 0, "Zero relayer reward should not be registered");
 	});
 }

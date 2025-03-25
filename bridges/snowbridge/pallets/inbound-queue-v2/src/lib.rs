@@ -264,7 +264,13 @@ pub mod pallet {
 				})?;
 
 			// Pay relayer reward
-			T::RewardPayment::register_reward(&relayer, T::DefaultRewardKind::get(), relayer_fee);
+			if !relayer_fee.is_zero() {
+				T::RewardPayment::register_reward(
+					&relayer,
+					T::DefaultRewardKind::get(),
+					relayer_fee,
+				);
+			}
 
 			// Mark message as received
 			Nonce::<T>::set(nonce.into());

@@ -161,12 +161,22 @@ pub enum BridgeReward {
 	Snowbridge,
 }
 
+use std::cell::Cell;
+
+thread_local! {
+	pub static REWARD_ALLOCATED: Cell<u128> = Cell::new(0);
+}
+
 impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward, u128> for () {
 	fn register_reward(
 		_relayer: &<mock::Test as frame_system::Config>::AccountId,
 		_reward: BridgeReward,
 		_reward_balance: u128,
 	) {
+		REWARD_ALLOCATED.with(|counter| {
+			let current = counter.get();
+			counter.set(current + 1);
+		});
 	}
 }
 
