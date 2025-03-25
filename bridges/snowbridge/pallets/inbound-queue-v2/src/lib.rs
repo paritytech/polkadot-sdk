@@ -135,8 +135,6 @@ pub mod pallet {
 		},
 		/// Set OperatingMode
 		OperatingModeChanged { mode: BasicOperatingMode },
-		/// XCM delivery fees were paid.
-		FeesPaid { paying: Location, fees: Assets },
 	}
 
 	#[pallet::error]
@@ -296,7 +294,6 @@ pub mod pallet {
 				);
 				SendError::Fees
 			})?;
-			Self::deposit_event(Event::FeesPaid { paying: fee_payer, fees: fee });
 			T::XcmSender::deliver(ticket)
 		}
 	}

@@ -37,13 +37,6 @@ fn test_submit_happy_path() {
 			)),
 			"no message received event emitted."
 		);
-		assert!(
-			events.iter().any(|event| matches!(
-				event.event,
-				RuntimeEvent::InboundQueue(Event::FeesPaid { .. })
-			)),
-			"no fees paid event emitted."
-		);
 	});
 }
 
