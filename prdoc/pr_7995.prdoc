@@ -1,14 +1,12 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: Add extrinsic index field to pure proxy creation event
+title: Add `PureKilled` event to `pallet-proxy`
 
 doc:
   - audience: Runtime Dev
     description: |
-      The `PureCreated` event, used in the `pure_proxy` extrinsic, is used to track the creation of pure proxies.
-      It now has the `extrinsic_index` of the `pure_proxy` call from the block in which it was executed, which is
-      required to kill the pure proxies later.
+      The extrinsic `pallet_proxy::kill_pure` now emits an event.
 
 crates:
 - name: pallet-proxy
