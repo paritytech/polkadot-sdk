@@ -264,8 +264,6 @@ fn send_back_wnds_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	// set up destination chain AH Westend:
 	// create a WND/USDT pool to be able to pay fees with USDT (USDT created in genesis)
 	set_up_pool_with_wnd_on_ah_westend(usdt_at_ah_westend(), false);
-	// create wETH on Westend (IRL it's already created by Snowbridge)
-	create_foreign_on_ah_westend(bridged_weth_at_ah.clone(), true);
 	// prefund AHR's sovereign account on AHW to be able to withdraw USDT and wETH from reserves
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
 		ByGenesis(ROCOCO_GENESIS_HASH),
@@ -278,7 +276,7 @@ fn send_back_wnds_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 		amount_to_send * 2,
 	);
 	AssetHubWestend::mint_foreign_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestend::account_id_of(ALICE)),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed(snowbridge_sovereign()),
 		bridged_weth_at_ah.clone(),
 		sov_ahr_on_ahw,
 		amount_to_send * 2,

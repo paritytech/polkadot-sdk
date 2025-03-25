@@ -13,13 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	imports::*,
-	tests::{
-		snowbridge::{CHAIN_ID, WETH},
-		*,
-	},
-};
+use crate::{imports::*, tests::*};
 
 const XCM_FEE: u128 = 40_000_000_000;
 
