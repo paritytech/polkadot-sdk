@@ -66,62 +66,56 @@ pub type Config = ark_bls12_381_ext::Config<HostHooks>;
 pub type Bls12_381 = ark_bls12_381_ext::Bls12_381<HostHooks>;
 
 impl CurveHooks for HostHooks {
-	fn bls12_381_multi_miller_loop(
+	fn multi_miller_loop(
 		g1: impl Iterator<Item = <Bls12_381 as Pairing>::G1Prepared>,
 		g2: impl Iterator<Item = <Bls12_381 as Pairing>::G2Prepared>,
-	) -> Result<<Bls12_381 as Pairing>::TargetField, ()> {
+	) -> <Bls12_381 as Pairing>::TargetField {
 		let g1 = utils::encode(g1.collect::<Vec<_>>());
 		let g2 = utils::encode(g2.collect::<Vec<_>>());
 		let res = host_calls::bls12_381_multi_miller_loop(g1, g2).unwrap_or_default();
-		utils::decode(res)
+		utils::decode(res).unwrap_or_default()
 	}
 
-	fn bls12_381_final_exponentiation(
+	fn final_exponentiation(
 		target: <Bls12_381 as Pairing>::TargetField,
-	) -> Result<<Bls12_381 as Pairing>::TargetField, ()> {
+	) -> <Bls12_381 as Pairing>::TargetField {
 		let target = utils::encode(target);
 		let res = host_calls::bls12_381_final_exponentiation(target).unwrap_or_default();
-		utils::decode(res)
+		utils::decode(res).unwrap_or_default()
 	}
 
-	fn bls12_381_msm_g1(
+	fn msm_g1(
 		bases: &[G1Affine],
 		scalars: &[<G1Config as CurveConfig>::ScalarField],
-	) -> Result<G1Projective, ()> {
+	) -> G1Projective {
 		let bases = utils::encode(bases);
 		let scalars = utils::encode(scalars);
 		let res = host_calls::bls12_381_msm_g1(bases, scalars).unwrap_or_default();
-		utils::decode_proj_sw(res)
+		utils::decode_proj_sw(res).unwrap_or_default()
 	}
 
-	fn bls12_381_msm_g2(
+	fn msm_g2(
 		bases: &[G2Affine],
 		scalars: &[<G2Config as CurveConfig>::ScalarField],
-	) -> Result<G2Projective, ()> {
+	) -> G2Projective {
 		let bases = utils::encode(bases);
 		let scalars = utils::encode(scalars);
 		let res = host_calls::bls12_381_msm_g2(bases, scalars).unwrap_or_default();
-		utils::decode_proj_sw(res)
+		utils::decode_proj_sw(res).unwrap_or_default()
 	}
 
-	fn bls12_381_mul_projective_g1(
-		base: &G1Projective,
-		scalar: &[u64],
-	) -> Result<G1Projective, ()> {
+	fn mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> G1Projective {
 		let base = utils::encode_proj_sw(base);
 		let scalar = utils::encode(scalar);
 		let res = host_calls::bls12_381_mul_projective_g1(base, scalar).unwrap_or_default();
-		utils::decode_proj_sw(res)
+		utils::decode_proj_sw(res).unwrap_or_default()
 	}
 
-	fn bls12_381_mul_projective_g2(
-		base: &G2Projective,
-		scalar: &[u64],
-	) -> Result<G2Projective, ()> {
+	fn mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> G2Projective {
 		let base = utils::encode_proj_sw(base);
 		let scalar = utils::encode(scalar);
 		let res = host_calls::bls12_381_mul_projective_g2(base, scalar).unwrap_or_default();
-		utils::decode_proj_sw(res)
+		utils::decode_proj_sw(res).unwrap_or_default()
 	}
 }
 
