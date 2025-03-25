@@ -215,14 +215,14 @@ fn transfer_relay_token_from_ah() {
 			InitiateTransfer {
 				destination: ethereum(),
 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
-					remote_fee_asset.clone().into()
+					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
 				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(
 					Definite(
 						Asset { id: AssetId(Location::parent()), fun: Fungible(TOKEN_AMOUNT) }
 							.into(),
-					)
+					),
 				)]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(AllCounted(2)),
