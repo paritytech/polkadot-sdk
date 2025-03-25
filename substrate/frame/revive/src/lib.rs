@@ -291,6 +291,10 @@ pub mod pallet {
 		/// Only valid value is `()`. See [`GasEncoder`].
 		#[pallet::no_default_bounds]
 		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
+
+		/// Checking account used to transfer assets to/from in the fungibles impl of this pallet.
+		#[pallet::no_default]
+		type CheckingAccount: Get<Self::AccountId>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
