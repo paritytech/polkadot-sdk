@@ -6,6 +6,7 @@ title: 'Bounded Slashing: Paginated Offence Processing & Slash Application'
 doc:
   - audience: Runtime Dev
     description: |
+      NOTE: This is reverted in #7939.
       This PR refactors the slashing mechanism in `pallet-staking` to be bounded by introducing paged offence processing and paged slash application.
 
             ### Key Changes
