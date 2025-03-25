@@ -1432,3 +1432,35 @@ fn reserve_withdraw_from_untrusted_reserve_fails() {
 		assert!(result.is_err());
 	});
 }
+
+#[test]
+fn can_withdraw_and_deposit_erc20() {
+	let sender = AssetHubWestendSender::get();
+	// let message = Xcm::builder()
+	// 	.withdraw_asset((Parent, 10u128))
+	// 	.pay_fees((Parent, 10u128))
+	// 	.withdraw_asset(())
+	// 	.deposit_asset()
+	// 	.build();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type PolkadotXcm = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm;
+		type Contracts = <AssetHubWestend as AssetHubWestendPallet>::Contracts;
+
+		assert_ok!(Contracts::bare_instantiate(
+			RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+			0,
+			Weight::from_parts(1_000_000_000, 100_000),
+			DepositLimit::Unchecked,
+			Code::Upload(),
+			Vec::new(),
+			None,
+		));
+
+		// assert_ok!(PolkadotXcm::execute(
+		// 	RuntimeOrigin::signed(sender),
+		// 	VersionedXcm::V5(message),
+		// 	Weight::from_parts(1_000_000_000, 100_000),
+		// ));
+	});
+}
