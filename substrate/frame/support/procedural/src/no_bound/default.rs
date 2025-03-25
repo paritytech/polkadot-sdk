@@ -15,12 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::utils::apply_still_bind;
 use proc_macro2::Span;
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, Data, DeriveInput, Fields};
-use super::utils::apply_still_bind;
 
-/// Derive Default but do not bound any generic. Optionally select which generics will still be bound with `still_bind(...)`.
+/// Derive Default but do not bound any generic. Optionally select which generics will still be
+/// bound with `still_bind(...)`.
 pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let mut input = syn::parse_macro_input!(input as DeriveInput);
 

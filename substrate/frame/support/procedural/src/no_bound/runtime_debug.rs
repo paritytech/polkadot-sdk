@@ -15,24 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::{debug::derive_debug_no_bound, utils::apply_still_bind};
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
-use super::utils::apply_still_bind;
-use super::debug::derive_debug_no_bound;
 
 /// Derive [`Debug`]. If `std` is enabled, it uses `frame_support::DebugNoBound`, if `std` is not
 /// enabled it just returns `"<wasm:stripped>"`.
 /// This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.
-/// 
+///
 /// Optionally select which generics will still be bound with `still_bind(...)`.
 pub fn derive_runtime_debug_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let try_runtime_or_std_impl: proc_macro2::TokenStream = derive_debug_no_bound(input.clone()).into();
+	let try_runtime_or_std_impl: proc_macro2::TokenStream =
+		derive_debug_no_bound(input.clone()).into();
 
 	let stripped_impl = {
 		let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
 
-        if let Err(e) = apply_still_bind(&mut input, quote::quote!(::core::fmt::Debug)) {
-            return e.to_compile_error().into();
-        }
+		if let Err(e) = apply_still_bind(&mut input, quote::quote!(::core::fmt::Debug)) {
+			return e.to_compile_error().into();
+		}
 
 		let name = &input.ident;
 		let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();

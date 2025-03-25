@@ -17,11 +17,12 @@
 
 use super::utils::apply_still_bind;
 
-/// Derive Eq but do not bound any generic. Optionally select which generics will still be bound with `still_bind(...)`.
+/// Derive Eq but do not bound any generic. Optionally select which generics will still be bound
+/// with `still_bind(...)`.
 pub fn derive_eq_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
 
-    if let Err(e) = apply_still_bind(&mut input, quote::quote!(::core::cmp::Eq)) {
+	if let Err(e) = apply_still_bind(&mut input, quote::quote!(::core::cmp::Eq)) {
 		return e.to_compile_error().into();
 	}
 
