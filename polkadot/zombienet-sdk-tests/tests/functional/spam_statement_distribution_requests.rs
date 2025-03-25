@@ -5,7 +5,7 @@
 
 use anyhow::anyhow;
 
-use crate::helpers::assert_para_throughput;
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
