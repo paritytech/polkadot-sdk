@@ -64,7 +64,7 @@ mod mock;
 #[cfg(test)]
 mod test;
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod fixture;
 
 use alloy_core::{

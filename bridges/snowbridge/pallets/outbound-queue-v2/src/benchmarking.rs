@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use crate::fixture::make_submit_delivery_proof_message;
+use crate::fixture::make_submit_delivery_receipt_message;
 use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_benchmarking::v2::*;
@@ -154,7 +154,7 @@ mod benchmarks {
 	fn submit_delivery_receipt() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 
-		let message = make_submit_delivery_proof_message();
+		let message = make_submit_delivery_receipt_message();
 
 		T::Helper::initialize_storage(message.finalized_header, message.block_roots_root);
 
