@@ -27,10 +27,7 @@ use crate::mock::{
 
 use codec::Decode;
 use sp_core::crypto::key_types::DUMMY;
-use sp_runtime::{
-	testing::UintAuthorityId,
-	Perbill,
-};
+use sp_runtime::{testing::UintAuthorityId, Perbill};
 
 use frame_support::{
 	assert_noop, assert_ok,

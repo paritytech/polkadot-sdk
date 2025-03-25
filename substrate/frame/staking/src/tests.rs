@@ -35,10 +35,7 @@ use frame_support::{
 };
 use mock::*;
 use pallet_balances::Error as BalancesError;
-use pallet_session::{
-	disabling::UpToLimitWithReEnablingDisablingStrategy,
-	Event as SessionEvent,
-};
+use pallet_session::{disabling::UpToLimitWithReEnablingDisablingStrategy, Event as SessionEvent};
 use sp_runtime::{
 	assert_eq_error_rate, bounded_vec,
 	traits::{BadOrigin, Dispatchable},
@@ -7946,28 +7943,28 @@ mod validator_disabling_integration {
 			.build_and_execute(|| {
 				mock::start_active_era(1);
 				assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41, 51, 201, 202]);
-	
+
 				// offence with a low slash
 				on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(10)]);
 				on_offence_now(&[offence_from(21, None)], &[Perbill::from_percent(20)]);
-	
+
 				// it does NOT affect the nominator.
 				assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
-	
+
 				// both validators should be disabled
 				assert!(is_disabled(11));
 				assert!(is_disabled(21));
-	
+
 				// offence with a higher slash
 				on_offence_now(&[offence_from(31, None)], &[Perbill::from_percent(50)]);
-	
+
 				// First offender is no longer disabled
 				assert!(!is_disabled(11));
 				// Mid offender is still disabled
 				assert!(is_disabled(21));
 				// New offender is disabled
 				assert!(is_disabled(31));
-	
+
 				assert_eq!(
 					staking_events_since_last_call(),
 					vec![
@@ -7995,7 +7992,7 @@ mod validator_disabling_integration {
 						Event::Slashed { staker: 31, amount: 250 },
 					]
 				);
-	
+
 				assert!(matches!(
 					session_events().as_slice(),
 					&[
@@ -8020,24 +8017,24 @@ mod validator_disabling_integration {
 			.build_and_execute(|| {
 				mock::start_active_era(1);
 				assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41, 51, 201, 202]);
-	
+
 				// offence with a major slash
 				on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(50)]);
 				on_offence_now(&[offence_from(21, None)], &[Perbill::from_percent(50)]);
-	
+
 				// both validators should be disabled
 				assert!(is_disabled(11));
 				assert!(is_disabled(21));
-	
+
 				// offence with a minor slash
 				on_offence_now(&[offence_from(31, None)], &[Perbill::from_percent(10)]);
-	
+
 				// First and second offenders are still disabled
 				assert!(is_disabled(11));
 				assert!(is_disabled(21));
 				// New offender is not disabled as limit is reached and his prio is lower
 				assert!(!is_disabled(31));
-	
+
 				assert_eq!(
 					staking_events_since_last_call(),
 					vec![
@@ -8065,7 +8062,7 @@ mod validator_disabling_integration {
 						Event::Slashed { staker: 31, amount: 50 },
 					]
 				);
-	
+
 				assert!(matches!(
 					session_events().as_slice(),
 					&[
@@ -8118,42 +8115,42 @@ mod validator_disabling_integration {
 			.set_status(41, StakerStatus::Validator)
 			.build_and_execute(|| {
 				mock::start_active_era(1);
-	
+
 				assert!(<Validators<Test>>::contains_key(11));
 				assert!(Session::validators().contains(&11));
-	
+
 				on_offence_now(&[offence_from(11, None)], &[Perbill::from_percent(0)]);
-	
+
 				assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
 				assert!(is_disabled(11));
-	
+
 				mock::start_active_era(2);
-	
+
 				// the validator is not disabled in the new era
 				Staking::validate(RuntimeOrigin::signed(11), Default::default()).unwrap();
 				assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
 				assert!(<Validators<Test>>::contains_key(11));
 				assert!(Session::validators().contains(&11));
-	
+
 				mock::start_active_era(3);
-	
+
 				// an offence committed in era 1 is reported in era 3
 				on_offence_in_era(&[offence_from(11, None)], &[Perbill::from_percent(0)], 1);
-	
+
 				// the validator doesn't get disabled for an old offence
 				assert!(Validators::<Test>::iter().any(|(stash, _)| stash == 11));
 				assert!(!is_disabled(11));
-	
+
 				// and we are not forcing a new era
 				assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
-	
+
 				on_offence_in_era(
 					&[offence_from(11, None)],
 					// NOTE: A 100% slash here would clean up the account, causing de-registration.
 					&[Perbill::from_percent(95)],
 					1,
 				);
-	
+
 				// the validator doesn't get disabled again
 				assert!(Validators::<Test>::iter().any(|(stash, _)| stash == 11));
 				assert!(!is_disabled(11));
@@ -8161,7 +8158,7 @@ mod validator_disabling_integration {
 				assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
 			});
 	}
-	
+
 	#[test]
 	fn non_slashable_offence_disables_validator() {
 		ExtBuilder::default()
@@ -8231,33 +8228,33 @@ mod validator_disabling_integration {
 			.build_and_execute(|| {
 				mock::start_active_era(1);
 				assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41, 51]);
-	
+
 				let now = ActiveEra::<Test>::get().unwrap().index;
-	
+
 				// --- Disable without a slash ---
 				// offence with no slash associated
 				on_offence_in_era(&[offence_from(11, None)], &[Perbill::zero()], now);
-	
+
 				// nomination remains untouched.
 				assert_eq!(Nominators::<Test>::get(101).unwrap().targets, vec![11, 21]);
-	
+
 				// first validator is disabled
 				assert!(is_disabled(11));
-	
+
 				// --- Slash without disabling (because limit reached) ---
 				// offence that slashes 50% of the bond (setup for next slash)
 				on_offence_in_era(&[offence_from(11, None)], &[Perbill::from_percent(50)], now);
-	
+
 				// offence that slashes 25% of the bond but does not disable
 				on_offence_in_era(&[offence_from(21, None)], &[Perbill::from_percent(25)], now);
-	
+
 				// nomination remains untouched.
 				assert_eq!(Nominators::<Test>::get(101).unwrap().targets, vec![11, 21]);
-	
+
 				// second validator is slashed but not disabled
 				assert!(!is_disabled(21));
 				assert!(is_disabled(11));
-	
+
 				assert_eq!(
 					staking_events_since_last_call(),
 					vec![
@@ -8284,7 +8281,7 @@ mod validator_disabling_integration {
 						Event::Slashed { staker: 101, amount: 94 }
 					]
 				);
-	
+
 				assert_eq!(
 					session_events(),
 					vec![
