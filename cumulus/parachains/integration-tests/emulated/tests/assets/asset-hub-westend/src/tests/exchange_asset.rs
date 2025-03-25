@@ -13,7 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{create_pool_with_wnd_on, imports::{asset_hub_westend_runtime::ExistentialDeposit, *}};
+use crate::{
+	create_pool_with_wnd_on,
+	imports::{asset_hub_westend_runtime::ExistentialDeposit, *},
+};
 use asset_hub_westend_runtime::{
 	xcm_config::WestendLocation, Balances, ForeignAssets, PolkadotXcm, RuntimeOrigin,
 };
@@ -60,17 +63,9 @@ fn exchange_asset_success() {
 		let give: Assets = (native_asset_id, 500 * UNITS).into();
 		let want: Assets = (asset_id, 660 * UNITS).into();
 
-		let xcm = Xcm(vec![ExchangeAsset {
-			give: give.into(),
-			want: want.into(),
-			maximal: true,
-		}]);
+		let xcm = Xcm(vec![ExchangeAsset { give: give.into(), want: want.into(), maximal: true }]);
 
-		assert_ok!(PolkadotXcm::execute(
-			origin.clone(),
-			bx!(xcm::VersionedXcm::from(xcm)),
-			Weight::MAX,
-		));
+		assert_ok!(PolkadotXcm::execute(origin, bx!(xcm::VersionedXcm::from(xcm)), Weight::MAX,));
 
 		let foreign_balance = ForeignAssets::balance(asset_location, &alice);
 		assert!(
@@ -79,10 +74,7 @@ fn exchange_asset_success() {
 		);
 
 		let wnd_balance = Balances::total_balance(&alice);
-		assert!(
-			wnd_balance < 1_500 * UNITS,
-			"Expected WND balance to decrease, got {wnd_balance}"
-		);
+		assert!(wnd_balance < 1_500 * UNITS, "Expected WND balance to decrease, got {wnd_balance}");
 	});
 }
 /*
