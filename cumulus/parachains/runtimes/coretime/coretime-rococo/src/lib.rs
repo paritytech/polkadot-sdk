@@ -1137,7 +1137,7 @@ impl_runtime_apis! {
 					Ok((Asset {
 						id: AssetId(RocRelayLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
-					}, WeightLimit::Unlimited))
+					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
 				}
 
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
