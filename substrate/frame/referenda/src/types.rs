@@ -19,11 +19,7 @@
 
 use super::*;
 use alloc::borrow::Cow;
-<<<<<<< HEAD
-use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-=======
 use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen};
->>>>>>> 467d1f6 (Fix: [Referenda Tracks] Resolve representation issues that are breaking PJS apps (#7671))
 use core::fmt::Debug;
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
@@ -171,15 +167,10 @@ pub type ConstTrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME
 	TrackDetails<Balance, Moment, StringLike<N>>;
 
 /// Detailed information about the configuration of a referenda track
-<<<<<<< HEAD
-#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug)]
-pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
-=======
 #[derive(
 	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
 )]
 pub struct TrackDetails<Balance, Moment, Name> {
->>>>>>> 467d1f6 (Fix: [Referenda Tracks] Resolve representation issues that are breaking PJS apps (#7671))
 	/// Name of this track.
 	pub name: Name,
 	/// A limit for the number of referenda on this track that can be being decided at once.
@@ -383,7 +374,7 @@ impl<
 
 /// Type for describing a curve over the 2-dimensional space of axes between 0-1, as represented
 /// by `(Perbill, Perbill)`.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(not(feature = "std"), derive(RuntimeDebug))]
 pub enum Curve {
 	/// Linear curve starting at `(0, ceil)`, proceeding linearly to `(length, floor)`, then
