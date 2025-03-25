@@ -616,7 +616,7 @@ fn table_attested_to_backed(
 		ValidatorSignature,
 	>,
 	table_context: &TableContext,
-	inject_core_index: bool,
+	_inject_core_index: bool,
 ) -> Option<BackedCandidate> {
 	let TableAttestedCandidate { candidate, validity_votes, group_id: core_index } = attested;
 
@@ -655,7 +655,7 @@ fn table_attested_to_backed(
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
 		validator_indices,
-		inject_core_index.then_some(core_index),
+		core_index,
 	))
 }
 
