@@ -672,6 +672,9 @@ pub mod pallet {
 		/// Expiry block number is in the past.
 		#[codec(index = 26)]
 		ExpiresInPast,
+		/// The alias to remove authorization for was not found.
+		#[codec(index = 27)]
+		AliasNotFound,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -1536,6 +1539,8 @@ pub mod pallet {
 
 		/// Authorize another `aliaser` location to alias into the local `origin` making this call.
 		/// The `aliaser` is only authorized until the provided `expiry` block number.
+		/// The call can also be used for a previously authorized alias in order to update its
+		/// `expiry` block number.
 		///
 		/// Usually useful to allow your local account to be aliased into from a remote location
 		/// also under your control (like your account on another chain).
@@ -1610,36 +1615,41 @@ pub mod pallet {
 			let signed_origin = ensure_signed(origin.clone())?;
 			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let to_remove: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?to_remove);
+			tracing::debug!(target: "xcm::pallet_xcm::remove_authorized_alias", ?origin_location, ?to_remove);
 			ensure!(origin_location != to_remove, Error::<T>::BadLocation);
 			// convert to latest versioned
 			let versioned_origin = VersionedLocation::from(origin_location.clone());
 			let versioned_to_remove = VersionedLocation::from(to_remove.clone());
-			if let Some(entry) = AuthorizedAliases::<T>::get(&versioned_origin) {
-				let (mut aliasers, mut ticket) = (entry.aliasers, entry.ticket);
-				let old_len = aliasers.len();
-				aliasers.retain(|alias| versioned_to_remove.ne(&alias.location));
-				let new_len = aliasers.len();
-				if aliasers.is_empty() {
-					// remove entry altogether and return all storage deposit
-					ticket.drop(&signed_origin)?;
-					AuthorizedAliases::<T>::remove(&versioned_origin);
-					Self::deposit_event(Event::AliasAuthorizationRemoved {
-						aliaser: to_remove,
-						target: origin_location,
-					});
-				} else if old_len != new_len {
-					// update aliasers and storage deposit
-					ticket = ticket.update(&signed_origin, aliasers_footprint(new_len))?;
-					let entry = AuthorizedAliasesEntry { aliasers, ticket };
-					AuthorizedAliases::<T>::insert(&versioned_origin, entry);
-					Self::deposit_event(Event::AliasAuthorizationRemoved {
-						aliaser: to_remove,
-						target: origin_location,
-					});
-				}
-			}
-			Ok(())
+			AuthorizedAliases::<T>::get(&versioned_origin)
+				.ok_or(Error::<T>::AliasNotFound.into())
+				.and_then(|entry| {
+					let (mut aliasers, mut ticket) = (entry.aliasers, entry.ticket);
+					let old_len = aliasers.len();
+					aliasers.retain(|alias| versioned_to_remove.ne(&alias.location));
+					let new_len = aliasers.len();
+					if aliasers.is_empty() {
+						// remove entry altogether and return all storage deposit
+						ticket.drop(&signed_origin)?;
+						AuthorizedAliases::<T>::remove(&versioned_origin);
+						Self::deposit_event(Event::AliasAuthorizationRemoved {
+							aliaser: to_remove,
+							target: origin_location,
+						});
+						Ok(())
+					} else if old_len != new_len {
+						// update aliasers and storage deposit
+						ticket = ticket.update(&signed_origin, aliasers_footprint(new_len))?;
+						let entry = AuthorizedAliasesEntry { aliasers, ticket };
+						AuthorizedAliases::<T>::insert(&versioned_origin, entry);
+						Self::deposit_event(Event::AliasAuthorizationRemoved {
+							aliaser: to_remove,
+							target: origin_location,
+						});
+						Ok(())
+					} else {
+						Err(Error::<T>::AliasNotFound.into())
+					}
+				})
 		}
 	}
 }
