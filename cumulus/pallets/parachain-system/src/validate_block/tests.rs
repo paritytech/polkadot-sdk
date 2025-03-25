@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::*;
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
@@ -27,18 +28,21 @@ use cumulus_test_client::{
 	TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+use polkadot_parachain_primitives::primitives::ValidationResult;
+#[cfg(feature = "experimental-ump-signals")]
+use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use std::{env, process::Command};
 
 use crate::validate_block::MemoryOptimizedValidationParams;
 
-fn call_validate_block_encoded_header(
+fn call_validate_block_validation_result(
 	validation_code: &[u8],
 	parent_head: Header,
 	block_data: ParachainBlockData<Block>,
 	relay_parent_storage_root: Hash,
-) -> cumulus_test_client::ExecutorResult<Vec<u8>> {
+) -> cumulus_test_client::ExecutorResult<ValidationResult> {
 	cumulus_test_client::validate_block(
 		ValidationParams {
 			block_data: BlockData(block_data.encode()),
@@ -48,7 +52,6 @@ fn call_validate_block_encoded_header(
 		},
 		validation_code,
 	)
-	.map(|v| v.head_data.0)
 }
 
 fn call_validate_block(
@@ -56,13 +59,13 @@ fn call_validate_block(
 	block_data: ParachainBlockData<Block>,
 	relay_parent_storage_root: Hash,
 ) -> cumulus_test_client::ExecutorResult<Header> {
-	call_validate_block_encoded_header(
+	call_validate_block_validation_result(
 		WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block_data,
 		relay_parent_storage_root,
 	)
-	.map(|v| Header::decode(&mut &v[..]).expect("Decodes `Header`."))
+	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
 }
 
 /// Call `validate_block` in the runtime with `elastic-scaling` activated.
@@ -71,14 +74,14 @@ fn call_validate_block_elastic_scaling(
 	block_data: ParachainBlockData<Block>,
 	relay_parent_storage_root: Hash,
 ) -> cumulus_test_client::ExecutorResult<Header> {
-	call_validate_block_encoded_header(
+	call_validate_block_validation_result(
 		test_runtime::elastic_scaling::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block_data,
 		relay_parent_storage_root,
 	)
-	.map(|v| Header::decode(&mut &v[..]).expect("Decodes `Header`."))
+	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
 }
 
 fn create_test_client() -> (Client, Header) {
@@ -288,13 +291,15 @@ fn validate_block_returns_custom_head_data() {
 	assert_ne!(expected_header, header.encode());
 
 	let block = seal_block(block, &client);
-	let res_header = call_validate_block_encoded_header(
+	let res_header = call_validate_block_validation_result(
 		WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block,
 		validation_data.relay_parent_storage_root,
 	)
-	.expect("Calls `validate_block`");
+	.expect("Calls `validate_block`")
+	.head_data
+	.0;
 	assert_eq!(expected_header, res_header);
 }
 
@@ -444,4 +449,41 @@ fn validate_block_works_with_child_tries() {
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
+}
+
+#[test]
+#[cfg(feature = "experimental-ump-signals")]
+fn validate_block_handles_ump_signal() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_elastic_scaling_test_client();
+	let extra_extrinsics =
+		vec![transfer(&client, Alice, Bob, 69), transfer(&client, Bob, Charlie, 100)];
+
+	let TestBlockData { block, validation_data } = build_block_with_witness(
+		&client,
+		extra_extrinsics,
+		parent_head.clone(),
+		Default::default(),
+	);
+
+	let block = seal_block(block, &client);
+	let upward_messages = call_validate_block_validation_result(
+		test_runtime::elastic_scaling::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`")
+	.upward_messages;
+
+	assert_eq!(
+		upward_messages,
+		vec![
+			UMP_SEPARATOR,
+			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+				.encode()
+		]
+	);
 }

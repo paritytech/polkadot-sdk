@@ -255,7 +255,7 @@ where
 								found_separator = true;
 								None
 							} else if found_separator {
-								if upward_message_signals.iter().any(|s| *s != m) {
+								if upward_message_signals.iter().all(|s| *s != m) {
 									upward_message_signals.push(m);
 								}
 								None
@@ -268,15 +268,15 @@ where
 					})
 					.for_each(|m| {
 						upward_messages.try_push(m)
-					.expect(
-						"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-					)
+							.expect(
+								"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+							)
 					});
 
 				processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
 				horizontal_messages.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter()).expect(
-				"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
-			);
+					"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
+				);
 				hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
 				if block_index + 1 == num_blocks {
