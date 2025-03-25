@@ -24,7 +24,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use sp_core::{ConstBool, ConstU32, Get};
+use sp_core::{ConstU32, Get};
 use sp_npos_elections::{ElectionScore, VoteWeight};
 use sp_runtime::{
 	offchain::{
@@ -174,8 +174,6 @@ parameter_types! {
 	pub static TransactionPriority: transaction_validity::TransactionPriority = 1;
 	#[derive(Debug)]
 	pub static MaxWinners: u32 = 100;
-	#[derive(Debug)]
-	pub static MaxBackersPerWinner: u32 = 100;
 	pub static MaxVotesPerVoter: u32 = 16;
 	pub static SignedFixedDeposit: Balance = 1;
 	pub static SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
@@ -204,18 +202,12 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SlashHandler = ();
 	type RewardHandler = ();
 	type DataProvider = Staking;
-	type Fallback = frame_election_provider_support::NoElection<(
-		AccountId,
-		BlockNumber,
-		Staking,
-		MaxWinners,
-		MaxBackersPerWinner,
-	)>;
+	type Fallback =
+		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, MaxWinners)>;
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, ()>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type MaxWinners = MaxWinners;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type ElectionBounds = ElectionBounds;
 	type BenchmarkingConfig = NoopElectionProviderBenchmarkConfig;
 	type WeightInfo = ();
@@ -229,7 +221,6 @@ impl MinerConfig for Runtime {
 	type MaxLength = MinerMaxLength;
 	type MaxWeight = MinerMaxWeight;
 	type MaxWinners = MaxWinners;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
 
 	fn solution_weight(_v: u32, _t: u32, _a: u32, _d: u32) -> Weight {
 		Weight::zero()
@@ -366,9 +357,6 @@ parameter_types! {
 }
 
 impl onchain::Config for OnChainSeqPhragmen {
-	type MaxWinnersPerPage = MaxWinners;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type Sort = ConstBool<true>;
 	type System = Runtime;
 	type Solver = SequentialPhragmen<
 		AccountId,
@@ -376,6 +364,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
+	type MaxWinners = MaxWinners;
 	type Bounds = ElectionBounds;
 }
 
@@ -899,7 +888,7 @@ pub(crate) fn on_offence_now(
 	slash_fraction: &[Perbill],
 ) {
 	let now = ActiveEra::<Runtime>::get().unwrap().index;
-	let _ = Staking::on_offence(
+	let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
 		offenders,
 		slash_fraction,
 		ErasStartSessionIndex::<Runtime>::get(now).unwrap(),
