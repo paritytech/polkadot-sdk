@@ -13896,6 +13896,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "xcm-runtime-apis",
 ]
 
