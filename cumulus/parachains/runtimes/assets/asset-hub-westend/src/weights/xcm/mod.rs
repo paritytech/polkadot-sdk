@@ -123,8 +123,8 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_reserve_asset())
 	}
-	fn exchange_asset(give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
-		give.weigh_assets(XcmGeneric::<Runtime>::exchange_asset())
+	fn exchange_asset(_give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
+		XcmGeneric::<Runtime>::exchange_asset()
 	}
 	fn initiate_reserve_withdraw(
 		assets: &AssetFilter,
