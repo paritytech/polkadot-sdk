@@ -576,6 +576,8 @@ pub mod pallet {
 		AliasAuthorized { aliaser: Location, target: Location, expiry: Option<u64> },
 		/// `target` removed alias authorization for `aliaser`.
 		AliasAuthorizationRemoved { aliaser: Location, target: Location },
+		/// `target` removed all alias authorizations.
+		AliasesAuthorizationsRemoved { target: Location },
 	}
 
 	#[pallet::origin]
@@ -1650,6 +1652,29 @@ pub mod pallet {
 						Err(Error::<T>::AliasNotFound.into())
 					}
 				})
+		}
+
+		/// Remove all previously authorized `aliaser`s that can alias into the local `origin`
+		/// making this call.
+		#[pallet::call_index(16)]
+		#[pallet::weight(T::WeightInfo::remove_authorized_alias())]
+		pub fn remove_all_authorized_aliases(origin: OriginFor<T>) -> DispatchResult {
+			let signed_origin = ensure_signed(origin.clone())?;
+			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			tracing::debug!(target: "xcm::pallet_xcm::remove_all_authorized_aliases", ?origin_location);
+			// convert to latest versioned
+			let versioned_origin = VersionedLocation::from(origin_location.clone());
+			if let Some(entry) = AuthorizedAliases::<T>::get(&versioned_origin) {
+				// remove entry altogether and return all storage deposit
+				entry.ticket.drop(&signed_origin)?;
+				AuthorizedAliases::<T>::remove(&versioned_origin);
+				Self::deposit_event(Event::AliasesAuthorizationsRemoved {
+					target: origin_location,
+				});
+				Ok(())
+			} else {
+				Err(Error::<T>::AliasNotFound.into())
+			}
 		}
 	}
 }

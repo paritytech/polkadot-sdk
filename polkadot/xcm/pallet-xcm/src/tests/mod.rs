@@ -472,16 +472,18 @@ fn authorized_aliases_work() {
 		assert_eq!(total_balance - deposit as u128, <Balances as Currency<_>>::free_balance(&who));
 
 		// --- setting max number of aliases works
+		let mut aliases = vec![];
 		for i in 1..MaxAuthorizedAliases::get() {
 			let alias = Location::new(0, [Parachain(OTHER_PARA_ID), GeneralIndex(i as u128)]);
 			assert_ok!(XcmPallet::add_authorized_alias(
 				RuntimeOrigin::signed(who.clone()),
-				Box::new(alias.into()),
+				Box::new(alias.clone().into()),
 				None
 			));
 			let footprint = aliasers_footprint(i as usize + 1);
 			let deposit = (footprint.size + 2 * footprint.count) as u128;
 			assert_eq!(total_balance - deposit, <Balances as Currency<_>>::free_balance(&who));
+			aliases.push(alias);
 		}
 
 		// deposit held for MaxAliases
@@ -519,7 +521,7 @@ fn authorized_aliases_work() {
 			vec![RuntimeEvent::XcmPallet(crate::Event::AliasAuthorizationRemoved {
 				aliaser: Location::here().into(),
 				target: target.clone().into(),
-			}),]
+			})]
 		);
 
 		// --- adding one more is now allowed
@@ -539,37 +541,46 @@ fn authorized_aliases_work() {
 
 		// --- un-authorized alias is correctly filtered/denied
 		assert!(!AuthorizedAliasers::<Test>::contains(&Location::here(), &target));
-		// --- authorized alias is correctly allowed
-		assert!(AuthorizedAliasers::<Test>::contains(&alias, &target));
+		// --- authorized aliases are correctly allowed
+		for i in 1..MaxAuthorizedAliases::get() {
+			assert!(AuthorizedAliasers::<Test>::contains(&aliases[i as usize - 1], &target));
+		}
 		// --- remove alias then verify no longer allowed
 		assert_ok!(XcmPallet::remove_authorized_alias(
 			RuntimeOrigin::signed(who.clone()),
-			Box::new(alias.clone().into()),
+			Box::new(aliases[0].clone().into()),
 		));
-		assert!(!AuthorizedAliasers::<Test>::contains(&alias, &target));
+		assert!(!AuthorizedAliasers::<Test>::contains(&aliases[0], &target));
 
-		// --- remove nonexistent alias - noop
-		assert_ok!(XcmPallet::remove_authorized_alias(
-			RuntimeOrigin::signed(ALICE),
-			Box::new(Location::parent().into()),
-		));
+		// --- remove nonexistent alias
+		assert_eq!(
+			XcmPallet::remove_authorized_alias(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(Location::parent().into())
+			),
+			Err(Error::<Test>::AliasNotFound.into())
+		);
 
-		// --- remove nonexistent alias (BOB has no registered aliases) - noop
-		assert_ok!(XcmPallet::remove_authorized_alias(
-			RuntimeOrigin::signed(BOB),
-			Box::new(Location::parent().into()),
-		));
+		// --- remove nonexistent alias (BOB has no registered aliases)
+		assert_eq!(
+			XcmPallet::remove_authorized_alias(
+				RuntimeOrigin::signed(BOB),
+				Box::new(Location::parent().into()),
+			),
+			Err(Error::<Test>::AliasNotFound.into())
+		);
 
 		// --- remove all aliases then verify all deposit is returned
-		for i in 1..MaxAuthorizedAliases::get() {
-			let alias = Location::new(0, [Parachain(OTHER_PARA_ID), GeneralIndex(i as u128)]);
-			assert_ok!(XcmPallet::remove_authorized_alias(
-				RuntimeOrigin::signed(who.clone()),
-				Box::new(alias.into()),
-			));
-		}
-		assert_eq!(total_balance, <Balances as Currency<_>>::free_balance(&who));
-		assert_eq!(total_balance, total_balance_before);
+		assert_ok!(XcmPallet::remove_all_authorized_aliases(RuntimeOrigin::signed(who.clone())));
+		// de-authorization event
+		assert_eq!(
+			last_events(1),
+			vec![RuntimeEvent::XcmPallet(crate::Event::AliasesAuthorizationsRemoved {
+				target: target.clone().into(),
+			})]
+		);
+		// all deposit is returned
+		assert_eq!(total_balance_before, <Balances as Currency<_>>::free_balance(&who));
 	});
 }
 
