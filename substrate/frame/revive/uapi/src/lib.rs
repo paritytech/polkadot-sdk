@@ -22,8 +22,25 @@
 mod flags;
 pub use flags::*;
 mod host;
+mod macros;
 
 pub use host::{HostFn, HostFnImpl};
+
+/// Convert a u64 into a [u8; 32].
+pub const fn u256_bytes(value: u64) -> [u8; 32] {
+	let mut buffer = [0u8; 32];
+	let bytes = value.to_le_bytes();
+
+	buffer[0] = bytes[0];
+	buffer[1] = bytes[1];
+	buffer[2] = bytes[2];
+	buffer[3] = bytes[3];
+	buffer[4] = bytes[4];
+	buffer[5] = bytes[5];
+	buffer[6] = bytes[6];
+	buffer[7] = bytes[7];
+	buffer
+}
 
 macro_rules! define_error_codes {
     (
@@ -98,6 +115,9 @@ define_error_codes! {
 	XcmExecutionFailed = 9,
 	/// The `xcm_send` call failed.
 	XcmSendFailed = 10,
+	/// Contract instantiation failed because the address already exists.
+	/// Occurs when instantiating the same contract with the same salt more than once.
+	DuplicateContractAddress = 11,
 }
 
 /// The raw return code returned by the host side.

@@ -27,7 +27,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, OneSessionHandler},
 };
-use pallet_staking::StakerStatus;
+use pallet_staking::{BalanceOf, StakerStatus};
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -144,8 +144,8 @@ impl pallet_staking::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -163,6 +163,7 @@ impl pallet_session::Config for Test {
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<Test>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 

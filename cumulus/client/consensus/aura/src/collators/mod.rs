@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Stock, pure Aura collators.
 //!
@@ -22,19 +23,18 @@
 
 use crate::collator::SlotClaim;
 use codec::Codec;
-use cumulus_client_consensus_common::{
-	self as consensus_common, load_abridged_host_configuration, ParentSearchParams,
-};
+use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT, ClaimQueueOffset};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	AsyncBackingParams, CoreIndex, Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption,
-	ValidationCodeHash,
+	CoreIndex, Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
+	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::{ApiExt, ProvideRuntimeApi, RuntimeApiInfo};
 use sp_core::Pair;
 use sp_keystore::KeystorePtr;
 use sp_timestamp::Timestamp;
@@ -102,26 +102,43 @@ async fn check_validation_code_or_log(
 	}
 }
 
-/// Reads async backing parameters from the relay chain storage at the given relay parent.
-async fn async_backing_params(
+/// Fetch scheduling lookahead at given relay parent.
+async fn scheduling_lookahead(
 	relay_parent: RelayHash,
 	relay_client: &impl RelayChainInterface,
-) -> Option<AsyncBackingParams> {
-	match load_abridged_host_configuration(relay_parent, relay_client).await {
-		Ok(Some(config)) => Some(config.async_backing_params),
-		Ok(None) => {
+) -> Option<u32> {
+	let runtime_api_version = relay_client
+		.version(relay_parent)
+		.await
+		.map_err(|e| {
 			tracing::error!(
-				target: crate::LOG_TARGET,
-				"Active config is missing in relay chain storage",
-			);
-			None
-		},
+				target: super::LOG_TARGET,
+				error = ?e,
+				"Failed to fetch relay chain runtime version.",
+			)
+		})
+		.ok()?;
+
+	let parachain_host_runtime_api_version = runtime_api_version
+		.api_version(
+			&<dyn polkadot_primitives::runtime_api::ParachainHost<polkadot_primitives::Block>>::ID,
+		)
+		.unwrap_or_default();
+
+	if parachain_host_runtime_api_version <
+		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
+	{
+		return None
+	}
+
+	match relay_client.scheduling_lookahead(relay_parent).await {
+		Ok(scheduling_lookahead) => Some(scheduling_lookahead),
 		Err(err) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
 				?err,
 				?relay_parent,
-				"Failed to read active config from relay chain client",
+				"Failed to fetch scheduling lookahead from relay chain",
 			);
 			None
 		},
@@ -217,9 +234,10 @@ where
 	let parent_search_params = ParentSearchParams {
 		relay_parent,
 		para_id,
-		ancestry_lookback: crate::collators::async_backing_params(relay_parent, relay_client)
+		ancestry_lookback: scheduling_lookahead(relay_parent, relay_client)
 			.await
-			.map_or(0, |params| params.allowed_ancestry_len as usize),
+			.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
+			.saturating_sub(1) as usize,
 		max_depth: PARENT_SEARCH_DEPTH,
 		ignore_alternative_branches: true,
 	};
