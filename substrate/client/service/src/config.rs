@@ -71,7 +71,7 @@ pub struct Configuration {
 	/// If `None` is given the cache is disabled.
 	pub trie_cache_maximum_size: Option<usize>,
 	/// Force the trie cache to be in memory.
-	pub force_in_memory_trie_cache: bool,
+	pub warm_up_trie_cache: bool,
 	/// State pruning settings.
 	pub state_pruning: Option<PruningMode>,
 	/// Number of blocks to keep in the db.
@@ -225,7 +225,7 @@ impl Configuration {
 	/// Returns true if the trie cache should be warmed up.
 	pub fn should_warm_up_trie_cache(&self) -> bool {
 		// For performance reasons, we warm up the trie cache if it forced to be in memory.
-		self.force_in_memory_trie_cache
+		self.warm_up_trie_cache
 	}
 }
 

@@ -252,11 +252,11 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(self.import_params().map(|x| x.trie_cache_maximum_size()).unwrap_or_default())
 	}
 
-	/// Get the force in memory trie cache.
+	/// Get if we should warm up the trie cache.
 	///
 	/// By default this is retrieved from `ImportParams` if it is available. Otherwise its `false`.
-	fn force_in_memory_trie_cache(&self) -> Result<bool> {
-		Ok(self.import_params().map(|x| x.force_in_memory_trie_cache()).unwrap_or_default())
+	fn warm_up_trie_cache(&self) -> Result<bool> {
+		Ok(self.import_params().map(|x| x.warm_up_trie_cache()).unwrap_or_default())
 	}
 
 	/// Get the state pruning mode.
@@ -535,7 +535,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			database: self.database_config(&config_dir, database_cache_size, database)?,
 			data_path: config_dir,
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
-			force_in_memory_trie_cache: self.force_in_memory_trie_cache()?,
+			warm_up_trie_cache: self.warm_up_trie_cache()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
 			executor: ExecutorConfiguration {
