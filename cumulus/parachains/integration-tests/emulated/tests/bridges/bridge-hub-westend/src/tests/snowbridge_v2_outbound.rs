@@ -26,6 +26,7 @@ use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtim
 use snowbridge_core::{AssetMetadata, BasicOperatingMode};
 use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
 use snowbridge_pallet_outbound_queue_v2::Error;
+use sp_core::H256;
 use xcm::v5::AssetTransferFilter;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
