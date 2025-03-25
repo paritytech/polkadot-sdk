@@ -264,7 +264,7 @@ where
 			},
 		)?;
 
-		if config.should_warm_up_trie_cache() {
+		if config.warm_up_trie_cache {
 			warm_up_trie_cache(&client)?;
 		}
 

@@ -89,15 +89,6 @@ pub struct ImportParams {
 impl ImportParams {
 	/// Specify the trie cache maximum size.
 	pub fn trie_cache_maximum_size(&self) -> Option<usize> {
-		if self.warm_up_trie_cache() {
-			// 16GB is 50% of the reference hardware
-			const MIN_FORCED_TRIE_CACHE_SIZE: usize = 1024 * 1024 * 1024 * 16;
-			let system_memory = sysinfo::System::new_all();
-			let total_memory = system_memory.total_memory();
-
-			return Some(((total_memory / 2) as usize).max(MIN_FORCED_TRIE_CACHE_SIZE));
-		}
-
 		if self.trie_cache_size == 0 {
 			None
 		} else {

@@ -221,12 +221,6 @@ impl Configuration {
 			blocks_pruning: self.blocks_pruning,
 		}
 	}
-
-	/// Returns true if the trie cache should be warmed up.
-	pub fn should_warm_up_trie_cache(&self) -> bool {
-		// For performance reasons, we warm up the trie cache if it forced to be in memory.
-		self.warm_up_trie_cache
-	}
 }
 
 #[static_init::dynamic(drop, lazy)]
