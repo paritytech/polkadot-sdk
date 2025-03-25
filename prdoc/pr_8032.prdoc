@@ -1,0 +1,33 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Introduce the stored procedural macro
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces the `stored` procedural macro, useful for tagging types that are
+      to be stored in a Substrate runtime. Documentation and macro can be found at
+      `substrate/frame/support/src/lib.rs`.
+
+crates:
+- name: polkadot-sdk-frame
+  bump: minor
+- name: frame-support-procedural
+  bump: minor
+- name: frame-support-test
+  bump: minor
+- name: pallet-atomic-swap
+  bump: none
+- name: pallet-bags-list
+  bump: none
+- name: pallet-collective
+  bump: none
+- name: pallet-conviction-voting
+  bump: none
+- name: pallet-fast-unstake
+  bump: none
+- name: pallet-identity
+  bump: none
+- name: pallet-message-queue
+  bump: none
