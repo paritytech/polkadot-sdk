@@ -26,7 +26,7 @@ pub use frame_support::{
 	traits::{
 		fungible,
 		fungible::{Inspect, InspectHold, Mutate, MutateHold},
-		fungibles,
+		fungibles, Polling,
 		schedule::{
 			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
 			DispatchTime, MaybeHashed,
@@ -49,11 +49,11 @@ pub use sp_runtime::{
 	Percent, SaturatedConversion,
 };
 pub use sp_std::{boxed::Box, vec};
-pub use pallet_conviction_voting::Conviction;
+pub use pallet_conviction_voting::{Conviction, Tally};
+pub use pallet_referenda::ReferendumIndex;
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
-
 pub type BalanceOfD<T> = <<T as Democracy::Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
@@ -143,7 +143,7 @@ pub struct ProjectInfo<T: Config> {
 	pub amount: BalanceOf<T>,
 
 	/// Referendum Index
-	pub index: u32,
+	pub index: ReferendumIndex,
 }
 
 impl<T: Config> ProjectInfo<T> {

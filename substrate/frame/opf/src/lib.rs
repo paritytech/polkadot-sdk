@@ -97,6 +97,7 @@ pub mod pallet {
 			+ fungible::freeze::Inspect<Self::AccountId>
 			+ fungible::freeze::Mutate<Self::AccountId>;
 		type Governance: ReferendumTrait<Self::AccountId>;
+		type Conviction: ConvictionVotingTrait<Self::AccountId>;
 		type RuntimeHoldReason: From<HoldReason>;
 		/// Provider for the block number.
 		type BlockNumberProvider: BlockNumberProvider;
@@ -445,12 +446,13 @@ pub mod pallet {
 
 			// Funds lock is handled by the opf pallet
 			let conv = Conviction::None;
-			//let vote = Democracy::Vote { aye: fund, conviction: conv };
-			//let converted_amount = Self::convert_balance(amount).ok_or("Failed Conversion!!!")?;
-			//let account_vote = Democracy::AccountVote::Standard { vote, balance: converted_amount };
+			let u128_amount = amount.saturated_into::<u128>();
+			let converted_amount = T::Conviction::u128_to_balance(u128_amount)
+				.ok_or("Failed Conversion!!!")?;
+			let account_vote = T::Conviction::vote_data(fund, conv, converted_amount);
+			T::Conviction::try_vote(&voter, ref_index.into(),account_vote)?;
 
 			//Self::try_vote(voter.clone(), project_id.clone(), amount, fund, conviction)?;
-			//Democracy::Pallet::<T>::vote(origin, ref_index, account_vote)?;
 
 			Self::deposit_event(Event::<T>::VoteCasted { who: voter, project_id });
 

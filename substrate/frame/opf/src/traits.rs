@@ -4,7 +4,7 @@ use pallet_referenda::{TallyOf, Deposit, TracksInfo};
 
 
 pub trait ReferendumTrait<AccountId> {
-	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
+	type Index: From<u32> +Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
 	type Proposal: Parameter + Member + MaxEncodedLen;
 	type ProposalOrigin: Parameter + Member + MaxEncodedLen;
 	type ReferendumInfo: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone;
@@ -23,27 +23,28 @@ pub trait ReferendumTrait<AccountId> {
 pub trait ConvictionVotingTrait<AccountId> {
 	type Vote;
 	type AccountVote;
-	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
+	type Index: From<u32> + Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
 	type Balance;
 	type Moment;
 
+	fn u128_to_balance(x: u128) -> Option<Self::Balance>;
 	fn vote_data(aye:bool, conviction: Conviction, balance: Self::Balance) -> Self::AccountVote;
 	fn try_vote(
 		caller: &AccountId,
 		ref_index: Self::Index,
 		vote: Self::AccountVote,
 	) -> DispatchResult;
-	/*fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()>;*/
+	fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()>;
 }
 
 impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<AccountIdOf<T>>
-	for pallet_conviction_voting::Pallet<T, I>
+	for pallet_conviction_voting::Pallet<T, I> where <<T as pallet_conviction_voting::Config<I>>::Polls as frame_support::traits::Polling<pallet_conviction_voting::Tally<<<T as pallet_conviction_voting::Config<I>>::Currency as frame_support::traits::Currency<<T as frame_system::Config>::AccountId>>::Balance, <T as pallet_conviction_voting::Config<I>>::MaxTurnout>>>::Index: From<u32>
 {
 	type Vote = pallet_conviction_voting::VotingOf<T, I>;
 	type AccountVote =
 		pallet_conviction_voting::AccountVote<Self::Balance>;
 	type Index = pallet_conviction_voting::PollIndexOf<T, I>;
-	type Balance = pallet_conviction_voting::BalanceOf<T, I>;
+	type Balance = <<T as pallet_conviction_voting::Config<I>>::Currency as frame_support::traits::Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	type Moment = <T::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 	fn vote_data(aye:bool, conviction: Conviction, balance: Self::Balance) -> Self::AccountVote {
@@ -60,6 +61,12 @@ impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<A
 		let origin = RawOrigin::Signed(caller.clone());
 		pallet_conviction_voting::Pallet::<T, I>::vote(origin.into(), ref_index, vote)?;
 		Ok(())
+	}
+	fn u128_to_balance(x: u128) -> Option<Self::Balance> {
+		x.try_into().ok()
+	}
+	fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()> {
+		pallet_conviction_voting::Pallet::<T, I>::remove_vote(ref_index)
 	}
 }
 

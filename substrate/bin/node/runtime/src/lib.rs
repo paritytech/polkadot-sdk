@@ -1658,6 +1658,7 @@ impl pallet_opf::Config for Runtime {
 
 
 	type Governance = Referenda;
+	type Conviction = ConvictionVoting;
 
 	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
 }
