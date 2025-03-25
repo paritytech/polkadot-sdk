@@ -527,6 +527,38 @@ pub use frame_support_procedural::runtime;
 #[doc(hidden)]
 pub use frame_support_procedural::{__create_tt_macro, __generate_dummy_part_checker};
 
+/// Generates the derives and attributes
+/// necessary for types to be used in substrate storage.
+///
+/// The `#[stored]` macro modifies the annotated type by:
+/// - Generating the required derives, using either the standard or `NoBound` variants.
+/// - Determining which type parameters should be bound and which shouldn't.
+///
+/// # Attributes
+///
+/// - `skip`: A list of type parameters to exclude from recieving automatic bounds, e.g.,
+///   `#stored(skip(T, U))`.
+/// - `codec_bounds`: A list of type parameters which should recieve default codec bounds, e.g.,
+///   `#[stored(codec_bounds(T))]`. If not used, codec bounds will be inferred. In addition,
+///   explicit codec bounds can be specified, e.g., `#[stored(codec_bounds(T: Default + Clone +
+///   Encode))]`, but is usually not necessary.
+///
+/// # Example
+///
+/// ```rust
+/// #[stored(skip(T))]
+/// struct MyStruct<T: Config, U> {
+///     field1: T,
+///     field2: U,
+/// }
+/// ```
+///
+/// In the above example, the generic `T` is excluded from being bounded. `U` will still be bound
+/// by all derives.
+///
+/// # Errors
+///
+/// This macro will generate a compile-time error if applied to a union type.
 pub use frame_support_procedural::stored;
 
 /// Derive [`Clone`] but do not bound any generic.
