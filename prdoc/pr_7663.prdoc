@@ -14,6 +14,8 @@ doc:
 
 crates:
   - name: pallet-staking
-    bump: major
+    bump: minor
   - name: pallet-session
-    bump: major
+    bump: minor
+  - name: sp-staking
+    bump: minor
