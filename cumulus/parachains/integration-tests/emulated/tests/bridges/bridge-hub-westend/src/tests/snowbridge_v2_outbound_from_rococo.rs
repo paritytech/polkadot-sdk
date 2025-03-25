@@ -223,13 +223,13 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 				PayFees { asset: (Parent, wnd_fee_amount).into() },
 				InitiateTransfer {
 					destination: ethereum(),
-					remote_fees: Some(AssetTransferFilter::ReserveWithdraw(
-						Definite(Asset { id: AssetId(ethereum()), fun: Fungible(ether_fee_amount) }.into()),
-					)),
+					remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+						Asset { id: AssetId(ethereum()), fun: Fungible(ether_fee_amount) }.into(),
+					))),
 					preserve_origin: true,
-					assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(Definite(
-						reserved_asset_on_westend_reanchored.clone().into(),
-					))]),
+					assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(
+						Definite(reserved_asset_on_westend_reanchored.clone().into()),
+					)]),
 					remote_xcm: Xcm(vec![DepositAsset {
 						assets: Wild(All),
 						beneficiary: beneficiary(),

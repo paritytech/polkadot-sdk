@@ -214,13 +214,16 @@ fn transfer_relay_token_from_ah() {
 			PayFees { asset: local_fee_asset.clone() },
 			InitiateTransfer {
 				destination: ethereum(),
-				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(
-					Definite(remote_fee_asset.clone().into()),
-				)),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.clone().into()
+				))),
 				preserve_origin: true,
-				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(Definite(
-					Asset { id: AssetId(Location::parent()), fun: Fungible(TOKEN_AMOUNT) }.into(),
-				))]),
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(
+					Definite(
+						Asset { id: AssetId(Location::parent()), fun: Fungible(TOKEN_AMOUNT) }
+							.into(),
+					)
+				)]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(AllCounted(2)),
 					beneficiary: beneficiary(),
@@ -406,13 +409,13 @@ fn transact_with_agent_from_asset_hub() {
 			PayFees { asset: local_fee_asset.clone() },
 			InitiateTransfer {
 				destination: ethereum(),
-				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(
-					Definite(remote_fee_asset.clone().into()),
-				)),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.clone().into(),
+				))),
 				preserve_origin: true,
-				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(Definite(
-					reserve_asset.clone().into(),
-				))]),
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Definite(reserve_asset.clone().into()),
+				)]),
 				remote_xcm: Xcm(vec![
 					DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
 					Transact {
@@ -516,13 +519,13 @@ fn register_token_from_penpal() {
 			PayFees { asset: local_fee_asset_on_penpal.clone() },
 			InitiateTransfer {
 				destination: asset_hub(),
-				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(
-					Definite(remote_fee_asset_on_ah.clone().into()),
-				)),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset_on_ah.clone().into(),
+				))),
 				preserve_origin: true,
-				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(Definite(
-					remote_fee_asset_on_ethereum.clone().into(),
-				))]),
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Definite(remote_fee_asset_on_ethereum.clone().into()),
+				)]),
 				remote_xcm: Xcm(vec![
 					DepositAsset { assets: Wild(All), beneficiary: penpal_user_location },
 					Transact {
