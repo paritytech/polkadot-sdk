@@ -39,7 +39,10 @@ use crate::types::ProtocolName;
 use asynchronous_codec::Framed;
 use bytes::BytesMut;
 use futures::prelude::*;
-use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
+use libp2p::{
+	core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
+	PeerId,
+};
 use log::{error, warn};
 use unsigned_varint::codec::UviBytes;
 
@@ -75,6 +78,8 @@ pub struct NotificationsOut {
 	initial_message: Vec<u8>,
 	/// Maximum allowed size for a single notification.
 	max_notification_size: u64,
+	/// The peerID of the remote.
+	peer_id: PeerId,
 }
 
 /// A substream for incoming notification messages.
@@ -111,12 +116,15 @@ pub struct NotificationsOutSubstream<TSubstream> {
 	/// Substream where to send messages.
 	#[pin]
 	socket: Framed<TSubstream, UviBytes<io::Cursor<Vec<u8>>>>,
+
+	/// The remote peer.
+	peer_id: PeerId,
 }
 
 #[cfg(test)]
 impl<TSubstream> NotificationsOutSubstream<TSubstream> {
 	pub fn new(socket: Framed<TSubstream, UviBytes<io::Cursor<Vec<u8>>>>) -> Self {
-		Self { socket }
+		Self { socket, peer_id: PeerId::random() }
 	}
 }
 
@@ -338,6 +346,7 @@ impl NotificationsOut {
 		fallback_names: Vec<ProtocolName>,
 		initial_message: impl Into<Vec<u8>>,
 		max_notification_size: u64,
+		peer_id: PeerId,
 	) -> Self {
 		let initial_message = initial_message.into();
 		if initial_message.len() > MAX_HANDSHAKE_SIZE {
@@ -347,7 +356,7 @@ impl NotificationsOut {
 		let mut protocol_names = fallback_names;
 		protocol_names.insert(0, main_protocol_name.into());
 
-		Self { protocol_names, initial_message, max_notification_size }
+		Self { protocol_names, initial_message, max_notification_size, peer_id }
 	}
 }
 
@@ -396,7 +405,10 @@ where
 				} else {
 					Some(negotiated_name)
 				},
-				substream: NotificationsOutSubstream { socket: Framed::new(socket, codec) },
+				substream: NotificationsOutSubstream {
+					socket: Framed::new(socket, codec),
+					peer_id: self.peer_id,
+				},
 			})
 		})
 	}
@@ -438,11 +450,25 @@ where
 		// even if we don't write anything into it.
 		match Stream::poll_next(this.socket.as_mut(), cx) {
 			Poll::Pending => {},
-			Poll::Ready(Some(_)) => {
-				error!(
-					target: "sub-libp2p",
-					"Unexpected incoming data in `NotificationsOutSubstream`",
-				);
+			Poll::Ready(Some(result)) => match result {
+				Ok(bytes) => {
+					error!(
+						target: "sub-libp2p",
+						"Unexpected incoming data in `NotificationsOutSubstream` peer={:?} bytes={bytes:?}",
+						this.peer_id
+					);
+				},
+				Err(error) => {
+					warn!(
+						target: "sub-libp2p",
+						"Error while reading from `NotificationsOutSubstream` peer={:?} error={error:?}",
+						this.peer_id
+					);
+
+					// The expectation is that the remote has closed the substream.
+					// This is similar to the `Poll::Ready(None)` branch below.
+					return Poll::Ready(Err(NotificationsOutError::Terminated));
+				},
 			},
 			Poll::Ready(None) => return Poll::Ready(Err(NotificationsOutError::Terminated)),
 		}
@@ -510,7 +536,10 @@ mod tests {
 		NotificationsOutSubstream,
 	};
 	use futures::{channel::oneshot, future, prelude::*, SinkExt, StreamExt};
-	use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
+	use libp2p::{
+		core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
+		PeerId,
+	};
 	use std::{pin::Pin, task::Poll};
 	use tokio::net::{TcpListener, TcpStream};
 	use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -530,7 +559,13 @@ mod tests {
 		NotificationsHandshakeError,
 	> {
 		let socket = TcpStream::connect(addr).await.unwrap();
-		let notifs_out = NotificationsOut::new("/test/proto/1", Vec::new(), handshake, 1024 * 1024);
+		let notifs_out = NotificationsOut::new(
+			"/test/proto/1",
+			Vec::new(),
+			handshake,
+			1024 * 1024,
+			PeerId::random(),
+		);
 		let (_, substream) = multistream_select::dialer_select_proto(
 			socket.compat(),
 			notifs_out.protocol_info(),
@@ -694,7 +729,13 @@ mod tests {
 		let client = tokio::spawn(async move {
 			let socket = TcpStream::connect(listener_addr_rx.await.unwrap()).await.unwrap();
 			let NotificationsOutOpen { handshake, .. } = OutboundUpgrade::upgrade_outbound(
-				NotificationsOut::new(PROTO_NAME, Vec::new(), &b"initial message"[..], 1024 * 1024),
+				NotificationsOut::new(
+					PROTO_NAME,
+					Vec::new(),
+					&b"initial message"[..],
+					1024 * 1024,
+					PeerId::random(),
+				),
 				socket.compat(),
 				ProtocolName::Static(PROTO_NAME),
 			)
@@ -739,6 +780,7 @@ mod tests {
 						Vec::new(),
 						&b"initial message"[..],
 						1024 * 1024,
+						PeerId::random(),
 					),
 					socket.compat(),
 					ProtocolName::Static(PROTO_NAME),
