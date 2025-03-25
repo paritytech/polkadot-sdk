@@ -27,7 +27,7 @@ use crate::{
 };
 use futures::{select, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
-use log::info;
+use log::{debug, info};
 use prometheus_endpoint::Registry;
 use sc_chain_spec::{get_extension, ChainSpec};
 use sc_client_api::{
@@ -304,18 +304,20 @@ where
 				for child_key in
 					client.child_storage_keys(storage_root, info.clone(), None, None)?
 				{
-					let _ = client
+					if client
 						.child_storage(storage_root, &info, &child_key)
 						.expect("Checked above to exist")
-						.ok_or("Value unexpectedly empty")?;
+						.is_none()
+					{
+						debug!("Child storage value unexpectedly empty: {child_key:?}");
+					}
 					child_keys_count += 1;
 				}
 			},
 			None => {
-				let _ = client
-					.storage(storage_root, &key)
-					.expect("Checked above to exist")
-					.ok_or("Value unexpectedly empty")?;
+				if client.storage(storage_root, &key).expect("Checked above to exist").is_none() {
+					debug!("Storage value unexpectedly empty: {key:?}");
+				}
 				keys_count += 1;
 			},
 		}
