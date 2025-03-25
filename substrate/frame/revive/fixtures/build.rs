@@ -227,7 +227,9 @@ fn create_out_dir() -> Result<PathBuf> {
 				.stdout;
 
 			let workspace_root = Path::new(
-				std::str::from_utf8(&output).context("Invalid output from `locate-project`")?.trim(),
+				std::str::from_utf8(&output)
+					.context("Invalid output from `locate-project`")?
+					.trim(),
 			)
 			.parent()
 			.expect("Workspace root path contains the `Cargo.toml`; qed");
