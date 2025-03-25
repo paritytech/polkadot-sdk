@@ -2194,12 +2194,12 @@ impl_runtime_apis! {
 						3_000 * UNITS,
 					).map_err(|_| BenchmarkError::Stop("Failed to mint foreign asset!"))?;
 
-					// Setup pool
 					AssetConversion::create_pool(
 						origin.clone(),
 						native_asset_location.clone().into(),
 						asset_location.clone().into(),
 					).map_err(|_| BenchmarkError::Stop("Failed to create pool!"))?;
+
 					AssetConversion::add_liquidity(
 						origin,
 						native_asset_location.into(),
@@ -2211,7 +2211,6 @@ impl_runtime_apis! {
 						account.into(),
 					).map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
 
-					// Create give and receive assets
 					let give_assets: XcmAssets = (native_asset_id, 500 * UNITS).into();
 					let receive_assets: XcmAssets = (asset_id, 660 * UNITS).into();
 
