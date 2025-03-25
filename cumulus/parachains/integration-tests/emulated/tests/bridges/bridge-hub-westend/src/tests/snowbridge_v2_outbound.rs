@@ -106,6 +106,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
 			reward_address: reward_account.into(),
+			topic: H256::zero(),
 			success: true,
 		};
 
@@ -261,6 +262,7 @@ fn transfer_relay_token_from_ah() {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
 			reward_address: reward_account.into(),
+			topic: H256::zero(),
 			success: true,
 		};
 
@@ -347,6 +349,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
 			reward_address: reward_account.into(),
+			topic: H256::zero(),
 			success: true,
 		};
 
@@ -442,6 +445,7 @@ fn transact_with_agent_from_asset_hub() {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
 			reward_address: reward_account.into(),
+			topic: H256::zero(),
 			success: true,
 		};
 
@@ -558,6 +562,7 @@ fn register_token_from_penpal() {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
 			reward_address: reward_account.into(),
+			topic: H256::zero(),
 			success: true,
 		};
 
@@ -722,6 +727,7 @@ fn invalid_nonce_for_delivery_receipt_fails() {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
 			reward_address: reward_account.into(),
+			topic: H256::zero(),
 			success: true,
 		};
 
