@@ -1060,7 +1060,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 /// 3. any candidates that have a concluded invalid dispute or who are descendants of a concluded
 ///    invalid candidate.
 /// 4. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
-///    but have no injected core index.
+///    but have no core index (either injected or in the v2 descriptor).
 /// 5. all backing votes from disabled validators
 /// 6. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
 ///

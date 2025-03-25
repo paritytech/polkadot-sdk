@@ -2117,6 +2117,88 @@ mod enter {
 			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data).unwrap_err();
 		});
 	}
+
+	#[rstest]
+	#[case(true)]
+	#[case(false)]
+	// Test that candidates that have neither an injected core index nor a v2 descriptor are
+	// filtered.
+	fn candidate_without_core_index(#[case] v2_descriptor: bool) {
+		let config = default_config();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+		new_test_ext(config).execute_with(|| {
+			// Enable the v2 receipts.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				v2_descriptor,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: [(2, 3)].into_iter().collect(),
+				unavailable_cores: vec![],
+				v2_descriptor,
+				candidate_modifier: Some(|mut candidate| {
+					if candidate.descriptor.para_id() == ParaId::from(0) {
+						candidate.commitments.upward_messages.clear();
+						let mut v1: CandidateDescriptor = candidate.descriptor.into();
+
+						v1.collator = junk_collator();
+						v1.signature = junk_collator_signature();
+
+						candidate.descriptor = v1.into();
+					}
+					candidate
+				}),
+			});
+
+			let mut inherent_data = scenario.data.clone();
+
+			let (validator_indices, _) =
+				inherent_data.backed_candidates[0].validator_indices_and_core_index();
+			let validator_indices = validator_indices.into();
+			inherent_data.backed_candidates[0]
+				.set_validator_indices_and_core_index(validator_indices, None);
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (1 validators per core, 5 backed candidates)
+			assert_eq!(inherent_data.bitfields.len(), 5);
+			// * 5 candidates are passed, 1 is invalid
+			assert_eq!(inherent_data.backed_candidates.len(), 5);
+
+			let mut create_inherent_data = InherentData::new();
+			create_inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &inherent_data)
+				.unwrap();
+
+			// First candidate is filtered out
+			let mut expected_inherent_data = inherent_data.clone();
+			expected_inherent_data.backed_candidates.remove(0);
+
+			assert_eq!(
+				Pallet::<Test>::create_inherent_inner(&create_inherent_data).unwrap(),
+				expected_inherent_data
+			);
+
+			assert_eq!(
+				Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data)
+					.unwrap_err()
+					.error,
+				Error::<Test>::InherentDataFilteredDuringExecution.into()
+			);
+		});
+	}
 }
 
 fn default_header() -> polkadot_primitives::Header {
