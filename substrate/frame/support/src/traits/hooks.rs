@@ -350,6 +350,7 @@ pub trait IntegrityTest {
 /// - [`OnFinalize`]
 /// - [`OnRuntimeUpgrade`]
 /// - [`crate::traits::misc::OffchainWorker`]
+/// - [`OnGenesis`]
 /// - [`OnIdle`]
 /// - [`IntegrityTest`]
 /// - [`OnPoll`]
@@ -404,6 +405,8 @@ pub trait IntegrityTest {
 ///   the block.
 /// * [`OnFinalize`](Hooks::OnFinalize) hooks are mandatorily executed after
 ///   [`OnIdle`](Hooks::OnIdle).
+/// * [`OnGenesis`](Hooks::OnGenesis) hooks are executed exactly once per pallet, right after
+///   pallets have set up their initial storage.
 ///
 /// > [`OffchainWorker`](crate::traits::misc::OffchainWorker) hooks are not part of this flow,
 /// > because they are not part of the consensus/main block building logic. See
@@ -507,6 +510,12 @@ pub trait Hooks<BlockNumber> {
 	fn on_runtime_upgrade() -> Weight {
 		Weight::zero()
 	}
+
+	/// Hook that is run at genesis, after pallets have initialized their state.
+	///
+	/// This hook should be used to run some required initialization logic that
+	/// relies on other pallets storage items.
+	fn on_genesis() {}
 
 	/// Execute the sanity checks of this pallet, per block.
 	///
