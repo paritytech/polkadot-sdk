@@ -168,23 +168,6 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn enqueue_1000_small_xcmp_messages_individually() {
-		let mut msgs = vec![];
-		for _i in 0..1000 {
-			msgs.push(BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::try_from(vec![0; 3]).unwrap());
-		}
-		let fp_before = T::XcmpQueue::footprint(0.into());
-		#[block]
-		{
-			for msg in msgs {
-				assert_ok!(Pallet::<T>::enqueue_xcmp_message(0.into(), msg));
-			}
-		}
-		let fp_after = T::XcmpQueue::footprint(0.into());
-		assert_eq!(fp_after.ready_pages, fp_before.ready_pages + 1);
-	}
-
-	#[benchmark]
 	fn suspend_channel() {
 		let para = 123.into();
 		let data = ChannelSignal::Suspend.encode();
