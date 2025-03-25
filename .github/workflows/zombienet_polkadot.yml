@@ -17,7 +17,7 @@ env:
   LOCAL_DIR: "./cumulus/zombienet/tests"
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
 
-# only run if we have changes in [subtrate, cumulus, polkadot] directories or this workflow.
+# only run if we have changes in [subtrate, polkadot] directories or this workflow.
 jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
