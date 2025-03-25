@@ -5,7 +5,7 @@
 
 use anyhow::anyhow;
 
-use crate::helpers::{assert_finality_lag_less_than, assert_para_throughput};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
@@ -112,7 +112,7 @@ async fn parachains_max_tranche0_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Check finality does not lag");
 	for validator in validators {
-		assert_finality_lag_less_than(&validator.wait_client().await?, 2).await?;
+		assert_finality_lag(&validator.wait_client().await?, 3).await?;
 	}
 
 	log::info!("Test finished successfully");

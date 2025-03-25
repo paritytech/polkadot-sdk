@@ -81,20 +81,6 @@ pub async fn assert_finalized_block_height(
 	Ok(())
 }
 
-// Helper function for asserting that the finality lag is less than a given value.
-pub async fn assert_finality_lag_less_than(
-	client: &OnlineClient<PolkadotConfig>,
-	lag: u32,
-) -> Result<(), anyhow::Error> {
-	if let Some(best_block) = client.blocks().subscribe_best().await?.next().await {
-		let height = best_block?.number();
-		assert_finalized_block_height(client, height - lag..height).await?;
-	} else {
-		return Err(anyhow::anyhow!("No best block received"));
-	}
-	Ok(())
-}
-
 /// Assert that finality has not stalled.
 pub async fn assert_blocks_are_being_finalized(
 	client: &OnlineClient<PolkadotConfig>,
