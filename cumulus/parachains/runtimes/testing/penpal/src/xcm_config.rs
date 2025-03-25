@@ -65,7 +65,7 @@ use xcm_builder::{
 	AccountId32Aliases, AliasOriginRootUsingFilter, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	AsPrefixedGeneralIndex, ConvertedConcreteId, DescribeAllTerminal, DescribeFamily,
-	EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
+	DescribeTerminus, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
 	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
@@ -107,7 +107,7 @@ pub type LocationToAccountId = (
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign locations alias into accounts according to a hash of their standard description.
-	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
+	HashedDescription<AccountId, (DescribeTerminus, DescribeFamily<DescribeAllTerminal>)>,
 	// Different global consensus locations sovereign accounts.
 	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
 );
