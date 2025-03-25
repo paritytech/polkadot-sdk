@@ -13403,7 +13403,7 @@ dependencies = [
  "pallet-balances",
  "pallet-preimage",
  "parity-scale-codec",
- "polkadot-sdk-frame 0.1.0",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
