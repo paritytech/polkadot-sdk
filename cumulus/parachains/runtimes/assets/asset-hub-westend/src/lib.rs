@@ -2174,11 +2174,10 @@ impl_runtime_apis! {
 					let asset_location = Location::new(1, [Parachain(2001)]);
 					let asset_id = AssetId(asset_location.clone());
 
-					// Setup balances with sufficient funds
-					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+					<Balances as fungible::Mutate<_>>::mint_into(
 						&account,
 						ExistentialDeposit::get() + (1_000 * UNITS)
-					));
+					).map_err(|_| BenchmarkError::Stop("Failed to setup balances with sufficient funds!"))?;
 
 					ForeignAssets::force_create(
 						RuntimeOrigin::root(),
