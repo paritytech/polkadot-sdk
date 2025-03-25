@@ -672,25 +672,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn enqueue_xcmp_message(
-		sender: ParaId,
-		xcm: BoundedVec<u8, MaxXcmpMessageLenOf<T>>,
-	) -> Result<(), ()> {
-		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
-		let fp = T::XcmpQueue::footprint(sender);
-		// Assume that it will not fit into the current page:
-		let new_pages = fp.ready_pages.saturating_add(1);
-		if new_pages > drop_threshold {
-			// This should not happen since the channel should have been suspended in
-			// [`on_queue_changed`].
-			log::error!("XCMP queue for sibling {:?} is full; dropping messages.", sender);
-			return Err(())
-		}
-
-		T::XcmpQueue::enqueue_message(xcm.as_bounded_slice(), sender);
-		Ok(())
-	}
-
 	/// Split concatenated encoded `VersionedXcm`s or `MaybeDoubleEncodedVersionedXcm`s into
 	/// individual items.
 	///
