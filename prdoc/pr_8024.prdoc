@@ -5,5 +5,5 @@ doc:
     Change the hash to `Twox64Concat`, which is more secure than `Identity`.
 crates:
 - name: snowbridge-pallet-outbound-queue-v2
-  bump: minor
+  bump: patch
 
