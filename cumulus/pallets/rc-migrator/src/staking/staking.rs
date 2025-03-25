@@ -507,11 +507,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					}
 				},
 				StakingStage::ErasValidatorReward(era) => {
-					let mut iter = if let Some(era) = era {
-						pallet_staking::ErasValidatorReward::<T>::iter_from_key(era)
-					} else {
-						pallet_staking::ErasValidatorReward::<T>::iter()
-					};
+					let mut iter = resume::<pallet_staking::ErasValidatorReward<T>, _, _>(era);
 
 					match iter.next() {
 						Some((era, reward)) => {
@@ -523,11 +519,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					}
 				},
 				StakingStage::ErasRewardPoints(era) => {
-					let mut iter = if let Some(era) = era {
-						pallet_staking::ErasRewardPoints::<T>::iter_from_key(era)
-					} else {
-						pallet_staking::ErasRewardPoints::<T>::iter()
-					};
+					let mut iter = resume::<pallet_staking::ErasRewardPoints<T>, _, _>(era);
 
 					match iter.next() {
 						Some((era, points)) => {
@@ -539,11 +531,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					}
 				},
 				StakingStage::ErasTotalStake(era) => {
-					let mut iter = if let Some(era) = era {
-						pallet_staking::ErasTotalStake::<T>::iter_from_key(era)
-					} else {
-						pallet_staking::ErasTotalStake::<T>::iter()
-					};
+					let mut iter = resume::<pallet_staking::ErasTotalStake<T>, _, _>(era);
 
 					match iter.next() {
 						Some((era, total_stake)) => {
@@ -608,11 +596,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					}
 				},
 				StakingStage::SlashingSpans(account) => {
-					let mut iter = if let Some(account) = account {
-						pallet_staking::SlashingSpans::<T>::iter_from_key(account)
-					} else {
-						pallet_staking::SlashingSpans::<T>::iter()
-					};
+					let mut iter = resume::<pallet_staking::SlashingSpans<T>, _, _>(account);
 
 					match iter.next() {
 						Some((account, spans)) => {
@@ -627,11 +611,7 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 					}
 				},
 				StakingStage::SpanSlash(next) => {
-					let mut iter = if let Some(next) = next {
-						pallet_staking::SpanSlash::<T>::iter_from_key(next)
-					} else {
-						pallet_staking::SpanSlash::<T>::iter()
-					};
+					let mut iter = resume::<pallet_staking::SpanSlash<T>, _, _>(next);
 
 					match iter.next() {
 						Some(((account, span), slash)) => {
@@ -663,5 +643,16 @@ impl<T: Config> PalletMigration for StakingMigrator<T> {
 		} else {
 			Ok(Some(inner_key))
 		}
+	}
+}
+
+use codec::{FullCodec, FullEncode};
+fn resume<Map: frame_support::IterableStorageMap<K, V>, K: FullEncode, V: FullCodec>(
+	key: Option<K>,
+) -> impl Iterator<Item = (K, V)> {
+	if let Some(key) = key {
+		Map::iter_from(Map::hashed_key_for(key))
+	} else {
+		Map::iter()
 	}
 }
