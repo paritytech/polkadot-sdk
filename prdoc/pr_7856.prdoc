@@ -8,11 +8,10 @@ doc:
     description: |
       This PR adjusts the XCM decoding logic in order to deduplicate the logic used for decoding `v3::Xcm`, `v4::Xcm`
       and `v5::Xcm` and also to use `decode_with_depth_limit()` in some more places.
-      Also `VersionedXcm::validate_xcm_nesting()` is renamed to `VersionedXcm::check_is_decodable()`.
 
 crates:
   - name: staging-xcm
-    bump: major
+    bump: minor
   - name: staging-xcm-builder
     bump: patch
   - name: cumulus-pallet-xcmp-queue
