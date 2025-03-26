@@ -298,7 +298,8 @@ mod tests {
 			&Location::new(0, [acc_13]),
 		));
 		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
-			&Location::new(0, [acc_42]) & Location::new(1, [Parachain(1), acc_42]),
+			&Location::new(0, [acc_42]),
+			&Location::new(1, [Parachain(1), acc_42]),
 		));
 	}
 }
