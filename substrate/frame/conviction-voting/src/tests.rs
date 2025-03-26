@@ -99,8 +99,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		};
@@ -114,8 +115,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		}?;
@@ -950,7 +952,7 @@ impl HooksHandler {
 }
 
 impl VotingHooks<u64, u8, u64> for HooksHandler {
-	fn on_vote(who: &u64, ref_index: u8, vote: AccountVote<u64>) -> DispatchResult {
+	fn on_before_vote(who: &u64, ref_index: u8, vote: AccountVote<u64>) -> DispatchResult {
 		LAST_ON_VOTE_DATA.with(|data| {
 			*data.borrow_mut() = Some((*who, ref_index, vote));
 		});
