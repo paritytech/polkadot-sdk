@@ -2174,33 +2174,33 @@ impl_runtime_apis! {
 					let asset_location = Location::new(1, [Parachain(2001)]);
 					let asset_id = AssetId(asset_location.clone());
 
-					<Balances as fungible::Mutate<_>>::mint_into(
+					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
 						&account,
 						ExistentialDeposit::get() + (1_000 * UNITS)
-					).map_err(|_| BenchmarkError::Stop("Failed to setup balances with sufficient funds!"))?;
+					));
 
-					ForeignAssets::force_create(
+					assert_ok!(ForeignAssets::force_create(
 						RuntimeOrigin::root(),
 						asset_location.clone().into(),
 						account.clone().into(),
 						true,
 						1,
-					).map_err(|_| BenchmarkError::Stop("Failed to create foreign asset!"))?;
+					));
 
-					ForeignAssets::mint(
+					assert_ok!(ForeignAssets::mint(
 						origin.clone(),
 						asset_location.clone().into(),
 						account.clone().into(),
 						3_000 * UNITS,
-					).map_err(|_| BenchmarkError::Stop("Failed to mint foreign asset!"))?;
+					));
 
-					AssetConversion::create_pool(
+					assert_ok!(AssetConversion::create_pool(
 						origin.clone(),
 						native_asset_location.clone().into(),
 						asset_location.clone().into(),
-					).map_err(|_| BenchmarkError::Stop("Failed to create pool!"))?;
+					));
 
-					AssetConversion::add_liquidity(
+					assert_ok!(AssetConversion::add_liquidity(
 						origin,
 						native_asset_location.into(),
 						asset_location.into(),
@@ -2209,7 +2209,7 @@ impl_runtime_apis! {
 						1,
 						1,
 						account.into(),
-					).map_err(|_| BenchmarkError::Stop("Failed to add liquidity!"))?;
+					));
 
 					let give_assets: XcmAssets = (native_asset_id, 500 * UNITS).into();
 					let receive_assets: XcmAssets = (asset_id, 660 * UNITS).into();

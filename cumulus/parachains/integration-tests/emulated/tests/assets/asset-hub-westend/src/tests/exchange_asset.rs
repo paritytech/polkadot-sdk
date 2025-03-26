@@ -43,7 +43,7 @@ fn exchange_asset_success() {
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<Balances as Mutate<_>>::mint_into(
 			&alice,
-			ExistentialDeposit::get() + (1_000 * UNITS)
+			ExistentialDeposit::get() + (2_000 * UNITS)
 		));
 
 		assert_ok!(ForeignAssets::force_create(
