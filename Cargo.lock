@@ -2559,6 +2559,7 @@ version = "1.0.0"
 dependencies = [
  "asset-hub-westend-runtime",
  "bp-asset-hub-westend",
+ "bridge-hub-common",
  "bridge-hub-westend-runtime",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
