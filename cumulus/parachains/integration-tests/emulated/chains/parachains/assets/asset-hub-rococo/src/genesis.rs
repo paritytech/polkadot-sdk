@@ -28,7 +28,7 @@ use emulated_integration_tests_common::{
 use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::{latest::prelude::*, opaque::latest::ROCOCO_GENESIS_HASH};
-use xcm_builder::ExternalConsensusLocationsConverterFor;
+use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::rococo::currency::EXISTENTIAL_DEPOSIT;
@@ -37,8 +37,7 @@ parameter_types! {
 	pub AssetHubRococoAssetOwner: AccountId = Keyring::Alice.to_account_id();
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub AssetHubRococoUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(PARA_ID)].into();
-	pub EthereumSovereignAccount: AccountId = ExternalConsensusLocationsConverterFor::<
-			AssetHubRococoUniversalLocation,
+	pub EthereumSovereignAccount: AccountId = EthereumLocationsConverterFor::<
 			AccountId,
 		>::convert_location(&Location::new(
 			2,

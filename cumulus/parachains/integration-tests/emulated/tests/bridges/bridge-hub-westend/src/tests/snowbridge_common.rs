@@ -23,7 +23,7 @@ use rococo_westend_system_emulated_network::penpal_emulated_chain::{
 	PenpalAssetOwner,
 };
 use snowbridge_core::AssetMetadata;
-use snowbridge_inbound_queue_primitives::EthereumLocationConvertsFor;
+use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
 use sp_core::H160;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
@@ -368,14 +368,12 @@ pub fn register_pal_on_bh() {
 }
 
 pub fn snowbridge_sovereign() -> sp_runtime::AccountId32 {
-	let ethereum_sovereign: AccountId = AssetHubWestend::execute_with(|| {
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
+	let ethereum_sovereign: AccountId = EthereumLocationsConverterFor::<AccountId>::convert_location(
+		&Location::new(
 			2,
 			[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
 		))
-		.unwrap()
-		.into()
-	});
+	.unwrap();
 
 	ethereum_sovereign
 }

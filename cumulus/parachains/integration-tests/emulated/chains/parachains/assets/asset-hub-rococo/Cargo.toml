@@ -26,3 +26,4 @@ testnet-parachains-constants = { features = ["rococo"], workspace = true, defaul
 xcm.workspace = true
 xcm-builder = { workspace = true, default-features = true }
 bp-bridge-hub-rococo.workspace = true
+snowbridge-inbound-queue-primitives.workspace = true
