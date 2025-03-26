@@ -145,7 +145,7 @@ use sp_staking::{offence::OffenceSeverity, SessionIndex};
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-#[cfg(any(test, feature = "try-runtime"))]
+#[cfg(any(feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
 pub(crate) const LOG_TARGET: &str = "runtime::session";
