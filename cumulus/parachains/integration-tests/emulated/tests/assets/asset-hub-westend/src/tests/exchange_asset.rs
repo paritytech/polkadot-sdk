@@ -29,6 +29,7 @@ use frame_support::{
 	traits::fungible::{Inspect, Mutate},
 };
 use parachains_common::{AccountId, Balance};
+use sp_tracing::capture_test_logs;
 use std::convert::Into;
 use xcm::latest::{Assets, Location, Xcm};
 
@@ -36,22 +37,28 @@ const UNITS: Balance = 1_000_000_000;
 
 #[test]
 fn exchange_asset_success() {
-	test_exchange_asset(true, 500 * UNITS, 660 * UNITS, true);
+	test_exchange_asset(true, 500 * UNITS, 665 * UNITS, true);
 }
 
 #[test]
 fn exchange_asset_insufficient_liquidity() {
-	test_exchange_asset(true, 1_000 * UNITS, 2_000 * UNITS, false);
+	let log_capture = capture_test_logs!({
+		test_exchange_asset(true, 1_000 * UNITS, 2_000 * UNITS, false);
+	});
+	assert!(log_capture.contains("NoDeal"));
 }
 
 #[test]
 fn exchange_asset_insufficient_balance() {
-	test_exchange_asset(true, 5_000 * UNITS, 1_667 * UNITS, false);
+	let log_capture = capture_test_logs!({
+		test_exchange_asset(true, 5_000 * UNITS, 1_665 * UNITS, false);
+	});
+	assert!(log_capture.contains("NoDeal"));
 }
 
 #[test]
 fn exchange_asset_pool_not_created() {
-	test_exchange_asset(false, 500 * UNITS, 660 * UNITS, false);
+	test_exchange_asset(false, 500 * UNITS, 665 * UNITS, false);
 }
 
 fn test_exchange_asset(
@@ -67,6 +74,7 @@ fn test_exchange_asset(
 	let asset_location = Location::new(1, [Parachain(2001)]);
 	let asset_id = AssetId(asset_location.clone());
 
+	// Setup initial state
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<Balances as Mutate<_>>::mint_into(
 			&alice,
@@ -86,6 +94,7 @@ fn test_exchange_asset(
 		create_pool_with_wnd_on!(AssetHubWestend, asset_location.clone(), true, alice.clone());
 	}
 
+	// Execute and verify swap
 	AssetHubWestend::execute_with(|| {
 		let foreign_balance_before = ForeignAssets::balance(asset_location.clone(), &alice);
 		let wnd_balance_before = Balances::total_balance(&alice);
@@ -105,30 +114,26 @@ fn test_exchange_asset(
 
 		if should_succeed {
 			assert_ok!(result);
-
 			assert!(
 				foreign_balance_after >= foreign_balance_before + want_amount,
-				"Expected foreign balance to increase by at least {want_amount}, got {foreign_balance_after} from {foreign_balance_before}"
+				"Expected foreign balance to increase by at least {want_amount} units, got {foreign_balance_after} from {foreign_balance_before}"
 			);
-
 			assert_eq!(
 				wnd_balance_after, wnd_balance_before - give_amount,
-				"Expected WND balance to decrease by exactly {give_amount}, got {wnd_balance_after} from {wnd_balance_before}"
+				"Expected WND balance to decrease by {give_amount} units, got {wnd_balance_after} from {wnd_balance_before}"
 			);
 		} else {
 			assert_err_ignore_postinfo!(
 				result,
 				pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete
 			);
-
 			assert_eq!(
 				foreign_balance_after, foreign_balance_before,
-				"Expected foreign balance to remain unchanged"
+				"Foreign balance changed unexpectedly: got {foreign_balance_after}, expected {foreign_balance_before}"
 			);
-
 			assert_eq!(
 				wnd_balance_after, wnd_balance_before,
-				"Expected WND balance to remain unchanged"
+				"WND balance changed unexpectedly: got {wnd_balance_after}, expected {wnd_balance_before}"
 			);
 		}
 	});
