@@ -201,6 +201,7 @@ fn runtime_metadata() {
 				" Documentation on multiline.",
 			]),
 			deprecation_info: DeprecationStatusIR::DeprecatedWithoutNote,
+			version: codec::Compact(1),
 
 		},
 		RuntimeApiMetadataIR {
@@ -239,6 +240,7 @@ fn runtime_metadata() {
 				" The `Core` runtime api that every Substrate runtime needs to implement.",
 			]),
 			deprecation_info: DeprecationStatusIR::NotDeprecated,
+			version: codec::Compact(5),
 		},
 	];
 

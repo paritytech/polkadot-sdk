@@ -39,6 +39,22 @@ fn main() {
 		.import_memory()
 		.set_file_name("wasm_binary_elastic_scaling.rs")
 		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("elastic-scaling-500ms")
+		.enable_feature("experimental-ump-signals")
+		.import_memory()
+		.set_file_name("wasm_binary_elastic_scaling_500ms.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("elastic-scaling-multi-block-slot")
+		.enable_feature("experimental-ump-signals")
+		.import_memory()
+		.set_file_name("wasm_binary_elastic_scaling_multi_block_slot.rs")
+		.build();
 }
 
 #[cfg(not(feature = "std"))]

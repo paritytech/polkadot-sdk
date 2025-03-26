@@ -466,6 +466,22 @@ pub mod pallet {
 		_myfield: u32,
 	}
 
+	#[pallet::view_functions_experimental]
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: From<SomeType1> + SomeAssociation1,
+	{
+		/// Query value no args.
+		pub fn get_value() -> Option<u32> {
+			Value::<T>::get()
+		}
+
+		/// Query value with args.
+		pub fn get_value_with_arg(key: u16) -> Option<u32> {
+			Map2::<T>::get(key)
+		}
+	}
+
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
 	where
@@ -487,6 +503,7 @@ pub mod pallet {
 		OrdNoBound,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		TypeInfo,
 		MaxEncodedLen,
 	)]
@@ -818,7 +835,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 

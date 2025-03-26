@@ -127,10 +127,6 @@ where
 
 /// Syncing-related events that other protocols can subscribe to.
 pub enum SyncEvent {
-	/// All connected peers that the syncing implementation is tracking.
-	/// Always sent as the first message to the stream.
-	InitialPeers(Vec<PeerId>),
-
 	/// Peer that the syncing implementation is tracking connected.
 	PeerConnected(PeerId),
 

@@ -254,12 +254,10 @@ impl<B: BlockT> Future for GossipEngine<B> {
 
 					match sync_event_stream {
 						Poll::Ready(Some(event)) => match event {
-							SyncEvent::InitialPeers(peer_ids) =>
-								this.network.add_set_reserved(peer_ids, this.protocol.clone()),
-							SyncEvent::PeerConnected(peer_id) =>
-								this.network.add_set_reserved(vec![peer_id], this.protocol.clone()),
-							SyncEvent::PeerDisconnected(peer_id) =>
-								this.network.remove_set_reserved(peer_id, this.protocol.clone()),
+							SyncEvent::PeerConnected(remote) =>
+								this.network.add_set_reserved(remote, this.protocol.clone()),
+							SyncEvent::PeerDisconnected(remote) =>
+								this.network.remove_set_reserved(remote, this.protocol.clone()),
 						},
 						// The sync event stream closed. Do the same for [`GossipValidator`].
 						Poll::Ready(None) => {

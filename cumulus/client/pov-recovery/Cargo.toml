@@ -41,7 +41,6 @@ cumulus-relay-chain-interface = { workspace = true, default-features = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 cumulus-test-client = { workspace = true }
-portpicker = { workspace = true }
 rstest = { workspace = true }
 sc-utils = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
@@ -54,4 +53,3 @@ cumulus-test-service = { workspace = true }
 # Substrate
 sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
-substrate-test-utils = { workspace = true }

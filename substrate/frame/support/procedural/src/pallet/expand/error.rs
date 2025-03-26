@@ -122,6 +122,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		#[derive(
 			#frame_support::__private::codec::Encode,
 			#frame_support::__private::codec::Decode,
+			#frame_support::__private::codec::DecodeWithMemTracking,
 			#frame_support::__private::scale_info::TypeInfo,
 			#frame_support::PalletError,
 		)]

@@ -33,7 +33,7 @@ use alloc::{
 	vec::Vec,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::fmt;
 use frame_support::{
 	defensive,
@@ -216,7 +216,17 @@ impl QueueFootprinter for () {
 ///
 /// Can be extended to serve further use-cases besides just UMP. Is stored in storage, so any change
 /// to existing values will require a migration.
-#[derive(Encode, Decode, Clone, MaxEncodedLen, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	MaxEncodedLen,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub enum AggregateMessageOrigin {
 	/// Inbound upward message.
 	#[codec(index = 0)]
@@ -227,7 +237,17 @@ pub enum AggregateMessageOrigin {
 ///
 /// It is written in verbose form since future variants like `Here` and `Bridged` are already
 /// foreseeable.
-#[derive(Encode, Decode, Clone, MaxEncodedLen, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	MaxEncodedLen,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub enum UmpQueueId {
 	/// The message originated from this parachain.
 	#[codec(index = 0)]
