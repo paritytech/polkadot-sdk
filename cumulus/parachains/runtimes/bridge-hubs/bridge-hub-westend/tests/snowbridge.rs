@@ -139,7 +139,7 @@ fn ethereum_to_polkadot_message_extrinsics_work() {
 	);
 }
 
-/// Tests that the digest items are as expected when a Ethereum Outbound message is received.
+/// Tests that the digest items are as expected when an Ethereum Outbound message is received.
 /// If the MessageQueue pallet is configured before (i.e. the MessageQueue pallet is listed before
 /// the EthereumOutboundQueue in the construct_runtime macro) the EthereumOutboundQueue, this test
 /// will fail.
