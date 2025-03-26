@@ -745,7 +745,7 @@ pub(crate) fn on_offence_in_era(
 	}
 
 	if pallet_staking::ActiveEra::<Test>::get().unwrap().index == era {
-		let _ = Staking::on_offence(
+		let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
 			offenders,
 			slash_fraction,
 			pallet_staking::ErasStartSessionIndex::<Test>::get(era).unwrap(),
