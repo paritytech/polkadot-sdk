@@ -413,7 +413,7 @@ impl<T: Config> Pallet<T> {
 	) -> Option<(PositiveImbalanceOf<T>, RewardDestination<T::AccountId>)> {
 		// noop if amount is zero
 		if amount.is_zero() {
-			return None;
+			return None
 		}
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
@@ -472,7 +472,7 @@ impl<T: Config> Pallet<T> {
 				_ => {
 					// Either `Forcing::ForceNone`,
 					// or `Forcing::NotForcing if era_length >= T::SessionsPerEra::get()`.
-					return None;
+					return None
 				},
 			}
 
@@ -919,7 +919,7 @@ impl<T: Config> Pallet<T> {
 			// if voter weight is zero, do not consider this voter for the snapshot.
 			if voter_weight.is_zero() {
 				log!(debug, "voter's active balance is 0. skip this voter.");
-				continue;
+				continue
 			}
 
 			if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
@@ -934,7 +934,7 @@ impl<T: Config> Pallet<T> {
 						Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
 							size: voters_size_tracker.size as u32,
 						});
-						break;
+						break
 					}
 
 					all_voters.push(voter);
@@ -959,7 +959,7 @@ impl<T: Config> Pallet<T> {
 					Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
 						size: voters_size_tracker.size as u32,
 					});
-					break;
+					break
 				}
 				all_voters.push(self_vote);
 				validators_taken.saturating_inc();
@@ -1428,7 +1428,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		// We can't handle this case yet -- return an error. WIP to improve handling this case in
 		// <https://github.com/paritytech/substrate/pull/13195>.
 		if bounds.exhausted(None, CountBound(targets.len() as u32).into()) {
-			return Err("Target snapshot too big");
+			return Err("Target snapshot too big")
 		}
 
 		debug_assert!(!bounds.exhausted(
@@ -1970,7 +1970,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		who: &Self::AccountId,
 	) -> Result<sp_staking::StakerStatus<Self::AccountId>, DispatchError> {
 		if !StakingLedger::<T>::is_bonded(StakingAccount::Stash(who.clone())) {
-			return Err(Error::<T>::NotStash.into());
+			return Err(Error::<T>::NotStash.into())
 		}
 
 		let is_validator = Validators::<T>::contains_key(&who);
@@ -2047,7 +2047,7 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 		payee: &Self::AccountId,
 	) -> DispatchResult {
 		if StakingLedger::<T>::is_bonded(StakingAccount::Stash(keyless_who.clone())) {
-			return Err(Error::<T>::AlreadyBonded.into());
+			return Err(Error::<T>::AlreadyBonded.into())
 		}
 
 		// check if payee not same as who.

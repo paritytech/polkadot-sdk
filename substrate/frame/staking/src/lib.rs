@@ -593,7 +593,7 @@ impl<T: Config> StakingLedger<T> {
 		// first we try to remove stake from active
 		if self.active >= to_withdraw {
 			self.active -= to_withdraw;
-			return self;
+			return self
 		} else {
 			withdrawn += self.active;
 			self.active = BalanceOf::<T>::zero();
@@ -611,7 +611,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if withdrawn >= to_withdraw {
-				break;
+				break
 			}
 		}
 
@@ -638,7 +638,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if unlocking_balance >= value {
-				break;
+				break
 			}
 		}
 
@@ -675,7 +675,7 @@ impl<T: Config> StakingLedger<T> {
 		slash_era: EraIndex,
 	) -> BalanceOf<T> {
 		if slash_amount.is_zero() {
-			return Zero::zero();
+			return Zero::zero()
 		}
 
 		use sp_runtime::PerThing as _;
@@ -768,7 +768,7 @@ impl<T: Config> StakingLedger<T> {
 		let mut slashed_unlocking = BTreeMap::<_, _>::new();
 		for i in slash_chunks_priority {
 			if remaining_slash.is_zero() {
-				break;
+				break
 			}
 
 			if let Some(chunk) = self.unlocking.get_mut(i).defensive() {
@@ -776,7 +776,7 @@ impl<T: Config> StakingLedger<T> {
 				// write the new slashed value of this chunk to the map.
 				slashed_unlocking.insert(chunk.era, chunk.value);
 			} else {
-				break;
+				break
 			}
 		}
 
@@ -1353,7 +1353,7 @@ impl<T: Config> EraInfo<T> {
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
 			// nevertheless don't do anything since the page already exist in claimed rewards.
-			return;
+			return
 		}
 
 		// add page to claimed entries
