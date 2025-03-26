@@ -78,6 +78,12 @@ jobs:
           permissions: >-
             {"workflows": "write", "contents": "write", "pull_requests": "write"}
 
+      - name: Check Token Permissions
+        run: |
+          curl -H "Authorization: Bearer ${{ steps.generate_token.outputs.token }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/app
+
       - name: Create backport pull requests
         uses: korthout/backport-action@v3
         id: backport
