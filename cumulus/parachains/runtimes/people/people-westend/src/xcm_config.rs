@@ -31,8 +31,8 @@ use pallet_collator_selection::StakingPotAccountId;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::{
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
-		RelayOrOtherSystemParachains,
+		AliasAccountId32FromSiblingSystemChain, AllSiblingSystemParachains,
+		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
@@ -212,10 +212,12 @@ pub type TrustedTeleporters = ConcreteAssetFromSystem<RelayLocation>;
 /// Defines origin aliasing rules for this chain.
 ///
 /// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
-/// - Allow origins explicitly authorized by the alias target location.
-/// - Allow AssetHub root to alias into anything.
+/// - Allow same accounts to alias into each other across system chains,
+/// - Allow AssetHub root to alias into anything,
+/// - Allow origins explicitly authorized to alias into target location.
 pub type TrustedAliasers = (
 	AliasChildLocation,
+	AliasAccountId32FromSiblingSystemChain,
 	AliasOriginRootUsingFilter<AssetHubLocation, Everything>,
 	AuthorizedAliasers<Runtime>,
 );

@@ -3762,6 +3762,7 @@ dependencies = [
  "pallet-broker",
  "pallet-identity",
  "pallet-message-queue",
+ "pallet-xcm",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "sp-runtime 31.0.1",

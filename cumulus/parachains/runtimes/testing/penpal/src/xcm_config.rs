@@ -54,7 +54,10 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
-use parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, TREASURY_PALLET_ID};
+use parachains_common::{
+	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem},
+	TREASURY_PALLET_ID,
+};
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
@@ -275,17 +278,6 @@ where
 
 type AssetsFrom<T> = AssetPrefixFrom<T, T>;
 
-/// Asset filter that allows native/relay asset if coming from a certain location.
-pub struct NativeAssetFrom<T>(PhantomData<T>);
-impl<T: Get<Location>> ContainsPair<Asset, Location> for NativeAssetFrom<T> {
-	fn contains(asset: &Asset, origin: &Location) -> bool {
-		let loc = T::get();
-		&loc == origin &&
-			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
-			if *asset_loc == Location::from(Parent))
-	}
-}
-
 // This asset can be added to AH as Asset and reserved transfer between Penpal and AH
 pub const RESERVABLE_ASSET_ID: u32 = 1;
 // This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
@@ -340,8 +332,8 @@ impl<AssetLocation: Get<Location>, Origin: Get<Location>> ContainsPair<Asset, Lo
 
 pub type TrustedReserves = (
 	NativeAsset,
+	ConcreteAssetFromSystem<RelayLocation>,
 	AssetsFrom<SystemAssetHubLocation>,
-	NativeAssetFrom<SystemAssetHubLocation>,
 	AssetPrefixFrom<CustomizableAssetFromSystemAssetHub, SystemAssetHubLocation>,
 );
 pub type TrustedTeleporters =
@@ -350,8 +342,8 @@ pub type TrustedTeleporters =
 /// Defines origin aliasing rules for this chain.
 ///
 /// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
+/// - Allow AssetHub root to alias into anything,
 /// - Allow origins explicitly authorized by the alias target location.
-/// - Allow AssetHub root to alias into anything.
 pub type TrustedAliasers = (
 	AliasChildLocation,
 	AliasOriginRootUsingFilter<SystemAssetHubLocation, Everything>,
