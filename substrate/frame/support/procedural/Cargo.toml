@@ -37,6 +37,7 @@ codec = { features = [
 	"derive",
 	"max-encoded-len",
 ], workspace = true }
+frame-benchmarking = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pretty_assertions = { workspace = true }
@@ -54,6 +55,7 @@ static_assertions = { workspace = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",

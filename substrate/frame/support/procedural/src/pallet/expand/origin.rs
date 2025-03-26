@@ -20,7 +20,8 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{spanned::Spanned, Ident};
 
-pub fn expand_origins(def: &mut Def) -> TokenStream {
+/// expand the `is_origin_part_defined` macro.
+pub fn expand_origin(def: &mut Def) -> TokenStream {
 	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
 	let macro_ident = Ident::new(&format!("__is_origin_part_defined_{}", count), def.item.span());
 
