@@ -118,7 +118,7 @@ impl TestState {
 		test_state.chunk_indices = (0..config.n_cores)
 			.map(|core_index| {
 				availability_chunk_indices(
-					Some(&default_node_features()),
+					&default_node_features(),
 					config.n_validators,
 					CoreIndex(core_index as u32),
 				)
