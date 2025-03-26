@@ -18,6 +18,7 @@
 use crate::imports::*;
 use codec::Encode;
 use emulated_integration_tests_common::accounts::ALICE;
+use frame_support::BoundedVec;
 use pallet_identity::Data;
 use people_westend_runtime::people::{IdentityField, IdentityInfo};
 use xcm::latest::AssetTransferFilter;
@@ -60,7 +61,7 @@ fn set_identity_cross_chain() {
 				destination,
 				remote_fees: Some(AssetTransferFilter::Teleport(fees.clone().into())),
 				preserve_origin: true,
-				assets: vec![],
+				assets: BoundedVec::new(),
 				remote_xcm: Xcm(vec![
 					// try to alias into `Alice` account local to People chain
 					AliasOrigin(people_westend_alice.clone().into()),
