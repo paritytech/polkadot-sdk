@@ -16,7 +16,7 @@
 
 //! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
-use codec::{Decode, DecodeLimit, FullCodec, MaxEncodedLen};
+use codec::{DecodeLimit, FullCodec, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::traits::{ProcessMessage, ProcessMessageError};
 use scale_info::TypeInfo;
