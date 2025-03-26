@@ -38,7 +38,7 @@ pub enum EthereumSystemFrontendCall {
 #[allow(clippy::large_enum_variant)]
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemFrontend {
-	#[codec(index = 80)]
+	#[codec(index = 36)]
 	EthereumSystemFrontend(EthereumSystemFrontendCall),
 }
 
@@ -573,7 +573,7 @@ fn register_token_from_penpal() {
 		assert_expected_events!(
 			BridgeHubWestend,
 			vec![
-				RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageDeliveryProofReceived { .. }) => {},
+				RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageDelivered { .. }) => {},
 			]
 		);
 	});
