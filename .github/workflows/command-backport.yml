@@ -59,21 +59,6 @@ jobs:
           app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
           private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
 
-      # - name: Generate token
-      #   id: generate_token
-      #   uses: tibdex/github-app-token@v2.1.0
-      #   with:
-      #     app_id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
-      #     private_key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
-      #     permissions: >-
-      #       {"workflows": "write", "contents": "write", "pull_requests": "write"}
-
-      - name: Check Token Permissions
-        run: |
-          curl -H "Authorization: Bearer ${{ steps.generate_token.outputs.token }}" \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/app
-
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
