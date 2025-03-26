@@ -23,15 +23,7 @@ parachains-common.workspace = true
 parachains-common.default-features = true
 rococo-emulated-chain.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }
-<<<<<<< HEAD
 xcm.workspace = true
+xcm-builder.workspace = true
+xcm-builder.default-features = true
 bp-bridge-hub-rococo.workspace = true
-=======
-
-# Polkadot
-xcm = { workspace = true }
-xcm-builder = { workspace = true, default-features = true }
-
-# Bridges
-bp-bridge-hub-rococo = { workspace = true }
->>>>>>> 98c6ffce (Snowbridge V2 (#7402))
