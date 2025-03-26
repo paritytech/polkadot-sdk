@@ -21,13 +21,10 @@ use super::v4::{
 	Instruction as OldInstruction, PalletInfo as OldPalletInfo,
 	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
 };
-use crate::DoubleEncoded;
+use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
-use codec::{
-	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
-	MaxEncodedLen,
-};
+use codec::{self, Decode, Encode, Error as CodecError, Input as CodecInput, MaxEncodedLen};
 use core::{fmt::Debug, result};
 use derivative::Derivative;
 use scale_info::TypeInfo;
@@ -66,25 +63,9 @@ pub type QueryId = u64;
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
-
-environmental::environmental!(instructions_count: u8);
-
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		instructions_count::using_once(&mut 0, || {
-			let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
-			instructions_count::with(|count| {
-				*count = count.saturating_add(number_of_instructions as u8);
-				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"))
-				}
-				Ok(())
-			})
-			.expect("Called in `using` context and thus can not return `None`; qed")?;
-			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
-			Ok(Self(decoded_instructions))
-		})
+		Ok(Xcm(decode_xcm_instructions(input)?))
 	}
 }
 
@@ -1496,8 +1477,11 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 #[cfg(test)]
 mod tests {
 	use super::{prelude::*, *};
-	use crate::v4::{
-		AssetFilter as OldAssetFilter, Junctions::Here as OldHere, WildAsset as OldWildAsset,
+	use crate::{
+		v4::{
+			AssetFilter as OldAssetFilter, Junctions::Here as OldHere, WildAsset as OldWildAsset,
+		},
+		MAX_INSTRUCTIONS_TO_DECODE,
 	};
 
 	#[test]
