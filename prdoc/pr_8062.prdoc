@@ -1,0 +1,7 @@
+title: 'frame-system: Don''t underflow the sufficients'
+doc:
+- audience: Node Dev
+  description: 'Closes: https://github.com/paritytech/polkadot-sdk/issues/8044'
+crates:
+- name: frame-system
+  bump: patch
