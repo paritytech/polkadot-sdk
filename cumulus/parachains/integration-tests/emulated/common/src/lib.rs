@@ -37,7 +37,6 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
 
 // Cumulus
-use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use polkadot_primitives::{AssignmentId, ValidatorId};
 
