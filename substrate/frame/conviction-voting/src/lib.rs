@@ -145,6 +145,7 @@ pub mod pallet {
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
 		/// Hooks are called when a new vote is registered or an existing vote is removed.
+		///
 		/// The trait does not expose weight information.
 		/// The weight of each hook is assumed to be benchmarked as part of the function that calls
 		/// it. Hooks should never recursively call into functions that called,
