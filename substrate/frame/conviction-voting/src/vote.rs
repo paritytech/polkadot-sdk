@@ -92,12 +92,14 @@ pub enum AccountVote<Balance> {
 	SplitAbstain { aye: Balance, nay: Balance, abstain: Balance },
 }
 
-/// present the conditions under which an account's Funds are locked after a voting action.
-/// - `Status(bool)`: Implement a locking period if the referendum passed and `bool` is `true`.
-/// - `Always`: lock the funds regardless of the outcome of the referendum.
+/// Present the conditions under which an account's Funds are locked after a voting action.
 #[derive(Copy, Clone, Eq, PartialEq, RuntimeDebug)]
 pub enum LockedIf {
+	/// Lock the funds if the outcome of the referendum matches the voting behavior of the user.
+	///
+	/// `true` means they voted `aye` and `false` means `nay`.
 	Status(bool),
+	/// Always lock the funds.
 	Always,
 }
 
@@ -108,21 +110,17 @@ impl<Balance: Saturating> AccountVote<Balance> {
 		// winning side: can only be removed after the lock period ends.
 		match (self, approved) {
 			// If the vote has no conviction, always return None
-			(AccountVote::Standard { vote: Vote { conviction: Conviction::None, .. }, .. }, _) => {
-				None
-			},
+			(AccountVote::Standard { vote: Vote { conviction: Conviction::None, .. }, .. }, _) =>
+				None,
 
 			// For Standard votes, check the approval condition
 			(AccountVote::Standard { vote, balance }, LockedIf::Status(is_approved))
 				if vote.aye == is_approved =>
-			{
-				Some((vote.conviction.lock_periods(), balance))
-			},
+				Some((vote.conviction.lock_periods(), balance)),
 
 			// If LockedIf::Always, return the lock period regardless of the vote
-			(AccountVote::Standard { vote, balance }, LockedIf::Always) => {
-				Some((vote.conviction.lock_periods(), balance))
-			},
+			(AccountVote::Standard { vote, balance }, LockedIf::Always) =>
+				Some((vote.conviction.lock_periods(), balance)),
 
 			// All other cases return None
 			_ => None,
@@ -134,9 +132,8 @@ impl<Balance: Saturating> AccountVote<Balance> {
 		match self {
 			AccountVote::Standard { balance, .. } => balance,
 			AccountVote::Split { aye, nay } => aye.saturating_add(nay),
-			AccountVote::SplitAbstain { aye, nay, abstain } => {
-				aye.saturating_add(nay).saturating_add(abstain)
-			},
+			AccountVote::SplitAbstain { aye, nay, abstain } =>
+				aye.saturating_add(nay).saturating_add(abstain),
 		}
 	}
 
@@ -279,9 +276,8 @@ where
 	/// The amount of this account's balance that must currently be locked due to voting.
 	pub fn locked_balance(&self) -> Balance {
 		match self {
-			Voting::Casting(Casting { votes, prior, .. }) => {
-				votes.iter().map(|i| i.1.balance()).fold(prior.locked(), |a, i| a.max(i))
-			},
+			Voting::Casting(Casting { votes, prior, .. }) =>
+				votes.iter().map(|i| i.1.balance()).fold(prior.locked(), |a, i| a.max(i)),
 			Voting::Delegating(Delegating { balance, prior, .. }) => *balance.max(&prior.locked()),
 		}
 	}
@@ -292,12 +288,10 @@ where
 		prior: PriorLock<BlockNumber, Balance>,
 	) {
 		let (d, p) = match self {
-			Voting::Casting(Casting { ref mut delegations, ref mut prior, .. }) => {
-				(delegations, prior)
-			},
-			Voting::Delegating(Delegating { ref mut delegations, ref mut prior, .. }) => {
-				(delegations, prior)
-			},
+			Voting::Casting(Casting { ref mut delegations, ref mut prior, .. }) =>
+				(delegations, prior),
+			Voting::Delegating(Delegating { ref mut delegations, ref mut prior, .. }) =>
+				(delegations, prior),
 		};
 		*d = delegations;
 		*p = prior;

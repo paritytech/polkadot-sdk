@@ -146,13 +146,14 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 		/// Hooks are called when a new vote is registered or an existing vote is removed.
 		/// The trait does not expose weight information.
-		/// The weight of each hook is assumed to be benchmarked as part of the function that calls it.
-		/// Hooks should never recursively call into functions that called,
+		/// The weight of each hook is assumed to be benchmarked as part of the function that calls
+		/// it. Hooks should never recursively call into functions that called,
 		/// directly or indirectly, the function that called them.
 		/// This could lead to infinite recursion and stack overflow.
-		/// Note that this also means to not call into other generic functionality like batch or similar.
-		/// Also, anything that a hook did will be subject to the transactional semantics of the calling function.
-		/// This means that if the calling function fails, the hook will be rolled back without further notice.
+		/// Note that this also means to not call into other generic functionality like batch or
+		/// similar. Also, anything that a hook did will be subject to the transactional semantics
+		/// of the calling function. This means that if the calling function fails, the hook will
+		/// be rolled back without further notice.
 		type VotingHooks: VotingHooks<Self::AccountId, PollIndexOf<Self, I>, BalanceOf<Self, I>>;
 	}
 
@@ -630,9 +631,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					}),
 				);
 				match old {
-					Voting::Delegating(Delegating { .. }) => {
-						return Err(Error::<T, I>::AlreadyDelegating.into())
-					},
+					Voting::Delegating(Delegating { .. }) =>
+						return Err(Error::<T, I>::AlreadyDelegating.into()),
 					Voting::Casting(Casting { votes, delegations, prior }) => {
 						// here we just ensure that we're currently idling with no votes recorded.
 						ensure!(votes.is_empty(), Error::<T, I>::AlreadyVoting);

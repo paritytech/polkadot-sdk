@@ -50,17 +50,16 @@ pub enum Status {
 /// # Important Note
 /// These hooks are called BEFORE the actual vote is recorded in storage. This means:
 /// - If `on_vote` returns an error, the entire voting operation will be reverted
-/// - If `on_vote` succeeds but the voting operation fails later, any storage modifications
-///   made by `on_vote` will still persist
+/// - If `on_vote` succeeds but the voting operation fails later, any storage modifications made by
+///   `on_vote` will still persist
 ///
 /// # Hook Methods
-/// - `on_vote`: Called before a vote is recorded. Returns `Err` to prevent the vote from being recorded.
-///   Storage modifications made by this hook will persist even if the vote fails later.
+/// - `on_vote`: Called before a vote is recorded. Returns `Err` to prevent the vote from being
+///   recorded. Storage modifications made by this hook will persist even if the vote fails later.
 ///
 /// - `on_remove_vote`: Called before a vote is removed. Cannot fail.
-///   
-/// - `lock_balance_on_unsuccessful_vote`: Called when a vote fails to be recorded
-///   (e.g. due to insufficient balance). Returns optionally locked balance amount.
+/// - `lock_balance_on_unsuccessful_vote`: Called when a vote fails to be recorded (e.g. due to
+///   insufficient balance). Returns optionally locked balance amount.
 ///
 /// # Benchmarking Hooks
 /// The following methods are only used during runtime benchmarking:
