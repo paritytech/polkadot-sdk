@@ -1,15 +1,10 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
-# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
-
 title: DeprecationInfo propagate or automatically add allow(deprecated) attributes in the generated code.
 
 doc:
-  - audience: 
-      - Runtime dev
-      - Runtime user
+  - audience: [Runtime Dev, Runtime User]
     description: |
-      Propagates or automatically adds allow(deprecated) attributes on `Constants`, `RuntimeApis`, `Runtime Calls` and enum variants
-      to reduce noise produced by warnings inside generated code.
+     Propagates or automatically adds allow(deprecated) attributes on `Constants`, `RuntimeApis`, `Runtime Calls` and enum variants
+     to reduce noise produced by warnings inside generated code.
 
 crates:
   - name: frame-support-procedural
@@ -20,3 +15,4 @@ crates:
     bump: none
   - name: sp-api
     bump: none
+    
