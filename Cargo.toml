@@ -1274,7 +1274,7 @@ snowbridge-pallet-outbound-queue-v2 = { path = "bridges/snowbridge/pallets/outbo
 snowbridge-pallet-system = { path = "bridges/snowbridge/pallets/system", default-features = false, version = "0.13.0-rc1" }
 snowbridge-pallet-system-frontend = { path = "bridges/snowbridge/pallets/system-frontend", default-features = false, version = "0.2.0" }
 snowbridge-pallet-system-v2 = { path = "bridges/snowbridge/pallets/system-v2", default-features = false, version = "0.2.0" }
-snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false, version = "0.2.0" }
+snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false, version = "0.13.0-rc1" }
 snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-common", default-features = false, version = "0.15.0-rc1" }
 snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false, version = "0.13.0-rc1" }
 snowbridge-system-v2-runtime-api = { path = "bridges/snowbridge/pallets/system-v2/runtime-api", default-features = false, version = "0.2.0" }
