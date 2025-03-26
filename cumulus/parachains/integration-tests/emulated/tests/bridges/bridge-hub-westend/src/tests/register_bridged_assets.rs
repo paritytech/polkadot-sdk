@@ -15,11 +15,9 @@
 
 use crate::{
 	imports::*,
-	tests::{
-		snowbridge::{CHAIN_ID, WETH},
-		*,
-	},
+	tests::{snowbridge::CHAIN_ID, *},
 };
+use emulated_integration_tests_common::WETH;
 
 const XCM_FEE: u128 = 40_000_000_000;
 

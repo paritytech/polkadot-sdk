@@ -19,19 +19,18 @@ use crate::{
 		assert_bridge_hub_rococo_message_received, assert_bridge_hub_westend_message_accepted,
 		asset_hub_rococo_location, asset_hub_westend_location, bridged_wnd_at_ah_rococo,
 		create_foreign_on_ah_rococo, penpal_emulated_chain::penpal_runtime,
+		snowbridge_common::snowbridge_sovereign,
 	},
-	snowbridge_common::snowbridge_sovereign
 };
 use asset_hub_westend_runtime::xcm_config::{
 	bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee,
 	UniversalLocation as AssetHubWestendUniversalLocation,
 };
-use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::EthereumGatewayAddress, EthereumBeaconClient, EthereumInboundQueue,
 };
 use codec::{Decode, Encode};
-use emulated_integration_tests_common::{PENPAL_B_ID, RESERVABLE_ASSET_ID};
+use emulated_integration_tests_common::{PENPAL_B_ID, RESERVABLE_ASSET_ID, WETH};
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::{
@@ -46,10 +45,10 @@ use snowbridge_inbound_queue_primitives::{
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
 use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
 
 pub const CHAIN_ID: u64 = 11155111;
-pub const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
 const INITIAL_FUND: u128 = 5_000_000_000_000;
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const XCM_FEE: u128 = 100_000_000_000;

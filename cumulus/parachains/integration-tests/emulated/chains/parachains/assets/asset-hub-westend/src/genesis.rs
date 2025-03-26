@@ -23,13 +23,12 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, xcm_emulator::ConvertLocation,
 	PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
 	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID,
-	SAFE_XCM_VERSION, USDT_ID,
+	SAFE_XCM_VERSION, USDT_ID, WETH,
 };
 use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::{latest::prelude::*, opaque::latest::WESTEND_GENESIS_HASH};
 use xcm_builder::ExternalConsensusLocationsConverterFor;
-use emulated_integration_tests_common::WETH;
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
