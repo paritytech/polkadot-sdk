@@ -96,10 +96,11 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
 	/// This is an experimental cli arg, it is meant to be used only if collator is overshooting
-	/// the PoV size, and building blocks that do not fit in the max_pov_size.
+	/// the PoV size, and building blocks that do not fit in the max_pov_size. It is a percentage
+	/// of the max_pov_size configuration of the relay-chain.
 	///
 	/// It will be removed once https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
-	pub experimental_max_pov_size: Option<u32>,
+	pub experimental_max_pov_percentage: Option<u32>,
 }
 
 /// Run async-backing-friendly Aura.
@@ -380,11 +381,10 @@ where
 				)
 				.await;
 
-				let allowed_pov_size = if let Some(max_pov_size) = params.experimental_max_pov_size
+				let allowed_pov_size = if let Some(experimental_max_pov_percentage) =
+					params.experimental_max_pov_percentage
 				{
-					max_pov_size
-				} else if cfg!(feature = "full-pov-size") {
-					validation_data.max_pov_size
+					validation_data.max_pov_size * max_pov_percentage / 100
 				} else {
 					// Set the block limit to 80% of the maximum PoV size.
 					//

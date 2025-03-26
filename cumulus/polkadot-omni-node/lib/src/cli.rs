@@ -202,11 +202,12 @@ pub struct Cli<Config: CliConfig> {
 	pub(crate) _phantom: PhantomData<Config>,
 
 	/// This is an experimental cli arg, it is meant to be used only if collator is overshooting
-	/// the PoV size, and building blocks that do not fit in the max_pov_size.
+	/// the PoV size, and building blocks that do not fit in the max_pov_size. It is a percentage
+	/// of the max_pov_size configuration of the relay-chain.
 	///
 	/// It will be removed once h<https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	#[arg(long)]
-	pub experimental_max_pov_size: Option<u32>,
+	pub experimental_max_pov_percentage: Option<u32>,
 }
 
 /// Collator implementation to use.
@@ -238,7 +239,7 @@ impl<Config: CliConfig> Cli<Config> {
 				.then(|| AuthoringPolicy::SlotBased)
 				.unwrap_or(self.authoring),
 			export_pov: self.export_pov_to_path.clone(),
-			experimental_max_pov_size: self.experimental_max_pov_size,
+			experimental_max_pov_percentage: self.experimental_max_pov_percentage,
 		}
 	}
 }
