@@ -313,7 +313,7 @@ jobs:
         uses: actions/checkout@v4
       - name: build
         run: |
-          forklift cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --locked --features zombie-metadata --archive-file polkadot-zombienet-tests.tar.zst
+          forklift cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --locked --features zombie-metadata,zombie-ci --archive-file polkadot-zombienet-tests.tar.zst
       - name: pack artifacts
         run: |
           mkdir -p artifacts
