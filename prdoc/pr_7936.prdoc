@@ -38,18 +38,18 @@ doc:
 
 crates:
 - name: pallet-babe
-  bump: major
+  bump: patch
 - name: pallet-beefy
-  bump: major
+  bump: patch
 - name: pallet-grandpa
-  bump: major
+  bump: patch
 - name: pallet-offences-benchmarking
-  bump: major
+  bump: patch
 - name: pallet-root-offences
-  bump: major
+  bump: patch
 - name: pallet-session-benchmarking
-  bump: major
+  bump: patch
 - name: pallet-staking
   bump: major
 - name: westend-runtime
-  bump: major
+  bump: minor
