@@ -975,39 +975,57 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn do_enqueue_message(
+	fn do_enqueue_messages<'a>(
 		origin: &MessageOriginOf<T>,
-		message: BoundedSlice<u8, MaxMessageLenOf<T>>,
+		messages: impl Iterator<Item = BoundedSlice<'a, u8, MaxMessageLenOf<T>>>,
 	) {
 		let mut book_state = BookStateFor::<T>::get(origin);
-		book_state.message_count.saturating_inc();
-		book_state
-			.size
-			// This should be payload size, but here the payload *is* the message.
-			.saturating_accrue(message.len() as u64);
 
+		let mut maybe_page = None;
+		// Check if we already have a page in progress.
 		if book_state.end > book_state.begin {
 			debug_assert!(book_state.ready_neighbours.is_some(), "Must be in ready ring if ready");
-			// Already have a page in progress - attempt to append.
-			let last = book_state.end - 1;
-			let mut page = match Pages::<T>::get(origin, last) {
-				Some(p) => p,
-				None => {
-					defensive!("Corruption: referenced page doesn't exist.");
-					return
-				},
-			};
-			if page.try_append_message::<T>(message).is_ok() {
-				Pages::<T>::insert(origin, last, &page);
-				BookStateFor::<T>::insert(origin, book_state);
-				return
+			maybe_page = Pages::<T>::get(origin, book_state.end - 1).or_else(|| {
+				defensive!("Corruption: referenced page doesn't exist.");
+				None
+			});
+		}
+
+		for message in messages {
+			// Try to append the message to the current page if possible.
+			if let Some(mut page) = maybe_page {
+				maybe_page = match page.try_append_message::<T>(message) {
+					Ok(_) => Some(page),
+					Err(_) => {
+						// Not enough space on the current page.
+						// Let's save it, since we'll move to a new one.
+						Pages::<T>::insert(origin, book_state.end - 1, page);
+						None
+					},
+				}
 			}
-		} else {
-			debug_assert!(
-				book_state.ready_neighbours.is_none(),
-				"Must not be in ready ring if not ready"
-			);
-			// insert into ready queue.
+			// If not, add it to a new page.
+			if maybe_page.is_none() {
+				book_state.end.saturating_inc();
+				book_state.count.saturating_inc();
+				maybe_page = Some(Page::from_message::<T>(message));
+			}
+
+			// Account for the message that we just added.
+			book_state.message_count.saturating_inc();
+			book_state
+				.size
+				// This should be payload size, but here the payload *is* the message.
+				.saturating_accrue(message.len() as u64);
+		}
+
+		// Save the last page that we created.
+		if let Some(page) = maybe_page {
+			Pages::<T>::insert(origin, book_state.end - 1, page);
+		}
+
+		// Insert book state for current origin into the ready queue.
+		if book_state.ready_neighbours.is_none() {
 			match Self::ready_ring_knit(origin) {
 				Ok(neighbours) => book_state.ready_neighbours = Some(neighbours),
 				Err(()) => {
@@ -1015,11 +1033,7 @@ impl<T: Config> Pallet<T> {
 				},
 			}
 		}
-		// No room on the page or no page - link in a new page.
-		book_state.end.saturating_inc();
-		book_state.count.saturating_inc();
-		let page = Page::from_message::<T>(message);
-		Pages::<T>::insert(origin, book_state.end - 1, page);
+
 		// NOTE: `T::QueueChangeHandler` is called by the caller.
 		BookStateFor::<T>::insert(origin, book_state);
 	}
@@ -1758,7 +1772,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 		message: BoundedSlice<u8, Self::MaxMessageLen>,
 		origin: <T::MessageProcessor as ProcessMessage>::Origin,
 	) {
-		Self::do_enqueue_message(&origin, message);
+		Self::do_enqueue_messages(&origin, [message].into_iter());
 		let book_state = BookStateFor::<T>::get(&origin);
 		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
@@ -1767,9 +1781,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 		messages: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		origin: <T::MessageProcessor as ProcessMessage>::Origin,
 	) {
-		for message in messages {
-			Self::do_enqueue_message(&origin, message);
-		}
+		Self::do_enqueue_messages(&origin, messages);
 		let book_state = BookStateFor::<T>::get(&origin);
 		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
