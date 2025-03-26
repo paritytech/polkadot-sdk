@@ -2832,6 +2832,11 @@ name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "asset-hub-westend-runtime",
+<<<<<<< HEAD
+=======
+ "bp-asset-hub-westend",
+ "bridge-hub-common",
+>>>>>>> d91e29d (Snowbridge - Deny ExportMessage from everywhere except for root of AH (#8037))
  "bridge-hub-westend-runtime",
  "cumulus-pallet-parachain-system 0.19.0-rc1",
  "cumulus-pallet-xcmp-queue 0.20.0-rc1",
