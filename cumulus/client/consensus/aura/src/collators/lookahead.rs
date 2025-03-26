@@ -389,7 +389,7 @@ where
 					// Set the block limit to 80% of the maximum PoV size.
 					//
 					// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
-					// fixed, this should be removed.
+					// fixed, the reservation should be removed.
 					validation_data.max_pov_size * 85 / 100
 				} as usize;
 
