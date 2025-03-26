@@ -26,8 +26,12 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime,
+		fungible::{
+			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
+			Mutate as FunMutate,
+		},
+		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		InspectLockableCurrency, Nothing, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -39,7 +43,6 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	offence::OffenceSeverity,
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
@@ -64,21 +67,21 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use super::*;
+	use codec::HasCompact;
 	use frame_election_provider_support::ElectionDataProvider;
 
 	use crate::{BenchmarkingConfig, PagedExposureMetadata};
 
-	use super::*;
-
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	/// Possible operations on the configuration values of this pallet.
-	#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+	#[derive(TypeInfo, Debug, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq)]
 	pub enum ConfigOp<T: Default + Codec> {
 		/// Don't change.
 		Noop,
@@ -90,25 +93,43 @@ pub mod pallet {
 
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
+		/// The old trait for staking balance. Deprecated and only used for migrating old ledgers.
+		#[pallet::no_default]
+		type OldCurrency: InspectLockableCurrency<
+			Self::AccountId,
+			Moment = BlockNumberFor<Self>,
+			Balance = Self::CurrencyBalance,
+		>;
+
 		/// The staking balance.
 		#[pallet::no_default]
-		type Currency: LockableCurrency<
+		type Currency: FunHoldMutate<
 				Self::AccountId,
-				Moment = BlockNumberFor<Self>,
+				Reason = Self::RuntimeHoldReason,
 				Balance = Self::CurrencyBalance,
-			> + InspectLockableCurrency<Self::AccountId>;
+			> + FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>
+			+ FunHoldBalanced<Self::AccountId, Balance = Self::CurrencyBalance>;
+
+		/// Overarching hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: From<HoldReason>;
+
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
 			+ codec::FullCodec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Copy
 			+ MaybeSerializeDeserialize
 			+ core::fmt::Debug
 			+ Default
 			+ From<u64>
 			+ TypeInfo
-			+ MaxEncodedLen
 			+ Sum;
+			+ Send
+			+ Sync
+			+ MaxEncodedLen;
 		/// Time used for computing era duration.
 		///
 		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
@@ -295,9 +316,12 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
-		/// `DisablingStragegy` controls how validators are disabled
 		#[pallet::no_default_bounds]
-		type DisablingStrategy: DisablingStrategy<Self>;
+		/// Filter some accounts from participating in staking.
+		///
+		/// This is useful for example to blacklist an account that is participating in staking in
+		/// another way (such as pools).
+		type Filter: Contains<Self::AccountId>;
 
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
@@ -309,6 +333,14 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+	}
+
+	/// A reason for placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds on stake by a nominator or a validator.
+		#[codec(index = 0)]
+		Staking,
 	}
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -329,6 +361,8 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
 			type CurrencyBalance = u128;
 			type CurrencyToVote = ();
 			type NominationsQuota = crate::FixedNominationsQuota<16>;
@@ -345,7 +379,7 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
-			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
+			type Filter = Nothing;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -702,21 +736,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
-	/// Indices of validators that have offended in the active era. The offenders are disabled for a
-	/// whole era. For this reason they are kept here - only staking pallet knows about eras. The
-	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
-	/// implicitly means that the implementor also controls the max number of disabled validators.
-	///
-	/// The vec is always kept sorted based on the u32 index so that we can find whether a given
-	/// validator has previously offended using binary search.
-	///
-	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which
-	/// represents how severe is the offence that got the validator disabled.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type DisabledValidators<T: Config> =
-		StorageValue<_, Vec<(u32, OffenceSeverity)>, ValueQuery>;
-
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
@@ -779,7 +798,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					asset::stakeable_balance::<T>(stash) >= balance,
+					asset::free_to_stake::<T>(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
@@ -868,10 +887,9 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
-		/// Validator has been disabled.
-		ValidatorDisabled { stash: T::AccountId },
-		/// Validator has been re-enabled.
-		ValidatorReenabled { stash: T::AccountId },
+		/// Staking balance migrated from locks to holds, with any balance that could not be held
+		/// is force withdrawn.
+		CurrencyMigrated { stash: T::AccountId, force_withdraw: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -943,6 +961,13 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Operation not allowed for virtual stakers.
 		VirtualStakerNotAllowed,
+		/// Stash could not be reaped as other pallet might depend on it.
+		CannotReapStash,
+		/// The stake of this account is already migrated to `Fungible` holds.
+		AlreadyMigrated,
+		/// Account is restricted from participation in staking. This may happen if the account is
+		/// staking in another way already, such as via pool.
+		Restricted,
 	}
 
 	#[pallet::hooks]
@@ -1172,6 +1197,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
+
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
@@ -1186,10 +1213,7 @@ pub mod pallet {
 				return Err(Error::<T>::InsufficientBond.into())
 			}
 
-			// Would fail if account has no provider.
-			frame_system::Pallet::<T>::inc_consumers(&stash)?;
-
-			let stash_balance = asset::stakeable_balance::<T>(&stash);
+			let stash_balance = asset::free_to_stake::<T>(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 			let ledger = StakingLedger::<T>::new(stash.clone(), value);
@@ -1222,6 +1246,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 			Self::do_bond_extra(&stash, max_additional)
 		}
 
@@ -1535,7 +1560,7 @@ pub mod pallet {
 
 			let _ = ledger
 				.set_payee(payee)
-				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
+				.defensive_proof("ledger was retrieved from storage, thus it's bonded; qed.")?;
 
 			Ok(())
 		}
@@ -1811,6 +1836,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Controller(controller))?;
+
+			ensure!(!T::Filter::contains(&ledger.stash), Error::<T>::Restricted);
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
@@ -2251,8 +2278,8 @@ pub mod pallet {
 
 					let new_total = if let Some(total) = maybe_total {
 						let new_total = total.min(stash_balance);
-						// enforce lock == ledger.amount.
-						asset::update_stake::<T>(&stash, new_total);
+						// enforce hold == ledger.amount.
+						asset::update_stake::<T>(&stash, new_total)?;
 						new_total
 					} else {
 						current_lock
@@ -2279,13 +2306,13 @@ pub mod pallet {
 					// to enforce a new ledger.total and staking lock for this stash.
 					let new_total =
 						maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?.min(stash_balance);
-					asset::update_stake::<T>(&stash, new_total);
+					asset::update_stake::<T>(&stash, new_total)?;
 
 					Ok((stash.clone(), new_total))
 				},
 				Err(Error::<T>::BadState) => {
 					// the stash and ledger do not exist but lock is lingering.
-					asset::kill_stake::<T>(&stash);
+					asset::kill_stake::<T>(&stash)?;
 					ensure!(
 						Self::inspect_bond_state(&stash) == Err(Error::<T>::NotStash),
 						Error::<T>::BadState
@@ -2309,6 +2336,84 @@ pub mod pallet {
 				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
 				Error::<T>::BadState
 			);
+			Ok(())
+		}
+
+		/// Migrates permissionlessly a stash from locks to holds.
+		///
+		/// This removes the old lock on the stake and creates a hold on it atomically. If all
+		/// stake cannot be held, the best effort is made to hold as much as possible. The remaining
+		/// stake is removed from the ledger.
+		///
+		/// The fee is waived if the migration is successful.
+		#[pallet::call_index(30)]
+		#[pallet::weight(T::WeightInfo::migrate_currency())]
+		pub fn migrate_currency(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			Self::do_migrate_currency(&stash)?;
+
+			// Refund the transaction fee if successful.
+			Ok(Pays::No.into())
+		}
+
+		/// This function allows governance to manually slash a validator and is a
+		/// **fallback mechanism**.
+		///
+		/// The dispatch origin must be `T::AdminOrigin`.
+		///
+		/// ## Parameters
+		/// - `validator_stash` - The stash account of the validator to slash.
+		/// - `era` - The era in which the validator was in the active set.
+		/// - `slash_fraction` - The percentage of the stake to slash, expressed as a Perbill.
+		///
+		/// ## Behavior
+		///
+		/// The slash will be applied using the standard slashing mechanics, respecting the
+		/// configured `SlashDeferDuration`.
+		///
+		/// This means:
+		/// - If the validator was already slashed by a higher percentage for the same era, this
+		///   slash will have no additional effect.
+		/// - If the validator was previously slashed by a lower percentage, only the difference
+		///   will be applied.
+		/// - The slash will be deferred by `SlashDeferDuration` eras before being enacted.
+		#[pallet::call_index(33)]
+		#[pallet::weight(T::WeightInfo::manual_slash())]
+		pub fn manual_slash(
+			origin: OriginFor<T>,
+			validator_stash: T::AccountId,
+			era: EraIndex,
+			slash_fraction: Perbill,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			// Check era is valid
+			let current_era = CurrentEra::<T>::get().ok_or(Error::<T>::InvalidEraToReward)?;
+			let history_depth = T::HistoryDepth::get();
+			ensure!(
+				era <= current_era && era >= current_era.saturating_sub(history_depth),
+				Error::<T>::InvalidEraToReward
+			);
+
+			let offence_details = sp_staking::offence::OffenceDetails {
+				offender: validator_stash.clone(),
+				reporters: Vec::new(),
+			};
+
+			// Get the session index for the era
+			let session_index =
+				ErasStartSessionIndex::<T>::get(era).ok_or(Error::<T>::InvalidEraToReward)?;
+
+			// Create the offence and report it through on_offence system
+			let _ = Self::on_offence(
+				core::iter::once(offence_details),
+				&[slash_fraction],
+				session_index,
+			);
+
 			Ok(())
 		}
 	}

@@ -17,7 +17,7 @@
 //! Cross-Consensus Message format data structures.
 
 pub use crate::v3::{Error as OldError, SendError, XcmHash};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::result;
 use scale_info::TypeInfo;
 
@@ -28,7 +28,7 @@ use super::*;
 /// Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that
 /// they will retain the same index over time.
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Error {
@@ -240,7 +240,7 @@ impl From<SendError> for Error {
 pub type Result = result::Result<(), Error>;
 
 /// Outcome of an XCM execution.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo)]
 pub enum Outcome {
 	/// Execution completed successfully; given weight was used.
 	Complete { used: Weight },

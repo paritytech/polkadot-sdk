@@ -15,9 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! bounties pallet benchmarking.
-
-#![cfg(feature = "runtime-benchmarks")]
+//! Bounties pallet benchmarking.
 
 use super::*;
 
@@ -35,6 +33,16 @@ const SEED: u32 = 0;
 
 fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
 	<T as pallet_treasury::Config<I>>::BlockNumberProvider::set_block_number(n);
+}
+
+fn minimum_balance<T: Config<I>, I: 'static>() -> BalanceOf<T, I> {
+	let minimum_balance = T::Currency::minimum_balance();
+
+	if minimum_balance.is_zero() {
+		1u32.into()
+	} else {
+		minimum_balance
+	}
 }
 
 // Create bounties that are approved for use in `on_initialize`.
@@ -62,12 +70,10 @@ fn setup_bounty<T: Config<I>, I: 'static>(
 	let fee = value / 2u32.into();
 	let deposit = T::BountyDepositBase::get() +
 		T::DataDepositPerByte::get() * T::MaximumReasonLength::get().into();
-	let _ = T::Currency::make_free_balance_be(&caller, deposit + T::Currency::minimum_balance());
+	let _ = T::Currency::make_free_balance_be(&caller, deposit + minimum_balance::<T, I>());
 	let curator = account("curator", u, SEED);
-	let _ = T::Currency::make_free_balance_be(
-		&curator,
-		fee / 2u32.into() + T::Currency::minimum_balance(),
-	);
+	let _ =
+		T::Currency::make_free_balance_be(&curator, fee / 2u32.into() + minimum_balance::<T, I>());
 	let reason = vec![0; d as usize];
 	(caller, curator, fee, value, reason)
 }
@@ -91,7 +97,7 @@ fn create_bounty<T: Config<I>, I: 'static>(
 
 fn setup_pot_account<T: Config<I>, I: 'static>() {
 	let pot_account = Bounties::<T, I>::account_id();
-	let value = T::Currency::minimum_balance().saturating_mul(1_000_000_000u32.into());
+	let value = minimum_balance::<T, I>().saturating_mul(1_000_000_000u32.into());
 	let _ = T::Currency::make_free_balance_be(&pot_account, value);
 }
 
@@ -140,15 +146,26 @@ benchmarks_instance_pallet! {
 		);
 	}
 
-	// Worst case when curator is inactive and any sender unassigns the curator.
+	// Worst case when curator is inactive and any sender unassigns the curator,
+	// or if `BountyUpdatePeriod` is large enough and `RejectOrigin` executes the call.
 	unassign_curator {
 		setup_pot_account::<T, I>();
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		set_block_number::<T, I>(T::SpendPeriod::get() + T::BountyUpdatePeriod::get() + 2u32.into());
-		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), bounty_id)
+		let bounty_update_period = T::BountyUpdatePeriod::get();
+		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
+		set_block_number::<T, I>(inactivity_timeout.saturating_add(2u32.into()));
+
+		// If `BountyUpdatePeriod` overflows the inactivity timeout the benchmark still executes the slash
+		let origin = if Pallet::<T, I>::treasury_block_number() <= inactivity_timeout {
+			let curator = T::Lookup::lookup(curator_lookup).map_err(<&str>::from)?;
+			T::RejectOrigin::try_successful_origin().unwrap_or_else(|_| RawOrigin::Signed(curator).into())
+		} else {
+			let caller = whitelisted_caller();
+			RawOrigin::Signed(caller).into()
+		};
+	}: _<T::RuntimeOrigin>(origin, bounty_id)
 
 	accept_curator {
 		setup_pot_account::<T, I>();

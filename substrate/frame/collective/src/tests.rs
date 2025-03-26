@@ -203,7 +203,10 @@ impl ExtBuilder {
 		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
 			system: frame_system::GenesisConfig::default(),
 			// balances: pallet_balances::GenesisConfig::default(),
-			balances: pallet_balances::GenesisConfig { balances: vec![(1, 100), (2, 200)] },
+			balances: pallet_balances::GenesisConfig {
+				balances: vec![(1, 100), (2, 200)],
+				..Default::default()
+			},
 			collective: pallet_collective::GenesisConfig {
 				members: self.collective_members,
 				phantom: Default::default(),

@@ -18,9 +18,9 @@
 //! This calls another contract as passed as its account id. It also creates some storage.
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{input, HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -43,9 +43,11 @@ pub extern "C" fn call() {
 	let ret = api::call(
 		uapi::CallFlags::empty(),
 		callee,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
-		Some(deposit_limit),
+		u64::MAX, /* How much ref_time weight to devote for the execution. u64::MAX = use all
+		           * resources. */
+		u64::MAX, /* How much proof_size weight to devote for the execution. u64::MAX = use all
+		           * resources. */
+		deposit_limit,
 		&[0u8; 32], // Value transferred to the contract.
 		input,
 		None,

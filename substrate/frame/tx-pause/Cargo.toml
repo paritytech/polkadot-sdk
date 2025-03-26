@@ -20,18 +20,18 @@ docify = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+pallet-balances = { optional = true, workspace = true }
+pallet-proxy = { optional = true, workspace = true }
+pallet-utility = { optional = true, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-runtime = { workspace = true }
-pallet-balances = { optional = true, workspace = true }
-pallet-utility = { optional = true, workspace = true }
-pallet-proxy = { optional = true, workspace = true }
 
 [dev-dependencies]
+pallet-balances = { workspace = true, default-features = true }
+pallet-proxy = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-pallet-utility = { workspace = true, default-features = true }
-pallet-proxy = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

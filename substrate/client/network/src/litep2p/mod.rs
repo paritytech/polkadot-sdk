@@ -39,7 +39,6 @@ use crate::{
 		},
 	},
 	peer_store::PeerStoreProvider,
-	protocol,
 	service::{
 		metrics::{register_without_sources, MetricSources, Metrics, NotificationMetrics},
 		out_events,
@@ -58,7 +57,7 @@ use litep2p::{
 	protocol::{
 		libp2p::{
 			bitswap::Config as BitswapConfig,
-			kademlia::{QueryId, Record, RecordsType},
+			kademlia::{QueryId, Record},
 		},
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
@@ -99,6 +98,9 @@ mod discovery;
 mod peerstore;
 mod service;
 mod shim;
+
+/// Timeout for connection waiting new substreams.
+const KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Litep2p bandwidth sink.
 struct Litep2pBandwidthSink {
@@ -274,57 +276,6 @@ impl Litep2pNetworkBackend {
 		};
 		let config_builder = ConfigBuilder::new();
 
-		// The yamux buffer size limit is configured to be equal to the maximum frame size
-		// of all protocols. 10 bytes are added to each limit for the length prefix that
-		// is not included in the upper layer protocols limit but is still present in the
-		// yamux buffer. These 10 bytes correspond to the maximum size required to encode
-		// a variable-length-encoding 64bits number. In other words, we make the
-		// assumption that no notification larger than 2^64 will ever be sent.
-		let yamux_maximum_buffer_size = {
-			let requests_max = config
-				.request_response_protocols
-				.iter()
-				.map(|cfg| usize::try_from(cfg.max_request_size).unwrap_or(usize::MAX));
-			let responses_max = config
-				.request_response_protocols
-				.iter()
-				.map(|cfg| usize::try_from(cfg.max_response_size).unwrap_or(usize::MAX));
-			let notifs_max = config
-				.notification_protocols
-				.iter()
-				.map(|cfg| usize::try_from(cfg.max_notification_size()).unwrap_or(usize::MAX));
-
-			// A "default" max is added to cover all the other protocols: ping, identify,
-			// kademlia, block announces, and transactions.
-			let default_max = cmp::max(
-				1024 * 1024,
-				usize::try_from(protocol::BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE)
-					.unwrap_or(usize::MAX),
-			);
-
-			iter::once(default_max)
-				.chain(requests_max)
-				.chain(responses_max)
-				.chain(notifs_max)
-				.max()
-				.expect("iterator known to always yield at least one element; qed")
-				.saturating_add(10)
-		};
-
-		let yamux_config = {
-			let mut yamux_config = litep2p::yamux::Config::default();
-			// Enable proper flow-control: window updates are only sent when
-			// buffered data has been consumed.
-			yamux_config.set_window_update_mode(litep2p::yamux::WindowUpdateMode::OnRead);
-			yamux_config.set_max_buffer_size(yamux_maximum_buffer_size);
-
-			if let Some(yamux_window_size) = config.network_config.yamux_window_size {
-				yamux_config.set_receive_window(yamux_window_size);
-			}
-
-			yamux_config
-		};
-
 		let (tcp, websocket): (Vec<Option<_>>, Vec<Option<_>>) = config
 			.network_config
 			.listen_addresses
@@ -373,13 +324,13 @@ impl Litep2pNetworkBackend {
 		config_builder
 			.with_websocket(WebSocketTransportConfig {
 				listen_addresses: websocket.into_iter().flatten().map(Into::into).collect(),
-				yamux_config: yamux_config.clone(),
+				yamux_config: litep2p::yamux::Config::default(),
 				nodelay: true,
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
 				listen_addresses: tcp.into_iter().flatten().map(Into::into).collect(),
-				yamux_config,
+				yamux_config: litep2p::yamux::Config::default(),
 				nodelay: true,
 				..Default::default()
 			})
@@ -566,6 +517,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			.with_connection_limits(ConnectionLimitsConfig::default().max_incoming_connections(
 				Some(crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING as usize),
 			))
+			// This has the same effect as `libp2p::Swarm::with_idle_connection_timeout` which is
+			// set to 10 seconds as well.
+			.with_keep_alive_timeout(KEEP_ALIVE_TIMEOUT)
 			.with_executor(executor);
 
 		if let Some(config) = maybe_mdns_config {
@@ -836,23 +790,45 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.peerstore_handle.add_known_peer(peer.into());
 						}
 					}
-					Some(DiscoveryEvent::GetRecordSuccess { query_id, records }) => {
+					Some(DiscoveryEvent::GetRecordPartialResult { query_id, record }) => {
+						if !self.pending_queries.contains_key(&query_id) {
+							log::error!(
+								target: LOG_TARGET,
+								"Missing/invalid pending query for `GET_VALUE` partial result: {query_id:?}"
+							);
+
+							continue
+						}
+
+						let peer_id: sc_network_types::PeerId = record.peer.into();
+						let record = PeerRecord {
+							record: P2PRecord {
+								key: record.record.key.to_vec().into(),
+								value: record.record.value,
+								publisher: record.record.publisher.map(|peer_id| {
+									let peer_id: sc_network_types::PeerId = peer_id.into();
+									peer_id.into()
+								}),
+								expires: record.record.expires,
+							},
+							peer: Some(peer_id.into()),
+						};
+
+						self.event_streams.send(
+							Event::Dht(
+								DhtEvent::ValueFound(
+									record.into()
+								)
+							)
+						);
+					}
+					Some(DiscoveryEvent::GetRecordSuccess { query_id }) => {
 						match self.pending_queries.remove(&query_id) {
 							Some(KadQuery::GetValue(key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
-									"`GET_VALUE` for {:?} ({query_id:?}) succeeded",
-									key,
+									"`GET_VALUE` for {key:?} ({query_id:?}) succeeded",
 								);
-								for record in litep2p_to_libp2p_peer_record(records) {
-									self.event_streams.send(
-										Event::Dht(
-											DhtEvent::ValueFound(
-												record.into()
-											)
-										)
-									);
-								}
 
 								if let Some(ref metrics) = self.metrics {
 									metrics
@@ -1163,44 +1139,5 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				},
 			}
 		}
-	}
-}
-
-// Glue code to convert from a litep2p records type to a libp2p2 PeerRecord.
-fn litep2p_to_libp2p_peer_record(records: RecordsType) -> Vec<PeerRecord> {
-	match records {
-		litep2p::protocol::libp2p::kademlia::RecordsType::LocalStore(record) => {
-			vec![PeerRecord {
-				record: P2PRecord {
-					key: record.key.to_vec().into(),
-					value: record.value,
-					publisher: record.publisher.map(|peer_id| {
-						let peer_id: sc_network_types::PeerId = peer_id.into();
-						peer_id.into()
-					}),
-					expires: record.expires,
-				},
-				peer: None,
-			}]
-		},
-		litep2p::protocol::libp2p::kademlia::RecordsType::Network(records) => records
-			.into_iter()
-			.map(|record| {
-				let peer_id: sc_network_types::PeerId = record.peer.into();
-
-				PeerRecord {
-					record: P2PRecord {
-						key: record.record.key.to_vec().into(),
-						value: record.record.value,
-						publisher: record.record.publisher.map(|peer_id| {
-							let peer_id: sc_network_types::PeerId = peer_id.into();
-							peer_id.into()
-						}),
-						expires: record.record.expires,
-					},
-					peer: Some(peer_id.into()),
-				}
-			})
-			.collect::<Vec<_>>(),
 	}
 }

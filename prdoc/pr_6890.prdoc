@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Alter semantic meaning of 0 in metering limits of EVM contract calls
+
+doc:
+  - audience: [ Runtime Dev, Runtime User ]
+    description: |
+      A limit of 0, for gas meters and storage meters, no longer has the meaning of unlimited metering.
+
+crates:
+  - name: pallet-revive
+    bump: patch
+  - name: pallet-revive-fixtures
+    bump: patch
+  - name: pallet-revive-uapi
+    bump: patch
+  - name: pallet-revive-eth-rpc
+    bump: patch

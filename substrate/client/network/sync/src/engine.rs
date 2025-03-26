@@ -656,7 +656,13 @@ where
 			ToServiceCommand::SetSyncForkRequest(peers, hash, number) => {
 				self.strategy.set_sync_fork_request(peers, &hash, number);
 			},
-			ToServiceCommand::EventStream(tx) => self.event_streams.push(tx),
+			ToServiceCommand::EventStream(tx) => {
+				// Let a new subscriber know about already connected peers.
+				for peer_id in self.peers.keys() {
+					let _ = tx.unbounded_send(SyncEvent::PeerConnected(*peer_id));
+				}
+				self.event_streams.push(tx);
+			},
 			ToServiceCommand::RequestJustification(hash, number) =>
 				self.strategy.request_justification(&hash, number),
 			ToServiceCommand::ClearJustificationRequests =>

@@ -24,10 +24,11 @@ mod code;
 use self::{call_builder::CallSetup, code::WasmModule};
 use crate::{
 	evm::runtime::GAS_PRICE,
-	exec::{Key, MomentOf},
+	exec::{Ext, Key, MomentOf},
 	limits,
+	pure_precompiles::Precompile,
 	storage::WriteOutcome,
-	Pallet as Contracts, *,
+	ConversionPrecision, Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
@@ -39,8 +40,17 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
-use pallet_revive_uapi::{CallFlags, ReturnErrorCode, StorageFlags};
-use sp_runtime::traits::{Bounded, Hash};
+use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
+use sp_consensus_aura::AURA_ENGINE_ID;
+use sp_consensus_babe::{
+	digests::{PreDigest, PrimaryPreDigest},
+	BABE_ENGINE_ID,
+};
+use sp_consensus_slots::Slot;
+use sp_runtime::{
+	generic::{Digest, DigestItem},
+	traits::{Bounded, Hash},
+};
 
 /// How many runs we do per API benchmark.
 ///
@@ -48,12 +58,6 @@ use sp_runtime::traits::{Bounded, Hash};
 /// the results appeared to be stable. Reducing the number would speed up the benchmarks
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
-
-/// How many runs we do per instruction benchmark.
-///
-/// Same rationale as for [`API_BENCHMARK_RUNS`]. The number is bigger because instruction
-/// benchmarks are faster.
-const INSTR_BENCHMARK_RUNS: u32 = 5000;
 
 /// Number of layers in a Radix16 unbalanced trie.
 const UNBALANCED_TRIE_LAYERS: u32 = 20;
@@ -107,8 +111,6 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
 		);
 
 		let address = outcome.result?.addr;
@@ -252,14 +254,19 @@ mod benchmarks {
 	}
 
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
-	// the execution engine. This does **not** include the actual execution for which the gas meter
-	// is responsible. This is achieved by generating all code to the `deploy` function
-	// which is in the wasm module but not executed on `call`.
-	// The results are supposed to be used as `call_with_code_per_byte(c) -
-	// call_with_code_per_byte(0)`.
+	// the execution engine.
+	//
+	// `call_with_code_per_byte(c) - call_with_code_per_byte(0)`
+	//
+	// This does **not** include the actual execution for which the gas meter
+	// is responsible. The code used here will just return on call.
+	//
+	// We expect the influence of `c` to be none in this benchmark because every instruction that
+	// is not in the first basic block is never read. We are primarily interested in the
+	// `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_code_per_byte(
-		c: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
 	) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::sized(c), vec![])?;
@@ -279,11 +286,46 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Measure the amount of time it takes to compile a single basic block.
+	//
+	// (basic_block_compilation(1) - basic_block_compilation(0)).ref_time()
+	//
+	// This is needed because the interpreter will always compile a whole basic block at
+	// a time. To prevent a contract from triggering compilation without doing any execution
+	// we will always charge one max sized block per contract call.
+	//
+	// We ignore the proof size component when using this benchmark as this is already accounted
+	// for in `call_with_code_per_byte`.
+	#[benchmark(pov_mode = Measured)]
+	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			WasmModule::with_num_instructions(limits::code::BASIC_BLOCK_SIZE),
+			vec![],
+		)?;
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[block]
+		{
+			Pallet::<T>::call(
+				RawOrigin::Signed(instance.caller.clone()).into(),
+				instance.address,
+				value,
+				Weight::MAX,
+				storage_deposit,
+				vec![],
+			)?;
+		}
+
+		Ok(())
+	}
+
 	// `c`: Size of the code in bytes.
 	// `i`: Size of the input in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
-		c: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
 		i: Linear<0, { limits::code::BLOB_BYTES }>,
 	) {
 		let input = vec![42u8; i as usize];
@@ -409,7 +451,9 @@ mod benchmarks {
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn upload_code(c: Linear<0, { limits::code::BLOB_BYTES }>) {
+	fn upload_code(
+		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
+	) {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::sized(c);
@@ -499,7 +543,7 @@ mod benchmarks {
 	fn noop_host_fn(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let mut setup = CallSetup::<T>::new(WasmModule::noop());
 		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode());
+		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode(), 0);
 		#[block]
 		{
 			prepared.call().unwrap();
@@ -556,6 +600,38 @@ mod benchmarks {
 		}
 
 		assert_eq!(result.unwrap(), 1);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_to_account_id() {
+		// use a mapped address for the benchmark, to ensure that we bench the worst
+		// case (and not the fallback case).
+		let address = {
+			let caller = account("seal_to_account_id", 0, 0);
+			T::Currency::set_balance(&caller, caller_funding::<T>());
+			T::AddressMapper::map(&caller).unwrap();
+			T::AddressMapper::to_address(&caller)
+		};
+
+		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
+		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_to_account_id(memory.as_mut_slice(), len as u32, 0);
+		}
+
+		assert_ok!(result);
+		assert_ne!(
+			memory.as_slice()[20..32],
+			[0xEE; 12],
+			"fallback suffix found where none should be"
+		);
+		assert_eq!(
+			T::AccountId::decode(&mut memory.as_slice()),
+			Ok(runtime.ext().to_account_id(&address))
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -742,7 +818,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		ext.override_export(crate::debug::ExportedFunction::Constructor);
+		ext.override_export(crate::exec::ExportedFunction::Constructor);
 
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
 
@@ -854,6 +930,59 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().block_number());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_block_author() {
+		build_runtime!(runtime, memory: [[123u8; 20], ]);
+
+		let mut digest = Digest::default();
+
+		// The pre-runtime digest log is unbounded; usually around 3 items but it can vary.
+		// To get safe benchmark results despite that, populate it with a bunch of random logs to
+		// ensure iteration over many items (we just overestimate the cost of the API).
+		for i in 0..16 {
+			digest.push(DigestItem::PreRuntime([i, i, i, i], vec![i; 128]));
+			digest.push(DigestItem::Consensus([i, i, i, i], vec![i; 128]));
+			digest.push(DigestItem::Seal([i, i, i, i], vec![i; 128]));
+			digest.push(DigestItem::Other(vec![i; 128]));
+		}
+
+		// The content of the pre-runtime digest log depends on the configured consensus.
+		// However, mismatching logs are simply ignored. Thus we construct fixtures which will
+		// let the API to return a value in both BABE and AURA consensus.
+
+		// Construct a `Digest` log fixture returning some value in BABE
+		let primary_pre_digest = vec![0; <PrimaryPreDigest as MaxEncodedLen>::max_encoded_len()];
+		let pre_digest =
+			PreDigest::Primary(PrimaryPreDigest::decode(&mut &primary_pre_digest[..]).unwrap());
+		digest.push(DigestItem::PreRuntime(BABE_ENGINE_ID, pre_digest.encode()));
+		digest.push(DigestItem::Seal(BABE_ENGINE_ID, pre_digest.encode()));
+
+		// Construct a `Digest` log fixture returning some value in AURA
+		let slot = Slot::default();
+		digest.push(DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode()));
+		digest.push(DigestItem::Seal(AURA_ENGINE_ID, slot.encode()));
+
+		frame_system::Pallet::<T>::initialize(
+			&BlockNumberFor::<T>::from(1u32),
+			&Default::default(),
+			&digest,
+		);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_block_author(memory.as_mut_slice(), 0);
+		}
+		assert_ok!(result);
+
+		let block_author = runtime
+			.ext()
+			.block_author()
+			.map(|account| T::AddressMapper::to_address(&account))
+			.unwrap_or(H160::zero());
+		assert_eq!(&memory[..], block_author.as_bytes());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -981,23 +1110,10 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_terminate(
-		n: Linear<0, { limits::DELEGATE_DEPENDENCIES }>,
-	) -> Result<(), BenchmarkError> {
+	fn seal_terminate() -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		let caller = whitelisted_caller();
-		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let origin = RawOrigin::Signed(caller);
-		let storage_deposit = default_deposit_limit::<T>();
 
 		build_runtime!(runtime, memory: [beneficiary.encode(),]);
-
-		(0..n).for_each(|i| {
-			let new_code = WasmModule::dummy_unique(65 + i);
-			Contracts::<T>::bare_upload_code(origin.clone().into(), new_code.code, storage_deposit)
-				.unwrap();
-			runtime.ext().lock_delegate_dependency(new_code.hash).unwrap();
-		});
 
 		let result;
 		#[block]
@@ -1045,32 +1161,6 @@ mod benchmarks {
 			record.event,
 			crate::Event::ContractEmitted { contract: instance.address, data, topics }.into(),
 		);
-	}
-
-	// Benchmark debug_message call
-	// Whereas this function is used in RPC mode only, it still should be secured
-	// against an excessive use.
-	//
-	// i: size of input in bytes up to maximum allowed contract memory or maximum allowed debug
-	// buffer size, whichever is less.
-	#[benchmark]
-	fn seal_debug_message(
-		i: Linear<0, { (limits::code::BLOB_BYTES).min(limits::DEBUG_BUFFER_BYTES) }>,
-	) {
-		let mut setup = CallSetup::<T>::default();
-		setup.enable_debug_message();
-		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-		// Fill memory with printable ASCII bytes.
-		let mut memory = (0..i).zip((32..127).cycle()).map(|i| i.1).collect::<Vec<_>>();
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_debug_message(memory.as_mut_slice(), 0, i);
-		}
-		assert_ok!(result);
-		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
@@ -1646,16 +1736,12 @@ mod benchmarks {
 		{
 			result = runtime.bench_call(
 				memory.as_mut_slice(),
-				CallFlags::CLONE_INPUT.bits(), // flags
-				0,                             // callee_ptr
-				0,                             // ref_time_limit
-				0,                             // proof_size_limit
-				callee_len,                    // deposit_ptr
-				callee_len + deposit_len,      // value_ptr
-				0,                             // input_data_ptr
-				0,                             // input_data_len
-				SENTINEL,                      // output_ptr
-				0,                             // output_len_ptr
+				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
+				u64::MAX,                                     // ref_time_limit
+				u64::MAX,                                     // proof_size_limit
+				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+				pack_hi_lo(0, 0),                             // input len + data ptr
+				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
 			);
 		}
 
@@ -1686,15 +1772,12 @@ mod benchmarks {
 		{
 			result = runtime.bench_delegate_call(
 				memory.as_mut_slice(),
-				0,           // flags
-				0,           // address_ptr
-				0,           // ref_time_limit
-				0,           // proof_size_limit
-				address_len, // deposit_ptr
-				0,           // input_data_ptr
-				0,           // input_data_len
-				SENTINEL,    // output_ptr
-				0,
+				pack_hi_lo(0, 0),        // flags + address ptr
+				u64::MAX,                // ref_time_limit
+				u64::MAX,                // proof_size_limit
+				address_len,             // deposit_ptr
+				pack_hi_lo(0, 0),        // input len + data ptr
+				pack_hi_lo(0, SENTINEL), // output len + ptr
 			);
 		}
 
@@ -1709,13 +1792,12 @@ mod benchmarks {
 		let code = WasmModule::dummy();
 		let hash = Contract::<T>::with_index(1, WasmModule::dummy(), vec![])?.info()?.code_hash;
 		let hash_bytes = hash.encode();
-		let hash_len = hash_bytes.len() as u32;
 
 		let value: BalanceOf<T> = 1_000_000u32.into();
 		let value_bytes = Into::<U256>::into(value).encode();
 		let value_len = value_bytes.len() as u32;
 
-		let deposit: BalanceOf<T> = 0u32.into();
+		let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
 		let deposit_bytes = Into::<U256>::into(deposit).encode();
 		let deposit_len = deposit_bytes.len() as u32;
 
@@ -1728,11 +1810,12 @@ mod benchmarks {
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 
 		let input = vec![42u8; i as _];
+		let input_len = hash_bytes.len() as u32 + input.len() as u32;
 		let salt = [42u8; 32];
 		let deployer = T::AddressMapper::to_address(&account_id);
 		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
-		let mut memory = memory!(hash_bytes, deposit_bytes, value_bytes, input, salt,);
+		let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
 
 		let mut offset = {
 			let mut current = 0u32;
@@ -1749,17 +1832,12 @@ mod benchmarks {
 		{
 			result = runtime.bench_instantiate(
 				memory.as_mut_slice(),
-				0,                   // code_hash_ptr
-				0,                   // ref_time_limit
-				0,                   // proof_size_limit
-				offset(hash_len),    // deposit_ptr
-				offset(deposit_len), // value_ptr
-				offset(value_len),   // input_data_ptr
-				i,                   // input_data_len
-				SENTINEL,            // address_ptr
-				SENTINEL,            // output_ptr
-				0,                   // output_len_ptr
-				offset(i),           // salt_ptr
+				u64::MAX,                                           // ref_time_limit
+				u64::MAX,                                           // proof_size_limit
+				pack_hi_lo(offset(input_len), offset(deposit_len)), // deopsit_ptr + value_ptr
+				pack_hi_lo(input_len, 0),                           // input_data_len + input_data
+				pack_hi_lo(0, SENTINEL),                            // output_len_ptr + output_ptr
+				pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
 			);
 		}
 
@@ -1767,23 +1845,59 @@ mod benchmarks {
 		assert!(ContractInfoOf::<T>::get(&addr).is_some());
 		assert_eq!(
 			T::Currency::balance(&account_id),
-			Pallet::<T>::min_balance() + Pallet::<T>::convert_evm_to_native(value.into()).unwrap()
+			Pallet::<T>::min_balance() +
+				Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
+					.unwrap()
 		);
 		Ok(())
 	}
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_sha2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
+	fn sha2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let input = vec![0u8; n as usize];
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_hash_sha2_256(memory.as_mut_slice(), 32, n, 0);
+			result = pure_precompiles::Sha256::execute(ext.gas_meter_mut(), &input);
 		}
-		assert_eq!(sp_io::hashing::sha2_256(&memory[32..]), &memory[0..32]);
-		assert_ok!(result);
+		assert_eq!(sp_io::hashing::sha2_256(&input).to_vec(), result.unwrap().data);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn identity(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let input = vec![0u8; n as usize];
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = pure_precompiles::Identity::execute(ext.gas_meter_mut(), &input);
+		}
+		assert_eq!(input, result.unwrap().data);
+	}
+
+	// `n`: Input to hash in bytes
+	#[benchmark(pov_mode = Measured)]
+	fn ripemd_160(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		use ripemd::Digest;
+		let input = vec![0u8; n as usize];
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = pure_precompiles::Ripemd160::execute(ext.gas_meter_mut(), &input);
+		}
+		let mut expected = [0u8; 32];
+		expected[12..32].copy_from_slice(&ripemd::Ripemd160::digest(input));
+
+		assert_eq!(expected.to_vec(), result.unwrap().data);
 	}
 
 	// `n`: Input to hash in bytes
@@ -1860,30 +1974,89 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_ecdsa_recover() {
-		let message_hash = sp_io::hashing::blake2_256("Hello world".as_bytes());
-		let key_type = sp_core::crypto::KeyTypeId(*b"code");
-		let signature = {
-			let pub_key = sp_io::crypto::ecdsa_generate(key_type, None);
-			let sig = sp_io::crypto::ecdsa_sign_prehashed(key_type, &pub_key, &message_hash)
-				.expect("Generates signature");
-			AsRef::<[u8; 65]>::as_ref(&sig).to_vec()
-		};
+	fn ecdsa_recover() {
+		use hex_literal::hex;
+		let input = hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549");
+		let expected = hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
-		build_runtime!(runtime, memory: [signature, message_hash, [0u8; 33], ]);
+		let result;
+
+		#[block]
+		{
+			result = pure_precompiles::ECRecover::execute(ext.gas_meter_mut(), &input);
+		}
+
+		assert_eq!(result.unwrap().data, expected);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn bn128_add() {
+		use hex_literal::hex;
+		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b3625f8c89ea3437f44f8fc8b6bfbb6312074dc6f983809a5e809ff4e1d076dd5850b38c7ced6e4daef9c4347f370d6d8b58f4b1d8dc61a3c59d651a0644a2a27cf");
+		let expected = hex!("0a6678fd675aa4d8f0d03a1feb921a27f38ebdcb860cc083653519655acd6d79172fd5b3b2bfdd44e43bcec3eace9347608f9f0a16f1e184cb3f52e6f259cbeb");
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+
+		#[block]
+		{
+			result = pure_precompiles::Bn128Add::execute(ext.gas_meter_mut(), &input);
+		}
+
+		assert_eq!(result.unwrap().data, expected);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn bn128_mul() {
+		use hex_literal::hex;
+		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b36ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+		let expected = hex!("0bf982b98a2757878c051bfe7eee228b12bc69274b918f08d9fcb21e9184ddc10b17c77cbf3c19d5d27e18cbd4a8c336afb488d0e92c18d56e64dd4ea5c437e6");
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+
+		#[block]
+		{
+			result = pure_precompiles::Bn128Mul::execute(ext.gas_meter_mut(), &input);
+		}
+
+		assert_eq!(result.unwrap().data, expected);
+	}
+
+	// `n`: pairings to perform
+	#[benchmark(pov_mode = Measured)]
+	fn bn128_pairing(n: Linear<0, { limits::code::BLOB_BYTES / 192 }>) {
+		let input = pure_precompiles::generate_random_ecpairs(n as usize);
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_ecdsa_recover(
-				memory.as_mut_slice(),
-				0,       // signature_ptr
-				65,      // message_hash_ptr
-				65 + 32, // output_ptr
-			);
+			result = pure_precompiles::Bn128Pairing::execute(ext.gas_meter_mut(), &input);
 		}
+		assert_ok!(result);
+	}
 
-		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+	// `n`: number of rounds to perform
+	#[benchmark(pov_mode = Measured)]
+	fn blake2f(n: Linear<0, 1200>) {
+		use hex_literal::hex;
+		let input = hex!("48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001");
+		let input = n.to_be_bytes().to_vec().into_iter().chain(input.to_vec()).collect::<Vec<_>>();
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = pure_precompiles::Blake2F::execute(ext.gas_meter_mut(), &input);
+		}
+		assert_ok!(result);
 	}
 
 	// Only calling the function itself for the list of
@@ -1926,49 +2099,83 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark(pov_mode = Measured)]
-	fn lock_delegate_dependency() -> Result<(), BenchmarkError> {
-		let code_hash = Contract::<T>::with_index(1, WasmModule::dummy_unique(1), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_lock_delegate_dependency(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		Ok(())
-	}
-
-	#[benchmark]
-	fn unlock_delegate_dependency() -> Result<(), BenchmarkError> {
-		let code_hash = Contract::<T>::with_index(1, WasmModule::dummy_unique(1), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
-		runtime.bench_lock_delegate_dependency(memory.as_mut_slice(), 0).unwrap();
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_unlock_delegate_dependency(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		Ok(())
-	}
-
 	// Benchmark the execution of instructions.
+	//
+	// It benchmarks the absolute worst case by allocating a lot of memory
+	// and then accessing it so that each instruction generates two cache misses.
 	#[benchmark(pov_mode = Ignored)]
-	fn instr(r: Linear<0, INSTR_BENCHMARK_RUNS>) {
-		let mut setup = CallSetup::<T>::new(WasmModule::instr());
+	fn instr(r: Linear<0, 10_000>) {
+		use rand::{seq::SliceRandom, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		// Ideally, this needs to be bigger than the cache.
+		const MEMORY_SIZE: u64 = sp_core::MAX_POSSIBLE_ALLOCATION as u64;
+
+		// This is benchmarked for x86-64.
+		const CACHE_LINE_SIZE: u64 = 64;
+
+		// An 8 byte load from this misalignment will reach into the subsequent line.
+		const MISALIGNMENT: u64 = 60;
+
+		// We only need one address per cache line.
+		// -1 because we skip the first address
+		const NUM_ADDRESSES: u64 = (MEMORY_SIZE - MISALIGNMENT) / CACHE_LINE_SIZE - 1;
+
+		assert!(
+			u64::from(r) <= NUM_ADDRESSES / 2,
+			"If we do too many iterations we run into the risk of loading from warm cache lines",
+		);
+
+		let mut setup = CallSetup::<T>::new(WasmModule::instr(true));
 		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode());
+		let mut prepared =
+			CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), MEMORY_SIZE as u32);
+
+		assert!(
+			u64::from(prepared.aux_data_base()) & (CACHE_LINE_SIZE - 1) == 0,
+			"aux data base must be cache aligned"
+		);
+
+		// Addresses data will be located inside the aux data.
+		let misaligned_base = u64::from(prepared.aux_data_base()) + MISALIGNMENT;
+
+		// Create all possible addresses and shuffle them. This makes sure
+		// the accesses are random but no address is accessed more than once.
+		// we skip the first address since it is our entry point
+		let mut addresses = Vec::with_capacity(NUM_ADDRESSES as usize);
+		for i in 1..NUM_ADDRESSES {
+			let addr = (misaligned_base + i * CACHE_LINE_SIZE).to_le_bytes();
+			addresses.push(addr);
+		}
+		let mut rng = Pcg64::seed_from_u64(1337);
+		addresses.shuffle(&mut rng);
+
+		// The addresses need to be padded to be one cache line apart.
+		let mut memory = Vec::with_capacity((NUM_ADDRESSES * CACHE_LINE_SIZE) as usize);
+		for address in addresses {
+			memory.extend_from_slice(&address);
+			memory.resize(memory.len() + CACHE_LINE_SIZE as usize - address.len(), 0);
+		}
+
+		// Copies `memory` to `aux_data_base + MISALIGNMENT`.
+		// Sets `a0 = MISALIGNMENT` and `a1 = r`.
+		prepared
+			.setup_aux_data(memory.as_slice(), MISALIGNMENT as u32, r.into())
+			.unwrap();
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_empty_loop(r: Linear<0, 100_000>) {
+		let mut setup = CallSetup::<T>::new(WasmModule::instr(false));
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
+		prepared.setup_aux_data(&[], 0, r.into()).unwrap();
+
 		#[block]
 		{
 			prepared.call().unwrap();

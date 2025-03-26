@@ -18,22 +18,22 @@ futures-timer = { workspace = true }
 # Substrate
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
-sc-transaction-pool = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
+sc-network-transactions = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-network-sync = { workspace = true, default-features = true }
+sc-transaction-pool = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
-sc-network-transactions = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-primitives = { workspace = true, default-features = true }
@@ -42,10 +42,10 @@ polkadot-primitives = { workspace = true, default-features = true }
 cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
-cumulus-client-pov-recovery = { workspace = true, default-features = true }
 cumulus-client-network = { workspace = true, default-features = true }
+cumulus-client-pov-recovery = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
-cumulus-relay-chain-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-inprocess-interface = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-minimal-node = { workspace = true, default-features = true }

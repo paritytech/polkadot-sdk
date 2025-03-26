@@ -23,7 +23,7 @@
 
 use crate::{BlakeTwo256, HashT as _, PvfExecKind, PvfPrepKind};
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{ops::Deref, time::Duration};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
@@ -67,7 +67,18 @@ const DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS: u64 =
 	DEFAULT_APPROVAL_EXECUTION_TIMEOUT.as_millis() as u64;
 
 /// The different executor parameters for changing the execution environment semantics.
-#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo, Serialize, Deserialize)]
+#[derive(
+	Clone,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	Eq,
+	TypeInfo,
+	Serialize,
+	Deserialize,
+)]
 pub enum ExecutorParam {
 	/// Maximum number of memory pages (64KiB bytes per page) the executor can allocate.
 	/// A valid value lies within (0, 65536].
@@ -190,7 +201,17 @@ impl core::fmt::LowerHex for ExecutorParamsPrepHash {
 // !!! Any new parameter that does not affect the prepared artifact must be added to the exclusion
 // !!! list in `prep_hash()` to avoid unneccessary artifact rebuilds.
 #[derive(
-	Clone, Debug, Default, Encode, Decode, PartialEq, Eq, TypeInfo, Serialize, Deserialize,
+	Clone,
+	Debug,
+	Default,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	Eq,
+	TypeInfo,
+	Serialize,
+	Deserialize,
 )]
 pub struct ExecutorParams(Vec<ExecutorParam>);
 

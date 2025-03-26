@@ -17,7 +17,7 @@
 //! XCM `Junctions`/`InteriorMultiLocation` datatype.
 
 use super::{Junction, MultiLocation, NetworkId};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{mem, result};
 use scale_info::TypeInfo;
 
@@ -38,6 +38,7 @@ pub(crate) const MAX_JUNCTIONS: usize = 8;
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
