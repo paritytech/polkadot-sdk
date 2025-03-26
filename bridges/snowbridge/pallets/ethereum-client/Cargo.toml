@@ -32,16 +32,10 @@ sp-io = { optional = true, workspace = true }
 sp-runtime.workspace = true
 sp-std.workspace = true
 pallet-timestamp = { optional = true, workspace = true }
-<<<<<<< HEAD
 snowbridge-beacon-primitives.workspace = true
 snowbridge-core.workspace = true
 snowbridge-ethereum.workspace = true
-=======
-snowbridge-beacon-primitives = { workspace = true }
-snowbridge-core = { workspace = true }
-snowbridge-ethereum = { workspace = true }
-snowbridge-inbound-queue-primitives = { workspace = true }
->>>>>>> 98c6ffce (Snowbridge V2 (#7402))
+snowbridge-inbound-queue-primitives.workspace = true
 snowbridge-pallet-ethereum-client-fixtures = { optional = true, workspace = true }
 static_assertions = { workspace = true }
 
