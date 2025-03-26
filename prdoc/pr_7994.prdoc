@@ -7,3 +7,4 @@ doc:
 
 crates:
   - name: cumulus-client-cli
+    bump: patch
