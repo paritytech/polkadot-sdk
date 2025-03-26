@@ -380,10 +380,11 @@ where
 				)
 				.await;
 
-				let allowed_pov_size = if cfg!(feature = "full-pov-size") {
-					validation_data.max_pov_size
-				} else if let Some(max_pov_size) = params.experimental_max_pov_size {
+				let allowed_pov_size = if let Some(max_pov_size) = params.experimental_max_pov_size
+				{
 					max_pov_size
+				} else if cfg!(feature = "full-pov-size") {
+					validation_data.max_pov_size
 				} else {
 					// Set the block limit to 80% of the maximum PoV size.
 					//
