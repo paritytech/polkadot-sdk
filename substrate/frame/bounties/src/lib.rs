@@ -1690,13 +1690,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
-	/// Advance state machine of payout, used for curator and beneficiary payments
+	/// Advances the state machine for payout, used for both curator and beneficiary payments.
 	fn do_check_payment_status_for_payout(
-		// counter for the state changes that we'd like to keep in the storage
-		// say, first payment progresses and second fails, we want to save progress
-		// of the first in the state machine even if second payment is not successful yet
+		// counter for payments that have changed state during this call. For
+		// example, if one payment succeeds and another fails, both count as "progressed" since
+		// they advanced the state machine.
 		payments_progressed: &mut i32,
-		// payments that have finished processing successfully
+		// counter for payments that have finished processing successfully
 		payments_succeeded: &mut i32,
 		beneficiary: &mut (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
 	) -> Result<(), Error<T, I>> {

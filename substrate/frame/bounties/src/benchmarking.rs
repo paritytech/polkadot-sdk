@@ -68,8 +68,6 @@ fn setup_bounty<T: Config<I>, I: 'static>(
 	Vec<u8>,
 ) {
 	let caller = account("caller", user, SEED);
-	// Tiago: check with Muharem if we need coupling with pallet-assets
-	// let value: BalanceOf<T, I> = T::BountyValueMinimum::get().saturating_mul(100u32.into());
 	let asset_kind = <T as Config<I>>::BenchmarkHelper::create_asset_kind(SEED);
 	let value: BalanceOf<T, I> = 100_000u32.into();
 	// Tiago: check with Muharem if we need coupling with pallet-assets
