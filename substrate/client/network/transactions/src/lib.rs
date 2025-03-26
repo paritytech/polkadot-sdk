@@ -220,26 +220,25 @@ pub struct TransactionsHandlerController<H: ExHashT> {
 }
 
 impl<H: ExHashT> TransactionsHandlerController<H> {
-	/// You may call this when new transactions are imported by the transaction pool.
+	/// Available transactions from the transaction pool will be propagated to peers.
 	///
-	/// All transactions will be fetched from the `TransactionPool` that was passed at
-	/// initialization as part of the configuration and propagated to peers.
-	pub fn propagate_transactions(&self) {
-		let _ = self.to_handler.unbounded_send(ToHandler::PropagateTransactions);
+	/// This operation also happens periodically and is controlled by the `PROPAGATE_TIMEOUT`.
+	pub fn propagate_pool_transactions(&self) {
+		let _ = self.to_handler.unbounded_send(ToHandler::PropagatePoolTransactions);
 	}
 
-	/// You must call when new a transaction is imported by the transaction pool.
+	/// The provided transactions are propagated to peers.
 	///
-	/// This transaction will be fetched from the `TransactionPool` that was passed at
-	/// initialization as part of the configuration and propagated to peers.
-	pub fn propagate_transaction(&self, hash: H) {
-		let _ = self.to_handler.unbounded_send(ToHandler::PropagateTransaction(hash));
+	/// The transactions are provided by the transaction pool import notification stream
+	/// (ie `import_notification_stream`).
+	pub fn propagate_imported_transactions(&self, hashes: Vec<H>) {
+		let _ = self.to_handler.unbounded_send(ToHandler::PropagateImportedTransaction(hashes));
 	}
 }
 
 enum ToHandler<H: ExHashT> {
-	PropagateTransactions,
-	PropagateTransaction(H),
+	PropagatePoolTransactions,
+	PropagateImportedTransaction(Vec<H>),
 }
 
 /// Handler for transactions. Call [`TransactionsHandler::run`] to start the processing.
@@ -315,8 +314,12 @@ where
 				}
 				message = self.from_controller.select_next_some() => {
 					match message {
-						ToHandler::PropagateTransaction(hash) => self.propagate_transaction(&hash),
-						ToHandler::PropagateTransactions => self.propagate_transactions(),
+						ToHandler::PropagateImportedTransaction(hashes) => {
+							trace!(target: "sync", "Propagating transaction from controller num={}", hashes.len());
+
+							self.propagate_imported_transactions(hashes);
+						}
+						ToHandler::PropagatePoolTransactions => self.propagate_transactions(),
 					}
 				},
 				event = self.notification_service.next_event().fuse() => {
@@ -451,20 +454,22 @@ where
 		}
 	}
 
-	/// Propagate one transaction.
-	pub fn propagate_transaction(&mut self, hash: &H) {
+	/// Propagate imported transactions.
+	pub fn propagate_imported_transactions(&mut self, hashes: Vec<H>) {
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
 			return
 		}
 
-		debug!(target: LOG_TARGET, "Propagating transaction [{:?}]", hash);
-		if let Some(transaction) = self.transaction_pool.transaction(hash) {
-			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
-			self.transaction_pool.on_broadcasted(propagated_to);
-		} else {
-			debug!(target: "sync", "Propagating transaction failure [{:?}]", hash);
-		}
+		debug!(target: LOG_TARGET, "Propagating transaction [{:?}]", hashes);
+
+		let transactions = hashes
+			.into_iter()
+			.filter_map(|hash| self.transaction_pool.transaction(&hash).map(|tx| (hash, tx)))
+			.collect::<Vec<_>>();
+
+		let propagated_to = self.do_propagate_transactions(&transactions);
+		self.transaction_pool.on_broadcasted(propagated_to);
 	}
 
 	fn do_propagate_transactions(
@@ -492,21 +497,23 @@ where
 				for hash in hashes {
 					propagated_to.entry(hash).or_default().push(who.to_base58());
 				}
-				trace!(target: "sync", "Sending {} transactions to {}", to_send.len(), who);
-				// Historically, the format of a notification of the transactions protocol
-				// consisted in a (SCALE-encoded) `Vec<Transaction>`.
-				// After RFC 56, the format was modified in a backwards-compatible way to be
-				// a (SCALE-encoded) tuple `(Compact(1), Transaction)`, which is the same encoding
-				// as a `Vec` of length one. This is no coincidence, as the change was
-				// intentionally done in a backwards-compatible way.
-				// In other words, the `Vec` that is sent below **must** always have only a single
-				// element in it.
+
+				// Note: This does not entirely comply with the RFC 56. However, this is entirely
+				// compatible with substrate-based chains.
+				//
+				// The RFC 56 specifies that the transactions should be encoded over the wire as a
+				// scale-encoded vector of a single transaction. Therefore, submitting a vector
+				// of transactions is entirely compatible.
+				//
+				// One issue with this approach is that the receiving end of this message must know
+				// the runtime in order to decode the transactions. For example, the lightclient
+				// being runtime agnostic will not be able to properly decode the transactions,
+				// but full nodes (and authorities) will.
+				//
 				// See <https://github.com/polkadot-fellows/RFCs/blob/main/text/0056-one-transaction-per-notification.md>
-				for to_send in to_send {
-					let _ = self
-						.notification_service
-						.send_sync_notification(who, vec![to_send].encode());
-				}
+				let encoded = to_send.encode();
+				debug!(target: "sync", "Sending bytes={} tx={} to {}", encoded.len(), to_send.len(), who);
+				let _ = self.notification_service.send_sync_notification(who, encoded);
 			}
 		}
 
