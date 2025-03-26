@@ -27,8 +27,7 @@ pub mod pallet {
 	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
 	use sp_runtime::traits::Dispatchable;
 	use xcm::latest::{
-		Asset, Assets, InteriorLocation, Junction, Location, NetworkId,
-		Response, WeightLimit,
+		Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response, WeightLimit,
 	};
 
 	#[pallet::config]
@@ -75,7 +74,7 @@ pub mod pallet {
 
 		/// Return an origin, ticket, and assets that can be trapped and claimed.
 		fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError>;
-		
+
 		/// The worst case buy execution weight limit and
 		/// asset to trigger the Trader::buy_execution in the XCM executor
 		/// Used to buy weight in benchmarks, for example in
