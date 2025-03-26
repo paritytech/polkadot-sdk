@@ -1,11 +1,26 @@
 title: '[AHM] Replace Validator FullIdentification from `Exposure` to `Existence`'
 doc:
 - audience: Todo
-  description: |-
-    closes https://github.com/paritytech/polkadot-sdk/issues/6344.
-
-    ## TODO
-    - [ ] TryStateCheck to see existing offence report decodes correctly.
+  description: "closes https://github.com/paritytech/polkadot-sdk/issues/6344.\n\n\
+    This introduces a new type, `ExistenceOf`, which replaces `ExposureOf`. With this\
+    \ change, runtimes can be configured to identify a validator solely by their presence,\
+    \ rather than using full exposure data.\n\nThis is particularly useful when configuring\
+    \ historical sessions, for example:\n```\nimpl pallet_session::historical::Config\
+    \ for Runtime {\n\ttype FullIdentification = pallet_staking::Existence;\n\ttype\
+    \ FullIdentificationOf = pallet_staking::ExistenceOf<Runtime>;\n}\n```\n\nHowever,\
+    \ for existing runtimes that depend on the `Exposure` type for `pallet-offences`\
+    \ \u2014 often configured like this:\n\n```\nimpl pallet_offences::Config for\
+    \ Runtime {\n        ...\n\ttype IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;\n\
+    }\n```\n\nWhere `IdentificationTuple` is defined as:\n```\npub type IdentificationTuple<T>\
+    \ =\n\t(<T as pallet_session::Config>::ValidatorId, <T as Config>::FullIdentification);\n\
+    \n```\n\nYou should use `ExistenceOrLegacyExposureOf` instead. This type includes\
+    \ a custom encoder/decoder that supports both the legacy `Exposure` type and the\
+    \ new `Existence` type.\n\nThis compatibility layer is necessary because `pallet-offences`\
+    \ stores the `FullIdentification` type in its storage. If you replace `FullIdentification`\
+    \ with `Existence` directly, any previously stored items using `Exposure` will\
+    \ fail to decode. `ExistenceOrLegacyExposureOf` ensures backward compatibility\
+    \ during the transition.\n\n\n## TODO\n- [x] TryStateCheck to see existing offence\
+    \ report decodes correctly."
 crates:
 - name: pallet-babe
   bump: major
@@ -22,6 +37,4 @@ crates:
 - name: pallet-staking
   bump: major
 - name: westend-runtime
-  bump: major
-- name: pallet-staking-ah-client
   bump: major
