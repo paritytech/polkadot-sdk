@@ -973,7 +973,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 				let versioned_xcm = T::VersionWrapper::wrap_version(&d, xcm)
 					.map_err(|()| SendError::DestinationUnsupported)?;
 				versioned_xcm
-					.check_is_decodable()
+					.validate_xcm_nesting()
 					.map_err(|()| SendError::ExceedsMaxMessageSize)?;
 
 				Ok(((id, versioned_xcm), price))

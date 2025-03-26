@@ -11,7 +11,7 @@ doc:
 
 crates:
   - name: staging-xcm
-    bump: minor
+    bump: patch
   - name: staging-xcm-builder
     bump: patch
   - name: cumulus-pallet-xcmp-queue
