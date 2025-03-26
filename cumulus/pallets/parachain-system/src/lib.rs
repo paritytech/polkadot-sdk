@@ -30,13 +30,8 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-<<<<<<< HEAD
-use codec::{Decode, Encode};
-use core::cmp;
-=======
 use codec::{Decode, DecodeLimit, Encode};
-use core::{cmp, marker::PhantomData};
->>>>>>> 2a239206 (Fix XCM decoding inconsistencies (#7856))
+use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
 	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
@@ -371,7 +366,8 @@ pub mod pallet {
 
 			let maximum_channels = host_config
 				.hrmp_max_message_num_per_candidate
-				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take()) as usize;
+				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
+				as usize;
 
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has

@@ -164,14 +164,7 @@ impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P
 						message
 					})
 					.collect();
-<<<<<<< HEAD
 				(VersionedLocation::V4(Parachain(para_id.into()).into()), decoded_messages)
-=======
-				(
-					VersionedLocation::from(Location::from(Parachain(para_id.into()))),
-					decoded_messages,
-				)
->>>>>>> 2a239206 (Fix XCM decoding inconsistencies (#7856))
 			})
 			.collect()
 	}
