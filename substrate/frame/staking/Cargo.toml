@@ -23,10 +23,8 @@ frame-election-provider-support.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 log = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-session = { features = [
-	"historical",
-], workspace = true }
+pallet-authorship.workspace = true
+pallet-session = { features = ["historical"], workspace = true }
 rand = { features = ["alloc"], workspace = true }
 rand_chacha = { optional = true, workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
@@ -48,9 +46,9 @@ pallet-staking-reward-curve = { default-features = true, path = "reward-curve" }
 pallet-timestamp = { default-features = true, path = "../timestamp" }
 rand_chacha = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-sp-npos-elections = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-substrate-test-utils = { workspace = true }
+sp-npos-elections = { default-features = true, path = "../../primitives/npos-elections" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]

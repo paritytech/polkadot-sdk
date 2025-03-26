@@ -993,15 +993,15 @@ pallet-safe-mode = { default-features = false, path = "substrate/frame/safe-mode
 pallet-salary = { path = "substrate/frame/salary", default-features = false, version = "25.0.0-rc1" }
 pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false, version = "41.0.0-rc1" }
 pallet-scored-pool = { default-features = false, path = "substrate/frame/scored-pool" }
-pallet-session = { path = "substrate/frame/session", default-features = false }
-pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", default-features = false }
-pallet-skip-feeless-payment = { path = "substrate/frame/transaction-payment/skip-feeless-payment", default-features = false }
-pallet-society = { path = "substrate/frame/society", default-features = false }
-pallet-staking = { path = "substrate/frame/staking", default-features = false }
-pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false }
-pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
-pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
-pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false }
+pallet-session = { path = "substrate/frame/session", default-features = false, version = "40.0.0-rc1" }
+pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", default-features = false, version = "40.0.0-rc1" }
+pallet-skip-feeless-payment = { path = "substrate/frame/transaction-payment/skip-feeless-payment", default-features = false, version = "15.0.0-rc1" }
+pallet-society = { path = "substrate/frame/society", default-features = false, version = "40.0.0-rc1" }
+pallet-staking = { path = "substrate/frame/staking", default-features = false, version = "40.0.0-rc1" }
+pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false, version = "12.0.0" }
+pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false, version = "22.0.0" }
+pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false, version = "26.0.0-rc1" }
+pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false, version = "44.0.0-rc1" }
 pallet-statement = { default-features = false, path = "substrate/frame/statement" }
 pallet-sudo = { path = "substrate/frame/sudo", default-features = false, version = "40.0.0-rc1" }
 pallet-template = { path = "templates/solochain/pallets/template", default-features = false, version = "0.1.0" }

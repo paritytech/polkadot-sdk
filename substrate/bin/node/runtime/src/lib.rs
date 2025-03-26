@@ -2753,11 +2753,6 @@ mod runtime {
 
 	#[runtime::pallet_index(84)]
 	pub type AssetsFreezer = pallet_assets_freezer::Pallet<Runtime, Instance1>;
-
-	// Indices 85-88 (including) are reserved for multi block election pallets
-
-	#[runtime::pallet_index(89)]
-	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
