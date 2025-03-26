@@ -21,6 +21,7 @@ use emulated_integration_tests_common::{macros::AccountId, test_cross_chain_alia
 use frame_support::traits::ContainsPair;
 use xcm::latest::Junctions::*;
 
+const ALLOWED: bool = true;
 const DENIED: bool = false;
 
 const TELEPORT_FEES: bool = true;
@@ -174,4 +175,51 @@ fn asset_hub_root_aliases_anything() {
 		let origin = Location::new(1, X1([Parachain(1002)].into()));
 		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
 	});
+}
+
+#[test]
+fn authorized_cross_chain_aliases() {
+	// origin and target are different accounts on different chains
+	let origin: AccountId = [100; 32].into();
+	let bad_origin: AccountId = [150; 32].into();
+	let target: AccountId = [200; 32].into();
+	let fees = WESTEND_ED * 10;
+
+	let pal_admin = <PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get());
+	PenpalB::mint_foreign_asset(pal_admin.clone(), Location::parent(), origin.clone(), fees * 10);
+	PenpalB::mint_foreign_asset(pal_admin, Location::parent(), bad_origin.clone(), fees * 10);
+	BridgeHubWestend::fund_accounts(vec![(target.clone(), fees * 10)]);
+
+	// let's authorize `origin` on Penpal to alias `target` on BH
+	BridgeHubWestend::execute_with(|| {
+		let penpal_origin = Location::new(
+			1,
+			X2([
+				Parachain(PenpalB::para_id().into()),
+				AccountId32 { network: None, id: origin.clone().into() },
+			]
+			.into()),
+		);
+		// `target` adds `penpal_origin` as authorized alias
+		assert_ok!(
+			<BridgeHubWestend as BridgeHubWestendPallet>::PolkadotXcm::add_authorized_alias(
+				<BridgeHubWestend as Chain>::RuntimeOrigin::signed(target.clone()),
+				Box::new(penpal_origin.into()),
+				None
+			)
+		);
+	});
+
+	// TODO
+	test_cross_chain_alias!(
+		vec![
+			// between AH and BH: denied
+			// (AssetHubWestend, BridgeHubWestend, TELEPORT_FEES, DENIED)
+			// between Penpal and BH: allowed
+			(PenpalB, BridgeHubWestend, RESERVE_TRANSFER_FEES, DENIED)
+		],
+		origin,
+		target,
+		fees
+	);
 }

@@ -1560,6 +1560,13 @@ pub mod pallet {
 			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let new_aliaser: Location =
 				(*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			ensure!(origin_location != new_aliaser, Error::<T>::BadLocation);
+			// remove `network` from inner `AccountId32` for easier matching
+			let origin_location = match origin_location.unpack() {
+				(0, [AccountId32 { network: _, id }]) =>
+					Location::new(0, [AccountId32 { network: None, id: id.clone() }]),
+				_ => return Err(Error::<T>::InvalidOrigin.into()),
+			};
 			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?new_aliaser, ?expires);
 			ensure!(origin_location != new_aliaser, Error::<T>::BadLocation);
 			if let Some(expiry) = expires {
