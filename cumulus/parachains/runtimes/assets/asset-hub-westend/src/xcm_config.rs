@@ -42,11 +42,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-<<<<<<< HEAD
-use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
-=======
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
->>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
 use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
