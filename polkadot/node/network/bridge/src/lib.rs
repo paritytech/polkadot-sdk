@@ -73,8 +73,9 @@ pub(crate) const EMPTY_VIEW_COST: Rep = Rep::CostMajor("Peer sent us an empty vi
 /// Messages from and to the network.
 ///
 /// As transmitted to and received from subsystems.
+/// TODO: shouldn't we expose this only for benchmarks?
 #[derive(Debug, Encode, Decode, Clone)]
-pub(crate) enum WireMessage<M> {
+pub enum WireMessage<M> {
 	/// A message from a peer on a specific protocol.
 	#[codec(index = 1)]
 	ProtocolMessage(M),

@@ -72,8 +72,8 @@ impl MockCandidateBacking {
 					})
 					.or_insert(1);
 
-				let statements_received_count = *statements_tracker.get(&candidate_hash).unwrap();
-				if statements_received_count == (self.config.minimum_backing_votes - 1) &&
+				if *statements_tracker.get(&candidate_hash).unwrap() ==
+					(self.config.minimum_backing_votes - 1) &&
 					is_own_backing_group
 				{
 					let statement = Statement::Valid(candidate_hash);
@@ -92,9 +92,15 @@ impl MockCandidateBacking {
 							.unwrap(),
 						);
 					messages.push(message);
+					// Add own statement to tracker
+					statements_tracker.entry(candidate_hash).and_modify(|v| {
+						*v += 1;
+					});
 				}
 
-				if statements_received_count == self.config.minimum_backing_votes {
+				if *statements_tracker.get(&candidate_hash).unwrap() ==
+					self.config.minimum_backing_votes
+				{
 					let message =
 						polkadot_node_subsystem::messages::StatementDistributionMessage::Backed(
 							candidate_hash,
