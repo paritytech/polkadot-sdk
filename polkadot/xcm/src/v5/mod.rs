@@ -24,14 +24,7 @@ use super::v4::{
 use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
-use codec::{
-<<<<<<< HEAD
-	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
-=======
-	self, Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input as CodecInput,
->>>>>>> 2a239206 (Fix XCM decoding inconsistencies (#7856))
-	MaxEncodedLen,
-};
+use codec::{self, Decode, Encode, Error as CodecError, Input as CodecInput, MaxEncodedLen};
 use core::{fmt::Debug, result};
 use derivative::Derivative;
 use scale_info::TypeInfo;
