@@ -22273,6 +22273,7 @@ dependencies = [
 name = "sp-application-crypto"
 version = "30.0.0"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -22316,6 +22317,7 @@ dependencies = [
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",
  "sp-keystore 0.34.0",
+ "sp-tracing 16.0.0",
  "substrate-test-runtime-client",
 ]
 
@@ -22572,7 +22574,9 @@ dependencies = [
  "secrecy 0.8.0",
  "serde",
  "serde_json",
+ "sha2 0.10.8",
  "sp-crypto-hashing 0.1.0",
+ "sp-crypto-pubkeycrypto-proc-macro",
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
  "sp-runtime-interface 24.0.0",
@@ -22836,6 +22840,15 @@ dependencies = [
  "quote 1.0.38",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 2.0.98",
+]
+
+[[package]]
+name = "sp-crypto-pubkeycrypto-proc-macro"
+version = "0.1.0"
+dependencies = [
+ "quote 1.0.37",
+ "sp-crypto-hashing 0.1.0",
+ "syn 2.0.79",
 ]
 
 [[package]]
@@ -24739,6 +24752,7 @@ dependencies = [
  "sp-consensus-grandpa",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
+ "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
  "sp-genesis-builder",
  "sp-inherents",
@@ -26771,9 +26785,9 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "w3f-bls"
-version = "0.1.3"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7335e4c132c28cc43caef6adb339789e599e39adbe78da0c4d547fad48cbc331"
+checksum = "70a3028804c8bbae2a97a15b71ffc0e308c4b01a520994aafa77d56e94e19024"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",

@@ -65,6 +65,7 @@ pub mod hash;
 #[cfg(feature = "std")]
 mod hasher;
 pub mod offchain;
+pub mod pop;
 pub mod testing;
 #[cfg(feature = "std")]
 pub mod traits;
