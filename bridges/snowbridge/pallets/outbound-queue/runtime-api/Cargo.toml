@@ -19,20 +19,12 @@ exclude-from-umbrella = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-<<<<<<< HEAD
 frame-support.workspace = true
 snowbridge-core.workspace = true
-snowbridge-outbound-queue-merkle-tree.workspace = true
+snowbridge-merkle-tree.workspace = true
+snowbridge-outbound-queue-primitives.workspace = true
 sp-api.workspace = true
 sp-std.workspace = true
-=======
-frame-support = { workspace = true }
-snowbridge-core = { workspace = true }
-snowbridge-merkle-tree = { workspace = true }
-snowbridge-outbound-queue-primitives = { workspace = true }
-sp-api = { workspace = true }
-sp-std = { workspace = true }
->>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 
 [features]
 default = ["std"]
