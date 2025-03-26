@@ -13254,7 +13254,6 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-staking-next-rc-client",
- "pallet-staking-next-reward-curve",
  "parity-scale-codec",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -13540,25 +13539,6 @@ dependencies = [
  "sp-weights 27.0.0",
  "staging-xcm",
  "staging-xcm-builder",
-]
-
-[[package]]
-name = "pallet-staking-next-reward-curve"
-version = "11.0.0"
-dependencies = [
- "proc-macro-crate 3.1.0",
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "sp-runtime 31.0.1",
- "syn 2.0.98",
-]
-
-[[package]]
-name = "pallet-staking-next-reward-fn"
-version = "19.0.0"
-dependencies = [
- "log",
- "sp-arithmetic 23.0.0",
 ]
 
 [[package]]

@@ -430,8 +430,6 @@ members = [
 	"substrate/frame/staking-next/ah-client",
 	"substrate/frame/staking-next/ahm-test",
 	"substrate/frame/staking-next/rc-client",
-	"substrate/frame/staking-next/reward-curve",
-	"substrate/frame/staking-next/reward-fn",
 	"substrate/frame/staking-next/runtime-api",
 	"substrate/frame/staking-next/runtimes/rc",
 	"substrate/frame/staking-next/runtimes/rc/constants",
