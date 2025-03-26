@@ -51,16 +51,6 @@ jobs:
     needs: [check-labels]
     if: ${{ needs.check-labels.outputs.found == 'true' }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Get branches to backport to
-        id: branches
-        run: |
-          . ./.github/scripts/common/lib.sh
-
-          LABELS="${{ needs.check-labels.outputs.LABELS }}"
-          BACKPORT_BRANCHES=$(parse_branch_names_from_backport_labels "$LABELS")
-          echo "BACKPORT_BRANCHES=${BACKPORT_BRANCHES}" >> $GITHUB_OUTPUT
 
       # - name: Generate token
       #   id: generate_token
@@ -83,6 +73,21 @@ jobs:
           curl -H "Authorization: Bearer ${{ steps.generate_token.outputs.token }}" \
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/app
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Get branches to backport to
+        id: branches
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          LABELS="${{ needs.check-labels.outputs.LABELS }}"
+          BACKPORT_BRANCHES=$(parse_branch_names_from_backport_labels "$LABELS")
+          echo "BACKPORT_BRANCHES=${BACKPORT_BRANCHES}" >> $GITHUB_OUTPUT
+
 
       - name: Create backport pull requests
         uses: korthout/backport-action@v3
