@@ -271,4 +271,6 @@ impl pallet_salary::Config<AmbassadorSalaryInstance> for Runtime {
 	type PayoutPeriod = ConstU32<{ 15 * DAYS }>;
 	// Total monthly salary budget.
 	type Budget = ConstU128<{ 10_000 * DOLLARS }>;
+
+	type BlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>;
 }
