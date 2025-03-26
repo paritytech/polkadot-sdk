@@ -2,15 +2,13 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate::{mock::*, *};
 use alloy_core::primitives::FixedBytes;
-
+use codec::Encode;
 use frame_support::{
-	assert_err, assert_ok,
+	assert_err, assert_noop, assert_ok,
 	traits::{Hooks, ProcessMessage, ProcessMessageError},
 	weights::WeightMeter,
 	BoundedVec,
 };
-
-use codec::Encode;
 use hex_literal::hex;
 use snowbridge_core::{ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{
@@ -86,7 +84,7 @@ fn process_message_yields_on_max_messages_per_block() {
 
 		let mut meter = WeightMeter::new();
 
-		assert_err!(
+		assert_noop!(
 			OutboundQueue::process_message(
 				message.encode().as_slice(),
 				origin,
@@ -95,20 +93,6 @@ fn process_message_yields_on_max_messages_per_block() {
 			),
 			ProcessMessageError::Yield
 		);
-
-		let events = System::events();
-		let last_event = events.last().expect("Expected at least one event").event.clone();
-
-		match last_event {
-			mock::RuntimeEvent::OutboundQueue(Event::MessageRejected {
-				id: None,
-				nonce: None,
-				error: ProcessMessageError::Yield,
-			}) => {},
-			_ => {
-				panic!("Expected Event::MessageRejected(Yield) but got {:?}", last_event);
-			},
-		}
 	})
 }
 
@@ -138,14 +122,13 @@ fn process_message_fails_on_max_nonce_reached() {
 		match last_event {
 			mock::RuntimeEvent::OutboundQueue(Event::MessageRejected {
 				id: Some(id),
-				nonce: Some(nonce),
+				payload: Some(_),
 				error: ProcessMessageError::Unsupported,
 			}) => {
 				assert_eq!(
 					id,
 					hex!("0000000000000000000000000000000000000000000000000000000000000001").into()
 				);
-				assert_eq!(nonce, 18446744073709551615);
 			},
 			_ => {
 				panic!("Expected Event::MessageRejected(Unsupported) but got {:?}", last_event);
@@ -177,7 +160,7 @@ fn process_message_fails_on_overweight_message() {
 		match last_event {
 			mock::RuntimeEvent::OutboundQueue(Event::MessageRejected {
 				id: None,
-				nonce: None,
+				payload: Some(_),
 				error: ProcessMessageError::Overweight(_),
 			}) => {},
 			_ => {

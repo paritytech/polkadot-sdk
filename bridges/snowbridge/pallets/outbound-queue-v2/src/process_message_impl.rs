@@ -20,7 +20,7 @@ impl<T: Config> ProcessMessage for Pallet<T> {
 		if meter.try_consume(weight).is_err() {
 			Self::deposit_event(Event::MessageRejected {
 				id: None,
-				nonce: None,
+				payload: Some(message.to_vec()),
 				error: ProcessMessageError::Overweight(weight),
 			});
 			return Err(ProcessMessageError::Overweight(weight))
