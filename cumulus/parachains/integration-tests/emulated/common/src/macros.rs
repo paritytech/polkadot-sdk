@@ -777,7 +777,7 @@ macro_rules! test_cross_chain_alias {
 								destination: para_destination,
 								remote_fees,
 								preserve_origin: true,
-								assets: vec![],
+								assets: BoundedVec::new(),
 								remote_xcm: Xcm(vec![
 									// try to alias into `account`
 									AliasOrigin($target.clone().into()),

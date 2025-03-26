@@ -227,7 +227,7 @@ pub mod pallet {
 	/// Pending orders to relay
 	#[pallet::storage]
 	pub type PendingOrders<T: Config> =
-		StorageMap<_, Identity, u64, PendingOrder<BlockNumberFor<T>>, OptionQuery>;
+		StorageMap<_, Twox64Concat, u64, PendingOrder<BlockNumberFor<T>>, OptionQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {

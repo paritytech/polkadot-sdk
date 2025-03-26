@@ -145,8 +145,7 @@ impl Contains<Location> for ParentRelayOrSiblingParachains {
 }
 
 /// Filter to check if a given `target` location represents the same AccountId32 as `origin`,
-/// but coming from another sibling system chain. Filter also passes when `origin` and `target` are
-/// on the same local chain.
+/// but coming from another sibling system chain.
 ///
 /// This type should only be used within the context of a parachain, to allow accounts on system
 /// chains to Alias to the same accounts on the local chain.
@@ -293,6 +292,14 @@ mod tests {
 		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
 			&Location::new(1, [Parachain(LOWEST_PUBLIC_ID.into()), acc_42]),
 			&Location::new(0, [acc_42])
+		));
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(0, [acc_13]),
+			&Location::new(0, [acc_13]),
+		));
+		assert!(!AliasAccountId32FromSiblingSystemChain::contains(
+			&Location::new(0, [acc_42]),
+			&Location::new(1, [Parachain(1), acc_42]),
 		));
 	}
 }
