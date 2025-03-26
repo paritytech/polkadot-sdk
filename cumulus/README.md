@@ -211,40 +211,26 @@ Refer to the [setup instructions](#manual-setup) to run a local network for deve
 
 See [the `bridge-hubs` readme](parachains/runtimes/bridge-hubs/README.md) for details.
 
-## Rococo 👑
-[Rococo](https://polkadot.js.org/apps/?rpc=wss://rococo-rpc.polkadot.io) is becoming a [Community Parachain
-Testbed](https://polkadot.network/blog/rococo-revamp-becoming-a-community-parachain-testbed/) for parachain teams in the
-Polkadot ecosystem. It supports multiple parachains with the differentiation of long-term connections and recurring
-short-term connections, to see which parachains are currently connected and how long they will be connected for [see
-here](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-rpc.polkadot.io#/parachains).
+## Testnets
 
-Rococo is an elaborate style of design and the name describes the painstaking effort that has gone into this project.
+### Paseo
 
-### Build & Launch Rococo Collators
+[Paseo](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fpaseo.rpc.amforc.com#/explorer) is the newest testnet for Polkadot,
+replacing Rococo as a decentralised, community run, stable testnet for Parachain teams and dapp developers to build on.
+For more information, check the [Paseo repo](https://github.com/paseo-network).
 
-Collators are similar to validators in the relay chain. These nodes build the blocks that will eventually be included by
-the relay chain for a parachain.
+### Westend
 
-To run a Rococo collator you will need to compile the following binary:
+[Westend](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwestend-rpc.polkadot.io#/explorer)
+is a long running testnet for Polkadot,
+primarily intended to provide a testing environment for Parity to test the latest changes in the SDK.
 
+### Testnet Parachains
 
-```bash
-cargo build --release --locked --bin polkadot-parachain
-```
+A few testnet parachain instances:
 
-Once the executable is built, launch collators for each parachain (repeat once each for chain `tick`, `trick`, `track`):
-
-```bash
-./target/release/polkadot-parachain --chain $CHAIN --validator
-```
-
-You can also build [using a container](./docs/contributor/container.md).
-
-### Parachains
-
-- [Asset Hub](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-statemint-rpc.polkadot.io#/explorer)
-- [Contracts on Rococo](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-contracts-rpc.polkadot.io#/explorer)
-- [RILT](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo.kilt.io#/explorer)
+- [Asset Hub Westend](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwestend-asset-hub-rpc.polkadot.io#/explorer)
+- [Frequency Paseo](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2F0.rpc.testnet.amplica.io#/explorer)
 
 The network uses horizontal message passing (HRMP) to enable communication between parachains and the relay chain and,
 in turn, between parachains. This means that every message is sent to the relay chain, and from the relay chain to its
