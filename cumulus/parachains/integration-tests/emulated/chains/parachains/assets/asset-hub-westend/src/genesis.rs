@@ -26,9 +26,9 @@ use emulated_integration_tests_common::{
 	SAFE_XCM_VERSION, USDT_ID, WETH,
 };
 use parachains_common::{AccountId, Balance};
+use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::{latest::prelude::*, opaque::latest::WESTEND_GENESIS_HASH};
-use snowbridge_inbound_queue_primitives::EthereumLocationsConverterFor;
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;

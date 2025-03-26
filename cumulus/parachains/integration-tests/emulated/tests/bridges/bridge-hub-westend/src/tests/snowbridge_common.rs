@@ -368,12 +368,12 @@ pub fn register_pal_on_bh() {
 }
 
 pub fn snowbridge_sovereign() -> sp_runtime::AccountId32 {
-	let ethereum_sovereign: AccountId = EthereumLocationsConverterFor::<AccountId>::convert_location(
-		&Location::new(
+	let ethereum_sovereign: AccountId =
+		EthereumLocationsConverterFor::<AccountId>::convert_location(&Location::new(
 			2,
 			[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
 		))
-	.unwrap();
+		.unwrap();
 
 	ethereum_sovereign
 }

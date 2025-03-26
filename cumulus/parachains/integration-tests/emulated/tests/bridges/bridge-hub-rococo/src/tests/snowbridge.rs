@@ -20,7 +20,7 @@ use hex_literal::hex;
 use rococo_westend_system_emulated_network::BridgeHubRococoParaSender as BridgeHubRococoSender;
 use snowbridge_inbound_queue_primitives::{
 	v1::{Command, Destination, MessageV1, VersionedMessage},
-	InboundQueueFixture, EthereumLocationsConverterFor
+	EthereumLocationsConverterFor, InboundQueueFixture,
 };
 use snowbridge_outbound_queue_primitives::OperatingMode;
 use snowbridge_pallet_inbound_queue_fixtures::{
@@ -325,10 +325,7 @@ fn send_weth_from_ethereum_to_penpal() {
 
 	// Fund ethereum sovereign on AssetHub
 	let ethereum_sovereign: AccountId = AssetHubRococo::execute_with(|| {
-		EthereumLocationsConverterFor::<
-			AccountId,
-		>::convert_location(&origin_location)
-		.unwrap()
+		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap()
 	});
 	AssetHubRococo::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
