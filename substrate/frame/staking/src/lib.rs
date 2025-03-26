@@ -1118,7 +1118,10 @@ impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::Accoun
 	}
 }
 
-impl<A, B: HasCompact> Encode for ExistenceOrLegacyExposure<A, B> where Exposure<A, B>: Encode {
+impl<A, B: HasCompact> Encode for ExistenceOrLegacyExposure<A, B>
+where
+	Exposure<A, B>: Encode,
+{
 	fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
 		match self {
 			ExistenceOrLegacyExposure::Exists => (),
@@ -1472,9 +1475,6 @@ mod test {
 		));
 
 		// round trip encoding works
-		assert_eq!(
-			encoded_legacy_exposure,
-			decoded_legacy_exposure.encode()
-		);
+		assert_eq!(encoded_legacy_exposure, decoded_legacy_exposure.encode());
 	}
 }
