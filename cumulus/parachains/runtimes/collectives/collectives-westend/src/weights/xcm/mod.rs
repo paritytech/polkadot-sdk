@@ -18,7 +18,6 @@ mod pallet_xcm_benchmarks_generic;
 
 use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
 use alloc::vec::Vec;
-use codec::Encode;
 use frame_support::weights::Weight;
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
@@ -32,7 +31,8 @@ trait WeighAssets {
 	fn weigh_assets(&self, weight: Weight) -> Weight;
 }
 
-const MAX_ASSETS: u64 = 100;
+// Collectives only knows about WND.
+const MAX_ASSETS: u64 = 1;
 
 impl WeighAssets for AssetFilter {
 	fn weigh_assets(&self, weight: Weight) -> Weight {
@@ -60,8 +60,8 @@ impl WeighAssets for Assets {
 	}
 }
 
-pub struct BridgeHubRococoXcmWeight<Call>(core::marker::PhantomData<Call>);
-impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
+pub struct CollectivesWestendXcmWeight<Call>(core::marker::PhantomData<Call>);
+impl<Call> XcmWeightInfo<Call> for CollectivesWestendXcmWeight<Call> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}
@@ -178,6 +178,17 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 	fn clear_error() -> Weight {
 		XcmGeneric::<Runtime>::clear_error()
 	}
+	fn set_hints(hints: &BoundedVec<Hint, HintNumVariants>) -> Weight {
+		let mut weight = Weight::zero();
+		for hint in hints {
+			match hint {
+				AssetClaimer { .. } => {
+					weight = weight.saturating_add(XcmGeneric::<Runtime>::asset_claimer());
+				},
+			}
+		}
+		weight
+	}
 	fn claim_asset(_assets: &Assets, _ticket: &Location) -> Weight {
 		XcmGeneric::<Runtime>::claim_asset()
 	}
@@ -226,9 +237,8 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 	fn universal_origin(_: &Junction) -> Weight {
 		Weight::MAX
 	}
-	fn export_message(_: &NetworkId, _: &Junctions, inner: &Xcm<()>) -> Weight {
-		let inner_encoded_len = inner.encode().len() as u32;
-		XcmGeneric::<Runtime>::export_message(inner_encoded_len)
+	fn export_message(_: &NetworkId, _: &Junctions, _: &Xcm<()>) -> Weight {
+		Weight::MAX
 	}
 	fn lock_asset(_: &Asset, _: &Location) -> Weight {
 		Weight::MAX
@@ -252,22 +262,10 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 		XcmGeneric::<Runtime>::clear_topic()
 	}
 	fn alias_origin(_: &Location) -> Weight {
-		// XCM Executor does not currently support alias origin operations
-		Weight::MAX
+		XcmGeneric::<Runtime>::alias_origin()
 	}
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()
-	}
-	fn set_hints(hints: &BoundedVec<Hint, HintNumVariants>) -> Weight {
-		let mut weight = Weight::zero();
-		for hint in hints {
-			match hint {
-				AssetClaimer { .. } => {
-					weight = weight.saturating_add(XcmGeneric::<Runtime>::asset_claimer());
-				},
-			}
-		}
-		weight
 	}
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
