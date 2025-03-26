@@ -17,18 +17,15 @@ mod coretime_rococo {}
 #[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
 mod rococo {}
 
-use crate::helpers::rococo::{
-	self as rococo_api,
-	runtime_types::{
-		polkadot_parachain_primitives::primitives,
-		staging_xcm::v4::{
-			asset::{Asset, AssetId, Assets, Fungibility},
-			junction::Junction,
-			junctions::Junctions,
-			location::Location,
-		},
-		xcm::{VersionedAssets, VersionedLocation},
+use rococo::runtime_types::{
+	polkadot_parachain_primitives::primitives,
+	staging_xcm::v4::{
+		asset::{Asset, AssetId, Assets, Fungibility},
+		junction::Junction,
+		junctions::Junctions,
+		location::Location,
 	},
+	xcm::{VersionedAssets, VersionedLocation},
 };
 
 use serde_json::json;
@@ -65,7 +62,7 @@ async fn get_total_issuance(
 			.at_latest()
 			.await
 			.unwrap()
-			.fetch(&rococo_api::storage().balances().total_issuance())
+			.fetch(&rococo::storage().balances().total_issuance())
 			.await
 			.unwrap()
 			.unwrap(),
@@ -197,7 +194,7 @@ where
 		let ti = api
 			.storage()
 			.at(block.reference())
-			.fetch(&rococo_api::storage().balances().total_issuance())
+			.fetch(&rococo::storage().balances().total_issuance())
 			.await
 			.unwrap()
 			.unwrap() as i128;
@@ -293,7 +290,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	relay_client
 		.tx()
 		.sign_and_submit_default(
-			&rococo_api::tx().xcm_pallet().teleport_assets(
+			&rococo::tx().xcm_pallet().teleport_assets(
 				VersionedLocation::V4(Location {
 					parents: 0,
 					interior: Junctions::X1([Junction::Parachain(1005)]),
@@ -449,7 +446,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let r = relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(
-			&rococo_api::tx()
+			&rococo::tx()
 				.on_demand_assignment_provider()
 				.place_order_allow_death(100_000_000, primitives::Id(100)),
 			&bob,
@@ -459,7 +456,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	let order = r
-		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
+		.find_first::<rococo::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
 		.unwrap();
 
 	// As there's no spot traffic, Bob will only pay base fee
@@ -527,7 +524,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let r = relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(
-			&rococo_api::tx()
+			&rococo::tx()
 				.on_demand_assignment_provider()
 				.place_order_with_credits(100_000_000, primitives::Id(100)),
 			&alice,
@@ -537,7 +534,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	let order = r
-		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
+		.find_first::<rococo::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
 		.unwrap();
 
 	assert_eq!(order.spot_price, ON_DEMAND_BASE_FEE);

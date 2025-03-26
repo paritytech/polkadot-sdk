@@ -169,21 +169,6 @@ std = [
 	"polkadot-sdk-frame?/std",
 	"sc-executor?/std",
 	"slot-range-helper?/std",
-	"snowbridge-beacon-primitives?/std",
-	"snowbridge-core?/std",
-	"snowbridge-ethereum?/std",
-	"snowbridge-outbound-queue-merkle-tree?/std",
-	"snowbridge-outbound-queue-runtime-api?/std",
-	"snowbridge-pallet-ethereum-client-fixtures?/std",
-	"snowbridge-pallet-ethereum-client?/std",
-	"snowbridge-pallet-inbound-queue-fixtures?/std",
-	"snowbridge-pallet-inbound-queue?/std",
-	"snowbridge-pallet-outbound-queue?/std",
-	"snowbridge-pallet-system?/std",
-	"snowbridge-router-primitives?/std",
-	"snowbridge-runtime-common?/std",
-	"snowbridge-runtime-test-common?/std",
-	"snowbridge-system-runtime-api?/std",
 	"sp-api-proc-macro?/std",
 	"sp-api?/std",
 	"sp-application-crypto?/std",
@@ -354,16 +339,6 @@ runtime-benchmarks = [
 	"polkadot-service?/runtime-benchmarks",
 	"sc-client-db?/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
-	"snowbridge-core?/runtime-benchmarks",
-	"snowbridge-pallet-ethereum-client-fixtures?/runtime-benchmarks",
-	"snowbridge-pallet-ethereum-client?/runtime-benchmarks",
-	"snowbridge-pallet-inbound-queue-fixtures?/runtime-benchmarks",
-	"snowbridge-pallet-inbound-queue?/runtime-benchmarks",
-	"snowbridge-pallet-outbound-queue?/runtime-benchmarks",
-	"snowbridge-pallet-system?/runtime-benchmarks",
-	"snowbridge-router-primitives?/runtime-benchmarks",
-	"snowbridge-runtime-common?/runtime-benchmarks",
-	"snowbridge-runtime-test-common?/runtime-benchmarks",
 	"sp-runtime?/runtime-benchmarks",
 	"sp-staking?/runtime-benchmarks",
 	"staging-node-inspect?/runtime-benchmarks",
@@ -488,10 +463,6 @@ try-runtime = [
 	"polkadot-runtime-parachains?/try-runtime",
 	"polkadot-sdk-frame?/try-runtime",
 	"polkadot-service?/try-runtime",
-	"snowbridge-pallet-ethereum-client?/try-runtime",
-	"snowbridge-pallet-inbound-queue?/try-runtime",
-	"snowbridge-pallet-outbound-queue?/try-runtime",
-	"snowbridge-pallet-system?/try-runtime",
 	"sp-runtime?/try-runtime",
 	"staging-parachain-info?/try-runtime",
 ]
@@ -516,11 +487,6 @@ serde = [
 	"pallet-transaction-storage?/serde",
 	"pallet-treasury?/serde",
 	"pallet-xcm?/serde",
-	"snowbridge-beacon-primitives?/serde",
-	"snowbridge-core?/serde",
-	"snowbridge-ethereum?/serde",
-	"snowbridge-pallet-ethereum-client?/serde",
-	"snowbridge-pallet-inbound-queue?/serde",
 	"sp-application-crypto?/serde",
 	"sp-arithmetic?/serde",
 	"sp-authority-discovery?/serde",
@@ -718,20 +684,6 @@ runtime-full = [
 	"sc-chain-spec-derive",
 	"sc-tracing-proc-macro",
 	"slot-range-helper",
-	"snowbridge-beacon-primitives",
-	"snowbridge-core",
-	"snowbridge-ethereum",
-	"snowbridge-outbound-queue-merkle-tree",
-	"snowbridge-outbound-queue-runtime-api",
-	"snowbridge-pallet-ethereum-client",
-	"snowbridge-pallet-ethereum-client-fixtures",
-	"snowbridge-pallet-inbound-queue",
-	"snowbridge-pallet-inbound-queue-fixtures",
-	"snowbridge-pallet-outbound-queue",
-	"snowbridge-pallet-system",
-	"snowbridge-router-primitives",
-	"snowbridge-runtime-common",
-	"snowbridge-system-runtime-api",
 	"sp-api",
 	"sp-api-proc-macro",
 	"sp-application-crypto",
@@ -976,7 +928,6 @@ node = [
 	"sc-transaction-pool",
 	"sc-transaction-pool-api",
 	"sc-utils",
-	"snowbridge-runtime-test-common",
 	"sp-blockchain",
 	"sp-consensus",
 	"sp-core-hashing",
@@ -1837,76 +1788,6 @@ path = "../substrate/client/tracing/proc-macro"
 default-features = false
 optional = true
 path = "../polkadot/runtime/common/slot_range_helper"
-
-[dependencies.snowbridge-beacon-primitives]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/primitives/beacon"
-
-[dependencies.snowbridge-core]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/primitives/core"
-
-[dependencies.snowbridge-ethereum]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/primitives/ethereum"
-
-[dependencies.snowbridge-outbound-queue-merkle-tree]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/pallets/outbound-queue/merkle-tree"
-
-[dependencies.snowbridge-outbound-queue-runtime-api]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/pallets/outbound-queue/runtime-api"
-
-[dependencies.snowbridge-pallet-ethereum-client]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/pallets/ethereum-client"
-
-[dependencies.snowbridge-pallet-ethereum-client-fixtures]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/pallets/ethereum-client/fixtures"
-
-[dependencies.snowbridge-pallet-inbound-queue]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/pallets/inbound-queue"
-
-[dependencies.snowbridge-pallet-inbound-queue-fixtures]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/pallets/inbound-queue/fixtures"
-
-[dependencies.snowbridge-pallet-outbound-queue]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/pallets/outbound-queue"
-
-[dependencies.snowbridge-pallet-system]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/pallets/system"
-
-[dependencies.snowbridge-router-primitives]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/primitives/router"
-
-[dependencies.snowbridge-runtime-common]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/runtime/runtime-common"
-
-[dependencies.snowbridge-system-runtime-api]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/pallets/system/runtime-api"
 
 [dependencies.sp-api]
 default-features = false
@@ -2802,11 +2683,6 @@ path = "../substrate/client/transaction-pool/api"
 default-features = false
 optional = true
 path = "../substrate/client/utils"
-
-[dependencies.snowbridge-runtime-test-common]
-default-features = false
-optional = true
-path = "../bridges/snowbridge/runtime/test-common"
 
 [dependencies.sp-blockchain]
 default-features = false
