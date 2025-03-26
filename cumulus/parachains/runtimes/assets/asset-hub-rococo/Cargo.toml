@@ -61,19 +61,8 @@ sp-version.workspace = true
 sp-weights.workspace = true
 
 # num-traits feature needed for dex integer sq root:
-<<<<<<< HEAD
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 pallet-xcm.workspace = true
-=======
-primitive-types = { features = [
-	"codec",
-	"num-traits",
-	"scale-info",
-], workspace = true }
-
-# Polkadot
-pallet-xcm = { workspace = true }
->>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 polkadot-parachain-primitives.workspace = true
 polkadot-runtime-common.workspace = true
@@ -96,23 +85,12 @@ pallet-collator-selection.workspace = true
 parachain-info.workspace = true
 parachains-common.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
-<<<<<<< HEAD
 bp-asset-hub-rococo.workspace = true
 bp-asset-hub-westend.workspace = true
 bp-bridge-hub-rococo.workspace = true
 bp-bridge-hub-westend.workspace = true
 pallet-xcm-bridge-hub-router.workspace = true
-snowbridge-router-primitives.workspace = true
-=======
-
-# Bridges
-bp-asset-hub-rococo = { workspace = true }
-bp-asset-hub-westend = { workspace = true }
-bp-bridge-hub-rococo = { workspace = true }
-bp-bridge-hub-westend = { workspace = true }
-pallet-xcm-bridge-hub-router = { workspace = true }
-snowbridge-inbound-queue-primitives = { workspace = true }
->>>>>>> 98c6ffce (Snowbridge V2 (#7402))
+snowbridge-inbound-queue-primitives.workspace = true
 
 [dev-dependencies]
 asset-test-utils = { default-features = true, path = "../test-utils" }
