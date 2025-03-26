@@ -53,7 +53,7 @@ fn exchange_asset_insufficient_balance() {
 	let log_capture = capture_test_logs!({
 		test_exchange_asset(true, 5_000 * UNITS, 1_665 * UNITS, false);
 	});
-	assert!(log_capture.contains("NoDeal"));
+	assert!(log_capture.contains("Funds are unavailable"));
 }
 
 #[test]
