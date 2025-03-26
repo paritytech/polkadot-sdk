@@ -16,24 +16,12 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-<<<<<<< HEAD
 frame-support.workspace = true
 sp-core.workspace = true
 bp-xcm-bridge-hub-router.workspace = true
-xcm.workspace = true
-=======
-
-# Substrate Dependencies
-frame-support = { workspace = true }
-sp-core = { workspace = true }
-
-# Bridge Dependencies
-bp-xcm-bridge-hub-router = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
+xcm.workspace = true
 
-# Polkadot dependencies
-xcm = { workspace = true }
->>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 
 [features]
 default = ["std"]
