@@ -2,6 +2,7 @@ title: AHM Multi-block staking election pallet
 doc:
 - audience: Runtime Dev
   description: |
+    NOTE: This is reverted in #7939.
     ## Multi Block Election Pallet
 
     This PR adds the first iteration of the multi-block staking pallet.

@@ -28,6 +28,7 @@ sp-core = { workspace = true }
 
 [features]
 zombie-metadata = []
+zombie-ci = []
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }

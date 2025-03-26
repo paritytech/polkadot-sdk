@@ -8,11 +8,9 @@ use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{
-	gwei,
-	inbound::{Log, Proof, VerificationError},
-	meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
+	gwei, meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
-use snowbridge_router_primitives::inbound::MessageToXcm;
+use snowbridge_inbound_queue_primitives::{v1::MessageToXcm, Log, Proof, VerificationError};
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
@@ -64,7 +62,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ChainForkVersions: ForkVersions = ForkVersions{
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
 			version: [0, 0, 0, 1], // 0x00000001
 			epoch: 0,
