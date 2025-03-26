@@ -207,7 +207,7 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 	) -> SendResult<Self::Ticket> {
 		if let Some(msg) = message {
 			let versioned_xcm = VersionedXcm::<()>::from(msg.clone());
-			if versioned_xcm.check_is_decodable().is_err() {
+			if versioned_xcm.validate_xcm_nesting().is_err() {
 				log::error!(
 					target: "xcm::validate_xcm_nesting",
 					"EnsureDecodableXcm validate_xcm_nesting error for \nversioned_xcm: {versioned_xcm:?}\nbased on xcm: {msg:?}"
