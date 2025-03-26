@@ -114,11 +114,10 @@ fn polkadot_testnet_genesis(
 	// Prepare node features with V2 receipts
 	// and elastic scaling enabled.
 	let mut node_features = NodeFeatures::new();
-	node_features.resize(node_features::FeatureIndex::ElasticScalingMVP as usize + 1, false);
-	node_features.set(node_features::FeatureIndex::ElasticScalingMVP as usize, true);
+	node_features.resize(node_features::FeatureIndex::FirstUnassigned as usize + 1, false);
 
-	node_features.resize(node_features::FeatureIndex::CandidateReceiptV2 as usize + 1, false);
 	node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
+	node_features.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
 
 	serde_json::json!({
 		"balances": {
