@@ -30,7 +30,7 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeLimit, Encode};
 use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
@@ -55,7 +55,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
-use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
@@ -366,7 +366,8 @@ pub mod pallet {
 
 			let maximum_channels = host_config
 				.hrmp_max_message_num_per_candidate
-				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take()) as usize;
+				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
+				as usize;
 
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
@@ -1549,7 +1550,13 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 
 		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
 			.iter()
-			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.map(|encoded_message| {
+				VersionedXcm::<()>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &encoded_message[..],
+				)
+				.unwrap()
+			})
 			.collect();
 
 		if messages.is_empty() {
