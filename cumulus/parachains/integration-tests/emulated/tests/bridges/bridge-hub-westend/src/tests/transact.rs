@@ -44,7 +44,7 @@ fn transfer_and_transact_in_same_xcm(
 	let asset_hub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 
 	// TODO(https://github.com/paritytech/polkadot-sdk/issues/6197): dry-run to get local fees, for now use hardcoded value.
-	let ah_fees_amount = 700_000_000_000u128; // TODO not sure why this increased so much
+	let ah_fees_amount = 90_000_000_000u128; // current exact value 79_948_099_299
 	let fees_for_ah: Asset = (weth.id.clone(), ah_fees_amount).into();
 
 	// xcm to be executed at dest
@@ -121,7 +121,7 @@ fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 		));
 	});
 
-	let fee_amount_to_send: parachains_common::Balance = ASSET_HUB_WESTEND_ED * 100000;
+	let fee_amount_to_send: parachains_common::Balance = ASSET_HUB_WESTEND_ED * 10000;
 	let sender_chain_as_seen_by_asset_hub =
 		Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
 

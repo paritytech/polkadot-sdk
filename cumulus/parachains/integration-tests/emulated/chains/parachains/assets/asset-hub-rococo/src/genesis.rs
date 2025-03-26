@@ -20,10 +20,10 @@ use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, xcm_emulator::ConvertLocation,
-	PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
-	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID,
-	SAFE_XCM_VERSION, USDT_ID,
+	accounts, build_genesis_storage, collators, snowbridge::ETHER_MIN_BALANCE,
+	xcm_emulator::ConvertLocation, PenpalASiblingSovereignAccount,
+	PenpalATeleportableAssetLocation, PenpalBSiblingSovereignAccount,
+	PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
@@ -117,7 +117,7 @@ pub fn genesis() -> Storage {
 					                                         * WAH is the owner of assets from
 					                                         * Ethereum on RAH */
 					true,
-					ED,
+					ETHER_MIN_BALANCE,
 				),
 			],
 			..Default::default()

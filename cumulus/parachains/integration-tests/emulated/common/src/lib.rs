@@ -166,4 +166,6 @@ pub mod snowbridge {
 	pub const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
 	// The Ethereum network chain ID. In this case, Sepolia testnet's chain ID.
 	pub const CHAIN_ID: u64 = 11155111;
+	// The minimum balance for ether assets pre-registered in emulated tests.
+	pub const ETHER_MIN_BALANCE: u128 = 1000;
 }
