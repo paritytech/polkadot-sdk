@@ -24,9 +24,9 @@ Prerequisites for running the tests locally:
 
 On Mac, you'll also need to do the following:
 
-- Install an updated version of bash by installing homebrew and running `brew install bash`;
+- Update to the latest version of bash by installing homebrew and running `brew install bash`;
 
-- Install jq with `brew install jq`;
+- Install jq with `brew install jq`
 
 After that, any test can be run using the `run-test.sh` command.
 Example: `./run-test.sh 0001-asset-transfer`
