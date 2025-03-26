@@ -137,6 +137,7 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [
+	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authority-discovery/try-runtime",

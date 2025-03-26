@@ -64,6 +64,23 @@ substrate-build-script-utils.default-features = true
 [features]
 default = []
 runtime-benchmarks = [
+	"asset-hub-rococo-runtime/runtime-benchmarks",
+	"asset-hub-westend-runtime/runtime-benchmarks",
+	"bridge-hub-rococo-runtime/runtime-benchmarks",
+	"bridge-hub-westend-runtime/runtime-benchmarks",
+	"collectives-westend-runtime/runtime-benchmarks",
+	"contracts-rococo-runtime/runtime-benchmarks",
+	"coretime-rococo-runtime/runtime-benchmarks",
+	"coretime-westend-runtime/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"glutton-westend-runtime/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"penpal-runtime/runtime-benchmarks",
+	"people-rococo-runtime/runtime-benchmarks",
+	"people-westend-runtime/runtime-benchmarks",
+	"polkadot-omni-node-lib/runtime-benchmarks",
+	"rococo-parachain-runtime/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
 ]
 try-runtime = [
 	"polkadot-omni-node-lib/try-runtime",

@@ -9,6 +9,9 @@ repository.workspace = true
 description = "A mock network for testing pallet-revive."
 publish = false
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [lints]
 workspace = true
 
@@ -69,6 +72,7 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-proxy/std",
+	"pallet-revive-fixtures/std",
 	"pallet-revive/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
