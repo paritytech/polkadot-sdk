@@ -32,14 +32,9 @@ sp-std.workspace = true
 bridge-hub-common.workspace = true
 
 ethabi = { workspace = true }
-<<<<<<< HEAD
-snowbridge-core = { features = ["serde"], workspace = true }
-snowbridge-outbound-queue-merkle-tree.workspace = true
-=======
-snowbridge-core = { workspace = true }
-snowbridge-merkle-tree = { workspace = true }
-snowbridge-outbound-queue-primitives = { workspace = true }
->>>>>>> 98c6ffce (Snowbridge V2 (#7402))
+snowbridge-core.workspace = true
+snowbridge-merkle-tree.workspace = true
+snowbridge-outbound-queue-primitives.workspace = true
 
 [dev-dependencies]
 pallet-message-queue = { path = "../../../../substrate/frame/message-queue", default-features = false }
