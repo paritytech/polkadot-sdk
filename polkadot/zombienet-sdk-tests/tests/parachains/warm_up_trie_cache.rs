@@ -1,14 +1,14 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::helpers::asset_hub_westend::{
-	self,
-	runtime_types::{
-		pallet_revive::primitives::{Code, StorageDeposit},
-		sp_weights::weight_v2::Weight,
-	},
-};
+#[subxt::subxt(runtime_metadata_path = "metadata-files/asset-hub-westend-local.scale")]
+mod asset_hub_westend {}
+
 use anyhow::anyhow;
+use asset_hub_westend::runtime_types::{
+	pallet_revive::primitives::{Code, StorageDeposit},
+	sp_weights::weight_v2::Weight,
+};
 use futures::{stream::FuturesUnordered, StreamExt};
 use pallet_revive::AddressMapper;
 use sp_core::H160;
