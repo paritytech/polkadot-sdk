@@ -2,17 +2,8 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Converts messages from Ethereum to XCM messages
 
-<<<<<<< HEAD:bridges/snowbridge/primitives/router/src/inbound/mod.rs
-#[cfg(test)]
-mod mock;
-#[cfg(test)]
-mod tests;
-
-use codec::{Decode, Encode};
-=======
 use crate::{CallIndex, EthereumLocationsConverterFor};
 use codec::{Decode, DecodeWithMemTracking, Encode};
->>>>>>> 98c6ffce (Snowbridge V2 (#7402)):bridges/snowbridge/primitives/inbound-queue/src/v1.rs
 use core::marker::PhantomData;
 use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
 use scale_info::TypeInfo;
@@ -130,7 +121,7 @@ pub struct MessageToXcm<
 }
 
 /// Reason why a message conversion failed.
-#[derive(Copy, Clone, TypeInfo, PalletError, Encode, Decode, RuntimeDebug)]
+#[derive(Copy, Clone, TypeInfo, PalletError, Encode, Decode, DecodeWithMemTracking, RuntimeDebug)]
 pub enum ConvertMessageError {
 	/// The message version is not supported for conversion.
 	UnsupportedVersion,
@@ -463,20 +454,6 @@ where
 	}
 }
 
-<<<<<<< HEAD:bridges/snowbridge/primitives/router/src/inbound/mod.rs
-pub struct EthereumLocationsConverterFor<AccountId>(PhantomData<AccountId>);
-impl<AccountId> ConvertLocation<AccountId> for EthereumLocationsConverterFor<AccountId>
-where
-	AccountId: From<[u8; 32]> + Clone,
-{
-	fn convert_location(location: &Location) -> Option<AccountId> {
-		match location.unpack() {
-			(2, [GlobalConsensus(Ethereum { chain_id })]) =>
-				Some(Self::from_chain_id(chain_id).into()),
-			(2, [GlobalConsensus(Ethereum { chain_id }), AccountKey20 { network: _, key }]) =>
-				Some(Self::from_chain_id_with_key(chain_id, *key).into()),
-			_ => None,
-=======
 #[cfg(test)]
 mod tests {
 	use crate::{CallIndex, EthereumLocationsConverterFor};
@@ -547,7 +524,6 @@ mod tests {
 				reanchored_asset_with_ethereum_context.reanchor(&global_ah, &ethereum_context)
 			);
 			assert_eq!(reanchored_asset_with_ethereum_context, asset.clone());
->>>>>>> 98c6ffce (Snowbridge V2 (#7402)):bridges/snowbridge/primitives/inbound-queue/src/v1.rs
 		}
 	}
 }
