@@ -52,21 +52,21 @@ jobs:
     if: ${{ needs.check-labels.outputs.found == 'true' }}
     steps:
 
-      # - name: Generate token
-      #   id: generate_token
-      #   uses: actions/create-github-app-token@v1
-      #   with:
-      #     app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
-      #     private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
-
       - name: Generate token
         id: generate_token
-        uses: tibdex/github-app-token@v2.1.0
+        uses: actions/create-github-app-token@v1
         with:
-          app_id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
-          private_key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
-          permissions: >-
-            {"workflows": "write", "contents": "write", "pull_requests": "write"}
+          app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
+
+      # - name: Generate token
+      #   id: generate_token
+      #   uses: tibdex/github-app-token@v2.1.0
+      #   with:
+      #     app_id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+      #     private_key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
+      #     permissions: >-
+      #       {"workflows": "write", "contents": "write", "pull_requests": "write"}
 
       - name: Check Token Permissions
         run: |
