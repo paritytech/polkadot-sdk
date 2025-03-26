@@ -350,7 +350,7 @@ where
 			} else if cfg!(feature = "full-pov-size") {
 				validation_data.max_pov_size
 			} else {
-				// Set the block limit to 80% of the maximum PoV size.
+				// Set the block limit to 85% of the maximum PoV size.
 				//
 				// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
 				// fixed, this should be removed.
