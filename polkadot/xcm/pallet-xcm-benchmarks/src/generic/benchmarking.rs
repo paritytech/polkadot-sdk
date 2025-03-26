@@ -18,7 +18,7 @@ use super::*;
 use crate::{account_and_location, new_executor, EnsureDelivery, XcmCallOf};
 use alloc::{vec, vec::Vec};
 use codec::Encode;
-use frame_benchmarking::{benchmarks, BenchmarkError};
+use frame_benchmarking::{benchmarks, BenchmarkError, BenchmarkResult};
 use frame_support::{traits::fungible::Inspect, BoundedVec};
 use xcm::{
 	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight, MAX_ITEMS_IN_ASSETS},

@@ -113,5 +113,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-examples/try-runtime",
 	"sp-runtime/try-runtime",
 ]

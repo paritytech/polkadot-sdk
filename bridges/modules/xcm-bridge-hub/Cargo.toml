@@ -39,16 +39,22 @@ polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-
 [features]
 default = ["std"]
 std = [
+	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-runtime/std",
+	"bp-xcm-bridge-hub-router/std",
 	"bp-xcm-bridge-hub/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-balances/std",
 	"pallet-bridge-messages/std",
+	"pallet-xcm-bridge-hub-router/std",
+	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"xcm-builder/std",
@@ -58,7 +64,10 @@ std = [
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -66,6 +75,8 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
 	"pallet-bridge-messages/try-runtime",
+	"pallet-xcm-bridge-hub-router/try-runtime",
 	"sp-runtime/try-runtime",
 ]
