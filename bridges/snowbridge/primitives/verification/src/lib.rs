@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Types for representing inbound messages
-<<<<<<< HEAD:bridges/snowbridge/primitives/core/src/inbound.rs
-
-use codec::{Decode, Encode};
-=======
 #![cfg_attr(not(feature = "std"), no_std)]
 use codec::{Decode, DecodeWithMemTracking, Encode};
->>>>>>> 98c6ffce (Snowbridge V2 (#7402)):bridges/snowbridge/primitives/verification/src/lib.rs
 use frame_support::PalletError;
 use scale_info::TypeInfo;
 use snowbridge_beacon_primitives::ExecutionProof;
@@ -19,7 +14,7 @@ pub trait Verifier {
 	fn verify(event: &Log, proof: &Proof) -> Result<(), VerificationError>;
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, PalletError, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PalletError, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum VerificationError {
 	/// Execution header is missing
@@ -35,13 +30,8 @@ pub enum VerificationError {
 }
 
 /// A bridge message from the Gateway contract on Ethereum
-<<<<<<< HEAD:bridges/snowbridge/primitives/core/src/inbound.rs
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct Message {
-=======
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct EventProof {
->>>>>>> 98c6ffce (Snowbridge V2 (#7402)):bridges/snowbridge/primitives/verification/src/lib.rs
 	/// Event log emitted by Gateway contract
 	pub event_log: Log,
 	/// Inclusion proof for a transaction receipt containing the event log
@@ -56,7 +46,7 @@ pub enum LogValidationError {
 }
 
 /// Event log
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Log {
 	pub address: H160,
 	pub topics: Vec<H256>,
@@ -73,7 +63,7 @@ impl Log {
 }
 
 /// Inclusion proof for a transaction receipt
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Proof {
 	// Proof keys and values (receipts tree)
 	pub receipt_proof: (Vec<Vec<u8>>, Vec<Vec<u8>>),
