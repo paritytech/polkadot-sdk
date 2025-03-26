@@ -1008,7 +1008,8 @@ macro_rules! impl_benchmark {
 					$(
 						(stringify!($pov_name).as_bytes().to_vec(),
 						$crate::__private::vec![
-							$( ( stringify!($storage).as_bytes().to_vec(),
+							// Stringify sometimes includes spaces, depending on the Rust version.
+							$( ( stringify!($storage).replace(" ", "").as_bytes().to_vec(),
 								 stringify!($pov_mode).as_bytes().to_vec() ), )*
 						]),
 					)*
