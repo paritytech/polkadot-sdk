@@ -83,7 +83,10 @@ fn exchange_asset_insufficient_liquidity() {
 		);
 
 		let wnd_balance_after = Balances::total_balance(&alice);
-		assert_eq!(wnd_balance_after, wnd_balance_before, "Expected WND balance to remain unchanged");
+		assert_eq!(
+			wnd_balance_after, wnd_balance_before,
+			"Expected WND balance to remain unchanged"
+		);
 	});
 }
 
@@ -99,10 +102,7 @@ fn exchange_asset_insufficient_balance() {
 		let want: Assets = (asset_id, foreign_balance_before + 1 * UNITS).into();
 
 		let result = swap(alice.clone(), origin, give.clone(), want.clone());
-		assert_err_ignore_postinfo!(
-            result,
-            pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete
-        );
+		assert_err_ignore_postinfo!(result, pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete);
 
 		let foreign_balance_after = ForeignAssets::balance(asset_location, &alice);
 		assert_eq!(
@@ -130,10 +130,7 @@ fn exchange_asset_pool_not_created() {
 		let wnd_balance_before = Balances::total_balance(&alice);
 
 		let result = swap(alice.clone(), origin, give.clone(), want.clone());
-		assert_err_ignore_postinfo!(
-            result,
-            pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete
-        );
+		assert_err_ignore_postinfo!(result, pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete);
 
 		let foreign_balance_after = ForeignAssets::balance(asset_location, &alice);
 		assert_eq!(
