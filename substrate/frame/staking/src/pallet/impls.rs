@@ -324,7 +324,7 @@ impl<T: Config> Pallet<T> {
 
 		// Nothing to do if they have no reward points.
 		if validator_reward_points.is_zero() {
-			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into());
+			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into())
 		}
 
 		// This is the fraction of the total reward that the validator and the
@@ -1028,7 +1028,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::<T>::SnapshotTargetsSizeExceeded {
 					size: targets_size_tracker.size as u32,
 				});
-				break;
+				break
 			}
 
 			if Validators::<T>::contains_key(&target) {
