@@ -13,23 +13,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{create_pool_with_wnd_on, imports::*};
+use crate::{
+	create_pool_with_wnd_on,
+	imports::{
+		asset_hub_westend_runtime::{ExistentialDeposit, Runtime},
+		*,
+	},
+};
 use asset_hub_westend_runtime::{
 	xcm_config::WestendLocation, Balances, ForeignAssets, PolkadotXcm, RuntimeOrigin,
 };
 use emulated_integration_tests_common::{accounts::ALICE, xcm_emulator::TestExt};
-use frame_support::{assert_err_ignore_postinfo, assert_ok, traits::fungible::Inspect};
+use frame_support::{
+	assert_err_ignore_postinfo, assert_ok,
+	dispatch::DispatchResultWithPostInfo,
+	traits::fungible::{Inspect, Mutate},
+};
 use parachains_common::{AccountId, Balance};
 use std::convert::Into;
-use frame_support::dispatch::DispatchResultWithPostInfo;
 use xcm::latest::{Assets, Location, Xcm};
-use crate::imports::asset_hub_westend_runtime::Runtime;
 
 const UNITS: Balance = 1_000_000_000;
 
 #[test]
 fn exchange_asset_success() {
-	let (alice, native_asset_id, origin, asset_location, asset_id) = setup_pool();
+	let (alice, native_asset_id, origin, asset_location, asset_id) = setup_pool(true);
 
 	AssetHubWestend::execute_with(|| {
 		let give: Assets = (native_asset_id, 500 * UNITS).into();
@@ -47,16 +55,16 @@ fn exchange_asset_success() {
 		);
 
 		let wnd_balance_after = Balances::total_balance(&alice);
-		assert!(
-			wnd_balance_after <= wnd_balance_before - 500 * UNITS,
-			"Expected WND balance to decrease by at least 500 units, got {wnd_balance_after} from {wnd_balance_before}"
+		assert_eq!(
+			wnd_balance_after, wnd_balance_before - 500 * UNITS,
+			"Expected WND balance to decrease by exactly 500 units, got {wnd_balance_after} from {wnd_balance_before}"
 		);
 	});
 }
 
 #[test]
 fn exchange_asset_insufficient_liquidity() {
-	let (alice, native_asset_id, origin, asset_location, asset_id) = setup_pool();
+	let (alice, native_asset_id, origin, asset_location, asset_id) = setup_pool(true);
 
 	AssetHubWestend::execute_with(|| {
 		let give: Assets = (native_asset_id, 500 * UNITS).into();
@@ -69,101 +77,84 @@ fn exchange_asset_insufficient_liquidity() {
 		assert_err_ignore_postinfo!(result, pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete);
 
 		let foreign_balance_after = ForeignAssets::balance(asset_location, &alice);
-		assert_eq!(foreign_balance_after, foreign_balance_before, "Expected foreign balance to remain");
+		assert_eq!(
+			foreign_balance_after, foreign_balance_before,
+			"Expected foreign balance to remain unchanged"
+		);
 
 		let wnd_balance_after = Balances::total_balance(&alice);
-		assert_eq!(wnd_balance_after, wnd_balance_before, "Expected WND balance to remain");
+		assert_eq!(wnd_balance_after, wnd_balance_before, "Expected WND balance to remain unchanged");
 	});
 }
 
-// #[test]
-// fn exchange_asset_insufficient_balance() {
-// 	AssetHubWestend::execute_with(|| {
-// 		let alice: AccountId = Westend::account_id_of(ALICE);
-//
-// 		// Setup pool
-// 		create_pool_with_wnd_on!(AssetHubWestend, asset_location, true, alice.clone());
-//
-// 		// Mint minimal WND (less than 500)
-// 		assert_ok!(Balances::mint_into(&alice, 400 * UNITS));
-//
-// 		let give = Assets::from(vec![Asset {
-// 			id: AssetId(WestendLocation::get()),
-// 			fun: Fungible(500 * UNITS),
-// 		}]);
-// 		let want = Assets::from(vec![Asset {
-// 			id: AssetId(asset_location),
-// 			fun: Fungible(660 * UNITS),
-// 		}]);
-//
-// 		let xcm = VersionedXcm::V5(Xcm(vec![ExchangeAsset {
-// 			give: give.into(),
-// 			want: want.into(),
-// 			maximal: true,
-// 		}]));
-//
-// 		assert!(
-// 			PolkadotXcm::execute(
-// 				RuntimeOrigin::signed(alice.clone()),
-// 				Box::new(xcm),
-// 				Weight::from_parts(1_000_000_000, 1024),
-// 			)
-// 			.is_err(),
-// 			"Expected failure due to insufficient WND balance"
-// 		);
-// 	});
-// }
-/*
 #[test]
-fn exchange_asset_pool_not_created() {
+fn exchange_asset_insufficient_balance() {
+	let (alice, native_asset_id, origin, asset_location, asset_id) = setup_pool(true);
+
 	AssetHubWestend::execute_with(|| {
-		let alice: AccountId = Westend::account_id_of(ALICE);
+		let foreign_balance_before = ForeignAssets::balance(asset_location.clone(), &alice);
+		let wnd_balance_before = Balances::total_balance(&alice);
 
-		// Mint WND and foreign asset, but don’t create pool
-		assert_ok!(Balances::mint_into(&alice, 1_000 * UNITS));
-		assert_ok!(ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			asset_location.into(),
-			alice.clone().into(),
-			true,
-			1,
-		));
-		assert_ok!(ForeignAssets::mint(
-			RuntimeOrigin::signed(alice.clone()),
-			asset_location.into(),
-			alice.clone().into(),
-			2_000 * UNITS,
-		));
+		let give: Assets = (native_asset_id, wnd_balance_before + 1 * UNITS).into();
+		let want: Assets = (asset_id, foreign_balance_before + 1 * UNITS).into();
 
-		let give = Assets::from(vec![Asset {
-			id: AssetId(WestendLocation::get()),
-			fun: Fungible(500 * UNITS),
-		}]);
-		let want = Assets::from(vec![Asset {
-			id: AssetId(asset_location),
-			fun: Fungible(660 * UNITS),
-		}]);
+		let result = swap(alice.clone(), origin, give.clone(), want.clone());
+		assert_err_ignore_postinfo!(
+            result,
+            pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete
+        );
 
-		let xcm = VersionedXcm::V5(Xcm(vec![ExchangeAsset {
-			give: give.into(),
-			want: want.into(),
-			maximal: true,
-		}]));
+		let foreign_balance_after = ForeignAssets::balance(asset_location, &alice);
+		assert_eq!(
+			foreign_balance_after, foreign_balance_before,
+			"Expected foreign balance to remain unchanged"
+		);
 
-		assert!(
-			PolkadotXcm::execute(
-				RuntimeOrigin::signed(alice.clone()),
-				Box::new(xcm),
-				Weight::from_parts(1_000_000_000, 1024),
-			)
-			.is_err(),
-			"Expected failure due to missing pool"
+		let wnd_balance_after = Balances::total_balance(&alice);
+		assert_eq!(
+			wnd_balance_after, wnd_balance_before,
+			"Expected WND balance to remain unchanged"
 		);
 	});
 }
-*/
 
-fn swap(alice: AccountId, origin: RuntimeOrigin, give: Assets, want: Assets) -> DispatchResultWithPostInfo {
+#[test]
+fn exchange_asset_pool_not_created() {
+	let (alice, native_asset_id, origin, asset_location, asset_id) = setup_pool(false);
+
+	AssetHubWestend::execute_with(|| {
+		let give: Assets = (native_asset_id, 500 * UNITS).into();
+		let want: Assets = (asset_id, 660 * UNITS).into();
+
+		let foreign_balance_before = ForeignAssets::balance(asset_location.clone(), &alice);
+		let wnd_balance_before = Balances::total_balance(&alice);
+
+		let result = swap(alice.clone(), origin, give.clone(), want.clone());
+		assert_err_ignore_postinfo!(
+            result,
+            pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete
+        );
+
+		let foreign_balance_after = ForeignAssets::balance(asset_location, &alice);
+		assert_eq!(
+			foreign_balance_after, foreign_balance_before,
+			"Expected foreign balance to remain unchanged"
+		);
+
+		let wnd_balance_after = Balances::total_balance(&alice);
+		assert_eq!(
+			wnd_balance_after, wnd_balance_before,
+			"Expected WND balance to remain unchanged"
+		);
+	});
+}
+
+fn swap(
+	alice: AccountId,
+	origin: RuntimeOrigin,
+	give: Assets,
+	want: Assets,
+) -> DispatchResultWithPostInfo {
 	let xcm = Xcm(vec![
 		WithdrawAsset(give.clone().into()),
 		ExchangeAsset { give: give.into(), want: want.into(), maximal: true },
@@ -173,7 +164,7 @@ fn swap(alice: AccountId, origin: RuntimeOrigin, give: Assets, want: Assets) -> 
 	PolkadotXcm::execute(origin, bx!(xcm::VersionedXcm::from(xcm)), Weight::MAX)
 }
 
-fn setup_pool() -> (AccountId, AssetId, RuntimeOrigin, Location, AssetId) {
+fn setup_pool(create_pool: bool) -> (AccountId, AssetId, RuntimeOrigin, Location, AssetId) {
 	let alice: AccountId = Westend::account_id_of(ALICE);
 	let native_asset_location = WestendLocation::get();
 	let native_asset_id = AssetId(native_asset_location.clone());
@@ -182,6 +173,11 @@ fn setup_pool() -> (AccountId, AssetId, RuntimeOrigin, Location, AssetId) {
 	let asset_id = AssetId(asset_location.clone());
 
 	AssetHubWestend::execute_with(|| {
+		assert_ok!(<Balances as Mutate<_>>::mint_into(
+			&alice,
+			ExistentialDeposit::get() + (1_000 * UNITS)
+		));
+
 		assert_ok!(ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			asset_location.clone().into(),
@@ -191,7 +187,9 @@ fn setup_pool() -> (AccountId, AssetId, RuntimeOrigin, Location, AssetId) {
 		));
 	});
 
-	create_pool_with_wnd_on!(AssetHubWestend, asset_location.clone(), true, alice.clone());
+	if create_pool {
+		create_pool_with_wnd_on!(AssetHubWestend, asset_location.clone(), true, alice.clone());
+	}
 
 	(alice, native_asset_id, origin, asset_location, asset_id)
 }
