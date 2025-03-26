@@ -136,7 +136,7 @@ fn send_weth_token_from_ethereum_to_asset_hub() {
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: AssetHubWestendSender::get().into() },
-				amount: 1_000_000_000,
+				amount: 1_000_000,
 				fee: XCM_FEE,
 			},
 		});
@@ -236,7 +236,7 @@ fn send_weth_from_ethereum_to_penpal() {
 					id: PenpalBReceiver::get().into(),
 					fee: XCM_FEE,
 				},
-				amount: 1_000_000_000,
+				amount: 1_000_000,
 				fee: XCM_FEE,
 			},
 		});
@@ -484,7 +484,7 @@ fn send_weth_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u128
 			command: Command::SendToken {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: account_id },
-				amount: 1_000_000_000_000,
+				amount: 1_000_000,
 				fee,
 			},
 		});
