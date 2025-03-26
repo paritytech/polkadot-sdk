@@ -19,23 +19,16 @@
 
 use std::collections::BTreeMap;
 
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU16, EitherOf, MapSuccess, Polling},
-};
-use sp_core::Get;
-use sp_runtime::{
-	traits::{BadOrigin, MaybeConvert, ReduceBy, ReplaceWithDefault},
-	BuildStorage,
-};
+use frame::testing_prelude::*;
+
 
 use super::*;
 use crate as pallet_ranked_collective;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 type Class = Rank;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -202,9 +195,9 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
-	pub fn build(self) -> sp_io::TestExternalities {
+	pub fn build(self) -> TestState {
 		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-		let mut ext = sp_io::TestExternalities::new(t);
+		let mut ext = TestState::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
 	}
@@ -497,7 +490,7 @@ fn ensure_ranked_works() {
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 
-		use frame_support::traits::OriginTrait;
+		use frame::traits::OriginTrait;
 		type Rank1 = EnsureRanked<Test, (), 1>;
 		type Rank2 = EnsureRanked<Test, (), 2>;
 		type Rank3 = EnsureRanked<Test, (), 3>;
