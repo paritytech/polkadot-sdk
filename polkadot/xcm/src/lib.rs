@@ -363,7 +363,7 @@ impl<C> VersionedXcm<C> {
 			Self::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
 		})
 		.map_err(|e| {
-			log::error!(target: "xcm::check_is_decodable", "Decode error: {e:?} for xcm: {self:?}!");
+			log::error!(target: "xcm::validate_xcm_nesting", "Decode error: {e:?} for xcm: {self:?}!");
 			()
 		})
 	}
@@ -622,7 +622,7 @@ fn size_limits() {
 }
 
 #[test]
-fn check_is_decodable_works() {
+fn validate_xcm_nesting_works() {
 	use crate::{
 		latest::{
 			prelude::{GeneralIndex, ReserveAssetDeposited, SetAppendix},
