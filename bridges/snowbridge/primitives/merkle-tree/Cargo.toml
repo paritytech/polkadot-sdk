@@ -1,13 +1,7 @@
 [package]
-<<<<<<< HEAD:bridges/snowbridge/pallets/outbound-queue/merkle-tree/Cargo.toml
-name = "snowbridge-outbound-queue-merkle-tree"
-description = "Snowbridge Outbound Queue Merkle Tree"
-version = "0.10.0"
-=======
 name = "snowbridge-merkle-tree"
 description = "Snowbridge Merkle Tree"
 version = "0.2.0"
->>>>>>> 98c6ffce (Snowbridge V2 (#7402)):bridges/snowbridge/primitives/merkle-tree/Cargo.toml
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -23,13 +17,8 @@ exclude-from-umbrella = true
 [dependencies]
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-<<<<<<< HEAD:bridges/snowbridge/pallets/outbound-queue/merkle-tree/Cargo.toml
 sp-core.workspace = true
 sp-runtime.workspace = true
-=======
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
->>>>>>> 98c6ffce (Snowbridge V2 (#7402)):bridges/snowbridge/primitives/merkle-tree/Cargo.toml
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
