@@ -75,7 +75,7 @@ fn add_caller_and_generate_friends<T: Config>(
 	friends
 }
 
-fn insert_recovery_config<T: Config>(account: &T::AccountId) {
+fn insert_recovery_config_with_max_friends<T: Config>(account: &T::AccountId) {
 	T::Currency::make_free_balance_be(&account, BalanceOf::<T>::max_value());
 
 	let n = T::MaxFriends::get();
@@ -100,8 +100,8 @@ fn insert_recovery_config<T: Config>(account: &T::AccountId) {
 	<Recoverable<T>>::insert(&account, recovery_config);
 }
 
-fn setup_active_recovery<T: Config>(caller: &T::AccountId, lost_account: &T::AccountId) {
-	insert_recovery_config::<T>(&lost_account);
+fn setup_active_recovery_with_max_friends<T: Config>(caller: &T::AccountId, lost_account: &T::AccountId) {
+	insert_recovery_config_with_max_friends::<T>(&lost_account);
 	let n = T::MaxFriends::get();
 	let friends = generate_friends::<T>(n);
 	let bounded_friends: FriendsOf<T> = friends.try_into().unwrap();
@@ -172,7 +172,7 @@ mod benchmarks {
 		let lost_account: T::AccountId = account("lost_account", 0, SEED);
 		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
 
-		insert_recovery_config::<T>(&lost_account);
+		insert_recovery_config_with_max_friends::<T>(&lost_account);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), lost_account_lookup);
@@ -376,10 +376,10 @@ mod benchmarks {
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
 		// 1. Setup recovery config for caller
-		insert_recovery_config::<T>(&caller);
+		insert_recovery_config_with_max_friends::<T>(&caller);
 
 		// 2. Setup active recovery for lost account
-		setup_active_recovery::<T>(&caller, &lost_account);
+		setup_active_recovery_with_max_friends::<T>(&caller, &lost_account);
 
 		// 3. Get initial deposits
 		let initial_config = <Recoverable<T>>::get(&caller).unwrap();
