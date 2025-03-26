@@ -65,7 +65,7 @@ fn exchange_asset_success() {
 
 		let xcm = Xcm(vec![ExchangeAsset { give: give.into(), want: want.into(), maximal: true }]);
 
-		assert_ok!(PolkadotXcm::execute(origin, bx!(xcm::VersionedXcm::from(xcm)), Weight::MAX,));
+		assert_ok!(PolkadotXcm::execute(origin, bx!(xcm::VersionedXcm::from(xcm)), Weight::MAX));
 
 		let foreign_balance = ForeignAssets::balance(asset_location, &alice);
 		assert!(
