@@ -23,8 +23,6 @@ use subxt_signer::{
 };
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
-const CHUNK_SIZE: usize = 500;
-
 #[tokio::test(flavor = "multi_thread")]
 async fn warm_up_trie_cache_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
