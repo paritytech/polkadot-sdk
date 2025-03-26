@@ -28,12 +28,6 @@ use snowbridge_pallet_inbound_queue_fixtures::{
 	send_token::make_send_token_message, send_token_to_penpal::make_send_token_to_penpal_message,
 };
 use snowbridge_pallet_system;
-<<<<<<< HEAD
-use snowbridge_router_primitives::inbound::{
-	Command, Destination, EthereumLocationsConverterFor, MessageV1, VersionedMessage,
-};
-=======
->>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 use sp_core::H256;
 use sp_runtime::{DispatchError::Token, TokenError::FundsUnavailable};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
