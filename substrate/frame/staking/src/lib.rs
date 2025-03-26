@@ -1081,7 +1081,7 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	}
 }
 
-/// A marker type representing the presence of a validator. Encodes as a unit type.
+/// A type representing the presence of a validator. Encodes as a unit type.
 pub type Existence = ();
 
 /// A converter type that returns `Some(())` if the validator exists in the current active era,
@@ -1118,17 +1118,16 @@ impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::Accoun
 	}
 }
 
-impl<A, B: HasCompact> Encode for ExistenceOrLegacyExposure<A, B> {
-	fn encode_to<T: Output + ?Sized>(&self, _: &mut T) {}
-}
-
-impl<A, B: HasCompact> MaxEncodedLen for ExistenceOrLegacyExposure<A, B> {
-	fn max_encoded_len() -> usize {
-		0
+impl<A, B: HasCompact> Encode for ExistenceOrLegacyExposure<A, B> where Exposure<A, B>: Encode {
+	fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
+		match self {
+			ExistenceOrLegacyExposure::Exists => (),
+			ExistenceOrLegacyExposure::Exposure(exposure) => exposure.encode_to(dest),
+		}
 	}
 }
 
-impl<A, B: HasCompact> EncodeLike for ExistenceOrLegacyExposure<A, B> {}
+impl<A, B: HasCompact> EncodeLike for ExistenceOrLegacyExposure<A, B> where Exposure<A, B>: Encode {}
 
 impl<A, B: HasCompact> Decode for ExistenceOrLegacyExposure<A, B>
 where
@@ -1472,9 +1471,9 @@ mod test {
 			}) if *i == vec![IndividualExposure { who: 3, value: 4 }]
 		));
 
-		// encoding again removes the exposure.
+		// round trip encoding works
 		assert_eq!(
-			ExistenceOrLegacyExposure::<u32, u32>::Exists.encode(),
+			encoded_legacy_exposure,
 			decoded_legacy_exposure.encode()
 		);
 	}
