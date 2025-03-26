@@ -112,4 +112,10 @@ pub struct NodeExtraArgs {
 
 	/// If set, each `PoV` build by the node will be exported to this folder.
 	pub export_pov: Option<PathBuf>,
+
+	/// This is an experimental cli arg, it is meant to be used only if collator is overshooting
+	/// the PoV size, and building blocks that do not fit in the max_pov_size.
+	///
+	/// It will be removed once https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
+	pub experimental_max_pov_size: Option<u32>,
 }

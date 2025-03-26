@@ -143,6 +143,11 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub relay_chain_slot_duration: Duration,
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
+	/// This is an experimental cli arg, it is meant to be used only if collator is overshooting
+	/// the PoV size, and building blocks that do not fit in the max_pov_size.
+	///
+	/// It will be removed once https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
+	pub experimental_max_pov_size: Option<u32>,
 }
 
 /// Run aura-based block building and collation task.
@@ -193,6 +198,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		spawner,
 		export_pov,
 		relay_chain_slot_duration,
+		experimental_max_pov_size,
 	} = params;
 
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
@@ -224,6 +230,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_sender: tx,
 		relay_chain_slot_duration,
 		slot_offset,
+		experimental_max_pov_size,
 	};
 
 	let block_builder_fut =

@@ -100,6 +100,11 @@ pub struct BuilderTaskParams<
 	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
 	/// wait for relay chain notifications because we woke up too early).
 	pub slot_offset: Duration,
+	/// This is an experimental cli arg, it is meant to be used only if collator is overshooting
+	/// the PoV size, and building blocks that do not fit in the max_pov_size.
+	///
+	/// It will be removed once https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
+	pub experimental_max_pov_size: Option<u32>,
 }
 
 /// Run block-builder.
@@ -148,6 +153,7 @@ where
 			relay_chain_slot_duration,
 			para_backend,
 			slot_offset,
+			experimental_max_pov_size,
 		} = params;
 
 		let mut slot_timer = SlotTimer::<_, _, P>::new_with_offset(
@@ -341,12 +347,14 @@ where
 
 			let allowed_pov_size = if cfg!(feature = "full-pov-size") {
 				validation_data.max_pov_size
+			} else if let Some(max_pov_size) = experimental_max_pov_size {
+				max_pov_size
 			} else {
-				// Set the block limit to 50% of the maximum PoV size.
+				// Set the block limit to 80% of the maximum PoV size.
 				//
-				// TODO: If we got benchmarking that includes the proof size,
-				// we should be able to use the maximum pov size.
-				validation_data.max_pov_size / 2
+				// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
+				// fixed, this should be removed.
+				validation_data.max_pov_size * 85 / 100
 			} as usize;
 
 			let Ok(Some(candidate)) = collator
