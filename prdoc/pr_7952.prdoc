@@ -6,3 +6,5 @@ doc:
 crates:
 - name: asset-hub-westend-runtime
   bump: patch
+- name: pallet-xcm-benchmarks
+  bump: patch
