@@ -238,7 +238,7 @@ where
 					.await
 			);
 
-			let allowed_pov_size = validation_data.max_pov_size / 2 as usize;
+			let allowed_pov_size = (validation_data.max_pov_size / 2) as usize;
 
 			let maybe_collation = try_request!(
 				collator

@@ -381,7 +381,7 @@ where
 				)
 				.await;
 
-				let allowed_pov_size = if let Some(experimental_max_pov_percentage) =
+				let allowed_pov_size = if let Some(max_pov_percentage) =
 					params.experimental_max_pov_percentage
 				{
 					validation_data.max_pov_size * max_pov_percentage / 100
