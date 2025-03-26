@@ -297,5 +297,10 @@ sp_api::decl_runtime_apis! {
 		/// Elastic scaling support
 		#[api_version(11)]
 		fn candidates_pending_availability(para_id: ppp::Id) -> Vec<CommittedCandidateReceipt<Hash>>;
+
+		/***** Added in v12 *****/
+		/// Retrieve the maximum uncompressed code size.
+		#[api_version(12)]
+		fn validation_code_bomb_limit() -> u32;
 	}
 }

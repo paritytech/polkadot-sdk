@@ -75,6 +75,7 @@ pub(crate) struct RequestResultCache {
 	node_features: LruMap<SessionIndex, NodeFeatures>,
 	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
 	claim_queue: LruMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	validation_code_bomb_limits: LruMap<SessionIndex, u32>,
 }
 
 impl Default for RequestResultCache {
@@ -112,6 +113,7 @@ impl Default for RequestResultCache {
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			claim_queue: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			validation_code_bomb_limits: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -559,6 +561,15 @@ impl RequestResultCache {
 	) {
 		self.claim_queue.insert(relay_parent, value);
 	}
+	/// Cache the validation code bomb limit for a session
+	pub(crate) fn cache_validation_code_bomb_limit(&mut self, session: SessionIndex, limit: u32) {
+		self.validation_code_bomb_limits.insert(session, limit);
+	}
+
+	/// Get the validation code bomb limit for a session if cached
+	pub(crate) fn validation_code_bomb_limit(&mut self, session: SessionIndex) -> Option<u32> {
+		self.validation_code_bomb_limits.get(&session).copied()
+	}
 }
 
 pub(crate) enum RequestResult {
@@ -610,4 +621,5 @@ pub(crate) enum RequestResult {
 	NodeFeatures(SessionIndex, NodeFeatures),
 	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),
 	CandidatesPendingAvailability(Hash, ParaId, Vec<CommittedCandidateReceipt>),
+	ValidationCodeBombLimit(SessionIndex, u32),
 }
