@@ -24,9 +24,6 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
 /// Represents the differents states of a referendum.
-/// None: The referendum is not started.
-/// Ongoing: The referendum is ongoing.
-/// Completed: The referendum is finished.
 #[derive(
 	Encode,
 	Decode,
@@ -40,8 +37,11 @@ use sp_runtime::RuntimeDebug;
 	MaxEncodedLen,
 )]
 pub enum Status {
+	/// The referendum is not started.
 	None,
+	/// The referendum is ongoing.
 	Ongoing,
+	/// The referendum is finished.
 	Completed,
 }
 pub trait VotingHooks<AccountId, Index, Balance> {
