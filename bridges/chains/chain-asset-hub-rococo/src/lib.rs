@@ -116,5 +116,5 @@ impl Chain for AssetHubRococo {
 
 impl Parachain for AssetHubRococo {
 	const PARACHAIN_ID: u32 = ASSET_HUB_ROCOCO_PARACHAIN_ID;
-	const MAX_HEADER_SIZE: u32 = MAX_BRIDGE_HUB_HEADER_SIZE;
+	const MAX_HEADER_SIZE: u32 = MAX_ASSET_HUB_HEADER_SIZE;
 }

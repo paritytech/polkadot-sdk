@@ -115,5 +115,5 @@ impl Chain for AssetHubWestend {
 
 impl Parachain for AssetHubWestend {
 	const PARACHAIN_ID: u32 = ASSET_HUB_WESTEND_PARACHAIN_ID;
-	const MAX_HEADER_SIZE: u32 = MAX_BRIDGE_HUB_HEADER_SIZE; // TODO: FAIL-CI - MAX_ASSET_HUB_HEADER_SIZE
+	const MAX_HEADER_SIZE: u32 = MAX_ASSET_HUB_HEADER_SIZE; 
 }
