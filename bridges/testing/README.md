@@ -13,13 +13,19 @@ Prerequisites for running the tests locally:
 - build Polkadot Parachain binary by running `cargo build -p polkadot-parachain-bin --release` command in the
   [`polkadot-sdk`](https://github.com/paritytech/polkadot-sdk) repository clone;
 
-- ensure that you have [`node`](https://nodejs.org/en) installed. Additionally, we'll need globally installed
-  `polkadot/api-cli` package (use `npm install -g @polkadot/api-cli@beta` to install it);
+- ensure that you have [`node`](https://nodejs.org/en) installed. Additionally, we'll need the globally installed
+  `polkadot/api-cli` package. Use `yarn global add @polkadot/api-cli` to install it.
 
 - build Substrate relay by running `cargo build -p substrate-relay --release` command in the
   [`parity-bridges-common`](https://github.com/paritytech/parity-bridges-common) repository clone;
 
 - copy the `substrate-relay` binary, built in the previous step, to `~/local_bridge_testing/bin/substrate-relay`;
+
+On Mac, you'll also need to do the following:
+
+- Update to the latest version of bash by installing homebrew and running `brew install bash`;
+
+- Install jq with `brew install jq`
 
 After that, any test can be run using the `run-test.sh` command.
 Example: `./run-test.sh 0001-asset-transfer`
