@@ -1465,14 +1465,14 @@ mod test {
 		let decoded_legacy_exposure =
 			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_legacy_exposure.as_slice())
 				.unwrap();
-		assert!(matches!(
+		assert_eq!(
 			decoded_legacy_exposure,
 			ExistenceOrLegacyExposure::Exposure(Exposure {
 				total: 1,
 				own: 2,
-				others: ref i
-			}) if *i == vec![IndividualExposure { who: 3, value: 4 }]
-		));
+				others: vec![IndividualExposure { who: 3, value: 4 }]
+			})
+		);
 
 		// round trip encoding works
 		assert_eq!(encoded_legacy_exposure, decoded_legacy_exposure.encode());
