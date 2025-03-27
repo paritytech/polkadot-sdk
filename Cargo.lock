@@ -6447,6 +6447,7 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-runtime",
  "frame-benchmarking",
+ "frame-storage-access-test-runtime",
  "frame-support",
  "frame-system",
  "gethostname",
@@ -6467,6 +6468,7 @@ dependencies = [
  "sc-client-db",
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
+ "sc-executor-wasmtime 0.29.0",
  "sc-runtime-utilities",
  "sc-service",
  "sc-sysinfo",
@@ -6722,6 +6724,13 @@ dependencies = [
  "substrate-rpc-client",
  "tokio",
  "tokio-retry",
+]
+
+[[package]]
+name = "frame-storage-access-test-runtime"
+version = "0.0.0"
+dependencies = [
+ "substrate-wasm-builder",
 ]
 
 [[package]]

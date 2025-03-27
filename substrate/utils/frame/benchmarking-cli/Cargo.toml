@@ -27,6 +27,7 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true, default-feature
 frame-benchmarking = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
+frame-storage-access-test-runtime = { workspace = true, default-features = true }
 gethostname = { workspace = true }
 handlebars = { workspace = true }
 hex = { workspace = true, default-features = true }
@@ -44,6 +45,7 @@ sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true, default-features = false }
 sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true }
+sc-executor-wasmtime = { workspace = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
 sc-sysinfo = { workspace = true, default-features = true }

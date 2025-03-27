@@ -1,0 +1,26 @@
+[package]
+name = "frame-storage-access-test-runtime"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+build = "build.rs"
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+
+[dependencies]
+
+
+[build-dependencies]
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"substrate-wasm-builder",
+]
