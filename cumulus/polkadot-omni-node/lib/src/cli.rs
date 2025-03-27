@@ -204,8 +204,6 @@ pub struct Cli<Config: CliConfig> {
 	/// This is an experimental cli arg, it is meant to be used only if collator is overshooting
 	/// the PoV size, and building blocks that do not fit in the max_pov_size. It is a percentage
 	/// of the max_pov_size configuration of the relay-chain.
-	///
-	/// It will be removed once h<https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	#[arg(long)]
 	pub experimental_max_pov_percentage: Option<u32>,
 }
