@@ -570,7 +570,6 @@ impl UnhandledResponse {
 		disabled_mask: BitVec<u8, Lsb0>,
 		transposed_cq: &TransposedClaimQueue,
 		allow_v2_descriptors: bool,
-		allow_approved_peer_ump_signal: bool,
 	) -> ResponseValidationOutput {
 		let UnhandledResponse {
 			response: TaggedResponse { identifier, requested_peer, props, response },
@@ -657,7 +656,6 @@ impl UnhandledResponse {
 			disabled_mask,
 			transposed_cq,
 			allow_v2_descriptors,
-			allow_approved_peer_ump_signal,
 		);
 
 		if let CandidateRequestStatus::Complete { .. } = output.request_status {
@@ -680,7 +678,6 @@ fn validate_complete_response(
 	disabled_mask: BitVec<u8, Lsb0>,
 	transposed_cq: &TransposedClaimQueue,
 	allow_v2_descriptors: bool,
-	allow_approved_peer_ump_signal: bool,
 ) -> ResponseValidationOutput {
 	let RequestProperties { backing_threshold, mut unwanted_mask } = props;
 
@@ -745,10 +742,7 @@ fn validate_complete_response(
 			return invalid_candidate_output(COST_UNSUPPORTED_DESCRIPTOR_VERSION)
 		}
 		// Validate the ump signals.
-		if let Err(err) = response
-			.candidate_receipt
-			.check_ump_signals(transposed_cq, allow_approved_peer_ump_signal)
-		{
+		if let Err(err) = response.candidate_receipt.check_ump_signals(transposed_cq) {
 			gum::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
@@ -1151,7 +1145,6 @@ mod tests {
 				disabled_mask.clone(),
 				&Default::default(),
 				false,
-				false,
 			);
 			assert_eq!(
 				output,
@@ -1192,7 +1185,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask,
 				&Default::default(),
-				false,
 				false,
 			);
 			assert_eq!(
@@ -1280,7 +1272,6 @@ mod tests {
 				disabled_mask,
 				&Default::default(),
 				false,
-				false,
 			);
 			assert_eq!(
 				output,
@@ -1364,7 +1355,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask,
 				&Default::default(),
-				false,
 				false,
 			);
 			assert_eq!(
@@ -1505,7 +1495,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask.clone(),
 				&Default::default(),
-				false,
 				false,
 			);
 

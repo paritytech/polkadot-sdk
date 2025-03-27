@@ -238,7 +238,6 @@ impl CollationGenerationSubsystem {
 			&mut self.metrics,
 			session_info.v2_receipts,
 			&transpose_claim_queue(claim_queue),
-			session_info.approved_peer_ump_signal,
 		)
 		.await?;
 
@@ -374,19 +373,18 @@ impl CollationGenerationSubsystem {
 					let mut commitments = CandidateCommitments::default();
 					commitments.upward_messages = collation.upward_messages.clone();
 
-					let ump_signals =
-						match commitments.ump_signals(session_info.approved_peer_ump_signal) {
-							Ok(signals) => signals,
-							Err(err) => {
-								gum::debug!(
-									target: LOG_TARGET,
-									?para_id,
-									"error processing UMP signals: {}",
-									err
-								);
-								return
-							},
-						};
+					let ump_signals = match commitments.ump_signals() {
+						Ok(signals) => signals,
+						Err(err) => {
+							gum::debug!(
+								target: LOG_TARGET,
+								?para_id,
+								"error processing UMP signals: {}",
+								err
+							);
+							return
+						},
+					};
 
 					let (cs_index, cq_offset) = ump_signals
 						.core_selector()
@@ -452,7 +450,6 @@ impl CollationGenerationSubsystem {
 						&metrics,
 						session_info.v2_receipts,
 						&transposed_claim_queue,
-						session_info.approved_peer_ump_signal,
 					)
 					.await
 					{
@@ -491,7 +488,6 @@ impl<Context> CollationGenerationSubsystem {
 #[derive(Clone)]
 struct PerSessionInfo {
 	v2_receipts: bool,
-	approved_peer_ump_signal: bool,
 	n_validators: usize,
 }
 
@@ -523,10 +519,6 @@ impl SessionInfoCache {
 				.get(FeatureIndex::CandidateReceiptV2 as usize)
 				.map(|b| *b)
 				.unwrap_or(false),
-			approved_peer_ump_signal: node_features
-				.get(FeatureIndex::ApprovedPeerUmpSignal as usize)
-				.map(|b| *b)
-				.unwrap_or(false),
 			n_validators,
 		};
 		self.0.insert(session_index, info);
@@ -555,7 +547,6 @@ async fn construct_and_distribute_receipt(
 	metrics: &Metrics,
 	v2_receipts: bool,
 	transposed_claim_queue: &TransposedClaimQueue,
-	approved_peer_ump_signal: bool,
 ) -> Result<()> {
 	let PreparedCollation {
 		collation,
@@ -626,16 +617,12 @@ async fn construct_and_distribute_receipt(
 			commitments,
 		};
 
-		ccr.check_ump_signals(&transposed_claim_queue, approved_peer_ump_signal)
+		ccr.check_ump_signals(&transposed_claim_queue)
 			.map_err(Error::CandidateReceiptCheck)?;
 
 		ccr.to_plain()
 	} else {
-		if !commitments
-			.ump_signals(approved_peer_ump_signal)
-			.map_err(Error::CandidateReceiptCheck)?
-			.is_empty()
-		{
+		if !commitments.ump_signals().map_err(Error::CandidateReceiptCheck)?.is_empty() {
 			gum::warn!(
 				target: LOG_TARGET,
 				?pov_hash,

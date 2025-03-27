@@ -15433,7 +15433,6 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-primitives-test-helpers",
- "rstest",
  "scale-info",
  "serde",
  "sp-api 26.0.0",

@@ -576,10 +576,8 @@ fn v2_receipts_failed_core_index_check() {
 	});
 }
 
-#[rstest]
-#[case(true)]
-#[case(false)]
-fn approved_peer_signal(#[case] allow_approved_peer_signals: bool) {
+#[test]
+fn approved_peer_signal() {
 	let relay_parent = Hash::repeat_byte(0);
 	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
 	let parent_head = dummy_head_data();
@@ -617,43 +615,31 @@ fn approved_peer_signal(#[case] allow_approved_peer_signals: bool) {
 			})
 			.await;
 
-		let mut node_features = node_features_with_v2_enabled();
-		if allow_approved_peer_signals {
-			node_features
-				.resize(node_features::FeatureIndex::ApprovedPeerUmpSignal as usize + 1, false);
-			node_features
-				.set(node_features::FeatureIndex::ApprovedPeerUmpSignal as u8 as usize, true);
-		}
-
 		helpers::handle_runtime_calls_on_submit_collation(
 			&mut virtual_overseer,
 			relay_parent,
 			para_id,
 			expected_pvd.clone(),
-			node_features,
+			node_features_with_v2_enabled(),
 			[(CoreIndex(0), [para_id].into_iter().collect())].into_iter().collect(),
 		)
 		.await;
 
-		if allow_approved_peer_signals {
-			assert_matches!(
-				overseer_recv(&mut virtual_overseer).await,
-				AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
-					candidate_receipt,
-					parent_head_data_hash,
-					..
-				}) => {
-					let CandidateReceipt { descriptor, .. } = candidate_receipt;
-					assert_eq!(parent_head_data_hash, parent_head.hash());
-					assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
-					assert_eq!(descriptor.para_head(), dummy_head_data().hash());
-					assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
-					assert_eq!(descriptor.version(), CandidateDescriptorVersion::V2);
-				}
-			);
-		} else {
-			// No collation is distributed.
-		}
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
+				candidate_receipt,
+				parent_head_data_hash,
+				..
+			}) => {
+				let CandidateReceipt { descriptor, .. } = candidate_receipt;
+				assert_eq!(parent_head_data_hash, parent_head.hash());
+				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
+				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
+				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
+				assert_eq!(descriptor.version(), CandidateDescriptorVersion::V2);
+			}
+		);
 
 		virtual_overseer
 	});

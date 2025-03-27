@@ -30,7 +30,6 @@ use polkadot_node_subsystem_test_helpers::{make_subsystem_context, TestSubsystem
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
-	node_features,
 	vstaging::{
 		CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset,
 		CommittedCandidateReceiptError, CoreSelector, MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
@@ -476,8 +475,6 @@ impl ValidationBackend for MockValidateCandidateBackend {
 #[case(true)]
 #[case(false)]
 fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
-	use polkadot_primitives::node_features;
-
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
@@ -527,12 +524,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		hrmp_watermark: 0,
 	};
 
-	let mut node_features = NodeFeatures::default();
-
 	if v2_descriptor {
-		node_features.resize(node_features::FeatureIndex::FirstUnassigned as usize, false);
-		node_features.set(node_features::FeatureIndex::ApprovedPeerUmpSignal as u8 as usize, true);
-
 		validation_result.upward_messages.force_push(UMP_SEPARATOR);
 		validation_result
 			.upward_messages
@@ -568,7 +560,6 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
 		VALIDATION_CODE_BOMB_LIMIT,
-		Some(node_features),
 	))
 	.unwrap();
 
@@ -582,10 +573,8 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 	});
 }
 
-#[rstest]
-#[case(true)]
-#[case(false)]
-fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
+#[test]
+fn invalid_session_or_ump_signals() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
 	let pov: PoV = PoV { block_data: BlockData(vec![1; 32]) };
@@ -638,12 +627,6 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 	let mut candidate_receipt =
 		CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
-	let mut node_features = NodeFeatures::default();
-	if approved_peer_ump_enabled {
-		node_features.resize(node_features::FeatureIndex::FirstUnassigned as usize, false);
-		node_features.set(node_features::FeatureIndex::ApprovedPeerUmpSignal as u8 as usize, true);
-	}
-
 	// Invalid session index.
 	for exec_kind in
 		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
@@ -660,7 +643,6 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 			&Default::default(),
 			Default::default(),
 			VALIDATION_CODE_BOMB_LIMIT,
-			Some(node_features.clone()),
 		))
 		.unwrap();
 
@@ -685,7 +667,6 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 			&Default::default(),
 			Some(Default::default()),
 			VALIDATION_CODE_BOMB_LIMIT,
-			Some(node_features.clone()),
 		))
 		.unwrap();
 		assert_matches!(
@@ -710,7 +691,6 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 			&Default::default(),
 			Default::default(),
 			VALIDATION_CODE_BOMB_LIMIT,
-			Default::default(),
 		))
 		.unwrap();
 
@@ -744,7 +724,6 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
 			VALIDATION_CODE_BOMB_LIMIT,
-			Some(node_features.clone()),
 		))
 		.unwrap();
 
@@ -791,7 +770,6 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 			&Default::default(),
 			Some(Default::default()),
 			VALIDATION_CODE_BOMB_LIMIT,
-			Some(node_features.clone()),
 		))
 		.unwrap();
 		assert_matches!(
@@ -802,7 +780,7 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 		);
 	}
 
-	// Validation doesn't fail for approvals and disputes, core/session index is not checked.
+	// Validation doesn't fail for approvals and disputes, ump signals are not checked.
 	for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
 		let v = executor::block_on(validate_candidate_exhaustive(
 			1,
@@ -816,7 +794,6 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 			&Default::default(),
 			Default::default(),
 			VALIDATION_CODE_BOMB_LIMIT,
-			Default::default(),
 		))
 		.unwrap();
 
@@ -830,8 +807,7 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 		});
 	}
 
-	// Test that a v2 candidate that outputs an approved peer id is only valid if the node feature
-	// is enabled.
+	// Test that a v2 candidate that outputs an approved peer id valid.
 	let descriptor = make_valid_candidate_descriptor_v2(
 		ParaId::from(1_u32),
 		dummy_hash(),
@@ -868,30 +844,20 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
 			VALIDATION_CODE_BOMB_LIMIT,
-			Some(node_features.clone()),
 		))
 		.unwrap();
 
-		if approved_peer_ump_enabled {
-			assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
-				assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
-				assert_eq!(outputs.upward_messages, commitments.upward_messages);
-				assert_eq!(outputs.horizontal_messages, Vec::new());
-				assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
-				assert_eq!(outputs.hrmp_watermark, 0);
-				assert_eq!(used_validation_data, validation_data);
-			});
-		} else {
-			assert_matches!(
-				v,
-				ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
-					CommittedCandidateReceiptError::TooManyUMPSignals
-				))
-			);
-		}
+		assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+			assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+			assert_eq!(outputs.upward_messages, commitments.upward_messages);
+			assert_eq!(outputs.horizontal_messages, Vec::new());
+			assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+			assert_eq!(outputs.hrmp_watermark, 0);
+			assert_eq!(used_validation_data, validation_data);
+		});
 	}
 
-	// Validation doesn't fail for approvals and disputes, ump signals are not checked.
+	// Validation also doesn't fail for approvals and disputes.
 	for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
 		let v = executor::block_on(validate_candidate_exhaustive(
 			1,
@@ -905,7 +871,6 @@ fn invalid_session_or_ump_signals(#[case] approved_peer_ump_enabled: bool) {
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
 			VALIDATION_CODE_BOMB_LIMIT,
-			Some(node_features.clone()),
 		))
 		.unwrap();
 
@@ -963,7 +928,6 @@ fn candidate_validation_bad_return_is_invalid() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
 	))
 	.unwrap();
 
@@ -1049,7 +1013,6 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
 	))
 	.unwrap();
 
@@ -1094,7 +1057,6 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
 	))
 	.unwrap();
 
@@ -1213,7 +1175,6 @@ fn candidate_validation_retry_on_error_helper(
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
 	))
 }
 
@@ -1260,7 +1221,6 @@ fn candidate_validation_timeout_is_internal_error() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)));
@@ -1311,7 +1271,6 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
 	))
 	.unwrap();
 
@@ -1365,7 +1324,6 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
-		Default::default(),
 	))
 	.unwrap();
 
@@ -1428,7 +1386,6 @@ fn compressed_code_works() {
 		&Default::default(),
 		Some(Default::default()),
 		VALIDATION_CODE_BOMB_LIMIT,
-		Some(Default::default()),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));

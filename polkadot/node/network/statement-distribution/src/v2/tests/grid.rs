@@ -26,7 +26,12 @@ use polkadot_primitives_test_helpers::make_candidate;
 fn backed_candidate_leads_to_advertisement() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -230,7 +235,12 @@ fn backed_candidate_leads_to_advertisement() {
 fn received_advertisement_before_confirmation_leads_to_request() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -397,7 +407,12 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 fn received_advertisement_after_backing_leads_to_acknowledgement() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	test_harness(config, |state, mut overseer| async move {
 		let peers_to_connect = [
@@ -573,7 +588,12 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 fn receive_ack_for_unconfirmed_candidate() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	test_harness(config, |state, mut overseer| async move {
 		let peers_to_connect = [
@@ -629,7 +649,12 @@ fn receive_ack_for_unconfirmed_candidate() {
 fn received_acknowledgements_for_locally_confirmed() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	test_harness(config, |state, mut overseer| async move {
 		let peers_to_connect = [
@@ -786,7 +811,12 @@ fn received_acknowledgements_for_locally_confirmed() {
 fn received_acknowledgements_for_externally_confirmed() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	test_harness(config, |state, mut overseer| async move {
 		let peers_to_connect = [
@@ -916,7 +946,12 @@ fn received_acknowledgements_for_externally_confirmed() {
 fn received_advertisement_after_confirmation_before_backing() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -1089,7 +1124,12 @@ fn received_advertisement_after_confirmation_before_backing() {
 fn additional_statements_are_shared_after_manifest_exchange() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -1371,7 +1411,12 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 fn advertisement_sent_when_peer_enters_relay_parent_view() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -1579,7 +1624,12 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 fn advertisement_not_re_sent_when_peer_re_enters_view() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -1785,7 +1835,12 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -1988,7 +2043,12 @@ fn advertisements_rejected_from_incorrect_peers() {
 	sp_tracing::try_init_simple();
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
@@ -2119,7 +2179,12 @@ fn advertisements_rejected_from_incorrect_peers() {
 fn manifest_rejected_with_unknown_relay_parent() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let unknown_parent = Hash::repeat_byte(2);
@@ -2215,7 +2280,7 @@ fn manifest_rejected_when_not_a_validator() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::None,
-		..Default::default()
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -2304,7 +2369,12 @@ fn manifest_rejected_when_not_a_validator() {
 fn manifest_rejected_when_group_does_not_match_para() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -2397,7 +2467,12 @@ fn manifest_rejected_when_group_does_not_match_para() {
 fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig { validator_count, group_size, ..Default::default() };
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		allow_v2_descriptors: false,
+	};
 
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
@@ -2586,7 +2661,7 @@ fn inactive_local_participates_in_grid() {
 		validator_count,
 		group_size,
 		local_validator: LocalRole::InactiveValidator,
-		..Default::default()
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);

@@ -622,11 +622,6 @@ impl<T: Config> Pallet<T> {
 				.map(|b| *b)
 				.unwrap_or(false);
 
-			let allow_approved_peer_ump_signal = node_features
-				.get(FeatureIndex::ApprovedPeerUmpSignal as usize)
-				.map(|b| *b)
-				.unwrap_or(false);
-
 			let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 				backed_candidates,
 				&allowed_relay_parents,
@@ -634,7 +629,6 @@ impl<T: Config> Pallet<T> {
 				eligible,
 				core_index_enabled,
 				allow_v2_receipts,
-				allow_approved_peer_ump_signal,
 			);
 			let count = count_backed_candidates(&backed_candidates_with_core);
 
@@ -992,7 +986,6 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	allow_v2_receipts: bool,
-	allow_approved_peer_ump_signal: bool,
 ) -> bool {
 	// Get the claim queue snapshot at the candidate relay parent.
 	let Some((rp_info, _)) =
@@ -1007,10 +1000,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	};
 
-	if let Err(err) = candidate
-		.candidate()
-		.check_ump_signals(&rp_info.claim_queue, allow_approved_peer_ump_signal)
-	{
+	if let Err(err) = candidate.candidate().check_ump_signals(&rp_info.claim_queue) {
 		log::debug!(
 			target: LOG_TARGET,
 			"UMP signal check failed: {:?}. Dropping candidate {:?} for paraid {:?}.",
@@ -1088,19 +1078,14 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
 	allow_v2_receipts: bool,
-	allow_approved_peer_ump_signal: bool,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	// Map the candidates to the right paraids, while making sure that the order between candidates
 	// of the same para is preserved.
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
 
 	for candidate in backed_candidates {
-		if !sanitize_backed_candidate_v2::<T>(
-			&candidate,
-			allowed_relay_parents,
-			allow_v2_receipts,
-			allow_approved_peer_ump_signal,
-		) {
+		if !sanitize_backed_candidate_v2::<T>(&candidate, allowed_relay_parents, allow_v2_receipts)
+		{
 			continue
 		}
 
