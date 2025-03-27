@@ -36,12 +36,8 @@ use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
-<<<<<<< HEAD
 use codec::{Decode, Encode, MaxEncodedLen};
-=======
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
->>>>>>> 98c6ffce (Snowbridge V2 (#7402))
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::{
