@@ -6408,6 +6408,7 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-runtime",
  "frame-benchmarking",
+ "frame-storage-access-test-runtime",
  "frame-support",
  "frame-system",
  "gethostname",
@@ -6674,6 +6675,13 @@ dependencies = [
  "substrate-rpc-client",
  "tokio",
  "tokio-retry",
+]
+
+[[package]]
+name = "frame-storage-access-test-runtime"
+version = "0.0.0"
+dependencies = [
+ "substrate-wasm-builder",
 ]
 
 [[package]]
