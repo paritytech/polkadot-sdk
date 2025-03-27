@@ -30,7 +30,7 @@ use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxInvalidityReportMap};
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
@@ -39,7 +39,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
 	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
-use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
+use std::{collections::HashSet, marker::PhantomData, pin::Pin, sync::Arc, time};
 
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
@@ -283,29 +283,37 @@ where
 		max_duration: time::Duration,
 		block_size_limit: Option<usize>,
 	) -> Self::Proposal {
-		let (tx, rx) = oneshot::channel();
-		let spawn_handle = self.spawn_handle.clone();
-
-		spawn_handle.spawn_blocking(
-			"basic-authorship-proposer",
-			None,
-			Box::pin(async move {
-				// leave some time for evaluation and block finalization (33%)
-				let deadline = (self.now)() + max_duration - max_duration / 3;
-				let res = self
-					.propose_with(inherent_data, inherent_digests, deadline, block_size_limit)
-					.await;
-				if tx.send(res).is_err() {
-					trace!(
-						target: LOG_TARGET,
-						"Could not send block production result to proposer!"
-					);
-				}
-			}),
-		);
-
-		async move { rx.await? }.boxed()
+		Self::propose(
+			self,
+			ProposeArgs {
+				inherent_data,
+				inherent_digests,
+				max_duration,
+				block_size_limit,
+				ignored_nodes_by_proof_recording: None,
+			},
+		)
+		.boxed()
 	}
+}
+
+/// Arguments for [`Proposer::propose`].
+pub struct ProposeArgs<Block: BlockT> {
+	/// The inherent data to pass to the block production.
+	pub inherent_data: InherentData,
+	/// The inherent digests to include in the produced block.
+	pub inherent_digests: Digest,
+	/// Max duration for building the block.
+	pub max_duration: time::Duration,
+	/// Optional size limit for the produced block.
+	///
+	/// When set, block production ends before hitting this limit. The limit includes the storage
+	/// proof, when proof recording is activated.
+	pub block_size_limit: Option<usize>,
+	/// Hashes of trie nodes that should not be recorded.
+	///
+	/// Only applies when proof recording is enabled.
+	pub ignored_nodes_by_proof_recording: Option<HashSet<Block::Hash>>,
 }
 
 /// If the block is full we will attempt to push at most
@@ -315,24 +323,60 @@ const MAX_SKIPPED_TRANSACTIONS: usize = 8;
 
 impl<A, Block, C, PR> Proposer<Block, C, A, PR>
 where
-	A: TransactionPool<Block = Block>,
+	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
+	/// Propose a new block.
+	pub async fn propose(
+		self,
+		args: ProposeArgs<Block>,
+	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
+		let (tx, rx) = oneshot::channel();
+		let spawn_handle = self.spawn_handle.clone();
+
+		// Spawn on a new thread, because block production is a blocking operation.
+		spawn_handle.spawn_blocking(
+			"basic-authorship-proposer",
+			None,
+			async move {
+				let res = self.propose_with(args).await;
+				if tx.send(res).is_err() {
+					trace!(
+						target: LOG_TARGET,
+						"Could not send block production result to proposer!"
+					);
+				}
+			}
+			.boxed(),
+		);
+
+		rx.await?.map_err(Into::into)
+	}
+
 	async fn propose_with(
 		self,
-		inherent_data: InherentData,
-		inherent_digests: Digest,
-		deadline: time::Instant,
-		block_size_limit: Option<usize>,
+		ProposeArgs {
+			inherent_data,
+			inherent_digests,
+			max_duration,
+			block_size_limit,
+			ignored_nodes_by_proof_recording,
+		}: ProposeArgs<Block>,
 	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
+		// leave some time for evaluation and block finalization (33%)
+		let deadline = (self.now)() + max_duration - max_duration / 3;
 		let block_timer = time::Instant::now();
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)
 			.with_parent_block_number(self.parent_number)
-			.with_proof_recording(PR::ENABLED)
+			.with_proof_recorder(PR::ENABLED.then(|| {
+				ProofRecorder::<Block>::with_ignored_nodes(
+					ignored_nodes_by_proof_recording.unwrap_or_default(),
+				)
+			}))
 			.with_inherent_digests(inherent_digests)
 			.build()?;
 

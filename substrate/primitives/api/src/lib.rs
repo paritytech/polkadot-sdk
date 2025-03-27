@@ -615,8 +615,15 @@ pub trait ApiExt<Block: BlockT> {
 	where
 		Self: Sized;
 
-	/// Start recording all accessed trie nodes for generating proofs.
+	/// Start recording all accessed trie nodes.
+	///
+	/// The recorded trie nodes can be converted into a proof using [`Self::extract_proof`].
 	fn record_proof(&mut self);
+
+	/// Start recording all accessed trie nodes using the given proof recorder.
+	///
+	/// The recorded trie nodes can be converted into a proof using [`Self::extract_proof`].
+	fn set_proof_recorder(&mut self, recorder: ProofRecorder<Block>);
 
 	/// Extract the recorded proof.
 	///
