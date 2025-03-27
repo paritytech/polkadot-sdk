@@ -1,6 +1,6 @@
 [package]
 name = "pallet-scored-pool"
-version = "39.0.0"
+version = "39.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -40,6 +40,5 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

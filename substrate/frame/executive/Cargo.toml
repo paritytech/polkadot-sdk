@@ -1,6 +1,6 @@
 [package]
 name = "frame-executive"
-version = "39.0.0"
+version = "39.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -59,7 +59,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]

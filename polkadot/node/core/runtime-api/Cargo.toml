@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-runtime-api"
-version = "21.0.0"
+version = "21.0.1"
 description = "Wrapper around the parachain-related runtime APIs"
 authors.workspace = true
 edition.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-beefy-mmr"
-version = "40.0.0"
+version = "40.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -71,5 +71,4 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
 ]

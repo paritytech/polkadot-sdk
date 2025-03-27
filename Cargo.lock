@@ -805,7 +805,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.24.0"
+version = "0.24.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -940,7 +940,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.27.0"
+version = "0.27.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1026,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "21.0.0"
+version = "21.0.1"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -2196,7 +2196,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2389,7 +2389,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2489,7 +2489,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-runtime-common"
-version = "0.19.1"
+version = "0.19.2"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -3107,7 +3107,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "17.0.0"
+version = "17.1.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3397,7 +3397,7 @@ checksum = "f272d0c4cf831b4fa80ee529c7707f76585986e910e1fbce1d7921970bc1a241"
 
 [[package]]
 name = "contracts-rococo-runtime"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3540,7 +3540,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3640,7 +3640,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -4316,7 +4316,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "assert_matches",
  "bytes",
@@ -4414,7 +4414,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "bounded-collections",
  "bp-xcm-bridge-hub-router",
@@ -4454,7 +4454,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pov-validator"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "clap 4.5.13",
@@ -4520,7 +4520,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-storage-weight-reclaim"
-version = "9.0.0"
+version = "9.1.0"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-proof-size-hostfunction",
@@ -4548,7 +4548,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-utility"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -4610,7 +4610,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-minimal-node"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "array-bytes",
  "async-trait",
@@ -4644,7 +4644,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-rpc-interface"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -5507,7 +5507,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "19.0.1"
+version = "19.0.2"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -6163,7 +6163,7 @@ dependencies = [
 
 [[package]]
 name = "frame-benchmarking-cli"
-version = "46.0.0"
+version = "46.1.0"
 dependencies = [
  "Inflector",
  "array-bytes",
@@ -6290,7 +6290,7 @@ dependencies = [
 
 [[package]]
 name = "frame-executive"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "aquamarine",
  "array-bytes",
@@ -6411,7 +6411,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "Inflector",
  "aquamarine",
@@ -6459,7 +6459,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural"
-version = "31.0.1"
+version = "31.1.0"
 dependencies = [
  "Inflector",
  "cfg-expr",
@@ -10859,7 +10859,7 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
 name = "pallet-alliance"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "array-bytes",
  "frame-benchmarking",
@@ -10879,7 +10879,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-conversion"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10899,7 +10899,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-conversion-ops"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10919,7 +10919,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-conversion-tx-payment"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10938,7 +10938,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-rate"
-version = "18.0.0"
+version = "18.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10953,7 +10953,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-tx-payment"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10974,7 +10974,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "41.0.0"
+version = "41.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10991,7 +10991,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets-freezer"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11008,7 +11008,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-atomic-swap"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -11022,7 +11022,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-aura"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -11069,7 +11069,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-babe"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -11144,7 +11144,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "40.0.1"
+version = "40.1.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -11162,7 +11162,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-beefy"
-version = "40.0.0"
+version = "40.1.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -11189,7 +11189,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-beefy-mmr"
-version = "40.0.0"
+version = "40.1.0"
 dependencies = [
  "array-bytes",
  "binary-merkle-tree",
@@ -11214,7 +11214,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bounties"
-version = "38.0.1"
+version = "38.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11275,7 +11275,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bridge-messages"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -11320,7 +11320,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bridge-relayers"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -11370,7 +11370,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-child-bounties"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11388,7 +11388,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-collator-selection"
-version = "20.0.0"
+version = "20.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11412,7 +11412,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-collective"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -11429,7 +11429,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-collective-content"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11443,7 +11443,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-contracts"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -11557,7 +11557,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-conviction-voting"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
@@ -11605,7 +11605,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-delegated-staking"
-version = "6.0.0"
+version = "6.1.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -11628,7 +11628,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-democracy"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11647,7 +11647,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-dev-mode"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -11689,7 +11689,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-election-provider-multi-phase"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -11725,7 +11725,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-elections-phragmen"
-version = "40.0.0"
+version = "40.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11898,7 +11898,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-fast-unstake"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -11922,7 +11922,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-glutton"
-version = "25.0.0"
+version = "25.1.0"
 dependencies = [
  "blake2 0.10.6",
  "frame-benchmarking",
@@ -11940,7 +11940,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-grandpa"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "finality-grandpa",
  "frame-benchmarking",
@@ -11969,7 +11969,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-identity"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -11987,7 +11987,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-im-online"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12006,7 +12006,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-indices"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12036,7 +12036,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-lottery"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12090,7 +12090,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-migrations"
-version = "9.0.0"
+version = "9.1.0"
 dependencies = [
  "cfg-if",
  "docify",
@@ -12160,7 +12160,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-multisig"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "log",
  "pallet-balances",
@@ -12171,7 +12171,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-fractionalization"
-version = "22.0.0"
+version = "22.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12190,7 +12190,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nfts"
-version = "33.0.0"
+version = "33.1.0"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -12217,7 +12217,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nis"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12247,7 +12247,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools"
-version = "37.0.0"
+version = "37.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -12264,7 +12264,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools-benchmarking"
-version = "37.0.0"
+version = "37.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -12378,7 +12378,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-offences-benchmarking"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -12440,7 +12440,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-parameters"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -12459,7 +12459,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-preimage"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12475,7 +12475,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-proxy"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "pallet-balances",
  "pallet-utility",
@@ -12503,7 +12503,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-recovery"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12518,7 +12518,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-referenda"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
@@ -12712,7 +12712,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-root-offences"
-version = "36.0.0"
+version = "36.1.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -12782,7 +12782,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-scheduler"
-version = "40.0.0"
+version = "40.1.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -12801,7 +12801,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-scored-pool"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -12835,7 +12835,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-session-benchmarking"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -12868,7 +12868,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-society"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12888,7 +12888,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "39.0.1"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -12945,7 +12945,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-state-trie-migration"
-version = "43.0.0"
+version = "43.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-remote-externalities",
@@ -12969,7 +12969,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-statement"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -13034,7 +13034,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-tips"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13053,7 +13053,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-transaction-payment"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13096,7 +13096,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-transaction-storage"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "array-bytes",
  "frame-benchmarking",
@@ -13116,7 +13116,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-treasury"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -13154,7 +13154,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-uniques"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13171,7 +13171,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-utility"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13189,7 +13189,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-verify-signature"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13208,7 +13208,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-vesting"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13224,7 +13224,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-whitelist"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13241,7 +13241,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "18.0.0"
+version = "18.1.0"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -13266,7 +13266,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-benchmarks"
-version = "18.0.0"
+version = "18.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13289,7 +13289,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub"
-version = "0.14.1"
+version = "0.14.2"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -13415,7 +13415,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -13643,7 +13643,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.27.0"
+version = "0.27.1"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
@@ -13740,7 +13740,7 @@ dependencies = [
 
 [[package]]
 name = "people-rococo-runtime"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -13841,7 +13841,7 @@ dependencies = [
 
 [[package]]
 name = "people-westend-runtime"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -14050,7 +14050,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -14560,7 +14560,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-candidate-validation"
-version = "21.0.0"
+version = "21.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -14715,7 +14715,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-pvf"
-version = "21.0.0"
+version = "21.0.1"
 dependencies = [
  "always-assert",
  "array-bytes",
@@ -14783,7 +14783,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-pvf-common"
-version = "17.0.0"
+version = "17.0.1"
 dependencies = [
  "assert_matches",
  "cpu-time",
@@ -14827,7 +14827,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-pvf-prepare-worker"
-version = "17.0.0"
+version = "17.0.1"
 dependencies = [
  "blake3",
  "cfg-if",
@@ -14851,7 +14851,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-runtime-api"
-version = "21.0.0"
+version = "21.0.1"
 dependencies = [
  "async-trait",
  "futures",
@@ -14872,7 +14872,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-metrics"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "assert_cmd",
  "bs58",
@@ -14925,7 +14925,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-primitives"
-version = "17.0.0"
+version = "17.0.1"
 dependencies = [
  "bitvec",
  "bounded-vec",
@@ -14980,7 +14980,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-subsystem-types"
-version = "21.0.0"
+version = "21.0.1"
 dependencies = [
  "async-trait",
  "bitvec",
@@ -15008,7 +15008,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-subsystem-util"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -15058,7 +15058,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -15132,7 +15132,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-overseer"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -15208,7 +15208,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-primitives"
-version = "17.0.0"
+version = "17.1.0"
 dependencies = [
  "bitvec",
  "hex-literal",
@@ -15282,7 +15282,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-common"
-version = "18.0.0"
+version = "18.1.0"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -15348,7 +15348,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-parachains"
-version = "18.0.1"
+version = "18.1.0"
 dependencies = [
  "assert_matches",
  "bitflags 1.3.2",
@@ -15408,7 +15408,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "0.12.1"
+version = "0.12.2"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -15913,7 +15913,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk-frame"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -15947,7 +15947,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "22.0.1"
+version = "22.1.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -18011,7 +18011,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-runtime"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "binary-merkle-tree",
  "bitvec",
@@ -18746,7 +18746,7 @@ dependencies = [
 
 [[package]]
 name = "sc-cli"
-version = "0.50.0"
+version = "0.50.1"
 dependencies = [
  "array-bytes",
  "chrono",
@@ -18819,7 +18819,7 @@ dependencies = [
 
 [[package]]
 name = "sc-client-db"
-version = "0.45.0"
+version = "0.45.1"
 dependencies = [
  "array-bytes",
  "criterion",
@@ -19433,7 +19433,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.48.2"
+version = "0.48.3"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -19668,7 +19668,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "bs58",
  "ed25519-dalek",
@@ -21163,7 +21163,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -21185,7 +21185,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-core"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "ethabi-decode",
  "frame-support",
@@ -21273,7 +21273,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -21311,7 +21311,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -21351,7 +21351,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-outbound-queue"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "bridge-hub-common",
  "ethabi-decode",
@@ -21374,7 +21374,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -23528,7 +23528,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "15.0.1"
+version = "15.0.2"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -23551,7 +23551,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "18.0.1"
+version = "18.1.0"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -23582,7 +23582,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "18.0.1"
+version = "18.0.2"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -26577,7 +26577,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "approx",
  "binary-merkle-tree",
@@ -27234,7 +27234,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-procedural"
-version = "11.0.0"
+version = "11.0.1"
 dependencies = [
  "Inflector",
  "frame-support",
@@ -27247,7 +27247,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "frame-executive",
  "frame-support",

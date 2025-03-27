@@ -1,7 +1,7 @@
 [package]
 name = "pallet-bridge-messages"
 description = "Module that allows bridged chains to exchange messages using lane concept."
-version = "0.19.0"
+version = "0.19.1"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -38,17 +38,12 @@ std = [
 	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-runtime/std",
-	"bp-test-utils/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
-	"pallet-bridge-grandpa/std",
 	"scale-info/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
@@ -58,15 +53,11 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-bridge-grandpa/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-bridge-grandpa/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 test-helpers = ["bp-runtime/test-helpers", "sp-trie"]

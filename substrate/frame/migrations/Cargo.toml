@@ -1,6 +1,6 @@
 [package]
 name = "pallet-migrations"
-version = "9.0.0"
+version = "9.1.0"
 description = "FRAME pallet to execute multi-block migrations."
 authors.workspace = true
 edition.workspace = true
@@ -55,7 +55,6 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
-	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",

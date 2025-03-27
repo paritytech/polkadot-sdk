@@ -1,6 +1,6 @@
 [package]
 name = "pallet-beefy"
-version = "40.0.0"
+version = "40.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -52,17 +52,11 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"sp-state-machine/std",
 ]
 try-runtime = [
-	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-offences/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-staking/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

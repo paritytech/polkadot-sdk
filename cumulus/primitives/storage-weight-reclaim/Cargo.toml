@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-primitives-storage-weight-reclaim"
-version = "9.0.0"
+version = "9.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "Utilities to reclaim storage weight."
@@ -37,7 +37,5 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
-	"sp-io/std",
 	"sp-runtime/std",
-	"sp-trie/std",
 ]

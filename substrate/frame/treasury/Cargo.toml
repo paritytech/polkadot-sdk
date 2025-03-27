@@ -1,6 +1,6 @@
 [package]
 name = "pallet-treasury"
-version = "38.0.0"
+version = "38.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -57,13 +57,11 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-asset-rate"
-version = "18.0.0"
+version = "18.1.0"
 description = "Whitelist non-native assets for treasury spending and provide conversion to native balance"
 authors.workspace = true
 homepage.workspace = true
@@ -45,13 +45,11 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"sp-core",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

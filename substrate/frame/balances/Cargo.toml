@@ -1,6 +1,6 @@
 [package]
 name = "pallet-balances"
-version = "40.0.1"
+version = "40.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -49,12 +49,10 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]

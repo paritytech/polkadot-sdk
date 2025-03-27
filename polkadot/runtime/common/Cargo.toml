@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-common"
-version = "18.0.0"
+version = "18.1.0"
 description = "Pallets and constants used in Relay Chain networks."
 authors.workspace = true
 edition.workspace = true
@@ -138,7 +138,6 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
-	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-asset-rate/try-runtime",

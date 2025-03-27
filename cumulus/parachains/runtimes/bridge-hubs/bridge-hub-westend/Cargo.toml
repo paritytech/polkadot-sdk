@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-westend-runtime"
-version = "0.15.1"
+version = "0.15.2"
 authors.workspace = true
 edition.workspace = true
 description = "Westend's BridgeHub parachain runtime"
@@ -244,7 +244,6 @@ runtime-benchmarks = [
 	"snowbridge-pallet-system/runtime-benchmarks",
 	"snowbridge-router-primitives/runtime-benchmarks",
 	"snowbridge-runtime-common/runtime-benchmarks",
-	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

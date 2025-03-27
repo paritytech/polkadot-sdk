@@ -1,6 +1,6 @@
 [package]
 name = "pallet-transaction-storage"
-version = "38.0.0"
+version = "38.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -53,7 +53,6 @@ std = [
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
-	"sp-core/std",
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-runtime/std",

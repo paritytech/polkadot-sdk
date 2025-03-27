@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bounties"
-version = "38.0.1"
+version = "38.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -50,14 +50,12 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-treasury/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -65,7 +65,7 @@ subxt-signer = { workspace = true, optional = true, features = [
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
-pallet-revive-fixtures = { workspace = true, default-features = true }
+pallet-revive-fixtures = { default-features = true, path = "fixtures" }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 hex-literal = { workspace = true }
@@ -99,9 +99,7 @@ std = [
 	"polkavm/std",
 	"rlp/std",
 	"scale-info/std",
-	"secp256k1/std",
 	"serde/std",
-	"serde_json/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
@@ -117,26 +115,16 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-message-queue/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",
-	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-message-queue/try-runtime",
-	"pallet-proxy/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]

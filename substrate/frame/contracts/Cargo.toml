@@ -1,6 +1,6 @@
 [package]
 name = "pallet-contracts"
-version = "39.0.0"
+version = "39.1.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -104,12 +104,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-message-queue/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
 	"sp-runtime/runtime-benchmarks",
@@ -119,12 +114,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-insecure-randomness-collective-flip/try-runtime",
-	"pallet-message-queue/try-runtime",
-	"pallet-proxy/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -1,6 +1,6 @@
 [package]
 name = "frame-benchmarking-cli"
-version = "46.0.0"
+version = "46.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -118,6 +118,5 @@ runtime-benchmarks = [
 	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"westend-runtime/runtime-benchmarks",
 ]
 rocksdb = ["sc-cli/rocksdb", "sc-client-db/rocksdb"]

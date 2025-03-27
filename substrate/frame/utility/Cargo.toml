@@ -1,6 +1,6 @@
 [package]
 name = "pallet-utility"
-version = "39.0.0"
+version = "39.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -48,17 +48,10 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-collective/try-runtime",
-	"pallet-root-testing/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

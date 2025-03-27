@@ -1,6 +1,6 @@
 [package]
 name = "frame-support"
-version = "39.0.0"
+version = "39.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -96,18 +96,15 @@ std = [
 	"sp-staking/std",
 	"sp-state-machine/std",
 	"sp-std/std",
-	"sp-timestamp/std",
 	"sp-tracing/std",
 	"sp-trie/std",
 	"sp-weights/std",
 ]
 runtime-benchmarks = [
-	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-system/try-runtime",
 	"sp-debug-derive/force-debug",
 	"sp-runtime/try-runtime",
 ]

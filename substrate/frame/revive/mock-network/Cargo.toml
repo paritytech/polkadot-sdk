@@ -72,7 +72,6 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-proxy/std",
-	"pallet-revive-fixtures/std",
 	"pallet-revive/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
