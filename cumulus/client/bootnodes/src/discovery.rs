@@ -248,7 +248,7 @@ impl BootnodeDiscovery {
 			//
 			// With libp2p backend, or if the remote did not return the cached addresses of the
 			// provider, the request will fail and we will perform a `FIND_NODE` query.
-			self.direct_requests.insert(peer_id.clone());
+			self.direct_requests.insert(peer_id);
 			self.request_bootnode(peer_id);
 		}
 	}
@@ -283,7 +283,7 @@ impl BootnodeDiscovery {
 						"Failed to directly query parachain bootnode from {peer_id:?}: {e}. \
 						 Starting FIND_NODE query on the DHT",
 					);
-					self.find_node_queries.insert(peer_id.clone());
+					self.find_node_queries.insert(peer_id);
 					self.relay_chain_network.find_closest_peers(peer_id);
 				} else {
 					debug!(
@@ -364,7 +364,7 @@ impl BootnodeDiscovery {
 		);
 
 		paranode_addresses.into_iter().for_each(|addr| {
-			self.parachain_network.add_known_address(paranode_peer_id.clone(), addr);
+			self.parachain_network.add_known_address(paranode_peer_id, addr);
 			self.succeeded = true;
 		});
 	}
@@ -401,7 +401,7 @@ impl BootnodeDiscovery {
 						"Found addresses on the DHT for parachain bootnode provider {peer_id:?}: {addrs:?}",
 					);
 					for address in addrs {
-						self.relay_chain_network.add_known_address(peer_id.clone(), address);
+						self.relay_chain_network.add_known_address(peer_id, address);
 					}
 					self.request_bootnode(peer_id);
 				} else {
