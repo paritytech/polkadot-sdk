@@ -381,17 +381,16 @@ where
 				)
 				.await;
 
-				let allowed_pov_size = if let Some(max_pov_percentage) =
-					params.experimental_max_pov_percentage
-				{
-					validation_data.max_pov_size * max_pov_percentage / 100
-				} else {
-					// Set the block limit to 85% of the maximum PoV size.
-					//
-					// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
-					// fixed, the reservation should be removed.
-					validation_data.max_pov_size * 85 / 100
-				} as usize;
+				let allowed_pov_size =
+					if let Some(max_pov_percentage) = params.experimental_max_pov_percentage {
+						validation_data.max_pov_size * max_pov_percentage / 100
+					} else {
+						// Set the block limit to 85% of the maximum PoV size.
+						//
+						// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
+						// fixed, the reservation should be removed.
+						validation_data.max_pov_size * 85 / 100
+					} as usize;
 
 				match collator
 					.collate(
