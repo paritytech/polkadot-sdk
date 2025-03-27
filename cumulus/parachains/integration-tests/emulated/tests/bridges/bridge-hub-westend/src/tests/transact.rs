@@ -71,7 +71,7 @@ fn transfer_and_transact_in_same_xcm(
 			// unused back
 			remote_fees: Some(AssetTransferFilter::ReserveDeposit(Wild(All))),
 			preserve_origin: true,
-			assets: vec![],
+			assets: BoundedVec::new(),
 			remote_xcm: xcm_on_dest,
 		},
 	]);
