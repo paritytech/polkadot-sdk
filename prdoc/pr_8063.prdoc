@@ -2,24 +2,7 @@ title: 'Bridges: Add initial primitives for AssetHub bridging'
 doc:
 - audience: Runtime Dev
   description: |-
-    This resolves TODO no. 1: https://github.com/paritytech/parity-bridges-common/issues/3136#issue-2913441160
-
-    To add cli support to substrate-relay as described in above issue,
-    necessary changes from [this](https://github.com/paritytech/polkadot-sdk/pull/6675) PR are added by this PR.
-
-    Specifically below changes and any other supportive changes.
-
-    ```
-    // bridges/chains/chain-asset-hub-rococo/src/lib.rs
-    impl Chain for AssetHubRococo {..}
-    impl Parachain for AssetHubRococo {..}
-    ```
-
-    ```
-    // bridges/chains/chain-asset-hub-westend/src/lib.rs
-    impl Chain for AssetHubWestend {..}
-    impl Parachain for AssetHubWestend {..}
-    ```
+    Add initial primitives for AssetHubRococo and AssetHubWestend bridging
 crates:
 - name: bp-asset-hub-rococo
   bump: patch
