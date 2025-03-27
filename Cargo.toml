@@ -72,7 +72,7 @@ members = [
 	"bridges/snowbridge/runtime/test-common",
 	"bridges/snowbridge/test-utils",
 	"cumulus/bin/pov-validator",
-    "cumulus/client/bootnodes",
+	"cumulus/client/bootnodes",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",
