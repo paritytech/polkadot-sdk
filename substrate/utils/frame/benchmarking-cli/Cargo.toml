@@ -43,6 +43,8 @@ sc-cli = { workspace = true, default-features = false }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true, default-features = false }
 sc-executor = { workspace = true, default-features = true }
+sc-executor-common = { workspace = true }
+sc-executor-wasmtime = { workspace = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
 sc-sysinfo = { workspace = true, default-features = true }
