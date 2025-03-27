@@ -26,31 +26,31 @@ pub use frame_support::{
 	traits::{
 		fungible,
 		fungible::{Inspect, InspectHold, Mutate, MutateHold},
-		fungibles, Polling,
+		fungibles,
 		schedule::{
 			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
 			DispatchTime, MaybeHashed,
 		},
 		tokens::{Fortitude, Precision, Preservation},
 		Bounded, Currency, DefensiveOption, EnsureOrigin, LockIdentifier, OriginTrait, PollStatus,
-		QueryPreimage, StorePreimage, UnfilteredDispatchable,
+		Polling, QueryPreimage, StorePreimage, UnfilteredDispatchable,
 	},
 	transactional,
 	weights::{WeightMeter, WeightToFee},
 	PalletId, Serialize,
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
+pub use pallet_conviction_voting::{Conviction, Tally};
+pub use pallet_referenda::ReferendumIndex;
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::{
 	traits::{
-		AccountIdConversion, BlockNumberProvider, Convert, Dispatchable, Hash, Saturating,
-		StaticLookup, UniqueSaturatedInto, Zero,Debug,
+		AccountIdConversion, BlockNumberProvider, Convert, Debug, Dispatchable, Hash, Saturating,
+		StaticLookup, UniqueSaturatedInto, Zero,
 	},
 	Percent, SaturatedConversion,
 };
 pub use sp_std::{boxed::Box, vec};
-pub use pallet_conviction_voting::{Conviction, Tally};
-pub use pallet_referenda::ReferendumIndex;
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
@@ -73,6 +73,15 @@ pub type ProvidedBlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 pub use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 
+#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+pub enum ReferendumStates{
+	Ongoing,
+	Approved,
+	Rejected,
+	//Cancelled,
+	//Timeout,
+	//Killed,
+}
 /// The state of the payment claim.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo, Default)]
 pub enum SpendState {

@@ -18,6 +18,7 @@ pub trait ReferendumTrait<AccountId> {
 	) -> DispatchResult;
 
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo>;
+	fn handle_referendum_info(infos: Self::ReferendumInfo) -> Option<ReferendumStates>;
 }
 
 pub trait ConvictionVotingTrait<AccountId> {
@@ -34,7 +35,7 @@ pub trait ConvictionVotingTrait<AccountId> {
 		ref_index: Self::Index,
 		vote: Self::AccountVote,
 	) -> DispatchResult;
-	fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()>;
+	//fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()>;
 }
 
 impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<AccountIdOf<T>>
@@ -65,9 +66,9 @@ impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<A
 	fn u128_to_balance(x: u128) -> Option<Self::Balance> {
 		x.try_into().ok()
 	}
-	fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()> {
+	/*fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()> {
 		pallet_conviction_voting::Pallet::<T, I>::remove_vote(ref_index)
-	}
+	}*/
 }
 
 impl<T: frame_system::Config + pallet_referenda::Config<I>, I: 'static> ReferendumTrait<AccountIdOf<T>>
@@ -161,5 +162,14 @@ where
 
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo> {
 		pallet_referenda::ReferendumInfoFor::<T, I>::get(index)
+	}
+	fn handle_referendum_info(infos: Self::ReferendumInfo) -> Option<ReferendumStates>{
+		match infos {
+			Self::ReferendumInfo::Approved(..) => Some(ReferendumStates::Approved),
+			Self::ReferendumInfo::Rejected(..) => Some(ReferendumStates::Rejected),			
+			Self::ReferendumInfo::Ongoing(..) => Some(ReferendumStates::Ongoing),
+			_ =>None,
+
+		}
 	}
 }

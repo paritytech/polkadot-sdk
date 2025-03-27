@@ -447,10 +447,10 @@ pub mod pallet {
 			// Funds lock is handled by the opf pallet
 			let conv = Conviction::None;
 			let u128_amount = amount.saturated_into::<u128>();
-			let converted_amount = T::Conviction::u128_to_balance(u128_amount)
-				.ok_or("Failed Conversion!!!")?;
+			let converted_amount =
+				T::Conviction::u128_to_balance(u128_amount).ok_or("Failed Conversion!!!")?;
 			let account_vote = T::Conviction::vote_data(fund, conv, converted_amount);
-			T::Conviction::try_vote(&voter, ref_index.into(),account_vote)?;
+			T::Conviction::try_vote(&voter, ref_index.into(), account_vote)?;
 
 			//Self::try_vote(voter.clone(), project_id.clone(), amount, fund, conviction)?;
 
@@ -553,9 +553,10 @@ pub mod pallet {
 
 			let ref_index = infos.index;
 			let amount = infos.amount;
-			if let Some(ref_infos) = Democracy::ReferendumInfoOf::<T>::get(ref_index) {
-				match ref_infos {
-					Democracy::ReferendumInfo::Finished { approved: true, .. } => {
+			if let Some(ref_infos) = T::Governance::get_referendum_info(ref_index.into()) {
+				let state = T::Governance::handle_referendum_info(ref_infos);
+				match state {
+					Some(ReferendumStates::Approved) => {
 						let pot = Self::pot_account();
 						let balance = T::NativeBalance::balance(&pot);
 						let minimum_balance = T::NativeBalance::minimum_balance();
@@ -571,10 +572,10 @@ pub mod pallet {
 							project_id: infos.project_id.clone(),
 						});
 					},
-					Democracy::ReferendumInfo::Finished { approved: false, .. } => {
-						Self::deposit_event(Event::ProjectFundingRejected { project_id })
-					},
-					Democracy::ReferendumInfo::Ongoing(_) => (),
+					Some(ReferendumStates::Rejected )=>
+						Self::deposit_event(Event::ProjectFundingRejected { project_id }),
+					Some(ReferendumStates::Ongoing) => (),
+					None => (),
 				}
 				Ok(())
 			} else {

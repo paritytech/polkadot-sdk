@@ -22,17 +22,10 @@ impl<T: Config> Pallet<T> {
 	pub fn get_formatted_call(call: Call<T>) -> <T as Config>::RuntimeCall {
 		call.into()
 	}
-	pub fn conviction_amount(
-		amount: BalanceOf<T>,
-		conviction: Conviction,
-	) -> Option<BalanceOf<T>> {
+	pub fn conviction_amount(amount: BalanceOf<T>, conviction: Conviction) -> Option<BalanceOf<T>> {
 		let conviction_amount: BalanceOf<T> = match conviction {
-			Conviction::None => {
-				amount.checked_div(&10u8.into()).unwrap_or_else(Zero::zero)
-			},
-			_ => {
-				amount.saturating_mul(<u8 as From<Conviction>>::from(conviction).into())
-			},
+			Conviction::None => amount.checked_div(&10u8.into()).unwrap_or_else(Zero::zero),
+			_ => amount.saturating_mul(<u8 as From<Conviction>>::from(conviction).into()),
 		};
 		Some(conviction_amount)
 	}
