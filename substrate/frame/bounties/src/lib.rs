@@ -325,7 +325,7 @@ pub mod pallet {
 		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind>;
+		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
@@ -438,8 +438,8 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, BountyIndex, BoundedVec<u8, T::MaximumReasonLength>>;
 
 	#[derive(Default)]
-	struct SpendContext<Balance> {
-		spend_in_context: BTreeMap<Balance, Balance>,
+	pub struct SpendContext<Balance> {
+		pub spend_in_context: BTreeMap<Balance, Balance>,
 	}
 
 	#[pallet::call]
@@ -505,39 +505,19 @@ pub mod pallet {
 			#[pallet::compact] bounty_id: BountyIndex,
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
+
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
-				let native_amount =
-					<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
-						bounty.value,
-						bounty.asset_kind.clone(),
-					)
-					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
-				ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
-
-				// Tiago: is this the best way to use the SpendContext?
-				with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
-					let context = v.or_default();
-					let spend = context.spend_in_context.entry(max_amount).or_default();
-
-					if spend.checked_add(&native_amount).map(|s| s > max_amount).unwrap_or(true) {
-						Err(Error::<T, I>::InsufficientPermission)
-					} else {
-						*spend = spend.saturating_add(native_amount);
-						Ok(())
-					}
-				})
-				.unwrap_or(Ok(()))?;
 
 				let payment_status = Self::do_process_funding_payment(
 					bounty_id,
 					bounty.asset_kind.clone(),
 					bounty.value,
+					Some(max_amount),
 				)?;
 
 				bounty.status = BountyStatus::Approved { payment_status };
-
 				Ok(())
 			})?;
 
@@ -1109,43 +1089,23 @@ pub mod pallet {
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			let curator = T::Lookup::lookup(curator)?;
+
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				// approve bounty
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
-				let native_amount =
-					<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
-						bounty.value,
-						bounty.asset_kind.clone(),
-					)
-					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
-				ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
 				ensure!(fee < bounty.value, Error::<T, I>::InvalidFee);
-
-				// Tiago: is this the best way to use the SpendContext?
-				with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
-					let context = v.or_default();
-					let spend = context.spend_in_context.entry(max_amount).or_default();
-
-					if spend.checked_add(&native_amount).map(|s| s > max_amount).unwrap_or(true) {
-						Err(Error::<T, I>::InsufficientPermission)
-					} else {
-						*spend = spend.saturating_add(native_amount);
-						Ok(())
-					}
-				})
-				.unwrap_or(Ok(()))?;
 
 				let payment_status = Self::do_process_funding_payment(
 					bounty_id,
 					bounty.asset_kind.clone(),
 					bounty.value,
+					Some(max_amount),
 				)?;
 
 				bounty.status =
 					BountyStatus::ApprovedWithCurator { curator: curator.clone(), payment_status };
 				bounty.fee = fee;
-
 				Ok(())
 			})?;
 
@@ -1205,6 +1165,7 @@ pub mod pallet {
 								bounty_id,
 								bounty.asset_kind.clone(),
 								bounty.value,
+								None,
 							)?;
 							Ok(Pays::Yes.into())
 						},
@@ -1572,6 +1533,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// reserve deposit for new bounty
 		let bond = T::BountyDepositBase::get() +
 			T::DataDepositPerByte::get() * (bounded_description.len() as u32).into();
+		println!("bond: {:?}", bond);
 		T::Currency::reserve(&proposer, bond)
 			.map_err(|_| Error::<T, I>::InsufficientProposersBalance)?;
 
@@ -1620,7 +1582,27 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		bounty_id: BountyIndex,
 		asset_kind: T::AssetKind,
 		value: BalanceOf<T, I>,
+		max_amount: Option<BalanceOf<T, I>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
+		if let Some(limit) = max_amount {
+			let native_amount = T::BalanceConverter::from_asset_balance(value, asset_kind.clone())
+				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+			ensure!(native_amount <= limit, Error::<T, I>::InsufficientPermission);
+
+			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
+				let context = v.or_default();
+				let spend = context.spend_in_context.entry(limit).or_default();
+
+				if spend.checked_add(&native_amount).map(|s| s > limit).unwrap_or(true) {
+					Err(Error::<T, I>::InsufficientPermission)
+				} else {
+					*spend = spend.saturating_add(native_amount);
+					Ok(())
+				}
+			})
+			.unwrap_or(Ok(()))?;
+		}
+
 		let treasury_account = Self::account_id();
 		let bounty_account = Self::bounty_account_id(bounty_id);
 

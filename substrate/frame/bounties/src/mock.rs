@@ -37,7 +37,11 @@ thread_local! {
 	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
 	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
+
+	#[cfg(feature = "runtime-benchmarks")]
 	pub static TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
+	#[cfg(feature = "runtime-benchmarks")]
+	pub static TEST_MAX_BOUNTY_UPDATE_PERIOD: RefCell<bool> = RefCell::new(false);
 }
 
 pub struct TestPay;
@@ -71,6 +75,8 @@ impl Pay for TestPay {
 		_: Self::AssetKind,
 		_: Self::Balance,
 	) {
+		let next_id = LAST_ID.with(|lid| *lid.borrow());
+		set_status(next_id, PaymentStatus::Success);
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
@@ -83,6 +89,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		Balances: pallet_balances,
+		Utility: pallet_utility,
 		Bounties: pallet_bounties,
 		Bounties1: pallet_bounties::<Instance1>,
 		Treasury: pallet_treasury,
@@ -108,6 +115,14 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
+
+impl pallet_utility::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
 parameter_types! {
 	pub static Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
@@ -116,6 +131,30 @@ parameter_types! {
 	pub static SpendLimit1: Balance = u64::MAX;
 	pub TreasuryAccount: u128 = Treasury::account_id();
 	pub TreasuryInstance1Account: u128 = Treasury1::account_id();
+}
+
+pub struct TestSpendOrigin;
+impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
+	type Success = u64;
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		Result::<frame_system::RawOrigin<_>, RuntimeOrigin>::from(o).and_then(|o| match o {
+			frame_system::RawOrigin::Root => Ok(SpendLimit::get()),
+			frame_system::RawOrigin::Signed(10) => Ok(5),
+			frame_system::RawOrigin::Signed(11) => Ok(10),
+			frame_system::RawOrigin::Signed(12) => Ok(20),
+			frame_system::RawOrigin::Signed(13) => Ok(50),
+			frame_system::RawOrigin::Signed(14) => Ok(500),
+			r => Err(RuntimeOrigin::from(r)),
+		})
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		if TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow()) {
+			Err(())
+		} else {
+			Ok(frame_system::RawOrigin::Root.into())
+		}
+	}
 }
 
 impl pallet_treasury::Config for Test {
@@ -129,7 +168,7 @@ impl pallet_treasury::Config for Test {
 	type WeightInfo = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
-	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit>;
+	type SpendOrigin = TestSpendOrigin;
 	type AssetKind = u32;
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
@@ -169,12 +208,13 @@ parameter_types! {
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMax: Balance = 1_000;
 	pub const CuratorDepositMin: Balance = 3;
+	pub static BountyDepositBase: Balance = 80;
 	pub static BountyUpdatePeriod: u64 = 20;
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type BountyDepositBase = ConstU64<80>;
+	type BountyDepositBase = BountyDepositBase;
 	type BountyDepositPayoutDelay = ConstU64<3>;
 	type BountyUpdatePeriod = BountyUpdatePeriod;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
@@ -192,7 +232,7 @@ impl Config for Test {
 
 impl Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type BountyDepositBase = ConstU64<80>;
+	type BountyDepositBase = BountyDepositBase;
 	type BountyDepositPayoutDelay = ConstU64<3>;
 	type BountyUpdatePeriod = BountyUpdatePeriod;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
@@ -208,18 +248,31 @@ impl Config<Instance1> for Test {
 	type BenchmarkHelper = ();
 }
 
-pub type TreasuryEvent = pallet_treasury::Event<Test>;
-pub type TreasuryEvent1 = pallet_treasury::Event<Test, Instance1>;
-
 pub struct ExtBuilder {}
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
+		#[cfg(feature = "runtime-benchmarks")]
+		TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow_mut() = false);
+		#[cfg(feature = "runtime-benchmarks")]
+		TEST_MAX_BOUNTY_UPDATE_PERIOD.with(|i| *i.borrow_mut() = false);
 		Self {}
 	}
 }
 
 impl ExtBuilder {
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn spend_origin_succesful_origin_err(self) -> Self {
+		TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow_mut() = true);
+		self
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn max_bounty_update_period(self) -> Self {
+		TEST_MAX_BOUNTY_UPDATE_PERIOD.with(|i| *i.borrow_mut() = true);
+		self
+	}
+
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
 			system: frame_system::GenesisConfig::default(),
@@ -234,7 +287,13 @@ impl ExtBuilder {
 		.unwrap()
 		.into();
 		ext.execute_with(|| {
-			<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(1)
+			<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(1);
+
+			#[cfg(feature = "runtime-benchmarks")]
+			if TEST_MAX_BOUNTY_UPDATE_PERIOD.with(|v| *v.borrow()) {
+				use crate::mock::*;
+				crate::mock::BountyUpdatePeriod::set(SystemBlockNumberFor::<Test>::max_value());
+			}
 		});
 		ext
 	}

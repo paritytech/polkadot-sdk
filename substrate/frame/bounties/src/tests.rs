@@ -24,10 +24,14 @@ use crate as pallet_bounties;
 use crate::mock::{Bounties, *};
 
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	dispatch::PostDispatchInfo,
 	traits::{Currency, Imbalance},
 };
+use sp_runtime::traits::Dispatchable;
+
+type UtilityCall = pallet_utility::Call<Test>;
+type BountiesCall = crate::Call<Test>;
 
 #[test]
 fn propose_bounty_works() {
@@ -151,10 +155,14 @@ fn approve_bounty_works() {
 		let asset_kind = 1;
 		let value = 50;
 		let bounty_id = 0;
+
+		// When/Then
 		assert_noop!(
 			Bounties::approve_bounty(RuntimeOrigin::root(), 0),
 			Error::<Test>::InvalidIndex
 		);
+
+		// Given
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(proposer),
 			Box::new(asset_kind),
@@ -163,7 +171,7 @@ fn approve_bounty_works() {
 		));
 
 		// When
-		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_id));
 
 		// Then (deposit not returned -> PaymentState::Attempted)
 		let deposit: u64 = 80 + 5;
@@ -209,6 +217,60 @@ fn approve_bounty_works() {
 			}
 		);
 	});
+}
+
+#[test]
+fn approve_bounty_in_batch_respects_max_total() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Given
+		let proposer = 0;
+		let spend_origin = 10; // `max_total` of 5
+		let asset_kind = 1;
+		let value = 2; // `native_amount` of 2
+		BountyDepositBase::set(0); // bond not relevant
+		for _ in 0..2 {
+			assert_ok!(Bounties::propose_bounty(
+				RuntimeOrigin::signed(proposer),
+				Box::new(asset_kind),
+				value,
+				b"12345".to_vec()
+			));
+		}
+
+		// When/Then
+		// Respect the `max_total` for the given origin.
+		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
+			calls: vec![
+				RuntimeCall::from(BountiesCall::approve_bounty { bounty_id: 0 }),
+				RuntimeCall::from(BountiesCall::approve_bounty { bounty_id: 1 })
+			]
+		})
+		.dispatch(RuntimeOrigin::signed(spend_origin)));
+
+		// Given
+		let value = 3; // `native_amount` of 3
+		for _ in 0..2 {
+			assert_ok!(Bounties::propose_bounty(
+				RuntimeOrigin::signed(proposer),
+				Box::new(asset_kind),
+				value,
+				b"12345".to_vec()
+			));
+		}
+
+		// When/Then
+		// `spend`` of 6 surpasses `max_total` for the given origin.
+		assert_err_ignore_postinfo!(
+			RuntimeCall::from(UtilityCall::batch_all {
+				calls: vec![
+					RuntimeCall::from(BountiesCall::approve_bounty { bounty_id: 2 }),
+					RuntimeCall::from(BountiesCall::approve_bounty { bounty_id: 3 })
+				]
+			})
+			.dispatch(RuntimeOrigin::signed(spend_origin)),
+			Error::<Test>::InsufficientPermission
+		);
+	})
 }
 
 #[test]
@@ -369,6 +431,78 @@ fn approve_bounty_with_curator_works() {
 		);
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(bounty_id), None);
 	});
+}
+
+#[test]
+fn approve_bounty_with_curator_in_batch_respects_max_total() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Given
+		let proposer = 0;
+		let spend_origin = 10; // `max_total` of 5
+		let asset_kind = 1;
+		let value = 2; // `native_amount` of 2
+		let curator = 4;
+		let fee = 0;
+		BountyDepositBase::set(0); // bond not relevant
+		for _ in 0..2 {
+			assert_ok!(Bounties::propose_bounty(
+				RuntimeOrigin::signed(proposer),
+				Box::new(asset_kind),
+				value,
+				b"12345".to_vec()
+			));
+		}
+
+		// When/Then
+		// Respect the `max_total` for the given origin.
+		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
+			calls: vec![
+				RuntimeCall::from(BountiesCall::approve_bounty_with_curator {
+					bounty_id: 0,
+					curator,
+					fee
+				}),
+				RuntimeCall::from(BountiesCall::approve_bounty_with_curator {
+					bounty_id: 1,
+					curator,
+					fee
+				})
+			]
+		})
+		.dispatch(RuntimeOrigin::signed(spend_origin)));
+
+		// Given
+		let value = 3; // `native_amount` of 3
+		for _ in 0..2 {
+			assert_ok!(Bounties::propose_bounty(
+				RuntimeOrigin::signed(proposer),
+				Box::new(asset_kind),
+				value,
+				b"12345".to_vec()
+			));
+		}
+
+		// When/Then
+		// `spend`` of 6 surpasses `max_total` for the given origin.
+		assert_err_ignore_postinfo!(
+			RuntimeCall::from(UtilityCall::batch_all {
+				calls: vec![
+					RuntimeCall::from(BountiesCall::approve_bounty_with_curator {
+						bounty_id: 2,
+						curator,
+						fee
+					}),
+					RuntimeCall::from(BountiesCall::approve_bounty_with_curator {
+						bounty_id: 3,
+						curator,
+						fee
+					})
+				]
+			})
+			.dispatch(RuntimeOrigin::signed(spend_origin)),
+			Error::<Test>::InsufficientPermission
+		);
+	})
 }
 
 #[test]
@@ -1240,11 +1374,14 @@ fn approve_bounty_works_second_instance() {
 fn approve_bounty_insufficient_spend_limit_errors() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
+		let proposer = 0;
+		let asset_kind = 1;
+		let bounty_id = 0;
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(0),
-			Box::new(1),
+			RuntimeOrigin::signed(proposer),
+			Box::new(asset_kind),
 			51,
 			b"123".to_vec()
 		));
@@ -1253,7 +1390,7 @@ fn approve_bounty_insufficient_spend_limit_errors() {
 		// 51 will not work since the limit is 50.
 		SpendLimit::set(50);
 		assert_noop!(
-			Bounties::approve_bounty(RuntimeOrigin::root(), 0),
+			Bounties::approve_bounty(RuntimeOrigin::root(), bounty_id),
 			Error::<Test>::InsufficientPermission
 		);
 	});
