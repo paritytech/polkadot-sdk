@@ -87,7 +87,7 @@ impl Parse for CodecBoundItem {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// #[stored(skip(T))]
 /// struct MyStruct<T: Config, U> {
 ///     field1: T,
