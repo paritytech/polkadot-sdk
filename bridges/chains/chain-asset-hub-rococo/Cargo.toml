@@ -19,10 +19,16 @@ scale-info = { features = ["derive"], workspace = true }
 
 # Substrate Dependencies
 frame-support = { workspace = true }
+sp-api = { workspace = true }
 sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 # Bridge Dependencies
 bp-xcm-bridge-hub-router = { workspace = true }
+bp-bridge-hub-cumulus = { workspace = true }
+bp-messages = { workspace = true }
+bp-runtime = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
 
 # Polkadot dependencies
@@ -32,10 +38,18 @@ xcm = { workspace = true }
 default = ["std"]
 std = [
 	"bp-xcm-bridge-hub-router/std",
+	"bp-bridge-hub-cumulus/std",
+	"bp-messages/std",
+	"bp-runtime/std",
+	"codec/std",
 	"codec/std",
 	"frame-support/std",
+	"frame-support/std",
 	"scale-info/std",
+	"sp-api/std",
 	"sp-core/std",
 	"testnet-parachains-constants/std",
+	"sp-runtime/std",
+	"sp-std/std",
 	"xcm/std",
 ]
