@@ -50,10 +50,10 @@ use sp_staking::{
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
+	BalanceOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnbondingQueueConfig,
-	ValidatorPrefs,
+	ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -759,11 +759,12 @@ impl<T: Config> Pallet<T> {
 			let unbonding_period_upper_bound = T::BondingDuration::get();
 
 			// Determine the total stake from lowest third of validators and persist for the era.
-			let eras_to_check: EraIndex = params.lowest_ratio * unbonding_period_upper_bound; // this is where the 1375 comes from...now where are the values.
+			let validators_to_check = (params.lowest_ratio * exposures.len() as u32)
+    .max(1); // this is where the 1375 comes from...now where are the values.
 
 			// Sort exposure total stake by lowest first, and truncate to lowest third.
-			exposures.sort_by(|(_, a), (_, b)| b.cmp(&a));
-			exposures.truncate(eras_to_check.try_into().unwrap_or(Default::default()));
+			exposures.sort_by(|(_, a), (_, b)| a.cmp(&b));
+			exposures.truncate(validators_to_check.try_into().unwrap_or(Default::default()));
 
 			// Calculate the total stake of the lowest third validators.
 			let total_stake: BalanceOf<T> = exposures
@@ -822,7 +823,6 @@ impl<T: Config> Pallet<T> {
 	/// upper bound eras.
 	pub(crate) fn get_min_lowest_third_stake(
 		from_era: EraIndex,
-		params: UnbondingQueueConfig,
 	) -> BalanceOf<T> {
 		// Find the minimum total stake of the lowest third validators over the configured number of
 		// eras.
@@ -858,7 +858,7 @@ impl<T: Config> Pallet<T> {
 		// Get the maximum unstake amount for quick unbond time supported at the time of an unbond
 		// request.
 		let max_unstake_as_usize: usize = (params.min_slashable_share *
-			Self::get_min_lowest_third_stake(CurrentEra::<T>::get().unwrap_or(0), params))
+			Self::get_min_lowest_third_stake(CurrentEra::<T>::get().unwrap_or(0)))
 		.saturated_into();
 
 		(unbond_stake_usize.saturating_div(max_unstake_as_usize) * upper_bound_usize)

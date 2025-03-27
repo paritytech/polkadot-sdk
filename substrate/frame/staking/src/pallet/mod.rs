@@ -54,7 +54,7 @@ pub use impls::*;
 
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
-	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
+	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
 	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
 	UnbondingQueueConfig, UnlockChunk, ValidatorPrefs,
@@ -126,7 +126,7 @@ pub mod pallet {
 			+ Default
 			+ From<u64>
 			+ TypeInfo
-			+ Sum;
+			+ Sum
 			+ Send
 			+ Sync
 			+ MaxEncodedLen;
