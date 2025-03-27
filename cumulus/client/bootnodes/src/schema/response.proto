@@ -1,10 +1,10 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package response;
 
 message Response {
     // Peer ID of the node on the parachain side.
-    bytes peer_id = 1;
+    required bytes peer_id = 1;
 
     // Multiaddresses of the parachain side of the node. The list and format are the same as for
 	// the `listenAddrs` field of the `identify` protocol.
@@ -12,7 +12,7 @@ message Response {
 
     // Genesis hash of the parachain. Used to determine the name of the networking protocol
 	// to connect to the parachain. Untrusted.
-    bytes genesis_hash = 3;
+    required bytes genesis_hash = 3;
 
     // So-called "fork ID" of the parachain. Used to determine the name of the networking protocol
 	// to connect to the parachain. Untrusted.
