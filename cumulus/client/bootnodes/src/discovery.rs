@@ -14,7 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Parachain bootnodes discovery.
+//! Parachain bootnode discovery.
+//!
+//! The discovery works as follows:
+//!  1. We start parachain bootnode content provider discovery on the relay chain DHT in
+//!     [`BootnodeDiscovery::start_discovery`].
+//!  2. We handle every provider discovered in [`BootnodeDiscovery::handle_providers`] and try to
+//!     request the bootnodes from the provider over a `/paranode` request-response protocol.
+//!  3. The request result is handled in [`BootnodeDiscovery::handle_response`]. If the request
+//!     fails this is a sign of the provider addresses not being cached by the remote / dropped by
+//!     the networking library (the case with libp2p). In this case we perform a `FIND_NODE` query
+//!     to get the provider addresses first and repeat the request once we know them.
+//!  4. When the request over the `/paranode` protocol succeeds, we add the bootnode addresses as
+//!     known addresses to the parachain networking.
+//!  5. If the content provider discovery had completed, all `FIND_NODE` queries finished, and all
+//!     requests over the `/paranode` protocol succeded or failed, but we have not found any
+//!     bootnode addresses, we repeat the discovery process up to `MAX_DISCOVERY_ATTEMPTS` times.
 
 use crate::schema::Response;
 use codec::{CompactRef, Decode, Encode};
