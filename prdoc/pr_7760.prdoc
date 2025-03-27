@@ -10,7 +10,7 @@ crates:
 - name: polkadot-node-primitives
   bump: patch
 - name: polkadot-node-subsystem-types
-  bump: major
+  bump: patch
 - name: polkadot-primitives
   bump: minor
 - name: polkadot-runtime-parachains
@@ -26,7 +26,7 @@ crates:
 - name: polkadot-node-core-candidate-validation
   bump: patch
 - name: polkadot-node-core-pvf-common
-  bump: major
+  bump: patch
 - name: polkadot-node-core-pvf-prepare-worker
   bump: patch
 - name: polkadot-node-core-pvf
