@@ -341,6 +341,10 @@ fn zero_reward_does_not_register_reward() {
 			}
 		));
 
-		assert_eq!(RegisteredRewardsCount::get(), 0, "Zero relayer reward should not be registered");
+		assert_eq!(
+			RegisteredRewardsCount::get(),
+			0,
+			"Zero relayer reward should not be registered"
+		);
 	});
 }
