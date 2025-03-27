@@ -76,7 +76,7 @@ pub use bridge_hub_test_utils;
 #[cfg(feature = "bridge-runtime-common")]
 pub use bridge_runtime_common;
 
-/// Parachain node DHT bootnodes mechanism.
+/// Parachain bootnodes registration and discovery.
 #[cfg(feature = "cumulus-client-bootnodes")]
 pub use cumulus_client_bootnodes;
 
