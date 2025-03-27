@@ -4,7 +4,7 @@ doc:
   description: Optimize origin checks, avoid cloning and conversion when not needed.
 crates:
 - name: snowbridge-pallet-system
-  bump: major
+  bump: patch
 - name: collectives-westend-runtime
   bump: major
 - name: rococo-runtime
@@ -16,12 +16,12 @@ crates:
 - name: pallet-collective
   bump: major
 - name: pallet-ranked-collective
-  bump: major
+  bump: patch
 - name: pallet-society
-  bump: major
+  bump: patch
 - name: frame-support
   bump: major
 - name: frame-system
   bump: major
 - name: pallet-treasury
-  bump: major
+  bump: patch
