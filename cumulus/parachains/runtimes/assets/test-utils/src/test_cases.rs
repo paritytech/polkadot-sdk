@@ -19,10 +19,14 @@ use super::xcm_helpers;
 use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
-use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, traits::{
-	fungible::Mutate, fungibles::InspectEnumerable, Currency, Get, OnFinalize, OnInitialize,
-	OriginTrait,
-}, weights::Weight};
+use frame_support::{
+	assert_err_ignore_postinfo, assert_noop, assert_ok,
+	traits::{
+		fungible::Mutate, fungibles::InspectEnumerable, Currency, Get, OnFinalize, OnInitialize,
+		OriginTrait,
+	},
+	weights::Weight,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
 use parachains_runtimes_test_utils::{
@@ -1710,26 +1714,24 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 	should_succeed: bool,
 ) where
 	Runtime: XcmPaymentApiV1<Block>
-	+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
-	+ pallet_balances::Config<Balance = u128>
-	+ pallet_assets::Config<
-		pallet_assets::Instance1,
-		AssetId = u32,
-		Balance = <Runtime as pallet_balances::Config>::Balance,
-	>
-	+ pallet_asset_conversion::Config<
-		AssetKind = Location,
-		Balance = <Runtime as pallet_balances::Config>::Balance,
-	>
-	+ pallet_session::Config
-	+ pallet_xcm::Config
-	+ parachain_info::Config
-	+ pallet_collator_selection::Config
-	+ cumulus_pallet_parachain_system::Config,
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
+		+ pallet_balances::Config<Balance = u128>
+		+ pallet_assets::Config<
+			pallet_assets::Instance1,
+			AssetId = u32,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		> + pallet_asset_conversion::Config<
+			AssetKind = Location,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		> + pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
-	From<<Runtime as frame_system::Config>::AccountId>,
+		From<<Runtime as frame_system::Config>::AccountId>,
 	Block: BlockT,
 {
 	const UNITS: Balance = 1_000_000_000;
