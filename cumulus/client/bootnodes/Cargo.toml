@@ -28,8 +28,8 @@ prost = { workspace = true }
 tokio = { workspace = true, default-features = true }
 
 # Substrate
-sc-service = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
