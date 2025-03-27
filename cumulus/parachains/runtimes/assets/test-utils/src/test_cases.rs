@@ -1064,6 +1064,71 @@ macro_rules! include_asset_transactor_transfer_with_pallet_assets_instance_works
 	}
 );
 
+#[macro_export]
+macro_rules! include_exchange_asset_on_asset_hub_works {
+    ($runtime:path, $collator_session_key:expr, $runtime_para_id:expr, $alice:expr, $native_asset_location:expr) => {
+        #[test]
+        fn exchange_asset_tests() {
+			use sp_tracing::capture_test_logs;
+
+            const UNITS: Balance = 1_000_000_000;
+
+            // Test case 1: Successful exchange
+            $crate::exchange_asset_on_asset_hub_works::<$runtime, _, _, _>(
+                $collator_session_key.clone(),
+                $runtime_para_id,
+                $alice.clone(),
+                $native_asset_location.clone(),
+                true,  // create_pool
+                500 * UNITS,  // give_amount
+                665 * UNITS,  // want_amount
+                true,  // should_succeed
+            );
+
+            // Test case 2: Insufficient liquidity
+            let log_capture = sp_tracing::capture_test_logs!({
+                $crate::exchange_asset_on_asset_hub_works::<$runtime, _, _, _>(
+                    $collator_session_key.clone(),
+                    $runtime_para_id,
+                    $alice.clone(),
+                    $native_asset_location.clone(),
+                    true,  // create_pool
+                    1_000 * UNITS,  // give_amount
+                    2_000 * UNITS,  // want_amount
+                    false,  // should_succeed
+                );
+            });
+            assert!(log_capture.contains("NoDeal"));
+
+            // Test case 3: Insufficient balance
+            let log_capture = sp_tracing::capture_test_logs!({
+                $crate::exchange_asset_on_asset_hub_works::<$runtime, _, _, _>(
+                    $collator_session_key.clone(),
+                    $runtime_para_id,
+                    $alice.clone(),
+                    $native_asset_location.clone(),
+                    true,  // create_pool
+                    5_000 * UNITS,  // give_amount
+                    1_665 * UNITS,  // want_amount
+                    false,  // should_succeed
+                );
+            });
+            assert!(log_capture.contains("Funds are unavailable"));
+
+            // Test case 4: Pool not created
+            $crate::exchange_asset_on_asset_hub_works::<$runtime, _, _, _>(
+                $collator_session_key,
+                $runtime_para_id,
+                $alice,
+                $native_asset_location,
+                false,  // create_pool
+                500 * UNITS,  // give_amount
+                665 * UNITS,  // want_amount
+                false,  // should_succeed
+            );
+        }
+    }
+}
 /// Test-case makes sure that `Runtime` can create and manage `ForeignAssets`
 pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_works<
 	Runtime,
@@ -1724,6 +1789,7 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 			AssetKind = Location,
 			Balance = <Runtime as pallet_balances::Config>::Balance,
 		> + pallet_session::Config
+		+ pallet_timestamp::Config
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
