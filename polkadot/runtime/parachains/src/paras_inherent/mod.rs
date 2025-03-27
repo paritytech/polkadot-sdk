@@ -987,6 +987,30 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	allow_v2_receipts: bool,
 ) -> bool {
+	let descriptor_version = candidate.descriptor().version();
+
+	if descriptor_version == CandidateDescriptorVersion::Unknown {
+		log::debug!(
+			target: LOG_TARGET,
+			"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id()
+		);
+		return false
+	}
+
+	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
+	// any we drop any descendants of the dropped v2 candidates.
+	if descriptor_version == CandidateDescriptorVersion::V2 && !allow_v2_receipts {
+		log::debug!(
+			target: LOG_TARGET,
+			"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id()
+		);
+		return false
+	}
+
 	// Get the claim queue snapshot at the candidate relay parent.
 	let Some((rp_info, _)) =
 		allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
@@ -1011,20 +1035,9 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	}
 
-	if candidate.descriptor().version() == CandidateDescriptorVersion::V1 {
+	if descriptor_version == CandidateDescriptorVersion::V1 {
+		// Nothing more to check for v1 descriptors.
 		return true
-	}
-
-	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
-	// any we drop any descendants of the dropped v2 candidates.
-	if !allow_v2_receipts {
-		log::debug!(
-			target: LOG_TARGET,
-			"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
-			candidate.candidate().hash(),
-			candidate.descriptor().para_id()
-		);
-		return false
 	}
 
 	let Some(session_index) = candidate.descriptor().session_index() else {
