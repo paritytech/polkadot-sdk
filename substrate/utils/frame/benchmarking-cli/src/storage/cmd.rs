@@ -26,7 +26,7 @@ use sp_runtime::traits::{Block as BlockT, HashingFor};
 use sp_state_machine::Storage;
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
 
-use clap::{ArgAction, Args, Parser};
+use clap::{Args, Parser};
 use log::info;
 use rand::prelude::*;
 use serde::Serialize;
@@ -118,15 +118,16 @@ pub struct StorageParams {
 	#[arg(long)]
 	pub include_child_trees: bool,
 
-	/// Enable PoV recorder.
+	/// Disable PoV recorder.
 	///
 	/// The recorder has impact on performance when benchmarking with the TrieCache enabled.
-	/// If the chain is recording a proof while building/import a block, this should be activated. 
+	/// If the chain is recording a proof while building/importing a block, the pov recorder
+	/// should be activated.
 	///
-	/// When generating weights for a parachain this should be activated and when generating a 
-	/// weight for a standalone chain this should be deactivated.
-	#[arg(long, default_value = "true", action=ArgAction::Set)]
-	pub enable_pov_recorder: bool,
+	/// Hence, when generating weights for a parachain this should be activated and when generating
+	/// a weight for a standalone chain this should be deactivated.
+	#[arg(long, default_value = "false")]
+	pub disable_pov_recorder: bool,
 
 	/// The batch size for the write benchmark.
 	///
