@@ -504,7 +504,7 @@ where
 	fn import_blocks(&mut self, blocks: impl Iterator<Item = Block>) {
 		let mut blocks = VecDeque::from_iter(blocks);
 
-		tracing::trace!(
+		tracing::debug!(
 			target: LOG_TARGET,
 			blocks = ?blocks.iter().map(|b| b.hash()),
 			"Importing blocks retrieved using pov_recovery",
