@@ -1226,14 +1226,14 @@ impl<Block: BlockT> Backend<Block> {
 
 		let shared_trie_cache = config.trie_cache_maximum_size.map(|maximum_size| {
 			let system_memory = sysinfo::System::new_all();
-			let available_memory = system_memory.available_memory();
+			let used_memory = system_memory.used_memory();
 			let total_memory = system_memory.total_memory();
 
-			if maximum_size as u64 > available_memory {
+			if maximum_size as u64 > total_memory - used_memory {
 				return Err(sp_blockchain::Error::Backend(
 					format!(
-						"Not enough memory to initialize shared trie cache. Cache size: {} bytes. System memory: available {} bytes, total {} bytes",
-						maximum_size, available_memory, total_memory,
+						"Not enough memory to initialize shared trie cache. Cache size: {} bytes. System memory: used {} bytes, total {} bytes",
+						maximum_size, used_memory, total_memory,
 					)
 				));
 			}
