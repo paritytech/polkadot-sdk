@@ -57,8 +57,7 @@ impl StorageCmd {
 
 		// Read using the same TrieBackend and recorder for up to `batch_size` keys.
 		// This would allow us to measure the amortized cost of reading a key.
-		let recorder =
-			self.params.enable_pov_recorder.then(|| Default::default());
+		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
 		let mut state = client
 			.state_at(best_hash)
 			.map_err(|_err| Error::Input("State not found".into()))?;
@@ -89,9 +88,12 @@ impl StorageCmd {
 			}
 			read_in_batch += 1;
 			if read_in_batch >= self.params.batch_size {
-				// Reset the TrieBackend for the next batch of reads.
-				let recorder =
-					if self.params.enable_pov_recorder { Some(Default::default()) } else { None };
+				// Using a new recorder for every read vs using the same for the entire batch
+				// produces significant different results. Since in the real use case we use a
+				// single recorder per block, simulate the same behavior by creating a new
+				// recorder every batch size, so that the amortized cost of reading a key is
+				// measured in conditions closer to the real world.
+				let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
 				state = client
 					.state_at(best_hash)
 					.map_err(|_err| Error::Input("State not found".to_string()))?;
@@ -117,12 +119,12 @@ impl StorageCmd {
 
 				read_in_batch += 1;
 				if read_in_batch >= self.params.batch_size {
-					// Reset the TrieBackend for the next batch of reads.
-					let recorder = if self.params.enable_pov_recorder {
-						Some(Default::default())
-					} else {
-						None
-					};
+					// Using a new recorder for every read vs using the same for the entire batch
+					// produces significant different results. Since in the real use case we use a
+					// single recorder per block, simulate the same behavior by creating a new
+					// recorder every batch size, so that the amortized cost of reading a key is
+					// measured in conditions closer to the real world.
+					let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
 					state = client
 						.state_at(best_hash)
 						.map_err(|_err| Error::Input("State not found".to_string()))?;
