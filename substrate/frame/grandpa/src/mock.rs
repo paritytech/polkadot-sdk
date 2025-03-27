@@ -32,14 +32,14 @@ use frame_support::{
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
-use sp_core::{ConstBool, H256};
+use sp_core::H256;
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	impl_opaque_keys,
 	testing::{TestXt, UintAuthorityId},
 	traits::OpaqueKeys,
-	BoundedVec, BuildStorage, DigestItem, Perbill,
+	BuildStorage, DigestItem, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -156,9 +156,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<u64, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinnersPerPage = ConstU32<100>;
-	type MaxBackersPerWinner = ConstU32<100>;
-	type Sort = ConstBool<true>;
+	type MaxWinners = ConstU32<100>;
 	type Bounds = ElectionsBoundsOnChain;
 }
 
@@ -263,7 +261,7 @@ pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestEx
 		validator_count: 8,
 		force_era: pallet_staking::Forcing::ForceNew,
 		minimum_validator_count: 0,
-		invulnerables: BoundedVec::new(),
+		invulnerables: vec![],
 		..Default::default()
 	};
 
@@ -292,9 +290,8 @@ pub fn start_session(session_index: SessionIndex) {
 		Timestamp::set_timestamp(System::block_number() * 6000);
 
 		System::on_initialize(System::block_number());
-		// staking has to be initialized before session as per the multi-block staking PR.
-		Staking::on_initialize(System::block_number());
 		Session::on_initialize(System::block_number());
+		Staking::on_initialize(System::block_number());
 		Grandpa::on_initialize(System::block_number());
 	}
 

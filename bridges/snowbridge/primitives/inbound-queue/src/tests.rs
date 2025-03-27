@@ -2,10 +2,15 @@ use super::EthereumLocationsConverterFor;
 use crate::{
 	mock::*, Command, ConvertMessage, Destination, MessageV1, VersionedMessage, H160,
 };
-use frame_support::assert_ok;
+use frame_support::{assert_ok, parameter_types};
 use hex_literal::hex;
 use xcm::prelude::*;
+use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
+
+parameter_types! {
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([9; 32])), Parachain(1234)].into();
+}
 
 #[test]
 fn test_ethereum_network_converts_successfully() {
@@ -15,7 +20,12 @@ fn test_ethereum_network_converts_successfully() {
 
 	let account =
 		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&contract_location).unwrap();
-
+	assert_eq!(account, expected_account);
+	let account =
+		ExternalConsensusLocationsConverterFor::<UniversalLocation, [u8; 32]>::convert_location(
+			&contract_location,
+		)
+		.unwrap();
 	assert_eq!(account, expected_account);
 }
 
@@ -30,7 +40,12 @@ fn test_contract_location_with_network_converts_successfully() {
 
 	let account =
 		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&contract_location).unwrap();
-
+	assert_eq!(account, expected_account);
+	let account =
+		ExternalConsensusLocationsConverterFor::<UniversalLocation, [u8; 32]>::convert_location(
+			&contract_location,
+		)
+		.unwrap();
 	assert_eq!(account, expected_account);
 }
 

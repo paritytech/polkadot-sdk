@@ -22,7 +22,8 @@ use polkadot_sdk::*;
 
 use crate::chain_spec::{sc_service::Properties, sp_runtime::AccountId32};
 use kitchensink_runtime::{
-	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
+	genesis_config_presets::{session_keys, Staker, STASH},
+	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
@@ -349,16 +350,7 @@ pub fn testnet_genesis(
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 	const MAX_COLLECTIVE_SIZE: usize = 50;
 
-	let dev_stakers = if cfg!(feature = "staking-playground") {
-		let random_validators =
-			std::option_env!("VALIDATORS").map(|s| s.parse::<u32>().unwrap()).unwrap_or(100);
-		let random_nominators = std::option_env!("NOMINATORS")
-			.map(|s| s.parse::<u32>().unwrap())
-			.unwrap_or(3000);
-		Some((random_validators, random_nominators))
-	} else {
-		None
-	};
+	let staking_playground_config = None;
 
 	let validator_count = if cfg!(feature = "staking-playground") {
 		std::option_env!("VALIDATOR_COUNT")
@@ -431,15 +423,6 @@ pub fn testnet_genesis(
 			"minJoinBond": 1 * DOLLARS,
 		},
 	})
-}
-
-fn development_config_genesis_json() -> serde_json::Value {
-	testnet_genesis(
-		vec![authority_keys_from_seed("Alice")],
-		vec![],
-		Sr25519Keyring::Alice.to_account_id(),
-		None,
-	)
 }
 
 fn props() -> Properties {
