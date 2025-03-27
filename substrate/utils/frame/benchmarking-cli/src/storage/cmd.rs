@@ -121,7 +121,10 @@ pub struct StorageParams {
 	/// Enable PoV recorder.
 	///
 	/// The recorder has impact on performance when benchmarking with the TrieCache enabled.
-	/// For parachains weights this should be true and false for relay chain weights.
+	/// If the chain is recording a proof while building/import a block, this should be activated. 
+	///
+	/// When generating weights for a parachain this should be activated and when generating a 
+	/// weight for a standalone chain this should be deactivated.
 	#[arg(long, default_value = "true", action=ArgAction::Set)]
 	pub enable_pov_recorder: bool,
 
