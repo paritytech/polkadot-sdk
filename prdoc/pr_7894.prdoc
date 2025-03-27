@@ -1,11 +1,11 @@
 title: '[stable2412] pallet-revive: remove related crates from umbrella'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
-	Fixes `polkadot-sdk` building for `stable2412`. It removes its dependency on `pallet-revive*` crates, which
-	aren't publishable as part of `stable2412` release & patch releases. Minor updates were brought to a bunch
-	of other crates to allow their compilation in test profile, to enable granular testing and rapid feedback
-	of crates for next `stable2412` patch releases.
+    Fixes `polkadot-sdk` building for `stable2412`. It removes its dependency on `pallet-revive*` crates, which
+    aren't publishable as part of `stable2412` release & patch releases. Minor updates were brought to a bunch
+    of other crates to allow their compilation in test profile, to enable granular testing and rapid feedback
+    of crates for next `stable2412` patch releases.
 crates:
 - name: polkadot-sdk
   bump: minor
