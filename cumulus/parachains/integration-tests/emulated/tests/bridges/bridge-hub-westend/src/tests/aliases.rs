@@ -190,13 +190,16 @@ fn authorized_cross_chain_aliases() {
 	PenpalB::mint_foreign_asset(pal_admin, Location::parent(), bad_origin.clone(), fees * 10);
 	BridgeHubWestend::fund_accounts(vec![(target.clone(), fees * 10)]);
 
-	// let's authorize `origin` on Penpal to alias `target` on BH
+	// let's authorize `origin` on Penpal to alias `target` on BridgeHub
 	BridgeHubWestend::execute_with(|| {
 		let penpal_origin = Location::new(
 			1,
 			X2([
 				Parachain(PenpalB::para_id().into()),
-				AccountId32 { network: None, id: origin.clone().into() },
+				AccountId32 {
+					network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
+					id: origin.clone().into(),
+				},
 			]
 			.into()),
 		);
@@ -209,15 +212,43 @@ fn authorized_cross_chain_aliases() {
 			)
 		);
 	});
-
-	// TODO
+	// Verify that unauthorized `bad_origin` cannot alias into `target`, from any chain.
 	test_cross_chain_alias!(
 		vec![
-			// between AH and BH: denied
-			// (AssetHubWestend, BridgeHubWestend, TELEPORT_FEES, DENIED)
-			// between Penpal and BH: allowed
+			// between AH and BridgeHub: denied
+			(AssetHubWestend, BridgeHubWestend, TELEPORT_FEES, DENIED),
+			// between Penpal and BridgeHub: denied
 			(PenpalB, BridgeHubWestend, RESERVE_TRANSFER_FEES, DENIED)
 		],
+		bad_origin,
+		target,
+		fees
+	);
+	// Verify that only authorized `penpal::origin` can alias into `target`, while `origin` on other
+	// chains cannot.
+	test_cross_chain_alias!(
+		vec![
+			// between AH and BridgeHub: denied
+			(AssetHubWestend, BridgeHubWestend, TELEPORT_FEES, DENIED),
+			// between Penpal and BridgeHub: allowed
+			(PenpalB, BridgeHubWestend, RESERVE_TRANSFER_FEES, ALLOWED)
+		],
+		origin,
+		target,
+		fees
+	);
+	// remove authorization for `origin` on Penpal to alias `target` on BridgeHub
+	BridgeHubWestend::execute_with(|| {
+		// `target` removes all authorized aliases
+		assert_ok!(
+			<BridgeHubWestend as BridgeHubWestendPallet>::PolkadotXcm::remove_all_authorized_aliases(
+				<BridgeHubWestend as Chain>::RuntimeOrigin::signed(target.clone())
+			)
+		);
+	});
+	// Verify `penpal::origin` can no longer alias into `target` on BridgeHub.
+	test_cross_chain_alias!(
+		vec![(PenpalB, BridgeHubWestend, RESERVE_TRANSFER_FEES, DENIED)],
 		origin,
 		target,
 		fees

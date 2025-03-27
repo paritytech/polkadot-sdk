@@ -447,12 +447,13 @@ fn authorized_aliases_work() {
 
 		// --- setting single alias works
 		let who = ALICE;
+		let first_alias: Location = AccountId32 { network: Some(Polkadot), id: BOB.into() }.into();
 		let total_balance_before = <Balances as Currency<_>>::total_balance(&who);
 		let free_balance = <Balances as Currency<_>>::free_balance(&who);
 		assert_eq!(free_balance, total_balance_before);
 		assert_ok!(XcmPallet::add_authorized_alias(
 			RuntimeOrigin::signed(who.clone()),
-			Box::new(alias.clone().into()),
+			Box::new(first_alias.clone().into()),
 			None
 		));
 		let footprint = aliasers_footprint(1);
@@ -465,7 +466,7 @@ fn authorized_aliases_work() {
 		// --- setting same alias again only updates its expiry
 		assert_ok!(XcmPallet::add_authorized_alias(
 			RuntimeOrigin::signed(who.clone()),
-			Box::new(alias.into()),
+			Box::new(first_alias.clone().into()),
 			Some(100)
 		));
 		// deposit is unchanged
@@ -509,7 +510,7 @@ fn authorized_aliases_work() {
 		let target: Location = AccountId32 { network: None, id: who.clone().into() }.into();
 		assert_ok!(XcmPallet::remove_authorized_alias(
 			RuntimeOrigin::signed(who.clone()),
-			Box::new(Location::here().into()),
+			Box::new(first_alias.clone().into()),
 		));
 		// deposit held for MaxAliases - 1
 		let footprint = aliasers_footprint(MaxAuthorizedAliases::get() as usize - 1);
@@ -519,7 +520,7 @@ fn authorized_aliases_work() {
 		assert_eq!(
 			last_events(1),
 			vec![RuntimeEvent::XcmPallet(crate::Event::AliasAuthorizationRemoved {
-				aliaser: Location::here().into(),
+				aliaser: first_alias.into(),
 				target: target.clone().into(),
 			})]
 		);

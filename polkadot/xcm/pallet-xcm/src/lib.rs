@@ -1624,6 +1624,13 @@ pub mod pallet {
 			let signed_origin = ensure_signed(origin.clone())?;
 			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let to_remove: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			ensure!(origin_location != to_remove, Error::<T>::BadLocation);
+			// remove `network` from inner `AccountId32` for easier matching
+			let origin_location = match origin_location.unpack() {
+				(0, [AccountId32 { network: _, id }]) =>
+					Location::new(0, [AccountId32 { network: None, id: id.clone() }]),
+				_ => return Err(Error::<T>::InvalidOrigin.into()),
+			};
 			tracing::debug!(target: "xcm::pallet_xcm::remove_authorized_alias", ?origin_location, ?to_remove);
 			ensure!(origin_location != to_remove, Error::<T>::BadLocation);
 			// convert to latest versioned
@@ -1668,6 +1675,12 @@ pub mod pallet {
 		pub fn remove_all_authorized_aliases(origin: OriginFor<T>) -> DispatchResult {
 			let signed_origin = ensure_signed(origin.clone())?;
 			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			// remove `network` from inner `AccountId32` for easier matching
+			let origin_location = match origin_location.unpack() {
+				(0, [AccountId32 { network: _, id }]) =>
+					Location::new(0, [AccountId32 { network: None, id: id.clone() }]),
+				_ => return Err(Error::<T>::InvalidOrigin.into()),
+			};
 			tracing::debug!(target: "xcm::pallet_xcm::remove_all_authorized_aliases", ?origin_location);
 			// convert to latest versioned
 			let versioned_origin = VersionedLocation::from(origin_location.clone());

@@ -220,15 +220,51 @@ fn authorized_cross_chain_aliases() {
 			None
 		));
 	});
-
-	// TODO
+	// Verify that unauthorized `bad_origin` cannot alias into `target`, from any chain.
 	test_cross_chain_alias!(
 		vec![
 			// between AH and Coretime: denied
 			(AssetHubWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between BH and Coretime: denied
+			(BridgeHubWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between People and Coretime: denied
+			(PeopleWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between Penpal and Coretime: denied
+			(PenpalB, CoretimeWestend, RESERVE_TRANSFER_FEES, DENIED)
+		],
+		bad_origin,
+		target,
+		fees
+	);
+	// Verify that only authorized `penpal::origin` can alias into `target`, while `origin` on other
+	// chains cannot.
+	test_cross_chain_alias!(
+		vec![
+			// between AH and Coretime: denied
+			(AssetHubWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between BH and Coretime: denied
+			(BridgeHubWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between People and Coretime: denied
+			(PeopleWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
 			// between Penpal and Coretime: allowed
 			(PenpalB, CoretimeWestend, RESERVE_TRANSFER_FEES, ALLOWED)
 		],
+		origin,
+		target,
+		fees
+	);
+	// remove authorization for `origin` on Penpal to alias `target` on Coretime
+	CoretimeWestend::execute_with(|| {
+		// `target` removes all authorized aliases
+		assert_ok!(
+			<CoretimeWestend as CoretimeWestendPallet>::PolkadotXcm::remove_all_authorized_aliases(
+				<CoretimeWestend as Chain>::RuntimeOrigin::signed(target.clone())
+			)
+		);
+	});
+	// Verify `penpal::origin` can no longer alias into `target` on Coretime.
+	test_cross_chain_alias!(
+		vec![(PenpalB, CoretimeWestend, RESERVE_TRANSFER_FEES, DENIED)],
 		origin,
 		target,
 		fees
