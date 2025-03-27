@@ -27,6 +27,7 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true, default-feature
 frame-benchmarking = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
+frame-storage-access-test-runtime = { workspace = true, default-features = true }
 gethostname = { workspace = true }
 handlebars = { workspace = true }
 hex = { workspace = true, default-features = true }
