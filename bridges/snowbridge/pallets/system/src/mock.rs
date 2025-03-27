@@ -78,7 +78,7 @@ mod pallet_xcm_origin {
 
 		fn try_origin(outer: O) -> Result<Self::Success, O> {
 			match outer.caller().try_into() {
-				Ok(Origin(location)) if F::contains(&location) => return Ok(location.clone()),
+				Ok(Origin(ref location)) if F::contains(location) => return Ok(location.clone()),
 				_ => (),
 			}
 

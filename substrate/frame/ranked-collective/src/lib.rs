@@ -279,7 +279,7 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = Rank;
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		match o.as_signer().and_then(|who| Members::<T, I>::get(&who)) {
+		match o.as_signer().and_then(|who| Members::<T, I>::get(who)) {
 			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(rank),
 			_ => Err(o),
 		}
@@ -307,7 +307,7 @@ impl<T: Config<I>, I: 'static> EnsureOriginWithArg<T::RuntimeOrigin, Rank> for E
 		let Some(who) = o.as_signer() else {
 			return Err(o);
 		};
-		match Members::<T, I>::get(&who) {
+		match Members::<T, I>::get(who) {
 			Some(MemberRecord { rank, .. }) if rank >= *min_rank => Ok((who.clone(), rank)),
 			_ => Err(o),
 		}
@@ -334,7 +334,7 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 		let Some(who) = o.as_signer() else {
 			return Err(o);
 		};
-		match Members::<T, I>::get(&who) {
+		match Members::<T, I>::get(who) {
 			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(who.clone()),
 			_ => Err(o),
 		}
@@ -364,7 +364,7 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 		let Some(who) = o.as_signer() else {
 			return Err(o);
 		};
-		match Members::<T, I>::get(&who) {
+		match Members::<T, I>::get(who) {
 			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok((who.clone(), rank)),
 			_ => Err(o),
 		}
