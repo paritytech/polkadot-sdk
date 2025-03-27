@@ -124,7 +124,9 @@ fn send_token_to_rococo_v2() {
 				),
 				remote_fees: Some(ReserveDeposit(Definite(vec![eth_fee_rococo_ah.clone()].into()))),
 				preserve_origin: false,
-				assets: vec![ReserveDeposit(Definite(vec![token_asset_ah.clone()].into()))],
+				assets: BoundedVec::truncate_from(vec![ReserveDeposit(Definite(
+					vec![token_asset_ah.clone()].into(),
+				))]),
 				remote_xcm: vec![
 					// Refund unspent fees
 					RefundSurplus,
@@ -284,7 +286,9 @@ fn send_ether_to_rococo_v2() {
 				),
 				remote_fees: Some(ReserveDeposit(Definite(vec![eth_fee_rococo_ah.clone()].into()))),
 				preserve_origin: false,
-				assets: vec![ReserveDeposit(Definite(vec![ether_asset_ah.clone()].into()))],
+				assets: BoundedVec::truncate_from(vec![ReserveDeposit(Definite(
+					vec![ether_asset_ah.clone()].into(),
+				))]),
 				remote_xcm: vec![
 					// Refund unspent fees
 					RefundSurplus,
@@ -473,7 +477,9 @@ fn send_roc_from_ethereum_to_rococo() {
 				),
 				remote_fees: Some(ReserveDeposit(Definite(vec![eth_fee_rococo_ah.clone()].into()))),
 				preserve_origin: false,
-				assets: vec![ReserveWithdraw(Definite(vec![roc_reachored.clone()].into()))],
+				assets: BoundedVec::truncate_from(vec![ReserveWithdraw(Definite(
+					vec![roc_reachored.clone()].into(),
+				))]),
 				remote_xcm: vec![
 					// Refund unspent fees
 					RefundSurplus,
