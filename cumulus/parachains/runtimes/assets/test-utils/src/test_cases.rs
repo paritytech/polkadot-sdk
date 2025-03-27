@@ -1702,7 +1702,7 @@ where
 pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Block>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
-	alice: AccountId,
+	account: AccountId,
 	native_asset_location: Location,
 	create_pool: bool,
 	give_amount: Balance,
@@ -1711,8 +1711,16 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 ) where
 	Runtime: XcmPaymentApiV1<Block>
 	+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
-	+ pallet_assets::Config
 	+ pallet_balances::Config<Balance = u128>
+	+ pallet_assets::Config<
+		pallet_assets::Instance1,
+		AssetId = u32,
+		Balance = <Runtime as pallet_balances::Config>::Balance,
+	>
+	+ pallet_asset_conversion::Config<
+		AssetKind = Location,
+		Balance = <Runtime as pallet_balances::Config>::Balance,
+	>
 	+ pallet_session::Config
 	+ pallet_xcm::Config
 	+ parachain_info::Config
@@ -1734,46 +1742,63 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 		.build()
 		.execute_with(|| {
 			let native_asset_id = AssetId(native_asset_location.clone());
-			let origin = RuntimeOrigin::signed(alice.clone());
+			let origin = RuntimeOrigin::signed(account.clone());
 			let asset_location = Location::new(1, [Parachain(2001)]);
-			let asset_id = AssetId(asset_location.clone());
+			let asset_id = 1984u32;
 
 			// Setup initial state
-			assert_ok!(<pallet_balances::Pallet<Runtime> as frame_support::traits::fungible::Mutate<_>>::mint_into(
-				&alice,
-				10_000 * UNITS // Enough balance for most test cases
+			assert_ok!(<pallet_balances::Pallet<Runtime> as Mutate<_>>::mint_into(
+				&account,
+				20_000 * UNITS // Enough for pool creation, liquidity, and exchange
 			));
 
-			assert_ok!(pallet_assets::Pallet::<Runtime>::force_create(
+			// Create the foreign asset
+			assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::force_create(
 				RuntimeOrigin::root(),
-				asset_location.clone().into(),
-				<Runtime as frame_system::Config>::Lookup::unlookup(alice.clone()),
+				asset_id.into(),
+				<Runtime as frame_system::Config>::Lookup::unlookup(account.clone()),
 				true,
 				1
 			));
 
 			// Simulate pool creation if required
 			if create_pool {
-				// In the original, this was `create_pool_with_wnd_on!`
-				// Here we simulate liquidity by minting assets to Alice
-				assert_ok!(pallet_assets::Pallet::<Runtime>::mint(
-					RuntimeOrigin::signed(alice.clone()),
-					asset_location.clone().into(),
-					<Runtime as frame_system::Config>::Lookup::unlookup(alice.clone()),
+				// Mint foreign assets for liquidity
+				assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::mint(
+					RuntimeOrigin::signed(account.clone()),
+					asset_id.into(),
+					<Runtime as frame_system::Config>::Lookup::unlookup(account.clone()),
 					10_000 * UNITS
+				));
+
+				// Create pool and add liquidity
+				assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
+					RuntimeOrigin::signed(account.clone()),
+					native_asset_location.clone().try_into().unwrap(),
+					asset_location.clone().try_into().unwrap(),
+				));
+				assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::add_liquidity(
+					RuntimeOrigin::signed(account.clone()),
+					native_asset_location.clone().try_into().unwrap(),
+					asset_location.clone().try_into().unwrap(),
+					5_000 * UNITS, // Native amount
+					5_000 * UNITS, // Foreign amount
+					0, // Min liquidity
+					0, // Min lp token
+					account.clone(),
 				));
 			}
 
 			// Execute the exchange
-			let foreign_balance_before = pallet_assets::Pallet::<Runtime>::balance(asset_location.clone().into(), &alice);
-			let native_balance_before = pallet_balances::Pallet::<Runtime>::total_balance(&alice);
+			let foreign_balance_before = pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::balance(asset_id.into(), &account);
+			let native_balance_before = pallet_balances::Pallet::<Runtime>::total_balance(&account);
 
 			let give: Assets = (native_asset_id, give_amount).into();
-			let want: Assets = (asset_id, want_amount).into();
+			let want: Assets = (AssetId(asset_location.clone()), want_amount).into();
 			let xcm = Xcm(vec![
 				WithdrawAsset(give.clone().into()),
 				ExchangeAsset { give: give.into(), want: want.into(), maximal: true },
-				DepositAsset { assets: Wild(All), beneficiary: alice.clone().into() },
+				DepositAsset { assets: Wild(All), beneficiary: account.clone().into() },
 			]);
 
 			let result = pallet_xcm::Pallet::<Runtime>::execute(
@@ -1783,8 +1808,8 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 			);
 
 			// Verify results
-			let foreign_balance_after = pallet_assets::Pallet::<Runtime>::balance(asset_location.into(), &alice);
-			let native_balance_after = pallet_balances::Pallet::<Runtime>::total_balance(&alice);
+			let foreign_balance_after = pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::balance(asset_id.into(), &account);
+			let native_balance_after = pallet_balances::Pallet::<Runtime>::total_balance(&account);
 
 			if should_succeed {
 				assert_ok!(result);
