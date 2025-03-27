@@ -582,7 +582,7 @@ impl<N: Clone + Copy + AtLeast32Bit> RevalidationStatus<N> {
 	}
 }
 
-/// Prune the known txs for the given block.
+/// Prune the known txs from the given view for the given block.
 ///
 /// Returns the hashes of all transactions included in given block.
 pub async fn prune_known_txs_for_block<
@@ -593,7 +593,7 @@ pub async fn prune_known_txs_for_block<
 	at: &HashAndNumber<Block>,
 	api: &Api,
 	pool: &graph::Pool<Api, L>,
-	known_provides_tags: Arc<HashMap<ExtrinsicHash<Api>, Vec<Tag>>>,
+	known_provides_tags: Option<Arc<HashMap<ExtrinsicHash<Api>, Vec<Tag>>>>,
 ) -> Vec<ExtrinsicHash<Api>> {
 	let extrinsics = api
 		.block_body(at.hash)
@@ -673,7 +673,7 @@ where
 			tree_route
 				.enacted()
 				.iter()
-				.map(|h| prune_known_txs_for_block(h, &*api, &*pool, Arc::default())),
+				.map(|h| prune_known_txs_for_block(h, &*api, &*pool, None)),
 		)
 		.await
 		.into_iter()

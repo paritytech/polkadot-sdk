@@ -1409,48 +1409,67 @@ where
 		&self,
 		tree_route: &TreeRoute<Block>,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
-		future::join_all(
+		let blocks_xts = future::join_all(
+            // For every enacted block, take its txs and look for
+            // provides tags in retracted blocks inactive views.
+			tree_route
+				.enacted()
+				.iter()
+				.map(|hn| {
+				    let api = self.api.clone();
+					async move {
+                        // Get enacted block transactions.
+                        api
+                            .block_body(hn.hash)
+                            .await
+                            .unwrap_or_else(|e| {
+                                log::warn!(target: LOG_TARGET, "provides_tags_from_inactive_views: block_body error request: {}", e);
+                                None
+                            })
+                            .unwrap_or_default()
+                    }
+                }))
+                .await
+                .into_iter()
+                .collect::<Vec<_>>();
+
+		// For each enacted block txs, look for provides tags for all txs from
+		// inactive views of blocks on the retracted fork. It is possible for
+		// the transactions of the enacted block to show up in multiple inactive
+		// views, but we'll always consider
+		let mut provides_tags_map = HashMap::new();
+		blocks_xts.iter().for_each(|xts| {
 			tree_route
 				.retracted()
 				.iter()
+				// Skip the tip of the fork, since its view is active, and it will be checked
+				// later when we'll prune the txs based on the tags found in the active view of
+				// the tip of the fork.
+				.skip(1)
 				.chain(std::iter::once(tree_route.common_block()))
-				.map(|hn| {
-					let api = self.api.clone();
-					async move {
-						let view = self.view_store.get_view_at(hn.hash, true);
-						let xts = api
-							.block_body(hn.hash)
-							.await
-							.unwrap_or_else(|e| {
-								log::warn!(target: LOG_TARGET, "provides_tags_from_inactive_views: block_body error request: {}", e);
-								None
-							})
-							.unwrap_or_default();
-						let xts_hashes = xts
-							.iter()
-							.filter_map(|xts| {
-								view.as_ref().map(|(inner, _)| inner.pool.hash_of(xts))
-							})
-							.collect::<Vec<_>>();
-
-						let xts_provides_tags = view
-							.map(|(inner, _)| {
-								inner.pool.validated_pool().extrinsics_tags(&xts_hashes)
-							})
-							.unwrap_or(vec![]);
-						xts_hashes
-							.into_iter()
-							.zip(xts_provides_tags.into_iter())
-							.into_iter()
-							.filter_map(|(hash, tags)| tags.map(|inner| (hash, inner)))
-							.collect::<Vec<(ExtrinsicHash<ChainApi>, Vec<Tag>)>>()
-					}
-				}),
-		)
-		.await
-		.into_iter()
-		.flatten()
-		.collect()
+				.rev()
+				.for_each(|hn| {
+					let view = self.view_store.get_view_at(hn.hash, true);
+					// Map to transaction hashes, getting an empty list if
+					// there is no view for the given block hash.
+					let xts_hashes = xts
+						.iter()
+						.filter_map(|hash| view.as_ref().map(|(inner, _)| inner.pool.hash_of(hash)))
+						.collect::<Vec<_>>();
+					// Get tx provides tags from a certain retracted block inactive view, if any.
+					let provides_tags = view
+						.map(|(inner, _)| inner.pool.validated_pool().extrinsics_tags(&xts_hashes))
+						.unwrap_or(vec![None; xts_hashes.len()]);
+					let xts_provides_tags = xts_hashes
+						.into_iter()
+						.zip(provides_tags.into_iter())
+						.into_iter()
+						.filter_map(|(hash, tags)| tags.map(|inner| (hash, inner)))
+						.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
+					provides_tags_map.extend(xts_provides_tags);
+				});
+		});
+		provides_tags_map
 	}
 
 	/// Updates the view with the transactions from the given tree route.
@@ -1488,8 +1507,13 @@ where
 			async move {
 				(
 					hn,
-					crate::prune_known_txs_for_block(hn, &*api, &view.pool, known_provides_tags)
-						.await,
+					crate::prune_known_txs_for_block(
+						hn,
+						&*api,
+						&view.pool,
+						Some(known_provides_tags),
+					)
+					.await,
 				)
 			}
 		}))
