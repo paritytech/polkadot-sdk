@@ -204,9 +204,9 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 				remote_fee_on_westend.clone().into(),
 			))),
 			preserve_origin: true,
-			assets: vec![AssetTransferFilter::ReserveDeposit(Definite(
+			assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(Definite(
 				reserved_asset_on_westend.clone().into(),
-			))],
+			))]),
 			remote_xcm: Xcm(vec![
 				// swap from roc to wnd
 				ExchangeAsset {
@@ -227,9 +227,9 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 						Asset { id: AssetId(ethereum()), fun: Fungible(ether_fee_amount) }.into(),
 					))),
 					preserve_origin: true,
-					assets: vec![AssetTransferFilter::ReserveDeposit(Definite(
-						reserved_asset_on_westend_reanchored.clone().into(),
-					))],
+					assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(
+						Definite(reserved_asset_on_westend_reanchored.clone().into()),
+					)]),
 					remote_xcm: Xcm(vec![DepositAsset {
 						assets: Wild(All),
 						beneficiary: beneficiary(),
