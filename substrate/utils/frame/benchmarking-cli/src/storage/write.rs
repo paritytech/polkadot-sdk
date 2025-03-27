@@ -124,7 +124,7 @@ impl StorageCmd {
 						continue
 					}
 
-					// For every batched read use a different trie instance and recorder, so we
+					// For every batched write use a different trie instance and recorder, so we
 					// don't benefit from past runs.
 					let trie = build_trie_backend(
 						storage.clone(),
