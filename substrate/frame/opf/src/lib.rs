@@ -489,7 +489,7 @@ pub mod pallet {
 			// Remove previous vote from Referendum
 			let infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
 				.ok_or(Error::<T>::NoProjectAvailable)?;
-			Democracy::Pallet::<T>::remove_vote(origin, infos.index)?;
+			T::Conviction::try_remove_vote(&voter, infos.index.into())?;
 
 			Self::deposit_event(Event::<T>::VoteRemoved { who: voter, project_id });
 			Ok(())

@@ -35,7 +35,7 @@ pub trait ConvictionVotingTrait<AccountId> {
 		ref_index: Self::Index,
 		vote: Self::AccountVote,
 	) -> DispatchResult;
-	//fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()>;
+	fn try_remove_vote(caller: &AccountId,ref_index: Self::Index) -> DispatchResult;
 }
 
 impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<AccountIdOf<T>>
@@ -66,9 +66,11 @@ impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<A
 	fn u128_to_balance(x: u128) -> Option<Self::Balance> {
 		x.try_into().ok()
 	}
-	/*fn try_remove_vote(ref_index: Self::Index) -> Result<(), ()> {
-		pallet_conviction_voting::Pallet::<T, I>::remove_vote(ref_index)
-	}*/
+	fn try_remove_vote(caller: &AccountIdOf<T>,ref_index: Self::Index) -> DispatchResult {
+		let origin = RawOrigin::Signed(caller.clone());
+		pallet_conviction_voting::Pallet::<T, I>::remove_vote(origin.into(),None,ref_index)?;
+		Ok(())
+	}
 }
 
 impl<T: frame_system::Config + pallet_referenda::Config<I>, I: 'static> ReferendumTrait<AccountIdOf<T>>

@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
 			T::NativeBalance::set_on_hold(&HoldReason::FundsReserved.into(), &voter_id, new_hold)?;
 
 			// Remove previous vote from Referendum
-			Democracy::Pallet::<T>::remove_vote(origin, ref_index)?;
+			T::Conviction::try_remove_vote(&voter_id, ref_index.into())?;
 		} else {
 			Votes::<T>::insert(&project, &voter_id, new_vote);
 			ProjectFunds::<T>::mutate(&project, |val| {
