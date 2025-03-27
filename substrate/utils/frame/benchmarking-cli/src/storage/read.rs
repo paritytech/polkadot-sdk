@@ -58,7 +58,7 @@ impl StorageCmd {
 		// Read using the same TrieBackend and recorder for up to `batch_size` keys.
 		// This would allow us to measure the amortized cost of reading a key.
 		let recorder =
-			if self.params.enable_pov_recorder { Some(Default::default()) } else { None };
+			self.params.enable_pov_recorder.then(|| Default::default());
 		let mut state = client
 			.state_at(best_hash)
 			.map_err(|_err| Error::Input("State not found".to_string()))?;
