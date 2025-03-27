@@ -34,10 +34,10 @@ xcm = { workspace = true }
 [features]
 default = ["std"]
 std = [
-	"bp-xcm-bridge-hub-router/std",
 	"bp-bridge-hub-cumulus/std",
 	"bp-messages/std",
 	"bp-runtime/std",
+	"bp-xcm-bridge-hub-router/std",
 	"codec/std",
 	"frame-support/std",
 	"scale-info/std",
