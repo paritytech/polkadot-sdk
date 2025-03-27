@@ -1,0 +1,32 @@
+title: '[collator-selection] Add delay to candidate deposit withdrawals'
+doc:
+- audience: ["Node Operator", "Runtime Dev", "Runtime User"]
+  description: |-
+    Currently, the collator selection pallet allows accounts to take the place of others in the candidate list by placing a higher bond than them. While the new candidate cannot lower their bond, they can leave the candidate set later and quickly rejoin with a lower deposit if nobody is watching to take their place by frontrunning the transaction. While this doesn't pose functional threats to the collator election system, it is undesirable behavior.
+
+    This PR solves this issue by introducing an unbonding period for candidates that leave the set voluntarily or that are kicked due to inactivity. In this case, the deposit is held until the unbonding period passes. Then, the funds can be released using the new `withdraw_unbonded` extrinsic call. Accounts that start unbonding cannot rejoin as candidates until the unbonding period has finished.
+crates:
+- name: pallet-collator-selection
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: parachains-common
+  bump: minor
