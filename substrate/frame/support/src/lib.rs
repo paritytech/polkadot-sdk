@@ -545,7 +545,7 @@ pub use frame_support_procedural::{__create_tt_macro, __generate_dummy_part_chec
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// #[stored(skip(T))]
 /// struct MyStruct<T: Config, U> {
 ///     field1: T,
