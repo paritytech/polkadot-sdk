@@ -19,9 +19,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(not(feature = "std"))]
-mod wasm_validation;
-
 // Include the WASM binary
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -32,4 +29,24 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 	WASM_BINARY.expect(
 		"Development wasm binary is not available. Unset SKIP_WASM_BUILD and compile the runtime again.",
 	)
+}
+
+#[cfg(not(feature = "std"))]
+#[panic_handler]
+#[no_mangle]
+pub fn panic(_info: &core::panic::PanicInfo) -> ! {
+	core::arch::wasm32::unreachable();
+}
+
+#[cfg(enable_alloc_error_handler)]
+#[alloc_error_handler]
+#[no_mangle]
+pub fn oom(_: core::alloc::Layout) -> ! {
+	core::intrinsics::abort();
+}
+
+#[cfg(not(feature = "std"))]
+#[no_mangle]
+pub extern "C" fn validate_block(_params: *const u8, _len: usize) -> u64 {
+	1
 }
