@@ -18,13 +18,9 @@
 //! Miscellaneous additional datatypes.
 
 use codec::DecodeWithMemTracking;
-use core::{marker::PhantomData};
-use frame_support::{
-	traits::VoteTally,
-};
-use sp_runtime::{
-	traits::{Saturating, Zero},
-};
+use core::marker::PhantomData;
+use frame_support::traits::VoteTally;
+use sp_runtime::traits::{Saturating, Zero};
 
 use super::*;
 use crate::{AccountVote, Conviction, Vote};
@@ -43,11 +39,8 @@ pub struct Tally<Votes, Total> {
 	dummy: PhantomData<Total>,
 }
 
-impl<
-		Votes: Default + Copy + AtLeast32BitUnsigned,
-		Total: Get<Votes>,
-		Class,
-	> VoteTally<Votes, Class> for Tally<Votes, Total>
+impl<Votes: Default + Copy + AtLeast32BitUnsigned, Total: Get<Votes>, Class> VoteTally<Votes, Class>
+	for Tally<Votes, Total>
 {
 	fn new(_: Class) -> Self {
 		Self { ayes: Zero::zero(), nays: Zero::zero(), support: Zero::zero(), dummy: PhantomData }
@@ -86,11 +79,7 @@ impl<
 	fn setup(_: Class, _: Perbill) {}
 }
 
-impl<
-		Votes: Copy + AtLeast32BitUnsigned,
-		Total: Get<Votes>,
-	> Tally<Votes, Total>
-{
+impl<Votes: Copy + AtLeast32BitUnsigned, Total: Get<Votes>> Tally<Votes, Total> {
 	/// Create a new tally.
 	pub fn from_vote(vote: Vote, balance: Votes) -> Self {
 		let Delegations { votes, capital } = vote.conviction.votes(balance);

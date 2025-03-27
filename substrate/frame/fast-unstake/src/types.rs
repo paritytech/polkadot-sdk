@@ -18,9 +18,7 @@
 //! Types used in the Fast Unstake pallet.
 
 use crate::Config;
-use frame_support::{
-	traits::Currency, BoundedVec,
-};
+use frame_support::{traits::Currency, BoundedVec};
 use sp_staking::{EraIndex, StakingInterface};
 
 /// Maximum number of eras that we might check for a single staker.

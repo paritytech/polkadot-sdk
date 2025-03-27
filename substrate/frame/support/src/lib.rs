@@ -538,10 +538,10 @@ pub use frame_support_procedural::{__create_tt_macro, __generate_dummy_part_chec
 ///
 /// - `skip`: A list of type parameters to exclude from recieving automatic bounds, e.g.,
 ///   `#stored(skip(T, U))`.
-/// - `codec_bounds`: A list of type parameters which should recieve default codec bounds, e.g.,
-///   `#[stored(codec_bounds(T))]`. If not used, codec bounds will be inferred. In addition,
-///   explicit codec bounds can be specified, e.g., `#[stored(codec_bounds(T: Default + Clone +
-///   Encode))]`, but is usually not necessary.
+/// - `codec_bounds`: A list of type parameters which should recieve default codec bounds,
+///   e.g., `#[stored(codec_bounds(T))]`. If not used, codec bounds will be inferred. In
+///   addition, explicit codec bounds can be specified, e.g., `#[stored(codec_bounds(T: Default
+///   + Clone + Encode))]`, but is usually not necessary.
 ///
 /// # Example
 ///
@@ -553,8 +553,8 @@ pub use frame_support_procedural::{__create_tt_macro, __generate_dummy_part_chec
 /// }
 /// ```
 ///
-/// In the above example, the generic `T` is excluded from being bounded. `U` will still be bound
-/// by all derives.
+/// In the above example, the generic `T` is excluded from being bounded. `U` will still be
+/// bound by all derives.
 ///
 /// # Errors
 ///

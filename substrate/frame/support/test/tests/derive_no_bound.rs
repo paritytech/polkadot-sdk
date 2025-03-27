@@ -66,12 +66,8 @@ struct StructNamed<T: Config, U, V> {
 #[cfg(not(feature = "disable-ui-tests"))]
 #[test]
 fn test_struct_named_debug_print() {
-	let a_1 = StructNamed::<Runtime, ImplAll, ImplAll> {
-		a: 1,
-		b: 2,
-		c: 3,
-		phantom: Default::default(),
-	};
+	let a_1 =
+		StructNamed::<Runtime, ImplAll, ImplAll> { a: 1, b: 2, c: 3, phantom: Default::default() };
 
 	assert_eq!(
 		format!("{:?}", a_1),
@@ -81,12 +77,8 @@ fn test_struct_named_debug_print() {
 
 #[test]
 fn test_struct_named() {
-	let a_1 = StructNamed::<Runtime, ImplAll, ImplAll> {
-		a: 1,
-		b: 2,
-		c: 3,
-		phantom: Default::default(),
-	};
+	let a_1 =
+		StructNamed::<Runtime, ImplAll, ImplAll> { a: 1, b: 2, c: 3, phantom: Default::default() };
 
 	let a_default: StructNamed<Runtime, ImplAll, ImplAll> = Default::default();
 	assert_eq!(a_default.a, 0);
@@ -100,12 +92,8 @@ fn test_struct_named() {
 	assert_eq!(a_2.c, 3);
 	assert_eq!(a_2, a_1);
 
-	let b = StructNamed::<Runtime, ImplAll, ImplAll> {
-		a: 1,
-		b: 2,
-		c: 4,
-		phantom: Default::default(),
-	};
+	let b =
+		StructNamed::<Runtime, ImplAll, ImplAll> { a: 1, b: 2, c: 4, phantom: Default::default() };
 
 	assert!(b != a_1);
 	assert!(b > a_1);
@@ -319,8 +307,7 @@ struct StructUnnamedRust(u32, u64, u32, core::marker::PhantomData<(ImplAll, Impl
 #[test]
 fn struct_named_same_as_native_rust() {
 	for (a, b, c) in combinations() {
-		let a_1 =
-			StructNamed::<Runtime, ImplAll, ImplAll> { a, b, c, phantom: Default::default() };
+		let a_1 = StructNamed::<Runtime, ImplAll, ImplAll> { a, b, c, phantom: Default::default() };
 		let b_1 = StructNamedRust { a, b, c, phantom: Default::default() };
 		for (a, b, c) in combinations() {
 			let a_2 =

@@ -18,8 +18,7 @@
 //! Tests for the `stored` macro.
 
 use frame_support::{
-	construct_runtime, derive_impl, storage_alias, stored,
-	pallet_prelude::{OptionQuery},
+	construct_runtime, derive_impl, pallet_prelude::OptionQuery, storage_alias, stored,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::sr25519;
@@ -36,37 +35,37 @@ impl Config for Runtime {}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type RuntimeOrigin = RuntimeOrigin;
-    type Nonce = u64;
-    type RuntimeCall = RuntimeCall;
-    type Hash = sp_runtime::testing::H256;
-    type Hashing = sp_runtime::traits::BlakeTwo256;
-    type AccountId = u64;
-    type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
-    type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = frame_support::traits::ConstU32<250>;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type BaseCallFilter = frame_support::traits::Everything;
+	type RuntimeOrigin = RuntimeOrigin;
+	type Nonce = u64;
+	type RuntimeCall = RuntimeCall;
+	type Hash = sp_runtime::testing::H256;
+	type Hashing = sp_runtime::traits::BlakeTwo256;
+	type AccountId = u64;
+	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
+	type Block = Block;
+	type RuntimeEvent = RuntimeEvent;
+	type BlockHashCount = frame_support::traits::ConstU32<250>;
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
+	type Version = ();
+	type PalletInfo = PalletInfo;
+	type AccountData = ();
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
+	type SS58Prefix = ();
+	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 construct_runtime! {
-    pub struct Runtime
-    {
-        System: frame_system,
-        TestPallet: test_pallet,
-    }
+	pub struct Runtime
+	{
+		System: frame_system,
+		TestPallet: test_pallet,
+	}
 }
 
 #[test]
@@ -110,7 +109,7 @@ fn stored_compiles() {
 		StorageValue<Pallet<T>, TupleWithGenericsFirstBound<T, u64>, OptionQuery>;
 	let _ = <TupleWithGenericsFirstBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-    // Tuple struct with generics, bound in first position, default in second
+	// Tuple struct with generics, bound in first position, default in second
 	#[stored(skip(T))]
 	struct TupleWithGenericsFirstBoundDefaultSecond<T: Config, U = ()>(BlockNumberFor<T>, U);
 	#[storage_alias]
@@ -308,13 +307,8 @@ fn stored_compiles() {
 	#[stored]
 	enum StructEnum {
 		None,
-		A {
-			x: u32,
-		},
-		B {
-			y: u64,
-			z: u32,
-		},
+		A { x: u32 },
+		B { y: u64, z: u32 },
 	}
 	#[storage_alias]
 	pub type StructEnumStorage<T: Config> = StorageValue<Pallet<T>, StructEnum, OptionQuery>;
@@ -325,10 +319,7 @@ fn stored_compiles() {
 	enum GenericEnum<T, U> {
 		None,
 		A(T),
-		B {
-			first: T,
-			second: U,
-		},
+		B { first: T, second: U },
 	}
 	#[storage_alias]
 	pub type GenericEnumStorage<T: Config> =
@@ -340,22 +331,18 @@ fn stored_compiles() {
 	#[stored(skip(T))]
 	enum GenericEnumFirstBound<T: Config, U> {
 		A(BlockNumberFor<T>),
-		B {
-			value: U,
-		},
+		B { value: U },
 	}
 	#[storage_alias]
 	pub type GenericEnumFirstBoundStorage<T: Config> =
 		StorageValue<Pallet<T>, GenericEnumFirstBound<T, u32>, OptionQuery>;
 	let _ = <GenericEnumFirstBoundStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
 
-    // Generic enum, first bounded, second has default
+	// Generic enum, first bounded, second has default
 	#[stored(skip(T))]
 	enum GenericEnumFirstBoundSecondDefault<T: Config, U = ()> {
 		A(BlockNumberFor<T>),
-		B {
-			value: U,
-		},
+		B { value: U },
 	}
 	#[storage_alias]
 	pub type GenericEnumFirstBoundSecondDefaultStorage<T: Config> =
@@ -366,9 +353,7 @@ fn stored_compiles() {
 	#[stored(skip(U))]
 	enum GenericEnumSecondBound<T, U: Config> {
 		A(T),
-		B {
-			value: BlockNumberFor<U>,
-		},
+		B { value: BlockNumberFor<U> },
 	}
 	#[storage_alias]
 	pub type GenericEnumSecondBoundStorage<T: Config> =
@@ -378,10 +363,7 @@ fn stored_compiles() {
 	// Generic enum, both bounded
 	#[stored(skip(T, U))]
 	enum GenericEnumBothBound<T: Config, U: Config> {
-		A {
-			first: BlockNumberFor<T>,
-			second: BlockNumberFor<U>,
-		},
+		A { first: BlockNumberFor<T>, second: BlockNumberFor<U> },
 		B(BlockNumberFor<T>, BlockNumberFor<U>),
 	}
 	#[storage_alias]
@@ -396,9 +378,7 @@ fn stored_compiles() {
 		T: Config,
 	{
 		A(BlockNumberFor<T>),
-		B {
-			value: U,
-		},
+		B { value: U },
 	}
 	#[storage_alias]
 	pub type GenericEnumFirstBoundWhereStorage<T: Config> =
@@ -414,17 +394,15 @@ fn stored_compiles() {
 	#[storage_alias]
 	pub type CodecBoundEmptyStorage<T: Config> =
 		StorageValue<Pallet<T>, CodecBoundEmpty<T, T>, OptionQuery>;
-	let _ = <CodecBoundEmptyStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info();
+	let _ =
+		<CodecBoundEmptyStorage<Runtime> as frame_support::traits::StorageInfoTrait>::storage_info(
+		);
 
 	// Shorthand codec_bounds
 	#[stored(codec_bounds(T, U))]
 	enum CodecBoundShorthand<T, U> {
-		A {
-			value: T,
-		},
-		B {
-			value: U,
-		},
+		A { value: T },
+		B { value: U },
 	}
 	#[storage_alias]
 	pub type CodecBoundShorthandStorage<T: Config> =
@@ -434,12 +412,8 @@ fn stored_compiles() {
 	// Explicit codec_bounds
 	#[stored(codec_bounds(T: codec::MaxEncodedLen + codec::DecodeWithMemTracking, U))]
 	enum CodecBoundExplicit<T, U> {
-		A {
-			value: T,
-		},
-		B {
-			value: U,
-		},
+		A { value: T },
+		B { value: U },
 	}
 	#[storage_alias]
 	pub type CodecBoundExplicitStorage<T: Config> =
