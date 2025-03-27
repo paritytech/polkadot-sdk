@@ -61,7 +61,7 @@ impl StorageCmd {
 			self.params.enable_pov_recorder.then(|| Default::default());
 		let mut state = client
 			.state_at(best_hash)
-			.map_err(|_err| Error::Input("State not found".to_string()))?;
+			.map_err(|_err| Error::Input("State not found".into()))?;
 		let mut as_trie_backend = state.as_trie_backend();
 		let mut backend = sp_state_machine::TrieBackendBuilder::wrap(&as_trie_backend)
 			.with_optional_recorder(recorder)
