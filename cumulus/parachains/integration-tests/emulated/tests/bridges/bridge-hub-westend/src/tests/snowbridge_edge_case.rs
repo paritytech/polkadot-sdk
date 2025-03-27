@@ -243,3 +243,59 @@ fn export_from_system_parachain_but_not_root_will_fail() {
 		);
 	});
 }
+
+#[test]
+fn export_from_non_system_parachain_will_fail() {
+	let penpal_sovereign = BridgeHubWestend::sovereign_account_id_of(Location::new(
+		1,
+		[Parachain(PenpalB::para_id().into())],
+	));
+	BridgeHubWestend::fund_accounts(vec![(penpal_sovereign.clone(), INITIAL_FUND)]);
+
+	PenpalB::execute_with(|| {
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
+
+		let local_fee_asset =
+			Asset { id: AssetId(Location::here()), fun: Fungible(1_000_000_000_000) };
+
+		let weth_location_reanchored =
+			Location::new(0, [AccountKey20 { network: None, key: WETH.into() }]);
+
+		let weth_asset =
+			Asset { id: AssetId(weth_location_reanchored.clone()), fun: Fungible(TOKEN_AMOUNT) };
+
+		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::send(
+			RuntimeOrigin::root(),
+			bx!(VersionedLocation::from(bridge_hub())),
+			bx!(VersionedXcm::from(Xcm(vec![
+				WithdrawAsset(local_fee_asset.clone().into()),
+				BuyExecution { fees: local_fee_asset.clone(), weight_limit: Unlimited },
+				ExportMessage {
+					network: Ethereum { chain_id: CHAIN_ID },
+					destination: Here,
+					xcm: Xcm(vec![
+						WithdrawAsset(weth_asset.clone().into()),
+						DepositAsset { assets: Wild(All), beneficiary: beneficiary() },
+						SetTopic([0; 32]),
+					]),
+				},
+			]))),
+		));
+
+		assert_expected_events!(
+			PenpalB,
+			vec![RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent{ .. }) => {},]
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed{ success:false, origin, .. }) => {
+				origin: *origin == bridge_hub_common::AggregateMessageOrigin::Sibling(PenpalB::para_id()),
+			},]
+		);
+	});
+}
