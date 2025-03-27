@@ -5,10 +5,8 @@ doc:
     Add initial primitives for AssetHubRococo and AssetHubWestend bridging
 crates:
 - name: bp-asset-hub-rococo
-  bump: patch
+  bump: minor
 - name: bp-asset-hub-westend
-  bump: patch
-- name: pallet-bridge-grandpa
-  bump: patch
+  bump: minor
 - name: bp-bridge-hub-cumulus
-  bump: patch
+  bump: minor
