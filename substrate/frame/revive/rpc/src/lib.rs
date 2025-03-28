@@ -17,14 +17,14 @@
 //! The [`EthRpcServer`] RPC server implementation
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-use crate::runtime::GAS_PRICE;
 use client::ClientError;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	types::{ErrorCode, ErrorObjectOwned},
 };
-use pallet_revive::{evm::*, EthContractResult};
-use sp_core::{H160, H256, U256};
+use pallet_revive::evm::*;
+use sp_arithmetic::Permill;
+use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
 
 pub mod cli;
@@ -35,11 +35,17 @@ pub mod subxt_client;
 #[cfg(test)]
 mod tests;
 
-mod rpc_health;
-pub use rpc_health::*;
+mod block_info_provider;
+pub use block_info_provider::*;
 
-mod rpc_methods_gen;
-pub use rpc_methods_gen::*;
+mod receipt_provider;
+pub use receipt_provider::*;
+
+mod receipt_extractor;
+pub use receipt_extractor::*;
+
+mod apis;
+pub use apis::*;
 
 pub const LOG_TARGET: &str = "eth-rpc";
 
@@ -91,13 +97,13 @@ pub enum EthRpcError {
 	TransactionTypeNotSupported(Byte),
 }
 
+// TODO use https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<EthRpcError> for ErrorObjectOwned {
 	fn from(value: EthRpcError) -> Self {
-		let code = match value {
-			EthRpcError::ClientError(_) => ErrorCode::InternalError,
-			_ => ErrorCode::InvalidRequest,
-		};
-		Self::owned::<String>(code.code(), value.to_string(), None)
+		match value {
+			EthRpcError::ClientError(err) => Self::from(err),
+			_ => Self::owned::<String>(ErrorCode::InvalidRequest.code(), value.to_string(), None),
+		}
 	}
 }
 
@@ -121,60 +127,52 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
+		log::debug!(
+			target: LOG_TARGET,
+			"transaction_receipt for {transaction_hash:?}: received: {received} - success: {success:?}",
+			received = receipt.is_some(),
+			success = receipt.as_ref().map(|r| r.status == Some(U256::one()))
+		);
 		Ok(receipt)
 	}
 
 	async fn estimate_gas(
 		&self,
 		transaction: GenericTransaction,
-		_block: Option<BlockNumberOrTag>,
+		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
-		let result = self.client.estimate_gas(&transaction, BlockTag::Latest.into()).await?;
-		Ok(result)
+		let dry_run = self.client.dry_run(transaction, block.unwrap_or_default().into()).await?;
+		Ok(dry_run.eth_gas)
+	}
+
+	async fn call(
+		&self,
+		transaction: GenericTransaction,
+		block: Option<BlockNumberOrTagOrHash>,
+	) -> RpcResult<Bytes> {
+		let dry_run = self
+			.client
+			.dry_run(transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
+			.await?;
+		Ok(dry_run.data.into())
 	}
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
-		let tx = rlp::decode::<TransactionLegacySigned>(&transaction.0).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
-			EthRpcError::from(err)
+		let hash = H256(keccak_256(&transaction.0));
+		let call = subxt_client::tx().revive().eth_transact(transaction.0);
+		self.client.submit(call).await.map_err(|err| {
+			log::debug!(target: LOG_TARGET, "submit call failed: {err:?}");
+			err
 		})?;
 
-		let eth_addr = tx.recover_eth_address().map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to recover eth address: {err:?}");
-			EthRpcError::InvalidSignature
-		})?;
-
-		// Dry run the transaction to get the weight limit and storage deposit limit
-		let TransactionLegacyUnsigned { to, input, value, .. } = tx.transaction_legacy_unsigned;
-		let dry_run = self
-			.client
-			.dry_run(
-				&GenericTransaction {
-					from: Some(eth_addr),
-					input: Some(input.clone()),
-					to,
-					value: Some(value),
-					..Default::default()
-				},
-				BlockTag::Latest.into(),
-			)
-			.await?;
-
-		let EthContractResult { gas_required, storage_deposit, .. } = dry_run;
-		let call = subxt_client::tx().revive().eth_transact(
-			transaction.0,
-			gas_required.into(),
-			storage_deposit,
-		);
-		let hash = self.client.submit(call).await?;
+		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
 		Ok(hash)
 	}
 
-	async fn send_transaction(&self, transaction: GenericTransaction) -> RpcResult<H256> {
+	async fn send_transaction(&self, mut transaction: GenericTransaction) -> RpcResult<H256> {
 		log::debug!(target: LOG_TARGET, "{transaction:#?}");
-		let GenericTransaction { from, gas, gas_price, input, to, value, r#type, .. } = transaction;
 
-		let Some(from) = from else {
+		let Some(from) = transaction.from else {
 			log::debug!(target: LOG_TARGET, "Transaction must have a sender");
 			return Err(EthRpcError::InvalidTransaction.into());
 		};
@@ -185,38 +183,37 @@ impl EthRpcServer for EthRpcServerImpl {
 			.find(|account| account.address() == from)
 			.ok_or(EthRpcError::AccountNotFound(from))?;
 
-		let gas_price = gas_price.unwrap_or_else(|| U256::from(GAS_PRICE));
-		let chain_id = Some(self.client.chain_id().into());
-		let input = input.unwrap_or_default();
-		let value = value.unwrap_or_default();
-		let r#type = r#type.unwrap_or_default();
+		if transaction.gas.is_none() {
+			transaction.gas = Some(self.estimate_gas(transaction.clone(), None).await?);
+		}
 
-		let Some(gas) = gas else {
-			log::debug!(target: LOG_TARGET, "Transaction must have a gas limit");
-			return Err(EthRpcError::InvalidTransaction.into());
-		};
+		if transaction.gas_price.is_none() {
+			transaction.gas_price = Some(self.gas_price().await?);
+		}
 
-		let r#type = Type0::try_from_byte(r#type.clone())
-			.map_err(|_| EthRpcError::TransactionTypeNotSupported(r#type))?;
+		if transaction.nonce.is_none() {
+			transaction.nonce =
+				Some(self.get_transaction_count(from, BlockTag::Latest.into()).await?);
+		}
 
-		let nonce = self.get_transaction_count(from, BlockTag::Latest.into()).await?;
+		if transaction.chain_id.is_none() {
+			transaction.chain_id = Some(self.chain_id().await?);
+		}
 
-		let tx =
-			TransactionLegacyUnsigned { chain_id, gas, gas_price, input, nonce, to, value, r#type };
-		let tx = account.sign_transaction(tx);
-		let rlp_bytes = rlp::encode(&tx).to_vec();
-		self.send_raw_transaction(Bytes(rlp_bytes)).await
+		let tx = transaction.try_into_unsigned().map_err(|_| EthRpcError::InvalidTransaction)?;
+		let payload = account.sign_transaction(tx).signed_payload();
+		self.send_raw_transaction(Bytes(payload)).await
 	}
 
 	async fn get_block_by_hash(
 		&self,
 		block_hash: H256,
-		_hydrated_transactions: bool,
+		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
 		let Some(block) = self.client.block_by_hash(&block_hash).await? else {
 			return Ok(None);
 		};
-		let block = self.client.evm_block(block).await?;
+		let block = self.client.evm_block(block, hydrated_transactions).await;
 		Ok(Some(block))
 	}
 
@@ -231,7 +228,13 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn gas_price(&self) -> RpcResult<U256> {
-		Ok(U256::from(GAS_PRICE))
+		Ok(self.client.gas_price(&BlockTag::Latest.into()).await?)
+	}
+
+	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
+		// TODO: Provide better estimation
+		let gas_price = self.gas_price().await?;
+		Ok(Permill::from_percent(20).mul_ceil(gas_price))
 	}
 
 	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
@@ -243,32 +246,15 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(self.accounts.iter().map(|account| account.address()).collect())
 	}
 
-	async fn call(
-		&self,
-		transaction: GenericTransaction,
-		block: Option<BlockNumberOrTagOrHash>,
-	) -> RpcResult<Bytes> {
-		let dry_run = self
-			.client
-			.dry_run(&transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
-			.await?;
-		let output = dry_run.result.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Dry run failed: {err:?}");
-			ClientError::DryRunFailed
-		})?;
-
-		Ok(output.into())
-	}
-
 	async fn get_block_by_number(
 		&self,
-		block: BlockNumberOrTag,
-		_hydrated_transactions: bool,
+		block_number: BlockNumberOrTag,
+		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
-		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
+		let Some(block) = self.client.block_by_number_or_tag(&block_number).await? else {
 			return Ok(None);
 		};
-		let block = self.client.evm_block(block).await?;
+		let block = self.client.evm_block(block, hydrated_transactions).await;
 		Ok(Some(block))
 	}
 
@@ -298,6 +284,11 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(self.client.receipts_count_per_block(&block.hash).await.map(U256::from))
 	}
 
+	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults> {
+		let logs = self.client.logs(filter).await?;
+		Ok(FilterResults::Logs(logs))
+	}
+
 	async fn get_storage_at(
 		&self,
 		address: H160,
@@ -313,8 +304,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		block_hash: H256,
 		transaction_index: U256,
 	) -> RpcResult<Option<TransactionInfo>> {
-		let Some(receipt) =
-			self.client.receipt_by_hash_and_index(&block_hash, &transaction_index).await
+		let Some(receipt) = self
+			.client
+			.receipt_by_hash_and_index(&block_hash, transaction_index.as_usize())
+			.await
 		else {
 			return Ok(None);
 		};
@@ -358,5 +351,12 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<U256> {
 		let nonce = self.client.nonce(address, block).await?;
 		Ok(nonce)
+	}
+
+	async fn web3_client_version(&self) -> RpcResult<String> {
+		let git_revision = env!("GIT_REVISION");
+		let rustc_version = env!("RUSTC_VERSION");
+		let target = env!("TARGET");
+		Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
 	}
 }

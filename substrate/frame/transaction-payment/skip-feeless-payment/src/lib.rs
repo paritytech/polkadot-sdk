@@ -36,16 +36,20 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+extern crate alloc;
+
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
+	pallet_prelude::TransactionSource,
 	traits::{IsType, OriginTrait},
 	weights::Weight,
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{
-		DispatchInfoOf, DispatchOriginOf, PostDispatchInfoOf, TransactionExtension, ValidateResult,
+		DispatchInfoOf, DispatchOriginOf, Implication, PostDispatchInfoOf, TransactionExtension,
+		ValidateResult,
 	},
 	transaction_validity::TransactionValidityError,
 };
@@ -79,7 +83,7 @@ pub mod pallet {
 }
 
 /// A [`TransactionExtension`] that skips the wrapped extension if the dispatchable is feeless.
-#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq)]
 pub struct SkipCheckIfFeeless<T, S>(pub S, core::marker::PhantomData<T>);
 
 // Make this extension "invisible" from the outside (ie metadata type information)
@@ -127,6 +131,10 @@ where
 	const IDENTIFIER: &'static str = S::IDENTIFIER;
 	type Implicit = S::Implicit;
 
+	fn metadata() -> alloc::vec::Vec<sp_runtime::traits::TransactionExtensionMetadata> {
+		S::metadata()
+	}
+
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		self.0.implicit()
 	}
@@ -146,13 +154,21 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		self_implicit: S::Implicit,
-		inherited_implication: &impl Encode,
+		inherited_implication: &impl Implication,
+		source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if call.is_feeless(&origin) {
 			Ok((Default::default(), Skip(origin.caller().clone()), origin))
 		} else {
-			let (x, y, z) =
-				self.0.validate(origin, call, info, len, self_implicit, inherited_implication)?;
+			let (x, y, z) = self.0.validate(
+				origin,
+				call,
+				info,
+				len,
+				self_implicit,
+				inherited_implication,
+				source,
+			)?;
 			Ok((x, Apply(y), z))
 		}
 	}

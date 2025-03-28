@@ -36,7 +36,6 @@ use alloc::{
 };
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
-use pallet_broker::CoreAssignment;
 use polkadot_primitives::CoreIndex;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -45,10 +44,24 @@ use sp_runtime::{
 	RuntimeDebug,
 };
 
+pub use pallet_broker::CoreAssignment;
+
 pub use pallet::*;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
-#[derive(RuntimeDebug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
+#[derive(
+	RuntimeDebug,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+)]
 pub struct PartsOf57600(u16);
 
 impl PartsOf57600 {

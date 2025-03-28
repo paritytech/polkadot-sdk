@@ -230,8 +230,8 @@ pub mod pallet {
 			// why do we need to know the weight of this (`receive_messages_proof`) call? Because
 			// we may want to return some funds for not-dispatching (or partially dispatching) some
 			// messages to the call origin (relayer). And this is done by returning actual weight
-			// from the call. But we only know dispatch weight of every messages. So to refund
-			// relayer because we have not dispatched Message, we need to:
+			// from the call. But we only know dispatch weight of every message. So to refund
+			// relayer because we have not dispatched message, we need to:
 			//
 			// ActualWeight = DeclaredWeight - Message.DispatchWeight
 			//
@@ -506,14 +506,12 @@ pub mod pallet {
 	/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
 	/// flag directly or call the `set_operating_mode`).
 	#[pallet::storage]
-	#[pallet::getter(fn module_owner)]
 	pub type PalletOwner<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId>;
 
 	/// The current operating mode of the pallet.
 	///
 	/// Depending on the mode either all, some, or no transactions will be allowed.
 	#[pallet::storage]
-	#[pallet::getter(fn operating_mode)]
 	pub type PalletOperatingMode<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, MessagesOperatingMode, ValueQuery>;
 
@@ -733,7 +731,7 @@ fn ensure_normal_operating_mode<T: Config<I>, I: 'static>() -> Result<(), Error<
 	if PalletOperatingMode::<T, I>::get() ==
 		MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
 	{
-		return Ok(())
+		return Ok(());
 	}
 
 	Err(Error::<T, I>::NotOperatingNormally)

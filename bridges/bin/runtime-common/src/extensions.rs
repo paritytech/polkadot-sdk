@@ -111,7 +111,7 @@ where
 		// let's slash registered relayer
 		RelayersPallet::<T>::slash_and_deregister(
 			relayer,
-			ExplicitOrAccountParams::Explicit(SlashAccount::get()),
+			ExplicitOrAccountParams::Explicit::<_, ()>(SlashAccount::get()),
 		);
 	}
 }
@@ -182,7 +182,7 @@ where
 		// let's slash registered relayer
 		RelayersPallet::<T>::slash_and_deregister(
 			relayer,
-			ExplicitOrAccountParams::Explicit(SlashAccount::get()),
+			ExplicitOrAccountParams::Explicit::<_, ()>(SlashAccount::get()),
 		);
 	}
 }
@@ -271,7 +271,7 @@ where
 #[macro_export]
 macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 	($call:ty, $account_id:ty, $($filter_call:ty),*) => {
-		#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
+		#[derive(Clone, codec::Decode, codec::DecodeWithMemTracking, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 		pub struct BridgeRejectObsoleteHeadersAndMessages;
 		impl sp_runtime::traits::TransactionExtension<$call> for BridgeRejectObsoleteHeadersAndMessages {
 			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
@@ -299,6 +299,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				_len: usize,
 				_self_implicit: Self::Implicit,
 				_inherited_implication: &impl codec::Encode,
+				_source: sp_runtime::transaction_validity::TransactionSource,
 			) -> Result<
 				(
 					sp_runtime::transaction_validity::ValidTransaction,
@@ -390,7 +391,9 @@ mod tests {
 			parameter_types, AsSystemOriginSigner, AsTransactionAuthorizedOrigin, ConstU64,
 			DispatchTransaction, Header as _, TransactionExtension,
 		},
-		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidity, ValidTransaction,
+		},
 		DispatchError,
 	};
 
@@ -610,7 +613,9 @@ mod tests {
 					42u64.into(),
 					&MockCall { data: 1 },
 					&(),
-					0
+					0,
+					External,
+					0,
 				),
 				InvalidTransaction::Custom(1)
 			);
@@ -619,7 +624,8 @@ mod tests {
 					42u64.into(),
 					&MockCall { data: 1 },
 					&(),
-					0
+					0,
+					0,
 				),
 				InvalidTransaction::Custom(1)
 			);
@@ -629,7 +635,9 @@ mod tests {
 					42u64.into(),
 					&MockCall { data: 2 },
 					&(),
-					0
+					0,
+					External,
+					0,
 				),
 				InvalidTransaction::Custom(2)
 			);
@@ -638,21 +646,22 @@ mod tests {
 					42u64.into(),
 					&MockCall { data: 2 },
 					&(),
-					0
+					0,
+					0,
 				),
 				InvalidTransaction::Custom(2)
 			);
 
 			assert_eq!(
 				BridgeRejectObsoleteHeadersAndMessages
-					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0)
+					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0, External, 0)
 					.unwrap()
 					.0,
 				ValidTransaction { priority: 3, ..Default::default() },
 			);
 			assert_eq!(
 				BridgeRejectObsoleteHeadersAndMessages
-					.validate_and_prepare(42u64.into(), &MockCall { data: 3 }, &(), 0)
+					.validate_and_prepare(42u64.into(), &MockCall { data: 3 }, &(), 0, 0)
 					.unwrap()
 					.0
 					.unwrap(),

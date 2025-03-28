@@ -232,12 +232,10 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 		Ok(replaced)
 	}
 
-	/// Fold a list of ready transactions to compute a single value.
-	pub fn fold<R, F: FnMut(Option<R>, &ReadyTx<Hash, Ex>) -> Option<R>>(
-		&mut self,
-		f: F,
-	) -> Option<R> {
-		self.ready.read().values().fold(None, f)
+	/// Fold a list of ready transactions to compute a single value using initial value of
+	/// accumulator.
+	pub fn fold<R, F: FnMut(R, &ReadyTx<Hash, Ex>) -> R>(&self, init: R, f: F) -> R {
+		self.ready.read().values().fold(init, f)
 	}
 
 	/// Returns true if given transaction is part of the queue.
@@ -589,7 +587,6 @@ fn remove_item<T: PartialEq>(vec: &mut Vec<T>, item: &T) {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::transaction_validity::TransactionSource as Source;
 
 	fn tx(id: u8) -> Transaction<u64, Vec<u8>> {
 		Transaction {
@@ -601,7 +598,7 @@ mod tests {
 			requires: vec![vec![1], vec![2]],
 			provides: vec![vec![3], vec![4]],
 			propagate: true,
-			source: Source::External,
+			source: crate::TimedTransactionSource::new_external(false),
 		}
 	}
 
@@ -711,7 +708,7 @@ mod tests {
 			requires: vec![tx1.provides[0].clone()],
 			provides: vec![],
 			propagate: true,
-			source: Source::External,
+			source: crate::TimedTransactionSource::new_external(false),
 		};
 
 		// when

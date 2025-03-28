@@ -34,7 +34,7 @@ use xcm::latest::{prelude::*, AssetTransferFilter};
 pub mod traits;
 use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
+	DropAssets, Enact, EventEmitter, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
 	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 	XcmAssetTransfers,
@@ -60,7 +60,13 @@ pub struct FeesMode {
 	pub jit_withdraw: bool,
 }
 
-const RECURSION_LIMIT: u8 = 10;
+/// The maximum recursion depth allowed when executing nested XCM instructions.
+///
+/// Exceeding this limit results in `XcmError::ExceedsStackLimit` or
+/// `ProcessMessageError::StackLimitReached`.
+///
+/// Also used in the `DenyRecursively` barrier.
+pub const RECURSION_LIMIT: u8 = 10;
 
 environmental::environmental!(recursion_count: u8);
 
@@ -93,6 +99,7 @@ pub struct XcmExecutor<Config: config::Config> {
 	/// Stores the current message's weight.
 	message_weight: Weight,
 	asset_claimer: Option<Location>,
+	already_paid_fees: bool,
 	_config: PhantomData<Config>,
 }
 
@@ -200,6 +207,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	pub fn set_message_weight(&mut self, weight: Weight) {
 		self.message_weight = weight;
 	}
+	pub fn already_paid_fees(&self) -> bool {
+		self.already_paid_fees
+	}
 }
 
 pub struct WeighedMessage<Call>(Weight, Xcm<Call>);
@@ -304,7 +314,17 @@ impl<Config: config::Config> XcmAssetTransfers for XcmExecutor<Config> {
 	type AssetTransactor = Config::AssetTransactor;
 }
 
-#[derive(Debug)]
+impl<Config: config::Config> FeeManager for XcmExecutor<Config> {
+	fn is_waived(origin: Option<&Location>, r: FeeReason) -> bool {
+		Config::FeeManager::is_waived(origin, r)
+	}
+
+	fn handle_fee(fee: Assets, context: Option<&XcmContext>, r: FeeReason) {
+		Config::FeeManager::handle_fee(fee, context, r)
+	}
+}
+
+#[derive(Debug, PartialEq)]
 pub struct ExecutorError {
 	pub index: u32,
 	pub xcm_error: XcmError,
@@ -346,6 +366,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			asset_used_in_buy_execution: None,
 			message_weight: Weight::zero(),
 			asset_claimer: None,
+			already_paid_fees: false,
 			_config: PhantomData,
 		}
 	}
@@ -417,9 +438,30 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			reason = ?reason,
 			"Sending msg",
 		);
-		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
+		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
 		self.take_fee(fee, reason)?;
-		Config::XcmSender::deliver(ticket).map_err(Into::into)
+		match Config::XcmSender::deliver(ticket) {
+			Ok(message_id) => {
+				Config::XcmEventEmitter::emit_sent_event(
+					self.original_origin.clone(),
+					dest,
+					None, /* Avoid logging the full XCM message to prevent inconsistencies and
+					       * reduce storage usage. */
+					message_id,
+				);
+				Ok(message_id)
+			},
+			Err(error) => {
+				tracing::debug!(target: "xcm::send", ?error, "XCM failed to deliver with error");
+				Config::XcmEventEmitter::emit_send_failure_event(
+					self.original_origin.clone(),
+					dest,
+					error.clone(),
+					self.context.message_id,
+				);
+				Err(error.into())
+			},
+		}
 	}
 
 	/// Remove the registered error handler and return it. Do not refund its weight.
@@ -784,13 +826,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
-								return Err(XcmError::ExceedsStackLimit)
+								return None
 							}
 							*count = count.saturating_add(1);
-							Ok(())
+							Some(())
 						})
-						// This should always return `Some`, but let's play it safe.
-						.unwrap_or(Ok(()))?;
+						.flatten()
+						.ok_or(XcmError::ExceedsStackLimit)?;
 
 						// Ensure that we always decrement the counter whenever we finish processing
 						// the instruction.
@@ -802,11 +844,19 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 						self.process_instruction(instr)
 					});
-					if let Err(e) = inst_res {
-						tracing::trace!(target: "xcm::execute", "!!! ERROR: {:?}", e);
+					if let Err(error) = inst_res {
+						tracing::debug!(
+							target: "xcm::process",
+							?error, "XCM execution failed at instruction index={i}"
+						);
+						Config::XcmEventEmitter::emit_process_failure_event(
+							self.original_origin.clone(),
+							error,
+							self.context.message_id,
+						);
 						*r = Err(ExecutorError {
 							index: i as u32,
-							xcm_error: e,
+							xcm_error: error,
 							weight: Weight::zero(),
 						});
 					}
@@ -929,7 +979,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					Ok(())
 				})
 			},
-			Transact { origin_kind, mut call } => {
+			// `fallback_max_weight` is not used in the executor, it's only for conversions.
+			Transact { origin_kind, mut call, .. } => {
 				// We assume that the Relay-chain is allowed to use transact on this parachain.
 				let origin = self.cloned_origin().ok_or_else(|| {
 					tracing::trace!(
@@ -1031,20 +1082,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				);
 				Ok(())
 			},
-			DescendOrigin(who) => self
-				.context
-				.origin
-				.as_mut()
-				.ok_or(XcmError::BadOrigin)?
-				.append_with(who)
-				.map_err(|e| {
-					tracing::error!(target: "xcm::process_instruction::descend_origin", ?e, "Failed to append junctions");
-					XcmError::LocationFull
-				}),
-			ClearOrigin => {
-				self.context.origin = None;
-				Ok(())
-			},
+			DescendOrigin(who) => self.do_descend_origin(who),
+			ClearOrigin => self.do_clear_origin(),
+			ExecuteWithOrigin { .. } => Err(XcmError::Unimplemented),
 			ReportError(response_info) => {
 				// Report the given result by sending a QueryResponse XCM to a previously given
 				// outcome destination if one was registered.
@@ -1070,18 +1110,19 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			DepositReserveAsset { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
-					let maybe_delivery_fee_from_holding = if self.fees.is_empty() {
-						self.get_delivery_fee_from_holding(&assets, &dest, &xcm)?
+					let mut assets = self.holding.saturating_take(assets);
+					// When not using `PayFees`, nor `JIT_WITHDRAW`, delivery fees are paid from
+					// transferred assets.
+					let maybe_delivery_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
+						// Deduct and return the part of `assets` that shall be used for delivery fees.
+						self.take_delivery_fee_from_assets(&mut assets, &dest, FeeReason::DepositReserveAsset, &xcm)?
 					} else {
 						None
 					};
-
 					let mut message = Vec::with_capacity(xcm.len() + 2);
-					// now take assets to deposit (after having taken delivery fees)
-					let deposited = self.holding.saturating_take(assets);
-					tracing::trace!(target: "xcm::DepositReserveAsset", ?deposited, "Assets except delivery fee");
+					tracing::trace!(target: "xcm::DepositReserveAsset", ?assets, "Assets except delivery fee");
 					Self::do_reserve_deposit_assets(
-						deposited,
+						assets,
 						&dest,
 						&mut message,
 						Some(&self.context),
@@ -1090,7 +1131,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message.push(ClearOrigin);
 					// append custom instructions
 					message.extend(xcm.0.into_iter());
-					if let Some(delivery_fee) = maybe_delivery_fee_from_holding {
+					if let Some(delivery_fee) = maybe_delivery_fee_from_assets {
 						// Put back delivery_fee in holding register to be charged by XcmSender.
 						self.holding.subsume_assets(delivery_fee);
 					}
@@ -1105,7 +1146,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			InitiateReserveWithdraw { assets, reserve, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
-					let assets = self.holding.saturating_take(assets);
+					let mut assets = self.holding.saturating_take(assets);
+					// When not using `PayFees`, nor `JIT_WITHDRAW`, delivery fees are paid from
+					// transferred assets.
+					let maybe_delivery_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
+						// Deduct and return the part of `assets` that shall be used for delivery fees.
+						self.take_delivery_fee_from_assets(&mut assets, &reserve, FeeReason::InitiateReserveWithdraw, &xcm)?
+					} else {
+						None
+					};
 					let mut message = Vec::with_capacity(xcm.len() + 2);
 					Self::do_reserve_withdraw_assets(
 						assets,
@@ -1117,6 +1166,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message.push(ClearOrigin);
 					// append custom instructions
 					message.extend(xcm.0.into_iter());
+					if let Some(delivery_fee) = maybe_delivery_fee_from_assets {
+						// Put back delivery_fee in holding register to be charged by XcmSender.
+						self.holding.subsume_assets(delivery_fee);
+					}
 					self.send(reserve, Xcm(message), FeeReason::InitiateReserveWithdraw)?;
 					Ok(())
 				});
@@ -1128,13 +1181,25 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			InitiateTeleport { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
-					let assets = self.holding.saturating_take(assets);
+					let mut assets = self.holding.saturating_take(assets);
+					// When not using `PayFees`, nor `JIT_WITHDRAW`, delivery fees are paid from
+					// transferred assets.
+					let maybe_delivery_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
+						// Deduct and return the part of `assets` that shall be used for delivery fees.
+						self.take_delivery_fee_from_assets(&mut assets, &dest, FeeReason::InitiateTeleport, &xcm)?
+					} else {
+						None
+					};
 					let mut message = Vec::with_capacity(xcm.len() + 2);
 					Self::do_teleport_assets(assets, &dest, &mut message, &self.context)?;
 					// clear origin for subsequent custom instructions
 					message.push(ClearOrigin);
 					// append custom instructions
 					message.extend(xcm.0.into_iter());
+					if let Some(delivery_fee) = maybe_delivery_fee_from_assets {
+						// Put back delivery_fee in holding register to be charged by XcmSender.
+						self.holding.subsume_assets(delivery_fee);
+					}
 					self.send(dest.clone(), Xcm(message), FeeReason::InitiateTeleport)?;
 					Ok(())
 				});
@@ -1152,7 +1217,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					// transferring the other assets. This is required to satisfy the
 					// `MAX_ASSETS_FOR_BUY_EXECUTION` limit in the `AllowTopLevelPaidExecutionFrom`
 					// barrier.
-					if let Some(remote_fees) = remote_fees {
+					let remote_fees_paid = if let Some(remote_fees) = remote_fees {
 						let reanchored_fees = match remote_fees {
 							AssetTransferFilter::Teleport(fees_filter) => {
 								let teleport_fees = self
@@ -1197,11 +1262,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						// move these assets to the fees register for covering execution and paying
 						// any subsequent fees
 						message.push(PayFees { asset: fees });
+						true
 					} else {
-						// unpaid execution
-						message
-							.push(UnpaidExecution { weight_limit: Unlimited, check_origin: None });
-					}
+						false
+					};
 
 					// add any extra asset transfers
 					for asset_filter in assets {
@@ -1228,23 +1292,36 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								)?,
 						};
 					}
+
 					if preserve_origin {
-						// preserve current origin for subsequent user-controlled instructions on
-						// remote chain
-						let original_origin = self
+						// We alias the origin if it's not a noop (origin != `Here`).
+						if let Some(original_origin) = self
 							.origin_ref()
+							.filter(|origin| *origin != &Location::here())
 							.cloned()
-							.and_then(|origin| {
-								Self::try_reanchor(origin, &destination)
-									.map(|(reanchored, _)| reanchored)
-									.ok()
-							})
-							.ok_or(XcmError::BadOrigin)?;
-						message.push(AliasOrigin(original_origin));
+						{
+							// preserve current origin for subsequent user-controlled instructions on
+							// remote chain
+							let reanchored_origin = Self::try_reanchor(original_origin, &destination)?.0;
+							message.push(AliasOrigin(reanchored_origin));
+						}
 					} else {
 						// clear origin for subsequent user-controlled instructions on remote chain
 						message.push(ClearOrigin);
 					}
+
+					// If not intending to pay for fees then we append the `UnpaidExecution`
+					// _AFTER_ origin altering instructions.
+					// When origin is not preserved, it's probably going to fail on the receiver.
+					if !remote_fees_paid {
+						// We push the UnpaidExecution instruction to notify we do not intend to pay
+						// for fees.
+						// The receiving chain must decide based on the origin of the message if they
+						// accept this.
+						message
+							.push(UnpaidExecution { weight_limit: Unlimited, check_origin: None });
+					}
+
 					// append custom instructions
 					message.extend(remote_xcm.0.into_iter());
 					// send the onward XCM
@@ -1301,14 +1378,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				result
 			},
 			PayFees { asset } => {
-				// Message was not weighed, there is nothing to pay.
-				if self.message_weight == Weight::zero() {
-					tracing::warn!(
-						target: "xcm::executor::PayFees",
-						"Message was not weighed or weight was 0. Nothing will be charged.",
-					);
+				// If we've already paid for fees, do nothing.
+				if self.already_paid_fees {
 					return Ok(());
 				}
+				// Make sure `PayFees` won't be processed again.
+				self.already_paid_fees = true;
 				// Record old holding in case we need to rollback.
 				let old_holding = self.holding.clone();
 				// The max we're willing to pay for fees is decided by the `asset` operand.
@@ -1317,19 +1392,21 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					asset_for_fees = ?asset,
 					message_weight = ?self.message_weight,
 				);
-				let max_fee =
-					self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				// Pay for execution fees.
 				let result = Config::TransactionalProcessor::process(|| {
+					let max_fee =
+						self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
 					let unspent =
 						self.trader.buy_weight(self.message_weight, max_fee, &self.context)?;
-					// Move unspent to the `fees` register.
+					// Move unspent to the `fees` register, it can later be moved to holding
+					// by calling `RefundSurplus`.
 					self.fees.subsume_assets(unspent);
 					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					// Rollback.
+					// Rollback on error.
 					self.holding = old_holding;
+					self.already_paid_fees = false;
 				}
 				result
 			},
@@ -1354,8 +1431,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.error = None;
 				Ok(())
 			},
-			SetAssetClaimer { location } => {
-				self.asset_claimer = Some(location);
+			SetHints { hints } => {
+				for hint in hints.into_iter() {
+					match hint {
+						AssetClaimer { location } => {
+							self.asset_claimer = Some(location)
+						},
+					}
+				}
 				Ok(())
 			},
 			ClaimAsset { assets, ticket } => {
@@ -1633,6 +1716,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		}
 	}
 
+	fn do_descend_origin(&mut self, who: InteriorLocation) -> XcmResult {
+		self.context
+			.origin
+			.as_mut()
+			.ok_or(XcmError::BadOrigin)?
+			.append_with(who)
+			.map_err(|e| {
+				tracing::error!(target: "xcm::do_descend_origin", ?e, "Failed to append junctions");
+				XcmError::LocationFull
+			})
+	}
+
+	fn do_clear_origin(&mut self) -> XcmResult {
+		self.context.origin = None;
+		Ok(())
+	}
+
 	/// Deposit `to_deposit` assets to `beneficiary`, without giving up on the first (transient)
 	/// error, and retrying once just in case one of the subsequently deposited assets satisfy some
 	/// requirement.
@@ -1674,36 +1774,48 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(())
 	}
 
-	/// Gets the necessary delivery fee to send a reserve transfer message to `destination` from
-	/// holding.
+	/// Take from transferred `assets` the delivery fee required to send an onward transfer message
+	/// to `destination`.
 	///
 	/// Will be removed once the transition from `BuyExecution` to `PayFees` is complete.
-	fn get_delivery_fee_from_holding(
-		&mut self,
-		assets: &AssetFilter,
+	fn take_delivery_fee_from_assets(
+		&self,
+		assets: &mut AssetsInHolding,
 		destination: &Location,
+		reason: FeeReason,
 		xcm: &Xcm<()>,
 	) -> Result<Option<AssetsInHolding>, XcmError> {
-		// we need to do this take/put cycle to solve wildcards and get exact assets to
-		// be weighed
-		let to_weigh = self.holding.saturating_take(assets.clone());
-		self.holding.subsume_assets(to_weigh.clone());
+		let to_weigh = assets.clone();
 		let to_weigh_reanchored = Self::reanchored(to_weigh, &destination, None);
-		let mut message_to_weigh = vec![ReserveAssetDeposited(to_weigh_reanchored), ClearOrigin];
+		let remote_instruction = match reason {
+			FeeReason::DepositReserveAsset => ReserveAssetDeposited(to_weigh_reanchored),
+			FeeReason::InitiateReserveWithdraw => WithdrawAsset(to_weigh_reanchored),
+			FeeReason::InitiateTeleport => ReceiveTeleportedAsset(to_weigh_reanchored),
+			_ => {
+				tracing::debug!(
+					target: "xcm::take_delivery_fee_from_assets",
+					"Unexpected delivery fee reason",
+				);
+				return Err(XcmError::NotHoldingFees);
+			},
+		};
+		let mut message_to_weigh = Vec::with_capacity(xcm.len() + 2);
+		message_to_weigh.push(remote_instruction);
+		message_to_weigh.push(ClearOrigin);
 		message_to_weigh.extend(xcm.0.clone().into_iter());
 		let (_, fee) =
 			validate_send::<Config::XcmSender>(destination.clone(), Xcm(message_to_weigh))?;
 		let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
 			tracing::trace!(
-				target: "xcm::fees::DepositReserveAsset",
+				target: "xcm::fees::take_delivery_fee_from_assets",
 				"Asset provided to pay for fees {:?}, asset required for delivery fees: {:?}",
 				self.asset_used_in_buy_execution, asset_needed_for_fees,
 			);
 			let asset_to_pay_for_fees =
 				self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
 			// set aside fee to be charged by XcmSender
-			let delivery_fee = self.holding.saturating_take(asset_to_pay_for_fees.into());
-			tracing::trace!(target: "xcm::fees::DepositReserveAsset", ?delivery_fee);
+			let delivery_fee = assets.saturating_take(asset_to_pay_for_fees.into());
+			tracing::trace!(target: "xcm::fees::take_delivery_fee_from_assets", ?delivery_fee);
 			delivery_fee
 		});
 		Ok(maybe_delivery_fee)

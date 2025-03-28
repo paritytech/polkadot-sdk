@@ -16,9 +16,10 @@
 // limitations under the License.
 
 use crate::{limits::BlockWeights, Config, Pallet, LOG_TARGET};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
+	pallet_prelude::TransactionSource,
 	traits::Get,
 };
 use scale_info::TypeInfo;
@@ -37,7 +38,7 @@ use sp_weights::Weight;
 ///
 /// This extension does not influence any fields of `TransactionValidity` in case the
 /// transaction is valid.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckWeight<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
@@ -134,30 +135,12 @@ where
 		Ok(())
 	}
 
+	#[deprecated(note = "Use `frame_system::Pallet::reclaim_weight` instead.")]
 	pub fn do_post_dispatch(
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 	) -> Result<(), TransactionValidityError> {
-		let unspent = post_info.calc_unspent(info);
-		if unspent.any_gt(Weight::zero()) {
-			crate::BlockWeight::<T>::mutate(|current_weight| {
-				current_weight.reduce(unspent, info.class);
-			})
-		}
-
-		log::trace!(
-			target: LOG_TARGET,
-			"Used block weight: {:?}",
-			crate::BlockWeight::<T>::get(),
-		);
-
-		log::trace!(
-			target: LOG_TARGET,
-			"Used block length: {:?}",
-			Pallet::<T>::all_extrinsics_len(),
-		);
-
-		Ok(())
+		crate::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }
 
@@ -254,6 +237,7 @@ where
 		len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		let (validity, next_len) = Self::do_validate(info, len)?;
 		Ok((validity, next_len, origin))
@@ -277,8 +261,7 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		Self::do_post_dispatch(info, post_info)?;
-		Ok(Weight::zero())
+		crate::Pallet::<T>::reclaim_weight(info, post_info).map(|()| Weight::zero())
 	}
 
 	fn bare_validate(
@@ -304,7 +287,7 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		Self::do_post_dispatch(info, post_info)
+		crate::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }
 
@@ -546,7 +529,7 @@ mod tests {
 			// will not fit.
 			assert_eq!(
 				CheckWeight::<Test>(PhantomData)
-					.validate_and_prepare(Some(1).into(), CALL, &normal, len)
+					.validate_and_prepare(Some(1).into(), CALL, &normal, len, 0)
 					.unwrap_err(),
 				InvalidTransaction::ExhaustsResources.into()
 			);
@@ -555,7 +538,8 @@ mod tests {
 				Some(1).into(),
 				CALL,
 				&op,
-				len
+				len,
+				0,
 			));
 
 			// likewise for length limit.
@@ -563,7 +547,7 @@ mod tests {
 			AllExtrinsicsLen::<Test>::put(normal_length_limit());
 			assert_eq!(
 				CheckWeight::<Test>(PhantomData)
-					.validate_and_prepare(Some(1).into(), CALL, &normal, len)
+					.validate_and_prepare(Some(1).into(), CALL, &normal, len, 0)
 					.unwrap_err(),
 				InvalidTransaction::ExhaustsResources.into()
 			);
@@ -571,7 +555,8 @@ mod tests {
 				Some(1).into(),
 				CALL,
 				&op,
-				len
+				len,
+				0,
 			));
 		})
 	}
@@ -588,6 +573,7 @@ mod tests {
 					CALL,
 					tx,
 					s,
+					0,
 				);
 				if f {
 					assert!(r.is_err())
@@ -638,6 +624,7 @@ mod tests {
 					CALL,
 					i,
 					len,
+					0,
 				);
 				if f {
 					assert!(r.is_err())
@@ -673,7 +660,7 @@ mod tests {
 			});
 
 			let pre = CheckWeight::<Test>(PhantomData)
-				.validate_and_prepare(Some(1).into(), CALL, &info, len)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
 				.unwrap()
 				.0;
 			assert_eq!(
@@ -712,7 +699,7 @@ mod tests {
 			});
 
 			let pre = CheckWeight::<Test>(PhantomData)
-				.validate_and_prepare(Some(1).into(), CALL, &info, len)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
 				.unwrap()
 				.0;
 			assert_eq!(
@@ -739,6 +726,121 @@ mod tests {
 	}
 
 	#[test]
+	fn extrinsic_already_refunded_more_precisely() {
+		new_test_ext().execute_with(|| {
+			// This is half of the max block weight
+			let info =
+				DispatchInfo { call_weight: Weight::from_parts(512, 0), ..Default::default() };
+			let post_info = PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(128, 0)),
+				pays_fee: Default::default(),
+			};
+			let prior_block_weight = Weight::from_parts(64, 0);
+			let accurate_refund = Weight::from_parts(510, 0);
+			let len = 0_usize;
+			let base_extrinsic = block_weights().get(DispatchClass::Normal).base_extrinsic;
+
+			// Set initial info
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.set(Weight::zero(), DispatchClass::Mandatory);
+				current_weight.set(prior_block_weight, DispatchClass::Normal);
+			});
+
+			// Validate and prepare extrinsic
+			let pre = CheckWeight::<Test>(PhantomData)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
+				.unwrap()
+				.0;
+
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				info.total_weight() + prior_block_weight + base_extrinsic
+			);
+
+			// Refund more accurately than the benchmark
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.reduce(accurate_refund, DispatchClass::Normal);
+			});
+			crate::ExtrinsicWeightReclaimed::<Test>::put(accurate_refund);
+
+			// Do the post dispatch
+			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+				pre,
+				&info,
+				&post_info,
+				len,
+				&Ok(())
+			));
+
+			// Ensure the accurate refund is used
+			assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), accurate_refund);
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				info.total_weight() - accurate_refund + prior_block_weight + base_extrinsic
+			);
+		})
+	}
+
+	#[test]
+	fn extrinsic_already_refunded_less_precisely() {
+		new_test_ext().execute_with(|| {
+			// This is half of the max block weight
+			let info =
+				DispatchInfo { call_weight: Weight::from_parts(512, 0), ..Default::default() };
+			let post_info = PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(128, 0)),
+				pays_fee: Default::default(),
+			};
+			let prior_block_weight = Weight::from_parts(64, 0);
+			let inaccurate_refund = Weight::from_parts(110, 0);
+			let len = 0_usize;
+			let base_extrinsic = block_weights().get(DispatchClass::Normal).base_extrinsic;
+
+			// Set initial info
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.set(Weight::zero(), DispatchClass::Mandatory);
+				current_weight.set(prior_block_weight, DispatchClass::Normal);
+			});
+
+			// Validate and prepare extrinsic
+			let pre = CheckWeight::<Test>(PhantomData)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
+				.unwrap()
+				.0;
+
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				info.total_weight() + prior_block_weight + base_extrinsic
+			);
+
+			// Refund less accurately than the benchmark
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.reduce(inaccurate_refund, DispatchClass::Normal);
+			});
+			crate::ExtrinsicWeightReclaimed::<Test>::put(inaccurate_refund);
+
+			// Do the post dispatch
+			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+				pre,
+				&info,
+				&post_info,
+				len,
+				&Ok(())
+			));
+
+			// Ensure the accurate refund from benchmark is used
+			assert_eq!(
+				crate::ExtrinsicWeightReclaimed::<Test>::get(),
+				post_info.calc_unspent(&info)
+			);
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				post_info.actual_weight.unwrap() + prior_block_weight + base_extrinsic
+			);
+		})
+	}
+
+	#[test]
 	fn zero_weight_extrinsic_still_has_base_weight() {
 		new_test_ext().execute_with(|| {
 			let weights = block_weights();
@@ -751,7 +853,8 @@ mod tests {
 				Some(1).into(),
 				CALL,
 				&free,
-				len
+				len,
+				0,
 			));
 			assert_eq!(
 				System::block_weight().total(),

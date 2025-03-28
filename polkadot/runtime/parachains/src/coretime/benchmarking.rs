@@ -41,7 +41,9 @@ mod benchmarks {
 			T::MaxHistoricalRevenue,
 		> = BoundedVec::try_from((1..=mhr).map(|v| minimum_balance * v.into()).collect::<Vec<_>>())
 			.unwrap();
-		on_demand::Revenue::<T>::put(rev);
+		on_demand::Pallet::<T>::set_revenue(rev);
+
+		crate::paras::Heads::<T>::insert(ParaId::from(T::BrokerId::get()), vec![1, 2, 3]);
 
 		<T as on_demand::Config>::Currency::make_free_balance_be(
 			&<on_demand::Pallet<T>>::account_id(),
@@ -93,5 +95,15 @@ mod benchmarks {
 			assignments,
 			Some(BlockNumberFor::<T>::from(20u32)),
 		)
+	}
+
+	#[benchmark]
+	fn credit_account() {
+		// Setup
+		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
+		let who: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		_(root_origin as <T as frame_system::Config>::RuntimeOrigin, who, 1_000_000u32.into())
 	}
 }

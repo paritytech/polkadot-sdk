@@ -23,41 +23,44 @@ use alloc::{borrow::Cow, format, string::String};
 
 /// Represents the initialization method of a field within a struct.
 ///
-/// This enum provides information about how it was initialized and the field name (as a `String`).
+/// This enum provides information about how it was initialized.
 ///
 /// Intended to be used in `build_struct_json_patch` macro.
 #[derive(Debug)]
-pub enum InitializedField<'a> {
+pub enum InitilizationType {
 	/// The field was partially initialized (e.g., specific fields within the struct were set
 	/// manually).
-	Partial(Cow<'a, str>),
-	/// The field was fully initialized (e.g., using `new()` or `default()` like methods).
-	Full(Cow<'a, str>),
+	Partial,
+	/// The field was fully initialized (e.g., using `new()` or `default()` like methods
+	Full,
 }
+
+/// This struct provides information about how the struct field was initialized and the field name
+/// (as a `&str`).
+///
+/// Intended to be used in `build_struct_json_patch` macro.
+#[derive(Debug)]
+pub struct InitializedField<'a>(InitilizationType, Cow<'a, str>);
 
 impl<'a> InitializedField<'a> {
 	/// Returns a name of the field.
 	pub fn get_name(&'a self) -> &'a str {
-		match self {
-			Self::Partial(s) | Self::Full(s) => s,
-		}
+		&self.1
 	}
 
 	/// Injects a prefix to the field name.
 	pub fn add_prefix(&mut self, prefix: &str) {
-		match self {
-			Self::Partial(s) | Self::Full(s) => *s = format!("{prefix}.{s}").into(),
-		};
+		self.1 = format!("{prefix}.{}", self.1).into()
 	}
 
 	/// Creates new partial field instiance.
 	pub fn partial(s: &'a str) -> Self {
-		Self::Partial(s.into())
+		Self(InitilizationType::Partial, s.into())
 	}
 
 	/// Creates new full field instiance.
 	pub fn full(s: &'a str) -> Self {
-		Self::Full(s.into())
+		Self(InitilizationType::Full, s.into())
 	}
 }
 
@@ -73,9 +76,15 @@ impl PartialEq<String> for InitializedField<'_> {
 				.map(|c| c.to_ascii_uppercase())
 				.eq(camel_chars.map(|c| c.to_ascii_uppercase()))
 		}
-		match self {
-			InitializedField::Partial(field_name) | InitializedField::Full(field_name) =>
-				field_name == other || compare_keys(field_name.chars(), other.chars()),
+		*self.1 == *other || compare_keys(self.1.chars(), other.chars())
+	}
+}
+
+impl<'a> From<(InitilizationType, &'a str)> for InitializedField<'a> {
+	fn from(value: (InitilizationType, &'a str)) -> Self {
+		match value.0 {
+			InitilizationType::Full => InitializedField::full(value.1),
+			InitilizationType::Partial => InitializedField::partial(value.1),
 		}
 	}
 }
@@ -104,8 +113,8 @@ pub fn retain_initialized_fields(
 			let current_key =
 				if current_root.is_empty() { key.clone() } else { format!("{current_root}.{key}") };
 			match keys_to_retain.iter().find(|key| **key == current_key) {
-				Some(InitializedField::Full(_)) => true,
-				Some(InitializedField::Partial(_)) => {
+				Some(InitializedField(InitilizationType::Full, _)) => true,
+				Some(InitializedField(InitilizationType::Partial, _)) => {
 					retain_initialized_fields(value, keys_to_retain, current_key.clone());
 					true
 				},
@@ -208,89 +217,154 @@ pub fn retain_initialized_fields(
 #[macro_export]
 macro_rules! build_struct_json_patch {
 	(
-		$($struct_type:ident)::+ { $($tail:tt)* }
+		$($struct_type:ident)::+ { $($body:tt)* }
 	) => {
 		{
-			let mut keys = $crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
+			let mut __keys = $crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
 			#[allow(clippy::needless_update)]
-			let struct_instance = $crate::build_struct_json_patch!($($struct_type)::+, keys @  { $($tail)* });
-			let mut json_value =
-				$crate::__private::serde_json::to_value(struct_instance).expect("serialization to json should work. qed");
-			$crate::generate_genesis_config::retain_initialized_fields(&mut json_value, &keys, Default::default());
-			json_value
+			let __struct_instance = $crate::build_struct_json_patch!($($struct_type)::+, __keys @  { $($body)* }).0;
+			let mut __json_value =
+				$crate::__private::serde_json::to_value(__struct_instance).expect("serialization to json should work. qed");
+			$crate::generate_genesis_config::retain_initialized_fields(&mut __json_value, &__keys, Default::default());
+			__json_value
 		}
 	};
-	($($struct_type:ident)::+, $all_keys:ident @ { $($tail:tt)* }) => {
-		$($struct_type)::+ {
-			..$crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
+	($($struct_type:ident)::+, $all_keys:ident @ { $($body:tt)* }) => {
+		{
+			let __value = $crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($body)*);
+			(
+				$($struct_type)::+ { ..__value.0 },
+				__value.1
+			)
 		}
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $($type:ident)::+ { $keyi:ident : $value:tt }  ) => {
-		$($struct_type)::+ {
-			$key: {
-				$all_keys.push($crate::generate_genesis_config::InitializedField::partial(stringify!($key)));
-				$all_keys.push(
-					$crate::generate_genesis_config::InitializedField::full(concat!(stringify!($key), ".", stringify!($keyi)))
-				);
-				$($type)::+ {
-					$keyi:$value,
-					..Default::default()
-				}
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident:  $($type:ident)::+ { $($body:tt)* } ) => {
+		(
+			$($struct_type)::+ {
+				$key: {
+					let mut __inner_keys =
+						$crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
+					let __value = $crate::build_struct_json_patch!($($type)::+, __inner_keys @ { $($body)* });
+					for i in __inner_keys.iter_mut() {
+						i.add_prefix(stringify!($key));
+					};
+					$all_keys.push((__value.1,stringify!($key)).into());
+					$all_keys.extend(__inner_keys);
+					__value.0
+				},
+				..Default::default()
 			},
-			..Default::default()
-		}
+			$crate::generate_genesis_config::InitilizationType::Partial
+		)
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:ident)::+ { $($body:tt)* } ) => {
-		$($struct_type)::+ {
-			$key: {
-				$all_keys.push($crate::generate_genesis_config::InitializedField::partial(stringify!($key)));
-				let mut inner_keys = $crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
-				let value = $crate::build_struct_json_patch!($($type)::+, inner_keys @ { $($body)* });
-				for i in inner_keys.iter_mut() {
-					i.add_prefix(stringify!($key));
-				};
-				$all_keys.extend(inner_keys);
-				value
-			},
-			..Default::default()
-		}
-	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:ident)::+ { $($body:tt)* },  $($tail:tt)*  ) => {
-		$($struct_type)::+ {
-			$key : {
-				$all_keys.push($crate::generate_genesis_config::InitializedField::partial(stringify!($key)));
-				let mut inner_keys = $crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
-				let value = $crate::build_struct_json_patch!($($type)::+, inner_keys @ { $($body)* });
-				for i in inner_keys.iter_mut() {
-					i.add_prefix(stringify!($key));
-				};
-				$all_keys.extend(inner_keys);
-				value
-			},
-			.. $crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
-		}
-	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $value:expr, $($tail:tt)* ) => {
-		$($struct_type)::+ {
-			$key: {
-				$all_keys.push($crate::generate_genesis_config::InitializedField::full(stringify!($key)));
-				$value
-			},
-			..$crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
-		}
-	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $value:expr ) => {
-		$($struct_type)::+ {
-			$key: {
-				$all_keys.push($crate::generate_genesis_config::InitializedField::full(stringify!($key)));
-				$value
-			},
-			..Default::default()
-		}
-	};
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident:  $($type:ident)::+ { $($body:tt)* },  $($tail:tt)*) => {
+		{
+			let mut __initialization_type;
+			(
+				$($struct_type)::+ {
+					$key : {
+						let mut __inner_keys =
+							$crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
+						let __value = $crate::build_struct_json_patch!($($type)::+, __inner_keys @ { $($body)* });
+						$all_keys.push((__value.1,stringify!($key)).into());
 
+						for i in __inner_keys.iter_mut() {
+							i.add_prefix(stringify!($key));
+						};
+						$all_keys.extend(__inner_keys);
+						__value.0
+					},
+					.. {
+						let (__value, __tmp) =
+							$crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*);
+						__initialization_type = __tmp;
+						__value
+					}
+				},
+				__initialization_type
+			)
+		}
+	};
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident: $value:expr, $($tail:tt)* ) => {
+		{
+			let mut __initialization_type;
+			(
+				$($struct_type)::+ {
+					$key: {
+						$all_keys.push($crate::generate_genesis_config::InitializedField::full(
+							stringify!($key))
+						);
+						$value
+					},
+					.. {
+						let (__value, __tmp) =
+							$crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*);
+						__initialization_type = __tmp;
+						__value
+					}
+				},
+				__initialization_type
+			)
+		}
+	};
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident: $value:expr ) => {
+		(
+			$($struct_type)::+ {
+				$key: {
+					$all_keys.push($crate::generate_genesis_config::InitializedField::full(stringify!($key)));
+					$value
+				},
+				..Default::default()
+			},
+			$crate::generate_genesis_config::InitilizationType::Partial
+		)
+	};
+	// field init shorthand
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident, $($tail:tt)* ) => {
+		{
+			let __update = $crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*);
+			(
+				$($struct_type)::+ {
+					$key: {
+						$all_keys.push($crate::generate_genesis_config::InitializedField::full(
+							stringify!($key))
+						);
+						$key
+					},
+					..__update.0
+				},
+				__update.1
+			)
+		}
+	};
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident ) => {
+		(
+			$($struct_type)::+ {
+				$key: {
+					$all_keys.push($crate::generate_genesis_config::InitializedField::full(stringify!($key)));
+					$key
+				},
+				..Default::default()
+			},
+			$crate::generate_genesis_config::InitilizationType::Partial
+		)
+	};
+	// update struct
+	($($struct_type:ident)::+, $all_keys:ident @ ..$update:expr ) => {
+		(
+			$($struct_type)::+ {
+				..$update
+			},
+			$crate::generate_genesis_config::InitilizationType::Full
+		)
+	};
 	($($struct_type:ident)::+, $all_keys:ident  @ $(,)?) => {
-		$($struct_type)::+ { ..Default::default() }
+		(
+			$($struct_type)::+ {
+				..Default::default()
+			},
+			$crate::generate_genesis_config::InitilizationType::Partial
+		)
 	};
 }
 
@@ -401,11 +475,8 @@ mod test {
 
 	macro_rules! test {
 		($($struct:ident)::+ { $($v:tt)* }, { $($j:tt)* } ) => {{
-			println!("--");
 			let expected = serde_json::json!({ $($j)* });
-			println!("json: {}", serde_json::to_string_pretty(&expected).unwrap());
 			let value = build_struct_json_patch!($($struct)::+ { $($v)* });
-			println!("gc: {}", serde_json::to_string_pretty(&value).unwrap());
 			assert_eq!(value, expected);
 		}};
 	}
@@ -415,6 +486,7 @@ mod test {
 		let t = 5;
 		const C: u32 = 5;
 		test!(TestStruct { b: 5 }, { "b": 5 });
+		test!(TestStruct { b: 5, }, { "b": 5 });
 		#[allow(unused_braces)]
 		{
 			test!(TestStruct { b: { 4 + 34 } } , { "b": 38 });
@@ -706,6 +778,324 @@ mod test {
 	}
 
 	#[test]
+	fn test_generate_config_macro_field_init_shorthand() {
+		{
+			let x = 5;
+			test!(TestStruct { s: S { x } }, { "s": { "x": 5 } });
+		}
+		{
+			let s = nested_mod::InsideMod { a: 34, b: 8 };
+			test!(
+				TestStruct {
+					t: nested_mod::InsideMod { a: 32 },
+					u: nested_mod::nested_mod2::nested_mod3::InsideMod3 {
+						s,
+						a: 32,
+					}
+				},
+				{
+					"t" : { "a": 32 },
+					"u" : { "a": 32, "s": { "a": 34, "b": 8} }
+				}
+			);
+		}
+		{
+			let s = nested_mod::InsideMod { a: 34, b: 8 };
+			test!(
+				TestStruct {
+					t: nested_mod::InsideMod { a: 32 },
+					u: nested_mod::nested_mod2::nested_mod3::InsideMod3 {
+						a: 32,
+						s,
+					}
+				},
+				{
+					"t" : { "a": 32 },
+					"u" : { "a": 32, "s": { "a": 34, "b": 8} }
+				}
+			);
+		}
+	}
+
+	#[test]
+	fn test_generate_config_macro_struct_update() {
+		{
+			let s = S { x: 5 };
+			test!(TestStruct { s: S { ..s } }, { "s": { "x": 5 } });
+		}
+		{
+			mod nested {
+				use super::*;
+				pub fn function() -> S {
+					S { x: 5 }
+				}
+			}
+			test!(TestStruct { s: S { ..nested::function() } }, { "s": { "x": 5 } });
+		}
+		{
+			let s = nested_mod::InsideMod { a: 34, b: 8 };
+			let s1 = nested_mod::InsideMod { a: 34, b: 8 };
+			test!(
+				TestStruct {
+					t: nested_mod::InsideMod { ..s1 },
+					u: nested_mod::nested_mod2::nested_mod3::InsideMod3 {
+						s,
+						a: 32,
+					}
+				},
+				{
+					"t" : { "a": 34, "b": 8 },
+					"u" : { "a": 32, "s": { "a": 34, "b": 8} }
+				}
+			);
+		}
+		{
+			let i3 = nested_mod::nested_mod2::nested_mod3::InsideMod3 {
+				a: 1,
+				b: 2,
+				s: nested_mod::InsideMod { a: 55, b: 88 },
+			};
+			test!(
+				TestStruct {
+					t: nested_mod::InsideMod { a: 32 },
+					u: nested_mod::nested_mod2::nested_mod3::InsideMod3 {
+						a: 32,
+						..i3
+					}
+				},
+				{
+					"t" : { "a": 32 },
+					"u" : { "a": 32, "b": 2, "s": { "a": 55, "b": 88} }
+				}
+			);
+		}
+		{
+			let s = nested_mod::InsideMod { a: 34, b: 8 };
+			test!(
+				TestStruct {
+					t: nested_mod::InsideMod { a: 32 },
+					u: nested_mod::nested_mod2::nested_mod3::InsideMod3 {
+						a: 32,
+						s: nested_mod::InsideMod  {
+							b: 66,
+							..s
+						}
+					}
+				},
+				{
+					"t" : { "a": 32 },
+					"u" : { "a": 32, "s": { "a": 34, "b": 66} }
+				}
+			);
+		}
+		{
+			let s = nested_mod::InsideMod { a: 34, b: 8 };
+			test!(
+				TestStruct {
+					t: nested_mod::InsideMod { a: 32 },
+					u: nested_mod::nested_mod2::nested_mod3::InsideMod3 {
+						s: nested_mod::InsideMod  {
+							b: 66,
+							..s
+						},
+						a: 32
+					}
+				},
+				{
+					"t" : { "a": 32 },
+					"u" : { "a": 32, "s": { "a": 34, "b": 66} }
+				}
+			);
+		}
+	}
+
+	#[test]
+	fn test_generate_config_macro_with_execution_order() {
+		#[derive(Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+		struct X {
+			x: Vec<u32>,
+			x2: Vec<u32>,
+			y2: Y,
+		}
+		#[derive(Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+		struct Y {
+			y: Vec<u32>,
+		}
+		#[derive(Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+		struct Z {
+			a: u32,
+			x: X,
+			y: Y,
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(Z { a: 0, x: X { x: v },  }, {
+				"a": 0, "x": { "x": [1,2,3] }
+			});
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(Z { a: 3, x: X { x: v.clone() }, y: Y { y: v } }, {
+				"a": 3, "x": { "x": [1,2,3] }, "y": { "y": [1,2,3] }
+			});
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(Z { a: 3, x: X { y2: Y { y: v.clone() }, x: v.clone() }, y: Y { y: v } }, {
+				"a": 3, "x": { "x": [1,2,3], "y2":{ "y":[1,2,3] } }, "y": { "y": [1,2,3] }
+			});
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(Z { a: 3, y: Y { y: v.clone() }, x: X { y2: Y { y: v.clone() }, x: v },  }, {
+				"a": 3, "x": { "x": [1,2,3], "y2":{ "y":[1,2,3] } }, "y": { "y": [1,2,3] }
+			});
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(
+				Z {
+					y: Y {
+						y: v.clone()
+					},
+					x: X {
+						y2: Y {
+							y: v.clone()
+						},
+						x: v.clone(),
+						x2: v.clone()
+					},
+				},
+				{
+					"x": {
+						"x": [1,2,3],
+						"x2": [1,2,3],
+						"y2": {
+							"y":[1,2,3]
+						}
+					},
+					"y": {
+						"y": [1,2,3]
+					}
+			});
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(
+				Z {
+					y: Y {
+						y: v.clone()
+					},
+					x: X {
+						y2: Y {
+							y: v.clone()
+						},
+						x: v
+					},
+				},
+				{
+					"x": {
+						"x": [1,2,3],
+						"y2": {
+							"y":[1,2,3]
+						}
+					},
+					"y": {
+						"y": [1,2,3]
+					}
+			});
+		}
+		{
+			let mut v = vec![0, 1, 2];
+			let f = |vec: &mut Vec<u32>| -> Vec<u32> {
+				vec.iter_mut().for_each(|x| *x += 1);
+				vec.clone()
+			};
+			let z = Z {
+				a: 0,
+				y: Y { y: f(&mut v) },
+				x: X { y2: Y { y: f(&mut v) }, x: f(&mut v), x2: vec![] },
+			};
+			let z_expected = Z {
+				a: 0,
+				y: Y { y: vec![1, 2, 3] },
+				x: X { y2: Y { y: vec![2, 3, 4] }, x: vec![3, 4, 5], x2: vec![] },
+			};
+			assert_eq!(z, z_expected);
+			v = vec![0, 1, 2];
+			println!("{z:?}");
+			test!(
+				Z {
+					y: Y {
+						y: f(&mut v)
+					},
+					x: X {
+						y2: Y {
+							y: f(&mut v)
+						},
+						x: f(&mut v)
+					},
+				},
+				{
+					"y": {
+						"y": [1,2,3]
+					},
+					"x": {
+						"y2": {
+							"y":[2,3,4]
+						},
+						"x": [3,4,5],
+					},
+			});
+		}
+		{
+			let mut v = vec![0, 1, 2];
+			let f = |vec: &mut Vec<u32>| -> Vec<u32> {
+				vec.iter_mut().for_each(|x| *x += 1);
+				vec.clone()
+			};
+			let z = Z {
+				a: 0,
+				y: Y { y: f(&mut v) },
+				x: X { y2: Y { y: f(&mut v) }, x: f(&mut v), x2: f(&mut v) },
+			};
+			let z_expected = Z {
+				a: 0,
+				y: Y { y: vec![1, 2, 3] },
+				x: X { y2: Y { y: vec![2, 3, 4] }, x: vec![3, 4, 5], x2: vec![4, 5, 6] },
+			};
+			assert_eq!(z, z_expected);
+			v = vec![0, 1, 2];
+			println!("{z:?}");
+			test!(
+				Z {
+					y: Y {
+						y: f(&mut v)
+					},
+					x: X {
+						y2: Y {
+							y: f(&mut v)
+						},
+						x: f(&mut v),
+						x2: f(&mut v)
+					},
+				},
+				{
+					"y": {
+						"y": [1,2,3]
+					},
+					"x": {
+						"y2": {
+							"y":[2,3,4]
+						},
+						"x": [3,4,5],
+						"x2": [4,5,6],
+					},
+			});
+		}
+	}
+
+	#[test]
 	fn test_generate_config_macro_with_nested_mods() {
 		test!(
 			TestStruct { t: nested_mod::InsideMod { a: 32 } },
@@ -797,7 +1187,6 @@ mod retain_keys_test {
 		( $s:literal ) => {
 			let field = InitializedField::full($s);
 			let cc = inflector::cases::camelcase::to_camel_case($s);
-			println!("field: {:?}, cc: {}", field, cc);
 			assert_eq!(field,cc);
 		} ;
 		( &[ $f:literal $(, $r:literal)* ]) => {
@@ -808,7 +1197,6 @@ mod retain_keys_test {
 				.map(|s| inflector::cases::camelcase::to_camel_case(s))
 				.collect::<Vec<_>>()
 				.join(".");
-			println!("field: {:?}, cc: {}", field, cc);
 			assert_eq!(field,cc);
 		} ;
 	);

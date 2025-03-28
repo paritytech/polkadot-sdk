@@ -21,8 +21,8 @@ use crate::{
 	exec::{ExportedFunction, Ext, Key, Stack},
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
-	wasm::{ApiVersion, PreparedCall, Runtime},
-	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, WasmBlob, Weight,
+	wasm::{PreparedCall, Runtime},
+	BalanceOf, Config, Error, GasMeter, MomentOf, Origin, WasmBlob, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::benchmarking;
@@ -38,14 +38,13 @@ pub struct CallSetup<T: Config> {
 	gas_meter: GasMeter<T>,
 	storage_meter: Meter<T>,
 	value: BalanceOf<T>,
-	debug_message: Option<DebugBuffer>,
 	data: Vec<u8>,
 	transient_storage_size: u32,
 }
 
 impl<T> Default for CallSetup<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
@@ -57,7 +56,7 @@ where
 
 impl<T> CallSetup<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
@@ -91,7 +90,6 @@ where
 			gas_meter: GasMeter::new(Weight::MAX),
 			storage_meter,
 			value: 0u32.into(),
-			debug_message: None,
 			data: vec![],
 			transient_storage_size: 0,
 		}
@@ -122,16 +120,6 @@ where
 		self.transient_storage_size = size;
 	}
 
-	/// Set the debug message.
-	pub fn enable_debug_message(&mut self) {
-		self.debug_message = Some(Default::default());
-	}
-
-	/// Get the debug message.
-	pub fn debug_message(&self) -> Option<DebugBuffer> {
-		self.debug_message.clone()
-	}
-
 	/// Get the call's input data.
 	pub fn data(&self) -> Vec<u8> {
 		self.data.clone()
@@ -150,7 +138,6 @@ where
 			&mut self.gas_meter,
 			&mut self.storage_meter,
 			self.value,
-			self.debug_message.as_mut(),
 		);
 		if self.transient_storage_size > 0 {
 			Self::with_transient_storage(&mut ext.0, self.transient_storage_size).unwrap();
@@ -163,13 +150,10 @@ where
 		ext: &'a mut StackExt<'a, T>,
 		module: WasmBlob<T>,
 		input: Vec<u8>,
+		aux_data_size: u32,
 	) -> PreparedCall<'a, StackExt<'a, T>> {
 		module
-			.prepare_call(
-				Runtime::new(ext, input),
-				ExportedFunction::Call,
-				ApiVersion::UnsafeNewest,
-			)
+			.prepare_call(Runtime::new(ext, input), ExportedFunction::Call, aux_data_size)
 			.unwrap()
 	}
 

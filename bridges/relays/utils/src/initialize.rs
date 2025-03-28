@@ -52,9 +52,10 @@ pub fn initialize_logger(with_timestamp: bool) {
 		format,
 	);
 
-	let env_filter = EnvFilter::from_default_env()
-		.add_directive(Level::WARN.into())
-		.add_directive("bridge=info".parse().expect("static filter string is valid"));
+	let env_filter = EnvFilter::builder()
+		.with_default_directive(Level::WARN.into())
+		.with_default_directive("bridge=info".parse().expect("static filter string is valid"))
+		.from_env_lossy();
 
 	let builder = SubscriberBuilder::default().with_env_filter(env_filter);
 

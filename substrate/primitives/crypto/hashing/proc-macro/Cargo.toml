@@ -20,5 +20,5 @@ proc-macro = true
 
 [dependencies]
 quote = { workspace = true }
-syn = { features = ["full", "parsing"], workspace = true }
 sp-crypto-hashing = { workspace = true }
+syn = { features = ["full", "parsing"], workspace = true }

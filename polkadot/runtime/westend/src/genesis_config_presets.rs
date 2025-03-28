@@ -33,7 +33,7 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::Perbill;
+use sp_runtime::{BoundedVec, Perbill};
 use westend_runtime_constants::currency::UNITS as WND;
 
 /// Helper function to generate stash, controller and session key from seed
@@ -128,15 +128,16 @@ fn default_parachains_host_configuration(
 		zeroth_delay_tranche_width: 0,
 		minimum_validation_upgrade_delay: 5,
 		async_backing_params: AsyncBackingParams {
-			max_candidate_depth: 3,
-			allowed_ancestry_len: 2,
+			max_candidate_depth: 0,
+			allowed_ancestry_len: 0,
 		},
 		node_features: bitvec::vec::BitVec::from_element(
 			1u8 << (FeatureIndex::ElasticScalingMVP as usize) |
-				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize),
+				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize) |
+				1u8 << (FeatureIndex::CandidateReceiptV2 as usize),
 		),
 		scheduler_params: SchedulerParams {
-			lookahead: 2,
+			lookahead: 3,
 			group_rotation_frequency: 20,
 			paras_availability_period: 4,
 			..Default::default()
@@ -201,7 +202,10 @@ fn westend_testnet_genesis(
 				.iter()
 				.map(|x| (x.0.clone(), x.0.clone(), STASH, StakerStatus::<AccountId>::Validator))
 				.collect::<Vec<_>>(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			invulnerables: BoundedVec::try_from(
+					initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>()
+				)
+				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			force_era: Forcing::NotForcing,
 			slash_reward_fraction: Perbill::from_percent(10),
 		},
@@ -222,7 +226,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	//
 	// SECRET_SEED="slow awkward present example safe bundle science ocean cradle word tennis earn"
 	// subkey inspect -n polkadot "$SECRET_SEED"
-	let endowed_accounts = vec![
+	let endowed_accounts: Vec<AccountId> = vec![
 		// 15S75FkhCWEowEGfxWwVfrW3LQuy8w8PNhVmrzfsVhCMjUh1
 		hex!["c416837e232d9603e83162ef4bda08e61580eeefe60fe92fc044aa508559ae42"].into(),
 	];
@@ -338,7 +342,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
 				.iter()
@@ -364,7 +368,6 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 					)
 				})
 				.collect::<Vec<_>>(),
-			..Default::default()
 		},
 		staking: StakingConfig {
 			validator_count: 50,
@@ -373,22 +376,18 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 				.iter()
 				.map(|x| (x.0.clone(), x.0.clone(), STASH, StakerStatus::<AccountId>::Validator))
 				.collect::<Vec<_>>(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			invulnerables: BoundedVec::try_from(
+					initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>()
+				)
+				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			force_era: Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
 		},
-		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		sudo: SudoConfig { key: Some(endowed_accounts[0].clone()) },
 		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
-		registrar: RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
+	})
 }
 
 //development

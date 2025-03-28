@@ -151,12 +151,6 @@ time per relay parent. This reduces the bandwidth requirements and as we can sec
 the others are probably not required anyway. If the request times out, we need to note the collator as being unreliable
 and reduce its priority relative to other collators.
 
-As a validator, once the collation has been fetched some other subsystem will inspect and do deeper validation of the
-collation. The subsystem will report to this subsystem with a [`CollatorProtocolMessage`][CPM]`::ReportCollator`. In
-that case, if we are connected directly to the collator, we apply a cost to the `PeerId` associated with the collator
-and potentially disconnect or blacklist it. If the collation is seconded, we notify the collator and apply a benefit to
-the `PeerId` associated with the collator.
-
 ### Interaction with [Candidate Backing][CB]
 
 As collators advertise the availability, a validator will simply second the first valid parablock candidate per relay

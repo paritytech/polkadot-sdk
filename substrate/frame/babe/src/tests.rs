@@ -35,6 +35,12 @@ const EMPTY_RANDOMNESS: [u8; RANDOMNESS_LENGTH] = [
 	161, 164, 127, 217, 153, 138, 37, 48, 192, 248, 0,
 ];
 
+impl crate::migrations::BabePalletPrefix for Test {
+	fn pallet_prefix() -> &'static str {
+		"Babe"
+	}
+}
+
 #[test]
 fn empty_randomness_is_correct() {
 	let s = compute_randomness([0; RANDOMNESS_LENGTH], 0, std::iter::empty(), None);
@@ -414,7 +420,7 @@ fn disabled_validators_cannot_author_blocks() {
 		// so we should still be able to author blocks
 		start_era(2);
 
-		assert_eq!(Staking::current_era().unwrap(), 2);
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get().unwrap(), 2);
 
 		// let's disable the validator at index 0
 		Session::disable_index(0);
@@ -942,12 +948,6 @@ fn valid_equivocation_reports_dont_pay_fees() {
 #[test]
 fn add_epoch_configurations_migration_works() {
 	use frame_support::storage::migration::{get_storage_value, put_storage_value};
-
-	impl crate::migrations::BabePalletPrefix for Test {
-		fn pallet_prefix() -> &'static str {
-			"Babe"
-		}
-	}
 
 	new_test_ext(1).execute_with(|| {
 		let next_config_descriptor =

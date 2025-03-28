@@ -27,7 +27,10 @@ use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::{
 	collators::{
 		lookahead::{self as aura, Params as AuraParams},
-		slot_based::{self as slot_based, Params as SlotBasedParams},
+		slot_based::{
+			self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
+			SlotBasedBlockImportHandle,
+		},
 	},
 	ImportQueueParams,
 };
@@ -69,7 +72,7 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CandidateHash, CollatorPair, Hash as PHash, PersistedValidationData};
-use polkadot_service::ProvideRuntimeApi;
+use polkadot_service::{IdentifyNetworkBackend, ProvideRuntimeApi};
 use sc_consensus::ImportQueue;
 use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
@@ -131,7 +134,8 @@ pub type Client = TFullClient<runtime::NodeBlock, runtime::RuntimeApi, WasmExecu
 pub type Backend = TFullBackend<Block>;
 
 /// The block-import type being used by the test service.
-pub type ParachainBlockImport = TParachainBlockImport<Block, Arc<Client>, Backend>;
+pub type ParachainBlockImport =
+	TParachainBlockImport<Block, SlotBasedBlockImport<Block, Arc<Client>, Client>, Backend>;
 
 /// Transaction pool type used by the test service
 pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>;
@@ -184,7 +188,7 @@ pub type Service = PartialComponents<
 	(),
 	sc_consensus::import_queue::BasicQueue<Block>,
 	sc_transaction_pool::TransactionPoolHandle<Block, Client>,
-	ParachainBlockImport,
+	(ParachainBlockImport, SlotBasedBlockImportHandle<Block>),
 >;
 
 /// Starts a `ServiceBuilder` for a full service.
@@ -217,7 +221,9 @@ pub fn new_partial(
 		)?;
 	let client = Arc::new(client);
 
-	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let (block_import, slot_based_handle) =
+		SlotBasedBlockImport::new(client.clone(), client.clone());
+	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
 	let transaction_pool = Arc::from(
 		sc_transaction_pool::Builder::new(
@@ -260,7 +266,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain: (),
-		other: block_import,
+		other: (block_import, slot_based_handle),
 	};
 
 	Ok(params)
@@ -349,7 +355,8 @@ where
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 
-	let block_import = params.other;
+	let block_import = params.other.0;
+	let slot_based_handle = params.other.1;
 	let relay_chain_interface = build_relay_chain_interface(
 		relay_chain_config,
 		parachain_config.prometheus_registry(),
@@ -367,7 +374,7 @@ where
 		prometheus_registry.clone(),
 	);
 
-	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
 			net_config,
@@ -491,26 +498,19 @@ where
 					},
 					keystore,
 					collator_key,
+					relay_chain_slot_duration,
 					para_id,
 					proposer,
 					collator_service,
 					authoring_duration: Duration::from_millis(2000),
 					reinitialize: false,
-					slot_drift: Duration::from_secs(1),
+					slot_offset: Duration::from_secs(1),
+					block_import_handle: slot_based_handle,
+					spawner: task_manager.spawn_handle(),
+					export_pov: None,
 				};
 
-				let (collation_future, block_builder_future) =
-					slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
-				task_manager.spawn_essential_handle().spawn(
-					"collation-task",
-					None,
-					collation_future,
-				);
-				task_manager.spawn_essential_handle().spawn(
-					"block-builder-task",
-					None,
-					block_builder_future,
-				);
+				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
 				let params = AuraParams {
@@ -541,8 +541,6 @@ where
 			}
 		}
 	}
-
-	start_network.start_network();
 
 	Ok((task_manager, client, network, rpc_handlers, transaction_pool, backend))
 }
@@ -761,8 +759,12 @@ impl TestNodeBuilder {
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
 
 		let multiaddr = parachain_config.network.listen_addresses[0].clone();
+
+		// If the network backend is unspecified, use the default for the given chain.
+		let default_backend = relay_chain_config.chain_spec.network_backend();
+		let network_backend = relay_chain_config.network.network_backend.unwrap_or(default_backend);
 		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
-			match relay_chain_config.network.network_backend {
+			match network_backend {
 				sc_network::config::NetworkBackendType::Libp2p =>
 					start_node_impl::<_, sc_network::NetworkWorker<_, _>>(
 						parachain_config,
@@ -980,13 +982,12 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<runtime::Runtime>::new(),
 	)
 		.into();
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(

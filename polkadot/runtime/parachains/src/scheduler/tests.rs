@@ -17,21 +17,18 @@
 use super::*;
 
 use alloc::collections::btree_map::BTreeMap;
+use assigner_coretime::PartsOf57600;
 use frame_support::assert_ok;
+use pallet_broker::CoreAssignment;
 use polkadot_primitives::{
 	BlockNumber, SchedulerParams, SessionIndex, ValidationCode, ValidatorId,
 };
 use sp_keyring::Sr25519Keyring;
 
 use crate::{
-	configuration::HostConfiguration,
-	initializer::SessionChangeNotification,
-	mock::{
-		new_test_ext, Configuration, MockAssigner, MockGenesisConfig, Paras, ParasShared,
-		RuntimeOrigin, Scheduler, System, Test,
-	},
-	paras::{ParaGenesisArgs, ParaKind},
-	scheduler::{self, common::Assignment, ClaimQueue},
+	configuration::HostConfiguration, initializer::SessionChangeNotification, mock::{
+		new_test_ext, Configuration, CoretimeAssigner, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin, Scheduler, System, Test
+	}, on_demand, paras::{ParaGenesisArgs, ParaKind}, scheduler::{self}
 };
 
 fn register_para(id: ParaId) {
@@ -80,7 +77,7 @@ fn run_to_block(
 		Paras::initializer_initialize(b + 1);
 		Scheduler::initializer_initialize(b + 1);
 
-		Scheduler::advance_claim_queue(&Default::default());
+		Scheduler::advance_claim_queue(|_| false);
 	}
 }
 
@@ -112,8 +109,8 @@ fn genesis_config(config: &HostConfiguration<BlockNumber>) -> MockGenesisConfig 
 }
 
 /// Internal access to assignments at the top of the claim queue.
-fn next_assignments() -> impl Iterator<Item = (CoreIndex, Assignment)> {
-	let claim_queue = ClaimQueue::<Test>::get();
+fn next_assignments() -> impl Iterator<Item = (CoreIndex, ParaId)> {
+	let claim_queue = Scheduler::claim_queue();
 	claim_queue
 		.into_iter()
 		.filter_map(|(core_idx, v)| v.front().map(|a| (core_idx, a.clone())))
@@ -215,10 +212,6 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 	let para_b = ParaId::from(4_u32);
 	let para_c = ParaId::from(5_u32);
 
-	let assignment_a = Assignment::Bulk(para_a);
-	let assignment_b = Assignment::Bulk(para_b);
-	let assignment_c = Assignment::Bulk(para_c);
-
 	new_test_ext(genesis_config).execute_with(|| {
 		// Add 3 paras
 		register_para(para_a);
@@ -239,28 +232,30 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 		});
 
 		// add some para assignments.
-		MockAssigner::add_test_assignment(assignment_a.clone());
-		MockAssigner::add_test_assignment(assignment_b.clone());
-		MockAssigner::add_test_assignment(assignment_c.clone());
+		CoretimeAssigner::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		CoretimeAssigner::assign_core(CoreIndex(1), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
 
 		// This will call advance_claim_queue
 		run_to_block(2, |_| None);
 
 		{
-			assert_eq!(Scheduler::claim_queue_len(), 5);
-			let mut claim_queue = Scheduler::claim_queue();
+			on_demand::Pallet::<Test>::push_back_order(para_a);
+			on_demand::Pallet::<Test>::push_back_order(para_c);
+			on_demand::Pallet::<Test>::push_back_order(para_b);
+
+			let mut claim_queue = scheduler::Pallet::<Test>::claim_queue();
 
 			// Because the claim queue used to be empty, the first assignment is doubled for every
 			// core so that the first para gets a fair shot at backing something.
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[assignment_a.clone(), assignment_a, assignment_b]
+				[para_a, para_a, para_b]
 					.into_iter()
 					.collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[assignment_c.clone(), assignment_c].into_iter().collect::<VecDeque<_>>()
+				[para_c, para_c].into_iter().collect::<VecDeque<_>>()
 			);
 		}
 	});
@@ -275,7 +270,6 @@ fn advance_claim_queue_no_entry_if_empty() {
 	let genesis_config = genesis_config(&config);
 
 	let para_a = ParaId::from(3_u32);
-	let assignment_a = Assignment::Bulk(para_a);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		// Add 1 para
@@ -294,7 +288,9 @@ fn advance_claim_queue_no_entry_if_empty() {
 			_ => None,
 		});
 
-		MockAssigner::add_test_assignment(assignment_a.clone());
+		CoretimeAssigner::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		CoretimeAssigner::assign_core(CoreIndex(1), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		on_demand::Pallet::<Test>::push_back_order(para_a);
 
 		// This will call advance_claim_queue
 		run_to_block(3, |_| None);
@@ -304,7 +300,7 @@ fn advance_claim_queue_no_entry_if_empty() {
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[assignment_a].into_iter().collect::<VecDeque<_>>()
+				[para_a].into_iter().collect::<VecDeque<_>>()
 			);
 
 			// Even though core 1 exists, there's no assignment for it so it's not present in the
@@ -332,11 +328,7 @@ fn advance_claim_queue_except_for() {
 	let para_d = ParaId::from(4_u32);
 	let para_e = ParaId::from(5_u32);
 
-	let assignment_a = Assignment::Bulk(para_a);
-	let assignment_b = Assignment::Bulk(para_b);
-	let assignment_c = Assignment::Bulk(para_c);
-	let assignment_d = Assignment::Bulk(para_d);
-	let assignment_e = Assignment::Bulk(para_e);
+	CoretimeAssigner::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
 
 	new_test_ext(genesis_config).execute_with(|| {
 		// add 5 paras
@@ -361,21 +353,21 @@ fn advance_claim_queue_except_for() {
 		});
 
 		// add a couple of para claims now that paras are live
-		MockAssigner::add_test_assignment(assignment_a.clone());
-		MockAssigner::add_test_assignment(assignment_c.clone());
+		on_demand::Pallet::<Test>::push_back_order(para_a);
+		on_demand::Pallet::<Test>::push_back_order(para_c);
 
 		run_to_block(2, |_| None);
 
-		Scheduler::advance_claim_queue(&Default::default());
+		Scheduler::advance_claim_queue(|_| false);
 
 		// Queues of all cores should be empty
 		assert_eq!(Scheduler::claim_queue_len(), 0);
 
-		MockAssigner::add_test_assignment(assignment_a.clone());
-		MockAssigner::add_test_assignment(assignment_c.clone());
-		MockAssigner::add_test_assignment(assignment_b.clone());
-		MockAssigner::add_test_assignment(assignment_d.clone());
-		MockAssigner::add_test_assignment(assignment_e.clone());
+		on_demand::Pallet::<Test>::push_back_order(para_a);
+		on_demand::Pallet::<Test>::push_back_order(para_c);
+		on_demand::Pallet::<Test>::push_back_order(para_b);
+		on_demand::Pallet::<Test>::push_back_order(para_d);
+		on_demand::Pallet::<Test>::push_back_order(para_e);
 
 		run_to_block(3, |_| None);
 
@@ -383,22 +375,22 @@ fn advance_claim_queue_except_for() {
 			let scheduled: BTreeMap<_, _> = next_assignments().collect();
 
 			assert_eq!(scheduled.len(), 3);
-			assert_eq!(scheduled.get(&CoreIndex(0)).unwrap(), &Assignment::Bulk(para_a));
-			assert_eq!(scheduled.get(&CoreIndex(1)).unwrap(), &Assignment::Bulk(para_c));
-			assert_eq!(scheduled.get(&CoreIndex(2)).unwrap(), &Assignment::Bulk(para_b));
+			assert_eq!(scheduled.get(&CoreIndex(0)).unwrap(), para_a);
+			assert_eq!(scheduled.get(&CoreIndex(1)).unwrap(), para_c);
+			assert_eq!(scheduled.get(&CoreIndex(2)).unwrap(), para_b);
 		}
 
 		// now note that cores 0 and 1 were freed.
-		Scheduler::advance_claim_queue(&std::iter::once(CoreIndex(2)).collect());
+		Scheduler::advance_claim_queue(|CoreIndex(ix)| ix == 2);
 
 		{
 			let scheduled: BTreeMap<_, _> = next_assignments().collect();
 
 			// 1 thing scheduled before, + 2 cores freed.
 			assert_eq!(scheduled.len(), 3);
-			assert_eq!(scheduled.get(&CoreIndex(0)).unwrap(), &Assignment::Bulk(para_d));
-			assert_eq!(scheduled.get(&CoreIndex(1)).unwrap(), &Assignment::Bulk(para_e));
-			assert_eq!(scheduled.get(&CoreIndex(2)).unwrap(), &Assignment::Bulk(para_b));
+			assert_eq!(scheduled.get(&CoreIndex(0)).unwrap(), para_d);
+			assert_eq!(scheduled.get(&CoreIndex(1)).unwrap(), para_e);
+			assert_eq!(scheduled.get(&CoreIndex(2)).unwrap(), para_b);
 		}
 	});
 }
@@ -512,58 +504,6 @@ fn availability_predicate_works() {
 	});
 }
 
-#[test]
-fn next_up_on_available_uses_next_scheduled_or_none() {
-	let mut config = default_config();
-	config.scheduler_params.num_cores = 1;
-	let genesis_config = genesis_config(&config);
-
-	let para_a = ParaId::from(1_u32);
-	let para_b = ParaId::from(2_u32);
-
-	new_test_ext(genesis_config).execute_with(|| {
-		register_para(para_a);
-		register_para(para_b);
-
-		// start a new session to activate, 2 validators for 2 cores.
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Eve.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
-
-		MockAssigner::add_test_assignment(Assignment::Bulk(para_a));
-
-		run_to_block(2, |_| None);
-
-		{
-			// Two assignments for A on core 0, because the claim queue used to be empty.
-			assert_eq!(Scheduler::claim_queue_len(), 2);
-
-			assert!(Scheduler::scheduled_on_core(CoreIndex(1)).is_none());
-
-			assert_eq!(
-				Scheduler::scheduled_on_core(CoreIndex(0)).unwrap(),
-				ScheduledCore { para_id: para_a, collator: None }
-			);
-
-			Scheduler::advance_claim_queue(&Default::default());
-			assert_eq!(
-				Scheduler::scheduled_on_core(CoreIndex(0)).unwrap(),
-				ScheduledCore { para_id: para_a, collator: None }
-			);
-
-			Scheduler::advance_claim_queue(&Default::default());
-			assert!(Scheduler::scheduled_on_core(CoreIndex(0)).is_none());
-		}
-	});
-}
 
 #[test]
 fn session_change_increasing_number_of_cores() {
@@ -573,9 +513,6 @@ fn session_change_increasing_number_of_cores() {
 
 	let para_a = ParaId::from(3_u32);
 	let para_b = ParaId::from(4_u32);
-
-	let assignment_a = Assignment::Bulk(para_a);
-	let assignment_b = Assignment::Bulk(para_b);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		// Add 2 paras
@@ -595,25 +532,26 @@ fn session_change_increasing_number_of_cores() {
 			_ => None,
 		});
 
-		MockAssigner::add_test_assignment(assignment_a.clone());
-		MockAssigner::add_test_assignment(assignment_b.clone());
+		CoretimeAssigner::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		CoretimeAssigner::assign_core(CoreIndex(1), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
 
 		// This will call advance_claim_queue
 		run_to_block(2, |_| None);
 
 		{
-			let mut claim_queue = Scheduler::claim_queue();
+			on_demand::Pallet::<Test>::push_back_order(para_a);
+			on_demand::Pallet::<Test>::push_back_order(para_b);
 			assert_eq!(Scheduler::claim_queue_len(), 4);
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[assignment_a.clone(), assignment_a.clone()]
+				[para_a.clone(), para_a.clone()]
 					.into_iter()
 					.collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[assignment_b.clone(), assignment_b.clone()]
+				[para_b.clone(), para_b.clone()]
 					.into_iter()
 					.collect::<VecDeque<_>>()
 			);
@@ -625,7 +563,10 @@ fn session_change_increasing_number_of_cores() {
 		new_config.scheduler_params.num_cores = 4;
 
 		// add another assignment for para b.
-		MockAssigner::add_test_assignment(assignment_b.clone());
+		on_demand::Pallet::<Test>::push_back_order(para_b);
+
+		CoretimeAssigner::assign_core(CoreIndex(2), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		CoretimeAssigner::assign_core(CoreIndex(3), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
 
 		run_to_block(3, |number| match number {
 			3 => Some(SessionChangeNotification {
@@ -648,15 +589,15 @@ fn session_change_increasing_number_of_cores() {
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[assignment_a].into_iter().collect::<VecDeque<_>>()
+				[para_a].into_iter().collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[assignment_b.clone()].into_iter().collect::<VecDeque<_>>()
+				[para_b].into_iter().collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(2)).unwrap(),
-				[assignment_b.clone()].into_iter().collect::<VecDeque<_>>()
+				[para_b].into_iter().collect::<VecDeque<_>>()
 			);
 		}
 	});
@@ -723,10 +664,10 @@ fn session_change_decreasing_number_of_cores() {
 		// the end.
 		assert_eq!(
 			claim_queue.remove(&CoreIndex(0)).unwrap(),
-			[assignment_b.clone()].into_iter().collect::<VecDeque<_>>()
+			[para_b.clone()].into_iter().collect::<VecDeque<_>>()
 		);
 
-		Scheduler::advance_claim_queue(&Default::default());
+		Scheduler::advance_claim_queue(|_| false);
 		// No more assignments now.
 		assert_eq!(Scheduler::claim_queue_len(), 0);
 
@@ -734,7 +675,7 @@ fn session_change_decreasing_number_of_cores() {
 		// should be the minimum of these two.
 
 		// Add an assignment.
-		MockAssigner::add_test_assignment(assignment_b.clone());
+		on_demand::Pallet::<Test>::push_back_order(para_b);
 
 		run_to_block(4, |number| match number {
 			4 => Some(SessionChangeNotification {
@@ -781,12 +722,13 @@ fn session_change_increasing_lookahead() {
 			_ => None,
 		});
 
-		MockAssigner::add_test_assignment(assignment_a.clone());
-		MockAssigner::add_test_assignment(assignment_a.clone());
-		MockAssigner::add_test_assignment(assignment_a.clone());
-		MockAssigner::add_test_assignment(assignment_b.clone());
-		MockAssigner::add_test_assignment(assignment_b.clone());
-		MockAssigner::add_test_assignment(assignment_b.clone());
+		CoretimeAssigner::assign_core(CoreIndex(0), 0, vec![(CoreAssignment::Pool, PartsOf57600::FULL)], None).unwrap();
+		on_demand::Pallet::<Test>::push_back_order(para_a);
+		on_demand::Pallet::<Test>::push_back_order(para_a);
+		on_demand::Pallet::<Test>::push_back_order(para_a);
+		on_demand::Pallet::<Test>::push_back_order(para_b);
+		on_demand::Pallet::<Test>::push_back_order(para_b);
+		on_demand::Pallet::<Test>::push_back_order(para_b);
 
 		// Lookahead is currently 2.
 
@@ -798,13 +740,13 @@ fn session_change_increasing_lookahead() {
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[assignment_a.clone(), assignment_a.clone()]
+				[para_a, para_a]
 					.into_iter()
 					.collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[assignment_a.clone(), assignment_a.clone()]
+				[para_a, para_a]
 					.into_iter()
 					.collect::<VecDeque<_>>()
 			);
@@ -834,13 +776,13 @@ fn session_change_increasing_lookahead() {
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[assignment_a.clone(), assignment_a.clone(), assignment_b.clone()]
+				[para_a, para_a, para_b]
 					.into_iter()
 					.collect::<VecDeque<_>>()
 			);
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[assignment_a.clone(), assignment_b.clone(), assignment_b.clone()]
+				[para_a, para_b, para_b]
 					.into_iter()
 					.collect::<VecDeque<_>>()
 			);

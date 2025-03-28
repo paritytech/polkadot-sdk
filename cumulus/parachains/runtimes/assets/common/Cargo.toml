@@ -5,22 +5,24 @@ authors.workspace = true
 edition.workspace = true
 description = "Assets common utilities"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-log = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
+pallet-asset-conversion = { workspace = true }
+pallet-assets = { workspace = true }
 sp-api = { workspace = true }
 sp-runtime = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-asset-conversion = { workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
@@ -29,8 +31,8 @@ xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 
 # Cumulus
-parachains-common = { workspace = true }
 cumulus-primitives-core = { workspace = true }
+parachains-common = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, default-features = true }
@@ -41,7 +43,6 @@ std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",
-	"log/std",
 	"pallet-asset-conversion/std",
 	"pallet-assets/std",
 	"pallet-xcm/std",
@@ -49,6 +50,7 @@ std = [
 	"scale-info/std",
 	"sp-api/std",
 	"sp-runtime/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
@@ -64,4 +66,5 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

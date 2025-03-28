@@ -25,13 +25,13 @@ use sp_core::RuntimeDebug;
 
 use crate::{
 	traits::{AsSystemOriginSigner, SignedExtension, ValidateResult},
-	transaction_validity::InvalidTransaction,
+	transaction_validity::{InvalidTransaction, TransactionSource},
 };
 
 use super::*;
 
 /// Adapter to use a `SignedExtension` in the place of a `TransactionExtension`.
-#[derive(TypeInfo, Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug)]
 #[deprecated = "Convert your SignedExtension to a TransactionExtension."]
 pub struct AsTransactionExtension<SE: SignedExtension>(pub SE);
 
@@ -74,6 +74,7 @@ where
 		len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, SE::Call> {
 		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		let r = self.0.validate(who, call, info, len)?;

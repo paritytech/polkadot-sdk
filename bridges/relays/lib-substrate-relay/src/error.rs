@@ -47,7 +47,7 @@ pub enum Error<Hash: Debug + MaybeDisplay, HeaderNumber: Debug + MaybeDisplay> {
 	#[error("Failed to guess initial {0} GRANDPA authorities set id: checked all possible ids in range [0; {1}]")]
 	GuessInitialAuthorities(&'static str, HeaderNumber),
 	/// Failed to retrieve GRANDPA authorities at the given header from the source chain.
-	#[error("Failed to retrive {0} GRANDPA authorities set at header {1}: {2:?}")]
+	#[error("Failed to retrieve {0} GRANDPA authorities set at header {1}: {2:?}")]
 	RetrieveAuthorities(&'static str, Hash, client::Error),
 	/// Failed to decode GRANDPA authorities at the given header of the source chain.
 	#[error("Failed to decode {0} GRANDPA authorities set at header {1}: {2:?}")]

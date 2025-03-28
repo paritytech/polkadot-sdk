@@ -79,8 +79,12 @@ mod imports {
 		},
 		westend_emulated_chain::{
 			genesis::ED as WESTEND_ED,
-			westend_runtime::xcm_config::{
-				UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+			westend_runtime::{
+				governance::pallet_custom_origins::Origin::Treasurer,
+				xcm_config::{
+					UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+				},
+				Dmp,
 			},
 			WestendRelayPallet as WestendPallet,
 		},
@@ -106,6 +110,7 @@ mod imports {
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
 	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
 	pub type RelayToParaThroughAHTest = Test<Westend, PenpalA, AssetHubWestend>;
+	pub type PenpalToRelayThroughAHTest = Test<PenpalA, Westend, AssetHubWestend>;
 }
 
 #[cfg(test)]

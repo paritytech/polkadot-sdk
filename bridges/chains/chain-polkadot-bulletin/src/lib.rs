@@ -29,7 +29,7 @@ use bp_runtime::{
 	},
 	Chain, ChainId, TransactionEra,
 };
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
@@ -91,7 +91,7 @@ pub type TransactionExtensionSchema = GenericTransactionExtension<(
 )>;
 
 /// Transaction extension, used by Polkadot Bulletin.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub struct TransactionExtension(TransactionExtensionSchema);
 
 impl<C> sp_runtime::traits::TransactionExtension<C> for TransactionExtension
@@ -225,4 +225,4 @@ impl ChainWithMessages for PolkadotBulletin {
 }
 
 decl_bridge_finality_runtime_apis!(polkadot_bulletin, grandpa);
-decl_bridge_messages_runtime_apis!(polkadot_bulletin, bp_messages::HashedLaneId);
+decl_bridge_messages_runtime_apis!(polkadot_bulletin, bp_messages::LegacyLaneId);

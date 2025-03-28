@@ -1,0 +1,12 @@
+title: '[pallet-revive] implement the block author API '
+doc:
+- audience: Runtime Dev
+  description: This PR implements the block author API method. Runtimes ought to implement
+    it such that it corresponds to the `coinbase` EVM opcode.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor

@@ -26,6 +26,7 @@ mod imports {
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v5,
 	};
+	pub use xcm_builder::ExternalConsensusLocationsConverterFor;
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
@@ -51,16 +52,20 @@ mod imports {
 		},
 		bridge_hub_westend_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendExistentialDeposit,
-			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendXcmConfig,
+			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendRuntimeOrigin,
+			BridgeHubWestendXcmConfig,
 		},
 		penpal_emulated_chain::{
+			self,
 			penpal_runtime::xcm_config::{
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
 				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
 				UniversalLocation as PenpalUniversalLocation,
 			},
-			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,
+			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
+			PenpalBParaPallet as PenpalBPallet,
 		},
+		rococo_emulated_chain::RococoRelayPallet as RococoPallet,
 		westend_emulated_chain::{
 			genesis::ED as WESTEND_ED, westend_runtime::xcm_config::XcmConfig as WestendXcmConfig,
 			WestendRelayPallet as WestendPallet,
@@ -71,10 +76,11 @@ mod imports {
 		AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
 		BridgeHubWestendPara as BridgeHubWestend,
 		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-		BridgeHubWestendParaSender as BridgeHubWestendSender, PenpalBPara as PenpalB,
+		BridgeHubWestendParaSender as BridgeHubWestendSender, PenpalAPara as PenpalA,
+		PenpalAParaReceiver as PenpalAReceiver, PenpalBPara as PenpalB,
 		PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
-		WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
-		WestendRelaySender as WestendSender,
+		RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver, WestendRelay as Westend,
+		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
 	pub const ASSET_ID: u32 = 1;

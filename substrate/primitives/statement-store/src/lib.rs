@@ -23,7 +23,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 #[cfg(feature = "std")]
@@ -93,7 +93,9 @@ pub fn hash_encoded(data: &[u8]) -> [u8; 32] {
 }
 
 /// Statement proof.
-#[derive(Encode, Decode, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, TypeInfo, sp_core::RuntimeDebug, Clone, PartialEq, Eq,
+)]
 pub enum Proof {
 	/// Sr25519 Signature.
 	Sr25519 {
@@ -174,7 +176,16 @@ impl Field {
 }
 
 /// Statement structure.
-#[derive(TypeInfo, sp_core::RuntimeDebug, PassByCodec, Clone, PartialEq, Eq, Default)]
+#[derive(
+	DecodeWithMemTracking,
+	TypeInfo,
+	sp_core::RuntimeDebug,
+	PassByCodec,
+	Clone,
+	PartialEq,
+	Eq,
+	Default,
+)]
 pub struct Statement {
 	proof: Option<Proof>,
 	decryption_key: Option<DecryptionKey>,
