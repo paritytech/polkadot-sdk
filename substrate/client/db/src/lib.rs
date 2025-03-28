@@ -75,6 +75,7 @@ use sp_blockchain::{
 use sp_core::{
 	offchain::OffchainOverlayedChange,
 	storage::{well_known_keys, ChildInfo},
+	traits::{CallContext, SpawnNamed},
 };
 use sp_database::Transaction;
 use sp_runtime::{
@@ -312,6 +313,9 @@ pub struct DatabaseSettings {
 	///
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
+
+	// Enables unlimited trie local cache when importing or building blocks.
+	pub unlimited_local_cache: bool,
 }
 
 /// Block pruning settings.
@@ -1115,6 +1119,7 @@ pub struct Backend<Block: BlockT> {
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
+	unlimited_local_cache: bool,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -1171,6 +1176,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
+			unlimited_local_cache: false,
 		};
 
 		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
@@ -1236,8 +1242,12 @@ impl<Block: BlockT> Backend<Block> {
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
 			shared_trie_cache: config.trie_cache_maximum_size.map(|maximum_size| {
-				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
+				SharedTrieCache::new(
+					sp_trie::cache::CacheSize::new(maximum_size),
+					config.unlimited_local_cache,
+				)
 			}),
+			unlimited_local_cache: config.unlimited_local_cache,
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
@@ -2100,6 +2110,14 @@ where
 	}
 }
 
+impl<Block: BlockT> sc_client_api::backend::ManualTrieCacheFlush for Backend<Block> {
+	fn trigger_writeback_to_shared(&self, spawn_handle: &Box<dyn SpawnNamed>) {
+		if let Some(cache) = self.shared_trie_cache.as_ref() {
+			cache.trigger_writeback(spawn_handle);
+		}
+	}
+}
+
 impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 	type BlockImportOperation = BlockImportOperation<Block>;
 	type Blockchain = BlockchainDb<Block>;
@@ -2131,7 +2149,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if block == Default::default() {
 			operation.old_state = self.empty_state();
 		} else {
-			operation.old_state = self.state_at(block)?;
+			operation.old_state = self.state_at(block, None)?;
 		}
 
 		operation.commit_state = true;
@@ -2464,7 +2482,11 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		&self.blockchain
 	}
 
-	fn state_at(&self, hash: Block::Hash) -> ClientResult<Self::State> {
+	fn state_at(
+		&self,
+		hash: Block::Hash,
+		call_context: Option<CallContext>,
+	) -> ClientResult<Self::State> {
 		if hash == self.blockchain.meta.read().genesis_hash {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;
@@ -2494,9 +2516,19 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					let root = hdr.state_root;
 					let db_state =
 						DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
-							.with_optional_cache(
-								self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-							)
+							.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| {
+								if self.unlimited_local_cache &&
+									call_context
+										.map(|call_context| {
+											matches!(call_context, CallContext::Onchain)
+										})
+										.unwrap_or_default()
+								{
+									c.local_cache_unlimited()
+								} else {
+									c.local_cache()
+								}
+							}))
 							.build();
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
@@ -2710,7 +2742,7 @@ pub(crate) mod tests {
 		let mut op = backend.begin_operation().unwrap();
 
 		let root = backend
-			.state_at(parent_hash)
+			.state_at(parent_hash, None)
 			.unwrap_or_else(|_| {
 				if parent_hash == Default::default() {
 					backend.empty_state()
@@ -2821,7 +2853,7 @@ pub(crate) mod tests {
 
 			db.commit_operation(op).unwrap();
 
-			let state = db.state_at(hash).unwrap();
+			let state = db.state_at(hash, None).unwrap();
 
 			assert_eq!(state.storage(&[1, 3, 5]).unwrap(), Some(vec![2, 4, 6]));
 			assert_eq!(state.storage(&[1, 2, 3]).unwrap(), Some(vec![9, 9, 9]));
@@ -2856,7 +2888,7 @@ pub(crate) mod tests {
 
 			db.commit_operation(op).unwrap();
 
-			let state = db.state_at(header.hash()).unwrap();
+			let state = db.state_at(header.hash(), None).unwrap();
 
 			assert_eq!(state.storage(&[1, 3, 5]).unwrap(), None);
 			assert_eq!(state.storage(&[1, 2, 3]).unwrap(), Some(vec![9, 9, 9]));
@@ -3646,7 +3678,8 @@ pub(crate) mod tests {
 			hash
 		};
 
-		let block0_hash = backend.state_at(hash0).unwrap().storage_hash(&b"test"[..]).unwrap();
+		let block0_hash =
+			backend.state_at(hash0, None).unwrap().storage_hash(&b"test"[..]).unwrap();
 
 		let hash1 = {
 			let mut op = backend.begin_operation().unwrap();
@@ -3685,7 +3718,8 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 		}
 
-		let block1_hash = backend.state_at(hash1).unwrap().storage_hash(&b"test"[..]).unwrap();
+		let block1_hash =
+			backend.state_at(hash1, None).unwrap().storage_hash(&b"test"[..]).unwrap();
 
 		assert_ne!(block0_hash, block1_hash);
 	}

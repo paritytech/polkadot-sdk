@@ -79,7 +79,7 @@ where
 	///
 	/// This takes into account potential overrides/substitutes.
 	pub fn code_at_ignoring_overrides(&self, block: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
-		let state = self.backend.state_at(block)?;
+		let state = self.backend.state_at(block, None)?;
 
 		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
 		let runtime_code =
@@ -227,7 +227,7 @@ mod tests {
 		let check = code_provider
 			.maybe_override_code(
 				onchain_code,
-				&backend.state_at(backend.blockchain().info().genesis_hash).unwrap(),
+				&backend.state_at(backend.blockchain().info().genesis_hash, None).unwrap(),
 				backend.blockchain().info().genesis_hash,
 			)
 			.expect("RuntimeCode override")
@@ -288,7 +288,7 @@ mod tests {
 		let check = code_provider
 			.maybe_override_code(
 				onchain_code,
-				&backend.state_at(backend.blockchain().info().genesis_hash).unwrap(),
+				&backend.state_at(backend.blockchain().info().genesis_hash, None).unwrap(),
 				backend.blockchain().info().genesis_hash,
 			)
 			.expect("RuntimeCode override")

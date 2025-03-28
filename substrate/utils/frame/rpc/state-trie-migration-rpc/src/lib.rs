@@ -73,7 +73,7 @@ fn count_migrate<'a, H: Hasher>(
 /// Check trie migration status.
 pub fn migration_status<H, B>(backend: &B) -> std::result::Result<MigrationStatusResult, String>
 where
-	H: Hasher,
+	H: Hasher + 'static,
 	H::Out: codec::Codec,
 	B: AsTrieBackend<H>,
 {
@@ -167,7 +167,7 @@ where
 		check_if_safe(ext)?;
 
 		let hash = at.unwrap_or_else(|| self.client.info().best_hash);
-		let state = self.backend.state_at(hash).map_err(error_into_rpc_err)?;
+		let state = self.backend.state_at(hash, None).map_err(error_into_rpc_err)?;
 		migration_status(&state).map_err(error_into_rpc_err)
 	}
 }

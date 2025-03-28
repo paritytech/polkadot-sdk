@@ -22,8 +22,9 @@ use std::collections::HashSet;
 
 use parking_lot::RwLock;
 
+use sp_api::CallContext;
 use sp_consensus::BlockOrigin;
-use sp_core::offchain::OffchainStorage;
+use sp_core::{offchain::OffchainStorage, traits::SpawnNamed};
 use sp_runtime::{
 	traits::{Block as BlockT, HashingFor, NumberFor},
 	Justification, Justifications, StateVersion, Storage,
@@ -584,11 +585,15 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Returns true if state for given block is available.
 	fn have_state_at(&self, hash: Block::Hash, _number: NumberFor<Block>) -> bool {
-		self.state_at(hash).is_ok()
+		self.state_at(hash, None).is_ok()
 	}
 
 	/// Returns state backend with post-state of given block.
-	fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Self::State>;
+	fn state_at(
+		&self,
+		hash: Block::Hash,
+		call_context: Option<CallContext>,
+	) -> sp_blockchain::Result<Self::State>;
 
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
 	/// revert past any finalized block, this is unsafe and can potentially leave the node in an
@@ -637,5 +642,12 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	fn requires_full_sync(&self) -> bool;
 }
 
+// A trait to trigger the flushing of the local trie cache accesses to the shared trie cache.
+pub trait ManualTrieCacheFlush {
+	/// Trigger writeback of the local trie cache accesses to the shared trie cache.
+	/// This is a no-op for backend that don't configure an un
+	fn trigger_writeback_to_shared(&self, spawn_handle: &Box<dyn SpawnNamed>);
+}
+
 /// Mark for all Backend implementations, that are making use of state data, stored locally.
-pub trait LocalBackend<Block: BlockT>: Backend<Block> {}
+pub trait LocalBackend<Block: BlockT>: Backend<Block> + ManualTrieCacheFlush {}
