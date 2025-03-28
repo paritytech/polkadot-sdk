@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Cumulus parachain collator primitives.
 
@@ -26,6 +26,7 @@ pub mod runtime;
 pub mod spec;
 pub mod types;
 
+use crate::cli::AuthoringPolicy;
 use cumulus_primitives_core::{CollectCollationInfo, GetCoreSelectorApi};
 use sc_client_db::DbHash;
 use sc_offchain::OffchainWorkerApi;
@@ -45,7 +46,7 @@ pub trait NodeBlock:
 {
 	type BoundedFromStrErr: Debug;
 	type BoundedNumber: FromStr<Err = Self::BoundedFromStrErr> + BlockNumber;
-	type BoundedHeader: HeaderT<Number = Self::BoundedNumber> + Unpin;
+	type BoundedHeader: HeaderT<Number = Self::BoundedNumber, Hash = DbHash> + Unpin;
 }
 
 impl<T> NodeBlock for T
@@ -104,8 +105,15 @@ where
 
 /// Extra args that are passed when creating a new node spec.
 pub struct NodeExtraArgs {
-	pub use_slot_based_consensus: bool,
+	/// The authoring policy to use.
+	///
+	/// Can be used to influence details of block production.
+	pub authoring_policy: AuthoringPolicy,
 
 	/// If set, each `PoV` build by the node will be exported to this folder.
 	pub export_pov: Option<PathBuf>,
+
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	pub max_pov_percentage: Option<u32>,
 }

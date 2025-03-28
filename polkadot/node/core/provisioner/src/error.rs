@@ -47,6 +47,9 @@ pub enum Error {
 	#[error("failed to get session index")]
 	CanceledSessionIndex(#[source] oneshot::Canceled),
 
+	#[error("failed to get node features")]
+	CanceledNodeFeatures(#[source] oneshot::Canceled),
+
 	#[error("failed to get backed candidates")]
 	CanceledBackedCandidates(#[source] oneshot::Canceled),
 

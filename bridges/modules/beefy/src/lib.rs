@@ -283,7 +283,6 @@ pub mod pallet {
 	/// The `RequestCount` is decreased by one at the beginning of every block. This is to ensure
 	/// that the pallet can always make progress.
 	#[pallet::storage]
-	#[pallet::getter(fn request_count)]
 	pub type RequestCount<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
 	/// High level info about the imported commitments.
@@ -392,7 +391,7 @@ pub mod pallet {
 		init_data: InitializationDataOf<T, I>,
 	) -> Result<(), Error<T, I>> {
 		if init_data.authority_set.len == 0 {
-			return Err(Error::<T, I>::InvalidInitialAuthoritySet)
+			return Err(Error::<T, I>::InvalidInitialAuthoritySet);
 		}
 		CurrentAuthoritySetInfo::<T, I>::put(init_data.authority_set);
 
@@ -403,6 +402,13 @@ pub mod pallet {
 		});
 
 		Ok(())
+	}
+
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// The current number of requests which have written to storage.
+		pub fn request_count() -> u32 {
+			RequestCount::<T, I>::get()
+		}
 	}
 }
 

@@ -136,12 +136,11 @@ pub mod pallet {
 
 	/// The overall status of the system.
 	#[pallet::storage]
-	pub(super) type Status<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, StatusOf<T, I>, OptionQuery>;
+	pub type Status<T: Config<I>, I: 'static = ()> = StorageValue<_, StatusOf<T, I>, OptionQuery>;
 
 	/// The status of a claimant.
 	#[pallet::storage]
-	pub(super) type Claimant<T: Config<I>, I: 'static = ()> =
+	pub type Claimant<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, ClaimantStatusOf<T, I>, OptionQuery>;
 
 	#[pallet::event]

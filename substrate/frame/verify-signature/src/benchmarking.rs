@@ -31,6 +31,15 @@ pub trait BenchmarkHelper<Signature, Signer> {
 	fn create_signature(entropy: &[u8], msg: &[u8]) -> (Signature, Signer);
 }
 
+impl BenchmarkHelper<MultiSignature, AccountId32> for () {
+	fn create_signature(_entropy: &[u8], msg: &[u8]) -> (MultiSignature, AccountId32) {
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountId32 = MultiSigner::Sr25519(public).into_account().into();
+		let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &public, msg).unwrap());
+		(signature, who_account)
+	}
+}
+
 #[benchmarks(where
 	T: Config + Send + Sync,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
