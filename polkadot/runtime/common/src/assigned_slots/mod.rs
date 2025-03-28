@@ -31,7 +31,7 @@ use crate::{
 	traits::{LeaseError, Leaser, Registrar},
 };
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
@@ -46,7 +46,9 @@ use sp_runtime::traits::{One, Saturating, Zero};
 const LOG_TARGET: &str = "runtime::assigned_slots";
 
 /// Lease period an assigned slot should start from (current, or next one).
-#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo,
+)]
 pub enum SlotLeasePeriodStart {
 	Current,
 	Next,
@@ -773,6 +775,7 @@ mod tests {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
+			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

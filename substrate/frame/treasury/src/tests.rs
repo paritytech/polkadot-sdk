@@ -221,6 +221,7 @@ impl ExtBuilder {
 		pallet_balances::GenesisConfig::<Test> {
 			// Total issuance will be 200 with treasury account initialized at ED.
 			balances: vec![(0, 100), (1, 98), (2, 1)],
+			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -406,9 +407,12 @@ fn treasury_account_doesnt_get_deleted() {
 #[test]
 fn inexistent_account_works() {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> { balances: vec![(0, 100), (1, 99), (2, 1)] }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![(0, 100), (1, 99), (2, 1)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 	// Treasury genesis config is not build thus treasury account does not exist
 	let mut t: sp_io::TestExternalities = t.into();
 
@@ -445,6 +449,7 @@ fn genesis_funding_works() {
 	pallet_balances::GenesisConfig::<Test> {
 		// Total issuance will be 200 with treasury account initialized with 100.
 		balances: vec![(0, 100), (Treasury::account_id(), initial_funding)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -661,6 +666,35 @@ fn spend_payout_works() {
 		System::assert_last_event(Event::<Test, _>::SpendProcessed { index: 0 }.into());
 		// cannot payout the same spend twice.
 		assert_noop!(Treasury::payout(RuntimeOrigin::signed(1), 0), Error::<Test, _>::InvalidIndex);
+	});
+}
+
+#[test]
+fn payout_extends_expiry() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_eq!(<Test as Config>::PayoutPeriod::get(), 5);
+
+		System::set_block_number(1);
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		// Fail a payout at block 4
+		System::set_block_number(4);
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		assert_eq!(paid(6, 1), 2);
+		let payment_id = get_payment_id(0).expect("no payment attempt");
+		// spend payment is failed
+		set_status(payment_id, PaymentStatus::Failure);
+		unpay(6, 1, 2);
+
+		// check status to set the correct state
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
+		System::assert_last_event(Event::<Test, _>::PaymentFailed { index: 0, payment_id }.into());
+
+		// Retrying at after the initial expiry date but before the new one succeeds
+		System::set_block_number(7);
+
+		// the payout can be retried now
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		assert_eq!(paid(6, 1), 2);
 	});
 }
 

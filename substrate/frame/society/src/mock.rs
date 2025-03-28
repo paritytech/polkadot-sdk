@@ -83,6 +83,7 @@ impl Config for Test {
 	type MaxPayouts = MaxPayouts;
 	type MaxBids = MaxBids;
 	type WeightInfo = ();
+	type BlockNumberProvider = System;
 }
 
 pub struct EnvBuilder {
@@ -115,7 +116,7 @@ impl EnvBuilder {
 	pub fn execute<R, F: FnOnce() -> R>(mut self, f: F) -> R {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		self.balances.push((Society::account_id(), self.balance.max(self.pot)));
-		pallet_balances::GenesisConfig::<Test> { balances: self.balances }
+		pallet_balances::GenesisConfig::<Test> { balances: self.balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 		pallet_society::GenesisConfig::<Test> { pot: self.pot }

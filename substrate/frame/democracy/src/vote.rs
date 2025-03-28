@@ -18,7 +18,7 @@
 //! The vote datatype.
 
 use crate::{Conviction, Delegations, ReferendumIndex};
-use codec::{Decode, Encode, EncodeLike, Input, MaxEncodedLen, Output};
+use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen, Output};
 use frame_support::traits::Get;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -27,7 +27,7 @@ use sp_runtime::{
 };
 
 /// A number of lock periods, plus a vote, one way or the other.
-#[derive(Copy, Clone, Eq, PartialEq, Default, RuntimeDebug)]
+#[derive(DecodeWithMemTracking, Copy, Clone, Eq, PartialEq, Default, RuntimeDebug)]
 pub struct Vote {
 	pub aye: bool,
 	pub conviction: Conviction,
@@ -72,7 +72,18 @@ impl TypeInfo for Vote {
 }
 
 /// A vote for a referendum of a particular account.
-#[derive(Encode, MaxEncodedLen, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	Decode,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub enum AccountVote<Balance> {
 	/// A standard vote, one-way (approve or reject) with a given amount of conviction.
 	Standard { vote: Vote, balance: Balance },

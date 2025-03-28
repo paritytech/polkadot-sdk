@@ -20,17 +20,31 @@ use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, PenpalASiblingSovereignAccount,
-	PenpalATeleportableAssetLocation, PenpalBSiblingSovereignAccount,
-	PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
+	accounts, build_genesis_storage, collators, xcm_emulator::ConvertLocation,
+	PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
+	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID,
+	SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
+use xcm::{latest::prelude::*, opaque::latest::ROCOCO_GENESIS_HASH};
+use xcm_builder::ExternalConsensusLocationsConverterFor;
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 parameter_types! {
 	pub AssetHubRococoAssetOwner: AccountId = Keyring::Alice.to_account_id();
+	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
+	pub AssetHubRococoUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(PARA_ID)].into();
+	pub EthereumSovereignAccount: AccountId = ExternalConsensusLocationsConverterFor::<
+			AssetHubRococoUniversalLocation,
+			AccountId,
+		>::convert_location(&Location::new(
+			2,
+			[Junction::GlobalConsensus(EthereumNetwork::get())],
+		))
+		.unwrap();
 }
 
 pub fn genesis() -> Storage {
@@ -42,6 +56,7 @@ pub fn genesis() -> Storage {
 				.cloned()
 				.map(|k| (k, ED * 4096 * 4096))
 				.collect(),
+			..Default::default()
 		},
 		parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
@@ -90,6 +105,13 @@ pub fn genesis() -> Storage {
 					PenpalBTeleportableAssetLocation::get(),
 					PenpalBSiblingSovereignAccount::get(),
 					false,
+					ED,
+				),
+				// Ether
+				(
+					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
+					EthereumSovereignAccount::get(),
+					true,
 					ED,
 				),
 			],

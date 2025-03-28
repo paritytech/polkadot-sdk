@@ -18,7 +18,7 @@
 mod mmr;
 pub mod storage;
 
-pub use self::mmr::{verify_ancestry_proof, verify_leaves_proof, Mmr};
+pub use self::mmr::{is_ancestry_proof_optimal, verify_ancestry_proof, verify_leaves_proof, Mmr};
 use crate::primitives::{mmr_lib, DataOrHash, FullLeaf};
 use frame::traits;
 
