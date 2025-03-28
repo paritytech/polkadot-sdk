@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
+use crate::*;
 use core::marker::PhantomData;
 use frame_support::{
 	storage_alias,
@@ -89,8 +89,10 @@ pub mod v1 {
 
 				let old_child_bounty_account =
 					Self::old_child_bounty_account_id(old_child_bounty_id);
-				let new_child_bounty_account =
-					Pallet::<T>::child_bounty_account_id(parent_bounty_id, new_child_bounty_id);
+				let new_child_bounty_account = Pallet::<T>::native_child_bounty_account_id(
+					parent_bounty_id,
+					new_child_bounty_id,
+				);
 				let old_balance = T::Currency::free_balance(&old_child_bounty_account);
 				log::info!(
 					"Transferring {:?} funds from old child bounty account {:?} to new child bounty account {:?}",
@@ -134,7 +136,7 @@ pub mod v1 {
 					);
 				}
 				if let Some(bounty_description) = bounty_description {
-					super::super::ChildBountyDescriptionsV1::<T>::insert(
+					crate::ChildBountyDescriptionsV1::<T>::insert(
 						parent_bounty_id,
 						new_child_bounty_id,
 						bounty_description,
