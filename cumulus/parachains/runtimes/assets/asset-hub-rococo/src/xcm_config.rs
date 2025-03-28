@@ -16,9 +16,9 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
-	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee,
-	XcmpQueue,
+	ParachainSystem, PolkadotXcm, PoolAssets, RandomParaLocation, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin, ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance,
+	Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -324,7 +324,7 @@ pub type WaivedLocations = (
 /// - ROC with the parent Relay Chain and sibling system parachains; and
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
-	ConcreteAssetFromSystem<TokenLocation>,
+	ConcreteAssetFromSystem<RandomParaLocation>,
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
 );
 
