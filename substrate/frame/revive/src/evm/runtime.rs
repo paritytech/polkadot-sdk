@@ -27,7 +27,9 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::{ExtrinsicCall, InherentBuilder, SignedTransactionBuilder},
+	traits::{
+		BaseExtrinsicCall, ExtrinsicCall, InherentBuilder, IsSubType, SignedTransactionBuilder,
+	},
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::{StaticTypeInfo, TypeInfo};
@@ -35,8 +37,8 @@ use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, Member,
-		TransactionExtension,
+		Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic,
+		LazyExtrinsicCall, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic, RuntimeDebug,
@@ -88,9 +90,7 @@ impl<Address, Signature, E: EthExtra>
 	}
 }
 
-impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicLike
-	for UncheckedExtrinsic<Address, Signature, E>
-{
+impl<Address, Signature, E: EthExtra> ExtrinsicLike for UncheckedExtrinsic<Address, Signature, E> {
 	fn is_bare(&self) -> bool {
 		ExtrinsicLike::is_bare(&self.0)
 	}
@@ -108,17 +108,20 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 	type TransactionExtensions = E::Extension;
 }
 
-impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
+impl<Address, Signature, E: EthExtra> BaseExtrinsicCall
 	for UncheckedExtrinsic<Address, Signature, E>
 {
 	type Call = CallOf<E::Config>;
+}
 
-	fn call(&self) -> &Self::Call {
-		self.0.call()
+impl<Address, Signature, E: EthExtra> LazyExtrinsicCall
+	for UncheckedExtrinsic<Address, Signature, E>
+{
+	fn try_get_or_decode_call(&mut self) -> Result<&Self::Call, codec::Error> {
+		self.0.call.try_get_or_decode()
 	}
 }
 
-use sp_runtime::traits::MaybeDisplay;
 type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 impl<LookupSource, Signature, E, Lookup> Checkable<Lookup>
@@ -131,27 +134,29 @@ where
 	OnChargeTransactionBalanceOf<E::Config>: Into<BalanceOf<E::Config>>,
 	BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
 	MomentOf<E::Config>: Into<U256>,
-	CallOf<E::Config>: From<crate::Call<E::Config>> + TryInto<crate::Call<E::Config>>,
+	CallOf<E::Config>: From<crate::Call<E::Config>> + IsSubType<crate::Call<E::Config>>,
 	<E::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 
 	// required by Checkable for `generic::UncheckedExtrinsic`
-	LookupSource: Member + MaybeDisplay,
-	CallOf<E::Config>: Encode + Member + Dispatchable,
-	Signature: Member + traits::Verify,
-	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountIdOf<E::Config>>,
-	E::Extension: Encode + TransactionExtension<CallOf<E::Config>>,
-	Lookup: traits::Lookup<Source = LookupSource, Target = AccountIdOf<E::Config>>,
+	generic::UncheckedExtrinsic<LookupSource, CallOf<E::Config>, Signature, E::Extension>:
+		Checkable<
+			Lookup,
+			Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>,
+		>,
 {
 	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>;
 
-	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
+	fn check(mut self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
-			if let Ok(call) = self.0.function.clone().try_into() {
-				if let crate::Call::eth_transact { payload } = call {
-					let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
-					return Ok(checked)
-				};
-			}
+			let call = self
+				.0
+				.call
+				.try_get_or_decode()
+				.map_err(|_| InvalidTransaction::UnableToDecodeCall)?;
+			if let Some(crate::Call::eth_transact { payload }) = call.is_sub_type() {
+				let checked = E::try_into_checked_extrinsic(payload.to_vec(), self.encoded_size())?;
+				return Ok(checked)
+			};
 		}
 		self.0.check(lookup)
 	}
@@ -162,15 +167,6 @@ where
 		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
 		self.0.unchecked_into_checked_i_know_what_i_am_doing(lookup)
-	}
-}
-
-impl<Address, Signature, E: EthExtra> GetDispatchInfo for UncheckedExtrinsic<Address, Signature, E>
-where
-	CallOf<E::Config>: GetDispatchInfo + Dispatchable,
-{
-	fn get_dispatch_info(&self) -> DispatchInfo {
-		self.0.get_dispatch_info()
 	}
 }
 
@@ -245,6 +241,57 @@ where
 			"both OpaqueExtrinsic and UncheckedExtrinsic have encoding that is compatible with \
 				raw Vec<u8> encoding; qed",
 		)
+	}
+}
+
+impl<'a, Address, Signature, E: EthExtra> LazyExtrinsic<'a>
+	for UncheckedExtrinsic<Address, Signature, E>
+where
+	Self: 'a,
+{
+	type ExtrinsicRef = UncheckedExtrinsicRef<'a, Address, Signature, E>;
+
+	fn try_as_ref(&'a mut self) -> Result<Self::ExtrinsicRef, codec::Error> {
+		Ok(UncheckedExtrinsicRef(self.0.try_as_ref()?))
+	}
+}
+
+/// Wraps [`generic::UncheckedExtrinsicRef`] to support checking unsigned
+/// [`crate::Call::eth_transact`] extrinsic.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct UncheckedExtrinsicRef<'a, Address, Signature, E: EthExtra>(
+	pub generic::UncheckedExtrinsicRef<'a, Address, CallOf<E::Config>, Signature, E::Extension>,
+);
+
+impl<'a, Address, Signature, E: EthExtra> ExtrinsicLike
+	for UncheckedExtrinsicRef<'a, Address, Signature, E>
+{
+	fn is_bare(&self) -> bool {
+		ExtrinsicLike::is_bare(&self.0)
+	}
+}
+
+impl<'a, Address, Signature, E: EthExtra> BaseExtrinsicCall
+	for UncheckedExtrinsicRef<'a, Address, Signature, E>
+{
+	type Call = CallOf<E::Config>;
+}
+
+impl<'a, Address, Signature, E: EthExtra> ExtrinsicCall
+	for UncheckedExtrinsicRef<'a, Address, Signature, E>
+{
+	fn call(&self) -> &Self::Call {
+		self.0.call
+	}
+}
+
+impl<'a, Address, Signature, E: EthExtra> GetDispatchInfo
+	for UncheckedExtrinsicRef<'a, Address, Signature, E>
+where
+	CallOf<E::Config>: GetDispatchInfo + Dispatchable,
+{
+	fn get_dispatch_info(&self) -> DispatchInfo {
+		self.0.get_dispatch_info()
 	}
 }
 
@@ -417,7 +464,7 @@ mod test {
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
 	use sp_runtime::{
-		traits::{Checkable, DispatchTransaction},
+		traits::{self, Checkable, DispatchTransaction},
 		MultiAddress, MultiSignature,
 	};
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;

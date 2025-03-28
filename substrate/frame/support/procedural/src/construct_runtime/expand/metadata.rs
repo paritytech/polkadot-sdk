@@ -98,7 +98,7 @@ pub fn expand_runtime_metadata(
 						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Address
 					>();
 				let call_ty = #scrate::__private::scale_info::meta_type::<
-						<#extrinsic as #scrate::traits::ExtrinsicCall>::Call
+						<#extrinsic as #scrate::traits::BaseExtrinsicCall>::Call
 					>();
 				let signature_ty = #scrate::__private::scale_info::meta_type::<
 						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Signature
