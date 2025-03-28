@@ -148,6 +148,18 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 708_000 picoseconds.
 		Weight::from_parts(742_000, 0)
 	}
+<<<<<<< HEAD
+=======
+	// Storage: `Benchmark::Override` (r:0 w:0)
+	// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	pub fn execute_with_origin() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 18_446_744_073_709_551_000 picoseconds.
+		Weight::from_parts(18_446_744_073_709_551_000, 0)
+	}
+>>>>>>> 972e9573 (Add expensive scenario for asset exchange (#7952))
 	pub fn clear_origin() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -389,6 +401,14 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
+		// Minimum execution time: 638_000 picoseconds.
+		Weight::from_parts(708_000, 0)
+	}
+	pub fn execute_with_origin() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 713_000 picoseconds.
 		// Minimum execution time: 676_000 picoseconds.
 		Weight::from_parts(738_000, 0)
 	}
