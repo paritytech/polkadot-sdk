@@ -1,0 +1,16 @@
+title: Assume elastic scaling MVP feature is always enabled in the runtime
+doc:
+- audience: Runtime Dev
+  description: |-
+    Remove the relay chain runtime logic that handled the potential of the ElasticScalingMVP node feature being disabled.
+    All networks have enabled it and removing this code simplifies the codebase.
+
+crates:
+- name: polkadot-node-core-backing
+  bump: patch
+- name: polkadot-node-core-provisioner
+  bump: none
+- name: polkadot-primitives
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: minor

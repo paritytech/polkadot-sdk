@@ -905,7 +905,7 @@ fn backing_works() {
 		assert_eq!(candidates[0].validity_votes().len(), 3);
 
 		let (validator_indices, maybe_core_index) =
-			candidates[0].validator_indices_and_core_index(true);
+			candidates[0].validator_indices_and_core_index();
 
 		assert_eq!(maybe_core_index.unwrap(), CoreIndex(0));
 
@@ -1553,7 +1553,7 @@ fn backing_works_while_validation_ongoing() {
 			.validity_votes()
 			.contains(&ValidityAttestation::Explicit(signed_c.signature().clone())));
 		assert_eq!(
-			candidates[0].validator_indices_and_core_index(true),
+			candidates[0].validator_indices_and_core_index(),
 			(
 				bitvec::bitvec![u8, bitvec::order::Lsb0; 1, 0, 1, 1].as_bitslice(),
 				Some(CoreIndex(0))
@@ -2224,7 +2224,7 @@ fn candidate_backing_reorders_votes() {
 		vec![fake_attestation(1).into(), fake_attestation(3).into(), fake_attestation(5).into()];
 
 	assert_eq!(
-		backed.validator_indices_and_core_index(true),
+		backed.validator_indices_and_core_index(),
 		(expected_bitvec.as_bitslice(), Some(CoreIndex(10)))
 	);
 	assert_eq!(backed.validity_votes(), expected_attestations);

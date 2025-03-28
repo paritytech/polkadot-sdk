@@ -650,7 +650,7 @@ fn table_attested_to_backed(
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
 		validator_indices,
-		Some(core_index),
+		core_index,
 	))
 }
 
