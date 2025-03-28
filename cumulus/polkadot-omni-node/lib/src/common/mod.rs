@@ -38,6 +38,7 @@ use sp_runtime::{
 	OpaqueExtrinsic,
 };
 use sp_session::SessionKeys;
+use sp_statement_store::runtime_api::ValidateStatement;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
@@ -70,6 +71,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ OffchainWorkerApi<Block>
 	+ CollectCollationInfo<Block>
 	+ GetCoreSelectorApi<Block>
+	+ ValidateStatement<Block>
 	+ Sized
 {
 }
@@ -83,6 +85,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ OffchainWorkerApi<Block>
 		+ GetCoreSelectorApi<Block>
 		+ CollectCollationInfo<Block>
+		+ ValidateStatement<Block>
 {
 }
 

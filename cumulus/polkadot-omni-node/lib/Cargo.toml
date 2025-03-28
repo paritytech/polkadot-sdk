@@ -142,6 +142,9 @@ substrate-frame-rpc-system.workspace = true
 substrate-state-trie-migration-rpc.default-features = true
 substrate-state-trie-migration-rpc.workspace = true
 subxt-metadata = { workspace = true, default-features = true }
+sc-network-statement = { workspace = true, default-features = true }
+sc-statement-store = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

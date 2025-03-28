@@ -67,6 +67,7 @@ sp-session.workspace = true
 sp-storage.workspace = true
 sp-transaction-pool.workspace = true
 sp-version.workspace = true
+sp-statement-store = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 westend-runtime-constants.workspace = true
 xcm-builder.workspace = true
@@ -132,6 +133,7 @@ std = [
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
+	"sp-statement-store/std",
 	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",

@@ -35,17 +35,20 @@ use parachains_common::Hash;
 use polkadot_cli::service::IdentifyNetworkBackend;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
-use sc_client_api::Backend;
+use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
+use sc_statement_store::Store;
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
+use sp_statement_store::runtime_api::ValidateStatement;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 pub(crate) trait BuildImportQueue<
@@ -239,6 +242,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,
 		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+		Store,
 	>;
 
 	type StartConsensus: StartConsensus<
@@ -288,10 +292,43 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let prometheus_registry = parachain_config.prometheus_registry().cloned();
 			let transaction_pool = params.transaction_pool.clone();
 			let import_queue_service = params.import_queue.service();
-			let net_config = FullNetworkConfiguration::<_, _, Net>::new(
+			let mut net_config = FullNetworkConfiguration::<_, _, Net>::new(
 				&parachain_config.network,
 				prometheus_registry.clone(),
 			);
+
+			let best_hash = client.chain_info().best_hash;
+			let has_validate_statement_api_at_best_hash = client
+				.runtime_api()
+				.has_api::<dyn ValidateStatement<Self::Block>>(best_hash)
+				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+
+			let metrics = Net::register_notification_metrics(
+				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+			);
+
+			let statement_store_vars = if has_validate_statement_api_at_best_hash {
+				let statement_store = sc_statement_store::Store::new_shared(
+					&parachain_config.data_path,
+					Default::default(),
+					client.clone(),
+					params.keystore_container.local_keystore(),
+					parachain_config.prometheus_registry(),
+					&task_manager.spawn_handle(),
+				)
+				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+				let (statement_handler_proto, statement_config) =
+					sc_network_statement::StatementHandlerPrototype::new::<_, _, Net>(
+						client.chain_info().genesis_hash,
+						parachain_config.chain_spec.fork_id(),
+						metrics.clone(),
+						Arc::clone(&net_config.peer_store_handle()),
+					);
+				net_config.add_notification_protocol(statement_config);
+				Some((statement_store, statement_handler_proto))
+			} else {
+				None
+			};
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 				build_network(BuildNetworkParams {
@@ -304,10 +341,91 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
 					sybil_resistance_level: Self::SYBIL_RESISTANCE,
+					metrics,
 				})
 				.await?;
 
+			let statement_store = if let Some((statement_store, statement_handler_proto)) =
+				statement_store_vars
+			{
+				// Spawn statement protocol worker
+				let statement_protocol_executor = {
+					let spawn_handle = task_manager.spawn_handle();
+					Box::new(move |fut| {
+						spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
+					})
+				};
+				let statement_handler = statement_handler_proto.build(
+					network.clone(),
+					sync_service.clone(),
+					statement_store.clone(),
+					prometheus_registry.as_ref(),
+					statement_protocol_executor,
+				)?;
+				task_manager.spawn_handle().spawn(
+					"network-statement-handler",
+					Some("networking"),
+					statement_handler.run(),
+				);
+
+				Some(statement_store)
+			} else {
+				None
+			};
+
 			if parachain_config.offchain_worker.enabled {
+				let custom_extensions = {
+					let statement_store = statement_store.clone();
+					let client = client.clone();
+					move |hash| {
+						if let Some(statement_store) = &statement_store {
+							vec![Box::new(statement_store.clone().as_statement_store_ext())
+								as Box<_>]
+						} else {
+							// Every N blocks, check if the runtime supports the
+							// `ValidateStatement` API and warn node operators if statement store is
+							// not enabled.
+							match client.number(hash) {
+								Ok(Some(bn)) =>
+									if bn % 600u32.into() == 0u32.into() {
+										match client
+											.runtime_api()
+											.has_api::<dyn ValidateStatement<Self::Block>>(hash)
+										{
+											Ok(true) => log::warn!(
+												"The runtime at the block hash used by the offchain \
+												worker provides `ValidateStatement` API, but the \
+												statement store is not enabled in the node. To \
+												enable the statement store, restart the node, the \
+												statement store will be automatically enabled when \
+												the tip of the chain provides the \
+												`ValidateStatement` runtime API."
+											),
+											Ok(false) => (),
+											Err(e) => log::warn!(
+												"Failed to check if the runtime supports when \
+												`ValidateStatement` API, when fetching the custom \
+												extensions for the offchain worker, error: {}",
+												e
+											),
+										}
+									},
+								Ok(None) => log::warn!(
+									"Failed to get the block number for the block hash used by the \
+									offchain worker, header is not in the chain."
+								),
+								Err(e) => log::warn!(
+									"Failed to get the block number for the block hash used by the \
+									offchain worker, error: {}",
+									e
+								),
+							}
+
+							vec![]
+						}
+					}
+				};
+
 				let offchain_workers =
 					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 						runtime_api_provider: client.clone(),
@@ -319,7 +437,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						network_provider: Arc::new(network.clone()),
 						is_validator: parachain_config.role.is_authority(),
 						enable_http_requests: false,
-						custom_extensions: move |_| vec![],
+						custom_extensions,
 					})?;
 				task_manager.spawn_handle().spawn(
 					"offchain-workers-runner",
@@ -332,12 +450,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let client = client.clone();
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
+				let statement_store = statement_store.clone();
 
 				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
+						statement_store.clone(),
 					)
 				})
 			};
