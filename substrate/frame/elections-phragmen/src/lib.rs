@@ -101,7 +101,7 @@
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cmp::Ordering;
 use frame_support::{
 	traits::{
@@ -139,7 +139,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::NegativeImbalance;
 
 /// An indication that the renouncing account currently has which of the below roles.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum Renouncing {
 	/// A member is renouncing.
 	Member,
@@ -1476,6 +1476,7 @@ mod tests {
 						(5, 50 * self.balance_factor),
 						(6, 60 * self.balance_factor),
 					],
+					..Default::default()
 				},
 				elections: elections_phragmen::GenesisConfig::<Test> {
 					members: self.genesis_members,

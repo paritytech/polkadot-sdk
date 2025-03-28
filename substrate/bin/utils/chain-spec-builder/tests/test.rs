@@ -234,6 +234,29 @@ fn test_add_code_substitute() {
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/add_code_substitute.json");
 }
 
+#[test]
+fn test_create_with_properties() {
+	const SUFFIX: &str = "11";
+	let mut builder = get_builder(
+		SUFFIX,
+		vec![
+			"create",
+			"-r",
+			DUMMY_PATH,
+			"--properties",
+			"tokenSymbol=TEST,tokenDecimals=6",
+			"--properties",
+			"isEthereum=false",
+			"--properties",
+			"ss58Prefix=42",
+			"default",
+		],
+	);
+	builder.set_create_cmd_runtime_code(substrate_test_runtime::WASM_BINARY.unwrap().into());
+	builder.run().unwrap();
+	assert_output_eq_expected(true, SUFFIX, "tests/expected/create_with_properties.json");
+}
+
 #[docify::export_content]
 fn cmd_create_default(runtime_path: &str) -> String {
 	bash!(

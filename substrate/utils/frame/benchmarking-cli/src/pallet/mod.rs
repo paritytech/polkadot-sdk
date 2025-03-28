@@ -50,7 +50,7 @@ pub struct PalletCmd {
 	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub pallet: Option<String>,
 
-	/// Select an extrinsic inside the pallet to benchmark, or `*` for all.
+	/// Select an extrinsic inside the pallet to benchmark, or `*` or 'all' for all.
 	#[arg(short, long, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub extrinsic: Option<String>,
 

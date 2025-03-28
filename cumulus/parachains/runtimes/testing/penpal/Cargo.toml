@@ -38,6 +38,7 @@ pallet-assets = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-revive = { workspace = true }
 pallet-session = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -79,9 +80,13 @@ pallet-collator-selection = { workspace = true }
 pallet-message-queue = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
-snowbridge-router-primitives = { workspace = true }
+snowbridge-inbound-queue-primitives = { workspace = true }
 
-primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "num-traits", "scale-info"] }
+primitive-types = { version = "0.12.1", default-features = false, features = [
+	"codec",
+	"num-traits",
+	"scale-info",
+] }
 
 [features]
 default = ["std"]
@@ -111,6 +116,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
+	"pallet-revive/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
@@ -124,7 +130,7 @@ std = [
 	"polkadot-runtime-common/std",
 	"primitive-types/std",
 	"scale-info/std",
-	"snowbridge-router-primitives/std",
+	"snowbridge-inbound-queue-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -162,6 +168,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
@@ -170,7 +177,7 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
-	"snowbridge-router-primitives/runtime-benchmarks",
+	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -195,6 +202,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-revive/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",

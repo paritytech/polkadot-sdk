@@ -19,6 +19,8 @@ sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
 
 [features]
 default = ["std"]
@@ -32,6 +34,8 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
 	"xcm/std",
 ]
 
@@ -41,5 +45,7 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]

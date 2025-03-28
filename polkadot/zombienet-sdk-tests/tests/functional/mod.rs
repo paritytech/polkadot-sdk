@@ -2,4 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod async_backing_6_seconds_rate;
+mod duplicate_collations;
+mod spam_statement_distribution_requests;
 mod sync_backing;

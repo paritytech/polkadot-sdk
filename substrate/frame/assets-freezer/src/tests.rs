@@ -1,19 +1,25 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 //! Tests for pallet-assets-freezer.
 
@@ -70,9 +76,19 @@ mod impl_frozen_balance {
 	}
 
 	#[test]
+	#[should_panic = "The list of Freezes should be empty before allowing an account to die"]
+	fn died_fails_if_freezes_exist() {
+		new_test_ext(|| {
+			test_set_freeze(DummyFreezeReason::Governance, 1);
+			AssetsFreezer::died(ASSET_ID, &WHO);
+		});
+	}
+
+	#[test]
 	fn died_works() {
 		new_test_ext(|| {
 			test_set_freeze(DummyFreezeReason::Governance, 1);
+			test_thaw(DummyFreezeReason::Governance);
 			AssetsFreezer::died(ASSET_ID, &WHO);
 			assert!(FrozenBalances::<Test>::get(ASSET_ID, WHO).is_none());
 			assert!(Freezes::<Test>::get(ASSET_ID, WHO).is_empty());
@@ -162,7 +178,7 @@ mod impl_mutate_freeze {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				89
+				90
 			);
 			System::assert_last_event(
 				Event::<Test>::Frozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
@@ -180,7 +196,7 @@ mod impl_mutate_freeze {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				91
+				92
 			);
 			System::assert_last_event(
 				Event::<Test>::Thawed { asset_id: ASSET_ID, who: WHO, amount: 2 }.into(),
@@ -213,7 +229,7 @@ mod impl_mutate_freeze {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				89
+				90
 			);
 			assert_ok!(AssetsFreezer::extend_freeze(
 				ASSET_ID,
@@ -231,7 +247,7 @@ mod impl_mutate_freeze {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				88
+				89
 			);
 		});
 	}
@@ -255,7 +271,7 @@ mod impl_mutate_freeze {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				89
+				90
 			);
 			assert_ok!(AssetsFreezer::thaw(ASSET_ID, &DummyFreezeReason::Governance, &WHO));
 			System::assert_has_event(
@@ -287,10 +303,10 @@ mod with_pallet_assets {
 				20
 			));
 			assert_noop!(
-				Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 80),
+				Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 81),
 				pallet_assets::Error::<Test>::BalanceLow,
 			);
-			assert_ok!(Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 79));
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 80));
 		});
 	}
 }

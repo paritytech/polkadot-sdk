@@ -19,10 +19,11 @@ use crate::{ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
 use super::{
-	async_backing::Constraints, BlakeTwo256, BlockNumber, CandidateCommitments,
-	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CoreIndex, GroupIndex, Hash,
-	HashT, HeadData, Header, Id, Id as ParaId, MultiDisputeStatementSet, ScheduledCore,
-	UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
+	async_backing::{InboundHrmpLimitations, OutboundHrmpChannelLimitations},
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
+	CollatorSignature, CoreIndex, GroupIndex, Hash, HashT, HeadData, Header, Id, Id as ParaId,
+	MultiDisputeStatementSet, ScheduledCore, UncheckedSignedAvailabilityBitfields,
+	UpgradeRestriction, ValidationCodeHash,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet, VecDeque},
@@ -30,7 +31,7 @@ use alloc::{
 	vec::Vec,
 };
 use bitvec::prelude::*;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::ByteArray;
 use sp_core::RuntimeDebug;
@@ -44,7 +45,9 @@ pub mod async_backing;
 pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
 
 /// A type representing the version of the candidate descriptor and internal version number.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, TypeInfo, RuntimeDebug, Copy)]
+#[derive(
+	PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, RuntimeDebug, Copy,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct InternalVersion(pub u8);
 
@@ -61,7 +64,7 @@ pub enum CandidateDescriptorVersion {
 }
 
 /// A unique descriptor of the candidate receipt.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CandidateDescriptorV2<H = Hash> {
 	/// The ID of the para this is a candidate for.
@@ -264,7 +267,7 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 }
 
 /// A candidate-receipt at version 2.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CandidateReceiptV2<H = Hash> {
 	/// The descriptor of the candidate.
@@ -274,7 +277,7 @@ pub struct CandidateReceiptV2<H = Hash> {
 }
 
 /// A candidate-receipt with commitments directly included.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CommittedCandidateReceiptV2<H = Hash> {
 	/// The descriptor of the candidate.
@@ -675,7 +678,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 }
 
 /// A backed (or backable, depending on context) candidate.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct BackedCandidate<H = Hash> {
 	/// The candidate referred to.
 	candidate: CommittedCandidateReceiptV2<H>,
@@ -688,7 +691,7 @@ pub struct BackedCandidate<H = Hash> {
 }
 
 /// Parachains inherent-data passed into the runtime by a block author
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct InherentData<HDR: HeaderT = Header> {
 	/// Signed bitfields by validators about availability.
 	pub bitfields: UncheckedSignedAvailabilityBitfields,

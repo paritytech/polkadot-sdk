@@ -35,6 +35,12 @@ const EMPTY_RANDOMNESS: [u8; RANDOMNESS_LENGTH] = [
 	161, 164, 127, 217, 153, 138, 37, 48, 192, 248, 0,
 ];
 
+impl crate::migrations::BabePalletPrefix for Test {
+	fn pallet_prefix() -> &'static str {
+		"Babe"
+	}
+}
+
 #[test]
 fn empty_randomness_is_correct() {
 	let s = compute_randomness([0; RANDOMNESS_LENGTH], 0, std::iter::empty(), None);
@@ -942,12 +948,6 @@ fn valid_equivocation_reports_dont_pay_fees() {
 #[test]
 fn add_epoch_configurations_migration_works() {
 	use frame_support::storage::migration::{get_storage_value, put_storage_value};
-
-	impl crate::migrations::BabePalletPrefix for Test {
-		fn pallet_prefix() -> &'static str {
-			"Babe"
-		}
-	}
 
 	new_test_ext(1).execute_with(|| {
 		let next_config_descriptor =

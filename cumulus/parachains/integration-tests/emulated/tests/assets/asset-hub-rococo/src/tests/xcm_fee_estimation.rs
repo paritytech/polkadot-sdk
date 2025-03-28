@@ -19,7 +19,7 @@ use crate::imports::*;
 use emulated_integration_tests_common::test_can_estimate_and_pay_exact_fees;
 use frame_support::dispatch::RawOrigin;
 use xcm_runtime_apis::{
-	dry_run::runtime_decl_for_dry_run_api::DryRunApiV1,
+	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
 	fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1,
 };
 
@@ -146,7 +146,7 @@ fn multi_hop_works() {
 
 		let call = transfer_assets_para_to_para_through_ah_call(test.clone());
 		let origin = OriginCaller::system(RawOrigin::Signed(sender.clone()));
-		let result = Runtime::dry_run_call(origin, call).unwrap();
+		let result = Runtime::dry_run_call(origin, call, xcm::prelude::XCM_VERSION).unwrap();
 		// We filter the result to get only the messages we are interested in.
 		let (destination_to_query, messages_to_query) = &result
 			.forwarded_xcms

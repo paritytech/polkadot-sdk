@@ -271,7 +271,9 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::pallet_prelude::*;
+use frame_system::pallet_prelude::{
+	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
+};
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaChaRng,
@@ -289,6 +291,10 @@ use sp_runtime::{
 pub use weights::WeightInfo;
 
 pub use pallet::*;
+use sp_runtime::traits::BlockNumberProvider;
+
+pub type BlockNumberFor<T, I> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -423,7 +429,7 @@ impl<AccountId: PartialEq, Balance> BidKind<AccountId, Balance> {
 }
 
 pub type PayoutsFor<T, I> =
-	BoundedVec<(BlockNumberFor<T>, BalanceOf<T, I>), <T as Config<I>>::MaxPayouts>;
+	BoundedVec<(BlockNumberFor<T, I>, BalanceOf<T, I>), <T as Config<I>>::MaxPayouts>;
 
 /// Information concerning a member.
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -443,7 +449,7 @@ pub struct PayoutRecord<Balance, PayoutsVec> {
 
 pub type PayoutRecordFor<T, I> = PayoutRecord<
 	BalanceOf<T, I>,
-	BoundedVec<(BlockNumberFor<T>, BalanceOf<T, I>), <T as Config<I>>::MaxPayouts>,
+	BoundedVec<(BlockNumberFor<T, I>, BalanceOf<T, I>), <T as Config<I>>::MaxPayouts>,
 >;
 
 /// Record for an individual new member who was elevated from a candidate recently.
@@ -457,7 +463,18 @@ pub struct IntakeRecord<AccountId, Balance> {
 pub type IntakeRecordFor<T, I> =
 	IntakeRecord<<T as frame_system::Config>::AccountId, BalanceOf<T, I>>;
 
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct GroupParams<Balance> {
 	max_members: u32,
 	max_intake: u32,
@@ -491,7 +508,7 @@ pub mod pallet {
 		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// Something that provides randomness in the runtime.
-		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
+		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self, I>>;
 
 		/// The maximum number of strikes before a member gets funds slashed.
 		#[pallet::constant]
@@ -504,23 +521,23 @@ pub mod pallet {
 		/// The number of blocks on which new candidates should be voted on. Together with
 		/// `ClaimPeriod`, this sums to the number of blocks between candidate intake periods.
 		#[pallet::constant]
-		type VotingPeriod: Get<BlockNumberFor<Self>>;
+		type VotingPeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The number of blocks on which new candidates can claim their membership and be the
 		/// named head.
 		#[pallet::constant]
-		type ClaimPeriod: Get<BlockNumberFor<Self>>;
+		type ClaimPeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The maximum duration of the payout lock.
 		#[pallet::constant]
-		type MaxLockDuration: Get<BlockNumberFor<Self>>;
+		type MaxLockDuration: Get<BlockNumberFor<Self, I>>;
 
 		/// The origin that is allowed to call `found`.
 		type FounderSetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The number of blocks between membership challenges.
 		#[pallet::constant]
-		type ChallengePeriod: Get<BlockNumberFor<Self>>;
+		type ChallengePeriod: Get<SystemBlockNumberFor<Self>>;
 
 		/// The maximum number of payouts a member may have waiting unclaimed.
 		#[pallet::constant]
@@ -532,6 +549,8 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	#[pallet::error]
@@ -650,7 +669,7 @@ pub mod pallet {
 
 	/// The max number of members for the society at one time.
 	#[pallet::storage]
-	pub(super) type Parameters<T: Config<I>, I: 'static = ()> =
+	pub type Parameters<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, GroupParamsFor<T, I>, OptionQuery>;
 
 	/// Amount of our account balance that is specifically for the next round's bid(s).
@@ -701,7 +720,7 @@ pub mod pallet {
 
 	/// The current bids, stored ordered by the value of the bid.
 	#[pallet::storage]
-	pub(super) type Bids<T: Config<I>, I: 'static = ()> =
+	pub type Bids<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<Bid<T::AccountId, BalanceOf<T, I>>, T::MaxBids>, ValueQuery>;
 
 	#[pallet::storage]
@@ -719,7 +738,7 @@ pub mod pallet {
 
 	/// Double map from Candidate -> Voter -> (Maybe) Vote.
 	#[pallet::storage]
-	pub(super) type Votes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type Votes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -731,7 +750,7 @@ pub mod pallet {
 
 	/// Clear-cursor for Vote, map from Candidate -> (Maybe) Cursor.
 	#[pallet::storage]
-	pub(super) type VoteClearCursor<T: Config<I>, I: 'static = ()> =
+	pub type VoteClearCursor<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, BoundedVec<u8, KeyLenOf<Votes<T, I>>>>;
 
 	/// At the end of the claim period, this contains the most recently approved members (along with
@@ -743,22 +762,22 @@ pub mod pallet {
 
 	/// The number of challenge rounds there have been. Used to identify stale DefenderVotes.
 	#[pallet::storage]
-	pub(super) type ChallengeRoundCount<T: Config<I>, I: 'static = ()> =
+	pub type ChallengeRoundCount<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, RoundIndex, ValueQuery>;
 
 	/// The defending member currently being challenged, along with a running tally of votes.
 	#[pallet::storage]
-	pub(super) type Defending<T: Config<I>, I: 'static = ()> =
+	pub type Defending<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, (T::AccountId, T::AccountId, Tally)>;
 
 	/// Votes for the defender, keyed by challenge round.
 	#[pallet::storage]
-	pub(super) type DefenderVotes<T: Config<I>, I: 'static = ()> =
+	pub type DefenderVotes<T: Config<I>, I: 'static = ()> =
 		StorageDoubleMap<_, Twox64Concat, RoundIndex, Twox64Concat, T::AccountId, Vote>;
 
 	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+	impl<T: Config<I>, I: 'static> Hooks<SystemBlockNumberFor<T>> for Pallet<T, I> {
+		fn on_initialize(n: SystemBlockNumberFor<T>) -> Weight {
 			let mut weight = Weight::zero();
 			let weights = T::BlockWeights::get();
 
@@ -1018,9 +1037,9 @@ pub mod pallet {
 				Error::<T, I>::NoPayout
 			);
 			let mut record = Payouts::<T, I>::get(&who);
-
+			let block_number = T::BlockNumberProvider::current_block_number();
 			if let Some((when, amount)) = record.payouts.first() {
-				if when <= &<frame_system::Pallet<T>>::block_number() {
+				if when <= &block_number {
 					record.paid = record.paid.checked_add(amount).ok_or(Overflow)?;
 					T::Currency::transfer(&Self::payouts(), &who, *amount, AllowDeath)?;
 					record.payouts.remove(0);
@@ -1397,11 +1416,11 @@ pub enum Period<BlockNumber> {
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Get the period we are currently in.
-	fn period() -> Period<BlockNumberFor<T>> {
+	fn period() -> Period<BlockNumberFor<T, I>> {
 		let claim_period = T::ClaimPeriod::get();
 		let voting_period = T::VotingPeriod::get();
 		let rotation_period = voting_period + claim_period;
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		let phase = now % rotation_period;
 		if phase < voting_period {
 			Period::Voting { elapsed: phase, more: voting_period - phase }
@@ -1728,7 +1747,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			});
 		NextHead::<T, I>::put(next_head);
 
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		let maturity = now + Self::lock_duration(MemberCount::<T, I>::get());
 		Self::reward_bidder(&candidate, candidacy.bid, candidacy.kind, maturity);
 
@@ -1890,7 +1909,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		candidate: &T::AccountId,
 		value: BalanceOf<T, I>,
 		kind: BidKind<T::AccountId, BalanceOf<T, I>>,
-		maturity: BlockNumberFor<T>,
+		maturity: BlockNumberFor<T, I>,
 	) {
 		let value = match kind {
 			BidKind::Deposit(deposit) => {
@@ -1927,7 +1946,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// It is the caller's duty to ensure that `who` is already a member. This does nothing if `who`
 	/// is not a member or if `value` is zero.
-	fn bump_payout(who: &T::AccountId, when: BlockNumberFor<T>, value: BalanceOf<T, I>) {
+	fn bump_payout(who: &T::AccountId, when: BlockNumberFor<T, I>, value: BalanceOf<T, I>) {
 		if value.is_zero() {
 			return
 		}
@@ -2010,7 +2029,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// This is a rather opaque calculation based on the formula here:
 	/// https://www.desmos.com/calculator/9itkal1tce
-	fn lock_duration(x: u32) -> BlockNumberFor<T> {
+	fn lock_duration(x: u32) -> BlockNumberFor<T, I> {
 		let lock_pc = 100 - 50_000 / (x + 500);
 		Percent::from_percent(lock_pc as u8) * T::MaxLockDuration::get()
 	}
