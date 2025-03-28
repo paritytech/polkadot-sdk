@@ -333,6 +333,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 					// tags are known (from inactive views, queried at an upper level)
 					let xt_hash = self.hash_of(extrinsic);
 					if let Some(tags) = known_provides_tags
+						.as_ref()
 						.and_then(|inner| inner.get(&xt_hash).map(|tags| tags.clone()))
 					{
 						future_tags.extend(tags);

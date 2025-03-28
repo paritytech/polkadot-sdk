@@ -44,3 +44,5 @@ justfile
 rustc-ice-*
 .config/bacon.toml
 .bacon-locations
+bacon-ls.log
+bacon.log

@@ -1409,34 +1409,32 @@ where
 		&self,
 		tree_route: &TreeRoute<Block>,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
+		// For every enacted block, take its txs.
 		let blocks_xts = future::join_all(
-            // For every enacted block, take its txs and look for
-            // provides tags in retracted blocks inactive views.
 			tree_route
 				.enacted()
 				.iter()
 				.map(|hn| {
 				    let api = self.api.clone();
 					async move {
-                        // Get enacted block transactions.
-                        api
-                            .block_body(hn.hash)
-                            .await
-                            .unwrap_or_else(|e| {
-                                log::warn!(target: LOG_TARGET, "provides_tags_from_inactive_views: block_body error request: {}", e);
-                                None
-                            })
-                            .unwrap_or_default()
-                    }
-                }))
-                .await
-                .into_iter()
-                .collect::<Vec<_>>();
+						api
+							.block_body(hn.hash)
+							.await
+							.unwrap_or_else(|e| {
+								log::warn!(target: LOG_TARGET, "provides_tags_from_inactive_views: block_body error request: {}", e);
+								None
+							})
+							.unwrap_or_default()
+					}
+				}))
+			.await
+			.into_iter()
+			.collect::<Vec<_>>();
 
-		// For each enacted block txs, look for provides tags for all txs from
-		// inactive views of blocks on the retracted fork. It is possible for
-		// the transactions of the enacted block to show up in multiple inactive
-		// views, but we'll always consider
+		// For each enacted block txs, look for their provides tags in
+		// inactive views of blocks on the retracted fork. It is possible that
+		// transactions of the enacted block to show up in multiple inactive
+		// views, but we'll always consider the most recent inactive views.
 		let mut provides_tags_map = HashMap::new();
 		blocks_xts.iter().for_each(|xts| {
 			tree_route
@@ -1494,10 +1492,9 @@ where
 		// transactions with those hashes from the retracted blocks.
 		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
 
-		// Create a map from (retracted blocks + common block)'s extrinsics to their `provides`
+		// Create a map from enacted blocks' extrinsics to their `provides`
 		// tags.
-		let known_provides_tags =
-			Arc::new(self.provides_tags_from_inactive_views(tree_route).await);
+		let known_provides_tags = self.provides_tags_from_inactive_views(tree_route).await;
 
 		info!(target: LOG_TARGET, "update_view_with_fork: txs to tags map: {}", known_provides_tags.len());
 
@@ -1511,7 +1508,7 @@ where
 						hn,
 						&*api,
 						&view.pool,
-						Some(known_provides_tags),
+						Some(Arc::new(known_provides_tags)),
 					)
 					.await,
 				)
