@@ -15,10 +15,7 @@
 
 use crate::{
 	imports::*,
-	tests::{
-		snowbridge::{CHAIN_ID, WETH},
-		snowbridge_common::*,
-	},
+	tests::{snowbridge::CHAIN_ID, snowbridge_common::*},
 };
 use bridge_hub_westend_runtime::xcm_config::LocationToAccountId;
 use snowbridge_core::AssetMetadata;

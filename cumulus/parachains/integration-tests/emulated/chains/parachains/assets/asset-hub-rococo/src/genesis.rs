@@ -29,6 +29,7 @@ use parachains_common::{AccountId, Balance};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::{latest::prelude::*, opaque::latest::ROCOCO_GENESIS_HASH};
 use xcm_builder::ExternalConsensusLocationsConverterFor;
+use emulated_integration_tests_common::WETH;
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::rococo::currency::EXISTENTIAL_DEPOSIT;
@@ -110,6 +111,19 @@ pub fn genesis() -> Storage {
 				// Ether
 				(
 					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
+					EthereumSovereignAccount::get(),
+					true,
+					ED,
+				),
+				// Weth
+				(
+					xcm::v5::Location::new(
+						2,
+						[
+							GlobalConsensus(EthereumNetwork::get()),
+							AccountKey20 { network: None, key: WETH.into() },
+						],
+					),
 					EthereumSovereignAccount::get(),
 					true,
 					ED,

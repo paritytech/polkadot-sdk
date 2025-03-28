@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::imports::*;
+use emulated_integration_tests_common::WETH;
 
 mod aliases;
 mod asset_transfers;
@@ -39,6 +40,16 @@ pub(crate) fn asset_hub_rococo_location() -> Location {
 		[
 			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 			Parachain(AssetHubRococo::para_id().into()),
+		],
+	)
+}
+
+pub(crate) fn asset_hub_westend_location() -> Location {
+	Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(AssetHubWestend::para_id().into()),
 		],
 	)
 }
@@ -88,7 +99,7 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 		2,
 		[
 			GlobalConsensus(Ethereum { chain_id: snowbridge::CHAIN_ID }),
-			AccountKey20 { network: None, key: snowbridge::WETH },
+			AccountKey20 { network: None, key: WETH },
 		],
 	)
 }
