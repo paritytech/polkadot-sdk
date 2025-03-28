@@ -16,19 +16,11 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { features = [
-	"derive",
-], workspace = true }
+codec = { features = [ "derive" ], workspace = true }
 frame-election-provider-support = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
-pallet-authorship = { workspace = true }
-# Should be removed after `pallet_session::migrations::v1::MigrateDisabledValidators` and
-# `MigrateV14ToV15` are executed
-pallet-session = { features = [
-	"historical",
-], workspace = true }
 pallet-staking-next-rc-client = { workspace = true }
 rand = { features = ["alloc"], workspace = true }
 rand_chacha = { workspace = true }
@@ -45,12 +37,10 @@ frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
-frame-election-provider-support = { workspace = true, default-features = true }
 frame-support = { features = ["experimental"], workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-staking-next-reward-curve = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
 sp-npos-elections = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
@@ -65,12 +55,9 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-authorship/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
-	"pallet-session/std",
 	"pallet-staking-next-rc-client/std",
-	"pallet-timestamp/std",
 	"rand/std",
 	"rand_chacha/std",
 	"scale-info/std",
@@ -92,7 +79,6 @@ runtime-benchmarks = [
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-staking-next-rc-client/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
@@ -100,11 +86,8 @@ try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-authorship/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-session/try-runtime",
 	"pallet-staking-next-rc-client/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

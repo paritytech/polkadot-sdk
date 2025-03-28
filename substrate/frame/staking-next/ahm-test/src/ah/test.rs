@@ -3,7 +3,7 @@ use crate::ah::mock::*;
 use frame_support::assert_ok;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_next::{
-	ActiveEra, ActiveEraInfo, CurrentEra, CurrentPlannedSession, Event as StakingEvent,
+	ActiveEra, ActiveEraInfo, CurrentEra, Event as StakingEvent,
 };
 use pallet_staking_next_rc_client as rc_client;
 use pallet_staking_next_rc_client::ValidatorSetReport;
@@ -14,7 +14,6 @@ fn on_receive_session_report() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		// GIVEN genesis state of ah
 		assert_eq!(System::block_number(), 1);
-		assert_eq!(CurrentPlannedSession::<T>::get(), 0);
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(pallet_staking_next::ErasStartSessionIndex::<T>::get(0), Some(0));
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
@@ -33,7 +32,6 @@ fn on_receive_session_report() {
 		));
 
 		// THEN end 0, start 1, plan 2
-		assert_eq!(CurrentPlannedSession::<T>::get(), 2);
 		let era_points = pallet_staking_next::ErasRewardPoints::<T>::get(&0);
 		assert_eq!(era_points.total, 360);
 		assert_eq!(era_points.individual.get(&1), Some(&10));
@@ -86,9 +84,6 @@ fn on_receive_session_report() {
 				}]
 			);
 		}
-
-		// current planned session is 4 (ongoing 3, last ended 2)
-		assert_eq!(CurrentPlannedSession::<T>::get(), 4);
 
 		// Next session we will begin election.
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
@@ -212,8 +207,6 @@ fn roll_many_eras() {
 					leftover: false,
 				}
 			));
-			// planned session is two ahead of end session.
-			assert_eq!(CurrentPlannedSession::<T>::get(), session_counter + 2);
 
 			// increment session for the next iteration.
 			session_counter += 1;
@@ -254,6 +247,21 @@ fn roll_many_eras() {
 			assert_eq!(CurrentEra::<T>::get().unwrap(), era + 1);
 		}
 	});
+}
+
+#[test]
+fn receives_too_many_session_reports_at_once() {
+	todo!()
+}
+
+#[test]
+fn receives_session_old_session_report() {
+	todo!()
+}
+
+#[test]
+fn receives_session_report_in_future() {
+	todo!()
 }
 
 #[test]

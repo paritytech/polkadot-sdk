@@ -236,10 +236,13 @@ pub mod pallet {
 	/// A storage value that is set when a `new_session` gives a new validator set to the session
 	/// pallet, and is cleared on the next call.
 	///
+	/// The inner u32 is the id of the said activated validator set. While not relevant here, good
+	/// to know this is the planning era index of staking-next on AH.
+	///
 	/// Once cleared, we know a validator set has been activated, and therefore we can send a
 	/// timestamp to AH.
 	#[pallet::storage]
-	pub type NextSessionChangesValidators<T: Config> = StorageValue<_, (), OptionQuery>;
+	pub type NextSessionChangesValidators<T: Config> = StorageValue<_, u32, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -383,14 +386,13 @@ pub mod pallet {
 
 	impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
 		fn new_session(_: u32) -> Option<Vec<T::AccountId>> {
-			let maybe_new_validator_set =
-				ValidatorSet::<T>::take().map(|(_, validators)| validators);
+			let maybe_validator_set = ValidatorSet::<T>::take().map(|(id, val_set)| {
+				// store the id to be sent back in the next session back to AH
+				NextSessionChangesValidators::<T>::put(id);
+				val_set
+			});
 
-			if maybe_new_validator_set.is_some() {
-				NextSessionChangesValidators::<T>::put(());
-			}
-
-			maybe_new_validator_set
+			maybe_validator_set
 		}
 
 		fn start_session(_: u32) {}
@@ -399,10 +401,8 @@ pub mod pallet {
 			use sp_runtime::SaturatedConversion;
 
 			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
-			let activation_timestamp = NextSessionChangesValidators::<T>::take().map(|_| {
-				// TODO(ank4n): not setting the id for now, not sure if needed.
-				(T::UnixTime::now().as_millis().saturated_into::<u64>(), 0)
-			});
+			let activation_timestamp = NextSessionChangesValidators::<T>::take()
+				.map(|id| (T::UnixTime::now().as_millis().saturated_into::<u64>(), id));
 
 			let session_report = pallet_staking_next_rc_client::SessionReport {
 				end_index: session_index,

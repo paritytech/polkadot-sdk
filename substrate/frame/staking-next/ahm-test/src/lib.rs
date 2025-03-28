@@ -23,7 +23,6 @@ mod tests {
 		// initial state of ah
 		shared::in_ah(|| {
 			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 1);
-			assert_eq!(pallet_staking_next::CurrentPlannedSession::<ah::Runtime>::get(), 0);
 			assert_eq!(pallet_staking_next::CurrentEra::<ah::Runtime>::get(), Some(0));
 			assert_eq!(
 				ActiveEra::<ah::Runtime>::get(),
@@ -57,7 +56,6 @@ mod tests {
 		shared::in_ah(|| {
 			// ah's rc-client has also progressed some blocks, equal to 4 sessions
 			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 121);
-			assert_eq!(pallet_staking_next::CurrentPlannedSession::<ah::Runtime>::get(), 5);
 			// election is ongoing, and has just started
 			assert!(matches!(
 				multi_block::CurrentPhase::<ah::Runtime>::get(),

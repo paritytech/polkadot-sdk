@@ -28,8 +28,6 @@ use sp_std::prelude::*;
 mod benchmarks {
 	use super::*;
 
-	// TODO: this is the epitome of bad DevEx because of generics.. create a nice one that works in
-	// frame_system.
 	fn events_for<T: Config>() -> Vec<Event<T>> {
 		frame_system::Pallet::<T>::events()
 			.into_iter()

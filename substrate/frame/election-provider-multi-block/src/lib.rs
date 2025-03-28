@@ -520,8 +520,8 @@ pub mod pallet {
 		/// The origin that can perform administration operations on this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// An indicator of whether we should move to do the [`crate::types::Done`] or not? This is
-		/// called at the end of the election process.
+		/// An indicator of whether we should move to do the [`crate::types::Phase::Done`] or not?
+		/// This is called at the end of the election process.
 		///
 		/// Common implementation is [`ProceedRegardlessOf`] or [`RevertToSignedIfNotQueuedOf`].
 		type AreWeDone: Get<Phase<Self>>;

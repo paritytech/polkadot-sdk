@@ -65,34 +65,6 @@ pub fn free_to_stake<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Force)
 }
 
-/// Set balance that can be staked for `who`.
-///
-/// If `Value` is lower than the current staked balance, the difference is unlocked.
-///
-/// Should only be used with test.
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
-	use frame_support::traits::fungible::Mutate;
-
-	// minimum free balance (non-staked) required to keep the account alive.
-	let ed = existential_deposit::<T>();
-	// currently on stake
-	let staked_balance = staked::<T>(who);
-
-	// if new value is greater than staked balance, mint some free balance.
-	if value > staked_balance {
-		let _ = T::Currency::set_balance(who, value - staked_balance + ed);
-	} else {
-		// else reduce the staked balance.
-		update_stake::<T>(who, value).expect("can remove from what is staked");
-		// burn all free, only leaving ED.
-		let _ = T::Currency::set_balance(who, ed);
-	}
-
-	// ensure new stakeable balance same as desired `value`.
-	assert_eq!(stakeable_balance::<T>(who), value);
-}
-
 /// Update `amount` at stake for `who`.
 ///
 /// Overwrites the existing stake amount. If passed amount is lower than the existing stake, the
@@ -154,4 +126,38 @@ pub fn issue<T: Config>(value: BalanceOf<T>) -> NegativeImbalanceOf<T> {
 #[cfg(feature = "runtime-benchmarks")]
 pub fn burn<T: Config>(amount: BalanceOf<T>) -> PositiveImbalanceOf<T> {
 	T::Currency::rescind(amount)
+}
+
+/// Set balance that can be staked for `who`.
+///
+/// If `Value` is lower than the current staked balance, the difference is unlocked.
+///
+/// Should only be used with test.
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
+	use frame_support::traits::fungible::Mutate;
+
+	// minimum free balance (non-staked) required to keep the account alive.
+	let ed = existential_deposit::<T>();
+	// currently on stake
+	let staked_balance = staked::<T>(who);
+
+	// if new value is greater than staked balance, mint some free balance.
+	if value > staked_balance {
+		let _ = T::Currency::set_balance(who, value - staked_balance + ed);
+	} else {
+		// else reduce the staked balance.
+		update_stake::<T>(who, value).expect("can remove from what is staked");
+		// burn all free, only leaving ED.
+		let _ = T::Currency::set_balance(who, ed);
+	}
+
+	// ensure new stakeable balance same as desired `value`.
+	assert_eq!(stakeable_balance::<T>(who), value);
+}
+
+/// Return the amount staked and available to stake in one tuple.
+#[cfg(test)]
+pub fn staked_and_not<T: Config>(who: &T::AccountId) -> (BalanceOf<T>, BalanceOf<T>) {
+	(staked::<T>(who), free_to_stake::<T>(who))
 }

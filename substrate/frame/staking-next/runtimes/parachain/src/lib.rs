@@ -1222,7 +1222,7 @@ construct_runtime!(
 		FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
-		StakingRcClient: pallet_staking_next_rc_client = 89,
+		StakingNextRcClient: pallet_staking_next_rc_client = 89,
 
 		// Election apparatus.
 		MultiBlock: pallet_election_provider_multi_block = 85,

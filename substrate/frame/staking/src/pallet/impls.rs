@@ -2000,7 +2000,7 @@ where
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
 
-	fn score(who: &T::AccountId) -> Option<Self::Score> {
+	fn score(_who: &T::AccountId) -> Option<Self::Score> {
 		todo!("should be fixed by tsv's PR")
 	}
 
