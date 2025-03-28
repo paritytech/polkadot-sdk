@@ -70,6 +70,11 @@ on:
         description: |
           Id of the build run, needed to download the artifacts.
 
+      POLKADOT_PR_ARTIFACTS_URL:
+        value: ${{ jobs.wait_build_images.outputs.POLKADOT_PR_ARTIFACTS_URL }}
+        description: |
+          url for download polkadot built artifacts (in zip format).
+
       # Zombie vars
       PUSHGATEWAY_URL:
         value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
@@ -218,11 +223,12 @@ jobs:
   #
   # Wait until the 'build and push' image workflow success
   wait_build_images:
-    needs: [ci-env]
+    needs: [preflight, ci-env]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     outputs:
       BUILD_RUN_ID: ${{ steps.wait_build.outputs.BUILD_RUN_ID }}
+      POLKADOT_PR_ARTIFACTS_URL: ${{ steps.get_artifacts_url.outputs.POLKADOT_PR_ARTIFACTS_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -259,3 +265,15 @@ jobs:
             echo "::warning:: CI workflow ('Build and push images') fails with conclusion: $CONCLUSION"
             exit 1
           fi;
+
+      # - name: Get artifacts url for pr
+      #   id: get_artifacts_url
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     gh --version
+      #     export SHA=${{ github.event.pull_request.head.sha }}
+      #     if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+      #     POLKADOT_PR_ARTIFACTS_URL=$(curl "https://api.github.com/repos/paritytech/polkadot-sdk/actions/runs/${{steps.wait_build.outputs.BUILD_RUN_ID}}/artifacts?name=build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" | jq -r ".artifacts[0].archive_download_url")
+      #     echo "POLKADOT_PR_ARTIFACTS_URL=${POLKADOT_PR_ARTIFACTS_URL}" >> $GITHUB_OUTPUT
+
