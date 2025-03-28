@@ -173,6 +173,14 @@ fn initialize_approved_bounty<T: Config<I>, I: 'static>(
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
 	let setup = create_proposed_bounty::<T, I>()?;
 	T::BalanceConverter::ensure_successful(setup.asset_kind.clone());
+	let treasury_account = Bounties::<T, I>::account_id();
+	let bounty_account = Bounties::<T, I>::bounty_account_id(setup.bounty_id);
+	T::Paymaster::ensure_successful(
+		&treasury_account,
+		&bounty_account,
+		setup.asset_kind.clone(),
+		setup.value,
+	);
 	Bounties::<T, I>::approve_bounty(origin, setup.bounty_id)?;
 	Ok(setup)
 }
@@ -183,10 +191,12 @@ fn create_approved_bounty<T: Config<I>, I: 'static>(
 	let setup = initialize_approved_bounty::<T, I>(origin)?;
 	let payment_id = get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
 	T::Paymaster::ensure_concluded(payment_id);
+
 	Bounties::<T, I>::check_payment_status(
 		RawOrigin::Signed(setup.caller.clone()).into(),
 		setup.bounty_id,
 	)?;
+
 	Ok(setup)
 }
 
@@ -231,7 +241,6 @@ fn create_awarded_bounty<T: Config<I>, I: 'static>(
 	set_block_number::<T, I>(
 		T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get() + 1u32.into(),
 	);
-
 	Ok(setup)
 }
 
@@ -635,6 +644,14 @@ mod benchmarks {
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 			create_approved_bounty_with_curator::<T, I>(origin.clone())?;
+			let bounty_account = Bounties::<T, I>::bounty_account_id(setup.bounty_id);
+			let treasury_account = Bounties::<T, I>::account_id();
+			T::Paymaster::ensure_successful(
+				&bounty_account,
+				&treasury_account,
+				setup.asset_kind.clone(),
+				setup.value,
+			);
 			Bounties::<T, I>::close_bounty(origin, setup.bounty_id)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
@@ -668,9 +685,27 @@ mod benchmarks {
 	#[benchmark]
 	fn check_payment_status_payout_attempted() -> Result<(), BenchmarkError> {
 		let setup = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
+		let (fee, asset_payout) = Bounties::<T, I>::calculate_curator_fee_and_payout(
+			setup.bounty_id,
+			setup.fee,
+			setup.value,
+		);
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 			create_awarded_bounty::<T, I>(origin)?;
+			let bounty_account = Bounties::<T, I>::bounty_account_id(setup.bounty_id);
+			T::Paymaster::ensure_successful(
+				&bounty_account,
+				&setup.curator_stash,
+				setup.asset_kind.clone(),
+				fee,
+			);
+			T::Paymaster::ensure_successful(
+				&bounty_account,
+				&setup.beneficiary,
+				setup.asset_kind.clone(),
+				asset_payout,
+			);
 			Bounties::<T, I>::claim_bounty(
 				RawOrigin::Signed(setup.curator).into(),
 				setup.bounty_id,
@@ -703,11 +738,6 @@ mod benchmarks {
 		}
 
 		if spend_exists {
-			let (_fee, asset_payout) = Bounties::<T, I>::calculate_curator_fee_and_payout(
-				setup.bounty_id,
-				setup.fee,
-				setup.value,
-			);
 			assert_last_event::<T, I>(
 				Event::BountyClaimed {
 					index: setup.bounty_id,
