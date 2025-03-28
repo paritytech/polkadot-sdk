@@ -10,4 +10,4 @@ doc:
     - Triggers `on_idle` for all parachain pallets.
 crates:
 - name: xcm-emulator
-  bump: patch
+  bump: minor
