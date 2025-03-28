@@ -1396,15 +1396,13 @@ where
 	}
 
 	/// Fetches the 'provides' tags associated to transactions part of blocks
-	/// of a retracted fork.
+	/// of an enacted fork.
 	///
-	/// The 'provides' tags of transactions from retracted blocks are found
-	/// in inactive views. They can be used as a cache in the procces of transactions
-	/// prunning from the new best view in case of handling a new best block part of
-	/// a new fork. Usually the new best view can have 'provides' for part of the
-	/// transactions on the enacted fork, but the rest need to be revalidated, which
-	/// is costly, so using the inactive view's 'provides' tags for those transactions
-	/// saves time.
+	/// The 'provides' tags of transactions from enacted blocks are searched
+	/// in inactive views. These tags serve as cache based on the inactive views,
+	/// since prunning transactions is based on their 'provides' tags, which if
+	/// not found in the enacted fork tip active view, then they will be obtained
+	/// by revalidating the transaction, which takes time.
 	async fn provides_tags_from_inactive_views(
 		&self,
 		tree_route: &TreeRoute<Block>,
@@ -1431,18 +1429,18 @@ where
 			.into_iter()
 			.collect::<Vec<_>>();
 
-		// For each enacted block txs, look for their provides tags in
+		// For each enacted block transaction, look for its provides tags in
 		// inactive views of blocks on the retracted fork. It is possible that
 		// transactions of the enacted block to show up in multiple inactive
-		// views, but we'll always consider the most recent inactive views.
+		// views, but we'll consider the tags from most recent inactive view.
 		let mut provides_tags_map = HashMap::new();
 		blocks_xts.iter().for_each(|xts| {
 			tree_route
 				.retracted()
 				.iter()
 				// Skip the tip of the fork, since its view is active, and it will be checked
-				// later when we'll prune the txs based on the tags found in the active view of
-				// the tip of the fork.
+				// later when we'll prune the enacted block txs, reported to the active view,
+				// which is cloned from the tip of the retracted fork.
 				.skip(1)
 				.chain(std::iter::once(tree_route.common_block()))
 				.rev()
@@ -1454,7 +1452,7 @@ where
 						.iter()
 						.filter_map(|hash| view.as_ref().map(|(inner, _)| inner.pool.hash_of(hash)))
 						.collect::<Vec<_>>();
-					// Get tx provides tags from a certain retracted block inactive view, if any.
+					// Get tx provides tags from inactive view's pool.
 					let provides_tags = view
 						.map(|(inner, _)| inner.pool.validated_pool().extrinsics_tags(&xts_hashes))
 						.unwrap_or(vec![None; xts_hashes.len()]);
@@ -1462,8 +1460,13 @@ where
 						.into_iter()
 						.zip(provides_tags.into_iter())
 						.into_iter()
+						// We filter out the (transaction, tags) pair if no tags where found in the
+						// inactive view for the transaction.
 						.filter_map(|(hash, tags)| tags.map(|inner| (hash, inner)))
 						.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
+					// Since we traverse the retracted from in reverse order, updating the tags map
+					// with tags from the inactive views will keep the tags found in the last views,
+					// which can be considered most recent tags.
 					provides_tags_map.extend(xts_provides_tags);
 				});
 		});
