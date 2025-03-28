@@ -28,6 +28,7 @@ extern crate alloc;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
+pub mod message_processors;
 
 #[cfg(test)]
 mod mock;
@@ -49,7 +50,7 @@ use snowbridge_core::{
 	BasicOperatingMode,
 };
 use snowbridge_inbound_queue_primitives::{
-	v2::{ConvertMessage, ConvertMessageError, Message},
+	v2::{ConvertMessage, ConvertMessageError, Message, MessageProcessor},
 	EventProof, VerificationError, Verifier,
 };
 use sp_core::H160;
@@ -104,6 +105,8 @@ pub mod pallet {
 		type AssetHubParaId: Get<u32>;
 		/// Convert a command from Ethereum to an XCM message.
 		type MessageConverter: ConvertMessage;
+		/// Process the message that was submitted
+		type MessageProcessor: MessageProcessor<Self::AccountId>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
 		/// Used for the dry run API implementation.
@@ -225,7 +228,7 @@ pub mod pallet {
 			let message =
 				Message::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidMessage)?;
 
-			Self::process_message(who, message)
+			T::MessageProcessor::process_message(who, message)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.

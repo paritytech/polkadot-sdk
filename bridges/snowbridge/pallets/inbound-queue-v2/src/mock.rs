@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use crate::{self as inbound_queue_v2};
+use crate::{self as inbound_queue_v2, message_processors::DefaultMessageProcessor};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
+use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types, traits::ConstU32, weights::IdentityFee};
 use hex_literal::hex;
 use scale_info::TypeInfo;
 use snowbridge_beacon_primitives::{
@@ -170,6 +170,30 @@ impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward,
 	}
 }
 
+pub struct DummyPrefix;
+
+impl MessageProcessor<AccountId> for DummyPrefix {
+	fn can_process_message(_who: &AccountId, _message: &Message) -> bool {
+		false
+	}
+
+	fn process_message(_who: AccountId, _message: Message) -> DispatchResult {
+		panic!("DummyPrefix::process_message shouldn't be called");
+	}
+}
+
+pub struct DummySuffix;
+
+impl MessageProcessor<AccountId> for DummySuffix {
+	fn can_process_message(_who: &AccountId, _message: &Message) -> bool {
+		true
+	}
+
+	fn process_message(_who: AccountId, _message: Message) -> DispatchResult {
+		panic!("DummySuffix::process_message shouldn't be called");
+	}
+}
+
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -189,6 +213,8 @@ impl inbound_queue_v2::Config for Test {
 		UniversalLocation,
 		AssetHubFromEthereum,
 	>;
+	// Passively test that the implementation of MessageProcessor trait works correctly for tuple
+	type MessageProcessor = (DummyPrefix, DefaultMessageProcessor<Test>, DummySuffix); 
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type Balance = u128;
