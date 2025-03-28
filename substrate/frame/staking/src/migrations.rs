@@ -59,7 +59,7 @@ pub mod v17 {
 
 	#[frame_support::storage_alias]
 	pub type DisabledValidators<T: Config> =
-		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<100>>, ValueQuery>;
+		StorageValue<Pallet<T>, BoundedVec<(u32, OffenceSeverity), ConstU32<333>>, ValueQuery>;
 
 	pub struct MigrateDisabledToSession<T>(core::marker::PhantomData<T>);
 	impl<T: Config> pallet_session::migrations::v1::MigrateDisabledValidators

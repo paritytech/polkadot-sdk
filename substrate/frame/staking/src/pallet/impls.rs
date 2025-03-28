@@ -2422,16 +2422,4 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
-
-	/* todo(ank4n): move to session try runtime
-	// Sorted by index
-	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
-		ensure!(
-			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0].0 <= pair[1].0),
-			"DisabledValidators is not sorted"
-		);
-		Ok(())
-	}
-
-	 */
 }
