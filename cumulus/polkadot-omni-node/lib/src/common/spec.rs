@@ -47,6 +47,8 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use sp_statement_store::StatementStore;
+use sc_statement_store::Store;
 
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
@@ -221,6 +223,15 @@ pub(crate) trait BaseNodeSpec {
 			&task_manager,
 		)?;
 
+		let statement_store = sc_statement_store::Store::new_shared(
+			&config.data_path,
+			Default::default(),
+			client.clone(),
+			keystore_container.local_keystore(),
+			config.prometheus_registry(),
+			&task_manager.spawn_handle(),
+		).unwrap(); // TODO TODO: error conversion
+
 		Ok(PartialComponents {
 			backend,
 			client,
@@ -229,6 +240,7 @@ pub(crate) trait BaseNodeSpec {
 			task_manager,
 			transaction_pool,
 			select_chain: (),
+			statement_store,
 			other: (block_import, telemetry, telemetry_worker_handle, block_import_auxiliary_data),
 		})
 	}
@@ -239,6 +251,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,
 		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+		Store,
 	>;
 
 	type StartConsensus: StartConsensus<
@@ -272,6 +285,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				params.other;
 			let client = params.client.clone();
 			let backend = params.backend.clone();
+			let statement_store = params.statement_store.clone();
 			let mut task_manager = params.task_manager;
 			let (relay_chain_interface, collator_key) = build_relay_chain_interface(
 				polkadot_config,
@@ -332,12 +346,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let client = client.clone();
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
+				let statement_store = statement_store.clone();
 
 				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
+						statement_store.clone(),
 					)
 				})
 			};

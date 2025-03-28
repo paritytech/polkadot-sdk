@@ -156,7 +156,7 @@ impl RpcHandlers {
 }
 
 /// An incomplete set of chain components, but enough to run the chain ops subcommands.
-pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, TransactionPool, Other> {
+pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, TransactionPool, StatementStore, Other> {
 	/// A shared client instance.
 	pub client: Arc<Client>,
 	/// A shared backend instance.
@@ -171,6 +171,8 @@ pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, Transact
 	pub import_queue: ImportQueue,
 	/// A shared transaction pool.
 	pub transaction_pool: Arc<TransactionPool>,
+	/// TODO TODO: doc
+	pub statement_store: Arc<StatementStore>,
 	/// Everything else that needs to be passed into the main build function.
 	pub other: Other,
 }

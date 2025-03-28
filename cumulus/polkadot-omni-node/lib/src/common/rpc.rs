@@ -28,15 +28,19 @@ use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 use substrate_frame_rpc_system::{System, SystemApiServer};
 use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
+use sc_rpc::statement::StatementStore;
+use sc_statement_store::Store;
+use sc_rpc::statement::StatementApiServer;
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
-pub(crate) trait BuildRpcExtensions<Client, Backend, Pool> {
+pub(crate) trait BuildRpcExtensions<Client, Backend, Pool, StatementStore> {
 	fn build_rpc_extensions(
 		client: Arc<Client>,
 		backend: Arc<Backend>,
 		pool: Arc<Pool>,
+		statement_store: Arc<StatementStore>,
 	) -> sc_service::error::Result<RpcExtension>;
 }
 
@@ -47,6 +51,7 @@ impl<Block: BlockT, RuntimeApi>
 		ParachainClient<Block, RuntimeApi>,
 		ParachainBackend<Block>,
 		sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+		sc_statement_store::Store,
 	> for BuildParachainRpcExtensions<Block, RuntimeApi>
 where
 	RuntimeApi:
@@ -60,6 +65,7 @@ where
 		pool: Arc<
 			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
 		>,
+		statement_store: Arc<sc_statement_store::Store>,
 	) -> sc_service::error::Result<RpcExtension> {
 		let build = || -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>> {
 			let mut module = RpcExtension::new(());
@@ -67,6 +73,7 @@ where
 			module.merge(System::new(client.clone(), pool).into_rpc())?;
 			module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 			module.merge(StateMigration::new(client.clone(), backend).into_rpc())?;
+			module.merge(StatementStore::new(statement_store).into_rpc())?;
 			module.merge(Dev::new(client).into_rpc())?;
 
 			Ok(module)

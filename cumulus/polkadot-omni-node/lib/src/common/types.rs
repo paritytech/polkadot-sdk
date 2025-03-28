@@ -22,6 +22,7 @@ use sc_service::{PartialComponents, TFullBackend, TFullClient};
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_runtime::{generic, traits::BlakeTwo256};
+use sc_statement_store::Store;
 
 pub use parachains_common::{AccountId, Balance, Hash, Nonce};
 
@@ -51,6 +52,7 @@ pub type ParachainService<Block, RuntimeApi, BI, BIExtraReturnValue> = PartialCo
 	(),
 	DefaultImportQueue<Block>,
 	TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+	Store,
 	(
 		ParachainBlockImport<Block, BI>,
 		Option<Telemetry>,

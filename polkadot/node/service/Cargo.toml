@@ -32,6 +32,7 @@ sc-offchain = { workspace = true, default-features = true }
 sc-service = { workspace = true }
 sc-sync-state-rpc = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
+sc-statement-store = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
@@ -59,6 +60,7 @@ sp-timestamp = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
 
 # Substrate Pallets
 frame-metadata-hash-extension = { optional = true, workspace = true, default-features = true }
