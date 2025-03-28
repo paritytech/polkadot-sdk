@@ -57,7 +57,7 @@ use std::{convert::Into, ops::Mul};
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::{
 	prelude::{Assets as XcmAssets, *},
-	ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH,
+	ROCOCO_GENESIS_HASH,
 };
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
@@ -972,10 +972,7 @@ fn authorized_aliases_work() {
 		.build()
 		.execute_with(|| {
 			let alice: AccountId = ALICE.into();
-			let local_alice = Location::new(
-				0,
-				AccountId32 { network: Some(ByGenesis(WESTEND_GENESIS_HASH)), id: ALICE },
-			);
+			let local_alice = Location::new(0, AccountId32 { network: None, id: ALICE });
 			let alice_on_sibling_para =
 				Location::new(1, [Parachain(42), AccountId32 { network: None, id: ALICE }]);
 			let alice_on_relay = Location::new(1, AccountId32 { network: None, id: ALICE });
