@@ -140,7 +140,7 @@ fn aliasing_child_locations() {
 fn asset_hub_root_aliases_anything() {
 	use AssetHubWestendXcmConfig as XcmConfig;
 	AssetHubWestend::execute_with(|| {
-		// Does not allow local/AH root to alias other locations.
+		// Does not allow local/AH root to alias other (non-descendant) locations.
 		let origin = Location::new(0, Here);
 
 		let target = Location::new(1, X1([Parachain(2000)].into()));
@@ -159,7 +159,7 @@ fn asset_hub_root_aliases_anything() {
 		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
 		let target = Location::new(2, X2([GlobalConsensus(Polkadot), Parachain(1000)].into()));
 		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-		let target = Location::new(0, X2([PalletInstance(8), GeneralIndex(9)].into()));
+		let target = Location::new(1, X2([PalletInstance(8), GeneralIndex(9)].into()));
 		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
 
 		// Other AH locations cannot alias anything.
