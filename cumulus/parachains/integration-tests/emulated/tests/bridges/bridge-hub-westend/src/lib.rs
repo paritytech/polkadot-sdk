@@ -50,7 +50,8 @@ mod imports {
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_westend_emulated_chain::{
-			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendExistentialDeposit,
+			bridge_hub_westend_runtime, genesis::ED as BRIDGE_HUB_WESTEND_ED,
+			BridgeHubWestendExistentialDeposit,
 			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendRuntimeOrigin,
 			BridgeHubWestendXcmConfig,
 		},
