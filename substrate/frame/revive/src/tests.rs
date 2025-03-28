@@ -509,6 +509,7 @@ where
 }
 parameter_types! {
 	pub static UnstableInterface: bool = true;
+	pub CheckingAccount: AccountId32 = BOB.clone();
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -536,6 +537,7 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ChainId;
 	type FindAuthor = Test;
+	type CheckingAccount = CheckingAccount;
 }
 
 impl TryFrom<RuntimeCall> for crate::Call<Test> {
