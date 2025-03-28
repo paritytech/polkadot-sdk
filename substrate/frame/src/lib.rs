@@ -203,6 +203,7 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
+		stored,
 		traits::{
 			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
 			Everything, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler,
@@ -562,7 +563,7 @@ pub mod token {
 ///
 /// This is already part of the [`prelude`].
 pub mod derive {
-	pub use codec::{Decode, Encode};
+	pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 	pub use core::fmt::Debug;
 	pub use frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,

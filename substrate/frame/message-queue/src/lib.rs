@@ -216,7 +216,7 @@ use frame_support::{
 		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
 		QueuePausedQuery, ServiceQueues,
 	},
-	BoundedSlice, CloneNoBound, DefaultNoBound,
+	BoundedSlice, DefaultNoBound,
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
@@ -244,12 +244,9 @@ pub struct ItemHeader<Size> {
 }
 
 /// A page of messages. Pages always contain at least one item.
-#[derive(
-	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, DefaultNoBound, TypeInfo, MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(HeapSize))]
-#[codec(mel_bound(Size: MaxEncodedLen))]
-pub struct Page<Size: Into<u32> + Debug + Clone + Default, HeapSize: Get<Size>> {
+#[frame_support::stored(skip(HeapSize))]
+#[derive(DefaultNoBound)]
+pub struct Page<Size: Into<u32>, HeapSize: Get<Size>> {
 	/// Messages remaining to be processed; this includes overweight messages which have been
 	/// skipped.
 	remaining: Size,

@@ -15,11 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::utils::apply_still_bind;
 use syn::spanned::Spanned;
 
-/// Derive PartialEq but do not bound any generic.
+/// Derive PartialEq but do not bound any generic. Optionally select which generics will still be
+/// bound with `still_bind(...)`.
 pub fn derive_partial_eq_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let input = syn::parse_macro_input!(input as syn::DeriveInput);
+	let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
+
+	if let Err(e) = apply_still_bind(&mut input, quote::quote!(::core::cmp::PartialEq)) {
+		return e.to_compile_error().into();
+	}
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();

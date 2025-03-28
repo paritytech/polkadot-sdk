@@ -17,35 +17,18 @@
 
 //! Miscellaneous additional datatypes.
 
-use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use core::{fmt::Debug, marker::PhantomData};
-use frame_support::{
-	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-};
-use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	RuntimeDebug,
-};
+use codec::DecodeWithMemTracking;
+use core::marker::PhantomData;
+use frame_support::traits::VoteTally;
+use sp_runtime::traits::{Saturating, Zero};
 
 use super::*;
 use crate::{AccountVote, Conviction, Vote};
 
 /// Info regarding an ongoing referendum.
-#[derive(
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(Total))]
-#[codec(mel_bound(Votes: MaxEncodedLen))]
-pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total> {
+#[frame_support::stored(skip(Total))]
+#[derive(DecodeWithMemTracking)]
+pub struct Tally<Votes, Total> {
 	/// The number of aye votes, expressed in terms of post-conviction lock-vote.
 	pub ayes: Votes,
 	/// The number of nay votes, expressed in terms of post-conviction lock-vote.
@@ -56,11 +39,8 @@ pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total
 	dummy: PhantomData<Total>,
 }
 
-impl<
-		Votes: Clone + Default + PartialEq + Eq + Debug + Copy + AtLeast32BitUnsigned + TypeInfo + Codec,
-		Total: Get<Votes>,
-		Class,
-	> VoteTally<Votes, Class> for Tally<Votes, Total>
+impl<Votes: Default + Copy + AtLeast32BitUnsigned, Total: Get<Votes>, Class> VoteTally<Votes, Class>
+	for Tally<Votes, Total>
 {
 	fn new(_: Class) -> Self {
 		Self { ayes: Zero::zero(), nays: Zero::zero(), support: Zero::zero(), dummy: PhantomData }
@@ -99,11 +79,7 @@ impl<
 	fn setup(_: Class, _: Perbill) {}
 }
 
-impl<
-		Votes: Clone + Default + PartialEq + Eq + Debug + Copy + AtLeast32BitUnsigned + TypeInfo + Codec,
-		Total: Get<Votes>,
-	> Tally<Votes, Total>
-{
+impl<Votes: Copy + AtLeast32BitUnsigned, Total: Get<Votes>> Tally<Votes, Total> {
 	/// Create a new tally.
 	pub fn from_vote(vote: Vote, balance: Votes) -> Self {
 		let Delegations { votes, capital } = vote.conviction.votes(balance);
@@ -213,9 +189,8 @@ impl<
 }
 
 /// Amount of votes and capital placed in delegation for an account.
-#[derive(
-	Encode, Decode, Default, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
-)]
+#[frame_support::stored]
+#[derive(Default, Copy)]
 pub struct Delegations<Balance> {
 	/// The number of votes (this is post-conviction).
 	pub votes: Balance,

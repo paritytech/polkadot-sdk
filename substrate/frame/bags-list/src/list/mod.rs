@@ -35,7 +35,7 @@ use frame_election_provider_support::ScoreProvider;
 use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, DefensiveOption, Get},
-	CloneNoBound, DefaultNoBound, EqNoBound, PalletError, PartialEqNoBound, RuntimeDebugNoBound,
+	DefaultNoBound, PalletError,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Bounded, Zero};
@@ -632,19 +632,8 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 /// desirable to ensure that there is some element of first-come, first-serve to the list's
 /// iteration so that there's no incentive to churn ids positioning to improve the chances of
 /// appearing within the ids set.
-#[derive(
-	DefaultNoBound,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	RuntimeDebugNoBound,
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
-)]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T, I))]
+#[frame_support::stored(skip(T, I))]
+#[derive(DefaultNoBound)]
 pub struct Bag<T: Config<I>, I: 'static = ()> {
 	pub head: Option<T::AccountId>,
 	pub tail: Option<T::AccountId>,
@@ -841,18 +830,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 }
 
 /// A Node is the fundamental element comprising the doubly-linked list described by `Bag`.
-#[derive(
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
-	RuntimeDebugNoBound,
-)]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T, I))]
+#[frame_support::stored(skip(T, I))]
 pub struct Node<T: Config<I>, I: 'static = ()> {
 	pub id: T::AccountId,
 	pub prev: Option<T::AccountId>,

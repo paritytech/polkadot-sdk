@@ -15,14 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::utils::apply_still_bind;
 use syn::spanned::Spanned;
 
-/// Derive Ord but do not bound any generic.
+/// Derive Ord but do not bound any generic. Optionally select which generics will still be bound
+/// with `still_bind(...)`.
 pub fn derive_ord_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let input: syn::DeriveInput = match syn::parse(input) {
+	let mut input: syn::DeriveInput = match syn::parse(input) {
 		Ok(input) => input,
 		Err(e) => return e.to_compile_error().into(),
 	};
+
+	if let Err(e) = apply_still_bind(&mut input, quote::quote!(core::cmp::Ord)) {
+		return e.to_compile_error().into();
+	}
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
