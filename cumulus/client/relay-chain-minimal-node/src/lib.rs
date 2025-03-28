@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use collator_overseer::NewMinimalNode;
 
@@ -30,7 +31,7 @@ use polkadot_node_network_protocol::{
 use polkadot_core_primitives::{Block as RelayBlock, Hash as RelayHash};
 use polkadot_node_subsystem_util::metrics::prometheus::Registry;
 use polkadot_primitives::CollatorPair;
-use polkadot_service::{overseer::OverseerGenArgs, IsParachainNode};
+use polkadot_service::{overseer::OverseerGenArgs, IdentifyNetworkBackend, IsParachainNode};
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::{
@@ -97,7 +98,12 @@ async fn build_interface(
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let collator_pair = CollatorPair::generate().0;
 	let blockchain_rpc_client = Arc::new(BlockChainRpcClient::new(client.clone()));
-	let collator_node = match polkadot_config.network.network_backend {
+
+	// If the network backend is unspecified, use the default for the given chain.
+	let default_backend = polkadot_config.chain_spec.network_backend();
+	let network_backend = polkadot_config.network.network_backend.unwrap_or(default_backend);
+
+	let collator_node = match network_backend {
 		sc_network::config::NetworkBackendType::Libp2p =>
 			new_minimal_relay_chain::<RelayBlock, sc_network::NetworkWorker<RelayBlock, RelayHash>>(
 				polkadot_config,
@@ -224,7 +230,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 		.chain_get_header(None)
 		.await?
 		.ok_or_else(|| RelayChainError::RpcCallError("Unable to fetch best header".to_string()))?;
-	let (network, network_starter, sync_service) = build_collator_network::<Network>(
+	let (network, sync_service) = build_collator_network::<Network>(
 		&config,
 		net_config,
 		task_manager.spawn_handle(),
@@ -261,8 +267,6 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 
 	let overseer_handle =
 		collator_overseer::spawn_overseer(overseer_args, &task_manager, relay_chain_rpc_client)?;
-
-	network_starter.start_network();
 
 	Ok(NewMinimalNode { task_manager, overseer_handle })
 }

@@ -19,7 +19,7 @@
 //! generating values representing lazy module function calls.
 
 use crate::traits::UnfilteredDispatchable;
-use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use core::fmt;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
@@ -72,7 +72,17 @@ pub trait CheckIfFeeless {
 }
 
 /// Origin for the System pallet.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum RawOrigin<AccountId> {
 	/// The system itself ordained this dispatch to happen: this is the highest privilege level.
 	Root,
@@ -116,8 +126,14 @@ impl<AccountId> RawOrigin<AccountId> {
 /// A type that can be used as a parameter in a dispatchable function.
 ///
 /// When using `decl_module` all arguments for call functions must implement this trait.
-pub trait Parameter: Codec + EncodeLike + Clone + Eq + fmt::Debug + scale_info::TypeInfo {}
-impl<T> Parameter for T where T: Codec + EncodeLike + Clone + Eq + fmt::Debug + scale_info::TypeInfo {}
+pub trait Parameter:
+	Codec + DecodeWithMemTracking + EncodeLike + Clone + Eq + fmt::Debug + scale_info::TypeInfo
+{
+}
+impl<T> Parameter for T where
+	T: Codec + DecodeWithMemTracking + EncodeLike + Clone + Eq + fmt::Debug + scale_info::TypeInfo
+{
+}
 
 /// Means of classifying a dispatchable function.
 pub trait ClassifyDispatch<T> {
@@ -135,7 +151,9 @@ pub trait PaysFee<T> {
 }
 
 /// Explicit enum to denote if a transaction pays fee or not.
-#[derive(Clone, Copy, Eq, PartialEq, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(
+	Clone, Copy, Eq, PartialEq, RuntimeDebug, Encode, Decode, DecodeWithMemTracking, TypeInfo,
+)]
 pub enum Pays {
 	/// Transactor will pay related fees.
 	Yes,
@@ -170,7 +188,9 @@ impl From<bool> for Pays {
 /// [DispatchClass::all] and [DispatchClass::non_mandatory] helper functions.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo,
+)]
 pub enum DispatchClass {
 	/// A normal dispatch.
 	Normal,
@@ -291,7 +311,18 @@ pub fn extract_actual_pays_fee(result: &DispatchResultWithPostInfo, info: &Dispa
 
 /// Weight information that is only available post dispatch.
 /// NOTE: This can only be used to reduce the weight or fee, not increase it.
-#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Default,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+)]
 pub struct PostDispatchInfo {
 	/// Actual weight consumed by a call or `None` which stands for the worst case static weight.
 	pub actual_weight: Option<Weight>,
@@ -308,6 +339,17 @@ impl PostDispatchInfo {
 	/// Calculate how much weight was actually spent by the `Dispatchable`.
 	pub fn calc_actual_weight(&self, info: &DispatchInfo) -> Weight {
 		if let Some(actual_weight) = self.actual_weight {
+			let info_total_weight = info.total_weight();
+			if actual_weight.any_gt(info_total_weight) {
+				log::error!(
+					target: crate::LOG_TARGET,
+					"Post dispatch weight is greater than pre dispatch weight. \
+					Pre dispatch weight may underestimating the actual weight. \
+					Greater post dispatch weight components are ignored.
+					Pre dispatch weight: {info_total_weight:?},
+					Post dispatch weight: {actual_weight:?}",
+				);
+			}
 			actual_weight.min(info.total_weight())
 		} else {
 			info.total_weight()
@@ -1179,7 +1221,7 @@ mod per_dispatch_class_tests {
 
 #[cfg(test)]
 mod test_extensions {
-	use codec::{Decode, Encode};
+	use codec::{Decode, DecodeWithMemTracking, Encode};
 	use scale_info::TypeInfo;
 	use sp_runtime::{
 		impl_tx_ext_default,
@@ -1194,7 +1236,7 @@ mod test_extensions {
 	use super::{DispatchResult, PostDispatchInfo};
 
 	/// Test extension that refunds half its cost if the preset inner flag is set.
-	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 	pub struct HalfCostIf(pub bool);
 
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for HalfCostIf {
@@ -1236,7 +1278,7 @@ mod test_extensions {
 
 	/// Test extension that refunds its cost if the actual post dispatch weight up until this point
 	/// in the extension pipeline is less than the preset inner `ref_time` amount.
-	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 	pub struct FreeIfUnder(pub u64);
 
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for FreeIfUnder
@@ -1282,7 +1324,7 @@ mod test_extensions {
 
 	/// Test extension that sets its actual post dispatch `ref_time` weight to the preset inner
 	/// amount.
-	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 	pub struct ActualWeightIs(pub u64);
 
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for ActualWeightIs {
@@ -1403,7 +1445,7 @@ mod extension_weight_tests {
 			let mut info = call.get_dispatch_info();
 			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
 			info.extension_weight = ext.weight(&call);
-			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0, 0).unwrap();
 			let res = call.dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
 			assert!(post_info.actual_weight.is_none());
@@ -1430,7 +1472,7 @@ mod extension_weight_tests {
 			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
 			info.extension_weight = ext.weight(&call);
 			let post_info =
-				ext.dispatch_transaction(Some(0).into(), call, &info, 0).unwrap().unwrap();
+				ext.dispatch_transaction(Some(0).into(), call, &info, 0, 0).unwrap().unwrap();
 			// 1000 call weight + 50 + 200 + 0
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(1250, 0)));
 		});
@@ -1449,7 +1491,7 @@ mod extension_weight_tests {
 			assert_eq!(info.call_weight, Weight::from_parts(1000, 0));
 			info.extension_weight = ext.weight(&call);
 			assert_eq!(info.total_weight(), Weight::from_parts(1600, 0));
-			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
 			// 500 actual call weight
@@ -1469,7 +1511,7 @@ mod extension_weight_tests {
 
 			// Second testcase
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(1100), ActualWeightIs(200));
-			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
 			// 500 actual call weight
@@ -1489,7 +1531,7 @@ mod extension_weight_tests {
 
 			// Third testcase
 			let ext: TxExtension = (HalfCostIf(true), FreeIfUnder(1060), ActualWeightIs(200));
-			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
 			// 500 actual call weight
@@ -1509,7 +1551,7 @@ mod extension_weight_tests {
 
 			// Fourth testcase
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(100), ActualWeightIs(300));
-			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
 			// 500 actual call weight

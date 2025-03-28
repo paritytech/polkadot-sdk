@@ -18,10 +18,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
+use xcm::latest::prelude::*;
 
 /// `AssetHubRococo` Runtime `Call` enum.
 ///
@@ -42,6 +45,28 @@ pub enum Call {
 frame_support::parameter_types! {
 	/// Some sane weight to execute `xcm::Transact(pallet-xcm-bridge-hub-router::Call::report_bridge_status)`.
 	pub const XcmBridgeHubRouterTransactCallMaxWeight: frame_support::weights::Weight = frame_support::weights::Weight::from_parts(200_000_000, 6144);
+}
+
+/// Builds an (un)congestion XCM program with the `report_bridge_status` call for
+/// `ToWestendXcmRouter`.
+pub fn build_congestion_message<RuntimeCall>(
+	bridge_id: sp_core::H256,
+	is_congested: bool,
+) -> alloc::vec::Vec<Instruction<RuntimeCall>> {
+	alloc::vec![
+		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			fallback_max_weight: Some(XcmBridgeHubRouterTransactCallMaxWeight::get()),
+			call: Call::ToWestendXcmRouter(XcmBridgeHubRouterCall::report_bridge_status {
+				bridge_id,
+				is_congested,
+			})
+			.encode()
+			.into(),
+		},
+		ExpectTransactStatus(MaybeErrorCode::Success),
+	]
 }
 
 /// Identifier of AssetHubRococo in the Rococo relay chain.

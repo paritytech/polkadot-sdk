@@ -17,27 +17,26 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-fs_extra = { workspace = true }
-futures = { workspace = true }
-log = { workspace = true, default-features = true }
-tempfile = { workspace = true }
 frame-metadata-hash-extension = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
+fs_extra = { workspace = true }
+futures = { workspace = true }
+kitchensink-runtime = { workspace = true }
+log = { workspace = true, default-features = true }
 node-cli = { workspace = true }
 node-primitives = { workspace = true, default-features = true }
-kitchensink-runtime = { workspace = true }
 pallet-asset-conversion = { workspace = true, default-features = true }
-pallet-assets = { workspace = true, default-features = true }
-pallet-revive = { workspace = true, default-features = true }
 pallet-asset-conversion-tx-payment = { workspace = true, default-features = true }
 pallet-asset-tx-payment = { workspace = true, default-features = true }
+pallet-assets = { workspace = true, default-features = true }
+pallet-revive = { workspace = true, default-features = true }
 pallet-skip-feeless-payment = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { features = ["rocksdb"], workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
-sc-service = { features = ["rocksdb", "test-helpers"], workspace = true, default-features = true }
+sc-service = { features = ["rocksdb"], workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
@@ -50,3 +49,4 @@ sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true }
 substrate-test-client = { workspace = true }
+tempfile = { workspace = true }

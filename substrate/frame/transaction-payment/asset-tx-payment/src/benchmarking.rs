@@ -59,7 +59,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, |_| Ok(post_info))
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, 0, |_| Ok(post_info))
 				.unwrap()
 				.is_ok());
 		}
@@ -87,7 +87,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, |_| Ok(post_info))
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, 0, |_| Ok(post_info))
 				.unwrap()
 				.is_ok());
 		}
@@ -119,7 +119,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 0, |_| Ok(
+				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 0, 0, |_| Ok(
 					post_info
 				))
 				.unwrap()

@@ -176,16 +176,18 @@ pub(crate) struct Listener {
 
 impl Listener {
 	/// Accepts a new connection.
-	pub(crate) async fn accept(
-		&mut self,
-	) -> std::io::Result<(tokio::net::TcpStream, SocketAddr, RpcSettings)> {
+	pub(crate) async fn accept(&mut self) -> std::io::Result<(tokio::net::TcpStream, SocketAddr)> {
 		let (sock, remote_addr) = self.listener.accept().await?;
-		Ok((sock, remote_addr, self.cfg.clone()))
+		Ok((sock, remote_addr))
 	}
 
 	/// Returns the local address the listener is bound to.
 	pub fn local_addr(&self) -> SocketAddr {
 		self.local_addr
+	}
+
+	pub fn rpc_settings(&self) -> RpcSettings {
+		self.cfg.clone()
 	}
 }
 
@@ -193,14 +195,11 @@ pub(crate) fn host_filtering(enabled: bool, addr: SocketAddr) -> Option<HostFilt
 	if enabled {
 		// NOTE: The listening addresses are whitelisted by default.
 
-		let mut hosts = Vec::new();
-
-		if addr.is_ipv4() {
-			hosts.push(format!("localhost:{}", addr.port()));
-			hosts.push(format!("127.0.0.1:{}", addr.port()));
-		} else {
-			hosts.push(format!("[::1]:{}", addr.port()));
-		}
+		let hosts = [
+			format!("localhost:{}", addr.port()),
+			format!("127.0.0.1:{}", addr.port()),
+			format!("[::1]:{}", addr.port()),
+		];
 
 		Some(HostFilterLayer::new(hosts).expect("Valid hosts; qed"))
 	} else {

@@ -152,7 +152,11 @@ pub mod weights;
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{
+	format,
+	string::{String, ToString},
+	vec::Vec,
+};
 use codec::{Codec, MaxEncodedLen};
 use core::{cmp, fmt::Debug, mem, result};
 use frame_support::{
@@ -173,6 +177,7 @@ use frame_support::{
 use frame_system as system;
 pub use impl_currency::{NegativeImbalance, PositiveImbalance};
 use scale_info::TypeInfo;
+use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{
 		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
@@ -180,6 +185,7 @@ use sp_runtime::{
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
+
 pub use types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
@@ -189,11 +195,15 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::balances";
 
+// Default derivation(hard) for development accounts.
+const DEFAULT_ADDRESS_URI: &str = "//Sender//{}";
+
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
@@ -205,7 +215,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, traits::ConstU64};
+		use frame_support::derive_impl;
 
 		pub struct TestDefaultConfig;
 
@@ -222,7 +232,7 @@ pub mod pallet {
 			type RuntimeFreezeReason = ();
 
 			type Balance = u64;
-			type ExistentialDeposit = ConstU64<1>;
+			type ExistentialDeposit = ConstUint<1>;
 
 			type ReserveIdentifier = ();
 			type FreezeIdentifier = Self::RuntimeFreezeReason;
@@ -261,6 +271,7 @@ pub mod pallet {
 			+ Member
 			+ AtLeast32BitUnsigned
 			+ Codec
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Default
 			+ Copy
 			+ MaybeSerializeDeserialize
@@ -505,11 +516,18 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub balances: Vec<(T::AccountId, T::Balance)>,
+		/// Derived development accounts(Optional):
+		/// - `u32`: The number of development accounts to generate.
+		/// - `T::Balance`: The initial balance assigned to each development account.
+		/// - `String`: An optional derivation(hard) string template.
+		/// - Must include `{}` as a placeholder for account indices.
+		/// - Defaults to `"//Sender//{}`" if `None`.
+		pub dev_accounts: Option<(u32, T::Balance, Option<String>)>,
 	}
 
 	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
 		fn default() -> Self {
-			Self { balances: Default::default() }
+			Self { balances: Default::default(), dev_accounts: None }
 		}
 	}
 
@@ -540,6 +558,15 @@ pub mod pallet {
 				"duplicate balances in genesis."
 			);
 
+			// Generate additional dev accounts.
+			if let Some((num_accounts, balance, ref derivation)) = self.dev_accounts {
+				// Using the provided derivation string or default to `"//Sender//{}`".
+				Pallet::<T, I>::derive_dev_account(
+					num_accounts,
+					balance,
+					derivation.as_deref().unwrap_or(DEFAULT_ADDRESS_URI),
+				);
+			}
 			for &(ref who, free) in self.balances.iter() {
 				frame_system::Pallet::<T>::inc_providers(who);
 				assert!(T::AccountStore::insert(who, AccountData { free, ..Default::default() })
@@ -1247,6 +1274,41 @@ pub mod pallet {
 				destination_status: status,
 			});
 			Ok(actual)
+		}
+
+		/// Generate dev account from derivation(hard) string.
+		pub fn derive_dev_account(num_accounts: u32, balance: T::Balance, derivation: &str) {
+			// Ensure that the number of accounts is not zero.
+			assert!(num_accounts > 0, "num_accounts must be greater than zero");
+
+			assert!(
+				balance >= <T as Config<I>>::ExistentialDeposit::get(),
+				"the balance of any account should always be at least the existential deposit.",
+			);
+
+			assert!(
+				derivation.contains("{}"),
+				"Invalid derivation, expected `{{}}` as part of the derivation"
+			);
+
+			for index in 0..num_accounts {
+				// Replace "{}" in the derivation string with the index.
+				let derivation_string = derivation.replace("{}", &index.to_string());
+
+				// Generate the key pair from the derivation string using sr25519.
+				let pair: SrPair = Pair::from_string(&derivation_string, None)
+					.expect(&format!("Failed to parse derivation string: {derivation_string}"));
+
+				// Convert the public key to AccountId.
+				let who = T::AccountId::decode(&mut &pair.public().encode()[..])
+					.expect(&format!("Failed to decode public key from pair: {:?}", pair.public()));
+
+				// Set the balance for the generated account.
+				Self::mutate_account_handling_dust(&who, |account| {
+					account.free = balance;
+				})
+				.expect(&format!("Failed to add account to keystore: {:?}", who));
+			}
 		}
 	}
 }

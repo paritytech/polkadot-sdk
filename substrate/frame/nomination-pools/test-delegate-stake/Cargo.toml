@@ -19,23 +19,22 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 
-sp-runtime = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
-sp-staking = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-staking = { workspace = true, default-features = true }
 
-frame-system = { workspace = true, default-features = true }
-frame-support = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true }
+frame-support = { features = ["experimental"], workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
 
-pallet-timestamp = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
-pallet-delegated-staking = { workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
-pallet-staking-reward-curve = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-delegated-staking = { workspace = true, default-features = true }
 pallet-nomination-pools = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
 
-sp-tracing = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }

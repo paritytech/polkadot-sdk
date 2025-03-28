@@ -17,12 +17,8 @@
 
 //! Tests for the module.
 
-use super::*;
+use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok, traits::Currency};
-use mock::{
-	new_test_ext, run_to_block, Balances, BalancesCall, MaxFriends, Recovery, RecoveryCall,
-	RuntimeCall, RuntimeOrigin, Test,
-};
 use sp_runtime::{bounded_vec, traits::BadOrigin};
 
 #[test]
@@ -70,7 +66,7 @@ fn recovery_life_cycle_works() {
 			delay_period
 		));
 		// Some time has passed, and the user lost their keys!
-		run_to_block(10);
+		System::run_to_block::<AllPalletsWithSystem>(10);
 		// Using account 1, the user begins the recovery process to recover the lost account
 		assert_ok!(Recovery::initiate_recovery(RuntimeOrigin::signed(1), 5));
 		// Off chain, the user contacts their friends and asks them to vouch for the recovery
@@ -84,7 +80,7 @@ fn recovery_life_cycle_works() {
 			Error::<Test>::DelayPeriod
 		);
 		// We need to wait at least the delay_period number of blocks before we can recover
-		run_to_block(20);
+		System::run_to_block::<AllPalletsWithSystem>(20);
 		assert_ok!(Recovery::claim_recovery(RuntimeOrigin::signed(1), 5));
 		// Account 1 can use account 5 to close the active recovery process, claiming the deposited
 		// funds used to initiate the recovery process into account 5.
@@ -128,7 +124,7 @@ fn malicious_recovery_fails() {
 			delay_period
 		));
 		// Some time has passed, and account 1 wants to try and attack this account!
-		run_to_block(10);
+		System::run_to_block::<AllPalletsWithSystem>(10);
 		// Using account 1, the malicious user begins the recovery process on account 5
 		assert_ok!(Recovery::initiate_recovery(RuntimeOrigin::signed(1), 5));
 		// Off chain, the user **tricks** their friends and asks them to vouch for the recovery
@@ -144,7 +140,7 @@ fn malicious_recovery_fails() {
 			Error::<Test>::DelayPeriod
 		);
 		// Account 1 needs to wait...
-		run_to_block(19);
+		System::run_to_block::<AllPalletsWithSystem>(19);
 		// One more block to wait!
 		assert_noop!(
 			Recovery::claim_recovery(RuntimeOrigin::signed(1), 5),
@@ -158,7 +154,7 @@ fn malicious_recovery_fails() {
 		// Thanks for the free money!
 		assert_eq!(Balances::total_balance(&5), 110);
 		// The recovery process has been closed, so account 1 can't make the claim
-		run_to_block(20);
+		System::run_to_block::<AllPalletsWithSystem>(20);
 		assert_noop!(
 			Recovery::claim_recovery(RuntimeOrigin::signed(1), 5),
 			Error::<Test>::NotStarted
@@ -397,7 +393,7 @@ fn claim_recovery_handles_basic_errors() {
 			Recovery::claim_recovery(RuntimeOrigin::signed(1), 5),
 			Error::<Test>::DelayPeriod
 		);
-		run_to_block(11);
+		System::run_to_block::<AllPalletsWithSystem>(11);
 		// Cannot claim an account which has not passed the threshold number of votes
 		assert_ok!(Recovery::vouch_recovery(RuntimeOrigin::signed(2), 5, 1));
 		assert_ok!(Recovery::vouch_recovery(RuntimeOrigin::signed(3), 5, 1));
@@ -427,7 +423,7 @@ fn claim_recovery_works() {
 		assert_ok!(Recovery::vouch_recovery(RuntimeOrigin::signed(3), 5, 1));
 		assert_ok!(Recovery::vouch_recovery(RuntimeOrigin::signed(4), 5, 1));
 
-		run_to_block(11);
+		System::run_to_block::<AllPalletsWithSystem>(11);
 
 		// Account can be recovered.
 		assert_ok!(Recovery::claim_recovery(RuntimeOrigin::signed(1), 5));
@@ -439,7 +435,7 @@ fn claim_recovery_works() {
 		assert_ok!(Recovery::vouch_recovery(RuntimeOrigin::signed(3), 5, 4));
 		assert_ok!(Recovery::vouch_recovery(RuntimeOrigin::signed(4), 5, 4));
 
-		run_to_block(21);
+		System::run_to_block::<AllPalletsWithSystem>(21);
 
 		// Account is re-recovered.
 		assert_ok!(Recovery::claim_recovery(RuntimeOrigin::signed(4), 5));

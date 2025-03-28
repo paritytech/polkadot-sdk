@@ -324,7 +324,7 @@ impl<T: Config> Pallet<T> {
 					parent_storage_root,
 					scheduler::Pallet::<T>::claim_queue(),
 					parent_number,
-					config.async_backing_params.allowed_ancestry_len,
+					config.scheduler_params.lookahead,
 				);
 			});
 		}

@@ -35,7 +35,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 #[doc(hidden)]
-pub use codec::{Decode, Encode, MaxEncodedLen};
+pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::Deref;
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
@@ -101,8 +101,9 @@ pub use bounded_collections as bounded;
 #[cfg(feature = "std")]
 pub use bounded_collections::{bounded_btree_map, bounded_vec};
 pub use bounded_collections::{
-	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
-	ConstU16, ConstU32, ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
+	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
+	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect,
+	TypedGet,
 };
 pub use sp_storage as storage;
 
@@ -177,6 +178,7 @@ impl Deref for OpaqueMetadata {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	PassByInner,
 	TypeInfo,
@@ -323,7 +325,17 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 
 /// The void type - it cannot exist.
 // Oh rust, you crack me up...
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum Void {}
 
 /// Macro for creating `Maybe*` marker traits.
@@ -469,16 +481,17 @@ macro_rules! generate_feature_enabled_macro {
 mod tests {
 	use super::*;
 
+	generate_feature_enabled_macro!(if_test, test, $);
+	generate_feature_enabled_macro!(if_not_test, not(test), $);
+
 	#[test]
 	#[should_panic]
 	fn generate_feature_enabled_macro_panics() {
-		generate_feature_enabled_macro!(if_test, test, $);
 		if_test!(panic!("This should panic"));
 	}
 
 	#[test]
 	fn generate_feature_enabled_macro_works() {
-		generate_feature_enabled_macro!(if_not_test, not(test), $);
 		if_not_test!(panic!("This should not panic"));
 	}
 }

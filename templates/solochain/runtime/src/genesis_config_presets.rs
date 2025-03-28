@@ -17,11 +17,12 @@
 
 use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig};
 use alloc::{vec, vec::Vec};
+use frame_support::build_struct_json_patch;
 use serde_json::Value;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_genesis_builder::{self, PresetId};
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 // Returns the genesis config presets populated with given parameters.
 fn testnet_genesis(
@@ -29,7 +30,7 @@ fn testnet_genesis(
 	endowed_accounts: Vec<AccountId>,
 	root: AccountId,
 ) -> Value {
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
 				.iter()
@@ -42,13 +43,9 @@ fn testnet_genesis(
 		},
 		grandpa: pallet_grandpa::GenesisConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect::<Vec<_>>(),
-			..Default::default()
 		},
 		sudo: SudoConfig { key: Some(root) },
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+	})
 }
 
 /// Return the development genesis config.
@@ -59,12 +56,12 @@ pub fn development_config_genesis() -> Value {
 			sp_keyring::Ed25519Keyring::Alice.public().into(),
 		)],
 		vec![
-			AccountKeyring::Alice.to_account_id(),
-			AccountKeyring::Bob.to_account_id(),
-			AccountKeyring::AliceStash.to_account_id(),
-			AccountKeyring::BobStash.to_account_id(),
+			Sr25519Keyring::Alice.to_account_id(),
+			Sr25519Keyring::Bob.to_account_id(),
+			Sr25519Keyring::AliceStash.to_account_id(),
+			Sr25519Keyring::BobStash.to_account_id(),
 		],
-		sp_keyring::AccountKeyring::Alice.to_account_id(),
+		sp_keyring::Sr25519Keyring::Alice.to_account_id(),
 	)
 }
 
@@ -81,11 +78,11 @@ pub fn local_config_genesis() -> Value {
 				sp_keyring::Ed25519Keyring::Bob.public().into(),
 			),
 		],
-		AccountKeyring::iter()
-			.filter(|v| v != &AccountKeyring::One && v != &AccountKeyring::Two)
+		Sr25519Keyring::iter()
+			.filter(|v| v != &Sr25519Keyring::One && v != &Sr25519Keyring::Two)
 			.map(|v| v.to_account_id())
 			.collect::<Vec<_>>(),
-		AccountKeyring::Alice.to_account_id(),
+		Sr25519Keyring::Alice.to_account_id(),
 	)
 }
 

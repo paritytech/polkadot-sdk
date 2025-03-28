@@ -12,27 +12,27 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
-sp-core = { workspace = true }
 frame-support = { workspace = true }
-pallet-assets = { workspace = true }
 pallet-asset-conversion = { workspace = true }
+pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-message-queue = { workspace = true, default-features = true }
+sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
-xcm = { workspace = true }
 pallet-xcm = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
 # Bridges
 pallet-bridge-messages = { workspace = true }
-pallet-xcm-bridge-hub = { workspace = true }
 
 # Cumulus
 cumulus-pallet-xcmp-queue = { workspace = true }
@@ -44,7 +44,7 @@ testnet-parachains-constants = { features = ["rococo", "westend"], workspace = t
 
 # Snowbridge
 snowbridge-core = { workspace = true }
-snowbridge-router-primitives = { workspace = true }
-snowbridge-pallet-system = { workspace = true }
-snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-inbound-queue-fixtures = { workspace = true, default-features = true }
+snowbridge-pallet-outbound-queue = { workspace = true }
+snowbridge-pallet-system = { workspace = true }
+snowbridge-router-primitives = { workspace = true }

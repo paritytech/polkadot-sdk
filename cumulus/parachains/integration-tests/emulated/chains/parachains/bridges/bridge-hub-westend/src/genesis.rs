@@ -33,6 +33,7 @@ pub fn genesis() -> Storage {
 		system: bridge_hub_westend_runtime::SystemConfig::default(),
 		balances: bridge_hub_westend_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			..Default::default()
 		},
 		parachain_info: bridge_hub_westend_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),

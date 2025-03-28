@@ -39,7 +39,7 @@ parameter_types! {
 	pub static ValidateCount: u32 = 0;
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct DummyExtension;
 
 impl TransactionExtension<RuntimeCall> for DummyExtension {
@@ -60,6 +60,7 @@ impl TransactionExtension<RuntimeCall> for DummyExtension {
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, RuntimeCall> {
 		ValidateCount::mutate(|c| *c += 1);
 		Ok((ValidTransaction::default(), (), origin))

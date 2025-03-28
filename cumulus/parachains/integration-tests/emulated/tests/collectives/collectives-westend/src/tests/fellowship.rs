@@ -41,6 +41,7 @@ fn fellows_whitelist_call() {
 					)
 					.encode()
 					.into(),
+					fallback_max_weight: None
 				}
 			]))),
 		});

@@ -305,8 +305,6 @@ impl Queue {
 		for hash in &update.deactivated {
 			let _ = self.active_leaves.remove(&hash);
 		}
-
-		gum::debug!(target: LOG_TARGET, size = ?self.active_leaves.len(), "Active leaves pruned");
 	}
 
 	fn insert_active_leaf(&mut self, update: ActiveLeavesUpdate, ancestors: Vec<Hash>) {

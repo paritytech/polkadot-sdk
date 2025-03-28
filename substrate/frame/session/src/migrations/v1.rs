@@ -15,182 +15,93 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::str;
-use sp_io::hashing::twox_128;
-
+use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet, Perbill, Vec};
 use frame_support::{
-	storage::{generator::StorageValue, StoragePrefixedMap},
-	traits::{
-		Get, GetStorageVersion, PalletInfoAccess, StorageVersion,
-		STORAGE_VERSION_STORAGE_KEY_POSTFIX,
-	},
-	weights::Weight,
+	pallet_prelude::{Get, ValueQuery, Weight},
+	traits::UncheckedOnRuntimeUpgrade,
 };
+use sp_staking::offence::OffenceSeverity;
 
-use crate::historical as pallet_session_historical;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
 
-const LOG_TARGET: &str = "runtime::session_historical";
+#[cfg(feature = "try-runtime")]
+use frame_support::ensure;
+use frame_support::migrations::VersionedMigration;
 
-const OLD_PREFIX: &str = "Session";
+/// This is the storage getting migrated.
+#[frame_support::storage_alias]
+type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
 
-/// Migrate the entire storage of this pallet to a new prefix.
-///
-/// This new prefix must be the same as the one set in construct_runtime.
-///
-/// The migration will look into the storage version in order not to trigger a migration on an up
-/// to date storage. Thus the on chain storage version must be less than 1 in order to trigger the
-/// migration.
-pub fn migrate<T: pallet_session_historical::Config, P: GetStorageVersion + PalletInfoAccess>(
-) -> Weight {
-	let new_pallet_name = <P as PalletInfoAccess>::name();
+pub trait MigrateDisabledValidators {
+	/// Peek the list of disabled validators and their offence severity.
+	#[cfg(feature = "try-runtime")]
+	fn peek_disabled() -> Vec<(u32, OffenceSeverity)>;
 
-	if new_pallet_name == OLD_PREFIX {
-		log::info!(
-			target: LOG_TARGET,
-			"New pallet name is equal to the old prefix. No migration needs to be done.",
-		);
-		return Weight::zero()
+	/// Return the list of disabled validators and their offence severity, removing them from the
+	/// underlying storage.
+	fn take_disabled() -> Vec<(u32, OffenceSeverity)>;
+}
+
+pub struct InitOffenceSeverity<T>(core::marker::PhantomData<T>);
+impl<T: Config> MigrateDisabledValidators for InitOffenceSeverity<T> {
+	#[cfg(feature = "try-runtime")]
+	fn peek_disabled() -> Vec<(u32, OffenceSeverity)> {
+		DisabledValidators::<T>::get()
+			.iter()
+			.map(|v| (*v, OffenceSeverity(Perbill::zero())))
+			.collect::<Vec<_>>()
 	}
 
-	let on_chain_storage_version = <P as GetStorageVersion>::on_chain_storage_version();
-	log::info!(
-		target: LOG_TARGET,
-		"Running migration to v1 for session_historical with storage version {:?}",
-		on_chain_storage_version,
-	);
+	fn take_disabled() -> Vec<(u32, OffenceSeverity)> {
+		DisabledValidators::<T>::take()
+			.iter()
+			.map(|v| (*v, OffenceSeverity(Perbill::zero())))
+			.collect::<Vec<_>>()
+	}
+}
+pub struct VersionUncheckedMigrateV0ToV1<T, S: MigrateDisabledValidators>(
+	core::marker::PhantomData<(T, S)>,
+);
 
-	if on_chain_storage_version < 1 {
-		let storage_prefix = pallet_session_historical::HistoricalSessions::<T>::storage_prefix();
-		frame_support::storage::migration::move_storage_from_pallet(
-			storage_prefix,
-			OLD_PREFIX.as_bytes(),
-			new_pallet_name.as_bytes(),
-		);
-		log_migration("migration", storage_prefix, OLD_PREFIX, new_pallet_name);
+impl<T: Config, S: MigrateDisabledValidators> UncheckedOnRuntimeUpgrade
+	for VersionUncheckedMigrateV0ToV1<T, S>
+{
+	fn on_runtime_upgrade() -> Weight {
+		let disabled = S::take_disabled();
+		NewDisabledValidators::<T>::put(disabled);
 
-		let storage_prefix = pallet_session_historical::StoredRange::<T>::storage_prefix();
-		frame_support::storage::migration::move_storage_from_pallet(
-			storage_prefix,
-			OLD_PREFIX.as_bytes(),
-			new_pallet_name.as_bytes(),
-		);
-		log_migration("migration", storage_prefix, OLD_PREFIX, new_pallet_name);
+		T::DbWeight::get().reads_writes(1, 1)
+	}
 
-		StorageVersion::new(1).put::<P>();
-		<T as frame_system::Config>::BlockWeights::get().max_block
-	} else {
-		log::warn!(
-			target: LOG_TARGET,
-			"Attempted to apply migration to v1 but failed because storage version is {:?}",
-			on_chain_storage_version,
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		let source_disabled = S::peek_disabled().iter().map(|(v, _s)| *v).collect::<Vec<_>>();
+		let existing_disabled = DisabledValidators::<T>::get();
+
+		ensure!(source_disabled == existing_disabled, "Disabled validators mismatch");
+		ensure!(
+			NewDisabledValidators::<T>::get().len() == crate::Validators::<T>::get().len(),
+			"Disabled validators mismatch"
 		);
-		Weight::zero()
+		Ok(Vec::new())
+	}
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		let validators_max_index = crate::Validators::<T>::get().len() as u32 - 1;
+
+		for (v, _s) in NewDisabledValidators::<T>::get() {
+			ensure!(v <= validators_max_index, "Disabled validator index out of bounds");
+		}
+
+		Ok(())
 	}
 }
 
-/// Some checks prior to migration. This can be linked to
-/// `frame_support::traits::OnRuntimeUpgrade::pre_upgrade` for further testing.
-///
-/// Panics if anything goes wrong.
-pub fn pre_migrate<
-	T: pallet_session_historical::Config,
-	P: GetStorageVersion + PalletInfoAccess,
->() {
-	let new_pallet_name = <P as PalletInfoAccess>::name();
-
-	let storage_prefix_historical_sessions =
-		pallet_session_historical::HistoricalSessions::<T>::storage_prefix();
-	let storage_prefix_stored_range = pallet_session_historical::StoredRange::<T>::storage_prefix();
-
-	log_migration("pre-migration", storage_prefix_historical_sessions, OLD_PREFIX, new_pallet_name);
-	log_migration("pre-migration", storage_prefix_stored_range, OLD_PREFIX, new_pallet_name);
-
-	if new_pallet_name == OLD_PREFIX {
-		return
-	}
-
-	let new_pallet_prefix = twox_128(new_pallet_name.as_bytes());
-	let storage_version_key = twox_128(STORAGE_VERSION_STORAGE_KEY_POSTFIX);
-
-	let mut new_pallet_prefix_iter = frame_support::storage::KeyPrefixIterator::new(
-		new_pallet_prefix.to_vec(),
-		new_pallet_prefix.to_vec(),
-		|key| Ok(key.to_vec()),
-	);
-
-	// Ensure nothing except the storage_version_key is stored in the new prefix.
-	assert!(new_pallet_prefix_iter.all(|key| key == storage_version_key));
-
-	assert!(<P as GetStorageVersion>::on_chain_storage_version() < 1);
-}
-
-/// Some checks for after migration. This can be linked to
-/// `frame_support::traits::OnRuntimeUpgrade::post_upgrade` for further testing.
-///
-/// Panics if anything goes wrong.
-pub fn post_migrate<
-	T: pallet_session_historical::Config,
-	P: GetStorageVersion + PalletInfoAccess,
->() {
-	let new_pallet_name = <P as PalletInfoAccess>::name();
-
-	let storage_prefix_historical_sessions =
-		pallet_session_historical::HistoricalSessions::<T>::storage_prefix();
-	let storage_prefix_stored_range = pallet_session_historical::StoredRange::<T>::storage_prefix();
-
-	log_migration(
-		"post-migration",
-		storage_prefix_historical_sessions,
-		OLD_PREFIX,
-		new_pallet_name,
-	);
-	log_migration("post-migration", storage_prefix_stored_range, OLD_PREFIX, new_pallet_name);
-
-	if new_pallet_name == OLD_PREFIX {
-		return
-	}
-
-	// Assert that no `HistoricalSessions` and `StoredRange` storages remains at the old prefix.
-	let old_pallet_prefix = twox_128(OLD_PREFIX.as_bytes());
-	let old_historical_sessions_key =
-		[&old_pallet_prefix, &twox_128(storage_prefix_historical_sessions)[..]].concat();
-	let old_historical_sessions_key_iter = frame_support::storage::KeyPrefixIterator::new(
-		old_historical_sessions_key.to_vec(),
-		old_historical_sessions_key.to_vec(),
-		|_| Ok(()),
-	);
-	assert_eq!(old_historical_sessions_key_iter.count(), 0);
-
-	let old_stored_range_key =
-		[&old_pallet_prefix, &twox_128(storage_prefix_stored_range)[..]].concat();
-	let old_stored_range_key_iter = frame_support::storage::KeyPrefixIterator::new(
-		old_stored_range_key.to_vec(),
-		old_stored_range_key.to_vec(),
-		|_| Ok(()),
-	);
-	assert_eq!(old_stored_range_key_iter.count(), 0);
-
-	// Assert that the `HistoricalSessions` and `StoredRange` storages (if they exist) have been
-	// moved to the new prefix.
-	// NOTE: storage_version_key is already in the new prefix.
-	let new_pallet_prefix = twox_128(new_pallet_name.as_bytes());
-	let new_pallet_prefix_iter = frame_support::storage::KeyPrefixIterator::new(
-		new_pallet_prefix.to_vec(),
-		new_pallet_prefix.to_vec(),
-		|_| Ok(()),
-	);
-	assert!(new_pallet_prefix_iter.count() >= 1);
-
-	assert_eq!(<P as GetStorageVersion>::on_chain_storage_version(), 1);
-}
-
-fn log_migration(stage: &str, storage_prefix: &[u8], old_pallet_name: &str, new_pallet_name: &str) {
-	log::info!(
-		target: LOG_TARGET,
-		"{} prefix of storage '{}': '{}' ==> '{}'",
-		stage,
-		str::from_utf8(storage_prefix).unwrap_or("<Invalid UTF8>"),
-		old_pallet_name,
-		new_pallet_name,
-	);
-}
+pub type MigrateV0ToV1<T, S> = VersionedMigration<
+	0,
+	1,
+	VersionUncheckedMigrateV0ToV1<T, S>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;

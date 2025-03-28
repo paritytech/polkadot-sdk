@@ -70,6 +70,12 @@ pub enum Error {
 
 	#[error("Response receiver for claim queue request cancelled")]
 	CancelledClaimQueue(oneshot::Canceled),
+
+	#[error("Response receiver for node features request cancelled")]
+	CancelledNodeFeatures(oneshot::Canceled),
+
+	#[error("No state for the relay parent")]
+	RelayParentStateNotFound,
 }
 
 /// An error happened on the validator side of the protocol when attempting
@@ -122,7 +128,7 @@ impl SecondingError {
 			PersistedValidationDataMismatch |
 				CandidateHashMismatch |
 				RelayParentMismatch |
-				Duplicate | ParentHeadDataMismatch |
+				ParentHeadDataMismatch |
 				InvalidCoreIndex(_, _) |
 				InvalidSessionIndex(_, _) |
 				InvalidReceiptVersion(_)

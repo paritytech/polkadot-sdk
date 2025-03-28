@@ -17,10 +17,8 @@
 
 //! Convert the IR to V15 metadata.
 
-use crate::OuterEnumsIR;
-
 use super::types::{
-	ExtrinsicMetadataIR, MetadataIR, PalletMetadataIR, RuntimeApiMetadataIR,
+	ExtrinsicMetadataIR, MetadataIR, OuterEnumsIR, PalletMetadataIR, RuntimeApiMetadataIR,
 	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, TransactionExtensionMetadataIR,
 };
 
@@ -29,19 +27,21 @@ use frame_metadata::v15::{
 	RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata, RuntimeMetadataV15,
 	SignedExtensionMetadata,
 };
+use scale_info::{IntoPortable, Registry};
 
 impl From<MetadataIR> for RuntimeMetadataV15 {
 	fn from(ir: MetadataIR) -> Self {
-		RuntimeMetadataV15::new(
-			ir.pallets.into_iter().map(Into::into).collect(),
-			ir.extrinsic.into(),
-			ir.ty,
-			ir.apis.into_iter().map(Into::into).collect(),
-			ir.outer_enums.into(),
-			// Substrate does not collect yet the custom metadata fields.
-			// This allows us to extend the V15 easily.
-			CustomMetadata { map: Default::default() },
-		)
+		let mut registry = Registry::new();
+		let pallets =
+			registry.map_into_portable(ir.pallets.into_iter().map(Into::<PalletMetadata>::into));
+		let extrinsic = Into::<ExtrinsicMetadata>::into(ir.extrinsic).into_portable(&mut registry);
+		let ty = registry.register_type(&ir.ty);
+		let apis =
+			registry.map_into_portable(ir.apis.into_iter().map(Into::<RuntimeApiMetadata>::into));
+		let outer_enums = Into::<OuterEnums>::into(ir.outer_enums).into_portable(&mut registry);
+		let custom = CustomMetadata { map: Default::default() };
+
+		Self { types: registry.into(), pallets, extrinsic, ty, apis, outer_enums, custom }
 	}
 }
 
@@ -100,7 +100,7 @@ impl From<TransactionExtensionMetadataIR> for SignedExtensionMetadata {
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
 		ExtrinsicMetadata {
-			version: ir.version,
+			version: *ir.versions.iter().min().expect("Metadata V15 supports only one version"),
 			address_ty: ir.address_ty,
 			call_ty: ir.call_ty,
 			signature_ty: ir.signature_ty,

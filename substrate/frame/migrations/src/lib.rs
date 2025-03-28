@@ -145,6 +145,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+pub mod migrations;
 mod mock;
 pub mod mock_helpers;
 mod tests;
@@ -156,7 +157,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame_support::{
 	defensive, defensive_assert,
@@ -173,7 +174,17 @@ use frame_system::{
 use sp_runtime::Saturating;
 
 /// Points to the next migration to execute.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(
+	Debug,
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum MigrationCursor<Cursor, BlockNumber> {
 	/// Points to the currently active migration and its inner cursor.
 	Active(ActiveCursor<Cursor, BlockNumber>),
@@ -201,7 +212,17 @@ impl<Cursor, BlockNumber> From<ActiveCursor<Cursor, BlockNumber>>
 }
 
 /// Points to the currently active migration and its inner cursor.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(
+	Debug,
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct ActiveCursor<Cursor, BlockNumber> {
 	/// The index of the migration in the MBM tuple.
 	pub index: u32,
@@ -223,7 +244,9 @@ impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
 }
 
 /// How to clear the records of historic migrations.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo)]
+#[derive(
+	Debug, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, scale_info::TypeInfo,
+)]
 pub enum HistoricCleanupSelector<Id> {
 	/// Clear exactly these entries.
 	///
@@ -298,7 +321,11 @@ type PreUpgradeBytes<T: Config> =
 pub mod pallet {
 	use super::*;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config(with_default)]
@@ -757,7 +784,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::MigrationAdvanced { index: cursor.index, took });
 				cursor.inner_cursor = Some(bound_next_cursor);
 
-				if max_steps.map_or(false, |max| took > max.into()) {
+				if max_steps.is_some_and(|max| took > max.into()) {
 					Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
 					Self::upgrade_failed(Some(cursor.index));
 					None

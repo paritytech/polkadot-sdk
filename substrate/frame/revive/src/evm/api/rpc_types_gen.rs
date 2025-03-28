@@ -17,13 +17,61 @@
 //! Generated JSON-RPC types.
 #![allow(missing_docs)]
 
-use super::{byte::*, Type0, Type1, Type2, Type3};
+use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeLegacy};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// Input of a `GenericTransaction`
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct InputOrData {
+	#[serde(skip_serializing_if = "Option::is_none")]
+	input: Option<Bytes>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	data: Option<Bytes>,
+}
+
+impl From<Bytes> for InputOrData {
+	fn from(value: Bytes) -> Self {
+		InputOrData { input: Some(value), data: None }
+	}
+}
+
+impl From<Vec<u8>> for InputOrData {
+	fn from(value: Vec<u8>) -> Self {
+		InputOrData { input: Some(Bytes(value)), data: None }
+	}
+}
+
+impl InputOrData {
+	/// Get the input as `Bytes`.
+	pub fn to_bytes(self) -> Bytes {
+		match self {
+			InputOrData { input: Some(input), data: _ } => input,
+			InputOrData { input: None, data: Some(data) } => data,
+			_ => Default::default(),
+		}
+	}
+
+	/// Get the input as `Vec<u8>`.
+	pub fn to_vec(self) -> Vec<u8> {
+		self.to_bytes().0
+	}
+}
+
+fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrData, D::Error> {
+	let value = InputOrData::deserialize(d)?;
+	match &value {
+        InputOrData { input: Some(input), data: Some(data) } if input != data =>
+            Err(serde::de::Error::custom("Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data")),
+        _ => Ok(value),
+    }
+}
 
 /// Block object
 #[derive(
@@ -87,15 +135,15 @@ pub struct Block {
 	/// Total difficulty
 	#[serde(rename = "totalDifficulty", skip_serializing_if = "Option::is_none")]
 	pub total_difficulty: Option<U256>,
-	pub transactions: H256OrTransactionInfo,
+	pub transactions: HashesOrTransactionInfos,
 	/// Transactions root
 	#[serde(rename = "transactionsRoot")]
 	pub transactions_root: H256,
 	/// Uncles
 	pub uncles: Vec<H256>,
 	/// Withdrawals
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub withdrawals: Option<Vec<Withdrawal>>,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub withdrawals: Vec<Withdrawal>,
 	/// Withdrawals root
 	#[serde(rename = "withdrawalsRoot", skip_serializing_if = "Option::is_none")]
 	pub withdrawals_root: Option<H256>,
@@ -114,14 +162,12 @@ pub enum BlockNumberOrTag {
 }
 impl Default for BlockNumberOrTag {
 	fn default() -> Self {
-		BlockNumberOrTag::U256(Default::default())
+		BlockNumberOrTag::BlockTag(Default::default())
 	}
 }
 
 /// Block number, tag, or block hash
-#[derive(
-	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
-)]
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, Serialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum BlockNumberOrTagOrHash {
 	/// Block number
@@ -133,7 +179,80 @@ pub enum BlockNumberOrTagOrHash {
 }
 impl Default for BlockNumberOrTagOrHash {
 	fn default() -> Self {
-		BlockNumberOrTagOrHash::U256(Default::default())
+		BlockNumberOrTagOrHash::BlockTag(Default::default())
+	}
+}
+
+// Support nested object notation as defined in  https://eips.ethereum.org/EIPS/eip-1898
+impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
+	fn deserialize<D>(de: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'a>,
+	{
+		#[derive(Deserialize)]
+		#[serde(untagged)]
+		pub enum BlockNumberOrTagOrHashWithAlias {
+			BlockTag(BlockTag),
+			U256(U256),
+			BlockNumber {
+				#[serde(rename = "blockNumber")]
+				block_number: U256,
+			},
+			H256(H256),
+			BlockHash {
+				#[serde(rename = "blockHash")]
+				block_hash: H256,
+			},
+		}
+
+		let r = BlockNumberOrTagOrHashWithAlias::deserialize(de)?;
+		Ok(match r {
+			BlockNumberOrTagOrHashWithAlias::BlockTag(val) => BlockNumberOrTagOrHash::BlockTag(val),
+			BlockNumberOrTagOrHashWithAlias::U256(val) |
+			BlockNumberOrTagOrHashWithAlias::BlockNumber { block_number: val } =>
+				BlockNumberOrTagOrHash::U256(val),
+			BlockNumberOrTagOrHashWithAlias::H256(val) |
+			BlockNumberOrTagOrHashWithAlias::BlockHash { block_hash: val } =>
+				BlockNumberOrTagOrHash::H256(val),
+		})
+	}
+}
+
+/// filter
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct Filter {
+	/// Address(es)
+	pub address: Option<AddressOrAddresses>,
+	/// from block
+	#[serde(rename = "fromBlock", skip_serializing_if = "Option::is_none")]
+	pub from_block: Option<BlockNumberOrTag>,
+	/// to block
+	#[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
+	pub to_block: Option<BlockNumberOrTag>,
+	/// Restricts the logs returned to the single block
+	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
+	pub block_hash: Option<H256>,
+	/// Topics
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub topics: Option<FilterTopics>,
+}
+
+/// Filter results
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(untagged)]
+pub enum FilterResults {
+	/// new block or transaction hashes
+	Hashes(Vec<H256>),
+	/// new logs
+	Logs(Vec<Log>),
+}
+impl Default for FilterResults {
+	fn default() -> Self {
+		FilterResults::Hashes(Default::default())
 	}
 }
 
@@ -148,12 +267,12 @@ pub struct GenericTransaction {
 	pub access_list: Option<AccessList>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
-	#[serde(rename = "blobVersionedHashes", skip_serializing_if = "Option::is_none")]
-	pub blob_versioned_hashes: Option<Vec<H256>>,
+	#[serde(rename = "blobVersionedHashes", default, skip_serializing_if = "Vec::is_empty")]
+	pub blob_versioned_hashes: Vec<H256>,
 	/// blobs
 	/// Raw blob data.
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub blobs: Option<Vec<Bytes>>,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub blobs: Vec<Bytes>,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
 	#[serde(rename = "chainId", skip_serializing_if = "Option::is_none")]
@@ -169,8 +288,8 @@ pub struct GenericTransaction {
 	#[serde(rename = "gasPrice", skip_serializing_if = "Option::is_none")]
 	pub gas_price: Option<U256>,
 	/// input data
-	#[serde(alias = "data", skip_serializing_if = "Option::is_none")]
-	pub input: Option<Bytes>,
+	#[serde(flatten, deserialize_with = "deserialize_input_or_data")]
+	pub input: InputOrData,
 	/// max fee per blob gas
 	/// The maximum total fee per gas the sender is willing to pay for blob gas in wei
 	#[serde(rename = "maxFeePerBlobGas", skip_serializing_if = "Option::is_none")]
@@ -319,12 +438,32 @@ pub enum TransactionUnsigned {
 }
 impl Default for TransactionUnsigned {
 	fn default() -> Self {
-		TransactionUnsigned::Transaction4844Unsigned(Default::default())
+		TransactionUnsigned::TransactionLegacyUnsigned(Default::default())
 	}
 }
 
 /// Access list
 pub type AccessList = Vec<AccessListEntry>;
+
+/// Address(es)
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(untagged)]
+pub enum AddressOrAddresses {
+	/// Address
+	Address(Address),
+	/// Addresses
+	Addresses(Addresses),
+}
+impl Default for AddressOrAddresses {
+	fn default() -> Self {
+		AddressOrAddresses::Address(Default::default())
+	}
+}
+
+/// hex encoded address
+pub type Addresses = Vec<Address>;
 
 /// Block tag
 /// `earliest`: The lowest numbered block the client has available; `finalized`: The most recent
@@ -341,31 +480,34 @@ pub type AccessList = Vec<AccessListEntry>;
 )]
 pub enum BlockTag {
 	#[serde(rename = "earliest")]
-	#[default]
 	Earliest,
 	#[serde(rename = "finalized")]
 	Finalized,
 	#[serde(rename = "safe")]
 	Safe,
 	#[serde(rename = "latest")]
+	#[default]
 	Latest,
 	#[serde(rename = "pending")]
 	Pending,
 }
 
+/// Filter Topics
+pub type FilterTopics = Vec<FilterTopic>;
+
 #[derive(
 	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
 )]
 #[serde(untagged)]
-pub enum H256OrTransactionInfo {
+pub enum HashesOrTransactionInfos {
 	/// Transaction hashes
-	H256s(Vec<H256>),
+	Hashes(Vec<H256>),
 	/// Full transactions
 	TransactionInfos(Vec<TransactionInfo>),
 }
-impl Default for H256OrTransactionInfo {
+impl Default for HashesOrTransactionInfos {
 	fn default() -> Self {
-		H256OrTransactionInfo::H256s(Default::default())
+		HashesOrTransactionInfos::Hashes(Default::default())
 	}
 }
 
@@ -375,32 +517,31 @@ impl Default for H256OrTransactionInfo {
 )]
 pub struct Log {
 	/// address
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub address: Option<Address>,
+	pub address: Address,
 	/// block hash
-	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
-	pub block_hash: Option<H256>,
+	#[serde(rename = "blockHash")]
+	pub block_hash: H256,
 	/// block number
-	#[serde(rename = "blockNumber", skip_serializing_if = "Option::is_none")]
-	pub block_number: Option<U256>,
+	#[serde(rename = "blockNumber")]
+	pub block_number: U256,
 	/// data
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub data: Option<Bytes>,
 	/// log index
-	#[serde(rename = "logIndex", skip_serializing_if = "Option::is_none")]
-	pub log_index: Option<U256>,
+	#[serde(rename = "logIndex")]
+	pub log_index: U256,
 	/// removed
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub removed: Option<bool>,
 	/// topics
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub topics: Option<Vec<H256>>,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub topics: Vec<H256>,
 	/// transaction hash
 	#[serde(rename = "transactionHash")]
 	pub transaction_hash: H256,
 	/// transaction index
-	#[serde(rename = "transactionIndex", skip_serializing_if = "Option::is_none")]
-	pub transaction_index: Option<U256>,
+	#[serde(rename = "transactionIndex")]
+	pub transaction_index: U256,
 }
 
 /// Syncing progress
@@ -456,7 +597,7 @@ pub struct Transaction1559Unsigned {
 	/// to address
 	pub to: Option<Address>,
 	/// type
-	pub r#type: Type2,
+	pub r#type: TypeEip1559,
 	/// value
 	pub value: U256,
 }
@@ -487,7 +628,7 @@ pub struct Transaction2930Unsigned {
 	/// to address
 	pub to: Option<Address>,
 	/// type
-	pub r#type: Type1,
+	pub r#type: TypeEip2930,
 	/// value
 	pub value: U256,
 }
@@ -531,7 +672,7 @@ pub struct Transaction4844Unsigned {
 	/// to address
 	pub to: Address,
 	/// type
-	pub r#type: Type3,
+	pub r#type: TypeEip4844,
 	/// value
 	pub value: U256,
 }
@@ -558,7 +699,7 @@ pub struct TransactionLegacyUnsigned {
 	/// to address
 	pub to: Option<Address>,
 	/// type
-	pub r#type: Type0,
+	pub r#type: TypeLegacy,
 	/// value
 	pub value: U256,
 }
@@ -575,7 +716,7 @@ pub enum TransactionSigned {
 }
 impl Default for TransactionSigned {
 	fn default() -> Self {
-		TransactionSigned::Transaction4844Signed(Default::default())
+		TransactionSigned::TransactionLegacySigned(Default::default())
 	}
 }
 
@@ -605,6 +746,23 @@ pub struct AccessListEntry {
 	pub storage_keys: Vec<H256>,
 }
 
+/// Filter Topic List Entry
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(untagged)]
+pub enum FilterTopic {
+	/// Single Topic Match
+	Single(H256),
+	/// Multiple Topic Match
+	Multiple(Vec<H256>),
+}
+impl Default for FilterTopic {
+	fn default() -> Self {
+		FilterTopic::Single(Default::default())
+	}
+}
+
 /// Signed 1559 Transaction
 #[derive(
 	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
@@ -623,8 +781,8 @@ pub struct Transaction1559Signed {
 	pub v: Option<U256>,
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
-	#[serde(rename = "yParity", skip_serializing_if = "Option::is_none")]
-	pub y_parity: Option<U256>,
+	#[serde(rename = "yParity")]
+	pub y_parity: U256,
 }
 
 /// Signed 2930 Transaction
@@ -662,8 +820,8 @@ pub struct Transaction4844Signed {
 	pub s: U256,
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
-	#[serde(rename = "yParity", skip_serializing_if = "Option::is_none")]
-	pub y_parity: Option<U256>,
+	#[serde(rename = "yParity")]
+	pub y_parity: U256,
 }
 
 /// Signed Legacy Transaction
