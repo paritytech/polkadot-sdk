@@ -6,6 +6,30 @@ doc:
     benchmark. Currently the benchmark assumes best case scenario (i.e.)
     the case where does not even need to go into the Trader. This PR allows
     developers to set the worst-case scenario as they wish.
+    
+    Breaking changes:
+      - Change `fee_asset` in the benchmarking helper to `worst_case_for_trader` which
+        now should return both the `fee_asset` and the weight to use
 crates:
   - name: pallet-xcm-benchmarks
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major
+  - name: people-rococo-runtime
+    bump: major
+  - name: people-westend-runtime
     bump: major
