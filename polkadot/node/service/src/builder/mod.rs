@@ -206,7 +206,7 @@ where
 				},
 			overseer_connector,
 			partial_components:
-				sc_service::PartialComponents::<_, _, SelectRelayChain<_>, _, _, _, _> {
+				sc_service::PartialComponents::<_, _, SelectRelayChain<_>, _, _, _> {
 					client,
 					backend,
 					mut task_manager,
@@ -214,7 +214,6 @@ where
 					select_chain,
 					import_queue,
 					transaction_pool,
-					statement_store,
 					other:
 						(rpc_extensions_builder, import_setup, rpc_setup, slot_duration, mut telemetry),
 				},

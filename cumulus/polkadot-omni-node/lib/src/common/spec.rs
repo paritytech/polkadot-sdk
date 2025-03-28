@@ -47,7 +47,6 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
-use sp_statement_store::StatementStore;
 use sc_statement_store::Store;
 
 pub(crate) trait BuildImportQueue<
@@ -223,15 +222,6 @@ pub(crate) trait BaseNodeSpec {
 			&task_manager,
 		)?;
 
-		let statement_store = sc_statement_store::Store::new_shared(
-			&config.data_path,
-			Default::default(),
-			client.clone(),
-			keystore_container.local_keystore(),
-			config.prometheus_registry(),
-			&task_manager.spawn_handle(),
-		).unwrap(); // TODO TODO: error conversion
-
 		Ok(PartialComponents {
 			backend,
 			client,
@@ -240,7 +230,6 @@ pub(crate) trait BaseNodeSpec {
 			task_manager,
 			transaction_pool,
 			select_chain: (),
-			statement_store,
 			other: (block_import, telemetry, telemetry_worker_handle, block_import_auxiliary_data),
 		})
 	}
@@ -285,7 +274,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				params.other;
 			let client = params.client.clone();
 			let backend = params.backend.clone();
-			let statement_store = params.statement_store.clone();
 			let mut task_manager = params.task_manager;
 			let (relay_chain_interface, collator_key) = build_relay_chain_interface(
 				polkadot_config,
@@ -297,6 +285,15 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			)
 			.await
 			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+
+			let statement_store = sc_statement_store::Store::new_shared(
+				&parachain_config.data_path,
+				Default::default(),
+				client.clone(),
+				params.keystore_container.local_keystore(),
+				parachain_config.prometheus_registry(),
+				&task_manager.spawn_handle(),
+			).map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
 			let validator = parachain_config.role.is_authority();
 			let prometheus_registry = parachain_config.prometheus_registry().cloned();
@@ -353,7 +350,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
-						statement_store.clone(),
+						Some(statement_store.clone()),
 					)
 				})
 			};

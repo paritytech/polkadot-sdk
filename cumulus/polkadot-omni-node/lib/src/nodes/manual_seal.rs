@@ -92,7 +92,6 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			keystore_container,
 			select_chain: _,
 			transaction_pool,
-			statement_store,
 			other: (_, mut telemetry, _, _),
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
@@ -250,9 +249,6 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			None,
 			authorship_future,
 		);
-
-		// TODO TODO: use statement_store?
-
 		let rpc_extensions_builder = {
 			let client = client.clone();
 			let transaction_pool = transaction_pool.clone();
@@ -263,7 +259,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					client.clone(),
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
-					statement_store.clone(),
+					None,
 				)?;
 				module
 					.merge(ManualSeal::new(manual_seal_sink.clone()).into_rpc())

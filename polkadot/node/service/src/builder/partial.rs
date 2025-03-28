@@ -50,7 +50,6 @@ pub(crate) type PolkadotPartialComponents<ChainSelection> = sc_service::PartialC
 	ChainSelection,
 	sc_consensus::DefaultImportQueue<Block>,
 	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
-	sc_statement_store::Store,
 	(
 		Box<
 			dyn Fn(
@@ -262,16 +261,6 @@ where
 		}
 	};
 
-	// TODO TODO: we probably don't want a statement store in polkadot actually...
-	let statement_store = sc_statement_store::Store::new_shared(
-		&config.data_path,
-		Default::default(),
-		client.clone(),
-		keystore_container.local_keystore(),
-		config.prometheus_registry(),
-		&task_manager.spawn_handle(),
-	).unwrap(); // TODO TODO: handle conversion
-
 	Ok(sc_service::PartialComponents {
 		client,
 		backend,
@@ -280,7 +269,6 @@ where
 		select_chain,
 		import_queue,
 		transaction_pool,
-		statement_store,
 		other: (
 			Box::new(rpc_extensions_builder),
 			import_setup,

@@ -230,8 +230,8 @@ macro_rules! impl_node_runtime_apis {
 
 			impl sp_statement_store::runtime_api::ValidateStatement<$block> for $runtime {
 				fn validate_statement(
-					source: sp_statement_store::runtime_api::StatementSource,
-					statement: sp_statement_store::Statement,
+					_source: sp_statement_store::runtime_api::StatementSource,
+					_statement: sp_statement_store::Statement,
 				) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
 					unimplemented!()
 				}
