@@ -37,12 +37,16 @@ use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
+use sc_statement_store::Store;
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_keystore::KeystorePtr;
+use sp_statement_store::runtime_api::ValidateStatement;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use sp_api::ProvideRuntimeApi;
+use sp_api::ApiExt;
 
 pub(crate) trait BuildImportQueue<Block: BlockT, RuntimeApi> {
 	fn build_import_queue(
@@ -188,6 +192,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,
 		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+		Store,
 	>;
 
 	type StartConsensus: StartConsensus<Self::Block, Self::RuntimeApi>;
@@ -234,10 +239,43 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let prometheus_registry = parachain_config.prometheus_registry().cloned();
 				let transaction_pool = params.transaction_pool.clone();
 				let import_queue_service = params.import_queue.service();
-				let net_config = FullNetworkConfiguration::<_, _, Net>::new(
+				let mut net_config = FullNetworkConfiguration::<_, _, Net>::new(
 					&parachain_config.network,
 					prometheus_registry.clone(),
 				);
+
+				let best_hash = client.chain_info().best_hash;
+				let has_validate_statement_api_at_best_hash = client
+					.runtime_api()
+					.has_api::<dyn ValidateStatement<Self::Block>>(best_hash)
+					.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+
+				let metrics = Net::register_notification_metrics(
+					parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+				);
+
+				let statement_store_vars = if has_validate_statement_api_at_best_hash {
+					let statement_store = sc_statement_store::Store::new_shared(
+						&parachain_config.data_path,
+						Default::default(),
+						client.clone(),
+						params.keystore_container.local_keystore(),
+						parachain_config.prometheus_registry(),
+						&task_manager.spawn_handle(),
+					)
+					.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+					let (statement_handler_proto, statement_config) =
+						sc_network_statement::StatementHandlerPrototype::new::<_, _, Net>(
+							client.chain_info().genesis_hash,
+							parachain_config.chain_spec.fork_id(),
+							metrics.clone(),
+							Arc::clone(&net_config.peer_store_handle()),
+						);
+					net_config.add_notification_protocol(statement_config);
+					Some((statement_store, statement_handler_proto))
+				} else {
+					None
+				};
 
 				let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 					build_network(BuildNetworkParams {
@@ -250,19 +288,51 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						relay_chain_interface: relay_chain_interface.clone(),
 						import_queue: params.import_queue,
 						sybil_resistance_level: Self::SYBIL_RESISTANCE,
+						metrics,
 					})
 					.await?;
+
+				let statement_store = if let Some((statement_store, statement_handler_proto)) =
+					statement_store_vars
+				{
+					// Spawn statement protocol worker
+					let statement_protocol_executor = {
+						let spawn_handle = task_manager.spawn_handle();
+						Box::new(move |fut| {
+							spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
+						})
+					};
+					let statement_handler = statement_handler_proto.build(
+						network.clone(),
+						sync_service.clone(),
+						statement_store.clone(),
+						prometheus_registry.as_ref(),
+						statement_protocol_executor,
+					)?;
+					task_manager.spawn_handle().spawn(
+						"network-statement-handler",
+						Some("networking"),
+						statement_handler.run(),
+					);
+
+					Some(statement_store)
+				} else {
+					None
+				};
+
 
 				let rpc_builder = {
 					let client = client.clone();
 					let transaction_pool = transaction_pool.clone();
 					let backend_for_rpc = backend.clone();
+					let statement_store = statement_store.clone();
 
 					Box::new(move |_| {
 						Self::BuildRpcExtensions::build_rpc_extensions(
 							client.clone(),
 							backend_for_rpc.clone(),
 							transaction_pool.clone(),
+							statement_store.clone(),
 						)
 					})
 				};

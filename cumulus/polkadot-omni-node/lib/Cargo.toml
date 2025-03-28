@@ -86,6 +86,10 @@ cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 futures-timer = "3.0.3"
 
+sc-network-statement = { workspace = true, default-features = true }
+sc-statement-store = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
+
 [dev-dependencies]
 assert_cmd = { workspace = true }
 nix = { features = ["signal"], workspace = true }

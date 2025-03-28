@@ -64,6 +64,10 @@ use sp_runtime::{
 	ApplyExtrinsicResult,
 };
 pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
+use sp_statement_store::{
+	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
+	SignatureVerificationResult, Statement,
+};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -1093,6 +1097,39 @@ impl_runtime_apis! {
 		}
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
+		fn validate_statement(
+			_source: StatementSource,
+			statement: Statement,
+		) -> Result<ValidStatement, InvalidStatement> {
+			let account = match statement.verify_signature() {
+				SignatureVerificationResult::Valid(account) => account.into(),
+				SignatureVerificationResult::Invalid => {
+					log::debug!("Bad statement signature.");
+					return Err(InvalidStatement::BadProof)
+				},
+				SignatureVerificationResult::NoSignature => {
+					log::debug!("Missing statement signature.");
+					return Err(InvalidStatement::NoProof)
+				},
+			};
+
+			// For now just allow validators to store some statements.
+			// In the future we will allow people.
+			if pallet_session::Validators::<Runtime>::get().contains(&account) {
+				Ok(ValidStatement {
+					max_count: 2,
+					max_size: 1024,
+				})
+			} else {
+				Ok(ValidStatement {
+					max_count: 0,
+					max_size: 0,
+				})
+			}
 		}
 	}
 }

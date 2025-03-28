@@ -50,6 +50,7 @@ sp-session = { workspace = true }
 sp-storage = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
+sp-statement-store = { workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
@@ -130,6 +131,7 @@ std = [
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
+	"sp-statement-store/std",
 	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",

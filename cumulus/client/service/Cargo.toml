@@ -46,3 +46,4 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true, default-feature
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-inprocess-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-minimal-node = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
