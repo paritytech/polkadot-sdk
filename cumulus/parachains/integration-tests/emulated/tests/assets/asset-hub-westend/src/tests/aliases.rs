@@ -141,7 +141,7 @@ fn asset_hub_root_aliases_anything() {
 	use AssetHubWestendXcmConfig as XcmConfig;
 	AssetHubWestend::execute_with(|| {
 		// Does not allow local/AH root to alias other locations.
-		let origin = Location::new(1, X1([Parachain(1000)].into()));
+		let origin = Location::new(0, Here);
 
 		let target = Location::new(1, X1([Parachain(2000)].into()));
 		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
