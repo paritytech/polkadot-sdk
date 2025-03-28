@@ -499,7 +499,7 @@ fn transact_with_agent_from_asset_hub_without_any_asset_transfer() {
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![],
+				assets: BoundedVec::new(),
 				remote_xcm: Xcm(vec![
 					DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
 					Transact {
