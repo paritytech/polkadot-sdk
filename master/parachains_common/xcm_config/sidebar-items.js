@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AliasAccountId32FromSiblingSystemChain","AllSiblingSystemParachains","AssetFeeAsExistentialDepositMultiplier","ConcreteAssetFromSystem","ConcreteNativeAssetFrom","ParentRelayOrSiblingParachains","RelayOrOtherSystemParachains"]};

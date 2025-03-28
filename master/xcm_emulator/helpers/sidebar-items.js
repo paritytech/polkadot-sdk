@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["weight_within_threshold","within_threshold"]};

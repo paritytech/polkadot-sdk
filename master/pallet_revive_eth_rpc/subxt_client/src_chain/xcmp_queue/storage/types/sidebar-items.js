@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["delivery_fee_factor","inbound_xcmp_suspended","outbound_xcmp_messages","outbound_xcmp_status","queue_config","queue_suspended","signal_messages"]};

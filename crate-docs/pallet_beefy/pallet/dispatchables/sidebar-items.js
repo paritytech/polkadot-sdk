@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["report_equivocation","report_equivocation_unsigned","set_new_genesis"]};

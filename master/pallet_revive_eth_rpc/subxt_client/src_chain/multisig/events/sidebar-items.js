@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["deposit_poked","multisig_approval","multisig_cancelled","multisig_executed","new_multisig"],"struct":["DepositPoked","MultisigApproval","MultisigCancelled","MultisigExecuted","NewMultisig"]};

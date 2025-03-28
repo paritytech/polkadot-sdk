@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["delivery_fee_factor_decreased","delivery_fee_factor_increased"],"struct":["DeliveryFeeFactorDecreased","DeliveryFeeFactorIncreased"]};

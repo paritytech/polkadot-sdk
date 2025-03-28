@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["query_acceptable_payment_assets","query_delivery_fees","query_weight_to_asset_fee","query_xcm_weight"],"struct":["QueryAcceptablePaymentAssets","QueryDeliveryFees","QueryWeightToAssetFee","QueryXcmWeight"]};

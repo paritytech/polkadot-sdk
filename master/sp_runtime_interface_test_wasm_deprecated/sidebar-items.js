@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["WASM_BINARY","WASM_BINARY_BLOATY","WASM_BINARY_PATH"],"fn":["wasm_binary_unwrap"],"mod":["test_api"]};

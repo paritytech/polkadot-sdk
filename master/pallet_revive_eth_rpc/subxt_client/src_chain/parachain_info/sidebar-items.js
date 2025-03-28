@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["calls","storage"],"type":["Call"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Collection","Dest","Item"]};

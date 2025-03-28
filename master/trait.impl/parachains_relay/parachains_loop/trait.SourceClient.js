@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["substrate_relay_helper",[["impl&lt;P: <a class=\"trait\" href=\"substrate_relay_helper/parachains/trait.SubstrateParachainsPipeline.html\" title=\"trait substrate_relay_helper::parachains::SubstrateParachainsPipeline\">SubstrateParachainsPipeline</a>, SourceRelayClnt: Client&lt;P::<a class=\"associatedtype\" href=\"substrate_relay_helper/parachains/trait.SubstrateParachainsPipeline.html#associatedtype.SourceRelayChain\" title=\"type substrate_relay_helper::parachains::SubstrateParachainsPipeline::SourceRelayChain\">SourceRelayChain</a>&gt;&gt; <a class=\"trait\" href=\"parachains_relay/parachains_loop/trait.SourceClient.html\" title=\"trait parachains_relay::parachains_loop::SourceClient\">SourceClient</a>&lt;<a class=\"struct\" href=\"substrate_relay_helper/parachains/struct.ParachainsPipelineAdapter.html\" title=\"struct substrate_relay_helper::parachains::ParachainsPipelineAdapter\">ParachainsPipelineAdapter</a>&lt;P&gt;&gt; for <a class=\"struct\" href=\"substrate_relay_helper/parachains/source/struct.ParachainsSource.html\" title=\"struct substrate_relay_helper::parachains::source::ParachainsSource\">ParachainsSource</a>&lt;P, SourceRelayClnt&gt;<div class=\"where\">where\n    P::<a class=\"associatedtype\" href=\"substrate_relay_helper/parachains/trait.SubstrateParachainsPipeline.html#associatedtype.SourceParachain\" title=\"type substrate_relay_helper::parachains::SubstrateParachainsPipeline::SourceParachain\">SourceParachain</a>: Chain&lt;Hash = ParaHash&gt;,</div>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1503]}

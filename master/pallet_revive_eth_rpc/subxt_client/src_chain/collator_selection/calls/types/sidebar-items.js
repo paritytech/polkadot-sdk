@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["add_invulnerable","remove_invulnerable","set_candidacy_bond","set_desired_candidates","set_invulnerables","take_candidate_slot","update_bond"],"struct":["AddInvulnerable","LeaveIntent","RegisterAsCandidate","RemoveInvulnerable","SetCandidacyBond","SetDesiredCandidates","SetInvulnerables","TakeCandidateSlot","UpdateBond"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["candidacy_bond","candidate_list","desired_candidates","invulnerables","last_authored_block"]};

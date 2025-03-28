@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error","Event1","Event2"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AdjustmentDirection","Reasons"],"mod":["migration","pallet","weights"],"struct":["AccountData","BalanceLock","DustCleaner","ExtraFlags","NegativeImbalance","PositiveImbalance","ReserveData"]};

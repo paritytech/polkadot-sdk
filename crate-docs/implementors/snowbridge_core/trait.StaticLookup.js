@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"snowbridge_system":[["impl&lt;T: <a class=\"trait\" href=\"snowbridge_system/pallet/trait.Config.html\" title=\"trait snowbridge_system::pallet::Config\">Config</a>&gt; StaticLookup for <a class=\"struct\" href=\"snowbridge_system/pallet/struct.Pallet.html\" title=\"struct snowbridge_system::pallet::Pallet\">Pallet</a>&lt;T&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["mock_origin","mock_outbound_queue","mock_xcm"]};

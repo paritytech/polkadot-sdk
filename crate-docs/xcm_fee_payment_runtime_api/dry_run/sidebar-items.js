@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["ExtrinsicDryRunEffects","XcmDryRunEffects"],"trait":["XcmDryRunApi"]};

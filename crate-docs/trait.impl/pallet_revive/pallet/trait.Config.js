@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"kitchensink_runtime":[["impl <a class=\"trait\" href=\"pallet_revive/pallet/trait.Config.html\" title=\"trait pallet_revive::pallet::Config\">Config</a> for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]],
+"pallet_revive_mock_network":[["impl Config for <a class=\"struct\" href=\"pallet_revive_mock_network/parachain/struct.Runtime.html\" title=\"struct pallet_revive_mock_network::parachain::Runtime\">Runtime</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

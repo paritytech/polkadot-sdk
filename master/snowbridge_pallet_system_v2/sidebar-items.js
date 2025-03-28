@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["api","pallet","weights"],"trait":["BenchmarkHelper"],"type":["AccountIdOf"]};

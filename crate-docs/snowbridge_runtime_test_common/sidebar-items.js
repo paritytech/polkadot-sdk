@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["change_storage_constant_by_governance_works","initial_fund","send_transfer_token_message","send_transfer_token_message_failure","send_transfer_token_message_success","send_unpaid_transfer_token_message"]};

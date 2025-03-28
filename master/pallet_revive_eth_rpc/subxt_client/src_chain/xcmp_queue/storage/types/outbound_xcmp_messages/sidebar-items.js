@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["OutboundXcmpMessages","Param0","Param1"]};

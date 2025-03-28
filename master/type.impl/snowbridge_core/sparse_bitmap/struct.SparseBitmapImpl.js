@@ -1,0 +1,9 @@
+(function() {
+    var type_impls = Object.fromEntries([["snowbridge_pallet_inbound_queue_v2",[["<details class=\"toggle implementors-toggle\" open><summary><section id=\"impl-SparseBitmap%3CBitMap%3E-for-SparseBitmapImpl%3CBitMap%3E\" class=\"impl\"><a href=\"#impl-SparseBitmap%3CBitMap%3E-for-SparseBitmapImpl%3CBitMap%3E\" class=\"anchor\">§</a><h3 class=\"code-header\">impl&lt;BitMap&gt; SparseBitmap&lt;BitMap&gt; for SparseBitmapImpl&lt;BitMap&gt;<div class=\"where\">where\n    BitMap: StorageMap&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.84.1/std/primitive.u128.html\">u128</a>, <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.84.1/std/primitive.u128.html\">u128</a>, Query = <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.84.1/std/primitive.u128.html\">u128</a>&gt;,</div></h3></section></summary><div class=\"impl-items\"><section id=\"method.get\" class=\"method trait-impl\"><a href=\"#method.get\" class=\"anchor\">§</a><h4 class=\"code-header\">fn <a class=\"fn\">get</a>(index: <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.84.1/std/primitive.u128.html\">u128</a>) -&gt; <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.84.1/std/primitive.bool.html\">bool</a></h4></section><section id=\"method.set\" class=\"method trait-impl\"><a href=\"#method.set\" class=\"anchor\">§</a><h4 class=\"code-header\">fn <a class=\"fn\">set</a>(index: <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.84.1/std/primitive.u128.html\">u128</a>)</h4></section></div></details>","SparseBitmap<BitMap>","snowbridge_pallet_inbound_queue_v2::Nonce"]]]]);
+    if (window.register_type_impls) {
+        window.register_type_impls(type_impls);
+    } else {
+        window.pending_type_impls = type_impls;
+    }
+})()
+//{"start":55,"fragment_lengths":[1560]}

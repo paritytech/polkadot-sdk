@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["query_account_balances"],"struct":["QueryAccountBalances"]};

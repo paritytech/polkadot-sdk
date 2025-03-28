@@ -1,0 +1,829 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/snowbridge/parachain/primitives/ethereum/src/header.rs`."><title>header.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="snowbridge_ethereum" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../snowbridge_ethereum/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+</pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
+</span><span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>ethbloom::Bloom <span class="kw">as </span>EthBloom;
+<span class="kw">use </span>hex_literal::hex;
+<span class="kw">use </span>parity_bytes::Bytes;
+<span class="kw">use </span>rlp::RlpStream;
+<span class="kw">use </span>scale_info::TypeInfo;
+<span class="kw">use </span>sp_io::hashing::keccak_256;
+<span class="kw">use </span>sp_runtime::RuntimeDebug;
+<span class="kw">use </span>sp_std::{convert::TryInto, prelude::<span class="kw-2">*</span>};
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">use </span>serde_big_array::BigArray;
+
+<span class="kw">use </span>ethereum_types::{Address, H256, H64, U256};
+
+<span class="kw">use crate</span>::{mpt, receipt};
+
+<span class="doccomment">/// Complete block header id.
+</span><span class="attr">#[derive(Clone, Copy, Default, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+</span><span class="kw">pub struct </span>HeaderId {
+	<span class="doccomment">/// Header number.
+	</span><span class="kw">pub </span>number: u64,
+	<span class="doccomment">/// Header hash.
+	</span><span class="kw">pub </span>hash: H256,
+}
+
+<span class="kw">const </span>EMPTY_OMMERS_HASH: [u8; <span class="number">32</span>] =
+	<span class="macro">hex!</span>(<span class="string">&quot;1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347&quot;</span>);
+
+<span class="doccomment">/// An Ethereum block header.
+</span><span class="attr">#[derive(Clone, Default, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>Header {
+	<span class="doccomment">/// Parent block hash.
+	</span><span class="kw">pub </span>parent_hash: H256,
+	<span class="doccomment">/// Block timestamp.
+	</span><span class="kw">pub </span>timestamp: u64,
+	<span class="doccomment">/// Block number.
+	</span><span class="kw">pub </span>number: u64,
+	<span class="doccomment">/// Block author.
+	</span><span class="kw">pub </span>author: Address,
+
+	<span class="doccomment">/// Transactions root.
+	</span><span class="kw">pub </span>transactions_root: H256,
+	<span class="doccomment">/// Block ommers hash.
+	</span><span class="kw">pub </span>ommers_hash: H256,
+	<span class="doccomment">/// Block extra data.
+	</span><span class="kw">pub </span>extra_data: Bytes,
+
+	<span class="doccomment">/// State root.
+	</span><span class="kw">pub </span>state_root: H256,
+	<span class="doccomment">/// Block receipts root.
+	</span><span class="kw">pub </span>receipts_root: H256,
+	<span class="doccomment">/// Block bloom.
+	</span><span class="kw">pub </span>logs_bloom: Bloom,
+	<span class="doccomment">/// Gas used for contracts execution.
+	</span><span class="kw">pub </span>gas_used: U256,
+	<span class="doccomment">/// Block gas limit.
+	</span><span class="kw">pub </span>gas_limit: U256,
+
+	<span class="doccomment">/// Block difficulty.
+	</span><span class="kw">pub </span>difficulty: U256,
+	<span class="doccomment">/// Vector of post-RLP-encoded fields.
+	</span><span class="kw">pub </span>seal: Vec&lt;Bytes&gt;,
+
+	<span class="comment">// Base fee per gas (EIP-1559), only in headers from the London hardfork onwards.
+	</span><span class="kw">pub </span>base_fee: <span class="prelude-ty">Option</span>&lt;U256&gt;,
+}
+
+<span class="kw">impl </span>Header {
+	<span class="doccomment">/// Compute hash of this header (keccak of the RLP with seal).
+	</span><span class="kw">pub fn </span>compute_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H256 {
+		keccak_256(<span class="kw-2">&amp;</span><span class="self">self</span>.rlp(<span class="bool-val">true</span>)).into()
+	}
+
+	<span class="doccomment">/// Compute hash of the truncated header i.e. excluding seal.
+	</span><span class="kw">pub fn </span>compute_partial_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H256 {
+		keccak_256(<span class="kw-2">&amp;</span><span class="self">self</span>.rlp(<span class="bool-val">false</span>)).into()
+	}
+
+	<span class="kw">pub fn </span>check_receipt_proof(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		proof: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;],
+	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;receipt::Receipt, rlp::DecoderError&gt;&gt; {
+		<span class="kw">match </span><span class="self">self</span>.apply_merkle_proof(proof) {
+			<span class="prelude-val">Some</span>((root, data)) <span class="kw">if </span>root == <span class="self">self</span>.receipts_root =&gt; <span class="prelude-val">Some</span>(rlp::decode(<span class="kw-2">&amp;</span>data)),
+			<span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; <span class="prelude-val">None</span>,
+			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+		}
+	}
+
+	<span class="kw">pub fn </span>apply_merkle_proof(<span class="kw-2">&amp;</span><span class="self">self</span>, proof: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;]) -&gt; <span class="prelude-ty">Option</span>&lt;(H256, Vec&lt;u8&gt;)&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>iter = proof.iter().rev();
+		<span class="kw">let </span>first_bytes = <span class="kw">match </span>iter.next() {
+			<span class="prelude-val">Some</span>(b) =&gt; b,
+			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+		};
+		<span class="kw">let </span>item_to_prove: mpt::ShortNode = rlp::decode(first_bytes).ok()<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>final_hash: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt; = iter.try_fold(keccak_256(first_bytes), |acc, x| {
+			<span class="kw">let </span>node: Box&lt;<span class="kw">dyn </span>mpt::Node&gt; = x.as_slice().try_into().ok()<span class="question-mark">?</span>;
+			<span class="kw">if </span>(<span class="kw-2">*</span>node).contains_hash(acc.into()) {
+				<span class="kw">return </span><span class="prelude-val">Some</span>(keccak_256(x))
+			}
+			<span class="prelude-val">None
+		</span>});
+
+		final_hash.map(|hash| (hash.into(), item_to_prove.value))
+	}
+
+	<span class="kw">pub fn </span>mix_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;H256&gt; {
+		<span class="kw">let </span>bytes: Bytes = <span class="self">self</span>.decoded_seal_field(<span class="number">0</span>, <span class="number">32</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>size = bytes.len();
+		<span class="kw">let </span><span class="kw-2">mut </span>mix_hash = [<span class="number">0u8</span>; <span class="number">32</span>];
+		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..size {
+			mix_hash[<span class="number">31 </span>- i] = bytes[size - <span class="number">1 </span>- i];
+		}
+		<span class="prelude-val">Some</span>(mix_hash.into())
+	}
+
+	<span class="kw">pub fn </span>nonce(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;H64&gt; {
+		<span class="kw">let </span>bytes: Bytes = <span class="self">self</span>.decoded_seal_field(<span class="number">1</span>, <span class="number">8</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>size = bytes.len();
+		<span class="kw">let </span><span class="kw-2">mut </span>nonce = [<span class="number">0u8</span>; <span class="number">8</span>];
+		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..size {
+			nonce[<span class="number">7 </span>- i] = bytes[size - <span class="number">1 </span>- i];
+		}
+		<span class="prelude-val">Some</span>(nonce.into())
+	}
+
+	<span class="kw">pub fn </span>has_ommers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="self">self</span>.ommers_hash != EMPTY_OMMERS_HASH.into()
+	}
+
+	<span class="kw">fn </span>decoded_seal_field(<span class="kw-2">&amp;</span><span class="self">self</span>, index: usize, max_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;Bytes&gt; {
+		<span class="kw">let </span>bytes: Bytes = rlp::decode(<span class="self">self</span>.seal.get(index)<span class="question-mark">?</span>).ok()<span class="question-mark">?</span>;
+		<span class="kw">if </span>bytes.len() &gt; max_len {
+			<span class="kw">return </span><span class="prelude-val">None
+		</span>}
+		<span class="prelude-val">Some</span>(bytes)
+	}
+
+	<span class="doccomment">/// Returns header RLP with or without seals.
+	/// For EIP-1559 baseFee addition refer to:
+	/// &lt;https://github.com/openethereum/openethereum/blob/193b25a22d5ff07759c6431129e95235510516f9/crates/ethcore/types/src/header.rs#L341&gt;
+	</span><span class="kw">fn </span>rlp(<span class="kw-2">&amp;</span><span class="self">self</span>, with_seal: bool) -&gt; Bytes {
+		<span class="kw">let </span><span class="kw-2">mut </span>s = RlpStream::new();
+
+		<span class="kw">let </span>stream_length_without_seal = <span class="kw">if </span><span class="self">self</span>.base_fee.is_some() { <span class="number">14 </span>} <span class="kw">else </span>{ <span class="number">13 </span>};
+
+		<span class="kw">if </span>with_seal {
+			s.begin_list(stream_length_without_seal + <span class="self">self</span>.seal.len());
+		} <span class="kw">else </span>{
+			s.begin_list(stream_length_without_seal);
+		}
+
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.parent_hash);
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.ommers_hash);
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.author);
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.state_root);
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.transactions_root);
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.receipts_root);
+		s.append(<span class="kw-2">&amp;</span>EthBloom::from(<span class="self">self</span>.logs_bloom.<span class="number">0</span>));
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.difficulty);
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.number);
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.gas_limit);
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.gas_used);
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.timestamp);
+		s.append(<span class="kw-2">&amp;</span><span class="self">self</span>.extra_data);
+
+		<span class="kw">if </span>with_seal {
+			<span class="kw">for </span>b <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.seal {
+				s.append_raw(b, <span class="number">1</span>);
+			}
+		}
+
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(base_fee) = <span class="self">self</span>.base_fee {
+			s.append(<span class="kw-2">&amp;</span>base_fee);
+		}
+
+		s.out().to_vec()
+	}
+}
+
+<span class="doccomment">/// Logs bloom.
+</span><span class="attr">#[derive(Clone, Debug, Encode, Decode, TypeInfo)]
+#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>Bloom(<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(with = <span class="string">&quot;BigArray&quot;</span>))] </span>[u8; <span class="number">256</span>]);
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8; <span class="number">256</span>]&gt; <span class="kw">for </span>Bloom {
+	<span class="kw">fn </span>from(buffer: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8; <span class="number">256</span>]) -&gt; Bloom {
+		Bloom(<span class="kw-2">*</span>buffer)
+	}
+}
+
+<span class="kw">impl </span>PartialEq&lt;Bloom&gt; <span class="kw">for </span>Bloom {
+	<span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>Bloom) -&gt; bool {
+		<span class="self">self</span>.<span class="number">0</span>.iter().zip(other.<span class="number">0</span>.iter()).all(|(l, r)| l == r)
+	}
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>Bloom {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		Bloom([<span class="number">0</span>; <span class="number">256</span>])
+	}
+}
+
+<span class="kw">impl </span>rlp::Decodable <span class="kw">for </span>Bloom {
+	<span class="kw">fn </span>decode(rlp: <span class="kw-2">&amp;</span>rlp::Rlp) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, rlp::DecoderError&gt; {
+		<span class="kw">let </span>v: Vec&lt;u8&gt; = rlp.as_val()<span class="question-mark">?</span>;
+		<span class="kw">match </span>v.len() {
+			<span class="number">256 </span>=&gt; {
+				<span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0u8</span>; <span class="number">256</span>];
+				bytes.copy_from_slice(<span class="kw-2">&amp;</span>v);
+				<span class="prelude-val">Ok</span>(<span class="self">Self</span>(bytes))
+			},
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(rlp::DecoderError::Custom(<span class="string">&quot;Expected 256 bytes&quot;</span>)),
+		}
+	}
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>bloom_decode_rlp() {
+		<span class="kw">let </span>raw_bloom = <span class="macro">hex!</span>(
+			<span class="string">&quot;
+			b901000420000000000000000000008002000000000001000000000001000000000000000000
+			0000000000000000000000000002000000080000000000000000200000000000000000000000
+			0000080000002200000000004000100000000000000000000000000000000000000000000000
+			0000000000000004000000001000010000000000080000000000400000000000000000000000
+			0000080000004000000000020000000000020000000000000000000000000000000000000000
+			0000040000000000020000000001000000000000000000000000000010000000020000200000
+			10200000000000010000000000000000000000000000000000000010000000
+		&quot;
+		</span>);
+		<span class="kw">let </span>expected_bytes = <span class="kw-2">&amp;</span>raw_bloom[<span class="number">3</span>..];
+		<span class="kw">let </span>bloom: Bloom = rlp::decode(<span class="kw-2">&amp;</span>raw_bloom).unwrap();
+		<span class="macro">assert_eq!</span>(bloom.<span class="number">0</span>, expected_bytes);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>header_compute_hash_poa() {
+		<span class="comment">// PoA header
+		</span><span class="kw">let </span>header = Header {
+			parent_hash: Default::default(),
+			timestamp: <span class="number">0</span>,
+			number: <span class="number">0</span>,
+			author: Default::default(),
+			transactions_root: <span class="macro">hex!</span>(
+				<span class="string">&quot;56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421&quot;
+			</span>)
+			.into(),
+			ommers_hash: <span class="macro">hex!</span>(<span class="string">&quot;1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347&quot;</span>)
+				.into(),
+			extra_data: <span class="macro">vec!</span>[],
+			state_root: <span class="macro">hex!</span>(<span class="string">&quot;eccf6b74c2bcbe115c71116a23fe963c54406010c244d9650526028ad3e32cce&quot;</span>)
+				.into(),
+			receipts_root: <span class="macro">hex!</span>(<span class="string">&quot;56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421&quot;</span>)
+				.into(),
+			logs_bloom: Default::default(),
+			gas_used: Default::default(),
+			gas_limit: <span class="number">0x222222</span>.into(),
+			difficulty: <span class="number">0x20000</span>.into(),
+			seal: <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">0x80</span>], {
+				<span class="kw">let </span><span class="kw-2">mut </span>vec = <span class="macro">vec!</span>[<span class="number">0xb8</span>, <span class="number">0x41</span>];
+				vec.resize(<span class="number">67</span>, <span class="number">0</span>);
+				vec
+			}],
+			base_fee: <span class="prelude-val">None</span>,
+		};
+		<span class="macro">assert_eq!</span>(
+			header.compute_hash().as_bytes(),
+			<span class="macro">hex!</span>(<span class="string">&quot;9ff57c7fa155853586382022f0982b71c51fa313a0942f8c456300896643e890&quot;</span>),
+		);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>header_compute_hash_pow() {
+		<span class="comment">// &lt;https://etherscan.io/block/11090290&gt;
+		</span><span class="kw">let </span>nonce = <span class="macro">hex!</span>(<span class="string">&quot;6935bbe7b63c4f8e&quot;</span>).to_vec();
+		<span class="kw">let </span>mix_hash =
+			<span class="macro">hex!</span>(<span class="string">&quot;be3adfb0087be62b28b716e2cdf3c79329df5caa04c9eee035d35b5d52102815&quot;</span>).to_vec();
+		<span class="kw">let </span>header = Header {
+			parent_hash: <span class="macro">hex!</span>(<span class="string">&quot;bede0bddd6f32c895fc505ffe0c39d9bde58e9a5272f31a3dee448b796edcbe3&quot;</span>)
+				.into(),
+			timestamp: <span class="number">1603160977</span>,
+			number: <span class="number">11090290</span>,
+			author: <span class="macro">hex!</span>(<span class="string">&quot;ea674fdde714fd979de3edf0f56aa9716b898ec8&quot;</span>).into(),
+			transactions_root: <span class="macro">hex!</span>(
+				<span class="string">&quot;56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421&quot;
+			</span>)
+			.into(),
+			ommers_hash: <span class="macro">hex!</span>(<span class="string">&quot;1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347&quot;</span>)
+				.into(),
+			extra_data: <span class="macro">hex!</span>(<span class="string">&quot;65746865726d696e652d61736961312d33&quot;</span>).to_vec(),
+			state_root: <span class="macro">hex!</span>(<span class="string">&quot;7dcb8aca872b712bad81df34a89d4efedc293566ffc3eeeb5cbcafcc703e42c9&quot;</span>)
+				.into(),
+			receipts_root: <span class="macro">hex!</span>(<span class="string">&quot;56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421&quot;</span>)
+				.into(),
+			logs_bloom: Default::default(),
+			gas_used: <span class="number">0</span>.into(),
+			gas_limit: <span class="number">0xbe8c19</span>.into(),
+			difficulty: <span class="number">0xbc140caa61087i64</span>.into(),
+			seal: <span class="macro">vec!</span>[rlp::encode(<span class="kw-2">&amp;</span>mix_hash).to_vec(), rlp::encode(<span class="kw-2">&amp;</span>nonce).to_vec()],
+			base_fee: <span class="prelude-val">None</span>,
+		};
+		<span class="macro">assert_eq!</span>(
+			header.compute_hash().as_bytes(),
+			<span class="macro">hex!</span>(<span class="string">&quot;0f9bdc91c2e0140acb873330742bda8c8181fa3add91fe7ae046251679cedef7&quot;</span>),
+		);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>header_pow_seal_fields_extracted_correctly() {
+		<span class="kw">let </span>nonce: H64 = <span class="macro">hex!</span>(<span class="string">&quot;6935bbe7b63c4f8e&quot;</span>).into();
+		<span class="kw">let </span>mix_hash: H256 =
+			<span class="macro">hex!</span>(<span class="string">&quot;be3adfb0087be62b28b716e2cdf3c79329df5caa04c9eee035d35b5d52102815&quot;</span>).into();
+		<span class="kw">let </span>header = Header {
+			seal: <span class="macro">vec!</span>[
+				rlp::encode(<span class="kw-2">&amp;</span>mix_hash.<span class="number">0</span>.to_vec()).to_vec(),
+				rlp::encode(<span class="kw-2">&amp;</span>nonce.<span class="number">0</span>.to_vec()).to_vec(),
+			],
+			..Default::default()
+		};
+
+		<span class="macro">assert_eq!</span>(header.nonce().unwrap(), nonce);
+		<span class="macro">assert_eq!</span>(header.mix_hash().unwrap(), mix_hash);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>header_pow_seal_fields_return_none_for_invalid_values() {
+		<span class="kw">let </span>nonce = <span class="macro">hex!</span>(<span class="string">&quot;696935bbe7b63c4f8e&quot;</span>).to_vec();
+		<span class="kw">let </span>mix_hash =
+			<span class="macro">hex!</span>(<span class="string">&quot;bebe3adfb0087be62b28b716e2cdf3c79329df5caa04c9eee035d35b5d52102815&quot;</span>).to_vec();
+		<span class="kw">let </span><span class="kw-2">mut </span>header = Header {
+			seal: <span class="macro">vec!</span>[rlp::encode(<span class="kw-2">&amp;</span>mix_hash).to_vec(), rlp::encode(<span class="kw-2">&amp;</span>nonce).to_vec()],
+			..Default::default()
+		};
+		<span class="macro">assert_eq!</span>(header.nonce(), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(header.mix_hash(), <span class="prelude-val">None</span>);
+
+		header.seal = Vec::new();
+		<span class="macro">assert_eq!</span>(header.nonce(), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(header.mix_hash(), <span class="prelude-val">None</span>);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>header_check_receipt_proof() {
+		<span class="kw">let </span>header = Header {
+			receipts_root: <span class="macro">hex!</span>(<span class="string">&quot;fd5e397a84884641f53c496804f24b5276cbb8c5c9cfc2342246be8e3ce5ad02&quot;</span>)
+				.into(),
+			..Default::default()
+		};
+
+		<span class="comment">// Valid proof
+		</span><span class="kw">let </span>proof_receipt5 = <span class="macro">vec!</span>(
+			<span class="macro">hex!</span>(<span class="string">&quot;f90131a0b5ba404eb5a6a88e56579f4d37ef9813b5ad7f86f0823ff3b407ac5a6bb465eca0398ead2655e78e03c127ce22c5830e90f18b1601ec055f938336c084feb915a9a026d322c26e46c50942c1aabde50e36df5cde572aed650ce73ea3182c6e90a02ca00600a356135f4db1db0d9842264cdff2652676f881669e91e316c0b6dd783011a0837f1deb4075336da320388c1edfffc56c448a43f4a5ba031300d32a7b509fc5a01c3ac82fd65b4aba7f9afaf604d9c82ec7e2deb573a091ae235751bc5c0c288da05d454159d9071b0f68b6e0503d290f23ac7602c1db0c569dee4605d8f5298f09a00bbed10350ec954448df795f6fd46e3faefc800ede061b3840eedc6e2b07a74da0acb02d26a3650f2064c14a435fdf1f668d8655daf455ebdf671713a7c089b3898080808080808080&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f901f180a00046a08d4f0bdbdc6b31903086ce323182bce6725e7d9415f7ff91ee8f4820bda0e7cd26ad5f3d2771e4b5ab788e268a14a10209f94ee918eb6c829d21d3d11c1da00d4a56d9e9a6751874fd86c7e3cb1c6ad5a848da62751325f478978a00ea966ea064b81920c8f04a8a1e21f53a8280e739fbb7b00b2ab92493ca3f610b70e8ac85a0b1040ed4c55a73178b76abb16f946ce5bebd6b93ab873c83327df54047d12c27a0de6485e9ac58dc6e2b04b4bb38f562684f0b1a2ee586cc11079e7d9a9dc40b32a0d394f4d3532c3124a65fa36e69147e04fd20453a72ee9c50660f17e13ce9df48a066501003fc3e3478efd2803cd0eded6bbe9243ca01ba754d6327071ddbcbc649a0b2684e518f325fee39fc8ea81b68f3f5c785be00d087f3bed8857ae2ee8da26ea071060a5c52042e8d7ce21092f8ecf06053beb9a0b773a6f91a30c4220aa276b2a0fc22436632574ccf6043d0986dede27ea94c9ca9a3bb5ec03ce776a4ddef24a9a05a8a1d6698c4e7d8cc3a2506cb9b12ea9a079c9c7099bc919dc804033cc556e4a0170c468b0716fd36d161f0bf05875f15756a2976de92f9efe7716320509d79c9a0182f909a90cab169f3efb62387f9cccdd61440acc4deec42f68a4f7ca58075c7a055cf0e9202ac75689b76318f1171f3a44465eddc06aae0713bfb6b34fdd27b7980&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f904de20b904daf904d701830652f0b9010004200000000000000000000080020000000000010000000000010000000000000000000000000000000000000000000002000000080000000000000000200000000000000000000000000008000000220000000000400010000000000000000000000000000000000000000000000000000000000000040000000010000100000000000800000000004000000000000000000000000000080000004000000000020000000000020000000000000000000000000000000000000000000004000000000002000000000100000000000000000000000000001000000002000020000010200000000000010000000000000000000000000000000000000010000000f903ccf89b9421130f34829b4c343142047a28ce96ec07814b15f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000007d843005c7433c16b27ff939cb37471541561ebda0000000000000000000000000e9c1281aae66801fa35ec404d5f2aea393ff6988a000000000000000000000000000000000000000000000000000000005d09b7380f89b9421130f34829b4c343142047a28ce96ec07814b15f863a08c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925a00000000000000000000000007d843005c7433c16b27ff939cb37471541561ebda00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da0ffffffffffffffffffffffffffffffffffffffffffffffffffffffcc840c6920f89b94c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa0000000000000000000000000e9c1281aae66801fa35ec404d5f2aea393ff6988a00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da000000000000000000000000000000000000000000000000003e973b5a5d1078ef87994e9c1281aae66801fa35ec404d5f2aea393ff6988e1a01c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1b840000000000000000000000000000000000000000000000000000001f1420ad1d40000000000000000000000000000000000000000000000014ad400879d159a38f8fc94e9c1281aae66801fa35ec404d5f2aea393ff6988f863a0d78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822a00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488db88000000000000000000000000000000000000000000000000000000005d415f3320000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e973b5a5d1078ef87a94c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2f842a07fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65a00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da000000000000000000000000000000000000000000000000003e973b5a5d1078e&quot;</span>).to_vec(),
+		);
+		<span class="macro">assert!</span>(header.check_receipt_proof(<span class="kw-2">&amp;</span>proof_receipt5).is_some());
+
+		<span class="comment">// Various invalid proofs
+		</span><span class="kw">let </span>proof_empty: Vec&lt;Vec&lt;u8&gt;&gt; = <span class="macro">vec!</span>[];
+		<span class="kw">let </span>proof_missing_full_node = <span class="macro">vec!</span>[proof_receipt5[<span class="number">0</span>].clone(), proof_receipt5[<span class="number">2</span>].clone()];
+		<span class="kw">let </span>proof_missing_short_node1 = <span class="macro">vec!</span>[proof_receipt5[<span class="number">0</span>].clone(), proof_receipt5[<span class="number">1</span>].clone()];
+		<span class="kw">let </span>proof_missing_short_node2 = <span class="macro">vec!</span>[proof_receipt5[<span class="number">0</span>].clone()];
+		<span class="kw">let </span>proof_invalid_encoding = <span class="macro">vec!</span>[proof_receipt5[<span class="number">2</span>][<span class="number">2</span>..].to_vec()];
+		<span class="kw">let </span>proof_no_full_node = <span class="macro">vec!</span>[proof_receipt5[<span class="number">2</span>].clone(), proof_receipt5[<span class="number">2</span>].clone()];
+		<span class="macro">assert!</span>(header.check_receipt_proof(<span class="kw-2">&amp;</span>proof_empty).is_none());
+		<span class="macro">assert!</span>(header.check_receipt_proof(<span class="kw-2">&amp;</span>proof_missing_full_node).is_none());
+
+		<span class="macro">assert_eq!</span>(
+			header.check_receipt_proof(<span class="kw-2">&amp;</span>proof_missing_short_node1),
+			<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(rlp::DecoderError::Custom(<span class="string">&quot;Unsupported receipt type&quot;</span>)))
+		);
+
+		<span class="macro">assert_eq!</span>(
+			header.check_receipt_proof(<span class="kw-2">&amp;</span>proof_missing_short_node2),
+			<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(rlp::DecoderError::Custom(<span class="string">&quot;Unsupported receipt type&quot;</span>)))
+		);
+
+		<span class="macro">assert!</span>(header.check_receipt_proof(<span class="kw-2">&amp;</span>proof_invalid_encoding).is_none());
+		<span class="macro">assert!</span>(header.check_receipt_proof(<span class="kw-2">&amp;</span>proof_no_full_node).is_none());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>header_check_receipt_proof_with_intermediate_short_node() {
+		<span class="kw">let </span>header = Header {
+			receipts_root: <span class="macro">hex!</span>(<span class="string">&quot;d128e3a57142d2bf15bc0cbcac7ad54f40750d571b5c3097e425882c10c9ba66&quot;</span>)
+				.into(),
+			..Default::default()
+		};
+
+		<span class="kw">let </span>proof_receipt263 = <span class="macro">vec!</span>[
+			<span class="macro">hex!</span>(<span class="string">&quot;f90131a00d3cb8d3f57ac1c0e12918a2ebe0cafed8c273577b9dd73e7ed1079b403ef494a0678b9835b834f8a287c0dd33a8fca9146e456ca688555ed4ec1361a2180b778da0fe42da181a46677a043b3d9d4b8bb05a6a17b7b5c010c17e7c1d31cfb7c4f911a0c89f0e2c53241cdb578e1f2b4caf6ba36e00500bdc57fecd66b84a6a58394c19a086c3c1fae5a0575940b5d38e111c469d07883106c26856f3ef608469a2081f13a06c5992ff00aab6226a70a032fd2f571ba22f797321f45e2daa73020d638d21b0a050861e9503ef68728f6c90a44f7fe1bceb2a9bdab6957bbe7136166bd849561ea006aa6eaca8a07e57176e9aa41e6a09edfb7678d1a112404e0ec779d7e567e82ea0bb0b430d303ba21b0af11c487b8a218bd75db54c98940b3f11bad8ff47cad3ef8080808080808080&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f871a0246de222036ee6a03329b0105da0a6b3f916fc95a9ed5a403a581a0c4d74242ca0ac108a49a88b57a05ac34a108b39f1e45f6f167f2b9fbc8d52fb58e2e5a6af1ea0fcfe07ac2ccd3c28b6eab68d1bce112f6f6dbd9023e4ec3c05b96615aa803d798080808080808080808080808080&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;e4820001a04fff54398cad4d05ea6abfd8b0f3b4fe14c04d7ff5f5211c5b927d9cf72ac1d8&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f851a096d010643ca2d47412ca66898286b5f2412963b9ec051b33e570d575914c9c5ca028cd24c652989542fe89479ec6388eac4592432242af5ba97563b3ac7c71c019808080808080808080808080808080&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f90211a0bb35a84c5b1dcb78ec9d32614912c696e62df77bebf9ab326ee55b5d3acdde46a01084b30dac8df0accfcd0fd6330b7f6fc72a4651246d0694be9162151686a620a03eed50afdce7909d784c6157c445a444c806b5f23d31f3b63786f600c84a95b2a0af5232f1df6c6d41879804d081abe867002abe26ba3e5f8e0254a83a54769831a0607915fb13dd5da594256389a45007a67a7f7a86e95d38d8462792b6c98a722ea00e1260fda1730f2738c650ce2bfba83857bc10f8fb119ebc4fb39acba24e6fbaa0d11de17e417327457812675ca3b84ae8e1b64827abfe01420953697c8313d5b1a05fcaf2f7a88f76336a0c32ffc78acb87ae2005454bd25d658035331be3173b46a03f94f4952ab9e650f83cfd0e7f367b1bcc493aacf39a06f16c4a2e1b5605da48a0bdb4ec79785ca8ae22d60f1bbd42d707b4d7ec4aff231a3ebab755e315b35053a043a67c3f2bcef37c8f47a673adcb7061007a553696d1092408601c11b2e6846aa0c519d5af48cae87c7f4538845417c9735813bee892a6fe2dda79f5c414e8576aa0f7058256e09589501d7c231d739e61c84a850e139690989d24fda6058b432e98a081a52faab520978cb19ce14400dba0cd5bcdc4e5a3c0740678aa8f97ee0e5c56a0bcecc61cadeae52518e3b68a48af4b11603dfd9d99d99d7985efa6d2de44f904a02cba4accfc6f39bc5adb6d4440eb6358b4a5103ef93298e4e694f1f940f8b48280&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f901ae20b901aaf901a70183bb444eb9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000001000000000000000000000000000100000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000010000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000080000000000000000000000000000000000000000000000002000000000000000000081000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000f89df89b94dac17f958d2ee523a2206206994597c13d831ec7f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000002e514404ff6823f1b46a8318a709251db414e5e1a000000000000000000000000055021c55847c00d764357a352e5803237d328954a0000000000000000000000000000000000000000000000000000000000201c370&quot;</span>).to_vec(),
+		];
+		<span class="macro">assert!</span>(header.check_receipt_proof(<span class="kw-2">&amp;</span>proof_receipt263).is_some());
+	}
+}
+</code></pre></div></section></main></body></html>

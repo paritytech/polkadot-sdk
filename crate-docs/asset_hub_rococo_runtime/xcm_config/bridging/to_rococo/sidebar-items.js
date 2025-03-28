@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AllowedReserveTransferAssetsToAssetHubRococo","AssetHubRococo","BridgeTable","RocFromAssetHubRococo","RocLocation","RococoNetwork","SiblingBridgeHubWithBridgeHubRococoInstance","UniversalAliases"],"type":["AllowedReserveTransferAssets","IsTrustedBridgedReserveLocationForConcreteAsset"]};

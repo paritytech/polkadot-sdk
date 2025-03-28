@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["register_token","set_operating_mode"]};

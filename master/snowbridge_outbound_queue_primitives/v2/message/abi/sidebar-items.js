@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CallContractParams","CommandWrapper","MintForeignTokenParams","OutboundMessageWrapper","RegisterForeignTokenParams","SetOperatingModeParams","UnlockNativeTokenParams","UpgradeParams"]};

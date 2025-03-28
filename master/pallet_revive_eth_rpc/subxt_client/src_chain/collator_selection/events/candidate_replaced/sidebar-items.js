@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Deposit","New","Old"]};
