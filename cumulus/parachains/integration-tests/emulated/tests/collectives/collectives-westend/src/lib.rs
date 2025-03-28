@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use xcm::{prelude::*, v3};
+pub use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
 pub use emulated_integration_tests_common::{
 	accounts::ALICE,
@@ -43,7 +43,7 @@ pub use westend_system_emulated_network::{
 		coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
 		CoretimeWestendParaPallet as CoretimeWestendPallet,
 	},
-	penpal_emulated_chain::{PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner},
+	penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 	people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
 	westend_emulated_chain::{
 		genesis::ED as WESTEND_ED,
@@ -58,7 +58,7 @@ pub use westend_system_emulated_network::{
 	CollectivesWestendPara as CollectivesWestend,
 	CollectivesWestendParaReceiver as CollectivesWestendReceiver,
 	CollectivesWestendParaSender as CollectivesWestendSender,
-	CoretimeWestendPara as CoretimeWestend, PenpalAPara as PenpalA,
+	CoretimeWestendPara as CoretimeWestend, PenpalBPara as PenpalB,
 	PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
 	WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 };

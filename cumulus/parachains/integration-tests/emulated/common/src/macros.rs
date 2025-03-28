@@ -750,9 +750,9 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 macro_rules! test_cross_chain_alias {
 	( vec![$( ($sender_para:ty, $receiver_para:ty, $is_teleport:expr, $expected_success:expr) ),+], $origin:expr, $target:expr, $fees:expr ) => {
 		$crate::macros::paste::paste! {
-			use xcm::latest::AssetTransferFilter;
 			$(
 				{
+					use xcm::latest::AssetTransferFilter;
 					let para_destination = <$sender_para>::sibling_location_of(<$receiver_para>::para_id());
 					let account: AccountId = $origin.clone().into();
 					$sender_para::fund_accounts(vec![(account.clone(), $fees * 10)]);

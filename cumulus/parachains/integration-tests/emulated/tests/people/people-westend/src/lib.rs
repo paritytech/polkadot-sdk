@@ -34,7 +34,7 @@ mod imports {
 		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::CoretimeWestendParaPallet as CoretimeWestendPallet,
-		penpal_emulated_chain::{PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner},
+		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 		people_westend_emulated_chain::{
 			people_westend_runtime::{
 				self, xcm_config::XcmConfig as PeopleWestendXcmConfig,
@@ -48,7 +48,7 @@ mod imports {
 		},
 		AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
 		CollectivesWestendPara as CollectivesWestend, CoretimeWestendPara as CoretimeWestend,
-		PenpalAPara as PenpalA, PeopleWestendPara as PeopleWestend,
+		PenpalBPara as PenpalB, PeopleWestendPara as PeopleWestend,
 		PeopleWestendParaReceiver as PeopleWestendReceiver,
 		PeopleWestendParaSender as PeopleWestendSender, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,

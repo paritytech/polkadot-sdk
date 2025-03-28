@@ -34,8 +34,8 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 	let target = origin.clone();
 	let fees = WESTEND_ED * 10;
 
-	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+	PenpalB::mint_foreign_asset(
+		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
 		Location::parent(),
 		origin.clone(),
 		fees * 10,
@@ -53,7 +53,7 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 			// between People and Coretime: allowed
 			(PeopleWestend, CoretimeWestend, TELEPORT_FEES, ALLOWED),
 			// between Penpal and Coretime: denied
-			(PenpalA, CoretimeWestend, RESERVE_TRANSFER_FEES, DENIED)
+			(PenpalB, CoretimeWestend, RESERVE_TRANSFER_FEES, DENIED)
 		],
 		origin,
 		target,
@@ -68,8 +68,8 @@ fn account_on_sibling_syschain_cannot_alias_into_different_local_account() {
 	let target: AccountId = [2; 32].into();
 	let fees = WESTEND_ED * 10;
 
-	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+	PenpalB::mint_foreign_asset(
+		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
 		Location::parent(),
 		origin.clone(),
 		fees * 10,
@@ -87,7 +87,7 @@ fn account_on_sibling_syschain_cannot_alias_into_different_local_account() {
 			// between People and Coretime: denied
 			(PeopleWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
 			// between Penpal and Coretime: denied
-			(PenpalA, CoretimeWestend, RESERVE_TRANSFER_FEES, DENIED)
+			(PenpalB, CoretimeWestend, RESERVE_TRANSFER_FEES, DENIED)
 		],
 		origin,
 		target,
@@ -97,80 +97,176 @@ fn account_on_sibling_syschain_cannot_alias_into_different_local_account() {
 
 #[test]
 fn aliasing_child_locations() {
-	// Allows aliasing descendant of origin.
-	let origin = Location::new(1, X1([PalletInstance(8)].into()));
-	let target = Location::new(1, X2([PalletInstance(8), GeneralIndex(9)].into()));
-	assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let origin = Location::new(1, X1([Parachain(8)].into()));
-	let target =
-		Location::new(1, X2([Parachain(8), AccountId32 { network: None, id: [1u8; 32] }].into()));
-	assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let origin = Location::new(1, X1([Parachain(8)].into()));
-	let target = Location::new(1, X3([Parachain(8), PalletInstance(8), GeneralIndex(9)].into()));
-	assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+	CoretimeWestend::execute_with(|| {
+		// Allows aliasing descendant of origin.
+		let origin = Location::new(1, X1([PalletInstance(8)].into()));
+		let target = Location::new(1, X2([PalletInstance(8), GeneralIndex(9)].into()));
+		assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let origin = Location::new(1, X1([Parachain(8)].into()));
+		let target = Location::new(
+			1,
+			X2([Parachain(8), AccountId32 { network: None, id: [1u8; 32] }].into()),
+		);
+		assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let origin = Location::new(1, X1([Parachain(8)].into()));
+		let target =
+			Location::new(1, X3([Parachain(8), PalletInstance(8), GeneralIndex(9)].into()));
+		assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
 
-	// Does not allow if not descendant.
-	let origin = Location::new(1, X1([PalletInstance(8)].into()));
-	let target = Location::new(0, X2([PalletInstance(8), GeneralIndex(9)].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let origin = Location::new(1, X1([Parachain(8)].into()));
-	let target =
-		Location::new(0, X2([Parachain(8), AccountId32 { network: None, id: [1u8; 32] }].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let origin = Location::new(1, X1([Parachain(8)].into()));
-	let target = Location::new(0, X1([AccountId32 { network: None, id: [1u8; 32] }].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let origin = Location::new(1, X1([AccountId32 { network: None, id: [1u8; 32] }].into()));
-	let target = Location::new(0, X1([AccountId32 { network: None, id: [1u8; 32] }].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		// Does not allow if not descendant.
+		let origin = Location::new(1, X1([PalletInstance(8)].into()));
+		let target = Location::new(0, X2([PalletInstance(8), GeneralIndex(9)].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let origin = Location::new(1, X1([Parachain(8)].into()));
+		let target = Location::new(
+			0,
+			X2([Parachain(8), AccountId32 { network: None, id: [1u8; 32] }].into()),
+		);
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let origin = Location::new(1, X1([Parachain(8)].into()));
+		let target = Location::new(0, X1([AccountId32 { network: None, id: [1u8; 32] }].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let origin = Location::new(1, X1([AccountId32 { network: None, id: [1u8; 32] }].into()));
+		let target = Location::new(0, X1([AccountId32 { network: None, id: [1u8; 32] }].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+	});
 }
 
 #[test]
 fn asset_hub_root_aliases_anything() {
-	// Allows AH root to alias anything.
-	let origin = Location::new(1, X1([Parachain(1000)].into()));
+	CoretimeWestend::execute_with(|| {
+		// Allows AH root to alias anything.
+		let origin = Location::new(1, X1([Parachain(1000)].into()));
 
-	let target = Location::new(1, X1([Parachain(2000)].into()));
-	assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let target = Location::new(1, X1([AccountId32 { network: None, id: [1u8; 32] }].into()));
-	assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let target =
-		Location::new(1, X2([Parachain(8), AccountId32 { network: None, id: [1u8; 32] }].into()));
-	assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let target = Location::new(1, X3([Parachain(42), PalletInstance(8), GeneralIndex(9)].into()));
-	assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let target = Location::new(2, X1([GlobalConsensus(Ethereum { chain_id: 1 })].into()));
-	assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let target = Location::new(2, X2([GlobalConsensus(Polkadot), Parachain(1000)].into()));
-	assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let target = Location::new(0, X2([PalletInstance(8), GeneralIndex(9)].into()));
-	assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let target = Location::new(1, X1([Parachain(2000)].into()));
+		assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let target = Location::new(1, X1([AccountId32 { network: None, id: [1u8; 32] }].into()));
+		assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let target = Location::new(
+			1,
+			X2([Parachain(8), AccountId32 { network: None, id: [1u8; 32] }].into()),
+		);
+		assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let target =
+			Location::new(1, X3([Parachain(42), PalletInstance(8), GeneralIndex(9)].into()));
+		assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let target = Location::new(2, X1([GlobalConsensus(Ethereum { chain_id: 1 })].into()));
+		assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let target = Location::new(2, X2([GlobalConsensus(Polkadot), Parachain(1000)].into()));
+		assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let target = Location::new(0, X2([PalletInstance(8), GeneralIndex(9)].into()));
+		assert!(<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
 
-	// Other AH locations cannot alias anything.
-	let origin = Location::new(1, X2([Parachain(1000), GeneralIndex(9)].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let origin = Location::new(1, X2([Parachain(1000), PalletInstance(9)].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let origin = Location::new(
-		1,
-		X2([Parachain(1000), AccountId32 { network: None, id: [1u8; 32] }].into()),
+		// Other AH locations cannot alias anything.
+		let origin = Location::new(1, X2([Parachain(1000), GeneralIndex(9)].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let origin = Location::new(1, X2([Parachain(1000), PalletInstance(9)].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let origin = Location::new(
+			1,
+			X2([Parachain(1000), AccountId32 { network: None, id: [1u8; 32] }].into()),
+		);
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+
+		// Other root locations cannot alias anything.
+		let origin = Location::new(1, Here);
+		let target = Location::new(2, X1([GlobalConsensus(Ethereum { chain_id: 1 })].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let target = Location::new(2, X2([GlobalConsensus(Polkadot), Parachain(1000)].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let target = Location::new(0, X2([PalletInstance(8), GeneralIndex(9)].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+
+		let origin = Location::new(0, Here);
+		let target = Location::new(1, X1([Parachain(2000)].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let origin = Location::new(1, X1([Parachain(1001)].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+		let origin = Location::new(1, X1([Parachain(1002)].into()));
+		assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+	});
+}
+
+#[test]
+fn authorized_cross_chain_aliases() {
+	// origin and target are different accounts on different chains
+	let origin: AccountId = [100; 32].into();
+	let bad_origin: AccountId = [150; 32].into();
+	let target: AccountId = [200; 32].into();
+	let fees = WESTEND_ED * 10;
+
+	let pal_admin = <PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get());
+	PenpalB::mint_foreign_asset(pal_admin.clone(), Location::parent(), origin.clone(), fees * 10);
+	PenpalB::mint_foreign_asset(pal_admin, Location::parent(), bad_origin.clone(), fees * 10);
+	CoretimeWestend::fund_accounts(vec![(target.clone(), fees * 10)]);
+
+	// let's authorize `origin` on Penpal to alias `target` on Coretime
+	CoretimeWestend::execute_with(|| {
+		let penpal_origin = Location::new(
+			1,
+			X2([
+				Parachain(PenpalB::para_id().into()),
+				AccountId32 {
+					network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
+					id: origin.clone().into(),
+				},
+			]
+			.into()),
+		);
+		// `target` adds `penpal_origin` as authorized alias
+		assert_ok!(<CoretimeWestend as CoretimeWestendPallet>::PolkadotXcm::add_authorized_alias(
+			<CoretimeWestend as Chain>::RuntimeOrigin::signed(target.clone()),
+			Box::new(penpal_origin.into()),
+			None
+		));
+	});
+	// Verify that unauthorized `bad_origin` cannot alias into `target`, from any chain.
+	test_cross_chain_alias!(
+		vec![
+			// between AH and Coretime: denied
+			(AssetHubWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between BH and Coretime: denied
+			(BridgeHubWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between People and Coretime: denied
+			(PeopleWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between Penpal and Coretime: denied
+			(PenpalB, CoretimeWestend, RESERVE_TRANSFER_FEES, DENIED)
+		],
+		bad_origin,
+		target,
+		fees
 	);
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-
-	// Other root locations cannot alias anything.
-	let origin = Location::new(1, Here);
-	let target = Location::new(2, X1([GlobalConsensus(Ethereum { chain_id: 1 })].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let target = Location::new(2, X2([GlobalConsensus(Polkadot), Parachain(1000)].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let target = Location::new(0, X2([PalletInstance(8), GeneralIndex(9)].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-
-	let origin = Location::new(0, Here);
-	let target = Location::new(1, X1([Parachain(2000)].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let origin = Location::new(1, X1([Parachain(1001)].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
-	let origin = Location::new(1, X1([Parachain(1002)].into()));
-	assert!(!<XcmConfig as xcm_executor::Config>::Aliasers::contains(&origin, &target));
+	// Verify that only authorized `penpal::origin` can alias into `target`, while `origin` on other
+	// chains cannot.
+	test_cross_chain_alias!(
+		vec![
+			// between AH and Coretime: denied
+			(AssetHubWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between BH and Coretime: denied
+			(BridgeHubWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between People and Coretime: denied
+			(PeopleWestend, CoretimeWestend, TELEPORT_FEES, DENIED),
+			// between Penpal and Coretime: allowed
+			(PenpalB, CoretimeWestend, RESERVE_TRANSFER_FEES, ALLOWED)
+		],
+		origin,
+		target,
+		fees
+	);
+	// remove authorization for `origin` on Penpal to alias `target` on Coretime
+	CoretimeWestend::execute_with(|| {
+		// `target` removes all authorized aliases
+		assert_ok!(
+			<CoretimeWestend as CoretimeWestendPallet>::PolkadotXcm::remove_all_authorized_aliases(
+				<CoretimeWestend as Chain>::RuntimeOrigin::signed(target.clone())
+			)
+		);
+	});
+	// Verify `penpal::origin` can no longer alias into `target` on Coretime.
+	test_cross_chain_alias!(
+		vec![(PenpalB, CoretimeWestend, RESERVE_TRANSFER_FEES, DENIED)],
+		origin,
+		target,
+		fees
+	);
 }

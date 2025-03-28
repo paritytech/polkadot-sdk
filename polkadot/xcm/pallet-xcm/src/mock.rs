@@ -19,8 +19,8 @@ pub use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals, Everything, EverythingBut,
-		Nothing,
+		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
+		Everything, EverythingBut, Footprint, Nothing,
 	},
 	weights::Weight,
 };
@@ -28,7 +28,10 @@ use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
 use sp_core::H256;
-use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
+use sp_runtime::{
+	traits::{Convert, IdentityLookup},
+	AccountId32, BuildStorage,
+};
 use xcm::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
@@ -527,10 +530,20 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = XcmPallet;
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
 
 parameter_types! {
 	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 4;
+	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::XcmPallet(pallet_xcm::HoldReason::AuthorizeAlias);
+}
+
+pub struct ConvertDeposit;
+impl Convert<Footprint, u128> for ConvertDeposit {
+	fn convert(a: Footprint) -> u128 {
+		(a.count * 2 + a.size) as u128
+	}
 }
 
 pub struct XcmTeleportFiltered;
@@ -565,6 +578,8 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
+	type AuthorizedAliasConsideration =
+		HoldConsideration<AccountId, Balances, AuthorizeAliasHoldReason, ConvertDeposit>;
 }
 
 impl origin::Config for Test {}
