@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use codec::{Decode, Encode, DecodeWithMemTracking, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
@@ -216,7 +216,16 @@ impl<const COMMITTEE_SIZE: usize> TryFrom<&SyncCommittee<COMMITTEE_SIZE>>
 /// Beacon block header as it is stored in the runtime storage. The block root is the
 /// Merkleization of a BeaconHeader.
 #[derive(
-	Copy, Clone, Default, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Default,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct BeaconHeader {
@@ -304,7 +313,14 @@ impl<const COMMITTEE_SIZE: usize, const COMMITTEE_BITS_SIZE: usize>
 /// ExecutionPayloadHeader
 /// <https://github.com/ethereum/annotated-spec/blob/master/capella/beacon-chain.md#executionpayloadheader>
 #[derive(
-	Default, Encode, Decode, DecodeWithMemTracking, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
+	Default,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
 )]
 #[cfg_attr(
 	feature = "std",
@@ -357,7 +373,15 @@ pub struct CompactBeaconState {
 }
 
 /// VersionedExecutionPayloadHeader
-#[derive(Encode, Decode, DecodeWithMemTracking, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
 #[cfg_attr(
 	feature = "std",
 	derive(Serialize, Deserialize),
@@ -411,7 +435,15 @@ impl VersionedExecutionPayloadHeader {
 	}
 }
 
-#[derive(Encode, Decode, DecodeWithMemTracking, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
 #[cfg_attr(
 	feature = "std",
 	derive(serde::Deserialize),
@@ -428,7 +460,15 @@ pub struct ExecutionProof {
 	pub execution_branch: Vec<H256>,
 }
 
-#[derive(Encode, Decode, DecodeWithMemTracking, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
 #[cfg_attr(
 	feature = "std",
 	derive(serde::Deserialize),
@@ -578,7 +618,14 @@ pub mod deneb {
 	/// ExecutionPayloadHeader
 	/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#executionpayloadheader>
 	#[derive(
-		Default, Encode, Decode, DecodeWithMemTracking, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
+		Default,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		CloneNoBound,
+		PartialEqNoBound,
+		RuntimeDebugNoBound,
+		TypeInfo,
 	)]
 	#[cfg_attr(
 		feature = "std",
