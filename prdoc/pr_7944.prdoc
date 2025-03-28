@@ -14,22 +14,24 @@ crates:
   - name: pallet-xcm-benchmarks
     bump: major
   - name: rococo-runtime
-    bump: major
+    bump: patch
+  - name: westend-runtime
+    bump: patch
   - name: asset-hub-rococo-runtime
-    bump: major
+    bump: patch
   - name: asset-hub-westend-runtime
-    bump: major
+    bump: patch
   - name: bridge-hub-rococo-runtime
-    bump: major
+    bump: patch
   - name: bridge-hub-westend-runtime
-    bump: major
+    bump: patch
   - name: collectives-westend-runtime
-    bump: major
+    bump: patch
   - name: coretime-rococo-runtime
-    bump: major
+    bump: patch
   - name: coretime-westend-runtime
-    bump: major
+    bump: patch
   - name: people-rococo-runtime
-    bump: major
+    bump: patch
   - name: people-westend-runtime
-    bump: major
+    bump: patch
