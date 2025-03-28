@@ -29,7 +29,6 @@ use frame_support::{
 	traits::fungible::{Inspect, Mutate},
 };
 use parachains_common::{AccountId, Balance};
-use sp_tracing::capture_test_logs;
 use std::convert::Into;
 use xcm::latest::{Assets, Location, Xcm};
 
