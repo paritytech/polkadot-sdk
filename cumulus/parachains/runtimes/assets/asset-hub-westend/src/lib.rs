@@ -24,6 +24,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod bridge_to_ethereum_config;
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
@@ -35,6 +36,7 @@ use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
+use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
@@ -511,8 +513,7 @@ impl pallet_asset_conversion_ops::Config for Runtime {
 }
 
 parameter_types! {
-	// we just reuse the same deposits
-	pub const ForeignAssetsAssetDeposit: Balance = AssetDeposit::get();
+	pub const ForeignAssetsAssetDeposit: Balance = CreateForeignAssetDeposit::get();
 	pub const ForeignAssetsAssetAccountDeposit: Balance = AssetAccountDeposit::get();
 	pub const ForeignAssetsApprovalDeposit: Balance = ApprovalDeposit::get();
 	pub const ForeignAssetsAssetsStringLimit: u32 = AssetsStringLimit::get();
@@ -1176,6 +1177,9 @@ construct_runtime!(
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
+		// Snowbridge
+		SnowbridgeSystemFrontend: snowbridge_pallet_system_frontend = 80,
+
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,
@@ -1480,6 +1484,7 @@ mod benches {
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		[snowbridge_pallet_system_frontend, SnowbridgeSystemFrontend]
 	);
 }
 

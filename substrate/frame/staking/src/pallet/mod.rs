@@ -71,7 +71,7 @@ pub mod pallet {
 	use crate::{BenchmarkingConfig, PagedExposureMetadata};
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]

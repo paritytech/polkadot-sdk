@@ -16,6 +16,7 @@ sp-core.workspace = true
 sp-keyring.workspace = true
 xcm.workspace = true
 bp-messages.workspace = true
+pallet-bridge-relayers.workspace = true
 bridge-hub-common.workspace = true
 bridge-hub-westend-runtime.workspace = true
 bridge-hub-westend-runtime.default-features = true

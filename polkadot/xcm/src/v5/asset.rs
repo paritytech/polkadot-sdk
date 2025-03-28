@@ -544,8 +544,8 @@ impl TryFrom<OldAsset> for Asset {
 )]
 pub struct Assets(Vec<Asset>);
 
-/// Maximum number of items we expect in a single `Assets` value. Note this is not (yet)
-/// enforced, and just serves to provide a sensible `max_encoded_len` for `Assets`.
+/// Maximum number of items we expect in a single `Assets` value.
+/// This is enforced when decoding and provides a sensible `max_encoded_len` for `Assets`.
 pub const MAX_ITEMS_IN_ASSETS: usize = 20;
 
 impl MaxEncodedLen for Assets {
