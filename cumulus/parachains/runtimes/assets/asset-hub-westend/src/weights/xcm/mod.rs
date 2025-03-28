@@ -125,7 +125,7 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_reserve_asset())
 	}
 	fn exchange_asset(_give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
-		Weight::MAX
+		XcmFungibleWeight::<Runtime>::exchange_asset()
 	}
 	fn initiate_reserve_withdraw(
 		assets: &AssetFilter,
