@@ -20,7 +20,6 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 ] }
 scale-info = { features = ["derive"], workspace = true }
 
-
 [features]
 default = ["std"]
 std = ["codec/std", "polkadot-sdk/std", "scale-info/std"]

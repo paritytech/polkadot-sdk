@@ -19,7 +19,6 @@ log = { workspace = true }
 rustc-hex = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc"], workspace = true }
-serde_derive = { workspace = true }
 static_assertions = { workspace = true, default-features = true }
 
 sp-api = { workspace = true }

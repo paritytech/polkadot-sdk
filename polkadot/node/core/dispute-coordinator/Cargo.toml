@@ -16,7 +16,6 @@ codec = { workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
-kvdb = { workspace = true }
 schnellru = { workspace = true }
 thiserror = { workspace = true }
 
