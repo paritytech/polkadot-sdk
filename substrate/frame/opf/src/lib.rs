@@ -330,9 +330,11 @@ pub mod pallet {
 
 				// Prepare the proposal call
 				let call = Call::<T>::on_registration { project_id: project_id.clone() };
+				// ToDo: Check that `proposal` format is correct
 				let proposal = Self::create_proposal(who.clone(), call);
 
-				// Start Referendum
+				// ToDo: remove the `start_dem_referendum` below, and 
+				// Submit a proposal by using the trait Governance
 				let referendum_index = Self::start_dem_referendum(
 					proposal,
 					<T as Democracy::Config>::EnactmentPeriod::get(),
