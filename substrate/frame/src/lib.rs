@@ -205,11 +205,11 @@ pub mod prelude {
 	pub use frame_support::{
 		defensive, defensive_assert,
 		traits::{
-			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-			NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, OriginTrait, RankedMembers,
-			RankedMembersSwapHandler, VariantCount, VariantCountOf,
+			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
+			Everything, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler,
+			OriginTrait, RankedMembers, RankedMembersSwapHandler, VariantCount, VariantCountOf,
 		},
-    PalletId,
+		PalletId,
 	};
 
 	/// Pallet prelude of `frame-system`.
