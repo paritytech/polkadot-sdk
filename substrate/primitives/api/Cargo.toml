@@ -27,8 +27,8 @@ sp-api-proc-macro.workspace = true
 sp-core.workspace = true
 sp-externalities = { optional = true, workspace = true }
 sp-metadata-ir = { optional = true, workspace = true }
-sp-runtime.workspace = true
 sp-runtime-interface.workspace = true
+sp-runtime.workspace = true
 sp-state-machine = { optional = true, workspace = true }
 sp-trie = { optional = true, workspace = true }
 sp-version.workspace = true

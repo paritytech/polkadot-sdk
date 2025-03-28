@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Test utilities.
+
 use parking_lot::Mutex;
 use sc_client_api::{
 	execution_extensions::ExecutionExtensions, BlockBackend, BlockImportNotification,
@@ -36,6 +38,7 @@ use sp_version::RuntimeVersion;
 use std::sync::Arc;
 use substrate_test_runtime::{Block, Hash, Header, H256};
 
+/// A mock client used for testing.
 pub struct ChainHeadMockClient<Client> {
 	client: Arc<Client>,
 	import_sinks: Mutex<Vec<TracingUnboundedSender<BlockImportNotification<Block>>>>,
@@ -44,6 +47,7 @@ pub struct ChainHeadMockClient<Client> {
 }
 
 impl<Client> ChainHeadMockClient<Client> {
+	/// Create a new mock client.
 	pub fn new(client: Arc<Client>) -> Self {
 		ChainHeadMockClient {
 			client,
@@ -53,6 +57,7 @@ impl<Client> ChainHeadMockClient<Client> {
 		}
 	}
 
+	/// Trigger the import stram from a header.
 	pub async fn trigger_import_stream(&self, header: Header) {
 		// Ensure the client called the `import_notification_stream`.
 		while self.import_sinks.lock().is_empty() {
@@ -69,6 +74,7 @@ impl<Client> ChainHeadMockClient<Client> {
 		}
 	}
 
+	/// Trigger the import stram from a header and a list of stale heads.
 	pub async fn trigger_finality_stream(&self, header: Header, stale_heads: Vec<Hash>) {
 		// Ensure the client called the `finality_notification_stream`.
 		while self.finality_sinks.lock().is_empty() {

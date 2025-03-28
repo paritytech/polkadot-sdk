@@ -16,11 +16,11 @@ exclude-from-umbrella = true
 
 [dependencies]
 codec = { workspace = true }
+frame-support.workspace = true
 hex = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-frame-support.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true

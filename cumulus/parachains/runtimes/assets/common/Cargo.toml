@@ -13,24 +13,24 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+cumulus-primitives-core.workspace = true
+frame-support.workspace = true
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-frame-support.workspace = true
 pallet-asset-conversion.workspace = true
 pallet-assets.workspace = true
+pallet-xcm.workspace = true
+parachains-common.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-api.workspace = true
 sp-runtime.workspace = true
-pallet-xcm.workspace = true
-xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
-cumulus-primitives-core.workspace = true
-parachains-common.workspace = true
+xcm.workspace = true
 
 [build-dependencies]
-substrate-wasm-builder.workspace = true
 substrate-wasm-builder.default-features = true
+substrate-wasm-builder.workspace = true
 
 [features]
 default = ["std"]

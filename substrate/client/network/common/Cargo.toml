@@ -24,8 +24,8 @@ codec = { features = [
 	"derive",
 ], workspace = true, default-features = true }
 futures = { workspace = true }
-sp-runtime.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
 tempfile = { workspace = true }

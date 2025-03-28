@@ -70,8 +70,6 @@ pub mod testing;
 pub mod traits;
 pub mod uint;
 
-#[cfg(feature = "bandersnatch-experimental")]
-pub mod bandersnatch;
 #[cfg(feature = "bls-experimental")]
 pub mod bls;
 pub mod crypto_bytes;
@@ -481,16 +479,17 @@ macro_rules! generate_feature_enabled_macro {
 mod tests {
 	use super::*;
 
+	generate_feature_enabled_macro!(if_test, test, $);
+	generate_feature_enabled_macro!(if_not_test, not(test), $);
+
 	#[test]
 	#[should_panic]
 	fn generate_feature_enabled_macro_panics() {
-		generate_feature_enabled_macro!(if_test, test, $);
 		if_test!(panic!("This should panic"));
 	}
 
 	#[test]
 	fn generate_feature_enabled_macro_works() {
-		generate_feature_enabled_macro!(if_not_test, not(test), $);
 		if_not_test!(panic!("This should not panic"));
 	}
 }

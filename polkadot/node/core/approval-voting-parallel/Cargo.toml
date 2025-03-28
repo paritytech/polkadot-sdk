@@ -17,34 +17,34 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 gum.workspace = true
 itertools = { workspace = true }
-thiserror = { workspace = true }
-polkadot-approval-distribution.workspace = true
 polkadot-approval-distribution.default-features = true
-polkadot-node-core-approval-voting.workspace = true
+polkadot-approval-distribution.workspace = true
 polkadot-node-core-approval-voting.default-features = true
-polkadot-node-metrics.workspace = true
+polkadot-node-core-approval-voting.workspace = true
 polkadot-node-metrics.default-features = true
-polkadot-node-network-protocol.workspace = true
+polkadot-node-metrics.workspace = true
 polkadot-node-network-protocol.default-features = true
-polkadot-node-primitives.workspace = true
+polkadot-node-network-protocol.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem-util.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-node-subsystem-util.default-features = true
-polkadot-overseer.workspace = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-subsystem.workspace = true
 polkadot-overseer.default-features = true
-polkadot-primitives.workspace = true
+polkadot-overseer.workspace = true
 polkadot-primitives.default-features = true
-sc-keystore.workspace = true
+polkadot-primitives.workspace = true
 sc-keystore.default-features = false
+sc-keystore.workspace = true
 sp-application-crypto = { workspace = true, features = ["full_crypto"], default-features = false }
-sp-consensus.workspace = true
-sp-consensus.default-features = false
-sp-consensus-slots.workspace = true
 sp-consensus-slots.default-features = false
-sp-runtime.workspace = true
+sp-consensus-slots.workspace = true
+sp-consensus.default-features = false
+sp-consensus.workspace = true
 sp-runtime.default-features = false
+sp-runtime.workspace = true
+thiserror = { workspace = true }
 
 rand = { workspace = true }
 rand_chacha = { workspace = true }

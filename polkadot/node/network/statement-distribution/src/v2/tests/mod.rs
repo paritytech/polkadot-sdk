@@ -776,6 +776,7 @@ async fn answer_expected_hypothetical_membership_request(
 	)
 }
 
+/// Assert that the correct peer is reported.
 #[macro_export]
 macro_rules! assert_peer_reported {
 	($virtual_overseer:expr, $peer_id:expr, $rep_change:expr $(,)*) => {

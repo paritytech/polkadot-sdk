@@ -23,6 +23,8 @@
 #![doc = simple_mermaid::mermaid!("../../mermaid/IA.mmd")]
 #![warn(rustdoc::broken_intra_doc_links)]
 #![warn(rustdoc::private_intra_doc_links)]
+// Frame macros reference features which this crate does not have
+#![allow(unexpected_cfgs)]
 #![doc(html_favicon_url = "https://polkadot.com/favicon.ico")]
 #![doc(
 	html_logo_url = "https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png"

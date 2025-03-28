@@ -11,12 +11,12 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+bp-runtime.workspace = true
 codec = { workspace = true }
 finality-grandpa = { workspace = true }
+frame-support.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-bp-runtime.workspace = true
-frame-support.workspace = true
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }

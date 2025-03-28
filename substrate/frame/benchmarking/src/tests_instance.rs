@@ -86,6 +86,11 @@ frame_support::construct_runtime!(
 	}
 );
 
+crate::define_benchmarks!(
+	[pallet_test, TestPallet]
+	[pallet_test, TestPallet2]
+);
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -186,11 +191,6 @@ mod benchmarks {
 #[test]
 fn ensure_correct_instance_is_selected() {
 	use crate::utils::Benchmarking;
-
-	crate::define_benchmarks!(
-		[pallet_test, TestPallet]
-		[pallet_test, TestPallet2]
-	);
 
 	let whitelist = vec![];
 

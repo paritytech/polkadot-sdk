@@ -16,6 +16,9 @@
 // limitations under the License.
 
 #![cfg(test)]
+
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod mock;
 
 pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";

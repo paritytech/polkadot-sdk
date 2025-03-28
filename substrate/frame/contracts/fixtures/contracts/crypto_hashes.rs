@@ -48,7 +48,6 @@ pub extern "C" fn deploy() {}
 /// |     2 |    BLAKE2 |       256 |
 /// |     3 |    BLAKE2 |       128 |
 /// ---------------------------------
-
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {

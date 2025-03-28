@@ -11,18 +11,18 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { workspace = true }
-log = { workspace = true }
-scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 bp-xcm-bridge-hub-router.workspace = true
+codec = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+log = { workspace = true }
+scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 sp-core.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
-xcm.workspace = true
 xcm-builder.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 sp-io = { default-features = true, path = "../../../substrate/primitives/io" }

@@ -27,16 +27,16 @@ codec = { features = [
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 prost = { workspace = true }
-sc-client-api.workspace = true
 sc-client-api.default-features = true
-sc-network.workspace = true
-sc-network.default-features = true
-sc-network-types.workspace = true
+sc-client-api.workspace = true
 sc-network-types.default-features = true
-sp-blockchain.workspace = true
+sc-network-types.workspace = true
+sc-network.default-features = true
+sc-network.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-runtime.workspace = true
+sp-core.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 thiserror = { workspace = true }

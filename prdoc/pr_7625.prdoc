@@ -1,0 +1,118 @@
+title: Update to Rust stable 1.84.1
+doc:
+- audience: Runtime Dev
+  description: |-
+    Ref https://github.com/paritytech/ci_cd/issues/1107
+
+    We mainly need that so that we can finally compile the `pallet_revive` fixtures on stable. I did my best to keep the commits focused on one thing to make review easier.
+
+    All the changes are needed because rustc introduced more warnings or is more strict about existing ones. Most of the stuff could just be fixed and the commits should be pretty self explanatory. However, there are a few this that are notable:
+
+    ## `non_local_definitions `
+
+    A lot of runtimes to write `impl` blocks inside functions. This makes sense to reduce the amount of conditional compilation. I guess I could have moved them into a module instead. But I think allowing it here makes sense to avoid the code churn.
+
+    ## `unexpected_cfgs`
+
+    The FRAME macros emit code that references various features like `std`, `runtime-benchmarks` or `try-runtime`. If a create that uses those macros does not have those features we get this warning. Those were mostly when defining a `mock` runtime. I opted for silencing the warning in this case rather than adding not needed features.
+
+    For the benchmarking ui tests I opted for adding the `runtime-benchmark` feature to the `Cargo.toml`.
+
+    ## Failing UI test
+
+    I am bumping the `trybuild` version and regenerating the ui tests. The old version seems to be incompatible. This requires us to pass `deny_warnings` in `CARGO_ENCODED_RUSTFLAGS` as `RUSTFLAGS` is ignored in the new version.
+
+    ## Removing toolchain file from the pallet revive fixtures
+
+    This is no longer needed since the latest stable will compile them fine using the `RUSTC_BOOTSTRAP=1`.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: contracts-rococo-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: pallet-babe
+  bump: patch
+- name: frame-benchmarking
+  bump: patch
+- name: sp-core
+  bump: patch
+- name: sp-runtime
+  bump: patch
+- name: pallet-bridge-grandpa
+  bump: patch
+- name: frame-support
+  bump: patch
+- name: sc-network-types
+  bump: patch
+- name: pallet-migrations
+  bump: patch
+- name: pallet-parameters
+  bump: patch
+- name: bp-test-utils
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: sc-allocator
+  bump: patch
+- name: pallet-transaction-storage
+  bump: patch
+- name: pallet-utility
+  bump: patch
+- name: sp-transaction-storage-proof
+  bump: patch
+- name: sp-trie
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: polkadot-statement-distribution
+  bump: patch
+- name: mmr-gadget
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: sp-state-machine
+  bump: patch
+- name: xcm-simulator-example
+  bump: patch
+- name: pallet-node-authorization
+  bump: patch
+- name: pallet-scored-pool
+  bump: patch
+- name: pallet-statement
+  bump: patch
+- name: polkadot-overseer
+  bump: patch
+- name: polkadot-runtime-common
+  bump: patch
+- name: pallet-lottery
+  bump: patch
+- name: pallet-society
+  bump: patch
+- name: sp-runtime-interface
+  bump: patch

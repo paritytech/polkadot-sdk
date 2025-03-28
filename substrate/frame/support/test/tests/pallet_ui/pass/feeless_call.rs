@@ -16,7 +16,7 @@
 // limitations under the License.
 
 #[frame_support::pallet(dev_mode)]
-mod pallet {
+pub mod pallet {
 	use frame_support::pallet_prelude::DispatchResult;
 	use frame_system::pallet_prelude::OriginFor;
 
