@@ -33,10 +33,6 @@ use std::{
 	sync::Arc,
 };
 
-sp_keystore::bandersnatch_experimental_enabled! {
-use sp_core::bandersnatch;
-}
-
 sp_keystore::bls_experimental_enabled! {
 use sp_core::{bls381, ecdsa_bls381, KeccakHasher};
 }
@@ -272,65 +268,6 @@ impl Keystore for LocalKeystore {
 			.key_pair_by_type::<ecdsa::Pair>(public, key_type)?
 			.map(|pair| pair.sign_prehashed(msg));
 		Ok(sig)
-	}
-
-	sp_keystore::bandersnatch_experimental_enabled! {
-		fn bandersnatch_public_keys(&self, key_type: KeyTypeId) -> Vec<bandersnatch::Public> {
-			self.public_keys::<bandersnatch::Pair>(key_type)
-		}
-
-		/// Generate a new pair compatible with the 'bandersnatch' signature scheme.
-		///
-		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
-		fn bandersnatch_generate_new(
-			&self,
-			key_type: KeyTypeId,
-			seed: Option<&str>,
-		) -> std::result::Result<bandersnatch::Public, TraitError> {
-			self.generate_new::<bandersnatch::Pair>(key_type, seed)
-		}
-
-		fn bandersnatch_sign(
-			&self,
-			key_type: KeyTypeId,
-			public: &bandersnatch::Public,
-			msg: &[u8],
-		) -> std::result::Result<Option<bandersnatch::Signature>, TraitError> {
-			self.sign::<bandersnatch::Pair>(key_type, public, msg)
-		}
-
-		fn bandersnatch_vrf_sign(
-			&self,
-			key_type: KeyTypeId,
-			public: &bandersnatch::Public,
-			data: &bandersnatch::vrf::VrfSignData,
-		) -> std::result::Result<Option<bandersnatch::vrf::VrfSignature>, TraitError> {
-			self.vrf_sign::<bandersnatch::Pair>(key_type, public, data)
-		}
-
-		fn bandersnatch_vrf_pre_output(
-			&self,
-			key_type: KeyTypeId,
-			public: &bandersnatch::Public,
-			input: &bandersnatch::vrf::VrfInput,
-		) -> std::result::Result<Option<bandersnatch::vrf::VrfPreOutput>, TraitError> {
-			self.vrf_pre_output::<bandersnatch::Pair>(key_type, public, input)
-		}
-
-		fn bandersnatch_ring_vrf_sign(
-			&self,
-			key_type: KeyTypeId,
-			public: &bandersnatch::Public,
-			data: &bandersnatch::vrf::VrfSignData,
-			prover: &bandersnatch::ring_vrf::RingProver,
-		) -> std::result::Result<Option<bandersnatch::ring_vrf::RingVrfSignature>, TraitError> {
-			let sig = self
-				.0
-				.read()
-				.key_pair_by_type::<bandersnatch::Pair>(public, key_type)?
-				.map(|pair| pair.ring_vrf_sign(data, prover));
-			Ok(sig)
-		}
 	}
 
 	sp_keystore::bls_experimental_enabled! {

@@ -44,8 +44,6 @@ pub use scale_info;
 #[cfg(feature = "serde")]
 pub use serde;
 
-#[cfg(feature = "bandersnatch-experimental")]
-pub mod bandersnatch;
 #[cfg(feature = "bls-experimental")]
 pub mod bls381;
 pub mod ecdsa;
