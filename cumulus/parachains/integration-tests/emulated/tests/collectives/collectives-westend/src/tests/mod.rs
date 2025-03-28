@@ -14,6 +14,7 @@
 // limitations under the License.
 
 mod aliases;
+mod dday_governance;
 mod fellowship;
 mod fellowship_salary;
 mod fellowship_treasury;

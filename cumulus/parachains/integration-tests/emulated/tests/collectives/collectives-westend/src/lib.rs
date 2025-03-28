@@ -33,7 +33,7 @@ mod imports {
 		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
 		collectives_westend_emulated_chain::{
 			collectives_westend_runtime::{
-				fellowship as collectives_fellowship,
+				dday as collectives_dday, fellowship as collectives_fellowship,
 				xcm_config::XcmConfig as CollectivesWestendXcmConfig,
 			},
 			genesis::ED as COLLECTIVES_WESTEND_ED,
