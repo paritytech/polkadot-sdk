@@ -395,7 +395,7 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo()
 			vec![
 				// issue WNDs on AHR
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
-					asset_id: *asset_id == wnd_at_westend_parachains.clone(),
+					asset_id: *asset_id == wnd_at_asset_hub_rococo.clone(),
 					owner: owner == &receiver,
 				},
 				// message processed successfully

@@ -1260,62 +1260,69 @@ macro_rules! __impl_check_assertion {
 
 #[macro_export]
 macro_rules! assert_expected_events {
-	( $chain:ident, vec![$( $event_pat:pat => { $($attr:ident : $condition:expr, )* }, )*] ) => {
+    ( $chain:ident, vec![$( $event_pat:pat => { $($attr:ident : $condition:expr, )* }, )*] ) => {
 		let mut message: Vec<String> = Vec::new();
 		let mut events = <$chain as $crate::Chain>::events();
 
 		$(
-			let mut event_received = false;
-			let mut meet_conditions = true;
-			let mut index_match = 0;
-			let mut event_message: Vec<String> = Vec::new();
+			// For each event pattern, we try to find a matching event.
+			let mut perfect_match_index: Option<usize> = None;
+			let mut failure_messages: Option<Vec<String>> = None;
+			// We'll store a string representation of the first partially matching event.
+			let mut partial_event_str: Option<String> = None;
 
 			for (index, event) in events.iter().enumerate() {
-				// Have to reset the variable to override a previous partial match
-				meet_conditions = true;
 				match event {
 					$event_pat => {
-						event_received = true;
+						let mut event_meets_conditions = true;
 						let mut conditions_message: Vec<String> = Vec::new();
 
 						$(
-							// We only want to record condition error messages in case it did not happened before
-							// Only the first partial match is recorded
-							if !$condition && event_message.is_empty() {
+							if !$condition {
 								conditions_message.push(
 									format!(
-										" - The attribute {:?} = {:?} did not met the condition {:?}\n",
+										" - The attribute {} = {:?} did not meet the condition {}\n",
 										stringify!($attr),
 										$attr,
 										stringify!($condition)
 									)
 								);
 							}
-							meet_conditions &= $condition;
+							event_meets_conditions &= $condition;
 						)*
 
-						// Set the index where we found a perfect match
-						if event_received && meet_conditions {
-							index_match = index;
+						if event_meets_conditions {
+							// Found an event where all conditions hold.
+							perfect_match_index = Some(index);
 							break;
-						} else {
-							event_message.extend(conditions_message);
+						} else if failure_messages.is_none() {
+							// Record the failure messages and capture the event string.
+							failure_messages = Some(conditions_message);
+							partial_event_str = Some(format!("{:#?}", event));
 						}
 					},
 					_ => {}
 				}
 			}
 
-			if event_received && !meet_conditions  {
+			if let Some(index) = perfect_match_index {
+				// Remove the matching event so it's not checked again.
+				events.remove(index);
+			} else if let Some(failure) = failure_messages {
+				// A matching event was found but it failed some conditions.
 				message.push(
 					format!(
-						"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions:\n{}",
+						"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions.\n\
+						 Actual event:\n{}\n\
+						 Failures:\n{}",
 						stringify!($chain),
 						stringify!($event_pat),
-						event_message.concat()
+						partial_event_str.unwrap_or_else(|| "Event not captured".to_string()),
+						failure.concat()
 					)
 				);
-			} else if !event_received {
+			} else {
+				// No event matching the pattern was found.
 				message.push(
 					format!(
 						"\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}",
@@ -1324,14 +1331,11 @@ macro_rules! assert_expected_events {
 						<$chain as $crate::Chain>::events(),
 					)
 				);
-			} else {
-				// If we find a perfect match we remove the event to avoid being potentially assessed multiple times
-				events.remove(index_match);
 			}
 		)*
 
 		if !message.is_empty() {
-			// Log events as they will not be logged after the panic
+			// Log all events (since they won't be logged after the panic).
 			<$chain as $crate::Chain>::events().iter().for_each(|event| {
 				$crate::log::info!(target: concat!("events::", stringify!($chain)), "{:?}", event);
 			});
