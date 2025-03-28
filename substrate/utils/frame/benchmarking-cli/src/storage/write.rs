@@ -44,6 +44,7 @@ impl StorageCmd {
 		client: Arc<C>,
 		(db, state_col): (Arc<dyn sp_database::Database<DbHash>>, ColumnId),
 		storage: Arc<dyn sp_state_machine::Storage<HashingFor<Block>>>,
+		shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
 	) -> Result<BenchRecord>
 	where
 		Block: BlockT<Header = H, Hash = DbHash> + Debug,
@@ -57,9 +58,23 @@ impl StorageCmd {
 		let best_hash = client.usage_info().chain.best_hash;
 		let header = client.header(best_hash)?.ok_or("Header not found")?;
 		let original_root = *header.state_root();
-		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root).build();
 
 		info!("Preparing keys from block {}", best_hash);
+		let build_trie_backend =
+			|storage: Arc<dyn sp_state_machine::Storage<HashingFor<Block>>>,
+			 original_root,
+			 enable_pov_recorder: bool| {
+				let pov_recorder = enable_pov_recorder.then(|| Default::default());
+
+				DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
+					.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache()))
+					.with_optional_recorder(pov_recorder)
+					.build()
+			};
+
+		let trie =
+			build_trie_backend(storage.clone(), original_root, !self.params.disable_pov_recorder);
+
 		// Load all KV pairs and randomly shuffle them.
 		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
 		let (mut rng, _) = new_rng(None);
@@ -67,9 +82,10 @@ impl StorageCmd {
 		info!("Writing {} keys", kvs.len());
 
 		let mut child_nodes = Vec::new();
-
+		let mut batched_keys = Vec::new();
 		// Generate all random values first; Make sure there are no collisions with existing
 		// db entries, so we can rollback all additions without corrupting existing entries.
+
 		for key_value in kvs {
 			let (k, original_v) = key_value?;
 			match (self.params.include_child_trees, self.is_child_key(k.to_vec())) {
@@ -83,6 +99,7 @@ impl StorageCmd {
 				_ => {
 					// regular key
 					let mut new_v = vec![0; original_v.len()];
+
 					loop {
 						// Create a random value to overwrite with.
 						// NOTE: We use a possibly higher entropy than the original value,
@@ -101,17 +118,29 @@ impl StorageCmd {
 						}
 					}
 
+					batched_keys.push((k.to_vec(), new_v.to_vec()));
+					if batched_keys.len() < self.params.batch_size {
+						continue
+					}
+
+					// For every batched write use a different trie instance and recorder, so we
+					// don't benefit from past runs.
+					let trie = build_trie_backend(
+						storage.clone(),
+						original_root,
+						!self.params.disable_pov_recorder,
+					);
 					// Write each value in one commit.
-					let (size, duration) = measure_write::<Block>(
+					let (size, duration) = measure_per_key_amortised_write_cost::<Block>(
 						db.clone(),
 						&trie,
-						k.to_vec(),
-						new_v.to_vec(),
+						batched_keys.clone(),
 						self.state_version(),
 						state_col,
 						None,
 					)?;
 					record.append(size, duration)?;
+					batched_keys.clear();
 				},
 			}
 		}
@@ -126,6 +155,7 @@ impl StorageCmd {
 					.expect("Checked above to exist")
 				{
 					let mut new_v = vec![0; original_v.0.len()];
+
 					loop {
 						rng.fill_bytes(&mut new_v[..]);
 						if check_new_value::<Block>(
@@ -140,17 +170,28 @@ impl StorageCmd {
 							break
 						}
 					}
+					batched_keys.push((key.0, new_v.to_vec()));
 
-					let (size, duration) = measure_write::<Block>(
+					if batched_keys.len() < self.params.batch_size {
+						continue
+					}
+
+					let trie = build_trie_backend(
+						storage.clone(),
+						original_root,
+						!self.params.disable_pov_recorder,
+					);
+
+					let (size, duration) = measure_per_key_amortised_write_cost::<Block>(
 						db.clone(),
 						&trie,
-						key.0,
-						new_v.to_vec(),
+						batched_keys.clone(),
 						self.state_version(),
 						state_col,
 						Some(&info),
 					)?;
 					record.append(size, duration)?;
+					batched_keys.clear();
 				}
 			}
 		}
@@ -187,11 +228,10 @@ fn convert_tx<B: BlockT>(
 
 /// Measures write benchmark
 /// if `child_info` exist then it means this is a child tree key
-fn measure_write<Block: BlockT>(
+fn measure_per_key_amortised_write_cost<Block: BlockT>(
 	db: Arc<dyn sp_database::Database<DbHash>>,
 	trie: &DbState<HashingFor<Block>>,
-	key: Vec<u8>,
-	new_v: Vec<u8>,
+	changes: Vec<(Vec<u8>, Vec<u8>)>,
 	version: StateVersion,
 	col: ColumnId,
 	child_info: Option<&ChildInfo>,
@@ -199,7 +239,11 @@ fn measure_write<Block: BlockT>(
 	let start = Instant::now();
 	// Create a TX that will modify the Trie in the DB and
 	// calculate the root hash of the Trie after the modification.
-	let replace = vec![(key.as_ref(), Some(new_v.as_ref()))];
+	let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / changes.len();
+	let replace = changes
+		.iter()
+		.map(|(key, new_v)| (key.as_ref(), Some(new_v.as_ref())))
+		.collect::<Vec<_>>();
 	let stx = match child_info {
 		Some(info) => trie.child_storage_root(info, replace.iter().cloned(), version).2,
 		None => trie.storage_root(replace.iter().cloned(), version).1,
@@ -207,7 +251,7 @@ fn measure_write<Block: BlockT>(
 	// Only the keep the insertions, since we do not want to benchmark pruning.
 	let tx = convert_tx::<Block>(db.clone(), stx.clone(), false, col);
 	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
-	let result = (new_v.len(), start.elapsed());
+	let result = (average_len, start.elapsed() / changes.len() as u32);
 
 	// Now undo the changes by removing what was added.
 	let tx = convert_tx::<Block>(db.clone(), stx.clone(), true, col);
