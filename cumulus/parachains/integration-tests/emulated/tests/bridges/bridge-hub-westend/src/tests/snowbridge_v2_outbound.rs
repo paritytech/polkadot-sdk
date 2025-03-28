@@ -72,9 +72,9 @@ fn send_weth_from_asset_hub_to_ethereum() {
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(Definite(
 					reserve_asset.clone().into(),
-				))],
+				))]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(AllCounted(2)),
 					beneficiary: beneficiary(),
@@ -218,9 +218,9 @@ fn transfer_relay_token_from_ah() {
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveDeposit(Definite(
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(Definite(
 					Asset { id: AssetId(Location::parent()), fun: Fungible(TOKEN_AMOUNT) }.into(),
-				))],
+				))]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(AllCounted(2)),
 					beneficiary: beneficiary(),
@@ -317,10 +317,10 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![
+				assets: BoundedVec::truncate_from(vec![
 					AssetTransferFilter::ReserveWithdraw(Definite(weth_asset.clone().into())),
 					AssetTransferFilter::ReserveDeposit(Definite(dot_asset.into())),
-				],
+				]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(All),
 					beneficiary: beneficiary(),
@@ -410,9 +410,9 @@ fn transact_with_agent_from_asset_hub() {
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(Definite(
 					reserve_asset.clone().into(),
-				))],
+				))]),
 				remote_xcm: Xcm(vec![
 					DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
 					Transact {
@@ -520,9 +520,9 @@ fn register_token_from_penpal() {
 					remote_fee_asset_on_ah.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(Definite(
 					remote_fee_asset_on_ethereum.clone().into(),
-				))],
+				))]),
 				remote_xcm: Xcm(vec![
 					DepositAsset { assets: Wild(All), beneficiary: penpal_user_location },
 					Transact {
@@ -635,7 +635,7 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 					remote_fee_asset_on_ah.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![
+				assets: BoundedVec::truncate_from(vec![
 					AssetTransferFilter::ReserveWithdraw(Definite(
 						remote_fee_asset_on_ethereum.clone().into(),
 					)),
@@ -644,21 +644,21 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 					// a. Penpal is configured to allow teleport specific asset to AH
 					// b. AH is configured to trust asset teleport from sibling chain
 					AssetTransferFilter::Teleport(Definite(pna.clone().into())),
-				],
+				]),
 				remote_xcm: Xcm(vec![InitiateTransfer {
 					destination: ethereum(),
 					remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
 						remote_fee_asset_on_ethereum.clone().into(),
 					))),
 					preserve_origin: true,
-					assets: vec![
+					assets: BoundedVec::truncate_from(vec![
 						// should use ReserveDeposit because Ethereum does not trust asset from
 						// penpal. transfer_asset should be reachored first on AH
 						AssetTransferFilter::ReserveDeposit(Definite(
 							transfer_asset_reanchor_on_ah.clone().into(),
 						)),
 						AssetTransferFilter::ReserveWithdraw(Definite(ena.clone().into())),
-					],
+					]),
 					remote_xcm: Xcm(vec![
 						DepositAsset { assets: Wild(All), beneficiary: beneficiary() },
 						Transact {
@@ -779,9 +779,9 @@ fn export_message_from_asset_hub_to_ethereum_is_banned_when_set_operating_mode()
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(Definite(
 					reserve_asset.clone().into(),
-				))],
+				))]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(AllCounted(2)),
 					beneficiary: beneficiary(),
