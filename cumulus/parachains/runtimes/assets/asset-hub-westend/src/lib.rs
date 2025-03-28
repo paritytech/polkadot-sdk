@@ -2162,7 +2162,54 @@ impl_runtime_apis! {
 				}
 
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					let native_asset_location = WestendLocation::get();
+					let native_asset_id = AssetId(native_asset_location.clone());
+					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+					let origin = RuntimeOrigin::signed(account.clone());
+					let asset_location = Location::new(1, [Parachain(2001)]);
+					let asset_id = AssetId(asset_location.clone());
+
+					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+						&account,
+						ExistentialDeposit::get() + (1_000 * UNITS)
+					));
+
+					assert_ok!(ForeignAssets::force_create(
+						RuntimeOrigin::root(),
+						asset_location.clone().into(),
+						account.clone().into(),
+						true,
+						1,
+					));
+
+					assert_ok!(ForeignAssets::mint(
+						origin.clone(),
+						asset_location.clone().into(),
+						account.clone().into(),
+						3_000 * UNITS,
+					));
+
+					assert_ok!(AssetConversion::create_pool(
+						origin.clone(),
+						native_asset_location.clone().into(),
+						asset_location.clone().into(),
+					));
+
+					assert_ok!(AssetConversion::add_liquidity(
+						origin,
+						native_asset_location.into(),
+						asset_location.into(),
+						1_000 * UNITS,
+						2_000 * UNITS,
+						1,
+						1,
+						account.into(),
+					));
+
+					let give_assets: XcmAssets = (native_asset_id, 500 * UNITS).into();
+					let receive_assets: XcmAssets = (asset_id, 660 * UNITS).into();
+
+					Ok((give_assets, receive_assets))
 				}
 
 				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
