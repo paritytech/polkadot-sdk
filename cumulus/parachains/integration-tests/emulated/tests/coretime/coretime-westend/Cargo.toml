@@ -15,6 +15,7 @@ pallet-balances = { workspace = true }
 pallet-broker = { workspace = true, default-features = true }
 pallet-identity = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-xcm = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
