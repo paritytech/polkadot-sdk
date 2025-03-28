@@ -160,9 +160,8 @@ pub struct Extensions {
 	extensions: BTreeMap<TypeId, Box<dyn Extension>>,
 }
 
-#[cfg(feature = "std")]
-impl std::fmt::Debug for Extensions {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Extensions {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "Extensions: ({})", self.extensions.len())
 	}
 }
