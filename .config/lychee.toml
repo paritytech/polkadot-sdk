@@ -46,6 +46,9 @@ exclude = [
 	"https://w3f.github.io/parachain-implementers-guide/node/index.html",
 	"https://w3f.github.io/parachain-implementers-guide/protocol-chain-selection.html",
 	"https://w3f.github.io/parachain-implementers-guide/runtime/session_info.html",
+	# Genuinely broken, but exist as part of a signed statement. Rarely used, will be
+	# removed at some point.
+	"statement.polkadot.network",
 	# Behind a captcha (code 403):
 	"https://chainlist.org/chain/*",
 	"https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/",
