@@ -38,6 +38,7 @@ use sc_client_api::{
 	FinalizeSummary, ImportNotifications, StorageEventStream, StorageKey,
 };
 use sc_consensus::import_queue::RuntimeOrigin;
+use sc_network::service::traits::NetworkService;
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::Info;
 use sp_runtime::{generic::SignedBlock, Justifications};
@@ -449,6 +450,10 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	fn overseer_handle(&self) -> RelayChainResult<OverseerHandle> {
+		unimplemented!("Not needed for test")
+	}
+
+	fn network_service(&self) -> RelayChainResult<Arc<dyn NetworkService>> {
 		unimplemented!("Not needed for test")
 	}
 
