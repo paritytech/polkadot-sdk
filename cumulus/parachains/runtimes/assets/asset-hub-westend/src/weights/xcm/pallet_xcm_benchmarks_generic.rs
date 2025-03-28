@@ -80,24 +80,6 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 653_000 picoseconds.
 		Weight::from_parts(721_000, 0)
 	}
-	// Storage: `System::Account` (r:1 w:1)
-	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	pub fn pay_fees() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `3593`
-		// Minimum execution time: 6_108_000 picoseconds.
-		Weight::from_parts(6_562_000, 3593)
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	pub fn asset_claimer() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 658_000 picoseconds.
-		Weight::from_parts(706_000, 0)
-	}
 	// Storage: `PolkadotXcm::Queries` (r:1 w:0)
 	// Proof: `PolkadotXcm::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn query_response() -> Weight {
@@ -149,15 +131,6 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 708_000 picoseconds.
 		Weight::from_parts(742_000, 0)
-	}
-	// Storage: `Benchmark::Override` (r:0 w:0)
-	// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub fn execute_with_origin() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 18_446_744_073_709_551_000 picoseconds.
-		Weight::from_parts(18_446_744_073_709_551_000, 0)
 	}
 	pub fn clear_origin() -> Weight {
 		// Proof Size summary in bytes:
@@ -395,12 +368,5 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 666_000 picoseconds.
 		Weight::from_parts(718_000, 0)
-	}
-	pub fn alias_origin() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 676_000 picoseconds.
-		Weight::from_parts(738_000, 0)
 	}
 }
