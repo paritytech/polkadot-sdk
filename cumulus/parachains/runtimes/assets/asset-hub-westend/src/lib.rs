@@ -39,7 +39,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
-	assert_ok, construct_runtime, derive_impl,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	ord_parameter_types, parameter_types,
@@ -1800,6 +1800,8 @@ impl_runtime_apis! {
 				}
 
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
+					use frame_support::assert_ok;
+
 					let native_asset_location = WestendLocation::get();
 					let native_asset_id = AssetId(native_asset_location.clone());
 					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
