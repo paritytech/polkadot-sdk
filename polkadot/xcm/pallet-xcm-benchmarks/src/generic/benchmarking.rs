@@ -538,12 +538,10 @@ benchmarks! {
 			maximal: true,
 		};
 		let xcm = Xcm(vec![instruction]);
-		#[block]
-		{
-			executor.bench_process(xcm)?;
-		}
+	}: {
+		executor.bench_process(xcm)?;
+	} verify {
 		assert!(executor.holding().contains(&want.into()));
-		Ok(())
 	}
 
 	universal_origin {
