@@ -23,18 +23,12 @@ xcm-executor.workspace = true
 frame-benchmarking.workspace = true
 xcm.workspace = true
 xcm-builder.workspace = true
-log = { workspace = true, default-features = true }
 
 [dev-dependencies]
 pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
 pallet-assets = { default-features = true, path = "../../../substrate/frame/assets" }
 sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
 xcm = { default-features = true, path = "..", package = "staging-xcm" }
-# temp
-pallet-xcm = { default-features = true, path = "../pallet-xcm" }
-polkadot-runtime-common = { default-features = true, path = "../../runtime/common" }
-# westend-runtime = { path = "../../runtime/westend", features = ["runtime-benchmarks"] }
-polkadot-primitives = { default-features = true, path = "../../primitives" }
 
 [features]
 default = ["std"]
@@ -43,7 +37,6 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
