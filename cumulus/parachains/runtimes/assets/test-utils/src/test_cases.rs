@@ -1849,8 +1849,8 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 					RuntimeOrigin::signed(account.clone()),
 					native_asset_location.clone().try_into().unwrap(),
 					asset_location.clone().try_into().unwrap(),
-					5_000 * UNITS, // Native amount
-					5_000 * UNITS, // Foreign amount
+					1_000 * UNITS, // Native amount
+					2_000 * UNITS, // Foreign amount
 					0, // Min liquidity
 					0, // Min lp token
 					account.clone(),
