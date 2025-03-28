@@ -13,7 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{create_pool_with_native_on, tests::*};
+use crate::{
+	create_pool_with_native_on,
+	tests::{snowbridge_common::snowbridge_sovereign, *},
+};
 use emulated_integration_tests_common::macros::Dmp;
 use xcm::latest::AssetTransferFilter;
 
@@ -209,10 +212,11 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 		amount * 2,
 	);
 	// create wETH at src and dest and prefund sender's account
-	create_foreign_on_ah_westend(
+	AssetHubWestend::mint_foreign_asset(
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed(snowbridge_sovereign()),
 		bridged_weth_at_ah.clone(),
-		true,
-		vec![(sender.clone(), amount * 2)],
+		sender.clone(),
+		amount * 2,
 	);
 	create_foreign_on_ah_rococo(bridged_weth_at_ah.clone(), true);
 	create_foreign_on_ah_rococo(bridged_usdt_at_asset_hub_rococo.clone(), true);

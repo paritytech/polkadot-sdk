@@ -13,14 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	imports::*,
-	tests::{
-		snowbridge::{CHAIN_ID, WETH},
-		snowbridge_common::*,
-	},
-};
+use crate::{imports::*, tests::snowbridge_common::*};
 use bridge_hub_westend_runtime::xcm_config::LocationToAccountId;
+use emulated_integration_tests_common::snowbridge::{CHAIN_ID, WETH};
 use snowbridge_core::AssetMetadata;
 use snowbridge_pallet_system::Error;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
