@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: paritytech/evm-test-suite
-          ref: 7762a35a380023a800d213b8ff98f3fb45500661
+          ref: 3906e69ec79b91612fc419a0b8316fa785d271d5
           path: evm-test-suite
 
       - uses: actions/setup-node@v4
@@ -58,7 +58,7 @@ jobs:
           echo "Change to the evm-test-suite directory"
           cd evm-test-suite
           echo "Download the resolc binary"
-          wget https://github.com/paritytech/revive/releases/download/v0.1.0-dev.9/resolc -q
+          wget https://github.com/paritytech/revive/releases/download/v0.1.0-dev.10/resolc -q
           chmod +x resolc
           mv resolc /usr/local/bin
           resolc --version
@@ -78,15 +78,15 @@ jobs:
           chmod +x solc-static-linux
           mv solc-static-linux /usr/local/bin/solc
           echo "Run the tests"
-          echo "bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH"
-          bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
+          echo "bash init.sh --kitchensink -- -- -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH"
+          bash init.sh --kitchensink -- -- -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
 
       - name: Collect tests results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: evm-test-suite-${{ github.sha }}
-          path: evm-test-suite/test-logs/matter-labs-tests.log
+          path: evm-test-suite/test-logs/*
 
   confirm-required-test-evm-jobs-passed:
     runs-on: ubuntu-latest
