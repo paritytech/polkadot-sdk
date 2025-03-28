@@ -13208,9 +13208,9 @@ dependencies = [
  "docify",
  "log",
  "parity-scale-codec",
- "polkadot-sdk-frame 0.1.0",
+ "polkadot-sdk-frame",
  "scale-info",
- "sp-timestamp 26.0.0",
+ "sp-timestamp",
 ]
 
 [[package]]
