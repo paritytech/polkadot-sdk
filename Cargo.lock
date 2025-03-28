@@ -1072,6 +1072,7 @@ dependencies = [
  "polkadot-runtime-common",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -1990,6 +1991,9 @@ dependencies = [
 name = "bp-asset-hub-rococo"
 version = "0.4.0"
 dependencies = [
+ "bp-bridge-hub-cumulus",
+ "bp-messages",
+ "bp-runtime",
  "bp-xcm-bridge-hub-router",
  "frame-support",
  "parity-scale-codec",
@@ -2003,6 +2007,9 @@ dependencies = [
 name = "bp-asset-hub-westend"
 version = "0.3.0"
 dependencies = [
+ "bp-bridge-hub-cumulus",
+ "bp-messages",
+ "bp-runtime",
  "bp-xcm-bridge-hub-router",
  "frame-support",
  "parity-scale-codec",
@@ -3713,6 +3720,7 @@ dependencies = [
  "pallet-broker",
  "pallet-identity",
  "pallet-message-queue",
+ "pallet-xcm",
  "polkadot-runtime-common",
  "polkadot-runtime-parachains",
  "sp-runtime 31.0.1",
@@ -13391,13 +13399,9 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-assets",
  "pallet-balances",
- "pallet-xcm",
  "parity-scale-codec",
- "polkadot-primitives",
- "polkadot-runtime-common",
  "scale-info",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -14681,7 +14685,6 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-statement-table",
- "rstest",
  "sc-keystore",
  "schnellru",
  "sp-application-crypto 30.0.0",
@@ -14856,8 +14859,6 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "rstest",
- "schnellru",
  "sp-application-crypto 30.0.0",
  "sp-keystore 0.34.0",
  "thiserror 1.0.65",
