@@ -14,11 +14,11 @@ workspace = true
 [dependencies]
 async-std = { features = ["attributes"], workspace = true }
 async-trait = { workspace = true }
-bp-header-chain.workspace = true
 bp-header-chain.default-features = true
+bp-header-chain.workspace = true
 finality-relay.workspace = true
-frame-support.workspace = true
 frame-support.default-features = true
+frame-support.workspace = true
 futures = { workspace = true }
 log = { workspace = true }
 num-traits = { workspace = true, default-features = true }

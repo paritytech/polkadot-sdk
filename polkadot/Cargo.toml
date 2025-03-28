@@ -28,18 +28,18 @@ workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
-tikv-jemallocator = { optional = true, features = ["unprefixed_malloc_on_supported_platforms"], workspace = true }
 polkadot-cli = { features = ["rococo-native", "westend-native"], workspace = true, default-features = true }
-polkadot-node-core-pvf.workspace = true
-polkadot-node-core-pvf.default-features = true
-polkadot-node-core-pvf-prepare-worker.workspace = true
-polkadot-node-core-pvf-prepare-worker.default-features = true
-polkadot-overseer.workspace = true
-polkadot-overseer.default-features = true
-polkadot-node-core-pvf-common.workspace = true
 polkadot-node-core-pvf-common.default-features = true
-polkadot-node-core-pvf-execute-worker.workspace = true
+polkadot-node-core-pvf-common.workspace = true
 polkadot-node-core-pvf-execute-worker.default-features = true
+polkadot-node-core-pvf-execute-worker.workspace = true
+polkadot-node-core-pvf-prepare-worker.default-features = true
+polkadot-node-core-pvf-prepare-worker.workspace = true
+polkadot-node-core-pvf.default-features = true
+polkadot-node-core-pvf.workspace = true
+polkadot-overseer.default-features = true
+polkadot-overseer.workspace = true
+tikv-jemallocator = { optional = true, features = ["unprefixed_malloc_on_supported_platforms"], workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_supported_platforms"] }
@@ -53,8 +53,8 @@ tempfile = { workspace = true }
 tokio = { workspace = true, default-features = true }
 
 [build-dependencies]
-substrate-build-script-utils.workspace = true
 substrate-build-script-utils.default-features = true
+substrate-build-script-utils.workspace = true
 
 [badges]
 maintenance = { status = "actively-developed" }

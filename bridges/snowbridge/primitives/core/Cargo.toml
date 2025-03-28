@@ -15,25 +15,25 @@ workspace = true
 exclude-from-umbrella = true
 
 [dependencies]
+bp-relayers = { workspace = true }
 codec = { workspace = true }
-hex-literal = { workspace = true, default-features = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = ["alloc", "derive"], workspace = true }
-polkadot-parachain-primitives.workspace = true
-xcm.workspace = true
-xcm-builder.workspace = true
-xcm-executor.workspace = true
+ethabi = { workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+hex-literal = { workspace = true, default-features = true }
+log = { workspace = true }
+polkadot-parachain-primitives.workspace = true
+scale-info = { features = ["derive"], workspace = true }
+serde = { optional = true, features = ["alloc", "derive"], workspace = true }
+snowbridge-beacon-primitives.workspace = true
 sp-arithmetic.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
-snowbridge-beacon-primitives.workspace = true
-bp-relayers = { workspace = true }
-ethabi = { workspace = true }
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 hex = { workspace = true, default-features = true }

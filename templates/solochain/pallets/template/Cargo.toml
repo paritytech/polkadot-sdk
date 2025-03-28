@@ -16,12 +16,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = [
 	"derive",
 ], workspace = true }
-scale-info = { features = [
-	"derive",
-], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+scale-info = { features = [
+	"derive",
+], workspace = true }
 
 [dev-dependencies]
 sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }

@@ -14,8 +14,8 @@ frame-system.workspace = true
 log = { workspace = true }
 pallet-authorship.workspace = true
 pallet-session = { features = ["historical"], workspace = true }
-pallet-staking.workspace = true
 pallet-staking-rc-client.workspace = true
+pallet-staking.workspace = true
 polkadot-primitives.workspace = true
 polkadot-runtime-parachains.workspace = true
 scale-info = { workspace = true, features = ["derive"] }

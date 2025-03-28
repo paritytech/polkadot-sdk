@@ -14,23 +14,23 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.workspace = true
 gum.default-features = true
+gum.workspace = true
 
 metered = { features = ["futures_channel"], workspace = true }
 sc-cli.workspace = true
-sc-service.workspace = true
 sc-service.default-features = true
+sc-service.workspace = true
 
 bs58 = { features = ["alloc"], workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-polkadot-primitives.workspace = true
 polkadot-primitives.default-features = true
-prometheus-endpoint.workspace = true
+polkadot-primitives.workspace = true
 prometheus-endpoint.default-features = true
-sc-tracing.workspace = true
+prometheus-endpoint.workspace = true
 sc-tracing.default-features = true
+sc-tracing.workspace = true
 
 [dev-dependencies]
 http-body-util = { workspace = true }

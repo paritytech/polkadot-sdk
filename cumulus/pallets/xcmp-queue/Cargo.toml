@@ -13,25 +13,25 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
+cumulus-primitives-core.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
+log = { workspace = true }
 pallet-message-queue.workspace = true
+polkadot-runtime-common.workspace = true
+polkadot-runtime-parachains.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
-polkadot-runtime-common.workspace = true
-polkadot-runtime-parachains.workspace = true
-xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
-cumulus-primitives-core.workspace = true
+xcm.workspace = true
 
 # Optional import for benchmarking
 bounded-collections = { workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
 bp-xcm-bridge-hub-router = { optional = true, workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
 

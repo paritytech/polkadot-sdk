@@ -26,21 +26,19 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 # Local
-jsonrpsee = { features = ["server"], workspace = true }
-parachains-common.workspace = true
-parachains-common.default-features = true
-scale-info = { workspace = true }
-subxt-metadata = { workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
-frame-benchmarking-cli.workspace = true
 frame-benchmarking-cli.default-features = true
+frame-benchmarking-cli.workspace = true
 frame-support = { optional = true, workspace = true, default-features = true }
-frame-system-rpc-runtime-api.workspace = true
 frame-system-rpc-runtime-api.default-features = true
+frame-system-rpc-runtime-api.workspace = true
 frame-try-runtime = { optional = true, workspace = true, default-features = true }
+jsonrpsee = { features = ["server"], workspace = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
+parachains-common.default-features = true
+parachains-common.workspace = true
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-basic-authorship = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
@@ -60,6 +58,7 @@ sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
+scale-info = { workspace = true }
 sp-api = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
@@ -79,6 +78,7 @@ sp-version = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 substrate-frame-rpc-system = { workspace = true, default-features = true }
 substrate-state-trie-migration-rpc = { workspace = true, default-features = true }
+subxt-metadata = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-cli = { workspace = true, default-features = true, features = ["service"] }

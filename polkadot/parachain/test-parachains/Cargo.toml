@@ -12,9 +12,9 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-tiny-keccak = { features = ["keccak"], workspace = true }
 test-parachain-adder.workspace = true
 test-parachain-halt.workspace = true
+tiny-keccak = { features = ["keccak"], workspace = true }
 
 [dev-dependencies]
 sp-core = { default-features = true, path = "../../../substrate/primitives/core" }

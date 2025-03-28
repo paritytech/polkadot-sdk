@@ -36,8 +36,7 @@ use sp_runtime::{
 	transaction_validity, BuildStorage, PerU16, Perbill, Percent,
 };
 use sp_staking::{
-	offence::OffenceDetails,
-	Agent, DelegationInterface, EraIndex, SessionIndex, StakingInterface,
+	offence::OffenceDetails, Agent, DelegationInterface, EraIndex, SessionIndex, StakingInterface,
 };
 use std::collections::BTreeMap;
 
@@ -881,10 +880,7 @@ pub(crate) fn try_queue_solution(when: ElectionCompute) -> Result<(), String> {
 }
 
 pub(crate) fn on_offence_now(
-	offenders: &[OffenceDetails<
-		AccountId,
-		AccountId,
-	>],
+	offenders: &[OffenceDetails<AccountId, AccountId>],
 	slash_fraction: &[Perbill],
 ) {
 	let now = ActiveEra::<Runtime>::get().unwrap().index;
