@@ -7,6 +7,8 @@ doc:
 
 crates:
 - name: polkadot-node-core-backing
+  bump: patch
+- name: polkadot-node-core-provisioner
   bump: none
 - name: polkadot-primitives
   bump: major
