@@ -22,10 +22,10 @@ frame-support = { workspace = true }
 sp-core = { workspace = true }
 
 # Bridge Dependencies
-bp-xcm-bridge-hub-router = { workspace = true }
 bp-bridge-hub-cumulus = { workspace = true }
 bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
+bp-xcm-bridge-hub-router = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 # Polkadot dependencies
