@@ -41,13 +41,14 @@ pub use frame_support::{
 		Digest, DispatchResult,
 	},
 	traits::{
-		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnFinalize, OnInitialize, OriginTrait,
-		ProcessMessage, ProcessMessageError, ServiceQueues,
+		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnFinalize, OnIdle, OnInitialize,
+		OriginTrait, ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
 	weights::{Weight, WeightMeter},
 };
 pub use frame_system::{
-	pallet_prelude::BlockNumberFor, Config as SystemConfig, Pallet as SystemPallet,
+	limits::BlockWeights as BlockWeightsLimits, pallet_prelude::BlockNumberFor,
+	Config as SystemConfig, Pallet as SystemPallet,
 };
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
@@ -648,7 +649,8 @@ macro_rules! decl_test_parachains {
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
 				fn init() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{Chain, TestExt};
+
 					// Initialize the thread local variable
 					$crate::paste::paste! {
 						[<LOCAL_EXT_ $name:upper>].with(|v| *v.borrow_mut() = Self::build_new_ext($genesis));
@@ -688,7 +690,9 @@ macro_rules! decl_test_parachains {
 						// Initialze `System`.
 						let digest = <Self as Parachain>::DigestProvider::convert(block_number);
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
-						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumberFor<Self::Runtime>>>::on_initialize(block_number);
+
+						// Process `on_initialize` for all pallets except `System`.
+						let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
 
 						// Process parachain inherents:
 
@@ -712,11 +716,21 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn finalize_block() {
-					use $crate::{Chain, Encode, Hooks, Network, Parachain, TestExt};
+					use $crate::{BlockWeightsLimits, Chain, OnFinalize, OnIdle, SystemConfig, TestExt, Weight};
 
 					Self::ext_wrapper(|| {
 						let block_number = <Self as Chain>::System::block_number();
-						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
+
+						// Process `on_idle` for all pallets.
+						let weight = <Self as Chain>::System::block_weight();
+						let max_weight: Weight = <<<Self as Chain>::Runtime as SystemConfig>::BlockWeights as frame_support::traits::Get<BlockWeightsLimits>>::get().max_block;
+						let remaining_weight = max_weight.saturating_sub(weight.total());
+						if remaining_weight.all_gt(Weight::zero()) {
+							let _ = $runtime::AllPalletsWithSystem::on_idle(block_number, remaining_weight);
+						}
+
+						// Process `on_finalize` for all pallets except `System`.
+						$runtime::AllPalletsWithoutSystem::on_finalize(block_number);
 					});
 
 					Self::set_last_head();
@@ -724,7 +738,7 @@ macro_rules! decl_test_parachains {
 
 
 				fn set_last_head() {
-					use $crate::{Chain, Encode, HeadData, Network, Parachain, TestExt};
+					use $crate::{Chain, Encode, HeadData, TestExt};
 
 					let para_id = Self::para_id().into();
 
