@@ -94,6 +94,7 @@ pub struct BuilderTaskParams<
 	/// intent to keep our "clock" slightly behind the relay chain one and thus reducing the
 	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
 	/// wait for relay chain notifications because we woke up too early).
+<<<<<<< HEAD
 	pub slot_drift: Duration,
 }
 
@@ -153,6 +154,12 @@ where
 		let timestamp = sp_timestamp::Timestamp::current();
 		Ok(SlotInfo { slot: Slot::from_timestamp(timestamp, slot_duration), timestamp })
 	}
+=======
+	pub slot_offset: Duration,
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
+	pub max_pov_percentage: Option<u32>,
+>>>>>>> 0dded09 (Make the default 85% usage of the PoV (#8040))
 }
 
 /// Run block-builder.
@@ -199,7 +206,12 @@ where
 			code_hash_provider,
 			authoring_duration,
 			para_backend,
+<<<<<<< HEAD
 			slot_drift,
+=======
+			slot_offset,
+			max_pov_percentage,
+>>>>>>> 0dded09 (Make the default 85% usage of the PoV (#8040))
 		} = params;
 
 		let slot_timer = SlotTimer::<_, _, P>::new_with_drift(para_client.clone(), slot_drift);
@@ -385,14 +397,14 @@ where
 			)
 			.await;
 
-			let allowed_pov_size = if cfg!(feature = "full-pov-size") {
-				validation_data.max_pov_size
+			let allowed_pov_size = if let Some(max_pov_percentage) = max_pov_percentage {
+				validation_data.max_pov_size * max_pov_percentage / 100
 			} else {
-				// Set the block limit to 50% of the maximum PoV size.
+				// Set the block limit to 85% of the maximum PoV size.
 				//
-				// TODO: If we got benchmarking that includes the proof size,
-				// we should be able to use the maximum pov size.
-				validation_data.max_pov_size / 2
+				// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
+				// fixed, this should be removed.
+				validation_data.max_pov_size * 85 / 100
 			} as usize;
 
 			let Ok(Some(candidate)) = collator
