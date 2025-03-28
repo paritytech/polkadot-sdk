@@ -604,7 +604,9 @@ fn send_token_to_penpal_v2() {
 				destination: Location::new(1, [Parachain(PARA_ID_B)]),
 				remote_fees: Some(ReserveDeposit(Definite(vec![eth_fee_penpal_ah.clone()].into()))),
 				preserve_origin: true,
-				assets: vec![ReserveDeposit(Definite(vec![token_asset_ah.clone()].into()))],
+				assets: BoundedVec::truncate_from(vec![ReserveDeposit(Definite(
+					vec![token_asset_ah.clone()].into(),
+				))]),
 				remote_xcm: vec![
 					// Refund unspent fees
 					RefundSurplus,
