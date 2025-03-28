@@ -248,20 +248,20 @@ fn spot_traffic_decreases_between_idle_blocks() {
 		assert!(Paras::is_parathread(para_id));
 
 		// Set the spot traffic to a large number
-		OnDemand::set_queue_status(QueueStatusType {
+		OnDemand::set_order_status(OrderStatusType {
 			traffic: FixedU128::from_u32(10),
 			..Default::default()
 		});
 
-		assert_eq!(OnDemand::get_queue_status().traffic, FixedU128::from_u32(10));
+		assert_eq!(OnDemand::get_order_status().traffic, FixedU128::from_u32(10));
 
 		// Run to block 101 and ensure that the traffic decreases.
 		run_to_block(101, |n| if n == 100 { Some(Default::default()) } else { None });
-		assert!(OnDemand::get_queue_status().traffic < FixedU128::from_u32(10));
+		assert!(OnDemand::get_order_status().traffic < FixedU128::from_u32(10));
 
 		// Run to block 102 and observe that we've hit the default traffic value.
 		run_to_block(102, |n| if n == 100 { Some(Default::default()) } else { None });
-		assert_eq!(OnDemand::get_queue_status().traffic, OnDemand::get_traffic_default_value());
+		assert_eq!(OnDemand::get_order_status().traffic, OnDemand::get_traffic_default_value());
 	})
 }
 
@@ -652,9 +652,9 @@ fn reverse_queue_index_does_reverse() {
 }
 
 #[test]
-fn queue_status_size_fn_works() {
+fn order_status_size_fn_works() {
 	// Add orders to the on demand queue, and make sure that they are properly represented
-	// by the QueueStatusType::size fn.
+	// by the OrderStatusType::size fn.
 	let parachains = vec![ParaId::from(111), ParaId::from(222), ParaId::from(333)];
 	let core_indices = vec![CoreIndex(0), CoreIndex(1)];
 
@@ -663,7 +663,7 @@ fn queue_status_size_fn_works() {
 			schedule_blank_para(*chain, ParaKind::Parathread);
 		});
 
-		assert_eq!(OnDemand::get_queue_status().size(), 0);
+		assert_eq!(OnDemand::get_order_status().size(), 0);
 
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
@@ -679,7 +679,7 @@ fn queue_status_size_fn_works() {
 		// 6 orders via queue status size
 		assert_eq!(
 			OnDemand::get_free_entries().len(),
-			OnDemand::get_queue_status().size() as usize
+			OnDemand::get_order_status().size() as usize
 		);
 
 		core_indices.iter().for_each(|core_index| {
@@ -695,7 +695,7 @@ fn queue_status_size_fn_works() {
 		// Free entries are from ParaId 333
 		assert_eq!(OnDemand::get_free_entries().len(), 2);
 		// For a total size of 4.
-		assert_eq!(OnDemand::get_queue_status().size(), 4)
+		assert_eq!(OnDemand::get_order_status().size(), 4)
 	});
 }
 

@@ -248,7 +248,7 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 
 		{
 			assert_eq!(Scheduler::claim_queue_len(), 5);
-			let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
+			let mut claim_queue = Scheduler::claim_queue();
 
 			// Because the claim queue used to be empty, the first assignment is doubled for every
 			// core so that the first para gets a fair shot at backing something.
@@ -300,7 +300,7 @@ fn advance_claim_queue_no_entry_if_empty() {
 		run_to_block(3, |_| None);
 
 		{
-			let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
+			let mut claim_queue = Scheduler::claim_queue();
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
@@ -602,7 +602,7 @@ fn session_change_increasing_number_of_cores() {
 		run_to_block(2, |_| None);
 
 		{
-			let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
+			let mut claim_queue = Scheduler::claim_queue();
 			assert_eq!(Scheduler::claim_queue_len(), 4);
 
 			assert_eq!(
@@ -643,7 +643,7 @@ fn session_change_increasing_number_of_cores() {
 		});
 
 		{
-			let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
+			let mut claim_queue = Scheduler::claim_queue();
 			assert_eq!(Scheduler::claim_queue_len(), 3);
 
 			assert_eq!(
@@ -716,7 +716,7 @@ fn session_change_decreasing_number_of_cores() {
 			_ => None,
 		});
 
-		let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
+		let mut claim_queue = Scheduler::claim_queue();
 		assert_eq!(Scheduler::claim_queue_len(), 1);
 
 		// There's only one assignment for B because run_to_block also calls advance_claim_queue at
@@ -793,7 +793,7 @@ fn session_change_increasing_lookahead() {
 		run_to_block(2, |_| None);
 
 		{
-			let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
+			let mut claim_queue = Scheduler::claim_queue();
 			assert_eq!(Scheduler::claim_queue_len(), 4);
 
 			assert_eq!(
@@ -829,7 +829,7 @@ fn session_change_increasing_lookahead() {
 		});
 
 		{
-			let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
+			let mut claim_queue = Scheduler::claim_queue();
 			assert_eq!(Scheduler::claim_queue_len(), 6);
 
 			assert_eq!(

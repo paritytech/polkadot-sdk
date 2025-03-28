@@ -265,8 +265,8 @@ pub mod pallet {
 				Self::update_spot_traffic(&config, order_status);
 			});
 
-			// Reads: `Revenue`, `ActiveConfig`, `QueueStatus`
-			// Writes: `Revenue`, `QueueStatus`
+			// Reads: `Revenue`, `ActiveConfig`, `OrderStatus`
+			// Writes: `Revenue`, `OrderStatus`
 			T::DbWeight::get().reads_writes(3, 2)
 		}
 	}
@@ -584,21 +584,21 @@ where
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn populate_queue(para_id: ParaId, num: u32) {
-		QueueStatus::<T>::mutate(|queue_status| {
+		OrderStatus::<T>::mutate(|order_status| {
 			for _ in 0..num {
-				Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
+				Pallet::<T>::add_on_demand_order(order_status, para_id, QueuePushDirection::Back);
 			}
 		});
 	}
 
 	#[cfg(test)]
-	fn set_queue_status(new_status: QueueStatusType) {
-		QueueStatus::<T>::set(new_status);
+	fn set_order_status(new_status: OrderStatusType) {
+		OrderStatus::<T>::set(new_status);
 	}
 
 	#[cfg(test)]
-	fn get_queue_status() -> QueueStatusType {
-		QueueStatus::<T>::get()
+	fn get_order_status() -> OrderStatusType {
+		OrderStatus::<T>::get()
 	}
 
 	#[cfg(test)]
