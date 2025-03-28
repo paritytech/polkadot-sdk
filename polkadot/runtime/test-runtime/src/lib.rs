@@ -638,7 +638,6 @@ impl parachains_on_demand::Config for Runtime {
 impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_scheduler::Config for Runtime {
-	type AssignmentProvider = CoretimeAssignmentProvider;
 }
 
 pub struct DummyXcmSender;
