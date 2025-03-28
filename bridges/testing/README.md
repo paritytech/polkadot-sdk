@@ -5,7 +5,8 @@ onchain and offchain bridges code.
 
 Prerequisites for running the tests locally:
 
-- download latest [zombienet release](https://github.com/paritytech/zombienet/releases) and place it at `~/local_bridge_testing/bin/zombienet-linux-x64` (rename it if you're not using 64-bit linux);
+- download latest [zombienet release](https://github.com/paritytech/zombienet/releases) and place it at 
+`~/local_bridge_testing/bin/zombienet`;
 
 - build Polkadot binary by running `cargo build -p polkadot --release  --features fast-runtime` command in the
   [`polkadot-sdk`](https://github.com/paritytech/polkadot-sdk) repository clone;
