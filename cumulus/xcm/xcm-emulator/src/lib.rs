@@ -266,7 +266,7 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
-	type DigestProvider: sp_runtime::traits::Convert<BlockNumberFor<Self::Runtime>, Digest>;
+	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
 
 	fn init();
 
