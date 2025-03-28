@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{self as frame_system, *};
+use core::sync::atomic::{AtomicU32, Ordering};
 use frame_support::{derive_impl, parameter_types};
 use sp_runtime::{type_with_default::TypeWithDefault, BuildStorage, Perbill};
 
@@ -96,10 +97,20 @@ impl Config for Test {
 	type OnKilledAccount = RecordKilled;
 	type MultiBlockMigrator = MockedMigrator;
 	type Nonce = TypeWithDefault<u64, DefaultNonceProvider>;
+	type EventSegmentSize = EventSegmentSize;
 }
 
 parameter_types! {
 	pub static Ongoing: bool = false;
+}
+
+pub static EVENT_SEGMENT_SIZE_VALUE: AtomicU32 = AtomicU32::new(0u32);
+
+pub struct EventSegmentSize;
+impl Get<u32> for EventSegmentSize {
+	fn get() -> u32 {
+		EVENT_SEGMENT_SIZE_VALUE.load(Ordering::SeqCst)
+	}
 }
 
 pub struct MockedMigrator;
