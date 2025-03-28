@@ -37,11 +37,11 @@ pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessa
 pub use frame_support::{
 	assert_ok,
 	sp_runtime::{
-		traits::{Convert, Dispatchable, Header as HeaderT},
+		traits::{Convert, Dispatchable, Header as HeaderT, Zero},
 		Digest, DispatchResult,
 	},
 	traits::{
-		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
+		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnFinalize, OnInitialize, OriginTrait,
 		ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
 	weights::{Weight, WeightMeter},
@@ -51,6 +51,7 @@ pub use frame_system::{
 };
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
+pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_arithmetic::traits::Bounded;
 pub use sp_core::{
 	crypto::get_public_from_string_or_panic, parameter_types, sr25519, storage::Storage, Pair,
@@ -61,7 +62,9 @@ pub use sp_runtime::BoundedSlice;
 pub use sp_tracing;
 
 // Cumulus
-pub use cumulus_pallet_parachain_system::Pallet as ParachainSystemPallet;
+pub use cumulus_pallet_parachain_system::{
+	Call as ParachainSystemCall, Pallet as ParachainSystemPallet,
+};
 pub use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RelayBlockNumber, HeadData, HrmpChannelId},
 	AbridgedHrmpChannel, DmpMessageHandler, ParaId, PersistedValidationData, XcmpMessageHandler,
@@ -659,7 +662,9 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
-					use $crate::{Chain, Convert, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{
+						Dispatchable, Chain, Convert, TestExt, Zero,
+					};
 
 					let para_id = Self::para_id().into();
 
@@ -680,14 +685,28 @@ macro_rules! decl_test_parachains {
 							.clone()
 						);
 
+						// Initialze `System`.
 						let digest = <Self as Parachain>::DigestProvider::convert(block_number);
-
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
 						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumberFor<Self::Runtime>>>::on_initialize(block_number);
 
-						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
-							<Self as Chain>::RuntimeOrigin::none(),
-							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						// Process parachain inherents:
+
+						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
+							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						}.into();
+						$crate::assert_ok!(
+							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+
+						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
+							// We need to satisfy `pallet_timestamp::on_finalize`.
+							now: Zero::zero(),
+						}.into();
+						$crate::assert_ok!(
+							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 					});
 				}
