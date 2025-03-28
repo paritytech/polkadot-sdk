@@ -27,7 +27,7 @@ use crate::{
 };
 use futures::{select, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
-use log::info;
+use log::{debug, info};
 use prometheus_endpoint::Registry;
 use sc_chain_spec::{get_extension, ChainSpec};
 use sc_client_api::{
@@ -90,6 +90,7 @@ use sp_consensus::block_validation::{
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
+use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use std::{
 	str::FromStr,
 	sync::Arc,
@@ -263,10 +264,67 @@ where
 			},
 		)?;
 
+		if config.warm_up_trie_cache {
+			warm_up_trie_cache(&client)?;
+		}
+
 		client
 	};
 
 	Ok((client, backend, keystore_container, task_manager))
+}
+
+fn child_info(key: Vec<u8>) -> Option<ChildInfo> {
+	let prefixed_key = PrefixedStorageKey::new(key);
+	ChildType::from_prefixed_key(&prefixed_key).and_then(|(child_type, storage_key)| {
+		(child_type == ChildType::ParentKeyId).then(|| ChildInfo::new_default(storage_key))
+	})
+}
+
+fn warm_up_trie_cache<TBl, TRtApi, TExec>(
+	client: &TFullClient<TBl, TRtApi, TExec>,
+) -> Result<(), Error>
+where
+	TBl: BlockT,
+	TExec: CodeExecutor + RuntimeVersionOf,
+{
+	let storage_root = client.usage_info().chain.best_hash;
+	let keys = client.storage_keys(storage_root, None, None)?.collect::<Vec<_>>();
+	let percentages = (1..=10).map(|i| (i * keys.len() / 10, i * 10)).collect::<Vec<_>>();
+
+	info!("Populating trie cache started",);
+	let mut keys_count = 0;
+	let mut child_keys_count = 0;
+	for (index, key) in keys.into_iter().enumerate() {
+		if let Some((_, percentage)) = percentages.iter().find(|(i, _)| *i == index + 1) {
+			info!("{percentage}% of keys have been read");
+		}
+		match child_info(key.0.clone()) {
+			Some(info) => {
+				for child_key in
+					client.child_storage_keys(storage_root, info.clone(), None, None)?
+				{
+					if client
+						.child_storage(storage_root, &info, &child_key)
+						.expect("Checked above to exist")
+						.is_none()
+					{
+						debug!("Child storage value unexpectedly empty: {child_key:?}");
+					}
+					child_keys_count += 1;
+				}
+			},
+			None => {
+				if client.storage(storage_root, &key).expect("Checked above to exist").is_none() {
+					debug!("Storage value unexpectedly empty: {key:?}");
+				}
+				keys_count += 1;
+			},
+		}
+	}
+	info!("Trie cache populated with {keys_count} keys and {child_keys_count} child keys");
+
+	Ok(())
 }
 
 /// Creates a [`NativeElseWasmExecutor`](sc_executor::NativeElseWasmExecutor) according to
