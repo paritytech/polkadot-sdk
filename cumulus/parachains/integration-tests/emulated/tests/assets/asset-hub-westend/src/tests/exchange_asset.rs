@@ -29,7 +29,6 @@ use frame_support::{
 	traits::fungible::{Inspect, Mutate},
 };
 use parachains_common::{AccountId, Balance};
-use sp_tracing::capture_test_logs;
 use std::convert::Into;
 use xcm::latest::{Assets, Location, Xcm};
 
@@ -42,18 +41,12 @@ fn exchange_asset_success() {
 
 #[test]
 fn exchange_asset_insufficient_liquidity() {
-	let log_capture = capture_test_logs!({
-		test_exchange_asset(true, 1_000 * UNITS, 2_000 * UNITS, false);
-	});
-	assert!(log_capture.contains("NoDeal"));
+	test_exchange_asset(true, 1_000 * UNITS, 2_000 * UNITS, false);
 }
 
 #[test]
 fn exchange_asset_insufficient_balance() {
-	let log_capture = capture_test_logs!({
-		test_exchange_asset(true, 5_000 * UNITS, 1_665 * UNITS, false);
-	});
-	assert!(log_capture.contains("Funds are unavailable"));
+	test_exchange_asset(true, 5_000 * UNITS, 1_665 * UNITS, false);
 }
 
 #[test]

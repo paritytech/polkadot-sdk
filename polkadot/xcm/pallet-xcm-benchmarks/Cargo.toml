@@ -14,12 +14,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true }
-<<<<<<< HEAD
-=======
-frame-benchmarking = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
->>>>>>> 972e9573 (Add expensive scenario for asset exchange (#7952))
 scale-info = { features = ["derive"], workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
@@ -29,25 +23,12 @@ xcm-executor.workspace = true
 frame-benchmarking.workspace = true
 xcm.workspace = true
 xcm-builder.workspace = true
-log = { workspace = true, default-features = true }
 
 [dev-dependencies]
-<<<<<<< HEAD
 pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
 pallet-assets = { default-features = true, path = "../../../substrate/frame/assets" }
 sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
 xcm = { default-features = true, path = "..", package = "staging-xcm" }
-# temp
-pallet-xcm = { default-features = true, path = "../pallet-xcm" }
-polkadot-runtime-common = { default-features = true, path = "../../runtime/common" }
-# westend-runtime = { path = "../../runtime/westend", features = ["runtime-benchmarks"] }
-polkadot-primitives = { default-features = true, path = "../../primitives" }
-=======
-pallet-assets = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-xcm = { workspace = true, default-features = true }
->>>>>>> 972e9573 (Add expensive scenario for asset exchange (#7952))
 
 [features]
 default = ["std"]
@@ -66,11 +47,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-<<<<<<< HEAD
-=======
-	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
->>>>>>> 972e9573 (Add expensive scenario for asset exchange (#7952))
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

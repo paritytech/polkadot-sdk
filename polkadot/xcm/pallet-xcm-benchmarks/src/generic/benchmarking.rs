@@ -538,19 +538,12 @@ benchmarks! {
 			maximal: true,
 		};
 		let xcm = Xcm(vec![instruction]);
-<<<<<<< HEAD
-	}: {
-		executor.bench_process(xcm)?;
-	} verify {
-		assert_eq!(executor.holding(), &want.into());
-=======
 		#[block]
 		{
 			executor.bench_process(xcm)?;
 		}
 		assert!(executor.holding().contains(&want.into()));
 		Ok(())
->>>>>>> 972e9573 (Add expensive scenario for asset exchange (#7952))
 	}
 
 	universal_origin {
