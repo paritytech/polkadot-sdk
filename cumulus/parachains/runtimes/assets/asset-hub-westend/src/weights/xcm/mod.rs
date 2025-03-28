@@ -46,8 +46,9 @@ impl WeighAssets for AssetFilter {
 					WildFungibility::NonFungible =>
 						weight.saturating_mul((MaxAssetsIntoHolding::get() * 2) as u64),
 				},
-				AllCounted(count) => weight.saturating_mul(MAX_ASSETS.min(*count as u64)),
-				AllOfCounted { count, .. } => weight.saturating_mul(MAX_ASSETS.min(*count as u64)),
+				AllCounted(count) => weight.saturating_mul(MAX_ASSETS.min((*count as u64).max(1))),
+				AllOfCounted { count, .. } =>
+					weight.saturating_mul(MAX_ASSETS.min((*count as u64).max(1))),
 			},
 		}
 	}
@@ -123,8 +124,11 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_reserve_asset())
 	}
-	fn exchange_asset(_give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
-		XcmFungibleWeight::<Runtime>::exchange_asset()
+	fn exchange_asset(give: &AssetFilter, receive: &Assets, _maximal: &bool) -> Weight {
+		let base_weight = XcmGeneric::<Runtime>::exchange_asset();
+		let give_weight = give.weigh_assets(base_weight);
+		let receive_weight = receive.weigh_assets(base_weight);
+		give_weight.max(receive_weight)
 	}
 	fn initiate_reserve_withdraw(
 		assets: &AssetFilter,
@@ -140,14 +144,15 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 		_dest: &Location,
 		remote_fees: &Option<AssetTransferFilter>,
 		_preserve_origin: &bool,
-		assets: &Vec<AssetTransferFilter>,
+		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 		_xcm: &Xcm<()>,
 	) -> Weight {
+		let base_weight = XcmFungibleWeight::<Runtime>::initiate_transfer();
 		let mut weight = if let Some(remote_fees) = remote_fees {
 			let fees = remote_fees.inner();
-			fees.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_transfer())
+			fees.weigh_assets(base_weight)
 		} else {
-			Weight::zero()
+			base_weight
 		};
 		for asset_filter in assets {
 			let assets = asset_filter.inner();
