@@ -1990,8 +1990,7 @@ mod enter {
 					candidate.commitments.upward_messages.clear();
 				}
 
-				// Paras 3 and 4 have v1 descriptor. TODO: add a test that verifies exactly what
-				// happens if a v1 descriptor has candidate commitments.
+				// Paras 3 and 4 have v1 descriptor.
 				if candidate.descriptor.para_id() > ParaId::from(2) {
 					candidate.commitments.upward_messages.clear();
 
