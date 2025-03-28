@@ -1062,12 +1062,22 @@ dependencies = [
  "pallet-xcm 19.0.0-rc1",
  "parachains-common 20.0.0-rc1",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkadot-runtime-common 19.0.0-rc1",
  "sp-core 35.0.1-rc1",
  "sp-runtime 40.2.0-rc1",
  "staging-xcm 16.0.0-rc1",
  "staging-xcm-builder 19.0.0-rc1",
  "staging-xcm-executor 19.0.0-rc1",
+=======
+ "polkadot-runtime-common",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+>>>>>>> 972e9573 (Add expensive scenario for asset exchange (#7952))
  "westend-system-emulated-network",
  "xcm-runtime-apis 0.6.0-rc1",
 ]
@@ -16176,10 +16186,18 @@ version = "17.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2da423463933b42f4a4c74175f9e9295a439de26719579b894ce533926665e4a"
 dependencies = [
+<<<<<<< HEAD
  "frame-benchmarking 38.0.0",
  "frame-support 38.2.0",
  "frame-system 38.0.0",
  "log",
+=======
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+>>>>>>> 972e9573 (Add expensive scenario for asset exchange (#7952))
  "parity-scale-codec",
  "scale-info",
  "sp-io 38.0.0",
