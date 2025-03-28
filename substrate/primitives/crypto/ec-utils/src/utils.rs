@@ -32,6 +32,7 @@ use ark_scale::{
 	ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate},
 	scale::{Decode, Encode},
 };
+use sp_runtime_interface::pass_by::{Codec, PassBy};
 
 // SCALE encoding parameters shared by all the enabled modules
 const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);
@@ -69,18 +70,18 @@ pub fn decode_proj_te<T: TECurveConfig>(buf: Vec<u8>) -> Result<TEProjective<T>,
 }
 
 #[allow(unused)]
-pub fn multi_miller_loop<T: Pairing>(g1: Vec<u8>, g2: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let g1 = decode::<Vec<<T as Pairing>::G1Affine>>(g1)?;
-	let g2 = decode::<Vec<<T as Pairing>::G2Affine>>(g2)?;
-	let res = T::multi_miller_loop(g1, g2);
-	Ok(encode(res.0))
+pub fn multi_miller_loop<T: Pairing>(
+	g1: impl Iterator<Item = <T as Pairing>::G1Affine>,
+	g2: impl Iterator<Item = <T as Pairing>::G2Affine>,
+) -> <T as Pairing>::TargetField {
+	T::multi_miller_loop(g1, g2).0
 }
 
 #[allow(unused)]
-pub fn final_exponentiation<T: Pairing>(target: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let target = decode::<<T as Pairing>::TargetField>(target)?;
-	let res = T::final_exponentiation(MillerLoopOutput(target)).ok_or(())?;
-	Ok(encode(res.0))
+pub fn final_exponentiation<T: Pairing>(target: T::TargetField) -> T::TargetField {
+	T::final_exponentiation(MillerLoopOutput(target))
+		.map(|v| v.0)
+		.unwrap_or_default()
 }
 
 #[allow(unused)]
@@ -113,4 +114,43 @@ pub fn mul_projective_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Re
 	let scalar = decode::<Vec<u64>>(scalar)?;
 	let res = <T as TECurveConfig>::mul_projective(&base, &scalar);
 	Ok(encode_proj_te(&res))
+}
+
+pub trait PointSafeCast<C: SWCurveConfig> {
+	fn cast(self) -> ark_ec::short_weierstrass::Affine<C>;
+}
+
+impl<C, U> PointSafeCast<C> for ark_ec::short_weierstrass::Affine<U>
+where
+	U: SWCurveConfig,
+	C: SWCurveConfig<BaseField = U::BaseField>,
+{
+	#[inline(always)]
+	fn cast(self) -> ark_ec::short_weierstrass::Affine<C> {
+		ark_ec::short_weierstrass::Affine { x: self.x, y: self.y, infinity: self.infinity }
+	}
+}
+
+/// ArkScale wrapper to implement PassBy.
+#[derive(Encode, Decode)]
+pub struct ArkWrap<T>((ArkScale<T>,));
+
+impl<T> PassBy for ArkWrap<T>
+where
+	Self: codec::Codec,
+{
+	type PassBy = Codec<Self>;
+}
+
+impl<T> From<T> for ArkWrap<T> {
+	fn from(inner: T) -> Self {
+		ArkWrap((ark_scale::ArkScale(inner),))
+	}
+}
+
+impl<T> ArkWrap<T> {
+	/// Inner type
+	pub fn inner(self) -> T {
+		self.0 .0 .0
+	}
 }

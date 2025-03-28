@@ -23093,6 +23093,7 @@ dependencies = [
  "ark-ed-on-bls12-381-bandersnatch 0.5.0",
  "ark-ed-on-bls12-381-bandersnatch-ext 0.5.0",
  "ark-scale 0.0.13",
+ "parity-scale-codec",
  "sp-runtime-interface 24.0.0",
 ]
 

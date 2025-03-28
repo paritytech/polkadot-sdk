@@ -17,7 +17,7 @@
 
 //! *BLS12-381* types and host functions.
 
-use crate::utils;
+use crate::utils::{self, ArkWrap, PointSafeCast};
 use alloc::vec::Vec;
 use ark_bls12_381_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
@@ -70,18 +70,15 @@ impl CurveHooks for HostHooks {
 		g1: impl Iterator<Item = <Bls12_381 as Pairing>::G1Prepared>,
 		g2: impl Iterator<Item = <Bls12_381 as Pairing>::G2Prepared>,
 	) -> <Bls12_381 as Pairing>::TargetField {
-		let g1 = utils::encode(g1.collect::<Vec<_>>());
-		let g2 = utils::encode(g2.collect::<Vec<_>>());
-		let res = host_calls::bls12_381_multi_miller_loop(g1, g2).unwrap_or_default();
-		utils::decode(res).unwrap_or_default()
+		let g1 = g1.map(|prep| prep.0.cast().into()).collect::<Vec<_>>();
+		let g2 = g2.map(|prep| prep.0.cast().into()).collect::<Vec<_>>();
+		host_calls::bls12_381_multi_miller_loop(g1, g2).inner()
 	}
 
 	fn final_exponentiation(
 		target: <Bls12_381 as Pairing>::TargetField,
 	) -> <Bls12_381 as Pairing>::TargetField {
-		let target = utils::encode(target);
-		let res = host_calls::bls12_381_final_exponentiation(target).unwrap_or_default();
-		utils::decode(res).unwrap_or_default()
+		host_calls::bls12_381_final_exponentiation(target.into()).inner()
 	}
 
 	fn msm_g1(
@@ -121,30 +118,24 @@ impl CurveHooks for HostHooks {
 
 /// Interfaces for working with *Arkworks* *BLS12-381* elliptic curve related types
 /// from within the runtime.
-///
-/// All types are (de-)serialized through the wrapper types from the `ark-scale` trait,
-/// with `ark_scale::{ArkScale, ArkScaleProjective}`.
-///
-/// `ArkScale`'s `Usage` generic parameter is expected to be set to "not-validated"
-/// and "not-compressed".
 #[runtime_interface]
 pub trait HostCalls {
 	/// Pairing multi Miller loop for *BLS12-381*.
-	///
-	/// - Receives encoded:
-	///   - `a`: `ArkScale<Vec<G1Affine>>`.
-	///   - `b`: `ArkScale<Vec<G2Affine>>`.
-	/// - Returns encoded: `ArkScale<Bls12_381::TargetField>`.
-	fn bls12_381_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
-		utils::multi_miller_loop::<ark_bls12_381::Bls12_381>(a, b)
+	fn bls12_381_multi_miller_loop(
+		a: Vec<ArkWrap<ark_bls12_381::g1::G1Affine>>,
+		b: Vec<ArkWrap<ark_bls12_381::g2::G2Affine>>,
+	) -> ArkWrap<<Bls12_381 as Pairing>::TargetField> {
+		let a = a.into_iter().map(|v| v.inner());
+		let b = b.into_iter().map(|v| v.inner());
+		let r = utils::multi_miller_loop::<ark_bls12_381::Bls12_381>(a, b);
+		ArkWrap::from(r)
 	}
 
 	/// Pairing final exponentiation for *BLS12-381*.
-	///
-	/// - Receives encoded: `ArkScale<<Bls12_377::TargetField>`.
-	/// - Returns encoded: `ArkScale<<Bls12_377::TargetField>`
-	fn bls12_381_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
-		utils::final_exponentiation::<ark_bls12_381::Bls12_381>(f)
+	fn bls12_381_final_exponentiation(
+		f: ArkWrap<<Bls12_381 as Pairing>::TargetField>,
+	) -> ArkWrap<<Bls12_381 as Pairing>::TargetField> {
+		utils::final_exponentiation::<ark_bls12_381::Bls12_381>(f.inner()).into()
 	}
 
 	/// Multi scalar multiplication on *G1* for *BLS12-381*
