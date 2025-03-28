@@ -1607,6 +1607,62 @@ impl pallet_offences::Config for Runtime {
 	type OnOffenceHandler = Staking;
 }
 
+pub type Gov = UnionOf<Referenda, ConvictionVoting>;
+parameter_types! {
+	// Id of the treasury
+	pub const PotId: PalletId = PalletId(*b"py/potid");
+	pub const ClaimingPeriod: BlockNumber = 7 * DAYS;
+	pub const VoteValidityPeriod: BlockNumber = 7 * DAYS;
+	pub const MaxProjects:u32 = 50;
+
+	/// This should be calculated as a percentage of inflation.
+	pub const TemporaryRewards: Balance = 100000 * DOLLARS;
+
+
+}
+
+impl pallet_opf::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type NativeBalance = Balances;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	/// Pot PalletId
+	type PotId = PotId;
+
+	/// A reason for placing a hold on funds.
+	type RuntimeHoldReason = RuntimeHoldReason;
+
+	/// Maximum number of whitelisted projects
+	type MaxProjects = MaxProjects;
+
+	/// Time period in which people can vote.
+	/// After the period has ended, the votes are counted (STOP THE COUNT)
+	/// and then the funds are distributed into Spends.
+	type VotingPeriod = VotingPeriod;
+
+	/// Time for claiming a Spend.
+	/// After the period has passed, a spend is thrown away
+	/// and the funds are available again for distribution in the pot.
+	type ClaimingPeriod = ClaimingPeriod;
+
+	/// Period after which all the votes are resetted.
+	type VoteValidityPeriod = VoteValidityPeriod;
+
+	/// Period after which the proposal is enacted
+	type EnactmentPeriod = EnactmentPeriod;
+
+	type BlockNumberProvider = System;
+
+	/// This should be calculated as a percentage of inflation.
+	type TemporaryRewards = TemporaryRewards;
+
+
+	type Governance = Referenda;
+	type Conviction = ConvictionVoting;
+
+	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_authority_discovery::Config for Runtime {
 	type MaxAuthorities = MaxAuthorities;
 }
@@ -2769,6 +2825,9 @@ mod runtime {
 
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
+  #[runtime::pallet_index(90)]
+  pub type Opf = pallet_opf::Pallet<Runtime>;
+
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
@@ -3033,6 +3092,7 @@ mod benches {
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
 		[pallet_meta_tx, MetaTx]
+    [pallet_opf, Opf]
 	);
 }
 
