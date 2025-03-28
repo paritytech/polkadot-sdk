@@ -4,12 +4,4 @@ doc:
     description: |
       Removed packages `bp-polkadot`, `bp-kusama`, `bp-bridge-hub-polkadot` and `bp-bridge-hub-kusama`
 
-crates:
-  - name: bp-polkadot
-    bump: major
-  - name: bp-kusama
-    bump: major
-  - name: bp-bridge-hub-polkadot
-    bump: major
-  - name: bp-bridge-hub-kusama
-    bump: major
+crates: []
