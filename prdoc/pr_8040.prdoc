@@ -9,8 +9,8 @@ doc:
 
 crates:
   - name: cumulus-client-cli
-    bump: minor
+    bump: major
   - name: cumulus-client-consensus-aura
-    bump: minor
+    bump: major
   - name: polkadot-omni-node-lib
-    bump: minor
+    bump: major
