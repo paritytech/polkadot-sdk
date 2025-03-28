@@ -390,6 +390,8 @@ pub mod pallet {
 			let (_, deposit) = Proxies::<T>::take(&who);
 			T::Currency::unreserve(&spawner, deposit);
 
+			Self::deposit_event(Event::PureKilled { pure: who, who: spawner, proxy_type });
+
 			Ok(())
 		}
 
@@ -654,7 +656,9 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A proxy was executed correctly, with the given.
-		ProxyExecuted { result: DispatchResult },
+		ProxyExecuted {
+			result: DispatchResult,
+		},
 		/// A pure account has been created by new proxy with given
 		/// disambiguation index and proxy type.
 		PureCreated {
@@ -663,8 +667,17 @@ pub mod pallet {
 			proxy_type: T::ProxyType,
 			disambiguation_index: u16,
 		},
+		PureKilled {
+			pure: T::AccountId,
+			who: T::AccountId,
+			proxy_type: T::ProxyType,
+		},
 		/// An announcement was placed to make a call in the future.
-		Announced { real: T::AccountId, proxy: T::AccountId, call_hash: CallHashOf<T> },
+		Announced {
+			real: T::AccountId,
+			proxy: T::AccountId,
+			call_hash: CallHashOf<T>,
+		},
 		/// A proxy was added.
 		ProxyAdded {
 			delegator: T::AccountId,
@@ -799,6 +812,7 @@ impl<T: Config> Pallet<T> {
 				frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
 			)
 		});
+
 		let entropy = (b"modlpy/proxy____", who, height, ext_index, proxy_type, index)
 			.using_encoded(blake2_256);
 		Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
