@@ -152,6 +152,18 @@ pub trait EnqueueMessage<Origin: MaxEncodedLen> {
 
 	/// Return the state footprint of the given queue.
 	fn footprint(origin: Origin) -> QueueFootprint;
+
+	/// Check if the number of resulting new pages after enqueuing the provided messages respects
+	/// the provided limit.
+	///
+	/// On success, it returns the number of resulting new pages.
+	/// On error, it returns a tuple containing the number of resulting new pages and the index
+	/// of the first message that would need to be dropped.
+	fn check_messages_footprint<'a>(
+		origin: Origin,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> Result<u32, (u32, usize)>;
 }
 
 impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
@@ -165,6 +177,14 @@ impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
 	fn sweep_queue(_: Origin) {}
 	fn footprint(_: Origin) -> QueueFootprint {
 		QueueFootprint::default()
+	}
+
+	fn check_messages_footprint<'a>(
+		_origin: Origin,
+		_msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		_total_pages_limit: u32,
+	) -> Result<u32, (u32, usize)> {
+		Ok(0)
 	}
 }
 
@@ -192,6 +212,14 @@ impl<E: EnqueueMessage<O>, O: MaxEncodedLen, N: MaxEncodedLen, C: Convert<N, O>>
 
 	fn footprint(origin: N) -> QueueFootprint {
 		E::footprint(C::convert(origin))
+	}
+
+	fn check_messages_footprint<'a>(
+		origin: N,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> Result<u32, (u32, usize)> {
+		E::check_messages_footprint(C::convert(origin), msgs, total_pages_limit)
 	}
 }
 

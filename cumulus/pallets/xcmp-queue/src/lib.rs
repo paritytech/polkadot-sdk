@@ -51,11 +51,13 @@ pub mod weights;
 pub mod weights_ext;
 
 pub use weights::WeightInfo;
+#[cfg(feature = "test-utils")]
+pub use weights_ext::check_weight_info_ext_accuracy;
 pub use weights_ext::WeightInfoExt;
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{collections::BTreeSet, vec, vec::Vec};
 use bounded_collections::BoundedBTreeSet;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
@@ -89,6 +91,7 @@ pub type MaxXcmpMessageLenOf<T> =
 
 const LOG_TARGET: &str = "xcmp_queue";
 const DEFAULT_POV_SIZE: u64 = 64 * 1024; // 64 KB
+const XCM_BATCH_SIZE: usize = 250;
 
 /// Constants related to delivery fee calculation
 pub mod delivery_fee_constants {
@@ -637,22 +640,35 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
-	fn enqueue_xcmp_message(
+	fn enqueue_xcmp_messages(
 		sender: ParaId,
-		xcm: BoundedVec<u8, MaxXcmpMessageLenOf<T>>,
+		xcms: &[BoundedVec<u8, MaxXcmpMessageLenOf<T>>],
+		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
-		let fp = T::XcmpQueue::footprint(sender);
-		// Assume that it will not fit into the current page:
-		let new_pages = fp.ready_pages.saturating_add(1);
-		if new_pages > drop_threshold {
-			// This should not happen since the channel should have been suspended in
-			// [`on_queue_changed`].
-			log::error!("XCMP queue for sibling {:?} is full; dropping messages.", sender);
+		let (xcms, new_page_count) = match T::XcmpQueue::check_messages_footprint(
+			sender,
+			xcms.iter().map(|xcm| xcm.as_bounded_slice()),
+			drop_threshold,
+		) {
+			Ok(new_page_count) => (xcms, new_page_count),
+			Err((new_page_count, drop_idx)) => {
+				// This should not happen since the channel should have been suspended in
+				// [`on_queue_changed`].
+				log::error!("XCMP queue for sibling {:?} is full; dropping messages.", sender);
+				(&xcms[..drop_idx], new_page_count)
+			},
+		};
+
+		let xcms_size = xcms.iter().map(|xcm| xcm.len()).sum();
+		let required_weight =
+			T::WeightInfo::enqueue_xcmp_messages(new_page_count, xcms.len(), xcms_size);
+		if meter.try_consume(required_weight).is_err() {
+			log::error!("Out of weight: cannot enqueue XCMP messages; dropping batch");
 			return Err(())
 		}
 
-		T::XcmpQueue::enqueue_message(xcm.as_bounded_slice(), sender);
+		T::XcmpQueue::enqueue_messages(xcms.iter().map(|xcm| xcm.as_bounded_slice()), sender);
 		Ok(())
 	}
 
@@ -663,9 +679,9 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn take_first_concatenated_xcm(
 		data: &mut &[u8],
 		meter: &mut WeightMeter,
-	) -> Result<BoundedVec<u8, MaxXcmpMessageLenOf<T>>, ()> {
+	) -> Result<Option<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>, ()> {
 		if data.is_empty() {
-			return Err(())
+			return Ok(None)
 		}
 
 		if meter.try_consume(T::WeightInfo::take_first_concatenated_xcm()).is_err() {
@@ -675,7 +691,34 @@ impl<T: Config> Pallet<T> {
 
 		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data)
 			.map_err(|_| ())?;
-		xcm.encode().try_into().map_err(|_| ())
+		Ok(Some(xcm.encode().try_into().map_err(|_| ())?))
+	}
+
+	/// Split concatenated encoded `VersionedXcm`s or `MaybeDoubleEncodedVersionedXcm`s into
+	/// batches.
+	///
+	/// We directly encode them again since that is needed later on.
+	pub(crate) fn take_first_concatenated_xcms(
+		data: &mut &[u8],
+		batch_size: usize,
+		meter: &mut WeightMeter,
+	) -> Result<
+		Vec<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>,
+		Vec<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>,
+	> {
+		let mut batch = vec![];
+		loop {
+			match Self::take_first_concatenated_xcm(data, meter) {
+				Ok(Some(xcm)) => {
+					batch.push(xcm);
+					if batch.len() >= batch_size {
+						return Ok(batch);
+					}
+				},
+				Ok(None) => return Ok(batch),
+				Err(_) => return Err(batch),
+			}
+		}
 	}
 
 	/// The worst-case weight of `on_idle`.
@@ -756,6 +799,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 	) -> Weight {
 		let mut meter = WeightMeter::with_limit(max_weight);
 
+		let mut known_xcm_senders = BTreeSet::new();
 		for (sender, _sent_at, mut data) in iter {
 			let format = match XcmpMessageFormat::decode(&mut data) {
 				Ok(f) => f,
@@ -789,43 +833,51 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						}
 					},
 				XcmpMessageFormat::ConcatenatedVersionedXcm => {
-					// We need to know if the current message is the first on the current XCMP page
-					// for weight metering accuracy.
-					let mut is_first_xcm_on_page = true;
-					while !data.is_empty() {
-						let Ok(xcm) = Self::take_first_concatenated_xcm(&mut data, &mut meter)
-						else {
-							defensive!("HRMP inbound decode stream broke; page will be dropped.",);
-							break
-						};
-
-						// For simplicity, we consider that each new XCMP page results in a new
-						// message queue page. This is not always true, but it's a good enough
-						// estimation.
+					if known_xcm_senders.insert(sender) {
 						if meter
-							.try_consume(T::WeightInfo::enqueue_xcmp_message(
-								xcm.len(),
-								is_first_xcm_on_page,
-							))
+							.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages())
 							.is_err()
 						{
 							defensive!(
-								"Out of weight: cannot enqueue XCMP messages; dropping msg; \
-								Used weight: ",
+								"Out of weight: cannot enqueue XCMP messages; dropping page; \
+                                    Used weight: ",
 								meter.consumed_ratio()
 							);
+							continue;
+						}
+					}
+
+					let mut can_process_next_batch = true;
+					loop {
+						if !can_process_next_batch {
 							break;
 						}
 
-						if let Err(()) = Self::enqueue_xcmp_message(sender, xcm) {
+						let batch = match Self::take_first_concatenated_xcms(
+							&mut data,
+							XCM_BATCH_SIZE,
+							&mut meter,
+						) {
+							Ok(batch) => batch,
+							Err(batch) => {
+								can_process_next_batch = false;
+								defensive!(
+									"HRMP inbound decode stream broke; page will be dropped."
+								);
+								batch
+							},
+						};
+						if batch.is_empty() {
+							break;
+						}
+
+						if let Err(()) = Self::enqueue_xcmp_messages(sender, &batch, &mut meter) {
 							defensive!(
-								"Could not enqueue XCMP messages. Used weight: ",
+								"Could not enqueue XCMP messages batch. Used weight: ",
 								meter.consumed_ratio()
 							);
 							break
 						}
-
-						is_first_xcm_on_page = false;
 					}
 				},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
