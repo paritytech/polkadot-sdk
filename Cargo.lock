@@ -4104,6 +4104,7 @@ version = "0.1.0"
 dependencies = [
  "cumulus-pallet-parachain-system 0.19.0-rc1",
  "emulated-integration-tests-common",
+<<<<<<< HEAD
  "frame-support 40.0.0-rc1",
  "pallet-balances 41.0.0-rc1",
  "pallet-broker 0.19.0-rc1",
@@ -4115,6 +4116,20 @@ dependencies = [
  "staging-xcm 16.0.0-rc1",
  "staging-xcm-executor 19.0.0-rc1",
  "westend-runtime-constants 19.0.0-rc1",
+=======
+ "frame-support",
+ "pallet-balances",
+ "pallet-broker",
+ "pallet-identity",
+ "pallet-message-queue",
+ "pallet-xcm",
+ "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
+ "sp-runtime 31.0.1",
+ "staging-xcm",
+ "staging-xcm-executor",
+ "westend-runtime-constants",
+>>>>>>> d243659 ([XCM] allow signed account to be aliased between system chains (#7983))
  "westend-system-emulated-network",
 ]
 
