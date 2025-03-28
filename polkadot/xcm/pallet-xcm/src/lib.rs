@@ -1564,7 +1564,7 @@ pub mod pallet {
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
 				(0, [AccountId32 { network: _, id }]) =>
-					Location::new(0, [AccountId32 { network: None, id: id.clone() }]),
+					Location::new(0, [AccountId32 { network: None, id: *id }]),
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?new_aliaser, ?expires);
@@ -1628,7 +1628,7 @@ pub mod pallet {
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
 				(0, [AccountId32 { network: _, id }]) =>
-					Location::new(0, [AccountId32 { network: None, id: id.clone() }]),
+					Location::new(0, [AccountId32 { network: None, id: *id }]),
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::remove_authorized_alias", ?origin_location, ?to_remove);
@@ -1678,7 +1678,7 @@ pub mod pallet {
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
 				(0, [AccountId32 { network: _, id }]) =>
-					Location::new(0, [AccountId32 { network: None, id: id.clone() }]),
+					Location::new(0, [AccountId32 { network: None, id: *id }]),
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::remove_all_authorized_aliases", ?origin_location);
