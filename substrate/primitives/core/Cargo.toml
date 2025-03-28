@@ -70,7 +70,7 @@ secp256k1 = { features = [
 # bls crypto
 w3f-bls = { optional = true, workspace = true }
 # bandersnatch crypto
-ark-ec-vrfs = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
+ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
@@ -88,7 +88,7 @@ bench = false
 default = ["std"]
 
 std = [
-	"ark-ec-vrfs?/std",
+	"ark-vrf?/std",
 	"bip39/rand",
 	"bip39/std",
 	"blake2/std",
@@ -163,4 +163,4 @@ bls-experimental = ["w3f-bls"]
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bandersnatch-experimental = ["ark-ec-vrfs"]
+bandersnatch-experimental = ["ark-vrf"]

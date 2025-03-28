@@ -27,7 +27,7 @@ use crate::crypto::{
 	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
 };
 use alloc::{vec, vec::Vec};
-use ark_ec_vrfs::{
+use ark_vrf::{
 	reexports::{
 		ark_ec::CurveGroup,
 		ark_serialize::{CanonicalDeserialize, CanonicalSerialize},
@@ -104,7 +104,7 @@ impl TraitPair for Pair {
 		}
 		let mut seed = [0; SEED_SERIALIZED_SIZE];
 		seed.copy_from_slice(seed_slice);
-		let h = ark_ec_vrfs::utils::hash::<<BandersnatchSuite as Suite>::Hasher>(&seed);
+		let h = ark_vrf::utils::hash::<<BandersnatchSuite as Suite>::Hasher>(&seed);
 		// Extract and cache the high half.
 		let mut prefix = [0; SEED_SERIALIZED_SIZE];
 		prefix.copy_from_slice(&h[32..64]);
@@ -149,8 +149,8 @@ impl TraitPair for Pair {
 		// Deterministic nonce for plain Schnorr signature.
 		// Inspired by ed25519 <https://www.rfc-editor.org/rfc/rfc8032#section-5.1.6>
 		let h_in = [&self.prefix[..32], data].concat();
-		let h = &ark_ec_vrfs::utils::hash::<<BandersnatchSuite as Suite>::Hasher>(&h_in)[..32];
-		let k = ark_ec_vrfs::codec::scalar_decode::<BandersnatchSuite>(h);
+		let h = &ark_vrf::utils::hash::<<BandersnatchSuite as Suite>::Hasher>(&h_in)[..32];
+		let k = ark_vrf::codec::scalar_decode::<BandersnatchSuite>(h);
 		let gk = BandersnatchSuite::generator() * k;
 		let c = BandersnatchSuite::challenge(&[&gk.into_affine(), &self.secret.public.0], data);
 		let s = k + c * self.secret.scalar;
@@ -307,7 +307,7 @@ pub mod vrf {
 	#[cfg(feature = "full_crypto")]
 	impl VrfSecret for Pair {
 		fn vrf_sign(&self, data: &VrfSignData) -> VrfSignature {
-			use ark_ec_vrfs::ietf::Prover;
+			use ark_vrf::ietf::Prover;
 			let pre_output_impl = self.secret.output(data.vrf_input.0);
 			let pre_output = VrfPreOutput(pre_output_impl);
 			let proof_impl = self.secret.prove(data.vrf_input.0, pre_output.0, &data.aux_data);
@@ -333,15 +333,15 @@ pub mod vrf {
 
 	impl VrfPublic for Public {
 		fn vrf_verify(&self, data: &VrfSignData, signature: &VrfSignature) -> bool {
-			use ark_ec_vrfs::ietf::Verifier;
+			use ark_vrf::ietf::Verifier;
 			let Ok(public) =
 				bandersnatch::Public::deserialize_compressed_unchecked(self.as_slice())
 			else {
 				return false
 			};
-			let Ok(proof) = ark_ec_vrfs::ietf::Proof::deserialize_compressed_unchecked(
-				signature.proof.as_slice(),
-			) else {
+			let Ok(proof) =
+				ark_vrf::ietf::Proof::deserialize_compressed_unchecked(signature.proof.as_slice())
+			else {
 				return false
 			};
 			public
@@ -380,7 +380,7 @@ pub mod ring_vrf {
 		const G2_POINT_UNCOMPRESSED_SIZE: usize = 192;
 		const OVERHEAD_SIZE: usize = 16;
 		const G2_POINTS_NUM: usize = 2;
-		let g1_points_num = ark_ec_vrfs::ring::pcs_domain_size::<BandersnatchSuite>(ring_size);
+		let g1_points_num = ark_vrf::ring::pcs_domain_size::<BandersnatchSuite>(ring_size);
 		OVERHEAD_SIZE +
 			g1_points_num * G1_POINT_UNCOMPRESSED_SIZE +
 			G2_POINTS_NUM * G2_POINT_UNCOMPRESSED_SIZE
@@ -551,7 +551,7 @@ pub mod ring_vrf {
 		/// signing [`Pair`] is part of the ring from which the [`RingProver`] has
 		/// been constructed. If not, the produced signature is just useless.
 		pub fn ring_vrf_sign(&self, data: &VrfSignData, prover: &RingProver) -> RingVrfSignature {
-			use ark_ec_vrfs::ring::Prover;
+			use ark_vrf::ring::Prover;
 			let pre_output_impl = self.secret.output(data.vrf_input.0);
 			let pre_output = VrfPreOutput(pre_output_impl);
 			let proof_impl =
@@ -570,7 +570,7 @@ pub mod ring_vrf {
 		/// The signature is verifiable if it has been produced by a member of the ring
 		/// from which the [`RingVerifier`] has been constructed.
 		pub fn ring_vrf_verify(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
-			use ark_ec_vrfs::ring::Verifier;
+			use ark_vrf::ring::Verifier;
 			let Ok(proof) =
 				bandersnatch::RingProof::deserialize_compressed_unchecked(self.proof.as_slice())
 			else {
@@ -613,13 +613,12 @@ mod tests {
 
 		let ctx = RingProofParams::from_seed(TEST_RING_SIZE, [0_u8; 32]);
 
-		let domain_size = ark_ec_vrfs::ring::pcs_domain_size::<BandersnatchSuite>(TEST_RING_SIZE);
+		let domain_size = ark_vrf::ring::pcs_domain_size::<BandersnatchSuite>(TEST_RING_SIZE);
 		assert_eq!(domain_size, ctx.pcs.powers_in_g1.len());
-		let domain_size2 =
-			ark_ec_vrfs::ring::pcs_domain_size::<BandersnatchSuite>(ctx.max_ring_size());
+		let domain_size2 = ark_vrf::ring::pcs_domain_size::<BandersnatchSuite>(ctx.max_ring_size());
 		assert_eq!(domain_size, domain_size2);
 		assert_eq!(
-			ark_ec_vrfs::ring::max_ring_size_from_pcs_domain_size::<BandersnatchSuite>(domain_size),
+			ark_vrf::ring::max_ring_size_from_pcs_domain_size::<BandersnatchSuite>(domain_size),
 			ctx.max_ring_size()
 		);
 
@@ -645,13 +644,13 @@ mod tests {
 		let ring_prover = ctx.prover(prover_key, prover_key_index);
 
 		{
-			use ark_ec_vrfs::ietf::Prover;
+			use ark_vrf::ietf::Prover;
 			let proof = secret.prove(input, preout, &[]);
 			assert_eq!(proof.compressed_size(), SIGNATURE_SERIALIZED_SIZE);
 		}
 
 		{
-			use ark_ec_vrfs::ring::Prover;
+			use ark_vrf::ring::Prover;
 			let proof = secret.prove(input, preout, &[], &ring_prover);
 			assert_eq!(proof.compressed_size(), RING_PROOF_SERIALIZED_SIZE);
 		}
