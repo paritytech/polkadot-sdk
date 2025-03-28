@@ -50,6 +50,7 @@ use schnellru::{ByLength, LruMap};
 use std::{
 	cmp,
 	collections::{HashMap, HashSet, VecDeque},
+	iter,
 	num::NonZeroUsize,
 	pin::Pin,
 	sync::Arc,
@@ -72,11 +73,9 @@ const GET_RECORD_REDUNDANCY_FACTOR: usize = 4;
 /// The maximum number of tracked external addresses we allow.
 const MAX_EXTERNAL_ADDRESSES: u32 = 32;
 
-/// Minimum number of confirmations received before an address is verified.
-///
-/// Note: all addresses are confirmed by libp2p on the first encounter. This aims to make
-/// addresses a bit more robust.
-const MIN_ADDRESS_CONFIRMATIONS: usize = 2;
+/// Number of times observed address is received from different peers before it is confirmed as
+/// external.
+const MIN_ADDRESS_CONFIRMATIONS: usize = 3;
 
 /// Discovery events.
 #[derive(Debug)]
@@ -509,7 +508,7 @@ impl Discovery {
 					.flatten()
 					.flatten();
 
-				self.address_confirmations.insert(address.clone(), Default::default());
+				self.address_confirmations.insert(address.clone(), iter::once(peer).collect());
 
 				return (false, oldest)
 			},

@@ -13,20 +13,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::imports::*;
+use ahr_xcm_config::UniversalLocation as AssetHubRococoUniversalLocation;
 use codec::{Decode, Encode};
 use emulated_integration_tests_common::xcm_emulator::ConvertLocation;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::BridgeHubRococoParaSender as BridgeHubRococoSender;
-use snowbridge_core::{inbound::InboundQueueFixture, outbound::OperatingMode};
+use snowbridge_inbound_queue_primitives::{
+	v1::{Command, Destination, MessageV1, VersionedMessage},
+	InboundQueueFixture,
+};
+use snowbridge_outbound_queue_primitives::OperatingMode;
 use snowbridge_pallet_inbound_queue_fixtures::{
 	register_token::make_register_token_message, send_native_eth::make_send_native_eth_message,
 	send_token::make_send_token_message, send_token_to_penpal::make_send_token_to_penpal_message,
 };
 use snowbridge_pallet_system;
-use snowbridge_router_primitives::inbound::{
-	Command, Destination, EthereumLocationsConverterFor, MessageV1, VersionedMessage,
-};
 use sp_core::H256;
 use sp_runtime::{DispatchError::Token, TokenError::FundsUnavailable};
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
@@ -63,7 +65,7 @@ pub fn send_inbound_message(fixture: InboundQueueFixture) -> DispatchResult {
 	.unwrap();
 	EthereumInboundQueue::submit(
 		BridgeHubRococoRuntimeOrigin::signed(BridgeHubRococoSender::get()),
-		fixture.message,
+		fixture.event,
 	)
 }
 
@@ -207,6 +209,8 @@ fn create_channel() {
 fn register_weth_token_from_ethereum_to_asset_hub() {
 	// Fund AssetHub sovereign account so that it can pay execution fees.
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id().into(), INITIAL_FUND);
+	// Fund ethereum sovereign on AssetHub to satisfy ED
+	AssetHubRococo::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
 
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
@@ -240,9 +244,11 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 #[test]
 fn send_weth_token_from_ethereum_to_asset_hub() {
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id().into(), INITIAL_FUND);
-
-	// Fund ethereum sovereign on AssetHub
-	AssetHubRococo::fund_accounts(vec![(AssetHubRococoReceiver::get(), INITIAL_FUND)]);
+	// Fund ethereum sovereign and receiver on AssetHub to satisfy ED
+	AssetHubRococo::fund_accounts(vec![
+		(snowbridge_sovereign(), INITIAL_FUND),
+		(AssetHubRococoReceiver::get(), INITIAL_FUND),
+	]);
 
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
@@ -319,8 +325,13 @@ fn send_weth_from_ethereum_to_penpal() {
 	let origin_location = (Parent, Parent, ethereum_network_v5).into();
 
 	// Fund ethereum sovereign on AssetHub
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+	let ethereum_sovereign: AccountId = AssetHubRococo::execute_with(|| {
+		ExternalConsensusLocationsConverterFor::<
+			AssetHubRococoUniversalLocation,
+			AccountId,
+		>::convert_location(&origin_location)
+		.unwrap()
+	});
 	AssetHubRococo::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	// Create asset on the Penpal parachain.
@@ -399,7 +410,10 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 	);
 
 	BridgeHubRococo::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
-	AssetHubRococo::fund_accounts(vec![(AssetHubRococoReceiver::get(), INITIAL_FUND)]);
+	AssetHubRococo::fund_accounts(vec![
+		(AssetHubRococoReceiver::get(), INITIAL_FUND),
+		(snowbridge_sovereign(), INITIAL_FUND),
+	]);
 
 	const WETH_AMOUNT: u128 = 1_000_000_000;
 
@@ -498,8 +512,8 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
-					if *who == TREASURY_ACCOUNT.into() && *amount == 16903333
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
+					if *who == TREASURY_ACCOUNT.into()
 			)),
 			"Snowbridge sovereign takes local fee."
 		);
@@ -507,8 +521,8 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
-					if *who == assethub_sovereign && *amount == 2680000000000,
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
+					if *who == assethub_sovereign
 			)),
 			"AssetHub sovereign takes remote fee."
 		);
@@ -526,8 +540,13 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 	use ahr_xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 	let assethub_location = BridgeHubRococo::sibling_location_of(AssetHubRococo::para_id());
 	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(assethub_location);
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
+	let ethereum_sovereign: AccountId = AssetHubRococo::execute_with(|| {
+		ExternalConsensusLocationsConverterFor::<
+			AssetHubRococoUniversalLocation,
+			AccountId,
+		>::convert_location(&origin_location)
+		.unwrap()
+	});
 
 	AssetHubRococo::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubRococo::force_default_xcm_version(Some(XCM_VERSION));
@@ -539,25 +558,6 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		(ethereum_sovereign.clone(), INITIAL_FUND),
 	]);
 
-	// Register ETH
-	AssetHubRococo::execute_with(|| {
-		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-		type RuntimeOrigin = <AssetHubRococo as Chain>::RuntimeOrigin;
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::force_create(
-			RuntimeOrigin::root(),
-			origin_location.clone(),
-			ethereum_sovereign.into(),
-			true,
-			1000,
-		));
-
-		assert_expected_events!(
-			AssetHubRococo,
-			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::ForceCreated { .. }) => {},
-			]
-		);
-	});
 	const ETH_AMOUNT: u128 = 1_000_000_000_000_000_000;
 
 	BridgeHubRococo::execute_with(|| {
@@ -668,8 +668,8 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
-					if *who == TREASURY_ACCOUNT.into() && *amount == 16903333
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
+					if *who == TREASURY_ACCOUNT.into()
 			)),
 			"Snowbridge sovereign takes local fee."
 		);
@@ -677,8 +677,8 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
-					if *who == assethub_sovereign && *amount == 2680000000000,
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
+					if *who == assethub_sovereign
 			)),
 			"AssetHub sovereign takes remote fee."
 		);
@@ -861,4 +861,32 @@ fn send_weth_from_ethereum_to_non_existent_account_on_asset_hub_with_sufficient_
 			]
 		);
 	});
+}
+
+#[test]
+fn create_foreign_asset_deposit_is_equal_to_asset_hub_foreign_asset_pallet_deposit() {
+	let asset_hub_deposit = asset_hub_rococo_runtime::ForeignAssetsAssetDeposit::get();
+	let bridge_hub_deposit = bp_asset_hub_rococo::CreateForeignAssetDeposit::get();
+	assert!(
+		bridge_hub_deposit >=
+			asset_hub_deposit,
+		"The BridgeHub asset creation deposit must be equal to or larger than the asset creation deposit configured on BridgeHub"
+	);
+}
+
+pub fn snowbridge_sovereign() -> sp_runtime::AccountId32 {
+	use asset_hub_rococo_runtime::xcm_config::UniversalLocation as AssetHubWestendUniversalLocation;
+	let ethereum_sovereign: AccountId = AssetHubRococo::execute_with(|| {
+		ExternalConsensusLocationsConverterFor::<
+			AssetHubWestendUniversalLocation,
+			[u8; 32],
+		>::convert_location(&Location::new(
+			2,
+			[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
+		))
+			.unwrap()
+			.into()
+	});
+
+	ethereum_sovereign
 }

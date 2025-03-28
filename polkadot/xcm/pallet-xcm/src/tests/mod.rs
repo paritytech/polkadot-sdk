@@ -339,25 +339,33 @@ fn send_works() {
 /// Asserts that `send` fails with `Error::SendFailure`
 #[test]
 fn send_fails_when_xcm_router_blocks() {
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let sender: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
 		let message = Xcm(vec![
 			ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 			buy_execution((Parent, SEND_AMOUNT)),
 			DepositAsset { assets: AllCounted(1).into(), beneficiary: sender },
 		]);
-		assert_noop!(
-			XcmPallet::send(
+		let (log_capture, subscriber) = init_log_capture(Level::DEBUG, true);
+		subscriber::with_default(subscriber, || {
+			let result = XcmPallet::send(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(Location::ancestor(8).into()),
 				Box::new(VersionedXcm::from(message.clone())),
-			),
-			crate::Error::<Test>::SendFailure
-		);
+			);
+			assert_noop!(result, Error::<Test>::SendFailure);
+			assert!(log_capture
+				.contains("xcm::pallet_xcm::send: XCM send failed with error error=Transport(\"Destination location full\")"));
+		});
 	});
 }
 
@@ -1454,5 +1462,102 @@ fn record_xcm_works() {
 			BaseXcmWeight::get() * 3,
 		));
 		assert_eq!(RecordedXcm::<Test>::get(), Some(message.into()));
+	});
+}
+
+#[test]
+fn execute_initiate_transfer_and_check_sent_event() {
+	use crate::Event;
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	let (log_capture, subscriber) = init_log_capture(Level::TRACE, true);
+	subscriber::with_default(subscriber, || {
+		let balances = vec![(ALICE, INITIAL_BALANCE)];
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let beneficiary: Location =
+				Location::new(1, [AccountId32 { network: None, id: BOB.into() }]);
+			let fee_asset: Asset = (Parent, SEND_AMOUNT).into();
+
+			let message = Xcm(vec![InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: Parent.into(),
+				xcm: Xcm(vec![
+					BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+					DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+				]),
+			}]);
+
+			let result = XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(message.clone())),
+				BaseXcmWeight::get() * 3,
+			);
+			assert_ok!(result);
+
+			let sent_message: Xcm<()> = Xcm(vec![
+				WithdrawAsset(Assets::new()),
+				ClearOrigin,
+				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+			]);
+			assert!(log_capture
+				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));
+
+			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+			let sent_msg_id = fake_message_hash(&sent_message);
+			assert_eq!(
+				last_events(2),
+				vec![
+					RuntimeEvent::XcmPallet(Event::Sent {
+						origin,
+						destination: Parent.into(),
+						message: Xcm::default(),
+						message_id: sent_msg_id,
+					}),
+					RuntimeEvent::XcmPallet(Event::Attempted {
+						outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }
+					}),
+				]
+			);
+		})
+	});
+}
+
+#[test]
+fn deliver_failure_with_expect_error() {
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	let (log_capture, subscriber) = init_log_capture(Level::TRACE, true);
+	subscriber::with_default(subscriber, || {
+		let balances = vec![(ALICE, INITIAL_BALANCE)];
+
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let message = Xcm(vec![InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: Parent.into(),
+				xcm: Xcm(vec![
+					ExpectError(Some((1, xcm::latest::Error::Unimplemented)))
+				]),
+			}]);
+
+			let result = XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(message.clone())),
+				BaseXcmWeight::get() * 3,
+			);
+
+			// Expect an error from the send operation
+			assert!(result.is_err());
+
+			// Check logs for send attempt and failure
+			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented)))])"));
+			assert!(log_capture.contains("xcm::send: XCM failed to deliver with error error=Transport(\"Intentional deliver failure used in tests\")"));
+		})
 	});
 }
