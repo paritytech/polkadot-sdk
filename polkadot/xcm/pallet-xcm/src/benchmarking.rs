@@ -640,10 +640,16 @@ mod benchmarks {
 	fn remove_authorized_alias() -> Result<(), BenchmarkError> {
 		let who: T::AccountId = whitelisted_caller();
 		let origin = RawOrigin::Signed(who.clone());
-		let origin_location: VersionedLocation =
-			T::ExecuteXcmOrigin::try_origin(origin.clone().into())
-				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?
-				.into();
+		let error = BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX));
+		let origin_location =
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into()).map_err(|_| error.clone())?;
+		// remove `network` from inner `AccountId32` for easier matching of automatic AccountId ->
+		// Location conversions.
+		let origin_location: VersionedLocation = match origin_location.unpack() {
+			(0, [AccountId32 { network: _, id }]) =>
+				Location::new(0, [AccountId32 { network: None, id: *id }]).into(),
+			_ => return Err(error.clone()),
+		};
 
 		// Give some multiple of ED
 		let balance = T::ExistentialDeposit::get() * 1000u32.into();
@@ -660,7 +666,7 @@ mod benchmarks {
 			existing_aliases.try_push(aliaser).unwrap()
 		}
 		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len()))
-			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+			.map_err(|_| error)?;
 		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
 		AuthorizedAliases::<T>::insert(&origin_location, entry);
 
