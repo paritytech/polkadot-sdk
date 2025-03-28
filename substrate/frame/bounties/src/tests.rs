@@ -24,9 +24,8 @@ use crate as pallet_bounties;
 use crate::mock::{Bounties, *};
 
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
-	dispatch::PostDispatchInfo,
-	traits::{Currency, Imbalance},
+	assert_err_ignore_postinfo, assert_noop, assert_ok, dispatch::PostDispatchInfo,
+	traits::Currency,
 };
 use sp_runtime::traits::Dispatchable;
 
@@ -417,8 +416,7 @@ fn approve_bounty_with_curator_works() {
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(curator), bounty_id));
 		approve_payment(curator_stash, bounty_id, asset_kind, fee); // curator_stash fee
 		approve_payment(beneficiary, bounty_id, asset_kind, value - fee); // beneficiary payout
-
-		// Then (final state)
+																	// Then (final state)
 		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 0);
 		assert_eq!(
 			last_event(),
@@ -1259,6 +1257,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 		// Given
 		let user = 1;
 		let bounty_id = 0;
+		let asset_kind = 1;
 		let value = 88;
 		let fee = 42;
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -1267,7 +1266,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 		SpendLimit::set(value);
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(0),
-			Box::new(1),
+			Box::new(asset_kind),
 			value,
 			b"12345".to_vec()
 		));
@@ -1299,7 +1298,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_id));
-		approve_payment(Bounties::bounty_account_id(bounty_id), bounty_id, 1, value);
+		approve_payment(Bounties::bounty_account_id(bounty_id), bounty_id, asset_kind, value);
 		go_to_block(4);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_id, user, fee));
 
@@ -1325,12 +1324,12 @@ fn accept_curator_handles_different_deposit_calculations() {
 		SpendLimit::set(value);
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(0),
-			Box::new(1),
+			Box::new(asset_kind),
 			value,
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_id));
-		approve_payment(Bounties::bounty_account_id(bounty_id), bounty_id, 1, value);
+		approve_payment(Bounties::bounty_account_id(bounty_id), bounty_id, asset_kind, value);
 		go_to_block(6);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_id, user, fee));
 
@@ -1572,11 +1571,11 @@ fn check_and_process_funding_and_payout_payment_works() {
 		// TODO: continue
 		// Tiago: process_payment does not change bounty.status state. Should it change?
 		// assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_id));
-		// let beneficiary_payment_id = get_payment_id(bounty_id, Some(beneficiary)).expect("no
-		// payment attempt"); set_status(beneficiary_payment_id, PaymentStatus::Success);
-		// let curator_payment_id = get_payment_id(bounty_id, Some(curator_stash)).expect("no
-		// payment attempt"); set_status(curator_payment_id, PaymentStatus::Success);
-		// assert_ok!(
+		// let beneficiary_payment_id = get_payment_id(bounty_id,
+		// Some(beneficiary)).expect("no payment attempt"); set_status(beneficiary_payment_id,
+		// PaymentStatus::Success); let curator_payment_id = get_payment_id(bounty_id,
+		// Some(curator_stash)).expect("no payment attempt"); set_status(curator_payment_id,
+		// PaymentStatus::Success); assert_ok!(
 		// 	Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id)
 		// );
 	});
@@ -1639,12 +1638,14 @@ fn check_and_process_refund_payment_works() {
 	});
 }
 
+#[test]
 fn accept_curator_sets_update_due_correctly() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given (BountyUpdatePeriod = 20)
 		let bounty_id = 0;
 		let proposer = 0;
 		let fee = 10;
+		let value = 50;
 		let asset_kind = 1;
 		let curator = 4;
 		let curator_stash = 7;
@@ -1653,11 +1654,11 @@ fn accept_curator_sets_update_due_correctly() {
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(proposer),
 			Box::new(asset_kind),
-			50,
+			value,
 			b"12345".to_vec()
 		));
-		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		go_to_block(4);
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_id));
+		approve_payment(Bounties::bounty_account_id(bounty_id), bounty_id, asset_kind, value);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_id, curator, fee));
 
 		// When
@@ -1670,20 +1671,21 @@ fn accept_curator_sets_update_due_correctly() {
 		// Then
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap().status,
-			BountyStatus::Active { curator, curator_stash, update_due: 24 }
+			BountyStatus::Active { curator, curator_stash, update_due: 21 }
 		);
 
 		// Given (BountyUpdatePeriod = BlockNumber::max_value())
+		let bounty_id = 1;
 		BountyUpdatePeriod::set(SystemBlockNumberFor::<Test>::max_value());
 		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(proposer),
 			Box::new(asset_kind),
-			50,
+			value,
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_id));
-		go_to_block(6);
+		approve_payment(Bounties::bounty_account_id(bounty_id), bounty_id, asset_kind, value);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_id, curator, fee));
 
 		// When

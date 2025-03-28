@@ -104,7 +104,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
-		Currency, EnsureOrigin, Get, OnUnbalanced, ReservableCurrency,
+		EnsureOrigin, Get, OnUnbalanced, ReservableCurrency,
 	},
 };
 use frame_system::pallet_prelude::{
@@ -1350,12 +1350,12 @@ pub mod pallet {
 							let (mut payments_progressed, mut payments_succeeded) = (0, 0);
 							// advance both curator, and beneficiary payments
 							let results = [
-								Self::do_check_payment_status_for_payout(
+								Self::do_check_payout_payment_status(
 									&mut payments_progressed,
 									&mut payments_succeeded,
 									curator_stash,
 								),
-								Self::do_check_payment_status_for_payout(
+								Self::do_check_payout_payment_status(
 									&mut payments_progressed,
 									&mut payments_succeeded,
 									beneficiary,
@@ -1533,7 +1533,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// reserve deposit for new bounty
 		let bond = T::BountyDepositBase::get() +
 			T::DataDepositPerByte::get() * (bounded_description.len() as u32).into();
-		println!("bond: {:?}", bond);
 		T::Currency::reserve(&proposer, bond)
 			.map_err(|_| Error::<T, I>::InsufficientProposersBalance)?;
 
@@ -1673,7 +1672,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Advances the state machine for payout, used for both curator and beneficiary payments.
-	fn do_check_payment_status_for_payout(
+	fn do_check_payout_payment_status(
 		// counter for payments that have changed state during this call. For
 		// example, if one payment succeeds and another fails, both count as "progressed" since
 		// they advanced the state machine.

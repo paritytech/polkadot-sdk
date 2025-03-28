@@ -66,7 +66,7 @@ impl Pay for TestPay {
 		}))
 	}
 	fn check_payment(id: Self::Id) -> PaymentStatus {
-		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::InProgress))
+		STATUS.with(|s| s.borrow_mut().entry(id).or_insert(PaymentStatus::InProgress).clone())
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
@@ -75,12 +75,16 @@ impl Pay for TestPay {
 		_: Self::AssetKind,
 		_: Self::Balance,
 	) {
-		let next_id = LAST_ID.with(|lid| *lid.borrow());
-		set_status(next_id, PaymentStatus::Success);
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
-		set_status(id, PaymentStatus::Failure)
+		let status =
+			STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown));
+		if status == PaymentStatus::InProgress {
+			set_status(id, PaymentStatus::Failure);
+		} else {
+			set_status(id, PaymentStatus::Success);
+		}
 	}
 }
 
