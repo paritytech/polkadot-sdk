@@ -197,6 +197,8 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
+	// No consumers of this notifier on Bridge Hub.
+	type OnNewCommitment = ();
 }
 
 #[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]
