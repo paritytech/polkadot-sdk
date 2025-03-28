@@ -135,6 +135,9 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	pub max_pov_percentage: Option<u32>,
 }
 
 /// Run async-backing-friendly Aura.
@@ -172,6 +175,7 @@ where
 pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// The parameters.
 	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
 }
@@ -414,14 +418,14 @@ where
 				)
 				.await;
 
-				let allowed_pov_size = if cfg!(feature = "full-pov-size") {
-					validation_data.max_pov_size
+				let allowed_pov_size = if let Some(max_pov_percentage) = params.max_pov_percentage {
+					validation_data.max_pov_size * max_pov_percentage / 100
 				} else {
-					// Set the block limit to 50% of the maximum PoV size.
+					// Set the block limit to 85% of the maximum PoV size.
 					//
-					// TODO: If we got benchmarking that includes the proof size,
-					// we should be able to use the maximum pov size.
-					validation_data.max_pov_size / 2
+					// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
+					// fixed, the reservation should be removed.
+					validation_data.max_pov_size * 85 / 100
 				} as usize;
 
 				match collator

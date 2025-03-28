@@ -83,6 +83,7 @@ polkadot-overseer.workspace = true
 polkadot-overseer.default-features = true
 
 [dev-dependencies]
+<<<<<<< HEAD
 cumulus-test-client = { path = "../../../test/client" }
 cumulus-test-relay-sproof-builder = { path = "../../../test/relay-sproof-builder", default-features = false }
 sp-keyring = { path = "../../../../substrate/primitives/keyring", default-features = false }
@@ -90,3 +91,9 @@ sp-keyring = { path = "../../../../substrate/primitives/keyring", default-featur
 [features]
 # Allows collator to use full PoV size for block building
 full-pov-size = []
+=======
+cumulus-test-client = { workspace = true }
+cumulus-test-relay-sproof-builder = { workspace = true }
+rstest = { workspace = true }
+sp-keyring = { workspace = true }
+>>>>>>> 0dded09 (Make the default 85% usage of the PoV (#8040))

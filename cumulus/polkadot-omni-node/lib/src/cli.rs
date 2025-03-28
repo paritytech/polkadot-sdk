@@ -173,6 +173,7 @@ impl<Config: CliConfig> Cli<Config> {
 		NodeExtraArgs {
 			use_slot_based_consensus: self.experimental_use_slot_based,
 			export_pov: self.export_pov_to_path.clone(),
+			max_pov_percentage: self.run.experimental_max_pov_percentage,
 		}
 	}
 }
