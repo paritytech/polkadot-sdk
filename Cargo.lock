@@ -13327,11 +13327,11 @@ name = "pallet-tx-pause"
 version = "9.0.0"
 dependencies = [
  "docify",
- "pallet-balances 28.0.0",
- "pallet-proxy 28.0.0",
- "pallet-utility 28.0.0",
+ "pallet-balances",
+ "pallet-proxy",
+ "pallet-utility",
  "parity-scale-codec",
- "polkadot-sdk-frame 0.1.0",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
