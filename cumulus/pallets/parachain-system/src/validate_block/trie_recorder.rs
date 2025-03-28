@@ -105,13 +105,6 @@ impl<H: Hasher> SizeOnlyRecorderProvider<H> {
 			recorded_keys: Default::default(),
 		}
 	}
-
-	/// Reset the internal state.
-	pub fn reset(&self) {
-		self.seen_nodes.borrow_mut().clear();
-		*self.encoded_size.borrow_mut() = 0;
-		self.recorded_keys.borrow_mut().clear();
-	}
 }
 
 impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderProvider<H> {
@@ -292,9 +285,6 @@ mod tests {
 				reference_recorder.estimate_encoded_size(),
 				recorder_for_test.estimate_encoded_size()
 			);
-
-			recorder_for_test.reset();
-			assert_eq!(recorder_for_test.estimate_encoded_size(), 0)
 		}
 	}
 }

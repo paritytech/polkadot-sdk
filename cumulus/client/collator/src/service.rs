@@ -176,13 +176,14 @@ where
 
 	/// Fetch the collation info from the runtime.
 	///
-	/// Returns `Ok(Some(_))` on success, `Err(_)` on error or `Ok(None)` if the runtime api isn't
-	/// implemented by the runtime.
+	/// Returns `Ok(Some((CollationInfo, ApiVersion)))` on success, `Err(_)` on error or `Ok(None)`
+	/// if the runtime api isn't implemented by the runtime. `ApiVersion` being the version of the
+	/// [`CollectCollationInfo`] runtime api.
 	pub fn fetch_collation_info(
 		&self,
 		block_hash: Block::Hash,
 		header: &Block::Header,
-	) -> Result<Option<CollationInfo>, sp_api::ApiError> {
+	) -> Result<Option<(CollationInfo, u32)>, sp_api::ApiError> {
 		let runtime_api = self.runtime_api.runtime_api();
 
 		let api_version =
@@ -206,7 +207,7 @@ where
 			runtime_api.collect_collation_info(block_hash, header)?
 		};
 
-		Ok(Some(collation_info))
+		Ok(Some((collation_info, api_version)))
 	}
 
 	/// Build a full [`Collation`] from a given [`ParachainCandidate`]. This requires
@@ -220,7 +221,7 @@ where
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		let (header, extrinsics) = candidate.block.deconstruct();
+		let block = candidate.block;
 
 		let compact_proof = match candidate
 			.proof
@@ -234,8 +235,8 @@ where
 		};
 
 		// Create the parachain block data for the validators.
-		let collation_info = self
-			.fetch_collation_info(block_hash, &header)
+		let (collation_info, api_version) = self
+			.fetch_collation_info(block_hash, block.header())
 			.map_err(|e| {
 				tracing::error!(
 					target: LOG_TARGET,
@@ -246,10 +247,23 @@ where
 			.ok()
 			.flatten()?;
 
-		let block_data = ParachainBlockData::<Block>::new(header, extrinsics, compact_proof);
+		let block_data = ParachainBlockData::<Block>::new(vec![block], compact_proof);
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
-			block_data: BlockData(block_data.encode()),
+			block_data: BlockData(if api_version >= 3 {
+				block_data.encode()
+			} else {
+				let block_data = block_data.as_v0();
+
+				if block_data.is_none() {
+					tracing::error!(
+						target: LOG_TARGET,
+						"Trying to submit a collation with multiple blocks is not supported by the current runtime."
+					);
+				}
+
+				block_data?.encode()
+			}),
 		});
 
 		let upward_messages = collation_info
