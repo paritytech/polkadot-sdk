@@ -5,7 +5,7 @@ use crate::config;
 use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types};
 use pallet_timestamp;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_inbound_queue_primitives::{Log, Proof};
+use snowbridge_verification_primitives::{Log, Proof};
 use sp_std::default::Default;
 use std::{fs::File, path::PathBuf};
 

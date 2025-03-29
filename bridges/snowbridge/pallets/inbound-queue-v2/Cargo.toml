@@ -50,7 +50,6 @@ bp-relayers = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
-snowbridge-pallet-ethereum-client = { workspace = true, default-features = true }
 snowbridge-test-utils = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 
@@ -89,7 +88,6 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
-	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-v2-fixtures/runtime-benchmarks",
 	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -101,6 +99,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"snowbridge-pallet-ethereum-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -21,7 +21,7 @@ use hex_literal::hex;
 use rococo_westend_system_emulated_network::BridgeHubRococoParaSender as BridgeHubRococoSender;
 use snowbridge_inbound_queue_primitives::{
 	v1::{Command, Destination, MessageV1, VersionedMessage},
-	InboundQueueFixture,
+	EventFixture,
 };
 use snowbridge_outbound_queue_primitives::OperatingMode;
 use snowbridge_pallet_inbound_queue_fixtures::{
@@ -57,7 +57,7 @@ pub enum SnowbridgeControl {
 	Control(ControlCall),
 }
 
-pub fn send_inbound_message(fixture: InboundQueueFixture) -> DispatchResult {
+pub fn send_inbound_message(fixture: EventFixture) -> DispatchResult {
 	EthereumBeaconClient::store_finalized_header(
 		fixture.finalized_header,
 		fixture.block_roots_root,

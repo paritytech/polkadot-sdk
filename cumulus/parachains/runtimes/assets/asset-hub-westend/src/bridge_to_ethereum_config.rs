@@ -26,7 +26,7 @@ use frame_support::{parameter_types, traits::EitherOf};
 use frame_system::EnsureRootWithSuccess;
 use parachains_common::AssetIdForTrustBackedAssets;
 use snowbridge_runtime_common::{ForeignAssetOwner, LocalAssetOwner};
-use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+use testnet_parachains_constants::westend::snowbridge::{EthereumNetwork, FRONTEND_PALLET_INDEX};
 use xcm::prelude::{Asset, InteriorLocation, Location, PalletInstance, Parachain};
 use xcm_executor::XcmExecutor;
 
@@ -86,7 +86,7 @@ parameter_types! {
 	);
 	pub storage DeliveryFee: Asset = (Location::parent(), 80_000_000_000u128).into();
 	pub BridgeHubLocation: Location = Location::new(1, [Parachain(westend_runtime_constants::system_parachain::BRIDGE_HUB_ID)]);
-	pub SystemFrontendPalletLocation: InteriorLocation = [PalletInstance(80)].into();
+	pub SystemFrontendPalletLocation: InteriorLocation = [PalletInstance(FRONTEND_PALLET_INDEX)].into();
 	pub const RootLocation: Location = Location::here();
 }
 

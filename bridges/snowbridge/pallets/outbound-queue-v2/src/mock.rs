@@ -83,7 +83,7 @@ impl Verifier for MockVerifier {
 	}
 }
 
-const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
+const GATEWAY_ADDRESS: [u8; 20] = hex!["b1185ede04202fe62d38f5db72f71e38ff3e8305"];
 const WETH: [u8; 20] = hex!["C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"];
 
 parameter_types! {
@@ -141,10 +141,11 @@ impl crate::Config for Test {
 	type WeightToFee = IdentityFee<u128>;
 	type WeightInfo = ();
 	type RewardPayment = ();
-	type ConvertAssetId = ();
 	type EthereumNetwork = EthereumNetwork;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = DefaultMyRewardKind;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = Test;
 }
 
 fn setup() {
@@ -250,4 +251,10 @@ pub fn mock_register_token_message(sibling_para_id: u32) -> Message {
 		}])
 		.unwrap(),
 	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> BenchmarkHelper<T> for Test {
+	// not implemented since the MockVerifier is used for tests
+	fn initialize_storage(_: BeaconHeader, _: H256) {}
 }

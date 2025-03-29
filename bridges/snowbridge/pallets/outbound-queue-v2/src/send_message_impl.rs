@@ -10,7 +10,7 @@ use frame_support::{
 };
 use snowbridge_outbound_queue_primitives::{
 	v2::{Message, SendMessage},
-	SendError, SendMessageFeeProvider,
+	SendError,
 };
 use sp_core::H256;
 use sp_runtime::BoundedVec;
@@ -41,14 +41,5 @@ where
 		T::MessageQueue::enqueue_message(message.as_bounded_slice(), origin);
 		Self::deposit_event(Event::MessageQueued { message: ticket.clone() });
 		Ok(ticket.id)
-	}
-}
-
-impl<T: Config> SendMessageFeeProvider for Pallet<T> {
-	type Balance = T::Balance;
-
-	/// The local component of the message processing fees in native currency
-	fn local_fee() -> Self::Balance {
-		Self::calculate_local_fee()
 	}
 }

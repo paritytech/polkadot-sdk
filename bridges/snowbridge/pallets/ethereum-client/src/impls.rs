@@ -6,9 +6,9 @@ use snowbridge_beacon_primitives::ExecutionProof;
 
 use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
 use snowbridge_ethereum::Receipt;
-use snowbridge_inbound_queue_primitives::{
+use snowbridge_verification_primitives::{
 	VerificationError::{self, *},
-	*,
+	Verifier, *,
 };
 
 impl<T: Config> Verifier for Pallet<T> {
