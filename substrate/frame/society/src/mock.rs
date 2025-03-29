@@ -124,6 +124,8 @@ impl EnvBuilder {
 			.unwrap();
 		let mut ext: sp_io::TestExternalities = t.into();
 		ext.execute_with(|| {
+			// Initialize the block number to 1 for event registration
+			System::set_block_number(1);
 			if self.founded {
 				let r = b"be cool".to_vec();
 				assert!(Society::found_society(Origin::signed(1), 10, 10, 8, 2, 25, r).is_ok());
