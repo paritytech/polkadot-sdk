@@ -19,10 +19,10 @@
 //! API trait of the archive methods.
 
 use crate::{
+	archive::MethodResult,
 	common::events::{
 		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageEvent, StorageQuery,
 	},
-	MethodResult,
 };
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
