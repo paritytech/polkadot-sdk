@@ -19,6 +19,7 @@ log = { workspace = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 thiserror = { workspace = true, optional = true }
+bounded-collections = { features = ["serde"], workspace = true }
 
 sp-api = { workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
@@ -63,6 +64,7 @@ std = [
 	"sp-staking/std",
 	"sp-std/std",
 	"thiserror",
+	"bounded-collections/std"
 ]
 runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",

@@ -2053,6 +2053,7 @@ mod enter {
 					candidate.commitments.upward_messages.clear();
 				}
 
+				// 3rd and 4th candidates send ump signals but are v1. They'll be dropped.
 				if candidate.descriptor.para_id() > ParaId::from(2) {
 					let mut v1: CandidateDescriptor = candidate.descriptor.into();
 
@@ -2084,7 +2085,18 @@ mod enter {
 			// * 5 v2 candidate descriptors.
 			assert_eq!(inherent_data.backed_candidates.len(), 5);
 
-			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data).unwrap();
+			let mut expected_inherent_data = inherent_data.clone();
+			expected_inherent_data.backed_candidates.truncate(3);
+
+			let mut create_inherent_data = InherentData::new();
+			create_inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &inherent_data)
+				.unwrap();
+
+			assert_eq!(
+				Pallet::<Test>::create_inherent_inner(&create_inherent_data).unwrap(),
+				expected_inherent_data
+			);
 		});
 	}
 

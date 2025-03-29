@@ -1031,16 +1031,16 @@ async fn validate_candidate_exhaustive(
 							};
 
 							if let Err(err) = committed_candidate_receipt
-								.check_core_index(&transpose_claim_queue(claim_queue.0))
+								.check_ump_signals(&transpose_claim_queue(claim_queue.0))
 							{
 								gum::warn!(
 									target: LOG_TARGET,
 									candidate_hash = ?candidate_receipt.hash(),
-									"Candidate core index is invalid: {}",
+									"Invalid UMP signals: {}",
 									err
 								);
 								return Ok(ValidationResult::Invalid(
-									InvalidCandidate::InvalidCoreIndex,
+									InvalidCandidate::InvalidUMPSignals(err),
 								))
 							}
 						},

@@ -111,7 +111,7 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 		let validator_node = network.get_node(validator_name)?;
 		validator_node
 			.wait_log_line_count_with_timeout(
-				"Candidate core index is invalid: The core index in commitments doesn't match the one in descriptor",
+				"Invalid UMP signals: The core index in commitments doesn't match the one in descriptor",
 				false,
 				1_usize,
 				// Since we have this check after the para throughput check, all validators
