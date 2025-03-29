@@ -61,26 +61,15 @@ pub mod migrations;
 pub mod weights;
 
 extern crate alloc;
-
-use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
-	Percent, RuntimeDebug,
-};
-
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame_support::{
-	ensure,
-	traits::{
-		ContainsLengthBound, Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get,
-		OnUnbalanced, ReservableCurrency, SortedMembers,
-	},
-	Parameter,
+use frame::{
+	prelude::{DispatchError::BadOrigin, *},
+	traits::{Currency, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 
-#[cfg(any(feature = "try-runtime", test))]
-use sp_runtime::TryRuntimeError;
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -118,11 +107,9 @@ pub struct OpenTip<
 	finders_fee: bool,
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -617,12 +604,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			tips: Vec<(AccountId, Balance)>,
 		}
 
-		use frame_support::{migration::storage_key_iter, Twox64Concat};
-
 		let zero_account = T::AccountId::decode(&mut TrailingZeroInput::new(&[][..]))
 			.expect("infinite input; qed");
 
-		for (hash, old_tip) in storage_key_iter::<
+		for (hash, old_tip) in storage::migration::storage_key_iter::<
 			T::Hash,
 			OldOpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>,
 			Twox64Concat,
@@ -654,7 +639,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// 1. The number of entries in `Tips` should be equal to `Reasons`.
 	/// 2. Reasons exists for each Tip[`OpenTip.reason`].
 	/// 3. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater than zero.
-	#[cfg(any(feature = "try-runtime", test))]
+	#[cfg(feature = "try-runtime")]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		let reasons = Reasons::<T, I>::iter_keys().collect::<Vec<_>>();
 		let tips = Tips::<T, I>::iter_keys().collect::<Vec<_>>();
