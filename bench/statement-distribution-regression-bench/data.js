@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743187717038,
+  "lastUpdate": 1743206883096,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -40475,6 +40475,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.045280662107999976,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f1d1d9c5c8d0effe4c60b81f6eaaa112ddc14658",
+          "message": "frame-system: Don't underflow the sufficients (#8062)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/8044\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-03-28T22:49:42Z",
+          "tree_id": "32c8f90781429db7681e0377d5d77fac012d012c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1d1d9c5c8d0effe4c60b81f6eaaa112ddc14658"
+        },
+        "date": 1743206866264,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.94799999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04530581690999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03529515886199999,
             "unit": "seconds"
           }
         ]
