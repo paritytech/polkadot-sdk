@@ -34,6 +34,9 @@ pub mod error;
 pub use api::ArchiveApiServer;
 pub use archive::Archive;
 
+
+use serde::{Serialize, Deserialize};
+
 /// The result of an RPC method.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(untagged)]
