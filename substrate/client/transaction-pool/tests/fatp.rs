@@ -2042,18 +2042,39 @@ fn fatp_prune_based_on_inactive_views_tags() {
 	block_on(pool.maintain(event));
 	assert_pool_status!(header04.hash(), &pool, 3, 4);
 
-	// TODO: build the enacted fork.
-	// keep in mind that retracted fork:
-	// 1. block 1, view: f [xt1, xt2 ]
-	// 2. block 2 [xt0], view: r[xt1, xt2, xt3, xt4, xt5] and f[xt11]
-	// 3. block 3 [xt1], view: r[xt2, xt3, xt4, xt5] and f[xt11, xt9, xt8, xt7]
-	// 4. block 4 [xt2], view: r[xt3, xt4, xt5] and f[xt11, xt9, xt8, xt7]
-	//
-	// the enacted fork must be:
-	// 1. block 1[xt0, xt1, xt2, xt3]
-	// 2. block 2[xt4, xt5, xt6]
-	// 3. block 3[xt6, xt7, xt8]
-	// 4. block 4[xt9, xt10, xt11]
+	let header05 = api.push_block_with_parent(
+		header01.hash(),
+		vec![xt0.clone(), xt1.clone(), xt2.clone()],
+		true,
+	);
+	api.set_nonce(header05.hash(), Alice.into(), 202);
+	let header06 = api.push_block_with_parent(
+		header05.hash(),
+		vec![xt3.clone(), xt4.clone(), xt5.clone()],
+		true,
+	);
+	api.set_nonce(header06.hash(), Alice.into(), 205);
+	let header07 = api.push_block_with_parent(
+		header06.hash(),
+		vec![xt6.clone(), xt7.clone(), xt8.clone()],
+		true,
+	);
+	api.set_nonce(header07.hash(), Alice.into(), 208);
+	let _header08 = api.push_block_with_parent(
+		header07.hash(),
+		vec![xt9.clone(), xt10.clone(), xt11.clone()],
+		true,
+	);
+	api.set_nonce(_header08.hash(), Alice.into(), 211);
+
+	// Notify a whole new fork.
+	let event = new_best_block_event(&pool, None, _header08.hash());
+	block_on(pool.maintain(event));
+	// All txs must have been removed from the active view of the
+	// tip of the enacted fork. The prune optimizing should have not
+	// revalidated any tx.
+	assert_pool_status!(_header08.hash(), &pool, 0, 0);
+	// TODO: check if revalidations count is 0.
 }
 
 #[test]
