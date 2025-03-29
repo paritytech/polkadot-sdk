@@ -693,8 +693,8 @@ impl pallet_session::Config for Runtime {
 }
 
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentification = pallet_staking::Existence;
+	type FullIdentificationOf = pallet_staking::ExistenceOf<Runtime>;
 }
 
 pallet_staking_reward_curve::build! {

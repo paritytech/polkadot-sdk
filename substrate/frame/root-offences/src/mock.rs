@@ -144,8 +144,8 @@ impl pallet_staking::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentification = pallet_staking::Existence;
+	type FullIdentificationOf = pallet_staking::ExistenceOf<Test>;
 }
 
 sp_runtime::impl_opaque_keys! {

@@ -151,8 +151,8 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = ();
-	type FullIdentificationOf = NullIdentity;
+	type FullIdentification = Existence;
+	type FullIdentificationOf = ExistenceOf<Test>;
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
