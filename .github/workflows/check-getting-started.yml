@@ -112,10 +112,6 @@ jobs:
             }
           }
 
-          expect "Setup the Rust environment" {
-            send "y\r"
-          }
-
           expect "start with one of the templates" {
             send "y\r"
           }
@@ -145,10 +141,6 @@ jobs:
           }
 
           expect "Rust already installed" {}
-
-          expect "Setup the Rust environment" {
-            send "n\r"
-          }
 
           expect "start with one of the templates" {
             send "y\r"
@@ -224,10 +216,6 @@ jobs:
 
           expect "Rust already installed" {}
 
-          expect "Setup the Rust environment" {
-            send "y\r"
-          }
-
           expect "start with one of the templates" {
             send "y\r"
           }
@@ -263,10 +251,6 @@ jobs:
           }
 
           expect "Rust already installed" {}
-
-          expect "Setup the Rust environment" {
-            send "n\r"
-          }
 
           expect "start with one of the templates" {
             send "y\r"
