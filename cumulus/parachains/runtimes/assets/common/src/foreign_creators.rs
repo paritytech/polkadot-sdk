@@ -34,8 +34,7 @@ impl<
 		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
 	> EnsureOriginWithArg<RuntimeOrigin, L> for ForeignCreators<IsForeign, AccountOf, AccountId, L>
 where
-	RuntimeOrigin::PalletsOrigin:
-		From<XcmOrigin> + TryInto<XcmOrigin, Error = RuntimeOrigin::PalletsOrigin>,
+	for<'a> &'a RuntimeOrigin::PalletsOrigin: TryInto<&'a XcmOrigin>,
 {
 	type Success = AccountId;
 
