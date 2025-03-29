@@ -271,7 +271,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		self.validated_pool.resubmit(revalidated_transactions);
 		trace!(
 			target: LOG_TARGET,
-			duration_ms = now.elapsed().as_millis(),
+			duration = ?now.elapsed(),
 			status = ?self.validated_pool.status(),
 			"Resubmitted transaction."
 		);
@@ -367,7 +367,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		debug!(
 			target: LOG_TARGET,
 			validated_counter,
-			took = ?now.elapsed(),
+			duration = ?now.elapsed(),
 			"prune completed"
 		);
 		self.prune_tags(at, future_tags, in_pool_hashes).await
@@ -401,7 +401,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		known_imported_hashes: impl IntoIterator<Item = ExtrinsicHash<B>> + Clone,
 	) {
 		let now = Instant::now();
-		trace!(target: LOG_TARGET, ?at, "Pruning at");
+		trace!(target: LOG_TARGET, ?at, "Pruning tags.");
 		// Prune all transactions that provide given tags
 		let prune_status = self.validated_pool.prune_tags(tags);
 

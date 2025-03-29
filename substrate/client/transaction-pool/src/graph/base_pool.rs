@@ -320,7 +320,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 			target: LOG_TARGET,
 			tx_hash = ?tx.transaction.hash,
 			?tx,
-			status = if tx.is_ready() { "ready" } else { "future" },
+			set = if tx.is_ready() { "ready" } else { "future" },
 			"Importing transaction"
 		);
 
@@ -345,7 +345,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		&mut self,
 		tx: WaitingTransaction<Hash, Ex>,
 	) -> error::Result<Imported<Hash, Ex>> {
-		let hash = tx.transaction.hash.clone();
+		let tx_hash = tx.transaction.hash.clone();
 		let mut promoted = vec![];
 		let mut failed = vec![];
 		let mut removed = vec![];
@@ -401,7 +401,8 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 							target: LOG_TARGET,
 							tx_hash = ?current_tx.hash,
 							?error,
-							"Error importing {first}"
+							first,
+							"Error importing transaction"
 						);
 						return Err(error)
 					} else {
@@ -423,20 +424,20 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		// future transactions pushed out current transaction.
 		// This means that there is a cycle and the transactions should
 		// be moved back to future, since we can't resolve it.
-		if removed.iter().any(|tx| tx.hash == hash) {
+		if removed.iter().any(|tx| tx.hash == tx_hash) {
 			// We still need to remove all transactions that we promoted
 			// since they depend on each other and will never get to the best iterator.
 			self.ready.remove_subtree(&promoted);
 
 			trace!(
 				target: LOG_TARGET,
-				?hash,
+				?tx_hash,
 				"Cycle detected, bailing."
 			);
 			return Err(error::Error::CycleDetected)
 		}
 
-		Ok(Imported::Ready { hash, promoted, failed, removed })
+		Ok(Imported::Ready { hash: tx_hash, promoted, failed, removed })
 	}
 
 	/// Returns an iterator over ready transactions in the pool.
@@ -596,17 +597,17 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		}
 
 		for tx in to_import {
-			let hash = tx.transaction.hash.clone();
+			let tx_hash = tx.transaction.hash.clone();
 			match self.import_to_ready(tx) {
 				Ok(res) => promoted.push(res),
 				Err(error) => {
 					warn!(
 						target: LOG_TARGET,
-						?hash,
+						?tx_hash,
 						?error,
 						"Failed to promote during pruning."
 					);
-					failed.push(hash)
+					failed.push(tx_hash)
 				},
 			}
 		}

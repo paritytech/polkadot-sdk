@@ -22,7 +22,7 @@ use crate::LOG_TARGET;
 use sc_transaction_pool_api::ChainEvent;
 use sp_blockchain::TreeRoute;
 use sp_runtime::traits::{Block as BlockT, NumberFor, Saturating};
-use tracing::trace;
+use tracing::{debug, trace};
 
 /// The threshold since the last update where we will skip any maintenance for blocks.
 ///
@@ -113,7 +113,7 @@ where
 			};
 
 		if skip_maintenance {
-			trace!(target: LOG_TARGET, "skip maintain: tree_route would be too long");
+			debug!(target: LOG_TARGET, "skip maintain: tree_route would be too long");
 			self.force_update(event);
 			return Ok(EnactmentAction::Skip)
 		}

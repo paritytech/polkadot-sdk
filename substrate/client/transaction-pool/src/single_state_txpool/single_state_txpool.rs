@@ -777,7 +777,7 @@ where
 
 		match result {
 			Err(message) => {
-				trace!(target: LOG_TARGET, %message);
+				trace!(target: LOG_TARGET, %message, "enactment state update");
 				self.enactment_state.lock().force_update(&event);
 			},
 			Ok(EnactmentAction::Skip) => return,

@@ -78,7 +78,7 @@ async fn batch_revalidate<Api: ChainApi>(
 		Ok(None) => {
 			trace!(
 				target: LOG_TARGET,
-				   ?at,
+				?at,
 				"Revalidation skipped: could not get block number"
 			);
 			return
@@ -105,33 +105,33 @@ async fn batch_revalidate<Api: ChainApi>(
 	}))
 	.await;
 
-	for (validation_result, ext_hash, ext) in validation_results {
+	for (validation_result, tx_hash, ext) in validation_results {
 		match validation_result {
 			Ok(Err(TransactionValidityError::Invalid(error))) => {
 				trace!(
 					target: LOG_TARGET,
-					?ext_hash,
+					?tx_hash,
 					?error,
 					"Revalidation: invalid."
 				);
-				invalid_hashes.push(ext_hash);
+				invalid_hashes.push(tx_hash);
 			},
 			Ok(Err(TransactionValidityError::Unknown(error))) => {
 				// skipping unknown, they might be pushed by valid or invalid transaction
 				// when latter resubmitted.
 				trace!(
 					target: LOG_TARGET,
-					?ext_hash,
+					?tx_hash,
 					?error,
 					"Unknown during revalidation."
 				);
 			},
 			Ok(Ok(validity)) => {
 				revalidated.insert(
-					ext_hash,
+					tx_hash,
 					ValidatedTransaction::valid_at(
 						block_number.saturated_into::<u64>(),
-						ext_hash,
+						tx_hash,
 						ext.source.clone(),
 						ext.data.clone(),
 						api.hash_and_length(&ext.data).1,
@@ -142,11 +142,11 @@ async fn batch_revalidate<Api: ChainApi>(
 			Err(error) => {
 				trace!(
 					target: LOG_TARGET,
-					?ext_hash,
+					?tx_hash,
 					?error,
 					"Removing due to error during revalidation."
 				);
-				invalid_hashes.push(ext_hash);
+				invalid_hashes.push(tx_hash);
 			},
 		}
 	}
@@ -215,12 +215,12 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 		let transactions = worker_payload.transactions;
 		let block_number = worker_payload.at;
 
-		for ext_hash in transactions {
+		for tx_hash in transactions {
 			// we don't add something that already scheduled for revalidation
-			if self.members.contains_key(&ext_hash) {
+			if self.members.contains_key(&tx_hash) {
 				trace!(
 					target: LOG_TARGET,
-					?ext_hash,
+					?tx_hash,
 					"Skipped adding for revalidation: Already there."
 				);
 
@@ -230,14 +230,14 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 			self.block_ordered
 				.entry(block_number)
 				.and_modify(|value| {
-					value.insert(ext_hash);
+					value.insert(tx_hash);
 				})
 				.or_insert_with(|| {
 					let mut bt = HashSet::new();
-					bt.insert(ext_hash);
+					bt.insert(tx_hash);
 					bt
 				});
-			self.members.insert(ext_hash, block_number);
+			self.members.insert(tx_hash, block_number);
 		}
 	}
 
@@ -375,7 +375,6 @@ where
 		} else {
 			debug!(
 				target: LOG_TARGET,
-				event = "batch_revalidate_direct_call",
 				"Batch revalidate direct call."
 			);
 			let pool = self.pool.clone();

@@ -317,7 +317,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 				let priority = tx.priority;
 				trace!(
 					target: LOG_TARGET,
-					hash = ?tx.hash,
+					tx_hash = ?tx.hash,
 					"ValidatedPool::submit_one"
 				);
 				if !tx.propagate && !(self.is_validator.0)() {
@@ -334,7 +334,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 							if e.is_full() {
 								warn!(
 									target: LOG_TARGET,
-									?hash,
+									tx_hash = ?hash,
 									"Trying to notify an import but the channel is full"
 								);
 								true
@@ -348,24 +348,24 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 				fire_events(&mut *event_dispatcher, &imported);
 				Ok(ValidatedPoolSubmitOutcome::new(*imported.hash(), Some(priority)))
 			},
-			ValidatedTransaction::Invalid(hash, error) => {
+			ValidatedTransaction::Invalid(tx_hash, error) => {
 				trace!(
 					target: LOG_TARGET,
-					?hash,
+					?tx_hash,
 					?error,
 					"ValidatedPool::submit_one invalid"
 				);
-				self.rotator.ban(&Instant::now(), std::iter::once(hash));
+				self.rotator.ban(&Instant::now(), std::iter::once(tx_hash));
 				Err(error)
 			},
-			ValidatedTransaction::Unknown(hash, error) => {
+			ValidatedTransaction::Unknown(tx_hash, error) => {
 				trace!(
 					target: LOG_TARGET,
-					?hash,
+					?tx_hash,
 					?error,
 					"ValidatedPool::submit_one unknown"
 				);
-				self.event_dispatcher.write().invalid(&hash);
+				self.event_dispatcher.write().invalid(&tx_hash);
 				Err(error)
 			},
 		}
@@ -382,9 +382,9 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			debug!(
 				target: LOG_TARGET,
 				ready_count = ready_limit.count,
-				ready_limit_kb = ready_limit.total_bytes / 1024,
+				ready_kb = ready_limit.total_bytes / 1024,
 				future_count = future_limit.count,
-				future_limit_kb = future_limit.total_bytes / 1024,
+				future_kb = future_limit.total_bytes / 1024,
 				"Enforcing limits"
 			);
 
@@ -523,12 +523,12 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			pool.with_futures_enabled(|pool, reject_future_transactions| {
 				// now resubmit all removed transactions back to the pool
 				let mut final_statuses = HashMap::new();
-				for (hash, tx_to_resubmit) in txs_to_resubmit {
+				for (tx_hash, tx_to_resubmit) in txs_to_resubmit {
 					match tx_to_resubmit {
 						ValidatedTransaction::Valid(tx) => match pool.import(tx) {
 							Ok(imported) => match imported {
 								base::Imported::Ready { promoted, failed, removed, .. } => {
-									final_statuses.insert(hash, Status::Ready);
+									final_statuses.insert(tx_hash, Status::Ready);
 									for hash in promoted {
 										final_statuses.insert(hash, Status::Ready);
 									}
@@ -540,7 +540,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 									}
 								},
 								base::Imported::Future { .. } => {
-									final_statuses.insert(hash, Status::Future);
+									final_statuses.insert(tx_hash, Status::Future);
 								},
 							},
 							Err(error) => {
@@ -550,16 +550,16 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 								// message)
 								warn!(
 									target: LOG_TARGET,
-									?hash,
-									 %error,
+									?tx_hash,
+									%error,
 									"Removing invalid transaction from update"
 								);
-								final_statuses.insert(hash, Status::Failed);
+								final_statuses.insert(tx_hash, Status::Failed);
 							},
 						},
 						ValidatedTransaction::Invalid(_, _) |
 						ValidatedTransaction::Unknown(_, _) => {
-							final_statuses.insert(hash, Status::Failed);
+							final_statuses.insert(tx_hash, Status::Failed);
 						},
 					}
 				}

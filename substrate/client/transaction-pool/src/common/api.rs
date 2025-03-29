@@ -231,7 +231,7 @@ where
 	Client::Api: TaggedTransactionQueue<Block>,
 {
 	let s = std::time::Instant::now();
-	let h = uxt.using_encoded(|x| <traits::HashingFor<Block> as traits::Hash>::hash(x));
+	let tx_hash = uxt.using_encoded(|x| <traits::HashingFor<Block> as traits::Hash>::hash(x));
 
 	let result = sp_tracing::within_span!(sp_tracing::Level::TRACE, "validate_transaction";
 	{
@@ -283,7 +283,7 @@ where
 	});
 	trace!(
 		target: LOG_TARGET,
-		?h,
+		?tx_hash,
 		?at,
 		duration = ?s.elapsed(),
 		"validate_transaction_blocking"
