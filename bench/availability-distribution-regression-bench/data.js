@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743187668028,
+  "lastUpdate": 1743206834819,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -61963,6 +61963,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02632598546666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f1d1d9c5c8d0effe4c60b81f6eaaa112ddc14658",
+          "message": "frame-system: Don't underflow the sufficients (#8062)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/8044\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-03-28T22:49:42Z",
+          "tree_id": "32c8f90781429db7681e0377d5d77fac012d012c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1d1d9c5c8d0effe4c60b81f6eaaa112ddc14658"
+        },
+        "date": 1743206818245,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00883658474666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02624601256666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15787053275333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013205017986666663,
             "unit": "seconds"
           }
         ]
