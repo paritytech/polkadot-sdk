@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+log = { workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 scale-info = { features = ["derive"], workspace = true }
 
@@ -28,6 +29,8 @@ sp-io = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"log/std",
+	"pallet-balances/std",
 	"frame/std",
 	"scale-info/std",
 ]
