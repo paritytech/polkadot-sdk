@@ -48,12 +48,12 @@ pub enum MethodResult {
 
 impl MethodResult {
 	/// Constructs a successful result.
-	pub(crate) fn ok(result: impl Into<String>) -> MethodResult {
+	pub fn ok(result: impl Into<String>) -> MethodResult {
 		MethodResult::Ok(MethodResultOk { success: true, value: result.into() })
 	}
 
 	/// Constructs an error result.
-	pub(crate) fn err(error: impl Into<String>) -> MethodResult {
+	pub fn err(error: impl Into<String>) -> MethodResult {
 		MethodResult::Err(MethodResultErr { success: false, error: error.into() })
 	}
 }
@@ -61,9 +61,9 @@ impl MethodResult {
 /// The successful result of an RPC method.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct MethodResultOk {
+pub struct MethodResultOk {
 	/// Method was successful.
-	success: bool,
+	pub success: bool,
 	/// The result of the method.
 	pub value: String,
 }
@@ -71,9 +71,9 @@ pub(crate) struct MethodResultOk {
 /// The error result of an RPC method.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct MethodResultErr {
+pub struct MethodResultErr {
 	/// Method encountered an error.
-	success: bool,
+	pub success: bool,
 	/// The error of the method.
 	pub error: String,
 }
