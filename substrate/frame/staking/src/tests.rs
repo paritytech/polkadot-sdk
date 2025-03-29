@@ -8703,6 +8703,7 @@ mod getters {
 
 mod hold_migration {
 	use super::*;
+	use frame_support::traits::fungible::Mutate;
 	use sp_staking::{Stake, StakingInterface};
 
 	#[test]
@@ -9027,6 +9028,121 @@ mod hold_migration {
 			// ensure cannot migrate again.
 			assert_noop!(
 				Staking::migrate_currency(RuntimeOrigin::signed(1), 200),
+				Error::<Test>::AlreadyMigrated
+			);
+		});
+	}
+
+	#[test]
+	fn remove_old_lock_when_stake_already_on_hold() {
+		// When the hold is already migrated because of interactions with the ledger, we still
+		// want to remove the old lock via the explicit `migrate_currency`.
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// GIVEN alice and bob who are bonded with old currency.
+			let alice = 300;
+			let bob = 301;
+			Balances::set_balance(&alice, 3000);
+			Balances::set_balance(&bob, 3000);
+
+			mock::start_active_era(1);
+			let init_stake = 1000;
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(alice),
+				init_stake,
+				RewardDestination::Staked
+			));
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(bob),
+				init_stake,
+				RewardDestination::Staked
+			));
+
+			// convert hold to lock.
+			testing_utils::migrate_to_old_currency::<Test>(alice);
+			testing_utils::migrate_to_old_currency::<Test>(bob);
+
+			// this returns the hold balance which is 0 because of the above migration.
+			assert_eq!(asset::staked::<Test>(&alice), 0);
+			assert_eq!(asset::staked::<Test>(&bob), 0);
+
+			// but instead of hold, the balance is locked.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), init_stake);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &bob), init_stake);
+
+			// ledger has 1000 staked.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: init_stake, active: init_stake })
+			);
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&bob),
+				Ok(Stake { total: init_stake, active: init_stake })
+			);
+
+			// -- WHEN Alice interacts with ledger that updates the hold.
+			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(alice), 500));
+
+			// this will update the ledger and the held balance.
+			assert_eq!(asset::staked::<Test>(&alice), init_stake + 500);
+			// but the locked balance remains
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), init_stake);
+
+			// clear events
+			System::reset_events();
+
+			// To remove the old locks, alice needs to migrate currency.
+			// AND alice currency is migrated.
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+
+			// THEN
+			let expected_hold = init_stake + 500;
+			// ensure no lock
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+			// ensure stake and hold are same.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: expected_hold, active: expected_hold })
+			);
+			assert_eq!(asset::staked::<Test>(&alice), expected_hold);
+
+			// ensure events are emitted.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::CurrencyMigrated { stash: alice, force_withdraw: 0 }]
+			);
+
+			// ensure cannot migrate again.
+			assert_noop!(
+				Staking::migrate_currency(RuntimeOrigin::signed(1), alice),
+				Error::<Test>::AlreadyMigrated
+			);
+
+			// -- WHEN Bob withdraws all stake before migration.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(bob), init_stake));
+
+			mock::start_active_era(4);
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(bob), 0));
+
+			// assert lock still exists but there is no stake.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &bob), init_stake);
+			assert_eq!(asset::staked::<Test>(&bob), 0);
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&bob).unwrap_err(),
+				Error::<Test>::NotStash.into()
+			);
+
+			// clear events
+			System::reset_events();
+
+			// AND Bob wants to remove the old lock.
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), bob));
+
+			// THEN ensure no lock
+			assert_eq!(Balances::balance_locked(STAKING_ID, &bob), 0);
+
+			// And they cannot migrate again.
+			assert_noop!(
+				Staking::migrate_currency(RuntimeOrigin::signed(1), bob),
 				Error::<Test>::AlreadyMigrated
 			);
 		});
