@@ -13,8 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	imports::*,
-	tests::{penpal_emulated_chain::penpal_runtime, snowbridge_common::snowbridge_sovereign},
+	imports::{
+		penpal_emulated_chain::penpal_runtime::xcm_config::{
+			CheckingAccount, TELEPORTABLE_ASSET_ID,
+		},
+		*,
+	},
+	tests::{
+		penpal_emulated_chain::penpal_runtime,
+		snowbridge_common::{ethereum, snowbridge_sovereign},
+	},
 };
 use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 use bridge_hub_westend_runtime::{
@@ -22,7 +30,7 @@ use bridge_hub_westend_runtime::{
 };
 use codec::{Decode, Encode};
 use emulated_integration_tests_common::{PENPAL_B_ID, RESERVABLE_ASSET_ID};
-use frame_support::pallet_prelude::TypeInfo;
+use frame_support::{pallet_prelude::TypeInfo, traits::fungibles::Mutate};
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::{
 	asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner,
@@ -1268,4 +1276,434 @@ fn transfer_ah_token() {
 			"Token minted to beneficiary."
 		);
 	});
+}
+
+#[test]
+fn transfer_penpal_native_asset() {
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(
+		BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id()),
+	);
+	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
+
+	let pal_at_asset_hub = Location::new(1, [Parachain(PenpalB::para_id().into())]);
+
+	let pal_after_reanchored = Location::new(
+		1,
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(PenpalB::para_id().into())],
+	);
+
+	let token_id = TokenIdOf::convert_location(&pal_after_reanchored).unwrap();
+
+	let asset_owner = PenpalAssetOwner::get();
+
+	AssetHubWestend::force_create_foreign_asset(
+		pal_at_asset_hub.clone(),
+		asset_owner.into(),
+		true,
+		1,
+		vec![],
+	);
+
+	let penpal_sovereign = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
+	);
+	AssetHubWestend::fund_accounts(vec![(penpal_sovereign.clone(), INITIAL_FUND)]);
+
+	// Register token
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
+			RuntimeOrigin::root(),
+			Box::new(VersionedLocation::from(pal_at_asset_hub.clone())),
+			AssetMetadata {
+				name: "pal".as_bytes().to_vec().try_into().unwrap(),
+				symbol: "pal".as_bytes().to_vec().try_into().unwrap(),
+				decimals: 12,
+			},
+		));
+	});
+
+	PenpalB::execute_with(|| {
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
+			Location::parent(),
+			&PenpalBSender::get(),
+			INITIAL_FUND,
+		));
+	});
+
+	// Send PAL to Ethereum
+	PenpalB::execute_with(|| {
+		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+
+		// DOT as fee
+		let assets = vec![
+			// Should cover the bridge fee
+			Asset { id: AssetId(Location::parent()), fun: Fungible(3_000_000_000_000) },
+			Asset { id: AssetId(Location::here()), fun: Fungible(TOKEN_AMOUNT) },
+		];
+
+		let beneficiary = Location::new(
+			0,
+			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+		);
+
+		let destination = Location::new(1, [Parachain(AssetHubWestend::para_id().into())]);
+
+		let custom_xcm_on_dest = Xcm::<()>(vec![DepositReserveAsset {
+			assets: Wild(AllOf {
+				id: AssetId(pal_at_asset_hub.clone()),
+				fun: WildFungibility::Fungible,
+			}),
+			dest: ethereum(),
+			xcm: vec![
+				BuyExecution {
+					fees: Asset {
+						id: AssetId(pal_after_reanchored.clone()),
+						fun: Fungible(TOKEN_AMOUNT),
+					},
+					weight_limit: Unlimited,
+				},
+				DepositAsset { assets: Wild(AllCounted(1)), beneficiary },
+			]
+			.into(),
+		}]);
+
+		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+			RuntimeOrigin::signed(PenpalBSender::get()),
+			Box::new(VersionedLocation::from(destination)),
+			Box::new(VersionedAssets::from(assets)),
+			Box::new(TransferType::Teleport),
+			Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+			Box::new(TransferType::DestinationReserve),
+			Box::new(VersionedXcm::from(custom_xcm_on_dest)),
+			Unlimited,
+		));
+
+		assert_expected_events!(
+			PenpalB,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned{ .. }) => {},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+
+	// Send PAL back from Ethereum
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let message = VersionedMessage::V1(MessageV1 {
+			chain_id: CHAIN_ID,
+			command: Command::SendNativeToken {
+				token_id,
+				destination: Destination::AccountId32 { id: AssetHubWestendSender::get().into() },
+				amount: TOKEN_AMOUNT,
+				fee: XCM_FEE,
+			},
+		});
+		// Convert the message to XCM
+		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
+		// Send the XCM
+		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id()).unwrap();
+
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned{..}) => {},]
+		);
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued{..}) => {},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		let destination = AssetHubWestend::sibling_location_of(PenpalB::para_id());
+
+		let beneficiary =
+			Location::new(0, [AccountId32 { network: None, id: PenpalBReceiver::get().into() }]);
+
+		// DOT as fee
+		let assets =
+			vec![Asset { id: AssetId(pal_at_asset_hub.clone()), fun: Fungible(TOKEN_AMOUNT) }];
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_teleport_assets(
+				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				Box::new(VersionedLocation::from(destination)),
+				Box::new(VersionedLocation::from(beneficiary)),
+				Box::new(VersionedAssets::from(assets)),
+				0,
+				Unlimited,
+			)
+		);
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned{..}) => {},]
+		);
+	});
+
+	PenpalB::execute_with(|| {
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			PenpalB,
+			vec![RuntimeEvent::Balances(pallet_balances::Event::Minted{..}) => {},]
+		);
+	})
+}
+
+#[test]
+fn transfer_penpal_teleport_enabled_asset() {
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(
+		BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id()),
+	);
+	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
+
+	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHub::get();
+
+	let pal_at_asset_hub = Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
+		.appended_with(asset_location_on_penpal.clone())
+		.unwrap();
+
+	let pal_after_reanchored = Location::new(
+		1,
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(PenpalB::para_id().into())],
+	)
+	.appended_with(asset_location_on_penpal.clone())
+	.unwrap();
+
+	let token_id = TokenIdOf::convert_location(&pal_after_reanchored).unwrap();
+
+	let penpal_sovereign = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
+	);
+	AssetHubWestend::fund_accounts(vec![(penpal_sovereign.clone(), INITIAL_FUND)]);
+	AssetHubWestend::fund_accounts(vec![(snowbridge_sovereign(), INITIAL_FUND)]);
+
+	// Register token
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
+			RuntimeOrigin::root(),
+			Box::new(VersionedLocation::from(pal_at_asset_hub.clone())),
+			AssetMetadata {
+				name: "pal".as_bytes().to_vec().try_into().unwrap(),
+				symbol: "pal".as_bytes().to_vec().try_into().unwrap(),
+				decimals: 12,
+			},
+		));
+	});
+
+	// Fund on Penpal
+	PenpalB::fund_accounts(vec![(CheckingAccount::get(), INITIAL_FUND)]);
+	PenpalB::execute_with(|| {
+		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
+			TELEPORTABLE_ASSET_ID,
+			&PenpalBSender::get(),
+			INITIAL_FUND,
+		));
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
+			Location::parent(),
+			&PenpalBSender::get(),
+			INITIAL_FUND,
+		));
+	});
+
+	// Send PAL to Ethereum
+	PenpalB::execute_with(|| {
+		type RuntimeOrigin = <PenpalB as Chain>::RuntimeOrigin;
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+
+		// DOT as fee
+		let assets = vec![
+			// Should cover the bridge fee
+			Asset { id: AssetId(Location::parent()), fun: Fungible(3_000_000_000_000) },
+			Asset { id: AssetId(asset_location_on_penpal.clone()), fun: Fungible(TOKEN_AMOUNT) },
+		];
+
+		let beneficiary = Location::new(
+			0,
+			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+		);
+
+		let destination = Location::new(1, [Parachain(AssetHubWestend::para_id().into())]);
+
+		let custom_xcm_on_dest = Xcm::<()>(vec![DepositReserveAsset {
+			assets: Wild(AllOf {
+				id: AssetId(pal_at_asset_hub.clone()),
+				fun: WildFungibility::Fungible,
+			}),
+			dest: ethereum(),
+			xcm: vec![
+				BuyExecution {
+					fees: Asset {
+						id: AssetId(pal_after_reanchored.clone()),
+						fun: Fungible(TOKEN_AMOUNT),
+					},
+					weight_limit: Unlimited,
+				},
+				DepositAsset { assets: Wild(AllCounted(1)), beneficiary },
+			]
+			.into(),
+		}]);
+
+		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+			RuntimeOrigin::signed(PenpalBSender::get()),
+			Box::new(VersionedLocation::from(destination)),
+			Box::new(VersionedAssets::from(assets)),
+			Box::new(TransferType::Teleport),
+			Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+			Box::new(TransferType::DestinationReserve),
+			Box::new(VersionedXcm::from(custom_xcm_on_dest)),
+			Unlimited,
+		));
+
+		assert_expected_events!(
+			PenpalB,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned{ .. }) => {},]
+		);
+
+		assert_expected_events!(
+			PenpalB,
+			vec![RuntimeEvent::Assets(pallet_assets::Event::Burned{ .. }) => {},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+
+	// Send PAL back from Ethereum
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let message = VersionedMessage::V1(MessageV1 {
+			chain_id: CHAIN_ID,
+			command: Command::SendNativeToken {
+				token_id,
+				destination: Destination::AccountId32 { id: AssetHubWestendSender::get().into() },
+				amount: TOKEN_AMOUNT,
+				fee: XCM_FEE,
+			},
+		});
+		// Convert the message to XCM
+		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
+		// Send the XCM
+		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id()).unwrap();
+
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) =>
+	{},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned{..}) => {},]
+		);
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued{..}) => {},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		let destination = AssetHubWestend::sibling_location_of(PenpalB::para_id());
+
+		let beneficiary =
+			Location::new(0, [AccountId32 { network: None, id: PenpalBReceiver::get().into() }]);
+
+		// DOT as fee
+		let assets = vec![
+			Asset { id: AssetId(Location::parent()), fun: Fungible(XCM_FEE) },
+			Asset { id: AssetId(pal_at_asset_hub.clone()), fun: Fungible(TOKEN_AMOUNT) },
+		];
+
+		let custom_xcm_on_dest = Xcm::<()>(vec![
+			BuyExecution {
+				fees: Asset { id: AssetId(Location::parent()), fun: Fungible(XCM_FEE) },
+				weight_limit: Unlimited,
+			},
+			DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
+		]);
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+				RuntimeOrigin::signed(AssetHubWestendSender::get()),
+				Box::new(VersionedLocation::from(destination)),
+				Box::new(VersionedAssets::from(assets)),
+				Box::new(TransferType::Teleport),
+				Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedXcm::from(custom_xcm_on_dest)),
+				Unlimited,
+			)
+		);
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned{..}) => {},]
+		);
+	});
+
+	PenpalB::execute_with(|| {
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			PenpalB,
+			vec![RuntimeEvent::Assets(pallet_assets::Event::Issued{..}) => {},]
+		);
+	})
 }

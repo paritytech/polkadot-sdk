@@ -313,6 +313,10 @@ parameter_types! {
 	///
 	/// By default, it is configured as a `SystemAssetHubLocation` and can be modified using `System::set_storage`.
 	pub storage CustomizableAssetFromSystemAssetHub: Location = SystemAssetHubLocation::get();
+
+	pub const NativeAssetId: AssetId = AssetId(Location::here());
+	pub const NativeAssetFilter: AssetFilter = Wild(AllOf { fun: WildFungible, id: NativeAssetId::get() });
+	pub AssetHubTrustedTeleporter: (AssetFilter, Location) = (NativeAssetFilter::get(), SystemAssetHubLocation::get());
 }
 
 /// Accepts asset with ID `AssetLocation` and is coming from `Origin` chain.
@@ -333,8 +337,13 @@ pub type TrustedReserves = (
 	AssetsFrom<SystemAssetHubLocation>,
 	AssetPrefixFrom<CustomizableAssetFromSystemAssetHub, SystemAssetHubLocation>,
 );
-pub type TrustedTeleporters =
-	(AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,);
+
+pub type TrustedTeleporters = (
+	AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,
+	// This is used in the `IsTeleporter` configuration, meaning it accepts
+	// native tokens teleported from Asset Hub.
+	xcm_builder::Case<AssetHubTrustedTeleporter>,
+);
 
 pub type WaivedLocations = Equals<RootLocation>;
 /// `AssetId`/`Balance` converter for `TrustBackedAssets`.
@@ -375,6 +384,8 @@ impl xcm_executor::Config for XcmConfig {
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type Trader = (
 		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToAuthor<Runtime>>,
+		// Allow native asset to pay the execution fee
+		UsingComponents<WeightToFee, PenpalNativeCurrency, AccountId, Balances, ToAuthor<Runtime>>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			RelayLocation,
 			crate::AssetConversion,
