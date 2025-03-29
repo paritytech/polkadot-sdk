@@ -29,6 +29,7 @@ use sp_runtime::{
 	},
 };
 use std::{
+	collections::HashMap,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -304,6 +305,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		at: &HashAndNumber<B::Block>,
 		parent: <B::Block as BlockT>::Hash,
 		extrinsics: &[RawExtrinsicFor<B>],
+		known_provides_tags: Option<Arc<HashMap<ExtrinsicHash<B>, Vec<Tag>>>>,
 	) {
 		log::debug!(
 			target: LOG_TARGET,
@@ -320,18 +322,24 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		// Option<Vec<Tag>>)`)
 		let all = extrinsics.iter().zip(in_pool_tags.into_iter());
 		let mut validated_counter: usize = 0;
-
 		let mut future_tags = Vec::new();
 		let now = Instant::now();
 		for (extrinsic, in_pool_tags) in all {
 			match in_pool_tags {
 				// reuse the tags for extrinsics that were found in the pool
 				Some(tags) => future_tags.extend(tags),
-				// if it's not found in the pool query the runtime at parent block
-				// to get validity info and tags that the extrinsic provides.
 				None => {
-					// Avoid validating block txs if the pool is empty
-					if !self.validated_pool.status().is_empty() {
+					// if it's not found in the pool, check if the extrinsic `provides`
+					// tags are known (from inactive views, queried at an upper level)
+					let xt_hash = self.hash_of(extrinsic);
+					if let Some(tags) = known_provides_tags
+						.as_ref()
+						.and_then(|inner| inner.get(&xt_hash).map(|tags| tags.clone()))
+					{
+						future_tags.extend(tags);
+					} else if !self.validated_pool.status().is_empty() {
+						// and if that's not the case, query the runtime at parent block
+						// to get validity info and tags that the extrinsic provides.
 						validated_counter = validated_counter + 1;
 						let validity = self
 							.validated_pool

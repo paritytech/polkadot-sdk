@@ -1976,6 +1976,108 @@ fn fatp_future_is_pruned_by_conflicting_tags() {
 }
 
 #[test]
+fn fatp_prune_based_on_inactive_views_tags() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Alice, 202);
+	let xt3 = uxt(Alice, 203);
+	let xt4 = uxt(Alice, 204);
+	let xt5 = uxt(Alice, 205);
+	let xt6 = uxt(Alice, 206);
+	let xt7 = uxt(Alice, 207);
+	let xt8 = uxt(Alice, 208);
+	let xt9 = uxt(Alice, 209);
+	let xt10 = uxt(Alice, 210);
+	let xt11 = uxt(Alice, 211);
+
+	//let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2i.clone())).unwrap();
+	//assert_eq!(pool.mempool_len(), (0, 1));
+
+	// Push an empty common block.
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header01.hash(), &pool, 0, 0);
+
+	// Submit a tx to the txpool.
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	assert_pool_status!(header01.hash(), &pool, 0, 2);
+
+	// Push the first retracted fork block, with the ready tx.
+	let header02 = api.push_block(2, vec![xt0.clone()], true);
+	api.set_nonce(header02.hash(), Alice.into(), 200);
+	let event = new_best_block_event(&pool, None, header02.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header02.hash(), &pool, 2, 0);
+
+	// Submit a second ready tx.
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt5.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt11.clone())).unwrap();
+	assert_pool_status!(header02.hash(), &pool, 5, 1);
+
+	// Push the second retracted fork block, containing xt1.
+	let header03 = api.push_block(3, vec![xt1.clone()], true);
+	api.set_nonce(header03.hash(), Alice.into(), 201);
+	let event = new_best_block_event(&pool, None, header03.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header03.hash(), &pool, 4, 1);
+
+	// Submit another batch of future txs.
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt9.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt8.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt7.clone())).unwrap();
+	assert_pool_status!(header03.hash(), &pool, 4, 4);
+
+	// Push the third retracted fork block, containing xt1.
+	let header04 = api.push_block(4, vec![xt2.clone()], true);
+	api.set_nonce(header04.hash(), Alice.into(), 202);
+	let event = new_best_block_event(&pool, None, header04.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header04.hash(), &pool, 3, 4);
+
+	let header05 = api.push_block_with_parent(
+		header01.hash(),
+		vec![xt0.clone(), xt1.clone(), xt2.clone()],
+		true,
+	);
+	api.set_nonce(header05.hash(), Alice.into(), 202);
+	let header06 = api.push_block_with_parent(
+		header05.hash(),
+		vec![xt3.clone(), xt4.clone(), xt5.clone()],
+		true,
+	);
+	api.set_nonce(header06.hash(), Alice.into(), 205);
+	let header07 = api.push_block_with_parent(
+		header06.hash(),
+		vec![xt6.clone(), xt7.clone(), xt8.clone()],
+		true,
+	);
+	api.set_nonce(header07.hash(), Alice.into(), 208);
+	let _header08 = api.push_block_with_parent(
+		header07.hash(),
+		vec![xt9.clone(), xt10.clone(), xt11.clone()],
+		true,
+	);
+	api.set_nonce(_header08.hash(), Alice.into(), 211);
+
+	// Notify a whole new fork.
+	let event = new_best_block_event(&pool, None, _header08.hash());
+	block_on(pool.maintain(event));
+	// All txs must have been removed from the active view of the
+	// tip of the enacted fork. The prune optimizing should have not
+	// revalidated any tx.
+	assert_pool_status!(_header08.hash(), &pool, 0, 0);
+	// TODO: check if revalidations count is 0.
+}
+
+#[test]
 fn fatp_dangling_ready_gets_revalidated() {
 	sp_tracing::try_init_simple();
 

@@ -61,7 +61,7 @@ use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
-	transaction_validity::{TransactionValidityError, ValidTransaction},
+	transaction_validity::{TransactionTag as Tag, TransactionValidityError, ValidTransaction},
 	Saturating,
 };
 use std::{
@@ -1395,6 +1395,84 @@ where
 		}
 	}
 
+	/// Fetches the 'provides' tags associated to transactions part of blocks
+	/// of an enacted fork.
+	///
+	/// The 'provides' tags of transactions from enacted blocks are searched
+	/// in inactive views. These tags serve as cache based on the inactive views,
+	/// since prunning transactions is based on their 'provides' tags, which if
+	/// not found in the enacted fork tip active view, then they will be obtained
+	/// by revalidating the transaction, which takes time.
+	async fn provides_tags_from_inactive_views(
+		&self,
+		tree_route: &TreeRoute<Block>,
+	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
+		// For every enacted block, take its txs.
+		let blocks_xts = future::join_all(
+			tree_route
+				.enacted()
+				.iter()
+				.map(|hn| {
+				    let api = self.api.clone();
+					async move {
+						api
+							.block_body(hn.hash)
+							.await
+							.unwrap_or_else(|e| {
+								log::warn!(target: LOG_TARGET, "provides_tags_from_inactive_views: block_body error request: {}", e);
+								None
+							})
+							.unwrap_or_default()
+					}
+				}))
+			.await
+			.into_iter()
+			.collect::<Vec<_>>();
+
+		// For each enacted block transaction, look for its provides tags in
+		// inactive views of blocks on the retracted fork. It is possible that
+		// transactions of the enacted block to show up in multiple inactive
+		// views, but we'll consider the tags from most recent inactive view.
+		let mut provides_tags_map = HashMap::new();
+		blocks_xts.iter().for_each(|xts| {
+			tree_route
+				.retracted()
+				.iter()
+				// Skip the tip of the fork, since its view is active, and it will be checked
+				// later when we'll prune the enacted block txs, reported to the active view,
+				// which is cloned from the tip of the retracted fork.
+				.skip(1)
+				.chain(std::iter::once(tree_route.common_block()))
+				.rev()
+				.for_each(|hn| {
+					let view = self.view_store.get_view_at(hn.hash, true);
+					// Map to transaction hashes, getting an empty list if
+					// there is no view for the given block hash.
+					let xts_hashes = xts
+						.iter()
+						.filter_map(|hash| view.as_ref().map(|(inner, _)| inner.pool.hash_of(hash)))
+						.collect::<Vec<_>>();
+					// Get tx provides tags from inactive view's pool.
+					let provides_tags = view
+						.map(|(inner, _)| inner.pool.validated_pool().extrinsics_tags(&xts_hashes))
+						.unwrap_or(vec![None; xts_hashes.len()]);
+					let xts_provides_tags = xts_hashes
+						.into_iter()
+						.zip(provides_tags.into_iter())
+						.into_iter()
+						// We filter out the (transaction, tags) pair if no tags where found in the
+						// inactive view for the transaction.
+						.filter_map(|(hash, tags)| tags.map(|inner| (hash, inner)))
+						.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
+					// Since we traverse the retracted from in reverse order, updating the tags map
+					// with tags from the inactive views will keep the tags found in the last views,
+					// which can be considered most recent tags.
+					provides_tags_map.extend(xts_provides_tags);
+				});
+		});
+		provides_tags_map
+	}
+
 	/// Updates the view with the transactions from the given tree route.
 	///
 	/// Transactions from the retracted blocks are resubmitted to the given view. Tags for
@@ -1417,9 +1495,25 @@ where
 		// transactions with those hashes from the retracted blocks.
 		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
 
+		// Create a map from enacted blocks' extrinsics to their `provides`
+		// tags.
+		let known_provides_tags = self.provides_tags_from_inactive_views(tree_route).await;
+		info!(target: LOG_TARGET, "update_view_with_fork: txs to tags map: {}", known_provides_tags.len());
 		future::join_all(tree_route.enacted().iter().map(|hn| {
 			let api = api.clone();
-			async move { (hn, crate::prune_known_txs_for_block(hn, &*api, &view.pool).await) }
+			let known_provides_tags = known_provides_tags.clone();
+			async move {
+				(
+					hn,
+					crate::prune_known_txs_for_block(
+						hn,
+						&*api,
+						&view.pool,
+						Some(Arc::new(known_provides_tags)),
+					)
+					.await,
+				)
+			}
 		}))
 		.await
 		.into_iter()
