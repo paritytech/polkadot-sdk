@@ -100,7 +100,10 @@ fn insert_recovery_config_with_max_friends<T: Config>(account: &T::AccountId) {
 	<Recoverable<T>>::insert(&account, recovery_config);
 }
 
-fn setup_active_recovery_with_max_friends<T: Config>(caller: &T::AccountId, lost_account: &T::AccountId) {
+fn setup_active_recovery_with_max_friends<T: Config>(
+	caller: &T::AccountId,
+	lost_account: &T::AccountId,
+) {
 	insert_recovery_config_with_max_friends::<T>(&lost_account);
 	let n = T::MaxFriends::get();
 	let friends = generate_friends::<T>(n);
