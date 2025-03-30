@@ -1276,10 +1276,7 @@ fn slash_one_schedule() {
 fn slash_multiple_schedules() {
 	ExtBuilder::default().vesting_genesis_config(vec![]).build().execute_with(|| {
 		<Balances as Mutate<u64>>::set_balance(&1, 0);
-		<Balances as Mutate<u64>>::set_balance(&2, 1000);
-		<Balances as Mutate<u64>>::mint_into(&2, 1300).unwrap();
-		<Balances as Mutate<u64>>::mint_into(&2, 750).unwrap();
-		<Balances as Mutate<u64>>::mint_into(&2, 2000).unwrap();
+		<Balances as Mutate<u64>>::set_balance(&2, 1000 + 1300 + 750 + 2000);
 
 		// Duration 10 blocks
 		let vesting_info_1 = VestingInfo::new(1000, 100, 1);
