@@ -24,16 +24,11 @@ hash256-std-hasher = { workspace = true }
 impl-serde = { optional = true, workspace = true }
 log = { workspace = true }
 primitive-types = { features = ["codec", "scale-info"], workspace = true }
-rand = { features = [
-	"small_rng",
-], optional = true, workspace = true, default-features = true }
+rand = { features = ["small_rng"], optional = true, workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 substrate-bip39 = { workspace = true }
-# personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
-bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false, features = [
-	"alloc",
-] }
+bip39 = { workspace = true, default-features = false, features = ["alloc"] }
 bitflags = { workspace = true }
 dyn-clonable = { optional = true, workspace = true }
 futures = { optional = true, workspace = true }
@@ -62,10 +57,7 @@ sp-runtime-interface = { workspace = true }
 # k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
 k256 = { features = ["alloc", "ecdsa"], workspace = true }
 # secp256k1 crate, better performance, intended to be used on host side (std)
-secp256k1 = { features = [
-	"alloc",
-	"recovery",
-], optional = true, workspace = true }
+secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = true }
 
 # bls crypto
 w3f-bls = { optional = true, workspace = true }
