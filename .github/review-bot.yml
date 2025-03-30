@@ -54,6 +54,7 @@ rules:
 
   # substrate
   - name: FRAME coders substrate
+    countAuthor: true
     condition:
       include:
         - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|revive/.*|election|nomination-pools/.*|staking/.*|aura/.*))
