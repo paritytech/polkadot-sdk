@@ -1,0 +1,8 @@
+title: 'frame-system: Don''t underflow the sufficients'
+doc:
+- audience: Node Dev
+  description: |
+    Fixes a potential underflow for `dec_sufficients`.
+crates:
+- name: frame-system
+  bump: patch
