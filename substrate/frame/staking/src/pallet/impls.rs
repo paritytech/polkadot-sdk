@@ -1156,24 +1156,29 @@ impl<T: Config> Pallet<T> {
 			return Self::do_migrate_virtual_staker(stash);
 		}
 
-		let ledger = Self::ledger(Stash(stash.clone()))?;
-		let staked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
-		ensure!(!staked.is_zero(), Error::<T>::AlreadyMigrated);
-		ensure!(ledger.total == staked, Error::<T>::BadState);
+		let locked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
+		ensure!(!locked.is_zero(), Error::<T>::AlreadyMigrated);
 
 		// remove old staking lock
 		T::OldCurrency::remove_lock(STAKING_ID, &stash);
 
-		// check if we can hold all stake.
-		let max_hold = asset::free_to_stake::<T>(&stash);
-		let force_withdraw = if max_hold >= staked {
+		// Get rid of the extra consumer we used to have with OldCurrency.
+		frame_system::Pallet::<T>::dec_consumers(&stash);
+
+		let Ok(ledger) = Self::ledger(Stash(stash.clone())) else {
+			// User is no longer bonded. Removing the lock is enough.
+			return Ok(());
+		};
+
+		// Ensure we can hold all stake.
+		let max_hold = asset::stakeable_balance::<T>(&stash);
+		let force_withdraw = if max_hold >= ledger.total {
 			// this means we can hold all stake. yay!
-			asset::update_stake::<T>(&stash, staked)?;
+			asset::update_stake::<T>(&stash, ledger.total)?;
 			Zero::zero()
 		} else {
 			// if we are here, it means we cannot hold all user stake. We will do a force withdraw
 			// from ledger, but that's okay since anyways user do not have funds for it.
-
 			let old_total = ledger.total;
 			// update ledger with total stake as max_hold.
 			let updated_ledger = ledger.update_total_stake(max_hold);
@@ -1188,9 +1193,6 @@ impl<T: Config> Pallet<T> {
 			// return the diff
 			old_total.defensive_saturating_sub(new_total)
 		};
-
-		// Get rid of the extra consumer we used to have with OldCurrency.
-		frame_system::Pallet::<T>::dec_consumers(&stash);
 
 		Self::deposit_event(Event::<T>::CurrencyMigrated { stash: stash.clone(), force_withdraw });
 		Ok(())
