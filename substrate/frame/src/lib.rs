@@ -201,14 +201,19 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits.
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{
+		DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
+	};
+
+	pub use frame_support::traits::{CallerTrait, OriginTrait};
+
 	pub use frame_support::{
+		defensive, defensive_assert, ensure, impl_ensure_origin_with_arg_ignoring_arg,
 		traits::{
-			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
-			Everything, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler,
-			RankedMembers, RankedMembersSwapHandler, VariantCount, VariantCountOf,
+			Contains, EitherOf, EnsureOrigin, EnsureOriginWithArg, EstimateNextSessionRotation,
+			IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, PollStatus,
+			Polling, RankedMembers, RankedMembersSwapHandler, VoteTally,
 		},
-		PalletId,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -237,11 +242,17 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, DispatchInfoOf,
-		Dispatchable, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
-		TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			BadOrigin, BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable,
+			MaybeConvert, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating,
+			StaticLookup, TrailingZeroInput,
+		},
+		Perbill, RuntimeDebug,
 	};
+
+	// Error variant
+	pub use sp_runtime::ArithmeticError::Overflow;
 
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
@@ -249,7 +260,8 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchError, DispatchErrorWithPostInfo, DispatchResultWithInfo,
+		TokenError,
 	};
 }
 
@@ -345,6 +357,7 @@ pub mod testing_prelude {
 
 	/// Commonly used runtime traits for testing.
 	pub use sp_runtime::{traits::BadOrigin, StateVersion};
+
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
