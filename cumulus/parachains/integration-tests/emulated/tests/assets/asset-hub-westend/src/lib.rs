@@ -63,10 +63,12 @@ mod imports {
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
-		bridge_hub_westend_emulated_chain::bridge_hub_westend_runtime::xcm_config::{
-			self as bhw_xcm_config,
+		bridge_hub_westend_emulated_chain::{
+			bridge_hub_westend_runtime::xcm_config::{self as bhw_xcm_config},
+			BridgeHubWestendParaPallet as BridgeHubWestendPallet,
 		},
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
+		coretime_westend_emulated_chain::CoretimeWestendParaPallet as CoretimeWestendPallet,
 		penpal_emulated_chain::{
 			penpal_runtime::xcm_config::{
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
@@ -78,6 +80,7 @@ mod imports {
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 			PenpalBParaPallet as PenpalBPallet,
 		},
+		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
 		westend_emulated_chain::{
 			genesis::ED as WESTEND_ED,
 			westend_runtime::{
@@ -94,10 +97,12 @@ mod imports {
 		AssetHubWestendParaSender as AssetHubWestendSender,
 		BridgeHubWestendPara as BridgeHubWestend,
 		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-		CollectivesWestendPara as CollectivesWestend, PenpalAPara as PenpalA,
-		PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
-		PenpalBPara as PenpalB, PenpalBParaReceiver as PenpalBReceiver, WestendRelay as Westend,
-		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
+		CollectivesWestendPara as CollectivesWestend, CoretimeWestendPara as CoretimeWestend,
+		PenpalAPara as PenpalA, PenpalAParaReceiver as PenpalAReceiver,
+		PenpalAParaSender as PenpalASender, PenpalBPara as PenpalB,
+		PenpalBParaReceiver as PenpalBReceiver, PeopleWestendPara as PeopleWestend,
+		WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
+		WestendRelaySender as WestendSender,
 	};
 
 	pub const ASSET_ID: u32 = 3;
