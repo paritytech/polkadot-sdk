@@ -209,7 +209,7 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 	) -> SendResult<Self::Ticket> {
 		if let Some(msg) = message {
 			let versioned_xcm = VersionedXcm::<()>::from(msg.clone());
-			if versioned_xcm.validate_xcm_nesting().is_err() {
+			if versioned_xcm.check_is_decodable().is_err() {
 				tracing::debug!(
 					target: "xcm::validate_xcm_nesting",
 					?versioned_xcm,
