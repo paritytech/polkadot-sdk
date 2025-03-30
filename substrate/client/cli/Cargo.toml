@@ -33,7 +33,7 @@ serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
-bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
+bip39 = { workspace = true, features = ["rand"] }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true, default-features = false }
 sc-keystore = { workspace = true, default-features = true }
