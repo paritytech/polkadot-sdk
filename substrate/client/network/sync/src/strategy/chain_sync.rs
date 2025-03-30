@@ -93,7 +93,7 @@ const STATE_SYNC_FINALITY_THRESHOLD: u32 = 8;
 /// chain as (or at least closer to) the peer so we want to delay
 /// the ancestor search to not waste time doing that when we are
 /// so far behind.
-const MAJOR_SYNC_BLOCKS: usize = 5;
+const MAJOR_SYNC_BLOCKS: u8 = 5;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -1023,7 +1023,7 @@ where
 				// If there are more than `MAJOR_SYNC_BLOCKS` in the import queue then we have
 				// enough to do in the import queue that it's not worth kicking off
 				// an ancestor search, which is what we do in the next match case below.
-				if self.queue_blocks.len() > MAJOR_SYNC_BLOCKS {
+				if self.queue_blocks.len() > MAJOR_SYNC_BLOCKS as usize {
 					debug!(
 						target: LOG_TARGET,
 						"New peer {} with unknown best hash {} ({}), assuming common block.",
@@ -1839,7 +1839,7 @@ where
 					MAX_BLOCKS_TO_LOOK_BACKWARDS.into() &&
 					best_queued < peer.best_number &&
 					peer.common_number < last_finalized &&
-					queue_blocks.len() <= MAJOR_SYNC_BLOCKS
+					queue_blocks.len() <= MAJOR_SYNC_BLOCKS as usize
 				{
 					trace!(
 						target: LOG_TARGET,
