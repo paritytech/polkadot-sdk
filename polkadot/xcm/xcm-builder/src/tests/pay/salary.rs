@@ -113,6 +113,7 @@ impl pallet_salary::Config for Test {
 	type RegistrationPeriod = RegistrationPeriod;
 	type PayoutPeriod = PayoutPeriod;
 	type Budget = Budget;
+	type BlockNumberProvider = System;
 }
 
 /// Scenario:

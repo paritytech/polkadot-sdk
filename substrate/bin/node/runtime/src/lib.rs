@@ -2047,6 +2047,7 @@ impl pallet_salary::Config for Runtime {
 	type RegistrationPeriod = ConstU32<200>;
 	type PayoutPeriod = ConstU32<200>;
 	type Budget = Budget;
+	type BlockNumberProvider = System;
 }
 
 impl pallet_core_fellowship::Config for Runtime {
