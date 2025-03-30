@@ -827,7 +827,7 @@ where
 			// more than `MAJOR_SYNC_BLOCKS` behind the best block or as importing
 			// if the same can be said about queued blocks.
 			let best_block = self.client.info().best_number;
-			if target > best_block && target - best_block > MAJOR_SYNC_BLOCKS {
+			if target > best_block && target - best_block > MAJOR_SYNC_BLOCKS.into() {
 				// If target is not queued, we're downloading, otherwise importing.
 				if target > self.best_queued_number {
 					SyncState::Downloading { target }
