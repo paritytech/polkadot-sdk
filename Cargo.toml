@@ -808,6 +808,7 @@ futures-timer = { version = "3.0.2" }
 futures-util = { version = "0.3.30", default-features = false }
 generate-bags = { path = "substrate/utils/frame/generate-bags", default-features = false }
 gethostname = { version = "0.2.3" }
+git2 = { version = "0.20.0", default-features = false }
 glob = { version = "0.3" }
 glutton-westend-runtime = { path = "cumulus/parachains/runtimes/glutton/glutton-westend" }
 governor = { version = "0.6.0" }
