@@ -1693,7 +1693,7 @@ impl<T: Config> Pallet<T> {
 						DecRefStatus::Reaped
 					},
 					(x, _) => {
-						account.sufficients = x - 1;
+						account.sufficients = x.saturating_sub(1);
 						*maybe_account = Some(account);
 						DecRefStatus::Exists
 					},
