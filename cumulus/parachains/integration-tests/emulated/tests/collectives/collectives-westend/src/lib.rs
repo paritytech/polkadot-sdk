@@ -35,6 +35,7 @@ mod imports {
 			collectives_westend_runtime::{
 				dday as collectives_dday, fellowship as collectives_fellowship,
 				xcm_config::XcmConfig as CollectivesWestendXcmConfig,
+				DDayDetection as AssetHubDDayDetection,
 			},
 			genesis::ED as COLLECTIVES_WESTEND_ED,
 			CollectivesWestendParaPallet as CollectivesWestendPallet,

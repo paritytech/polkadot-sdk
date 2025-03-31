@@ -18,7 +18,7 @@ use super::{
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeHoldReason, RuntimeOrigin, TransactionByteFee, WeightToFee, WestendTreasuryAccount,
 	XcmpQueue,
-	dday::prover::types::AllowTransactWithDDayDataUpdatesFrom,
+	dday::prover::AllowTransactWithDDayDataUpdatesFrom,
 };
 use frame_support::{
 	parameter_types,

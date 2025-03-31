@@ -16,31 +16,29 @@
 
 //! Utilities for handling proofs from the stalled AssetHub chain.
 
-use crate::{
-	dday::LastKnownAssetHubHead, xcm_config, ProofsStorage, Runtime, RuntimeCall, RuntimeEvent,
-	System,
-};
 use codec::{Decode, Encode};
+use core::ops::ControlFlow;
+use cumulus_primitives_core::Weight;
 use frame_proofs_primitives::{
 	proving::{RawStorageProof, StorageProofChecker},
 	ProvideHash,
 };
 use frame_support::{
 	ensure,
-	pallet_prelude::{ConstU32, DecodeWithMemTracking, MaxEncodedLen, TypeInfo},
 	storage::storage_prefix,
-	traits::{AsEnsureOriginWithArg, Contains, EitherOfDiverse, Equals, Get, ProcessMessageError},
-	Blake2_128Concat, BoundedVec, StorageHasher,
+	traits::{Contains, Get, ProcessMessageError},
+	Blake2_128Concat, StorageHasher,
 };
-use frame_system::EnsureRoot;
-use pallet_proofs_storage::OnNewData;
+use pallet_dday_detection::IsStalled;
 use pallet_proofs_voting::{
 	ProofAccountIdOf, ProofBalanceOf, ProofBlockNumberOf, ProofDescription, ProofHashOf,
 	ProofHasherOf, ProofOf, VerifyProof, VotingPower,
 };
-use pallet_xcm::EnsureXcm;
 use sp_runtime::traits::BlakeTwo256;
-use types::*;
+use xcm::latest::prelude::*;
+use xcm::DoubleEncoded;
+use xcm_builder::{CreateMatcher, MatchXcm};
+use xcm_executor::traits::{Properties, ShouldExecute};
 
 /// Required description of AssetHub chain (hash, balance, accountId).
 pub struct AssetHubProofDescription;
@@ -112,193 +110,63 @@ impl VerifyProof for AssetHubAccountProver {
 	}
 }
 
-/// Adapter implementation for `ProvideHash` and for `Get<VotingProofBalanceOf<Self, I>>`.
-pub struct AssetHubStateProvider<AtBlock>(core::marker::PhantomData<AtBlock>);
-
-/// Adapter `ProvideHash` implementation over `ProofsStorage`,
-/// which handles just `ProofsKey::AssetHubHeader(..)` and decode
-/// `state_root` from the  `ProofsValue::AssetHubHeader(bytes).
-impl<AtBlock> ProvideHash for AssetHubStateProvider<AtBlock> {
+/// Adapter implementation for `ProvideHash` and `IsStalled` which returns stalled AssetHub state root.
+pub struct AssetHubStalledStateRootProvider<Chain>(core::marker::PhantomData<Chain>);
+impl<Chain: IsStalled> ProvideHash for AssetHubStalledStateRootProvider<Chain> {
 	type Key = ProofBlockNumberOf<AssetHubAccountProver>;
 	type Hash = ProofHashOf<AssetHubAccountProver>;
 
 	fn provide_hash_for(block_number: Self::Key) -> Option<Self::Hash> {
-		// check for stored data
-		let asset_hub_header_state_root =
-			ProofsStorage::get_data(&ProofsKey::AssetHubHeader(block_number))
-				.map(|d| match d {
-					ProofsValue::AssetHubHeader(header) => {
-						parachains_common::Header::decode(&mut &header[..])
-					},
-					_ => Err(codec::Error::from(
-						"Invalid `ProofsValue` value for `ProofsKey::AssetHubHeader`!",
-					)),
-				})
-				.and_then(|header| match header {
-					Ok(header) => Some(header.state_root),
-					Err(e) => {
-						log::error!("Invalid header data, error: {:?}", e);
-						None
-					},
-				});
-		asset_hub_header_state_root
+		Chain::stalled_head().and_then(|head| {
+			parachains_common::Header::decode(&mut &head.0[..])
+				.ok()
+				.filter(|header| header.number == block_number)
+				.map(|header| header.state_root)
+		})
 	}
 }
 
-impl<AtBlock: Get<Option<KnownAssetHubHead>>> Get<ProofBalanceOf<AssetHubAccountProver>>
-	for AssetHubStateProvider<AtBlock>
-{
-	fn get() -> ProofBalanceOf<AssetHubAccountProver> {
-		let Some(at_block) = AtBlock::get().map(|h| h.head) else {
-			return ProofBalanceOf::<AssetHubAccountProver>::MAX;
-		};
-
-		// check for stored data
-		match ProofsStorage::get_data(&ProofsKey::AssetHubTotalIssuance(at_block)) {
-			Some(ProofsValue::AssetHubTotalIssuance(total_issuance)) => total_issuance,
-			_ => {
-				log::error!("Invalid `ProofsValue` value for `ProofsKey::AssetHubTotalIssuance`!");
-				ProofBalanceOf::<AssetHubAccountProver>::MAX
-			},
-		}
-	}
-}
-
-/// Implementation of `OnNewData` storage callback which updates `LastKnownAssetHubHead`.
-pub struct UpdateLastKnownAssetHubHead;
-impl OnNewData<ProofsKey, ProofsValue> for UpdateLastKnownAssetHubHead {
-	fn on_new_data(key: &ProofsKey, value: &ProofsValue) {
-		if let (ProofsKey::AssetHubHeader(new_block_number), ProofsValue::AssetHubHeader(bytes)) =
-			(key, value)
-		{
-			match LastKnownAssetHubHead::get() {
-				Some(head) if new_block_number > &head.head => {
-					// doing nothing
-					()
+/// Allows execution from `origin` if it is just a straight `DDay` updates.
+pub struct AllowTransactWithDDayDataUpdatesFrom<F>(core::marker::PhantomData<F>);
+impl<F: Contains<Location>> ShouldExecute for AllowTransactWithDDayDataUpdatesFrom<F> {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		tracing::trace!(
+			target: "xcm::barriers",
+			?origin, ?instructions, ?max_weight, ?properties,
+			"AllowTransactWithDDayDataUpdatesFrom",
+		);
+		ensure!(F::contains(origin), ProcessMessageError::Unsupported);
+		let mut starts_with_valid_transact = false;
+		instructions
+			.matcher()
+			.skip_inst_while(|inst| matches!(inst, UnpaidExecution { .. }))?
+			.match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					Transact { call, .. } => {
+						let mut call: DoubleEncoded<super::RuntimeCall> = call.clone().into();
+						// Allow only `Transact` with `DDayDetection`.
+						match call.ensure_decoded().map_err(|_| ProcessMessageError::BadFormat)? {
+							super::RuntimeCall::DDayDetection(..) => {
+								starts_with_valid_transact = true;
+								Ok(ControlFlow::Continue(()))
+							},
+							_ => Err(ProcessMessageError::BadFormat),
+						}
+					},
+					ExpectTransactStatus(..) if starts_with_valid_transact => {
+						Ok(ControlFlow::Continue(()))
+					},
+					_ => Err(ProcessMessageError::BadFormat),
 				},
-				_ => LastKnownAssetHubHead::set(&Some(KnownAssetHubHead {
-					head: *new_block_number,
-					head_bytes: bytes.clone(),
-					known_at: System::block_number(),
-				})),
-			}
-		}
-	}
-}
-
-/// Simple storage for storing AssetHub headers/state_roots and relevant data.
-///
-///  1. AssetHub can send XCM with its para head data - e.g. from `on_idle`
-///  2. Or (until) we implement - custom keys reading from `RelayChainStateProof`
-///   - https://github.com/paritytech/polkadot-sdk/issues/82
-///   - https://github.com/paritytech/polkadot-sdk/issues/7445
-///
-///  Note: I am going to use exactly the same pallet on the AssetHub for bridging purposes,
-///  		 to store/sync similar data from BridgeHub.
-impl pallet_proofs_storage::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	// TODO: FAIL-CI setup benchmarks
-	type WeightInfo = ();
-	// root or AssetHub can update proof
-	type SubmitOrigin = EitherOfDiverse<
-		EnsureRoot<super::AccountId>,
-		AsEnsureOriginWithArg<EnsureXcm<Equals<xcm_config::AssetHub>>>,
-	>;
-	type Key = ProofsKey;
-	type Value = ProofsValue;
-	type OnNewData = UpdateLastKnownAssetHubHead;
-}
-
-/// Module with types.
-pub mod types {
-	use core::ops::ControlFlow;
-	use xcm::latest::prelude::*;
-	use xcm::DoubleEncoded;
-	use xcm_builder::{CreateMatcher, MatchXcm};
-	use xcm_executor::traits::{Properties, ShouldExecute};
-
-	use super::*;
-
-	pub type HeaderBytes = BoundedVec<u8, ConstU32<4_096>>;
-
-	/// Struct representing known head.
-	#[derive(
-		Clone, Debug, Decode, DecodeWithMemTracking, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo,
-	)]
-	pub struct KnownAssetHubHead {
-		/// Head block number.
-		pub head: ProofBlockNumberOf<AssetHubAccountProver>,
-		/// Synced head data.
-		pub head_bytes: HeaderBytes,
-		/// Represents Collectives block number where we updated `head`.
-		pub known_at: parachains_common::BlockNumber,
-	}
-
-	#[derive(
-		Clone, Debug, Decode, DecodeWithMemTracking, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo,
-	)]
-	pub enum ProofsKey {
-		/// AssetHub header key (AssetHub's block number).
-		AssetHubHeader(ProofBlockNumberOf<AssetHubAccountProver>),
-		/// AssetHub total issuance key.
-		AssetHubTotalIssuance(ProofBlockNumberOf<AssetHubAccountProver>),
-	}
-
-	#[derive(
-		Clone, Debug, Decode, DecodeWithMemTracking, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo,
-	)]
-	pub enum ProofsValue {
-		/// AssetHub encoded header `parachains_common::Header`.
-		AssetHubHeader(HeaderBytes),
-		/// AssetHub total issuance balance.
-		AssetHubTotalIssuance(ProofBalanceOf<AssetHubAccountProver>),
-	}
-
-	/// Allows execution from `origin` if it is just a straight `DDay` updates.
-	pub struct AllowTransactWithDDayDataUpdatesFrom<F>(core::marker::PhantomData<F>);
-	impl<F: Contains<Location>> ShouldExecute for AllowTransactWithDDayDataUpdatesFrom<F> {
-		fn should_execute<RuntimeCall>(
-			origin: &Location,
-			instructions: &mut [Instruction<RuntimeCall>],
-			max_weight: Weight,
-			properties: &mut Properties,
-		) -> Result<(), ProcessMessageError> {
-			tracing::trace!(
-				target: "xcm::barriers",
-				?origin, ?instructions, ?max_weight, ?properties,
-				"AllowTransactWithDDayDataUpdatesFrom",
-			);
-			ensure!(F::contains(origin), ProcessMessageError::Unsupported);
-			let mut starts_with_valid_transact = false;
-			instructions
-				.matcher()
-				.skip_inst_while(|inst| matches!(inst, UnpaidExecution { .. }))?
-				.match_next_inst_while(
-					|_| true,
-					|inst| match inst {
-						Transact { call, .. } => {
-							let mut call: DoubleEncoded<super::RuntimeCall> = call.clone().into();
-							// Allow only `Transact` with `ProofsStorage`.
-							match call
-								.ensure_decoded()
-								.map_err(|_| ProcessMessageError::BadFormat)?
-							{
-								super::RuntimeCall::ProofsStorage(..) => {
-									starts_with_valid_transact = true;
-									Ok(ControlFlow::Continue(()))
-								},
-								_ => Err(ProcessMessageError::BadFormat),
-							}
-						},
-						ExpectTransactStatus(..) if starts_with_valid_transact => {
-							Ok(ControlFlow::Continue(()))
-						},
-						_ => Err(ProcessMessageError::BadFormat),
-					},
-				)?
-				.assert_remaining_insts(0)?;
-			Ok(())
-		}
+			)?
+			.assert_remaining_insts(0)?;
+		Ok(())
 	}
 }
 

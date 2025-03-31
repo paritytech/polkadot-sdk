@@ -286,6 +286,6 @@ where
 pub struct VotingPower<Votes> {
 	/// Actual account's power (e.g. free balance).
 	pub account_power: Votes,
-	/// Total votes power (e.g. total issuance).
+	/// Total votes power (e.g. total or active issuance).
 	pub total: Votes,
 }

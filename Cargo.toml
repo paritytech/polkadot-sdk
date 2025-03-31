@@ -357,6 +357,7 @@ members = [
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/dummy-dim",
+	"substrate/frame/dday/detection",
 	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
@@ -414,7 +415,6 @@ members = [
 	"substrate/frame/people",
 	"substrate/frame/preimage",
 	"substrate/frame/proofs/primitives",
-	"substrate/frame/proofs/storage",
 	"substrate/frame/proofs/voting",
 	"substrate/frame/proxy",
 	"substrate/frame/ranked-collective",
@@ -977,6 +977,7 @@ pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-fea
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
+pallet-dday-detection = { path = "substrate/frame/dday/detection", default-features = false }
 pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features = false }
 pallet-dummy-dim = { path = "substrate/frame/dummy-dim", default-features = false }
 pallet-election-provider-multi-block = { path = "substrate/frame/election-provider-multi-block", default-features = false }
@@ -1026,7 +1027,6 @@ pallet-parachain-template = { path = "templates/parachain/pallets/template", def
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
 pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
-pallet-proofs-storage = { path = "substrate/frame/proofs/storage", default-features = false }
 pallet-proofs-voting = { path = "substrate/frame/proofs/voting", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }

@@ -14,36 +14,46 @@
 // limitations under the License.
 
 use crate::*;
+use pallet_dday_detection::IsStalled;
 
 #[test]
 fn stalled_asset_hub_detection_works() {
 	// Check Collectives before - no data, not stalled
 	CollectivesWestend::execute_with(|| {
-		assert!(collectives_dday::LastKnownAssetHubHead::get().is_none());
-		assert!(!collectives_dday::IsAssetHubStalled::get());
+		assert!(AssetHubDDayDetection::last_known_head().is_none());
+		assert!(!AssetHubDDayDetection::is_stalled());
 	});
 
-	// Let's progress AssetHub with new block (triggers `DDayHook::on_finalize`).
-	AssetHubWestend::execute_with(|| {});
+	// Let's progress AssetHub with new blocks (which triggers `DDayHook::on_finalize`).
+	let asset_hub_parent_head =
+		AssetHubWestend::execute_with(|| <AssetHubWestend as Chain>::System::block_number());
+	AssetHubWestend::execute_with(|| {
+		assert_eq!(asset_hub_parent_head, <AssetHubWestend as Chain>::System::block_number() - 1);
+	});
 
 	// Check Collectives that we processed new AssetHub data (header, total issuance).
 	CollectivesWestend::execute_with(|| {
-		assert!(collectives_dday::LastKnownAssetHubHead::get().is_some());
-		// not stalled
-		assert!(!collectives_dday::IsAssetHubStalled::get());
+		// received some data
+		assert_eq!(
+			AssetHubDDayDetection::last_known_head().map(|h| h.block_number),
+			Some(asset_hub_parent_head)
+		);
+		// but not stalled
+		assert!(!AssetHubDDayDetection::is_stalled());
 	});
 
 	// Let's progress blocks only for Collectives after `StalledAssetHubBlockThreshold`,
 	// which means that we did not receive AssetHub update for a long time => means is stalled.
-	CollectivesWestend::ext_wrapper(|| {
-		assert!(!collectives_dday::IsAssetHubStalled::get());
+	CollectivesWestend::execute_with(|| {
+		assert!(!AssetHubDDayDetection::is_stalled());
 
+		// Pretend Collectives progressed lots of blocks hitting `StalledAssetHubBlockThreshold` threshold.
 		let block_number = <CollectivesWestend as Chain>::System::block_number();
 		<CollectivesWestend as Chain>::System::set_block_number(
 			block_number + collectives_dday::StalledAssetHubBlockThreshold::get(),
 		);
 
 		// Now the AssetHub is detected as stalled.
-		assert!(collectives_dday::IsAssetHubStalled::get());
+		assert!(AssetHubDDayDetection::is_stalled());
 	});
 }

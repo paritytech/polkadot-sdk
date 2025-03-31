@@ -21,48 +21,51 @@ mod tracks;
 
 use super::fellowship::{ranks, Architects, FellowshipCollectiveInstance, Masters};
 use super::*;
-use crate::dday::prover::{types::KnownAssetHubHead, AssetHubAccountProver, AssetHubStateProvider};
+use crate::dday::prover::{AssetHubAccountProver, AssetHubStalledStateRootProvider};
 use crate::dday::tracks::TrackId;
 use frame_support::parameter_types;
-use frame_support::traits::{EitherOf, PollStatus, Polling};
+use frame_support::traits::{EitherOf, Equals, PollStatus, Polling};
 use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_dday_detection::IsStalled;
+use pallet_proofs_voting::ProofBlockNumberOf;
 use pallet_referenda::ReferendumIndex;
 use sp_runtime::DispatchError;
 
 parameter_types! {
-	/// If the last AssetHub block update is older than this, we consider AssetHub stalled.
+	/// If the last AssetHub block update is older than this, AssetHub is considered stalled.
 	pub storage StalledAssetHubBlockThreshold: BlockNumber = 6 * HOURS;
 
-	/// We update this when we receive a new data from AssetHub.
-	pub storage LastKnownAssetHubHead: Option<KnownAssetHubHead> = None;
-
-	/// Returns true if the last AssetHub block update is too old (`StalledAssetHubBlockThreshold`).
-	pub IsAssetHubStalled: bool = match LastKnownAssetHubHead::get() {
-		Some(head) => {
-			let now = System::block_number();
-			let threshold = now.saturating_sub(StalledAssetHubBlockThreshold::get());
-			head.known_at < threshold
-		},
-		None => false,
-	};
-}
-
-// TODO: FAIL-CI - check constants
-parameter_types! {
+	// TODO: FAIL-CI - check constants bellow
 	pub const AlarmInterval: BlockNumber = 1;
 	pub const SubmissionDeposit: Balance = 1 * 3 * CENTS;
 	pub const UndecidingTimeout: BlockNumber = 14 * DAYS;
 }
 
-/// Wrapper implementation of `Polling` over `DDayReferenda`, allowing voting only when `IsAssetHubStalled == true`.
-pub struct AllowPollingWhenAssetHubIsStalled;
-impl AllowPollingWhenAssetHubIsStalled {
-	fn is_stalled() -> bool {
-		IsAssetHubStalled::get()
-	}
+/// Tracks the AssetHub state when it is stalled.
+///
+///  1. AssetHub can send XCM with its parachain head data from `on_idle`.
+///  2. Alternatively, XCM from AssetHub may not be needed when custom key reading
+///     from `RelayChainStateProof::read_entry(well_known_keys::para_head(asset_hub_id)`
+/// 	is implemented. In that case, this pallet (`Pallet<T, I>::do_note_new_head(...)`)
+/// 	can be updated directly:
+///     - https://github.com/paritytech/polkadot-sdk/issues/82
+///     - https://github.com/paritytech/polkadot-sdk/issues/7445
+pub type DDayDetectionInstance = pallet_dday_detection::Instance1;
+impl pallet_dday_detection::Config<DDayDetectionInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	// TODO: FAIL-CI setup benchmarks
+	type WeightInfo = ();
+	// Root or AssetHub can update heads
+	type SubmitOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureXcm<Equals<xcm_config::AssetHub>>>;
+	type RemoteBlockNumber = ProofBlockNumberOf<AssetHubAccountProver>;
+	type StalledThreshold = StalledAssetHubBlockThreshold;
 }
-impl Polling<pallet_referenda::TallyOf<Runtime, DDayReferendaInstance>>
-	for AllowPollingWhenAssetHubIsStalled
+
+/// Wrapper implementation of `Polling` over `DDayReferenda`, allowing voting only when `IsAssetHubStalled == true`.
+pub struct AllowPollingWhenAssetHubIsStalled<Chain>(core::marker::PhantomData<Chain>);
+impl<Chain: IsStalled> Polling<pallet_referenda::TallyOf<Runtime, DDayReferendaInstance>>
+	for AllowPollingWhenAssetHubIsStalled<Chain>
 {
 	type Index = ReferendumIndex;
 	type Votes = pallet_referenda::VotesOf<Runtime, DDayReferendaInstance>;
@@ -76,7 +79,7 @@ impl Polling<pallet_referenda::TallyOf<Runtime, DDayReferendaInstance>>
 	fn as_ongoing(
 		index: Self::Index,
 	) -> Option<(pallet_referenda::TallyOf<Runtime, DDayReferendaInstance>, Self::Class)> {
-		if Self::is_stalled() {
+		if Chain::is_stalled() {
 			DDayReferenda::as_ongoing(index)
 		} else {
 			None
@@ -94,7 +97,7 @@ impl Polling<pallet_referenda::TallyOf<Runtime, DDayReferendaInstance>>
 		) -> R,
 	) -> R {
 		DDayReferenda::access_poll(index, |poll_status| {
-			if Self::is_stalled() {
+			if Chain::is_stalled() {
 				f(poll_status)
 			} else {
 				f(PollStatus::None)
@@ -112,7 +115,7 @@ impl Polling<pallet_referenda::TallyOf<Runtime, DDayReferendaInstance>>
 			>,
 		) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
-		if Self::is_stalled() {
+		if Chain::is_stalled() {
 			DDayReferenda::try_access_poll(index, f)
 		} else {
 			Err(DispatchError::Unavailable)
@@ -141,14 +144,14 @@ impl pallet_proofs_voting::Config<DDayVotingInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// TODO: FAIL-CI - setup/generate benchmarks
 	type WeightInfo = pallet_proofs_voting::weights::SubstrateWeight<Self>;
-	type Polls = AllowPollingWhenAssetHubIsStalled;
+	type Polls = AllowPollingWhenAssetHubIsStalled<DDayDetection>;
 	// Get total issuance from the synced `LastKnownAssetHubHead`.
 	type MaxTurnout = AssetHubStateProvider<LastKnownAssetHubHead>;
 	type MaxVotes = ConstU32<3>;
 	type BlockNumberProvider = System;
 
 	type Prover = AssetHubAccountProver;
-	type ProofRootProvider = AssetHubStateProvider<LastKnownAssetHubHead>;
+	type ProofRootProvider = AssetHubStalledStateRootProvider<DDayDetection>;
 }
 
 /// Rank3+ member can start DDay referendum.

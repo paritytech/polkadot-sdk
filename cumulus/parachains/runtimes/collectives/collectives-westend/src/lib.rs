@@ -737,9 +737,7 @@ construct_runtime!(
 		// DDay feature.
 		DDayReferenda: pallet_referenda::<Instance3> = 81,
 		DDayVoting: pallet_proofs_voting::<Instance1> = 82,
-
-		// Storage of sibling parachain header or state roots.
-		ProofsStorage: pallet_proofs_storage = 83,
+		DDayDetection: pallet_dday_detection::<Instance1> = 83,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
 	}

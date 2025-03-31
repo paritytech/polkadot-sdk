@@ -50,6 +50,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_proofs_storage`.
 pub trait WeightInfo {
     fn submit() -> Weight;
+    fn note_new_head() -> Weight;
 }
 
 /// Weights for `pallet_proofs_storage` using the Substrate node and recommended hardware.
@@ -58,10 +59,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     fn submit() -> Weight {
         Weight::zero()
     }
+    fn note_new_head() -> Weight {
+        Weight::zero()
+    }
 }
 
 impl WeightInfo for () {
     fn submit() -> Weight {
+        Weight::zero()
+    }
+    fn note_new_head() -> Weight {
         Weight::zero()
     }
 }

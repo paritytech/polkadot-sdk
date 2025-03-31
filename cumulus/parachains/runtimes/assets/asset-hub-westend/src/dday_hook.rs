@@ -16,18 +16,13 @@
 //! This hook pallet is used to send data to the Collectives.
 //! It sends:
 //! - The parent block
-//! - The total issuance at the current block
 //!
-//! TODO: FAIL-CI - decision pending
 //! Note: This hook and the corresponding XCM would not be necessary if:
 //! - A mechanism is implemented to read the custom `RelayChainStateProof` context, allowing us to retrieve the latest AssetHub head directly on Collectives.
 //!   - See: https://github.com/paritytech/polkadot-sdk/issues/7445
 //!   - See: https://github.com/paritytech/polkadot-sdk/issues/82
-//! - The `dday-voting` system is modified from using conviction-based voting to an alternative mechanism that does not require the total issuance of AssetHub.
-//!   - Alternatively, we allow the total issuance on Collectives to be updated manually by fellows with rank 3+ when initiating referenda, e.g., via a custom extrinsic.
 
-use crate::{Balance, Balances, PolkadotXcm, Runtime};
-use alloc::{vec, vec::Vec};
+use crate::{Balance, PolkadotXcm, Runtime};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use cumulus_pallet_parachain_system::OnSystemEvent;
 use cumulus_primitives_core::PersistedValidationData;
@@ -44,6 +39,7 @@ const LOG_TARGET: &str = "runtime::dday::hook";
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
+	use frame_support::weights::WeightMeter;
 	use xcm::latest::prelude::*;
 
 	#[pallet::pallet]
@@ -60,53 +56,55 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			// Return some weight consumed by `on_finalize`.
-			T::DbWeight::get().reads_writes(2, 1).saturating_add(
-				<<Runtime as pallet_xcm::Config>::WeightInfo as pallet_xcm::WeightInfo>::send(),
-			)
-		}
-
-		fn on_finalize(n: BlockNumberFor<T>) {
-			// Prepare total issuance call
-			let mut data = vec![CollectivesPallets::<T>::prepare_total_issuance_call(
-				n,
-				Balances::total_issuance(),
-			)];
-			// Prepare header call
-			if let Some((hn, head)) = HeaderToSend::<T>::take() {
-				data.push(CollectivesPallets::<T>::prepare_head_call(hn, head));
+		fn on_idle(_n: BlockNumberFor<T>, limit: Weight) -> Weight {
+			let mut meter = WeightMeter::with_limit(limit);
+			if meter.try_consume(Self::on_idle_weight()).is_err() {
+				log::debug!(
+					target: LOG_TARGET,
+					"Not enough weight for on_idle. {} < {}",
+					Self::on_idle_weight(), limit
+				);
+				return meter.consumed();
 			}
 
-			// Send data
-			Self::send_data(data)
+			// Send header
+			if let Some((hn, head)) = HeaderToSend::<T>::take() {
+				Self::send_data(CollectivesPallets::<T>::prepare_head_call(hn, head));
+			}
+
+			meter.consumed()
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn send_data(calls: Vec<CollectivesPallets<T>>) {
-			let mut xcm = Xcm::builder_unpaid().unpaid_execution(Unlimited, None);
-			for call in &calls {
-				xcm = xcm.transact(OriginKind::Xcm, None, call.encode());
-			}
+		/// The worst-case weight of [`Self::on_idle`].
+		fn on_idle_weight() -> Weight {
+			T::DbWeight::get().reads_writes(1, 1).saturating_add(
+				<<Runtime as pallet_xcm::Config>::WeightInfo as pallet_xcm::WeightInfo>::send(),
+			)
+		}
 
+		fn send_data(call: CollectivesPallets<T>) {
 			match PolkadotXcm::send_xcm(
 				Here,
 				Location::new(1, [Parachain(COLLECTIVES_ID)]),
-				xcm.build(),
+				Xcm::builder_unpaid()
+					.unpaid_execution(Unlimited, None)
+					.transact(OriginKind::Xcm, None, call.encode())
+					.build(),
 			) {
 				Ok(message_id) => {
 					log::trace!(
 						target: LOG_TARGET,
 						"DDay data: {:?} successfully sent with message_id: {:?}!",
-						calls.encode(), message_id
+						call.encode(), message_id
 					)
 				},
 				Err(e) => {
 					log::warn!(
 						target: LOG_TARGET,
 						"DDay data: {:?} was not sent, error: {:?}!",
-						calls.encode(), e
+						call.encode(), e
 					)
 				},
 			}
@@ -124,45 +122,32 @@ enum CollectivesPallets<T: Config> {
 	DDayDetection(DDayDetectionCall<T>),
 }
 impl<T: Config> CollectivesPallets<T> {
-	fn prepare_total_issuance_call(
-		block_number: BlockNumberFor<T>,
-		value: Balance,
-	) -> CollectivesPallets<T> {
-		CollectivesPallets::DDayDetection(DDayDetectionCall::Submit {
-			key: ProofsKey::AssetHubTotalIssuance(block_number),
-			value: ProofsValue::AssetHubTotalIssuance(value),
-		})
-	}
-
 	fn prepare_head_call(
 		block_number: BlockNumberFor<T>,
 		value: HeadData,
 	) -> CollectivesPallets<T> {
-		CollectivesPallets::DDayDetection(DDayDetectionCall::Submit {
-			key: ProofsKey::AssetHubHeader(block_number),
-			value: ProofsValue::AssetHubHeader(value.0),
+		CollectivesPallets::DDayDetection(DDayDetectionCall::note_new_head {
+			remote_block_number: block_number,
+			remote_head: value,
 		})
 	}
 }
 
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug)]
+#[allow(non_camel_case_types)]
 enum DDayDetectionCall<T: Config> {
 	#[codec(index = 0)]
-	Submit { key: ProofsKey<T>, value: ProofsValue },
+	note_new_head { remote_block_number: BlockNumberFor<T>, remote_head: HeadData },
 }
 
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug)]
 enum ProofsKey<T: Config> {
-	/// AssetHub header key (AssetHub's block number).
-	AssetHubHeader(BlockNumberFor<T>),
 	/// AssetHub total issuance key.
 	AssetHubTotalIssuance(BlockNumberFor<T>),
 }
 
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug)]
 enum ProofsValue {
-	/// AssetHub encoded header from `HeadData`.
-	AssetHubHeader(Vec<u8>),
 	/// AssetHub total issuance balance.
 	AssetHubTotalIssuance(Balance),
 }
