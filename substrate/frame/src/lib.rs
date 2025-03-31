@@ -203,8 +203,7 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-		stored,
-		defensive, defensive_assert,
+		defensive, defensive_assert, stored,
 		traits::{
 			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
 			Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll,
