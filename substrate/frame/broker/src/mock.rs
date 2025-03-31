@@ -127,10 +127,10 @@ impl CoretimeInterface for TestCoretimeProvider {
 }
 
 impl TestCoretimeProvider {
-	pub fn spend_instantaneous(_who: u64, price: u64) -> Result<(), ()> {
-		let c = CoretimeCredit::get();
-		ensure!(CoretimeInPool::get() > 0, ());
-		// c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
+	pub fn spend_instantaneous(who: u64, price: u64) -> Result<(), &'static str> {
+		let mut c = CoretimeCredit::get();
+		ensure!(CoretimeInPool::get() > 0, "None in pool");
+		c.insert(who, c.get(&who).ok_or("account not there")?.checked_sub(price).ok_or("Checked sub failed")?);
 		CoretimeCredit::set(c);
 		CoretimeSpending::mutate(|v| {
 			v.push((RCBlockNumberProviderOf::<Self>::current_block_number() as u32, price))
@@ -177,7 +177,7 @@ impl OnUnbalanced<Credit<u64, <Test as Config>::Currency>> for IntoZero {
 
 ord_parameter_types! {
 	pub const One: u64 = 1;
-	pub const MinimumCreditPurchase: u64 = 50;
+	pub const MinimumCreditPurchase: u64 = 20;
 }
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
