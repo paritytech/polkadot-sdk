@@ -193,7 +193,7 @@
 //! ### Example: Rewarding a validator by id.
 //!
 //! ```
-//! use pallet_staking::{self as staking};
+//! use pallet_staking_async::{self as staking};
 //!
 //! #[frame_support::pallet(dev_mode)]
 //! pub mod pallet {
