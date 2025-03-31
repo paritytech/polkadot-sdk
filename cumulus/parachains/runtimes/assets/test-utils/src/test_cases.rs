@@ -1811,18 +1811,19 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 		.execute_with(|| {
 			let native_asset_id = AssetId(native_asset_location.clone());
 			let origin = RuntimeOrigin::signed(account.clone());
-			let asset_location = Location::new(1, [Parachain(2001)]);
 			let asset_id = 1984u32;
+			let asset_location: Location =
+				(PalletInstance(50), GeneralIndex(asset_id.into())).into();
 
 			// Setup initial state
 			assert_ok!(<pallet_balances::Pallet<Runtime> as Mutate<_>>::mint_into(
 				&account,
-				20_000 * UNITS // Enough for pool creation, liquidity, and exchange
+				50_000 * UNITS // Enough for pool creation, liquidity, and exchange
 			));
 
 			// Create the foreign asset
 			assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::force_create(
-				RuntimeOrigin::root(),
+				RuntimeHelper::<Runtime>::root_origin(),
 				asset_id.into(),
 				<Runtime as frame_system::Config>::Lookup::unlookup(account.clone()),
 				true,
@@ -1855,11 +1856,21 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 					0, // Min lp token
 					account.clone(),
 				));
+
+				let (reserve1, reserve2) = pallet_asset_conversion::Pallet::<Runtime>::get_reserves(
+					native_asset_location.clone().try_into().unwrap(),
+					asset_location.clone().try_into().unwrap(),
+				).expect("Pool exists");
+				println!("Pool reserves: WND={}, 1984={}", reserve1, reserve2);
+				assert_eq!(1_000 * UNITS, reserve1);
+				assert_eq!(2_000 * UNITS, reserve2);
 			}
 
 			// Execute the exchange
 			let foreign_balance_before = pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::balance(asset_id.into(), &account);
 			let native_balance_before = pallet_balances::Pallet::<Runtime>::total_balance(&account);
+			println!("Alice WND before: {}", native_balance_before);
+			println!("Alice 1984 before: {}", foreign_balance_before);
 
 			let give: Assets = (native_asset_id, give_amount).into();
 			let want: Assets = (AssetId(asset_location.clone()), want_amount).into();
@@ -1878,6 +1889,8 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 			// Verify results
 			let foreign_balance_after = pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::balance(asset_id.into(), &account);
 			let native_balance_after = pallet_balances::Pallet::<Runtime>::total_balance(&account);
+			println!("Alice WND after: {}", native_balance_after);
+			println!("Alice 1984 after: {}", foreign_balance_after);
 
 			if should_succeed {
 				assert_ok!(result);

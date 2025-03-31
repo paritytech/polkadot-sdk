@@ -37,16 +37,12 @@ use asset_test_utils::{
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
-use frame_support::{
-	assert_err, assert_noop, assert_ok, parameter_types,
-	traits::{
-		fungible::{Inspect, Mutate},
-		fungibles::{
-			Create, Inspect as FungiblesInspect, InspectEnumerable, Mutate as FungiblesMutate,
-		},
+use frame_support::{assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok, parameter_types, traits::{
+	fungible::{Inspect, Mutate},
+	fungibles::{
+		Create, Inspect as FungiblesInspect, InspectEnumerable, Mutate as FungiblesMutate,
 	},
-	weights::{Weight, WeightToFee as WeightToFeeT},
-};
+}, weights::{Weight, WeightToFee as WeightToFeeT}};
 use hex_literal::hex;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
@@ -1690,4 +1686,21 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(GovernanceLocation::get())));
+}
+
+#[test]
+fn exchange_asset_success() {
+	use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
+	use asset_test_utils::test_cases::exchange_asset_on_asset_hub_works;
+
+	exchange_asset_on_asset_hub_works::<Runtime, RuntimeCall, RuntimeOrigin, Block>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		500 * UNITS,
+		665 * UNITS,
+		true,
+	);
 }
