@@ -52,4 +52,4 @@ substrate-cli-test-utils = { workspace = true }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 
 [build-dependencies]
-git2 = { version = "0.20.0", default-features = false }
+git2 = { workspace = true }

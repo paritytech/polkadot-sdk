@@ -203,10 +203,12 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
+		defensive, defensive_assert,
 		traits::{
 			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
-			Everything, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler,
-			RankedMembers, RankedMembersSwapHandler, VariantCount, VariantCountOf,
+			Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll,
+			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			VariantCount, VariantCountOf,
 		},
 		PalletId,
 	};
@@ -225,6 +227,8 @@ pub mod prelude {
 
 	/// All hashing related things.
 	pub use super::hashing::*;
+
+	pub use crate::transaction::*;
 
 	/// All account related things.
 	pub use super::account::*;
@@ -585,6 +589,22 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+// Systems involved in transaction execution in the runtime.
+///
+/// This is already part of the [`prelude`].
+pub mod transaction {
+	pub use frame_support::traits::{CallMetadata, GetCallMetadata};
+	pub use sp_runtime::{
+		generic::ExtensionVersion,
+		impl_tx_ext_default,
+		traits::{
+			AsTransactionAuthorizedOrigin, DispatchTransaction, TransactionExtension,
+			ValidateResult,
+		},
+		transaction_validity::{InvalidTransaction, ValidTransaction},
+	};
 }
 
 /// All account management related traits.

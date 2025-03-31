@@ -37,8 +37,6 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
 [dev-dependencies]
-hex = { workspace = true, default-features = true }
-hex-literal = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 snowbridge-test-utils = { workspace = true }
 

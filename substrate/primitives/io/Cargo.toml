@@ -19,15 +19,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 bytes = { workspace = true }
-codec = { features = [
-	"bytes",
-], workspace = true }
+codec = { features = ["bytes"], workspace = true }
 libsecp256k1 = { optional = true, workspace = true, default-features = true }
 log = { optional = true, workspace = true, default-features = true }
-secp256k1 = { features = [
-	"global-context",
-	"recovery",
-], optional = true, workspace = true, default-features = true }
+secp256k1 = { features = ["global-context", "recovery"], optional = true, workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-crypto-hashing = { workspace = true }
 sp-externalities = { workspace = true }

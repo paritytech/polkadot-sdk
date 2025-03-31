@@ -45,6 +45,7 @@ pub enum XcmConverterError {
 	TransactParamsDecodeFailed,
 	FeeAssetResolutionFailed,
 	CallContractValueInsufficient,
+	NoCommands,
 }
 
 macro_rules! match_expression {
@@ -260,11 +261,6 @@ where
 		)
 		.ok_or(BeneficiaryResolutionFailed)?;
 
-		// Make sure there are reserved assets.
-		if enas.is_none() && pnas.is_none() {
-			return Err(NoReserveAssets);
-		}
-
 		let mut commands: Vec<Command> = Vec::new();
 
 		// ENA transfer commands
@@ -297,6 +293,8 @@ where
 					.push(Command::CallContract { target: target.into(), calldata, gas, value }),
 			}
 		}
+
+		ensure!(commands.len() > 0, NoCommands);
 
 		// ensure SetTopic exists
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
