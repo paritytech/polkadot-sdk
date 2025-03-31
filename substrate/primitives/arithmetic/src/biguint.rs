@@ -426,7 +426,8 @@ impl BigUint {
 				let s = SHIFT as u32;
 				let nb = normalizer_bits;
 				for d in 0..n - 1 {
-					let v = (self_norm.get(d) >> nb) | self_norm.get(d + 1).overflowing_shl(s - nb).0;
+					let v =
+						(self_norm.get(d) >> nb) | self_norm.get(d + 1).overflowing_shl(s - nb).0;
 					r.set(d, v);
 				}
 				r.set(n - 1, self_norm.get(n - 1) >> normalizer_bits);
