@@ -36,10 +36,8 @@ sp-database = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true, default-features = true }
-sp-statement-store = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 
 [dev-dependencies]
 substrate-test-runtime = { workspace = true }
-thiserror = { workspace = true }

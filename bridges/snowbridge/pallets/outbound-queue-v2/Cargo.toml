@@ -47,7 +47,6 @@ xcm-executor = { workspace = true }
 
 [dev-dependencies]
 pallet-message-queue = { workspace = true }
-sp-keyring = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
