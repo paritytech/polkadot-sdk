@@ -20,11 +20,7 @@ use super::MintLocation;
 use core::{marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
-		fungible,
-		Fortitude::Polite,
-		Precision::Exact,
-		Preservation::{Expendable, Preserve},
-		Provenance::Minted,
+		fungible, Fortitude::Polite, Precision::Exact, Preservation::Expendable, Provenance::Minted,
 	},
 	Get,
 };
@@ -64,7 +60,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::transfer(&source, &dest, amount, Preserve)
+		Fungible::transfer(&source, &dest, amount, Expendable)
 			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
 		Ok(what.clone().into())
 	}

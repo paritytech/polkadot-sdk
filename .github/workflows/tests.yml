@@ -33,7 +33,7 @@ jobs:
   quick-benchmarks:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: parity-large
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -52,7 +52,7 @@ jobs:
   test-syscalls:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: parity-large
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -77,7 +77,7 @@ jobs:
   cargo-check-all-benches:
     needs: [set-image, changes]
     if: ${{ needs.changes.outputs.rust }}
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: parity-large
     timeout-minutes: 60
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}

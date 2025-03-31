@@ -75,7 +75,7 @@ pub mod dynamic_params {
 	}
 
 	#[dynamic_pallet_params]
-	#[codec(index = 3)]
+	#[codec(index = 4)]
 	pub mod somE_weird_SPElLInG_s {
 		#[codec(index = 0)]
 		pub static V: u64 = 0;

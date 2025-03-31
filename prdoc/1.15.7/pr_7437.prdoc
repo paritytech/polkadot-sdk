@@ -1,0 +1,10 @@
+title: Remove dead code
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Remove unused code
+
+crates:
+  - name: sc-network
+    bump: patch

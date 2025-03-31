@@ -968,14 +968,9 @@ pub fn new_full<
 				secure_validator_mode,
 				prep_worker_path,
 				exec_worker_path,
-				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or_else(
-					|| match config.chain_spec.identify_chain() {
-						// The intention is to use this logic for gradual increasing from 2 to 4
-						// of this configuration chain by chain until it reaches production chain.
-						Chain::Polkadot | Chain::Kusama => 2,
-						Chain::Rococo | Chain::Westend | Chain::Unknown => 4,
-					},
-				),
+				// Default execution workers is 4 because we have 8 cores on the reference hardware,
+				// and this accounts for 50% of that cpu capacity.
+				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or(4),
 				pvf_prepare_workers_soft_max_num: prepare_workers_soft_max_num.unwrap_or(1),
 				pvf_prepare_workers_hard_max_num: prepare_workers_hard_max_num.unwrap_or(2),
 			})

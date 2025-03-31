@@ -3670,7 +3670,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -5831,7 +5831,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "37.0.1"
+version = "37.1.0"
 dependencies = [
  "aquamarine",
  "array-bytes",
@@ -5876,7 +5876,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural"
-version = "30.0.4"
+version = "30.0.5"
 dependencies = [
  "Inflector",
  "cfg-expr",
@@ -9827,7 +9827,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "38.0.0"
+version = "38.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -9896,7 +9896,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bounties"
-version = "36.0.0"
+version = "36.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10249,7 +10249,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-core-fellowship"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11153,7 +11153,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-ranked-collective"
-version = "37.0.0"
+version = "37.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11274,7 +11274,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-salary"
-version = "22.0.0"
+version = "22.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12655,7 +12655,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-approval-distribution"
-version = "17.0.0"
+version = "17.1.0"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -12985,7 +12985,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-approval-voting"
-version = "17.0.0"
+version = "17.1.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -13456,7 +13456,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-network-protocol"
-version = "17.0.0"
+version = "17.1.0"
 dependencies = [
  "async-channel",
  "async-trait",
@@ -14445,7 +14445,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "18.0.0"
+version = "18.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -17508,7 +17508,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.44.1"
+version = "0.44.2"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -20639,7 +20639,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "16.0.3"
+version = "16.0.4"
 dependencies = [
  "assert_matches",
  "frame-support",

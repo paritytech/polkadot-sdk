@@ -19,10 +19,7 @@
 use core::{marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
-		fungibles,
-		Fortitude::Polite,
-		Precision::Exact,
-		Preservation::{Expendable, Preserve},
+		fungibles, Fortitude::Polite, Precision::Exact, Preservation::Expendable,
 		Provenance::Minted,
 	},
 	Contains, Get,
@@ -58,7 +55,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Assets::transfer(asset_id, &source, &dest, amount, Preserve)
+		Assets::transfer(asset_id, &source, &dest, amount, Expendable)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 		Ok(what.clone().into())
 	}

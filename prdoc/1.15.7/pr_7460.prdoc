@@ -1,0 +1,10 @@
+title: Update SCALE codec indices
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      We need this in order to be able to update `parity-scale-codec` to the latest version after it's released. That's because `parity-scale-codec` added support for checking for duplicate indexes at compile time.
+
+crates:
+  - name: frame-support-procedural
+    bump: patch

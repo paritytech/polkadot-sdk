@@ -671,7 +671,7 @@ cpu-time = { version = "1.0.0" }
 criterion = { version = "0.5.1", default-features = false }
 cumulus-client-cli = { path = "cumulus/client/cli", default-features = false, version = "0.17.0" }
 cumulus-client-collator = { path = "cumulus/client/collator", default-features = false, version = "0.17.0" }
-cumulus-client-consensus-aura = { path = "cumulus/client/consensus/aura", default-features = false, version = "0.17.1" }
+cumulus-client-consensus-aura = { path = "cumulus/client/consensus/aura", default-features = false, version = "0.17.2" }
 cumulus-client-consensus-common = { path = "cumulus/client/consensus/common", default-features = false, version = "0.17.0" }
 cumulus-client-consensus-proposer = { path = "cumulus/client/consensus/proposer", default-features = false, version = "0.15.0" }
 cumulus-client-consensus-relay-chain = { path = "cumulus/client/consensus/relay-chain", default-features = false, version = "0.17.0" }
@@ -747,8 +747,8 @@ frame-election-provider-support = { path = "substrate/frame/election-provider-su
 frame-executive = { path = "substrate/frame/executive", default-features = false, version = "37.0.0" }
 frame-metadata = { version = "16.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false, version = "0.5.0" }
-frame-support = { path = "substrate/frame/support", default-features = false, version = "37.0.1" }
-frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false, version = "30.0.4" }
+frame-support = { path = "substrate/frame/support", default-features = false, version = "37.1.0" }
+frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false, version = "30.0.5" }
 frame-support-procedural-tools = { path = "substrate/frame/support/procedural/tools", default-features = false, version = "13.0.0" }
 frame-support-procedural-tools-derive = { path = "substrate/frame/support/procedural/tools/derive", default-features = false, version = "12.0.0" }
 frame-support-test = { path = "substrate/frame/support/test" }
@@ -869,10 +869,10 @@ pallet-authorship = { path = "substrate/frame/authorship", default-features = fa
 pallet-babe = { path = "substrate/frame/babe", default-features = false, version = "37.0.0" }
 pallet-bags-list = { path = "substrate/frame/bags-list", default-features = false, version = "36.0.0" }
 pallet-bags-list-remote-tests = { path = "substrate/frame/bags-list/remote-tests", version = "4.0.0" }
-pallet-balances = { path = "substrate/frame/balances", default-features = false, version = "38.0.0" }
+pallet-balances = { path = "substrate/frame/balances", default-features = false, version = "38.0.1" }
 pallet-beefy = { path = "substrate/frame/beefy", default-features = false, version = "38.0.0" }
 pallet-beefy-mmr = { path = "substrate/frame/beefy-mmr", default-features = false, version = "38.0.0" }
-pallet-bounties = { path = "substrate/frame/bounties", default-features = false, version = "36.0.0" }
+pallet-bounties = { path = "substrate/frame/bounties", default-features = false, version = "36.0.1" }
 pallet-bridge-grandpa = { path = "bridges/modules/grandpa", default-features = false, version = "0.17.0" }
 pallet-bridge-messages = { path = "bridges/modules/messages", default-features = false, version = "0.17.0" }
 pallet-bridge-parachains = { path = "bridges/modules/parachains", default-features = false, version = "0.17.0" }
@@ -888,7 +888,7 @@ pallet-contracts-mock-network = { default-features = false, path = "substrate/fr
 pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", default-features = false, version = "23.0.1" }
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false, version = "12.0.0" }
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false, version = "37.0.0" }
-pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false, version = "21.0.0" }
+pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false, version = "21.1.0" }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false, version = "10.0.0" }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false, version = "4.0.0" }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false, version = "37.0.0" }
@@ -935,14 +935,14 @@ pallet-parachain-template = { path = "templates/parachain/pallets/template", def
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false, version = "0.8.0" }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false, version = "37.0.0" }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false, version = "37.0.0" }
-pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false, version = "37.0.0" }
+pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false, version = "37.1.0" }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false, version = "37.0.0" }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false, version = "37.0.0" }
 pallet-remark = { default-features = false, path = "substrate/frame/remark" }
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false, version = "13.0.0" }
 pallet-safe-mode = { default-features = false, path = "substrate/frame/safe-mode" }
-pallet-salary = { path = "substrate/frame/salary", default-features = false, version = "22.0.0" }
+pallet-salary = { path = "substrate/frame/salary", default-features = false, version = "22.1.0" }
 pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false, version = "38.0.0" }
 pallet-scored-pool = { default-features = false, path = "substrate/frame/scored-pool" }
 pallet-session = { path = "substrate/frame/session", default-features = false, version = "37.0.0" }
@@ -994,7 +994,7 @@ people-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/e
 people-westend-runtime = { path = "cumulus/parachains/runtimes/people/people-westend", version = "0.11.0" }
 pin-project = { version = "1.1.3" }
 platforms = { version = "3.0" }
-polkadot-approval-distribution = { path = "polkadot/node/network/approval-distribution", default-features = false, version = "17.0.0" }
+polkadot-approval-distribution = { path = "polkadot/node/network/approval-distribution", default-features = false, version = "17.1.0" }
 polkadot-availability-bitfield-distribution = { path = "polkadot/node/network/bitfield-distribution", default-features = false, version = "17.0.0" }
 polkadot-availability-distribution = { path = "polkadot/node/network/availability-distribution", default-features = false, version = "17.0.1" }
 polkadot-availability-recovery = { path = "polkadot/node/network/availability-recovery", default-features = false, version = "17.0.0" }
@@ -1006,7 +1006,7 @@ polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features =
 polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", default-features = false, version = "17.0.0" }
 polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false, version = "17.0.0" }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false, version = "17.0.0" }
-polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false, version = "17.0.0" }
+polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false, version = "17.1.0" }
 polkadot-node-core-av-store = { path = "polkadot/node/core/av-store", default-features = false, version = "17.0.0" }
 polkadot-node-core-backing = { path = "polkadot/node/core/backing", default-features = false, version = "17.0.0" }
 polkadot-node-core-bitfield-signing = { path = "polkadot/node/core/bitfield-signing", default-features = false, version = "17.0.0" }
@@ -1025,7 +1025,7 @@ polkadot-node-core-pvf-prepare-worker = { path = "polkadot/node/core/pvf/prepare
 polkadot-node-core-runtime-api = { path = "polkadot/node/core/runtime-api", default-features = false, version = "17.0.0" }
 polkadot-node-jaeger = { path = "polkadot/node/jaeger", default-features = false, version = "17.0.0" }
 polkadot-node-metrics = { path = "polkadot/node/metrics", default-features = false, version = "17.0.0" }
-polkadot-node-network-protocol = { path = "polkadot/node/network/protocol", default-features = false, version = "17.0.0" }
+polkadot-node-network-protocol = { path = "polkadot/node/network/protocol", default-features = false, version = "17.1.0" }
 polkadot-node-primitives = { path = "polkadot/node/primitives", default-features = false, version = "15.0.0" }
 polkadot-node-subsystem = { path = "polkadot/node/subsystem", default-features = false, version = "17.0.0" }
 polkadot-node-subsystem-test-helpers = { path = "polkadot/node/subsystem-test-helpers", version = "1.0.0" }
@@ -1041,7 +1041,7 @@ polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features
 polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "16.0.3" }
 polkadot-sdk = { path = "umbrella", default-features = false, version = "0.6.0" }
 polkadot-sdk-docs = { path = "docs/sdk", version = "0.1.0" }
-polkadot-service = { path = "polkadot/node/service", default-features = false, version = "18.0.0" }
+polkadot-service = { path = "polkadot/node/service", default-features = false, version = "18.0.1" }
 polkadot-statement-distribution = { path = "polkadot/node/network/statement-distribution", default-features = false, version = "17.0.0" }
 polkadot-statement-table = { path = "polkadot/statement-table", default-features = false, version = "15.0.0" }
 polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
@@ -1124,7 +1124,7 @@ sc-executor-wasmtime = { path = "substrate/client/executor/wasmtime", default-fe
 sc-informant = { path = "substrate/client/informant", default-features = false, version = "0.43.0" }
 sc-keystore = { path = "substrate/client/keystore", default-features = false, version = "33.0.0" }
 sc-mixnet = { path = "substrate/client/mixnet", default-features = false, version = "0.14.0" }
-sc-network = { path = "substrate/client/network", default-features = false, version = "0.44.1" }
+sc-network = { path = "substrate/client/network", default-features = false, version = "0.44.2" }
 sc-network-common = { path = "substrate/client/network/common", default-features = false, version = "0.43.0" }
 sc-network-gossip = { path = "substrate/client/network-gossip", default-features = false, version = "0.44.0" }
 sc-network-light = { path = "substrate/client/network/light", default-features = false, version = "0.43.0" }
@@ -1335,7 +1335,7 @@ westend-runtime-constants = { path = "polkadot/runtime/westend/constants", defau
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system", version = "0.1.0" }
 x25519-dalek = { version = "2.0" }
 xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm", version = "14.1.0" }
-xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "16.0.3" }
+xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "16.0.4" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.15.0" }
 xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "16.0.0" }

@@ -26,7 +26,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
   # rococo and westend are disabled for now (no access to parity-chains.parity.io)
   check-runtime-migration:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: parity-large
     timeout-minutes: 40
     needs: [set-image]
     container:

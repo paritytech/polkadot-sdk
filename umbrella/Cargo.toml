@@ -838,13 +838,13 @@ version = "0.5.0"
 path = "../substrate/frame/support"
 default-features = false
 optional = true
-version = "37.0.1"
+version = "37.1.0"
 
 [dependencies.frame-support-procedural]
 path = "../substrate/frame/support/procedural"
 default-features = false
 optional = true
-version = "30.0.4"
+version = "30.0.5"
 
 [dependencies.frame-support-procedural-tools-derive]
 path = "../substrate/frame/support/procedural/tools/derive"
@@ -964,7 +964,7 @@ version = "36.0.0"
 path = "../substrate/frame/balances"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.0.1"
 
 [dependencies.pallet-beefy]
 path = "../substrate/frame/beefy"
@@ -982,7 +982,7 @@ version = "38.0.0"
 path = "../substrate/frame/bounties"
 default-features = false
 optional = true
-version = "36.0.0"
+version = "36.0.1"
 
 [dependencies.pallet-bridge-grandpa]
 path = "../bridges/modules/grandpa"
@@ -1066,7 +1066,7 @@ version = "37.0.0"
 path = "../substrate/frame/core-fellowship"
 default-features = false
 optional = true
-version = "21.0.0"
+version = "21.1.0"
 
 [dependencies.pallet-delegated-staking]
 path = "../substrate/frame/delegated-staking"
@@ -1276,7 +1276,7 @@ version = "37.0.0"
 path = "../substrate/frame/ranked-collective"
 default-features = false
 optional = true
-version = "37.0.0"
+version = "37.1.0"
 
 [dependencies.pallet-recovery]
 path = "../substrate/frame/recovery"
@@ -1318,7 +1318,7 @@ version = "18.0.0"
 path = "../substrate/frame/salary"
 default-features = false
 optional = true
-version = "22.0.0"
+version = "22.1.0"
 
 [dependencies.pallet-scheduler]
 path = "../substrate/frame/scheduler"
@@ -1936,7 +1936,7 @@ version = "14.1.0"
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "16.0.3"
+version = "16.0.4"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
@@ -2008,7 +2008,7 @@ version = "0.17.0"
 path = "../cumulus/client/consensus/aura"
 default-features = false
 optional = true
-version = "0.17.1"
+version = "0.17.2"
 
 [dependencies.cumulus-client-consensus-common]
 path = "../cumulus/client/consensus/common"
@@ -2152,7 +2152,7 @@ version = "16.0.0"
 path = "../polkadot/node/network/approval-distribution"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.1.0"
 
 [dependencies.polkadot-availability-bitfield-distribution]
 path = "../polkadot/node/network/bitfield-distribution"
@@ -2218,7 +2218,7 @@ version = "17.0.0"
 path = "../polkadot/node/core/approval-voting"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.1.0"
 
 [dependencies.polkadot-node-core-av-store]
 path = "../polkadot/node/core/av-store"
@@ -2332,7 +2332,7 @@ version = "17.0.0"
 path = "../polkadot/node/network/protocol"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.1.0"
 
 [dependencies.polkadot-node-primitives]
 path = "../polkadot/node/primitives"
@@ -2374,7 +2374,7 @@ version = "17.0.0"
 path = "../polkadot/node/service"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "18.0.1"
 
 [dependencies.polkadot-statement-distribution]
 path = "../polkadot/node/network/statement-distribution"
@@ -2554,7 +2554,7 @@ version = "0.14.0"
 path = "../substrate/client/network"
 default-features = false
 optional = true
-version = "0.44.1"
+version = "0.44.2"
 
 [dependencies.sc-network-common]
 path = "../substrate/client/network/common"
