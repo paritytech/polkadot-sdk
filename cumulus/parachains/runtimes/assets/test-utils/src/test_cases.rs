@@ -1751,6 +1751,8 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 				&account,
 				50_000 * UNITS // Enough for pool creation, liquidity, and exchange
 			));
+			let balance = pallet_balances::Pallet::<Runtime>::free_balance(&account);
+			assert_eq!(balance, 50_000 * UNITS);
 
 			// Create the foreign asset
 			assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::force_create(
@@ -1792,8 +1794,8 @@ pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Bl
 					native_asset_location.clone().try_into().unwrap(),
 					asset_location.clone().try_into().unwrap(),
 				).expect("Pool exists");
-				assert_eq!(1_000 * UNITS, reserve1);
-				assert_eq!(2_000 * UNITS, reserve2);
+				assert_eq!(reserve1, 1_000 * UNITS);
+				assert_eq!(reserve2, 2_000 * UNITS);
 			}
 
 			// Execute the exchange
