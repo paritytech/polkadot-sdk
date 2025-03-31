@@ -13,12 +13,8 @@ members = [
 	"bridges/chains/chain-asset-hub-rococo",
 	"bridges/chains/chain-asset-hub-westend",
 	"bridges/chains/chain-bridge-hub-cumulus",
-	"bridges/chains/chain-bridge-hub-kusama",
-	"bridges/chains/chain-bridge-hub-polkadot",
 	"bridges/chains/chain-bridge-hub-rococo",
 	"bridges/chains/chain-bridge-hub-westend",
-	"bridges/chains/chain-kusama",
-	"bridges/chains/chain-polkadot",
 	"bridges/chains/chain-polkadot-bulletin",
 	"bridges/chains/chain-rococo",
 	"bridges/chains/chain-westend",
@@ -660,15 +656,11 @@ bp-asset-hub-rococo = { path = "bridges/chains/chain-asset-hub-rococo", default-
 bp-asset-hub-westend = { path = "bridges/chains/chain-asset-hub-westend", default-features = false }
 bp-beefy = { path = "bridges/primitives/beefy", default-features = false }
 bp-bridge-hub-cumulus = { path = "bridges/chains/chain-bridge-hub-cumulus", default-features = false }
-bp-bridge-hub-kusama = { default-features = false, path = "bridges/chains/chain-bridge-hub-kusama" }
-bp-bridge-hub-polkadot = { path = "bridges/chains/chain-bridge-hub-polkadot", default-features = false }
 bp-bridge-hub-rococo = { path = "bridges/chains/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-westend = { path = "bridges/chains/chain-bridge-hub-westend", default-features = false }
 bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false }
-bp-kusama = { default-features = false, path = "bridges/chains/chain-kusama" }
 bp-messages = { path = "bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "bridges/primitives/parachains", default-features = false }
-bp-polkadot = { default-features = false, path = "bridges/chains/chain-polkadot" }
 bp-polkadot-bulletin = { path = "bridges/chains/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "bridges/primitives/relayers", default-features = false }
