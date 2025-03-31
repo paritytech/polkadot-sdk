@@ -104,8 +104,8 @@ use sp_core::{ConstBool, ConstU8, ConstUint, OpaqueMetadata, RuntimeDebug, H256}
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, IdentityLookup, Keccak256,
-		OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, Convert, ConvertInto, IdentityLookup,
+		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, MultiSignature, MultiSigner, Percent, Permill,
@@ -1268,12 +1268,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Staking => {
 				matches!(
 					c,
-					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
-						RuntimeCall::FastUnstake(..) |
-						RuntimeCall::VoterList(..) |
-						RuntimeCall::NominationPools(..)
+					RuntimeCall::Staking(..)
+						| RuntimeCall::Session(..)
+						| RuntimeCall::Utility(..)
+						| RuntimeCall::FastUnstake(..)
+						| RuntimeCall::VoterList(..)
+						| RuntimeCall::NominationPools(..)
 				)
 			},
 			ProxyType::NominationPools => {
@@ -1289,33 +1289,33 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Governance => matches!(
 				c,
 				// OpenGov calls
-				RuntimeCall::ConvictionVoting(..) |
-					RuntimeCall::Referenda(..) |
-					RuntimeCall::Whitelist(..)
+				RuntimeCall::ConvictionVoting(..)
+					| RuntimeCall::Referenda(..)
+					| RuntimeCall::Whitelist(..)
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
-					RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
+					| RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions(..) |
-					RuntimeCall::Crowdloan(..) |
-					RuntimeCall::Registrar(..) |
-					RuntimeCall::Slots(..)
+				RuntimeCall::Auctions(..)
+					| RuntimeCall::Crowdloan(..)
+					| RuntimeCall::Registrar(..)
+					| RuntimeCall::Slots(..)
 			),
 			ProxyType::ParaRegistration => matches!(
 				c,
-				RuntimeCall::Registrar(paras_registrar::Call::reserve { .. }) |
-					RuntimeCall::Registrar(paras_registrar::Call::register { .. }) |
-					RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
-					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
-					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. }) |
-					RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy { .. })
+				RuntimeCall::Registrar(paras_registrar::Call::reserve { .. })
+					| RuntimeCall::Registrar(paras_registrar::Call::register { .. })
+					| RuntimeCall::Utility(pallet_utility::Call::batch { .. })
+					| RuntimeCall::Utility(pallet_utility::Call::batch_all { .. })
+					| RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
+					| RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy { .. })
 			),
 		}
 	}
@@ -1360,11 +1360,32 @@ impl parachains_session_info::Config for Runtime {
 	type ValidatorSet = Historical;
 }
 
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<UmpQueueId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(queue_id: UmpQueueId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Ump(queue_id)
+	}
+}
+
+pub struct GetParaFromAggregateMessageOrigin;
+
+impl Convert<AggregateMessageOrigin, ParaId> for GetParaFromAggregateMessageOrigin {
+	fn convert(x: AggregateMessageOrigin) -> ParaId {
+		match x {
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)) => para_id,
+		}
+	}
+}
+
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators =
 		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
+	type GetParaFromAggregateMessageOrigin = GetParaFromAggregateMessageOrigin;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }

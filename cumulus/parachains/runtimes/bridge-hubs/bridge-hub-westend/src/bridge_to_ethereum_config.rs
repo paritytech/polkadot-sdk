@@ -22,6 +22,7 @@ use crate::{
 	EthereumSystem, EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
 };
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
+use bridge_hub_common::AggregateMessageOrigin;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::EnsureXcm;
@@ -32,9 +33,9 @@ use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
-use sp_core::H160;
+use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{ConstU32, ConstU8, Keccak256},
+	traits::{ConstU32, ConstU8, Convert, Keccak256},
 	FixedU128,
 };
 use testnet_parachains_constants::westend::{
@@ -122,6 +123,14 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 }
 
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<H256, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(origin: H256) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::SnowbridgeV2(origin)
+	}
+}
+
 impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
@@ -191,6 +200,8 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 }
@@ -282,8 +293,9 @@ pub struct AllowFromEthereumFrontend;
 impl Contains<Location> for AllowFromEthereumFrontend {
 	fn contains(location: &Location) -> bool {
 		match location.unpack() {
-			(1, [Parachain(para_id), PalletInstance(index)]) =>
-				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX,
+			(1, [Parachain(para_id), PalletInstance(index)]) => {
+				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX
+			},
 			_ => false,
 		}
 	}

@@ -9,7 +9,7 @@ use frame_support::{
 };
 
 impl<T: Config> ProcessMessage for Pallet<T> {
-	type Origin = AggregateMessageOrigin;
+	type Origin = T::AggregateMessageOrigin;
 	fn process_message(
 		message: &[u8],
 		origin: Self::Origin,
@@ -22,7 +22,7 @@ impl<T: Config> ProcessMessage for Pallet<T> {
 				payload: message.to_vec(),
 				reason: ProcessMessageError::Overweight(weight),
 			});
-			return Err(ProcessMessageError::Overweight(weight))
+			return Err(ProcessMessageError::Overweight(weight));
 		}
 		Self::do_process_message(origin, message)
 	}

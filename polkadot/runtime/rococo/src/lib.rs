@@ -115,8 +115,8 @@ use sp_core::{ConstU128, ConstU8, ConstUint, Get, OpaqueMetadata, H256};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, ConstU32, ConvertInto, IdentityLookup,
-		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConstU32, Convert, ConvertInto,
+		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill, RuntimeDebug,
@@ -950,19 +950,19 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
-					RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
+					| RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions { .. } |
-					RuntimeCall::Crowdloan { .. } |
-					RuntimeCall::Registrar { .. } |
-					RuntimeCall::Multisig(..) |
-					RuntimeCall::Slots { .. }
+				RuntimeCall::Auctions { .. }
+					| RuntimeCall::Crowdloan { .. }
+					| RuntimeCall::Registrar { .. }
+					| RuntimeCall::Multisig(..)
+					| RuntimeCall::Slots { .. }
 			),
 			ProxyType::Society => matches!(c, RuntimeCall::Society(..)),
 			ProxyType::OnDemandOrdering => matches!(c, RuntimeCall::OnDemandAssignmentProvider(..)),
@@ -1016,10 +1016,33 @@ impl polkadot_runtime_parachains::inclusion::RewardValidators for RewardValidato
 	fn reward_bitfields(_: impl IntoIterator<Item = ValidatorIndex>) {}
 }
 
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<UmpQueueId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(queue_id: UmpQueueId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Ump(queue_id)
+	}
+}
+
+pub struct GetParaFromAggregateMessageOrigin;
+
+impl Convert<AggregateMessageOrigin, polkadot_primitives::Id>
+	for GetParaFromAggregateMessageOrigin
+{
+	fn convert(x: AggregateMessageOrigin) -> ParaId {
+		match x {
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)) => para_id,
+		}
+	}
+}
+
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators = RewardValidators;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
+	type GetParaFromAggregateMessageOrigin = GetParaFromAggregateMessageOrigin;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
