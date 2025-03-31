@@ -40,6 +40,7 @@ the API docs of our Rust crates. Includes:
 * Have a question? You can ask in the Substrate Developers Chat. Messages from either of these channels are bridged to the other, so you can use whichever one you like.
   * [Telegram](https://t.me/substratedevs)
   * [Matrix](https://matrix.to/#/#substratedevs:matrix.org)
+  * [Discord](https://discord.com/channels/722223075629727774/997505821955076196)
 
 ## 🚀 Releases
 
