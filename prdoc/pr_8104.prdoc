@@ -4,7 +4,7 @@
 title: Stabilize RPC `archive` methods to V1
 
 doc:
-  - audience: node_dev
+  - audience: Node Dev
     description: |
       This PR renames the V2 `archive_unstable_*` RPC calls to be `archive_v1_*`, signalling 
       that they have been stabilized.
