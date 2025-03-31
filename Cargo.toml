@@ -430,6 +430,12 @@ members = [
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",
 	"substrate/frame/staking/runtime-api",
+	"substrate/frame/staking-async",
+	"substrate/frame/staking-async/ah-client",
+	"substrate/frame/staking-async/rc-client",
+	"substrate/frame/staking-async/reward-curve",
+	"substrate/frame/staking-async/reward-fn",
+	"substrate/frame/staking-async/runtime-api",
 	"substrate/frame/state-trie-migration",
 	"substrate/frame/statement",
 	"substrate/frame/sudo",
@@ -1014,6 +1020,13 @@ pallet-staking = { path = "substrate/frame/staking", default-features = false }
 pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false }
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
+# TODO: remove the reward stuff as they are not needed here
+pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
+pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
+pallet-staking-async-rc-client = { path = "substrate/frame/staking-async/rc-client", default-features = false }
+pallet-staking-async-reward-curve = { path = "substrate/frame/staking-async/reward-curve", default-features = false }
+pallet-staking-async-reward-fn = { path = "substrate/frame/staking-async/reward-fn", default-features = false }
+pallet-staking-async-runtime-api = { path = "substrate/frame/staking-async/runtime-api", default-features = false }
 pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false }
 pallet-statement = { default-features = false, path = "substrate/frame/statement" }
 pallet-sudo = { path = "substrate/frame/sudo", default-features = false }

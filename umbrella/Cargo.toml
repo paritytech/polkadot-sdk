@@ -649,6 +649,7 @@ runtime-full = [
 	"pallet-skip-feeless-payment",
 	"pallet-society",
 	"pallet-staking",
+	"pallet-staking-async",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
 	"pallet-staking-runtime-api",
@@ -1631,6 +1632,26 @@ path = "../substrate/frame/staking/reward-fn"
 default-features = false
 optional = true
 path = "../substrate/frame/staking/runtime-api"
+
+[dependencies.pallet-staking-async]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async"
+
+[dependencies.pallet-staking-async-reward-curve]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/reward-curve"
+
+[dependencies.pallet-staking-async-reward-fn]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/reward-fn"
+
+[dependencies.pallet-staking-async-runtime-api]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/runtime-api"
 
 [dependencies.pallet-state-trie-migration]
 default-features = false
