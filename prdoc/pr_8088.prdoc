@@ -1,0 +1,10 @@
+title: 'feat: move Method Types to mod'
+doc:
+- audience: Node Dev
+  description: "\u2704 -----------------------------------------------------------------------------\n\
+    \n# Description\n\nMethodResult, MethodResultOk and MethodResultErr moved to internal\
+    \ `mod.rs` since they are used internally in the archive RPC API implementation.\n\
+    Closes #7982\n\n\n\n\u2704 -----------------------------------------------------------------------------"
+crates:
+- name: sc-rpc-spec-v2
+  bump: major
