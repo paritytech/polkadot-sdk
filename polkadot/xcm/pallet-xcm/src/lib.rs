@@ -3885,20 +3885,22 @@ impl<
 		L: TryFrom<Location> + TryInto<Location> + Clone,
 	> EnsureOrigin<O> for EnsureXcm<F, L>
 where
-	O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 {
 	type Success = L;
 
 	fn try_origin(outer: O) -> Result<Self::Success, O> {
-		outer.try_with_caller(|caller| {
-			caller.try_into().and_then(|o| match o {
-				Origin::Xcm(ref location)
-					if F::contains(&location.clone().try_into().map_err(|_| o.clone().into())?) =>
-					Ok(location.clone().try_into().map_err(|_| o.clone().into())?),
-				Origin::Xcm(location) => Err(Origin::Xcm(location).into()),
-				o => Err(o.into()),
-			})
-		})
+		match outer.caller().try_into() {
+			Ok(Origin::Xcm(ref location)) =>
+				if let Ok(location) = location.clone().try_into() {
+					if F::contains(&location) {
+						return Ok(location);
+					}
+				},
+			_ => (),
+		}
+
+		Err(outer)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -3912,17 +3914,17 @@ where
 pub struct EnsureResponse<F>(PhantomData<F>);
 impl<O: OriginTrait + From<Origin>, F: Contains<Location>> EnsureOrigin<O> for EnsureResponse<F>
 where
-	O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 {
 	type Success = Location;
 
 	fn try_origin(outer: O) -> Result<Self::Success, O> {
-		outer.try_with_caller(|caller| {
-			caller.try_into().and_then(|o| match o {
-				Origin::Response(responder) => Ok(responder),
-				o => Err(o.into()),
-			})
-		})
+		match outer.caller().try_into() {
+			Ok(Origin::Response(responder)) => return Ok(responder.clone()),
+			_ => (),
+		}
+
+		Err(outer)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
