@@ -79,7 +79,9 @@ std = [
 	"sp-staking/std",
 	"sp-std/std",
 	"xcm/std",
-	"serde?/std"
+	"serde?/std",
+	"frame-election-provider-support/std",
+	"pallet-election-provider-multi-block/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -105,7 +107,9 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"xcm/runtime-benchmarks"
+	"xcm/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"pallet-election-provider-multi-block/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -128,4 +132,6 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"pallet-election-provider-multi-block/try-runtime"
 ]
