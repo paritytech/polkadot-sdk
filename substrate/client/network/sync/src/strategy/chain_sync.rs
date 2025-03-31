@@ -1178,6 +1178,703 @@ where
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	fn update_chain_info(&mut self, best_hash: &B::Hash, best_number: NumberFor<B>) {
+		self.on_block_queued(best_hash, best_number);
+	}
+
+	fn is_major_syncing(&self) -> bool {
+		self.status().state.is_major_syncing()
+	}
+
+	fn num_peers(&self) -> usize {
+		self.peers.len()
+	}
+
+	fn status(&self) -> SyncStatus<B> {
+		let median_seen = self.median_seen();
+		let best_seen_block =
+			median_seen.and_then(|median| (median > self.best_queued_number).then_some(median));
+		let sync_state = if let Some(target) = median_seen {
+			// A chain is classified as downloading if the provided best block is
+			// more than `MAJOR_SYNC_BLOCKS` behind the best block or as importing
+			// if the same can be said about queued blocks.
+			let best_block = self.client.info().best_number;
+			if target > best_block && target - best_block > MAJOR_SYNC_BLOCKS.into() {
+				// If target is not queued, we're downloading, otherwise importing.
+				if target > self.best_queued_number {
+					SyncState::Downloading { target }
+				} else {
+					SyncState::Importing { target }
+				}
+			} else {
+				SyncState::Idle
+			}
+		} else {
+			SyncState::Idle
+		};
+
+		let warp_sync_progress = self.gap_sync.as_ref().map(|gap_sync| WarpSyncProgress {
+			phase: WarpSyncPhase::DownloadingBlocks(gap_sync.best_queued_number),
+			total_bytes: 0,
+		});
+
+		SyncStatus {
+			state: sync_state,
+			best_seen_block,
+			num_peers: self.peers.len() as u32,
+			queued_blocks: self.queue_blocks.len() as u32,
+			state_sync: self.state_sync.as_ref().map(|s| s.progress()),
+			warp_sync: warp_sync_progress,
+		}
+	}
+
+	fn num_downloaded_blocks(&self) -> usize {
+		self.downloaded_blocks
+	}
+
+	fn num_sync_requests(&self) -> usize {
+		self.fork_targets
+			.values()
+			.filter(|f| f.number <= self.best_queued_number)
+			.count()
+	}
+
+	fn actions(
+		&mut self,
+		network_service: &NetworkServiceHandle,
+	) -> Result<Vec<SyncingAction<B>>, ClientError> {
+		if !self.peers.is_empty() && self.queue_blocks.is_empty() {
+			if let Some((hash, number, skip_proofs)) = self.pending_state_sync_attempt.take() {
+				self.attempt_state_sync(hash, number, skip_proofs);
+			}
+		}
+
+		let block_requests = self
+			.block_requests()
+			.into_iter()
+			.map(|(peer_id, request)| self.create_block_request_action(peer_id, request))
+			.collect::<Vec<_>>();
+		self.actions.extend(block_requests);
+
+		let justification_requests = self
+			.justification_requests()
+			.into_iter()
+			.map(|(peer_id, request)| self.create_block_request_action(peer_id, request))
+			.collect::<Vec<_>>();
+		self.actions.extend(justification_requests);
+
+		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
+			trace!(
+				target: LOG_TARGET,
+				"Created `StrategyRequest` to {peer_id}.",
+			);
+
+			let (tx, rx) = oneshot::channel();
+
+			network_service.start_request(
+				peer_id,
+				self.state_request_protocol_name.clone(),
+				request.encode_to_vec(),
+				tx,
+				IfDisconnected::ImmediateError,
+			);
+
+			SyncingAction::StartRequest {
+				peer_id,
+				key: Self::STRATEGY_KEY,
+				request: async move {
+					Ok(rx.await?.and_then(|(response, protocol_name)| {
+						Ok((Box::new(response) as Box<dyn Any + Send>, protocol_name))
+					}))
+				}
+				.boxed(),
+				remove_obsolete: false,
+			}
+		});
+		self.actions.extend(state_request);
+
+		Ok(std::mem::take(&mut self.actions))
+	}
+}
+
+impl<B, Client> ChainSync<B, Client>
+where
+	B: BlockT,
+	Client: HeaderBackend<B>
+		+ BlockBackend<B>
+		+ HeaderMetadata<B, Error = sp_blockchain::Error>
+		+ ProofProvider<B>
+		+ Send
+		+ Sync
+		+ 'static,
+{
+	/// Strategy key used by chain sync.
+	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("ChainSync");
+
+	/// Create a new instance.
+	pub fn new(
+		mode: ChainSyncMode,
+		client: Arc<Client>,
+		max_parallel_downloads: u32,
+		max_blocks_per_request: u32,
+		state_request_protocol_name: ProtocolName,
+		block_downloader: Arc<dyn BlockDownloader<B>>,
+		metrics_registry: Option<&Registry>,
+		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
+	) -> Result<Self, ClientError> {
+		let mut sync = Self {
+			client,
+			peers: HashMap::new(),
+			disconnected_peers: DisconnectedPeers::new(),
+			blocks: BlockCollection::new(),
+			best_queued_hash: Default::default(),
+			best_queued_number: Zero::zero(),
+			extra_justifications: ExtraRequests::new("justification", metrics_registry),
+			mode,
+			queue_blocks: Default::default(),
+			pending_state_sync_attempt: None,
+			fork_targets: Default::default(),
+			allowed_requests: Default::default(),
+			max_parallel_downloads,
+			max_blocks_per_request,
+			state_request_protocol_name,
+			downloaded_blocks: 0,
+			state_sync: None,
+			import_existing: false,
+			block_downloader,
+			gap_sync: None,
+			actions: Vec::new(),
+			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
+				Ok(metrics) => Some(metrics),
+				Err(err) => {
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to register `ChainSync` metrics {err:?}",
+					);
+					None
+				},
+			}),
+		};
+
+		sync.reset_sync_start_point()?;
+		initial_peers.for_each(|(peer_id, best_hash, best_number)| {
+			sync.add_peer(peer_id, best_hash, best_number);
+		});
+
+		Ok(sync)
+	}
+
+	#[must_use]
+	fn add_peer_inner(
+		&mut self,
+		peer_id: PeerId,
+		best_hash: B::Hash,
+		best_number: NumberFor<B>,
+	) -> Result<Option<BlockRequest<B>>, BadPeer> {
+		// There is nothing sync can get from the node that has no blockchain data.
+		match self.block_status(&best_hash) {
+			Err(e) => {
+				debug!(target: LOG_TARGET, "Error reading blockchain: {e}");
+				Err(BadPeer(peer_id, rep::BLOCKCHAIN_READ_ERROR))
+			},
+			Ok(BlockStatus::KnownBad) => {
+				info!(
+					"💔 New peer {peer_id} with known bad best block {best_hash} ({best_number})."
+				);
+				Err(BadPeer(peer_id, rep::BAD_BLOCK))
+			},
+			Ok(BlockStatus::Unknown) => {
+				if best_number.is_zero() {
+					info!(
+						"💔 New peer {} with unknown genesis hash {} ({}).",
+						peer_id, best_hash, best_number,
+					);
+					return Err(BadPeer(peer_id, rep::GENESIS_MISMATCH));
+				}
+
+				// If there are more than `MAJOR_SYNC_BLOCKS` in the import queue then we have
+				// enough to do in the import queue that it's not worth kicking off
+				// an ancestor search, which is what we do in the next match case below.
+				if self.queue_blocks.len() > MAJOR_SYNC_BLOCKS as usize {
+					debug!(
+						target: LOG_TARGET,
+						"New peer {} with unknown best hash {} ({}), assuming common block.",
+						peer_id,
+						self.best_queued_hash,
+						self.best_queued_number
+					);
+					self.peers.insert(
+						peer_id,
+						PeerSync {
+							peer_id,
+							common_number: self.best_queued_number,
+							best_hash,
+							best_number,
+							state: PeerSyncState::Available,
+						},
+					);
+					return Ok(None);
+				}
+
+				// If we are at genesis, just start downloading.
+				let (state, req) = if self.best_queued_number.is_zero() {
+					debug!(
+						target: LOG_TARGET,
+						"New peer {peer_id} with best hash {best_hash} ({best_number}).",
+					);
+
+					(PeerSyncState::Available, None)
+				} else {
+					let common_best = std::cmp::min(self.best_queued_number, best_number);
+
+					debug!(
+						target: LOG_TARGET,
+						"New peer {} with unknown best hash {} ({}), searching for common ancestor.",
+						peer_id,
+						best_hash,
+						best_number
+					);
+
+					(
+						PeerSyncState::AncestorSearch {
+							current: common_best,
+							start: self.best_queued_number,
+							state: AncestorSearchState::ExponentialBackoff(One::one()),
+						},
+						Some(ancestry_request::<B>(common_best)),
+					)
+				};
+
+				self.allowed_requests.add(&peer_id);
+				self.peers.insert(
+					peer_id,
+					PeerSync {
+						peer_id,
+						common_number: Zero::zero(),
+						best_hash,
+						best_number,
+						state,
+					},
+				);
+
+				Ok(req)
+			},
+			Ok(BlockStatus::Queued) |
+			Ok(BlockStatus::InChainWithState) |
+			Ok(BlockStatus::InChainPruned) => {
+				debug!(
+					target: LOG_TARGET,
+					"New peer {peer_id} with known best hash {best_hash} ({best_number}).",
+				);
+				self.peers.insert(
+					peer_id,
+					PeerSync {
+						peer_id,
+						common_number: std::cmp::min(self.best_queued_number, best_number),
+						best_hash,
+						best_number,
+						state: PeerSyncState::Available,
+					},
+				);
+				self.allowed_requests.add(&peer_id);
+				Ok(None)
+			},
+		}
+	}
+
+	fn create_block_request_action(
+		&mut self,
+		peer_id: PeerId,
+		request: BlockRequest<B>,
+	) -> SyncingAction<B> {
+		let downloader = self.block_downloader.clone();
+
+		SyncingAction::StartRequest {
+			peer_id,
+			key: Self::STRATEGY_KEY,
+			request: async move {
+				Ok(downloader.download_blocks(peer_id, request.clone()).await?.and_then(
+					|(response, protocol_name)| {
+						let decoded_response =
+							downloader.block_response_into_blocks(&request, response);
+						let result = Box::new((request, decoded_response)) as Box<dyn Any + Send>;
+						Ok((result, protocol_name))
+					},
+				))
+			}
+			.boxed(),
+			// Sending block request implies dropping obsolete pending response as we are not
+			// interested in it anymore.
+			remove_obsolete: true,
+		}
+	}
+
+	/// Submit a block response for processing.
+	#[must_use]
+	fn on_block_data(
+		&mut self,
+		peer_id: &PeerId,
+		request: Option<BlockRequest<B>>,
+		response: BlockResponse<B>,
+	) -> Result<(), BadPeer> {
+		self.downloaded_blocks += response.blocks.len();
+		let mut gap = false;
+		let new_blocks: Vec<IncomingBlock<B>> = if let Some(peer) = self.peers.get_mut(peer_id) {
+			let mut blocks = response.blocks;
+			if request.as_ref().map_or(false, |r| r.direction == Direction::Descending) {
+				trace!(target: LOG_TARGET, "Reversing incoming block list");
+				blocks.reverse()
+			}
+			self.allowed_requests.add(peer_id);
+			if let Some(request) = request {
+				match &mut peer.state {
+					PeerSyncState::DownloadingNew(_) => {
+						self.blocks.clear_peer_download(peer_id);
+						peer.state = PeerSyncState::Available;
+						if let Some(start_block) =
+							validate_blocks::<B>(&blocks, peer_id, Some(request))?
+						{
+							self.blocks.insert(start_block, blocks, *peer_id);
+						}
+						self.ready_blocks()
+					},
+					PeerSyncState::DownloadingGap(_) => {
+						peer.state = PeerSyncState::Available;
+						if let Some(gap_sync) = &mut self.gap_sync {
+							gap_sync.blocks.clear_peer_download(peer_id);
+							if let Some(start_block) =
+								validate_blocks::<B>(&blocks, peer_id, Some(request))?
+							{
+								gap_sync.blocks.insert(start_block, blocks, *peer_id);
+							}
+							gap = true;
+							let blocks: Vec<_> = gap_sync
+								.blocks
+								.ready_blocks(gap_sync.best_queued_number + One::one())
+								.into_iter()
+								.map(|block_data| {
+									let justifications =
+										block_data.block.justifications.or_else(|| {
+											legacy_justification_mapping(
+												block_data.block.justification,
+											)
+										});
+									IncomingBlock {
+										hash: block_data.block.hash,
+										header: block_data.block.header,
+										body: block_data.block.body,
+										indexed_body: block_data.block.indexed_body,
+										justifications,
+										origin: block_data.origin,
+										allow_missing_state: true,
+										import_existing: self.import_existing,
+										skip_execution: true,
+										state: None,
+									}
+								})
+								.collect();
+							debug!(
+								target: LOG_TARGET,
+								"Drained {} gap blocks from {}",
+								blocks.len(),
+								gap_sync.best_queued_number,
+							);
+							blocks
+						} else {
+							debug!(target: LOG_TARGET, "Unexpected gap block response from {peer_id}");
+							return Err(BadPeer(*peer_id, rep::NO_BLOCK));
+						}
+					},
+					PeerSyncState::DownloadingStale(_) => {
+						peer.state = PeerSyncState::Available;
+						if blocks.is_empty() {
+							debug!(target: LOG_TARGET, "Empty block response from {peer_id}");
+							return Err(BadPeer(*peer_id, rep::NO_BLOCK));
+						}
+						validate_blocks::<B>(&blocks, peer_id, Some(request))?;
+						blocks
+							.into_iter()
+							.map(|b| {
+								let justifications = b
+									.justifications
+									.or_else(|| legacy_justification_mapping(b.justification));
+								IncomingBlock {
+									hash: b.hash,
+									header: b.header,
+									body: b.body,
+									indexed_body: None,
+									justifications,
+									origin: Some(*peer_id),
+									allow_missing_state: true,
+									import_existing: self.import_existing,
+									skip_execution: self.skip_execution(),
+									state: None,
+								}
+							})
+							.collect()
+					},
+					PeerSyncState::AncestorSearch { current, start, state } => {
+						let matching_hash = match (blocks.get(0), self.client.hash(*current)) {
+							(Some(block), Ok(maybe_our_block_hash)) => {
+								trace!(
+									target: LOG_TARGET,
+									"Got ancestry block #{} ({}) from peer {}",
+									current,
+									block.hash,
+									peer_id,
+								);
+								maybe_our_block_hash.filter(|x| x == &block.hash)
+							},
+							(None, _) => {
+								debug!(
+									target: LOG_TARGET,
+									"Invalid response when searching for ancestor from {peer_id}",
+								);
+								return Err(BadPeer(*peer_id, rep::UNKNOWN_ANCESTOR));
+							},
+							(_, Err(e)) => {
+								info!(
+									target: LOG_TARGET,
+									"❌ Error answering legitimate blockchain query: {e}",
+								);
+								return Err(BadPeer(*peer_id, rep::BLOCKCHAIN_READ_ERROR));
+							},
+						};
+						if matching_hash.is_some() {
+							if *start < self.best_queued_number &&
+								self.best_queued_number <= peer.best_number
+							{
+								// We've made progress on this chain since the search was started.
+								// Opportunistically set common number to updated number
+								// instead of the one that started the search.
+								trace!(
+									target: LOG_TARGET,
+									"Ancestry search: opportunistically updating peer {} common number from={} => to={}.",
+									*peer_id,
+									peer.common_number,
+									self.best_queued_number,
+								);
+								peer.common_number = self.best_queued_number;
+							} else if peer.common_number < *current {
+								trace!(
+									target: LOG_TARGET,
+									"Ancestry search: updating peer {} common number from={} => to={}.",
+									*peer_id,
+									peer.common_number,
+									*current,
+								);
+								peer.common_number = *current;
+							}
+						}
+						if matching_hash.is_none() && current.is_zero() {
+							trace!(
+								target: LOG_TARGET,
+								"Ancestry search: genesis mismatch for peer {peer_id}",
+							);
+							return Err(BadPeer(*peer_id, rep::GENESIS_MISMATCH));
+						}
+						if let Some((next_state, next_num)) =
+							handle_ancestor_search_state(state, *current, matching_hash.is_some())
+						{
+							peer.state = PeerSyncState::AncestorSearch {
+								current: next_num,
+								start: *start,
+								state: next_state,
+							};
+							let request = ancestry_request::<B>(next_num);
+							let action = self.create_block_request_action(*peer_id, request);
+							self.actions.push(action);
+							return Ok(());
+						} else {
+							// Ancestry search is complete. Check if peer is on a stale fork unknown
+							// to us and add it to sync targets if necessary.
+							trace!(
+								target: LOG_TARGET,
+								"Ancestry search complete. Ours={} ({}), Theirs={} ({}), Common={:?} ({})",
+								self.best_queued_hash,
+								self.best_queued_number,
+								peer.best_hash,
+								peer.best_number,
+								matching_hash,
+								peer.common_number,
+							);
+							if peer.common_number < peer.best_number &&
+								peer.best_number < self.best_queued_number
+							{
+								trace!(
+									target: LOG_TARGET,
+									"Added fork target {} for {}",
+									peer.best_hash,
+									peer_id,
+								);
+								self.fork_targets
+									.entry(peer.best_hash)
+									.or_insert_with(|| {
+										if let Some(metrics) = &self.metrics {
+											metrics.fork_targets.inc();
+										}
+
+										ForkTarget {
+											number: peer.best_number,
+											parent_hash: None,
+											peers: Default::default(),
+										}
+									})
+									.peers
+									.insert(*peer_id);
+							}
+							peer.state = PeerSyncState::Available;
+							return Ok(());
+						}
+					},
+					PeerSyncState::Available |
+					PeerSyncState::DownloadingJustification(..) |
+					PeerSyncState::DownloadingState => Vec::new(),
+				}
+			} else {
+				// When request.is_none() this is a block announcement. Just accept blocks.
+				validate_blocks::<B>(&blocks, peer_id, None)?;
+				blocks
+					.into_iter()
+					.map(|b| {
+						let justifications = b
+							.justifications
+							.or_else(|| legacy_justification_mapping(b.justification));
+						IncomingBlock {
+							hash: b.hash,
+							header: b.header,
+							body: b.body,
+							indexed_body: None,
+							justifications,
+							origin: Some(*peer_id),
+							allow_missing_state: true,
+							import_existing: false,
+							skip_execution: true,
+							state: None,
+						}
+					})
+					.collect()
+			}
+		} else {
+			// We don't know of this peer, so we also did not request anything from it.
+			return Err(BadPeer(*peer_id, rep::NOT_REQUESTED));
+		};
+
+		self.validate_and_queue_blocks(new_blocks, gap);
+
+		Ok(())
+	}
+
+	fn on_block_response(
+		&mut self,
+		peer_id: &PeerId,
+		key: StrategyKey,
+		request: BlockRequest<B>,
+		blocks: Vec<BlockData<B>>,
+	) -> Result<(), BadPeer> {
+		if key != Self::STRATEGY_KEY {
+			error!(
+				target: LOG_TARGET,
+				"`on_block_response()` called with unexpected key {key:?} for chain sync",
+			);
+			debug_assert!(false);
+		}
+		let block_response = BlockResponse::<B> { id: request.id, blocks };
+
+		let blocks_range = || match (
+			block_response
+				.blocks
+				.first()
+				.and_then(|b| b.header.as_ref().map(|h| h.number())),
+			block_response.blocks.last().and_then(|b| b.header.as_ref().map(|h| h.number())),
+		) {
+			(Some(first), Some(last)) if first != last => format!(" ({}..{})", first, last),
+			(Some(first), Some(_)) => format!(" ({})", first),
+			_ => Default::default(),
+		};
+		trace!(
+			target: LOG_TARGET,
+			"BlockResponse {} from {} with {} blocks {}",
+			block_response.id,
+			peer_id,
+			block_response.blocks.len(),
+			blocks_range(),
+		);
+
+		if request.fields == BlockAttributes::JUSTIFICATION {
+			self.on_block_justification(*peer_id, block_response)
+		} else {
+			self.on_block_data(peer_id, Some(request), block_response)
+		}
+	}
+
+	/// Submit a justification response for processing.
+	#[must_use]
+	fn on_block_justification(
+		&mut self,
+		peer_id: PeerId,
+		response: BlockResponse<B>,
+	) -> Result<(), BadPeer> {
+		let peer = if let Some(peer) = self.peers.get_mut(&peer_id) {
+			peer
+		} else {
+			error!(
+				target: LOG_TARGET,
+				"💔 Called on_block_justification with a peer ID of an unknown peer",
+			);
+			return Ok(());
+		};
+
+		self.allowed_requests.add(&peer_id);
+		if let PeerSyncState::DownloadingJustification(hash) = peer.state {
+			peer.state = PeerSyncState::Available;
+
+			// We only request one justification at a time
+			let justification = if let Some(block) = response.blocks.into_iter().next() {
+				if hash != block.hash {
+					warn!(
+						target: LOG_TARGET,
+						"💔 Invalid block justification provided by {}: requested: {:?} got: {:?}",
+						peer_id,
+						hash,
+						block.hash,
+					);
+					return Err(BadPeer(peer_id, rep::BAD_JUSTIFICATION));
+				}
+
+				block
+					.justifications
+					.or_else(|| legacy_justification_mapping(block.justification))
+			} else {
+				// we might have asked the peer for a justification on a block that we assumed it
+				// had but didn't (regardless of whether it had a justification for it or not).
+				trace!(
+					target: LOG_TARGET,
+					"Peer {peer_id:?} provided empty response for justification request {hash:?}",
+				);
+
+				None
+			};
+
+			if let Some((peer_id, hash, number, justifications)) =
+				self.extra_justifications.on_response(peer_id, justification)
+			{
+				self.actions.push(SyncingAction::ImportJustifications {
+					peer_id,
+					hash,
+					number,
+					justifications,
+				});
+				return Ok(());
+			}
+		}
+
+		Ok(())
+	}
+
+>>>>>>> 9a901f3f (fix(substrate/client): cast `MAJOR_SYNC_BLOCKS` to usize (#8094))
 	/// Returns the median seen block number.
 	fn median_seen(&self) -> Option<NumberFor<B>> {
 		let mut best_seens = self.peers.values().map(|p| p.best_number).collect::<Vec<_>>();
@@ -1562,7 +2259,7 @@ where
 					MAX_BLOCKS_TO_LOOK_BACKWARDS.into() &&
 					best_queued < peer.best_number &&
 					peer.common_number < last_finalized &&
-					queue_blocks.len() <= MAJOR_SYNC_BLOCKS.into()
+					queue_blocks.len() <= MAJOR_SYNC_BLOCKS as usize
 				{
 					trace!(
 						target: LOG_TARGET,
