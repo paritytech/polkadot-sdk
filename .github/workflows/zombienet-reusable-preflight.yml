@@ -240,6 +240,7 @@ jobs:
           gh --version
           export SHA=${{ github.event.pull_request.head.sha }}
           if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+          DELAYER=10
           while true; do
             STATUS=$(gh run ls -c $SHA -w "Build and push images" --json name,status --jq '.[] | select(.name == "Build and push images") | .status')
             echo "CI workflow status: $STATUS"
@@ -251,7 +252,8 @@ jobs:
               echo "::warning::No CI workflow runs found for this commit"
               exit 1
             fi
-            sleep 10
+            sleep $((60 * DELAYER))
+            DELAYER=1
           done
 
           #check if the build succeeded
