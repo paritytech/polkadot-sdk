@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
@@ -31,11 +31,10 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 #[cfg(feature = "experimental-ump-signals")]
 use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
-
+use sp_core::H256;
+use sp_runtime::traits::{BlakeTwo256, Block as BlockT, Header as HeaderT};
+use sp_trie::{recorder::IgnoredNodes, StorageProof};
 use std::{env, process::Command};
-
-use crate::validate_block::MemoryOptimizedValidationParams;
 
 fn call_validate_block_validation_result(
 	validation_code: &[u8],
@@ -100,7 +99,7 @@ fn create_test_client() -> (Client, Header) {
 fn create_elastic_scaling_test_client() -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
 	builder.genesis_init_mut().wasm = Some(
-		test_runtime::elastic_scaling::WASM_BINARY
+		test_runtime::elastic_scaling_multi_block_slot::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec(),
 	);
@@ -153,14 +152,14 @@ fn build_multiple_blocks_with_witness(
 	mut sproof_builder: RelayStateSproofBuilder,
 	num_blocks: usize,
 ) -> TestBlockData {
-	sproof_builder.para_id = test_runtime::PARACHAIN_ID.into();
-	sproof_builder.included_para_head = Some(HeadData(parent_head.encode()));
-	sproof_builder.current_slot = (std::time::SystemTime::now()
+	let timestamp = std::time::SystemTime::now()
 		.duration_since(std::time::SystemTime::UNIX_EPOCH)
 		.expect("Time is always after UNIX_EPOCH; qed")
-		.as_millis() as u64 /
-		6000)
-		.into();
+		.as_millis() as u64;
+	let parent_head_root = *parent_head.state_root();
+	sproof_builder.para_id = test_runtime::PARACHAIN_ID.into();
+	sproof_builder.included_para_head = Some(HeadData(parent_head.encode()));
+	sproof_builder.current_slot = (timestamp / 6000).into();
 
 	let validation_data = PersistedValidationData {
 		relay_parent_number: 1,
@@ -170,32 +169,46 @@ fn build_multiple_blocks_with_witness(
 
 	let mut persisted_validation_data = None;
 	let mut blocks = Vec::new();
-	//TODO: Fix this, not correct.
-	let mut proof = None;
+	let mut proof = StorageProof::empty();
+	let mut ignored_nodes = IgnoredNodes::<H256>::default();
 
 	for _ in 0..num_blocks {
 		let cumulus_test_client::BlockBuilderAndSupportData {
 			block_builder,
 			persisted_validation_data: p_v_data,
-		} = client.init_block_builder(Some(validation_data.clone()), sproof_builder.clone());
+		} = client.init_block_builder_with_ignored_nodes(
+			parent_head.hash(),
+			Some(validation_data.clone()),
+			sproof_builder.clone(),
+			timestamp,
+			ignored_nodes.clone(),
+		);
 
 		persisted_validation_data = Some(p_v_data);
 
-		let (build_blocks, build_proof) =
-			block_builder.build_parachain_block(*parent_head.state_root()).into_inner();
+		let built_block = block_builder.build().unwrap();
 
-		proof.get_or_insert_with(|| build_proof);
+		ignored_nodes.extend(&IgnoredNodes::from_storage_proof::<BlakeTwo256>(
+			&built_block.proof.clone().unwrap(),
+		));
+		ignored_nodes
+			.extend(&IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
+		proof = StorageProof::merge([proof, built_block.proof.unwrap()]);
 
-		blocks.extend(build_blocks.into_iter().inspect(|b| {
-			futures::executor::block_on(client.import_as_best(BlockOrigin::Own, b.clone()))
-				.unwrap();
+		futures::executor::block_on(
+			client.import_as_best(BlockOrigin::Own, built_block.block.clone()),
+		)
+		.unwrap();
 
-			parent_head = b.header.clone();
-		}));
+		parent_head = built_block.block.header.clone();
+
+		blocks.push(built_block.block);
 	}
 
+	let proof = proof.into_compact_proof::<BlakeTwo256>(parent_head_root).unwrap();
+
 	TestBlockData {
-		block: ParachainBlockData::new(blocks, proof.unwrap()),
+		block: ParachainBlockData::new(blocks, proof),
 		validation_data: persisted_validation_data.unwrap(),
 	}
 }
@@ -217,7 +230,6 @@ fn validate_block_works() {
 }
 
 #[test]
-#[ignore = "Needs another pr to work"]
 fn validate_multiple_blocks_work() {
 	sp_tracing::try_init_simple();
 

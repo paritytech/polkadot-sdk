@@ -528,6 +528,9 @@ pub use sp_api_proc_macro::mock_impl_runtime_apis;
 pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>>;
 
 #[cfg(feature = "std")]
+pub type ProofRecorderIgnoredNodes<B> = sp_trie::recorder::IgnoredNodes<<B as BlockT>::Hash>;
+
+#[cfg(feature = "std")]
 pub type StorageChanges<Block> = sp_state_machine::StorageChanges<HashingFor<Block>>;
 
 /// Something that can be constructed to a runtime api.
