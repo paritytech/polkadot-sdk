@@ -92,22 +92,10 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub reinitialize: bool,
 	/// Drift slots by a fixed duration. This can be used to create more preferrable authoring
 	/// timings.
-<<<<<<< HEAD
 	pub slot_drift: Duration,
-=======
-	pub slot_offset: Duration,
-	/// The handle returned by [`SlotBasedBlockImport`].
-	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
-	/// Spawner for spawning futures.
-	pub spawner: Spawner,
-	/// Slot duration of the relay chain
-	pub relay_chain_slot_duration: Duration,
-	/// When set, the collator will export every produced `POV` to this folder.
-	pub export_pov: Option<PathBuf>,
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
->>>>>>> 0dded09 (Make the default 85% usage of the PoV (#8040))
 }
 
 /// Run aura-based block building and collation task.
@@ -139,31 +127,6 @@ where
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-<<<<<<< HEAD
-=======
-	let Params {
-		create_inherent_data_providers,
-		block_import,
-		para_client,
-		para_backend,
-		relay_client,
-		code_hash_provider,
-		keystore,
-		collator_key,
-		para_id,
-		proposer,
-		collator_service,
-		authoring_duration,
-		reinitialize,
-		slot_offset,
-		block_import_handle,
-		spawner,
-		export_pov,
-		relay_chain_slot_duration,
-		max_pov_percentage,
-	} = params;
-
->>>>>>> 0dded09 (Make the default 85% usage of the PoV (#8040))
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
 		relay_client: params.relay_client.clone(),
@@ -189,13 +152,8 @@ where
 		collator_service: params.collator_service,
 		authoring_duration: params.authoring_duration,
 		collator_sender: tx,
-<<<<<<< HEAD
 		slot_drift: params.slot_drift,
-=======
-		relay_chain_slot_duration,
-		slot_offset,
 		max_pov_percentage,
->>>>>>> 0dded09 (Make the default 85% usage of the PoV (#8040))
 	};
 
 	let block_builder_fut =
