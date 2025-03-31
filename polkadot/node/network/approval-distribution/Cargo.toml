@@ -35,8 +35,8 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 
 assert_matches = { workspace = true }
-schnorrkel = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }
+schnorrkel = { workspace = true }
 # rand_core should match schnorrkel
 rand_core = { workspace = true }
 sp-tracing = { workspace = true }
