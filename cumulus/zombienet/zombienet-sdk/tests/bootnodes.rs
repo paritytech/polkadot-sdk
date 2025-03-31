@@ -26,10 +26,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("asset-hub-rococo-local")
-				// TODO: uncomment the following line when
-				// https://github.com/paritytech/zombienet-sdk/pull/319 is merged.
-				// This is critical for this test to make sense.
-				//.without_default_bootnodes()
+				// Do not put bootnodes into the chain-spec nor command line arguments.
+				.without_default_bootnodes()
 				// Disable mdns to rely only on DHT bootnode discovery mechanism.
 				.with_default_args(vec![
 					"-lbootnodes=trace".into(),
