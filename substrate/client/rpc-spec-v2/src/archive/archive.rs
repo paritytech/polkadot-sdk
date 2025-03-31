@@ -20,7 +20,9 @@
 
 use crate::{
 	archive::{
-		archive_storage::ArchiveStorageDiff, error::{Error as ArchiveError, Infallible}, ArchiveApiServer,
+		archive_storage::ArchiveStorageDiff,
+		error::{Error as ArchiveError, Infallible},
+		ArchiveApiServer,
 	},
 	common::{
 		events::{
@@ -33,10 +35,7 @@ use crate::{
 
 use codec::Encode;
 use futures::FutureExt;
-use jsonrpsee::{
-	core::async_trait,
-	PendingSubscriptionSink,
-};
+use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,

@@ -19,11 +19,11 @@
 //! API trait of the archive methods.
 
 use crate::{
+	archive::error::{Error, Infallible},
 	common::events::{
 		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageEvent, StorageQuery,
 	},
 	MethodResult,
-	archive::error::{Error, Infallible},
 };
 use jsonrpsee::proc_macros::rpc;
 
