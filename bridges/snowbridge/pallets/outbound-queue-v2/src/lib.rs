@@ -94,7 +94,7 @@ use sp_runtime::{
 	DigestItem,
 };
 use sp_std::prelude::*;
-pub use types::{PendingOrder, ProcessMessageOriginOf, OnNewCommitment};
+pub use types::{OnNewCommitment, PendingOrder, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
 use xcm::prelude::NetworkId;
 

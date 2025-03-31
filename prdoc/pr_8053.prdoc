@@ -5,6 +5,6 @@ doc:
     Add a simple hook to outbound-queue-v2 pallet which allows to perform actions whenever there is a new commitment.
 crates: 
 - name: snowbridge-pallet-outbound-queue-v2
-  bump: minor
+  bump: major
 - name: bridge-hub-westend-runtime
-  bump: minor
+  bump: major
