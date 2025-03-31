@@ -13182,17 +13182,12 @@ name = "pallet-tx-pause"
 version = "9.0.0"
 dependencies = [
  "docify",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
  "pallet-balances",
  "pallet-proxy",
  "pallet-utility",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -14148,7 +14143,6 @@ dependencies = [
 name = "polkadot-availability-bitfield-distribution"
 version = "7.0.0"
 dependencies = [
- "always-assert",
  "assert_matches",
  "bitvec",
  "futures",
