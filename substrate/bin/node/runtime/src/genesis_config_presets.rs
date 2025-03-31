@@ -160,7 +160,7 @@ pub fn preset_names() -> Vec<PresetId> {
 
 /// Sets up the `account` to be a staker of validator variant as supplied to the
 /// staking config.
-fn validator(account: AccountId) -> Staker {
+pub fn validator(account: AccountId) -> Staker {
 	// validator, controller, stash, staker status
 	(account.clone(), account, STASH, StakerStatus::Validator)
 }
@@ -179,7 +179,7 @@ fn collective(endowed: &[AccountId]) -> Vec<AccountId> {
 /// The Keyring's wellknown accounts + Alith and Baltathar.
 ///
 /// Some integration tests require these ETH accounts.
-fn well_known_including_eth_accounts() -> Vec<AccountId> {
+pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
 	Sr25519Keyring::well_known()
 		.map(|k| k.to_account_id())
 		.chain([
@@ -198,7 +198,7 @@ fn well_known_including_eth_accounts() -> Vec<AccountId> {
 /// Helper function to generate stash, controller and session key from seed.
 ///
 /// Note: `//` is prepended internally.
-fn authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, SessionKeys) {
+pub fn authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, SessionKeys) {
 	(
 		get_public_from_string_or_panic::<sr25519::Public>(&alloc::format!("{seed}//stash")).into(),
 		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
@@ -221,7 +221,7 @@ pub fn session_keys(
 /// account keyring into these ids.
 ///
 /// Note: `//` is prepended internally.
-fn session_keys_from_seed(seed: &str) -> SessionKeys {
+pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	session_keys(
 		get_public_from_string_or_panic::<GrandpaId>(seed),
 		get_public_from_string_or_panic::<BabeId>(seed),
