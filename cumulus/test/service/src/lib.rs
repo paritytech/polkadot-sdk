@@ -496,15 +496,8 @@ where
 					collator_service,
 					authoring_duration: Duration::from_millis(2000),
 					reinitialize: false,
-<<<<<<< HEAD
 					slot_drift: Duration::from_secs(1),
-=======
-					slot_offset: Duration::from_secs(1),
-					block_import_handle: slot_based_handle,
-					spawner: task_manager.spawn_handle(),
-					export_pov: None,
 					max_pov_percentage: None,
->>>>>>> 0dded09 (Make the default 85% usage of the PoV (#8040))
 				};
 
 				let (collation_future, block_builder_future) =

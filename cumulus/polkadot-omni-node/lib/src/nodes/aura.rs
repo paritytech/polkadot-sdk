@@ -334,15 +334,8 @@ where
 			collator_service,
 			authoring_duration: Duration::from_millis(2000),
 			reinitialize: false,
-<<<<<<< HEAD
 			slot_drift: Duration::from_secs(1),
-=======
-			slot_offset: Duration::from_secs(1),
-			block_import_handle,
-			spawner: task_manager.spawn_handle(),
-			export_pov: node_extra_args.export_pov,
 			max_pov_percentage: node_extra_args.max_pov_percentage,
->>>>>>> 0dded09 (Make the default 85% usage of the PoV (#8040))
 		};
 
 		// We have a separate function only to be able to use `docify::export` on this piece of
