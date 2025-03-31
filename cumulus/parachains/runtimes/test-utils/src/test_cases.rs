@@ -36,7 +36,7 @@ use xcm_runtime_apis::fees::{
 };
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
-crate::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
+	crate::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
 
 /// Test-case makes sure that `Runtime` can change storage constant via governance-like call
 pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, StorageConstantType>(
@@ -47,13 +47,13 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 	new_storage_constant_value: fn(&StorageConstantType) -> StorageConstantType,
 ) where
 	Runtime: frame_system::Config
-	+ pallet_balances::Config
-	+ pallet_session::Config
-	+ pallet_xcm::Config
-	+ parachain_info::Config
-	+ pallet_collator_selection::Config
-	+ cumulus_pallet_parachain_system::Config
-	+ pallet_timestamp::Config,
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	StorageConstant: Get<StorageConstantType>,
 	StorageConstantType: Encode + PartialEq + std::fmt::Debug,
@@ -112,13 +112,13 @@ pub fn set_storage_keys_by_governance_works<Runtime>(
 	assert_storage: impl FnOnce() -> (),
 ) where
 	Runtime: frame_system::Config
-	+ pallet_balances::Config
-	+ pallet_session::Config
-	+ pallet_xcm::Config
-	+ parachain_info::Config
-	+ pallet_collator_selection::Config
-	+ cumulus_pallet_parachain_system::Config
-	+ pallet_timestamp::Config,
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 {
 	let mut runtime = ExtBuilder::<Runtime>::default()
@@ -151,19 +151,19 @@ pub fn set_storage_keys_by_governance_works<Runtime>(
 pub fn xcm_payment_api_with_native_token_works<Runtime, RuntimeCall, RuntimeOrigin, Block>()
 where
 	Runtime: XcmPaymentApiV1<Block>
-	+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
-	+ pallet_balances::Config<Balance = u128>
-	+ pallet_session::Config
-	+ pallet_xcm::Config
-	+ parachain_info::Config
-	+ pallet_collator_selection::Config
-	+ cumulus_pallet_parachain_system::Config
-	+ cumulus_pallet_xcmp_queue::Config
-	+ pallet_timestamp::Config,
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
+		+ pallet_balances::Config<Balance = u128>
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
-	From<<Runtime as frame_system::Config>::AccountId>,
+		From<<Runtime as frame_system::Config>::AccountId>,
 	Block: BlockT,
 {
 	use xcm::prelude::*;
@@ -212,7 +212,7 @@ pub fn can_governance_authorize_upgrade<Runtime, RuntimeOrigin>(
 ) -> Result<(), Either<DispatchError, XcmError>>
 where
 	Runtime: BasicParachainRuntime
-	+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>,
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>,
 {
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		// check before
