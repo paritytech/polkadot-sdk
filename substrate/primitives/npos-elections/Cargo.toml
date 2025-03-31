@@ -24,7 +24,6 @@ sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
-rand = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
 
 [features]
