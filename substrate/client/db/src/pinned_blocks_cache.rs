@@ -20,7 +20,7 @@ use schnellru::{Limiter, LruMap};
 use sp_runtime::{traits::Block as BlockT, Justifications};
 
 const LOG_TARGET: &str = "db::pin";
-const PINNING_CACHE_SIZE: usize = 1024;
+const PINNING_CACHE_SIZE: usize = 2048;
 
 /// Entry for pinned blocks cache.
 struct PinnedBlockCacheEntry<Block: BlockT> {

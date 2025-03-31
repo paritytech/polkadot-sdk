@@ -1,28 +1,30 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Cumulus related core primitive types and traits.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+extern crate alloc;
+
+use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
 
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
@@ -30,6 +32,7 @@ pub use polkadot_parachain_primitives::primitives::{
 	XcmpMessageHandler,
 };
 pub use polkadot_primitives::{
+	vstaging::{ClaimQueueOffset, CoreSelector},
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
 
@@ -64,6 +67,8 @@ pub enum MessageSendError {
 	TooBig,
 	/// Some other error.
 	Other,
+	/// There are too many channels open at once.
+	TooManyChannels,
 }
 
 impl From<MessageSendError> for &'static str {
@@ -74,12 +79,15 @@ impl From<MessageSendError> for &'static str {
 			NoChannel => "NoChannel",
 			TooBig => "TooBig",
 			Other => "Other",
+			TooManyChannels => "TooManyChannels",
 		}
 	}
 }
 
 /// The origin of an inbound message.
-#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug,
+)]
 pub enum AggregateMessageOrigin {
 	/// The message came from the para-chain itself.
 	Here,
@@ -133,6 +141,11 @@ pub struct ChannelInfo {
 pub trait GetChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus;
 	fn get_channel_info(id: ParaId) -> Option<ChannelInfo>;
+}
+
+/// List all open outgoing channels.
+pub trait ListChannelInfos {
+	fn outgoing_channels() -> Vec<ParaId>;
 }
 
 /// Something that should be called when sending an upward message.
@@ -194,7 +207,7 @@ pub struct ParachainBlockData<B: BlockT> {
 	/// The header of the parachain block.
 	header: B::Header,
 	/// The extrinsics of the parachain block.
-	extrinsics: sp_std::vec::Vec<B::Extrinsic>,
+	extrinsics: alloc::vec::Vec<B::Extrinsic>,
 	/// The data that is required to emulate the storage accesses executed by all extrinsics.
 	storage_proof: sp_trie::CompactProof,
 }
@@ -203,7 +216,7 @@ impl<B: BlockT> ParachainBlockData<B> {
 	/// Creates a new instance of `Self`.
 	pub fn new(
 		header: <B as BlockT>::Header,
-		extrinsics: sp_std::vec::Vec<<B as BlockT>::Extrinsic>,
+		extrinsics: alloc::vec::Vec<<B as BlockT>::Extrinsic>,
 		storage_proof: sp_trie::CompactProof,
 	) -> Self {
 		Self { header, extrinsics, storage_proof }
@@ -235,7 +248,7 @@ impl<B: BlockT> ParachainBlockData<B> {
 	}
 
 	/// Deconstruct into the inner parts.
-	pub fn deconstruct(self) -> (B::Header, sp_std::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
+	pub fn deconstruct(self) -> (B::Header, alloc::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
 		(self.header, self.extrinsics, self.storage_proof)
 	}
 }
@@ -384,5 +397,11 @@ sp_api::decl_runtime_apis! {
 		/// The given `header` is the header of the built block for that
 		/// we are collecting the collation info for.
 		fn collect_collation_info(header: &Block::Header) -> CollationInfo;
+	}
+
+	/// Runtime api used to select the core for which the next block will be built.
+	pub trait GetCoreSelectorApi {
+		/// Retrieve core selector and claim queue offset for the next block.
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
 	}
 }

@@ -5,11 +5,13 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Stores messages other authorities issue about candidates in Polkadot."
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-sp-core = { path = "../../substrate/primitives/core" }
-primitives = { package = "polkadot-primitives", path = "../primitives" }
+codec = { features = ["derive"], workspace = true }
+gum = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }

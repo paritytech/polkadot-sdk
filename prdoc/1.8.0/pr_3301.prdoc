@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: rpc server add rate limiting.
+
+doc:
+  - audience: Node Operator
+    description: |
+      Add rate limiting for RPC server which can be utilized by the CLI `--rpc-rate-limit <calls per minute>`
+      The rate-limiting is disabled by default.
+crates: [ ]

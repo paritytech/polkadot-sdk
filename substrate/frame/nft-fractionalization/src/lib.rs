@@ -56,6 +56,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use core::fmt::Display;
 	use frame_support::{
 		dispatch::DispatchResult,
 		ensure,
@@ -75,7 +76,7 @@ pub mod pallet {
 				AssetId, Balance as AssetBalance,
 				Fortitude::Polite,
 				Precision::{BestEffort, Exact},
-				Preservation::Preserve,
+				Preservation::{Expendable, Preserve},
 			},
 		},
 		BoundedVec, PalletId,
@@ -83,7 +84,6 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::{format, string::String};
 	use sp_runtime::traits::{One, Zero};
-	use sp_std::{fmt::Display, prelude::*};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -159,7 +159,6 @@ pub mod pallet {
 
 	/// Keeps track of the corresponding NFT ID, asset ID and amount minted.
 	#[pallet::storage]
-	#[pallet::getter(fn nft_to_asset)]
 	pub type NftToAsset<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -338,6 +337,13 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
+		/// Keeps track of the corresponding NFT ID, asset ID and amount minted.
+		pub fn nft_to_asset(
+			key: (T::NftCollectionId, T::NftId),
+		) -> Option<Details<AssetIdOf<T>, AssetBalanceOf<T>, DepositOf<T>, T::AccountId>> {
+			NftToAsset::<T>::get(key)
+		}
+
 		/// Prevent further transferring of NFT.
 		fn do_lock_nft(nft_collection_id: T::NftCollectionId, nft_id: T::NftId) -> DispatchResult {
 			T::Nfts::disable_transfer(&nft_collection_id, &nft_id)
@@ -374,7 +380,7 @@ pub mod pallet {
 			account: &T::AccountId,
 			amount: AssetBalanceOf<T>,
 		) -> DispatchResult {
-			T::Assets::burn_from(asset_id.clone(), account, amount, Exact, Polite)?;
+			T::Assets::burn_from(asset_id.clone(), account, amount, Expendable, Exact, Polite)?;
 			T::Assets::start_destroy(asset_id, None)
 		}
 

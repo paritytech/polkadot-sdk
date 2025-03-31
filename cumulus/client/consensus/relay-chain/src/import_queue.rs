@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use std::{marker::PhantomData, sync::Arc};
 
@@ -52,7 +53,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		block_params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
@@ -114,7 +115,7 @@ pub fn import_queue<Client, Block: BlockT, I, CIDP>(
 	block_import: I,
 	create_inherent_data_providers: CIDP,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
-	registry: Option<&substrate_prometheus_endpoint::Registry>,
+	registry: Option<&prometheus_endpoint::Registry>,
 ) -> ClientResult<BasicQueue<Block>>
 where
 	I: BlockImport<Block, Error = ConsensusError>

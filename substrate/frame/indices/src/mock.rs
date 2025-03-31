@@ -20,14 +20,14 @@
 #![cfg(test)]
 
 use crate::{self as pallet_indices, Config};
-use frame_support::{
-	derive_impl,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::H256;
+use frame_support::{derive_impl, parameter_types};
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
+
+parameter_types! {
+	pub static IndexDeposit: u64 = 1;
+}
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -38,53 +38,23 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
-	type AccountId = u64;
 	type Lookup = Indices;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl Config for Test {
 	type AccountIndex = u64;
 	type Currency = Balances;
-	type Deposit = ConstU64<1>;
+	type Deposit = IndexDeposit;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
@@ -93,8 +63,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+	// Initialize the block number to 1 for event registration
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

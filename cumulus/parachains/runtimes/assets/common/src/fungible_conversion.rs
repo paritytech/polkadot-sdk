@@ -16,9 +16,10 @@
 //! Runtime API definition for assets.
 
 use crate::runtime_api::FungiblesAccessError;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
 use frame_support::traits::Contains;
 use sp_runtime::traits::MaybeEquivalence;
-use sp_std::{borrow::Borrow, vec::Vec};
 use xcm::latest::{Asset, Location};
 use xcm_builder::{ConvertedConcreteId, MatchedConvertedConcreteId};
 use xcm_executor::traits::MatchesFungibles;
@@ -116,7 +117,7 @@ impl<
 		for_tuples!( #(
 			match Tuple::contains(location) { o @ true => return o, _ => () }
 		)* );
-		log::trace!(target: "xcm::contains", "did not match location: {:?}", &location);
+		tracing::trace!(target: "xcm::contains", ?location, "MatchesLocation: no match");
 		false
 	}
 }

@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add elastic scaling MVP guide
+
+doc:
+  - audience: Node Operator
+    description: |
+      Adds a guide for parachains that want to use the experimental elastic scaling MVP.
+      Will be viewable at: https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/enable_elastic_scaling_mvp/index.html
+
+crates:
+  - name: polkadot-parachain-bin
+    bump: none

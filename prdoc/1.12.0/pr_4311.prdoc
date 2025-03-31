@@ -1,0 +1,9 @@
+title: Not allow reap stash for virtual stakers.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Add guards to staking dispathables to prevent virtual stakers to be reaped.
+
+crates:
+- name: pallet-staking

@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,23 +9,28 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use std::pin::Pin;
+use std::{
+	collections::{BTreeMap, VecDeque},
+	pin::Pin,
+};
 
+use cumulus_primitives_core::{InboundDownwardMessage, ParaId, PersistedValidationData};
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
 use cumulus_relay_chain_rpc_interface::RelayChainRpcClient;
 use futures::{Stream, StreamExt};
 use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_primitives::{
-	async_backing::{AsyncBackingParams, BackingState},
+	async_backing::AsyncBackingParams,
 	slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures},
+	vstaging::async_backing::{BackingState, Constraints},
+	ApprovalVotingParams, CoreIndex, NodeFeatures,
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sc_client_api::AuxStore;
@@ -130,7 +136,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	) -> Result<
 		(
 			Vec<Vec<polkadot_primitives::ValidatorIndex>>,
-			polkadot_primitives::GroupRotationInfo<polkadot_core_primitives::BlockNumber>,
+			polkadot_primitives::GroupRotationInfo<BlockNumber>,
 		),
 		sp_api::ApiError,
 	> {
@@ -141,7 +147,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		&self,
 		at: Hash,
 	) -> Result<
-		Vec<polkadot_primitives::CoreState<Hash, polkadot_core_primitives::BlockNumber>>,
+		Vec<polkadot_primitives::vstaging::CoreState<Hash, polkadot_core_primitives::BlockNumber>>,
 		sp_api::ApiError,
 	> {
 		Ok(self.rpc_client.parachain_host_availability_cores(at).await?)
@@ -150,17 +156,9 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn persisted_validation_data(
 		&self,
 		at: Hash,
-		para_id: cumulus_primitives_core::ParaId,
+		para_id: ParaId,
 		assumption: polkadot_primitives::OccupiedCoreAssumption,
-	) -> Result<
-		Option<
-			cumulus_primitives_core::PersistedValidationData<
-				Hash,
-				polkadot_core_primitives::BlockNumber,
-			>,
-		>,
-		sp_api::ApiError,
-	> {
+	) -> Result<Option<PersistedValidationData<Hash, BlockNumber>>, sp_api::ApiError> {
 		Ok(self
 			.rpc_client
 			.parachain_host_persisted_validation_data(at, para_id, assumption)
@@ -170,14 +168,11 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn assumed_validation_data(
 		&self,
 		at: Hash,
-		para_id: cumulus_primitives_core::ParaId,
+		para_id: ParaId,
 		expected_persisted_validation_data_hash: Hash,
 	) -> Result<
 		Option<(
-			cumulus_primitives_core::PersistedValidationData<
-				Hash,
-				polkadot_core_primitives::BlockNumber,
-			>,
+			PersistedValidationData<Hash, BlockNumber>,
 			polkadot_primitives::ValidationCodeHash,
 		)>,
 		sp_api::ApiError,
@@ -195,7 +190,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn check_validation_outputs(
 		&self,
 		at: Hash,
-		para_id: cumulus_primitives_core::ParaId,
+		para_id: ParaId,
 		outputs: polkadot_primitives::CandidateCommitments,
 	) -> Result<bool, sp_api::ApiError> {
 		Ok(self
@@ -214,7 +209,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn validation_code(
 		&self,
 		at: Hash,
-		para_id: cumulus_primitives_core::ParaId,
+		para_id: ParaId,
 		assumption: polkadot_primitives::OccupiedCoreAssumption,
 	) -> Result<Option<polkadot_primitives::ValidationCode>, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_validation_code(at, para_id, assumption).await?)
@@ -224,7 +219,10 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		&self,
 		at: Hash,
 		para_id: cumulus_primitives_core::ParaId,
-	) -> Result<Option<polkadot_primitives::CommittedCandidateReceipt<Hash>>, sp_api::ApiError> {
+	) -> Result<
+		Option<polkadot_primitives::vstaging::CommittedCandidateReceiptV2<Hash>>,
+		sp_api::ApiError,
+	> {
 		Ok(self
 			.rpc_client
 			.parachain_host_candidate_pending_availability(at, para_id)
@@ -234,31 +232,26 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn candidate_events(
 		&self,
 		at: Hash,
-	) -> Result<Vec<polkadot_primitives::CandidateEvent<Hash>>, sp_api::ApiError> {
+	) -> Result<Vec<polkadot_primitives::vstaging::CandidateEvent<Hash>>, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_candidate_events(at).await?)
 	}
 
 	async fn dmq_contents(
 		&self,
 		at: Hash,
-		recipient: cumulus_primitives_core::ParaId,
-	) -> Result<
-		Vec<cumulus_primitives_core::InboundDownwardMessage<polkadot_core_primitives::BlockNumber>>,
-		sp_api::ApiError,
-	> {
+		recipient: ParaId,
+	) -> Result<Vec<InboundDownwardMessage<BlockNumber>>, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_dmq_contents(recipient, at).await?)
 	}
 
 	async fn inbound_hrmp_channels_contents(
 		&self,
 		at: Hash,
-		recipient: cumulus_primitives_core::ParaId,
+		recipient: ParaId,
 	) -> Result<
 		std::collections::BTreeMap<
-			cumulus_primitives_core::ParaId,
-			Vec<
-				polkadot_core_primitives::InboundHrmpMessage<polkadot_core_primitives::BlockNumber>,
-			>,
+			ParaId,
+			Vec<polkadot_core_primitives::InboundHrmpMessage<BlockNumber>>,
 		>,
 		sp_api::ApiError,
 	> {
@@ -282,7 +275,8 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn on_chain_votes(
 		&self,
 		at: Hash,
-	) -> Result<Option<polkadot_primitives::ScrapedOnChainVotes<Hash>>, sp_api::ApiError> {
+	) -> Result<Option<polkadot_primitives::vstaging::ScrapedOnChainVotes<Hash>>, sp_api::ApiError>
+	{
 		Ok(self.rpc_client.parachain_host_on_chain_votes(at).await?)
 	}
 
@@ -327,7 +321,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn validation_code_hash(
 		&self,
 		at: Hash,
-		para_id: cumulus_primitives_core::ParaId,
+		para_id: ParaId,
 		assumption: polkadot_primitives::OccupiedCoreAssumption,
 	) -> Result<Option<polkadot_primitives::ValidationCodeHash>, sp_api::ApiError> {
 		Ok(self
@@ -422,7 +416,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn para_backing_state(
 		&self,
 		at: Hash,
-		para_id: cumulus_primitives_core::ParaId,
+		para_id: ParaId,
 	) -> Result<Option<BackingState>, ApiError> {
 		Ok(self.rpc_client.parachain_host_para_backing_state(at, para_id).await?)
 	}
@@ -441,6 +435,43 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 
 	async fn node_features(&self, at: Hash) -> Result<NodeFeatures, ApiError> {
 		Ok(self.rpc_client.parachain_host_node_features(at).await?)
+	}
+
+	async fn claim_queue(
+		&self,
+		at: Hash,
+	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, ApiError> {
+		Ok(self.rpc_client.parachain_host_claim_queue(at).await?)
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		at: Hash,
+		para_id: cumulus_primitives_core::ParaId,
+	) -> Result<
+		Vec<polkadot_primitives::vstaging::CommittedCandidateReceiptV2<Hash>>,
+		sp_api::ApiError,
+	> {
+		Ok(self
+			.rpc_client
+			.parachain_host_candidates_pending_availability(at, para_id)
+			.await?)
+	}
+
+	async fn backing_constraints(
+		&self,
+		at: Hash,
+		para_id: ParaId,
+	) -> Result<Option<Constraints>, ApiError> {
+		Ok(self.rpc_client.parachain_host_backing_constraints(at, para_id).await?)
+	}
+
+	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, sp_api::ApiError> {
+		Ok(self.rpc_client.parachain_host_scheduling_lookahead(at).await?)
+	}
+
+	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, sp_api::ApiError> {
+		Ok(self.rpc_client.parachain_host_validation_code_bomb_limit(at).await?)
 	}
 }
 

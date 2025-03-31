@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,36 +9,42 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::channel::{
 	mpsc::{Receiver, Sender},
 	oneshot::Sender as OneshotSender,
 };
 use jsonrpsee::{
-	core::{params::ArrayParams, Error as JsonRpseeError},
+	core::{params::ArrayParams, ClientError as JsonRpseeError},
 	rpc_params,
 };
-use serde::de::DeserializeOwned;
+use prometheus::Registry;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value as JsonValue;
+use std::collections::{btree_map::BTreeMap, VecDeque};
 use tokio::sync::mpsc::Sender as TokioSender;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
-		async_backing::{AsyncBackingParams, BackingState},
+		async_backing::AsyncBackingParams,
 		slashing,
-		vstaging::{ApprovalVotingParams, NodeFeatures},
-		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
-		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
-		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+		vstaging::{
+			async_backing::{BackingState, Constraints},
+			CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+			ScrapedOnChainVotes,
+		},
+		ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
+		DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
+		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement, SessionIndex,
+		SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+		ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -47,12 +54,12 @@ use sc_client_api::StorageData;
 use sc_rpc_api::{state::ReadProof, system::Health};
 use sc_service::TaskManager;
 use sp_consensus_babe::Epoch;
-use sp_core::sp_std::collections::btree_map::BTreeMap;
 use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
 
 use crate::{
 	light_client_worker::{build_smoldot_client, LightClientRpcWorker},
+	metrics::RelaychainRpcMetrics,
 	reconnecting_ws_client::ReconnectingWebsocketWorker,
 };
 pub use url::Url;
@@ -88,6 +95,7 @@ pub enum RpcDispatcherMessage {
 pub async fn create_client_and_start_worker(
 	urls: Vec<Url>,
 	task_manager: &mut TaskManager,
+	prometheus_registry: Option<&Registry>,
 ) -> RelayChainResult<RelayChainRpcClient> {
 	let (worker, sender) = ReconnectingWebsocketWorker::new(urls).await;
 
@@ -95,7 +103,7 @@ pub async fn create_client_and_start_worker(
 		.spawn_essential_handle()
 		.spawn("relay-chain-rpc-worker", None, worker.run());
 
-	let client = RelayChainRpcClient::new(sender);
+	let client = RelayChainRpcClient::new(sender, prometheus_registry);
 
 	Ok(client)
 }
@@ -114,16 +122,21 @@ pub async fn create_client_and_start_light_client_worker(
 		.spawn_essential_handle()
 		.spawn("relay-light-client-worker", None, worker.run());
 
-	let client = RelayChainRpcClient::new(sender);
+	// We'll not setup prometheus exporter metrics for the light client worker.
+	let client = RelayChainRpcClient::new(sender, None);
 
 	Ok(client)
 }
+
+#[derive(Serialize)]
+struct PayloadToHex<'a>(#[serde(with = "sp_core::bytes")] &'a [u8]);
 
 /// Client that maps RPC methods and deserializes results
 #[derive(Clone)]
 pub struct RelayChainRpcClient {
 	/// Sender to send messages to the worker.
 	worker_channel: TokioSender<RpcDispatcherMessage>,
+	metrics: Option<RelaychainRpcMetrics>,
 }
 
 impl RelayChainRpcClient {
@@ -131,8 +144,44 @@ impl RelayChainRpcClient {
 	///
 	/// This client expects a channel connected to a worker that processes
 	/// requests sent via this channel.
-	pub(crate) fn new(worker_channel: TokioSender<RpcDispatcherMessage>) -> Self {
-		RelayChainRpcClient { worker_channel }
+	pub(crate) fn new(
+		worker_channel: TokioSender<RpcDispatcherMessage>,
+		prometheus_registry: Option<&Registry>,
+	) -> Self {
+		RelayChainRpcClient {
+			worker_channel,
+			metrics: prometheus_registry
+				.and_then(|inner| RelaychainRpcMetrics::register(inner).map_err(|err| {
+					tracing::warn!(target: LOG_TARGET, error = %err, "Unable to instantiate the RPC client metrics, continuing w/o metrics setup.");
+				}).ok()),
+		}
+	}
+
+	/// Same as `call_remote_runtime_function` but work on encoded data
+	pub async fn call_remote_runtime_function_encoded(
+		&self,
+		method_name: &str,
+		hash: RelayHash,
+		payload: &[u8],
+	) -> RelayChainResult<sp_core::Bytes> {
+		let payload = PayloadToHex(payload);
+
+		let params = rpc_params! {
+			method_name,
+			payload,
+			hash
+		};
+
+		self.request_tracing::<sp_core::Bytes, _>("state_call", params, |err| {
+			tracing::trace!(
+				target: LOG_TARGET,
+				%method_name,
+				%hash,
+				error = %err,
+				"Error during call to 'state_call'.",
+			);
+		})
+		.await
 	}
 
 	/// Call a call to `state_call` rpc method.
@@ -144,21 +193,8 @@ impl RelayChainRpcClient {
 	) -> RelayChainResult<R> {
 		let payload_bytes =
 			payload.map_or(sp_core::Bytes(Vec::new()), |v| sp_core::Bytes(v.encode()));
-		let params = rpc_params! {
-			method_name,
-			payload_bytes,
-			hash
-		};
 		let res = self
-			.request_tracing::<sp_core::Bytes, _>("state_call", params, |err| {
-				tracing::trace!(
-					target: LOG_TARGET,
-					%method_name,
-					%hash,
-					error = %err,
-					"Error during call to 'state_call'.",
-				);
-			})
+			.call_remote_runtime_function_encoded(method_name, hash, &payload_bytes)
 			.await?;
 		Decode::decode(&mut &*res.0).map_err(Into::into)
 	}
@@ -191,6 +227,8 @@ impl RelayChainRpcClient {
 		R: DeserializeOwned + std::fmt::Debug,
 		OR: Fn(&RelayChainError),
 	{
+		let _timer = self.metrics.as_ref().map(|inner| inner.start_request_timer(method));
+
 		let (tx, rx) = futures::channel::oneshot::channel();
 
 		let message = RpcDispatcherMessage::Request(method.into(), params, tx);
@@ -644,6 +682,71 @@ impl RelayChainRpcClient {
 		para_id: ParaId,
 	) -> Result<Option<BackingState>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_para_backing_state", at, Some(para_id))
+			.await
+	}
+
+	pub async fn parachain_host_claim_queue(
+		&self,
+		at: RelayHash,
+	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_claim_queue", at, None::<()>)
+			.await
+	}
+
+	/// Get the receipt of all candidates pending availability.
+	pub async fn parachain_host_candidates_pending_availability(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+	) -> Result<Vec<CommittedCandidateReceipt>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_candidates_pending_availability",
+			at,
+			Some(para_id),
+		)
+		.await
+	}
+
+	pub async fn parachain_host_scheduling_lookahead(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_scheduling_lookahead", at, None::<()>)
+			.await
+	}
+
+	pub async fn parachain_host_validation_code_bomb_limit(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_validation_code_bomb_limit",
+			at,
+			None::<()>,
+		)
+		.await
+	}
+
+	pub async fn validation_code_hash(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> Result<Option<ValidationCodeHash>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_validation_code_hash",
+			at,
+			Some((para_id, occupied_core_assumption)),
+		)
+		.await
+	}
+
+	pub async fn parachain_host_backing_constraints(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+	) -> Result<Option<Constraints>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_backing_constraints", at, Some(para_id))
 			.await
 	}
 

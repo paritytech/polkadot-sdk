@@ -17,19 +17,17 @@
 
 //! Contains types to define hardware requirements.
 
-use lazy_static::lazy_static;
 use sc_sysinfo::Requirements;
+use std::sync::LazyLock;
 
-lazy_static! {
-	/// The hardware requirements as measured on reference hardware.
-	///
-	/// These values are provided by Parity, however it is possible
-	/// to use your own requirements if you are running a custom chain.
-	pub static ref SUBSTRATE_REFERENCE_HARDWARE: Requirements = {
-		let raw = include_bytes!("reference_hardware.json").as_slice();
-		serde_json::from_slice(raw).expect("Hardcoded data is known good; qed")
-	};
-}
+/// The hardware requirements as measured on reference hardware.
+///
+/// These values are provided by Parity, however it is possible
+/// to use your own requirements if you are running a custom chain.
+pub static SUBSTRATE_REFERENCE_HARDWARE: LazyLock<Requirements> = LazyLock::new(|| {
+	let raw = include_bytes!("reference_hardware.json").as_slice();
+	serde_json::from_slice(raw).expect("Hardcoded data is known good; qed")
+});
 
 #[cfg(test)]
 mod tests {
@@ -51,17 +49,36 @@ mod tests {
 		assert_eq!(
 			*SUBSTRATE_REFERENCE_HARDWARE,
 			Requirements(vec![
-				Requirement { metric: Metric::Blake2256, minimum: Throughput::from_mibs(783.27) },
+				Requirement {
+					metric: Metric::Blake2256,
+					minimum: Throughput::from_mibs(1000.00),
+					validator_only: false
+				},
+				Requirement {
+					metric: Metric::Blake2256Parallel { num_cores: 8 },
+					minimum: Throughput::from_mibs(1000.00),
+					validator_only: true,
+				},
 				Requirement {
 					metric: Metric::Sr25519Verify,
-					minimum: Throughput::from_kibs(560.670000128),
+					minimum: Throughput::from_kibs(637.619999744),
+					validator_only: false
 				},
 				Requirement {
 					metric: Metric::MemCopy,
 					minimum: Throughput::from_gibs(11.4925205078125003),
+					validator_only: false,
 				},
-				Requirement { metric: Metric::DiskSeqWrite, minimum: Throughput::from_mibs(950.0) },
-				Requirement { metric: Metric::DiskRndWrite, minimum: Throughput::from_mibs(420.0) },
+				Requirement {
+					metric: Metric::DiskSeqWrite,
+					minimum: Throughput::from_mibs(950.0),
+					validator_only: false,
+				},
+				Requirement {
+					metric: Metric::DiskRndWrite,
+					minimum: Throughput::from_mibs(420.0),
+					validator_only: false
+				},
 			])
 		);
 	}

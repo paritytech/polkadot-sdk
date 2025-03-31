@@ -1,0 +1,10 @@
+Description: User is able to transfer ROC from Rococo Asset Hub to Westend Asset Hub and back
+Network: {{ENV_PATH}}/bridge_hub_westend_local_network.toml
+Creds: config
+
+# send 3 wROC back to Alice from Westend AH to Rococo AH
+asset-hub-rococo-collator1: run {{ENV_PATH}}/helper.sh with "withdraw-reserve-assets-from-asset-hub-westend-local 3000000000000" within 120 seconds
+
+# check that //Alice received at least 2.8 wROC on Rococo AH
+# (we wait until //Alice account increases here - there are no other transactions that may increase it)
+asset-hub-rococo-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/native-assets-balance-increased.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,2800000000000" within 600 seconds

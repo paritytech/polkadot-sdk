@@ -23,7 +23,7 @@ mod sys {
 	extern "C" {
 		pub fn account_reentrance_count(account_ptr: *const u8) -> u32;
 
-		pub fn add_delegate_dependency(code_hash_ptr: *const u8);
+		pub fn lock_delegate_dependency(code_hash_ptr: *const u8);
 
 		pub fn address(output_ptr: *mut u8, output_len_ptr: *mut u32);
 
@@ -59,7 +59,9 @@ mod sys {
 
 		pub fn caller_is_root() -> ReturnCode;
 
-		pub fn clear_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+		pub fn clear_storage(key_ptr: *const u8);
+
+		pub fn clear_transient_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
 
 		pub fn code_hash(
 			account_id_ptr: *const u8,
@@ -67,7 +69,9 @@ mod sys {
 			output_len_ptr: *mut u32,
 		) -> ReturnCode;
 
-		pub fn contains_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
+		pub fn contains_storage(key_ptr: *const u8) -> ReturnCode;
+
+		pub fn contains_transient_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
 
 		pub fn debug_message(str_ptr: *const u8, str_len: u32) -> ReturnCode;
 
@@ -103,6 +107,13 @@ mod sys {
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
 
+		pub fn get_transient_storage(
+			key_ptr: *const u8,
+			key_len: u32,
+			out_ptr: *mut u8,
+			out_len_ptr: *mut u32,
+		) -> ReturnCode;
+
 		pub fn hash_blake2_128(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
 
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, output_ptr: *mut u8);
@@ -125,13 +136,20 @@ mod sys {
 
 		pub fn reentrance_count() -> u32;
 
-		pub fn remove_delegate_dependency(code_hash_ptr: *const u8);
+		pub fn unlock_delegate_dependency(code_hash_ptr: *const u8);
 
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32) -> !;
 
 		pub fn set_code_hash(code_hash_ptr: *const u8) -> ReturnCode;
 
 		pub fn set_storage(key_ptr: *const u8, value_ptr: *const u8, value_len: u32);
+
+		pub fn set_transient_storage(
+			key_ptr: *const u8,
+			key_len: u32,
+			value_ptr: *const u8,
+			value_len: u32,
+		) -> ReturnCode;
 
 		pub fn sr25519_verify(
 			signature_ptr: *const u8,
@@ -141,6 +159,13 @@ mod sys {
 		) -> ReturnCode;
 
 		pub fn take_storage(
+			key_ptr: *const u8,
+			key_len: u32,
+			out_ptr: *mut u8,
+			out_len_ptr: *mut u32,
+		) -> ReturnCode;
+
+		pub fn take_transient_storage(
 			key_ptr: *const u8,
 			key_len: u32,
 			out_ptr: *mut u8,
@@ -160,7 +185,7 @@ mod sys {
 
 		pub fn weight_to_fee(gas: u64, output_ptr: *mut u8, output_len_ptr: *mut u32);
 
-		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32, output_ptr: *mut u8) -> ReturnCode;
+		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32) -> ReturnCode;
 
 		pub fn xcm_send(
 			dest_ptr: *const u8,
@@ -223,7 +248,7 @@ mod sys {
 
 			pub fn weight_to_fee(
 				ref_time_limit: u64,
-				proof_time_limit: u64,
+				proof_size_limit: u64,
 				output_ptr: *mut u8,
 				output_len_ptr: *mut u32,
 			);
@@ -239,7 +264,7 @@ mod sys {
 				flags: u32,
 				callee_ptr: *const u8,
 				ref_time_limit: u64,
-				proof_time_limit: u64,
+				proof_size_limit: u64,
 				deposit_ptr: *const u8,
 				transferred_value_ptr: *const u8,
 				input_data_ptr: *const u8,
@@ -251,7 +276,7 @@ mod sys {
 			pub fn instantiate(
 				code_hash_ptr: *const u8,
 				ref_time_limit: u64,
-				proof_time_limit: u64,
+				proof_size_limit: u64,
 				deposit_ptr: *const u8,
 				value_ptr: *const u8,
 				input_ptr: *const u8,
@@ -301,6 +326,7 @@ macro_rules! impl_wrapper_for {
 				unsafe {
 					$( $mod )::*::$name(output.as_mut_ptr(), &mut output_len);
 				}
+				extract_from_slice(output, output_len as usize)
 			}
 		}
 	};
@@ -487,7 +513,7 @@ impl HostFn for HostFnImpl {
 		flags: CallFlags,
 		callee: &[u8],
 		ref_time_limit: u64,
-		proof_time_limit: u64,
+		proof_size_limit: u64,
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
@@ -501,7 +527,7 @@ impl HostFn for HostFnImpl {
 					flags.bits(),
 					callee.as_ptr(),
 					ref_time_limit,
-					proof_time_limit,
+					proof_size_limit,
 					deposit_ptr,
 					value.as_ptr(),
 					input_data.as_ptr(),
@@ -597,12 +623,29 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	fn set_transient_storage(key: &[u8], encoded_value: &[u8]) -> Option<u32> {
+		let ret_code = unsafe {
+			sys::set_transient_storage(
+				key.as_ptr(),
+				key.len() as u32,
+				encoded_value.as_ptr(),
+				encoded_value.len() as u32,
+			)
+		};
+		ret_code.into()
+	}
+
 	fn clear_storage(key: &[u8]) {
-		unsafe { sys::clear_storage(key.as_ptr(), key.len() as u32) };
+		unsafe { sys::clear_storage(key.as_ptr()) };
 	}
 
 	fn clear_storage_v1(key: &[u8]) -> Option<u32> {
 		let ret_code = unsafe { sys::v1::clear_storage(key.as_ptr(), key.len() as u32) };
+		ret_code.into()
+	}
+
+	fn clear_transient_storage(key: &[u8]) -> Option<u32> {
+		let ret_code = unsafe { sys::clear_transient_storage(key.as_ptr(), key.len() as u32) };
 		ret_code.into()
 	}
 
@@ -633,11 +676,45 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[inline(always)]
+	fn get_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::get_transient_storage(
+					key.as_ptr(),
+					key.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
+
+	#[inline(always)]
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
 			unsafe {
 				sys::take_storage(
+					key.as_ptr(),
+					key.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
+
+	#[inline(always)]
+	fn take_transient_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::take_transient_storage(
 					key.as_ptr(),
 					key.len() as u32,
 					output.as_mut_ptr(),
@@ -655,12 +732,17 @@ impl HostFn for HostFnImpl {
 	}
 
 	fn contains_storage(key: &[u8]) -> Option<u32> {
-		let ret_code = unsafe { sys::contains_storage(key.as_ptr(), key.len() as u32) };
+		let ret_code = unsafe { sys::contains_storage(key.as_ptr()) };
 		ret_code.into()
 	}
 
 	fn contains_storage_v1(key: &[u8]) -> Option<u32> {
 		let ret_code = unsafe { sys::v1::contains_storage(key.as_ptr(), key.len() as u32) };
+		ret_code.into()
+	}
+
+	fn contains_transient_storage(key: &[u8]) -> Option<u32> {
+		let ret_code = unsafe { sys::contains_transient_storage(key.as_ptr(), key.len() as u32) };
 		ret_code.into()
 	}
 
@@ -803,12 +885,12 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::account_reentrance_count(account.as_ptr()) }
 	}
 
-	fn add_delegate_dependency(code_hash: &[u8]) {
-		unsafe { sys::add_delegate_dependency(code_hash.as_ptr()) }
+	fn lock_delegate_dependency(code_hash: &[u8]) {
+		unsafe { sys::lock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
-	fn remove_delegate_dependency(code_hash: &[u8]) {
-		unsafe { sys::remove_delegate_dependency(code_hash.as_ptr()) }
+	fn unlock_delegate_dependency(code_hash: &[u8]) {
+		unsafe { sys::unlock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
 	fn instantiation_nonce() -> u64 {
@@ -819,9 +901,8 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::reentrance_count() }
 	}
 
-	fn xcm_execute(msg: &[u8], output: &mut &mut [u8]) -> Result {
-		let ret_code =
-			unsafe { sys::xcm_execute(msg.as_ptr(), msg.len() as _, output.as_mut_ptr()) };
+	fn xcm_execute(msg: &[u8]) -> Result {
+		let ret_code = unsafe { sys::xcm_execute(msg.as_ptr(), msg.len() as _) };
 		ret_code.into()
 	}
 

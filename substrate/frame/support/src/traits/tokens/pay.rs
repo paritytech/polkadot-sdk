@@ -18,10 +18,10 @@
 //! The Pay trait and associated types.
 
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use core::fmt::Debug;
 use scale_info::TypeInfo;
 use sp_core::{RuntimeDebug, TypedGet};
 use sp_runtime::DispatchError;
-use sp_std::fmt::Debug;
 
 use super::{fungible, fungibles, Balance, Preservation::Expendable};
 

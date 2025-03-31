@@ -74,10 +74,10 @@ The output above shows a **secret phrase** (also called **mnemonic phrase**) and
 **Private Key**). Those 2 secrets are the pieces of information you MUST keep safe and secret. All the other information
 below can be derived from those secrets.
 
-The output above also show the **public key** and the **Account ID**. Those are the independent from the network where
+The output above also shows the **public key** and the **Account ID**. Those are the independent from the network where
 you will use the key.
 
-The **SS58 address** (or **Public Address**) of a new account is a reprensentation of the public keys of an account for
+The **SS58 address** (or **Public Address**) of a new account is a representation of the public keys of an account for
 a given network (for instance Kusama or Polkadot).
 
 You can read more about the [SS58 format in the Substrate Docs](https://docs.substrate.io/reference/address-formats/)
@@ -91,7 +91,7 @@ SS58 addresses are:
 
 ### Json output
 
-`subkey` can calso generate the output as *json*. This is useful for automation.
+`subkey` can also generate the output as *json*. This is useful for automation.
 
 command:
 
@@ -143,7 +143,7 @@ Secret phrase `soup lyrics media market way crouch elevator put moon useful ques
   SS58 Address:     5He5pZpc7AJ8evPuab37vJF6KkFDqq9uDq2WXh877Qw6iaVC
 ```
 
-Using the `inspect` command (see more details below), we see that knowning only the **secret seed** is no longer
+Using the `inspect` command (see more details below), we see that knowing only the **secret seed** is no longer
 sufficient to recover the account:
 
 ```bash
@@ -152,7 +152,7 @@ subkey inspect "soup lyrics media market way crouch elevator put moon useful que
 
 which recovers the account `5Fe4sqj2K4fRuzEGvToi4KATqZfiDU7TqynjXG6PZE2dxwyh` and not
 `5He5pZpc7AJ8evPuab37vJF6KkFDqq9uDq2WXh877Qw6iaVC` as we expected. The additional user-defined **password**
-(`extra_secret` in our example) is now required to fully recover the account. Let's inspect the the previous mnemonic,
+(`extra_secret` in our example) is now required to fully recover the account. Let's inspect the previous mnemonic,
 this time passing also the required `password` as shown below:
 
 ```bash

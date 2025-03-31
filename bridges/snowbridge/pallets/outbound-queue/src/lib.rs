@@ -7,14 +7,14 @@
 //! Messages come either from sibling parachains via XCM, or BridgeHub itself
 //! via the `snowbridge-pallet-system`:
 //!
-//! 1. `snowbridge_router_primitives::outbound::EthereumBlobExporter::deliver`
+//! 1. `snowbridge_outbound_queue_primitives::v1::EthereumBlobExporter::deliver`
 //! 2. `snowbridge_pallet_system::Pallet::send`
 //!
 //! The message submission pipeline works like this:
 //! 1. The message is first validated via the implementation for
-//!    [`snowbridge_core::outbound::SendMessage::validate`]
+//!    [`snowbridge_outbound_queue_primitives::v1::SendMessage::validate`]
 //! 2. The message is then enqueued for later processing via the implementation for
-//!    [`snowbridge_core::outbound::SendMessage::deliver`]
+//!    [`snowbridge_outbound_queue_primitives::v1::SendMessage::deliver`]
 //! 3. The underlying message queue is implemented by [`Config::MessageQueue`]
 //! 4. The message queue delivers messages back to this pallet via the implementation for
 //!    [`frame_support::traits::ProcessMessage::process_message`]
@@ -47,24 +47,37 @@
 //! consume on Ethereum. Using this upper bound, a final fee can be calculated.
 //!
 //! The fee calculation also requires the following parameters:
-//! * ETH/DOT exchange rate
-//! * Ether fee per unit of gas
+//! * Average ETH/DOT exchange rate over some period
+//! * Max fee per unit of gas that bridge is willing to refund relayers for
 //!
 //! By design, it is expected that governance should manually update these
 //! parameters every few weeks using the `set_pricing_parameters` extrinsic in the
 //! system pallet.
 //!
+//! This is an interim measure. Once ETH/DOT liquidity pools are available in the Polkadot network,
+//! we'll use them as a source of pricing info, subject to certain safeguards.
+//!
 //! ## Fee Computation Function
 //!
 //! ```text
 //! LocalFee(Message) = WeightToFee(ProcessMessageWeight(Message))
-//! RemoteFee(Message) = MaxGasRequired(Message) * FeePerGas + Reward
-//! Fee(Message) = LocalFee(Message) + (RemoteFee(Message) / Ratio("ETH/DOT"))
+//! RemoteFee(Message) = MaxGasRequired(Message) * Params.MaxFeePerGas + Params.Reward
+//! RemoteFeeAdjusted(Message) = Params.Multiplier * (RemoteFee(Message) / Params.Ratio("ETH/DOT"))
+//! Fee(Message) = LocalFee(Message) + RemoteFeeAdjusted(Message)
 //! ```
 //!
-//! By design, the computed fee is always going to conservative, to cover worst-case
-//! costs of dispatch on Ethereum. In future iterations of the design, we will optimize
-//! this, or provide a mechanism to asynchronously refund a portion of collected fees.
+//! By design, the computed fee includes a safety factor (the `Multiplier`) to cover
+//! unfavourable fluctuations in the ETH/DOT exchange rate.
+//!
+//! ## Fee Settlement
+//!
+//! On the remote side, in the gateway contract, the relayer accrues
+//!
+//! ```text
+//! Min(GasPrice, Message.MaxFeePerGas) * GasUsed() + Message.Reward
+//! ```
+//! Or in plain english, relayers are refunded for gas consumption, using a
+//! price that is a minimum of the actual gas price, or `Message.MaxFeePerGas`.
 //!
 //! # Extrinsics
 //!
@@ -97,16 +110,15 @@ use frame_support::{
 	traits::{tokens::Balance, Contains, Defensive, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
-use snowbridge_core::{
-	outbound::{Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS},
-	BasicOperatingMode, ChannelId,
+use snowbridge_core::{BasicOperatingMode, ChannelId};
+use snowbridge_merkle_tree::merkle_root;
+use snowbridge_outbound_queue_primitives::v1::{
+	Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS,
 };
-use snowbridge_outbound_queue_merkle_tree::merkle_root;
-pub use snowbridge_outbound_queue_merkle_tree::MerkleProof;
 use sp_core::{H256, U256};
 use sp_runtime::{
 	traits::{CheckedDiv, Hash},
-	DigestItem,
+	DigestItem, Saturating,
 };
 use sp_std::prelude::*;
 pub use types::{CommittedMessage, ProcessMessageOriginOf};
@@ -366,8 +378,9 @@ pub mod pallet {
 			// downcast to u128
 			let fee: u128 = fee.try_into().defensive_unwrap_or(u128::MAX);
 
-			// convert to local currency
+			// multiply by multiplier and convert to local currency
 			let fee = FixedU128::from_inner(fee)
+				.saturating_mul(params.multiplier)
 				.checked_div(&params.exchange_rate)
 				.expect("exchange rate is not zero; qed")
 				.into_inner();

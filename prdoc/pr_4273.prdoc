@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-broker] add extrinsic to reserve a system core without having to wait two sale boundaries"
+
+doc:
+  - audience: Runtime User
+    description: |
+      When calling the reserve extrinsic after sales have started, the assignment will be reserved,
+      but two sale period boundaries must pass before the core is actually assigned. A new
+      `force_reserve` extrinsic is introduced to allow a core to be immediately assigned.
+
+crates:
+  - name: pallet-broker
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: patch
+  - name: coretime-westend-runtime
+    bump: patch

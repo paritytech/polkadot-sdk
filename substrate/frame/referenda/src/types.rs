@@ -18,18 +18,23 @@
 //! Miscellaneous additional datatypes.
 
 use super::*;
-use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use alloc::borrow::Cow;
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
 	Parameter,
 };
-use scale_info::TypeInfo;
+use scale_info::{Type, TypeInfo};
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
 use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type BlockNumberFor<T, I> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+
 pub type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
@@ -43,7 +48,7 @@ pub type PalletsOriginOf<T> =
 pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 	TrackIdOf<T, I>,
 	PalletsOriginOf<T>,
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	BoundedCallOf<T, I>,
 	BalanceOf<T, I>,
 	TallyOf<T, I>,
@@ -53,19 +58,19 @@ pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 pub type ReferendumStatusOf<T, I> = ReferendumStatus<
 	TrackIdOf<T, I>,
 	PalletsOriginOf<T>,
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	BoundedCallOf<T, I>,
 	BalanceOf<T, I>,
 	TallyOf<T, I>,
 	<T as frame_system::Config>::AccountId,
 	ScheduleAddressOf<T, I>,
 >;
-pub type DecidingStatusOf<T> = DecidingStatus<BlockNumberFor<T>>;
-pub type TrackInfoOf<T, I = ()> = TrackInfo<BalanceOf<T, I>, BlockNumberFor<T>>;
+pub type DecidingStatusOf<T, I> = DecidingStatus<BlockNumberFor<T, I>>;
+pub type TrackInfoOf<T, I = ()> = TrackInfo<BalanceOf<T, I>, BlockNumberFor<T, I>>;
 pub type TrackIdOf<T, I> =
-	<<T as Config<I>>::Tracks as TracksInfo<BalanceOf<T, I>, BlockNumberFor<T>>>::Id;
+	<<T as Config<I>>::Tracks as TracksInfo<BalanceOf<T, I>, BlockNumberFor<T, I>>>::Id;
 pub type ScheduleAddressOf<T, I> = <<T as Config<I>>::Scheduler as Anon<
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	CallOf<T, I>,
 	PalletsOriginOf<T>,
 >>::Address;
@@ -111,10 +116,63 @@ pub struct Deposit<AccountId, Balance> {
 	pub amount: Balance,
 }
 
-#[derive(Clone, Encode, TypeInfo)]
-pub struct TrackInfo<Balance, Moment> {
+pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
+
+/// Helper structure to treat a `[u8; N]` array as a string.
+///
+/// This is a temporary fix (see [#7671](https://github.com/paritytech/polkadot-sdk/pull/7671)) in
+/// order to stop `polkadot.js` apps to fail when trying to decode the `name` field in `TrackInfo`.
+#[derive(Clone, Eq, DecodeWithMemTracking, PartialEq, Debug)]
+pub struct StringLike<const N: usize>(pub [u8; N]);
+
+impl<const N: usize> TypeInfo for StringLike<N> {
+	type Identity = <&'static str as TypeInfo>::Identity;
+
+	fn type_info() -> Type {
+		<&str as TypeInfo>::type_info()
+	}
+}
+
+impl<const N: usize> MaxEncodedLen for StringLike<N> {
+	fn max_encoded_len() -> usize {
+		<Compact<u32> as MaxEncodedLen>::max_encoded_len().saturating_add(N)
+	}
+}
+
+impl<const N: usize> Encode for StringLike<N> {
+	fn encode(&self) -> Vec<u8> {
+		use codec::Compact;
+		(Compact(N as u32), self.0).encode()
+	}
+}
+
+impl<const N: usize> Decode for StringLike<N> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let Compact(size): Compact<u32> = Decode::decode(input)?;
+		if size != N as u32 {
+			return Err("Invalid size".into());
+		}
+
+		let bytes: [u8; N] = Decode::decode(input)?;
+		Ok(Self(bytes))
+	}
+}
+
+/// Detailed information about the configuration of a referenda track. Used for internal storage.
+pub type TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> =
+	TrackDetails<Balance, Moment, [u8; N]>;
+
+/// Detailed information about the configuration of a referenda track. Used for const querying.
+pub type ConstTrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> =
+	TrackDetails<Balance, Moment, StringLike<N>>;
+
+/// Detailed information about the configuration of a referenda track
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
+)]
+pub struct TrackDetails<Balance, Moment, Name> {
 	/// Name of this track.
-	pub name: &'static str,
+	pub name: Name,
 	/// A limit for the number of referenda on this track that can be being decided at once.
 	/// For Root origin this should generally be just one.
 	pub max_deciding: u32,
@@ -136,23 +194,69 @@ pub struct TrackInfo<Balance, Moment> {
 	pub min_support: Curve,
 }
 
+/// Track groups the information of a voting track with its corresponding identifier
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
+)]
+pub struct Track<Id, Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
+	pub id: Id,
+	pub info: TrackInfo<Balance, Moment, N>,
+}
+
 /// Information on the voting tracks.
-pub trait TracksInfo<Balance, Moment> {
+pub trait TracksInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN>
+where
+	Balance: Clone + Debug + Eq + 'static,
+	Moment: Clone + Debug + Eq + 'static,
+{
 	/// The identifier for a track.
 	type Id: Copy + Parameter + Ord + PartialOrd + Send + Sync + 'static + MaxEncodedLen;
 
 	/// The origin type from which a track is implied.
 	type RuntimeOrigin;
 
-	/// Return the array of known tracks and their information.
-	fn tracks() -> &'static [(Self::Id, TrackInfo<Balance, Moment>)];
+	/// Return the sorted iterable list of known tracks and their information.
+	///
+	/// The iterator MUST be sorted by `Id`. Consumers of this trait are advised to assert
+	/// [`Self::check_integrity`] prior to any use.
+	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, Balance, Moment, N>>>;
 
 	/// Determine the voting track for the given `origin`.
 	fn track_for(origin: &Self::RuntimeOrigin) -> Result<Self::Id, ()>;
 
+	/// Return the list of identifiers of the known tracks.
+	fn track_ids() -> impl Iterator<Item = Self::Id> {
+		Self::tracks().map(|x| x.id)
+	}
+
 	/// Return the track info for track `id`, by default this just looks it up in `Self::tracks()`.
-	fn info(id: Self::Id) -> Option<&'static TrackInfo<Balance, Moment>> {
-		Self::tracks().iter().find(|x| x.0 == id).map(|x| &x.1)
+	fn info(id: Self::Id) -> Option<Cow<'static, TrackInfo<Balance, Moment, N>>> {
+		Self::tracks().find(|x| x.id == id).map(|t| match t {
+			Cow::Borrowed(x) => Cow::Borrowed(&x.info),
+			Cow::Owned(x) => Cow::Owned(x.info),
+		})
+	}
+
+	/// Check assumptions about the static data that this trait provides.
+	fn check_integrity() -> Result<(), &'static str> {
+		use core::cmp::Ordering;
+		// Adapted from Iterator::is_sorted implementation available in nightly
+		// https://github.com/rust-lang/rust/issues/53485
+		let mut iter = Self::tracks();
+		let mut last = match iter.next() {
+			Some(ref e) => e.id,
+			None => return Ok(()),
+		};
+		iter.all(|curr| {
+			let curr = curr.as_ref().id;
+			if let Ordering::Greater = last.cmp(&curr) {
+				return false;
+			}
+			last = curr;
+			true
+		})
+		.then_some(())
+		.ok_or("The tracks that were returned by `tracks` were not sorted by `Id`")
 	}
 }
 
@@ -161,7 +265,7 @@ pub trait TracksInfo<Balance, Moment> {
 pub struct ReferendumStatus<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
-	Moment: Parameter + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+	Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
 	Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -233,13 +337,14 @@ pub enum ReferendumInfo<
 impl<
 		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
-		Moment: Parameter + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+		Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
 		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
-	> ReferendumInfo<TrackId, RuntimeOrigin, Moment, Call, Balance, Tally, AccountId, ScheduleAddress>
+	>
+	ReferendumInfo<TrackId, RuntimeOrigin, Moment, Call, Balance, Tally, AccountId, ScheduleAddress>
 {
 	/// Take the Decision Deposit from `self`, if there is one. Returns an `Err` if `self` is not
 	/// in a valid state for the Decision Deposit to be refunded.
@@ -271,7 +376,7 @@ impl<
 
 /// Type for describing a curve over the 2-dimensional space of axes between 0-1, as represented
 /// by `(Perbill, Perbill)`.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(not(feature = "std"), derive(RuntimeDebug))]
 pub enum Curve {
 	/// Linear curve starting at `(0, ceil)`, proceeding linearly to `(length, floor)`, then
@@ -496,7 +601,7 @@ impl Curve {
 
 #[cfg(feature = "std")]
 impl Debug for Curve {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			Self::LinearDecreasing { length, floor, ceil } => {
 				write!(
@@ -527,7 +632,7 @@ impl Debug for Curve {
 mod tests {
 	use super::*;
 	use frame_support::traits::ConstU32;
-	use sp_runtime::PerThing;
+	use sp_runtime::{str_array as s, PerThing};
 
 	const fn percent(x: u128) -> FixedI64 {
 		FixedI64::from_rational(x, 100)
@@ -669,5 +774,89 @@ mod tests {
 		assert_eq!(c.delay(pc(30)), pc(75));
 		assert_eq!(c.delay(pc(30).less_epsilon()), pc(100));
 		assert_eq!(c.delay(pc(0)), pc(100));
+	}
+
+	#[test]
+	fn tracks_integrity_check_detects_unsorted() {
+		use crate::mock::RuntimeOrigin;
+
+		pub struct BadTracksInfo;
+		impl TracksInfo<u64, u64> for BadTracksInfo {
+			type Id = u8;
+			type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
+			fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, u64, u64>>> {
+				static DATA: [Track<u8, u64, u64>; 2] = [
+					Track {
+						id: 1u8,
+						info: TrackInfo {
+							name: s("root"),
+							max_deciding: 1,
+							decision_deposit: 10,
+							prepare_period: 4,
+							decision_period: 4,
+							confirm_period: 2,
+							min_enactment_period: 4,
+							min_approval: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(50),
+								ceil: Perbill::from_percent(100),
+							},
+							min_support: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(0),
+								ceil: Perbill::from_percent(100),
+							},
+						},
+					},
+					Track {
+						id: 0u8,
+						info: TrackInfo {
+							name: s("none"),
+							max_deciding: 3,
+							decision_deposit: 1,
+							prepare_period: 2,
+							decision_period: 2,
+							confirm_period: 1,
+							min_enactment_period: 2,
+							min_approval: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(95),
+								ceil: Perbill::from_percent(100),
+							},
+							min_support: Curve::LinearDecreasing {
+								length: Perbill::from_percent(100),
+								floor: Perbill::from_percent(90),
+								ceil: Perbill::from_percent(100),
+							},
+						},
+					},
+				];
+				DATA.iter().map(Cow::Borrowed)
+			}
+			fn track_for(_: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
+				unimplemented!()
+			}
+		}
+
+		assert_eq!(
+			BadTracksInfo::check_integrity(),
+			Err("The tracks that were returned by `tracks` were not sorted by `Id`")
+		);
+	}
+
+	#[test]
+	fn encoding_and_decoding_of_string_like_structure_works() {
+		let string_like = StringLike::<13>(*b"hello, world!");
+		let encoded: Vec<u8> = string_like.encode();
+
+		let decoded_as_vec: Vec<u8> =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as Vec<u8> should work");
+		assert_eq!(decoded_as_vec.len(), 13);
+		let decoded_as_str: alloc::string::String =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as str should work");
+		assert_eq!(decoded_as_str.len(), 13);
+		let decoded_as_string_like: StringLike<13> =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as StringLike should work");
+		assert_eq!(decoded_as_string_like.0.len(), 13);
 	}
 }

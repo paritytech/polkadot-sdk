@@ -25,15 +25,14 @@
 use futures::channel::oneshot;
 use polkadot_cli::{
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
-		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
-		ParachainHost, ProvideRuntimeApi,
+		AuxStore, Error, ExtendedOverseerGenArgs, Overseer, OverseerConnector, OverseerGen,
+		OverseerGenArgs, OverseerHandle,
 	},
 	validator_overseer_builder, Cli,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
-use polkadot_node_subsystem_types::DefaultSubsystemClient;
-use polkadot_primitives::{CandidateDescriptor, CandidateReceipt};
+use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
+use polkadot_primitives::{vstaging::CandidateReceiptV2, CandidateDescriptor};
 
 use polkadot_node_subsystem_util::request_validators;
 use sp_core::traits::SpawnNamed;
@@ -52,7 +51,7 @@ use crate::{
 
 // Import extra types relevant to the particular
 // subsystem.
-use polkadot_node_subsystem::{messages::CandidateBackingMessage, SpawnGlue};
+use polkadot_node_subsystem::SpawnGlue;
 
 use std::sync::Arc;
 
@@ -128,7 +127,7 @@ where
 
 							let validation_code = {
 								let validation_code_hash =
-									_candidate.descriptor().validation_code_hash;
+									_candidate.descriptor().validation_code_hash();
 								let (tx, rx) = oneshot::channel();
 								new_sender
 									.send_message(RuntimeApiMessage::Request(
@@ -198,13 +197,13 @@ where
 
 					let pov_hash = pov.hash();
 					let erasure_root = {
-						let chunks = erasure::obtain_chunks_v1(
+						let chunks = polkadot_erasure_coding::obtain_chunks_v1(
 							n_validators as usize,
 							&malicious_available_data,
 						)
 						.unwrap();
 
-						let branches = erasure::branches(chunks.as_ref());
+						let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 						branches.root()
 					};
 
@@ -215,7 +214,7 @@ where
 						let collator_pair = CollatorPair::generate().0;
 						let signature_payload = polkadot_primitives::collator_signature_payload(
 							&relay_parent,
-							&candidate.descriptor().para_id,
+							&candidate.descriptor().para_id(),
 							&validation_data_hash,
 							&pov_hash,
 							&validation_code_hash,
@@ -228,9 +227,9 @@ where
 						&malicious_available_data.validation_data,
 					);
 
-					let malicious_candidate = CandidateReceipt {
+					let malicious_candidate = CandidateReceiptV2 {
 						descriptor: CandidateDescriptor {
-							para_id: candidate.descriptor().para_id,
+							para_id: candidate.descriptor.para_id(),
 							relay_parent,
 							collator: collator_id,
 							persisted_validation_data_hash: validation_data_hash,
@@ -239,7 +238,8 @@ where
 							signature: collator_signature,
 							para_head: malicious_commitments.head_data.hash(),
 							validation_code_hash,
-						},
+						}
+						.into(),
 						commitments_hash: malicious_commitments.hash(),
 					};
 					let malicious_candidate_hash = malicious_candidate.hash();
@@ -296,13 +296,9 @@ impl OverseerGen for SuggestGarbageCandidates {
 		connector: OverseerConnector,
 		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
 		ext_args: Option<ExtendedOverseerGenArgs>,
-	) -> Result<
-		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
-		Error,
-	>
+	) -> Result<(Overseer<SpawnGlue<Spawner>, Arc<RuntimeClient>>, OverseerHandle), Error>
 	where
-		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		gum::info!(
@@ -320,7 +316,6 @@ impl OverseerGen for SuggestGarbageCandidates {
 			FakeCandidateValidation::BackingAndApprovalValid,
 			FakeCandidateValidationError::InvalidOutputs,
 			fake_valid_probability,
-			SpawnGlue(args.spawner.clone()),
 		);
 
 		validator_overseer_builder(

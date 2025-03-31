@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Adapt RemoteExternalities and its related types to be used with generic hash parameters
+
+doc:
+  - audience: Node Dev
+    description: |
+      Modify `RemoteExternalities`, `Mode`, `OnlineConfig` and`Snapshot` to rely now on generic parameter, instead of `BlockT`.
+      Adjust in consequence their implementation to be compatible with types `Hash`, or if possible any generic.
+      Adapt Builder struct and implementation for these bounds.
+
+crates: 
+- name: frame-remote-externalities
+  bump: major
+- name: pallet-state-trie-migration
+  bump: patch
+- name: try-runtime-cli
+  bump: patch

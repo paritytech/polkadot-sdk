@@ -16,8 +16,10 @@
 // limitations under the License.
 
 //! `Inspect` and `Mutate` traits for working with regular balances.
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::{
 	ensure,
@@ -281,16 +283,17 @@ where
 		asset: Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		let actual = Self::reducible_balance(asset.clone(), who, Expendable, force).min(amount);
+		let actual = Self::reducible_balance(asset.clone(), who, preservation, force).min(amount);
 		ensure!(actual == amount || precision == BestEffort, TokenError::FundsUnavailable);
 		Self::total_issuance(asset.clone())
 			.checked_sub(&actual)
 			.ok_or(ArithmeticError::Overflow)?;
 		let actual =
-			Self::decrease_balance(asset.clone(), who, actual, BestEffort, Expendable, force)?;
+			Self::decrease_balance(asset.clone(), who, actual, BestEffort, preservation, force)?;
 		Self::set_total_issuance(
 			asset.clone(),
 			Self::total_issuance(asset.clone()).saturating_sub(actual),
@@ -390,7 +393,8 @@ where
 	fn set_balance(asset: Self::AssetId, who: &AccountId, amount: Self::Balance) -> Self::Balance {
 		let b = Self::balance(asset.clone(), who);
 		if b > amount {
-			Self::burn_from(asset, who, b - amount, BestEffort, Force).map(|d| b.saturating_sub(d))
+			Self::burn_from(asset, who, b - amount, Expendable, BestEffort, Force)
+				.map(|d| b.saturating_sub(d))
 		} else {
 			Self::mint_into(asset, who, amount - b).map(|d| b.saturating_add(d))
 		}

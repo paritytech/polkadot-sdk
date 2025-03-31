@@ -21,7 +21,7 @@
 #![doc = simple_mermaid::mermaid!("../../../mermaid/stf.mmd")]
 //!
 //! In essence, the state of the blockchain at block N is the outcome of applying the state
-//! transition function to the the previous state, and the current block as input. This can be
+//! transition function to the previous state, and the current block as input. This can be
 //! mathematically represented as:
 //!
 //! ```math

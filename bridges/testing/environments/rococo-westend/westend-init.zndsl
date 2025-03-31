@@ -1,0 +1,7 @@
+Description: Check if the HRMP channel between Westend BH and Westend AH was opened successfully
+Network: ./bridge_hub_westend_local_network.toml
+Creds: config
+
+# ensure that initialization has completed
+asset-hub-westend-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/wait-hrmp-channel-opened.js with "1002" within 600 seconds
+

@@ -19,7 +19,6 @@
 
 use super::*;
 use frame_support::traits::OnRuntimeUpgrade;
-use frame_system::pallet_prelude::BlockNumberFor;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -305,8 +304,8 @@ pub mod v4 {
 mod test {
 	use super::*;
 	use crate::mock::*;
+	use alloc::borrow::Cow;
 	use frame_support::Hashable;
-	use sp_std::borrow::Cow;
 	use substrate_test_utils::assert_eq_uvec;
 
 	#[test]

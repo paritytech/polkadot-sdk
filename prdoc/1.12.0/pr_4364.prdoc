@@ -1,0 +1,10 @@
+title: Fix dust unbonded for zero existential deposit
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      When a staker unbonds and withdraws, it is possible that their stash will contain less currency than the existential deposit. If that happens, their stash is reaped. But if the existential deposit is zero, the reap is not triggered. This PR adjusts pallet_staking to reap a stash in the special case that the stash value is zero and the existential deposit is zero.
+
+crates:
+  - name: pallet-staking
+    bump: patch

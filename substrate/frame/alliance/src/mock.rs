@@ -17,7 +17,6 @@
 
 //! Test utilities
 
-use core::convert::{TryFrom, TryInto};
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
@@ -32,7 +31,7 @@ pub use frame_support::{
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_identity::{
 	legacy::{IdentityField, IdentityInfo},
-	Data, Judgement,
+	Data, IdentityOf, Judgement, SuperOf,
 };
 
 pub use crate as pallet_alliance;
@@ -43,35 +42,19 @@ type BlockNumber = u64;
 type AccountId = u64;
 
 parameter_types! {
-	pub const BlockHashCount: BlockNumber = 250;
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::MAX);
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
-parameter_types! {
-	pub const ExistentialDeposit: u64 = 1;
-	pub const MaxLocks: u32 = 10;
-}
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = MaxLocks;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 const MOTION_DURATION_IN_BLOCKS: BlockNumber = 3;
@@ -94,16 +77,21 @@ impl pallet_collective::Config<AllianceCollective> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 parameter_types! {
 	pub const BasicDeposit: u64 = 100;
 	pub const ByteDeposit: u64 = 10;
+	pub const UsernameDeposit: u64 = 10;
 	pub const SubAccountDeposit: u64 = 100;
 	pub const MaxSubAccounts: u32 = 2;
 	pub const MaxAdditionalFields: u32 = 2;
 	pub const MaxRegistrars: u32 = 20;
 	pub const PendingUsernameExpiration: u64 = 100;
+	pub const UsernameGracePeriod: u64 = 10;
 }
 ord_parameter_types! {
 	pub const One: u64 = 1;
@@ -120,6 +108,7 @@ impl pallet_identity::Config for Test {
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
 	type ByteDeposit = ByteDeposit;
+	type UsernameDeposit = UsernameDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
@@ -131,12 +120,13 @@ impl pallet_identity::Config for Test {
 	type SigningPublicKey = AccountU64;
 	type UsernameAuthorityOrigin = EnsureOneOrRoot;
 	type PendingUsernameExpiration = PendingUsernameExpiration;
+	type UsernameGracePeriod = UsernameGracePeriod;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
 }
 
-#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Clone, Debug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo)]
 pub struct AccountU64(u64);
 impl IdentifyAccount for AccountU64 {
 	type AccountId = u64;
@@ -163,7 +153,7 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 
 	fn has_good_judgement(who: &AccountId) -> bool {
 		if let Some(judgements) =
-			Identity::identity(who).map(|(registration, _)| registration.judgements)
+			IdentityOf::<Test>::get(who).map(|registration| registration.judgements)
 		{
 			judgements
 				.iter()
@@ -174,7 +164,7 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	}
 
 	fn super_account_id(who: &AccountId) -> Option<AccountId> {
-		Identity::super_of(who).map(|parent| parent.0)
+		SuperOf::<Test>::get(who).map(|parent| parent.0)
 	}
 }
 
@@ -208,7 +198,7 @@ impl ProposalProvider<AccountId, H256, RuntimeCall> for AllianceProposalProvider
 	}
 
 	fn proposal_of(proposal_hash: H256) -> Option<RuntimeCall> {
-		AllianceMotion::proposal_of(proposal_hash)
+		pallet_collective::ProposalOf::<Test, Instance1>::get(proposal_hash)
 	}
 }
 
@@ -293,6 +283,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(8, 1000),
 			(9, 1000),
 		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

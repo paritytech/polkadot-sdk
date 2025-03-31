@@ -18,15 +18,24 @@
 //! Support code for the runtime. A set of test accounts.
 
 pub use sp_core::sr25519;
+
+use crate::ParseKeyringError;
+#[cfg(feature = "std")]
+use sp_core::sr25519::Signature;
 use sp_core::{
 	hex2array,
-	sr25519::{Pair, Public, Signature},
+	sr25519::{Pair, Public},
 	ByteArray, Pair as PairT, H256,
 };
 use sp_runtime::AccountId32;
 
+extern crate alloc;
+use alloc::{format, str::FromStr, string::String, vec::Vec};
+
 /// Set of test accounts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter, Ord, PartialOrd,
+)]
 pub enum Keyring {
 	Alice,
 	Bob,
@@ -77,6 +86,7 @@ impl Keyring {
 		self.to_raw_public().into()
 	}
 
+	#[cfg(feature = "std")]
 	pub fn sign(self, msg: &[u8]) -> Signature {
 		Pair::from(self).sign(msg)
 	}
@@ -108,6 +118,14 @@ impl Keyring {
 	pub fn numeric_id(idx: usize) -> AccountId32 {
 		(*Self::numeric(idx).public().as_array_ref()).into()
 	}
+
+	pub fn well_known() -> impl Iterator<Item = Keyring> {
+		Self::iter().take(12)
+	}
+
+	pub fn invulnerable() -> impl Iterator<Item = Keyring> {
+		Self::iter().take(6)
+	}
 }
 
 impl From<Keyring> for &'static str {
@@ -137,28 +155,25 @@ impl From<Keyring> for sp_runtime::MultiSigner {
 	}
 }
 
-#[derive(Debug)]
-pub struct ParseKeyringError;
-
-impl std::fmt::Display for ParseKeyringError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "ParseKeyringError")
-	}
-}
-
-impl std::str::FromStr for Keyring {
+impl FromStr for Keyring {
 	type Err = ParseKeyringError;
 
-	fn from_str(s: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
+	fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
 		match s {
-			"alice" => Ok(Keyring::Alice),
-			"bob" => Ok(Keyring::Bob),
-			"charlie" => Ok(Keyring::Charlie),
-			"dave" => Ok(Keyring::Dave),
-			"eve" => Ok(Keyring::Eve),
-			"ferdie" => Ok(Keyring::Ferdie),
-			"one" => Ok(Keyring::One),
-			"two" => Ok(Keyring::Two),
+			"Alice" | "alice" => Ok(Keyring::Alice),
+			"Bob" | "bob" => Ok(Keyring::Bob),
+			"Charlie" | "charlie" => Ok(Keyring::Charlie),
+			"Dave" | "dave" => Ok(Keyring::Dave),
+			"Eve" | "eve" => Ok(Keyring::Eve),
+			"Ferdie" | "ferdie" => Ok(Keyring::Ferdie),
+			"Alice//stash" | "alice//stash" => Ok(Keyring::AliceStash),
+			"Bob//stash" | "bob//stash" => Ok(Keyring::BobStash),
+			"Charlie//stash" | "charlie//stash" => Ok(Keyring::CharlieStash),
+			"Dave//stash" | "dave//stash" => Ok(Keyring::DaveStash),
+			"Eve//stash" | "eve//stash" => Ok(Keyring::EveStash),
+			"Ferdie//stash" | "ferdie//stash" => Ok(Keyring::FerdieStash),
+			"One" | "one" => Ok(Keyring::One),
+			"Two" | "two" => Ok(Keyring::Two),
 			_ => Err(ParseKeyringError),
 		}
 	}
@@ -246,8 +261,45 @@ mod tests {
 			&Keyring::Bob.public(),
 		));
 	}
+
 	#[test]
 	fn verify_static_public_keys() {
 		assert!(Keyring::iter().all(|k| { k.pair().public().as_ref() == <[u8; 32]>::from(k) }));
+	}
+
+	#[test]
+	fn verify_well_known() {
+		assert_eq!(
+			Keyring::well_known().collect::<Vec<Keyring>>(),
+			vec![
+				Keyring::Alice,
+				Keyring::Bob,
+				Keyring::Charlie,
+				Keyring::Dave,
+				Keyring::Eve,
+				Keyring::Ferdie,
+				Keyring::AliceStash,
+				Keyring::BobStash,
+				Keyring::CharlieStash,
+				Keyring::DaveStash,
+				Keyring::EveStash,
+				Keyring::FerdieStash
+			]
+		);
+	}
+
+	#[test]
+	fn verify_invulnerable() {
+		assert_eq!(
+			Keyring::invulnerable().collect::<Vec<Keyring>>(),
+			vec![
+				Keyring::Alice,
+				Keyring::Bob,
+				Keyring::Charlie,
+				Keyring::Dave,
+				Keyring::Eve,
+				Keyring::Ferdie
+			]
+		);
 	}
 }

@@ -14,16 +14,38 @@
 // limitations under the License.
 
 // Substrate
+use frame_support::parameter_types;
 use sp_core::storage::Storage;
+use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
+	accounts, build_genesis_storage, collators, xcm_emulator::ConvertLocation,
+	PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
+	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID,
+	SAFE_XCM_VERSION, USDT_ID,
 };
-use parachains_common::Balance;
+use parachains_common::{AccountId, Balance};
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
+use xcm::{latest::prelude::*, opaque::latest::ROCOCO_GENESIS_HASH};
+use xcm_builder::ExternalConsensusLocationsConverterFor;
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::rococo::currency::EXISTENTIAL_DEPOSIT;
+
+parameter_types! {
+	pub AssetHubRococoAssetOwner: AccountId = Keyring::Alice.to_account_id();
+	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
+	pub AssetHubRococoUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(PARA_ID)].into();
+	pub EthereumSovereignAccount: AccountId = ExternalConsensusLocationsConverterFor::<
+			AssetHubRococoUniversalLocation,
+			AccountId,
+		>::convert_location(&Location::new(
+			2,
+			[Junction::GlobalConsensus(EthereumNetwork::get())],
+		))
+		.unwrap();
+}
 
 pub fn genesis() -> Storage {
 	let genesis_config = asset_hub_rococo_runtime::RuntimeGenesisConfig {
@@ -34,6 +56,7 @@ pub fn genesis() -> Storage {
 				.cloned()
 				.map(|k| (k, ED * 4096 * 4096))
 				.collect(),
+			..Default::default()
 		},
 		parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
@@ -55,9 +78,43 @@ pub fn genesis() -> Storage {
 					)
 				})
 				.collect(),
+			..Default::default()
 		},
 		polkadot_xcm: asset_hub_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
+			..Default::default()
+		},
+		assets: asset_hub_rococo_runtime::AssetsConfig {
+			assets: vec![
+				(RESERVABLE_ASSET_ID, AssetHubRococoAssetOwner::get(), false, ED),
+				(USDT_ID, AssetHubRococoAssetOwner::get(), true, ED),
+			],
+			..Default::default()
+		},
+		foreign_assets: asset_hub_rococo_runtime::ForeignAssetsConfig {
+			assets: vec![
+				// PenpalA's teleportable asset representation
+				(
+					PenpalATeleportableAssetLocation::get(),
+					PenpalASiblingSovereignAccount::get(),
+					false,
+					ED,
+				),
+				// PenpalB's teleportable asset representation
+				(
+					PenpalBTeleportableAssetLocation::get(),
+					PenpalBSiblingSovereignAccount::get(),
+					false,
+					ED,
+				),
+				// Ether
+				(
+					xcm::v5::Location::new(2, [GlobalConsensus(EthereumNetwork::get())]),
+					EthereumSovereignAccount::get(),
+					true,
+					ED,
+				),
+			],
 			..Default::default()
 		},
 		..Default::default()

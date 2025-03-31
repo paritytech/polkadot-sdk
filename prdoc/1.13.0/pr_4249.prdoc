@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Moves runtime macro out of experimental flag
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Now that the runtime macro (Construct Runtime V2) has been successfully deployed on Westend, 
+      this PR moves it out of the experimental feature flag and makes it generally available for
+      runtime devs.
+
+crates:
+  - name: frame-support
+    bump: minor
+  - name: frame-support-procedural
+    bump: minor

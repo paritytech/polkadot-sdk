@@ -17,13 +17,13 @@
 
 #[frame_support::pallet]
 mod pallet {
-	use frame::deps::frame_system::pallet_prelude::BlockNumberFor;
+	use polkadot_sdk_frame::deps::frame_system::pallet_prelude::BlockNumberFor;
 	use frame_support::pallet_prelude::{Hooks, IsType};
 
 	#[pallet::config]
-	pub trait Config: frame::deps::frame_system::Config {
+	pub trait Config: polkadot_sdk_frame::deps::frame_system::Config {
 		type Bar: Clone + std::fmt::Debug + Eq;
-		type RuntimeEvent: IsType<<Self as frame::deps::frame_system::Config>::RuntimeEvent>
+		type RuntimeEvent: IsType<<Self as polkadot_sdk_frame::deps::frame_system::Config>::RuntimeEvent>
 			+ From<Event<Self>>;
 	}
 

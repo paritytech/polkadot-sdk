@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! The core collator logic for Aura - slot claiming, block proposing, and collation
 //! packaging.
@@ -55,7 +56,7 @@ use sp_runtime::{
 };
 use sp_state_machine::StorageChanges;
 use sp_timestamp::Timestamp;
-use std::{convert::TryFrom, error::Error, time::Duration};
+use std::{error::Error, time::Duration};
 
 /// Parameters for instantiating a [`Collator`].
 pub struct Params<BI, CIDP, RClient, Proposer, CS> {
@@ -156,15 +157,8 @@ where
 		Ok((paras_inherent_data, other_inherent_data))
 	}
 
-	/// Propose, seal, and import a block, packaging it into a collation.
-	///
-	/// Provide the slot to build at as well as any other necessary pre-digest logs,
-	/// the inherent data, and the proposal duration and PoV size limits.
-	///
-	/// The Aura pre-digest should not be explicitly provided and is set internally.
-	///
-	/// This does not announce the collation to the parachain network or the relay chain.
-	pub async fn collate(
+	/// Build and import a parachain block on the given parent header, using the given slot claim.
+	pub async fn build_block_and_import(
 		&mut self,
 		parent_header: &Block::Header,
 		slot_claim: &SlotClaim<P::Public>,
@@ -172,10 +166,7 @@ where
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
-	) -> Result<
-		Option<(Collation, ParachainBlockData<Block>, Block::Hash)>,
-		Box<dyn Error + Send + 'static>,
-	> {
+	) -> Result<Option<ParachainCandidate<Block>>, Box<dyn Error + Send + 'static>> {
 		let mut digest = additional_pre_digest.into().unwrap_or_default();
 		digest.push(slot_claim.pre_digest.clone());
 
@@ -205,7 +196,6 @@ where
 		)
 		.map_err(|e| e as Box<dyn Error + Send>)?;
 
-		let post_hash = sealed_importable.post_hash();
 		let block = Block::new(
 			sealed_importable.post_header(),
 			sealed_importable
@@ -220,11 +210,46 @@ where
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
 			.await?;
 
-		if let Some((collation, block_data)) = self.collator_service.build_collation(
-			parent_header,
-			post_hash,
-			ParachainCandidate { block, proof: proposal.proof },
-		) {
+		Ok(Some(ParachainCandidate { block, proof: proposal.proof }))
+	}
+
+	/// Propose, seal, import a block and packaging it into a collation.
+	///
+	/// Provide the slot to build at as well as any other necessary pre-digest logs,
+	/// the inherent data, and the proposal duration and PoV size limits.
+	///
+	/// The Aura pre-digest should not be explicitly provided and is set internally.
+	///
+	/// This does not announce the collation to the parachain network or the relay chain.
+	pub async fn collate(
+		&mut self,
+		parent_header: &Block::Header,
+		slot_claim: &SlotClaim<P::Public>,
+		additional_pre_digest: impl Into<Option<Vec<DigestItem>>>,
+		inherent_data: (ParachainInherentData, InherentData),
+		proposal_duration: Duration,
+		max_pov_size: usize,
+	) -> Result<
+		Option<(Collation, ParachainBlockData<Block>, Block::Hash)>,
+		Box<dyn Error + Send + 'static>,
+	> {
+		let maybe_candidate = self
+			.build_block_and_import(
+				parent_header,
+				slot_claim,
+				additional_pre_digest,
+				inherent_data,
+				proposal_duration,
+				max_pov_size,
+			)
+			.await?;
+
+		let Some(candidate) = maybe_candidate else { return Ok(None) };
+
+		let hash = candidate.block.header().hash();
+		if let Some((collation, block_data)) =
+			self.collator_service.build_collation(parent_header, hash, candidate)
+		{
 			tracing::info!(
 				target: crate::LOG_TARGET,
 				"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
@@ -241,7 +266,7 @@ where
 				);
 			}
 
-			Ok(Some((collation, block_data, post_hash)))
+			Ok(Some((collation, block_data, hash)))
 		} else {
 			Err(Box::<dyn Error + Send + Sync>::from("Unable to produce collation")
 				as Box<dyn Error + Send>)
@@ -258,6 +283,7 @@ where
 pub struct SlotClaim<Pub> {
 	author_pub: Pub,
 	pre_digest: DigestItem,
+	slot: Slot,
 	timestamp: Timestamp,
 }
 
@@ -272,7 +298,7 @@ impl<Pub> SlotClaim<Pub> {
 		P::Public: Codec,
 		P::Signature: Codec,
 	{
-		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::<P>(slot) }
+		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::<P>(slot), slot }
 	}
 
 	/// Get the author's public key.
@@ -283,6 +309,11 @@ impl<Pub> SlotClaim<Pub> {
 	/// Get the Aura pre-digest for this slot.
 	pub fn pre_digest(&self) -> &DigestItem {
 		&self.pre_digest
+	}
+
+	/// Get the slot assigned to this claim.
+	pub fn slot(&self) -> Slot {
+		self.slot
 	}
 
 	/// Get the timestamp corresponding to the relay-chain slot this claim was
@@ -367,7 +398,7 @@ where
 			aura_internal::seal::<_, P>(&pre_hash, &author_pub, keystore).map_err(Box::new)?;
 		let mut block_import_params = BlockImportParams::new(BlockOrigin::Own, pre_header);
 		block_import_params.post_digests.push(seal_digest);
-		block_import_params.body = Some(body.clone());
+		block_import_params.body = Some(body);
 		block_import_params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(storage_changes));
 		block_import_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);

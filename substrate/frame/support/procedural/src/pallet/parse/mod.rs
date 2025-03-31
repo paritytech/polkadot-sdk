@@ -36,6 +36,7 @@ pub mod storage;
 pub mod tasks;
 pub mod type_value;
 pub mod validate_unsigned;
+pub mod view_functions;
 
 #[cfg(test)]
 pub mod tests;
@@ -70,13 +71,13 @@ pub struct Def {
 	pub frame_system: syn::Path,
 	pub frame_support: syn::Path,
 	pub dev_mode: bool,
+	pub view_functions: Option<view_functions::ViewFunctionsImplDef>,
 }
 
 impl Def {
 	pub fn try_from(mut item: syn::ItemMod, dev_mode: bool) -> syn::Result<Self> {
 		let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 		let frame_support = generate_access_from_frame_or_crate("frame-support")?;
-
 		let item_span = item.span();
 		let items = &mut item
 			.content
@@ -104,34 +105,35 @@ impl Def {
 		let mut storages = vec![];
 		let mut type_values = vec![];
 		let mut composites: Vec<CompositeDef> = vec![];
+		let mut view_functions = None;
 
 		for (index, item) in items.iter_mut().enumerate() {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
-				Some(PalletAttr::Config(span, with_default)) if config.is_none() =>
+				Some(PalletAttr::Config{ with_default, without_automatic_metadata, ..}) if config.is_none() =>
 					config = Some(config::ConfigDef::try_from(
 						&frame_system,
-						span,
 						index,
 						item,
 						with_default,
+						without_automatic_metadata,
 					)?),
 				Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
 					let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;
 					pallet_struct = Some(p);
 				},
 				Some(PalletAttr::Hooks(span)) if hooks.is_none() => {
-					let m = hooks::HooksDef::try_from(span, index, item)?;
+					let m = hooks::HooksDef::try_from(span, item)?;
 					hooks = Some(m);
 				},
 				Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() =>
 					call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?),
-				Some(PalletAttr::Tasks(_)) if tasks.is_none() => {
+				Some(PalletAttr::Tasks(span)) if tasks.is_none() => {
 					let item_tokens = item.to_token_stream();
 					// `TasksDef::parse` needs to know if attr was provided so we artificially
 					// re-insert it here
-					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote! {
+					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote_spanned! { span =>
 						#[pallet::tasks_experimental]
 						#item_tokens
 					})?);
@@ -162,27 +164,27 @@ impl Def {
 					genesis_config = Some(g);
 				},
 				Some(PalletAttr::GenesisBuild(span)) if genesis_build.is_none() => {
-					let g = genesis_build::GenesisBuildDef::try_from(span, index, item)?;
+					let g = genesis_build::GenesisBuildDef::try_from(span, item)?;
 					genesis_build = Some(g);
 				},
 				Some(PalletAttr::RuntimeOrigin(_)) if origin.is_none() =>
-					origin = Some(origin::OriginDef::try_from(index, item)?),
+					origin = Some(origin::OriginDef::try_from(item)?),
 				Some(PalletAttr::Inherent(_)) if inherent.is_none() =>
-					inherent = Some(inherent::InherentDef::try_from(index, item)?),
+					inherent = Some(inherent::InherentDef::try_from(item)?),
 				Some(PalletAttr::Storage(span)) =>
 					storages.push(storage::StorageDef::try_from(span, index, item, dev_mode)?),
 				Some(PalletAttr::ValidateUnsigned(_)) if validate_unsigned.is_none() => {
-					let v = validate_unsigned::ValidateUnsignedDef::try_from(index, item)?;
+					let v = validate_unsigned::ValidateUnsignedDef::try_from(item)?;
 					validate_unsigned = Some(v);
 				},
 				Some(PalletAttr::TypeValue(span)) =>
 					type_values.push(type_value::TypeValueDef::try_from(span, index, item)?),
 				Some(PalletAttr::ExtraConstants(_)) =>
 					extra_constants =
-						Some(extra_constants::ExtraConstantsDef::try_from(index, item)?),
+						Some(extra_constants::ExtraConstantsDef::try_from(item)?),
 				Some(PalletAttr::Composite(span)) => {
 					let composite =
-						composite::CompositeDef::try_from(span, index, &frame_support, item)?;
+						composite::CompositeDef::try_from(span, &frame_support, item)?;
 					if composites.iter().any(|def| {
 						match (&def.composite_keyword, &composite.composite_keyword) {
 							(
@@ -206,6 +208,9 @@ impl Def {
 					}
 					composites.push(composite);
 				},
+				Some(PalletAttr::ViewFunctions(span)) => {
+					view_functions = Some(view_functions::ViewFunctionsImplDef::try_from(span, item)?);
+				}
 				Some(attr) => {
 					let msg = "Invalid duplicated attribute";
 					return Err(syn::Error::new(attr.span(), msg))
@@ -222,7 +227,7 @@ impl Def {
 				genesis_config.as_ref().map_or("unused", |_| "used"),
 				genesis_build.as_ref().map_or("unused", |_| "used"),
 			);
-			return Err(syn::Error::new(item_span, msg))
+			return Err(syn::Error::new(item_span, msg));
 		}
 
 		Self::resolve_tasks(&item_span, &mut tasks, &mut task_enum, items)?;
@@ -251,6 +256,7 @@ impl Def {
 			frame_system,
 			frame_support,
 			dev_mode,
+			view_functions,
 		};
 
 		def.check_instance_usage()?;
@@ -285,7 +291,7 @@ impl Def {
 						tasks.item_impl.impl_token.span(),
 						"A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
 						task enum has been omitted",
-					))
+					));
 				} else {
 				},
 			_ => (),
@@ -314,14 +320,14 @@ impl Def {
 				// `task_enum`. We use a no-op instead of simply removing it from the vec
 				// so that any indices collected by `Def::try_from` remain accurate
 				*item = syn::Item::Verbatim(quote::quote!());
-				break
+				break;
 			}
 		}
 		*task_enum = result;
 		Ok(())
 	}
 
-	/// Tries to locate a manual tasks impl (an impl impling a trait whose last path segment is
+	/// Tries to locate a manual tasks impl (an impl implementing a trait whose last path segment is
 	/// `Task`) in the event that one has not been found already via the attribute macro
 	pub fn resolve_manual_tasks_impl(
 		tasks: &mut Option<tasks::TasksDef>,
@@ -337,7 +343,7 @@ impl Def {
 			let syn::Type::Path(target_path) = &*item_impl.self_ty else { continue };
 			let target_path = target_path.path.segments.iter().collect::<Vec<_>>();
 			let (Some(target_ident), None) = (target_path.get(0), target_path.get(1)) else {
-				continue
+				continue;
 			};
 			let matches_task_enum = match task_enum {
 				Some(task_enum) => task_enum.item_enum.ident == target_ident.ident,
@@ -345,7 +351,7 @@ impl Def {
 			};
 			if trait_last_seg.ident == "Task" && matches_task_enum {
 				result = Some(syn::parse2::<tasks::TasksDef>(item_impl.to_token_stream())?);
-				break
+				break;
 			}
 		}
 		*tasks = result;
@@ -405,10 +411,13 @@ impl Def {
 		if let Some(extra_constants) = &self.extra_constants {
 			instances.extend_from_slice(&extra_constants.instances[..]);
 		}
+		if let Some(task_enum) = &self.task_enum {
+			instances.push(task_enum.instance_usage.clone());
+		}
 
 		let mut errors = instances.into_iter().filter_map(|instances| {
 			if instances.has_instance == self.config.has_instance {
-				return None
+				return None;
 			}
 			let msg = if self.config.has_instance {
 				"Invalid generic declaration, trait is defined with instance but generic use none"
@@ -549,6 +558,7 @@ mod keyword {
 	syn::custom_keyword!(event);
 	syn::custom_keyword!(config);
 	syn::custom_keyword!(with_default);
+	syn::custom_keyword!(without_automatic_metadata);
 	syn::custom_keyword!(hooks);
 	syn::custom_keyword!(inherent);
 	syn::custom_keyword!(error);
@@ -558,16 +568,42 @@ mod keyword {
 	syn::custom_keyword!(validate_unsigned);
 	syn::custom_keyword!(type_value);
 	syn::custom_keyword!(pallet);
-	syn::custom_keyword!(generate_store);
-	syn::custom_keyword!(Store);
 	syn::custom_keyword!(extra_constants);
 	syn::custom_keyword!(composite_enum);
+	syn::custom_keyword!(view_functions_experimental);
+}
+
+/// The possible values for the `#[pallet::config]` attribute.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum ConfigValue {
+	/// `#[pallet::config(with_default)]`
+	WithDefault(keyword::with_default),
+	/// `#[pallet::config(without_automatic_metadata)]`
+	WithoutAutomaticMetadata(keyword::without_automatic_metadata),
+}
+
+impl syn::parse::Parse for ConfigValue {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		let lookahead = input.lookahead1();
+
+		if lookahead.peek(keyword::with_default) {
+			input.parse().map(ConfigValue::WithDefault)
+		} else if lookahead.peek(keyword::without_automatic_metadata) {
+			input.parse().map(ConfigValue::WithoutAutomaticMetadata)
+		} else {
+			Err(lookahead.error())
+		}
+	}
 }
 
 /// Parse attributes for item in pallet module
 /// syntax must be `pallet::` (e.g. `#[pallet::config]`)
 enum PalletAttr {
-	Config(proc_macro2::Span, bool),
+	Config {
+		span: proc_macro2::Span,
+		with_default: bool,
+		without_automatic_metadata: bool,
+	},
 	Pallet(proc_macro2::Span),
 	Hooks(proc_macro2::Span),
 	/// A `#[pallet::call]` with optional attributes to specialize the behaviour.
@@ -624,12 +660,13 @@ enum PalletAttr {
 	TypeValue(proc_macro2::Span),
 	ExtraConstants(proc_macro2::Span),
 	Composite(proc_macro2::Span),
+	ViewFunctions(proc_macro2::Span),
 }
 
 impl PalletAttr {
 	fn span(&self) -> proc_macro2::Span {
 		match self {
-			Self::Config(span, _) => *span,
+			Self::Config { span, .. } => *span,
 			Self::Pallet(span) => *span,
 			Self::Hooks(span) => *span,
 			Self::Tasks(span) => *span,
@@ -649,6 +686,7 @@ impl PalletAttr {
 			Self::TypeValue(span) => *span,
 			Self::ExtraConstants(span) => *span,
 			Self::Composite(span) => *span,
+			Self::ViewFunctions(span) => *span,
 		}
 	}
 }
@@ -664,13 +702,49 @@ impl syn::parse::Parse for PalletAttr {
 		let lookahead = content.lookahead1();
 		if lookahead.peek(keyword::config) {
 			let span = content.parse::<keyword::config>()?.span();
-			let with_default = content.peek(syn::token::Paren);
-			if with_default {
+			if content.peek(syn::token::Paren) {
 				let inside_config;
+
+				// Parse (with_default, without_automatic_metadata) attributes.
 				let _paren = syn::parenthesized!(inside_config in content);
-				inside_config.parse::<keyword::with_default>()?;
+
+				let fields: syn::punctuated::Punctuated<ConfigValue, syn::Token![,]> =
+					inside_config.parse_terminated(ConfigValue::parse, syn::Token![,])?;
+				let config_values = fields.iter().collect::<Vec<_>>();
+
+				let mut with_default = false;
+				let mut without_automatic_metadata = false;
+				for config in config_values {
+					match config {
+						ConfigValue::WithDefault(_) => {
+							if with_default {
+								return Err(syn::Error::new(
+									span,
+									"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: with_default.",
+								));
+							}
+							with_default = true;
+						},
+						ConfigValue::WithoutAutomaticMetadata(_) => {
+							if without_automatic_metadata {
+								return Err(syn::Error::new(
+									span,
+									"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: without_automatic_metadata.",
+								));
+							}
+							without_automatic_metadata = true;
+						},
+					}
+				}
+
+				Ok(PalletAttr::Config { span, with_default, without_automatic_metadata })
+			} else {
+				Ok(PalletAttr::Config {
+					span,
+					with_default: false,
+					without_automatic_metadata: false,
+				})
 			}
-			Ok(PalletAttr::Config(span, with_default))
 		} else if lookahead.peek(keyword::pallet) {
 			Ok(PalletAttr::Pallet(content.parse::<keyword::pallet>()?.span()))
 		} else if lookahead.peek(keyword::hooks) {
@@ -714,6 +788,10 @@ impl syn::parse::Parse for PalletAttr {
 			Ok(PalletAttr::ExtraConstants(content.parse::<keyword::extra_constants>()?.span()))
 		} else if lookahead.peek(keyword::composite_enum) {
 			Ok(PalletAttr::Composite(content.parse::<keyword::composite_enum>()?.span()))
+		} else if lookahead.peek(keyword::view_functions_experimental) {
+			Ok(PalletAttr::ViewFunctions(
+				content.parse::<keyword::view_functions_experimental>()?.span(),
+			))
 		} else {
 			Err(lookahead.error())
 		}
@@ -724,7 +802,6 @@ impl syn::parse::Parse for PalletAttr {
 #[derive(Clone)]
 pub struct InheritedCallWeightAttr {
 	pub typename: syn::Type,
-	pub span: proc_macro2::Span,
 }
 
 impl syn::parse::Parse for InheritedCallWeightAttr {
@@ -743,9 +820,9 @@ impl syn::parse::Parse for InheritedCallWeightAttr {
 			content.parse::<syn::Token![=]>().expect("peeked");
 			content
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		};
 
-		Ok(Self { typename: buffer.parse()?, span: input.span() })
+		Ok(Self { typename: buffer.parse()? })
 	}
 }

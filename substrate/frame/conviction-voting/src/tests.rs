@@ -17,17 +17,13 @@
 
 //! The crate's tests.
 
-use std::collections::BTreeMap;
+use std::{cell::RefCell, collections::BTreeMap};
 
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
 };
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::BuildStorage;
 
 use super::*;
 use crate as pallet_conviction_voting;
@@ -43,7 +39,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-// Test that a fitlered call can be dispatched.
+// Test that a filtered call can be dispatched.
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -51,47 +47,16 @@ impl Contains<RuntimeCall> for BaseFilter {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type MaxLocks = ConstU32<10>;
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -189,12 +154,15 @@ impl Config for Test {
 	type WeightInfo = ();
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
 	type Polls = TestPolls;
+	type BlockNumberProvider = System;
+	type VotingHooks = HooksHandler;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -207,7 +175,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 fn params_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 210);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 210);
 	});
 }
 
@@ -273,27 +241,52 @@ fn basic_stuff() {
 fn basic_voting_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(2, 5)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: aye(2, 5),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(10, 0, 2));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(2, 5)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: nay(2, 5),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 10, 0));
 		assert_eq!(Balances::usable_balance(1), 8);
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(5, 1)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: aye(5, 1),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(5, 0, 5));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(5, 1)));
 		assert_eq!(tally(3), Tally::from_parts(0, 5, 0));
 		assert_eq!(Balances::usable_balance(1), 5);
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: aye(10, 0),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(1, 0, 10));
+
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(10, 0)));
 		assert_eq!(tally(3), Tally::from_parts(0, 1, 0));
 		assert_eq!(Balances::usable_balance(1), 0);
 
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
+			who: 1,
+			vote: nay(10, 0),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteUnlocked {
+			who: 1,
+			class: class(3),
+		}));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
@@ -302,15 +295,32 @@ fn basic_voting_works() {
 fn split_voting_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split(10, 0)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: split(10, 0),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(1, 0, 10));
+
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split(5, 5)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: split(5, 5),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 5));
 		assert_eq!(Balances::usable_balance(1), 0);
 
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
+			who: 1,
+			vote: split(5, 5),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteUnlocked {
+			who: 1,
+			class: class(3),
+		}));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
@@ -319,25 +329,48 @@ fn split_voting_works() {
 fn abstain_voting_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split_abstain(0, 0, 10)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: split_abstain(0, 0, 10),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 10));
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, split_abstain(0, 0, 20)));
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 30));
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, split_abstain(10, 0, 10)));
-		assert_eq!(tally(3), Tally::from_parts(1, 0, 30));
+
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(6), 3, split_abstain(10, 0, 20)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 6,
+			vote: split_abstain(10, 0, 20),
+		}));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 40));
+
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(6), 3, split_abstain(0, 0, 40)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 6,
+			vote: split_abstain(0, 0, 40),
+		}));
+
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 50));
 		assert_eq!(Balances::usable_balance(1), 0);
-		assert_eq!(Balances::usable_balance(2), 0);
+		assert_eq!(Balances::usable_balance(6), 20);
 
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
-		assert_eq!(tally(3), Tally::from_parts(1, 0, 20));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
+			who: 1,
+			vote: split_abstain(0, 0, 10),
+		}));
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 40));
 
-		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), None, 3));
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(6), Some(class(3)), 3));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
+			who: 6,
+			vote: split_abstain(0, 0, 40),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
 		assert_eq!(Balances::usable_balance(1), 10);
 
-		assert_ok!(Voting::unlock(RuntimeOrigin::signed(2), class(3), 2));
-		assert_eq!(Balances::usable_balance(2), 20);
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(6), class(3), 6));
+		assert_eq!(Balances::usable_balance(6), 60);
 	});
 }
 
@@ -879,5 +912,142 @@ fn errors_with_remove_vote_work() {
 			Voting::remove_vote(RuntimeOrigin::signed(1), None, 3),
 			Error::<Test>::ClassNeeded
 		);
+	});
+}
+
+thread_local! {
+	static LAST_ON_VOTE_DATA: RefCell<Option<(u64, u8, AccountVote<u64>)>> = RefCell::new(None);
+	static LAST_ON_REMOVE_VOTE_DATA: RefCell<Option<(u64, u8, Status)>> = RefCell::new(None);
+	static LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA: RefCell<Option<(u64, u8)>> = RefCell::new(None);
+	static REMOVE_VOTE_LOCKED_AMOUNT: RefCell<Option<u64>> = RefCell::new(None);
+}
+
+pub struct HooksHandler;
+
+impl HooksHandler {
+	fn last_on_vote_data() -> Option<(u64, u8, AccountVote<u64>)> {
+		LAST_ON_VOTE_DATA.with(|data| *data.borrow())
+	}
+
+	fn last_on_remove_vote_data() -> Option<(u64, u8, Status)> {
+		LAST_ON_REMOVE_VOTE_DATA.with(|data| *data.borrow())
+	}
+
+	fn last_locked_if_unsuccessful_vote_data() -> Option<(u64, u8)> {
+		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow())
+	}
+
+	fn reset() {
+		LAST_ON_VOTE_DATA.with(|data| *data.borrow_mut() = None);
+		LAST_ON_REMOVE_VOTE_DATA.with(|data| *data.borrow_mut() = None);
+		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow_mut() = None);
+		REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow_mut() = None);
+	}
+
+	fn with_remove_locked_amount(v: u64) {
+		REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow_mut() = Some(v));
+	}
+}
+
+impl VotingHooks<u64, u8, u64> for HooksHandler {
+	fn on_before_vote(who: &u64, ref_index: u8, vote: AccountVote<u64>) -> DispatchResult {
+		LAST_ON_VOTE_DATA.with(|data| {
+			*data.borrow_mut() = Some((*who, ref_index, vote));
+		});
+		Ok(())
+	}
+
+	fn on_remove_vote(who: &u64, ref_index: u8, ongoing: Status) {
+		LAST_ON_REMOVE_VOTE_DATA.with(|data| {
+			*data.borrow_mut() = Some((*who, ref_index, ongoing));
+		});
+	}
+
+	fn lock_balance_on_unsuccessful_vote(who: &u64, ref_index: u8) -> Option<u64> {
+		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| {
+			*data.borrow_mut() = Some((*who, ref_index));
+
+			REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow())
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn on_vote_worst_case(_who: &u64) {}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn on_remove_vote_worst_case(_who: &u64) {}
+}
+
+#[test]
+fn voting_hooks_are_called_correctly() {
+	new_test_ext().execute_with(|| {
+		let c = class(3);
+
+		let usable_balance_1 = Balances::usable_balance(1);
+		dbg!(usable_balance_1);
+
+		// Voting
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(1, 1)));
+		assert_eq!(
+			HooksHandler::last_on_vote_data(),
+			Some((
+				1,
+				3,
+				AccountVote::Standard {
+					vote: Vote { aye: true, conviction: Conviction::Locked1x },
+					balance: 1
+				}
+			))
+		);
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, nay(20, 2)));
+		assert_eq!(
+			HooksHandler::last_on_vote_data(),
+			Some((
+				2,
+				3,
+				AccountVote::Standard {
+					vote: Vote { aye: false, conviction: Conviction::Locked2x },
+					balance: 20
+				}
+			))
+		);
+		HooksHandler::reset();
+
+		// removing vote while ongoing
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(3), 3, nay(20, 0)));
+		assert_eq!(
+			HooksHandler::last_on_vote_data(),
+			Some((
+				3,
+				3,
+				AccountVote::Standard {
+					vote: Vote { aye: false, conviction: Conviction::None },
+					balance: 20
+				}
+			))
+		);
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(3), Some(c), 3));
+		assert_eq!(HooksHandler::last_on_remove_vote_data(), Some((3, 3, Status::Ongoing)));
+		HooksHandler::reset();
+
+		Polls::set(vec![(3, Completed(3, false))].into_iter().collect());
+
+		// removing successful vote while completed
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), Some(c), 3));
+		assert_eq!(HooksHandler::last_on_remove_vote_data(), Some((2, 3, Status::Completed)));
+		assert_eq!(HooksHandler::last_locked_if_unsuccessful_vote_data(), None);
+
+		HooksHandler::reset();
+
+		HooksHandler::with_remove_locked_amount(5);
+
+		// removing unsuccessful vote when completed
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(c), 3));
+		assert_eq!(HooksHandler::last_on_remove_vote_data(), Some((1, 3, Status::Completed)));
+		assert_eq!(HooksHandler::last_locked_if_unsuccessful_vote_data(), Some((1, 3)));
+
+		// Removing unsuccessful vote when completed should lock if given amount from the hook
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), c, 1));
+		assert_eq!(Balances::usable_balance(1), 5);
 	});
 }

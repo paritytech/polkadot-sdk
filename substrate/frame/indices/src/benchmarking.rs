@@ -19,26 +19,32 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::*;
-use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
+use crate::*;
+use frame_benchmarking::v2::*;
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
 
-use crate::Pallet as Indices;
-
 const SEED: u32 = 0;
 
-benchmarks! {
-	claim {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn claim() {
 		let account_index = T::AccountIndex::from(SEED);
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-	}: _(RawOrigin::Signed(caller.clone()), account_index)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account_index);
+
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, caller);
 	}
 
-	transfer {
+	#[benchmark]
+	fn transfer() -> Result<(), BenchmarkError> {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
@@ -47,25 +53,33 @@ benchmarks! {
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 		T::Currency::make_free_balance_be(&recipient, BalanceOf::<T>::max_value());
 		// Claim the index
-		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
-	}: _(RawOrigin::Signed(caller.clone()), recipient_lookup, account_index)
-	verify {
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), recipient_lookup, account_index);
+
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, recipient);
+		Ok(())
 	}
 
-	free {
+	#[benchmark]
+	fn free() -> Result<(), BenchmarkError> {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		// Claim the index
-		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
-	}: _(RawOrigin::Signed(caller.clone()), account_index)
-	verify {
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account_index);
+
 		assert_eq!(Accounts::<T>::get(account_index), None);
+		Ok(())
 	}
 
-	force_transfer {
+	#[benchmark]
+	fn force_transfer() -> Result<(), BenchmarkError> {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let original: T::AccountId = account("original", 0, SEED);
@@ -74,25 +88,85 @@ benchmarks! {
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 		T::Currency::make_free_balance_be(&recipient, BalanceOf::<T>::max_value());
 		// Claim the index
-		Indices::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
-	}: _(RawOrigin::Root, recipient_lookup, account_index, false)
-	verify {
+		Pallet::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, recipient_lookup, account_index, false);
+
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, recipient);
+		Ok(())
 	}
 
-	freeze {
+	#[benchmark]
+	fn freeze() -> Result<(), BenchmarkError> {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		// Claim the index
-		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
-	}: _(RawOrigin::Signed(caller.clone()), account_index)
-	verify {
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account_index);
+
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().2, true);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn poke_deposit() -> Result<(), BenchmarkError> {
+		let account_index = T::AccountIndex::from(SEED);
+		// Setup accounts
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+
+		let original_deposit = T::Deposit::get();
+
+		// Claim the index
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+
+		// Verify the initial deposit amount in storage and reserved balance
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
+		assert_eq!(T::Currency::reserved_balance(&caller), original_deposit);
+
+		// The additional amount we'll add to the deposit for the index
+		let additional_amount = 2u32.into();
+
+		// Reserve the additional amount from the caller's balance
+		T::Currency::reserve(&caller, additional_amount)?;
+
+		// Verify the additional amount was reserved
+		assert_eq!(
+			T::Currency::reserved_balance(&caller),
+			original_deposit.saturating_add(additional_amount)
+		);
+
+		// Increase the deposited amount in storage by additional_amount
+		Accounts::<T>::try_mutate(account_index, |maybe_value| -> Result<(), BenchmarkError> {
+			let (account, amount, perm) = maybe_value
+				.take()
+				.ok_or(BenchmarkError::Stop("Mutating storage to change deposits failed"))?;
+			*maybe_value = Some((account, amount.saturating_add(additional_amount), perm));
+			Ok(())
+		})?;
+
+		// Verify the deposit was increased by additional_amount
+		assert_eq!(
+			Accounts::<T>::get(account_index).unwrap().1,
+			original_deposit.saturating_add(additional_amount)
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account_index);
+
+		assert!(Accounts::<T>::contains_key(account_index));
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, caller);
+		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
+		assert_eq!(T::Currency::reserved_balance(&caller), original_deposit);
+		Ok(())
 	}
 
 	// TODO in another PR: lookup and unlookup trait weights (not critical)
 
-	impl_benchmark_test_suite!(Indices, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite!(Pallet, mock::new_test_ext(), mock::Test);
 }

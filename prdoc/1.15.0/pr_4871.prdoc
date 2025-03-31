@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Removed `pallet::getter` usage from the pallet-tips
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removed `pallet::getter`s from `pallet-tips`s storage items.
+      When accessed inside the pallet, use the syntax `StorageItem::<T, I>::get()`.
+
+crates:
+  - name: pallet-tips
+    bump: minor

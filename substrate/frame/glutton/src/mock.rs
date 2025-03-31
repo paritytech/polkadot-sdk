@@ -18,15 +18,8 @@
 use super::*;
 use crate as pallet_glutton;
 
-use frame_support::{
-	assert_ok, derive_impl,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use frame_support::{assert_ok, derive_impl};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -38,31 +31,9 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl Config for Test {
@@ -79,10 +50,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-/// Set the `compute` and `storage` limits.
+/// Set the `compute`, `storage` and `block_length` limits.
 ///
 /// `1.0` corresponds to `100%`.
-pub fn set_limits(compute: f64, storage: f64) {
+pub fn set_limits(compute: f64, storage: f64, block_length: f64) {
 	assert_ok!(Glutton::set_compute(RuntimeOrigin::root(), FixedU64::from_float(compute)));
 	assert_ok!(Glutton::set_storage(RuntimeOrigin::root(), FixedU64::from_float(storage)));
+	assert_ok!(Glutton::set_block_length(
+		RuntimeOrigin::root(),
+		FixedU64::from_float(block_length)
+	));
 }

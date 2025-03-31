@@ -1,0 +1,45 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "pallet-xcm: add new extrinsic for asset transfers using explicit reserve"
+
+doc:
+  - audience: Runtime User
+    description: |
+      pallet-xcm has a new extrinsic `transfer_assets_using_type_and_then` for transferring
+      assets from local chain to destination chain using an explicit XCM transfer
+      types for transferring the assets and the fees:
+      - `TransferType::LocalReserve`: transfer assets to sovereign account of destination
+      	chain and forward a notification XCM to `dest` to mint and deposit reserve-based
+      	assets to `beneficiary`.
+      - `TransferType::DestinationReserve`: burn local assets and forward a notification to
+      	`dest` chain to withdraw the reserve assets from this chain's sovereign account and
+      	deposit them to `beneficiary`.
+      - `TransferType::RemoteReserve(reserve)`: burn local assets, forward XCM to `reserve`
+      	chain to move reserves from this chain's SA to `dest` chain's SA, and forward another
+      	XCM to `dest` to mint and deposit reserve-based assets to `beneficiary`. Typically
+      	the remote `reserve` is Asset Hub.
+      - `TransferType::Teleport`: burn local assets and forward XCM to `dest` chain to
+      	mint/teleport assets and deposit them to `beneficiary`.
+      By default, an asset's reserve is its origin chain. But sometimes we may want to
+      explicitly use another chain as reserve (as long as allowed by runtime IsReserve
+      filter).
+      This is very helpful for transferring assets with multiple configured reserves
+      (such as Asset Hub ForeignAssets), when the transfer strictly depends on the used
+      reserve location.
+
+      E.g. For transferring a bridged Foreign Assets between local parachains, Asset Hub
+      or the parachain that bridged the asset over must be used as the reserve location.
+      Same when transferring bridged assets back across the bridge, the local bridging
+      parachain must be used as the explicit reserve location.
+
+      The new method takes a `custom_xcm_on_dest` parameter allowing the caller to specify
+      what should happen to the transferred assets once they reach
+      the `dest` chain. The `custom_xcm_on_dest` parameter should contains the instructions
+      to execute on `dest` as a final step. Usually as simple as:
+      `Xcm(vec![DepositAsset { assets: Wild(AllCounted(assets.len())), beneficiary }])`,
+      but could be something more exotic like sending the `assets` even further.
+
+crates:
+- name: pallet-xcm
+  bump: minor

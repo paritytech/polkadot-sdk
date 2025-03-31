@@ -2,26 +2,25 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use frame_support::{
-	parameter_types,
-	traits::{ConstU128, ConstU32, Everything},
-	weights::IdentityFee,
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
 use hex_literal::hex;
-use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_core::{
-	gwei,
-	inbound::{Log, Proof, VerificationError},
-	meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup,
+use snowbridge_beacon_primitives::{
+	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
-use snowbridge_router_primitives::inbound::MessageToXcm;
+use snowbridge_core::{
+	gwei, meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
+};
+use snowbridge_inbound_queue_primitives::{v1::MessageToXcm, Log, Proof, VerificationError};
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
-use sp_std::convert::From;
-use xcm::{latest::SendXcm, prelude::*};
+use sp_std::{convert::From, default::Default};
+use xcm::{
+	latest::{SendXcm, WESTEND_GENESIS_HASH},
+	prelude::*,
+};
 use xcm_executor::AssetsInHolding;
 
 use crate::{self as inbound_queue};
@@ -41,58 +40,29 @@ frame_support::construct_runtime!(
 pub type Signature = MultiSignature;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-
 type Balance = u128;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeTask = RuntimeTask;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type Nonce = u64;
 	type Block = Block;
 }
 
+parameter_types! {
+	pub const ExistentialDeposit: u128 = 1;
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU128<1>;
+	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 parameter_types! {
-	pub const ExecutionHeadersPruneThreshold: u32 = 10;
-	pub const ChainForkVersions: ForkVersions = ForkVersions{
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
 			version: [0, 0, 0, 1], // 0x00000001
 			epoch: 0,
@@ -111,7 +81,11 @@ parameter_types! {
 		},
 		deneb: Fork {
 			version: [4, 0, 0, 1], // 0x04000001
-			epoch: 4294967295,
+			epoch: 0,
+		},
+		electra: Fork {
+			version: [5, 0, 0, 0], // 0x05000000
+			epoch: 80000000000,
 		}
 	};
 }
@@ -119,7 +93,7 @@ parameter_types! {
 impl snowbridge_pallet_ethereum_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
-	type MaxExecutionHeadersToKeep = ExecutionHeadersPruneThreshold;
+	type FreeHeadersInterval = ConstU32<32>;
 	type WeightInfo = ();
 }
 
@@ -143,12 +117,15 @@ parameter_types! {
 	pub const SendTokenExecutionFee: u128 = 1_000_000_000;
 	pub const InitialFund: u128 = 1_000_000_000_000;
 	pub const InboundQueuePalletInstance: u8 = 80;
+	pub UniversalLocation: InteriorLocation =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
+	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
 	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage(_: H256, _: CompactExecutionHeader) {}
+	fn initialize_storage(_: BeaconHeader, _: H256) {}
 }
 
 // Mock XCM sender that always succeeds
@@ -182,7 +159,8 @@ parameter_types! {
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
-		rewards: Rewards { local: DOT, remote: meth(1) }
+		rewards: Rewards { local: DOT, remote: meth(1) },
+		multiplier: FixedU128::from_rational(1, 1),
 	};
 }
 
@@ -235,6 +213,16 @@ impl TransactAsset for SuccessfulTransactor {
 	}
 }
 
+pub struct MockTokenIdConvert;
+impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
+	fn convert(_id: &TokenId) -> Option<Location> {
+		Some(Location::parent())
+	}
+	fn convert_back(_loc: &Location) -> Option<TokenId> {
+		None
+	}
+}
+
 impl inbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -248,6 +236,9 @@ impl inbound_queue::Config for Test {
 		InboundQueuePalletInstance,
 		AccountId,
 		Balance,
+		MockTokenIdConvert,
+		UniversalLocation,
+		AssetHubFromEthereum,
 	>;
 	type PricingParameters = Parameters;
 	type ChannelLookup = MockChannelLookup;
@@ -257,20 +248,6 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
-}
-
-pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	frame_system::Pallet::<Test>::events()
-		.into_iter()
-		.rev()
-		.take(n)
-		.rev()
-		.map(|e| e.event)
-		.collect()
-}
-
-pub fn expect_events(e: Vec<RuntimeEvent>) {
-	assert_eq!(last_events(e.len()), e);
 }
 
 pub fn setup() {
@@ -341,6 +318,33 @@ pub fn mock_event_log_invalid_gateway() -> Log {
         // Nonce + Payload
         data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001e000f000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d0000").into(),
     }
+}
+
+pub fn mock_execution_proof() -> ExecutionProof {
+	ExecutionProof {
+		header: BeaconHeader::default(),
+		ancestry_proof: None,
+		execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
+			parent_hash: Default::default(),
+			fee_recipient: Default::default(),
+			state_root: Default::default(),
+			receipts_root: Default::default(),
+			logs_bloom: vec![],
+			prev_randao: Default::default(),
+			block_number: 0,
+			gas_limit: 0,
+			gas_used: 0,
+			timestamp: 0,
+			extra_data: vec![],
+			base_fee_per_gas: Default::default(),
+			block_hash: Default::default(),
+			transactions_root: Default::default(),
+			withdrawals_root: Default::default(),
+			blob_gas_used: 0,
+			excess_blob_gas: 0,
+		}),
+		execution_branch: vec![],
+	}
 }
 
 pub const ASSET_HUB_PARAID: u32 = 1000u32;

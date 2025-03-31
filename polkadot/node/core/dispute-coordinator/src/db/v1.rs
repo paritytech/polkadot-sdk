@@ -25,13 +25,14 @@
 use polkadot_node_primitives::DisputeStatus;
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, Hash, InvalidDisputeStatementKind, SessionIndex,
-	ValidDisputeStatementKind, ValidatorIndex, ValidatorSignature,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash,
+	InvalidDisputeStatementKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+	ValidatorSignature,
 };
 
 use std::sync::Arc;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use crate::{
 	backend::{Backend, BackendWriteOp, OverlayedBackend},
@@ -258,7 +259,7 @@ pub enum Error {
 	#[error(transparent)]
 	Io(#[from] std::io::Error),
 	#[error(transparent)]
-	Codec(#[from] parity_scale_codec::Error),
+	Codec(#[from] codec::Error),
 }
 
 impl From<Error> for crate::error::Error {
@@ -341,7 +342,7 @@ pub(crate) fn note_earliest_session(
 				let lower_bound = (new_earliest_session, CandidateHash(Hash::repeat_byte(0x00)));
 
 				let new_recent_disputes = recent_disputes.split_off(&lower_bound);
-				// Any remanining disputes are considered ancient and must be pruned.
+				// Any remaining disputes are considered ancient and must be pruned.
 				let pruned_disputes = recent_disputes;
 
 				if pruned_disputes.len() != 0 {
@@ -375,9 +376,11 @@ fn load_cleaned_votes_watermark(
 mod tests {
 
 	use super::*;
-	use ::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	use polkadot_node_primitives::DISPUTE_WINDOW;
 	use polkadot_primitives::{Hash, Id as ParaId};
+	use polkadot_primitives_test_helpers::{
+		dummy_candidate_receipt, dummy_candidate_receipt_v2, dummy_hash,
+	};
 
 	fn make_db() -> DbBackend {
 		let db = kvdb_memorydb::create(1);
@@ -403,7 +406,7 @@ mod tests {
 				session,
 				candidate_hash,
 				CandidateVotes {
-					candidate_receipt: dummy_candidate_receipt(dummy_hash()),
+					candidate_receipt: dummy_candidate_receipt_v2(dummy_hash()),
 					valid: Vec::new(),
 					invalid: Vec::new(),
 				},
@@ -495,7 +498,7 @@ mod tests {
 			1,
 			CandidateHash(Hash::repeat_byte(1)),
 			CandidateVotes {
-				candidate_receipt: dummy_candidate_receipt(dummy_hash()),
+				candidate_receipt: dummy_candidate_receipt_v2(dummy_hash()),
 				valid: Vec::new(),
 				invalid: Vec::new(),
 			},
@@ -508,7 +511,7 @@ mod tests {
 					let mut receipt = dummy_candidate_receipt(dummy_hash());
 					receipt.descriptor.para_id = ParaId::from(5_u32);
 
-					receipt
+					receipt.into()
 				},
 				valid: Vec::new(),
 				invalid: Vec::new(),
@@ -532,7 +535,7 @@ mod tests {
 				.unwrap()
 				.candidate_receipt
 				.descriptor
-				.para_id,
+				.para_id(),
 			ParaId::from(5),
 		);
 
@@ -556,7 +559,7 @@ mod tests {
 				.unwrap()
 				.candidate_receipt
 				.descriptor
-				.para_id,
+				.para_id(),
 			ParaId::from(5),
 		);
 	}
@@ -571,13 +574,13 @@ mod tests {
 			1,
 			CandidateHash(Hash::repeat_byte(1)),
 			CandidateVotes {
-				candidate_receipt: dummy_candidate_receipt(Hash::random()),
+				candidate_receipt: dummy_candidate_receipt_v2(Hash::random()),
 				valid: Vec::new(),
 				invalid: Vec::new(),
 			},
 		);
 
-		let receipt = dummy_candidate_receipt(dummy_hash());
+		let receipt = dummy_candidate_receipt_v2(dummy_hash());
 
 		overlay_db.write_candidate_votes(
 			1,
@@ -621,7 +624,7 @@ mod tests {
 		let very_recent = current_session - 1;
 
 		let blank_candidate_votes = || CandidateVotes {
-			candidate_receipt: dummy_candidate_receipt(dummy_hash()),
+			candidate_receipt: dummy_candidate_receipt_v2(dummy_hash()),
 			valid: Vec::new(),
 			invalid: Vec::new(),
 		};

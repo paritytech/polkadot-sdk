@@ -39,26 +39,26 @@
 //! least a particular rank.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "128"]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+extern crate alloc;
+
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
+use frame_support::{
+	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
+	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	traits::{
+		EnsureOrigin, EnsureOriginWithArg, OriginTrait, PollStatus, Polling, RankedMembers,
+		RankedMembersSwapHandler, VoteTally,
+	},
+	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
 use sp_runtime::{
 	traits::{Convert, StaticLookup},
 	ArithmeticError::Overflow,
 	DispatchError, Perbill, RuntimeDebug,
-};
-use sp_std::{marker::PhantomData, prelude::*};
-
-use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-	traits::{
-		EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers,
-		RankedMembersSwapHandler, VoteTally,
-	},
-	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
 #[cfg(test)]
@@ -89,6 +89,7 @@ pub type Votes = u32;
 	TypeInfo,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T, I, M))]
@@ -188,7 +189,18 @@ impl MemberRecord {
 }
 
 /// Record needed for every vote.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum VoteRecord {
 	/// Vote was an aye with given vote weight.
 	Aye(Votes),
@@ -267,10 +279,9 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = Rank;
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
+		match o.as_signer().and_then(|who| Members::<T, I>::get(who)) {
 			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(rank),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+			_ => Err(o),
 		}
 	}
 
@@ -293,10 +304,12 @@ impl<T: Config<I>, I: 'static> EnsureOriginWithArg<T::RuntimeOrigin, Rank> for E
 	type Success = (T::AccountId, Rank);
 
 	fn try_origin(o: T::RuntimeOrigin, min_rank: &Rank) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= *min_rank => Ok((who, rank)),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= *min_rank => Ok((who.clone(), rank)),
+			_ => Err(o),
 		}
 	}
 
@@ -318,10 +331,12 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = T::AccountId;
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(who),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(who.clone()),
+			_ => Err(o),
 		}
 	}
 
@@ -346,10 +361,12 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = (T::AccountId, Rank);
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok((who, rank)),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok((who.clone(), rank)),
+			_ => Err(o),
 		}
 	}
 
@@ -380,6 +397,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, storage::KeyLenOf};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::MaybeConvert;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -431,6 +449,14 @@ pub mod pallet {
 		/// Rank_delta is defined as the number of ranks above the minimum required to take part
 		/// in the poll.
 		type VoteWeight: Convert<Rank, Votes>;
+
+		/// The maximum number of members for a given rank in the collective.
+		///
+		/// The member at rank `x` contributes to the count at rank `x` and all ranks below it.
+		/// Therefore, the limit `m` at rank `x` sets the maximum total member count for rank `x`
+		/// and all ranks above.
+		/// The `None` indicates no member count limit for the given rank.
+		type MaxMemberCount: MaybeConvert<Rank, MemberIndex>;
 
 		/// Setup a member for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -512,6 +538,8 @@ pub mod pallet {
 		NoPermission,
 		/// The new member to exchange is the same as the old member
 		SameMember,
+		/// The max member count for the rank has been reached.
+		TooManyMembers,
 	}
 
 	#[pallet::call]
@@ -716,6 +744,14 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		fn ensure_member(who: &T::AccountId) -> Result<MemberRecord, DispatchError> {
 			Members::<T, I>::get(who).ok_or(Error::<T, I>::NotMember.into())
@@ -751,6 +787,9 @@ pub mod pallet {
 			ensure!(!Members::<T, I>::contains_key(&who), Error::<T, I>::AlreadyMember);
 			let index = MemberCount::<T, I>::get(0);
 			let count = index.checked_add(1).ok_or(Overflow)?;
+			if let Some(max) = T::MaxMemberCount::maybe_convert(0) {
+				ensure!(count <= max, Error::<T, I>::TooManyMembers);
+			}
 
 			Members::<T, I>::insert(&who, MemberRecord { rank: 0 });
 			IdToIndex::<T, I>::insert(0, &who, index);
@@ -777,6 +816,11 @@ pub mod pallet {
 				ensure!(max_rank >= rank, Error::<T, I>::NoPermission);
 			}
 			let index = MemberCount::<T, I>::get(rank);
+			let count = index.checked_add(1).ok_or(Overflow)?;
+			if let Some(max) = T::MaxMemberCount::maybe_convert(rank) {
+				ensure!(count <= max, Error::<T, I>::TooManyMembers);
+			}
+
 			MemberCount::<T, I>::insert(rank, index.checked_add(1).ok_or(Overflow)?);
 			IdToIndex::<T, I>::insert(rank, &who, index);
 			IndexToId::<T, I>::insert(rank, index, &who);
@@ -844,6 +888,132 @@ pub mod pallet {
 			}
 			Members::<T, I>::remove(&who);
 			Ok(())
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Ensure the correctness of the state of this pallet.
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::try_state_members()?;
+			Self::try_state_index()?;
+
+			Ok(())
+		}
+
+		/// ### Invariants of Member storage items
+		///
+		/// Total number of [`Members`] in storage should be >= [`MemberIndex`] of a [`Rank`] in
+		///    [`MemberCount`].
+		/// [`Rank`] in Members should be in [`MemberCount`]
+		/// [`Sum`] of [`MemberCount`] index should be the same as the sum of all the index attained
+		/// for rank possessed by [`Members`]
+		fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
+			MemberCount::<T, I>::iter().try_for_each(|(_, member_index)| -> DispatchResult {
+				let total_members = Members::<T, I>::iter().count();
+				ensure!(
+				total_members as u32 >= member_index,
+				"Total count of `Members` should be greater than or equal to the number of `MemberIndex` of a particular `Rank` in `MemberCount`."
+				);
+
+				Ok(())
+			})?;
+
+			let mut sum_of_member_rank_indexes = 0;
+			Members::<T, I>::iter().try_for_each(|(_, member_record)| -> DispatchResult {
+				ensure!(
+					Self::is_rank_in_member_count(member_record.rank.into()),
+					"`Rank` in Members should be in `MemberCount`"
+				);
+
+				sum_of_member_rank_indexes += Self::determine_index_of_a_rank(member_record.rank);
+
+				Ok(())
+			})?;
+
+			let sum_of_all_member_count_indexes =
+				MemberCount::<T, I>::iter_values().fold(0, |sum, index| sum + index);
+			ensure!(
+					sum_of_all_member_count_indexes == sum_of_member_rank_indexes as u32,
+					"Sum of `MemberCount` index should be the same as the sum of all the index attained for rank possessed by `Members`"
+				);
+			Ok(())
+		}
+
+		/// ### Invariants of Index storage items
+		/// [`Member`] in storage of [`IdToIndex`] should be the same as [`Member`] in [`IndexToId`]
+		/// [`Rank`] in [`IdToIndex`] should be the same as the the [`Rank`] in  [`IndexToId`]
+		/// [`Rank`] of the member [`who`] in [`IdToIndex`] should be the same as the [`Rank`] of
+		/// the member [`who`] in [`Members`]
+		fn try_state_index() -> Result<(), sp_runtime::TryRuntimeError> {
+			IdToIndex::<T, I>::iter().try_for_each(
+				|(rank, who, member_index)| -> DispatchResult {
+					let who_from_index = IndexToId::<T, I>::get(rank, member_index).unwrap();
+					ensure!(
+				who == who_from_index,
+				"`Member` in storage of `IdToIndex` should be the same as `Member` in `IndexToId`."
+				);
+
+					ensure!(
+						Self::is_rank_in_index_to_id_storage(rank.into()),
+						"`Rank` in `IdToIndex` should be the same as the `Rank` in `IndexToId`"
+					);
+					Ok(())
+				},
+			)?;
+
+			Members::<T, I>::iter().try_for_each(|(who, member_record)| -> DispatchResult {
+				ensure!(
+						Self::is_who_rank_in_id_to_index_storage(who, member_record.rank),
+						"`Rank` of the member `who` in `IdToIndex` should be the same as the `Rank` of the member `who` in `Members`"
+					);
+
+				Ok(())
+			})?;
+
+			Ok(())
+		}
+
+		/// Checks if a rank is part of the `MemberCount`
+		fn is_rank_in_member_count(rank: u32) -> bool {
+			for (r, _) in MemberCount::<T, I>::iter() {
+				if r as u32 == rank {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// Checks if a rank is the same as the rank `IndexToId`
+		fn is_rank_in_index_to_id_storage(rank: u32) -> bool {
+			for (r, _, _) in IndexToId::<T, I>::iter() {
+				if r as u32 == rank {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// Checks if a member(who) rank is the same as the rank of a member(who) in `IdToIndex`
+		fn is_who_rank_in_id_to_index_storage(who: T::AccountId, rank: u16) -> bool {
+			for (rank_, who_, _) in IdToIndex::<T, I>::iter() {
+				if who == who_ && rank == rank_ {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// Determines the total index for a rank
+		fn determine_index_of_a_rank(rank: u16) -> u16 {
+			let mut sum = 0;
+			for _ in 0..rank + 1 {
+				sum += 1;
+			}
+			sum
 		}
 	}
 

@@ -14,7 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod parachain;
+
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod relay_chain;
 
 use codec::DecodeLimit;
@@ -23,7 +28,9 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::{traits::AccountIdConversion, BuildStorage};
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
-use frame_support::assert_ok;
+#[cfg(feature = "try-runtime")]
+use frame_support::traits::{TryState, TryStateSelect::All};
+use frame_support::{assert_ok, traits::IntegrityTest};
 use xcm::{latest::prelude::*, MAX_XCM_DECODE_DEPTH};
 
 use arbitrary::{Arbitrary, Error, Unstructured};
@@ -96,9 +103,9 @@ impl<'a> Arbitrary<'a> for XcmMessage {
 		let destination: u32 = u.arbitrary()?;
 		let mut encoded_message: &[u8] = u.arbitrary()?;
 		if let Ok(message) =
-			DecodeLimit::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut encoded_message)
+			DecodeLimit::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut encoded_message)
 		{
-			return Ok(XcmMessage { source, destination, message })
+			return Ok(XcmMessage { source, destination, message });
 		}
 		Err(Error::IncorrectFormat)
 	}
@@ -115,6 +122,7 @@ pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 
 	pallet_balances::GenesisConfig::<Runtime> {
 		balances: (0..6).map(|i| ([i; 32].into(), INITIAL_BALANCE)).collect(),
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -136,7 +144,7 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 	balances.append(&mut (1..=3).map(|i| (para_account_id(i), INITIAL_BALANCE)).collect());
 	balances.append(&mut (0..6).map(|i| ([i; 32].into(), INITIAL_BALANCE)).collect());
 
-	pallet_balances::GenesisConfig::<Runtime> { balances }
+	pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
@@ -148,6 +156,21 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 pub type RelayChainPalletXcm = pallet_xcm::Pallet<relay_chain::Runtime>;
 pub type ParachainPalletXcm = pallet_xcm::Pallet<parachain::Runtime>;
 
+// We check XCM messages recursively for blocklisted messages
+fn recursively_matches_blocklisted_messages(message: &Instruction<()>) -> bool {
+	match message {
+		DepositReserveAsset { xcm, .. } |
+		ExportMessage { xcm, .. } |
+		InitiateReserveWithdraw { xcm, .. } |
+		InitiateTeleport { xcm, .. } |
+		TransferReserveAsset { xcm, .. } |
+		SetErrorHandler(xcm) |
+		SetAppendix(xcm) => xcm.iter().any(recursively_matches_blocklisted_messages),
+		// The blocklisted message is the Transact instruction.
+		m => matches!(m, Transact { .. }),
+	}
+}
+
 fn run_input(xcm_messages: [XcmMessage; 5]) {
 	MockNet::reset();
 
@@ -155,6 +178,11 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 	println!();
 
 	for xcm_message in xcm_messages {
+		if xcm_message.message.iter().any(recursively_matches_blocklisted_messages) {
+			println!("  skipping message\n");
+			continue;
+		}
+
 		if xcm_message.source % 4 == 0 {
 			// We get the destination for the message
 			let parachain_id = (xcm_message.destination % 3) + 1;
@@ -197,8 +225,22 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 		}
 		#[cfg(not(fuzzing))]
 		println!();
+		// We run integrity tests and try_runtime invariants
+		[ParaA::execute_with, ParaB::execute_with, ParaC::execute_with].iter().for_each(
+			|execute_with| {
+				execute_with(|| {
+					#[cfg(feature = "try-runtime")]
+					parachain::AllPalletsWithSystem::try_state(Default::default(), All).unwrap();
+					parachain::AllPalletsWithSystem::integrity_test();
+				});
+			},
+		);
+		Relay::execute_with(|| {
+			#[cfg(feature = "try-runtime")]
+			relay_chain::AllPalletsWithSystem::try_state(Default::default(), All).unwrap();
+			relay_chain::AllPalletsWithSystem::integrity_test();
+		});
 	}
-	Relay::execute_with(|| {});
 }
 
 fn main() {

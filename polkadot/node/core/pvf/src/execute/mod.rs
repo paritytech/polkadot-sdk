@@ -23,4 +23,4 @@
 mod queue;
 mod worker_interface;
 
-pub use queue::{start, PendingExecutionRequest, ToQueue};
+pub use queue::{start, FromQueue, PendingExecutionRequest, ToQueue};

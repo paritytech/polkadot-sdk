@@ -6,13 +6,13 @@ mod util;
 use crate::Pallet as EthereumBeaconClient;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-
-use snowbridge_pallet_ethereum_client_fixtures::*;
-
-use primitives::{
-	fast_aggregate_verify, prepare_aggregate_pubkey, prepare_aggregate_signature,
-	verify_merkle_branch,
+use hex_literal::hex;
+use snowbridge_beacon_primitives::{
+	fast_aggregate_verify,
+	merkle_proof::{generalized_index_length, subtree_index},
+	prepare_aggregate_pubkey, prepare_aggregate_signature, verify_merkle_branch, Fork,
 };
+use snowbridge_pallet_ethereum_client_fixtures::*;
 use util::*;
 
 #[benchmarks]
@@ -65,24 +65,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
-	fn submit_execution_header() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
-		let checkpoint_update = make_checkpoint();
-		let finalized_header_update = make_finalized_header_update();
-		let execution_header_update = make_execution_header_update();
-		let execution_header_hash = execution_header_update.execution_header.block_hash();
-		EthereumBeaconClient::<T>::process_checkpoint_update(&checkpoint_update)?;
-		EthereumBeaconClient::<T>::process_update(&finalized_header_update)?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), Box::new(*execution_header_update));
-
-		assert!(<ExecutionHeaders<T>>::contains_key(execution_header_hash));
-
-		Ok(())
-	}
-
 	#[benchmark(extra)]
 	fn bls_fast_aggregate_verify_pre_aggregated() -> Result<(), BenchmarkError> {
 		EthereumBeaconClient::<T>::process_checkpoint_update(&make_checkpoint())?;
@@ -129,13 +111,25 @@ mod benchmarks {
 		let update = make_sync_committee_update();
 		let block_root: H256 = update.finalized_header.hash_tree_root().unwrap();
 
+		let fork_versions = ForkVersions {
+			genesis: Fork { version: hex!("00000000"), epoch: 0 },
+			altair: Fork { version: hex!("01000000"), epoch: 0 },
+			bellatrix: Fork { version: hex!("02000000"), epoch: 0 },
+			capella: Fork { version: hex!("03000000"), epoch: 0 },
+			deneb: Fork { version: hex!("04000000"), epoch: 0 },
+			electra: Fork { version: hex!("05000000"), epoch: 80000000000 },
+		};
+		let finalized_root_gindex = EthereumBeaconClient::<T>::finalized_root_gindex_at_slot(
+			update.attested_header.slot,
+			fork_versions,
+		);
 		#[block]
 		{
 			verify_merkle_branch(
 				block_root,
 				&update.finality_branch,
-				config::FINALIZED_ROOT_SUBTREE_INDEX,
-				config::FINALIZED_ROOT_DEPTH,
+				subtree_index(finalized_root_gindex),
+				generalized_index_length(finalized_root_gindex),
 				update.attested_header.state_root,
 			);
 		}

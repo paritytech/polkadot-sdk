@@ -35,6 +35,8 @@ use sp_std::{
 		btree_set::BTreeSet,
 	},
 	prelude::*,
+	vec,
+	vec::Vec,
 };
 
 type SignedPrecommit<Header> = finality_grandpa::SignedPrecommit<
@@ -318,7 +320,7 @@ trait JustificationVerifier<Header: HeaderT> {
 		}
 
 		// check that the cumulative weight of validators that voted for the justification target
-		// (or one of its descendents) is larger than the required threshold.
+		// (or one of its descendants) is larger than the required threshold.
 		if cumulative_weight < threshold {
 			return Err(Error::TooLowCumulativeWeight)
 		}
