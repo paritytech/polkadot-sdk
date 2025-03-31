@@ -79,7 +79,7 @@ use sp_runtime::{
 };
 
 pub use crate::{
-	address::{create1, create2, AccountId32Mapper, AddressMapper},
+	address::{create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper},
 	exec::{MomentOf, Origin},
 	pallet::*,
 };

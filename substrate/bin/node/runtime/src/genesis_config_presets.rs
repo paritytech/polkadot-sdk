@@ -21,12 +21,13 @@ use polkadot_sdk::*;
 
 use crate::{
 	constants::currency::*, frame_support::build_struct_json_patch, AccountId, AssetsConfig,
-	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig,
+	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig, ReviveConfig,
 	RuntimeGenesisConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
 	SudoConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_revive::is_eth_derived;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
@@ -105,6 +106,7 @@ pub fn kitchensink_genesis(
 			min_create_bond: 10 * DOLLARS,
 			min_join_bond: 1 * DOLLARS,
 		},
+		revive: ReviveConfig { mapped_accounts: endowed_accounts.iter().filter(|x| ! is_eth_derived(x)).cloned().collect() },
 	})
 }
 
@@ -158,7 +160,7 @@ pub fn preset_names() -> Vec<PresetId> {
 
 /// Sets up the `account` to be a staker of validator variant as supplied to the
 /// staking config.
-pub fn validator(account: AccountId) -> Staker {
+fn validator(account: AccountId) -> Staker {
 	// validator, controller, stash, staker status
 	(account.clone(), account, STASH, StakerStatus::Validator)
 }
@@ -177,7 +179,7 @@ fn collective(endowed: &[AccountId]) -> Vec<AccountId> {
 /// The Keyring's wellknown accounts + Alith and Baltathar.
 ///
 /// Some integration tests require these ETH accounts.
-pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
+fn well_known_including_eth_accounts() -> Vec<AccountId> {
 	Sr25519Keyring::well_known()
 		.map(|k| k.to_account_id())
 		.chain([
@@ -196,7 +198,7 @@ pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
 /// Helper function to generate stash, controller and session key from seed.
 ///
 /// Note: `//` is prepended internally.
-pub fn authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, SessionKeys) {
+fn authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, SessionKeys) {
 	(
 		get_public_from_string_or_panic::<sr25519::Public>(&alloc::format!("{seed}//stash")).into(),
 		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
@@ -219,7 +221,7 @@ pub fn session_keys(
 /// account keyring into these ids.
 ///
 /// Note: `//` is prepended internally.
-pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
+fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	session_keys(
 		get_public_from_string_or_panic::<GrandpaId>(seed),
 		get_public_from_string_or_panic::<BabeId>(seed),
