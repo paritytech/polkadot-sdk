@@ -57,6 +57,7 @@ jobs:
 
   #
   zombienet-polkadot-functional-0002-parachains-disputes:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -79,6 +80,7 @@ jobs:
 
   #
   zombienet-polkadot-functional-0003-beefy-and-mmr:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -100,6 +102,7 @@ jobs:
 
   #
   zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -122,6 +125,7 @@ jobs:
 
   #
   zombienet-polkadot-functional-0006-parachains-max-tranche0:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -143,6 +147,7 @@ jobs:
 
   #
   zombienet-polkadot-functional-0007-dispute-freshly-finalized:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -165,6 +170,7 @@ jobs:
 
   #
   zombienet-polkadot-functional-0008-dispute-old-finalized:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -187,6 +193,7 @@ jobs:
 
   #
   zombienet-polkadot-functional-0009-approval-voting-coalescing:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -208,6 +215,7 @@ jobs:
 
   #
   zombienet-polkadot-functional-0010-validator-disabling:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -230,6 +238,7 @@ jobs:
   #
   #
   zombienet-polkadot-functional-0013-systematic-chunk-recovery:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -251,6 +260,7 @@ jobs:
   #
   #
   zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -273,6 +283,7 @@ jobs:
   #
   #
   zombienet-polkadot-functional-0015-coretime-shared-core:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -298,6 +309,7 @@ jobs:
   #
   #
   zombienet-polkadot-functional-0018-shared-core-idle-parachain:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -323,6 +335,7 @@ jobs:
   #
   #
   zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -350,6 +363,7 @@ jobs:
   # smoke
   #
   zombienet-polkadot-smoke-0001-parachains-smoke-test:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -371,6 +385,7 @@ jobs:
   #
   #
   zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -392,6 +407,7 @@ jobs:
   #
   # (skipped in gitlab)
   zombienet-polkadot-smoke-0003-deregister-register-validator:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -412,6 +428,7 @@ jobs:
   #
   #
   zombienet-polkadot-smoke-0004-coretime-smoke-test:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -433,6 +450,7 @@ jobs:
   #
   #
   zombienet-polkadot-smoke-0005-precompile-pvf-smoke:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -456,6 +474,7 @@ jobs:
   # misc
   #
   zombienet-polkadot-misc-0001-parachains-paritydb:
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
@@ -476,6 +495,7 @@ jobs:
           loacal-dir: "$LOCAL_DIR/misc"
   #
   # zombienet-polkadot-misc-0002-upgrade-node:
+  #   needs: [preflight]
   #   if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
   #   runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
   #   timeout-minutes: 60

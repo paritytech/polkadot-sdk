@@ -21,6 +21,7 @@ runs:
         k8s_auth
 
     - name: common_vars
+      shell: bash
       run: |
         echo "Vars"
         echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
@@ -31,11 +32,12 @@ runs:
         echo "concurrency: ${{ inputs.concurrency }}"
 
     - name: zombie_test
+      shell: bash
       run: |
         /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
           --local-dir="${{ inputs.local-dir }}" \
           --concurrency=${{ inputs.concurrency }} \
-          --test="${{ test }}"
+          --test="${{ inputs.test }}"
       continue-on-error: true
 
     - name: upload_logs
