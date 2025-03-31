@@ -20,9 +20,7 @@
 //! This uses compact proof from trie crate and extends
 //! it to substrate specific layout and child trie system.
 
-use crate::{
-	CompactProof, HashDBT, TrieConfiguration, TrieHash, EMPTY_PREFIX,
-};
+use crate::{CompactProof, HashDBT, TrieConfiguration, TrieHash, EMPTY_PREFIX};
 use alloc::{boxed::Box, vec::Vec};
 use trie_db::{CError, Trie};
 
@@ -208,14 +206,13 @@ where
 
 #[cfg(test)]
 mod tests {
-	use crate::{delta_trie_root, HashDB, StorageProof};
+	use crate::{delta_trie_root, recorder::IgnoredNodes, HashDB, StorageProof};
 
 	use super::*;
 	use codec::Encode;
-	use hash_db::{AsHashDB, Hasher};
+	use hash_db::AsHashDB;
 	use sp_core::{Blake2Hasher, H256};
-	use std::collections::HashSet;
-	use trie_db::{Bytes, DBValue, Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut};
+	use trie_db::{DBValue, Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut};
 
 	type MemoryDB = crate::MemoryDB<sp_core::Blake2Hasher>;
 	type Layout = crate::LayoutV1<sp_core::Blake2Hasher>;
@@ -302,7 +299,7 @@ mod tests {
 		root: H256,
 		read_keys: &[u32],
 		write_keys: &[u32],
-		nodes_to_ignore: HashSet<H256>,
+		nodes_to_ignore: IgnoredNodes<H256>,
 	) -> (Recorder, MemoryDB, H256) {
 		let recorder = Recorder::with_ignored_nodes(nodes_to_ignore);
 
@@ -339,20 +336,20 @@ mod tests {
 		(recorder, overlay.write, new_root)
 	}
 
-	fn build_known_nodes_list(recorder: &Recorder, transaction: &MemoryDB) -> HashSet<H256> {
-		recorder
-			.to_storage_proof()
-			.into_iter_nodes()
-			.map(|n| Blake2Hasher::hash(&n))
-			.chain(transaction.clone().drain().into_iter().map(|d| Blake2Hasher::hash(&(d.1).0)))
-			.collect()
+	fn build_known_nodes_list(recorder: &Recorder, transaction: &MemoryDB) -> IgnoredNodes<H256> {
+		let mut ignored_nodes =
+			IgnoredNodes::from_storage_proof::<Blake2Hasher>(&recorder.to_storage_proof());
+
+		ignored_nodes.extend(&IgnoredNodes::from_memory_db::<Blake2Hasher, _>(transaction.clone()));
+
+		ignored_nodes
 	}
 
 	#[test]
 	fn ensure_multiple_tries_encode_compact_works() {
 		let (mut db, root) = create_trie(100);
 
-		let mut nodes_to_ignore = HashSet::new();
+		let mut nodes_to_ignore = IgnoredNodes::default();
 		let (recorder, transaction, root1) = emulate_block_building(
 			&db,
 			root,
@@ -362,7 +359,7 @@ mod tests {
 		);
 
 		db.consolidate(transaction.clone());
-		nodes_to_ignore.extend(build_known_nodes_list(&recorder, &transaction));
+		nodes_to_ignore.extend(&build_known_nodes_list(&recorder, &transaction));
 
 		let (recorder2, transaction, root2) = emulate_block_building(
 			&db,
@@ -373,7 +370,7 @@ mod tests {
 		);
 
 		db.consolidate(transaction.clone());
-		nodes_to_ignore.extend(build_known_nodes_list(&recorder2, &transaction));
+		nodes_to_ignore.extend(&build_known_nodes_list(&recorder2, &transaction));
 
 		let (recorder3, _, root3) = emulate_block_building(
 			&db,

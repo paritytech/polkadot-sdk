@@ -58,7 +58,8 @@
 //!
 //! // This `Proposer` allows us to create a block proposition.
 //! // The proposer will grab transactions from the transaction pool, and put them into the block.
-//! let future = proposer.propose(
+//! let future = Proposer::propose(
+//! 	proposer,
 //! 	Default::default(),
 //! 	Default::default(),
 //! 	Duration::from_secs(2),

@@ -20,9 +20,10 @@
 //! Provides an implementation of the [`TrieRecorder`](trie_db::TrieRecorder) trait. It can be used
 //! to record storage accesses to the state to generate a [`StorageProof`].
 
-use crate::{NodeCodec, StorageProof};
+use crate::{GenericMemoryDB, NodeCodec, StorageProof};
 use codec::Encode;
 use hash_db::Hasher;
+use memory_db::KeyFunction;
 use parking_lot::{Mutex, MutexGuard};
 use std::{
 	collections::{HashMap, HashSet},
@@ -37,6 +38,56 @@ use std::{
 use trie_db::{RecordedForKey, TrieAccess};
 
 const LOG_TARGET: &str = "trie-recorder";
+
+/// A list of ignored nodes for [`Recorder`].
+///
+/// These nodes when passed to a recorder will be ignored and not recorded by the recorder.
+#[derive(Clone)]
+pub struct IgnoredNodes<H> {
+	nodes: HashSet<H>,
+}
+
+impl<H> Default for IgnoredNodes<H> {
+	fn default() -> Self {
+		Self { nodes: HashSet::default() }
+	}
+}
+
+impl<H: Eq + std::hash::Hash + Clone> IgnoredNodes<H> {
+	/// Initialize from the given storage proof.
+	///
+	/// So, all recorded nodes of the proof will be the ignored nodes.
+	pub fn from_storage_proof<Hasher: trie_db::Hasher<Out = H>>(proof: &StorageProof) -> Self {
+		Self { nodes: proof.iter_nodes().map(|n| Hasher::hash(&n)).collect() }
+	}
+
+	/// Initialize from the given memory db.
+	///
+	/// All nodes that have a reference count > 0 will be used as ignored nodes.
+	pub fn from_memory_db<Hasher: trie_db::Hasher<Out = H>, KF: KeyFunction<Hasher>>(
+		mut memory_db: GenericMemoryDB<Hasher, KF>,
+	) -> Self {
+		Self {
+			nodes: memory_db
+				.drain()
+				.into_iter()
+				// We do not want to add removed nodes.
+				.filter(|(_, (_, counter))| *counter > 0)
+				.map(|(_, (data, _))| Hasher::hash(&data))
+				.collect(),
+		}
+	}
+
+	/// Extend `self` with the other instance of ignored nodes.
+	pub fn extend(&mut self, other: &Self) {
+		self.nodes.extend(other.nodes.iter().cloned());
+	}
+
+	/// Returns `true` if the node is ignored.
+	pub fn is_ignored(&self, node: &H) -> bool {
+		self.nodes.contains(node)
+	}
+}
 
 /// Stores all the information per transaction.
 #[derive(Default)]
@@ -68,7 +119,7 @@ struct RecorderInner<H> {
 	accessed_nodes: HashMap<H, Vec<u8>>,
 
 	/// Nodes that should be ignored and not recorded.
-	ignored_nodes: HashSet<H>,
+	ignored_nodes: IgnoredNodes<H>,
 }
 
 impl<H> Default for RecorderInner<H> {
@@ -114,7 +165,7 @@ impl<H: Hasher> Recorder<H> {
 	/// Create a new instance with the given `ingored_nodes`.
 	///
 	/// These ignored nodes are not recorded when accessed.
-	pub fn with_ignored_nodes(ignored_nodes: HashSet<H::Out>) -> Self {
+	pub fn with_ignored_nodes(ignored_nodes: IgnoredNodes<H::Out>) -> Self {
 		Self {
 			inner: Arc::new(Mutex::new(RecorderInner { ignored_nodes, ..Default::default() })),
 			..Default::default()
@@ -338,7 +389,7 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 
 				let inner = self.inner.deref_mut();
 
-				if inner.ignored_nodes.contains(&hash) {
+				if inner.ignored_nodes.is_ignored(&hash) {
 					tracing::trace!(
 						target: LOG_TARGET,
 						?hash,
@@ -368,7 +419,7 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 
 				let inner = self.inner.deref_mut();
 
-				if inner.ignored_nodes.contains(&hash) {
+				if inner.ignored_nodes.is_ignored(&hash) {
 					tracing::trace!(
 						target: LOG_TARGET,
 						?hash,
@@ -399,7 +450,8 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 
 				let inner = self.inner.deref_mut();
 
-				if inner.ignored_nodes.contains(&hash) {
+				// A value is also just a node.
+				if inner.ignored_nodes.is_ignored(&hash) {
 					tracing::trace!(
 						target: LOG_TARGET,
 						?hash,
@@ -790,10 +842,11 @@ mod tests {
 		}
 
 		assert!(recorder.estimate_encoded_size() > 10);
-		let memory_db: MemoryDB = recorder.drain_storage_proof().into_memory_db();
+		let ignored_nodes = IgnoredNodes::from_storage_proof::<sp_core::Blake2Hasher>(
+			&recorder.drain_storage_proof(),
+		);
 
-		let recorder =
-			Recorder::with_ignored_nodes(memory_db.keys().into_keys().collect::<HashSet<_>>());
+		let recorder = Recorder::with_ignored_nodes(ignored_nodes);
 
 		{
 			let mut trie_recorder = recorder.as_trie_recorder(root);

@@ -27,7 +27,9 @@ use futures::{
 	future::{Future, FutureExt},
 };
 use log::{debug, error, info, trace, warn};
+use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
+use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxInvalidityReportMap};
 use sp_api::{ApiExt, CallApiAt, ProofRecorder, ProvideRuntimeApi};
@@ -39,10 +41,8 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
 	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
-use std::{collections::HashSet, marker::PhantomData, pin::Pin, sync::Arc, time};
-
-use prometheus_endpoint::Registry as PrometheusRegistry;
-use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
+use sp_trie::recorder::IgnoredNodes;
+use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
 
 /// Default block size limit in bytes used by [`Proposer`].
 ///
@@ -310,10 +310,22 @@ pub struct ProposeArgs<Block: BlockT> {
 	/// When set, block production ends before hitting this limit. The limit includes the storage
 	/// proof, when proof recording is activated.
 	pub block_size_limit: Option<usize>,
-	/// Hashes of trie nodes that should not be recorded.
+	/// Trie nodes that should not be recorded.
 	///
 	/// Only applies when proof recording is enabled.
-	pub ignored_nodes_by_proof_recording: Option<HashSet<Block::Hash>>,
+	pub ignored_nodes_by_proof_recording: Option<IgnoredNodes<Block::Hash>>,
+}
+
+impl<Block: BlockT> Default for ProposeArgs<Block> {
+	fn default() -> Self {
+		Self {
+			inherent_data: Default::default(),
+			inherent_digests: Default::default(),
+			max_duration: Default::default(),
+			block_size_limit: None,
+			ignored_nodes_by_proof_recording: None,
+		}
+	}
 }
 
 /// If the block is full we will attempt to push at most
@@ -655,7 +667,7 @@ mod tests {
 	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionSource};
 	use sp_api::Core;
 	use sp_blockchain::HeaderBackend;
-	use sp_consensus::{BlockOrigin, Environment, Proposer};
+	use sp_consensus::{BlockOrigin, Environment};
 	use sp_runtime::{generic::BlockId, traits::NumberFor, Perbill};
 	use substrate_test_runtime_client::{
 		prelude::*,
@@ -731,10 +743,11 @@ mod tests {
 
 		// when
 		let deadline = time::Duration::from_secs(3);
-		let block =
-			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-				.map(|r| r.block)
-				.unwrap();
+		let block = block_on(
+			proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.map(|r| r.block)
+		.unwrap();
 
 		// then
 		// block should have some extrinsics although we have some more in the pool.
@@ -773,7 +786,7 @@ mod tests {
 		);
 
 		let deadline = time::Duration::from_secs(1);
-		block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
+		block_on(proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }))
 			.map(|r| r.block)
 			.unwrap();
 	}
@@ -812,9 +825,10 @@ mod tests {
 		);
 
 		let deadline = time::Duration::from_secs(9);
-		let proposal =
-			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-				.unwrap();
+		let proposal = block_on(
+			proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.unwrap();
 
 		assert_eq!(proposal.block.extrinsics().len(), 1);
 
@@ -877,10 +891,11 @@ mod tests {
 
 			// when
 			let deadline = time::Duration::from_secs(900);
-			let block =
-				block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-					.map(|r| r.block)
-					.unwrap();
+			let block = block_on(
+				proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+			)
+			.map(|r| r.block)
+			.unwrap();
 
 			// then
 			// block should have some extrinsics although we have some more in the pool.
@@ -989,12 +1004,11 @@ mod tests {
 
 		// Give it enough time
 		let deadline = time::Duration::from_secs(300);
-		let block = block_on(proposer.propose(
-			Default::default(),
-			Default::default(),
-			deadline,
-			Some(block_limit),
-		))
+		let block = block_on(proposer.propose(ProposeArgs {
+			max_duration: deadline,
+			block_size_limit: Some(block_limit),
+			..Default::default()
+		}))
 		.map(|r| r.block)
 		.unwrap();
 
@@ -1003,10 +1017,11 @@ mod tests {
 
 		let proposer = block_on(proposer_factory.init(&genesis_header)).unwrap();
 
-		let block =
-			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-				.map(|r| r.block)
-				.unwrap();
+		let block = block_on(
+			proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.map(|r| r.block)
+		.unwrap();
 
 		// Without a block limit we should include all of them
 		assert_eq!(block.extrinsics().len(), extrinsics_num);
@@ -1032,12 +1047,11 @@ mod tests {
 				.unwrap();
 			builder.estimate_block_size(true) + extrinsics[0].encoded_size()
 		};
-		let block = block_on(proposer.propose(
-			Default::default(),
-			Default::default(),
-			deadline,
-			Some(block_limit),
-		))
+		let block = block_on(proposer.propose(ProposeArgs {
+			max_duration: deadline,
+			block_size_limit: Some(block_limit),
+			..Default::default()
+		}))
 		.map(|r| r.block)
 		.unwrap();
 
@@ -1107,10 +1121,11 @@ mod tests {
 		// when
 		// give it enough time so that deadline is never triggered.
 		let deadline = time::Duration::from_secs(900);
-		let block =
-			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-				.map(|r| r.block)
-				.unwrap();
+		let block = block_on(
+			proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.map(|r| r.block)
+		.unwrap();
 
 		// then block should have all non-exhaust resources extrinsics (+ the first one).
 		assert_eq!(block.extrinsics().len(), MAX_SKIPPED_TRANSACTIONS + 1);
@@ -1185,10 +1200,11 @@ mod tests {
 			}),
 		);
 
-		let block =
-			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-				.map(|r| r.block)
-				.unwrap();
+		let block = block_on(
+			proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.map(|r| r.block)
+		.unwrap();
 
 		// then the block should have one or two transactions. This maybe random as they are
 		// processed in parallel. The same signer and consecutive nonces for huge and tiny
