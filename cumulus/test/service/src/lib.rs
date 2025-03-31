@@ -509,6 +509,7 @@ where
 					block_import_handle: slot_based_handle,
 					spawner: task_manager.spawn_handle(),
 					export_pov: None,
+					max_pov_percentage: None,
 				};
 
 				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
@@ -535,6 +536,7 @@ where
 					collator_service,
 					authoring_duration: Duration::from_millis(2000),
 					reinitialize: false,
+					max_pov_percentage: None,
 				};
 
 				let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);

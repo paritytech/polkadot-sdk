@@ -35,10 +35,6 @@ pub use bp_messages;
 #[cfg(feature = "bp-parachains")]
 pub use bp_parachains;
 
-/// Primitives of Polkadot runtime.
-#[cfg(feature = "bp-polkadot")]
-pub use bp_polkadot;
-
 /// Primitives of Polkadot-like runtime.
 #[cfg(feature = "bp-polkadot-core")]
 pub use bp_polkadot_core;

@@ -1244,20 +1244,18 @@ impl From<RuntimeVersion> for LastRuntimeUpgradeInfo {
 
 /// Ensure the origin is Root.
 pub struct EnsureRoot<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
-	EnsureOrigin<O> for EnsureRoot<AccountId>
-{
+impl<O: OriginTrait, AccountId> EnsureOrigin<O> for EnsureRoot<AccountId> {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Root => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Root) => Ok(()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Root))
+		Ok(O::root())
 	}
 }
 
@@ -1271,23 +1269,20 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 pub struct EnsureRootWithSuccess<AccountId, Success>(
 	core::marker::PhantomData<(AccountId, Success)>,
 );
-impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
-		AccountId,
-		Success: TypedGet,
-	> EnsureOrigin<O> for EnsureRootWithSuccess<AccountId, Success>
+impl<O: OriginTrait, AccountId, Success: TypedGet> EnsureOrigin<O>
+	for EnsureRootWithSuccess<AccountId, Success>
 {
 	type Success = Success::Type;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Root => Ok(Success::get()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Root) => Ok(Success::get()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Root))
+		Ok(O::root())
 	}
 }
 
@@ -1302,12 +1297,8 @@ pub struct EnsureWithSuccess<Ensure, AccountId, Success>(
 	core::marker::PhantomData<(Ensure, AccountId, Success)>,
 );
 
-impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
-		Ensure: EnsureOrigin<O>,
-		AccountId,
-		Success: TypedGet,
-	> EnsureOrigin<O> for EnsureWithSuccess<Ensure, AccountId, Success>
+impl<O: OriginTrait, Ensure: EnsureOrigin<O>, AccountId, Success: TypedGet> EnsureOrigin<O>
+	for EnsureWithSuccess<Ensure, AccountId, Success>
 {
 	type Success = Success::Type;
 
@@ -1323,27 +1314,27 @@ impl<
 
 /// Ensure the origin is any `Signed` origin.
 pub struct EnsureSigned<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId: Decode>
-	EnsureOrigin<O> for EnsureSigned<AccountId>
+impl<O: OriginTrait<AccountId = AccountId>, AccountId: Decode + Clone> EnsureOrigin<O>
+	for EnsureSigned<AccountId>
 {
 	type Success = AccountId;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Signed(who) => Ok(who),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Signed(who)) => Ok(who.clone()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
 		let zero_account_id =
 			AccountId::decode(&mut TrailingZeroInput::zeroes()).map_err(|_| ())?;
-		Ok(O::from(RawOrigin::Signed(zero_account_id)))
+		Ok(O::signed(zero_account_id))
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., AccountId: Decode, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, AccountId: Decode + Clone, T } >
 		EnsureOriginWithArg<O, T> for EnsureSigned<AccountId>
 	{}
 }
@@ -1351,17 +1342,17 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 /// Ensure the origin is `Signed` origin from the given `AccountId`.
 pub struct EnsureSignedBy<Who, AccountId>(core::marker::PhantomData<(Who, AccountId)>);
 impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
+		O: OriginTrait<AccountId = AccountId>,
 		Who: SortedMembers<AccountId>,
 		AccountId: PartialEq + Clone + Ord + Decode,
 	> EnsureOrigin<O> for EnsureSignedBy<Who, AccountId>
 {
 	type Success = AccountId;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Signed(ref who) if Who::contains(who) => Ok(who.clone()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Signed(ref who)) if Who::contains(who) => Ok(who.clone()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1370,37 +1361,35 @@ impl<
 			Some(account) => account.clone(),
 			None => AccountId::decode(&mut TrailingZeroInput::zeroes()).map_err(|_| ())?,
 		};
-		Ok(O::from(RawOrigin::Signed(first_member)))
+		Ok(O::signed(first_member))
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., Who: SortedMembers<AccountId>, AccountId: PartialEq + Clone + Ord + Decode, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, Who: SortedMembers<AccountId>, AccountId: PartialEq + Clone + Ord + Decode, T } >
 		EnsureOriginWithArg<O, T> for EnsureSignedBy<Who, AccountId>
 	{}
 }
 
 /// Ensure the origin is `None`. i.e. unsigned transaction.
 pub struct EnsureNone<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
-	EnsureOrigin<O> for EnsureNone<AccountId>
-{
+impl<O: OriginTrait<AccountId = AccountId>, AccountId> EnsureOrigin<O> for EnsureNone<AccountId> {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::None => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::None) => Ok(()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::None))
+		Ok(O::none())
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., AccountId, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, AccountId, T } >
 		EnsureOriginWithArg<O, T> for EnsureNone<AccountId>
 	{}
 }
@@ -1693,7 +1682,7 @@ impl<T: Config> Pallet<T> {
 						DecRefStatus::Reaped
 					},
 					(x, _) => {
-						account.sufficients = x - 1;
+						account.sufficients = x.saturating_sub(1);
 						*maybe_account = Some(account);
 						DecRefStatus::Exists
 					},
