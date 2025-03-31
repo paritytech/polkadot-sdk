@@ -292,13 +292,29 @@ where
 	fn ensure_can_withdraw(
 		who: &T::AccountId,
 		amount: T::Balance,
-		_reasons: WithdrawReasons,
+		reasons: WithdrawReasons,
 		new_balance: T::Balance,
 	) -> DispatchResult {
 		if amount.is_zero() {
 			return Ok(())
 		}
-		ensure!(new_balance >= Self::account(who).frozen, Error::<T, I>::LiquidityRestrictions);
+		let account = Self::account(who);
+
+		// Account for the new reserved amount only if withdrawing for a reserve.
+		let updated_reserved = if matches!(reasons, WithdrawReasons::RESERVE) {
+			account.reserved.saturating_add(amount)
+		} else {
+			account.reserved
+		};
+
+		// Frozen balance applies to total. Anything on hold therefore gets discounted from the
+		// limit given by the freezes
+		let untouchable = account
+			.frozen
+			.saturating_sub(updated_reserved)
+			.max(T::ExistentialDeposit::get());
+
+		ensure!(new_balance >= untouchable, Error::<T, I>::LiquidityRestrictions);
 		Ok(())
 	}
 

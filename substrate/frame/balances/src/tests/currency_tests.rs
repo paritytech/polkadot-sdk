@@ -260,6 +260,48 @@ fn lock_should_work_reserve() {
 }
 
 #[test]
+fn reserve_should_work_for_usable_balance() {
+	frame_support::__private::sp_tracing::init_for_tests();
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			// Check balances
+			let account = Balances::account(&1);
+			assert_eq!(account.free, 10);
+			assert_eq!(account.frozen, 0);
+			assert_eq!(account.reserved, 0);
+
+			Balances::set_lock(ID_1, &1, 9, WithdrawReasons::RESERVE);
+
+			let account = Balances::account(&1);
+			assert_eq!(account.free, 10);
+			assert_eq!(account.frozen, 9);
+			assert_eq!(account.reserved, 0);
+
+			assert_ok!(Balances::reserve(&1, 5));
+
+			let account = Balances::account(&1);
+			assert_eq!(account.free, 5);
+			assert_eq!(account.frozen, 9);
+			assert_eq!(account.reserved, 5);
+
+			assert_ok!(Balances::reserve(&1, 4));
+
+			let account = Balances::account(&1);
+			assert_eq!(account.free, 1);
+			assert_eq!(account.frozen, 9);
+			assert_eq!(account.reserved, 9);
+
+			// Check usable balance
+			// usable_balance = free - max(frozen - reserved, ExistentialDeposit)
+			// 0 = 1 - max(9 - 9, 1)
+			let usable_balance = Balances::usable_balance(&1);
+			assert_eq!(usable_balance, 0);
+		});
+}
+
+#[test]
 fn lock_should_work_tx_fee() {
 	ExtBuilder::default()
 		.existential_deposit(1)
