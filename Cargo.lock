@@ -2051,32 +2051,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bp-bridge-hub-kusama"
-version = "0.6.0"
-dependencies = [
- "bp-bridge-hub-cumulus",
- "bp-messages",
- "bp-runtime",
- "frame-support",
- "sp-api 26.0.0",
- "sp-runtime 31.0.1",
- "sp-std 14.0.0",
-]
-
-[[package]]
-name = "bp-bridge-hub-polkadot"
-version = "0.6.0"
-dependencies = [
- "bp-bridge-hub-cumulus",
- "bp-messages",
- "bp-runtime",
- "frame-support",
- "sp-api 26.0.0",
- "sp-runtime 31.0.1",
- "sp-std 14.0.0",
-]
-
-[[package]]
 name = "bp-bridge-hub-rococo"
 version = "0.7.0"
 dependencies = [
@@ -2126,18 +2100,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bp-kusama"
-version = "0.5.0"
-dependencies = [
- "bp-header-chain",
- "bp-polkadot-core",
- "bp-runtime",
- "frame-support",
- "sp-api 26.0.0",
- "sp-std 14.0.0",
-]
-
-[[package]]
 name = "bp-messages"
 version = "0.7.0"
 dependencies = [
@@ -2167,18 +2129,6 @@ dependencies = [
  "scale-info",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
-]
-
-[[package]]
-name = "bp-polkadot"
-version = "0.5.0"
-dependencies = [
- "bp-header-chain",
- "bp-polkadot-core",
- "bp-runtime",
- "frame-support",
- "sp-api 26.0.0",
  "sp-std 14.0.0",
 ]
 
@@ -15626,7 +15576,6 @@ dependencies = [
  "bp-header-chain",
  "bp-messages",
  "bp-parachains",
- "bp-polkadot",
  "bp-polkadot-core",
  "bp-relayers",
  "bp-runtime",
@@ -21690,15 +21639,14 @@ dependencies = [
  "log",
  "pallet-timestamp",
  "parity-scale-codec",
- "rand 0.8.5",
  "scale-info",
  "serde",
  "serde_json",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-ethereum",
- "snowbridge-inbound-queue-primitives",
  "snowbridge-pallet-ethereum-client-fixtures",
+ "snowbridge-verification-primitives",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -21713,7 +21661,7 @@ dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
- "snowbridge-inbound-queue-primitives",
+ "snowbridge-verification-primitives",
  "sp-core 28.0.0",
  "sp-std 14.0.0",
 ]
@@ -21777,7 +21725,6 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
- "snowbridge-pallet-ethereum-client",
  "snowbridge-pallet-inbound-queue-v2-fixtures",
  "snowbridge-test-utils",
  "sp-core 28.0.0",
@@ -21842,13 +21789,14 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+ "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-merkle-tree",
  "snowbridge-outbound-queue-primitives",
+ "snowbridge-verification-primitives",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
- "sp-keyring",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "staging-xcm",
