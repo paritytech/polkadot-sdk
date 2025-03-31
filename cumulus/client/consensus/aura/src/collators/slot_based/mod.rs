@@ -153,7 +153,8 @@ where
 		authoring_duration: params.authoring_duration,
 		collator_sender: tx,
 		slot_drift: params.slot_drift,
-		max_pov_percentage,
+		max_pov_percentage: params.max_pov_percentage,
+
 	};
 
 	let block_builder_fut =
