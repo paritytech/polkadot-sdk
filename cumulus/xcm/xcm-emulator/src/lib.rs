@@ -75,9 +75,9 @@ pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
 pub use polkadot_primitives;
-pub use polkadot_runtime_parachains::inclusion::Config as InclusionConfig;
-pub use polkadot_runtime_parachains::inclusion::UmpQueueId;
-pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
+pub use polkadot_runtime_parachains::inclusion::{
+	AggregateMessageOrigin, Config as InclusionConfig, UmpQueueId,
+};
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;

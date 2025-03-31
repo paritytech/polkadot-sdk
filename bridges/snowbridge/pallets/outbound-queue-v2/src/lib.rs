@@ -90,7 +90,7 @@ use snowbridge_outbound_queue_primitives::{
 };
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Convert, Hash, Debug},
+	traits::{BlockNumberProvider, Convert, Debug, Hash},
 	DigestItem,
 };
 use sp_std::prelude::*;

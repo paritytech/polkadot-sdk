@@ -33,8 +33,7 @@ use alloc::{
 	vec::Vec,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use codec::FullCodec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec};
 use core::fmt;
 use frame_support::{
 	defensive,
@@ -56,8 +55,10 @@ use polkadot_primitives::{
 	ValidatorIndex, ValidityAttestation,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::{Convert, Debug};
-use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
+use sp_runtime::{
+	traits::{Convert, Debug, One},
+	DispatchError, SaturatedConversion, Saturating,
+};
 
 pub use pallet::*;
 
@@ -798,8 +799,8 @@ impl<T: Config> Pallet<T> {
 
 		match maybe_amount_validated {
 			Ok(amount_validated) => ensure!(
-				amount_validated
-					>= effective_minimum_backing_votes(group_vals.len(), minimum_backing_votes),
+				amount_validated >=
+					effective_minimum_backing_votes(group_vals.len(), minimum_backing_votes),
 				Error::<T>::InsufficientBacking,
 			),
 			Err(()) => {
@@ -1280,8 +1281,8 @@ impl<T: Config> CandidateCheckContext<T> {
 		);
 
 		ensure!(
-			backed_candidate_receipt.descriptor.para_head()
-				== backed_candidate_receipt.commitments.head_data.hash(),
+			backed_candidate_receipt.descriptor.para_head() ==
+				backed_candidate_receipt.commitments.head_data.hash(),
 			Error::<T>::ParaHeadMismatch,
 		);
 
