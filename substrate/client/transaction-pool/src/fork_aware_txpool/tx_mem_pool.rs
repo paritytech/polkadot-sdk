@@ -26,25 +26,39 @@
 //!   it), while on other forks tx can be valid. Depending on which view is chosen to be cloned,
 //!   such transaction could not be present in the newly created view.
 
-use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
-use crate::{
-	common::log_xt::log_xt_trace,
-	graph,
-	graph::{tracked_map::Size, ExtrinsicFor, ExtrinsicHash},
-	LOG_TARGET,
+use std::{
+	cmp::Ordering,
+	collections::{HashMap, HashSet},
+	sync::{
+		atomic::{self, AtomicU64},
+		Arc,
+	},
+	time::Instant,
 };
+
 use futures::FutureExt;
 use itertools::Itertools;
-use sc_transaction_pool_api::TransactionSource;
+use parking_lot::RwLock;
+use tracing::{debug, trace};
+
+use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::Block as BlockT,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
-use std::{
-	collections::HashMap,
-	sync::{atomic, atomic::AtomicU64, Arc},
-	time::Instant,
+
+use crate::{
+	common::tracing_log_xt::log_xt_trace,
+	graph,
+	graph::{base_pool::TimedTransactionSource, tracked_map::Size, ExtrinsicFor, ExtrinsicHash},
+	LOG_TARGET,
+};
+
+use super::{
+	metrics::MetricsLink as PrometheusMetrics,
+	multi_view_listener::MultiViewListener,
+	view_store::{ViewStore, ViewStoreSubmitOutcome},
 };
 
 /// The minimum interval between single transaction revalidations. Given in blocks.
@@ -64,27 +78,22 @@ where
 	Block: BlockT,
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
-	//todo: add listener for updating listeners with events [#5495]
 	/// Is the progress of transaction watched.
 	///
-	/// Was transaction sent with `submit_and_watch`.
+	/// Indicates if transaction was sent with `submit_and_watch`. Serves only stats/testing
+	/// purposes.
 	watched: bool,
 	/// Extrinsic actual body.
 	tx: ExtrinsicFor<ChainApi>,
 	/// Size of the extrinsics actual body.
 	bytes: usize,
 	/// Transaction source.
-	source: TransactionSource,
+	source: TimedTransactionSource,
 	/// When the transaction was revalidated, used to periodically revalidate the mem pool buffer.
 	validated_at: AtomicU64,
-	//todo: we need to add future / ready status at finalized block.
-	//If future transactions are stuck in tx_mem_pool (due to limits being hit), we need a means
-	// to replace them somehow with newly coming transactions.
-	// For sure priority is one of them, but some additional criteria maybe required.
-	//
-	// The other maybe simple solution for this could be just obeying 10% limit for future in
-	// tx_mem_pool. Oldest future transaction could be just dropped. *(Status at finalized would
-	// also be needed). Probably is_future_at_finalized:Option<bool> flag will be enought
+	/// Priority of transaction at some block. It is assumed it will not be changed often. None if
+	/// not known.
+	priority: RwLock<Option<TransactionPriority>>,
 }
 
 impl<ChainApi, Block> TxInMemPool<ChainApi, Block>
@@ -95,18 +104,57 @@ where
 	/// Shall the progress of transaction be watched.
 	///
 	/// Was transaction sent with `submit_and_watch`.
-	fn is_watched(&self) -> bool {
+	pub(crate) fn is_watched(&self) -> bool {
 		self.watched
 	}
 
 	/// Creates a new instance of wrapper for unwatched transaction.
 	fn new_unwatched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>, bytes: usize) -> Self {
-		Self { watched: false, tx, source, validated_at: AtomicU64::new(0), bytes }
+		Self::new(false, source, tx, bytes)
 	}
 
 	/// Creates a new instance of wrapper for watched transaction.
 	fn new_watched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>, bytes: usize) -> Self {
-		Self { watched: true, tx, source, validated_at: AtomicU64::new(0), bytes }
+		Self::new(true, source, tx, bytes)
+	}
+
+	/// Creates a new instance of wrapper for a transaction with no priority.
+	fn new(
+		watched: bool,
+		source: TransactionSource,
+		tx: ExtrinsicFor<ChainApi>,
+		bytes: usize,
+	) -> Self {
+		Self::new_with_optional_priority(watched, source, tx, bytes, None)
+	}
+
+	/// Creates a new instance of wrapper for a transaction with given priority.
+	fn new_with_priority(
+		watched: bool,
+		source: TransactionSource,
+		tx: ExtrinsicFor<ChainApi>,
+		bytes: usize,
+		priority: TransactionPriority,
+	) -> Self {
+		Self::new_with_optional_priority(watched, source, tx, bytes, Some(priority))
+	}
+
+	/// Creates a new instance of wrapper for a transaction with optional priority.
+	fn new_with_optional_priority(
+		watched: bool,
+		source: TransactionSource,
+		tx: ExtrinsicFor<ChainApi>,
+		bytes: usize,
+		priority: Option<TransactionPriority>,
+	) -> Self {
+		Self {
+			watched,
+			tx,
+			source: TimedTransactionSource::from_transaction_source(source, true),
+			validated_at: AtomicU64::new(0),
+			bytes,
+			priority: priority.into(),
+		}
 	}
 
 	/// Provides a clone of actual transaction body.
@@ -117,8 +165,13 @@ where
 	}
 
 	/// Returns the source of the transaction.
-	pub(crate) fn source(&self) -> TransactionSource {
-		self.source
+	pub(crate) fn source(&self) -> TimedTransactionSource {
+		self.source.clone()
+	}
+
+	/// Returns the priority of the transaction.
+	pub(crate) fn priority(&self) -> Option<TransactionPriority> {
+		*self.priority.read()
 	}
 }
 
@@ -155,7 +208,6 @@ where
 	/// A shared instance of the `MultiViewListener`.
 	///
 	/// Provides a side-channel allowing to send per-transaction state changes notification.
-	//todo: could be removed after removing watched field (and adding listener into tx) [#5495]
 	listener: Arc<MultiViewListener<ChainApi>>,
 
 	///  A map that stores the transactions currently in the memory pool.
@@ -172,6 +224,23 @@ where
 
 	/// Maximal size of encodings of all transactions in the memory pool.
 	max_transactions_total_bytes: usize,
+}
+
+/// Helper structure to encapsulate a result of [`TxMemPool::try_insert`].
+#[derive(Debug)]
+pub(super) struct InsertionInfo<Hash> {
+	pub(super) hash: Hash,
+	pub(super) source: TimedTransactionSource,
+	pub(super) removed: Vec<Hash>,
+}
+
+impl<Hash> InsertionInfo<Hash> {
+	fn new(hash: Hash, source: TimedTransactionSource) -> Self {
+		Self::new_with_removed(hash, source, Default::default())
+	}
+	fn new_with_removed(hash: Hash, source: TimedTransactionSource, removed: Vec<Hash>) -> Self {
+		Self { hash, source, removed }
+	}
 }
 
 impl<ChainApi, Block> TxMemPool<ChainApi, Block>
@@ -200,7 +269,7 @@ where
 	}
 
 	/// Creates a new `TxMemPool` instance for testing purposes.
-	#[allow(dead_code)]
+	#[cfg(test)]
 	fn new_test(
 		api: Arc<ChainApi>,
 		max_transactions_count: usize,
@@ -208,7 +277,7 @@ where
 	) -> Self {
 		Self {
 			api,
-			listener: Arc::from(MultiViewListener::new()),
+			listener: Arc::from(MultiViewListener::new_with_worker(Default::default()).0),
 			transactions: Default::default(),
 			metrics: Default::default(),
 			max_transactions_count,
@@ -220,8 +289,8 @@ where
 	pub(super) fn get_by_hash(
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
-	) -> Option<ExtrinsicFor<ChainApi>> {
-		self.transactions.read().get(&hash).map(|t| t.tx())
+	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
+		self.transactions.read().get(&hash).map(Clone::clone)
 	}
 
 	/// Returns a tuple with the count of unwatched and watched transactions in the memory pool.
@@ -229,6 +298,11 @@ where
 		let transactions = self.transactions.read();
 		let watched_count = transactions.values().filter(|t| t.is_watched()).count();
 		(transactions.len() - watched_count, watched_count)
+	}
+
+	/// Returns a total number of transactions kept within mempool.
+	pub fn len(&self) -> usize {
+		self.transactions.read().len()
 	}
 
 	/// Returns the number of bytes used by all extrinsics in the the pool.
@@ -247,26 +321,113 @@ where
 	/// exceed the maximum allowed transaction count.
 	fn try_insert(
 		&self,
-		hash: ExtrinsicHash<ChainApi>,
+		tx_hash: ExtrinsicHash<ChainApi>,
 		tx: TxInMemPool<ChainApi, Block>,
-	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
-		let bytes = self.transactions.bytes();
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let mut transactions = self.transactions.write();
+
+		let bytes = self.transactions.bytes();
+
 		let result = match (
-			!self.is_limit_exceeded(transactions.len() + 1, bytes + tx.bytes),
-			transactions.contains_key(&hash),
+			self.is_limit_exceeded(transactions.len() + 1, bytes + tx.bytes),
+			transactions.contains_key(&tx_hash),
 		) {
-			(true, false) => {
-				transactions.insert(hash, Arc::from(tx));
-				Ok(hash)
+			(false, false) => {
+				let source = tx.source();
+				transactions.insert(tx_hash, Arc::from(tx));
+				Ok(InsertionInfo::new(tx_hash, source))
 			},
 			(_, true) =>
-				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)).into()),
-			(false, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped.into()),
+				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(tx_hash))),
+			(true, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped),
 		};
-		log::trace!(target: LOG_TARGET, "[{:?}] mempool::try_insert: {:?}", hash, result);
-
+		trace!(
+			target: LOG_TARGET,
+			?tx_hash,
+			result_hash = ?result.as_ref().map(|r| r.hash),
+			"mempool::try_insert"
+		);
 		result
+	}
+
+	/// Attempts to insert a new transaction in the memory pool and drop some worse existing
+	/// transactions.
+	///
+	/// A "worse" transaction means transaction with lower priority, or older transaction with the
+	/// same prio.
+	///
+	/// This operation will not overflow the limit of the mempool. It means that cumulative
+	/// size of removed transactions will be equal (or greated) then size of newly inserted
+	/// transaction.
+	///
+	/// Returns a `Result` containing `InsertionInfo` if the new transaction is successfully
+	/// inserted; otherwise, returns an appropriate error indicating the failure.
+	pub(super) fn try_insert_with_replacement(
+		&self,
+		new_tx: ExtrinsicFor<ChainApi>,
+		priority: TransactionPriority,
+		source: TransactionSource,
+		watched: bool,
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
+		let (hash, length) = self.api.hash_and_length(&new_tx);
+		let new_tx = TxInMemPool::new_with_priority(watched, source, new_tx, length, priority);
+		if new_tx.bytes > self.max_transactions_total_bytes {
+			return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
+		}
+
+		let mut transactions = self.transactions.write();
+
+		if transactions.contains_key(&hash) {
+			return Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)));
+		}
+
+		let mut sorted = transactions
+			.iter()
+			.filter_map(|(h, v)| v.priority().map(|_| (*h, v.clone())))
+			.collect::<Vec<_>>();
+
+		// When pushing higher prio transaction, we need to find a number of lower prio txs, such
+		// that the sum of their bytes is ge then size of new tx. Otherwise we could overflow size
+		// limits. Naive way to do it - rev-sort by priority and eat the tail.
+
+		// reverse (oldest, lowest prio last)
+		sorted.sort_by(|(_, a), (_, b)| match b.priority().cmp(&a.priority()) {
+			Ordering::Equal => match (a.source.timestamp, b.source.timestamp) {
+				(Some(a), Some(b)) => b.cmp(&a),
+				_ => Ordering::Equal,
+			},
+			ordering => ordering,
+		});
+
+		let mut total_size_removed = 0usize;
+		let mut to_be_removed = vec![];
+		let free_bytes = self.max_transactions_total_bytes - self.transactions.bytes();
+
+		loop {
+			let Some((worst_hash, worst_tx)) = sorted.pop() else {
+				return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
+			};
+
+			if worst_tx.priority() >= new_tx.priority() {
+				return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
+			}
+
+			total_size_removed += worst_tx.bytes;
+			to_be_removed.push(worst_hash);
+
+			if free_bytes + total_size_removed >= new_tx.bytes {
+				break;
+			}
+		}
+
+		let source = new_tx.source();
+		transactions.insert(hash, Arc::from(new_tx));
+		for worst_hash in &to_be_removed {
+			transactions.remove(worst_hash);
+		}
+		debug_assert!(!self.is_limit_exceeded(transactions.len(), self.transactions.bytes()));
+
+		Ok(InsertionInfo::new_with_removed(hash, source, to_be_removed))
 	}
 
 	/// Adds a new unwatched transactions to the internal buffer not exceeding the limit.
@@ -277,7 +438,8 @@ where
 		&self,
 		source: TransactionSource,
 		xts: &[ExtrinsicFor<ChainApi>],
-	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
+	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>>
+	{
 		let result = xts
 			.iter()
 			.map(|xt| {
@@ -294,60 +456,36 @@ where
 		&self,
 		source: TransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let (hash, length) = self.api.hash_and_length(&xt);
 		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length))
 	}
 
-	/// Removes transactions from the memory pool which are specified by the given list of hashes
-	/// and send the `Dropped` event to the listeners of these transactions.
-	pub(super) async fn remove_dropped_transactions(
+	/// Clones and returns a `HashMap` of references to all transactions in the memory pool.
+	pub(super) fn clone_transactions(
 		&self,
-		to_be_removed: &[ExtrinsicHash<ChainApi>],
-	) {
-		log::debug!(target: LOG_TARGET, "remove_dropped_transactions count:{:?}", to_be_removed.len());
-		log_xt_trace!(target: LOG_TARGET, to_be_removed, "[{:?}] mempool::remove_dropped_transactions");
+	) -> HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>> {
+		self.transactions.clone_map()
+	}
+
+	/// Removes transactions with given hashes from the memory pool.
+	pub(super) fn remove_transactions(&self, tx_hashes: &[ExtrinsicHash<ChainApi>]) {
+		log_xt_trace!(target: LOG_TARGET, tx_hashes, "mempool::remove_transaction");
 		let mut transactions = self.transactions.write();
-		to_be_removed.iter().for_each(|t| {
-			transactions.remove(t);
-		});
-
-		self.listener.transactions_dropped(to_be_removed);
-	}
-
-	/// Clones and returns a `HashMap` of references to all unwatched transactions in the memory
-	/// pool.
-	pub(super) fn clone_unwatched(
-		&self,
-	) -> HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>> {
-		self.transactions
-			.read()
-			.iter()
-			.filter_map(|(hash, tx)| (!tx.is_watched()).then(|| (*hash, tx.clone())))
-			.collect::<HashMap<_, _>>()
-	}
-
-	/// Clones and returns a `HashMap` of references to all watched transactions in the memory pool.
-	pub(super) fn clone_watched(
-		&self,
-	) -> HashMap<ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>> {
-		self.transactions
-			.read()
-			.iter()
-			.filter_map(|(hash, tx)| (tx.is_watched()).then(|| (*hash, tx.clone())))
-			.collect::<HashMap<_, _>>()
-	}
-
-	/// Removes a transaction from the memory pool based on a given hash.
-	pub(super) fn remove(&self, hash: ExtrinsicHash<ChainApi>) {
-		let _ = self.transactions.write().remove(&hash);
+		for tx_hash in tx_hashes {
+			transactions.remove(tx_hash);
+		}
 	}
 
 	/// Revalidates a batch of transactions against the provided finalized block.
 	///
 	/// Returns a vector of invalid transaction hashes.
 	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
-		log::trace!(target: LOG_TARGET, "mempool::revalidate at:{finalized_block:?}");
+		trace!(
+			target: LOG_TARGET,
+			?finalized_block,
+			"mempool::revalidate_inner"
+		);
 		let start = Instant::now();
 
 		let (count, input) = {
@@ -369,13 +507,13 @@ where
 		};
 
 		let validations_futures = input.into_iter().map(|(xt_hash, xt)| {
-			self.api.validate_transaction(finalized_block.hash, xt.source, xt.tx()).map(
-				move |validation_result| {
+			self.api
+				.validate_transaction(finalized_block.hash, xt.source.clone().into(), xt.tx())
+				.map(move |validation_result| {
 					xt.validated_at
 						.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
 					(xt_hash, validation_result)
-				},
-			)
+				})
 		});
 		let validation_results = futures::future::join_all(validations_futures).await;
 		let input_len = validation_results.len();
@@ -384,26 +522,31 @@ where
 
 		let invalid_hashes = validation_results
 			.into_iter()
-			.filter_map(|(xt_hash, validation_result)| match validation_result {
+			.filter_map(|(tx_hash, validation_result)| match validation_result {
 				Ok(Ok(_)) |
 				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
 				Err(_) |
 				Ok(Err(TransactionValidityError::Unknown(_))) |
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
-					log::trace!(
+					trace!(
 						target: LOG_TARGET,
-						"[{:?}]: Purging: invalid: {:?}",
-						xt_hash,
-						validation_result,
+						?tx_hash,
+						?validation_result,
+						"mempool::revalidate_inner invalid"
 					);
-					Some(xt_hash)
+					Some(tx_hash)
 				},
 			})
 			.collect::<Vec<_>>();
 
-		log::debug!(
+		debug!(
 			target: LOG_TARGET,
-			"mempool::revalidate: at {finalized_block:?} count:{input_len}/{count} purged:{} took {duration:?}", invalid_hashes.len(),
+			?finalized_block,
+			input_len,
+			count,
+			invalid_hashes = invalid_hashes.len(),
+			?duration,
+			"mempool::revalidate_inner"
 		);
 
 		invalid_hashes
@@ -414,8 +557,12 @@ where
 		&self,
 		finalized_xts: &Vec<ExtrinsicHash<ChainApi>>,
 	) {
-		log::debug!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
-		log_xt_trace!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
+		debug!(
+			target: LOG_TARGET,
+			count = finalized_xts.len(),
+			"purge_finalized_transactions"
+		);
+		log_xt_trace!(target: LOG_TARGET, finalized_xts, "purged finalized transactions");
 		let mut transactions = self.transactions.write();
 		finalized_xts.iter().for_each(|t| {
 			transactions.remove(t);
@@ -424,28 +571,83 @@ where
 
 	/// Revalidates transactions in the memory pool against a given finalized block and removes
 	/// invalid ones.
-	pub(super) async fn revalidate(&self, finalized_block: HashAndNumber<Block>) {
-		log::trace!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
-		let invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;
+	pub(super) async fn revalidate(
+		&self,
+		view_store: Arc<ViewStore<ChainApi, Block>>,
+		finalized_block: HashAndNumber<Block>,
+	) {
+		let revalidated_invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;
+
+		let mut invalid_hashes_subtrees =
+			revalidated_invalid_hashes.clone().into_iter().collect::<HashSet<_>>();
+		for tx in &revalidated_invalid_hashes {
+			invalid_hashes_subtrees.extend(
+				view_store
+					.remove_transaction_subtree(*tx, |_, _| {})
+					.into_iter()
+					.map(|tx| tx.hash),
+			);
+		}
+
+		{
+			let mut transactions = self.transactions.write();
+			invalid_hashes_subtrees.iter().for_each(|tx_hash| {
+				transactions.remove(&tx_hash);
+			});
+		};
 
 		self.metrics.report(|metrics| {
-			metrics.mempool_revalidation_invalid_txs.inc_by(invalid_hashes.len() as _)
+			metrics
+				.mempool_revalidation_invalid_txs
+				.inc_by(invalid_hashes_subtrees.len() as _)
 		});
 
-		let mut transactions = self.transactions.write();
-		invalid_hashes.iter().for_each(|i| {
-			transactions.remove(i);
+		let revalidated_invalid_hashes_len = revalidated_invalid_hashes.len();
+		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
+
+		self.listener
+			.transactions_invalidated(&invalid_hashes_subtrees.into_iter().collect::<Vec<_>>());
+
+		trace!(
+			target: LOG_TARGET,
+			?finalized_block,
+			revalidated_invalid_hashes_len,
+			invalid_hashes_subtrees_len,
+			"mempool::revalidate"
+		);
+	}
+
+	/// Updates the priority of transaction stored in mempool using provided view_store submission
+	/// outcome.
+	pub(super) fn update_transaction_priority(&self, outcome: &ViewStoreSubmitOutcome<ChainApi>) {
+		outcome.priority().map(|priority| {
+			self.transactions
+				.write()
+				.get_mut(&outcome.hash())
+				.map(|p| *p.priority.write() = Some(priority))
 		});
-		self.listener.invalidate_transactions(&invalid_hashes);
+	}
+
+	/// Counts the number of transactions in the provided iterator of hashes
+	/// that are not known to the pool.
+	pub(super) fn count_unknown_transactions<'a>(
+		&self,
+		hashes: impl Iterator<Item = &'a ExtrinsicHash<ChainApi>>,
+	) -> usize {
+		let transactions = self.transactions.read();
+		hashes.filter(|tx_hash| !transactions.contains_key(tx_hash)).count()
 	}
 }
 
 #[cfg(test)]
 mod tx_mem_pool_tests {
-	use super::*;
-	use crate::{common::tests::TestApi, graph::ChainApi};
 	use substrate_test_runtime::{AccountId, Extrinsic, ExtrinsicBuilder, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::*;
+	use substrate_test_runtime_client::Sr25519Keyring::*;
+
+	use crate::{common::tests::TestApi, graph::ChainApi};
+
+	use super::*;
+
 	fn uxt(nonce: u64) -> Extrinsic {
 		crate::common::tests::uxt(Transfer {
 			from: Alice.into(),
@@ -559,6 +761,9 @@ mod tx_mem_pool_tests {
 		assert_eq!(mempool.unwatched_and_watched_count(), (10, 5));
 	}
 
+	/// size of large extrinsic
+	const LARGE_XT_SIZE: usize = 1129;
+
 	fn large_uxt(x: usize) -> Extrinsic {
 		ExtrinsicBuilder::new_include_data(vec![x as u8; 1024]).build()
 	}
@@ -568,8 +773,7 @@ mod tx_mem_pool_tests {
 		sp_tracing::try_init_simple();
 		let max = 10;
 		let api = Arc::from(TestApi::default());
-		//size of large extrinsic is: 1129
-		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, max * 1129);
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, max * LARGE_XT_SIZE);
 
 		let xts = (0..max).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
 
@@ -590,6 +794,202 @@ mod tx_mem_pool_tests {
 		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt]);
 		assert!(matches!(
 			result.pop().unwrap().unwrap_err(),
+			sc_transaction_pool_api::error::Error::ImmediatelyDropped
+		));
+	}
+
+	#[test]
+	fn replacing_txs_works_for_same_tx_size() {
+		sp_tracing::try_init_simple();
+		let max = 10;
+		let api = Arc::from(TestApi::default());
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, max * LARGE_XT_SIZE);
+
+		let xts = (0..max).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
+
+		let low_prio = 0u64;
+		let hi_prio = u64::MAX;
+
+		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
+		let (submit_outcomes, hashes): (Vec<_>, Vec<_>) = xts
+			.iter()
+			.map(|t| {
+				let h = api.hash_and_length(t).0;
+				(ViewStoreSubmitOutcome::new(h, Some(low_prio)), h)
+			})
+			.unzip();
+
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		assert!(results.iter().all(Result::is_ok));
+		assert_eq!(mempool.bytes(), total_xts_bytes);
+
+		submit_outcomes
+			.into_iter()
+			.for_each(|o| mempool.update_transaction_priority(&o));
+
+		let xt = Arc::from(large_uxt(98));
+		let hash = api.hash_and_length(&xt).0;
+		let result = mempool
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.unwrap();
+
+		assert_eq!(result.hash, hash);
+		assert_eq!(result.removed, hashes[0..1]);
+	}
+
+	#[test]
+	fn replacing_txs_removes_proper_size_of_txs() {
+		sp_tracing::try_init_simple();
+		let max = 10;
+		let api = Arc::from(TestApi::default());
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, max * LARGE_XT_SIZE);
+
+		let xts = (0..max).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
+
+		let low_prio = 0u64;
+		let hi_prio = u64::MAX;
+
+		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
+		let (submit_outcomes, hashes): (Vec<_>, Vec<_>) = xts
+			.iter()
+			.map(|t| {
+				let h = api.hash_and_length(t).0;
+				(ViewStoreSubmitOutcome::new(h, Some(low_prio)), h)
+			})
+			.unzip();
+
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		assert!(results.iter().all(Result::is_ok));
+		assert_eq!(mempool.bytes(), total_xts_bytes);
+		assert_eq!(total_xts_bytes, max * LARGE_XT_SIZE);
+
+		submit_outcomes
+			.into_iter()
+			.for_each(|o| mempool.update_transaction_priority(&o));
+
+		//this one should drop 2 xts (size: 1130):
+		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 1025]).build());
+		let (hash, length) = api.hash_and_length(&xt);
+		assert_eq!(length, 1130);
+		let result = mempool
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.unwrap();
+
+		assert_eq!(result.hash, hash);
+		assert_eq!(result.removed, hashes[0..2]);
+	}
+
+	#[test]
+	fn replacing_txs_removes_proper_size_and_prios() {
+		sp_tracing::try_init_simple();
+		const COUNT: usize = 10;
+		let api = Arc::from(TestApi::default());
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, COUNT * LARGE_XT_SIZE);
+
+		let xts = (0..COUNT).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
+
+		let hi_prio = u64::MAX;
+
+		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
+		let (submit_outcomes, hashes): (Vec<_>, Vec<_>) = xts
+			.iter()
+			.enumerate()
+			.map(|(prio, t)| {
+				let h = api.hash_and_length(t).0;
+				(ViewStoreSubmitOutcome::new(h, Some((COUNT - prio).try_into().unwrap())), h)
+			})
+			.unzip();
+
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		assert!(results.iter().all(Result::is_ok));
+		assert_eq!(mempool.bytes(), total_xts_bytes);
+
+		submit_outcomes
+			.into_iter()
+			.for_each(|o| mempool.update_transaction_priority(&o));
+
+		//this one should drop 3 xts (each of size 1129)
+		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 2154]).build());
+		let (hash, length) = api.hash_and_length(&xt);
+		// overhead is 105, thus length: 105 + 2154
+		assert_eq!(length, 2 * LARGE_XT_SIZE + 1);
+		let result = mempool
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.unwrap();
+
+		assert_eq!(result.hash, hash);
+		assert!(result.removed.iter().eq(hashes[COUNT - 3..COUNT].iter().rev()));
+	}
+
+	#[test]
+	fn replacing_txs_skips_lower_prio_tx() {
+		sp_tracing::try_init_simple();
+		const COUNT: usize = 10;
+		let api = Arc::from(TestApi::default());
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, COUNT * LARGE_XT_SIZE);
+
+		let xts = (0..COUNT).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
+
+		let hi_prio = 100u64;
+		let low_prio = 10u64;
+
+		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
+		let submit_outcomes = xts
+			.iter()
+			.map(|t| {
+				let h = api.hash_and_length(t).0;
+				ViewStoreSubmitOutcome::new(h, Some(hi_prio))
+			})
+			.collect::<Vec<_>>();
+
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		assert!(results.iter().all(Result::is_ok));
+		assert_eq!(mempool.bytes(), total_xts_bytes);
+
+		submit_outcomes
+			.into_iter()
+			.for_each(|o| mempool.update_transaction_priority(&o));
+
+		let xt = Arc::from(large_uxt(98));
+		let result =
+			mempool.try_insert_with_replacement(xt, low_prio, TransactionSource::External, false);
+
+		// lower prio tx is rejected immediately
+		assert!(matches!(
+			result.unwrap_err(),
+			sc_transaction_pool_api::error::Error::ImmediatelyDropped
+		));
+	}
+
+	#[test]
+	fn replacing_txs_is_skipped_if_prios_are_not_set() {
+		sp_tracing::try_init_simple();
+		const COUNT: usize = 10;
+		let api = Arc::from(TestApi::default());
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, COUNT * LARGE_XT_SIZE);
+
+		let xts = (0..COUNT).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
+
+		let hi_prio = u64::MAX;
+
+		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
+
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		assert!(results.iter().all(Result::is_ok));
+		assert_eq!(mempool.bytes(), total_xts_bytes);
+
+		//this one could drop 3 xts (each of size 1129)
+		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 2154]).build());
+		let length = api.hash_and_length(&xt).1;
+		// overhead is 105, thus length: 105 + 2154
+		assert_eq!(length, 2 * LARGE_XT_SIZE + 1);
+
+		let result =
+			mempool.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false);
+
+		// we did not update priorities (update_transaction_priority was not called):
+		assert!(matches!(
+			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 	}

@@ -19,12 +19,14 @@
 
 extern crate alloc;
 
-/// Load a given wasm module and returns a wasm binary contents along with it's hash.
+// generated file that tells us where to find the fixtures
+include!(concat!(env!("OUT_DIR"), "/fixture_location.rs"));
+
+/// Load a given wasm module and returns a wasm binary contents along with its hash.
 #[cfg(feature = "std")]
 pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
-	let out_dir: std::path::PathBuf = env!("OUT_DIR").into();
+	let out_dir: std::path::PathBuf = FIXTURE_DIR.into();
 	let fixture_path = out_dir.join(format!("{fixture_name}.polkavm"));
-	log::debug!("Loading fixture from {fixture_path:?}");
 	let binary = std::fs::read(fixture_path)?;
 	let code_hash = sp_io::hashing::keccak_256(&binary);
 	Ok((binary, sp_core::H256(code_hash)))
@@ -36,15 +38,8 @@ pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H
 /// available in no-std environments (runtime benchmarks).
 pub mod bench {
 	use alloc::vec::Vec;
-
-	macro_rules! fixture {
-		($name: literal) => {
-			include_bytes!(concat!(env!("OUT_DIR"), "/", $name, ".polkavm"))
-		};
-	}
 	pub const DUMMY: &[u8] = fixture!("dummy");
 	pub const NOOP: &[u8] = fixture!("noop");
-	pub const INSTR: &[u8] = fixture!("instr_benchmark");
 
 	pub fn dummy_unique(replace_with: u32) -> Vec<u8> {
 		let mut dummy = DUMMY.to_vec();
@@ -61,7 +56,7 @@ pub mod bench {
 mod test {
 	#[test]
 	fn out_dir_should_have_compiled_mocks() {
-		let out_dir: std::path::PathBuf = env!("OUT_DIR").into();
+		let out_dir: std::path::PathBuf = crate::FIXTURE_DIR.into();
 		assert!(out_dir.join("dummy.polkavm").exists());
 	}
 }

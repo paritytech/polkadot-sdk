@@ -27,7 +27,9 @@ use crate::{
 	DispatchResult,
 };
 use alloc::vec::Vec;
-use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use codec::{
+	Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, HasCompact, MaxEncodedLen,
+};
 #[doc(hidden)]
 pub use core::{fmt::Debug, marker::PhantomData};
 use impl_trait_for_tuples::impl_for_tuples;
@@ -55,7 +57,8 @@ use std::str::FromStr;
 
 pub mod transaction_extension;
 pub use transaction_extension::{
-	DispatchTransaction, TransactionExtension, TransactionExtensionMetadata, ValidateResult,
+	DispatchTransaction, Implication, ImplicationParts, TransactionExtension,
+	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
 };
 
 /// A lazy value.
@@ -1008,6 +1011,7 @@ pub trait HashOutput:
 	+ Default
 	+ Encode
 	+ Decode
+	+ DecodeWithMemTracking
 	+ EncodeLike
 	+ MaxEncodedLen
 	+ TypeInfo
@@ -1028,6 +1032,7 @@ impl<T> HashOutput for T where
 		+ Default
 		+ Encode
 		+ Decode
+		+ DecodeWithMemTracking
 		+ EncodeLike
 		+ MaxEncodedLen
 		+ TypeInfo
@@ -1180,6 +1185,8 @@ pub trait BlockNumber:
 	+ TypeInfo
 	+ MaxEncodedLen
 	+ FullCodec
+	+ DecodeWithMemTracking
+	+ HasCompact<Type: DecodeWithMemTracking>
 {
 }
 
@@ -1197,7 +1204,9 @@ impl<
 			+ Default
 			+ TypeInfo
 			+ MaxEncodedLen
-			+ FullCodec,
+			+ FullCodec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>,
 	> BlockNumber for T
 {
 }
@@ -1208,7 +1217,16 @@ impl<
 ///
 /// You can also create a `new` one from those fields.
 pub trait Header:
-	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + 'static
+	Clone
+	+ Send
+	+ Sync
+	+ Codec
+	+ DecodeWithMemTracking
+	+ Eq
+	+ MaybeSerialize
+	+ Debug
+	+ TypeInfo
+	+ 'static
 {
 	/// Header number.
 	type Number: BlockNumber;
@@ -1292,6 +1310,7 @@ pub trait Block:
 	+ Send
 	+ Sync
 	+ Codec
+	+ DecodeWithMemTracking
 	+ Eq
 	+ MaybeSerialize
 	+ Debug
@@ -1410,10 +1429,10 @@ impl SignaturePayload for () {
 
 /// Implementor is an [`Extrinsic`] and provides metadata about this extrinsic.
 pub trait ExtrinsicMetadata {
-	/// The format version of the `Extrinsic`.
+	/// The format versions of the `Extrinsic`.
 	///
-	/// By format is meant the encoded representation of the `Extrinsic`.
-	const VERSION: u8;
+	/// By format we mean the encoded representation of the `Extrinsic`.
+	const VERSIONS: &'static [u8];
 
 	/// Transaction extensions attached to this `Extrinsic`.
 	type TransactionExtensions;
@@ -1619,7 +1638,7 @@ pub trait AsTransactionAuthorizedOrigin {
 /// that should be additionally associated with the transaction. It should be plain old data.
 #[deprecated = "Use `TransactionExtension` instead."]
 pub trait SignedExtension:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+	Codec + DecodeWithMemTracking + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
 	/// Unique identifier of this signed extension.
 	///
@@ -1709,7 +1728,7 @@ pub trait SignedExtension:
 	/// This method provides a default implementation that returns a vec containing a single
 	/// [`TransactionExtensionMetadata`].
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		sp_std::vec![TransactionExtensionMetadata {
+		alloc::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
 			implicit: scale_info::meta_type::<Self::AdditionalSigned>()
@@ -1962,7 +1981,7 @@ pub trait AccountIdConversion<AccountId>: Sized {
 		Self::try_from_sub_account::<()>(a).map(|x| x.0)
 	}
 
-	/// Convert this value amalgamated with the a secondary "sub" value into an account ID,
+	/// Convert this value amalgamated with a secondary "sub" value into an account ID,
 	/// truncating any unused bytes. This is infallible.
 	///
 	/// NOTE: The account IDs from this and from `into_account` are *not* guaranteed to be distinct
@@ -2065,6 +2084,7 @@ macro_rules! impl_opaque_keys_inner {
 			Clone, PartialEq, Eq,
 			$crate::codec::Encode,
 			$crate::codec::Decode,
+			$crate::codec::DecodeWithMemTracking,
 			$crate::scale_info::TypeInfo,
 			$crate::RuntimeDebug,
 		)]
@@ -2342,6 +2362,7 @@ pub trait BlockIdTo<Block: self::Block> {
 pub trait BlockNumberProvider {
 	/// Type of `BlockNumber` to provide.
 	type BlockNumber: Codec
+		+ DecodeWithMemTracking
 		+ Clone
 		+ Ord
 		+ Eq
@@ -2350,7 +2371,8 @@ pub trait BlockNumberProvider {
 		+ Debug
 		+ MaxEncodedLen
 		+ Copy
-		+ EncodeLike;
+		+ EncodeLike
+		+ Default;
 
 	/// Returns the current block number.
 	///

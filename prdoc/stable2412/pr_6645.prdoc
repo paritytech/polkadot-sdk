@@ -1,0 +1,14 @@
+title: 'xcm: fix local/remote exports when inner routers return `NotApplicable`'
+doc:
+- audience: Runtime Dev
+  description: |-
+   Resolved a bug in the `local/remote exporters` used for bridging. Previously, they consumed `dest` and `msg` without returning them when inner routers/exporters failed with `NotApplicable`. This PR ensures compliance with the [`SendXcm`](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/xcm/src/v5/traits.rs#L449-L450) and [`ExportXcm`](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/xcm/xcm-executor/src/traits/export.rs#L44-L45) traits.
+crates:
+- name: staging-xcm-builder
+  bump: patch
+- name: polkadot
+  bump: none
+- name: staging-xcm
+  bump: none
+- name: staging-xcm-executor
+  bump: none

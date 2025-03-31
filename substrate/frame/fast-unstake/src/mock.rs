@@ -105,6 +105,7 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
@@ -223,9 +224,11 @@ impl ExtBuilder {
 				.clone()
 				.into_iter()
 				.map(|(stash, _, balance)| (stash, balance * 2))
-				.chain(validators_range.clone().map(|x| (x, 7 + 100)))
-				.chain(nominators_range.clone().map(|x| (x, 7 + 100)))
+				// give stakers enough balance for stake, ed and fast unstake deposit.
+				.chain(validators_range.clone().map(|x| (x, 7 + 1 + 100)))
+				.chain(nominators_range.clone().map(|x| (x, 7 + 1 + 100)))
 				.collect::<Vec<_>>(),
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
@@ -266,22 +269,19 @@ impl ExtBuilder {
 }
 
 pub(crate) fn run_to_block(n: u64, on_idle: bool) {
-	let current_block = System::block_number();
-	assert!(n > current_block);
-	while System::block_number() < n {
-		Balances::on_finalize(System::block_number());
-		Staking::on_finalize(System::block_number());
-		FastUnstake::on_finalize(System::block_number());
-
-		System::set_block_number(System::block_number() + 1);
-
-		Balances::on_initialize(System::block_number());
-		Staking::on_initialize(System::block_number());
-		FastUnstake::on_initialize(System::block_number());
-		if on_idle {
-			FastUnstake::on_idle(System::block_number(), BlockWeights::get().max_block);
-		}
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default()
+			.before_finalize(|_| {
+				// Satisfy the timestamp pallet.
+				Timestamp::set_timestamp(0);
+			})
+			.after_initialize(|bn| {
+				if on_idle {
+					FastUnstake::on_idle(bn, BlockWeights::get().max_block);
+				}
+			}),
+	);
 }
 
 pub(crate) fn next_block(on_idle: bool) {

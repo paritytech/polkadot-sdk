@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::imports::*;
+use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
@@ -115,7 +116,7 @@ pub fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
-			// Transport fees are paid
+			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(pallet_xcm::Event::FeesPaid { .. }) => {},
 		]
 	);
@@ -274,7 +275,7 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 					t.args.dest.clone()
 				),
 			},
-			// Transport fees are paid
+			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(
 				pallet_xcm::Event::FeesPaid { .. }
 			) => {},
@@ -305,7 +306,7 @@ fn para_to_system_para_assets_sender_assertions(t: ParaToSystemParaTest) {
 				owner: *owner == t.sender.account_id,
 				balance: *balance == t.args.amount,
 			},
-			// Transport fees are paid
+			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(
 				pallet_xcm::Event::FeesPaid { .. }
 			) => {},
@@ -487,6 +488,11 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA,
 }
 
 fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
+	let Junction::Parachain(para_id) = *t.args.dest.chain_location().last().unwrap() else {
+		unimplemented!("Destination is not a parachain?")
+	};
+
+	Dmp::make_parachain_reachable(para_id);
 	<Rococo as RococoPallet>::XcmPallet::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -546,6 +552,13 @@ fn para_to_system_para_reserve_transfer_assets(t: ParaToSystemParaTest) -> Dispa
 fn para_to_para_through_relay_limited_reserve_transfer_assets(
 	t: ParaToParaThroughRelayTest,
 ) -> DispatchResult {
+	let Junction::Parachain(para_id) = *t.args.dest.chain_location().last().unwrap() else {
+		unimplemented!("Destination is not a parachain?")
+	};
+
+	Rococo::ext_wrapper(|| {
+		Dmp::make_parachain_reachable(para_id);
+	});
 	<PenpalA as PenpalAPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),

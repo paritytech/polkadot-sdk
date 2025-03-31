@@ -19,8 +19,8 @@ scale-info = { features = ["derive"], workspace = true }
 
 # Bridge Dependencies
 
-bp-runtime = { workspace = true }
 bp-header-chain = { workspace = true }
+bp-runtime = { workspace = true }
 
 # Substrate Dependencies
 

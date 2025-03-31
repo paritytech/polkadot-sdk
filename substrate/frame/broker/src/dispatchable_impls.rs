@@ -60,6 +60,27 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_force_reserve(workload: Schedule, core: CoreIndex) -> DispatchResult {
+		// Sales must have started, otherwise reserve is equivalent.
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+
+		// Reserve - starts at second sale period boundary from now.
+		Self::do_reserve(workload.clone())?;
+
+		// Add to workload - grants one region from the next sale boundary.
+		Workplan::<T>::insert((sale.region_begin, core), &workload);
+
+		// Assign now until the next sale boundary unless the next timeslice is already the sale
+		// boundary.
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let timeslice = status.last_committed_timeslice.saturating_add(1);
+		if timeslice < sale.region_begin {
+			Workplan::<T>::insert((timeslice, core), &workload);
+		}
+
+		Ok(())
+	}
+
 	pub(crate) fn do_set_lease(task: TaskId, until: Timeslice) -> DispatchResult {
 		let mut r = Leases::<T>::get();
 		ensure!(until > Self::current_timeslice(), Error::<T>::AlreadyExpired);
@@ -67,6 +88,15 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::TooManyLeases)?;
 		Leases::<T>::put(r);
 		Self::deposit_event(Event::<T>::Leased { until, task });
+		Ok(())
+	}
+
+	pub(crate) fn do_remove_lease(task: TaskId) -> DispatchResult {
+		let mut r = Leases::<T>::get();
+		let i = r.iter().position(|lease| lease.task == task).ok_or(Error::<T>::LeaseNotFound)?;
+		r.remove(i);
+		Leases::<T>::put(r);
+		Self::deposit_event(Event::<T>::LeaseRemoved { task });
 		Ok(())
 	}
 
@@ -342,6 +372,14 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_remove_assignment(region_id: RegionId) -> DispatchResult {
+		let workplan_key = (region_id.begin, region_id.core);
+		ensure!(Workplan::<T>::contains_key(&workplan_key), Error::<T>::AssignmentNotFound);
+		Workplan::<T>::remove(&workplan_key);
+		Self::deposit_event(Event::<T>::AssignmentRemoved { region_id });
+		Ok(())
+	}
+
 	pub(crate) fn do_pool(
 		region_id: RegionId,
 		maybe_check_owner: Option<T::AccountId>,
@@ -427,6 +465,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		beneficiary: RelayAccountIdOf<T>,
 	) -> DispatchResult {
+		ensure!(amount >= T::MinimumCreditPurchase::get(), Error::<T>::CreditPurchaseTooSmall);
 		T::Currency::transfer(&who, &Self::account_id(), amount, Expendable)?;
 		let rc_amount = T::ConvertBalance::convert(amount);
 		T::Coretime::credit_account(beneficiary.clone(), rc_amount);

@@ -16,11 +16,11 @@
 // limitations under the License.
 
 //! Compile text fixtures to PolkaVM binaries.
-use anyhow::Result;
-
-use anyhow::{bail, Context};
+use anyhow::{bail, Context, Result};
+use cargo_metadata::MetadataCommand;
 use std::{
-	cfg, env, fs,
+	env, fs,
+	io::Write,
 	path::{Path, PathBuf},
 	process::Command,
 };
@@ -82,15 +82,44 @@ fn create_cargo_toml<'a>(
 	entries: impl Iterator<Item = &'a Entry>,
 	output_dir: &Path,
 ) -> Result<()> {
-	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/Cargo.toml"))?;
-	let mut set_dep = |name, path| -> Result<()> {
-		cargo_toml["dependencies"][name]["path"] = toml::Value::String(
-			fixtures_dir.join(path).canonicalize()?.to_str().unwrap().to_string(),
+	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/_Cargo.toml"))?;
+	let uapi_dep = cargo_toml["dependencies"]["uapi"].as_table_mut().unwrap();
+
+	let manifest_path = fixtures_dir.join("Cargo.toml");
+	let metadata = MetadataCommand::new().manifest_path(&manifest_path).exec().unwrap();
+	let dependency_graph = metadata.resolve.unwrap();
+
+	// Resolve the pallet-revive-fixtures package id
+	let fixtures_pkg_id = metadata
+		.packages
+		.iter()
+		.find(|pkg| pkg.manifest_path.as_std_path() == manifest_path)
+		.map(|pkg| pkg.id.clone())
+		.unwrap();
+	let fixtures_pkg_node =
+		dependency_graph.nodes.iter().find(|node| node.id == fixtures_pkg_id).unwrap();
+
+	// Get the pallet-revive-uapi package id
+	let uapi_pkg_id = fixtures_pkg_node
+		.deps
+		.iter()
+		.find(|dep| dep.name == "pallet_revive_uapi")
+		.map(|dep| dep.pkg.clone())
+		.expect("pallet-revive-uapi is a build dependency of pallet-revive-fixtures; qed");
+
+	// Get pallet-revive-uapi package
+	let uapi_pkg = metadata.packages.iter().find(|pkg| pkg.id == uapi_pkg_id).unwrap();
+
+	if uapi_pkg.source.is_none() {
+		uapi_dep.insert(
+			"path".to_string(),
+			toml::Value::String(
+				fixtures_dir.join("../uapi").canonicalize()?.to_str().unwrap().to_string(),
+			),
 		);
-		Ok(())
-	};
-	set_dep("uapi", "../uapi")?;
-	set_dep("common", "./contracts/common")?;
+	} else {
+		uapi_dep.insert("version".to_string(), toml::Value::String(uapi_pkg.version.to_string()));
+	}
 
 	cargo_toml["bin"] = toml::Value::Array(
 		entries
@@ -111,18 +140,18 @@ fn create_cargo_toml<'a>(
 	Ok(())
 }
 
-fn invoke_build(target: &Path, current_dir: &Path) -> Result<()> {
+fn invoke_build(current_dir: &Path) -> Result<()> {
 	let encoded_rustflags = ["-Dwarnings"].join("\x1f");
 
-	let mut build_command = Command::new(env::var("CARGO")?);
+	let mut build_command = Command::new("cargo");
 	build_command
 		.current_dir(current_dir)
 		.env_clear()
 		.env("PATH", env::var("PATH").unwrap_or_default())
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-		.env("RUSTC_BOOTSTRAP", "1")
 		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
-		.env("RUSTUP_TOOLCHAIN", env::var("RUSTUP_TOOLCHAIN").unwrap_or_default())
+		// Support compilation on stable rust
+		.env("RUSTC_BOOTSTRAP", "1")
 		.args([
 			"build",
 			"--release",
@@ -130,7 +159,7 @@ fn invoke_build(target: &Path, current_dir: &Path) -> Result<()> {
 			"-Zbuild-std-features=panic_immediate_abort",
 		])
 		.arg("--target")
-		.arg(target);
+		.arg(polkavm_linker::target_json_64_path().unwrap());
 
 	if let Ok(toolchain) = env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR) {
 		build_command.env("RUSTUP_TOOLCHAIN", &toolchain);
@@ -168,7 +197,7 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 	for entry in entries {
 		post_process(
 			&build_dir
-				.join("target/riscv32emac-unknown-none-polkavm/release")
+				.join("target/riscv64emac-unknown-none-polkavm/release")
 				.join(entry.name()),
 			&out_dir.join(entry.out_filename()),
 		)?;
@@ -177,11 +206,66 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 	Ok(())
 }
 
+/// Create a directory in the `target` as output directory
+fn create_out_dir() -> Result<PathBuf> {
+	let temp_dir: PathBuf = env::var("OUT_DIR")?.into();
+
+	// this is set in case the user has overriden the target directory
+	let out_dir = if let Ok(path) = env::var("CARGO_TARGET_DIR") {
+		path.into()
+	} else {
+		// otherwise just traverse up from the out dir
+		let mut out_dir: PathBuf = temp_dir.clone();
+		loop {
+			if !out_dir.pop() {
+				bail!("Cannot find project root.")
+			}
+			if out_dir.join("Cargo.lock").exists() {
+				break;
+			}
+		}
+		out_dir.join("target")
+	}
+	.join("pallet-revive-fixtures");
+
+	// clean up some leftover symlink from previous versions of this script
+	let mut out_exists = out_dir.exists();
+	if out_exists && !out_dir.is_dir() {
+		fs::remove_file(&out_dir)?;
+		out_exists = false;
+	}
+
+	if !out_exists {
+		fs::create_dir(&out_dir).context("Failed to create output directory")?;
+	}
+
+	// write the location of the out dir so it can be found later
+	let mut file = fs::File::create(temp_dir.join("fixture_location.rs"))
+		.context("Failed to create fixture_location.rs")?;
+	write!(
+		file,
+		r#"
+			#[allow(dead_code)]
+			const FIXTURE_DIR: &str = "{0}";
+			macro_rules! fixture {{
+				($name: literal) => {{
+					include_bytes!(concat!("{0}", "/", $name, ".polkavm"))
+				}};
+			}}
+		"#,
+		out_dir.display()
+	)
+	.context("Failed to write to fixture_location.rs")?;
+
+	Ok(out_dir)
+}
+
 pub fn main() -> Result<()> {
 	let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
 	let contracts_dir = fixtures_dir.join("contracts");
-	let out_dir: PathBuf = env::var("OUT_DIR")?.into();
-	let target = fixtures_dir.join("riscv32emac-unknown-none-polkavm.json");
+	let out_dir = create_out_dir().context("Cannot determine output directory")?;
+	let build_dir = out_dir.join("build");
+	fs::create_dir_all(&build_dir).context("Failed to create build directory")?;
 
 	println!("cargo::rerun-if-env-changed={OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR}");
 	println!("cargo::rerun-if-env-changed={OVERRIDE_STRIP_ENV_VAR}");
@@ -199,25 +283,9 @@ pub fn main() -> Result<()> {
 		return Ok(())
 	}
 
-	let tmp_dir = tempfile::tempdir()?;
-	let tmp_dir_path = tmp_dir.path();
-
-	create_cargo_toml(&fixtures_dir, entries.iter(), tmp_dir.path())?;
-	invoke_build(&target, tmp_dir_path)?;
-
-	write_output(tmp_dir_path, &out_dir, entries)?;
-
-	#[cfg(unix)]
-	if let Ok(symlink_dir) = env::var("CARGO_WORKSPACE_ROOT_DIR") {
-		let symlink_dir: PathBuf = symlink_dir.into();
-		let symlink_dir: PathBuf = symlink_dir.join("target").join("pallet-revive-fixtures");
-		if symlink_dir.is_symlink() {
-			fs::remove_file(&symlink_dir)
-				.with_context(|| format!("Failed to remove_file {symlink_dir:?}"))?;
-		}
-		std::os::unix::fs::symlink(&out_dir, &symlink_dir)
-			.with_context(|| format!("Failed to symlink {out_dir:?} -> {symlink_dir:?}"))?;
-	}
+	create_cargo_toml(&fixtures_dir, entries.iter(), &build_dir)?;
+	invoke_build(&build_dir)?;
+	write_output(&build_dir, &out_dir, entries)?;
 
 	Ok(())
 }

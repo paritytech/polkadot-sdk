@@ -20,6 +20,8 @@ authors.workspace = true
 edition.workspace = true
 version = "6.0.0"
 default-run = "polkadot"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -39,15 +41,15 @@ polkadot-node-core-pvf-common = { workspace = true, default-features = true }
 polkadot-node-core-pvf-execute-worker = { workspace = true, default-features = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_supported_platforms"] }
+tikv-jemallocator = { workspace = true, features = ["unprefixed_malloc_on_supported_platforms"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
 nix = { features = ["signal"], workspace = true }
+polkadot-core-primitives = { workspace = true, default-features = true }
+substrate-rpc-client = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, default-features = true }
-substrate-rpc-client = { workspace = true, default-features = true }
-polkadot-core-primitives = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }

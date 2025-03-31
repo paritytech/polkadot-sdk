@@ -38,10 +38,7 @@ use polkadot_node_primitives::{
 	approval::{
 		criteria::{AssignmentCriteria, InvalidAssignment},
 		time::{Clock, ClockExt, SystemClock, TICK_TOO_FAR_IN_FUTURE},
-		v1::{
-			AssignmentCertKind, BlockApprovalMeta, DelayTranche, IndirectAssignmentCert,
-			IndirectSignedApprovalVote, RelayVRFStory,
-		},
+		v1::{BlockApprovalMeta, DelayTranche, RelayVRFStory},
 		v2::{
 			AsBitIndex, AssignmentCertKindV2, CandidateBitfield, IndirectAssignmentCertV2,
 			IndirectSignedApprovalVoteV2,
@@ -163,8 +160,6 @@ enum ApprovalEntryError {
 	InvalidCandidateIndex,
 	DuplicateApproval,
 	UnknownAssignment,
-	#[allow(dead_code)]
-	AssignmentsFollowedDifferentPaths(RequiredRouting, RequiredRouting),
 }
 
 impl ApprovalEntry {
@@ -318,7 +313,7 @@ impl Default for AggressionConfig {
 	fn default() -> Self {
 		AggressionConfig {
 			l1_threshold: Some(16),
-			l2_threshold: Some(28),
+			l2_threshold: Some(64),
 			resend_unfinalized_period: Some(8),
 		}
 	}
@@ -514,6 +509,8 @@ struct BlockEntry {
 	vrf_story: RelayVRFStory,
 	/// The block slot.
 	slot: Slot,
+	/// Backing off from re-sending messages to peers.
+	last_resent_at_block_number: Option<u32>,
 }
 
 impl BlockEntry {
@@ -568,7 +565,7 @@ impl BlockEntry {
 		&mut self,
 		approval: IndirectSignedApprovalVoteV2,
 	) -> Result<(RequiredRouting, HashSet<PeerId>), ApprovalEntryError> {
-		let mut required_routing = None;
+		let mut required_routing: Option<RequiredRouting> = None;
 		let mut peers_randomly_routed_to = HashSet::new();
 
 		if self.candidates.len() < approval.candidate_indices.len() as usize {
@@ -595,16 +592,11 @@ impl BlockEntry {
 				peers_randomly_routed_to
 					.extend(approval_entry.routing_info().peers_randomly_routed.iter());
 
-				if let Some(required_routing) = required_routing {
-					if required_routing != approval_entry.routing_info().required_routing {
-						// This shouldn't happen since the required routing is computed based on the
-						// validator_index, so two assignments from the same validators will have
-						// the same required routing.
-						return Err(ApprovalEntryError::AssignmentsFollowedDifferentPaths(
-							required_routing,
-							approval_entry.routing_info().required_routing,
-						))
-					}
+				if let Some(current_required_routing) = required_routing {
+					required_routing = Some(
+						current_required_routing
+							.combine(approval_entry.routing_info().required_routing),
+					);
 				} else {
 					required_routing = Some(approval_entry.routing_info().required_routing)
 				}
@@ -885,6 +877,7 @@ impl State {
 						candidates_metadata: meta.candidates,
 						vrf_story: meta.vrf_story,
 						slot: meta.slot,
+						last_resent_at_block_number: None,
 					});
 
 					self.topologies.inc_session_refs(meta.session);
@@ -1173,32 +1166,6 @@ impl State {
 				)
 				.await;
 			},
-			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(assignments)) |
-			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(assignments)) => {
-				gum::trace!(
-					target: LOG_TARGET,
-					peer_id = %peer_id,
-					num = assignments.len(),
-					"Processing assignments from a peer",
-				);
-
-				let sanitized_assignments =
-					self.sanitize_v1_assignments(peer_id, network_sender, assignments).await;
-
-				self.process_incoming_assignments(
-					approval_voting_sender,
-					network_sender,
-					runtime_api_sender,
-					metrics,
-					peer_id,
-					sanitized_assignments,
-					rng,
-					assignment_criteria,
-					clock,
-					session_info_provider,
-				)
-				.await;
-			},
 			Versioned::V3(protocol_v3::ApprovalDistributionMessage::Approvals(approvals)) => {
 				let sanitized_approvals =
 					self.sanitize_v2_approvals(peer_id, network_sender, approvals).await;
@@ -1213,20 +1180,12 @@ impl State {
 				)
 				.await;
 			},
-			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
-			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) => {
-				let sanitized_approvals =
-					self.sanitize_v1_approvals(peer_id, network_sender, approvals).await;
-				self.process_incoming_approvals(
-					approval_voting_sender,
-					network_sender,
-					runtime_api_sender,
-					metrics,
-					peer_id,
-					sanitized_approvals,
-					session_info_provider,
-				)
-				.await;
+			_ => {
+				gum::warn!(
+					target: LOG_TARGET,
+					peer_id = %peer_id,
+					"Received approval distribution message with unsupported protocol version",
+				);
 			},
 		}
 	}
@@ -1250,7 +1209,7 @@ impl State {
 			if let Some(peer_entry) = self.peer_views.get_mut(&peer_id) {
 				(Some(std::mem::replace(&mut peer_entry.view, view.clone())), peer_entry.version)
 			} else {
-				// This shouldn't happen, but if it does we assume protocol version 1.
+				// This shouldn't happen, but if it does we assume protocol version 3.
 				gum::warn!(
 					target: LOG_TARGET,
 					?peer_id,
@@ -1258,7 +1217,7 @@ impl State {
 					"Peer view change for missing `peer_entry`"
 				);
 
-				(None, ValidationVersion::V1.into())
+				(None, ValidationVersion::V3.into())
 			};
 
 		let old_finalized_number = old_view.map(|v| v.finalized_number).unwrap_or(0);
@@ -1322,6 +1281,33 @@ impl State {
 		// If a block was finalized, this means we may need to move our aggression
 		// forward to the now oldest block(s).
 		self.enable_aggression(network_sender, Resend::No, metrics).await;
+	}
+
+	// When finality is lagging as a last resort nodes start sending the messages they have
+	// multiples times. This means it is safe to accept duplicate messages without punishing the
+	// peer and reduce the reputation and can end up banning the Peer, which in turn will create
+	// more no-shows.
+	fn accept_duplicates_from_validators(
+		blocks_by_number: &BTreeMap<BlockNumber, Vec<Hash>>,
+		topologies: &SessionGridTopologies,
+		aggression_config: &AggressionConfig,
+		entry: &BlockEntry,
+		peer: PeerId,
+	) -> bool {
+		let topology = topologies.get_topology(entry.session);
+		let min_age = blocks_by_number.iter().next().map(|(num, _)| num);
+		let max_age = blocks_by_number.iter().rev().next().map(|(num, _)| num);
+
+		// Return if we don't have at least 1 block.
+		let (min_age, max_age) = match (min_age, max_age) {
+			(Some(min), Some(max)) => (*min, *max),
+			_ => return false,
+		};
+
+		let age = max_age.saturating_sub(min_age);
+
+		aggression_config.should_trigger_aggression(age) &&
+			topology.map(|topology| topology.is_validator(&peer)).unwrap_or(false)
 	}
 
 	async fn import_and_circulate_assignment<A, N, RA, R>(
@@ -1388,20 +1374,29 @@ impl State {
 					if peer_knowledge.contains(&message_subject, message_kind) {
 						// wasn't included before
 						if !peer_knowledge.received.insert(message_subject.clone(), message_kind) {
-							gum::debug!(
-								target: LOG_TARGET,
-								?peer_id,
-								?message_subject,
-								"Duplicate assignment",
-							);
-
-							modify_reputation(
-								&mut self.reputation,
-								network_sender,
+							if !Self::accept_duplicates_from_validators(
+								&self.blocks_by_number,
+								&self.topologies,
+								&self.aggression_config,
+								entry,
 								peer_id,
-								COST_DUPLICATE_MESSAGE,
-							)
-							.await;
+							) {
+								gum::debug!(
+									target: LOG_TARGET,
+									?peer_id,
+									?message_subject,
+									"Duplicate assignment",
+								);
+
+								modify_reputation(
+									&mut self.reputation,
+									network_sender,
+									peer_id,
+									COST_DUPLICATE_MESSAGE,
+								)
+								.await;
+							}
+
 							metrics.on_assignment_duplicate();
 						} else {
 							gum::trace!(
@@ -1717,6 +1712,9 @@ impl State {
 		assignments_knowledge_key: &Vec<(MessageSubject, MessageKind)>,
 		approval_knowledge_key: &(MessageSubject, MessageKind),
 		entry: &mut BlockEntry,
+		blocks_by_number: &BTreeMap<BlockNumber, Vec<Hash>>,
+		topologies: &SessionGridTopologies,
+		aggression_config: &AggressionConfig,
 		reputation: &mut ReputationAggregator,
 		peer_id: PeerId,
 		metrics: &Metrics,
@@ -1745,20 +1743,27 @@ impl State {
 						.received
 						.insert(approval_knowledge_key.0.clone(), approval_knowledge_key.1)
 					{
-						gum::trace!(
-							target: LOG_TARGET,
-							?peer_id,
-							?approval_knowledge_key,
-							"Duplicate approval",
-						);
-
-						modify_reputation(
-							reputation,
-							network_sender,
+						if !Self::accept_duplicates_from_validators(
+							blocks_by_number,
+							topologies,
+							aggression_config,
+							entry,
 							peer_id,
-							COST_DUPLICATE_MESSAGE,
-						)
-						.await;
+						) {
+							gum::trace!(
+								target: LOG_TARGET,
+								?peer_id,
+								?approval_knowledge_key,
+								"Duplicate approval",
+							);
+							modify_reputation(
+								reputation,
+								network_sender,
+								peer_id,
+								COST_DUPLICATE_MESSAGE,
+							)
+							.await;
+						}
 						metrics.on_approval_duplicate();
 					}
 					return false
@@ -1850,6 +1855,9 @@ impl State {
 				&assignments_knowledge_keys,
 				&approval_knwowledge_key,
 				entry,
+				&self.blocks_by_number,
+				&self.topologies,
+				&self.aggression_config,
 				&mut self.reputation,
 				peer_id,
 				metrics,
@@ -1944,7 +1952,7 @@ impl State {
 		// approval.
 		metrics.on_approval_imported();
 
-		// Dispatch a ApprovalDistributionV1Message::Approval(vote)
+		// Dispatch a ApprovalDistributionV3Message::Approval(vote)
 		// to all peers required by the topology, with the exception of the source peer.
 		let topology = self.topologies.get_topology(entry.session);
 		let source_peer = source.peer_id();
@@ -2260,18 +2268,43 @@ impl State {
 			&self.topologies,
 			|block_entry| {
 				let block_age = max_age - block_entry.number;
+				// We want to resend only for blocks of min_age, there is no point in
+				// resending for blocks newer than that, because we are just going to create load
+				// and not gain anything.
+				let diff_from_min_age = block_entry.number - min_age;
+
+				// We want to back-off on resending for blocks that have been resent recently, to
+				// give time for nodes to process all the extra messages, if we still have not
+				// finalized we are going to resend again after unfinalized_period * 2 since the
+				// last resend.
+				let blocks_since_last_sent = block_entry
+					.last_resent_at_block_number
+					.map(|last_resent_at_block_number| max_age - last_resent_at_block_number);
+
+				let can_resend_at_this_age = blocks_since_last_sent
+					.zip(config.resend_unfinalized_period)
+					.map(|(blocks_since_last_sent, unfinalized_period)| {
+						blocks_since_last_sent >= unfinalized_period * 2
+					})
+					.unwrap_or(true);
 
 				if resend == Resend::Yes &&
-					config
-						.resend_unfinalized_period
-						.as_ref()
-						.map_or(false, |p| block_age > 0 && block_age % p == 0)
-				{
+					config.resend_unfinalized_period.as_ref().map_or(false, |p| {
+						block_age > 0 &&
+							block_age % p == 0 && diff_from_min_age == 0 &&
+							can_resend_at_this_age
+					}) {
 					// Retry sending to all peers.
 					for (_, knowledge) in block_entry.known_by.iter_mut() {
 						knowledge.sent = Knowledge::default();
 					}
-
+					block_entry.last_resent_at_block_number = Some(max_age);
+					gum::debug!(
+						target: LOG_TARGET,
+						block_number = ?block_entry.number,
+						?max_age,
+						"Aggression enabled with resend for block",
+					);
 					true
 				} else {
 					false
@@ -2329,41 +2362,6 @@ impl State {
 		.await;
 	}
 
-	// Filter out invalid candidate index and certificate core bitfields.
-	// For each invalid assignment we also punish the peer.
-	async fn sanitize_v1_assignments(
-		&mut self,
-		peer_id: PeerId,
-		sender: &mut impl overseer::SubsystemSender<NetworkBridgeTxMessage>,
-		assignments: Vec<(IndirectAssignmentCert, CandidateIndex)>,
-	) -> Vec<(IndirectAssignmentCertV2, CandidateBitfield)> {
-		let mut sanitized_assignments = Vec::new();
-		for (cert, candidate_index) in assignments.into_iter() {
-			let cert_bitfield_bits = match cert.cert.kind {
-				AssignmentCertKind::RelayVRFDelay { core_index } => core_index.0 as usize + 1,
-				// We don't want to run the VRF yet, but the output is always bounded by `n_cores`.
-				// We assume `candidate_bitfield` length for the core bitfield and we just check
-				// against `MAX_BITFIELD_SIZE` later.
-				AssignmentCertKind::RelayVRFModulo { .. } => candidate_index as usize + 1,
-			};
-
-			let candidate_bitfield_bits = candidate_index as usize + 1;
-
-			// Ensure bitfields length under hard limit.
-			if cert_bitfield_bits > MAX_BITFIELD_SIZE || candidate_bitfield_bits > MAX_BITFIELD_SIZE
-			{
-				// Punish the peer for the invalid message.
-				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
-					.await;
-				gum::debug!(target: LOG_TARGET, block_hash = ?cert.block_hash, ?candidate_index, validator_index = ?cert.validator, kind = ?cert.cert.kind, "Bad assignment v1, invalid candidate index");
-			} else {
-				sanitized_assignments.push((cert.into(), candidate_index.into()))
-			}
-		}
-
-		sanitized_assignments
-	}
-
 	// Filter out oversized candidate and certificate core bitfields.
 	// For each invalid assignment we also punish the peer.
 	async fn sanitize_v2_assignments(
@@ -2407,33 +2405,6 @@ impl State {
 		}
 
 		sanitized_assignments
-	}
-
-	// Filter out obviously invalid candidate indices.
-	async fn sanitize_v1_approvals(
-		&mut self,
-		peer_id: PeerId,
-		sender: &mut impl overseer::SubsystemSender<NetworkBridgeTxMessage>,
-		approval: Vec<IndirectSignedApprovalVote>,
-	) -> Vec<IndirectSignedApprovalVoteV2> {
-		let mut sanitized_approvals = Vec::new();
-		for approval in approval.into_iter() {
-			if approval.candidate_index as usize > MAX_BITFIELD_SIZE {
-				// Punish the peer for the invalid message.
-				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
-					.await;
-				gum::debug!(
-					target: LOG_TARGET,
-					block_hash = ?approval.block_hash,
-					candidate_index = ?approval.candidate_index,
-					"Bad approval v1, invalid candidate index"
-				);
-			} else {
-				sanitized_approvals.push(approval.into())
-			}
-		}
-
-		sanitized_approvals
 	}
 
 	// Filter out obviously invalid candidate indices.
@@ -2887,50 +2858,16 @@ async fn send_assignments_batched_inner(
 	sender: &mut impl overseer::SubsystemSender<NetworkBridgeTxMessage>,
 	batch: impl IntoIterator<Item = (IndirectAssignmentCertV2, CandidateBitfield)>,
 	peers: Vec<PeerId>,
-	peer_version: ValidationVersion,
+	_peer_version: ValidationVersion,
 ) {
-	if peer_version == ValidationVersion::V3 {
-		sender
-			.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				peers,
-				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
-					protocol_v3::ApprovalDistributionMessage::Assignments(
-						batch.into_iter().collect(),
-					),
-				)),
-			))
-			.await;
-	} else {
-		// Create a batch of v1 assignments from v2 assignments that are compatible with v1.
-		// `IndirectAssignmentCertV2` -> `IndirectAssignmentCert`
-		let batch = batch
-			.into_iter()
-			.filter_map(|(cert, candidates)| {
-				cert.try_into().ok().map(|cert| {
-					(
-						cert,
-						// First 1 bit index is the candidate index.
-						candidates
-							.first_one()
-							.map(|index| index as CandidateIndex)
-							.expect("Assignment was checked for not being empty; qed"),
-					)
-				})
-			})
-			.collect();
-		let message = if peer_version == ValidationVersion::V1 {
-			Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
-				protocol_v1::ApprovalDistributionMessage::Assignments(batch),
-			))
-		} else {
-			Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
-				protocol_v2::ApprovalDistributionMessage::Assignments(batch),
-			))
-		};
-		sender
-			.send_message(NetworkBridgeTxMessage::SendValidationMessage(peers, message))
-			.await;
-	}
+	sender
+		.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+			peers,
+			Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+				protocol_v3::ApprovalDistributionMessage::Assignments(batch.into_iter().collect()),
+			)),
+		))
+		.await;
 }
 
 /// Send assignments while honoring the `max_notification_size` of the protocol.
@@ -2943,45 +2880,7 @@ pub(crate) async fn send_assignments_batched(
 	v2_assignments: impl IntoIterator<Item = (IndirectAssignmentCertV2, CandidateBitfield)> + Clone,
 	peers: &[(PeerId, ProtocolVersion)],
 ) {
-	let v1_peers = filter_by_peer_version(peers, ValidationVersion::V1.into());
-	let v2_peers = filter_by_peer_version(peers, ValidationVersion::V2.into());
 	let v3_peers = filter_by_peer_version(peers, ValidationVersion::V3.into());
-
-	// V1 and V2 validation protocol do not have any changes with regard to
-	// ApprovalDistributionMessage so they can be treated the same.
-	if !v1_peers.is_empty() || !v2_peers.is_empty() {
-		// Older peers(v1) do not understand `AssignmentsV2` messages, so we have to filter these
-		// out.
-		let v1_assignments = v2_assignments
-			.clone()
-			.into_iter()
-			.filter(|(_, candidates)| candidates.count_ones() == 1);
-
-		let mut v1_batches = v1_assignments.peekable();
-
-		while v1_batches.peek().is_some() {
-			let batch: Vec<_> = v1_batches.by_ref().take(MAX_ASSIGNMENT_BATCH_SIZE).collect();
-			if !v1_peers.is_empty() {
-				send_assignments_batched_inner(
-					network_sender,
-					batch.clone(),
-					v1_peers.clone(),
-					ValidationVersion::V1,
-				)
-				.await;
-			}
-
-			if !v2_peers.is_empty() {
-				send_assignments_batched_inner(
-					network_sender,
-					batch,
-					v2_peers.clone(),
-					ValidationVersion::V2,
-				)
-				.await;
-			}
-		}
-	}
 
 	if !v3_peers.is_empty() {
 		let mut v3 = v2_assignments.into_iter().peekable();
@@ -3005,44 +2904,7 @@ pub(crate) async fn send_approvals_batched(
 	approvals: impl IntoIterator<Item = IndirectSignedApprovalVoteV2> + Clone,
 	peers: &[(PeerId, ProtocolVersion)],
 ) {
-	let v1_peers = filter_by_peer_version(peers, ValidationVersion::V1.into());
-	let v2_peers = filter_by_peer_version(peers, ValidationVersion::V2.into());
 	let v3_peers = filter_by_peer_version(peers, ValidationVersion::V3.into());
-
-	if !v1_peers.is_empty() || !v2_peers.is_empty() {
-		let mut batches = approvals
-			.clone()
-			.into_iter()
-			.filter(|approval| approval.candidate_indices.count_ones() == 1)
-			.filter_map(|val| val.try_into().ok())
-			.peekable();
-
-		while batches.peek().is_some() {
-			let batch: Vec<_> = batches.by_ref().take(MAX_APPROVAL_BATCH_SIZE).collect();
-
-			if !v1_peers.is_empty() {
-				sender
-					.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-						v1_peers.clone(),
-						Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
-							protocol_v1::ApprovalDistributionMessage::Approvals(batch.clone()),
-						)),
-					))
-					.await;
-			}
-
-			if !v2_peers.is_empty() {
-				sender
-					.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-						v2_peers.clone(),
-						Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
-							protocol_v2::ApprovalDistributionMessage::Approvals(batch),
-						)),
-					))
-					.await;
-			}
-		}
-	}
 
 	if !v3_peers.is_empty() {
 		let mut batches = approvals.into_iter().peekable();

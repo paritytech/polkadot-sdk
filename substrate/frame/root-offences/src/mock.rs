@@ -25,9 +25,9 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Hooks, OneSessionHandler},
+	traits::{ConstU32, ConstU64, OneSessionHandler},
 };
-use pallet_staking::StakerStatus;
+use pallet_staking::{BalanceOf, StakerStatus};
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -126,6 +126,7 @@ parameter_types! {
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type UnixTime = Timestamp;
@@ -143,8 +144,8 @@ impl pallet_staking::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -162,6 +163,7 @@ impl pallet_session::Config for Test {
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<Test>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
@@ -206,11 +208,12 @@ impl ExtBuilder {
 				(30, self.balance_factor * 50),
 				(40, self.balance_factor * 50),
 				// stashes
-				(11, self.balance_factor * 1000),
-				(21, self.balance_factor * 1000),
-				(31, self.balance_factor * 500),
-				(41, self.balance_factor * 1000),
+				(11, self.balance_factor * 1500),
+				(21, self.balance_factor * 1500),
+				(31, self.balance_factor * 1000),
+				(41, self.balance_factor * 2000),
 			],
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage)
 		.unwrap();
@@ -283,16 +286,12 @@ pub(crate) fn start_session(session_index: SessionIndex) {
 /// a block import/propose process where we first initialize the block, then execute some stuff (not
 /// in the function), and then finalize the block.
 pub(crate) fn run_to_block(n: BlockNumber) {
-	Staking::on_finalize(System::block_number());
-	for b in (System::block_number() + 1)..=n {
-		System::set_block_number(b);
-		Session::on_initialize(b);
-		<Staking as Hooks<u64>>::on_initialize(b);
-		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
-		if b != n {
-			Staking::on_finalize(System::block_number());
-		}
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+			Timestamp::set_timestamp(bn * BLOCK_TIME + INIT_TIMESTAMP);
+		}),
+	);
 }
 
 pub(crate) fn active_era() -> EraIndex {

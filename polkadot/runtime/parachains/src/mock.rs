@@ -368,6 +368,9 @@ impl pallet_message_queue::WeightInfo for TestMessageQueueWeight {
 	fn service_page_item() -> Weight {
 		Weight::zero()
 	}
+	fn set_service_head() -> Weight {
+		Weight::zero()
+	}
 	fn bump_service_head() -> Weight {
 		Weight::zero()
 	}
@@ -421,6 +424,7 @@ impl assigner_coretime::Config for Test {}
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
 }
 
 pub struct BrokerPot;
@@ -433,10 +437,10 @@ impl Get<InteriorLocation> for BrokerPot {
 impl coretime::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = pallet_balances::Pallet<Test>;
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 	type BrokerPotLocation = BrokerPot;
 	type AssetTransactor = ();
 	type AccountToLocation = ();

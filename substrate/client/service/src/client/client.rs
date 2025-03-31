@@ -85,10 +85,8 @@ use std::{
 	sync::Arc,
 };
 
-#[cfg(feature = "test-helpers")]
-use {
-	super::call_executor::LocalCallExecutor, sc_client_api::in_mem, sp_core::traits::CodeExecutor,
-};
+use super::call_executor::LocalCallExecutor;
+use sp_core::traits::CodeExecutor;
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
@@ -152,39 +150,6 @@ enum PrepareStorageChangesResult<Block: BlockT> {
 	Discard(ImportResult),
 	Import(Option<sc_consensus::StorageChanges<Block>>),
 }
-
-/// Create an instance of in-memory client.
-#[cfg(feature = "test-helpers")]
-pub fn new_in_mem<E, Block, G, RA>(
-	backend: Arc<in_mem::Backend<Block>>,
-	executor: E,
-	genesis_block_builder: G,
-	prometheus_registry: Option<Registry>,
-	telemetry: Option<TelemetryHandle>,
-	spawn_handle: Box<dyn SpawnNamed>,
-	config: ClientConfig<Block>,
-) -> sp_blockchain::Result<
-	Client<in_mem::Backend<Block>, LocalCallExecutor<Block, in_mem::Backend<Block>, E>, Block, RA>,
->
-where
-	E: CodeExecutor + sc_executor::RuntimeVersionOf,
-	Block: BlockT,
-	G: BuildGenesisBlock<
-			Block,
-			BlockImportOperation = <in_mem::Backend<Block> as backend::Backend<Block>>::BlockImportOperation,
-		>,
-{
-	new_with_backend(
-		backend,
-		executor,
-		genesis_block_builder,
-		spawn_handle,
-		prometheus_registry,
-		telemetry,
-		config,
-	)
-}
-
 /// Client configuration items.
 #[derive(Debug, Clone)]
 pub struct ClientConfig<Block: BlockT> {
@@ -218,7 +183,6 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 
 /// Create a client with the explicitly provided backend.
 /// This is useful for testing backend implementations.
-#[cfg(feature = "test-helpers")]
 pub fn new_with_backend<B, E, Block, G, RA>(
 	backend: Arc<B>,
 	executor: E,

@@ -16,9 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { features = [
-	"derive",
-], workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 hash-db = { workspace = true, default-features = true }
 kvdb = { workspace = true }
 kvdb-memorydb = { workspace = true }
@@ -39,15 +37,14 @@ sp-state-machine = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 
 [dev-dependencies]
+array-bytes = { workspace = true, default-features = true }
 criterion = { workspace = true, default-features = true }
+kitchensink-runtime = { workspace = true }
 kvdb-rocksdb = { workspace = true }
 rand = { workspace = true, default-features = true }
-tempfile = { workspace = true }
-quickcheck = { workspace = true }
-kitchensink-runtime = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
-array-bytes = { workspace = true, default-features = true }
+tempfile = { workspace = true }
 
 [features]
 default = []

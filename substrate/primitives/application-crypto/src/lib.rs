@@ -251,6 +251,7 @@ macro_rules! app_crypto_public_full_crypto {
 				Clone, Eq, Hash, PartialEq, PartialOrd, Ord,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::codec::MaxEncodedLen,
 				$crate::scale_info::TypeInfo,
@@ -287,6 +288,7 @@ macro_rules! app_crypto_public_not_full_crypto {
 				Clone, Eq, Hash, PartialEq, Ord, PartialOrd,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::codec::MaxEncodedLen,
 				$crate::scale_info::TypeInfo,
@@ -432,6 +434,7 @@ macro_rules! app_crypto_signature_full_crypto {
 			#[derive(Clone, Eq, PartialEq,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::scale_info::TypeInfo,
 			)]
@@ -466,6 +469,7 @@ macro_rules! app_crypto_signature_not_full_crypto {
 			#[derive(Clone, Eq, PartialEq,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::scale_info::TypeInfo,
 			)]

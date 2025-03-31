@@ -13,9 +13,8 @@ publish = false
 workspace = true
 
 [dependencies]
-honggfuzz = { workspace = true }
-rand = { features = ["small_rng", "std"], workspace = true, default-features = true }
 frame-election-provider-support = { features = ["fuzz"], workspace = true, default-features = true }
+honggfuzz = { workspace = true }
 pallet-bags-list = { features = ["fuzz"], workspace = true, default-features = true }
 
 [[bin]]

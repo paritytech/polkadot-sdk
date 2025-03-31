@@ -37,6 +37,7 @@ pub type TxExtension = (
 	frame_system::CheckMortality<Test>,
 	frame_system::CheckNonce<Test>,
 	frame_system::CheckWeight<Test>,
+	frame_system::WeightReclaim<Test>,
 );
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 pub type UncheckedExtrinsic =
@@ -111,6 +112,7 @@ impl pallet_assets::Config for Test {
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = ();
@@ -202,6 +204,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = TestMessageSender;
+	type XcmEventEmitter = XcmPallet;
 	type AssetTransactor = LocalAssetsTransactor;
 	type OriginConverter = OriginConverter;
 	type IsReserve = ();

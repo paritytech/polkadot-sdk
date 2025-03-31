@@ -27,7 +27,6 @@ use futures::{
 	stream::StreamExt,
 	Future, FutureExt,
 };
-use log::trace;
 use parking_lot::RwLock;
 use sc_utils::mpsc;
 use std::{
@@ -38,6 +37,7 @@ use std::{
 	sync::Arc,
 };
 use tokio_stream::StreamMap;
+use tracing::trace;
 
 /// A type alias for a pinned, boxed stream of items of type `I`.
 /// This alias is particularly useful for defining the types of the incoming streams from various
@@ -109,14 +109,22 @@ where
 					cmd = ctx.command_receiver.next() => {
 						match cmd? {
 							Command::AddView(key,stream) => {
-								trace!(target: LOG_TARGET,"Command::AddView {key:?}");
+								trace!(
+									target: LOG_TARGET,
+									?key,
+									"Command::AddView"
+								);
 								ctx.stream_map.insert(key,stream);
 							},
 						}
 					},
 
 					Some(event) = next_event(&mut ctx.stream_map) => {
-						trace!(target: LOG_TARGET, "import_notification_sink: select_next_some -> {:?}", event);
+						trace!(
+							target: LOG_TARGET,
+							?event,
+							"import_notification_sink: select_next_some"
+						);
 						return Some((event.1, ctx));
 					}
 				}
@@ -179,9 +187,17 @@ where
 				async move {
 					if already_notified_items.write().insert(event.clone()) {
 						external_sinks.write().retain_mut(|sink| {
-							trace!(target: LOG_TARGET, "[{:?}] import_sink_worker sending out imported", event);
-							if let Err(e) = sink.try_send(event.clone()) {
-								trace!(target: LOG_TARGET, "import_sink_worker sending message failed: {e}");
+							trace!(
+								target: LOG_TARGET,
+								?event,
+								"import_sink_worker sending out imported"
+							);
+							if let Err(error) = sink.try_send(event.clone()) {
+								trace!(
+									target: LOG_TARGET,
+									%error,
+									"import_sink_worker sending message failed"
+								);
 								false
 							} else {
 								true
@@ -199,12 +215,17 @@ where
 	/// The new view's stream is added to the internal aggregated stream context by sending command
 	/// to its `command_receiver`.
 	pub fn add_view(&self, key: K, view: StreamOf<I>) {
-		let _ = self
-			.controller
-			.unbounded_send(Command::AddView(key.clone(), view))
-			.map_err(|e| {
-				trace!(target: LOG_TARGET, "add_view {key:?} send message failed: {e}");
-			});
+		let _ =
+			self.controller
+				.unbounded_send(Command::AddView(key.clone(), view))
+				.map_err(|error| {
+					trace!(
+						target: LOG_TARGET,
+						?key,
+						%error,
+						"add_view send message failed"
+					);
+				});
 	}
 
 	/// Creates and returns a new external stream of ready transactions hashes notifications.
@@ -326,6 +347,7 @@ mod tests {
 		let j0 = tokio::spawn(runnable);
 
 		let stream = ctrl.event_stream();
+		let stream2 = ctrl.event_stream();
 
 		let mut v1 = View::new(vec![(10, 1), (10, 2), (10, 3)]);
 		let mut v2 = View::new(vec![(20, 1), (20, 2), (20, 6)]);
@@ -342,20 +364,16 @@ mod tests {
 		ctrl.add_view(1000, o1);
 		ctrl.add_view(2000, o2);
 
-		let j4 = {
-			let ctrl = ctrl.clone();
-			tokio::spawn(async move {
-				tokio::time::sleep(Duration::from_millis(70)).await;
-				ctrl.clean_notified_items(&vec![1, 3]);
-				ctrl.add_view(3000, o3.boxed());
-			})
-		};
+		let out = stream.take(4).collect::<Vec<_>>().await;
+		assert_eq!(out, vec![1, 2, 3, 6]);
 
-		let out = stream.take(6).collect::<Vec<_>>().await;
+		ctrl.clean_notified_items(&vec![1, 3]);
+		ctrl.add_view(3000, o3.boxed());
+		let out = stream2.take(6).collect::<Vec<_>>().await;
 		assert_eq!(out, vec![1, 2, 3, 6, 1, 3]);
-		drop(ctrl);
 
-		futures::future::join_all(vec![j0, j1, j2, j3, j4]).await;
+		drop(ctrl);
+		futures::future::join_all(vec![j0, j1, j2, j3]).await;
 	}
 
 	#[tokio::test]

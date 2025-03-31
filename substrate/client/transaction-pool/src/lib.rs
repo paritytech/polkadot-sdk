@@ -36,7 +36,10 @@ pub use api::FullChainApi;
 pub use builder::{Builder, TransactionPoolHandle, TransactionPoolOptions, TransactionPoolType};
 pub use common::notification_future;
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
-pub use graph::{base_pool::Limit as PoolLimit, ChainApi, Options, Pool};
+pub use graph::{
+	base_pool::{Limit as PoolLimit, TimedTransactionSource},
+	ChainApi, Options, Pool,
+};
 use single_state_txpool::prune_known_txs_for_block;
 pub use single_state_txpool::{BasicPool, RevalidationType};
 pub use transaction_pool_wrapper::TransactionPoolWrapper;

@@ -88,14 +88,14 @@ impl TransactionSigned {
 	}
 }
 
-impl TransactionLegacyUnsigned {
-	/// Get the rlp encoded bytes of a signed transaction with a dummy 65 bytes signature.
+impl TransactionUnsigned {
+	/// Get a signed transaction payload with a dummy 65 bytes signature.
 	pub fn dummy_signed_payload(&self) -> Vec<u8> {
-		let mut s = rlp::RlpStream::new();
-		s.append(self);
 		const DUMMY_SIGNATURE: [u8; 65] = [0u8; 65];
-		s.append_raw(&DUMMY_SIGNATURE.as_ref(), 1);
-		s.out().to_vec()
+		self.unsigned_payload()
+			.into_iter()
+			.chain(DUMMY_SIGNATURE.iter().copied())
+			.collect::<Vec<_>>()
 	}
 }
 
@@ -557,7 +557,7 @@ mod test {
 		];
 
 		for (tx, json) in txs {
-			let raw_tx = hex::decode(tx).unwrap();
+			let raw_tx = alloy_core::hex::decode(tx).unwrap();
 			let tx = TransactionSigned::decode(&raw_tx).unwrap();
 			assert_eq!(tx.signed_payload(), raw_tx);
 			let expected_tx = serde_json::from_str(json).unwrap();
@@ -567,7 +567,7 @@ mod test {
 
 	#[test]
 	fn dummy_signed_payload_works() {
-		let tx = TransactionLegacyUnsigned {
+		let tx: TransactionUnsigned = TransactionLegacyUnsigned {
 			chain_id: Some(596.into()),
 			gas: U256::from(21000),
 			nonce: U256::from(1),
@@ -576,10 +576,10 @@ mod test {
 			value: U256::from(123123),
 			input: Bytes(vec![]),
 			r#type: TypeLegacy,
-		};
+		}
+		.into();
 
 		let dummy_signed_payload = tx.dummy_signed_payload();
-		let tx: TransactionUnsigned = tx.into();
 		let payload = Account::default().sign_transaction(tx).signed_payload();
 		assert_eq!(dummy_signed_payload.len(), payload.len());
 	}

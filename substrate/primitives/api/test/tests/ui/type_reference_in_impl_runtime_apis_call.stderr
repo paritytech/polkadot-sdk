@@ -54,10 +54,6 @@ note: associated function defined here
    |
 27 |         fn test(data: u64);
    |            ^^^^
-help: consider removing the borrow
-   |
-33 |         fn test(data: &u64) {
-   |
 
 error: unused variable: `data`
   --> tests/ui/type_reference_in_impl_runtime_apis_call.rs:33:11

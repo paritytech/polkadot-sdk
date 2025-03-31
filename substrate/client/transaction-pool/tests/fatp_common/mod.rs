@@ -24,7 +24,7 @@ use sp_runtime::transaction_validity::TransactionSource;
 use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},
-	AccountKeyring::*,
+	Sr25519Keyring::*,
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 pub const LOG_TARGET: &str = "txpool";
@@ -70,6 +70,7 @@ pub struct TestPoolBuilder {
 	ready_limits: sc_transaction_pool::PoolLimit,
 	future_limits: sc_transaction_pool::PoolLimit,
 	mempool_max_transactions_count: usize,
+	finality_timeout_threshold: Option<usize>,
 }
 
 impl Default for TestPoolBuilder {
@@ -80,6 +81,7 @@ impl Default for TestPoolBuilder {
 			ready_limits: PoolLimit { count: 8192, total_bytes: 20 * 1024 * 1024 },
 			future_limits: PoolLimit { count: 512, total_bytes: 1 * 1024 * 1024 },
 			mempool_max_transactions_count: usize::MAX,
+			finality_timeout_threshold: None,
 		}
 	}
 }
@@ -124,6 +126,11 @@ impl TestPoolBuilder {
 		self
 	}
 
+	pub fn with_finality_timeout_threshold(mut self, threshold: usize) -> Self {
+		self.finality_timeout_threshold = Some(threshold);
+		self
+	}
+
 	pub fn build(
 		self,
 	) -> (ForkAwareTxPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
@@ -140,7 +147,12 @@ impl TestPoolBuilder {
 			.expect("there is block 0. qed");
 
 		let (pool, txpool_task) = if self.use_default_limits {
-			ForkAwareTxPool::new_test(api.clone(), genesis_hash, genesis_hash)
+			ForkAwareTxPool::new_test(
+				api.clone(),
+				genesis_hash,
+				genesis_hash,
+				self.finality_timeout_threshold,
+			)
 		} else {
 			ForkAwareTxPool::new_test_with_limits(
 				api.clone(),
@@ -149,6 +161,7 @@ impl TestPoolBuilder {
 				self.ready_limits,
 				self.future_limits,
 				self.mempool_max_transactions_count,
+				self.finality_timeout_threshold,
 			)
 		};
 
@@ -192,12 +205,35 @@ macro_rules! assert_ready_iterator {
 		let output: Vec<_> = ready_iterator.collect();
 		log::debug!(target:LOG_TARGET, "expected: {:#?}", expected);
 		log::debug!(target:LOG_TARGET, "output: {:#?}", output);
+		let output = output.into_iter().map(|t|t.hash).collect::<Vec<_>>();
 		assert_eq!(expected.len(), output.len());
-		assert!(
-			output.iter().zip(expected.iter()).all(|(o,e)| {
-				o.hash == *e
-			})
-		);
+		assert_eq!(output,expected);
+	}};
+}
+
+#[macro_export]
+macro_rules! assert_future_iterator {
+	($hash:expr, $pool:expr, [$( $xt:expr ),*]) => {{
+		let futures = $pool.futures_at($hash).unwrap();
+		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),*];
+		log::debug!(target:LOG_TARGET, "expected: {:#?}", expected);
+		log::debug!(target:LOG_TARGET, "output: {:#?}", futures);
+		assert_eq!(expected.len(), futures.len());
+		let hsf = futures.iter().map(|a| a.hash).collect::<std::collections::HashSet<_>>();
+		let hse = expected.into_iter().collect::<std::collections::HashSet<_>>();
+		assert_eq!(hse,hsf);
+	}};
+}
+
+#[macro_export]
+macro_rules! assert_watcher_stream {
+	($stream:ident, [$( $event:expr ),*]) => {{
+		let expected = vec![ $($event),*];
+		log::debug!(target:LOG_TARGET, "expected: {:#?} {}, block now:", expected, expected.len());
+		let output = futures::executor::block_on_stream($stream).take(expected.len()).collect::<Vec<_>>();
+		log::debug!(target:LOG_TARGET, "output: {:#?}", output);
+		assert_eq!(expected.len(), output.len());
+		assert_eq!(output, expected);
 	}};
 }
 

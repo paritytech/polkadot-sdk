@@ -18,7 +18,7 @@ use super::*;
 
 use crate::{disputes::SlashingHandler, initializer, shared};
 use codec::Decode;
-use frame_benchmarking::{benchmarks, whitelist_account};
+use frame_benchmarking::v2::*;
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking::testing_utils::create_validators;
@@ -28,6 +28,11 @@ use sp_session::MembershipProof;
 
 // Candidate hash of the disputed candidate.
 const CANDIDATE_HASH: CandidateHash = CandidateHash(Hash::zero());
+
+// Simplify getting the value in the benchmark
+pub const fn max_validators_for<T: super::Config>() -> u32 {
+	<<T>::BenchmarkingConfig as BenchmarkingConfiguration>::MAX_VALIDATORS
+}
 
 pub trait Config:
 	pallet_session::Config
@@ -106,6 +111,7 @@ where
 	(session_index, key_owner_proof, validator_id)
 }
 
+/// Submits a single `ForInvalid` dispute.
 fn setup_dispute<T>(session_index: SessionIndex, validator_id: ValidatorId) -> DisputeProof
 where
 	T: Config,
@@ -125,6 +131,7 @@ where
 	dispute_proof(session_index, validator_id, validator_index)
 }
 
+/// Creates a `ForInvalid` dispute proof.
 fn dispute_proof(
 	session_index: SessionIndex,
 	validator_id: ValidatorId,
@@ -136,27 +143,20 @@ fn dispute_proof(
 	DisputeProof { time_slot, kind, validator_index, validator_id }
 }
 
-benchmarks! {
-	where_clause {
-		where T: Config<KeyOwnerProof = MembershipProof>,
-	}
+#[benchmarks(where T: Config<KeyOwnerProof = MembershipProof>)]
+mod benchmarks {
+	use super::*;
 
-	// in this setup we have a single `ForInvalid` dispute
-	// submitted for a past session
-	report_dispute_lost {
-		let n in 4..<<T as super::Config>::BenchmarkingConfig as BenchmarkingConfiguration>::MAX_VALIDATORS;
-
-		let origin = RawOrigin::None.into();
+	#[benchmark]
+	fn report_dispute_lost_unsigned(n: Linear<4, { max_validators_for::<T>() }>) {
 		let (session_index, key_owner_proof, validator_id) = setup_validator_set::<T>(n);
+
+		// submit a single `ForInvalid` dispute for a past session.
 		let dispute_proof = setup_dispute::<T>(session_index, validator_id);
-	}: {
-		let result = Pallet::<T>::report_dispute_lost_unsigned(
-			origin,
-			Box::new(dispute_proof),
-			key_owner_proof,
-		);
-		assert!(result.is_ok());
-	} verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::None, Box::new(dispute_proof), key_owner_proof);
+
 		let unapplied = <UnappliedSlashes<T>>::get(session_index, CANDIDATE_HASH);
 		assert!(unapplied.is_none());
 	}

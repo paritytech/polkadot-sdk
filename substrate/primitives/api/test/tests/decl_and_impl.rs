@@ -81,7 +81,8 @@ impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn something_with_block(_: Block) -> Block {
+		// Ensure that we accept `mut`
+		fn something_with_block(mut _block: Block) -> Block {
 			unimplemented!()
 		}
 
@@ -309,6 +310,8 @@ fn mock_runtime_api_works_with_advanced() {
 
 #[test]
 fn runtime_api_metadata_matches_version_implemented() {
+	use sp_metadata_ir::InternalImplRuntimeApis;
+
 	let rt = Runtime {};
 	let runtime_metadata = rt.runtime_metadata();
 

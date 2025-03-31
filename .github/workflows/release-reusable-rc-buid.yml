@@ -15,7 +15,7 @@ on:
         type: string
 
       release_tag:
-        description: Tag matching the actual release candidate with the format stableYYMM-rcX or stableYYMM
+        description: Tag matching the actual release candidate with the format polkadpt-stableYYMM(-rcX) or plkadot-stableYYMM-X(-rcX)
         required: true
         type: string
 
@@ -82,7 +82,7 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign built artifacts
-          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
           which pgpkms
 
       - name: Checkout sources
@@ -104,7 +104,7 @@ jobs:
           ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
         with:
           subject-path: /artifacts/${{ matrix.binaries }}/${{ matrix.binaries }}
 
@@ -133,7 +133,7 @@ jobs:
       - name: Upload ${{ matrix.binaries }} artifacts
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
-          name: ${{ matrix.binaries }}
+          name: ${{ matrix.binaries }}_${{ inputs.target }}
           path: /artifacts/${{ matrix.binaries }}
 
   build-macos-rc:
@@ -149,7 +149,6 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      SKIP_WASM_BUILD: 1
     steps:
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
@@ -174,7 +173,7 @@ jobs:
         run: echo "/opt/homebrew/bin" >>  $GITHUB_PATH
 
       - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@11df97af8e8102fd60b60a77dfbf58d40cd843b8 # v1.10.1
+        uses: actions-rust-lang/setup-rust-toolchain@9399c7bb15d4c7d47b27263d024f0a4978346ba4 # v1.11.0
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}
@@ -205,7 +204,7 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign built artifacts
-          python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69" --break-system-packages
+          python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
 
       - name: Import gpg keys
         shell: bash
@@ -220,7 +219,7 @@ jobs:
           ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
         with:
           subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
@@ -264,9 +263,24 @@ jobs:
         ref: ${{ inputs.release_tag }}
         fetch-depth: 0
 
-    - name: Download artifacts
+    - name: Download polkadot_x86_64-unknown-linux-gnu artifacts
       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
+        name: polkadot_x86_64-unknown-linux-gnu
+        path: target/production
+        merge-multiple: true
+
+    - name: Download polkadot-execute-worker_x86_64-unknown-linux-gnu artifacts
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: polkadot-execute-worker_x86_64-unknown-linux-gnu
+        path: target/production
+        merge-multiple: true
+
+    - name: Download polkadot-prepare-worker_x86_64-unknown-linux-gnu artifacts
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        name: polkadot-prepare-worker_x86_64-unknown-linux-gnu
         path: target/production
         merge-multiple: true
 
@@ -278,14 +292,14 @@ jobs:
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
 
     - name: Generate artifact attestation
-      uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+      uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
       with:
         subject-path: target/production/*.deb
 
     - name: Upload ${{inputs.package }} artifacts
       uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
       with:
-        name: ${{ inputs.package }}
+        name: ${{ inputs.package }}_${{ inputs.target }}
         path: target/production
         overwrite: true
 
@@ -301,7 +315,6 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-
 
   upload-polkadot-parachain-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot-parachain-bin' && inputs.target == 'x86_64-unknown-linux-gnu' }}
@@ -322,6 +335,32 @@ jobs:
     uses: ./.github/workflows/release-reusable-s3-upload.yml
     with:
       package: ${{ inputs.package }}
+      release_tag: ${{ inputs.release_tag }}
+      target: ${{ inputs.target }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+  upload-frame-omni-bencher-artifacts-to-s3:
+    if: ${{ inputs.package == 'frame-omni-bencher' && inputs.target == 'x86_64-unknown-linux-gnu' }}
+    needs: [build-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: ${{ inputs.package }}
+      release_tag: ${{ inputs.release_tag }}
+      target: ${{ inputs.target }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+  upload-chain-spec-builder-artifacts-to-s3:
+    if: ${{ inputs.package == 'staging-chain-spec-builder' && inputs.target == 'x86_64-unknown-linux-gnu' }}
+    needs: [build-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: chain-spec-builder
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
     secrets:
@@ -389,6 +428,32 @@ jobs:
     uses: ./.github/workflows/release-reusable-s3-upload.yml
     with:
       package: polkadot-parachain
+      release_tag: ${{ inputs.release_tag }}
+      target: ${{ inputs.target }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+  upload-frame-omni-bencher-macos-artifacts-to-s3:
+    if: ${{ inputs.package == 'frame-omni-bencher' && inputs.target == 'aarch64-apple-darwin' }}
+    needs: [build-macos-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: ${{ inputs.package }}
+      release_tag: ${{ inputs.release_tag }}
+      target: ${{ inputs.target }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+  upload-chain-spec-builder-macos-artifacts-to-s3:
+    if: ${{ inputs.package == 'staging-chain-spec-builder' && inputs.target == 'aarch64-apple-darwin' }}
+    needs: [build-macos-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: chain-spec-builder
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
     secrets:

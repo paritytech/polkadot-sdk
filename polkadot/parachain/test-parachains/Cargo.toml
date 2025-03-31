@@ -11,14 +11,10 @@ publish = false
 workspace = true
 
 [dependencies]
-tiny-keccak = { features = ["keccak"], workspace = true }
 codec = { features = ["derive"], workspace = true }
 
 test-parachain-adder = { workspace = true }
 test-parachain-halt = { workspace = true }
-
-[dev-dependencies]
-sp-core = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

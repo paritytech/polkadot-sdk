@@ -24,8 +24,6 @@ use tracing_subscriber::EnvFilter;
 fn main() -> Result<()> {
 	setup_logger();
 
-	log::warn!("The FRAME omni-bencher is not yet battle tested - double check the results.",);
-
 	command::Command::parse().run()
 }
 

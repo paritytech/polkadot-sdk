@@ -35,10 +35,6 @@ pub use bp_messages;
 #[cfg(feature = "bp-parachains")]
 pub use bp_parachains;
 
-/// Primitives of Polkadot runtime.
-#[cfg(feature = "bp-polkadot")]
-pub use bp_polkadot;
-
 /// Primitives of Polkadot-like runtime.
 #[cfg(feature = "bp-polkadot-core")]
 pub use bp_polkadot_core;
@@ -140,6 +136,10 @@ pub use cumulus_pallet_session_benchmarking;
 /// Adds functionality to migrate from a Solo to a Parachain.
 #[cfg(feature = "cumulus-pallet-solo-to-para")]
 pub use cumulus_pallet_solo_to_para;
+
+/// pallet and transaction extensions for accurate proof size reclaim.
+#[cfg(feature = "cumulus-pallet-weight-reclaim")]
+pub use cumulus_pallet_weight_reclaim;
 
 /// Pallet for stuff specific to parachains' usage of XCM.
 #[cfg(feature = "cumulus-pallet-xcm")]
@@ -308,6 +308,10 @@ pub use pallet_asset_conversion_tx_payment;
 #[cfg(feature = "pallet-asset-rate")]
 pub use pallet_asset_rate;
 
+/// FRAME asset rewards pallet.
+#[cfg(feature = "pallet-asset-rewards")]
+pub use pallet_asset_rewards;
+
 /// pallet to manage transaction payments in assets.
 #[cfg(feature = "pallet-asset-tx-payment")]
 pub use pallet_asset_tx_payment;
@@ -319,6 +323,10 @@ pub use pallet_assets;
 /// Provides freezing features to `pallet-assets`.
 #[cfg(feature = "pallet-assets-freezer")]
 pub use pallet_assets_freezer;
+
+/// Provides holding features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-holder")]
+pub use pallet_assets_holder;
 
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
@@ -487,6 +495,10 @@ pub use pallet_membership;
 #[cfg(feature = "pallet-message-queue")]
 pub use pallet_message_queue;
 
+/// FRAME pallet enabling meta transactions.
+#[cfg(feature = "pallet-meta-tx")]
+pub use pallet_meta_tx;
+
 /// FRAME pallet to execute multi-block migrations.
 #[cfg(feature = "pallet-migrations")]
 pub use pallet_migrations;
@@ -583,10 +595,6 @@ pub use pallet_revive;
 /// An Ethereum JSON-RPC server for pallet-revive.
 #[cfg(feature = "pallet-revive-eth-rpc")]
 pub use pallet_revive_eth_rpc;
-
-/// Fixtures for testing and benchmarking.
-#[cfg(feature = "pallet-revive-fixtures")]
-pub use pallet_revive_fixtures;
 
 /// A mock network for testing pallet-revive.
 #[cfg(feature = "pallet-revive-mock-network")]
@@ -1123,6 +1131,10 @@ pub use sc_rpc_server;
 #[cfg(feature = "sc-rpc-spec-v2")]
 pub use sc_rpc_spec_v2;
 
+/// Substrate client utilities for frame runtime functions calls.
+#[cfg(feature = "sc-runtime-utilities")]
+pub use sc_runtime_utilities;
+
 /// Substrate service. Starts a thread that spins up the network, client, and extrinsic pool.
 /// Manages communication between them.
 #[cfg(feature = "sc-service")]
@@ -1175,66 +1187,6 @@ pub use sc_utils;
 /// Helper crate for generating slot ranges for the Polkadot runtime.
 #[cfg(feature = "slot-range-helper")]
 pub use slot_range_helper;
-
-/// Snowbridge Beacon Primitives.
-#[cfg(feature = "snowbridge-beacon-primitives")]
-pub use snowbridge_beacon_primitives;
-
-/// Snowbridge Core.
-#[cfg(feature = "snowbridge-core")]
-pub use snowbridge_core;
-
-/// Snowbridge Ethereum.
-#[cfg(feature = "snowbridge-ethereum")]
-pub use snowbridge_ethereum;
-
-/// Snowbridge Outbound Queue Merkle Tree.
-#[cfg(feature = "snowbridge-outbound-queue-merkle-tree")]
-pub use snowbridge_outbound_queue_merkle_tree;
-
-/// Snowbridge Outbound Queue Runtime API.
-#[cfg(feature = "snowbridge-outbound-queue-runtime-api")]
-pub use snowbridge_outbound_queue_runtime_api;
-
-/// Snowbridge Ethereum Client Pallet.
-#[cfg(feature = "snowbridge-pallet-ethereum-client")]
-pub use snowbridge_pallet_ethereum_client;
-
-/// Snowbridge Ethereum Client Test Fixtures.
-#[cfg(feature = "snowbridge-pallet-ethereum-client-fixtures")]
-pub use snowbridge_pallet_ethereum_client_fixtures;
-
-/// Snowbridge Inbound Queue Pallet.
-#[cfg(feature = "snowbridge-pallet-inbound-queue")]
-pub use snowbridge_pallet_inbound_queue;
-
-/// Snowbridge Inbound Queue Test Fixtures.
-#[cfg(feature = "snowbridge-pallet-inbound-queue-fixtures")]
-pub use snowbridge_pallet_inbound_queue_fixtures;
-
-/// Snowbridge Outbound Queue Pallet.
-#[cfg(feature = "snowbridge-pallet-outbound-queue")]
-pub use snowbridge_pallet_outbound_queue;
-
-/// Snowbridge System Pallet.
-#[cfg(feature = "snowbridge-pallet-system")]
-pub use snowbridge_pallet_system;
-
-/// Snowbridge Router Primitives.
-#[cfg(feature = "snowbridge-router-primitives")]
-pub use snowbridge_router_primitives;
-
-/// Snowbridge Runtime Common.
-#[cfg(feature = "snowbridge-runtime-common")]
-pub use snowbridge_runtime_common;
-
-/// Snowbridge Runtime Tests.
-#[cfg(feature = "snowbridge-runtime-test-common")]
-pub use snowbridge_runtime_test_common;
-
-/// Snowbridge System Runtime API.
-#[cfg(feature = "snowbridge-system-runtime-api")]
-pub use snowbridge_system_runtime_api;
 
 /// Substrate runtime api primitives.
 #[cfg(feature = "sp-api")]
