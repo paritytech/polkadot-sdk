@@ -45,6 +45,9 @@ use sp_runtime::{
 };
 use std::{any::Any, collections::HashMap, fmt, sync::Arc};
 
+/// Number of peers that need to be connected before warp sync is started.
+const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
+
 /// Scale-encoded warp sync proof response.
 pub struct EncodedProof(pub Vec<u8>);
 
@@ -230,8 +233,10 @@ where
 		warp_sync_config: WarpSyncConfig<B>,
 		protocol_name: Option<ProtocolName>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
-		min_peers_to_start_warp_sync: usize,
+		min_peers_to_start_warp_sync: Option<usize>,
 	) -> Self {
+		let min_peers_to_start_warp_sync =
+			min_peers_to_start_warp_sync.unwrap_or(MIN_PEERS_TO_START_WARP_SYNC);
 		if client.info().finalized_state.is_some() {
 			error!(
 				target: LOG_TARGET,
@@ -738,7 +743,6 @@ mod test {
 	use super::*;
 	use crate::{mock::MockBlockDownloader, service::network::NetworkServiceProvider};
 	use sc_block_builder::BlockBuilderBuilder;
-	use sc_network::config::MIN_PEERS_TO_START_WARP_SYNC;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
 	use sp_consensus_grandpa::{AuthorityList, SetId};
 	use sp_core::H256;

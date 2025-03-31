@@ -66,7 +66,7 @@ where
 	/// Maximum number of blocks to request.
 	pub max_blocks_per_request: u32,
 	/// Number of peers that need to be connected before warp sync is started.
-	pub min_peers_to_start_warp_sync: usize,
+	pub min_peers_to_start_warp_sync: Option<usize>,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
 	/// Protocol name used to send out state requests
