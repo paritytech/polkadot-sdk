@@ -23,7 +23,6 @@
 #![warn(missing_docs)]
 #![deny(unused_crate_dependencies)]
 
-use serde::{Deserialize, Serialize};
 use sp_core::hexdisplay::{AsBytesRef, HexDisplay};
 
 mod common;

@@ -22,19 +22,7 @@
 //!
 //! Methods are prefixed by `archive`.
 
-#[cfg(test)]
-mod tests;
-
-mod archive_storage;
-
-pub mod api;
-pub mod archive;
-pub mod error;
-
-pub use api::ArchiveApiServer;
-pub use archive::Archive;
-
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// The result of an RPC method.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -79,6 +67,17 @@ pub struct MethodResultErr {
 }
 
 #[cfg(test)]
+mod tests;
+
+mod archive_storage;
+
+pub mod api;
+pub mod archive;
+pub mod error;
+
+pub use api::ArchiveApiServer;
+pub use archive::Archive;
+
 mod tests {
 	use super::*;
 
