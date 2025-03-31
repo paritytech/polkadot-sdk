@@ -1153,6 +1153,8 @@ construct_runtime!(
 		// Bridge utilities.
 		ToRococoXcmRouter: pallet_xcm_bridge_hub_router::<Instance1> = 34,
 		MessageQueue: pallet_message_queue = 35,
+		// Snowbridge
+		SnowbridgeSystemFrontend: snowbridge_pallet_system_frontend = 36,
 
 		// Handy utilities.
 		Utility: pallet_utility = 40,
@@ -1176,9 +1178,6 @@ construct_runtime!(
 		AssetRewards: pallet_asset_rewards = 61,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
-
-		// Snowbridge
-		SnowbridgeSystemFrontend: snowbridge_pallet_system_frontend = 80,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.

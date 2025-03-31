@@ -25285,10 +25285,10 @@ dependencies = [
  "log",
  "pallet-timestamp 39.0.0-rc1",
  "parity-scale-codec",
- "rand 0.8.5",
  "scale-info",
  "serde",
  "serde_json",
+<<<<<<< HEAD
  "snowbridge-beacon-primitives 0.13.0-rc1",
  "snowbridge-core 0.13.0-rc1",
  "snowbridge-ethereum 0.11.0",
@@ -25297,6 +25297,16 @@ dependencies = [
  "sp-core 35.0.1-rc1",
  "sp-io 39.0.1-rc1",
  "sp-runtime 40.2.0-rc1",
+=======
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "snowbridge-ethereum",
+ "snowbridge-pallet-ethereum-client-fixtures",
+ "snowbridge-verification-primitives",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+>>>>>>> 0f3f611 (Snowbridge - Various minor improvements (#8020))
  "sp-std 14.0.0",
  "static_assertions",
 ]
@@ -25308,6 +25318,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3984b98465af1d862d4e87ba783e1731f2a3f851b148d6cb98d526cebd351185"
 dependencies = [
  "hex-literal",
+<<<<<<< HEAD
  "snowbridge-beacon-primitives 0.10.1",
  "snowbridge-core 0.10.0",
  "sp-core 34.0.0",
@@ -25323,6 +25334,12 @@ dependencies = [
  "snowbridge-core 0.13.0-rc1",
  "snowbridge-inbound-queue-primitives",
  "sp-core 35.0.1-rc1",
+=======
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "snowbridge-verification-primitives",
+ "sp-core 28.0.0",
+>>>>>>> 0f3f611 (Snowbridge - Various minor improvements (#8020))
  "sp-std 14.0.0",
 ]
 
@@ -25426,7 +25443,10 @@ dependencies = [
  "snowbridge-beacon-primitives 0.13.0-rc1",
  "snowbridge-core 0.13.0-rc1",
  "snowbridge-inbound-queue-primitives",
+<<<<<<< HEAD
  "snowbridge-pallet-ethereum-client 0.13.0-rc1",
+=======
+>>>>>>> 0f3f611 (Snowbridge - Various minor improvements (#8020))
  "snowbridge-pallet-inbound-queue-v2-fixtures",
  "snowbridge-test-utils",
  "sp-core 35.0.1-rc1",
@@ -25514,6 +25534,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "snowbridge-core 0.13.0-rc1",
  "snowbridge-merkle-tree",
  "snowbridge-outbound-queue-primitives",
@@ -25522,6 +25543,17 @@ dependencies = [
  "sp-io 39.0.1-rc1",
  "sp-keyring 41.0.0-rc1",
  "sp-runtime 40.2.0-rc1",
+=======
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "snowbridge-merkle-tree",
+ "snowbridge-outbound-queue-primitives",
+ "snowbridge-verification-primitives",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+>>>>>>> 0f3f611 (Snowbridge - Various minor improvements (#8020))
  "sp-std 14.0.0",
  "staging-xcm 16.0.0-rc1",
  "staging-xcm-builder 19.0.0-rc1",
