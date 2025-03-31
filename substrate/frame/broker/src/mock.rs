@@ -130,7 +130,13 @@ impl TestCoretimeProvider {
 	pub fn spend_instantaneous(who: u64, price: u64) -> Result<(), &'static str> {
 		let mut c = CoretimeCredit::get();
 		ensure!(CoretimeInPool::get() > 0, "None in pool");
-		c.insert(who, c.get(&who).ok_or("account not there")?.checked_sub(price).ok_or("Checked sub failed")?);
+		c.insert(
+			who,
+			c.get(&who)
+				.ok_or("account not there")?
+				.checked_sub(price)
+				.ok_or("Checked sub failed")?,
+		);
 		CoretimeCredit::set(c);
 		CoretimeSpending::mutate(|v| {
 			v.push((RCBlockNumberProviderOf::<Self>::current_block_number() as u32, price))

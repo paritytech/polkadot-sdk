@@ -507,7 +507,8 @@ fn instapool_payouts_work() {
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_pool(region, None, 2, Final));
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for runtime-level.
+		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
+		// runtime-level.
 		assert_eq!(pot(), 20);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
@@ -542,7 +543,8 @@ fn instapool_partial_core_payouts_work() {
 		assert_ok!(Broker::do_pool(region1, None, 2, Final));
 		assert_ok!(Broker::do_pool(region2, None, 3, Final));
 		assert_ok!(Broker::do_purchase_credit(1, 40, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for runtime-level.
+		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
+		// runtime-level.
 		assert_eq!(pot(), 40);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 40));
@@ -573,7 +575,8 @@ fn instapool_core_payouts_work_with_partitioned_region() {
 		assert_ok!(Broker::do_pool(region1, None, 2, Final));
 		assert_ok!(Broker::do_pool(region2, None, 3, Final));
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for runtime-level.
+		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
+		// runtime-level.
 		assert_eq!(pot(), 20);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
@@ -645,7 +648,8 @@ fn instapool_payouts_cannot_be_duplicated_through_partition() {
 
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for runtime-level.
+		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
+		// runtime-level.
 		assert_eq!(pot(), 20);
 		assert_eq!(pot(), 20);
 		advance_to(8);
@@ -877,7 +881,8 @@ fn instapool_payouts_cannot_be_duplicated_through_interlacing() {
 
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for runtime-level.
+		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
+		// runtime-level.
 		assert_eq!(pot(), 20);
 		assert_eq!(pot(), 20);
 		advance_to(8);
@@ -944,7 +949,8 @@ fn instapool_payouts_cannot_be_duplicated_through_reassignment() {
 
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
-		// This adds to the pot - TODO improve mock to not double count this and also add e2e for runtime-level.
+		// This adds to the pot - TODO improve mock to not double count this and also add e2e for
+		// runtime-level.
 		assert_eq!(pot(), 20);
 		assert_eq!(pot(), 20);
 		advance_to(8);
