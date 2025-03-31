@@ -178,7 +178,7 @@ pub mod snowbridge {
 	pub const INBOUND_QUEUE_PALLET_INDEX_V1: u8 = 80;
 	pub const INBOUND_QUEUE_PALLET_INDEX_V2: u8 = 91;
 
-	pub const FRONTEND_PALLET_INDEX: u8 = 80;
+	pub const FRONTEND_PALLET_INDEX: u8 = 36;
 
 	parameter_types! {
 		/// Network and location for the Ethereum chain. On Westend, the Ethereum chain bridged
