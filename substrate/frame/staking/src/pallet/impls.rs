@@ -20,7 +20,7 @@
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
+	ScoreProvider, SortedListProvider, VoteWeight, VoterOf, PageIndex, TryFromOtherBounds
 };
 use frame_support::{
 	defensive,
@@ -640,24 +640,22 @@ impl<T: Config> Pallet<T> {
 		start_session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
-		let election_result: BoundedVec<_, MaxWinnersOf<T>> = if is_genesis {
-			let result = <T::GenesisElectionProvider>::elect().map_err(|e| {
-				log!(warn, "genesis election provider failed due to {:?}", e);
-				Self::deposit_event(Event::StakingElectionFailed);
-			});
+		let election_result = if is_genesis {
+			let result = <T::GenesisElectionProvider>::elect(0)
+				.map_err(|e| {
+					log!(warn, "genesis election provider failed due to {:?}", e);
+					Self::deposit_event(Event::StakingElectionFailed);
+				})
+				.ok()?;
 
-			result
-				.ok()?
-				.into_inner()
-				.try_into()
-				// both bounds checked in integrity test to be equal
-				.defensive_unwrap_or_default()
+			BoundedSupportsOf::<T::ElectionProvider>::try_from_other_bounds(result).ok()?
 		} else {
-			let result = <T::ElectionProvider>::elect().map_err(|e| {
-				log!(warn, "election provider failed due to {:?}", e);
-				Self::deposit_event(Event::StakingElectionFailed);
-			});
-			result.ok()?
+			<T::ElectionProvider>::elect(0)
+				.map_err(|e| {
+					log!(warn, "election provider failed due to {:?}", e);
+					Self::deposit_event(Event::StakingElectionFailed);
+				})
+				.ok()?
 		};
 
 		let exposures = Self::collect_exposures(election_result);
@@ -1411,7 +1409,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		Ok(ValidatorCount::<T>::get())
 	}
 
-	fn electing_voters(bounds: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Self>>> {
+	fn electing_voters(bounds: DataProviderBounds, _page: PageIndex) -> data_provider::Result<Vec<VoterOf<Self>>> {
 		// This can never fail -- if `maybe_max_len` is `Some(_)` we handle it.
 		let voters = Self::get_npos_voters(bounds);
 
@@ -1423,7 +1421,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		Ok(voters)
 	}
 
-	fn electable_targets(bounds: DataProviderBounds) -> data_provider::Result<Vec<T::AccountId>> {
+	fn electable_targets(bounds: DataProviderBounds, _page: PageIndex) -> data_provider::Result<Vec<T::AccountId>> {
 		let targets = Self::get_npos_targets(bounds);
 
 		// We can't handle this case yet -- return an error. WIP to improve handling this case in
@@ -1781,6 +1779,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
 		unimplemented!()
 	}
+
 }
 
 /// A simple voter list implementation that does not require any additional pallets. Note, this
