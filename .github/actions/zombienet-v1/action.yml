@@ -20,7 +20,7 @@ runs:
         . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
         k8s_auth
 
-    - name: common_vars:
+    - name: common_vars
       run: |
         echo "Vars"
         echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
