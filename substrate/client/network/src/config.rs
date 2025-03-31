@@ -584,6 +584,9 @@ impl NotificationConfig for NonDefaultSetConfig {
 	}
 }
 
+/// Number of peers that need to be connected before warp sync is started.
+pub const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
+
 /// Network service configuration.
 #[derive(Clone, Debug)]
 pub struct NetworkConfiguration {
@@ -625,6 +628,9 @@ pub struct NetworkConfiguration {
 
 	/// Maximum number of blocks per request.
 	pub max_blocks_per_request: u32,
+
+	/// Number of peers that need to be connected before warp sync is started.
+	pub min_peers_to_start_warp_sync: usize,
 
 	/// Initial syncing mode.
 	pub sync_mode: SyncMode,
@@ -676,6 +682,7 @@ impl NetworkConfiguration {
 			transport: TransportConfig::Normal { enable_mdns: false, allow_private_ip: true },
 			max_parallel_downloads: 5,
 			max_blocks_per_request: 64,
+			min_peers_to_start_warp_sync: MIN_PEERS_TO_START_WARP_SYNC,
 			sync_mode: SyncMode::Full,
 			enable_dht_random_walk: true,
 			allow_non_globals_in_dht: false,

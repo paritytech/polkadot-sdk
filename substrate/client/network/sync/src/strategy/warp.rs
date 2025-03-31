@@ -45,9 +45,6 @@ use sp_runtime::{
 };
 use std::{any::Any, collections::HashMap, fmt, sync::Arc};
 
-/// Number of peers that need to be connected before warp sync is started.
-const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
-
 /// Scale-encoded warp sync proof response.
 pub struct EncodedProof(pub Vec<u8>);
 
@@ -213,6 +210,8 @@ pub struct WarpSync<B: BlockT, Client> {
 	block_downloader: Arc<dyn BlockDownloader<B>>,
 	actions: Vec<SyncingAction<B>>,
 	result: Option<WarpSyncResult<B>>,
+	/// Number of peers that need to be connected before warp sync is started.
+	min_peers_to_start_warp_sync: usize,
 }
 
 impl<B, Client> WarpSync<B, Client>
@@ -231,6 +230,7 @@ where
 		warp_sync_config: WarpSyncConfig<B>,
 		protocol_name: Option<ProtocolName>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
+		min_peers_to_start_warp_sync: usize,
 	) -> Self {
 		if client.info().finalized_state.is_some() {
 			error!(
@@ -248,6 +248,7 @@ where
 				block_downloader,
 				actions: vec![SyncingAction::Finished],
 				result: None,
+				min_peers_to_start_warp_sync,
 			}
 		}
 
@@ -268,6 +269,7 @@ where
 			block_downloader,
 			actions: Vec::new(),
 			result: None,
+			min_peers_to_start_warp_sync,
 		}
 	}
 
@@ -316,7 +318,7 @@ where
 	fn try_to_start_warp_sync(&mut self) {
 		let Phase::WaitingForPeers { warp_sync_provider } = &self.phase else { return };
 
-		if self.peers.len() < MIN_PEERS_TO_START_WARP_SYNC {
+		if self.peers.len() < self.min_peers_to_start_warp_sync {
 			return
 		}
 
@@ -610,7 +612,7 @@ where
 		match &self.phase {
 			Phase::WaitingForPeers { .. } => WarpSyncProgress {
 				phase: WarpSyncPhase::AwaitingPeers {
-					required_peers: MIN_PEERS_TO_START_WARP_SYNC,
+					required_peers: self.min_peers_to_start_warp_sync,
 				},
 				total_bytes: self.total_proof_bytes,
 			},
@@ -736,6 +738,7 @@ mod test {
 	use super::*;
 	use crate::{mock::MockBlockDownloader, service::network::NetworkServiceProvider};
 	use sc_block_builder::BlockBuilderBuilder;
+	use sc_network::config::MIN_PEERS_TO_START_WARP_SYNC;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
 	use sp_consensus_grandpa::{AuthorityList, SetId};
 	use sp_core::H256;

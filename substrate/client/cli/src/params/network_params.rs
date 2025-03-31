@@ -24,6 +24,7 @@ use clap::Args;
 use sc_network::{
 	config::{
 		NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
+		MIN_PEERS_TO_START_WARP_SYNC,
 	},
 	multiaddr::Protocol,
 };
@@ -270,6 +271,7 @@ impl NetworkParams {
 			},
 			max_parallel_downloads: self.max_parallel_downloads,
 			max_blocks_per_request: self.max_blocks_per_request,
+			min_peers_to_start_warp_sync: MIN_PEERS_TO_START_WARP_SYNC,
 			enable_dht_random_walk: !self.reserved_only,
 			allow_non_globals_in_dht,
 			kademlia_disjoint_query_paths: self.kademlia_disjoint_query_paths,
