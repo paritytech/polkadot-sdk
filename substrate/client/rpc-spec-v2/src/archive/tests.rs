@@ -94,8 +94,7 @@ async fn get_next_event<T: serde::de::DeserializeOwned>(sub: &mut RpcSubscriptio
 async fn archive_genesis() {
 	let (_client, api) = setup_api();
 
-	let genesis: String =
-		api.call("archive_v1_genesisHash", EmptyParams::new()).await.unwrap();
+	let genesis: String = api.call("archive_v1_genesisHash", EmptyParams::new()).await.unwrap();
 	assert_eq!(genesis, hex_string(&CHAIN_GENESIS));
 }
 
@@ -173,8 +172,7 @@ async fn archive_finalized_height() {
 
 	let client_height: u32 = client.info().finalized_number.saturated_into();
 
-	let height: u32 =
-		api.call("archive_v1_finalizedHeight", EmptyParams::new()).await.unwrap();
+	let height: u32 = api.call("archive_v1_finalizedHeight", EmptyParams::new()).await.unwrap();
 
 	assert_eq!(client_height, height);
 }
@@ -455,10 +453,7 @@ async fn archive_storage_hashes_values_child_trie() {
 		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues },
 	];
 	let mut sub = api
-		.subscribe_unbounded(
-			"archive_v1_storage",
-			rpc_params![&genesis_hash, items, &child_info],
-		)
+		.subscribe_unbounded("archive_v1_storage", rpc_params![&genesis_hash, items, &child_info])
 		.await
 		.unwrap();
 
