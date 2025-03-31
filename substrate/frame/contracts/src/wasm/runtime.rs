@@ -277,12 +277,14 @@ macro_rules! cost_storage {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::set_storage_full()
             .saturating_sub(T::WeightInfo::set_storage_empty()))
+			.set_proof_size(0)
     };
 
-    (read, $name:ident $(, $arg:expr )*) => {
+    (read, $name:ident $(, $arg:expr )*) =>
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::get_storage_full()
             .saturating_sub(T::WeightInfo::get_storage_empty()))
+			.set_proof_size(0)
     };
 }
 
