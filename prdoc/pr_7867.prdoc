@@ -1,4 +1,5 @@
 title: benchmark: storage: Make read/write benchmarks more accurate
+
 doc:
 - audience: [Runtime Dev, Node Dev]
   description: |-
@@ -7,6 +8,7 @@ doc:
     a batch functionality to make sure the cost of common operations like root computation
     is spread across multiple keys. Additionally, also add a pov-recorder flag, so that we
     are able to replicate the same environment as parachains do.
+
 crates:
 - name: sc-client-db
   bump: major
