@@ -2203,11 +2203,16 @@ impl<T: Config> Pallet<T> {
 			<T as Config>::TargetList::count() == Validators::<T>::count(),
 			"wrong external count"
 		);
+
+		let max_validators_bound = MaxWinnersOf::<T>::get();
+		let max_winners_per_page_bound = crate::MaxWinnersPerPageOf::<T::ElectionProvider>::get();
+
 		ensure!(
-			ValidatorCount::<T>::get() <=
-				<T::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners::get(),
-			Error::<T>::TooManyValidators
+			max_validators_bound >= max_winners_per_page_bound,
+ 			"max validators should be higher than per page bounds"
 		);
+
+		ensure!(ValidatorCount::<T>::get() <= max_validators_bound, Error::<T>::TooManyValidators);
 		Ok(())
 	}
 
