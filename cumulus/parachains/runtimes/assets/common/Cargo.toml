@@ -14,8 +14,8 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
@@ -34,16 +34,12 @@ xcm-executor = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 parachains-common = { workspace = true }
 
-[build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",
-	"log/std",
 	"pallet-asset-conversion/std",
 	"pallet-assets/std",
 	"pallet-xcm/std",
@@ -51,6 +47,7 @@ std = [
 	"scale-info/std",
 	"sp-api/std",
 	"sp-runtime/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

@@ -20,7 +20,7 @@ use crate::{CreateMatcher, MatchXcm};
 use core::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
 use frame_support::{
 	ensure,
-	traits::{Contains, Get, ProcessMessageError},
+	traits::{Contains, ContainsPair, Get, Nothing, ProcessMessageError},
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use xcm::prelude::*;
@@ -34,15 +34,18 @@ use xcm_executor::traits::{CheckSuspension, DenyExecution, OnResponse, Propertie
 pub struct TakeWeightCredit;
 impl ShouldExecute for TakeWeightCredit {
 	fn should_execute<RuntimeCall>(
-		_origin: &Location,
-		_instructions: &mut [Instruction<RuntimeCall>],
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"TakeWeightCredit origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			_origin, _instructions, max_weight, properties,
+			?origin,
+			?instructions,
+			?max_weight,
+			?properties,
+			"TakeWeightCredit"
 		);
 		properties.weight_credit = properties
 			.weight_credit
@@ -66,12 +69,15 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
-		_properties: &mut Properties,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowTopLevelPaidExecutionFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, max_weight, _properties,
+			?origin,
+			?instructions,
+			?max_weight,
+			?properties,
+			"AllowTopLevelPaidExecutionFrom",
 		);
 
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
@@ -173,10 +179,13 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"WithComputedOrigin origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, max_weight, properties,
+			?origin,
+			?instructions,
+			?max_weight,
+			?properties,
+			"WithComputedOrigin"
 		);
 		let mut actual_origin = origin.clone();
 		let skipped = Cell::new(0usize);
@@ -230,10 +239,13 @@ impl<InnerBarrier: ShouldExecute> ShouldExecute for TrailingSetTopicAsId<InnerBa
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"TrailingSetTopicAsId origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, max_weight, properties,
+			?origin,
+			?instructions,
+			?max_weight,
+			?properties,
+			"TrailingSetTopicAsId"
 		);
 		let until = if let Some(SetTopic(t)) = instructions.last() {
 			properties.message_id = Some(*t);
@@ -276,13 +288,13 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
+		max_weight: Weight,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowUnpaidExecutionFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, _max_weight, _properties,
+			?origin, ?instructions, ?max_weight, ?properties,
+			"AllowUnpaidExecutionFrom"
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
 		Ok(())
@@ -290,28 +302,99 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 }
 
 /// Allows execution from any origin that is contained in `T` (i.e. `T::Contains(origin)`) if the
-/// message begins with the instruction `UnpaidExecution`.
+/// message explicitly includes the `UnpaidExecution` instruction.
 ///
 /// Use only for executions from trusted origin groups.
-pub struct AllowExplicitUnpaidExecutionFrom<T>(PhantomData<T>);
-impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T> {
+///
+/// Allows for the message to receive teleports or reserve asset transfers and altering
+/// the origin before indicating `UnpaidExecution`.
+///
+/// Origin altering instructions are executed so the barrier can more accurately reject messages
+/// whose effective origin at the time of calling `UnpaidExecution` is not allowed.
+/// This means `T` will be checked against the actual origin _after_ being modified by prior
+/// instructions.
+///
+/// In order to execute the `AliasOrigin` instruction, the `Aliasers` type should be set to the same
+/// `Aliasers` item in the XCM configuration. If it isn't, then all messages with an `AliasOrigin`
+/// instruction will be rejected.
+pub struct AllowExplicitUnpaidExecutionFrom<T, Aliasers = Nothing>(PhantomData<(T, Aliasers)>);
+impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldExecute
+	for AllowExplicitUnpaidExecutionFrom<T, Aliasers>
+{
 	fn should_execute<Call>(
 		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
-		_properties: &mut Properties,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowExplicitUnpaidExecutionFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, max_weight, _properties,
+			?origin, ?instructions, ?max_weight, ?properties,
+			"AllowExplicitUnpaidExecutionFrom",
 		);
-		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
-		instructions.matcher().match_next_inst(|inst| match inst {
-			UnpaidExecution { weight_limit: Limited(m), .. } if m.all_gte(max_weight) => Ok(()),
-			UnpaidExecution { weight_limit: Unlimited, .. } => Ok(()),
-			_ => Err(ProcessMessageError::Overweight(max_weight)),
-		})?;
+		// We will read up to 5 instructions before `UnpaidExecution`.
+		// This allows up to 3 asset transfer instructions, thus covering all possible transfer
+		// types, followed by a potential origin altering instruction, and a potential `SetHints`.
+		let mut actual_origin = origin.clone();
+		let processed = Cell::new(0usize);
+		let instructions_to_process = 5;
+		instructions
+			.matcher()
+			// We skip set hints and all types of asset transfer instructions.
+			.match_next_inst_while(
+				|inst| {
+					processed.get() < instructions_to_process &&
+						matches!(
+							inst,
+							ReceiveTeleportedAsset(_) |
+								ReserveAssetDeposited(_) | WithdrawAsset(_) |
+								SetHints { .. }
+						)
+				},
+				|_| {
+					processed.set(processed.get() + 1);
+					Ok(ControlFlow::Continue(()))
+				},
+			)?
+			// Then we go through all origin altering instructions and we
+			// alter the original origin.
+			.match_next_inst_while(
+				|_| processed.get() < instructions_to_process,
+				|inst| {
+					match inst {
+						ClearOrigin => {
+							// We don't support the `ClearOrigin` instruction since we always need
+							// to know the origin to know if it's allowed unpaid execution.
+							return Err(ProcessMessageError::Unsupported);
+						},
+						AliasOrigin(target) =>
+							if Aliasers::contains(&actual_origin, &target) {
+								actual_origin = target.clone();
+							} else {
+								return Err(ProcessMessageError::Unsupported);
+							},
+						DescendOrigin(child) if child != &Here => {
+							let Ok(_) = actual_origin.append_with(child.clone()) else {
+								return Err(ProcessMessageError::Unsupported);
+							};
+						},
+						_ => return Ok(ControlFlow::Break(())),
+					};
+					processed.set(processed.get() + 1);
+					Ok(ControlFlow::Continue(()))
+				},
+			)?
+			// We finally match on the required `UnpaidExecution` instruction.
+			.match_next_inst(|inst| match inst {
+				UnpaidExecution { weight_limit: Limited(m), .. } if m.all_gte(max_weight) => Ok(()),
+				UnpaidExecution { weight_limit: Unlimited, .. } => Ok(()),
+				_ => Err(ProcessMessageError::Overweight(max_weight)),
+			})?;
+
+		// After processing all the instructions, `actual_origin` was modified and we
+		// check if it's allowed to have unpaid execution.
+		ensure!(T::contains(&actual_origin), ProcessMessageError::Unsupported);
+
 		Ok(())
 	}
 }
@@ -357,13 +440,13 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
+		max_weight: Weight,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowKnownQueryResponses origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, _max_weight, _properties,
+			?origin, ?instructions, ?max_weight, ?properties,
+			"AllowKnownQueryResponses"
 		);
 		instructions
 			.matcher()
@@ -385,13 +468,13 @@ impl<T: Contains<Location>> ShouldExecute for AllowSubscriptionsFrom<T> {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
+		max_weight: Weight,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowSubscriptionsFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, _max_weight, _properties,
+			?origin, ?instructions, ?max_weight, ?properties,
+			"AllowSubscriptionsFrom",
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
 		instructions
@@ -416,13 +499,13 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
+		max_weight: Weight,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowHrmpNotificationsFromRelayChain origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, _max_weight, _properties,
+			?origin, ?instructions, ?max_weight, ?properties,
+			"AllowHrmpNotificationsFromRelayChain"
 		);
 		// accept only the Relay Chain
 		ensure!(matches!(origin.unpack(), (1, [])), ProcessMessageError::Unsupported);
@@ -489,7 +572,7 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 				ReserveAssetDeposited { .. }
 					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
-					log::warn!(
+					tracing::debug!(
 						target: "xcm::barriers",
 						"Unexpected ReserveAssetDeposited from the Relay Chain",
 					);
@@ -499,6 +582,99 @@ impl DenyExecution for DenyReserveTransferToRelayChain {
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		)?;
+		Ok(())
+	}
+}
+
+environmental::environmental!(recursion_count: u8);
+
+/// Denies execution if the XCM contains instructions not meant to run on this chain,
+/// first checking at the top-level and then **recursively**.
+///
+/// This barrier only applies to **locally executed** XCM instructions (`SetAppendix`,
+/// `SetErrorHandler`, and `ExecuteWithOrigin`). Remote parts of the XCM are expected to be
+/// validated by the receiving chain's barrier.
+///
+/// Note: Ensures that restricted instructions do not execute on the local chain, enforcing stricter
+/// execution policies while allowing remote chains to enforce their own rules.
+pub struct DenyRecursively<Inner>(PhantomData<Inner>);
+
+impl<Inner: DenyExecution> DenyRecursively<Inner> {
+	/// Recursively applies the deny filter to a nested XCM.
+	///
+	/// Ensures that restricted instructions are blocked at any depth within the XCM.
+	/// Uses a **recursion counter** to prevent stack overflows from deep nesting.
+	fn deny_recursively<RuntimeCall>(
+		origin: &Location,
+		xcm: &mut Xcm<RuntimeCall>,
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<ControlFlow<()>, ProcessMessageError> {
+		// Initialise recursion counter for this execution context.
+		recursion_count::using_once(&mut 1, || {
+			// Prevent stack overflow by enforcing a recursion depth limit.
+			recursion_count::with(|count| {
+				if *count > xcm_executor::RECURSION_LIMIT {
+					tracing::debug!(
+                    	target: "xcm::barriers",
+                    	"Recursion limit exceeded (count: {count}), origin: {:?}, xcm: {:?}, max_weight: {:?}, properties: {:?}",
+                    	origin, xcm, max_weight, properties
+                	);
+					return None;
+				}
+				*count = count.saturating_add(1);
+				Some(())
+			}).flatten().ok_or(ProcessMessageError::StackLimitReached)?;
+
+			// Ensure the counter is decremented even if an early return occurs.
+			sp_core::defer! {
+				recursion_count::with(|count| {
+					*count = count.saturating_sub(1);
+				});
+			}
+
+			// Recursively check the nested XCM instructions.
+			Self::deny_execution(origin, xcm.inner_mut(), max_weight, properties)
+		})?;
+
+		Ok(ControlFlow::Continue(()))
+	}
+}
+
+impl<Inner: DenyExecution> DenyExecution for DenyRecursively<Inner> {
+	/// Denies execution of restricted local nested XCM instructions.
+	///
+	/// This checks for `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` instruction
+	/// applying the deny filter **recursively** to any nested XCMs found.
+	fn deny_execution<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		// First, check if the top-level message should be denied.
+		Inner::deny_execution(origin, instructions, max_weight, properties).inspect_err(|e| {
+			tracing::debug!(
+				target: "xcm::barriers",
+				"DenyRecursively::Inner denied execution, origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}, error: {:?}",
+				origin, instructions, max_weight, properties, e
+			);
+		})?;
+
+		// If the top-level check passes, check nested instructions recursively.
+		instructions.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				SetAppendix(nested_xcm) |
+				SetErrorHandler(nested_xcm) |
+				ExecuteWithOrigin { xcm: nested_xcm, .. } => Self::deny_recursively::<RuntimeCall>(
+					origin, nested_xcm, max_weight, properties,
+				),
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
+
+		// Permit everything else
 		Ok(())
 	}
 }

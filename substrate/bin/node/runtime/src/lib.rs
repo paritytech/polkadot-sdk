@@ -33,7 +33,7 @@ use polkadot_sdk::sp_core::crypto::FromEntropy;
 use polkadot_sdk::*;
 
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
@@ -107,7 +107,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	generic, impl_opaque_keys,
+	generic, impl_opaque_keys, str_array as s,
 	traits::{
 		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto,
 		MaybeConvert, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
@@ -116,6 +116,7 @@ use sp_runtime::{
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, MultiSignature, MultiSigner, Perbill,
 	Percent, Permill, Perquintill, RuntimeDebug,
 };
+use sp_std::{borrow::Cow, prelude::*};
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -126,11 +127,11 @@ pub use frame_system::Call as SystemCall;
 #[cfg(any(feature = "std", test))]
 pub use pallet_balances::Call as BalancesCall;
 #[cfg(any(feature = "std", test))]
-pub use pallet_staking::StakerStatus;
-#[cfg(any(feature = "std", test))]
 pub use pallet_sudo::Call as SudoCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
+
+pub use pallet_staking::StakerStatus;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
@@ -148,6 +149,9 @@ mod voter_bags;
 
 /// Runtime API definition for assets.
 pub mod assets_api;
+
+/// Genesis presets used by this runtime.
+pub mod genesis_config_presets;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -416,6 +420,7 @@ parameter_types! {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
@@ -682,12 +687,14 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
+
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 pallet_staking_reward_curve::build! {
@@ -756,7 +763,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
-	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
+	type Filter = Nothing;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -992,6 +999,7 @@ impl pallet_nomination_pools::Config for Runtime {
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
 	>;
 	type BlockNumberProvider = System;
+	type Filter = Nothing;
 }
 
 parameter_types! {
@@ -1007,6 +1015,7 @@ impl pallet_conviction_voting::Config for Runtime {
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;
 	type BlockNumberProvider = System;
+	type VotingHooks = ();
 }
 
 parameter_types! {
@@ -1019,43 +1028,20 @@ pub struct TracksInfo;
 impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 	type Id = u16;
 	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-	fn tracks() -> &'static [(Self::Id, pallet_referenda::TrackInfo<Balance, BlockNumber>)] {
-		static DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 1] = [(
-			0u16,
-			pallet_referenda::TrackInfo {
-				name: "root",
-				max_deciding: 1,
-				decision_deposit: 10,
-				prepare_period: 4,
-				decision_period: 4,
-				confirm_period: 2,
-				min_enactment_period: 4,
-				min_approval: pallet_referenda::Curve::LinearDecreasing {
-					length: Perbill::from_percent(100),
-					floor: Perbill::from_percent(50),
-					ceil: Perbill::from_percent(100),
-				},
-				min_support: pallet_referenda::Curve::LinearDecreasing {
-					length: Perbill::from_percent(100),
-					floor: Perbill::from_percent(0),
-					ceil: Perbill::from_percent(100),
-				},
-			},
-		)];
-		&DATA[..]
+
+	fn tracks(
+	) -> impl Iterator<Item = Cow<'static, pallet_referenda::Track<Self::Id, Balance, BlockNumber>>>
+	{
+		dynamic_params::referenda::Tracks::get().into_iter().map(Cow::Owned)
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
-		if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
-			match system_origin {
-				frame_system::RawOrigin::Root => Ok(0),
-				_ => Err(()),
-			}
-		} else {
-			Err(())
-		}
+		dynamic_params::referenda::Origins::get()
+			.iter()
+			.find(|(o, _)| id == o)
+			.map(|(_, track_id)| *track_id)
+			.ok_or(())
 	}
 }
-pallet_referenda::impl_tracksinfo_get!(TracksInfo, Balance, BlockNumber);
 
 impl pallet_referenda::Config for Runtime {
 	type WeightInfo = pallet_referenda::weights::SubstrateWeight<Self>;
@@ -1809,6 +1795,7 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = StringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type CallbackHandle = ();
@@ -1836,6 +1823,7 @@ impl pallet_assets::Config<Instance2> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = StringLimit;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
@@ -2149,28 +2137,12 @@ impl pallet_transaction_storage::Config for Runtime {
 		ConstU32<{ pallet_transaction_storage::DEFAULT_MAX_TRANSACTION_SIZE }>;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-pub struct VerifySignatureBenchmarkHelper;
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_verify_signature::BenchmarkHelper<MultiSignature, AccountId>
-	for VerifySignatureBenchmarkHelper
-{
-	fn create_signature(_entropy: &[u8], msg: &[u8]) -> (MultiSignature, AccountId) {
-		use sp_io::crypto::{sr25519_generate, sr25519_sign};
-		use sp_runtime::traits::IdentifyAccount;
-		let public = sr25519_generate(0.into(), None);
-		let who_account: AccountId = MultiSigner::Sr25519(public).into_account().into();
-		let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &public, msg).unwrap());
-		(signature, who_account)
-	}
-}
-
 impl pallet_verify_signature::Config for Runtime {
 	type Signature = MultiSignature;
 	type AccountIdentifier = MultiSigner;
 	type WeightInfo = pallet_verify_signature::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = VerifySignatureBenchmarkHelper;
+	type BenchmarkHelper = ();
 }
 
 impl pallet_whitelist::Config for Runtime {
@@ -2413,6 +2385,46 @@ pub mod dynamic_params {
 		#[codec(index = 1)]
 		pub static ByteDeposit: Balance = 1 * CENTS;
 	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod referenda {
+		/// The configuration for the tracks
+		#[codec(index = 0)]
+		pub static Tracks: BoundedVec<
+			pallet_referenda::Track<u16, Balance, BlockNumber>,
+			ConstU32<100>,
+		> = BoundedVec::truncate_from(vec![pallet_referenda::Track {
+			id: 0u16,
+			info: pallet_referenda::TrackInfo {
+				name: s("root"),
+				max_deciding: 1,
+				decision_deposit: 10,
+				prepare_period: 4,
+				decision_period: 4,
+				confirm_period: 2,
+				min_enactment_period: 4,
+				min_approval: pallet_referenda::Curve::LinearDecreasing {
+					length: Perbill::from_percent(100),
+					floor: Perbill::from_percent(50),
+					ceil: Perbill::from_percent(100),
+				},
+				min_support: pallet_referenda::Curve::LinearDecreasing {
+					length: Perbill::from_percent(100),
+					floor: Perbill::from_percent(0),
+					ceil: Perbill::from_percent(100),
+				},
+			},
+		}]);
+
+		/// A list mapping every origin with a track Id
+		#[codec(index = 1)]
+		pub static Origins: BoundedVec<(OriginCaller, u16), ConstU32<100>> =
+			BoundedVec::truncate_from(vec![(
+				OriginCaller::system(frame_system::RawOrigin::Root),
+				0,
+			)]);
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -2438,6 +2450,10 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
 				return Ok(())
 			},
+			RuntimeParametersKey::Referenda(_) => {
+				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
+				return Ok(())
+			},
 		}
 	}
 
@@ -2452,6 +2468,27 @@ impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = DynamicParametersManagerOrigin;
 	type WeightInfo = ();
+}
+
+pub type MetaTxExtension = (
+	pallet_verify_signature::VerifySignature<Runtime>,
+	pallet_meta_tx::MetaTxMarker<Runtime>,
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
+
+impl pallet_meta_tx::Config for Runtime {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Extension = MetaTxExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
 }
 
 #[frame_support::runtime]
@@ -2728,6 +2765,11 @@ mod runtime {
 
 	#[runtime::pallet_index(84)]
 	pub type AssetsFreezer = pallet_assets_freezer::Pallet<Runtime, Instance1>;
+
+	// Indices 85-88 (including) are reserved for multi block election pallets
+
+	#[runtime::pallet_index(89)]
+	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
@@ -2991,6 +3033,7 @@ mod benches {
 		[pallet_example_mbm, PalletExampleMbms]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
+		[pallet_meta_tx, MetaTx]
 	);
 }
 
@@ -3464,11 +3507,15 @@ impl_runtime_apis! {
 		{
 			use pallet_revive::tracing::trace;
 			let mut tracer = config.build(Revive::evm_gas_from_weight);
-			trace(&mut tracer, || {
-				Self::eth_transact(tx)
-			})?;
+			let result = trace(&mut tracer, || Self::eth_transact(tx));
 
-			Ok(tracer.collect_traces().pop().expect("eth_transact succeeded, trace must exist, qed"))
+			if let Some(trace) = tracer.collect_traces().pop() {
+				Ok(trace)
+			} else if let Err(err) = result {
+				Err(err)
+			} else {
+				Ok(Default::default())
+			}
 		}
 	}
 
@@ -3756,7 +3803,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+			use frame_benchmarking::{baseline, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
@@ -3778,10 +3825,11 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+			use frame_benchmarking::{baseline, BenchmarkBatch};
 			use sp_storage::TrackedStorageKey;
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
@@ -3824,11 +3872,11 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			genesis_config_presets::preset_names()
 		}
 	}
 }

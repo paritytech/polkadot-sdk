@@ -145,12 +145,14 @@ impl pallet_session::Config for Test {
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = crate::StashOf<Test>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type DisablingStrategy =
+		pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = crate::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = crate::ExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = NullIdentity;
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
@@ -240,6 +242,7 @@ parameter_types! {
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
 	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
+	pub static RestrictedAccounts: Vec<AccountId> = Vec::new();
 }
 
 pub struct EventListenerMock;
@@ -254,6 +257,13 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 		SlashObserver::mutate(|map| {
 			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
 		});
+	}
+}
+
+pub struct MockedRestrictList;
+impl Contains<AccountId> for MockedRestrictList {
+	fn contains(who: &AccountId) -> bool {
+		RestrictedAccounts::get().contains(who)
 	}
 }
 
@@ -285,8 +295,7 @@ impl crate::pallet::pallet::Config for Test {
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type DisablingStrategy =
-		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
+	type Filter = MockedRestrictList;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -724,7 +733,11 @@ pub(crate) fn on_offence_in_era(
 	let bonded_eras = crate::BondedEras::<Test>::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			let _ = Staking::on_offence(offenders, slash_fraction, start_session);
+			let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
+				offenders,
+				slash_fraction,
+				start_session,
+			);
 			return
 		} else if bonded_era > era {
 			break
@@ -732,7 +745,7 @@ pub(crate) fn on_offence_in_era(
 	}
 
 	if pallet_staking::ActiveEra::<Test>::get().unwrap().index == era {
-		let _ = Staking::on_offence(
+		let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
 			offenders,
 			slash_fraction,
 			pallet_staking::ErasStartSessionIndex::<Test>::get(era).unwrap(),
@@ -753,14 +766,15 @@ pub(crate) fn on_offence_now(
 	on_offence_in_era(offenders, slash_fraction, now)
 }
 
+pub(crate) fn offence_from(
+	offender: AccountId,
+	reporter: Option<Vec<AccountId>>,
+) -> OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>> {
+	OffenceDetails { offender: (offender, ()), reporters: reporter.unwrap_or_default() }
+}
+
 pub(crate) fn add_slash(who: &AccountId) {
-	on_offence_now(
-		&[OffenceDetails {
-			offender: (*who, Staking::eras_stakers(active_era(), who)),
-			reporters: vec![],
-		}],
-		&[Perbill::from_percent(10)],
-	);
+	on_offence_now(&[offence_from(*who, None)], &[Perbill::from_percent(10)]);
 }
 
 /// Make all validator and nominator request their payment
@@ -905,6 +919,14 @@ pub(crate) fn staking_events() -> Vec<crate::Event<Test>> {
 		.collect()
 }
 
+pub(crate) fn session_events() -> Vec<pallet_session::Event<Test>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::Session(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
 parameter_types! {
 	static StakingEventsIndex: usize = 0;
 }
@@ -926,4 +948,14 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(asset::stakeable_balance::<Test>(who), Balances::reserved_balance(who))
+}
+
+pub(crate) fn restrict(who: &AccountId) {
+	if !RestrictedAccounts::get().contains(who) {
+		RestrictedAccounts::mutate(|l| l.push(*who));
+	}
+}
+
+pub(crate) fn remove_from_restrict_list(who: &AccountId) {
+	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
 }

@@ -352,4 +352,11 @@ impl EthRpcServer for EthRpcServerImpl {
 		let nonce = self.client.nonce(address, block).await?;
 		Ok(nonce)
 	}
+
+	async fn web3_client_version(&self) -> RpcResult<String> {
+		let git_revision = env!("GIT_REVISION");
+		let rustc_version = env!("RUSTC_VERSION");
+		let target = env!("TARGET");
+		Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
+	}
 }

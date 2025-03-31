@@ -16,9 +16,8 @@
 // limitations under the License.
 
 //! Compile text fixtures to PolkaVM binaries.
-use anyhow::Result;
-
-use anyhow::{bail, Context};
+use anyhow::{bail, Context, Result};
+use cargo_metadata::MetadataCommand;
 use std::{
 	env, fs,
 	io::Write,
@@ -84,14 +83,43 @@ fn create_cargo_toml<'a>(
 	output_dir: &Path,
 ) -> Result<()> {
 	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/_Cargo.toml"))?;
-	let mut set_dep = |name, path| -> Result<()> {
-		cargo_toml["dependencies"][name]["path"] = toml::Value::String(
-			fixtures_dir.join(path).canonicalize()?.to_str().unwrap().to_string(),
+	let uapi_dep = cargo_toml["dependencies"]["uapi"].as_table_mut().unwrap();
+
+	let manifest_path = fixtures_dir.join("Cargo.toml");
+	let metadata = MetadataCommand::new().manifest_path(&manifest_path).exec().unwrap();
+	let dependency_graph = metadata.resolve.unwrap();
+
+	// Resolve the pallet-revive-fixtures package id
+	let fixtures_pkg_id = metadata
+		.packages
+		.iter()
+		.find(|pkg| pkg.manifest_path.as_std_path() == manifest_path)
+		.map(|pkg| pkg.id.clone())
+		.unwrap();
+	let fixtures_pkg_node =
+		dependency_graph.nodes.iter().find(|node| node.id == fixtures_pkg_id).unwrap();
+
+	// Get the pallet-revive-uapi package id
+	let uapi_pkg_id = fixtures_pkg_node
+		.deps
+		.iter()
+		.find(|dep| dep.name == "pallet_revive_uapi")
+		.map(|dep| dep.pkg.clone())
+		.expect("pallet-revive-uapi is a build dependency of pallet-revive-fixtures; qed");
+
+	// Get pallet-revive-uapi package
+	let uapi_pkg = metadata.packages.iter().find(|pkg| pkg.id == uapi_pkg_id).unwrap();
+
+	if uapi_pkg.source.is_none() {
+		uapi_dep.insert(
+			"path".to_string(),
+			toml::Value::String(
+				fixtures_dir.join("../uapi").canonicalize()?.to_str().unwrap().to_string(),
+			),
 		);
-		Ok(())
-	};
-	set_dep("uapi", "../uapi")?;
-	set_dep("common", "./contracts/common")?;
+	} else {
+		uapi_dep.insert("version".to_string(), toml::Value::String(uapi_pkg.version.to_string()));
+	}
 
 	cargo_toml["bin"] = toml::Value::Array(
 		entries
@@ -109,11 +137,6 @@ fn create_cargo_toml<'a>(
 	let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
 	fs::write(output_dir.join("Cargo.toml"), cargo_toml.clone())
 		.with_context(|| format!("Failed to write {cargo_toml:?}"))?;
-	fs::copy(
-		fixtures_dir.join("build/_rust-toolchain.toml"),
-		output_dir.join("rust-toolchain.toml"),
-	)
-	.context("Failed to write toolchain file")?;
 	Ok(())
 }
 

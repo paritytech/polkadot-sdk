@@ -28,6 +28,7 @@ use frame_support::{
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
+use xcm::{MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
 #[test]
@@ -103,10 +104,16 @@ fn xcm_enqueueing_multiple_times_works() {
 #[cfg_attr(debug_assertions, should_panic = "Could not enqueue XCMP messages.")]
 fn xcm_enqueueing_starts_dropping_on_overflow() {
 	new_test_ext().execute_with(|| {
-		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
+		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![
+			ClearOrigin;
+			MAX_INSTRUCTIONS_TO_DECODE as usize
+		]));
 		let data = (ConcatenatedVersionedXcm, xcm).encode();
-		// Its possible to enqueue 256 messages at most:
-		let limit = 256;
+		// It's possible to enqueue at most `limit` messages:
+		let max_message_len: u32 =
+			<<Test as Config>::XcmpQueue as EnqueueMessage<ParaId>>::MaxMessageLen::get();
+		let drop_threshold = <QueueConfig<Test>>::get().drop_threshold;
+		let limit = max_message_len as usize / data.len() * drop_threshold as usize;
 
 		XcmpQueue::handle_xcmp_messages(
 			repeat((1000.into(), 1, data.as_slice())).take(limit * 2),
@@ -901,7 +908,7 @@ fn page_not_modified_when_fragment_does_not_fit() {
 		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling);
 
 		let destination: Location = (Parent, Parachain(sibling.into())).into();
-		let message = Xcm(vec![ClearOrigin; 600]);
+		let message = Xcm(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize]);
 
 		loop {
 			let old_page_zero = OutboundXcmpMessages::<Test>::get(sibling, 0);

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 #[frame_support::pallet]
-mod pallet {
+pub mod pallet {
 	use frame_support::pallet_prelude::*;
 
 	#[pallet::config(without_automatic_metadata)]

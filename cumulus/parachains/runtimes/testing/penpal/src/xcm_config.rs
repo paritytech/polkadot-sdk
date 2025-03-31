@@ -53,18 +53,20 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, TREASURY_PALLET_ID};
+use parachains_common::{
+	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem},
+	TREASURY_PALLET_ID,
+};
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
-use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasOriginRootUsingFilter, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	AsPrefixedGeneralIndex, ConvertedConcreteId, DescribeAllTerminal, DescribeFamily,
-	EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter,
-	FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete,
+	DescribeTerminus, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
 	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
@@ -105,13 +107,9 @@ pub type LocationToAccountId = (
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign locations alias into accounts according to a hash of their standard description.
-	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
-	// Different global consensus parachain sovereign account.
-	// (Used for over-bridge transfers and reserve processing)
-	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
-	// Ethereum contract sovereign account.
-	// (Used to get convert ethereum contract locations to sovereign account)
-	EthereumLocationsConverterFor<AccountId>,
+	HashedDescription<AccountId, (DescribeTerminus, DescribeFamily<DescribeAllTerminal>)>,
+	// Different global consensus locations sovereign accounts.
+	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
 );
 
 /// Means for transacting assets on this chain.
@@ -277,17 +275,6 @@ where
 
 type AssetsFrom<T> = AssetPrefixFrom<T, T>;
 
-/// Asset filter that allows native/relay asset if coming from a certain location.
-pub struct NativeAssetFrom<T>(PhantomData<T>);
-impl<T: Get<Location>> ContainsPair<Asset, Location> for NativeAssetFrom<T> {
-	fn contains(asset: &Asset, origin: &Location) -> bool {
-		let loc = T::get();
-		&loc == origin &&
-			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
-			if *asset_loc == Location::from(Parent))
-	}
-}
-
 // This asset can be added to AH as Asset and reserved transfer between Penpal and AH
 pub const RESERVABLE_ASSET_ID: u32 = 1;
 // This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
@@ -342,8 +329,8 @@ impl<AssetLocation: Get<Location>, Origin: Get<Location>> ContainsPair<Asset, Lo
 
 pub type TrustedReserves = (
 	NativeAsset,
+	ConcreteAssetFromSystem<RelayLocation>,
 	AssetsFrom<SystemAssetHubLocation>,
-	NativeAssetFrom<SystemAssetHubLocation>,
 	AssetPrefixFrom<CustomizableAssetFromSystemAssetHub, SystemAssetHubLocation>,
 );
 pub type TrustedTeleporters =
@@ -376,6 +363,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = PolkadotXcm;
 	// How to withdraw and deposit an asset.
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;

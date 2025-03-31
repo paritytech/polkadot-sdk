@@ -368,6 +368,9 @@ impl pallet_message_queue::WeightInfo for TestMessageQueueWeight {
 	fn service_page_item() -> Weight {
 		Weight::zero()
 	}
+	fn set_service_head() -> Weight {
+		Weight::zero()
+	}
 	fn bump_service_head() -> Weight {
 		Weight::zero()
 	}

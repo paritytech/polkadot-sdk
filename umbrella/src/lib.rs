@@ -35,10 +35,6 @@ pub use bp_messages;
 #[cfg(feature = "bp-parachains")]
 pub use bp_parachains;
 
-/// Primitives of Polkadot runtime.
-#[cfg(feature = "bp-polkadot")]
-pub use bp_polkadot;
-
 /// Primitives of Polkadot-like runtime.
 #[cfg(feature = "bp-polkadot-core")]
 pub use bp_polkadot_core;
@@ -328,6 +324,10 @@ pub use pallet_assets;
 #[cfg(feature = "pallet-assets-freezer")]
 pub use pallet_assets_freezer;
 
+/// Provides holding features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-holder")]
+pub use pallet_assets_holder;
+
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
@@ -494,6 +494,10 @@ pub use pallet_membership;
 /// FRAME pallet to queue and process messages.
 #[cfg(feature = "pallet-message-queue")]
 pub use pallet_message_queue;
+
+/// FRAME pallet enabling meta transactions.
+#[cfg(feature = "pallet-meta-tx")]
+pub use pallet_meta_tx;
 
 /// FRAME pallet to execute multi-block migrations.
 #[cfg(feature = "pallet-migrations")]
@@ -1183,66 +1187,6 @@ pub use sc_utils;
 /// Helper crate for generating slot ranges for the Polkadot runtime.
 #[cfg(feature = "slot-range-helper")]
 pub use slot_range_helper;
-
-/// Snowbridge Beacon Primitives.
-#[cfg(feature = "snowbridge-beacon-primitives")]
-pub use snowbridge_beacon_primitives;
-
-/// Snowbridge Core.
-#[cfg(feature = "snowbridge-core")]
-pub use snowbridge_core;
-
-/// Snowbridge Ethereum.
-#[cfg(feature = "snowbridge-ethereum")]
-pub use snowbridge_ethereum;
-
-/// Snowbridge Outbound Queue Merkle Tree.
-#[cfg(feature = "snowbridge-outbound-queue-merkle-tree")]
-pub use snowbridge_outbound_queue_merkle_tree;
-
-/// Snowbridge Outbound Queue Runtime API.
-#[cfg(feature = "snowbridge-outbound-queue-runtime-api")]
-pub use snowbridge_outbound_queue_runtime_api;
-
-/// Snowbridge Ethereum Client Pallet.
-#[cfg(feature = "snowbridge-pallet-ethereum-client")]
-pub use snowbridge_pallet_ethereum_client;
-
-/// Snowbridge Ethereum Client Test Fixtures.
-#[cfg(feature = "snowbridge-pallet-ethereum-client-fixtures")]
-pub use snowbridge_pallet_ethereum_client_fixtures;
-
-/// Snowbridge Inbound Queue Pallet.
-#[cfg(feature = "snowbridge-pallet-inbound-queue")]
-pub use snowbridge_pallet_inbound_queue;
-
-/// Snowbridge Inbound Queue Test Fixtures.
-#[cfg(feature = "snowbridge-pallet-inbound-queue-fixtures")]
-pub use snowbridge_pallet_inbound_queue_fixtures;
-
-/// Snowbridge Outbound Queue Pallet.
-#[cfg(feature = "snowbridge-pallet-outbound-queue")]
-pub use snowbridge_pallet_outbound_queue;
-
-/// Snowbridge System Pallet.
-#[cfg(feature = "snowbridge-pallet-system")]
-pub use snowbridge_pallet_system;
-
-/// Snowbridge Router Primitives.
-#[cfg(feature = "snowbridge-router-primitives")]
-pub use snowbridge_router_primitives;
-
-/// Snowbridge Runtime Common.
-#[cfg(feature = "snowbridge-runtime-common")]
-pub use snowbridge_runtime_common;
-
-/// Snowbridge Runtime Tests.
-#[cfg(feature = "snowbridge-runtime-test-common")]
-pub use snowbridge_runtime_test_common;
-
-/// Snowbridge System Runtime API.
-#[cfg(feature = "snowbridge-system-runtime-api")]
-pub use snowbridge_system_runtime_api;
 
 /// Substrate runtime api primitives.
 #[cfg(feature = "sp-api")]

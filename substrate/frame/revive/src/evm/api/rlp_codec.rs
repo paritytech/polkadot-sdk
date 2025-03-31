@@ -557,7 +557,7 @@ mod test {
 		];
 
 		for (tx, json) in txs {
-			let raw_tx = hex::decode(tx).unwrap();
+			let raw_tx = alloy_core::hex::decode(tx).unwrap();
 			let tx = TransactionSigned::decode(&raw_tx).unwrap();
 			assert_eq!(tx.signed_payload(), raw_tx);
 			let expected_tx = serde_json::from_str(json).unwrap();

@@ -29,25 +29,26 @@ use pallet_collator_selection::StakingPotAccountId;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
-		RelayOrOtherSystemParachains,
+		AliasAccountId32FromSiblingSystemChain, AllSiblingSystemParachains,
+		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::AccountIdConversion;
+use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
-	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
-	NonFungibleAdapter, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
+	DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
+	HashedDescription, IsConcrete, NonFungibleAdapter, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
@@ -55,7 +56,7 @@ use xcm_executor::XcmExecutor;
 parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const TokenRelayLocation: Location = Location::parent();
-	pub AssetHubLocation: Location = Location::new(1, [Parachain(1000)]);
+	pub AssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
@@ -64,7 +65,7 @@ parameter_types! {
 		PalletInstance(<Broker as PalletInfoAccess>::index() as u8).into();
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub FellowshipLocation: Location = Location::new(1, Parachain(1001));
+	pub FellowshipLocation: Location = Location::new(1, Parachain(COLLECTIVES_ID));
 	pub const GovernanceLocation: Location = Location::parent();
 }
 
@@ -148,13 +149,16 @@ impl Contains<Location> for ParentOrParentsPlurality {
 pub struct FellowsPlurality;
 impl Contains<Location> for FellowsPlurality {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]))
+		matches!(
+			location.unpack(),
+			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+		)
 	}
 }
 
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
-		DenyReserveTransferToRelayChain,
+		DenyRecursively<DenyReserveTransferToRelayChain>,
 		(
 			// Allow local users to buy weight credit.
 			TakeWeightCredit,
@@ -193,14 +197,19 @@ pub type WaivedLocations = (
 	Equals<RelayTreasuryLocation>,
 );
 
-/// We allow locations to alias into their own child locations, as well as
-/// AssetHub to alias into anything.
-pub type Aliasers = (AliasChildLocation, AliasOriginRootUsingFilter<AssetHubLocation, Everything>);
+/// We allow locations to alias into their own child locations, allow AssetHub root to alias into
+/// anything, and allow same accounts to alias into each other across system chains.
+pub type Aliasers = (
+	AliasChildLocation,
+	AliasOriginRootUsingFilter<AssetHubLocation, Everything>,
+	AliasAccountId32FromSiblingSystemChain,
+);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = PolkadotXcm;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// Coretime chain does not recognize a reserve location for any asset. Users must teleport ROC

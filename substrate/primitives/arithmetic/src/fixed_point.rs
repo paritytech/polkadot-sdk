@@ -52,7 +52,7 @@ use crate::{
 	},
 	PerThing, Perbill, Rounding, SignedRounding,
 };
-use codec::{CompactAs, Decode, Encode};
+use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode};
 use core::{
 	fmt::Debug,
 	ops::{self, Add, Div, Mul, Sub},
@@ -404,6 +404,7 @@ macro_rules! implement_fixed {
 		#[derive(
 			Encode,
 			Decode,
+			DecodeWithMemTracking,
 			CompactAs,
 			Default,
 			Copy,

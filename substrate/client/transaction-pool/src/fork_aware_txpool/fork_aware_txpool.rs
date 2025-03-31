@@ -21,7 +21,7 @@
 use super::{
 	dropped_watcher::{MultiViewDroppedWatcherController, StreamOfDropped},
 	import_notification_sink::MultiViewImportNotificationSink,
-	metrics::MetricsLink as PrometheusMetrics,
+	metrics::{EventsMetricsCollector, MetricsLink as PrometheusMetrics},
 	multi_view_listener::MultiViewListener,
 	tx_mem_pool::{InsertionInfo, TxMemPool, TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER},
 	view::View,
@@ -29,7 +29,7 @@ use super::{
 };
 use crate::{
 	api::FullChainApi,
-	common::tracing_log_xt::log_xt_trace,
+	common::tracing_log_xt::{log_xt_debug, log_xt_trace},
 	enactment_state::{EnactmentAction, EnactmentState},
 	fork_aware_txpool::{
 		dropped_watcher::{DroppedReason, DroppedTransaction},
@@ -38,7 +38,7 @@ use crate::{
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
-		ExtrinsicFor, ExtrinsicHash, IsValidator, Options,
+		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options,
 	},
 	ReadyIteratorFor, LOG_TARGET,
 };
@@ -54,7 +54,7 @@ use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolApiError, ChainEvent, ImportNotificationStream,
 	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionPriority,
-	TransactionSource, TransactionStatusStreamFor, TxHash,
+	TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -62,15 +62,21 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionValidityError, ValidTransaction},
+	Saturating,
 };
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet},
 	pin::Pin,
 	sync::Arc,
 	time::Instant,
 };
 use tokio::select;
 use tracing::{debug, info, trace, warn};
+
+/// The maximum block height difference before considering a view or transaction as timed-out
+/// due to a finality stall. When the difference exceeds this threshold, elements are treated
+/// as stale and are subject to cleanup.
+const FINALITY_TIMEOUT_THRESHOLD: usize = 128;
 
 /// Fork aware transaction pool task, that needs to be polled.
 pub type ForkAwareTxPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
@@ -143,6 +149,9 @@ where
 	/// Prometheus's metrics endpoint.
 	metrics: PrometheusMetrics,
 
+	/// Collector of transaction statuses updates, reports transaction events metrics.
+	events_metrics_collector: EventsMetricsCollector<ChainApi>,
+
 	/// Util tracking best and finalized block.
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
 
@@ -158,6 +167,22 @@ where
 
 	/// Is node the validator.
 	is_validator: IsValidator,
+
+	/// Finality timeout threshold.
+	///
+	/// Sets the maximum permissible block height difference between the latest block
+	/// and the oldest transactions or views in the pool. Beyond this difference,
+	/// transactions/views are considered timed out and eligible for cleanup.
+	finality_timeout_threshold: usize,
+
+	/// Transactions included in blocks since the most recently finalized block (including this
+	/// block).
+	///
+	/// Holds a mapping of block hash and number to their corresponding transaction hashes.
+	///
+	/// Intended to be used in the finality stall cleanups and also as a cache for all in-block
+	/// transactions.
+	included_transactions: Mutex<BTreeMap<HashAndNumber<Block>, Vec<ExtrinsicHash<ChainApi>>>>,
 }
 
 impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
@@ -172,6 +197,7 @@ where
 		pool_api: Arc<ChainApi>,
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
+		finality_timeout_threshold: Option<usize>,
 	) -> (Self, ForkAwareTxPoolTask) {
 		Self::new_test_with_limits(
 			pool_api,
@@ -180,6 +206,7 @@ where
 			Options::default().ready,
 			Options::default().future,
 			usize::MAX,
+			finality_timeout_threshold,
 		)
 	}
 
@@ -192,8 +219,9 @@ where
 		ready_limits: crate::PoolLimit,
 		future_limits: crate::PoolLimit,
 		mempool_max_transactions_count: usize,
+		finality_timeout_threshold: Option<usize>,
 	) -> (Self, ForkAwareTxPoolTask) {
-		let (listener, listener_task) = MultiViewListener::new_with_worker();
+		let (listener, listener_task) = MultiViewListener::new_with_worker(Default::default());
 		let listener = Arc::new(listener);
 
 		let (import_notification_sink, import_notification_sink_task) =
@@ -246,6 +274,10 @@ where
 				options,
 				is_validator: false.into(),
 				metrics: Default::default(),
+				events_metrics_collector: EventsMetricsCollector::default(),
+				finality_timeout_threshold: finality_timeout_threshold
+					.unwrap_or(FINALITY_TIMEOUT_THRESHOLD),
+				included_transactions: Default::default(),
 			},
 			combined_tasks,
 		)
@@ -289,14 +321,16 @@ where
 							tx_hash = ?new_tx_hash,
 							"error: dropped_monitor_task: no entry in mempool for new transaction"
 						);
-					}
+					};
 				},
-				DroppedReason::LimitsEnforced => {},
+				DroppedReason::LimitsEnforced | DroppedReason::Invalid => {
+					view_store.remove_transaction_subtree(tx_hash, |_, _| {});
+				},
 			};
 
-			mempool.remove_transaction(&tx_hash);
-			view_store.listener.transaction_dropped(dropped);
+			mempool.remove_transactions(&[tx_hash]);
 			import_notification_sink.clean_notified_items(&[tx_hash]);
+			view_store.listener.transaction_dropped(dropped);
 		}
 	}
 
@@ -314,8 +348,11 @@ where
 		finalized_hash: Block::Hash,
 	) -> Self {
 		let metrics = PrometheusMetrics::new(prometheus);
+		let (events_metrics_collector, event_metrics_task) =
+			EventsMetricsCollector::<ChainApi>::new_with_worker(metrics.clone());
 
-		let (listener, listener_task) = MultiViewListener::new_with_worker();
+		let (listener, listener_task) =
+			MultiViewListener::new_with_worker(events_metrics_collector.clone());
 		let listener = Arc::new(listener);
 
 		let (revalidation_queue, revalidation_task) =
@@ -337,6 +374,7 @@ where
 
 		let view_store =
 			Arc::new(ViewStore::new(pool_api.clone(), listener, dropped_stream_controller));
+
 		let dropped_monitor_task = Self::dropped_monitor_task(
 			dropped_stream,
 			mempool.clone(),
@@ -350,6 +388,7 @@ where
 				_ = revalidation_task => {},
 				_ = import_notification_sink_task => {},
 				_ = dropped_monitor_task => {}
+				_ = event_metrics_task => {},
 			}
 		}
 		.boxed();
@@ -368,7 +407,10 @@ where
 			import_notification_sink,
 			options,
 			metrics,
+			events_metrics_collector,
 			is_validator,
+			finality_timeout_threshold: FINALITY_TIMEOUT_THRESHOLD,
+			included_transactions: Default::default(),
 		}
 	}
 
@@ -466,7 +508,7 @@ where
 		};
 
 		if let Ok((Some(best_tree_route), Some(best_view))) = best_result {
-			let tmp_view: View<ChainApi> =
+			let (tmp_view, _, _): (View<ChainApi>, _, _) =
 				View::new_from_other(&best_view, &HashAndNumber { hash: at, number: block_number });
 
 			let mut all_extrinsics = vec![];
@@ -721,7 +763,10 @@ where
 			.iter()
 			.zip(xts)
 			.filter_map(|(result, xt)| {
-				result.as_ref().ok().map(|insertion| (insertion.source.clone(), xt))
+				result.as_ref().ok().map(|insertion| {
+					self.events_metrics_collector.report_submitted(&insertion);
+					(insertion.source.clone(), xt)
+				})
 			})
 			.collect::<Vec<_>>();
 
@@ -750,26 +795,24 @@ where
 		//
 		// Finally, it collects the hashes of updated transactions or submission errors (either
 		// from the mempool or view_store) into a returned vector.
+		const RESULTS_ASSUMPTION : &str =
+			"The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
 		Ok(mempool_results
-				.into_iter()
-				.map(|result| {
-					result
-						.map_err(Into::into)
-						.and_then(|insertion| {
-							submission_results
-								.next()
-								.expect("The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.")
-								.inspect_err(|_|{
-									mempool.remove_transaction(&insertion.hash);
-								})
+			.into_iter()
+			.map(|result| {
+				result.map_err(Into::into).and_then(|insertion| {
+					submission_results.next().expect(RESULTS_ASSUMPTION).inspect_err(|_| {
+						mempool.remove_transactions(&[insertion.hash]);
 					})
-
 				})
-				.map(|r| r.map(|r| {
+			})
+			.map(|r| {
+				r.map(|r| {
 					mempool.update_transaction_priority(&r);
 					r.hash()
-				}))
-				.collect::<Vec<_>>())
+				})
+			})
+			.collect::<Vec<_>>())
 	}
 
 	/// Submits a single transaction and returns a future resolving to the submission results.
@@ -812,21 +855,21 @@ where
 		);
 		let xt = Arc::from(xt);
 
-		let InsertionInfo { hash: xt_hash, source: timed_source, .. } =
-			match self.mempool.push_watched(source, xt.clone()) {
-				Ok(result) => result,
-				Err(TxPoolApiError::ImmediatelyDropped) =>
-					self.attempt_transaction_replacement(source, true, xt.clone()).await?,
-				Err(e) => return Err(e.into()),
-			};
+		let insertion = match self.mempool.push_watched(source, xt.clone()) {
+			Ok(result) => result,
+			Err(TxPoolApiError::ImmediatelyDropped) =>
+				self.attempt_transaction_replacement(source, true, xt.clone()).await?,
+			Err(e) => return Err(e.into()),
+		};
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
+		self.events_metrics_collector.report_submitted(&insertion);
 
 		self.view_store
-			.submit_and_watch(at, timed_source, xt)
+			.submit_and_watch(at, insertion.source, xt)
 			.await
 			.inspect_err(|_| {
-				self.mempool.remove_transaction(&xt_hash);
+				self.mempool.remove_transactions(&[insertion.hash]);
 			})
 			.map(|mut outcome| {
 				self.mempool.update_transaction_priority(&outcome);
@@ -834,18 +877,34 @@ where
 			})
 	}
 
-	/// Intended to remove transactions identified by the given hashes, and any dependent
-	/// transactions, from the pool. In current implementation this function only outputs the error.
-	/// Seems that API change is needed here to make this call reasonable.
-	// todo [#5491]: api change? we need block hash here (assuming we need it at all - could be
-	// useful for verification for debugging purposes).
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		if !hashes.is_empty() {
-			log_xt_trace!(target:LOG_TARGET, hashes, "fatp::remove_invalid");
-			self.metrics
-				.report(|metrics| metrics.removed_invalid_txs.inc_by(hashes.len() as _));
-		}
-		Default::default()
+	/// Reports invalid transactions to the transaction pool.
+	///
+	/// This function takes an array of tuples, each consisting of a transaction hash and the
+	/// corresponding error that occurred during transaction execution at given block.
+	///
+	/// The transaction pool implementation will determine which transactions should be
+	/// removed from the pool. Transactions that depend on invalid transactions will also
+	/// be removed.
+	fn report_invalid(
+		&self,
+		at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		debug!(target: LOG_TARGET, len = ?invalid_tx_errors.len(), "fatp::report_invalid");
+		log_xt_debug!(data: tuple, target:LOG_TARGET, invalid_tx_errors.iter(), "fatp::report_invalid {:?}");
+		self.metrics
+			.report(|metrics| metrics.reported_invalid_txs.inc_by(invalid_tx_errors.len() as _));
+
+		let removed = self.view_store.report_invalid(at, invalid_tx_errors);
+
+		let removed_hashes = removed.iter().map(|tx| tx.hash).collect::<Vec<_>>();
+		self.mempool.remove_transactions(&removed_hashes);
+		self.import_notification_sink.clean_notified_items(&removed_hashes);
+
+		self.metrics
+			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _));
+
+		removed
 	}
 
 	// todo [#5491]: api change?
@@ -974,7 +1033,7 @@ where
 		self.view_store
 			.submit_local(xt)
 			.inspect_err(|_| {
-				self.mempool.remove_transaction(&insertion.hash);
+				self.mempool.remove_transactions(&[insertion.hash]);
 			})
 			.map(|outcome| {
 				self.mempool.update_transaction_priority(&outcome);
@@ -1032,6 +1091,78 @@ where
 
 			View::start_background_revalidation(view, self.revalidation_queue.clone()).await;
 		}
+
+		self.finality_stall_cleanup(hash_and_number);
+	}
+
+	/// Cleans up transactions and views outdated by potential finality stalls.
+	///
+	/// This function removes transactions from the pool that were included in blocks but not
+	/// finalized within a pre-defined block height threshold. Transactions not meeting finality
+	/// within this threshold are notified with finality timed out event. The threshold is based on
+	/// the current block number, 'at'.
+	///
+	/// Additionally, this method triggers the view store to handle and remove stale views caused by
+	/// the finality stall.
+	fn finality_stall_cleanup(&self, at: &HashAndNumber<Block>) {
+		let (oldest_block_number, finality_timedout_blocks) = {
+			let mut included_transactions = self.included_transactions.lock();
+
+			let Some(oldest_block_number) =
+				included_transactions.first_key_value().map(|(k, _)| k.number)
+			else {
+				return
+			};
+
+			if at.number.saturating_sub(oldest_block_number).into() <=
+				self.finality_timeout_threshold.into()
+			{
+				return
+			}
+
+			let mut finality_timedout_blocks =
+				indexmap::IndexMap::<BlockHash<ChainApi>, Vec<ExtrinsicHash<ChainApi>>>::default();
+
+			included_transactions.retain(
+				|HashAndNumber { number: view_number, hash: view_hash }, tx_hashes| {
+					let diff = at.number.saturating_sub(*view_number);
+					if diff.into() > self.finality_timeout_threshold.into() {
+						finality_timedout_blocks.insert(*view_hash, std::mem::take(tx_hashes));
+						false
+					} else {
+						true
+					}
+				},
+			);
+
+			(oldest_block_number, finality_timedout_blocks)
+		};
+
+		if !finality_timedout_blocks.is_empty() {
+			self.ready_poll.lock().remove_cancelled();
+			self.view_store.listener.remove_stale_controllers();
+		}
+
+		let finality_timedout_blocks_len = finality_timedout_blocks.len();
+
+		for (block_hash, tx_hashes) in finality_timedout_blocks {
+			self.view_store.listener.transactions_finality_timeout(&tx_hashes, block_hash);
+
+			self.mempool.remove_transactions(&tx_hashes);
+			self.import_notification_sink.clean_notified_items(&tx_hashes);
+			self.view_store.dropped_stream_controller.remove_transactions(tx_hashes.clone());
+		}
+
+		self.view_store.finality_stall_view_cleanup(at, self.finality_timeout_threshold);
+
+		debug!(
+			target: LOG_TARGET,
+			?at,
+			included_transactions_len = ?self.included_transactions.lock().len(),
+			finality_timedout_blocks_len,
+			?oldest_block_number,
+			"finality_stall_cleanup"
+		);
 	}
 
 	/// Builds a new view.
@@ -1056,26 +1187,28 @@ where
 			?tree_route,
 			"build_new_view"
 		);
-		let mut view = if let Some(origin_view) = origin_view {
-			let mut view = View::new_from_other(&origin_view, at);
-			if !tree_route.retracted().is_empty() {
-				view.pool.clear_recently_pruned();
-			}
-			view
-		} else {
-			debug!(
-				target: LOG_TARGET,
-				?at,
-				"creating non-cloned view"
-			);
-			View::new(
-				self.api.clone(),
-				at.clone(),
-				self.options.clone(),
-				self.metrics.clone(),
-				self.is_validator.clone(),
-			)
-		};
+		let (mut view, view_dropped_stream, view_aggregated_stream) =
+			if let Some(origin_view) = origin_view {
+				let (mut view, view_dropped_stream, view_aggragated_stream) =
+					View::new_from_other(&origin_view, at);
+				if !tree_route.retracted().is_empty() {
+					view.pool.clear_recently_pruned();
+				}
+				(view, view_dropped_stream, view_aggragated_stream)
+			} else {
+				debug!(
+					target: LOG_TARGET,
+					?at,
+					"creating non-cloned view"
+				);
+				View::new(
+					self.api.clone(),
+					at.clone(),
+					self.options.clone(),
+					self.metrics.clone(),
+					self.is_validator.clone(),
+				)
+			};
 
 		let start = Instant::now();
 		// 1. Capture all import notification from the very beginning, so first register all
@@ -1085,15 +1218,13 @@ where
 			view.pool.validated_pool().import_notification_stream().boxed(),
 		);
 
-		self.view_store.dropped_stream_controller.add_view(
-			view.at.hash,
-			view.pool.validated_pool().create_dropped_by_limits_stream().boxed(),
-		);
+		self.view_store
+			.dropped_stream_controller
+			.add_view(view.at.hash, view_dropped_stream.boxed());
 
-		self.view_store.listener.add_view_aggregated_stream(
-			view.at.hash,
-			view.pool.validated_pool().create_aggregated_stream().boxed(),
-		);
+		self.view_store
+			.listener
+			.add_view_aggregated_stream(view.at.hash, view_aggregated_stream.boxed());
 		// sync the transactions statuses and referencing views in all the listeners with newly
 		// cloned view.
 		view.pool.validated_pool().retrigger_notifications();
@@ -1129,48 +1260,75 @@ where
 		Some(view)
 	}
 
-	/// Returns the list of xts included in all block ancestors, including the block itself.
+	/// Retrieves transactions hashes from a `included_transactions` cache or, if not present,
+	/// fetches them from the blockchain API using the block's hash `at`.
 	///
-	/// Example: for the following chain `F<-B1<-B2<-B3` xts from `F,B1,B2,B3` will be returned.
-	async fn extrinsics_included_since_finalized(&self, at: Block::Hash) -> HashSet<TxHash<Self>> {
+	/// Returns a `Vec` of transactions hashes
+	async fn fetch_block_transactions(&self, at: &HashAndNumber<Block>) -> Vec<TxHash<Self>> {
+		if let Some(txs) = self.included_transactions.lock().get(at) {
+			return txs.clone()
+		};
+
+		trace!(
+			target: LOG_TARGET,
+			?at,
+			"fetch_block_transactions from api"
+		);
+
+		self.api
+			.block_body(at.hash)
+			.await
+			.unwrap_or_else(|error| {
+				warn!(
+					target: LOG_TARGET,
+					%error,
+					"fetch_block_transactions: error request"
+				);
+				None
+			})
+			.unwrap_or_default()
+			.into_iter()
+			.map(|t| self.hash_of(&t))
+			.collect::<Vec<_>>()
+	}
+
+	/// Returns the list of xts included in all block's ancestors up to recently finalized block (or
+	/// up finality timeout threshold), including the block itself.
+	///
+	/// Example: for the following chain `F<-B1<-B2<-B3` xts from `B1,B2,B3` will be returned.
+	async fn txs_included_since_finalized(
+		&self,
+		at: &HashAndNumber<Block>,
+	) -> HashSet<TxHash<Self>> {
 		let start = Instant::now();
 		let recent_finalized_block = self.enactment_state.lock().recent_finalized_block();
 
-		let Ok(tree_route) = self.api.tree_route(recent_finalized_block, at) else {
+		let Ok(tree_route) = self.api.tree_route(recent_finalized_block, at.hash) else {
 			return Default::default()
 		};
 
-		let api = self.api.clone();
-		let mut all_extrinsics = HashSet::new();
+		let mut all_txs = HashSet::new();
 
-		for h in tree_route.enacted().iter().rev() {
-			api.block_body(h.hash)
-				.await
-				.unwrap_or_else(|error| {
-					warn!(
-						target: LOG_TARGET,
-						%error,
-						"Compute ready light transactions: error request"
-					);
-					None
-				})
-				.unwrap_or_default()
-				.into_iter()
-				.map(|t| self.hash_of(&t))
-				.for_each(|tx_hash| {
-					all_extrinsics.insert(tx_hash);
-				});
+		for block in tree_route.enacted().iter() {
+			// note: There is no point to fetch the transactions from blocks older than threshold.
+			// All transactions included in these blocks, were already removed from pool
+			// with FinalityTimeout event.
+			if at.number.saturating_sub(block.number).into() <=
+				self.finality_timeout_threshold.into()
+			{
+				all_txs.extend(self.fetch_block_transactions(block).await);
+			}
 		}
 
 		debug!(
 			target: LOG_TARGET,
 			?at,
 			?recent_finalized_block,
-			extrinsics_count = all_extrinsics.len(),
+			extrinsics_count = all_txs.len(),
 			duration = ?start.elapsed(),
-			"fatp::extrinsics_included_since_finalized"
+			"fatp::txs_included_since_finalized"
 		);
-		all_extrinsics
+		all_txs
 	}
 
 	/// Updates the given view with the transactions from the internal mempol.
@@ -1180,8 +1338,7 @@ where
 	/// view.
 	///
 	/// If there are no views, and mempool transaction is reported as invalid for the given view,
-	/// the transaction is reported as invalid and removed from the mempool. This does not apply to
-	/// stale and temporarily banned transactions.
+	/// the transaction is notified as invalid and removed from the mempool.
 	async fn update_view_with_mempool(&self, view: &View<ChainApi>) {
 		debug!(
 			target: LOG_TARGET,
@@ -1190,7 +1347,7 @@ where
 			active_views_count = self.active_views_count(),
 			"update_view_with_mempool"
 		);
-		let included_xts = self.extrinsics_included_since_finalized(view.at.hash).await;
+		let included_xts = self.txs_included_since_finalized(&view.at).await;
 
 		let (hashes, xts_filtered): (Vec<_>, Vec<_>) = self
 			.mempool
@@ -1232,7 +1389,7 @@ where
 			for result in results {
 				if let Err(tx_hash) = result {
 					self.view_store.listener.transactions_invalidated(&[tx_hash]);
-					self.mempool.remove_transaction(&tx_hash);
+					self.mempool.remove_transactions(&[tx_hash]);
 				}
 			}
 		}
@@ -1260,16 +1417,21 @@ where
 		// transactions with those hashes from the retracted blocks.
 		let mut pruned_log = HashSet::<ExtrinsicHash<ChainApi>>::new();
 
-		future::join_all(
-			tree_route
-				.enacted()
-				.iter()
-				.map(|h| crate::prune_known_txs_for_block(h, &*api, &view.pool)),
-		)
+		future::join_all(tree_route.enacted().iter().map(|hn| {
+			let api = api.clone();
+			async move { (hn, crate::prune_known_txs_for_block(hn, &*api, &view.pool).await) }
+		}))
 		.await
 		.into_iter()
-		.for_each(|enacted_log| {
-			pruned_log.extend(enacted_log);
+		.for_each(|(key, enacted_log)| {
+			pruned_log.extend(enacted_log.clone());
+			self.included_transactions.lock().insert(key.clone(), enacted_log);
+		});
+
+		self.metrics.report(|metrics| {
+			metrics
+				.unknown_from_block_import_txs
+				.inc_by(self.mempool.count_unknown_transactions(pruned_log.iter()) as _)
 		});
 
 		//resubmit
@@ -1360,9 +1522,13 @@ where
 			.report(|metrics| metrics.finalized_txs.inc_by(finalized_xts.len() as _));
 
 		if let Ok(Some(finalized_number)) = finalized_number {
+			self.included_transactions
+				.lock()
+				.retain(|cached_block, _| finalized_number < cached_block.number);
 			self.revalidation_queue
 				.revalidate_mempool(
 					self.mempool.clone(),
+					self.view_store.clone(),
 					HashAndNumber { hash: finalized_hash, number: finalized_number },
 				)
 				.await;
@@ -1370,14 +1536,16 @@ where
 			trace!(
 				target: LOG_TARGET,
 				?finalized_number,
-				"purge_transactions_later skipped, cannot find block number"
+				"handle_finalized: revalidation/cleanup skipped: could not resolve finalized block number"
 			);
 		}
 
 		self.ready_poll.lock().remove_cancelled();
-		trace!(
+
+		debug!(
 			target: LOG_TARGET,
 			active_views_count = self.active_views_count(),
+			included_transactions_len = ?self.included_transactions.lock().len(),
 			"handle_finalized after"
 		);
 	}
@@ -1468,7 +1636,12 @@ where
 			self.mempool.try_insert_with_replacement(xt, priority, source, watched)?;
 
 		for worst_hash in &insertion_info.removed {
-			log::trace!(target: LOG_TARGET, "removed: {worst_hash:?} replaced by {tx_hash:?}");
+			trace!(
+				target: LOG_TARGET,
+				tx_hash = ?worst_hash,
+				new_tx_hash = ?tx_hash,
+				"removed: replaced by"
+			);
 			self.view_store
 				.listener
 				.transaction_dropped(DroppedTransaction::new_enforced_by_limts(*worst_hash));
@@ -1540,9 +1713,6 @@ where
 				// }
 			},
 			Ok(EnactmentAction::HandleEnactment(tree_route)) => {
-				if matches!(event, ChainEvent::Finalized { .. }) {
-					self.view_store.handle_pre_finalized(event.hash()).await;
-				};
 				self.handle_new_block(&tree_route).await;
 			},
 		};
@@ -1566,7 +1736,8 @@ where
 		info!(
 			target: LOG_TARGET,
 			txs = ?self.mempool_len(),
-			active_views_count = self.active_views_count(),
+			a = self.active_views_count(),
+			i = self.inactive_views_count(),
 			views = ?self.views_stats(),
 			?event,
 			?duration,
