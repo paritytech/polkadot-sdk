@@ -417,6 +417,7 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<Penpal
 			]
 		);
 	}
+	println!("Test Args topic_id on para_to_para_through_hop_sender_assertions(): {:?}", t.args.topic_id);
 }
 
 fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {

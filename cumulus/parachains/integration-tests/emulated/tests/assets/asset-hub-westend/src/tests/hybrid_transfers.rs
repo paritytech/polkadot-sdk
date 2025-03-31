@@ -52,9 +52,13 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 			) => {},
 		]
 	);
-	let id = find_mq_processed_id!(AssetHubWestend);
-	println!("Processed id: {:?}", id);
-	println!("Test Args topic_id: {:?}", t.args.topic_id);
+	let processed_id = find_mq_processed_id!(AssetHubWestend);
+	println!("Processed id on para_to_para_assethub_hop_assertions: {:?}", processed_id);
+	assert!(
+		processed_id.is_some(),
+		"No MessageQueue::Processed event found on AssetHubWestend"
+	);
+	println!("Test Args topic_id on para_to_para_assethub_hop_assertions: {:?}", t.args.topic_id);
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
@@ -535,7 +539,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	let fee_asset_item = assets.iter().position(|a| a.id == fee_asset_id).unwrap() as u32;
 
 	// Init Test
-	let mut test_args = TestContext {
+	let test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),
 		args: TestArgs::new_para(
