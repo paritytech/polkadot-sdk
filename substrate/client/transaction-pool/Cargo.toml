@@ -54,7 +54,7 @@ substrate-test-runtime-transaction-pool = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
-txtesttool = { version = "0.4.0", package = "substrate-txtesttool" }
+txtesttool = { workspace = true }
 zombienet-sdk = { workspace = true }
 
 [[bench]]
