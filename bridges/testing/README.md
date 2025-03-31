@@ -5,7 +5,8 @@ onchain and offchain bridges code.
 
 Prerequisites for running the tests locally:
 
-- download latest [zombienet release](https://github.com/paritytech/zombienet/releases);
+- download latest [zombienet release](https://github.com/paritytech/zombienet/releases) and place it at
+`~/local_bridge_testing/bin/zombienet`;
 
 - build Polkadot binary by running `cargo build -p polkadot --release  --features fast-runtime` command in the
   [`polkadot-sdk`](https://github.com/paritytech/polkadot-sdk) repository clone;
@@ -23,9 +24,9 @@ Prerequisites for running the tests locally:
 
 On Mac, you'll also need to do the following:
 
-- Update to the latest version of bash by installing homebrew and running `brew install bash`;
+- Install an updated version of bash by installing homebrew and running `brew install bash`;
 
-- Install jq with `brew install jq`
+- Install jq with `brew install jq`;
 
 After that, any test can be run using the `run-test.sh` command.
 Example: `./run-test.sh 0001-asset-transfer`
