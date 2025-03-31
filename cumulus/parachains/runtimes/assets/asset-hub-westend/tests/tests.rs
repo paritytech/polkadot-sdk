@@ -37,7 +37,7 @@ use asset_test_utils::{
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
-use frame_support::{assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok, parameter_types, traits::{
+use frame_support::{assert_err, assert_noop, assert_ok, parameter_types, traits::{
 	fungible::{Inspect, Mutate},
 	fungibles::{
 		Create, Inspect as FungiblesInspect, InspectEnumerable, Mutate as FungiblesMutate,
