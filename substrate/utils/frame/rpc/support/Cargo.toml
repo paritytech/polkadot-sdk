@@ -18,6 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 jsonrpsee = { features = ["jsonrpsee-types"], workspace = true }
+scale-info = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
