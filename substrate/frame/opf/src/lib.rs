@@ -85,6 +85,7 @@ pub mod pallet {
 			+ UnfilteredDispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
 			+ From<Call<Self>>
 			+ Into<<Self as frame_system::Config>::RuntimeCall>
+			+ Into<<Self::Governance as traits::ReferendumTrait<<Self as frame_system::Config>::AccountId>>::Call>
 			+ GetDispatchInfo;
 		/// The admin origin that can list and un-list whitelisted projects.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -330,7 +331,7 @@ pub mod pallet {
 
 				// Prepare the proposal call
 				let call = Call::<T>::on_registration { project_id: project_id.clone() };
-				// ToDo: Check that `proposal` format is correct
+			/*	// ToDo: Check that `proposal` format is correct
 				let proposal = Self::create_proposal(who.clone(), call);
 
 				// ToDo: remove the `start_dem_referendum` below, and 
@@ -345,7 +346,7 @@ pub mod pallet {
 
 				WhiteListedProjectAccounts::<T>::mutate(project_id, |value| {
 					*value = Some(new_infos);
-				});
+				});*/
 			}
 			VotingRounds::<T>::mutate(current_round_index, |round| *round = Some(round_infos));
 

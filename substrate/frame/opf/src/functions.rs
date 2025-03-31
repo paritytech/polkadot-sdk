@@ -43,13 +43,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn start_dem_referendum(
-		proposal: BoundedCallOf<T>,
+		caller:ProjectId<T>,
+		proposal_call: pallet::Call<T>,
 		delay: BlockNumberFor<T>,
-	) -> Democracy::ReferendumIndex {
-		let threshold = Democracy::VoteThreshold::SimpleMajority;
-		let referendum_index =
-			Democracy::Pallet::<T>::internal_start_referendum(proposal, threshold, delay);
-		referendum_index
+	) {
+		let proposal = Box::new(Self::get_formatted_call(proposal_call.into()));
+		let call = Call::<T>::execute_call_dispatch { caller: caller.clone(), proposal };
+		let call_formatted = Self::get_formatted_call(call.into());
+		let proposal = T::Governance::create_proposal(caller,call_formatted.into());
+		
 	}
 
 	// Helper function for voting action. Existing votes are over-written, and Hold is adjusted

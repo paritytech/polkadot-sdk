@@ -8,7 +8,14 @@ pub trait ReferendumTrait<AccountId> {
 	type Proposal: Parameter + Member + MaxEncodedLen;
 	type ProposalOrigin: Parameter + Member + MaxEncodedLen;
 	type ReferendumInfo: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone;
+	type Preimages;
+	type Call;
 	type Moment;
+
+	fn create_proposal(
+		caller: AccountId,
+		proposal_call: Self::Call,
+	) -> Self::Proposal;
 
 	fn submit_proposal(
 		caller: AccountId,
@@ -86,7 +93,19 @@ where
 	type ProposalOrigin =
 		<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
 	type ReferendumInfo = pallet_referenda::ReferendumInfoOf<T, I>;
+	type Preimages = <T as pallet_referenda::Config<I>>::Preimages;
+	type Call = <T as frame_system::Config>::RuntimeCall;
 	type Moment = <T::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+
+	fn create_proposal(
+		caller: AccountIdOf<T>,
+		proposal_call: Self::Call,
+	) -> Self::Proposal{
+		
+		let call_formatted= <T as pallet_referenda::Config<I>>::RuntimeCall::from(proposal_call);
+		let bounded_proposal = Self::Preimages::bound(call_formatted).expect("Operation failed");
+		bounded_proposal
+	}
 
 	fn submit_proposal(
 		who: AccountIdOf<T>,
@@ -101,7 +120,7 @@ where
 			enactment_moment,
 		);*/
 		if let (Some(preimage_len), Some(proposal_len)) =
-				(proposal.lookup_hash().and_then(|h| T::Preimages::len(&h)), proposal.lookup_len())
+				(proposal.lookup_hash().and_then(|h| Self::Preimages::len(&h)), proposal.lookup_len())
 			{
 				if preimage_len != proposal_len {
 					return Err(pallet_referenda::Error::<T, I>::PreimageStoredWithDifferentLength.into())
