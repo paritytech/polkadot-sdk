@@ -1226,7 +1226,7 @@ schemars = { version = "0.8.13", default-features = false }
 schnellru = { version = "0.2.3" }
 schnorrkel = { version = "0.11.4", default-features = false }
 seccompiler = { version = "0.4.0" }
-secp256k1 = { version = "0.28.0", default-features = false }
+secp256k1 = { version = "0.30.0", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
 serde = { version = "1.0.214", default-features = false }
 serde-big-array = { version = "0.3.2" }

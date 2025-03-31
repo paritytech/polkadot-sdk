@@ -109,7 +109,7 @@ impl Signature {
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
 		#[cfg(feature = "std")]
 		{
-			let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
+			let rid = RecoveryId::try_from(self.0[64] as i32).ok()?;
 			let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
 			let message =
 				Message::from_digest_slice(message).expect("Message is a 32 bytes hash; qed");
@@ -142,7 +142,7 @@ impl From<RecoverableSignature> for Signature {
 		let (recid, sig) = recsig.serialize_compact();
 		r.0[..64].copy_from_slice(&sig);
 		// This is safe due to the limited range of possible valid ids.
-		r.0[64] = recid.to_i32() as u8;
+		r.0[64] = recid as u8;
 		r
 	}
 }

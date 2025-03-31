@@ -55,6 +55,7 @@ pallet-babe = { optional = true, workspace = true }
 libsecp256k1 = { workspace = true }
 polkadot-primitives = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
+secp256k1 = { workspace = true }
 
 slot-range-helper = { workspace = true }
 xcm = { workspace = true }
@@ -68,6 +69,7 @@ libsecp256k1 = { workspace = true, default-features = true }
 pallet-babe = { workspace = true, default-features = true }
 pallet-treasury = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
+secp256k1 = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
@@ -102,6 +104,8 @@ std = [
 	"polkadot-runtime-parachains/std",
 	"rustc-hex/std",
 	"scale-info/std",
+	"secp256k1/global-context",
+	"secp256k1/std",
 	"serde/std",
 	"slot-range-helper/std",
 	"sp-api/std",
