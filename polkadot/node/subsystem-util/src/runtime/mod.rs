@@ -36,15 +36,15 @@ use polkadot_primitives::{
 	CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
 	Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo, Signed, SigningContext,
 	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	DEFAULT_SCHEDULING_LOOKAHEAD, LEGACY_MIN_BACKING_VOTES,
+	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::{
-	has_required_runtime, request_availability_cores, request_candidate_events,
-	request_claim_queue, request_disabled_validators, request_from_runtime,
-	request_key_ownership_proof, request_on_chain_votes, request_session_executor_params,
+	request_availability_cores, request_candidate_events, request_claim_queue,
+	request_disabled_validators, request_from_runtime, request_key_ownership_proof,
+	request_node_features, request_on_chain_votes, request_session_executor_params,
 	request_session_index_for_child, request_session_info, request_submit_report_dispute_lost,
 	request_unapplied_slashes, request_validation_code_by_hash, request_validator_groups,
 };
@@ -202,7 +202,7 @@ impl RuntimeInfo {
 			Some(result) => Ok(result),
 			None => {
 				let disabled_validators =
-					get_disabled_validators_with_fallback(sender, relay_parent).await?;
+					request_disabled_validators(relay_parent, sender).await.await??;
 				self.disabled_validators_cache.insert(relay_parent, disabled_validators.clone());
 				Ok(disabled_validators)
 			},
@@ -235,9 +235,8 @@ impl RuntimeInfo {
 
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let node_features = request_node_features(parent, session_index, sender)
-				.await?
-				.unwrap_or(NodeFeatures::EMPTY);
+			let node_features =
+				request_node_features(parent, session_index, sender).await.await??;
 			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
 			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
 				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
@@ -468,64 +467,6 @@ where
 	.await
 }
 
-/// Request the min backing votes value.
-/// Prior to runtime API version 6, just return a hardcoded constant.
-pub async fn request_min_backing_votes(
-	parent: Hash,
-	session_index: SessionIndex,
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<u32> {
-	let min_backing_votes_res = recv_runtime(
-		request_from_runtime(parent, sender, |tx| {
-			RuntimeApiRequest::MinimumBackingVotes(session_index, tx)
-		})
-		.await,
-	)
-	.await;
-
-	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = min_backing_votes_res
-	{
-		gum::trace!(
-			target: LOG_TARGET,
-			?parent,
-			"Querying the backing threshold from the runtime is not supported by the current Runtime API",
-		);
-
-		Ok(LEGACY_MIN_BACKING_VOTES)
-	} else {
-		min_backing_votes_res
-	}
-}
-
-/// Request the node features enabled in the runtime.
-/// Pass in the session index for caching purposes, as it should only change on session boundaries.
-/// Prior to runtime API version 9, just return `None`.
-pub async fn request_node_features(
-	parent: Hash,
-	session_index: SessionIndex,
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<Option<NodeFeatures>> {
-	let res = recv_runtime(
-		request_from_runtime(parent, sender, |tx| {
-			RuntimeApiRequest::NodeFeatures(session_index, tx)
-		})
-		.await,
-	)
-	.await;
-
-	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
-		gum::trace!(
-			target: LOG_TARGET,
-			?parent,
-			"Querying the node features from the runtime is not supported by the current Runtime API",
-		);
-
-		Ok(None)
-	} else {
-		res.map(Some)
-	}
-}
-
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.
 #[derive(Default)]
 pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
@@ -568,34 +509,6 @@ impl ClaimQueueSnapshot {
 	}
 }
 
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-/// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
-/// returns an empty vec.
-/// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this function and
-/// replace all usages with `request_disabled_validators`
-pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<RuntimeApiMessage>>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Result<Vec<ValidatorIndex>> {
-	let disabled_validators = if has_required_runtime(
-		sender,
-		relay_parent,
-		RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
-	)
-	.await
-	{
-		request_disabled_validators(relay_parent, sender)
-			.await
-			.await
-			.map_err(Error::RuntimeRequestCanceled)??
-	} else {
-		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
-		vec![]
-	};
-
-	Ok(disabled_validators)
-}
-
 /// Fetch the claim queue and wrap it into a helpful `ClaimQueueSnapshot`
 pub async fn fetch_claim_queue(
 	sender: &mut impl SubsystemSender<RuntimeApiMessage>,
@@ -609,8 +522,8 @@ pub async fn fetch_claim_queue(
 	Ok(cq.into())
 }
 
-/// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
-/// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
+/// Returns the lookahead from the scheduler params if the runtime supports it,
+/// or default value if scheduling lookahead API is not supported by runtime.
 pub async fn fetch_scheduling_lookahead(
 	parent: Hash,
 	session_index: SessionIndex,
