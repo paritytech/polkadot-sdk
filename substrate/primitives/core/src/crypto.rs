@@ -338,7 +338,7 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + ByteArray {
 				let first = ((ident & 0b0000_0000_1111_1100) as u8) >> 2;
 				// lower two bits of the lower byte in the high pos,
 				// lower bits of the upper byte in the low pos
-				let second = ((ident >> 8) as u8) | ((ident & 0b0000_0000_0000_0011) as u8) << 6;
+				let second = ((ident >> 8) as u8) | (((ident & 0b0000_0000_0000_0011) as u8) << 6);
 				vec![first | 0b01000000, second]
 			},
 			_ => unreachable!("masked out the upper two bits; qed"),
