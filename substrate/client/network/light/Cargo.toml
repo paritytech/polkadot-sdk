@@ -21,9 +21,7 @@ prost-build = { workspace = true }
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
 async-channel = { workspace = true }
-codec = { features = [
-	"derive",
-], workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 prost = { workspace = true }

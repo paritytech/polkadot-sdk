@@ -787,12 +787,10 @@ impl<H> BackedCandidate<H> {
 		candidate: CommittedCandidateReceiptV2<H>,
 		validity_votes: Vec<ValidityAttestation>,
 		validator_indices: BitVec<u8, bitvec::order::Lsb0>,
-		core_index: Option<CoreIndex>,
+		core_index: CoreIndex,
 	) -> Self {
 		let mut instance = Self { candidate, validity_votes, validator_indices };
-		if let Some(core_index) = core_index {
-			instance.inject_core_index(core_index);
-		}
+		instance.inject_core_index(core_index);
 		instance
 	}
 
@@ -847,20 +845,13 @@ impl<H> BackedCandidate<H> {
 	/// Get a copy of the validator indices and the assumed core index, if any.
 	pub fn validator_indices_and_core_index(
 		&self,
-		core_index_enabled: bool,
 	) -> (&BitSlice<u8, bitvec::order::Lsb0>, Option<CoreIndex>) {
-		// This flag tells us if the block producers must enable Elastic Scaling MVP hack.
-		// It extends `BackedCandidate::validity_indices` to store a 8 bit core index.
-		if core_index_enabled {
-			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
-			if core_idx_offset > 0 {
-				let (validator_indices_slice, core_idx_slice) =
-					self.validator_indices.split_at(core_idx_offset);
-				return (
-					validator_indices_slice,
-					Some(CoreIndex(core_idx_slice.load::<u8>() as u32)),
-				);
-			}
+		// `BackedCandidate::validity_indices` are extended to store a 8 bit core index.
+		let core_idx_offset = self.validator_indices.len().saturating_sub(8);
+		if core_idx_offset > 0 {
+			let (validator_indices_slice, core_idx_slice) =
+				self.validator_indices.split_at(core_idx_offset);
+			return (validator_indices_slice, Some(CoreIndex(core_idx_slice.load::<u8>() as u32)));
 		}
 
 		(&self.validator_indices, None)

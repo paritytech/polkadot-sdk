@@ -123,7 +123,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -175,9 +175,9 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
+						Versioned::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -307,7 +307,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -379,7 +379,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -456,7 +456,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -563,7 +563,7 @@ fn peer_reported_for_not_enough_statements() {
 		send_peer_message(
 			&mut overseer,
 			peer_c.clone(),
-			protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest.clone()),
+			protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest.clone()),
 		)
 		.await;
 
@@ -738,7 +738,7 @@ fn peer_reported_for_duplicate_statements() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -795,9 +795,9 @@ fn peer_reported_for_duplicate_statements() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
+						Versioned::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -892,7 +892,7 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1025,7 +1025,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1088,7 +1088,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1149,7 +1149,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1204,8 +1204,8 @@ fn peer_reported_for_invalid_v2_descriptor() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-						protocol_v2::StatementDistributionMessage::Statement(
+					Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -1308,7 +1308,7 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1594,7 +1594,7 @@ fn peer_reported_for_providing_statements_with_wrong_validator_id() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1726,7 +1726,7 @@ fn disabled_validators_added_to_unwanted_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					seconded_disabled.clone(),
 				),
@@ -1744,7 +1744,7 @@ fn disabled_validators_added_to_unwanted_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					seconded_b.clone(),
 				),
@@ -1794,9 +1794,9 @@ fn disabled_validators_added_to_unwanted_mask() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::Statement(hash, statement),
+						Versioned::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
 						),
 					)
@@ -1912,7 +1912,7 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_1, seconded_1.clone()),
+				protocol_v3::StatementDistributionMessage::Statement(relay_1, seconded_1.clone()),
 			)
 			.await;
 
@@ -1956,7 +1956,7 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_1, seconded_2.clone()),
+				protocol_v3::StatementDistributionMessage::Statement(relay_1, seconded_2.clone()),
 			)
 			.await;
 
@@ -1998,7 +1998,7 @@ fn disabling_works_from_relay_parent_not_the_latest_state() {
 			send_peer_message(
 				&mut overseer,
 				peer_disabled.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_2, seconded_3.clone()),
+				protocol_v3::StatementDistributionMessage::Statement(relay_2, seconded_3.clone()),
 			)
 			.await;
 
@@ -2117,8 +2117,8 @@ fn local_node_sanity_checks_incoming_requests() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-						protocol_v2::StatementDistributionMessage::Statement(
+					Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -2291,8 +2291,8 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-					protocol_v2::StatementDistributionMessage::Statement(
+				Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+					protocol_v3::StatementDistributionMessage::Statement(
 						r,
 						s,
 					)
@@ -2351,7 +2351,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -2392,8 +2392,8 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-						protocol_v2::StatementDistributionMessage::Statement(
+					Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
@@ -2535,7 +2535,7 @@ fn local_node_respects_statement_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement_a.clone(),
 				),
@@ -2562,7 +2562,7 @@ fn local_node_respects_statement_mask() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement_b.clone(),
 				),
@@ -2594,9 +2594,9 @@ fn local_node_respects_statement_mask() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+						Versioned::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
 						),
 					)
@@ -2756,7 +2756,7 @@ fn should_delay_before_retrying_dropped_requests() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2802,7 +2802,7 @@ fn should_delay_before_retrying_dropped_requests() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
