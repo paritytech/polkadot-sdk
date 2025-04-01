@@ -41,7 +41,7 @@ pub use frame_support::{
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use pallet_conviction_voting::{Conviction, Tally};
-pub use pallet_referenda::ReferendumIndex;
+pub use pallet_referenda::{ReferendumIndex, PalletsOriginOf};
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::{
 	traits::{
@@ -54,9 +54,6 @@ pub use sp_std::{boxed::Box, vec};
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
-pub type BalanceOfD<T> = <<T as Democracy::Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::Balance;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// A reward index.
@@ -64,8 +61,6 @@ pub type SpendIndex = u32;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
 pub type ProjectId<T> = AccountIdOf<T>;
-pub type PalletsOriginOf<T> =
-	<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
 pub const DISTRIBUTION_ID: LockIdentifier = *b"distribu";
 pub type RoundIndex = u32;
 pub type VoterId<T> = AccountIdOf<T>;

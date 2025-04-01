@@ -38,7 +38,7 @@
 //! ## Interface
 //!
 //! ### Permissioned Calls
-//! * `register_projects_batch`: Allows a SubmitOrigin to register a list of whitelisted projects
+//! * `register_projects_batch`: Allows a AdminOrigin to register a list of whitelisted projects
 //!   for funding allocation
 //! * `unregister_project`: Allows an AdminOrigin to unregister a previously whitelisted project
 //!
@@ -79,7 +79,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + Democracy::Config {
+	pub trait Config: frame_system::Config{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RuntimeCall: Parameter
 			+ UnfilteredDispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
@@ -298,7 +298,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			projects_id: BoundedVec<ProjectId<T>, T::MaxProjects>,
 		) -> DispatchResult {
-			let who = T::SubmitOrigin::ensure_origin(origin.clone())?;
+			let _= T::AdminOrigin::ensure_origin(origin.clone())?;
+			let who = ensure_signed(origin)?;
 			// Only 1 batch submission per round
 			let mut round_index = NextVotingRoundNumber::<T>::get();
 
@@ -331,22 +332,18 @@ pub mod pallet {
 
 				// Prepare the proposal call
 				let call = Call::<T>::on_registration { project_id: project_id.clone() };
-			/*	// ToDo: Check that `proposal` format is correct
-				let proposal = Self::create_proposal(who.clone(), call);
-
-				// ToDo: remove the `start_dem_referendum` below, and 
-				// Submit a proposal by using the trait Governance
+			
 				let referendum_index = Self::start_dem_referendum(
-					proposal,
-					<T as Democracy::Config>::EnactmentPeriod::get(),
-				);
+					who.clone(), 
+					call,
+				)?;
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 					.ok_or(Error::<T>::NoProjectAvailable)?;
 				new_infos.index = referendum_index;
 
 				WhiteListedProjectAccounts::<T>::mutate(project_id, |value| {
 					*value = Some(new_infos);
-				});*/
+				});
 			}
 			VotingRounds::<T>::mutate(current_round_index, |round| *round = Some(round_infos));
 
@@ -550,7 +547,7 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::on_registration(T::MaxProjects::get()))]
 		pub fn on_registration(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
-			let _who = T::SubmitOrigin::ensure_origin(origin.clone())?;
+			let _who = T::AdminOrigin::ensure_origin(origin.clone())?;
 			let infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
 				.ok_or(Error::<T>::NoProjectAvailable)?;
 

@@ -6,11 +6,11 @@ use pallet_referenda::{TallyOf, Deposit, TracksInfo};
 pub trait ReferendumTrait<AccountId> {
 	type Index: From<u32> +Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
 	type Proposal: Parameter + Member + MaxEncodedLen;
-	type ProposalOrigin: Parameter + Member + MaxEncodedLen;
 	type ReferendumInfo: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone;
 	type Preimages;
 	type Call;
 	type Moment;
+
 
 	fn create_proposal(
 		caller: AccountId,
@@ -20,9 +20,7 @@ pub trait ReferendumTrait<AccountId> {
 	fn submit_proposal(
 		caller: AccountId,
 		proposal: Self::Proposal,
-		proposal_origin: Box<Self::ProposalOrigin>,
-		enactment_moment: DispatchTime<Self::Moment>,
-	) -> DispatchResult;
+	) -> Result<u32,DispatchError>;
 
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo>;
 	fn handle_referendum_info(infos: Self::ReferendumInfo) -> Option<ReferendumStates>;
@@ -90,12 +88,11 @@ where
 		<T as pallet_referenda::Config<I>>::RuntimeCall,
 		<T as frame_system::Config>::Hashing,
 	>;
-	type ProposalOrigin =
-		<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
 	type ReferendumInfo = pallet_referenda::ReferendumInfoOf<T, I>;
 	type Preimages = <T as pallet_referenda::Config<I>>::Preimages;
 	type Call = <T as frame_system::Config>::RuntimeCall;
 	type Moment = <T::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+
 
 	fn create_proposal(
 		caller: AccountIdOf<T>,
@@ -110,15 +107,10 @@ where
 	fn submit_proposal(
 		who: AccountIdOf<T>,
 		proposal: Self::Proposal,
-		proposal_origin: Box<Self::ProposalOrigin>,
-		enactment_moment: DispatchTime<Self::Moment>,
-	) -> DispatchResult{
-		/*let _ = pallet_referenda::Pallet::<T, I>::submit(
-			origin,
-			proposal_origin,
-			proposal,
-			enactment_moment,
-		);*/
+	) -> Result<u32,DispatchError>{
+		let enactment_moment = DispatchTime::After(0u32.into());
+		let proposal_origin0 = RawOrigin::Root.into();
+		let proposal_origin = Box::new(proposal_origin0);
 		if let (Some(preimage_len), Some(proposal_len)) =
 				(proposal.lookup_hash().and_then(|h| Self::Preimages::len(&h)), proposal.lookup_len())
 			{
@@ -178,7 +170,7 @@ where
 				alarm,
 			};
 			pallet_referenda::ReferendumInfoFor::<T, I>::insert(index, Self::ReferendumInfo::Ongoing(status));
-			Ok(())
+			Ok(index)
 	}
 
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo> {

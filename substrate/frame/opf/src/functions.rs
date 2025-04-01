@@ -30,27 +30,17 @@ impl<T: Config> Pallet<T> {
 		Some(conviction_amount)
 	}
 
-	pub fn create_proposal(
-		caller: T::AccountId,
-		proposal_call: pallet::Call<T>,
-	) -> BoundedCallOf<T> {
-		let proposal = Box::new(Self::get_formatted_call(proposal_call.into()));
-		let call = Call::<T>::execute_call_dispatch { caller: caller.clone(), proposal };
-		let call_formatted = Self::get_formatted_call(call.into());
-		let bounded_proposal = <T as Democracy::Config>::Preimages::bound(call_formatted.into())
-			.expect("Operation failed");
-		bounded_proposal
-	}
-
 	pub fn start_dem_referendum(
 		caller:ProjectId<T>,
 		proposal_call: pallet::Call<T>,
-		delay: BlockNumberFor<T>,
-	) {
-		let proposal = Box::new(Self::get_formatted_call(proposal_call.into()));
-		let call = Call::<T>::execute_call_dispatch { caller: caller.clone(), proposal };
+	) -> Result<u32, DispatchError>{
+		let proposal0= Box::new(Self::get_formatted_call(proposal_call.into()));
+		let call = Call::<T>::execute_call_dispatch { caller: caller.clone(), proposal: proposal0 };
 		let call_formatted = Self::get_formatted_call(call.into());
-		let proposal = T::Governance::create_proposal(caller,call_formatted.into());
+		let proposal = T::Governance::create_proposal(caller.clone(),call_formatted.into());
+		
+		let index= T::Governance::submit_proposal(caller, proposal)?;
+		Ok(index)
 		
 	}
 
@@ -159,14 +149,6 @@ impl<T: Config> Pallet<T> {
 		T::PotId::get().into_account_truncating()
 	}
 
-	pub fn convert_balance(amount: BalanceOf<T>) -> Option<BalanceOfD<T>> {
-		let value = match TryInto::<u128>::try_into(amount) {
-			Ok(val) => TryInto::<BalanceOfD<T>>::try_into(val).ok(),
-			Err(_) => None,
-		};
-
-		value
-	}
 	/// Funds transfer from the Pot to a project account
 	pub fn spend(amount: BalanceOf<T>, beneficiary: AccountIdOf<T>) -> DispatchResult {
 		// Get Pot account
