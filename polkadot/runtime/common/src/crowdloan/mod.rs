@@ -625,7 +625,7 @@ pub mod pallet {
 		pub fn add_memo(origin: OriginFor<T>, index: ParaId, memo: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(memo.len() <= T::MaxMemoLength::get().into(), Error::<T>::MemoTooLarge);
+			ensure!(memo.len() <= T::MaxMemoLength::get() as usize, Error::<T>::MemoTooLarge);
 			let fund = Funds::<T>::get(index).ok_or(Error::<T>::InvalidParaId)?;
 
 			let (balance, _) = Self::contribution_get(fund.fund_index, &who);
