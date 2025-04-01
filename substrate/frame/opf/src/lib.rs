@@ -55,7 +55,6 @@ pub use pallet::*;
 mod functions;
 mod traits;
 mod types;
-pub use pallet_democracy as Democracy;
 pub use traits::*;
 pub use types::*;
 
