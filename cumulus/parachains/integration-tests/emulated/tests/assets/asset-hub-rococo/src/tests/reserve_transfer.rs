@@ -256,6 +256,7 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 		864_610_000,
 		8799,
 	)));
+
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
@@ -270,11 +271,9 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 				),
 				amount: *amount == t.args.amount,
 			},
-			// Native asset to pay for fees is transferred to Parachain's Sovereign account
+			// Native asset to pay for fees is transferred to Treasury
 			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
-				who: *who == AssetHubRococo::sovereign_account_id_of(
-					t.args.dest.clone()
-				),
+				who: *who == TreasuryAccount::get(),
 			},
 			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(

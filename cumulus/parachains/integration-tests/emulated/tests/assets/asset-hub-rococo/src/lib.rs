@@ -55,7 +55,7 @@ mod imports {
 				self,
 				xcm_config::{
 					self as ahr_xcm_config, TokenLocation as RelayLocation,
-					XcmConfig as AssetHubRococoXcmConfig,
+					XcmConfig as AssetHubRococoXcmConfig, TreasuryAccount
 				},
 				AssetConversionOrigin as AssetHubRococoAssetConversionOrigin,
 				ExistentialDeposit as AssetHubRococoExistentialDeposit,

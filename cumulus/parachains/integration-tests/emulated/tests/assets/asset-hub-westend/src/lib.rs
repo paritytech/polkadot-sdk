@@ -55,7 +55,7 @@ mod imports {
 				self,
 				xcm_config::{
 					self as ahw_xcm_config, WestendLocation as RelayLocation,
-					XcmConfig as AssetHubWestendXcmConfig,
+					XcmConfig as AssetHubWestendXcmConfig, TreasuryAccount
 				},
 				AssetConversionOrigin as AssetHubWestendAssetConversionOrigin,
 				ExistentialDeposit as AssetHubWestendExistentialDeposit,

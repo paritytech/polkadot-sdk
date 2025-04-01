@@ -271,9 +271,7 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 			},
 			// Native asset to pay for fees is transferred to Parachain's Sovereign account
 			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
-				who: *who == AssetHubWestend::sovereign_account_id_of(
-					t.args.dest.clone()
-				),
+				who: *who == TreasuryAccount::get(),
 			},
 			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(
