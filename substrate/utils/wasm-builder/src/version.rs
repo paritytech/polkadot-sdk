@@ -113,7 +113,7 @@ impl Ord for Version {
 
 		to_compare
 			.iter()
-			.find_map(|(l, r)| if l != r { l.as_ref().partial_cmp(&r.as_ref()) } else { None })
+			.find_map(|(l, r)| if l != r { l.partial_cmp(r) } else { None })
 			// We already checked this right at the beginning, so we should never return here
 			// `Equal`.
 			.unwrap_or(Ordering::Equal)
