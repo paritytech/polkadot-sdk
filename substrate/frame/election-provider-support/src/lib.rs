@@ -159,6 +159,14 @@
 //!         fn status() -> Result<bool, ()> {
 //!             unimplemented!()
 //!         }
+//!
+//! 		fn duration() -> Self::BlockNumber {
+//!         	todo!()
+//!     	}
+//!
+//! 		fn start() -> Result<(), Self::Error> {
+//!         	todo!()
+//!     	}
 //!     }
 //! }
 //!

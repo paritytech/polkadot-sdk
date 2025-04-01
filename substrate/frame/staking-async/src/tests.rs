@@ -3532,6 +3532,7 @@ fn slashing_independent_of_disabling_validator() {
 				session_events(),
 				vec![
 					SessionEvent::NewSession { session_index: 1 },
+					SessionEvent::NewQueued,
 					SessionEvent::NewSession { session_index: 2 },
 					SessionEvent::NewSession { session_index: 3 },
 					SessionEvent::ValidatorDisabled { validator: 11 }

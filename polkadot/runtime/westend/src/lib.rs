@@ -36,7 +36,10 @@ use frame_support::{
 	pallet_prelude::PhantomData,
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, Equals, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
+		EitherOfDiverse, EnsureOriginWithArg, Equals, EverythingBut, FromContains, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
+		VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -46,8 +49,8 @@ use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_nomination_pools::PoolId;
 use pallet_session::historical as session_historical;
-use pallet_staking_ah_client::{self as ah_client};
-use pallet_staking_rc_client::{self as rc_client};
+use pallet_staking_async_ah_client::{self as ah_client};
+use pallet_staking_async_rc_client::{self as rc_client};
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
 use pallet_xcm::EnsureXcm;
 use polkadot_primitives::{
@@ -772,7 +775,7 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type RcClientInterface = DummyRcClient; // Should be pallet_staking_rc_client on ah-next.
+	type RcClientInterface = DummyRcClient; // Should be pallet_staking_async_rc_client on ah-next.
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type NextNewSession = Session;
@@ -869,7 +872,7 @@ impl<T: SendXcm> XcmToAssetHub<T> {
 	}
 }
 
-impl pallet_staking_ah_client::Config for Runtime {
+impl pallet_staking_async_ah_client::Config for Runtime {
 	type AssetHubOrigin = frame_support::traits::EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		EnsureXcm<Equals<AssetHubLocation>>,
@@ -1897,7 +1900,7 @@ mod runtime {
 	#[runtime::pallet_index(66)]
 	pub type Coretime = coretime;
 	#[runtime::pallet_index(67)]
-	pub type AssetHubStakingClient = pallet_staking_ah_client;
+	pub type AssetHubStakingClient = pallet_staking_async_ah_client;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
