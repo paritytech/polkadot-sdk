@@ -41,7 +41,6 @@ assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
 num_cpus = { workspace = true }
 paste = { workspace = true, default-features = true }
-regex = { workspace = true }
 sc-runtime-test = { workspace = true }
 sc-tracing = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
