@@ -19,9 +19,14 @@ use super::{
 	ParachainSystem, PolkadotXcm, RandomParaLocation, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
+use crate::bridge_to_ethereum_config::{AssetHubLocation, SnowbridgeFrontendLocation};
+use bridge_hub_common::DenyExportMessageFrom;
 use frame_support::{
 	parameter_types,
-	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{
+		tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, EverythingBut,
+		Nothing,
+	},
 };
 use frame_system::EnsureRoot;
 use pallet_collator_selection::StakingPotAccountId;
@@ -135,7 +140,15 @@ impl Contains<Location> for ParentOrParentsPlurality {
 
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
-		DenyRecursively<DenyReserveTransferToRelayChain>,
+		(
+			DenyRecursively<DenyReserveTransferToRelayChain>,
+			DenyRecursively<
+				DenyExportMessageFrom<
+					EverythingBut<Equals<AssetHubLocation>>,
+					Equals<EthereumNetwork>,
+				>,
+			>,
+		),
 		(
 			// Allow local users to buy weight credit.
 			TakeWeightCredit,
@@ -151,6 +164,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
+						Equals<SnowbridgeFrontendLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
@@ -224,8 +238,11 @@ impl xcm_executor::Config for XcmConfig {
 			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 		),
 	>;
-	type MessageExporter =
-		(XcmOverBridgeHubRococo, crate::bridge_to_ethereum_config::SnowbridgeExporter);
+	type MessageExporter = (
+		XcmOverBridgeHubRococo,
+		crate::bridge_to_ethereum_config::SnowbridgeExporterV2,
+		crate::bridge_to_ethereum_config::SnowbridgeExporter,
+	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
