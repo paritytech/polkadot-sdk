@@ -285,7 +285,8 @@ pub mod vrf {
 
 	/// VRF signature.
 	///
-	/// Includes both the VRF proof and the pre-output generated from the [`VrfSignData::input`].
+	/// Includes both the VRF proof and the pre-output generated from the
+	/// [`VrfSignData::vrf_input`].
 	///
 	/// Refer to [`VrfSignData`] for more details.
 	#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
@@ -390,7 +391,7 @@ pub mod ring_vrf {
 	pub const RING_VERIFIER_KEY_SERIALIZED_SIZE: usize = 384;
 	/// [`RingProof`] serialized size.
 	pub(crate) const RING_PROOF_SERIALIZED_SIZE: usize = 752;
-	/// [`RingVrrfSignature`] serialized size.
+	/// [`RingVrfSignature`] serialized size.
 	pub const RING_SIGNATURE_SERIALIZED_SIZE: usize =
 		RING_PROOF_SERIALIZED_SIZE + PREOUT_SERIALIZED_SIZE;
 
