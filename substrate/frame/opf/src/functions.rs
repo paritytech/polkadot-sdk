@@ -31,17 +31,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn start_dem_referendum(
-		caller:ProjectId<T>,
+		caller: ProjectId<T>,
 		proposal_call: pallet::Call<T>,
-	) -> Result<u32, DispatchError>{
-		let proposal0= Box::new(Self::get_formatted_call(proposal_call.into()));
+	) -> Result<u32, DispatchError> {
+		let proposal0 = Box::new(Self::get_formatted_call(proposal_call.into()));
 		let call = Call::<T>::execute_call_dispatch { caller: caller.clone(), proposal: proposal0 };
 		let call_formatted = Self::get_formatted_call(call.into());
-		let proposal = T::Governance::create_proposal(caller.clone(),call_formatted.into());
-		
-		let index= T::Governance::submit_proposal(caller, proposal)?;
+		let proposal = T::Governance::create_proposal(call_formatted.into());
+
+		let index = T::Governance::submit_proposal(caller, proposal)?;
 		Ok(index)
-		
 	}
 
 	// Helper function for voting action. Existing votes are over-written, and Hold is adjusted
@@ -52,7 +51,7 @@ impl<T: Config> Pallet<T> {
 		fund: bool,
 		conviction: Conviction,
 	) -> DispatchResult {
-		let origin = T::RuntimeOrigin::from(RawOrigin::Signed(voter_id.clone()));
+		let _origin = T::RuntimeOrigin::from(RawOrigin::Signed(voter_id.clone()));
 		if !ProjectFunds::<T>::contains_key(&project) {
 			let fund = Funds {
 				positive_funds: BalanceOf::<T>::zero(),

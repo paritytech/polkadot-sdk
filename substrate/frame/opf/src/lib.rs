@@ -38,8 +38,8 @@
 //! ## Interface
 //!
 //! ### Permissioned Calls
-//! * `register_projects_batch`: Allows a AdminOrigin to register a list of whitelisted projects
-//!   for funding allocation
+//! * `register_projects_batch`: Allows a AdminOrigin to register a list of whitelisted projects for
+//!   funding allocation
 //! * `unregister_project`: Allows an AdminOrigin to unregister a previously whitelisted project
 //!
 //! ### Permissionless Calls
@@ -78,14 +78,17 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config{
+	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RuntimeCall: Parameter
 			+ UnfilteredDispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
 			+ From<Call<Self>>
 			+ Into<<Self as frame_system::Config>::RuntimeCall>
-			+ Into<<Self::Governance as traits::ReferendumTrait<<Self as frame_system::Config>::AccountId>>::Call>
-			+ GetDispatchInfo;
+			+ Into<
+				<Self::Governance as traits::ReferendumTrait<
+					<Self as frame_system::Config>::AccountId,
+				>>::Call,
+			> + GetDispatchInfo;
 		/// The admin origin that can list and un-list whitelisted projects.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -297,7 +300,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			projects_id: BoundedVec<ProjectId<T>, T::MaxProjects>,
 		) -> DispatchResult {
-			let _= T::AdminOrigin::ensure_origin(origin.clone())?;
+			let _ = T::AdminOrigin::ensure_origin(origin.clone())?;
 			let who = ensure_signed(origin)?;
 			// Only 1 batch submission per round
 			let mut round_index = NextVotingRoundNumber::<T>::get();
@@ -331,11 +334,8 @@ pub mod pallet {
 
 				// Prepare the proposal call
 				let call = Call::<T>::on_registration { project_id: project_id.clone() };
-			
-				let referendum_index = Self::start_dem_referendum(
-					who.clone(), 
-					call,
-				)?;
+
+				let referendum_index = Self::start_dem_referendum(who.clone(), call)?;
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 					.ok_or(Error::<T>::NoProjectAvailable)?;
 				new_infos.index = referendum_index;
@@ -451,7 +451,7 @@ pub mod pallet {
 			let account_vote = T::Conviction::vote_data(fund, conv, converted_amount);
 			T::Conviction::try_vote(&voter, ref_index.into(), account_vote)?;
 
-			//Self::try_vote(voter.clone(), project_id.clone(), amount, fund, conviction)?;
+			Self::try_vote(voter.clone(), project_id.clone(), amount, fund, conviction)?;
 
 			Self::deposit_event(Event::<T>::VoteCasted { who: voter, project_id });
 
@@ -571,7 +571,7 @@ pub mod pallet {
 							project_id: infos.project_id.clone(),
 						});
 					},
-					Some(ReferendumStates::Rejected )=>
+					Some(ReferendumStates::Rejected) =>
 						Self::deposit_event(Event::ProjectFundingRejected { project_id }),
 					Some(ReferendumStates::Ongoing) => (),
 					None => (),

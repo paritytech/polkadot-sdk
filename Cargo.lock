@@ -12645,7 +12645,6 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-conviction-voting",
- "pallet-democracy",
  "pallet-preimage",
  "pallet-referenda",
  "pallet-scheduler",

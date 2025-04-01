@@ -41,7 +41,7 @@ pub use frame_support::{
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use pallet_conviction_voting::{Conviction, Tally};
-pub use pallet_referenda::{ReferendumIndex, PalletsOriginOf};
+pub use pallet_referenda::{PalletsOriginOf, ReferendumIndex};
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::{
 	traits::{
@@ -69,7 +69,7 @@ pub type ProvidedBlockNumberFor<T> =
 pub use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
-pub enum ReferendumStates{
+pub enum ReferendumStates {
 	Ongoing,
 	Approved,
 	Rejected,

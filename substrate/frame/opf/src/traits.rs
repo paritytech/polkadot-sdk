@@ -1,27 +1,24 @@
 pub use super::*;
 use frame_support::traits::{ReservableCurrency, VoteTally};
-use pallet_referenda::{TallyOf, Deposit, TracksInfo};
-
+use pallet_referenda::{Deposit, TallyOf, TracksInfo};
 
 pub trait ReferendumTrait<AccountId> {
-	type Index: From<u32> +Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
+	type Index: From<u32>
+		+ Parameter
+		+ Member
+		+ Ord
+		+ PartialOrd
+		+ Copy
+		+ HasCompact
+		+ MaxEncodedLen;
 	type Proposal: Parameter + Member + MaxEncodedLen;
 	type ReferendumInfo: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone;
 	type Preimages;
 	type Call;
 	type Moment;
 
-
-	fn create_proposal(
-		caller: AccountId,
-		proposal_call: Self::Call,
-	) -> Self::Proposal;
-
-	fn submit_proposal(
-		caller: AccountId,
-		proposal: Self::Proposal,
-	) -> Result<u32,DispatchError>;
-
+	fn create_proposal(proposal_call: Self::Call) -> Self::Proposal;
+	fn submit_proposal(caller: AccountId, proposal: Self::Proposal) -> Result<u32, DispatchError>;
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo>;
 	fn handle_referendum_info(infos: Self::ReferendumInfo) -> Option<ReferendumStates>;
 }
@@ -29,18 +26,25 @@ pub trait ReferendumTrait<AccountId> {
 pub trait ConvictionVotingTrait<AccountId> {
 	type Vote;
 	type AccountVote;
-	type Index: From<u32> + Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
+	type Index: From<u32>
+		+ Parameter
+		+ Member
+		+ Ord
+		+ PartialOrd
+		+ Copy
+		+ HasCompact
+		+ MaxEncodedLen;
 	type Balance;
 	type Moment;
 
 	fn u128_to_balance(x: u128) -> Option<Self::Balance>;
-	fn vote_data(aye:bool, conviction: Conviction, balance: Self::Balance) -> Self::AccountVote;
+	fn vote_data(aye: bool, conviction: Conviction, balance: Self::Balance) -> Self::AccountVote;
 	fn try_vote(
 		caller: &AccountId,
 		ref_index: Self::Index,
 		vote: Self::AccountVote,
 	) -> DispatchResult;
-	fn try_remove_vote(caller: &AccountId,ref_index: Self::Index) -> DispatchResult;
+	fn try_remove_vote(caller: &AccountId, ref_index: Self::Index) -> DispatchResult;
 }
 
 impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<AccountIdOf<T>>
@@ -78,8 +82,8 @@ impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<A
 	}
 }
 
-impl<T: frame_system::Config + pallet_referenda::Config<I>, I: 'static> ReferendumTrait<AccountIdOf<T>>
-	for pallet_referenda::Pallet<T, I>
+impl<T: frame_system::Config + pallet_referenda::Config<I>, I: 'static>
+	ReferendumTrait<AccountIdOf<T>> for pallet_referenda::Pallet<T, I>
 where
 	<T as pallet_referenda::Config<I>>::RuntimeCall: Sync + Send,
 {
@@ -93,13 +97,8 @@ where
 	type Call = <T as frame_system::Config>::RuntimeCall;
 	type Moment = <T::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
-
-	fn create_proposal(
-		caller: AccountIdOf<T>,
-		proposal_call: Self::Call,
-	) -> Self::Proposal{
-		
-		let call_formatted= <T as pallet_referenda::Config<I>>::RuntimeCall::from(proposal_call);
+	fn create_proposal(proposal_call: Self::Call) -> Self::Proposal {
+		let call_formatted = <T as pallet_referenda::Config<I>>::RuntimeCall::from(proposal_call);
 		let bounded_proposal = Self::Preimages::bound(call_formatted).expect("Operation failed");
 		bounded_proposal
 	}
@@ -107,22 +106,22 @@ where
 	fn submit_proposal(
 		who: AccountIdOf<T>,
 		proposal: Self::Proposal,
-	) -> Result<u32,DispatchError>{
+	) -> Result<u32, DispatchError> {
 		let enactment_moment = DispatchTime::After(0u32.into());
 		let proposal_origin0 = RawOrigin::Root.into();
 		let proposal_origin = Box::new(proposal_origin0);
 		if let (Some(preimage_len), Some(proposal_len)) =
-				(proposal.lookup_hash().and_then(|h| Self::Preimages::len(&h)), proposal.lookup_len())
-			{
-				if preimage_len != proposal_len {
-					return Err(pallet_referenda::Error::<T, I>::PreimageStoredWithDifferentLength.into())
-				}
+			(proposal.lookup_hash().and_then(|h| Self::Preimages::len(&h)), proposal.lookup_len())
+		{
+			if preimage_len != proposal_len {
+				return Err(pallet_referenda::Error::<T, I>::PreimageStoredWithDifferentLength.into())
 			}
-			let track =
-			T::Tracks::track_for(&proposal_origin).map_err(|_| pallet_referenda::Error::<T, I>::NoTrack)?;
+		}
+		let track = T::Tracks::track_for(&proposal_origin)
+			.map_err(|_| pallet_referenda::Error::<T, I>::NoTrack)?;
 		T::Currency::reserve(&who, T::SubmissionDeposit::get())?;
 		let amount = T::SubmissionDeposit::get();
-		let submission_deposit = Deposit { who, amount};
+		let submission_deposit = Deposit { who, amount };
 		let index = pallet_referenda::ReferendumCount::<T, I>::mutate(|x| {
 			let r = *x;
 			*x += 1;
@@ -130,10 +129,11 @@ where
 		});
 		let now = T::BlockNumberProvider::current_block_number();
 		let nudge_call =
-			T::Preimages::bound(<<T as pallet_referenda::Config<I>>::RuntimeCall>::from(pallet_referenda::Call::nudge_referendum { index }))?;
-		
+			T::Preimages::bound(<<T as pallet_referenda::Config<I>>::RuntimeCall>::from(
+				pallet_referenda::Call::nudge_referendum { index },
+			))?;
 
-			let alarm_interval = T::AlarmInterval::get().max(One::one());
+		let alarm_interval = T::AlarmInterval::get().max(One::one());
 		// Alarm must go off no earlier than `when`.
 		// This rounds `when` upwards to the next multiple of `alarm_interval`.
 		let when0 = now.saturating_add(T::UndecidingTimeout::get());
@@ -156,33 +156,35 @@ where
 		);
 		let alarm = result.ok().map(|x| (when, x));
 
-			let status = pallet_referenda::ReferendumStatus {
-				track,
-				origin: *proposal_origin,
-				proposal: proposal.clone(),
-				enactment: enactment_moment,
-				submitted: now,
-				submission_deposit,
-				decision_deposit: None,
-				deciding: None,
-				tally: TallyOf::<T, I>::new(track),
-				in_queue: false,
-				alarm,
-			};
-			pallet_referenda::ReferendumInfoFor::<T, I>::insert(index, Self::ReferendumInfo::Ongoing(status));
-			Ok(index)
+		let status = pallet_referenda::ReferendumStatus {
+			track,
+			origin: *proposal_origin,
+			proposal: proposal.clone(),
+			enactment: enactment_moment,
+			submitted: now,
+			submission_deposit,
+			decision_deposit: None,
+			deciding: None,
+			tally: TallyOf::<T, I>::new(track),
+			in_queue: false,
+			alarm,
+		};
+		pallet_referenda::ReferendumInfoFor::<T, I>::insert(
+			index,
+			Self::ReferendumInfo::Ongoing(status),
+		);
+		Ok(index)
 	}
 
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo> {
 		pallet_referenda::ReferendumInfoFor::<T, I>::get(index)
 	}
-	fn handle_referendum_info(infos: Self::ReferendumInfo) -> Option<ReferendumStates>{
+	fn handle_referendum_info(infos: Self::ReferendumInfo) -> Option<ReferendumStates> {
 		match infos {
 			Self::ReferendumInfo::Approved(..) => Some(ReferendumStates::Approved),
-			Self::ReferendumInfo::Rejected(..) => Some(ReferendumStates::Rejected),			
+			Self::ReferendumInfo::Rejected(..) => Some(ReferendumStates::Rejected),
 			Self::ReferendumInfo::Ongoing(..) => Some(ReferendumStates::Ongoing),
-			_ =>None,
-
+			_ => None,
 		}
 	}
 }
