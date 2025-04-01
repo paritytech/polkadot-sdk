@@ -31,13 +31,6 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 	)
 }
 
-#[cfg(not(feature = "std"))]
-#[panic_handler]
-#[no_mangle]
-pub fn panic(_info: &core::panic::PanicInfo) -> ! {
-	core::arch::wasm32::unreachable();
-}
-
 #[cfg(enable_alloc_error_handler)]
 #[alloc_error_handler]
 #[no_mangle]
@@ -47,6 +40,16 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 
 #[cfg(not(feature = "std"))]
 #[no_mangle]
-pub extern "C" fn validate_block(_params: *const u8, _len: usize) -> u64 {
+pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
+	type Block = sp_runtime::generic::Block<
+		sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+		sp_runtime::OpaqueExtrinsic,
+	>;
+	let params = unsafe {
+		cumulus_pallet_parachain_system::validate_block::slice::from_raw_parts(params, len)
+	};
+	cumulus_pallet_parachain_system::validate_block::implementation::proceed_storage_access::<Block>(
+		params,
+	);
 	1
 }

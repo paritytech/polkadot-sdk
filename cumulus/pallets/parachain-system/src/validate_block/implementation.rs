@@ -16,7 +16,7 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams, StorageAccessParams};
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
@@ -420,3 +420,74 @@ fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option
 fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 
 fn host_offchain_index_clear(_key: &[u8]) {}
+
+pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
+	use codec::Decode;
+	use sp_state_machine::Backend;
+
+	let StorageAccessParams { state_root, storage_proof, keys } =
+		StorageAccessParams::<B>::decode(&mut params)
+			.expect("Invalid arguments to `validate_block`.");
+	// Create the db
+	let db = match storage_proof.to_memory_db(Some(&state_root)) {
+		Ok((db, _)) => db,
+		Err(_) => panic!("Compact proof decoding failure."),
+	};
+
+	let mut recorder = SizeOnlyRecorderProvider::new();
+	let cache_provider = trie_cache::CacheProvider::new();
+	// We use the storage root of the `parent_head` to ensure that it is the correct root.
+	// This is already being done above while creating the in-memory db, but let's be paranoid!!
+	let backend: TrieBackend<B> =
+		sp_state_machine::TrieBackendBuilder::new_with_cache(db, state_root, cache_provider)
+			.with_recorder(recorder.clone())
+			.build();
+
+	let _guard = (
+		// Replace storage calls with our own implementations
+		sp_io::storage::host_read.replace_implementation(host_storage_read),
+		sp_io::storage::host_set.replace_implementation(host_storage_set),
+		sp_io::storage::host_get.replace_implementation(host_storage_get),
+		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
+		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
+		sp_io::storage::host_root.replace_implementation(host_storage_root),
+		sp_io::storage::host_clear_prefix.replace_implementation(host_storage_clear_prefix),
+		sp_io::storage::host_append.replace_implementation(host_storage_append),
+		sp_io::storage::host_next_key.replace_implementation(host_storage_next_key),
+		sp_io::storage::host_start_transaction
+			.replace_implementation(host_storage_start_transaction),
+		sp_io::storage::host_rollback_transaction
+			.replace_implementation(host_storage_rollback_transaction),
+		sp_io::storage::host_commit_transaction
+			.replace_implementation(host_storage_commit_transaction),
+		sp_io::default_child_storage::host_get
+			.replace_implementation(host_default_child_storage_get),
+		sp_io::default_child_storage::host_read
+			.replace_implementation(host_default_child_storage_read),
+		sp_io::default_child_storage::host_set
+			.replace_implementation(host_default_child_storage_set),
+		sp_io::default_child_storage::host_clear
+			.replace_implementation(host_default_child_storage_clear),
+		sp_io::default_child_storage::host_storage_kill
+			.replace_implementation(host_default_child_storage_storage_kill),
+		sp_io::default_child_storage::host_exists
+			.replace_implementation(host_default_child_storage_exists),
+		sp_io::default_child_storage::host_clear_prefix
+			.replace_implementation(host_default_child_storage_clear_prefix),
+		sp_io::default_child_storage::host_root
+			.replace_implementation(host_default_child_storage_root),
+		sp_io::default_child_storage::host_next_key
+			.replace_implementation(host_default_child_storage_next_key),
+		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
+		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
+			.replace_implementation(host_storage_proof_size),
+	);
+
+	for key in keys {
+		backend
+			.storage(key.0.as_ref())
+			.expect("Key not found")
+			.ok_or("Value unexpectedly empty");
+	}
+}

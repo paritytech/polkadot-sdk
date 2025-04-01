@@ -68,3 +68,11 @@ pub struct MemoryOptimizedValidationParams {
 	pub relay_parent_number: cumulus_primitives_core::relay_chain::BlockNumber,
 	pub relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
 }
+
+#[derive(codec::Decode)]
+#[cfg_attr(feature = "std", derive(codec::Encode))]
+pub struct StorageAccessParams<B: sp_runtime::traits::Block> {
+	pub state_root: B::Hash,
+	pub storage_proof: sp_trie::CompactProof,
+	pub keys: crate::Vec<sp_core::storage::StorageKey>,
+}
