@@ -24,7 +24,6 @@ use frame_support::{
 };
 use pallet_bridge_grandpa::SubmitFinalityProofHelper;
 use sp_runtime::{
-	traits::Zero,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	RuntimeDebug,
 };
@@ -108,7 +107,7 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 					.0
 					.checked_sub(stored_best_head.best_head_hash.at_relay_block_number)
 				{
-					Some(improved_by) if improved_by > Zero::zero() => improved_by,
+					Some(improved_by) if improved_by > 0 => improved_by,
 					_ => {
 						log::trace!(
 							target: crate::LOG_TARGET,
