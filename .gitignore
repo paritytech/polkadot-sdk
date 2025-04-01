@@ -42,3 +42,7 @@ target/
 *.scale
 justfile
 rustc-ice-*
+.bacon-locations
+bacon.log
+bacon-ls.log
+.config/bacon.toml

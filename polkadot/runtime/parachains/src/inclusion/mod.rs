@@ -1320,7 +1320,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
 	) -> Result<(), AcceptanceCheckErr> {
 		ensure!(
-			head_data.0.len() <= self.config.max_head_data_size as _,
+			head_data.0.len() <= self.config.max_head_data_size as usize,
 			AcceptanceCheckErr::HeadDataTooLarge,
 		);
 
@@ -1331,7 +1331,7 @@ impl<T: Config> CandidateCheckContext<T> {
 				AcceptanceCheckErr::PrematureCodeUpgrade,
 			);
 			ensure!(
-				new_validation_code.0.len() <= self.config.max_code_size as _,
+				new_validation_code.0.len() <= self.config.max_code_size as usize,
 				AcceptanceCheckErr::NewCodeTooLarge,
 			);
 		}
