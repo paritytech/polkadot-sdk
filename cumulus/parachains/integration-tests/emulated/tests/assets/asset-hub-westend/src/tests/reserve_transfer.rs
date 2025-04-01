@@ -195,7 +195,7 @@ pub fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	AssetHubWestend::assert_xcmp_queue_success(None);
 
-	let sov_acc_of_penpal = AssetHubWestend::sovereign_account_id_of(t.args.dest.clone());
+	let sov_acc_of_penpal = AssetHubWestend::sovereign_account_id_of(Location::new(1, Parachain(PenpalA::para_id().into())));
 	for (idx, asset) in t.args.assets.into_inner().into_iter().enumerate() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
 		let asset_amount = if let Fungible(a) = asset.fun { Some(a) } else { None }.unwrap();
