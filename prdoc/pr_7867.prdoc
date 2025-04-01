@@ -1,4 +1,4 @@
-title: benchmark: storage: Make read/write benchmarks more accurate
+title: benchmark/storage Make read/write benchmarks more accurate
 
 doc:
 - audience: [Runtime Dev, Node Dev]
