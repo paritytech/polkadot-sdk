@@ -1,0 +1,15 @@
+title: '[stable2412] Backport #8094'
+doc:
+- audience: Todo
+  description: |-
+    Backport #8094 into `stable2412` from saiintbrisson.
+
+    See the [documentation](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) on how to use this bot.
+
+    <!--
+      # To be used by other automation, do not modify:
+      original-pr-number: #${pull_number}
+    -->
+crates:
+- name: sc-network-sync
+  bump: major
