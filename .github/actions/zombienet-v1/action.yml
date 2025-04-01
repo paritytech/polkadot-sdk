@@ -38,16 +38,12 @@ runs:
           --local-dir="${{ inputs.local-dir }}" \
           --concurrency=${{ inputs.concurrency }} \
           --test="${{ inputs.test }}"
-      continue-on-error: true
 
     - name: upload_logs
       uses: actions/upload-artifact@v4
+      if: ${{ ! cancelled() }}
       with:
         name: zombienet-logs-${{ github.job }}-${{ github.sha }}
         path: |
           /tmp/zombie*/logs/*
-      continue-on-error: true
 
-    - name: report_failure
-      if: steps.zombie_test.outcome != 'success'
-      run: exit 1
