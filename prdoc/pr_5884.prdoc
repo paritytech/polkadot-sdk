@@ -1,0 +1,36 @@
+title: Set PoV size limit to 10 Mb
+doc:
+- audience: Runtime Dev
+  description: |-
+    Okay, enough theory, let's kick it off. Closes #5334.
+
+    What are the implications from my point of view right now:
+
+    ### After this PR is merged
+
+    All the new chains (including test ones) started from genesis will support 10 Mb PoVs.
+
+    If some parachain updates to the SDK version containing this value and then upgrades its runtime, the runtime will allow for 10 Mb PoVs while the relay chain still has a 5 Mb limit. I don't think it's a problem because the collator building a block will be limited by the PoV size limit stored in the persistent validation data (or even half of that limit if the `full-pov-size` feature is not enabled). That may lead to overshooting some per-dispatch-class limits but not the absolute PoV size limits, which is safe. Still, a malicious collator can build a block that the relay chain will reject. I'm not 100% sure if we need to take care of such a thing as a "malicious collator". If that's a concern, the possibility of temporarily using another constant for parachains is discussible.
+
+    ### After this change is propagated to the fellowship runtimes
+
+    After a new relay chain runtime version with this value is released and the runtime upgrade is performed, it will theoretically allow for a 10 Mb PoV size, but the on-chain limit will still remain at 5 Mb.
+
+    ### After governance changes the `max_pov_size` config value
+
+    Everything supports 10 Mb PoVs now.
+
+    @acatangiu please comment on implications for bridges, I see it's used in bridges code, but not sure if any special treatment is needed.
+crates:
+- name: polkadot-primitives
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: polkadot-omni-node
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor
