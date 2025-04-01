@@ -692,7 +692,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 		// Check the core index
 		let (maybe_core_index_selector, cq_offset) = signals
 			.core_selector()
-			.map(|(selector, offset)| (Some(selector.clone()), offset.clone()))
+			.map(|(selector, offset)| (Some(selector), offset))
 			.unwrap_or_else(|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)));
 
 		self.check_core_index(cores_per_para, maybe_core_index_selector, cq_offset)?;
