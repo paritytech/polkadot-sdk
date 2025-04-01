@@ -2,22 +2,24 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Governance API for controlling the Ethereum side of the bridge
 use super::*;
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::{
+	migrations::VersionedMigration, pallet_prelude::*, traits::OnRuntimeUpgrade, weights::Weight,
+};
 use log;
+use sp_std::marker::PhantomData;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
-pub mod v0 {
-	use frame_support::{pallet_prelude::*, weights::Weight};
+const LOG_TARGET: &str = "ethereum_system::migration";
 
+pub mod v0 {
 	use super::*;
 
-	const LOG_TARGET: &str = "ethereum_system::migration";
-
 	pub struct InitializeOnUpgrade<T, BridgeHubParaId, AssetHubParaId>(
-		sp_std::marker::PhantomData<(T, BridgeHubParaId, AssetHubParaId)>,
+		PhantomData<(T, BridgeHubParaId, AssetHubParaId)>,
 	);
+
 	impl<T, BridgeHubParaId, AssetHubParaId> OnRuntimeUpgrade
 		for InitializeOnUpgrade<T, BridgeHubParaId, AssetHubParaId>
 	where
@@ -72,3 +74,74 @@ pub mod v0 {
 		}
 	}
 }
+
+pub mod v1 {
+	use super::*;
+
+	/// Halves the gas price.
+	pub struct UncheckedGasPriceMigration<T>(PhantomData<T>);
+
+	impl<T> OnRuntimeUpgrade for UncheckedGasPriceMigration<T>
+	where
+		T: Config,
+	{
+		fn on_runtime_upgrade() -> Weight {
+
+			let pricing_parameters = Pallet::<T>::parameters();
+			pricing_parameters.
+			// if !Pallet::<T>::is_initialized() {
+			// 	Pallet::<T>::initialize(
+			// 		BridgeHubParaId::get().into(),
+			// 		AssetHubParaId::get().into(),
+			// 	)
+			// 	.expect("infallible; qed");
+			// 	log::info!(
+			// 		target: LOG_TARGET,
+			// 		"Ethereum system initialized."
+			// 	);
+			// 	T::DbWeight::get().reads_writes(2, 5)
+			// } else {
+			// 	log::info!(
+			// 		target: LOG_TARGET,
+			// 		"Ethereum system already initialized. Skipping."
+			// 	);
+			// 	T::DbWeight::get().reads(2)
+			// }
+
+			log::info!(
+				target: LOG_TARGET,
+				"Gas migrated."
+			);
+			T::DbWeight::get().reads(0)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let pricing_parameters = Pallet::<T>::parameters();
+			log::info!(
+				target: LOG_TARGET,
+				"Pre gas migration pricing parameters = {pricing_parameters:?}"
+			);
+			Ok(vec![])
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let pricing_parameters = Pallet::<T>::parameters();
+			log::info!(
+				target: LOG_TARGET,
+				"Pre gas migration pricing parameters = {pricing_parameters:?}"
+			);
+			Ok(())
+		}
+	}
+}
+
+/// Run the migration of the gas price and increment the pallet version so it cannot be re-run.
+pub type GasPriceMigrationV0ToV1<T> = VersionedMigration<
+	0,
+	1,
+	v1::UncheckedGasPriceMigration<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
