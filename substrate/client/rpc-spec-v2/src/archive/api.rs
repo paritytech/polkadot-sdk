@@ -36,8 +36,8 @@ pub trait ArchiveApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "archive_unstable_body")]
-	fn archive_unstable_body(&self, hash: Hash) -> RpcResult<Option<Vec<String>>>;
+	#[method(name = "archive_v1_body")]
+	fn archive_v1_body(&self, hash: Hash) -> RpcResult<Option<Vec<String>>>;
 
 	/// Get the chain's genesis hash.
 	///
@@ -46,8 +46,8 @@ pub trait ArchiveApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "archive_unstable_genesisHash")]
-	fn archive_unstable_genesis_hash(&self) -> RpcResult<String>;
+	#[method(name = "archive_v1_genesisHash")]
+	fn archive_v1_genesis_hash(&self) -> RpcResult<String>;
 
 	/// Get the block's header.
 	///
@@ -57,8 +57,8 @@ pub trait ArchiveApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "archive_unstable_header")]
-	fn archive_unstable_header(&self, hash: Hash) -> RpcResult<Option<String>>;
+	#[method(name = "archive_v1_header")]
+	fn archive_v1_header(&self, hash: Hash) -> RpcResult<Option<String>>;
 
 	/// Get the height of the current finalized block.
 	///
@@ -67,8 +67,8 @@ pub trait ArchiveApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "archive_unstable_finalizedHeight")]
-	fn archive_unstable_finalized_height(&self) -> RpcResult<u64>;
+	#[method(name = "archive_v1_finalizedHeight")]
+	fn archive_v1_finalized_height(&self) -> RpcResult<u64>;
 
 	/// Get the hashes of blocks from the given height.
 	///
@@ -78,16 +78,16 @@ pub trait ArchiveApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "archive_unstable_hashByHeight")]
-	fn archive_unstable_hash_by_height(&self, height: u64) -> RpcResult<Vec<String>>;
+	#[method(name = "archive_v1_hashByHeight")]
+	fn archive_v1_hash_by_height(&self, height: u64) -> RpcResult<Vec<String>>;
 
 	/// Call into the Runtime API at a specified block's state.
 	///
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "archive_unstable_call")]
-	fn archive_unstable_call(
+	#[method(name = "archive_v1_call")]
+	fn archive_v1_call(
 		&self,
 		hash: Hash,
 		function: String,
@@ -100,11 +100,11 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[subscription(
-		name = "archive_unstable_storage" => "archive_unstable_storageEvent",
-		unsubscribe = "archive_unstable_stopStorage",
+		name = "archive_v1_storage" => "archive_v1_storageEvent",
+		unsubscribe = "archive_v1_stopStorage",
 		item = ArchiveStorageEvent,
 	)]
-	fn archive_unstable_storage(
+	fn archive_v1_storage(
 		&self,
 		hash: Hash,
 		items: Vec<StorageQuery<String>>,
@@ -117,11 +117,11 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// This method is unstable and can change in minor or patch releases.
 	#[subscription(
-		name = "archive_unstable_storageDiff" => "archive_unstable_storageDiffEvent",
-		unsubscribe = "archive_unstable_storageDiff_stopStorageDiff",
+		name = "archive_v1_storageDiff" => "archive_v1_storageDiffEvent",
+		unsubscribe = "archive_v1_storageDiff_stopStorageDiff",
 		item = ArchiveStorageDiffEvent,
 	)]
-	fn archive_unstable_storage_diff(
+	fn archive_v1_storage_diff(
 		&self,
 		hash: Hash,
 		items: Vec<ArchiveStorageDiffItem<String>>,
