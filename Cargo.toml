@@ -430,16 +430,16 @@ members = [
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",
 	"substrate/frame/staking/runtime-api",
-	"substrate/frame/staking-next",
-	"substrate/frame/staking-next/ah-client",
-	"substrate/frame/staking-next/ahm-test",
-	"substrate/frame/staking-next/rc-client",
-	"substrate/frame/staking-next/reward-curve",
-	"substrate/frame/staking-next/reward-fn",
-	"substrate/frame/staking-next/runtime-api",
-	"substrate/frame/staking-next/runtimes/rc",
-	"substrate/frame/staking-next/runtimes/rc/constants",
-	"substrate/frame/staking-next/runtimes/parachain",
+	"substrate/frame/staking-async",
+	"substrate/frame/staking-async/ah-client",
+	"substrate/frame/staking-async/ahm-test",
+	"substrate/frame/staking-async/rc-client",
+	"substrate/frame/staking-async/reward-curve",
+	"substrate/frame/staking-async/reward-fn",
+	"substrate/frame/staking-async/runtime-api",
+	"substrate/frame/staking-async/runtimes/rc",
+	"substrate/frame/staking-async/runtimes/rc/constants",
+	"substrate/frame/staking-async/runtimes/parachain",
 	"substrate/frame/state-trie-migration",
 	"substrate/frame/statement",
 	"substrate/frame/sudo",
@@ -1026,15 +1026,15 @@ pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", d
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
 # TODO: remove the reward stuff as they are not needed here
-pallet-staking-next = { path = "substrate/frame/staking-next", default-features = false }
-pallet-staking-next-ah-client = { path = "substrate/frame/staking-next/ah-client", default-features = false }
-pallet-staking-next-rc-client = { path = "substrate/frame/staking-next/rc-client", default-features = false }
-pallet-staking-next-reward-curve = { path = "substrate/frame/staking-next/reward-curve", default-features = false }
-pallet-staking-next-reward-fn = { path = "substrate/frame/staking-next/reward-fn", default-features = false }
-pallet-staking-next-runtime-api = { path = "substrate/frame/staking-next/runtime-api", default-features = false }
-pallet-staking-next-rc-runtime = { path = "substrate/frame/staking-next/runtimes/rc" }
-pallet-staking-next-rc-runtime-constants = { path = "substrate/frame/staking-next/runtimes/rc/constants", default-features = false }
-pallet-staking-next-parachain = { path = "substrate/frame/staking-next/runtimes/parachain" }
+pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
+pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
+pallet-staking-async-rc-client = { path = "substrate/frame/staking-async/rc-client", default-features = false }
+pallet-staking-async-reward-curve = { path = "substrate/frame/staking-async/reward-curve", default-features = false }
+pallet-staking-async-reward-fn = { path = "substrate/frame/staking-async/reward-fn", default-features = false }
+pallet-staking-async-runtime-api = { path = "substrate/frame/staking-async/runtime-api", default-features = false }
+pallet-staking-async-rc-runtime = { path = "substrate/frame/staking-async/runtimes/rc" }
+pallet-staking-async-rc-runtime-constants = { path = "substrate/frame/staking-async/runtimes/rc/constants", default-features = false }
+pallet-staking-async-parachain = { path = "substrate/frame/staking-async/runtimes/parachain" }
 pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false }
 pallet-statement = { default-features = false, path = "substrate/frame/statement" }
 pallet-sudo = { path = "substrate/frame/sudo", default-features = false }
