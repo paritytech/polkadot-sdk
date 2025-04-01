@@ -196,8 +196,17 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 		Self::elect_with(election_bounds, page)
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn start() -> Result<(), Self::Error> {
+		// noop, we are always ready!
+		Ok(())
+	}
+
+	fn duration() -> Self::BlockNumber {
+		sp_runtime::traits::Zero::zero()
+	}
+
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 }
 

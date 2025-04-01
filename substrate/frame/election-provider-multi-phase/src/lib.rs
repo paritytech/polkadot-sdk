@@ -1818,10 +1818,27 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		res
 	}
 
-	fn ongoing() -> bool {
-		match CurrentPhase::<T>::get() {
-			Phase::Off => false,
-			_ => true,
+	fn duration() -> Self::BlockNumber {
+		let signed: BlockNumberFor<T> = T::SignedPhase::get().saturated_into();
+		let unsigned: BlockNumberFor<T> = T::UnsignedPhase::get().saturated_into();
+		signed + unsigned
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		log!(
+			warn,
+			"we received signal, but this pallet works in the basis of legacy pull based election"
+		);
+		Ok(())
+	}
+
+	fn status() -> Result<bool, ()> {
+		let has_queued = QueuedSolution::<T>::exists();
+		let phase = CurrentPhase::<T>::get();
+		match (phase, has_queued) {
+			(Phase::Unsigned(_), true) => Ok(true),
+			(Phase::Off, _) => Err(()),
+			_ => Ok(false),
 		}
 	}
 }
