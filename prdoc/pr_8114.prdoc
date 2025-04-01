@@ -2,7 +2,7 @@ title: '[stable2503] Backport #8094'
 doc:
 - audience: Node Dev 
   description: |-
-    Backport #8094 into `stable2503` from saiintbrisson.
+    Made an explicit usize conversion to disambiguate compilation. 
 crates:
 - name: sc-network-sync
   bump: patch 
