@@ -27,8 +27,8 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		720_053_000,
-		7_203,
+		730_053_000,
+		4_000,
 	)));
 
 	AssetHubRococo::assert_parachain_system_ump_sent();

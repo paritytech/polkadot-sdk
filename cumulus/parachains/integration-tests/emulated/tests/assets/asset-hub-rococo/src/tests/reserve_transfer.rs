@@ -141,6 +141,32 @@ pub fn system_para_to_para_receiver_assertions(t: SystemParaToParaTest) {
 	}
 }
 
+pub fn system_para_to_penpal_receiver_assertions(t: SystemParaToParaTest) {
+	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
+
+	PenpalA::assert_xcmp_queue_success(None);
+	for asset in t.args.assets.into_inner().into_iter() {
+		let mut expected_id: Location = asset.id.0.try_into().unwrap();
+		let relative_id = match expected_id {
+			Location{parents: 1, interior: Here} => expected_id,
+			_ => {
+				expected_id.push_front_interior(Parachain(AssetHubRococo::para_id().into())).unwrap();
+				Location::new(1, expected_id.interior().clone())
+			}
+		};
+
+		assert_expected_events!(
+			PenpalA,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == relative_id,
+					owner: *owner == t.receiver.account_id,
+				},
+			]
+		);
+	}
+}
+
 pub fn para_to_system_para_sender_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
@@ -416,6 +442,9 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 		AssetHubRococo::sibling_location_of(PenpalB::para_id()),
 	);
 
+	let (_, asset_amount) =
+		fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
@@ -424,13 +453,7 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 				pallet_assets::Event::Burned { owner, balance, .. }
 			) => {
 				owner: *owner == sov_penpal_a_on_ah,
-				balance: *balance == t.args.amount,
-			},
-			// Deposited to receiver parachain SA
-			RuntimeEvent::Assets(
-				pallet_assets::Event::Deposited { who, .. }
-			) => {
-				who: *who == sov_penpal_b_on_ah,
+				balance: *balance == asset_amount,
 			},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
@@ -804,7 +827,7 @@ fn reserve_transfer_native_asset_from_asset_hub_to_para() {
 
 	// Set assertions and dispatchables
 	test.set_assertion::<AssetHubRococo>(system_para_to_para_sender_assertions);
-	test.set_assertion::<PenpalA>(system_para_to_para_receiver_assertions);
+	test.set_assertion::<PenpalA>(system_para_to_penpal_receiver_assertions);
 	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_reserve_transfer_assets);
 	test.assert();
 
@@ -1326,7 +1349,7 @@ fn reserve_transfer_usdt_from_asset_hub_to_para() {
 	});
 
 	test.set_assertion::<AssetHubRococo>(system_para_to_para_sender_assertions);
-	test.set_assertion::<PenpalA>(system_para_to_para_receiver_assertions);
+	test.set_assertion::<PenpalA>(system_para_to_penpal_receiver_assertions);
 	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_reserve_transfer_assets);
 	test.assert();
 

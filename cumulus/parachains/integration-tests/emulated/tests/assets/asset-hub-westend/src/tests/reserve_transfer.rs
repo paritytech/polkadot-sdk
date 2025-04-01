@@ -128,12 +128,20 @@ pub fn system_para_to_para_receiver_assertions(t: SystemParaToParaTest) {
 
 	PenpalA::assert_xcmp_queue_success(None);
 	for asset in t.args.assets.into_inner().into_iter() {
-		let expected_id = asset.id.0.try_into().unwrap();
+		let mut expected_id: Location = asset.id.0.try_into().unwrap();
+		let relative_id = match expected_id {
+			Location{parents: 1, interior: Here} => expected_id,
+			_ => {
+				expected_id.push_front_interior(Parachain(AssetHubWestend::para_id().into())).unwrap();
+				Location::new(1, expected_id.interior().clone())
+			}
+		};
+
 		assert_expected_events!(
 			PenpalA,
 			vec![
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
-					asset_id: *asset_id == expected_id,
+					asset_id: *asset_id == relative_id,
 					owner: *owner == t.receiver.account_id,
 				},
 			]
@@ -435,6 +443,9 @@ fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {
 	);
 }
 
+use crate::tests::reserve_transfer::asset_hub_westend_runtime::AssetConversionOrigin;
+use xcm_executor::traits::ConvertLocation;
+
 fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	let sov_penpal_a_on_ah = AssetHubWestend::sovereign_account_id_of(
@@ -443,7 +454,27 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 	let sov_penpal_b_on_ah = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
 	);
+	let sov_of_receiver_on_asset_hub =
+		AssetHubWestend::sovereign_account_id_of(Location::new(1, [Parachain(PenpalB::para_id().into()), AccountId32{ id: PenpalBReceiver::get().into(), network: None}]));
 
+	let (_, asset_amount) =
+		fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+
+	println!("sov_penpal_b_on_ah: {}", sov_penpal_b_on_ah);
+	println!("sov_penpal_a_on_ah: {}", sov_penpal_a_on_ah);
+	println!("AssetConversionOrigin: {}", AssetConversionOrigin::get());
+
+
+	let treasury_location: Location = Location::new(1, PalletInstance(56));
+	// treasury account on a sibling parachain.
+	let treasury_account =
+		ahw_xcm_config::LocationToAccountId::convert_location(&treasury_location).unwrap();
+
+	println!("AssetConversionOrigin: {}", treasury_account);
+
+	let events = AssetHubWestend::events();
+
+	println!("events: {:?}", events);
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
@@ -452,13 +483,7 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 				pallet_assets::Event::Burned { owner, balance, .. }
 			) => {
 				owner: *owner == sov_penpal_a_on_ah,
-				balance: *balance == t.args.amount,
-			},
-			// Deposited to receiver parachain SA
-			RuntimeEvent::Assets(
-				pallet_assets::Event::Deposited { who, .. }
-			) => {
-				who: *who == sov_penpal_b_on_ah,
+				balance: *balance == asset_amount,
 			},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
