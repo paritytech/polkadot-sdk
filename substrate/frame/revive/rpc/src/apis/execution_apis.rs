@@ -175,7 +175,7 @@ pub trait EthRpc {
 	/// requested/supported block range.
 	///
 	/// Transaction fee history, which is introduced in EIP-1159.
-	#[method(name = "feeHistory")]
+	#[method(name = "eth_feeHistory")]
 	async fn fee_history(
 		&self,
 		block_count: U256,

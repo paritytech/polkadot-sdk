@@ -23,7 +23,7 @@ use jsonrpsee::{
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
-use sp_arithmetic::Permill;
+use sp_arithmetic::{traits::UniqueSaturatedInto, Permill};
 use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
 
@@ -367,6 +367,28 @@ impl EthRpcServer for EthRpcServerImpl {
 		reward_percentiles: Option<Vec<f64>>,
 	) -> RpcResult<FeeHistoryResult> {
 		// /home/pg/github/frontier/client/rpc/src/eth/fee.rs
-		todo!()
+		// The max supported range size is 1024 by spec.
+		let block_count = block_count.min(U256::from(1024)).as_u64();
+		let Some(block) = self.client.block_by_number_or_tag(&newest_block).await? else {
+			return Err(EthRpcError::ClientError(ClientError::BlockNotFound).into());
+		};
+		let number = block.number();
+
+		// Highest and lowest block number within the requested range.
+		let highest = UniqueSaturatedInto::<u64>::unique_saturated_into(number);
+		let lowest = highest.saturating_sub(block_count.saturating_sub(1));
+		let best_number = self.client.block_number().await?;
+
+		//// Only support in-cache queries.
+		//if lowest < best_number.saturating_sub(self.fee_history_cache_limit) {
+		//	return Err(EthRpcError::ClientError(ClientError::BlockRangeOutOfBounds).into());
+		//}
+
+		Ok(FeeHistoryResult {
+			oldest_block: U256::zero(),
+			base_fee_per_gas: vec![],
+			gas_used_ratio: vec![],
+			reward: vec![],
+		})
 	}
 }

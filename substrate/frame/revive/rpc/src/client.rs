@@ -119,7 +119,9 @@ pub enum ClientError {
 	/// The block hash was not found.
 	#[error("hash not found")]
 	BlockNotFound,
-
+	/// Block range out of bounds.
+	#[error("Block range out of bounds.")]
+	BlockRangeOutOfBounds,
 	#[error("No Ethereum extrinsic found")]
 	EthExtrinsicNotFound,
 	/// The transaction fee could not be found
