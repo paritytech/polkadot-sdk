@@ -16,8 +16,10 @@
 // limitations under the License.
 
 use frame_support::{
-	BoundedVec, CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
+	traits::DefensiveSaturating, BoundedVec, CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound,
+	PartialEqNoBound,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::Get;
 use sp_std::{collections::btree_set::BTreeSet, fmt::Debug, prelude::*};
 
@@ -27,7 +29,10 @@ use frame_election_provider_support::ElectionProvider;
 pub use frame_election_provider_support::{NposSolution, PageIndex};
 use scale_info::TypeInfo;
 pub use sp_npos_elections::{ElectionResult, ElectionScore};
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{
+	traits::{CheckedSub, One, Zero},
+	SaturatedConversion, Saturating,
+};
 
 /// The solution type used by this crate.
 pub type SolutionOf<T> = <T as MinerConfig>::Solution;
@@ -48,7 +53,7 @@ pub type AssignmentOf<T> =
 ///
 /// This is the representation of a stored, unverified solution.
 ///
-/// After feasibility, it is convered into `Supports`.
+/// After feasibility, it is converted into `Supports`.
 #[derive(
 	TypeInfo,
 	Encode,
@@ -66,7 +71,7 @@ pub type AssignmentOf<T> =
 pub struct PagedRawSolution<T: MinerConfig> {
 	/// The individual pages.
 	pub solution_pages: BoundedVec<SolutionOf<T>, <T as MinerConfig>::Pages>,
-	/// The final claimed score post feasibility and concatenation of all apges.
+	/// The final claimed score post feasibility and concatenation of all pages.
 	pub score: ElectionScore,
 	/// The designated round.
 	pub round: u32,
@@ -210,56 +215,39 @@ pub struct SolutionOrSnapshotSize {
 	pub targets: u32,
 }
 
-// TODO: we are not using this anywhere.
-/// The type of `Computation` that provided this election data.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-pub enum ElectionCompute {
-	/// Election was computed on-chain.
-	OnChain,
-	/// Election was computed with a signed submission.
-	Signed,
-	/// Election was computed with an unsigned submission.
-	Unsigned,
-	/// Election was computed with emergency status.
-	Emergency,
-}
-
-impl Default for ElectionCompute {
-	fn default() -> Self {
-		ElectionCompute::OnChain
-	}
-}
-
 /// Current phase of the pallet.
 #[derive(
-	PartialEq,
-	Eq,
-	Clone,
-	Copy,
+	PartialEqNoBound,
+	EqNoBound,
+	CloneNoBound,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
 	MaxEncodedLen,
-	Debug,
+	DebugNoBound,
 	TypeInfo,
 )]
-pub enum Phase<Bn> {
+#[codec(mel_bound(T: crate::Config))]
+#[scale_info(skip_type_params(T))]
+pub enum Phase<T: crate::Config> {
 	/// Nothing is happening, and nothing will happen.
 	Halted,
 	/// Nothing is happening, but it might.
 	Off,
 	/// Signed phase is open.
-	Signed,
-	/// We are validating results.
 	///
-	/// The inner value is the block number at which this phase started. This helps with
-	/// synchronizing different sub-systems.
+	/// The inner value is the number of blocks left in this phase.
+	Signed(BlockNumberFor<T>),
+	/// We are validating results.
 	///
 	/// This always follows the signed phase, and is a window of time in which we try to validate
 	/// our signed results.
-	SignedValidation(Bn),
-	/// Unsigned phase. First element is whether it is active or not, second the starting block
-	/// number.
+	///
+	/// The inner value is the number of blocks left in this phase.
+	SignedValidation(BlockNumberFor<T>),
+	/// Unsigned phase.
+	///
+	/// The inner value is the number of blocks left in this phase.
 	///
 	/// We do not yet check whether the unsigned phase is active or passive. The intent is for the
 	/// blockchain to be able to declare: "I believe that there exists an adequate signed
@@ -268,7 +256,7 @@ pub enum Phase<Bn> {
 	/// As validator nodes are free to edit their OCW code, they could simply ignore this advisory
 	/// and always compute their own solution. However, by default, when the unsigned phase is
 	/// passive, the offchain workers will not bother running.
-	Unsigned(Bn),
+	Unsigned(BlockNumberFor<T>),
 	/// Snapshot is being created. No other operation is allowed. This can be one or more blocks.
 	/// The inner value should be read as "`remaining` number of pages are left to be fetched".
 	/// Thus, if inner value is `0` if the snapshot is complete and we are ready to move on.
@@ -276,6 +264,8 @@ pub enum Phase<Bn> {
 	/// This value should be interpreted after `on_initialize` of this pallet has already been
 	/// called.
 	Snapshot(PageIndex),
+	/// Snapshot is done, and we are waiting for `Export` to kick in.
+	Done,
 	/// Exporting has begun, and the given page was the last one received.
 	///
 	/// Once this is active, no more signed or solutions will be accepted.
@@ -286,13 +276,71 @@ pub enum Phase<Bn> {
 	Emergency,
 }
 
-impl<Bn> Default for Phase<Bn> {
+impl<T: crate::Config> Copy for Phase<T> {}
+
+impl<T: crate::Config> Default for Phase<T> {
 	fn default() -> Self {
 		Phase::Off
 	}
 }
 
-impl<Bn: PartialEq + Eq> Phase<Bn> {
+impl<T: crate::Config> Phase<T> {
+	/// Get the phase that we should set in storage once we receive the start signal.
+	pub(crate) fn start_phase() -> Self {
+		// note that we add one block because we want the target snapshot to happen one block
+		// before.
+		Self::Snapshot(T::Pages::get())
+	}
+
+	/// Consume self and return the next variant, as per what the current phase is.
+	pub fn next(self) -> Self {
+		match self {
+			// for these phases, we do nothing.
+			Self::Off => Self::Off,
+			Self::Halted => Self::Halted,
+			Self::Emergency => Self::Emergency,
+
+			// snapshot phase
+			Self::Snapshot(0) =>
+				if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one()) {
+					Self::Signed(signed_duration)
+				} else {
+					Self::Unsigned(T::UnsignedPhase::get().defensive_saturating_sub(One::one()))
+				},
+			Self::Snapshot(non_zero_remaining) =>
+				Self::Snapshot(non_zero_remaining.defensive_saturating_sub(One::one())),
+
+			// signed phase
+			Self::Signed(zero) if zero == BlockNumberFor::<T>::zero() =>
+				Self::SignedValidation(T::SignedValidationPhase::get().saturating_sub(One::one())),
+			Self::Signed(non_zero_left) =>
+				Self::Signed(non_zero_left.defensive_saturating_sub(One::one())),
+
+			// signed validation
+			Self::SignedValidation(zero) if zero == BlockNumberFor::<T>::zero() =>
+				if let Some(unsigned_duration) = T::UnsignedPhase::get().checked_sub(&One::one()) {
+					Self::Unsigned(unsigned_duration)
+				} else {
+					Self::Done
+				},
+			Self::SignedValidation(non_zero_left) =>
+				Self::SignedValidation(non_zero_left.defensive_saturating_sub(One::one())),
+
+			// unsigned phase -- at this phase we will
+			Self::Unsigned(zero) if zero == BlockNumberFor::<T>::zero() => Self::Done,
+			Self::Unsigned(non_zero_left) =>
+				Self::Unsigned(non_zero_left.defensive_saturating_sub(One::one())),
+
+			// Done
+			Self::Done => Self::Done,
+
+			// Export
+			Self::Export(0) => Self::Off,
+			Self::Export(non_zero_left) =>
+				Self::Export(non_zero_left.defensive_saturating_sub(One::one())),
+		}
+	}
+
 	/// Whether the phase is emergency or not.
 	pub fn is_emergency(&self) -> bool {
 		matches!(self, Phase::Emergency)
@@ -300,7 +348,7 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 
 	/// Whether the phase is signed or not.
 	pub fn is_signed(&self) -> bool {
-		matches!(self, Phase::Signed)
+		matches!(self, Phase::Signed(_))
 	}
 
 	/// Whether the phase is unsigned or not.
@@ -308,14 +356,19 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 		matches!(self, Phase::Unsigned(_))
 	}
 
-	/// Whether the phase is unsigned and open or not, with specific start.
-	pub fn is_unsigned_open_at(&self, at: Bn) -> bool {
-		matches!(self, Phase::Unsigned(real) if *real == at)
-	}
-
 	/// Whether the phase is off or not.
 	pub fn is_off(&self) -> bool {
 		matches!(self, Phase::Off)
+	}
+
+	/// Whether the phase is snapshot or not.
+	pub fn is_snapshot(&self) -> bool {
+		matches!(self, Phase::Snapshot(_))
+	}
+
+	/// Whether the phase is done or not.
+	pub fn is_done(&self) -> bool {
+		matches!(self, Phase::Done)
 	}
 
 	/// Whether the phase is export or not.
@@ -333,9 +386,14 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 		matches!(self, Phase::SignedValidation(_))
 	}
 
-	/// Whether the phase is signed validation or not, with specific start.
-	pub fn is_signed_validation_open_at(&self, at: Bn) -> bool {
-		matches!(self, Phase::SignedValidation(real) if *real == at)
+	/// Whether the signed phase is opened now.
+	pub fn is_signed_validation_opened_now(&self) -> bool {
+		self == &Phase::SignedValidation(T::SignedValidationPhase::get().saturating_sub(One::one()))
+	}
+
+	/// Whether the unsigned phase is opened now.
+	pub fn is_unsigned_opened_now(&self) -> bool {
+		self == &Phase::Unsigned(T::UnsignedPhase::get().saturating_sub(One::one()))
 	}
 }
 

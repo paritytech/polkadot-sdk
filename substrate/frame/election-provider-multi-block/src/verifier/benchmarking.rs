@@ -20,7 +20,7 @@ use crate::{
 	CurrentPhase, Phase,
 };
 use frame_benchmarking::v2::*;
-use frame_election_provider_support::{ElectionDataProvider, NposSolution};
+use frame_election_provider_support::{ElectionProvider, NposSolution};
 use frame_support::pallet_prelude::*;
 use sp_std::prelude::*;
 
@@ -47,10 +47,13 @@ mod benchmarks {
 			.collect()
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_valid_non_terminal() -> Result<(), BenchmarkError> {
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
 		// roll to signed validation, with a solution stored in the signed pallet
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
 
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
 		// roll to verification
@@ -70,10 +73,13 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_valid_terminal() -> Result<(), BenchmarkError> {
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
 		// roll to signed validation, with a solution stored in the signed pallet
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
 		assert!(
 			T::SignedValidationPhase::get() >= T::Pages::get().into(),
 			"Signed validation phase must be larger than the number of pages"
@@ -113,15 +119,18 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_invalid_terminal() -> Result<(), BenchmarkError> {
 		// this is the verification of the current page + removing all of the previously valid
 		// pages. The worst case is therefore when the last page is invalid, for example the final
 		// score.
 		assert!(T::Pages::get() >= 2, "benchmark only works if we have more than 2 pages");
 
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
 		// roll to signed validation, with a solution stored in the signed pallet
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
 
 		// but this solution is corrupt
 		let mut paged_solution = crate::Pallet::<T>::roll_to_signed_and_mine_full_solution();
@@ -169,7 +178,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn on_initialize_invalid_non_terminal(
 		// number of valid pages that have been verified, before we verify the non-terminal invalid
 		// page.
@@ -177,7 +186,9 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "benchmark only works if we have more than 2 pages");
 
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
 
 		// roll to signed validation, with a solution stored in the signed pallet, but this solution
 		// is corrupt in its msp.

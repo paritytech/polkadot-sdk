@@ -156,7 +156,7 @@
 //!             unimplemented!()
 //!         }
 //!
-//!         fn ongoing() -> bool {
+//!         fn status() -> Result<bool, ()> {
 //!             unimplemented!()
 //!         }
 //!     }
@@ -377,6 +377,7 @@ pub trait ElectionDataProvider {
 	/// [`ElectionProvider::elect`].
 	///
 	/// This is only useful for stateful election providers.
+	#[deprecated(note = "Use `ElectionProvider::start` instead.")]
 	fn next_election_prediction(now: Self::BlockNumber) -> Self::BlockNumber;
 
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
@@ -390,7 +391,7 @@ pub trait ElectionDataProvider {
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn set_next_election(_to: u32) {}
+	fn fetch_page(_page: PageIndex) {}
 
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
 	/// else a noop.
@@ -486,8 +487,29 @@ pub trait ElectionProvider {
 		})
 	}
 
+	/// Return the duration of your election.
+	///
+	/// This excludes the duration of the export. For that, use [`duration_with_export`].
+	fn duration() -> Self::BlockNumber;
+
+	/// Return the duration of your election, including the export.
+	fn duration_with_export() -> Self::BlockNumber
+	where
+		Self::BlockNumber: From<PageIndex> + core::ops::Add<Output = Self::BlockNumber>,
+	{
+		let export: Self::BlockNumber = Self::Pages::get().into();
+		Self::duration() + export
+	}
+
+	/// Signal that the election should start
+	fn start() -> Result<(), Self::Error>;
+
 	/// Indicate whether this election provider is currently ongoing an asynchronous election.
-	fn ongoing() -> bool;
+	///
+	/// `Err(())` should signal that we are not doing anything, and `elect` should def. not be
+	/// called. `Ok(false)` means we are doing something, but work is still ongoing. `elect` should
+	/// not be called. `Ok(true)` means we are done and ready for a call to `elect`.
+	fn status() -> Result<bool, ()>;
 }
 
 /// A (almost) marker trait that signifies an election provider as working synchronously. i.e. being
@@ -518,6 +540,7 @@ where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
 	MaxWinnersPerPage: Get<u32>,
 	MaxBackersPerWinner: Get<u32>,
+	BlockNumber: Zero,
 {
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
@@ -531,8 +554,16 @@ where
 		Err("`NoElection` cannot do anything.")
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn start() -> Result<(), Self::Error> {
+		Err("`NoElection` cannot do anything.")
+	}
+
+	fn duration() -> Self::BlockNumber {
+		Zero::zero()
+	}
+
+	fn status() -> Result<bool, ()> {
+		Err(())
 	}
 }
 
@@ -543,6 +574,7 @@ where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
 	MaxWinnersPerPage: Get<u32>,
 	MaxBackersPerWinner: Get<u32>,
+	BlockNumber: Zero,
 {
 	fn instant_elect(
 		_: Vec<VoterOf<Self::DataProvider>>,
@@ -571,10 +603,35 @@ pub trait SortedListProvider<AccountId> {
 	type Error: core::fmt::Debug;
 
 	/// The type used by the list to compare nodes for ordering.
-	type Score: Bounded + Saturating + Zero;
+	type Score: Bounded + Saturating + Zero + Default;
+
+	/// A typical range for this list.
+	///
+	/// By default, this would be implemented as `Bounded` impl of `Self::Score`.
+	///
+	/// If this is implemented by a bags-list instance, it will be the smallest and largest bags.
+	///
+	/// This is useful to help another pallet that consumes this trait generate an even distribution
+	/// of nodes for testing/genesis.
+	fn range() -> (Self::Score, Self::Score) {
+		(Self::Score::min_value(), Self::Score::max_value())
+	}
 
 	/// An iterator over the list, which can have `take` called on it.
 	fn iter() -> Box<dyn Iterator<Item = AccountId>>;
+
+	/// Lock the list.
+	///
+	/// This will prevent subsequent calls to
+	/// - [`Self::on_insert`]
+	/// - [`Self::on_update`]
+	/// - [`Self::on_decrease`]
+	/// - [`Self::on_increase`]
+	/// - [`Self::on_remove`]
+	fn lock();
+
+	/// Unlock the list. This will nullify the effects of [`Self::lock`].
+	fn unlock();
 
 	/// Returns an iterator over the list, starting right after from the given voter.
 	///
@@ -637,7 +694,7 @@ pub trait SortedListProvider<AccountId> {
 	/// new list, which can lead to too many storage accesses, exhausting the block weight.
 	fn unsafe_regenerate(
 		all: impl IntoIterator<Item = AccountId>,
-		score_of: Box<dyn Fn(&AccountId) -> Self::Score>,
+		score_of: Box<dyn Fn(&AccountId) -> Option<Self::Score>>,
 	) -> u32;
 
 	/// Remove all items from the list.
@@ -664,8 +721,10 @@ pub trait SortedListProvider<AccountId> {
 pub trait ScoreProvider<AccountId> {
 	type Score;
 
-	/// Get the current `Score` of `who`.
-	fn score(who: &AccountId) -> Self::Score;
+	/// Get the current `Score` of `who`, `None` if `who` is not present.
+	///
+	/// `None` can be interpreted as a signal that the voter should be removed from the list.
+	fn score(who: &AccountId) -> Option<Self::Score>;
 
 	/// For tests, benchmarks and fuzzing, set the `score`.
 	#[cfg(any(feature = "runtime-benchmarks", feature = "fuzz", feature = "std"))]

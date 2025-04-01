@@ -17,7 +17,6 @@
 
 mod signed;
 mod staking;
-mod weight_info;
 
 use super::*;
 use crate::{
@@ -120,16 +119,20 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 }
 
-#[allow(unused)]
 #[derive(Clone)]
 pub enum FallbackModes {
-	// TODO: test for this mode
 	Continue,
 	Emergency,
 	Onchain,
 }
 
 parameter_types! {
+	// The block at which we emit the start signal. This is used in `roll_next`, which is used all
+	// across tests. The number comes across as a bit weird, but this is mainly due to backwards
+	// compatibility with olds tests, when we used to have pull based election prediction.
+	pub static ElectionStart: BlockNumber = 11;
+
+
 	pub static Pages: PageIndex = 3;
 	pub static UnsignedPhase: BlockNumber = 5;
 	pub static SignedPhase: BlockNumber = 5;
@@ -140,13 +143,13 @@ parameter_types! {
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
 	pub static MinerMaxLength: u32 = 256;
+	pub static MinerPages: u32 = 1;
 	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
 
 	// by default we stick to 3 pages to host our 12 voters.
 	pub static VoterSnapshotPerBlock: VoterIndex = 4;
 	// and 4 targets, whom we fetch all.
 	pub static TargetSnapshotPerBlock: TargetIndex = 4;
-	pub static Lookahead: BlockNumber = 0;
 
 	// we have 12 voters in the default setting, this should be enough to make sure they are not
 	// trimmed accidentally in any test.
@@ -170,6 +173,7 @@ impl crate::verifier::Config for Runtime {
 }
 
 impl crate::unsigned::Config for Runtime {
+	type MinerPages = MinerPages;
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainSolver = SequentialPhragmen<Self::AccountId, Perbill>;
@@ -200,9 +204,8 @@ impl crate::Config for Runtime {
 	type Fallback = MockFallback;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
-	type Lookahead = Lookahead;
 	type MinerConfig = Self;
-	type WeightInfo = weight_info::DualMockWeightInfo;
+	type WeightInfo = ();
 	type Verifier = VerifierPallet;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type Pages = Pages;
@@ -237,8 +240,16 @@ impl ElectionProvider for MockFallback {
 		unreachable!()
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn duration() -> Self::BlockNumber {
+		0
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 }
 
@@ -332,12 +343,12 @@ impl ExtBuilder {
 		SolutionImprovementThreshold::set(p);
 		self
 	}
-	pub(crate) fn pages(self, pages: PageIndex) -> Self {
-		Pages::set(pages);
+	pub(crate) fn election_start(self, at: BlockNumber) -> Self {
+		ElectionStart::set(at);
 		self
 	}
-	pub(crate) fn lookahead(self, lookahead: BlockNumber) -> Self {
-		Lookahead::set(lookahead);
+	pub(crate) fn pages(self, pages: PageIndex) -> Self {
+		Pages::set(pages);
 		self
 	}
 	pub(crate) fn voter_per_page(self, count: u32) -> Self {
@@ -363,6 +374,10 @@ impl ExtBuilder {
 	}
 	pub(crate) fn signed_validation_phase(self, d: BlockNumber) -> Self {
 		SignedValidationPhase::set(d);
+		self
+	}
+	pub(crate) fn miner_pages(self, p: u32) -> Self {
+		MinerPages::set(p);
 		self
 	}
 	#[allow(unused)]
@@ -553,6 +568,17 @@ pub fn multi_block_events() -> Vec<crate::Event<Runtime>> {
 		.collect::<Vec<_>>()
 }
 
+parameter_types! {
+	static MultiBlockEvents: u32 = 0;
+}
+
+pub fn multi_block_events_since_last_call() -> Vec<crate::Event<Runtime>> {
+	let events = multi_block_events();
+	let already_seen = MultiBlockEvents::get();
+	MultiBlockEvents::set(events.len() as u32);
+	events.into_iter().skip(already_seen as usize).collect()
+}
+
 /// get the events of the verifier pallet.
 pub fn verifier_events() -> Vec<crate::verifier::Event<Runtime>> {
 	System::events()
@@ -578,6 +604,7 @@ pub fn roll_to_snapshot_created() {
 	while !matches!(MultiBlock::current_phase(), Phase::Snapshot(0)) {
 		roll_next()
 	}
+	roll_next();
 	assert_full_snapshot();
 }
 
@@ -590,7 +617,7 @@ pub fn roll_to_unsigned_open() {
 
 /// proceed block number to whenever the signed phase is open (`Phase::Signed(_)`).
 pub fn roll_to_signed_open() {
-	while !matches!(MultiBlock::current_phase(), Phase::Signed) {
+	while !matches!(MultiBlock::current_phase(), Phase::Signed(_)) {
 		roll_next();
 	}
 }
@@ -605,12 +632,19 @@ pub fn roll_to_signed_validation_open() {
 
 /// Proceed one block.
 pub fn roll_next() {
-	roll_to(System::block_number() + 1);
+	let now = System::block_number();
+	roll_to(now + 1);
 }
 
 /// Proceed one block, and execute offchain workers as well.
 pub fn roll_next_with_ocw(maybe_pool: Option<Arc<RwLock<PoolState>>>) {
 	roll_to_with_ocw(System::block_number() + 1, maybe_pool)
+}
+
+pub fn roll_to_unsigned_open_with_ocw(maybe_pool: Option<Arc<RwLock<PoolState>>>) {
+	while !matches!(MultiBlock::current_phase(), Phase::Unsigned(_)) {
+		roll_next_with_ocw(maybe_pool.clone());
+	}
 }
 
 /// proceed block number to `n`, while running all offchain workers as well.
@@ -665,7 +699,6 @@ pub fn fake_solution(score: ElectionScore) -> PagedRawSolution<Runtime> {
 ///
 /// This is different from `solution_from_supports` in that it does not require the snapshot to
 /// exist.
-// TODO: probably deprecate this.
 pub fn raw_paged_solution_low_score() -> PagedRawSolution<Runtime> {
 	PagedRawSolution {
 		solution_pages: vec![TestNposSolution {
