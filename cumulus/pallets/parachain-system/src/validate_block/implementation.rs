@@ -22,17 +22,16 @@ use cumulus_primitives_core::{
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 
-use polkadot_parachain_primitives::primitives::{
-	HeadData, RelayChainBlockNumber, ValidationResult,
-};
-
+use crate::{ClaimQueueOffset, CoreSelector};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-
 use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use frame_support::{
 	traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType},
 	BoundedVec,
+};
+use polkadot_parachain_primitives::primitives::{
+	HeadData, RelayChainBlockNumber, ValidationResult,
 };
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
@@ -290,13 +289,17 @@ where
 	}
 
 	if !upward_message_signals.is_empty() {
-		let mut selected_core = None;
+		let mut selected_core: Option<(CoreSelector, ClaimQueueOffset)> = None;
 
 		upward_message_signals.iter().for_each(|s| {
 			if let Ok(UMPSignal::SelectCore(selector, offset)) = UMPSignal::decode(&mut &s[..]) {
 				match &selected_core {
 					Some(selected_core) if *selected_core != (selector, offset) => {
-						panic!("All `SelectCore` signals need to select the same core")
+						panic!(
+							"All `SelectCore` signals need to select the same core {:?} vs {:?}",
+							selected_core,
+							(selector, offset)
+						)
 					},
 					Some(_) => {},
 					None => {

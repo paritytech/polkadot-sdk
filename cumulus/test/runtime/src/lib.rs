@@ -52,6 +52,8 @@ mod test_pallet;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+use codec::Encode;
+use cumulus_pallet_parachain_system::SelectCore;
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -324,6 +326,28 @@ impl pallet_glutton::Config for Runtime {
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+	pub storage BlocksPerPoV: u32 = 1;
+}
+
+pub struct MultipleBlocksPerPoVCoreSelector;
+
+impl SelectCore for MultipleBlocksPerPoVCoreSelector {
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector = (System::block_number().saturating_sub(1) / BlocksPerPoV::get())
+			.using_encoded(|b| b[0]);
+
+		(CoreSelector(core_selector), ClaimQueueOffset(0))
+	}
+
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector =
+			((System::block_number()) / BlocksPerPoV::get()).using_encoded(|b| b[0]);
+
+		(CoreSelector(core_selector), ClaimQueueOffset(0))
+	}
+}
+
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -344,7 +368,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber =
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type SelectCore = MultipleBlocksPerPoVCoreSelector;
 }
 
 impl parachain_info::Config for Runtime {}

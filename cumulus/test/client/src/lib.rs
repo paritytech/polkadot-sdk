@@ -76,6 +76,7 @@ pub type Client = client::Client<Backend, Executor, Block, runtime::RuntimeApi>;
 pub struct GenesisParameters {
 	pub endowed_accounts: Vec<cumulus_test_runtime::AccountId>,
 	pub wasm: Option<Vec<u8>>,
+	pub blocks_per_pov: Option<u32>,
 }
 
 impl substrate_test_client::GenesisInit for GenesisParameters {
