@@ -1320,7 +1320,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
 	) -> Result<(), AcceptanceCheckErr> {
 		ensure!(
-			head_data.0.len() <= self.config.max_head_data_size as as usize,
+			head_data.0.len() <= self.config.max_head_data_size as usize,
 			AcceptanceCheckErr::HeadDataTooLarge,
 		);
 

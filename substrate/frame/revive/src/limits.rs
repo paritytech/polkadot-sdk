@@ -216,7 +216,7 @@ pub mod code {
 				(program.code().len() as u64).saturating_mul(EXTRA_OVERHEAD_PER_CODE_BYTE.into()),
 			);
 
-		if memory_size > STATIC_MEMORY_BYTES.into() {
+		if memory_size > STATIC_MEMORY_BYTES as u64 {
 			log::debug!(target: LOG_TARGET, "static memory too large: {memory_size} limit: {STATIC_MEMORY_BYTES}");
 			return Err(Error::<T>::StaticMemoryTooLarge.into())
 		}
