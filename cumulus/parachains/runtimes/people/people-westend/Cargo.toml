@@ -14,7 +14,6 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 enumflags2 = { workspace = true }
-hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
