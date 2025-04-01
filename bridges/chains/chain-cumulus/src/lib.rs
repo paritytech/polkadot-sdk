@@ -25,6 +25,10 @@ pub use bp_polkadot_core::{
 	EXTRA_STORAGE_PROOF_SIZE, TX_EXTRA_BYTES,
 };
 
+use parachains_common::{
+	AVERAGE_ON_INITIALIZE_RATIO, MAXIMUM_BLOCK_WEIGHT, MILLISECS_PER_BLOCK, NORMAL_DISPATCH_RATIO,
+};
+
 use bp_messages::*;
 use bp_polkadot_core::SuffixedCommonTransactionExtension;
 use bp_runtime::extensions::{
@@ -47,33 +51,7 @@ pub const MAX_BRIDGE_HUB_HEADER_SIZE: u32 = 4_096;
 
 /// Average block interval in Cumulus-based parachains.
 ///
-/// Corresponds to the `MILLISECS_PER_BLOCK` from `parachains_common` crate.
-pub const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(12);
-
-/// All cumulus bridge hubs allow normal extrinsics to fill block up to 75 percent.
-///
-/// This is a copy-paste from the cumulus repo's `parachains-common` crate.
-pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-
-/// All cumulus bridge hubs chains allow for 0.5 seconds of compute with a 6-second average block
-/// time.
-///
-/// This is a copy-paste from the cumulus repo's `parachains-common` crate.
-const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(constants::WEIGHT_REF_TIME_PER_SECOND, 0)
-	.saturating_div(2)
-	.set_proof_size(polkadot_primitives::MAX_POV_SIZE as u64);
-
-/// We allow for 2 seconds of compute with a 6 second average block.
-const MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING: Weight = Weight::from_parts(
-	constants::WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
-	polkadot_primitives::MAX_POV_SIZE as u64,
-);
-
-/// All cumulus bridge hubs assume that about 5 percent of the block weight is consumed by
-/// `on_initialize` handlers. This is used to limit the maximal weight of a single extrinsic.
-///
-/// This is a copy-paste from the cumulus repo's `parachains-common` crate.
-pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(5);
+pub const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(MILLISECS_PER_BLOCK);
 
 parameter_types! {
 	/// Size limit of the Cumulus-based bridge hub blocks.
@@ -116,14 +94,14 @@ parameter_types! {
 			weights.base_extrinsic = ExtrinsicBaseWeight::get();
 		})
 		.for_class(DispatchClass::Normal, |weights| {
-			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING);
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
 		})
 		.for_class(DispatchClass::Operational, |weights| {
-			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING);
+			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
 			// Operational transactions have an extra reserved space, so that they
 			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING`.
 			weights.reserved = Some(
-				MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING,
+				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT,
 			);
 		})
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)

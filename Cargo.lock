@@ -2035,6 +2035,7 @@ dependencies = [
  "bp-runtime",
  "frame-support",
  "frame-system",
+ "parachains-common",
  "polkadot-primitives",
  "sp-api 26.0.0",
  "sp-std 14.0.0",

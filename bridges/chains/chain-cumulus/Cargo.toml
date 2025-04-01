@@ -19,6 +19,7 @@ workspace = true
 bp-messages = { workspace = true }
 bp-polkadot-core = { workspace = true }
 bp-runtime = { workspace = true }
+parachains-common = { workspace = true }
 
 # Substrate Based Dependencies
 
