@@ -20,7 +20,6 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
-smallvec = { workspace = true, default-features = true }
 
 binary-merkle-tree = { workspace = true }
 sp-api = { workspace = true }
@@ -127,7 +126,6 @@ remote-externalities = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
-tiny-keccak = { features = ["keccak"], workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
