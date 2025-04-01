@@ -101,8 +101,20 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 		Err(())
 	}
 
-	fn ongoing() -> bool {
-		Ongoing::get()
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn duration() -> Self::BlockNumber {
+		0
+	}
+
+	fn status() -> Result<bool, ()> {
+		if Ongoing::get() {
+			Ok(false)
+		} else {
+			Err(())
+		}
 	}
 }
 

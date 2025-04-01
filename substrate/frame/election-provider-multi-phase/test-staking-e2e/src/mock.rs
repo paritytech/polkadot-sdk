@@ -186,7 +186,7 @@ parameter_types! {
 impl pallet_election_provider_multi_phase::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type EstimateCallFee = frame_support::traits::ConstU32<8>;
+	type EstimateCallFee = frame_support::traits::ConstU64<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = ();

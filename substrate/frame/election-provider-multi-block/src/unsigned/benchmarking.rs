@@ -21,7 +21,7 @@ use crate::{
 	CurrentPhase, Phase,
 };
 use frame_benchmarking::v2::*;
-use frame_election_provider_support::ElectionDataProvider;
+use frame_election_provider_support::ElectionProvider;
 use frame_support::{assert_ok, pallet_prelude::*};
 use frame_system::RawOrigin;
 use sp_std::boxed::Box;
@@ -29,11 +29,12 @@ use sp_std::boxed::Box;
 mod benchmarks {
 	use super::*;
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn validate_unsigned() -> Result<(), BenchmarkError> {
-		// TODO: for now we are not using this, maybe remove?
-		// roll to unsigned phase open
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
@@ -49,10 +50,13 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn submit_unsigned() -> Result<(), BenchmarkError> {
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
 		// roll to unsigned phase open
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});

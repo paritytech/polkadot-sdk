@@ -119,6 +119,9 @@ mod pallet {
 		/// The priority of the unsigned transaction submitted in the unsigned-phase
 		type MinerTxPriority: Get<TransactionPriority>;
 
+		/// The number of pages that the offchain miner will try and submit.
+		type MinerPages: Get<PageIndex>;
+
 		/// Runtime weight information of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -136,6 +139,13 @@ mod pallet {
 		///
 		/// This is different from signed page submission mainly in that the solution page is
 		/// verified on the fly.
+		///
+		/// The `paged_solution` may contain at most [`Config::MinerPages`] pages. They are
+		/// interpreted as msp -> lsp, as per [`msp_range_for`].
+		///
+		/// For example, if `Pages = 4`, and `MinerPages = 2`, our full snapshot range would be [0,
+		/// 1, 2, 3], with 3 being msp. But, in this case, then the `paged_raw_solution.pages` is
+		/// expected to correspond to `[snapshot(2), snapshot(3)]`.
 		#[pallet::weight((UnsignedWeightsOf::<T>::submit_unsigned(), DispatchClass::Operational))]
 		#[pallet::call_index(0)]
 		pub fn submit_unsigned(
@@ -143,7 +153,6 @@ mod pallet {
 			paged_solution: Box<PagedRawSolution<T::MinerConfig>>,
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
-			// TODO: remove the panic from this function for now.
 			let error_message = "Invalid unsigned submission must produce invalid block and \
 				 deprive validator from their authoring reward.";
 
@@ -151,29 +160,18 @@ mod pallet {
 			// don't check them here anymore.
 			debug_assert!(Self::validate_unsigned_checks(&paged_solution).is_ok());
 
-			let only_page = paged_solution
-				.solution_pages
-				.into_inner()
-				.pop()
-				.expect("length of `solution_pages` is always `1`, can be popped; qed.");
 			let claimed_score = paged_solution.score;
-			// `verify_synchronous` will internall queue and save the solution, we don't need to do
-			// it.
-			let _supports = <T::Verifier as Verifier>::verify_synchronous(
-				only_page,
+
+			// we select the most significant pages, based on `T::MinerPages`.
+			let page_indices = crate::Pallet::<T>::msp_range_for(T::MinerPages::get() as usize);
+			<T::Verifier as Verifier>::verify_synchronous_multi(
+				paged_solution.solution_pages.into_inner(),
+				page_indices,
 				claimed_score,
-				// must be valid against the msp
-				crate::Pallet::<T>::msp(),
 			)
 			.expect(error_message);
 
-			sublog!(
-				info,
-				"unsigned",
-				"queued an unsigned solution with score {:?} and {} winners",
-				claimed_score,
-				_supports.len()
-			);
+			sublog!(info, "unsigned", "queued an unsigned solution with score {:?}", claimed_score);
 
 			Ok(None.into())
 		}
@@ -286,35 +284,26 @@ mod pallet {
 				"lock for offchain worker acquired. Phase = {:?}",
 				current_phase
 			);
-			match current_phase {
-				Phase::Unsigned(opened) if opened == now => {
-					// Mine a new solution, cache it, and attempt to submit it
-					let initial_output =
-						OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(now)
-							.and_then(|_| OffchainWorkerMiner::<T>::mine_check_save_submit());
-					sublog!(
-						debug,
-						"unsigned",
-						"initial offchain worker output: {:?}",
-						initial_output
-					);
-				},
-				Phase::Unsigned(opened) if opened < now => {
-					// Try and resubmit the cached solution, and recompute ONLY if it is not
-					// feasible.
-					let resubmit_output =
-						OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(now).and_then(
-							|_| OffchainWorkerMiner::<T>::restore_or_compute_then_maybe_submit(),
-						);
-					sublog!(
-						debug,
-						"unsigned",
-						"resubmit offchain worker output: {:?}",
-						resubmit_output
-					);
-				},
-				_ => {},
-			}
+			if current_phase.is_unsigned_opened_now() {
+				// Mine a new solution, cache it, and attempt to submit it
+				let initial_output =
+					OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(now)
+						.and_then(|_| OffchainWorkerMiner::<T>::mine_check_save_submit());
+				sublog!(debug, "unsigned", "initial offchain worker output: {:?}", initial_output);
+			} else if current_phase.is_unsigned() {
+				// Try and resubmit the cached solution, and recompute ONLY if it is not
+				// feasible.
+				let resubmit_output = OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(
+					now,
+				)
+				.and_then(|_| OffchainWorkerMiner::<T>::restore_or_compute_then_maybe_submit());
+				sublog!(
+					debug,
+					"unsigned",
+					"resubmit offchain worker output: {:?}",
+					resubmit_output
+				);
+			};
 		}
 
 		/// The checks that should happen in the `ValidateUnsigned`'s `pre_dispatch` and
@@ -340,7 +329,10 @@ mod pallet {
 				crate::Pallet::<T>::current_phase().is_unsigned(),
 				CommonError::EarlySubmission
 			);
-			ensure!(paged_solution.solution_pages.len() == 1, CommonError::WrongPageCount);
+			ensure!(
+				paged_solution.solution_pages.len() == T::MinerPages::get() as usize,
+				CommonError::WrongPageCount
+			);
 
 			Ok(())
 		}
@@ -517,8 +509,8 @@ mod validate_unsigned {
 			));
 
 			// signed
-			roll_to(20);
-			assert_eq!(MultiBlock::current_phase(), Phase::Signed);
+			roll_to_signed_open();
+			assert!(MultiBlock::current_phase().is_signed());
 			assert!(matches!(
 				<UnsignedPallet as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -550,7 +542,7 @@ mod validate_unsigned {
 			.miner_tx_priority(20)
 			.desired_targets(0)
 			.build_and_execute(|| {
-				roll_to(25);
+				roll_to_unsigned_open();
 				assert!(MultiBlock::current_phase().is_unsigned());
 
 				let solution =
@@ -578,7 +570,7 @@ mod call {
 	fn unsigned_submission_e2e() {
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
-			roll_to_snapshot_created();
+			roll_to_unsigned_open();
 
 			// snapshot is created..
 			assert_full_snapshot();
@@ -606,7 +598,7 @@ mod call {
 	fn unfeasible_solution_panics() {
 		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
-			roll_to_snapshot_created();
+			roll_to_unsigned_open();
 
 			// snapshot is created..
 			assert_full_snapshot();

@@ -17,10 +17,7 @@
 
 use super::{Balance, Balances, Pages, Runtime, RuntimeEvent, SignedPallet, System};
 use crate::{
-	mock::{
-		balances, multi_block_events, roll_next, roll_to_signed_validation_open, verifier_events,
-		AccountId, RuntimeHoldReason, RuntimeOrigin, VerifierPallet,
-	},
+	mock::*,
 	signed::{self as signed_pallet, Event as SignedEvent, Submissions},
 	unsigned::miner::MinerConfig,
 	verifier::{self, AsynchronousVerifier, SolutionDataProvider, VerificationResult, Verifier},
@@ -73,6 +70,7 @@ parameter_types! {
 	pub static SignedRewardBase: Balance = 3;
 	pub static SignedPhaseSwitch: SignedSwitch = SignedSwitch::Real;
 	pub static BailoutGraceRatio: Perbill = Perbill::from_percent(20);
+	pub static EjectGraceRatio: Perbill = Perbill::from_percent(20);
 }
 
 impl crate::signed::Config for Runtime {
@@ -85,6 +83,7 @@ impl crate::signed::Config for Runtime {
 	type MaxSubmissions = SignedMaxSubmissions;
 	type RewardBase = SignedRewardBase;
 	type BailoutGraceRatio = BailoutGraceRatio;
+	type EjectGraceRatio = EjectGraceRatio;
 	type WeightInfo = ();
 }
 
@@ -119,6 +118,17 @@ impl SolutionDataProvider for DualSignedPhase {
 			SignedSwitch::Real => SignedPallet::report_result(result),
 		}
 	}
+}
+
+parameter_types! {
+	static SignedEventsIndex: u32 = 0;
+}
+
+pub fn singed_events_since_last_call() -> Vec<crate::signed::Event<Runtime>> {
+	let events = signed_events();
+	let already_seen = SignedEventsIndex::get();
+	SignedEventsIndex::set(events.len() as u32);
+	events.into_iter().skip(already_seen as usize).collect()
 }
 
 /// get the events of the verifier pallet.
@@ -176,9 +186,15 @@ pub fn load_signed_for_verification_and_start(
 	assert_eq!(
 		multi_block_events(),
 		vec![
-			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
-			Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-			Event::PhaseTransitioned { from: Phase::Signed, to: Phase::SignedValidation(20) }
+			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) },
+			Event::PhaseTransitioned {
+				from: Phase::Snapshot(0),
+				to: Phase::Signed(SignedPhase::get() - 1)
+			},
+			Event::PhaseTransitioned {
+				from: Phase::Signed(0),
+				to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+			}
 		]
 	);
 	assert_eq!(verifier_events(), vec![]);
@@ -200,9 +216,15 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	assert_eq!(
 		multi_block_events(),
 		vec![
-			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(2) },
-			Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed },
-			Event::PhaseTransitioned { from: Phase::Signed, to: Phase::SignedValidation(20) }
+			Event::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(Pages::get()) },
+			Event::PhaseTransitioned {
+				from: Phase::Snapshot(0),
+				to: Phase::Signed(SignedPhase::get() - 1)
+			},
+			Event::PhaseTransitioned {
+				from: Phase::Signed(0),
+				to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+			}
 		]
 	);
 	assert_eq!(verifier_events(), vec![]);
@@ -218,7 +240,7 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	assert_eq!(
 		verifier_events(),
 		vec![
-			// TODO: these are hardcoded for 3 page.
+			// NOTE: these are hardcoded for 3 page.
 			verifier::Event::Verified(2, 2),
 			verifier::Event::Verified(1, 2),
 			verifier::Event::Verified(0, 2),
