@@ -2267,7 +2267,7 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider() {
 
 			// winners should be 21 and 31. Otherwise this election is taking duplicates into
 			// account.
-			let supports = <Test as Config>::ElectionProvider::elect(0).unwrap();
+			let supports = <Test as Config>::ElectionProvider::elect(SINGLE_PAGE).unwrap();
 			let expected_supports = vec![
 				(21, Support { total: 1800, voters: vec![(21, 1000), (1, 400), (3, 400)] }),
 				(31, Support { total: 2200, voters: vec![(31, 1000), (1, 600), (3, 600)] }),
