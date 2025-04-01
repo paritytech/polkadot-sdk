@@ -22,7 +22,7 @@ use alloc::{format, str, vec::Vec};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::{string::String, vec};
 use bip39::{Language, Mnemonic};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::hash::Hash;
 #[doc(hidden)]
 pub use core::ops::Deref;
@@ -338,7 +338,7 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + ByteArray {
 				let first = ((ident & 0b0000_0000_1111_1100) as u8) >> 2;
 				// lower two bits of the lower byte in the high pos,
 				// lower bits of the upper byte in the low pos
-				let second = ((ident >> 8) as u8) | ((ident & 0b0000_0000_0000_0011) as u8) << 6;
+				let second = ((ident >> 8) as u8) | (((ident & 0b0000_0000_0000_0011) as u8) << 6);
 				vec![first | 0b01000000, second]
 			},
 			_ => unreachable!("masked out the upper two bits; qed"),
@@ -501,7 +501,18 @@ pub trait Public: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync 
 pub trait Signature: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync {}
 
 /// An opaque 32-byte cryptographic identifier.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct AccountId32([u8; 32]);
 

@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
+
 use super::reserve_transfer::*;
 use crate::{
 	imports::*,
@@ -778,6 +780,8 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 			xcm: xcm_on_final_dest,
 		}]);
 
+		Dmp::make_parachain_reachable(AssetHubWestend::para_id());
+
 		// First leg is a teleport, from there a local-reserve-transfer to final dest
 		<Westend as WestendPallet>::XcmPallet::transfer_assets_using_type_and_then(
 			t.signed_origin,
@@ -982,7 +986,9 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 				destination: t.args.dest,
 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(fees.into())),
 				preserve_origin: false,
-				assets: vec![AssetTransferFilter::Teleport(assets.into())],
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::Teleport(
+					assets.into(),
+				)]),
 				remote_xcm: xcm_on_dest,
 			},
 		]);
@@ -1018,7 +1024,9 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 				destination: t.args.dest,
 				remote_fees: Some(AssetTransferFilter::ReserveDeposit(fees.into())),
 				preserve_origin: false,
-				assets: vec![AssetTransferFilter::Teleport(assets.into())],
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::Teleport(
+					assets.into(),
+				)]),
 				remote_xcm: xcm_on_dest,
 			},
 		]);

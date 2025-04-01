@@ -21,6 +21,7 @@ use crate::{extension::verify_messages_call_succeeded, Config as BridgeRelayersC
 
 use bp_relayers::{ExtensionCallData, ExtensionCallInfo, ExtensionConfig};
 use bp_runtime::StaticStrProvider;
+use core::marker::PhantomData;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use pallet_bridge_messages::{
 	CallSubType as BridgeMessagesCallSubType, Config as BridgeMessagesConfig, LaneIdOf,
@@ -29,7 +30,6 @@ use sp_runtime::{
 	traits::{Dispatchable, Get},
 	transaction_validity::{TransactionPriority, TransactionValidityError},
 };
-use sp_std::marker::PhantomData;
 
 /// Transaction extension that refunds a relayer for standalone messages delivery and confirmation
 /// transactions. Finality transactions are not refunded.

@@ -18,16 +18,28 @@
 //!
 //! Usually a path of collations is as follows:
 //!    1. First, collation must be advertised by collator.
-//!    2. If the advertisement was accepted, it's queued for fetch (per relay parent).
-//!    3. Once it's requested, the collation is said to be Pending.
-//!    4. Pending collation becomes Fetched once received, we send it to backing for validation.
-//!    5. If it turns to be invalid or async backing allows seconding another candidate, carry on
+//!    2. The validator inspects the claim queue and decides if the collation should be fetched
+//!       based on the entries there. A parachain can't have more fetched collations than the
+//!       entries in the claim queue at a specific relay parent. When calculating this limit the
+//!       validator counts all advertisements within its view not just at the relay parent.
+//!    3. If the advertisement was accepted, it's queued for fetch (per relay parent).
+//!    4. Once it's requested, the collation is said to be pending fetch
+//!       (`CollationStatus::Fetching`).
+//!    5. Pending fetch collation becomes pending validation
+//!       (`CollationStatus::WaitingOnValidation`) once received, we send it to backing for
+//!       validation.
+//!    6. If it turns to be invalid or async backing allows seconding another candidate, carry on
 //!       with the next advertisement, otherwise we're done with this relay parent.
 //!
-//!    ┌──────────────────────────────────────────┐
-//!    └─▶Advertised ─▶ Pending ─▶ Fetched ─▶ Validated
+//!    ┌───────────────────────────────────┐
+//!    └─▶Waiting ─▶ Fetching ─▶ WaitingOnValidation
 
-use std::{collections::VecDeque, future::Future, pin::Pin, task::Poll};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	future::Future,
+	pin::Pin,
+	task::Poll,
+};
 
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_node_network_protocol::{
@@ -36,9 +48,7 @@ use polkadot_node_network_protocol::{
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem_util::{
-	metrics::prometheus::prometheus::HistogramTimer, runtime::ProspectiveParachainsMode,
-};
+use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CollatorId, Hash, HeadData,
 	Id as ParaId, PersistedValidationData,
@@ -187,12 +197,10 @@ pub struct PendingCollationFetch {
 pub enum CollationStatus {
 	/// We are waiting for a collation to be advertised to us.
 	Waiting,
-	/// We are currently fetching a collation.
-	Fetching,
+	/// We are currently fetching a collation for the specified `ParaId`.
+	Fetching(ParaId),
 	/// We are waiting that a collation is being validated.
 	WaitingOnValidation,
-	/// We have seconded a collation.
-	Seconded,
 }
 
 impl Default for CollationStatus {
@@ -202,22 +210,22 @@ impl Default for CollationStatus {
 }
 
 impl CollationStatus {
-	/// Downgrades to `Waiting`, but only if `self != Seconded`.
-	fn back_to_waiting(&mut self, relay_parent_mode: ProspectiveParachainsMode) {
-		match self {
-			Self::Seconded =>
-				if relay_parent_mode.is_enabled() {
-					// With async backing enabled it's allowed to
-					// second more candidates.
-					*self = Self::Waiting
-				},
-			_ => *self = Self::Waiting,
-		}
+	/// Downgrades to `Waiting`
+	pub fn back_to_waiting(&mut self) {
+		*self = Self::Waiting
 	}
 }
 
+/// The number of claims in the claim queue and seconded candidates count for a specific `ParaId`.
+#[derive(Default, Debug)]
+struct CandidatesStatePerPara {
+	/// How many collations have been seconded.
+	pub seconded_per_para: usize,
+	// Claims in the claim queue for the `ParaId`.
+	pub claims_per_para: usize,
+}
+
 /// Information about collations per relay parent.
-#[derive(Default)]
 pub struct Collations {
 	/// What is the current status in regards to a collation for this relay parent?
 	pub status: CollationStatus,
@@ -226,75 +234,89 @@ pub struct Collations {
 	/// This is the currently last started fetch, which did not exceed `MAX_UNSHARED_DOWNLOAD_TIME`
 	/// yet.
 	pub fetching_from: Option<(CollatorId, Option<CandidateHash>)>,
-	/// Collation that were advertised to us, but we did not yet fetch.
-	pub waiting_queue: VecDeque<(PendingCollation, CollatorId)>,
-	/// How many collations have been seconded.
-	pub seconded_count: usize,
+	/// Collation that were advertised to us, but we did not yet request or fetch. Grouped by
+	/// `ParaId`.
+	waiting_queue: BTreeMap<ParaId, VecDeque<(PendingCollation, CollatorId)>>,
+	/// Number of seconded candidates and claims in the claim queue per `ParaId`.
+	candidates_state: BTreeMap<ParaId, CandidatesStatePerPara>,
 }
 
 impl Collations {
-	/// Note a seconded collation for a given para.
-	pub(super) fn note_seconded(&mut self) {
-		self.seconded_count += 1
+	pub(super) fn new(group_assignments: &Vec<ParaId>) -> Self {
+		let mut candidates_state = BTreeMap::<ParaId, CandidatesStatePerPara>::new();
+
+		for para_id in group_assignments {
+			candidates_state.entry(*para_id).or_default().claims_per_para += 1;
+		}
+
+		Self {
+			status: Default::default(),
+			fetching_from: None,
+			waiting_queue: Default::default(),
+			candidates_state,
+		}
 	}
 
-	/// Returns the next collation to fetch from the `waiting_queue`.
+	/// Note a seconded collation for a given para.
+	pub(super) fn note_seconded(&mut self, para_id: ParaId) {
+		self.candidates_state.entry(para_id).or_default().seconded_per_para += 1;
+		gum::trace!(
+			target: LOG_TARGET,
+			?para_id,
+			new_count=self.candidates_state.entry(para_id).or_default().seconded_per_para,
+			"Note seconded."
+		);
+		self.status.back_to_waiting();
+	}
+
+	/// Adds a new collation to the waiting queue for the relay parent. This function doesn't
+	/// perform any limits check. The caller should assure that the collation limit is respected.
+	pub(super) fn add_to_waiting_queue(&mut self, collation: (PendingCollation, CollatorId)) {
+		self.waiting_queue.entry(collation.0.para_id).or_default().push_back(collation);
+	}
+
+	/// Picks a collation to fetch from the waiting queue.
+	/// When fetching collations we need to ensure that each parachain has got a fair core time
+	/// share depending on its assignments in the claim queue. This means that the number of
+	/// collations seconded per parachain should ideally be equal to the number of claims for the
+	/// particular parachain in the claim queue.
 	///
-	/// This will reset the status back to `Waiting` using [`CollationStatus::back_to_waiting`].
+	/// To achieve this each seconded collation is mapped to an entry from the claim queue. The next
+	/// fetch is the first unfulfilled entry from the claim queue for which there is an
+	/// advertisement.
 	///
-	/// Returns `Some(_)` if there is any collation to fetch, the `status` is not `Seconded` and
-	/// the passed in `finished_one` is the currently `waiting_collation`.
-	pub(super) fn get_next_collation_to_fetch(
+	/// `unfulfilled_claim_queue_entries` represents all claim queue entries which are still not
+	/// fulfilled.
+	pub(super) fn pick_a_collation_to_fetch(
 		&mut self,
-		finished_one: &(CollatorId, Option<CandidateHash>),
-		relay_parent_mode: ProspectiveParachainsMode,
+		unfulfilled_claim_queue_entries: Vec<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
-		// If finished one does not match waiting_collation, then we already dequeued another fetch
-		// to replace it.
-		if let Some((collator_id, maybe_candidate_hash)) = self.fetching_from.as_ref() {
-			// If a candidate hash was saved previously, `finished_one` must include this too.
-			if collator_id != &finished_one.0 &&
-				maybe_candidate_hash.map_or(true, |hash| Some(&hash) != finished_one.1.as_ref())
+		gum::trace!(
+			target: LOG_TARGET,
+			waiting_queue=?self.waiting_queue,
+			candidates_state=?self.candidates_state,
+			"Pick a collation to fetch."
+		);
+
+		for assignment in unfulfilled_claim_queue_entries {
+			// if there is an unfulfilled assignment - return it
+			if let Some(collation) = self
+				.waiting_queue
+				.get_mut(&assignment)
+				.and_then(|collations| collations.pop_front())
 			{
-				gum::trace!(
-					target: LOG_TARGET,
-					waiting_collation = ?self.fetching_from,
-					?finished_one,
-					"Not proceeding to the next collation - has already been done."
-				);
-				return None
+				return Some(collation)
 			}
 		}
-		self.status.back_to_waiting(relay_parent_mode);
 
-		match self.status {
-			// We don't need to fetch any other collation when we already have seconded one.
-			CollationStatus::Seconded => None,
-			CollationStatus::Waiting =>
-				if self.is_seconded_limit_reached(relay_parent_mode) {
-					None
-				} else {
-					self.waiting_queue.pop_front()
-				},
-			CollationStatus::WaitingOnValidation | CollationStatus::Fetching =>
-				unreachable!("We have reset the status above!"),
-		}
+		None
 	}
 
-	/// Checks the limit of seconded candidates.
-	pub(super) fn is_seconded_limit_reached(
-		&self,
-		relay_parent_mode: ProspectiveParachainsMode,
-	) -> bool {
-		let seconded_limit =
-			if let ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } =
-				relay_parent_mode
-			{
-				max_candidate_depth + 1
-			} else {
-				1
-			};
-		self.seconded_count >= seconded_limit
+	pub(super) fn seconded_for_para(&self, para_id: &ParaId) -> usize {
+		self.candidates_state
+			.get(&para_id)
+			.map(|state| state.seconded_per_para)
+			.unwrap_or_default()
 	}
 }
 

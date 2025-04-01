@@ -31,18 +31,17 @@ frame-system = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 [dev-dependencies]
-bp-runtime = { workspace = true }
-pallet-balances = { workspace = true, default-features = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
 bp-parachains = { workspace = true }
 bp-polkadot-core = { workspace = true }
+bp-runtime = { workspace = true }
 bp-test-utils = { workspace = true }
+pallet-balances = { workspace = true, default-features = true }
 pallet-utility = { workspace = true }
 sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
@@ -69,7 +68,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

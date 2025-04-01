@@ -21,29 +21,29 @@ use super::{
 use frame_support::{
 	parameter_types,
 	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
-	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use pallet_collator_selection::StakingPotAccountId;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::xcm_config::{
-	AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
-	RelayOrOtherSystemParachains,
+	AliasAccountId32FromSiblingSystemChain, AllSiblingSystemParachains, ConcreteAssetFromSystem,
+	ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use westend_runtime_constants::xcm as xcm_constants;
+use westend_runtime_constants::{system_parachain::ASSET_HUB_ID, xcm as xcm_constants};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
+	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
-	EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter,
+	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
+	DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
 	HashedDescription, IsConcrete, LocatableAssetId, OriginToPluralityVoice, ParentAsSuperuser,
 	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -58,7 +58,7 @@ parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: Location = Location::parent();
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
-	pub AssetHub: Location = (Parent, Parachain(1000)).into();
+	pub AssetHub: Location = (Parent, Parachain(ASSET_HUB_ID)).into();
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 	pub AssetHubUsdtId: AssetId = (PalletInstance(50), GeneralIndex(1984)).into();
 	pub UsdtAssetHub: LocatableAssetId = LocatableAssetId {
@@ -124,11 +124,6 @@ pub type XcmOriginToTransactDispatchOrigin = (
 );
 
 parameter_types! {
-	/// The amount of weight an XCM operation takes. This is a safe overestimate.
-	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000_000_000, 1024);
-	/// A temporary weight value for each XCM instruction.
-	/// NOTE: This should be removed after we account for PoV weights.
-	pub const TempFixedXcmWeight: Weight = Weight::from_parts(1_000_000_000, 0);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	// Fellows pluralistic body.
@@ -151,7 +146,7 @@ impl Contains<Location> for LocalPlurality {
 
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
-		DenyReserveTransferToRelayChain,
+		DenyRecursively<DenyReserveTransferToRelayChain>,
 		(
 			// Allow local users to buy weight credit.
 			TakeWeightCredit,
@@ -191,10 +186,19 @@ pub type WaivedLocations = (
 /// - DOT with the parent Relay Chain and sibling parachains.
 pub type TrustedTeleporters = ConcreteAssetFromSystem<WndLocation>;
 
+/// We allow locations to alias into their own child locations, allow AssetHub root to alias into
+/// anything, and allow same accounts to alias into each other across system chains.
+pub type Aliasers = (
+	AliasChildLocation,
+	AliasOriginRootUsingFilter<AssetHub, Everything>,
+	AliasAccountId32FromSiblingSystemChain,
+);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = PolkadotXcm;
 	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// Collectives does not recognize a reserve location for any asset. Users must teleport WND
@@ -203,7 +207,11 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = FixedWeightBounds<TempFixedXcmWeight, RuntimeCall, MaxInstructions>;
+	type Weigher = WeightInfoBounds<
+		crate::weights::xcm::CollectivesWestendXcmWeight<RuntimeCall>,
+		RuntimeCall,
+		MaxInstructions,
+	>;
 	type Trader = UsingComponents<
 		WeightToFee,
 		WndLocation,
@@ -227,7 +235,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
+	type Aliasers = Aliasers;
 	type TransactionalProcessor = FrameTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
@@ -270,7 +278,11 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Nothing; // This parachain is not meant as a reserve location.
-	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
+	type Weigher = WeightInfoBounds<
+		crate::weights::xcm::CollectivesWestendXcmWeight<RuntimeCall>,
+		RuntimeCall,
+		MaxInstructions,
+	>;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;

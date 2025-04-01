@@ -17,23 +17,15 @@
 
 //! The crate's tests.
 
-use std::collections::BTreeMap;
-
-use core::cell::RefCell;
-use frame_support::{
-	assert_noop, assert_ok, derive_impl,
-	pallet_prelude::Weight,
-	parameter_types,
-	traits::{tokens::ConvertRank, ConstU64},
-};
-use sp_runtime::{traits::Identity, BuildStorage, DispatchResult};
-
 use crate as pallet_salary;
 use crate::*;
+use core::cell::RefCell;
+use frame::{deps::sp_runtime::traits::Identity, testing_prelude::*, traits::tokens::ConvertRank};
+use std::collections::BTreeMap;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -124,7 +116,7 @@ impl RankedMembers for TestClub {
 	}
 	fn demote(who: &Self::AccountId) -> DispatchResult {
 		CLUB.with(|club| match club.borrow().get(who) {
-			None => Err(sp_runtime::DispatchError::Unavailable),
+			None => Err(DispatchError::Unavailable),
 			Some(&0) => {
 				club.borrow_mut().remove(&who);
 				Ok(())
@@ -156,9 +148,9 @@ impl Config for Test {
 	type Budget = Budget;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestState::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }

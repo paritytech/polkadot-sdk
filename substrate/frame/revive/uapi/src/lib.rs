@@ -17,12 +17,30 @@
 //! Refer to substrate FRAME contract module for more documentation.
 
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod flags;
 pub use flags::*;
 mod host;
+mod macros;
 
 pub use host::{HostFn, HostFnImpl};
+
+/// Convert a u64 into a [u8; 32].
+pub const fn u256_bytes(value: u64) -> [u8; 32] {
+	let mut buffer = [0u8; 32];
+	let bytes = value.to_le_bytes();
+
+	buffer[0] = bytes[0];
+	buffer[1] = bytes[1];
+	buffer[2] = bytes[2];
+	buffer[3] = bytes[3];
+	buffer[4] = bytes[4];
+	buffer[5] = bytes[5];
+	buffer[6] = bytes[6];
+	buffer[7] = bytes[7];
+	buffer
+}
 
 macro_rules! define_error_codes {
     (
@@ -85,9 +103,8 @@ define_error_codes! {
 	/// Transfer failed for other not further specified reason. Most probably
 	/// reserved or locked balance of the sender that was preventing the transfer.
 	TransferFailed = 4,
-	/// The call to `debug_message` had no effect because debug message
-	/// recording was disabled.
-	LoggingDisabled = 5,
+	/// The subcall ran out of weight or storage deposit.
+	OutOfResources = 5,
 	/// The call dispatched by `call_runtime` was executed but returned an error.
 	CallRuntimeFailed = 6,
 	/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
@@ -98,8 +115,9 @@ define_error_codes! {
 	XcmExecutionFailed = 9,
 	/// The `xcm_send` call failed.
 	XcmSendFailed = 10,
-	/// The subcall ran out of weight or storage deposit.
-	OutOfResources = 11,
+	/// Contract instantiation failed because the address already exists.
+	/// Occurs when instantiating the same contract with the same salt more than once.
+	DuplicateContractAddress = 11,
 }
 
 /// The raw return code returned by the host side.
@@ -133,3 +151,14 @@ impl ReturnCode {
 }
 
 type Result = core::result::Result<(), ReturnErrorCode>;
+
+/// Helper to pack two `u32` values into a `u64` register.
+///
+/// Pointers to PVM memory are always 32 bit in size. Thus contracts can pack two
+/// pointers into a single register when calling a syscall API method.
+///
+/// This is done in syscall API methods where the number of arguments is exceeding
+/// the available registers.
+pub fn pack_hi_lo(hi: u32, lo: u32) -> u64 {
+	((hi as u64) << 32) | lo as u64
+}

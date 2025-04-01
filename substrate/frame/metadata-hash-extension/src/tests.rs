@@ -144,6 +144,7 @@ mod docs {
 			// Add the `CheckMetadataHash` extension.
 			// The position in this list is not important, so we could also add it to beginning.
 			frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+			frame_system::WeightReclaim<Runtime>,
 		);
 
 		/// In your runtime this will be your real address type.

@@ -891,6 +891,8 @@ fn build_overseer(
 			state.approval_voting_parallel_metrics.approval_voting_metrics(),
 			Arc::new(system_clock.clone()),
 			Arc::new(SpawnGlue(spawn_task_handle.clone())),
+			1,
+			Duration::from_secs(1),
 		);
 
 		let approval_distribution = ApprovalDistribution::new_with_clock(

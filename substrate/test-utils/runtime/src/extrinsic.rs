@@ -212,6 +212,7 @@ impl ExtrinsicBuilder {
 				self.metadata_hash
 					.map(CheckMetadataHash::new_with_custom_hash)
 					.unwrap_or_else(|| CheckMetadataHash::new(false)),
+				frame_system::WeightReclaim::new(),
 			);
 			let raw_payload = SignedPayload::from_raw(
 				self.function.clone(),

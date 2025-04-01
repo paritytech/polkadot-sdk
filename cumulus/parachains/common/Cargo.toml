@@ -39,17 +39,14 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
 # Cumulus
-pallet-collator-selection = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
+pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
 
 [dev-dependencies]
 pallet-authorship = { workspace = true }
 sp-io = { workspace = true }
-
-[build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -92,4 +89,5 @@ runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

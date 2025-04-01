@@ -6,7 +6,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -18,9 +18,10 @@ jobs:
   #
   #
   #
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
-    ## TODO: remove when ready
-    if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
+    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   ### Build ########################
@@ -53,7 +54,7 @@ jobs:
       - name: pack artifacts
         run: |
           mkdir -p ./artifacts
-          VERSION="${{ needs.preflight.outputs.SOURCE_REF_NAME }}" # will be tag or branch name
+          VERSION="${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" # will be tag or branch name
           mv ./target/testnet/polkadot ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
@@ -62,7 +63,7 @@ jobs:
           sha256sum polkadot | tee polkadot.sha256
           shasum -c polkadot.sha256
           cd ../
-          EXTRATAG="${{ needs.preflight.outputs.SOURCE_REF_NAME }}-${COMMIT_SHA}"
+          EXTRATAG="${{ needs.preflight.outputs.SOURCE_REF_SLUG }}-${COMMIT_SHA}"
           echo "Polkadot version = ${VERSION} (EXTRATAG = ${EXTRATAG})"
           echo -n ${VERSION} > ./artifacts/VERSION
           echo -n ${EXTRATAG} > ./artifacts/EXTRATAG
@@ -77,7 +78,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
 
@@ -103,7 +104,7 @@ jobs:
           mkdir -p ./artifacts
           mv ./target/release/polkadot-parachain ./artifacts/.
           echo "___The VERSION is either a tag name or the curent branch if triggered not by a tag___"
-          echo ${{ needs.preflight.outputs.SOURCE_REF_NAME }} | tee ./artifacts/VERSION
+          echo ${{ needs.preflight.outputs.SOURCE_REF_SLUG }} | tee ./artifacts/VERSION
 
       - name: tar
         run: tar -cvf artifacts.tar artifacts
@@ -111,7 +112,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
 
@@ -147,7 +148,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
 
@@ -172,8 +173,8 @@ jobs:
           mkdir -p ./artifacts
           mv ./target/testnet/adder-collator ./artifacts/.
           mv ./target/testnet/undying-collator ./artifacts/.
-          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}" > ./artifacts/VERSION
-          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" > ./artifacts/VERSION
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_SLUG }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
           echo "adder-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           echo "undying-collator version = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
@@ -184,7 +185,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
 
@@ -209,8 +210,8 @@ jobs:
           mv ./target/testnet/malus ./artifacts/.
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
-          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}" > ./artifacts/VERSION
-          echo -n "${{ needs.preflight.outputs.SOURCE_REF_NAME }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" > ./artifacts/VERSION
+          echo -n "${{ needs.preflight.outputs.SOURCE_REF_SLUG }}-${COMMIT_SHA}" > ./artifacts/EXTRATAG
           echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
           cp -r ./docker/* ./artifacts
 
@@ -220,7 +221,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
 
@@ -236,16 +237,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # tldr: we need to checkout the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
-          # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
-          ref: ${{ github.head_ref || github.ref_name }}
       - name: build
         run: |
           mkdir -p ./artifacts/substrate/
           WASM_BUILD_NO_COLOR=1 forklift cargo build --locked --release -p staging-node-cli
           ls -la target/release/
       - name: pack artifacts
+        shell: bash
         run: |
           mv target/release/substrate-node ./artifacts/substrate/substrate
           echo -n "Substrate version = "
@@ -264,9 +262,12 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
+
+
+  ### Build zombienet test artifacts ########################
 
   #
   #
@@ -294,7 +295,67 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  prepare-polkadot-zombienet-artifacts:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          forklift cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --locked --features zombie-metadata,zombie-ci --archive-file polkadot-zombienet-tests.tar.zst
+      - name: pack artifacts
+        run: |
+          mkdir -p artifacts
+          cp polkadot-zombienet-tests.tar.zst ./artifacts
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  prepare-cumulus-zombienet-artifacts:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          forklift cargo nextest --manifest-path cumulus/zombienet/zombienet-sdk/Cargo.toml archive --locked --features zombie-ci --archive-file cumulus-zombienet-tests.tar.zst
+      - name: pack artifacts
+        run: |
+          mkdir -p artifacts
+          cp cumulus-zombienet-tests.tar.zst ./artifacts
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
           retention-days: 1
 
@@ -313,7 +374,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
       - name: tar
         run: tar -xvf artifacts.tar
@@ -337,7 +398,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
       - name: tar
         run: tar -xvf artifacts.tar
@@ -361,7 +422,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-test-collators-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: build-test-collators-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
       - name: tar
         run: tar -xvf artifacts.tar
@@ -385,7 +446,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-malus-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: build-malus-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
       - name: tar
         run: tar -xvf artifacts.tar
@@ -409,7 +470,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-linux-substrate-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: build-linux-substrate-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
       - name: tar
         run: tar -xvf artifacts.tar
@@ -441,7 +502,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
       - name: tar
         run: |
           tar -xvf artifacts.tar
@@ -449,7 +510,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
       - name: tar
         run: |
           tar -xvf artifacts.tar
@@ -457,7 +518,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: prepare-bridges-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: prepare-bridges-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
       - name: tar
         run: |
           tar -xvf artifacts.tar
@@ -482,7 +543,7 @@ jobs:
 
       - uses: actions/download-artifact@v4.1.8
         with:
-          name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
+          name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
       - name: tar
         run: tar -xvf artifacts.tar

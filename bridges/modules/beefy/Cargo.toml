@@ -31,13 +31,13 @@ sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
 [dev-dependencies]
-sp-consensus-beefy = { workspace = true, default-features = true }
+bp-test-utils = { workspace = true, default-features = true }
 mmr-lib = { workspace = true }
 pallet-beefy-mmr = { workspace = true, default-features = true }
 pallet-mmr = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
+sp-consensus-beefy = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
-bp-test-utils = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

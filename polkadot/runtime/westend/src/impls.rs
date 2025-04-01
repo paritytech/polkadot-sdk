@@ -176,4 +176,9 @@ where
 		)?;
 		Ok(())
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_identity_reaping(_: &AccountId, _: u32, _: u32) {
+		crate::Dmp::make_parachain_reachable(1004);
+	}
 }

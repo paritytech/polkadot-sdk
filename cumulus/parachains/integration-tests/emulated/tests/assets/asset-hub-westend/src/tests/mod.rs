@@ -13,10 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod aliases;
 mod claim_assets;
+mod exchange_asset;
 mod fellowship_treasury;
 mod hybrid_transfers;
 mod reserve_transfer;
+mod reward_pool;
 mod send;
 mod set_asset_claimer;
 mod set_xcm_versions;
