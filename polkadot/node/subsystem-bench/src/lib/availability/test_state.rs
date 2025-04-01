@@ -118,7 +118,7 @@ impl TestState {
 		test_state.chunk_indices = (0..config.n_cores)
 			.map(|core_index| {
 				availability_chunk_indices(
-					Some(&default_node_features()),
+					&default_node_features(),
 					config.n_validators,
 					CoreIndex(core_index as u32),
 				)
@@ -276,7 +276,7 @@ impl TestState {
 						.flatten()
 						.expect("should be signed");
 
-						peer_bitfield_message_v2(block_info.hash, signed_bitfield)
+						peer_bitfield_message_v3(block_info.hash, signed_bitfield)
 					})
 					.collect::<Vec<_>>();
 
@@ -290,16 +290,16 @@ impl TestState {
 	}
 }
 
-fn peer_bitfield_message_v2(
+fn peer_bitfield_message_v3(
 	relay_hash: H256,
 	signed_bitfield: Signed<AvailabilityBitfield>,
 ) -> VersionedValidationProtocol {
-	let bitfield = polkadot_node_network_protocol::v2::BitfieldDistributionMessage::Bitfield(
+	let bitfield = polkadot_node_network_protocol::v3::BitfieldDistributionMessage::Bitfield(
 		relay_hash,
 		signed_bitfield.into(),
 	);
 
-	Versioned::V2(polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(
+	Versioned::V3(polkadot_node_network_protocol::v3::ValidationProtocol::BitfieldDistribution(
 		bitfield,
 	))
 }

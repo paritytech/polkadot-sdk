@@ -53,7 +53,10 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, TREASURY_PALLET_ID};
+use parachains_common::{
+	xcm_config::{AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem},
+	TREASURY_PALLET_ID,
+};
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
@@ -62,7 +65,7 @@ use xcm_builder::{
 	AccountId32Aliases, AliasOriginRootUsingFilter, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	AsPrefixedGeneralIndex, ConvertedConcreteId, DescribeAllTerminal, DescribeFamily,
-	EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
+	DescribeTerminus, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FixedWeightBounds,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
 	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
@@ -104,7 +107,7 @@ pub type LocationToAccountId = (
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	// Foreign locations alias into accounts according to a hash of their standard description.
-	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
+	HashedDescription<AccountId, (DescribeTerminus, DescribeFamily<DescribeAllTerminal>)>,
 	// Different global consensus locations sovereign accounts.
 	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
 );
@@ -272,17 +275,6 @@ where
 
 type AssetsFrom<T> = AssetPrefixFrom<T, T>;
 
-/// Asset filter that allows native/relay asset if coming from a certain location.
-pub struct NativeAssetFrom<T>(PhantomData<T>);
-impl<T: Get<Location>> ContainsPair<Asset, Location> for NativeAssetFrom<T> {
-	fn contains(asset: &Asset, origin: &Location) -> bool {
-		let loc = T::get();
-		&loc == origin &&
-			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
-			if *asset_loc == Location::from(Parent))
-	}
-}
-
 // This asset can be added to AH as Asset and reserved transfer between Penpal and AH
 pub const RESERVABLE_ASSET_ID: u32 = 1;
 // This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
@@ -337,8 +329,8 @@ impl<AssetLocation: Get<Location>, Origin: Get<Location>> ContainsPair<Asset, Lo
 
 pub type TrustedReserves = (
 	NativeAsset,
+	ConcreteAssetFromSystem<RelayLocation>,
 	AssetsFrom<SystemAssetHubLocation>,
-	NativeAssetFrom<SystemAssetHubLocation>,
 	AssetPrefixFrom<CustomizableAssetFromSystemAssetHub, SystemAssetHubLocation>,
 );
 pub type TrustedTeleporters =
