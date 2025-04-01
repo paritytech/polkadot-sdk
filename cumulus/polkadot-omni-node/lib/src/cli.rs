@@ -78,6 +78,14 @@ pub trait ExtraCommandProvider {
 	/// - `Ok(())` if handled successfully,
 	/// - an error if the command was recognized but failed.
 	fn handle_command(&self, cmd: &Self::Command) -> sc_cli::Result<()>;
+
+	/// Augment the CLI command with extra subcommands.
+	fn augment_command(&self, cmd: Command) -> Command;
+
+	/// boolean value to judge if there is an extra command
+	fn is_extra_command(&self, name: &str) -> bool {
+		matches!(name, "export-chain-spec")
+	}
 }
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]

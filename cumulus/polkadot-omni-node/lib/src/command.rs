@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap::{CommandFactory, FromArgMatches};
 use crate::{
 	cli,
 	cli::{Cli, RelayChainCli, Subcommand},
@@ -39,7 +40,7 @@ use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-use crate::cli::{ExtraSubcommand};
+use crate::cli::{ExtraCommandProvider, ExtraSubcommand};
 
 const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
@@ -119,7 +120,33 @@ fn new_node_spec(
 
 /// Parse command line arguments into service configuration.
 pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
-	let mut cli = Cli::<CliConfig>::from_args();
+
+	let mut cli_command = crate::cli::Cli::<CliConfig>::command();
+
+	// If extra command provider exists, augment the CLI with its commands
+	if let Some(ref provider) = cmd_config.extra_command_provider {
+		cli_command = provider.augment_command(cli_command);
+	}
+
+	// Parse matches
+	let matches = cli_command.get_matches();
+
+	// Check if an extra subcommand was invoked
+	if let Some(ref provider) = cmd_config.extra_command_provider {
+		if let Some((name, sub_matches)) = matches.subcommand() {
+			if provider.is_extra_command(name) {
+				let extra_cmd = ExtraSubcommand::from_arg_matches(sub_matches)
+					.map_err(|e| sc_cli::Error::Cli(e.into()))?;
+				provider.handle_command(&extra_cmd)?;
+				return Ok(()); // Early return after extra subcommand
+			}
+		}
+	}
+
+
+	// No extra subcommand, parse base CLI and proceed normally
+	let mut cli = crate::cli::Cli::<CliConfig>::from_arg_matches(&matches)
+		.map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
 	#[allow(deprecated)]
