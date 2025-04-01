@@ -37,7 +37,8 @@ the API docs of our Rust crates. Includes:
     for starting a new project.
   * [External Resources](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/external_resources/index.html)
  
-* Have a question? You can ask in the Polkadot SDK Developers Chat. Messages from either of these channels are bridged to the other, so you can use whichever one you like.
+Have a question? You can ask in the Polkadot SDK Developers Chat.
+Messages from either of these channels are bridged to the other, so you can use whichever one you like.
   * [Telegram](https://t.me/substratedevs)
   * [Matrix](https://matrix.to/#/#substratedevs:matrix.org)
   * [Discord](https://discord.com/channels/722223075629727774/997505821955076196)
