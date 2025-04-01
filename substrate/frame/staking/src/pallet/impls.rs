@@ -20,7 +20,7 @@
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	ScoreProvider, SortedListProvider, VoteWeight, VoterOf, PageIndex, TryFromOtherBounds
+	PageIndex, ScoreProvider, SortedListProvider, TryFromOtherBounds, VoteWeight, VoterOf,
 };
 use frame_support::{
 	defensive,
@@ -1409,7 +1409,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		Ok(ValidatorCount::<T>::get())
 	}
 
-	fn electing_voters(bounds: DataProviderBounds, _page: PageIndex) -> data_provider::Result<Vec<VoterOf<Self>>> {
+	fn electing_voters(
+		bounds: DataProviderBounds,
+		_page: PageIndex,
+	) -> data_provider::Result<Vec<VoterOf<Self>>> {
 		// This can never fail -- if `maybe_max_len` is `Some(_)` we handle it.
 		let voters = Self::get_npos_voters(bounds);
 
@@ -1421,7 +1424,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		Ok(voters)
 	}
 
-	fn electable_targets(bounds: DataProviderBounds, _page: PageIndex) -> data_provider::Result<Vec<T::AccountId>> {
+	fn electable_targets(
+		bounds: DataProviderBounds,
+		_page: PageIndex,
+	) -> data_provider::Result<Vec<T::AccountId>> {
 		let targets = Self::get_npos_targets(bounds);
 
 		// We can't handle this case yet -- return an error. WIP to improve handling this case in
@@ -1779,7 +1785,6 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
 		unimplemented!()
 	}
-
 }
 
 /// A simple voter list implementation that does not require any additional pallets. Note, this
@@ -2209,7 +2214,7 @@ impl<T: Config> Pallet<T> {
 
 		ensure!(
 			max_validators_bound >= max_winners_per_page_bound,
- 			"max validators should be higher than per page bounds"
+			"max validators should be higher than per page bounds"
 		);
 
 		ensure!(ValidatorCount::<T>::get() <= max_validators_bound, Error::<T>::TooManyValidators);

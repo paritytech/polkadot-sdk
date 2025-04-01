@@ -19,9 +19,7 @@
 
 use alloc::vec::Vec;
 use codec::Codec;
-use frame_election_provider_support::{
-	ElectionProvider, SortedListProvider, VoteWeight,
-};
+use frame_election_provider_support::{ElectionProvider, SortedListProvider, VoteWeight};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{

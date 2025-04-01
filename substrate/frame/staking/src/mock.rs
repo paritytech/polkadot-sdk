@@ -20,7 +20,7 @@
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen, VoteWeight, Support, BoundedSupports,
+	onchain, BoundedSupports, SequentialPhragmen, Support, VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -30,8 +30,8 @@ use frame_support::{
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_io;
 use sp_core::ConstBool;
+use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
@@ -223,9 +223,9 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 }
 
 parameter_types! {
- 	pub static MaxBackersPerWinner: u32 = 256;
- 	pub static MaxWinnersPerPage: u32 = MaxValidatorSet::get();
- }
+	pub static MaxBackersPerWinner: u32 = 256;
+	pub static MaxWinnersPerPage: u32 = MaxValidatorSet::get();
+}
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Test;

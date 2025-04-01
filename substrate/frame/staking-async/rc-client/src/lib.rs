@@ -16,8 +16,8 @@
 // limitations under the License.
 
 //! This pallet is intended to be used on AssetHub. It provides extrinsics used by
-//! `pallet-staking-async-ah-client` and serves as an interface between the relay chain and the staking
-//! pallet on AssetHub.
+//! `pallet-staking-async-ah-client` and serves as an interface between the relay chain and the
+//! staking pallet on AssetHub.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
