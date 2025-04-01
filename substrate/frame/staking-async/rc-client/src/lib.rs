@@ -361,7 +361,11 @@ pub mod pallet {
 	impl<T: Config> RcClientInterface for Pallet<T> {
 		type AccountId = T::AccountId;
 
-		fn validator_set(new_validator_set: Vec<Self::AccountId>, id: u32, prune_up_tp: Option<u32>) {
+		fn validator_set(
+			new_validator_set: Vec<Self::AccountId>,
+			id: u32,
+			prune_up_tp: Option<u32>,
+		) {
 			let report = ValidatorSetReport::new_terminal(new_validator_set, id, prune_up_tp);
 			T::SendToRelayChain::validator_set(report);
 		}

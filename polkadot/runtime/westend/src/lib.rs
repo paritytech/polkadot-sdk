@@ -36,7 +36,10 @@ use frame_support::{
 	pallet_prelude::PhantomData,
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, Equals, EverythingBut, FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
+		EitherOfDiverse, EnsureOriginWithArg, Equals, EverythingBut, FromContains, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
+		VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,

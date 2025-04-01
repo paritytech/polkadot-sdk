@@ -416,14 +416,9 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config>
-		OnOffenceHandler<T::AccountId, (T::AccountId, ()), Weight> for Pallet<T>
-	{
+	impl<T: Config> OnOffenceHandler<T::AccountId, (T::AccountId, ()), Weight> for Pallet<T> {
 		fn on_offence(
-			offenders: &[OffenceDetails<
-				T::AccountId,
-				(T::AccountId, ()),
-			>],
+			offenders: &[OffenceDetails<T::AccountId, (T::AccountId, ())>],
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
