@@ -20,7 +20,7 @@
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen, VoteWeight,
+	onchain, BoundedSupports, SequentialPhragmen, Support, VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -30,6 +30,7 @@ use frame_support::{
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
+use sp_core::ConstBool;
 use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
@@ -39,6 +40,7 @@ use sp_staking::{
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
+pub(crate) const SINGLE_PAGE: u32 = 0;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;
@@ -151,6 +153,7 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
 	type FullIdentificationOf = NullIdentity;
 }
@@ -205,7 +208,7 @@ parameter_types! {
 	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
 	pub static RewardOnUnbalanceWasCalled: bool = false;
-	pub static MaxWinners: u32 = 100;
+	pub static MaxValidatorSet: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
 }
@@ -220,14 +223,20 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type Score = VoteWeight;
 }
 
+parameter_types! {
+	pub static MaxBackersPerWinner: u32 = 256;
+	pub static MaxWinnersPerPage: u32 = MaxValidatorSet::get();
+}
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Test;
 	type Solver = SequentialPhragmen<AccountId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = MaxWinners;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type Bounds = ElectionsBounds;
+	type Sort = ConstBool<true>;
 }
 
 pub struct MockReward {}
@@ -285,6 +294,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxExposurePageSize = MaxExposurePageSize;
+	type MaxValidatorSet = MaxValidatorSet;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
@@ -669,7 +679,7 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 	assert_eq!(current_era(), active_era());
 }
 
-pub(crate) fn validator_payout_for(duration: u64) -> Balance {
+pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
 		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
@@ -679,7 +689,7 @@ pub(crate) fn validator_payout_for(duration: u64) -> Balance {
 	payout
 }
 
-pub(crate) fn total_payout_for(duration: u64) -> Balance {
+pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
 		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
@@ -705,7 +715,7 @@ pub(crate) fn time_per_era() -> u64 {
 }
 
 /// Time that will be calculated for the reward per era.
-pub(crate) fn time_per_era() -> u64 {
+pub(crate) fn reward_time_per_era() -> u64 {
 	time_per_era() - BLOCK_TIME
 }
 
@@ -958,4 +968,14 @@ pub(crate) fn restrict(who: &AccountId) {
 
 pub(crate) fn remove_from_restrict_list(who: &AccountId) {
 	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
+}
+
+pub(crate) fn to_bounded_supports(
+	supports: Vec<(AccountId, Support<AccountId>)>,
+) -> BoundedSupports<
+	AccountId,
+	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
+	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
+> {
+	supports.try_into().unwrap()
 }

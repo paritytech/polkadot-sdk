@@ -19,9 +19,7 @@
 
 use alloc::vec::Vec;
 use codec::Codec;
-use frame_election_provider_support::{
-	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
-};
+use frame_election_provider_support::{ElectionProvider, SortedListProvider, VoteWeight};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -253,6 +251,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
 
+		/// The absolute maximum of winner validators this pallet should return.
+		///
+		/// As this pallet supports multi-block election, the set of winner validators *per
+		/// election* is bounded by this type.
+		#[pallet::constant]
+		type MaxValidatorSet: Get<u32>;
+
 		/// Something that provides a best-effort sorted list of voters aka electing nominators,
 		/// used for NPoS election.
 		///
@@ -374,6 +379,7 @@ pub mod pallet {
 			type NextNewSession = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
+			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type Filter = Nothing;
@@ -804,7 +810,8 @@ pub mod pallet {
 				});
 				assert!(
 					ValidatorCount::<T>::get() <=
-						<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
+						<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
+							<T::ElectionProvider as ElectionProvider>::Pages::get()
 				);
 			}
 
@@ -987,8 +994,8 @@ pub mod pallet {
 
 			// ensure election results are always bounded with the same value
 			assert!(
-				<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get() ==
-					<T::GenesisElectionProvider as ElectionProviderBase>::MaxWinners::get()
+				<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() ==
+					<T::GenesisElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
 			);
 
 			assert!(
@@ -1596,10 +1603,8 @@ pub mod pallet {
 			ensure_root(origin)?;
 			// ensure new validator count does not exceed maximum winners
 			// support by election provider.
-			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
-				Error::<T>::TooManyValidators
-			);
+			ensure!(new <= T::MaxValidatorSet::get(), Error::<T>::TooManyValidators);
+
 			ValidatorCount::<T>::put(new);
 			Ok(())
 		}
@@ -1620,10 +1625,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(additional).ok_or(ArithmeticError::Overflow)?;
-			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
-				Error::<T>::TooManyValidators
-			);
+			ensure!(new <= T::MaxValidatorSet::get(), Error::<T>::TooManyValidators);
 
 			ValidatorCount::<T>::put(new);
 			Ok(())
@@ -1643,10 +1645,7 @@ pub mod pallet {
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(factor.mul_floor(old)).ok_or(ArithmeticError::Overflow)?;
 
-			ensure!(
-				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
-				Error::<T>::TooManyValidators
-			);
+			ensure!(new <= T::MaxValidatorSet::get(), Error::<T>::TooManyValidators);
 
 			ValidatorCount::<T>::put(new);
 			Ok(())
