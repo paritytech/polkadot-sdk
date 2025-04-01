@@ -130,7 +130,7 @@ pub struct StorageParams {
 	/// Since the write size needs to also include the cost of computing the storage root, which is
 	/// done once at the end of the block, the batch size is used to simulate multiple writes in a
 	/// block.
-	#[arg(long, default_value_t = 100_000)]
+	#[arg(long, default_value_t = 10_000)]
 	pub batch_size: usize,
 }
 
