@@ -32,6 +32,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_args(vec![
 					"-lbootnodes=trace".into(),
 					"--no-mdns".into(),
+					"--discover-local".into(),
 					"--".into(),
 					"--no-mdns".into(),
 				])
