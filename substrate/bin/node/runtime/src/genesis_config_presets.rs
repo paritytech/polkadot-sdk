@@ -41,6 +41,8 @@ pub const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
 pub const STASH: Balance = ENDOWMENT / 1000;
 
 pub struct StakingPlaygroundConfig {
+	/// (Validators, Nominators)
+	pub dev_stakers: (u32, u32),
 	pub validator_count: u32,
 	pub minimum_validator_count: u32,
 }
@@ -56,11 +58,11 @@ pub fn kitchensink_genesis(
 	stakers: Vec<Staker>,
 	staking_playground_config: Option<StakingPlaygroundConfig>,
 ) -> serde_json::Value {
-	let (validator_count, min_validator_count) = match staking_playground_config {
-		Some(c) => (c.validator_count, c.minimum_validator_count),
+	let (validator_count, min_validator_count, dev_stakers) = match staking_playground_config {
+		Some(c) => (c.validator_count, c.minimum_validator_count, Some(c.dev_stakers)),
 		None => {
 			let authorities_count = initial_authorities.len() as u32;
-			(authorities_count, authorities_count)
+			(authorities_count, authorities_count, None)
 		},
 	};
 
@@ -88,6 +90,7 @@ pub fn kitchensink_genesis(
 				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			slash_reward_fraction: Perbill::from_percent(10),
 			stakers,
+			dev_stakers
 		},
 		elections: ElectionsConfig {
 			members: collective.iter().cloned().map(|member| (member, STASH)).collect(),

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{self as fast_unstake};
+use frame_election_provider_support::PageIndex;
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
@@ -82,24 +83,27 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static CurrentEra: u32 = 0;
 	pub static Ongoing: bool = false;
-	pub static MaxWinners: u32 = 100;
 }
 
 pub struct MockElection;
-impl frame_election_provider_support::ElectionProviderBase for MockElection {
-	type AccountId = AccountId;
-	type BlockNumber = BlockNumber;
-	type MaxWinners = MaxWinners;
-	type DataProvider = Staking;
-	type Error = ();
-}
 
 impl frame_election_provider_support::ElectionProvider for MockElection {
+	type BlockNumber = BlockNumber;
+	type AccountId = AccountId;
+	type DataProvider = Staking;
+	type MaxBackersPerWinner = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type Pages = ConstU32<1>;
+	type Error = ();
+
+	fn elect(
+		_remaining_pages: PageIndex,
+	) -> Result<frame_election_provider_support::BoundedSupportsOf<Self>, Self::Error> {
+		Err(())
+	}
+
 	fn ongoing() -> bool {
 		Ongoing::get()
-	}
-	fn elect() -> Result<frame_election_provider_support::BoundedSupportsOf<Self>, Self::Error> {
-		Err(())
 	}
 }
 
@@ -200,7 +204,7 @@ impl ExtBuilder {
 				(v, Exposure { total: 0, own: 0, others })
 			})
 			.for_each(|(validator, exposure)| {
-				pallet_staking::EraInfo::<T>::set_exposure(era, &validator, exposure);
+				pallet_staking::EraInfo::<T>::upsert_exposure(era, &validator, exposure);
 			});
 	}
 
@@ -300,7 +304,7 @@ pub fn create_exposed_nominator(exposed: AccountId, era: u32) {
 	// create an exposed nominator in passed era
 	let mut exposure = pallet_staking::EraInfo::<T>::get_full_exposure(era, &VALIDATORS_PER_ERA);
 	exposure.others.push(IndividualExposure { who: exposed, value: 0 as Balance });
-	pallet_staking::EraInfo::<T>::set_exposure(era, &VALIDATORS_PER_ERA, exposure);
+	pallet_staking::EraInfo::<T>::upsert_exposure(era, &VALIDATORS_PER_ERA, exposure);
 
 	Balances::make_free_balance_be(&exposed, 100);
 	assert_ok!(Staking::bond(
