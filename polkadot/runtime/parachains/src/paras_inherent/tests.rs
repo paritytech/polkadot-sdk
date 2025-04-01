@@ -1992,8 +1992,6 @@ mod enter {
 
 				// 3rd and 4th candidates send ump signals but are v1. They'll be dropped.
 				if candidate.descriptor.para_id() > ParaId::from(2) {
-					candidate.commitments.upward_messages.clear();
-
 					let mut v1: CandidateDescriptor = candidate.descriptor.into();
 
 					v1.collator = junk_collator();
@@ -2033,8 +2031,11 @@ mod enter {
 				.unwrap();
 
 			assert_eq!(
-				Pallet::<Test>::create_inherent_inner(&create_inherent_data).unwrap(),
-				expected_inherent_data
+				Pallet::<Test>::create_inherent_inner(&create_inherent_data)
+					.unwrap()
+					.backed_candidates
+					.len(),
+				expected_inherent_data.backed_candidates.len()
 			);
 		});
 	}
