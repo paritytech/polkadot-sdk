@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet, Perbill, Vec};
+use crate::{Config, DisabledValidators as NewDisabledValidators, Pallet, Vec};
 use frame_support::{
 	pallet_prelude::{Get, ValueQuery, Weight},
 	traits::UncheckedOnRuntimeUpgrade,
@@ -49,14 +49,14 @@ impl<T: Config> MigrateDisabledValidators for InitOffenceSeverity<T> {
 	fn peek_disabled() -> Vec<(u32, OffenceSeverity)> {
 		DisabledValidators::<T>::get()
 			.iter()
-			.map(|v| (*v, OffenceSeverity(Perbill::zero())))
+			.map(|v| (*v, OffenceSeverity::max_severity()))
 			.collect::<Vec<_>>()
 	}
 
 	fn take_disabled() -> Vec<(u32, OffenceSeverity)> {
 		DisabledValidators::<T>::take()
 			.iter()
-			.map(|v| (*v, OffenceSeverity(Perbill::zero())))
+			.map(|v| (*v, OffenceSeverity::max_severity()))
 			.collect::<Vec<_>>()
 	}
 }

@@ -715,7 +715,7 @@ fn map_chunks(
 	core_index: CoreIndex,
 ) -> IndexedVec<ValidatorIndex, ErasureChunk> {
 	let chunk_indices =
-		availability_chunk_indices(Some(node_features), n_validators, core_index).unwrap();
+		availability_chunk_indices(node_features, n_validators, core_index).unwrap();
 
 	(0..n_validators)
 		.map(|val_idx| chunks[chunk_indices[val_idx].0 as usize].clone())
