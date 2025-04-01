@@ -99,8 +99,8 @@ fn penpal_testnet_genesis(
 			)],
 			"metadata": vec![(
 				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
-				"pal".as_bytes().to_vec(),
-				"pal".as_bytes().to_vec(),
+				"pal-2".as_bytes().to_vec(),
+				"pal-2".as_bytes().to_vec(),
 				12,
 			)],
 			"accounts": vec![(
