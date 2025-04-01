@@ -31,7 +31,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
-use pallet_staking_rc_client::Offence;
+use pallet_staking_async_rc_client::Offence;
 use sp_core::crypto::AccountId32;
 use sp_runtime::traits::Convert;
 use sp_staking::{offence::OffenceDetails, Exposure, SessionIndex};

@@ -641,6 +641,7 @@ impl<T: Config> Pallet<T> {
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
 		let election_result = if is_genesis {
+			// This pallet only supports single page elections.
 			let result = <T::GenesisElectionProvider>::elect(0)
 				.map_err(|e| {
 					log!(warn, "genesis election provider failed due to {:?}", e);
@@ -650,6 +651,7 @@ impl<T: Config> Pallet<T> {
 
 			BoundedSupportsOf::<T::ElectionProvider>::try_from_other_bounds(result).ok()?
 		} else {
+			// This pallet only supports single page elections.
 			<T::ElectionProvider>::elect(0)
 				.map_err(|e| {
 					log!(warn, "election provider failed due to {:?}", e);

@@ -96,7 +96,9 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<Balance, sp_runtime::Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type MaxBackersPerWinner = ConstU32<256>;
+	type Sort = ();
 	type Bounds = ElectionsBoundsOnChain;
 }
 
