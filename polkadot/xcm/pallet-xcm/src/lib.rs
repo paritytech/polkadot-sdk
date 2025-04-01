@@ -468,6 +468,9 @@ pub mod pallet {
 			actual_weight: Weight,
 			max_budgeted_weight: Weight,
 		},
+		/// Query response has been received and query is removed. The registered notification
+		/// could not be dispatched because the timeout was reached.
+		NotifyTimeout { query_id: QueryId, callback: <T as Config>::RuntimeCall },
 		/// Query response has been received and query is removed. There was a general error with
 		/// dispatching the notification call.
 		NotifyDispatchError { query_id: QueryId, callback: <T as Config>::RuntimeCall },
@@ -1567,7 +1570,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 
 impl<T: Config> Pallet<T> {
 	/// The ongoing queries.
-	pub fn query(query_id: &QueryId) -> Option<QueryStatus<BlockNumberFor<T>>> {
+	pub fn query(query_id: &QueryId) -> Option<QueryStatus<BlockNumberFor<T>, <T as Config>::RuntimeCall>> {
 		Queries::<T>::get(query_id)
 	}
 
@@ -3467,9 +3470,19 @@ impl<T: Config> OnResponse for Pallet<T> {
 							},
 						}
 					},
-					_ => {
-						// For all other cases (no callback OR timeout reached)
-						// Just mark the query as ready without executing callback
+					(Some(call), true) => {
+						let at = frame_system::Pallet::<T>::current_block_number();
+						let response = response.into();
+						Queries::<T>::insert(query_id, QueryStatus::Ready { response, at });
+						let e = Event::NotifyTimeout { 
+							query_id, 
+							callback: call 
+						};
+						Self::deposit_event(e);
+						Weight::zero()
+					},
+					(None, _) => {
+						// For no callback case, just mark the query as ready
 						let e = Event::ResponseReady { query_id, response: response.clone() };
 						Self::deposit_event(e);
 						let at = frame_system::Pallet::<T>::current_block_number();
