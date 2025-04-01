@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! This pallet is intended to be used on a relay chain and to communicate with its counterpart on
-//! AssetHub (or a similar network) named `pallet-staking-async-rc-client`.
+//! AssetHub (or a similar network) named `pallet-staking-next-rc-client`.
 //!
 //! This pallet serves as an interface between the staking pallet on AssetHub and the session pallet
 //! on the relay chain. From the relay chain to AssetHub, its responsibilities are to send
@@ -31,7 +31,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
-use pallet_staking_async_rc_client::Offence;
+use pallet_staking_next_rc_client::Offence;
 use sp_core::crypto::AccountId32;
 use sp_runtime::traits::Convert;
 use sp_staking::{offence::OffenceDetails, Exposure, SessionIndex};
@@ -39,9 +39,9 @@ use xcm::prelude::*;
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";
 
-/// `pallet-staking-async-rc-client` pallet index on AssetHub. Used to construct remote calls.
+/// `pallet-staking-next-rc-client` pallet index on AssetHub. Used to construct remote calls.
 ///
-/// The codec index must correspond to the index of `pallet-staking-async-rc-client` in the
+/// The codec index must correspond to the index of `pallet-staking-next-rc-client` in the
 /// `construct_runtime` of AssetHub.
 #[derive(Encode, Decode)]
 enum AssetHubRuntimePallets {

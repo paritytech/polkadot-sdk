@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Test crate for pallet-staking-async-reward-curve. Allows to test for procedural macro.
+//! Test crate for pallet-staking-next-reward-curve. Allows to test for procedural macro.
 //! See tests directory.
 
 mod test_small_falloff {
-	pallet_staking_async_reward_curve::build! {
+	pallet_staking_next_reward_curve::build! {
 		const REWARD_CURVE: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
 			min_inflation: 0_020_000,
 			max_inflation: 0_200_000,
@@ -32,7 +32,7 @@ mod test_small_falloff {
 }
 
 mod test_big_falloff {
-	pallet_staking_async_reward_curve::build! {
+	pallet_staking_next_reward_curve::build! {
 		const REWARD_CURVE: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
 			min_inflation: 0_100_000,
 			max_inflation: 0_400_000,

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! This pallet is intended to be used on AssetHub. It provides extrinsics used by
-//! `pallet-staking-async-ah-client` and serves as an interface between the relay chain and the
+//! `pallet-staking-next-ah-client` and serves as an interface between the relay chain and the
 //! staking pallet on AssetHub.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -48,9 +48,9 @@ pub trait StakingApi {
 	fn on_new_offences(offences: Vec<Offence>);
 }
 
-/// `pallet-staking-async-ah-client` pallet index on Relay chain. Used to construct remote calls.
+/// `pallet-staking-next-ah-client` pallet index on Relay chain. Used to construct remote calls.
 ///
-/// The codec index must correspond to the index of `pallet-staking-async-ah-client` in the
+/// The codec index must correspond to the index of `pallet-staking-next-ah-client` in the
 /// `construct_runtime` of the Relay chain.
 #[derive(Encode, Decode)]
 enum RelayChainRuntimePallets {

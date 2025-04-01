@@ -1,5 +1,5 @@
 [package]
-name = "pallet-staking-async-rc-client"
+name = "pallet-staking-next-rc-client"
 description = "Pallet handling the communication with staking-ah-client. It's role is to glue the staking pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way."
 license = "Apache-2.0"
 version = "0.1.0"

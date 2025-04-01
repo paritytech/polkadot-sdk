@@ -1,5 +1,5 @@
 [package]
-name = "pallet-staking-async-reward-fn"
+name = "pallet-staking-next-reward-fn"
 version = "19.0.0"
 authors.workspace = true
 edition.workspace = true

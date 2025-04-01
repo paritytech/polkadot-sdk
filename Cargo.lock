@@ -12961,7 +12961,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-async"
+name = "pallet-staking-next"
 version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
@@ -12973,7 +12973,7 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-session",
- "pallet-staking-async-reward-curve",
+ "pallet-staking-next-reward-curve",
  "pallet-timestamp",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -12991,7 +12991,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-async-ah-client"
+name = "pallet-staking-next-ah-client"
 version = "0.1.0"
 dependencies = [
  "frame-support",
@@ -13000,7 +13000,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-session",
  "pallet-staking",
- "pallet-staking-async-rc-client",
+ "pallet-staking-next-rc-client",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
@@ -13012,7 +13012,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-async-rc-client"
+name = "pallet-staking-next-rc-client"
 version = "0.1.0"
 dependencies = [
  "frame-support",
@@ -13027,7 +13027,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-async-reward-curve"
+name = "pallet-staking-next-reward-curve"
 version = "11.0.0"
 dependencies = [
  "proc-macro-crate 3.1.0",
@@ -13038,7 +13038,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-async-reward-fn"
+name = "pallet-staking-next-reward-fn"
 version = "19.0.0"
 dependencies = [
  "log",
@@ -13046,7 +13046,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-async-runtime-api"
+name = "pallet-staking-next-runtime-api"
 version = "14.0.0"
 dependencies = [
  "parity-scale-codec",
@@ -15645,10 +15645,10 @@ dependencies = [
  "pallet-skip-feeless-payment",
  "pallet-society",
  "pallet-staking",
- "pallet-staking-async",
- "pallet-staking-async-reward-curve",
- "pallet-staking-async-reward-fn",
- "pallet-staking-async-runtime-api",
+ "pallet-staking-next",
+ "pallet-staking-next-reward-curve",
+ "pallet-staking-next-reward-fn",
+ "pallet-staking-next-runtime-api",
  "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
  "pallet-staking-runtime-api",
