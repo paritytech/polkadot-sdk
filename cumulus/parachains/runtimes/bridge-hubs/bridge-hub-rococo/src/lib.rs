@@ -1540,6 +1540,12 @@ impl_runtime_apis! {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn id() -> ParaId {
+			ParachainInfo::parachain_id()
+		}
+	}
 }
 
 #[cfg(test)]

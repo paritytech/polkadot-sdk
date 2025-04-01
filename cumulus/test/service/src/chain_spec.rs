@@ -73,7 +73,7 @@ pub fn get_chain_spec_with_extra_endowed(
 		}
 	});
 
-	if let Some(id) = id {
+	if let Some(id) = id { // Here remove parachain Id from chain specification.
 		// Merge parachain ID if given, otherwise use the one from the preset.
 		sc_chain_spec::json_merge(
 			&mut patch_json,
