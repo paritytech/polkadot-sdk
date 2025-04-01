@@ -52,7 +52,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0001-parachains-pvf.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
           concurrency: 1
 
   #
@@ -75,7 +75,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0002-parachains-disputes.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
           concurrency: 1
 
   #
@@ -98,7 +98,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0003-beefy-and-mmr.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
 
   #
   zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate:
@@ -121,7 +121,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0004-parachains-garbage-candidate.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
 
   #
   zombienet-polkadot-functional-0006-parachains-max-tranche0:
@@ -143,7 +143,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0006-parachains-max-tranche0.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
 
   #
   zombienet-polkadot-functional-0007-dispute-freshly-finalized:
@@ -166,7 +166,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0007-dispute-freshly-finalized.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
 
   #
   zombienet-polkadot-functional-0008-dispute-old-finalized:
@@ -189,7 +189,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0008-dispute-old-finalized.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
 
   #
   zombienet-polkadot-functional-0009-approval-voting-coalescing:
@@ -211,7 +211,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0009-approval-voting-coalescing.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
 
   #
   zombienet-polkadot-functional-0010-validator-disabling:
@@ -234,7 +234,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0010-validator-disabling.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
   #
   #
   zombienet-polkadot-functional-0013-systematic-chunk-recovery:
@@ -256,7 +256,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0013-systematic-chunk-recovery.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
   #
   #
   zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
@@ -279,7 +279,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0014-chunk-fetching-network-compatibility.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
   #
   #
   zombienet-polkadot-functional-0015-coretime-shared-core:
@@ -305,7 +305,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0015-coretime-shared-core.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
   #
   #
   zombienet-polkadot-functional-0018-shared-core-idle-parachain:
@@ -331,7 +331,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0018-shared-core-idle-parachain.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
   #
   #
   zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness:
@@ -357,7 +357,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0019-coretime-collation-fetching-fairness.zndsl"
-          loacal-dir: "$LOCAL_DIR/functional"
+          local-dir: "$LOCAL_DIR/functional"
 
   #
   # smoke
@@ -381,7 +381,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0001-parachains-smoke-test.zndsl"
-          loacal-dir: "$LOCAL_DIR/smoke"
+          local-dir: "$LOCAL_DIR/smoke"
   #
   #
   zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
@@ -403,7 +403,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0002-parachains-upgrade-smoke-test.zndsl"
-          loacal-dir: "$LOCAL_DIR/smoke"
+          local-dir: "$LOCAL_DIR/smoke"
   #
   # (skipped in gitlab)
   zombienet-polkadot-smoke-0003-deregister-register-validator:
@@ -424,7 +424,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0003-deregister-register-validator-smoke.zndsl"
-          loacal-dir: "$LOCAL_DIR/smoke"
+          local-dir: "$LOCAL_DIR/smoke"
   #
   #
   zombienet-polkadot-smoke-0004-coretime-smoke-test:
@@ -446,7 +446,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0004-coretime-smoke-test.zndsl"
-          loacal-dir: "$LOCAL_DIR/smoke"
+          local-dir: "$LOCAL_DIR/smoke"
   #
   #
   zombienet-polkadot-smoke-0005-precompile-pvf-smoke:
@@ -468,7 +468,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0005-precompile-pvf-smoke.zndsl"
-          loacal-dir: "$LOCAL_DIR/smoke"
+          local-dir: "$LOCAL_DIR/smoke"
 
   #
   # misc
@@ -492,7 +492,7 @@ jobs:
         uses: ./.github/actions/zombienet-v1
         with:
           test: "0001-paritydb.zndsl"
-          loacal-dir: "$LOCAL_DIR/misc"
+          local-dir: "$LOCAL_DIR/misc"
   #
   # zombienet-polkadot-misc-0002-upgrade-node:
   #   needs: [preflight]
@@ -520,7 +520,7 @@ jobs:
   #       uses: ./.github/actions/zombienet-v1
   #       with:
   #         test: "0002-upgrade-node.zndsl"
-  #         loacal-dir: "$LOCAL_DIR/misc"
+  #         local-dir: "$LOCAL_DIR/misc"
 
 
 
