@@ -1511,7 +1511,6 @@ pub struct TestArgs {
 	pub asset_id: Option<u32>,
 	pub fee_asset_item: u32,
 	pub weight_limit: WeightLimit,
-	pub topic_id: Option<[u8; 32]>,
 }
 
 impl TestArgs {
@@ -1525,7 +1524,6 @@ impl TestArgs {
 			asset_id: None,
 			fee_asset_item: 0,
 			weight_limit: WeightLimit::Unlimited,
-			topic_id: None,
 		}
 	}
 
@@ -1546,7 +1544,6 @@ impl TestArgs {
 			asset_id,
 			fee_asset_item,
 			weight_limit: WeightLimit::Unlimited,
-			topic_id: None,
 		}
 	}
 }
@@ -1583,6 +1580,7 @@ where
 	pub hops_dispatchable: HashMap<String, fn(Self) -> DispatchResult>,
 	pub hops_calls: HashMap<String, Origin::RuntimeCall>,
 	pub args: Args,
+	pub topic_id: Option<[u8; 32]>,
 	_marker: PhantomData<(Destination, Hops)>,
 }
 
@@ -1613,6 +1611,7 @@ where
 			hops_dispatchable: Default::default(),
 			hops_calls: Default::default(),
 			args: test_args.args,
+			topic_id: None,
 			_marker: Default::default(),
 		}
 	}
@@ -1633,7 +1632,8 @@ where
 	}
 	/// Executes all dispatchables and assertions in order from `Origin` to `Destination`
 	pub fn assert(&mut self) {
-		Origin::check_assertion(self.clone());
+		let clone_for_origin = self.clone();
+		Origin::check_assertion(clone_for_origin);
 		Hops::check_assertion(self.clone());
 		Destination::check_assertion(self.clone());
 		Self::update_balances(self);

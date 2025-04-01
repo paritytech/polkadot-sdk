@@ -58,7 +58,7 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 		processed_id.is_some(),
 		"No MessageQueue::Processed event found on AssetHubWestend"
 	);
-	println!("Test Args topic_id on para_to_para_assethub_hop_assertions: {:?}", t.args.topic_id);
+	println!("Test.topic_id on para_to_para_assethub_hop_assertions: {:?}", t.topic_id);
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
