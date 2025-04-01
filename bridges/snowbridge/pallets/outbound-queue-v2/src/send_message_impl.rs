@@ -33,8 +33,10 @@ where
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError> {
-		let origin = AggregateMessageOrigin::SnowbridgeV2(ticket.origin);
+		// Ensure the pallet is in normal operations.
+		ensure!(!Self::operating_mode().is_halted(), SendError::Halted);
 
+		let origin = AggregateMessageOrigin::SnowbridgeV2(ticket.origin);
 		let message =
 			BoundedVec::try_from(ticket.encode()).map_err(|_| SendError::MessageTooLarge)?;
 

@@ -43,6 +43,7 @@
 //!
 //! # Extrinsics
 //!
+//! * [`Call::set_operating_mode`]: Set the operating mode
 //! * [`Call::submit_delivery_receipt`]: Submit delivery proof
 //!
 //! # Runtime API
@@ -254,6 +255,11 @@ pub mod pallet {
 	pub type PendingOrders<T: Config> =
 		StorageMap<_, Twox64Concat, u64, PendingOrder<BlockNumberFor<T>>, OptionQuery>;
 
+	/// The current operating mode of the pallet.
+	#[pallet::storage]
+	#[pallet::getter(fn operating_mode)]
+	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
@@ -276,6 +282,19 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Halt or resume all pallet operations. May only be called by root.
+		#[pallet::call_index(0)]
+		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
+		pub fn set_operating_mode(
+			origin: OriginFor<T>,
+			mode: BasicOperatingMode,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			OperatingMode::<T>::put(mode);
+			Self::deposit_event(Event::OperatingModeChanged { mode });
+			Ok(())
+		}
+
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::submit_delivery_receipt())]
 		pub fn submit_delivery_receipt(

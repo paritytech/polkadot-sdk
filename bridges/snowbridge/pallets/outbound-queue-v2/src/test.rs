@@ -4,7 +4,7 @@ use crate::{mock::*, *};
 use alloy_core::primitives::FixedBytes;
 use codec::Encode;
 use frame_support::{
-	assert_err, assert_ok,
+	assert_err, assert_noop, assert_ok,
 	traits::{Hooks, ProcessMessage, ProcessMessageError},
 	weights::WeightMeter,
 	BoundedVec,
@@ -35,6 +35,20 @@ fn submit_messages_and_commit() {
 		let digest_items = digest.logs();
 		assert!(digest_items.len() == 1 && digest_items[0].as_other().is_some());
 		assert_eq!(Messages::<Test>::decode_len(), Some(4));
+	});
+}
+
+#[test]
+fn message_delivering_should_fail_when_queue_halted() {
+	new_tester().execute_with(|| {
+		// Halt the outbound queue pallet.
+		OutboundQueue::set_operating_mode(RuntimeOrigin::root(), BasicOperatingMode::Halted)
+			.unwrap();
+
+		// Any message should fail if the pallet is halted.
+		let message = mock_message(1000);
+		let ticket = OutboundQueue::validate(&message).unwrap();
+		assert_noop!(OutboundQueue::deliver(ticket), SendError::Halted);
 	});
 }
 
