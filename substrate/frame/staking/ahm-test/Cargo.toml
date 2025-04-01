@@ -30,13 +30,13 @@ pallet-balances = { workspace = true, default-features = true }
 
 # pallets that we need in AH
 pallet-staking ={ workspace = true, default-features = true }
-pallet-staking-rc-client ={ workspace = true, default-features = true }
+pallet-staking-async-rc-client ={ workspace = true, default-features = true }
 pallet-election-provider-multi-block = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true }
 
 # pallets we need in the RC
 pallet-session = { workspace = true, default-features = true }
-pallet-staking-ah-client = { workspace = true, default-features = true }
+pallet-staking-async-ah-client = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 
@@ -46,8 +46,8 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 
 	"pallet-staking/try-runtime",
-	"pallet-staking-rc-client/try-runtime",
+	"pallet-staking-async-rc-client/try-runtime",
 
 	"pallet-session/try-runtime",
-	"pallet-staking-ah-client/try-runtime",
+	"pallet-staking-async-ah-client/try-runtime",
 ]

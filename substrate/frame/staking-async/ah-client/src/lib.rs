@@ -17,7 +17,7 @@
 
 //! The client for AssetHub, intended to be used in the relay chain.
 //!
-//! The counter-part for this pallet is `pallet-staking-rc-client` on AssetHub.
+//! The counter-part for this pallet is `pallet-staking-async-rc-client` on AssetHub.
 //!
 //! This documentation is divided into the following sections:
 //!

@@ -153,6 +153,7 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
 	type FullIdentificationOf = NullIdentity;
 }

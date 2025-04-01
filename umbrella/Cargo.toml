@@ -649,7 +649,7 @@ runtime-full = [
 	"pallet-skip-feeless-payment",
 	"pallet-society",
 	"pallet-staking",
-	"pallet-staking-next",
+	"pallet-staking-async",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
 	"pallet-staking-runtime-api",
@@ -1633,25 +1633,25 @@ default-features = false
 optional = true
 path = "../substrate/frame/staking/runtime-api"
 
-[dependencies.pallet-staking-next]
+[dependencies.pallet-staking-async]
 default-features = false
 optional = true
-path = "../substrate/frame/staking-next"
+path = "../substrate/frame/staking-async"
 
-[dependencies.pallet-staking-next-reward-curve]
+[dependencies.pallet-staking-async-reward-curve]
 default-features = false
 optional = true
-path = "../substrate/frame/staking-next/reward-curve"
+path = "../substrate/frame/staking-async/reward-curve"
 
-[dependencies.pallet-staking-next-reward-fn]
+[dependencies.pallet-staking-async-reward-fn]
 default-features = false
 optional = true
-path = "../substrate/frame/staking-next/reward-fn"
+path = "../substrate/frame/staking-async/reward-fn"
 
-[dependencies.pallet-staking-next-runtime-api]
+[dependencies.pallet-staking-async-runtime-api]
 default-features = false
 optional = true
-path = "../substrate/frame/staking-next/runtime-api"
+path = "../substrate/frame/staking-async/runtime-api"
 
 [dependencies.pallet-state-trie-migration]
 default-features = false

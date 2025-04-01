@@ -1,5 +1,5 @@
 [package]
-name = "pallet-staking-next"
+name = "pallet-staking-async"
 version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
@@ -46,7 +46,7 @@ frame-election-provider-support = { workspace = true, default-features = true }
 frame-support = { features = ["experimental"], workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
-pallet-staking-next-reward-curve = { workspace = true, default-features = true }
+pallet-staking-async-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
 sp-npos-elections = { workspace = true, default-features = true }

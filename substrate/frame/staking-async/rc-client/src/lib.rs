@@ -127,7 +127,7 @@ macro_rules! log {
 	};
 }
 
-/// The communication trait of `pallet-staking-rc-client` -> `relay-chain`.
+/// The communication trait of `pallet-staking-async-rc-client` -> `relay-chain`.
 ///
 /// This trait should only encapsulate our _outgoing_ communication to the RC. Any incoming
 /// communication comes it directly via our calls.
@@ -267,7 +267,7 @@ impl<AccountId> SessionReport<AccountId> {
 	}
 }
 
-/// Our communication trait of `pallet-staking-rc-client` -> `pallet-staking`.
+/// Our communication trait of `pallet-staking-async-rc-client` -> `pallet-staking`.
 ///
 /// This is merely a shorthand to avoid tightly-coupling the staking pallet to this pallet. It
 /// limits what we can say to `pallet-staking` to only these functions.
@@ -287,7 +287,7 @@ pub trait AHStakingInterface {
 	) -> Weight;
 }
 
-/// The communication trait of `pallet-staking` -> `pallet-staking-rc-client`.
+/// The communication trait of `pallet-staking` -> `pallet-staking-async-rc-client`.
 pub trait RcClientInterface {
 	/// The validator account ids.
 	type AccountId;

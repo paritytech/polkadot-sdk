@@ -154,6 +154,7 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
 	type FullIdentificationOf = NullIdentity;
 }
@@ -169,7 +170,7 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
-pallet_staking_next_reward_curve::build! {
+pallet_staking_async_reward_curve::build! {
 	const I_NPOS: PiecewiseLinear<'static> = curve!(
 		min_inflation: 0_025_000,
 		max_inflation: 0_100_000,
@@ -243,6 +244,7 @@ impl<
 			AccountId = AccountId,
 			MaxWinnersPerPage = MaxWinnersPerPage,
 			MaxBackersPerWinner = MaxBackersPerWinner,
+			BlockNumber = BlockNumber,
 			Error = onchain::Error,
 		>,
 	> ElectionProvider for SingleOrMultipageElectionProvider<SP>
@@ -290,8 +292,15 @@ impl<
 	fn lsp() -> PageIndex {
 		SP::lsp()
 	}
-	fn ongoing() -> bool {
-		SP::ongoing()
+	fn status() -> Result<bool, ()> {
+		SP::status()
+	}
+	fn start() -> Result<(), onchain::Error> {
+		SP::start()
+	}
+
+	fn duration() -> BlockNumber {
+		SP::duration()
 	}
 }
 
