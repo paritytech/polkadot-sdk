@@ -36,7 +36,6 @@ sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # cumulus deps
 cumulus-client-bootnodes = { workspace = true, default-features = true }

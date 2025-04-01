@@ -42,10 +42,8 @@ cumulus-relay-chain-interface = { workspace = true, default-features = true }
 [dev-dependencies]
 rstest = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
-url = { workspace = true }
 
 # Substrate
-sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }

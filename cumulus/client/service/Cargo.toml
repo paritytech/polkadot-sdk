@@ -14,7 +14,6 @@ workspace = true
 [dependencies]
 async-channel = { workspace = true }
 futures = { workspace = true }
-futures-timer = { workspace = true }
 
 # Substrate
 sc-client-api = { workspace = true, default-features = true }

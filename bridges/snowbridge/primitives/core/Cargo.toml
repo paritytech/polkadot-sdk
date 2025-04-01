@@ -37,9 +37,6 @@ xcm-executor = { workspace = true }
 
 bp-relayers = { workspace = true }
 
-[dev-dependencies]
-hex = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 std = [
