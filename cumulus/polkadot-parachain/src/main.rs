@@ -25,16 +25,16 @@ use std::io;
 use clap::{Parser, Subcommand};
 use polkadot_omni_node_lib::{chain_spec::LoadSpec, cli, run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
 use polkadot_omni_node_lib::cli::ExtraCommandProvider;
-use sc_cli::{ExportChainSpecCmd, RunCmd};
 use sc_cli::Error::Application;
 
+/// Struct to use extra commands within polkadot-parachain
 pub struct ExportChainSpecExtra;
 
 impl ExtraCommandProvider for ExportChainSpecExtra {
-	type Command = super::cli::ExtraSubcommand;
+	type Command =  cli::ExtraSubcommand;
 	fn handle_command(&self, cmd: &Self::Command) -> sc_cli::Result<()> {
 		match cmd {
-			super::cli::ExtraSubcommand::ExportChainSpec(ref export_cmd) => {
+			cli::ExtraSubcommand::ExportChainSpec(ref export_cmd) => {
 				let spec = chain_spec::ChainSpecLoader.load_spec(&export_cmd.chain)
 					.map_err(|e| Application(Box::new(
 						io::Error::new(io::ErrorKind::Other, e)
@@ -49,13 +49,17 @@ impl ExtraCommandProvider for ExportChainSpecExtra {
 #[command(author, version, about, long_about = None)]
 struct ParachainCli {
 	#[clap(flatten)]
-	pub run: RunCmd,
+	pub run: sc_cli::RunCmd,
 	#[clap(subcommand)]
-	pub built_in: Option<cli::Subcommand>,
-	#[clap(subcommand)]
-	pub extra: Option<cli::ExtraSubcommand>,
+	pub command: ParachainCommand,
 }
-
+#[derive(Debug, Subcommand)]
+enum ParachainCommand {
+	#[command(flatten)]
+	BuiltIn(cli::Subcommand),
+	#[command(flatten)]
+	Extra(cli::ExtraSubcommand),
+}
 
 struct CliConfig;
 

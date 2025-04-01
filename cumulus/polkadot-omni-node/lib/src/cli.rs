@@ -145,6 +145,7 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
+/// Extra SubCommands that can be optionally used to extend the functionality through omni-node-lib
 #[derive(Debug, clap::Subcommand, Clone)]
 #[command(about = "Extra subcommands for extending the CLI")]
 pub enum ExtraSubcommand {
@@ -166,10 +167,6 @@ pub struct Cli<Config: CliConfig> {
 	/// Possible subcommands. See [`Subcommand`].
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
-
-	/// Possible additional subcommands. See [`ExtraSubcommand`].
-	#[command(subcommand)]
-	pub extra: Option<ExtraSubcommand>,
 
 	/// The shared parameters with all cumulus-based parachain nodes.
 	#[command(flatten)]

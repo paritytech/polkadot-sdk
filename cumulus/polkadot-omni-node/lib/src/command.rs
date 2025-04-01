@@ -55,6 +55,17 @@ pub struct RunConfig {
 }
 
 impl RunConfig {
+	/// Creates a new `RunConfig` instance.
+	///
+	/// # Parameters
+	///
+	/// - `runtime_resolver`: A boxed runtime resolver.
+	/// - `chain_spec_loader`: A boxed chain spec loader.
+	/// - `extra_command_provider`: An optional extra command provider which, if provided, will handle extra subcommands.
+	///
+	/// # Returns
+	///
+	/// A new `RunConfig` instance configured with the given components.
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
@@ -109,16 +120,6 @@ fn new_node_spec(
 /// Parse command line arguments into service configuration.
 pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
 	let mut cli = Cli::<CliConfig>::from_args();
-
-	if let Some(ref extra_cmd) = cli.extra {
-		return if let Some(ref provider) = cmd_config.extra_command_provider {
-			provider.handle_command(extra_cmd)
-		} else {
-			Err(sc_cli::Error::Application(Box::new(
-				std::io::Error::new(std::io::ErrorKind::Other, "Extra command provided but no provider registered")
-			)))
-		}
-	}
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
 	#[allow(deprecated)]
