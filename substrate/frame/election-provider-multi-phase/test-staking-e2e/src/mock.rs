@@ -147,6 +147,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
 	type FullIdentificationOf = pallet_staking::NullIdentity;
 }

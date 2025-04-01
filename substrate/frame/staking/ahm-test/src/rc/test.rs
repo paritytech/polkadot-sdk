@@ -1,7 +1,7 @@
 use crate::rc::mock::*;
 use frame::testing_prelude::*;
-use pallet_staking_ah_client::{self as ah_client, Blocked, IsBlocked};
-use pallet_staking_rc_client::{self as rc_client, SessionReport, ValidatorSetReport};
+use pallet_staking_async_ah_client::{self as ah_client, Blocked, IsBlocked};
+use pallet_staking_async_rc_client::{self as rc_client, SessionReport, ValidatorSetReport};
 
 // Tests that are specific to Relay Chain.
 #[test]

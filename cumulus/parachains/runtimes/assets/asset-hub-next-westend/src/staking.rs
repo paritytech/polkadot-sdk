@@ -277,7 +277,7 @@ impl pallet_staking::Config for Runtime {
 	type RcClientInterface = StakingRcClient;
 }
 
-impl pallet_staking_rc_client::Config for Runtime {
+impl pallet_staking_async_rc_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
@@ -297,7 +297,7 @@ pub enum AhClientCalls {
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>)
 }
 
-use pallet_staking_rc_client as rc_client;
+use pallet_staking_async_rc_client as rc_client;
 use xcm::latest::{SendXcm, prelude::*};
 
 pub struct XcmToRelayChain<T: SendXcm>(PhantomData<T>);

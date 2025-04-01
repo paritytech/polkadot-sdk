@@ -13,7 +13,7 @@ construct_runtime! {
 		Balances: pallet_balances,
 
 		Staking: pallet_staking,
-		RcClient: pallet_staking_rc_client,
+		RcClient: pallet_staking_async_rc_client,
 
 		MultiBlock: multi_block,
 		MultiBlockVerifier: multi_block::verifier,
@@ -268,7 +268,7 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl pallet_staking_rc_client::Config for Runtime {
+impl pallet_staking_async_rc_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
@@ -276,17 +276,17 @@ impl pallet_staking_rc_client::Config for Runtime {
 }
 
 pub struct DeliverToRelay;
-impl pallet_staking_rc_client::SendToRelayChain for DeliverToRelay {
+impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 	type AccountId = AccountId;
 
-	fn validator_set(report: pallet_staking_rc_client::ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(report: pallet_staking_async_rc_client::ValidatorSetReport<Self::AccountId>) {
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue.push((System::block_number(), OutgoingMessages::ValidatorSet(report)));
 			LocalQueue::set(Some(local_queue));
 		} else {
 			shared::in_rc(|| {
 				let origin = crate::rc::RuntimeOrigin::root();
-				pallet_staking_ah_client::Pallet::<crate::rc::Runtime>::validator_set(
+				pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::validator_set(
 					origin,
 					report.clone(),
 				)
@@ -301,7 +301,7 @@ const INITIAL_STAKE: Balance = 100;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutgoingMessages {
-	ValidatorSet(pallet_staking_rc_client::ValidatorSetReport<AccountId>),
+	ValidatorSet(pallet_staking_async_rc_client::ValidatorSetReport<AccountId>),
 }
 
 parameter_types! {

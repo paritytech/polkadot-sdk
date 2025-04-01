@@ -1,7 +1,7 @@
 use frame::{
 	deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*, traits::fungible::Mutate,
 };
-use pallet_staking_ah_client as ah_client;
+use pallet_staking_async_ah_client as ah_client;
 use sp_staking::SessionIndex;
 
 use crate::shared;
@@ -16,7 +16,7 @@ construct_runtime! {
 
 		Session: pallet_session,
 		SessionHistorical: pallet_session::historical,
-		StakingAhClient: pallet_staking_ah_client,
+		StakingAhClient: pallet_staking_async_ah_client,
 	}
 }
 
@@ -173,7 +173,7 @@ impl ah_client::Config for Runtime {
 	type SessionInterface = Self;
 }
 
-use pallet_staking_rc_client as rc_client;
+use pallet_staking_async_rc_client as rc_client;
 pub struct DeliverToAH;
 impl ah_client::SendToAssetHub for DeliverToAH {
 	type AccountId = AccountId;

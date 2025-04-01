@@ -5,8 +5,8 @@ use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking::{
 	ActiveEra, ActiveEraInfo, CurrentEra, CurrentPlannedSession, Event as StakingEvent,
 };
-use pallet_staking_rc_client as rc_client;
-use pallet_staking_rc_client::ValidatorSetReport;
+use pallet_staking_async_rc_client as rc_client;
+use pallet_staking_async_rc_client::ValidatorSetReport;
 
 // Tests that are specific to Asset Hub.
 #[test]

@@ -57,7 +57,7 @@ pub use pallet::*;
 extern crate alloc;
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
-use pallet_staking_rc_client::{self as rc_client};
+use pallet_staking_async_rc_client::{self as rc_client};
 use sp_staking::{
 	offence::{OffenceDetails, OffenceSeverity},
 	SessionIndex,
@@ -400,7 +400,7 @@ pub mod pallet {
 				(T::UnixTime::now().as_millis().saturated_into::<u64>(), 0)
 			});
 
-			let session_report = pallet_staking_rc_client::SessionReport {
+			let session_report = pallet_staking_async_rc_client::SessionReport {
 				end_index: session_index,
 				validator_points,
 				activation_timestamp,
@@ -417,12 +417,12 @@ pub mod pallet {
 	}
 
 	impl<T: Config>
-		OnOffenceHandler<T::AccountId, (T::AccountId, pallet_staking::NullIdentity), Weight> for Pallet<T>
+		OnOffenceHandler<T::AccountId, (T::AccountId, ()), Weight> for Pallet<T>
 	{
 		fn on_offence(
 			offenders: &[OffenceDetails<
 				T::AccountId,
-				(T::AccountId, pallet_staking::NullIdentity),
+				(T::AccountId, ()),
 			>],
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
