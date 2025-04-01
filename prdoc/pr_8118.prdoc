@@ -1,8 +1,8 @@
 title: Fix compilation through explicit conversions
 doc:
-- audience: Node Dev, Runtime Dev 
+- audience: [Node Dev, Runtime Dev]
   description: |-
-	Fix various compilation issues for crates in polkadot-sdk which are consumed by the templates.
+    Fix various compilation issues for crates in polkadot-sdk which are consumed by the templates.
 
 crates:
 - name: polkadot-runtime-parachains
