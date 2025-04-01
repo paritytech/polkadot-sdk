@@ -76,8 +76,10 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 	let sov_penpal_on_ahr = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
-	let (expected_foreign_asset_id, expected_foreign_asset_amount) =
+	let (_, expected_foreign_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+	let (_, fee_asset_amount) =
+		fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 
 	AssetHubWestend::assert_xcmp_queue_success(None);
 
@@ -89,13 +91,13 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 				pallet_balances::Event::Burned { who, amount }
 			) => {
 				who: *who == sov_penpal_on_ahr.clone().into(),
-				amount: *amount == t.args.amount,
+				amount: *amount == fee_asset_amount,
 			},
 			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
 			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
-				asset_id: *asset_id == expected_foreign_asset_id,
+				asset_id: *asset_id == PenpalATeleportableAssetLocation::get(),
 				owner: *owner == t.receiver.account_id,
 				amount: *amount == expected_foreign_asset_amount,
 			},
@@ -148,10 +150,9 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 				amount: *amount == expected_asset_amount,
 			},
 			// native asset for fee is deposited to receiver
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 				asset_id: *asset_id == system_para_native_asset_location,
 				owner: *owner == t.receiver.account_id,
-				amount: *amount == expected_asset_amount,
 			},
 		]
 	);

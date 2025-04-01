@@ -43,9 +43,10 @@ mod imports {
 			TestArgs, TestContext, TestExt,
 		},
 		xcm_helpers::{
-			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
+			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution, fee_asset
 		},
 		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
+		PenpalATeleportableAssetLocation
 	};
 	pub use parachains_common::{AccountId, Balance};
 	pub use westend_system_emulated_network::{
