@@ -2,27 +2,17 @@ title: ' fix: conversions within the code by making them explicit'
 doc:
 - audience: Todo
   description: |-
-    # Description
-
-    Syncing templates for stable2412-4 fails for parachain-template: https://github.com/paritytech/polkadot-sdk/actions/runs/14179073884/job/39721894007. This fixes compilation of downstream usage of the crates based on master, and then we should backport to `stable2412` & `stable2503`.
-
-    ## Integration
-
-    N/A
-
-    ## Review Notes
-
-    The changes in this PR were done by compiling `parachin-template` repo with path dependencies based on `master` & `stable2412` branches, until it compiled successfully for `stable2412`, while for `master` (which should be similar to `2503`) there are still compilation errors but they are due to not bringing the new code from `polkadot-sdk` monorepo to `parachain-template` repository, not due to dependencies failing to compile.
+	Fix various compilation issues for crates in polkadot-sdk which are consumed by the templates.
 crates:
 - name: polkadot-runtime-parachains
-  bump: major
+  bump: patch
 - name: pallet-bridge-parachains
-  bump: major
+  bump: patch
 - name: polkadot-node-core-chain-selection
-  bump: major
+  bump: patch
 - name: polkadot-runtime-common
-  bump: major
+  bump: patch
 - name: substrate-wasm-builder
-  bump: major
+  bump: patch
 - name: pallet-revive
-  bump: major
+  bump: patch
