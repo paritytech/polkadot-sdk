@@ -105,6 +105,7 @@ fn go_to_block(n: u64) {
 
 pub struct TestPay;
 impl Pay for TestPay {
+	type Source = ();
 	type Beneficiary = u128;
 	type Balance = u64;
 	type Id = u64;
@@ -112,7 +113,7 @@ impl Pay for TestPay {
 	type Error = ();
 
 	fn pay(
-		_: &Self::Beneficiary,
+		_: &Self::Source,
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
@@ -128,7 +129,13 @@ impl Pay for TestPay {
 		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
+	fn ensure_successful(
+		_: &Self::Source,
+		_: &Self::Beneficiary,
+		_: Self::AssetKind,
+		_: Self::Balance,
+	) {
+	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
 		set_status(id, PaymentStatus::Failure)

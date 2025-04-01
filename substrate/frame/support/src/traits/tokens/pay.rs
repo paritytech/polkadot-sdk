@@ -30,7 +30,9 @@ use super::{fungible, fungibles, Balance, Preservation::Expendable};
 pub trait Pay {
 	/// The type by which we measure units of the currency in which we make payments.
 	type Balance: Balance;
-	/// The type by which we identify the beneficiaries to whom a payment may be made.
+	/// The type by which we identify the sources to whom a payment may be made.
+	type Source;
+	/// The type by which we identify the sources from which payments may be made.
 	type Beneficiary;
 	/// The type for the kinds of asset that are going to be paid.
 	///
@@ -44,7 +46,7 @@ pub trait Pay {
 	/// Make a payment and return an identifier for later evaluation of success in some off-chain
 	/// mechanism (likely an event, but possibly not on this chain).
 	fn pay(
-		source: &Self::Beneficiary,
+		source: &Self::Source,
 		beneficiary: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
@@ -58,7 +60,7 @@ pub trait Pay {
 	/// after this call. Used in benchmarking code.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
-		source: &Self::Beneficiary,
+		source: &Self::Source,
 		beneficiary: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
@@ -84,20 +86,21 @@ pub enum PaymentStatus {
 }
 
 /// Simple implementation of `Pay` which makes a payment from a "pot" - i.e. a single account.
-pub struct PayFromAccount<F, A>(core::marker::PhantomData<(F, A)>);
-impl<A, F> Pay for PayFromAccount<F, A>
+pub struct PayFromAssetAccount<F, A>(core::marker::PhantomData<(F, A)>);
+impl<A, F> Pay for PayFromAssetAccount<F, A>
 where
 	A: TypedGet,
 	F: fungible::Mutate<A::Type>,
 	A::Type: Eq,
 {
 	type Balance = F::Balance;
+	type Source = A::Type;
 	type Beneficiary = A::Type;
 	type AssetKind = ();
 	type Id = ();
 	type Error = DispatchError;
 	fn pay(
-		_: &Self::Beneficiary,
+		_: &Self::Source,
 		who: &Self::Beneficiary,
 		_: Self::AssetKind,
 		amount: Self::Balance,
@@ -109,27 +112,28 @@ where
 		PaymentStatus::Success
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: &Self::Beneficiary, _: Self::AssetKind, amount: Self::Balance) {
+	fn ensure_successful(_: &Self::Source, _: &Self::Beneficiary, _: Self::AssetKind, amount: Self::Balance) {
 		<F as fungible::Mutate<_>>::mint_into(&A::get(), amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(_: Self::Id) {}
 }
 
-/// Simple implementation of `Pay` for native balance
-pub struct PayWithBalance<F, A>(core::marker::PhantomData<(F, A)>);
-impl<A, F> Pay for PayWithBalance<F, A>
+/// Implementation of the `Pay` trait using a single fungible token (e.g., the native currency)
+pub struct PayWithFungible<F, A>(core::marker::PhantomData<(F, A)>);
+impl<A, F> Pay for PayWithFungible<F, A>
 where
 	F: fungible::Mutate<A>,
 	A: Eq,
 {
 	type Balance = F::Balance;
+	type Source = A;
 	type Beneficiary = A;
 	type AssetKind = ();
 	type Id = ();
 	type Error = DispatchError;
 	fn pay(
-		source: &Self::Beneficiary,
+		source: &Self::Source,
 		beneficiary: &Self::Beneficiary,
 		_: Self::AssetKind,
 		amount: Self::Balance,
@@ -142,7 +146,7 @@ where
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
-		source: &Self::Beneficiary,
+		source: &Self::Source,
 		_: &Self::Beneficiary,
 		_: Self::AssetKind,
 		amount: Self::Balance,
@@ -153,20 +157,21 @@ where
 	fn ensure_concluded(_: Self::Id) {}
 }
 
-/// Simple implementation of `Pay` for assets
-pub struct PayWithAsset<F, A>(core::marker::PhantomData<(F, A)>);
-impl<A, F> frame_support::traits::tokens::Pay for PayWithAsset<F, A>
+/// Implementation of the `Pay` trait using multiple fungible asset classes (e.g., `pallet_assets`)
+pub struct PayWithFungibles<F, A>(core::marker::PhantomData<(F, A)>);
+impl<A, F> frame_support::traits::tokens::Pay for PayWithFungibles<F, A>
 where
 	A: Eq + Clone,
 	F: fungibles::Mutate<A> + fungibles::Create<A>,
 {
 	type Balance = F::Balance;
+	type Source = A;
 	type Beneficiary = A;
 	type AssetKind = F::AssetId;
 	type Id = ();
 	type Error = DispatchError;
 	fn pay(
-		source: &Self::Beneficiary,
+		source: &Self::Source,
 		beneficiary: &Self::Beneficiary,
 		asset: Self::AssetKind,
 		amount: Self::Balance,
@@ -179,7 +184,7 @@ where
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
-		source: &Self::Beneficiary,
+		source: &Self::Source,
 		_: &Self::Beneficiary,
 		asset: Self::AssetKind,
 		amount: Self::Balance,

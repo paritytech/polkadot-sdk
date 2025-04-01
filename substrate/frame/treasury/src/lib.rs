@@ -266,10 +266,15 @@ pub mod pallet {
 		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
 
 		/// Type for processing spends of [`Self::AssetKind`] in favor of [`Self::Beneficiary`].
+		///
+		/// The `Source` type is determined by the `Pay` implementation. For example, it
+		/// could use `Pallet::account_id()` or dynamically choose a source based on the `AssetKind`.
 		type Paymaster: Pay<
-				Balance = BalanceOf<Self, I>,
-				Beneficiary = Self::Beneficiary,
-				AssetKind = Self::AssetKind>;
+			Balance = BalanceOf<Self, I>,
+			Source = (),
+			Beneficiary = Self::Beneficiary,
+			AssetKind = Self::AssetKind,
+		>;
 
 		/// Type for converting the balance of an [`Self::AssetKind`] to the balance of the native
 		/// asset, solely for the purpose of asserting the result against the maximum allowed spend
@@ -743,9 +748,8 @@ pub mod pallet {
 				Error::<T, I>::AlreadyAttempted
 			);
 
-			let treasury_account = Self::treasury_account_id();
 			let id = T::Paymaster::pay(
-				&treasury_account,
+				&(),
 				&spend.beneficiary,
 				spend.asset_kind.clone(),
 				spend.amount,
@@ -859,10 +863,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
 	/// value and only call this once.
 	pub fn account_id() -> T::AccountId {
-		T::PalletId::get().into_account_truncating()
-	}
-
-	pub fn treasury_account_id() -> T::Beneficiary {
 		T::PalletId::get().into_account_truncating()
 	}
 

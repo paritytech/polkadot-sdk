@@ -235,7 +235,7 @@ mod benchmarks {
 		};
 
 		T::Paymaster::ensure_successful(
-			&Treasury::<T, _>::treasury_account_id(),
+			&(),
 			&beneficiary,
 			asset_kind,
 			amount,
@@ -275,7 +275,7 @@ mod benchmarks {
 
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
 		T::Paymaster::ensure_successful(
-			&Treasury::<T, _>::treasury_account_id(),
+			&(),
 			&beneficiary,
 			asset_kind.clone(),
 			amount,

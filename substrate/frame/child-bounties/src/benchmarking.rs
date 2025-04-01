@@ -49,7 +49,6 @@ where
 }
 
 #[derive(Clone)]
-
 struct BenchmarkChildBounty<T: Config<I>, I: 'static> {
 	/// Bounty ID.
 	bounty_id: BountyIndex,
