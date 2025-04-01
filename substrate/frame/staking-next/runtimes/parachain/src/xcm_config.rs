@@ -42,7 +42,6 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
 use westend_runtime_constants::{
 	system_parachain::COLLECTIVES_ID, xcm::body::FELLOWSHIP_ADMIN_INDEX,
@@ -103,9 +102,6 @@ pub type LocationToAccountId = (
 	// Different global consensus parachain sovereign account.
 	// (Used for over-bridge transfers and reserve processing)
 	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
-	// Ethereum contract sovereign account.
-	// (Used to get convert ethereum contract locations to sovereign account)
-	EthereumLocationsConverterFor<AccountId>,
 );
 
 /// Means for transacting the native currency on this chain.
