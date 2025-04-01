@@ -20,7 +20,7 @@ use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
 
-	Rococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(864_610_000, 8_799)));
+	Rococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(350_000_000, 7000)));
 
 	assert_expected_events!(
 		Rococo,

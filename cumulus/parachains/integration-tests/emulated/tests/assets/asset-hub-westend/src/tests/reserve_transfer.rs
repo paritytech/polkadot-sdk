@@ -20,7 +20,7 @@ use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dm
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 
-	Westend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(864_610_000, 8_799)));
+	Westend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(350_000_000, 7000)));
 
 	assert_expected_events!(
 		Westend,
