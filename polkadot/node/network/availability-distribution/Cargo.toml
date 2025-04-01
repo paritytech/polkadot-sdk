@@ -13,7 +13,6 @@ workspace = true
 
 [dependencies]
 codec = { features = ["std"], workspace = true, default-features = true }
-derive_more = { workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }

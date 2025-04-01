@@ -17,7 +17,7 @@
 //! Primitives for exposing the headers relaying functionality in the CLI.
 
 use async_trait::async_trait;
-use structopt::StructOpt;
+use clap::Parser;
 
 use relay_utils::{
 	metrics::{GlobalMetrics, StandaloneMetric},
@@ -32,38 +32,38 @@ use crate::{
 use relay_substrate_client::Client;
 
 /// Chain headers relaying params.
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct RelayHeadersParams {
 	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set)
 	/// are relayed.
-	#[structopt(long)]
+	#[arg(long)]
 	only_mandatory_headers: bool,
 	/// If passed, only free headers (mandatory and every Nth header, if configured in runtime)
 	/// are relayed. Overrides `only_mandatory_headers`.
-	#[structopt(long)]
+	#[arg(long)]
 	only_free_headers: bool,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source: SourceConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target: TargetConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target_sign: TargetSigningParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	prometheus_params: PrometheusParams,
 }
 
 /// Single header relaying params.
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct RelayHeaderParams {
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source: SourceConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target: TargetConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target_sign: TargetSigningParams,
 	/// Number of the source chain header that we want to relay. It must have a persistent
 	/// storage proof at the [`Self::source`] node, otherwise the command will fail.
-	#[structopt(long)]
+	#[arg(long)]
 	number: u128,
 }
 

@@ -153,7 +153,6 @@ sp-keyring = { workspace = true }
 tempfile = { workspace = true }
 tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
-wait-timeout = { workspace = true }
 wat = { workspace = true }
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
@@ -181,9 +180,6 @@ try-runtime = [
 	"kitchensink-runtime/try-runtime",
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
-]
-staking-playground = [
-	"kitchensink-runtime/staking-playground",
 ]
 
 [[bench]]
