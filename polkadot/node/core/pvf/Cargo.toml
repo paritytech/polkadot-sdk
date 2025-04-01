@@ -65,9 +65,9 @@ test-parachain-adder = { workspace = true }
 test-parachain-halt = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
-libc = "0.2.155"
-procfs = "0.16.0"
-rusty-fork = "0.3.0"
+libc = { workspace = true }
+procfs = { workspace = true }
+rusty-fork = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 
 [[bench]]
