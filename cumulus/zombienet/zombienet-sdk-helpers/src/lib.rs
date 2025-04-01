@@ -12,7 +12,10 @@ use subxt::{
 	blocks::Block, events::Events, ext::scale_value::value, tx::DynamicPayload, utils::H256,
 	OnlineClient, PolkadotConfig,
 };
-use tokio::join;
+use tokio::{
+	join,
+	time::{sleep, Duration},
+};
 
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
@@ -233,7 +236,7 @@ pub async fn assert_para_throughput(
 /// Wait for the first block with a session change.
 ///
 /// The session change is detected by inspecting the events in the block.
-async fn wait_for_first_session_change(
+pub async fn wait_for_first_session_change(
 	blocks_sub: &mut subxt::backend::StreamOfResults<
 		Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
 	>,
@@ -274,5 +277,27 @@ pub async fn assert_finality_lag(
 	};
 	let finality_lag = best.number() - finalized.number();
 	assert!(finality_lag <= maximum_lag, "Expected finality to lag by a maximum of {maximum_lag} blocks, but was lagging by {finality_lag} blocks.");
+	Ok(())
+}
+
+/// Assert that finality has not stalled.
+pub async fn assert_blocks_are_being_finalized(
+	client: &OnlineClient<PolkadotConfig>,
+) -> Result<(), anyhow::Error> {
+	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
+	let first_measurement = finalized_blocks
+		.next()
+		.await
+		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
+		.number();
+	sleep(Duration::from_secs(12)).await;
+	let second_measurement = finalized_blocks
+		.next()
+		.await
+		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
+		.number();
+
+	assert!(second_measurement > first_measurement);
+
 	Ok(())
 }

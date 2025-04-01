@@ -84,7 +84,7 @@ parameter_types! {
 	pub AssetHubParaId: ParaId = ParaId::new(1000);
 	pub TestParaId: u32 = 2000;
 	pub RootLocation: Location = Location::parent();
-	pub FrontendLocation: Location = Location::new(1, [Parachain(1000), PalletInstance(80)]);
+	pub FrontendLocation: Location = Location::new(1, [Parachain(1000), PalletInstance(36)]);
 }
 
 #[cfg(feature = "runtime-benchmarks")]
