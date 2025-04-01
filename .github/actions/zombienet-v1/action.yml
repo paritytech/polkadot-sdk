@@ -35,7 +35,7 @@ runs:
       shell: bash
       run: |
         /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-          --local-dir="${{ inputs.local-dir }}" \
+          --local-dir="$(pwd)/${{ inputs.local-dir }}" \
           --concurrency=${{ inputs.concurrency }} \
           --test="${{ inputs.test }}"
 
