@@ -35,13 +35,13 @@ mod imports {
 			coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
 			CoretimeWestendParaPallet as CoretimeWestendPallet,
 		},
-		penpal_emulated_chain::{PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner},
+		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
 		westend_emulated_chain::genesis::ED as WESTEND_ED,
 		AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
 		CollectivesWestendPara as CollectivesWestend, CoretimeWestendPara as CoretimeWestend,
 		CoretimeWestendParaReceiver as CoretimeWestendReceiver,
-		CoretimeWestendParaSender as CoretimeWestendSender, PenpalAPara as PenpalA,
+		CoretimeWestendParaSender as CoretimeWestendSender, PenpalBPara as PenpalB,
 		PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
 	};
 }
