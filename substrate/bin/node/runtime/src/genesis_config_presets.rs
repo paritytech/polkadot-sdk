@@ -40,13 +40,6 @@ use sp_runtime::Perbill;
 pub const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
 pub const STASH: Balance = ENDOWMENT / 1000;
 
-pub struct StakingPlaygroundConfig {
-	/// (Validators, Nominators)
-	pub dev_stakers: (u32, u32),
-	pub validator_count: u32,
-	pub minimum_validator_count: u32,
-}
-
 /// The staker type as supplied ot the Staking config.
 pub type Staker = (AccountId, AccountId, Balance, StakerStatus<AccountId>);
 
@@ -56,15 +49,9 @@ pub fn kitchensink_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	stakers: Vec<Staker>,
-	staking_playground_config: Option<StakingPlaygroundConfig>,
 ) -> serde_json::Value {
-	let (validator_count, min_validator_count, dev_stakers) = match staking_playground_config {
-		Some(c) => (c.validator_count, c.minimum_validator_count, Some(c.dev_stakers)),
-		None => {
-			let authorities_count = initial_authorities.len() as u32;
-			(authorities_count, authorities_count, None)
-		},
-	};
+	let validator_count = initial_authorities.len() as u32;
+	let minimum_validator_count = validator_count;
 
 	let collective = collective(&endowed_accounts);
 
@@ -81,7 +68,7 @@ pub fn kitchensink_genesis(
 		},
 		staking: StakingConfig {
 			validator_count,
-			minimum_validator_count: min_validator_count,
+			minimum_validator_count,
 			invulnerables: initial_authorities
 				.iter()
 				.map(|x| x.0.clone())
@@ -90,7 +77,6 @@ pub fn kitchensink_genesis(
 				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			slash_reward_fraction: Perbill::from_percent(10),
 			stakers,
-			dev_stakers
 		},
 		elections: ElectionsConfig {
 			members: collective.iter().cloned().map(|member| (member, STASH)).collect(),
@@ -127,7 +113,6 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			alice.clone(),
 			endowed,
 			vec![validator(alice_stash.clone())],
-			None,
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => kitchensink_genesis(
 			vec![
@@ -139,7 +124,6 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			alice,
 			endowed,
 			vec![validator(alice_stash), validator(bob_stash)],
-			None,
 		),
 		_ => return None,
 	};

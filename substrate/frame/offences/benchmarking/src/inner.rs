@@ -192,7 +192,7 @@ where
 	// (n nominators + one validator) * slashed + Slash Reported + Slash Computed
 	assert_eq!(
 		System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
-		1 * (offender_count + 1) as usize + 2
+		1 * (offender_count + 1) as usize + 1
 	);
 	// offence
 	assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);

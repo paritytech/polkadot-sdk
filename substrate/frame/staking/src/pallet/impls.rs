@@ -844,7 +844,7 @@ impl<T: Config> Pallet<T> {
 	/// relatively to their points.
 	///
 	/// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
-	pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+	pub(crate) fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
 		if let Some(active_era) = ActiveEra::<T>::get() {
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
@@ -2112,6 +2112,12 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 		let _ = asset::update_stake::<T>(who, ledger.total)
 			.expect("funds must be transferred to stash");
 		VirtualStakers::<T>::remove(who);
+	}
+}
+
+impl<T: Config> frame_support::traits::RewardsReporter<T::AccountId> for Pallet<T> {
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+		Self::reward_by_ids(validators_points)
 	}
 }
 

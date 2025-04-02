@@ -181,9 +181,6 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 ]
-staking-playground = [
-	"kitchensink-runtime/staking-playground",
-]
 
 [[bench]]
 name = "transaction_pool"

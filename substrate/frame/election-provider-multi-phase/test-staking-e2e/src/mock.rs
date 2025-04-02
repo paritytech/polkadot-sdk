@@ -147,6 +147,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
 	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
@@ -899,7 +900,7 @@ pub(crate) fn on_offence_now(
 	slash_fraction: &[Perbill],
 ) {
 	let now = ActiveEra::<Runtime>::get().unwrap().index;
-	let _ = Staking::on_offence(
+	let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
 		offenders,
 		slash_fraction,
 		ErasStartSessionIndex::<Runtime>::get(now).unwrap(),

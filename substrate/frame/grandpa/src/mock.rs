@@ -39,7 +39,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	testing::{TestXt, UintAuthorityId},
 	traits::OpaqueKeys,
-	BoundedVec, BuildStorage, DigestItem, Perbill,
+	BuildStorage, DigestItem, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -109,6 +109,7 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
 	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
@@ -174,10 +175,7 @@ impl pallet_staking::Config for Test {
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type ElectionProvider = pallet_staking::TestElectionProviderAtEraBoundary<
-		Self,
-		onchain::OnChainExecution<OnChainSeqPhragmen>,
-	>;
+	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
@@ -266,7 +264,7 @@ pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestEx
 		validator_count: 8,
 		force_era: pallet_staking::Forcing::ForceNew,
 		minimum_validator_count: 0,
-		invulnerables: BoundedVec::new(),
+		invulnerables: vec![],
 		..Default::default()
 	};
 
@@ -295,9 +293,8 @@ pub fn start_session(session_index: SessionIndex) {
 		Timestamp::set_timestamp(System::block_number() * 6000);
 
 		System::on_initialize(System::block_number());
-		// staking has to be initialized before session as per the multi-block staking PR.
-		Staking::on_initialize(System::block_number());
 		Session::on_initialize(System::block_number());
+		Staking::on_initialize(System::block_number());
 		Grandpa::on_initialize(System::block_number());
 	}
 

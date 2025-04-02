@@ -26,7 +26,6 @@ use frame_election_provider_support::{
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, OneSessionHandler},
-	BoundedVec,
 };
 use pallet_staking::{BalanceOf, StakerStatus};
 use sp_core::ConstBool;
@@ -141,16 +140,14 @@ impl pallet_staking::Config for Test {
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type ElectionProvider = pallet_staking::TestElectionProviderAtEraBoundary<
-		Self,
-		onchain::OnChainExecution<OnChainSeqPhragmen>,
-	>;
+	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 }
 
 impl pallet_session::historical::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
 	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
@@ -183,12 +180,13 @@ impl pallet_timestamp::Config for Test {
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type OffenceHandler = Staking;
 }
 
 pub struct ExtBuilder {
 	validator_count: u32,
 	minimum_validator_count: u32,
-	invulnerables: BoundedVec<AccountId, <Test as pallet_staking::Config>::MaxInvulnerables>,
+	invulnerables: Vec<AccountId>,
 	balance_factor: Balance,
 }
 
@@ -197,7 +195,7 @@ impl Default for ExtBuilder {
 		Self {
 			validator_count: 2,
 			minimum_validator_count: 0,
-			invulnerables: BoundedVec::new(),
+			invulnerables: vec![],
 			balance_factor: 1,
 		}
 	}

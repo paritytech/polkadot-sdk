@@ -548,6 +548,7 @@ where
 			(DataProvider(x), DataProvider(y)) if x == y => true,
 			(Fallback(x), Fallback(y)) if x == y => true,
 			(MultiPageNotSupported, MultiPageNotSupported) => true,
+			(NothingQueued, NothingQueued) => true,
 			_ => false,
 		}
 	}
@@ -782,6 +783,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			#[allow(deprecated)]
 			let next_election = T::DataProvider::next_election_prediction(now).max(now);
 
 			let signed_deadline = T::SignedPhase::get() + T::UnsignedPhase::get();
@@ -2543,7 +2545,7 @@ mod tests {
 
 		ExtBuilder::default().onchain_fallback(false).build_and_execute(|| {
 			prepare_election();
-			// multi page calls will fail with multipage not supported error.
+			// multi page calls will fail with multi-page not supported error.
 			assert_noop!(MultiPhase::elect(SINGLE_PAGE + 1), ElectionError::MultiPageNotSupported);
 		})
 	}

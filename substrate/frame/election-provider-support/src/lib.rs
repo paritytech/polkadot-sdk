@@ -152,6 +152,10 @@
 //!         type Pages = T::Pages;
 //!         type DataProvider = T::DataProvider;
 //!
+//! 		fn duration() -> <Self as frame_election_provider_support::ElectionProvider>::BlockNumber { todo!() }
+//!
+//! 		fn start() -> Result<(), <Self as frame_election_provider_support::ElectionProvider>::Error> { todo!() }
+//!
 //!         fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 //!             unimplemented!()
 //!         }
@@ -995,7 +999,7 @@ impl<
 	fn try_from_other_bounds(
 		other: BoundedSupports<AccountId, BOtherOuter, BOuterInner>,
 	) -> Result<Self, crate::Error> {
-		// TODO: we might as well do this with unsafe rust and do it faster.
+		// NOTE: we might as well do this with unsafe rust and do it faster.
 		if BOtherOuter::get() <= BOuter::get() && BInner::get() <= BOuterInner::get() {
 			let supports = other
 				.into_iter()
@@ -1108,7 +1112,7 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> Into<Supports<AccountId>>
 	for BoundedSupports<AccountId, BOuter, BInner>
 {
 	fn into(self) -> Supports<AccountId> {
-		// TODO: can be done faster with unsafe code.
+		// NOTE: can be done faster with unsafe code.
 		self.0.into_iter().map(|(acc, b_support)| (acc, b_support.into())).collect()
 	}
 }
