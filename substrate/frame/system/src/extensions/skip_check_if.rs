@@ -146,7 +146,8 @@ impl<
 		match pre {
 			Apply(pre) => E::post_dispatch_details(pre, info, post_info, len, result),
 			Skip(_) => {
-				// TODO: FAIL-CI - maybe return some weight consumed by `Filter::contains(call, &origin)`?
+				// TODO: FAIL-CI - maybe return some weight consumed by `Filter::contains(call,
+				// &origin)`?
 				Ok(Weight::zero())
 			},
 		}

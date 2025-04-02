@@ -18,7 +18,8 @@
 //! - The parent block
 //!
 //! Note: This hook and the corresponding XCM would not be necessary if:
-//! - A mechanism is implemented to read the custom `RelayChainStateProof` context, allowing us to retrieve the latest AssetHub head directly on Collectives.
+//! - A mechanism is implemented to read the custom `RelayChainStateProof` context, allowing us to
+//!   retrieve the latest AssetHub head directly on Collectives.
 //!   - See: https://github.com/paritytech/polkadot-sdk/issues/7445
 //!   - See: https://github.com/paritytech/polkadot-sdk/issues/82
 
@@ -38,8 +39,7 @@ const LOG_TARGET: &str = "runtime::dday::hook";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_support::weights::WeightMeter;
+	use frame_support::{pallet_prelude::*, weights::WeightMeter};
 	use xcm::latest::prelude::*;
 
 	#[pallet::pallet]
@@ -112,9 +112,9 @@ pub mod pallet {
 	}
 }
 
-/// A type containing the encoding of the DDay detection pallet in the Collectives chain runtime. Used to
-/// construct any remote calls. The codec index must correspond to the index of `DDayDetection` in the
-/// `construct_runtime` of the Collectives chain.
+/// A type containing the encoding of the DDay detection pallet in the Collectives chain runtime.
+/// Used to construct any remote calls. The codec index must correspond to the index of
+/// `DDayDetection` in the `construct_runtime` of the Collectives chain.
 #[derive(Encode, Decode, DecodeWithMemTracking, Debug, scale_info::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 enum CollectivesPallets<T: Config> {

@@ -18,8 +18,8 @@ hash-db = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-core = { workspace = true }
-sp-state-machine = { workspace = true }
 sp-runtime = { workspace = true }
+sp-state-machine = { workspace = true }
 sp-trie = { workspace = true }
 
 [features]

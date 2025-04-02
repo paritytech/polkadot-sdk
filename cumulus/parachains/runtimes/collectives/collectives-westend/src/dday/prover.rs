@@ -32,8 +32,7 @@ use pallet_dday_voting::{
 	ProofHasherOf, ProofOf, ProvideHash, TotalForTallyProvider, Totals, VerifyProof, VotingPower,
 };
 use sp_runtime::traits::BlakeTwo256;
-use xcm::latest::prelude::*;
-use xcm::DoubleEncoded;
+use xcm::{latest::prelude::*, DoubleEncoded};
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::traits::{Properties, ShouldExecute};
 
@@ -123,7 +122,8 @@ impl VerifyProof for AssetHubAccountProver {
 	}
 }
 
-/// Adapter implementation for `ProvideHash`, `TotalForTallyProvider` and `IsStalled` which returns stalled AssetHub state root.
+/// Adapter implementation for `ProvideHash`, `TotalForTallyProvider` and `IsStalled` which returns
+/// stalled AssetHub state root.
 pub struct StalledAssetHubDataProvider<Chain>(core::marker::PhantomData<Chain>);
 impl<Chain: IsStalled> ProvideHash for StalledAssetHubDataProvider<Chain> {
 	type Key = ProofBlockNumberOf<AssetHubAccountProver>;
@@ -138,8 +138,8 @@ impl<Chain: IsStalled> ProvideHash for StalledAssetHubDataProvider<Chain> {
 		})
 	}
 }
-/// Implementation of `TotalForTallyProvider` which return recorded/proved issuance that is relevant.
-/// If nothing is recorded yet, the `ProofBalanceOf<AssetHubAccountProver>::MAX` is used.
+/// Implementation of `TotalForTallyProvider` which return recorded/proved issuance that is
+/// relevant. If nothing is recorded yet, the `ProofBalanceOf<AssetHubAccountProver>::MAX` is used.
 impl<Chain: IsStalled> TotalForTallyProvider for StalledAssetHubDataProvider<Chain> {
 	type TotalKey = ProofBlockNumberOf<AssetHubAccountProver>;
 	type Total = ProofBalanceOf<AssetHubAccountProver>;
@@ -192,9 +192,8 @@ impl<F: Contains<Location>> ShouldExecute for AllowTransactWithDDayDataUpdatesFr
 							_ => Err(ProcessMessageError::BadFormat),
 						}
 					},
-					ExpectTransactStatus(..) if starts_with_valid_transact => {
-						Ok(ControlFlow::Continue(()))
-					},
+					ExpectTransactStatus(..) if starts_with_valid_transact =>
+						Ok(ControlFlow::Continue(())),
 					_ => Err(ProcessMessageError::BadFormat),
 				},
 			)?
@@ -209,8 +208,8 @@ pub mod tests {
 
 	/// Sample proof downloaded from AssetHubWestend:
 	///
-	/// For account 5HVxofJkZcPs1emaJMWiJqd5aoWfDWobP7RiKBbbNTEDp5yy at block: (10_990_425) 0xbad834d093eae042d175d304b1850c37c63e386e9f315b81a46af4867a78625c:
-	/// {
+	/// For account 5HVxofJkZcPs1emaJMWiJqd5aoWfDWobP7RiKBbbNTEDp5yy at block: (10_990_425)
+	/// 0xbad834d093eae042d175d304b1850c37c63e386e9f315b81a46af4867a78625c: {
 	///   parentHash: 0x347c2e995b0bbd470f083077529a9f8fcc8b18287195cd778ba1023b7fcc1fb3
 	///   number: 10,990,425
 	///   stateRoot: 0xb61ad16ff3226be01a583fdb83daad568f690d540bf78770bca841c6099fce8a
@@ -239,13 +238,16 @@ pub mod tests {
 	///   }
 	/// }
 	///
-	/// Balances.total_issuance: 88,831,707,570,053,009 at block: 0xbad834d093eae042d175d304b1850c37c63e386e9f315b81a46af4867a78625c:
+	/// Balances.total_issuance: 88,831,707,570,053,009 at block:
+	/// 0xbad834d093eae042d175d304b1850c37c63e386e9f315b81a46af4867a78625c:
 	/// 	key: 0xc2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80
 	///
-	/// Balances.total_issuance: 0 at block: 0xbad834d093eae042d175d304b1850c37c63e386e9f315b81a46af4867a78625c:
+	/// Balances.total_issuance: 0 at block:
+	/// 0xbad834d093eae042d175d304b1850c37c63e386e9f315b81a46af4867a78625c:
 	/// 	key: 0xc2261276cc9d1f8598ea4b6a74b15c2f1ccde6872881f893a21de93dfe970cd5
 	///
-	/// System.account(5HVxofJkZcPs1emaJMWiJqd5aoWfDWobP7RiKBbbNTEDp5yy) - free balance at block: 0xbad834d093eae042d175d304b1850c37c63e386e9f315b81a46af4867a78625c:
+	/// System.account(5HVxofJkZcPs1emaJMWiJqd5aoWfDWobP7RiKBbbNTEDp5yy) - free balance at block:
+	/// 0xbad834d093eae042d175d304b1850c37c63e386e9f315b81a46af4867a78625c:
 	/// 	key: 0x26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9942ba479328ac3d026b2c4cced7e2508f0709f5078496e42469e70752483d4f820702bb01e335d9e03bad0b54f729251
 	/// {
 	/// 	nonce: 5,
@@ -338,8 +340,7 @@ pub mod tests {
 
 		let ss58_account = "5HVxofJkZcPs1emaJMWiJqd5aoWfDWobP7RiKBbbNTEDp5yy";
 		let ss58_account_secret_key = "culture gadget inquiry ginger innocent pottery abstract reveal train gorilla despair emerge";
-		use sp_core::crypto::Ss58Codec;
-		use sp_core::Pair;
+		use sp_core::{crypto::Ss58Codec, Pair};
 		assert_eq!(
 			ss58_account,
 			sp_core::sr25519::Pair::from_string(ss58_account_secret_key, None)

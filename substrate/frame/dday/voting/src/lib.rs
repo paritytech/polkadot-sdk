@@ -22,8 +22,8 @@
 //!
 //! ## Key Features
 //! - Uses [`ProofDescription`] to describe the external chain and its proof.
-//! - Proof validation is handled by `type Prover: VerifyProof`, which verifies the proof
-//!   against the proof root provided by `type ProofRootProvider: ProvideHash`.
+//! - Proof validation is handled by `type Prover: VerifyProof`, which verifies the proof against
+//!   the proof root provided by `type ProofRootProvider: ProvideHash`.
 //! - A valid proof is converted into `VotingPower(account_power: Balance, total: Balance)`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -117,10 +117,10 @@ pub mod pallet {
 			Moment = BlockNumberFor<Self, I>,
 		>;
 
-		// TODO: FAIL-CI: add implementation `LockableCurrency` over proofed balance and local accounting
-		// or we do just 1 account 1 vote and remove Balance as Vote
-		// or we could fire some remote locking with HRMP to AssetHub, which could eventually be executed,
-		// when AssetHub is unstalled.
+		// TODO: FAIL-CI: add implementation `LockableCurrency` over proofed balance and local
+		// accounting or we do just 1 account 1 vote and remove Balance as Vote
+		// or we could fire some remote locking with HRMP to AssetHub, which could eventually be
+		// executed, when AssetHub is unstalled.
 		// type Currency: ReservableCurrency<Self::AccountId>
 		// + LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self, I>>
 		// + fungible::Inspect<Self::AccountId>;
@@ -230,7 +230,8 @@ pub mod pallet {
 		// Set Tally's `Total::get()` data.
 		// Allow this for (any) rank1+ to submit proof with total/inactive issuance
 		// only when have stalled head, it will check proof with stalled state root.
-		// fn set_total(rank_origin, at_block, StorageProof(total_issuance_key/value, inactive_issuance_key/value)) {..}
+		// fn set_total(rank_origin, at_block, StorageProof(total_issuance_key/value,
+		// inactive_issuance_key/value)) {..}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I>
@@ -308,8 +309,8 @@ pub mod pallet {
 
 					// TODO: FAIL-CI: Do we need some locking here?
 					// TODO: FAIL-CI: We could `send_xcm(do_remote_lock())` to stalled chain?
-					// Extend the lock to `balance` (rather than setting it) since we don't know what
-					// other votes are in place.
+					// Extend the lock to `balance` (rather than setting it) since we don't know
+					// what other votes are in place.
 					// Self::extend_lock(who, &class, vote.balance());
 
 					Self::deposit_event(Event::Voted { who: remote_who.clone(), vote });

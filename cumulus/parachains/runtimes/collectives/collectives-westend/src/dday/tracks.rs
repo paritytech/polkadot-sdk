@@ -80,13 +80,13 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 		}
 
 		match Origin::try_from(id.clone()) {
-			Ok(Origin::Fellows)
-			| Ok(Origin::Architects)
-			| Ok(Origin::Fellowship5Dan)
-			| Ok(Origin::Fellowship6Dan)
-			| Ok(Origin::Masters)
-			| Ok(Origin::Fellowship8Dan)
-			| Ok(Origin::Fellowship9Dan) => Ok(tracks::DDAY_PARACHAIN_RESCUE),
+			Ok(Origin::Fellows) |
+			Ok(Origin::Architects) |
+			Ok(Origin::Fellowship5Dan) |
+			Ok(Origin::Fellowship6Dan) |
+			Ok(Origin::Masters) |
+			Ok(Origin::Fellowship8Dan) |
+			Ok(Origin::Fellowship9Dan) => Ok(tracks::DDAY_PARACHAIN_RESCUE),
 			_ => Err(()),
 		}
 	}

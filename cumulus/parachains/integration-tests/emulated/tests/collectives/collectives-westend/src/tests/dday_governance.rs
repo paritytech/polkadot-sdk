@@ -47,7 +47,8 @@ fn stalled_asset_hub_detection_works() {
 	CollectivesWestend::execute_with(|| {
 		assert!(!AssetHubDDayDetection::is_stalled());
 
-		// Pretend Collectives progressed lots of blocks hitting `StalledAssetHubBlockThreshold` threshold.
+		// Pretend Collectives progressed lots of blocks hitting `StalledAssetHubBlockThreshold`
+		// threshold.
 		let block_number = <CollectivesWestend as Chain>::System::block_number();
 		<CollectivesWestend as Chain>::System::set_block_number(
 			block_number + collectives_dday::StalledAssetHubBlockThreshold::get(),

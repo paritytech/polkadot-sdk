@@ -19,10 +19,14 @@
 pub mod prover;
 mod tracks;
 
-use super::fellowship::{ranks, Architects, FellowshipCollectiveInstance, Masters};
-use super::*;
-use crate::dday::prover::{AssetHubAccountProver, StalledAssetHubDataProvider};
-use crate::dday::tracks::TrackId;
+use super::{
+	fellowship::{ranks, Architects, FellowshipCollectiveInstance, Masters},
+	*,
+};
+use crate::dday::{
+	prover::{AssetHubAccountProver, StalledAssetHubDataProvider},
+	tracks::TrackId,
+};
 use frame_support::{
 	parameter_types,
 	traits::{CallerTrait, ContainsPair, EitherOf, Equals, PollStatus, Polling},
@@ -46,8 +50,8 @@ parameter_types! {
 /// Tracks the AssetHub state when it is stalled.
 ///
 ///  1. AssetHub can send XCM with its parachain head data from `on_idle`.
-///  2. Alternatively, XCM from AssetHub may not be needed when custom key reading
-///     from `RelayChainStateProof::read_entry(well_known_keys::para_head(asset_hub_id)`
+///  2. Alternatively, XCM from AssetHub may not be needed when custom key reading from
+///     `RelayChainStateProof::read_entry(well_known_keys::para_head(asset_hub_id)`
 /// 	is implemented. In that case, this pallet (`Pallet<T, I>::do_note_new_head(...)`)
 /// 	can be updated directly:
 ///     - https://github.com/paritytech/polkadot-sdk/issues/82
@@ -64,7 +68,8 @@ impl pallet_dday_detection::Config<DDayDetectionInstance> for Runtime {
 	type StalledThreshold = StalledAssetHubBlockThreshold;
 }
 
-/// Wrapper implementation of `Polling` over `DDayReferenda`, allowing voting only when `IsAssetHubStalled == true`.
+/// Wrapper implementation of `Polling` over `DDayReferenda`, allowing voting only when
+/// `IsAssetHubStalled == true`.
 pub struct AllowPollingWhenAssetHubIsStalled<Chain>(core::marker::PhantomData<Chain>);
 impl<Chain: IsStalled> Polling<pallet_referenda::TallyOf<Runtime, DDayReferendaInstance>>
 	for AllowPollingWhenAssetHubIsStalled<Chain>

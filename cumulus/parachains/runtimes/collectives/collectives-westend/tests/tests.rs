@@ -320,7 +320,8 @@ fn dday_referenda_and_voting_works() {
 		);
 
 		System::set_block_number(13);
-		// Sync AssetHub header - execute XCM as source origin would do with `Transact -> Origin::Xcm`.
+		// Sync AssetHub header - execute XCM as source origin would do with `Transact ->
+		// Origin::Xcm`.
 		assert_ok!(RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::execute_as_origin(
 			(AssetHub::get(), OriginKind::Xcm),
 			RuntimeCall::DDayDetection(pallet_dday_detection::Call::<
@@ -379,7 +380,8 @@ fn dday_referenda_and_voting_works() {
 		assert!(!System::account_exists(&valid_asset_hub_account));
 
 		// Ok - vote by proof - generated for proving account `ss58_account`
-		// This submits an extrinsic with all transaction extensions, just as an AssetHub user would need to do.
+		// This submits an extrinsic with all transaction extensions, just as an AssetHub user would
+		// need to do.
 		assert_ok!(construct_and_apply_extrinsic(
 			sp_core::sr25519::Pair::from_string(ss58_account_secret_key, None).unwrap(),
 			RuntimeCall::DDayVoting(pallet_dday_voting::Call::vote {
@@ -422,7 +424,8 @@ pub fn asset_hub_can_sync_dday_data() {
 		)
 		.is_none());
 
-		// Sync AssetHub header - execute XCM as source origin would do with `Transact -> Origin::Xcm`.
+		// Sync AssetHub header - execute XCM as source origin would do with `Transact ->
+		// Origin::Xcm`.
 		assert_ok!(RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::execute_as_origin(
 			(AssetHub::get(), OriginKind::Xcm),
 			RuntimeCall::DDayDetection(pallet_dday_detection::Call::<

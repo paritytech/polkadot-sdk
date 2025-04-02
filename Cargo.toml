@@ -974,10 +974,11 @@ pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", d
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
 pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false }
+pallet-dday-detection = { path = "substrate/frame/dday/detection", default-features = false }
+pallet-dday-voting = { path = "substrate/frame/dday/voting", default-features = false }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
-pallet-dday-detection = { path = "substrate/frame/dday/detection", default-features = false }
 pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features = false }
 pallet-dummy-dim = { path = "substrate/frame/dummy-dim", default-features = false }
 pallet-election-provider-multi-block = { path = "substrate/frame/election-provider-multi-block", default-features = false }
@@ -1027,7 +1028,6 @@ pallet-parachain-template = { path = "templates/parachain/pallets/template", def
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
 pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
-pallet-dday-voting = { path = "substrate/frame/dday/voting", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
