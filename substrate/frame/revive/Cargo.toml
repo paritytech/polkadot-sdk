@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive"
-version = "0.1.0"
+version = "0.5.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -41,24 +41,24 @@ serde = { features = ["alloc", "derive"], workspace = true, default-features = f
 # Polkadot SDK Dependencies
 bn = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 pallet-revive-fixtures = { workspace = true, optional = true }
-pallet-revive-proc-macro = { workspace = true }
+pallet-revive-proc-macro.workspace = true
 pallet-revive-uapi = { workspace = true, features = ["scale"] }
-pallet-transaction-payment = { workspace = true }
+pallet-transaction-payment.workspace = true
 ripemd = { workspace = true }
-sp-api = { workspace = true }
-sp-arithmetic = { workspace = true }
+sp-api.workspace = true
+sp-arithmetic.workspace = true
 sp-consensus-aura = { workspace = true, optional = true }
 sp-consensus-babe = { workspace = true, optional = true }
 sp-consensus-slots = { workspace = true, optional = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
+xcm.workspace = true
+xcm-builder.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -68,14 +68,14 @@ secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 
 # Polkadot SDK Dependencies
-pallet-balances = { workspace = true, default-features = true }
-pallet-proxy = { workspace = true, default-features = true }
-pallet-revive-fixtures = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-pallet-utility = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-xcm-builder = { workspace = true, default-features = true }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-proxy = { default-features = true, path = "../proxy" }
+pallet-revive-fixtures = { default-features = true, path = "fixtures" }
+pallet-timestamp = { default-features = true, path = "../timestamp" }
+pallet-utility = { default-features = true, path = "../utility" }
+sp-keystore = { default-features = true, path = "../../primitives/keystore" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+xcm-builder = { default-features = true, path = "../../../polkadot/xcm/xcm-builder", package = "staging-xcm-builder" }
 
 [features]
 default = ["std"]
@@ -92,20 +92,15 @@ std = [
 	"num-bigint/std",
 	"num-integer/std",
 	"num-traits/std",
-	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
-	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
-	"pallet-utility/std",
 	"polkavm-common?/std",
 	"polkavm/std",
 	"rand?/std",
 	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
-	"secp256k1/std",
 	"serde/std",
-	"serde_json/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-consensus-aura/std",
@@ -113,7 +108,6 @@ std = [
 	"sp-consensus-slots/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-keystore/std",
 	"sp-runtime/std",
 	"subxt-signer",
 	"xcm-builder/std",
@@ -123,12 +117,8 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",
-	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"polkavm-common/alloc",
 	"rand",
 	"rand_pcg",
@@ -142,10 +132,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-proxy/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -12,9 +12,8 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-
-test-parachain-adder = { workspace = true }
-test-parachain-halt = { workspace = true }
+test-parachain-adder.workspace = true
+test-parachain-halt.workspace = true
 
 [features]
 default = ["std"]
