@@ -265,7 +265,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let block_hash = if let Some(block_hash) = block_hash {
 			block_hash
 		} else {
-			self.client.latest_block().await.ok_or(ClientError::BlockNotFound)?.hash()
+			self.client.latest_block().await.hash()
 		};
 		Ok(self.client.receipts_count_per_block(&block_hash).await.map(U256::from))
 	}

@@ -17,9 +17,9 @@
 //! The Ethereum JSON-RPC server.
 use crate::{
 	client::{connect, native_to_eth_ratio, Client, SubscriptionType, SubstrateBlockNumber},
-	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
-	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
-	ReceiptProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl, LOG_TARGET,
+	BlockInfoProvider, BlockInfoProviderImpl, DBReceiptProvider, DebugRpcServer,
+	DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor, SystemHealthRpcServer,
+	SystemHealthRpcServerImpl, LOG_TARGET,
 };
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
@@ -110,7 +110,7 @@ fn build_client(
 	let fut = async {
 		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
 		let block_provider: Arc<dyn BlockInfoProvider> =
-			Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
+			Arc::new(BlockInfoProviderImpl::new( api.clone(), rpc.clone()).await?);
 
 		let prune_old_blocks = database_url == IN_MEMORY_DB;
 		if prune_old_blocks {
@@ -121,16 +121,13 @@ fn build_client(
 			native_to_eth_ratio(&api).await?,
 			earliest_receipt_block);
 
-		let receipt_provider: Arc<dyn ReceiptProvider> = Arc::new((
-			CacheReceiptProvider::default(),
-			DBReceiptProvider::new(
+		let receipt_provider = DBReceiptProvider::new(
 				database_url,
 				block_provider.clone(),
 				receipt_extractor.clone(),
 				prune_old_blocks,
 			)
-			.await?,
-		));
+			.await?;
 
 		let client =
 			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, receipt_extractor)

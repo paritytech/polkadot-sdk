@@ -20,7 +20,7 @@ use crate::{
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, ReceiptExtractor, ReceiptProvider, TransactionInfo, LOG_TARGET,
+	BlockInfoProvider, DBReceiptProvider, ReceiptExtractor, TransactionInfo, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
@@ -131,9 +131,6 @@ pub enum ClientError {
 	/// Failed to recover eth address.
 	#[error("failed to recover eth address")]
 	RecoverEthAddressFailed,
-	/// The cache is empty.
-	#[error("cache is empty")]
-	CacheEmpty,
 	/// Failed to filter logs.
 	#[error("Failed to filter logs")]
 	LogFilterFailed(#[from] anyhow::Error),
@@ -176,7 +173,7 @@ pub struct Client {
 	api: OnlineClient<SrcChainConfig>,
 	rpc_client: ReconnectingRpcClient,
 	rpc: LegacyRpcMethods<SrcChainConfig>,
-	receipt_provider: Arc<dyn ReceiptProvider>,
+	receipt_provider: DBReceiptProvider,
 	block_provider: Arc<dyn BlockInfoProvider>,
 	receipt_extractor: ReceiptExtractor,
 	chain_id: u64,
@@ -240,7 +237,7 @@ impl Client {
 		rpc_client: ReconnectingRpcClient,
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: Arc<dyn BlockInfoProvider>,
-		receipt_provider: Arc<dyn ReceiptProvider>,
+		receipt_provider: DBReceiptProvider,
 		receipt_extractor: ReceiptExtractor,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight) =
@@ -354,10 +351,8 @@ impl Client {
 				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
 
 				self.receipt_provider.insert(&block.hash(), &receipts).await;
-				if let Some(pruned) = self.block_provider.cache_block(block).await {
-					self.receipt_provider.remove(&pruned).await;
-				}
-
+				self.block_provider.set_latest_finalized_block(block).await;
+				// TODO: handle prune
 				Ok(())
 			})
 			.await;
@@ -372,7 +367,7 @@ impl Client {
 		let res = self
 			.subscribe_past_blocks(|block| async move {
 				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
-				self.receipt_provider.archive(&block.hash(), &receipts).await;
+				self.receipt_provider.insert(&block.hash(), &receipts).await;
 				if block.number() <= oldest_block {
 					Ok(ControlFlow::Break(()))
 				} else {
@@ -401,11 +396,8 @@ impl Client {
 			},
 			BlockNumberOrTagOrHash::H256(hash) => Ok(self.api.storage().at(*hash)),
 			BlockNumberOrTagOrHash::BlockTag(_) => {
-				if let Some(block) = self.latest_block().await {
-					return Ok(self.api.storage().at(block.hash()));
-				}
-				let storage = self.api.storage().at_latest().await?;
-				Ok(storage)
+				let block = self.latest_block().await;
+				Ok(self.api.storage().at(block.hash()))
 			},
 		}
 	}
@@ -428,20 +420,20 @@ impl Client {
 			},
 			BlockNumberOrTagOrHash::H256(hash) => Ok(self.api.runtime_api().at(*hash)),
 			BlockNumberOrTagOrHash::BlockTag(_) => {
-				if let Some(block) = self.latest_block().await {
-					return Ok(self.api.runtime_api().at(block.hash()));
-				}
-
-				let api = self.api.runtime_api().at_latest().await?;
-				Ok(api)
+				let block = self.latest_block().await;
+				Ok(self.api.runtime_api().at(block.hash()))
 			},
 		}
 	}
 
 	/// Get the most recent block stored in the cache.
-	pub async fn latest_block(&self) -> Option<Arc<SubstrateBlock>> {
-		let block = self.block_provider.latest_block().await?;
-		Some(block)
+	pub async fn latest_finalized_block(&self) -> Arc<SubstrateBlock> {
+		self.block_provider.latest_finalized_block().await
+	}
+
+	/// Get the most recent block stored in the cache.
+	pub async fn latest_block(&self) -> Arc<SubstrateBlock> {
+		todo!()
 	}
 
 	/// Expose the transaction API.
@@ -598,8 +590,7 @@ impl Client {
 
 	/// Get the block number of the latest block.
 	pub async fn block_number(&self) -> Result<SubstrateBlockNumber, ClientError> {
-		let latest_block =
-			self.block_provider.latest_block().await.ok_or(ClientError::CacheEmpty)?;
+		let latest_block = self.block_provider.latest_block().await;
 		Ok(latest_block.number())
 	}
 
@@ -624,7 +615,7 @@ impl Client {
 			},
 			BlockNumberOrTag::BlockTag(_) => {
 				let block = self.block_provider.latest_block().await;
-				Ok(block)
+				Ok(Some(block))
 			},
 		}
 	}
@@ -663,7 +654,7 @@ impl Client {
 					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
 				self.get_block_hash(block_number).await?
 			},
-			BlockNumberOrTag::BlockTag(_) => self.latest_block().await.map(|b| b.hash()),
+			BlockNumberOrTag::BlockTag(_) => Some(self.latest_block().await.hash()),
 		}
 		.ok_or(ClientError::BlockNotFound)?;
 
@@ -766,7 +757,7 @@ impl Client {
 					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
 				self.get_block_hash(block_number).await?
 			},
-			BlockNumberOrTag::BlockTag(_) => self.latest_block().await.map(|b| b.hash()),
+			BlockNumberOrTag::BlockTag(_) => Some(self.latest_block().await.hash()),
 		};
 
 		let params = (transaction, tracer_config).encode();
