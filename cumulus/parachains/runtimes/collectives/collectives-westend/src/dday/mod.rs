@@ -27,7 +27,7 @@ use frame_support::parameter_types;
 use frame_support::traits::{EitherOf, Equals, PollStatus, Polling};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_dday_detection::IsStalled;
-use pallet_proofs_voting::ProofBlockNumberOf;
+use pallet_dday_voting::ProofBlockNumberOf;
 use pallet_referenda::ReferendumIndex;
 use sp_runtime::DispatchError;
 
@@ -139,11 +139,11 @@ impl<Chain: IsStalled> Polling<pallet_referenda::TallyOf<Runtime, DDayReferendaI
 }
 
 /// Setup voting by AssetHub account proofs.
-pub type DDayVotingInstance = pallet_proofs_voting::Instance1;
-impl pallet_proofs_voting::Config<DDayVotingInstance> for Runtime {
+pub type DDayVotingInstance = pallet_dday_voting::Instance1;
+impl pallet_dday_voting::Config<DDayVotingInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// TODO: FAIL-CI - setup/generate benchmarks
-	type WeightInfo = pallet_proofs_voting::weights::SubstrateWeight<Self>;
+	type WeightInfo = pallet_dday_voting::weights::SubstrateWeight<Self>;
 	type Polls = AllowPollingWhenAssetHubIsStalled<DDayDetection>;
 	type MaxVotes = ConstU32<3>;
 	type BlockNumberProvider = System;
@@ -171,8 +171,8 @@ impl pallet_referenda::Config<DDayReferendaInstance> for Runtime {
 	type CancelOrigin = EitherOf<Architects, Masters>;
 	type KillOrigin = EitherOf<Architects, Masters>;
 	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
-	type Votes = pallet_proofs_voting::VotesOf<Runtime, DDayVotingInstance>;
-	type Tally = pallet_proofs_voting::TallyOf<Runtime, DDayVotingInstance>;
+	type Votes = pallet_dday_voting::VotesOf<Runtime, DDayVotingInstance>;
+	type Tally = pallet_dday_voting::TallyOf<Runtime, DDayVotingInstance>;
 	type SubmissionDeposit = SubmissionDeposit;
 	type MaxQueued = ConstU32<2>;
 	type UndecidingTimeout = UndecidingTimeout;

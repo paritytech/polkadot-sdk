@@ -1,5 +1,5 @@
 [package]
-name = "pallet-proofs-voting"
+name = "pallet-dday-voting"
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true

@@ -736,7 +736,7 @@ construct_runtime!(
 
 		// DDay feature.
 		DDayReferenda: pallet_referenda::<Instance3> = 81,
-		DDayVoting: pallet_proofs_voting::<Instance1> = 82,
+		DDayVoting: pallet_dday_voting::<Instance1> = 82,
 		DDayDetection: pallet_dday_detection::<Instance1> = 83,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,

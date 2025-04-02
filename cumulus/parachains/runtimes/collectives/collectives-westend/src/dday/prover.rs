@@ -29,7 +29,7 @@ use frame_support::{
 	Blake2_128Concat, StorageHasher,
 };
 use pallet_dday_detection::IsStalled;
-use pallet_proofs_voting::{
+use pallet_dday_voting::{
 	ProofAccountIdOf, ProofBalanceOf, ProofBlockNumberOf, ProofDescription, ProofHashOf,
 	ProofHasherOf, ProofOf, ProvideHash, TotalForTallyProvider, Totals, VerifyProof, VotingPower,
 };
@@ -350,7 +350,7 @@ pub mod tests {
 	#[test]
 	fn asset_hub_account_prover_works() {
 		use super::{AssetHubAccountProver, VerifyProof};
-		use pallet_proofs_voting::VotingPower;
+		use pallet_dday_voting::VotingPower;
 		use parachains_common::AccountId;
 		use sp_core::crypto::Ss58Codec;
 
