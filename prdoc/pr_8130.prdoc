@@ -1,7 +1,7 @@
 title: 'rpc v2: move archive MethodResult to the archive mod'
 doc:
 - audience: Node Dev
-  description: `MethodResult`, `MethodResultOk` and `MethodResultErr` moved to the archieve module.
+  description: `MethodResult`, `MethodResultOk` and `MethodResultErr` moved to the archive module.
 crates:
 - name: sc-rpc-spec-v2
   bump: major
