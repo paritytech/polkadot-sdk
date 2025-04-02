@@ -8739,7 +8739,7 @@ mod unbonding_queue {
 
 	#[test]
 	fn get_min_lowest_third_stake_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().validator_count(3).build_and_execute(|| {
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
@@ -8751,193 +8751,196 @@ mod unbonding_queue {
 				ConfigOp::Noop,
 				ConfigOp::Set(UnbondingQueueConfig {
 					min_slashable_share: Perbill::from_percent(50),
-					lowest_ratio: Perbill::from_percent(10),
+					lowest_ratio: Perbill::from_percent(33),
 					unbond_period_lower_bound: 2,
 					back_of_unbonding_queue_era: Zero::zero(),
 				})
 			));
 
 			// Check the era we are working with.
+			assert_eq!(Staking::get_min_lowest_third_stake(), 0);
 			mock::start_active_era(1);
 			let current_era = Staking::current_era().unwrap();
 			assert_eq!(current_era, 1);
+			assert_eq!(Staking::get_min_lowest_third_stake(), 500);
 
 			// Start initial era and verify setup.
 			assert_eq!(
 				UnbondingQueueParams::<Test>::get().unwrap(),
 				UnbondingQueueConfig {
 					min_slashable_share: Perbill::from_percent(50),
-					lowest_ratio: Perbill::from_percent(10),
+					lowest_ratio: Perbill::from_percent(33),
 					unbond_period_lower_bound: 2,
 					back_of_unbonding_queue_era: Zero::zero(),
 				}
 			);
 
-			// Get lowest ratio total state for the initial era.
-			let lowest_third_total_stake = EraLowestRatioTotalStake::<Test>::get(current_era);
-
-			assert_eq!(lowest_third_total_stake, Some(1125));
-
 			// Populate some `EraLowestRatioTotalStake` entries to test the function.
-			for i in current_era + 1..<Test as Config>::BondingDuration::get() {
-				// TODO: Nominators to bond more to validators to mix up validator stakes each era.
-
+			let bonding_duration = <Test as Config>::BondingDuration::get();
+			for i in current_era + 1..bonding_duration {
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 100));
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(21), 100));
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(31), 100));
+				assert_eq!(Staking::get_min_lowest_third_stake(), 500);
 				mock::start_active_era(i + 1);
-				let era_lowest_third_total_stake =
-					EraLowestRatioTotalStake::<Test>::get(current_era);
-
-				println!(
-					"Era: {:?} started with {:?} lowest ratio total stake",
-					i, era_lowest_third_total_stake
-				);
+				assert_eq!(Staking::get_min_lowest_third_stake(), 500);
 			}
 
-			// TODO: Now ensure lowest value is fetched with `get_min_lowest_third_stake`.
-			//assert_eq!(Staking::get_min_lowest_third_stake(current_era, unbonding_queue_params), 100);
+			// After this the lowest value will have been removed, and next iterations the
+			// number will increase by 100 each era.
+			let current_era = Staking::current_era().unwrap();
+			for i in current_era + 1..bonding_duration {
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 100));
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(21), 100));
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(31), 100));
+				assert_eq!(Staking::get_min_lowest_third_stake(), (500 + 100 * (i - 1)).into());
+				mock::start_active_era(i + 1);
+				assert_eq!(Staking::get_min_lowest_third_stake(), (500 + 100 * i).into());
+			}
 		});
 	}
 	/*
 	#[test]
-	fn calculate_lowest_third_total_stake_works() {
+	fn calculate_lowest_total_stake_works() {
 		ExtBuilder::default().build_and_execute(|| {
-            let config = UnbondingQueueConfig {
-                min_slashable_share: Perbill::from_percent(50),
-                lowest_ratio: Perbill::from_percent(33),
-                unbond_period_lower_bound: 2,
-                back_of_unbonding_queue_era: Zero::zero(),
-            };
-            assert_ok!(Staking::set_staking_configs(
-                RuntimeOrigin::root(),
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Set(config.clone())
-            ));
+			let config = UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(33),
+				unbond_period_lower_bound: 2,
+				back_of_unbonding_queue_era: Zero::zero(),
+			};
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(config.clone())
+			));
 
-            // Start era 1
-            mock::start_active_era(1);
-            let current_era = Staking::current_era().unwrap();
-            assert_eq!(current_era, 1);
+			// Start era 1
+			mock::start_active_era(1);
+			let current_era = Staking::current_era().unwrap();
+			assert_eq!(current_era, 1);
 
-            // Create validators with different stakes for the next era
-            let exposures = vec![
-                (1, Exposure { total: 1000, own: 500, others: vec![] }),
-                (2, Exposure { total: 2000, own: 1000, others: vec![] }),
-                (3, Exposure { total: 3000, own: 1500, others: vec![] }),
-                (4, Exposure { total: 4000, own: 2000, others: vec![] }),
-            ];
+			// Create validators with different stakes for the next era
+			let exposures = vec![
+				(1, Exposure { total: 1000, own: 500, others: vec![] }),
+				(2, Exposure { total: 2000, own: 1000, others: vec![] }),
+				(3, Exposure { total: 3000, own: 1500, others: vec![] }),
+				(4, Exposure { total: 4000, own: 2000, others: vec![] }),
+			];
 
-            // Trigger new era to calculate lowest third
-            Staking::store_stakers_info(
-                exposures.try_into().unwrap(),
-                current_era + 1,
-            );
+			// Trigger new era to calculate lowest third
+			Staking::store_stakers_info(
+				exposures.try_into().unwrap(),
+				current_era + 1,
+			);
 
-            // The lowest third is 33% of 4 validators ~ 1.32, so the lowest 1 validator with 1000
-            let lowest_third_total = EraLowestRatioTotalStake::<Test>::get(current_era + 1);
-            assert_eq!(lowest_third_total, Some(1000));
+			// The lowest third is 33% of 4 validators ~ 1.32, so the lowest 1 validator with 1000
+			let lowest_third_total = EraLowestRatioTotalStake::<Test>::get(current_era + 1);
+			assert_eq!(lowest_third_total, Some(1000));
 
-            // Ensure old entry is pruned after bonding duration (3 eras)
-            let old_era = current_era + 1 - <Test as Config>::BondingDuration::get() - 1;
-            assert!(old_era <= 0); // Since current_era is 1, old_era would be -2 which saturates to 0
-            assert!(EraLowestRatioTotalStake::<Test>::get(old_era).is_none());
-        });
+			// Ensure old entry is pruned after bonding duration (3 eras)
+			let old_era = current_era + 1 - <Test as Config>::BondingDuration::get() - 1;
+			assert!(old_era <= 0); // Since current_era is 1, old_era would be -2 which saturates to 0
+			assert!(EraLowestRatioTotalStake::<Test>::get(old_era).is_none());
+		});
 	}
 
 	#[test]
 	fn get_unbond_eras_delta_works() {
 		ExtBuilder::default().build_and_execute(|| {
-            let config = UnbondingQueueConfig {
-                min_slashable_share: Perbill::from_percent(50),
-                lowest_ratio: Perbill::from_percent(33),
-                unbond_period_lower_bound: 2,
-                back_of_unbonding_queue_era: 0,
-            };
-            assert_ok!(Staking::set_staking_configs(
-                RuntimeOrigin::root(),
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Set(config.clone())
-            ));
+			let config = UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(33),
+				unbond_period_lower_bound: 2,
+				back_of_unbonding_queue_era: 0,
+			};
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(config.clone())
+			));
 
-            // Set a known minimum lowest third stake
-            let min_lowest_third_stake = 1000;
-            EraLowestRatioTotalStake::<Test>::insert(1, min_lowest_third_stake);
+			// Set a known minimum lowest third stake
+			let min_lowest_third_stake = 1000;
+			EraLowestRatioTotalStake::<Test>::insert(1, min_lowest_third_stake);
 
-            // Max unstake is 50% of min_lowest_third_stake = 500
-            let max_unstake = config.min_slashable_share * min_lowest_third_stake;
+			// Max unstake is 50% of min_lowest_third_stake = 500
+			let max_unstake = config.min_slashable_share * min_lowest_third_stake;
 
-            // Test cases with BondingDuration = 3
-            assert_eq!(Staking::get_unbond_eras_delta(max_unstake, config.clone()), 3); // 500/500 *3 =3
-            assert_eq!(Staking::get_unbond_eras_delta(max_unstake / 2, config.clone()), 1); // 250/500 *3=1.5→1
-            assert_eq!(Staking::get_unbond_eras_delta(0, config.clone()), 0);
-            assert_eq!(Staking::get_unbond_eras_delta(max_unstake * 2, config), 6); // 1000/500 *3=6
-        });
+			// Test cases with BondingDuration = 3
+			assert_eq!(Staking::get_unbond_eras_delta(max_unstake, config.clone()), 3); // 500/500 *3 =3
+			assert_eq!(Staking::get_unbond_eras_delta(max_unstake / 2, config.clone()), 1); // 250/500 *3=1.5→1
+			assert_eq!(Staking::get_unbond_eras_delta(0, config.clone()), 0);
+			assert_eq!(Staking::get_unbond_eras_delta(max_unstake * 2, config), 6); // 1000/500 *3=6
+		});
 	}
 
 	#[test]
 	fn correct_unbond_era_is_being_calculated() {
 		ExtBuilder::default().build_and_execute(|| {
-            let config = UnbondingQueueConfig {
-                min_slashable_share: Perbill::from_percent(50),
-                lowest_ratio: Perbill::from_percent(33),
-                unbond_period_lower_bound: 2,
-                back_of_unbonding_queue_era: 0,
-            };
-            assert_ok!(Staking::set_staking_configs(
-                RuntimeOrigin::root(),
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Noop,
-                ConfigOp::Set(config.clone())
-            ));
+			let config = UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(33),
+				unbond_period_lower_bound: 2,
+				back_of_unbonding_queue_era: 0,
+			};
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(config.clone())
+			));
 
-            // Start at era 1
-            mock::start_active_era(1);
-            let current_era = Staking::current_era().unwrap();
-            assert_eq!(current_era, 1);
+			// Start at era 1
+			mock::start_active_era(1);
+			let current_era = Staking::current_era().unwrap();
+			assert_eq!(current_era, 1);
 
-            // Set a known minimum lowest third stake
-            EraLowestRatioTotalStake::<Test>::insert(current_era, 1000);
+			// Set a known minimum lowest third stake
+			EraLowestRatioTotalStake::<Test>::insert(current_era, 1000);
 
-            // First unbond of 500 (max_unstake is 500, delta=3)
-            let unbond_era = Staking::process_unbond_queue_request(current_era, 500);
-            assert_eq!(unbond_era, 1 + 3); // 4
-            assert_eq!(
-                UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era,
-                4
-            );
+			// First unbond of 500 (max_unstake is 500, delta=3)
+			let unbond_era = Staking::process_unbond_queue_request(current_era, 500);
+			assert_eq!(unbond_era, 1 + 3); // 4
+			assert_eq!(
+				UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era,
+				4
+			);
 
-            // Next unbond of 250 (delta=1)
-            let unbond_era = Staking::process_unbond_queue_request(current_era, 250);
-            assert_eq!(unbond_era, 4 + 1); // 5
-            assert_eq!(
-                UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era,
-                5
-            );
+			// Next unbond of 250 (delta=1)
+			let unbond_era = Staking::process_unbond_queue_request(current_era, 250);
+			assert_eq!(unbond_era, 4 + 1); // 5
+			assert_eq!(
+				UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era,
+				5
+			);
 
-            // Unbond with amount requiring lower bound (delta=0 → use lower bound 2)
-            let unbond_era = Staking::process_unbond_queue_request(current_era, 100);
-            assert_eq!(unbond_era, 1 + 2); // 3
-            // Back remains 5 because delta=0: new_back = max(1,5) +0 =5
-            assert_eq!(
-                UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era,
-                5
-            );
-        });
+			// Unbond with amount requiring lower bound (delta=0 → use lower bound 2)
+			let unbond_era = Staking::process_unbond_queue_request(current_era, 100);
+			assert_eq!(unbond_era, 1 + 2); // 3
+			// Back remains 5 because delta=0: new_back = max(1,5) +0 =5
+			assert_eq!(
+				UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era,
+				5
+			);
+		});
 	}
 	*/
 }
