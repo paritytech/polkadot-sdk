@@ -12,7 +12,6 @@ import sys
 from cargo_workspace import Workspace, DependencyLocation
 
 KNOWN_BAD_GIT_DEPS = {
-	'simple-mermaid': ['xcm-docs'],
 	'subwasmlib': ['polkadot-zombienet-sdk-tests'],
 }
 
