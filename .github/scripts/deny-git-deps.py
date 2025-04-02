@@ -13,8 +13,6 @@ from cargo_workspace import Workspace, DependencyLocation
 
 KNOWN_BAD_GIT_DEPS = {
 	'simple-mermaid': ['xcm-docs'],
-	# Fix in <https://github.com/paritytech/polkadot-sdk/issues/2922>
-	'bandersnatch_vrfs': ['sp-core'],
 	'subwasmlib': ['polkadot-zombienet-sdk-tests'],
 }
 
