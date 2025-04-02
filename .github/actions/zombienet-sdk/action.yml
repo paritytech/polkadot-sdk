@@ -12,6 +12,9 @@ inputs:
   prefix:
     description: "Archive prefix for tests files (e.g polkadot, cumulus or substrate)"
     required: true
+  gh-token:
+    description: "GITHUB_TOKEN to use for downloading artifacts"
+    required: true
 
 
 runs:
@@ -38,10 +41,11 @@ runs:
     - uses: actions/download-artifact@v4.1.8
       with:
         name: prepare-${{ inputs.prefix }}-zombienet-artifacts-${{ inputs.ref-slug }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
 
     - name: tar
+      shell: bash
       run: tar -xvf artifacts.tar
 
     - name: zombie_test
