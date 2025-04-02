@@ -1448,7 +1448,7 @@ fn approved_peer_ump_signal() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
 			)
 			.await;
 
@@ -1497,8 +1497,8 @@ fn approved_peer_ump_signal() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-						protocol_v2::StatementDistributionMessage::Statement(
+					Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
 						)
