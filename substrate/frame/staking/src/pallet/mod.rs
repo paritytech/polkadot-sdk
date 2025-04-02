@@ -18,7 +18,7 @@
 //! Staking FRAME Pallet.
 
 use alloc::vec::Vec;
-use std::iter::Sum;
+use core::iter::Sum;
 use codec::Codec;
 use frame_election_provider_support::{
 	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
@@ -212,7 +212,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type SessionsPerEra: Get<SessionIndex>;
 
-		/// Number of eras that staked funds must remain bonded for.
+		/// Maximum number of eras that staked funds must remain bonded for.
 		#[pallet::constant]
 		type BondingDuration: Get<EraIndex>;
 
