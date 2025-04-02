@@ -81,6 +81,7 @@ pallet-message-queue = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 snowbridge-inbound-queue-primitives = { workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 primitive-types = { workspace = true, default-features = false, features = [
 	"codec",
@@ -144,6 +145,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"testnet-parachains-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
