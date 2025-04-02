@@ -13,13 +13,13 @@ workspace = true
 
 [dependencies]
 bitvec = { features = ["alloc", "serde"], workspace = true }
+bounded-collections = { features = ["serde"], workspace = true }
 codec = { features = ["bit-vec", "derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 thiserror = { workspace = true, optional = true }
-bounded-collections = { features = ["serde"], workspace = true }
 
 sp-api = { workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
@@ -41,6 +41,7 @@ polkadot-parachain-primitives = { workspace = true }
 default = ["std"]
 std = [
 	"bitvec/std",
+	"bounded-collections/std",
 	"codec/std",
 	"log/std",
 	"polkadot-core-primitives/std",
@@ -61,7 +62,6 @@ std = [
 	"sp-staking/std",
 	"sp-std/std",
 	"thiserror",
-	"bounded-collections/std"
 ]
 runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
