@@ -1,11 +1,16 @@
 use crate::{
+	client::{SubstrateBlock, SubstrateBlockNumber},
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, FilterTopic,
 	ReceiptExtractor, LOG_TARGET,
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
 use sqlx::{query, QueryBuilder, Row, Sqlite, SqlitePool};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+	collections::{BTreeMap, HashMap},
+	sync::Arc,
+};
+use tokio::sync::Mutex;
 
 /// A `[ReceiptProvider]` that stores receipts in a SQLite database.
 #[derive(Clone)]
@@ -16,8 +21,29 @@ pub struct DBReceiptProvider {
 	block_provider: Arc<dyn BlockInfoProvider>,
 	/// A means to extract receipts from extrinsics.
 	receipt_extractor: ReceiptExtractor,
-	/// Whether to prune old blocks.
-	prune_old_blocks: bool,
+	/// When `Some`, old blocks will be pruned.
+	keep_latest_n_blocks: Option<usize>,
+	/// A Map of the latest block numbers to block hashes.
+	block_number_to_hash: Arc<Mutex<BTreeMap<SubstrateBlockNumber, H256>>>,
+}
+
+/// Provides information about a block,
+/// This is an abstratction on top of [`SubstrateBlock`] used to test the [`BlockCache`].
+/// Can be removed once https://github.com/paritytech/subxt/issues/1883 is fixed.
+pub trait BlockInfo {
+	/// Returns the block hash.
+	fn hash(&self) -> H256;
+	/// Returns the block number.
+	fn number(&self) -> SubstrateBlockNumber;
+}
+
+impl BlockInfo for SubstrateBlock {
+	fn hash(&self) -> H256 {
+		SubstrateBlock::hash(self)
+	}
+	fn number(&self) -> SubstrateBlockNumber {
+		SubstrateBlock::number(self)
+	}
 }
 
 impl DBReceiptProvider {
@@ -26,11 +52,17 @@ impl DBReceiptProvider {
 		database_url: &str,
 		block_provider: Arc<dyn BlockInfoProvider>,
 		receipt_extractor: ReceiptExtractor,
-		prune_old_blocks: bool,
+		keep_latest_n_blocks: Option<usize>,
 	) -> Result<Self, sqlx::Error> {
 		let pool = SqlitePool::connect(database_url).await?;
 		sqlx::migrate!().run(&pool).await?;
-		Ok(Self { pool, block_provider, receipt_extractor, prune_old_blocks })
+		Ok(Self {
+			pool,
+			block_provider,
+			receipt_extractor,
+			keep_latest_n_blocks,
+			block_number_to_hash: Default::default(),
+		})
 	}
 
 	async fn fetch_row(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
@@ -54,45 +86,71 @@ impl DBReceiptProvider {
 }
 
 impl DBReceiptProvider {
-	/// Deletes receipts associated with the specified block hash.
-	pub async fn remove(&self, block_hash: &H256) {
-		if !self.prune_old_blocks {
+	/// Deletes older records from the database.
+	pub async fn remove(&self, block_hashes: &[H256]) {
+		if block_hashes.is_empty() {
 			return;
 		}
+		log::debug!(target: LOG_TARGET, "Removing block hashes: {block_hashes:?}");
 
-		let block_hash = block_hash.as_ref();
+		let placeholders = vec!["?"; block_hashes.len()].join(", ");
+		let sql = format!("DELETE FROM transaction_hashes WHERE block_hash in ({})", placeholders);
+		let mut delete_tx_query = sqlx::query(&sql);
 
-		let delete_transaction_hashes = query!(
-			r#"
-        DELETE FROM transaction_hashes
-        WHERE block_hash = $1
-        "#,
-			block_hash
-		)
-		.execute(&self.pool);
+		let sql = format!("DELETE FROM logs WHERE block_hash in ({})", placeholders);
+		let mut delete_logs_query = sqlx::query(&sql);
 
-		let delete_logs = query!(
-			r#"
-        DELETE FROM logs
-        WHERE block_hash = $1
-        "#,
-			block_hash
-		)
-		.execute(&self.pool);
+		for block_hash in block_hashes {
+			delete_tx_query = delete_tx_query.bind(block_hash.as_ref());
+			delete_logs_query = delete_logs_query.bind(block_hash.as_ref());
+		}
 
+		let delete_transaction_hashes = delete_tx_query.execute(&self.pool);
+		let delete_logs = delete_logs_query.execute(&self.pool);
 		let (tx_result, logs_result) = tokio::join!(delete_transaction_hashes, delete_logs);
 
 		if let Err(err) = tx_result {
-			log::error!(target: LOG_TARGET, "Error removing transaction hashes for block hash {block_hash:?}: {err:?}");
+			log::error!(target: LOG_TARGET, "Error removing transaction hashes for block hash {block_hashes:?}: {err:?}");
 		}
 
 		if let Err(err) = logs_result {
-			log::error!(target: LOG_TARGET, "Error removing logs for block hash {block_hash:?}: {err:?}");
+			log::error!(target: LOG_TARGET, "Error removing logs for block hash {block_hashes:?}: {err:?}");
 		}
 	}
 
 	/// Insert receipts into the provider.
-	pub async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
+	pub async fn insert<B: BlockInfo>(
+		&self,
+		block: &B,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
+	) {
+		if receipts.is_empty() {
+			return;
+		}
+
+		let block_hash = block.hash();
+		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
+			let latest = block.number();
+			let mut block_number_to_hash = self.block_number_to_hash.lock().await;
+
+			let oldest_block = latest.saturating_sub(keep_latest_n_blocks as _);
+			let mut to_remove = block_number_to_hash
+				.iter()
+				.take_while(|(n, _)| **n < oldest_block)
+				.map(|(_, hash)| hash.clone())
+				.collect::<Vec<_>>();
+
+			block_number_to_hash.retain(|&n, _| n >= oldest_block);
+			match block_number_to_hash.insert(block.number(), block_hash) {
+				Some(old_hash) if old_hash != block_hash => {
+					to_remove.push(old_hash);
+				},
+				_ => {},
+			}
+
+			self.remove(&to_remove).await;
+		}
+
 		let block_hash = block_hash.as_ref();
 		for (_, receipt) in receipts {
 			let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
@@ -128,6 +186,7 @@ impl DBReceiptProvider {
 				let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
 				let data = log.data.as_ref().map(|v| &v.0[..]);
 
+				// TODO check if the log already exists
 				let result = query!(
 					r#"
 					INSERT OR REPLACE INTO logs(
@@ -396,7 +455,7 @@ impl DBReceiptProvider {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test::MockBlockInfoProvider;
+	use crate::test::{MockBlockInfo, MockBlockInfoProvider};
 	use pallet_revive::evm::{ReceiptInfo, TransactionSigned};
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
@@ -407,27 +466,28 @@ mod tests {
 			pool,
 			block_provider: Arc::new(MockBlockInfoProvider {}),
 			receipt_extractor: ReceiptExtractor::new(1_000_000, None),
-			prune_old_blocks: true,
+			keep_latest_n_blocks: Some(10),
+			block_number_to_hash: Default::default(),
 		}
 	}
 
 	#[sqlx::test]
 	async fn test_insert_remove(pool: SqlitePool) {
 		let provider = setup_sqlite_provider(pool).await;
-		let block_hash = H256::default();
+		let block = MockBlockInfo { hash: H256::default(), number: 0 };
 		let receipts = vec![(
 			TransactionSigned::default(),
 			ReceiptInfo {
-				logs: vec![Log { block_hash, ..Default::default() }],
+				logs: vec![Log { block_hash: block.hash, ..Default::default() }],
 				..Default::default()
 			},
 		)];
 
-		provider.insert(&block_hash, &receipts).await;
+		provider.insert(&block, &receipts).await;
 		let row = provider.fetch_row(&receipts[0].1.transaction_hash).await;
-		assert_eq!(row, Some((block_hash, 0)));
+		assert_eq!(row, Some((block.hash, 0)));
 
-		provider.remove(&block_hash).await;
+		provider.remove(&[block.hash()]).await;
 
 		let transaction_count: i64 = sqlx::query_scalar(
 			r#"
@@ -436,7 +496,7 @@ mod tests {
         WHERE block_hash = ?
         "#,
 		)
-		.bind(block_hash.as_ref())
+		.bind(block.hash.as_ref())
 		.fetch_one(&provider.pool)
 		.await
 		.unwrap();
@@ -449,7 +509,7 @@ mod tests {
         WHERE block_hash = ?
         "#,
 		)
-		.bind(block_hash.as_ref())
+		.bind(block.hash.as_ref())
 		.fetch_one(&provider.pool)
 		.await
 		.unwrap();
@@ -459,7 +519,7 @@ mod tests {
 	#[sqlx::test]
 	async fn test_receipts_count_per_block(pool: SqlitePool) {
 		let provider = setup_sqlite_provider(pool).await;
-		let block_hash = H256::default();
+		let block = MockBlockInfo { hash: H256::default(), number: 0 };
 		let receipts = vec![
 			(
 				TransactionSigned::default(),
@@ -471,17 +531,19 @@ mod tests {
 			),
 		];
 
-		provider.insert(&block_hash, &receipts).await;
-		let count = provider.receipts_count_per_block(&block_hash).await;
+		provider.insert(&block, &receipts).await;
+		let count = provider.receipts_count_per_block(&block.hash).await;
 		assert_eq!(count, Some(2));
 	}
 
 	#[sqlx::test]
 	async fn test_query_logs(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
+		let block1 = MockBlockInfo { hash: H256::from([1u8; 32]), number: 1 };
+		let block2 = MockBlockInfo { hash: H256::from([2u8; 32]), number: 2 };
 		let log1 = Log {
-			block_hash: H256::from([1u8; 32]),
-			block_number: U256::from(1),
+			block_hash: block1.hash,
+			block_number: block1.number.into(),
 			address: H160::from([1u8; 20]),
 			topics: vec![H256::from([1u8; 32]), H256::from([2u8; 32])],
 			data: Some(vec![0u8; 32].into()),
@@ -491,8 +553,8 @@ mod tests {
 			..Default::default()
 		};
 		let log2 = Log {
-			block_hash: H256::from([2u8; 32]),
-			block_number: U256::from(2),
+			block_hash: block2.hash,
+			block_number: block2.number.into(),
 			address: H160::from([2u8; 20]),
 			topics: vec![H256::from([2u8; 32]), H256::from([3u8; 32])],
 			transaction_hash: H256::from([1u8; 32]),
@@ -503,7 +565,7 @@ mod tests {
 
 		provider
 			.insert(
-				&log1.block_hash,
+				&block1,
 				&vec![(
 					TransactionSigned::default(),
 					ReceiptInfo { logs: vec![log1.clone()], ..Default::default() },
@@ -512,7 +574,7 @@ mod tests {
 			.await;
 		provider
 			.insert(
-				&log2.block_hash,
+				&block2,
 				&vec![(
 					TransactionSigned::default(),
 					ReceiptInfo { logs: vec![log2.clone()], ..Default::default() },

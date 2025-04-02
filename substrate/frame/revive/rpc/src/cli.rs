@@ -112,10 +112,12 @@ fn build_client(
 		let block_provider: Arc<dyn BlockInfoProvider> =
 			Arc::new(BlockInfoProviderImpl::new( api.clone(), rpc.clone()).await?);
 
-		let prune_old_blocks = database_url == IN_MEMORY_DB;
-		if prune_old_blocks {
+		let keep_latest_n_blocks = if database_url == IN_MEMORY_DB {
 			log::info!( target: LOG_TARGET, "Using in-memory database, keeping only {cache_size} blocks in memory");
-		}
+			Some(cache_size)
+		} else {
+			None
+		};
 
 		let receipt_extractor = ReceiptExtractor::new(
 			native_to_eth_ratio(&api).await?,
@@ -125,7 +127,7 @@ fn build_client(
 				database_url,
 				block_provider.clone(),
 				receipt_extractor.clone(),
-				prune_old_blocks,
+				keep_latest_n_blocks,
 			)
 			.await?;
 
@@ -221,11 +223,13 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		.spawn_essential_handle()
 		.spawn("block-subscription", None, async move {
 			let fut1 = client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks);
+			let fut2 = client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks);
+
 			if let Some(index_until_block) = index_until_block {
-				let fut2 = client.cache_old_blocks(index_until_block);
-				tokio::join!(fut1, fut2);
+				let fut3 = client.cache_old_blocks(index_until_block);
+				tokio::join!(fut1, fut2, fut3);
 			} else {
-				fut1.await;
+				tokio::join!(fut1, fut2);
 			}
 		});
 

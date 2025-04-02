@@ -20,7 +20,7 @@ use crate::{
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, DBReceiptProvider, ReceiptExtractor, TransactionInfo, LOG_TARGET,
+	BlockInfoProvider, BlockTag, DBReceiptProvider, ReceiptExtractor, TransactionInfo, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
@@ -69,10 +69,11 @@ pub type Shared<T> = Arc<RwLock<T>>;
 pub type Balance = u128;
 
 /// The subscription type used to listen to new blocks.
+#[derive(Debug, Clone, Copy)]
 pub enum SubscriptionType {
-	/// Subscribe to the best blocks.
+	/// Subscribe to best blocks.
 	BestBlocks,
-	/// Subscribe to the finalized blocks.
+	/// Subscribe to finalized blocks.
 	FinalizedBlocks,
 }
 
@@ -308,7 +309,6 @@ impl Client {
 		F: Fn(SubstrateBlock) -> Fut + Send + Sync,
 		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
 	{
-		log::info!(target: LOG_TARGET, "🔍 Subscribing to new blocks");
 		let mut block_stream = match subscription_type {
 			SubscriptionType::BestBlocks => self.api.blocks().subscribe_best().await,
 			SubscriptionType::FinalizedBlocks => self.api.blocks().subscribe_finalized().await,
@@ -349,10 +349,8 @@ impl Client {
 		let res = self
 			.subscribe_new_blocks(subscription_type, |block| async {
 				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
-
-				self.receipt_provider.insert(&block.hash(), &receipts).await;
-				self.block_provider.set_latest_finalized_block(block).await;
-				// TODO: handle prune
+				self.receipt_provider.insert(&block, &receipts).await;
+				self.block_provider.update_latest(block, subscription_type).await;
 				Ok(())
 			})
 			.await;
@@ -367,7 +365,7 @@ impl Client {
 		let res = self
 			.subscribe_past_blocks(|block| async move {
 				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
-				self.receipt_provider.insert(&block.hash(), &receipts).await;
+				self.receipt_provider.insert(&block, &receipts).await;
 				if block.number() <= oldest_block {
 					Ok(ControlFlow::Break(()))
 				} else {
@@ -381,25 +379,36 @@ impl Client {
 		}
 	}
 
+	async fn block_hash_for_tag(
+		&self,
+		at: &BlockNumberOrTagOrHash,
+	) -> Result<SubstrateBlockHash, ClientError> {
+		match at {
+			BlockNumberOrTagOrHash::H256(hash) => Ok(*hash),
+			BlockNumberOrTagOrHash::U256(block_number) => {
+				let n: SubstrateBlockNumber =
+					(*block_number).try_into().map_err(|_| ClientError::ConversionFailed)?;
+				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
+				Ok(hash)
+			},
+			BlockNumberOrTagOrHash::BlockTag(BlockTag::Finalized | BlockTag::Safe) => {
+				let block = self.latest_finalized_block().await;
+				Ok(block.hash())
+			},
+			BlockNumberOrTagOrHash::BlockTag(_) => {
+				let block = self.latest_block().await;
+				Ok(block.hash())
+			},
+		}
+	}
+
 	/// Expose the storage API.
 	async fn storage_api(
 		&self,
 		at: &BlockNumberOrTagOrHash,
 	) -> Result<Storage<SrcChainConfig, OnlineClient<SrcChainConfig>>, ClientError> {
-		match at {
-			BlockNumberOrTagOrHash::U256(block_number) => {
-				let n: SubstrateBlockNumber =
-					(*block_number).try_into().map_err(|_| ClientError::ConversionFailed)?;
-
-				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
-				Ok(self.api.storage().at(hash))
-			},
-			BlockNumberOrTagOrHash::H256(hash) => Ok(self.api.storage().at(*hash)),
-			BlockNumberOrTagOrHash::BlockTag(_) => {
-				let block = self.latest_block().await;
-				Ok(self.api.storage().at(block.hash()))
-			},
-		}
+		let hash = self.block_hash_for_tag(at).await?;
+		Ok(self.api.storage().at(hash))
 	}
 
 	/// Expose the runtime API.
@@ -410,20 +419,8 @@ impl Client {
 		subxt::runtime_api::RuntimeApi<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 		ClientError,
 	> {
-		match at {
-			BlockNumberOrTagOrHash::U256(block_number) => {
-				let n: SubstrateBlockNumber =
-					(*block_number).try_into().map_err(|_| ClientError::ConversionFailed)?;
-
-				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
-				Ok(self.api.runtime_api().at(hash))
-			},
-			BlockNumberOrTagOrHash::H256(hash) => Ok(self.api.runtime_api().at(*hash)),
-			BlockNumberOrTagOrHash::BlockTag(_) => {
-				let block = self.latest_block().await;
-				Ok(self.api.runtime_api().at(block.hash()))
-			},
-		}
+		let hash = self.block_hash_for_tag(at).await?;
+		Ok(self.api.runtime_api().at(hash))
 	}
 
 	/// Get the most recent block stored in the cache.
@@ -433,7 +430,7 @@ impl Client {
 
 	/// Get the most recent block stored in the cache.
 	pub async fn latest_block(&self) -> Arc<SubstrateBlock> {
-		todo!()
+		self.block_provider.latest_block().await
 	}
 
 	/// Expose the transaction API.
@@ -613,6 +610,10 @@ impl Client {
 				let n = (*n).try_into().map_err(|_| ClientError::ConversionFailed)?;
 				self.block_by_number(n).await
 			},
+			BlockNumberOrTag::BlockTag(BlockTag::Finalized | BlockTag::Safe) => {
+				let block = self.block_provider.latest_finalized_block().await;
+				Ok(Some(block))
+			},
 			BlockNumberOrTag::BlockTag(_) => {
 				let block = self.block_provider.latest_block().await;
 				Ok(Some(block))
@@ -645,18 +646,10 @@ impl Client {
 	/// Get the transaction traces for the given block.
 	pub async fn trace_block_by_number(
 		&self,
-		block: BlockNumberOrTag,
+		at: BlockNumberOrTag,
 		tracer_config: TracerConfig,
 	) -> Result<Vec<TransactionTrace>, ClientError> {
-		let block_hash = match block {
-			BlockNumberOrTag::U256(n) => {
-				let block_number: SubstrateBlockNumber =
-					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
-				self.get_block_hash(block_number).await?
-			},
-			BlockNumberOrTag::BlockTag(_) => Some(self.latest_block().await.hash()),
-		}
-		.ok_or(ClientError::BlockNotFound)?;
+		let block_hash = self.block_hash_for_tag(&at.into()).await?;
 
 		let block = self
 			.rpc
@@ -751,19 +744,11 @@ impl Client {
 		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
 	) -> Result<CallTrace, ClientError> {
-		let block_hash = match block {
-			BlockNumberOrTag::U256(n) => {
-				let block_number: SubstrateBlockNumber =
-					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
-				self.get_block_hash(block_number).await?
-			},
-			BlockNumberOrTag::BlockTag(_) => Some(self.latest_block().await.hash()),
-		};
-
+		let block_hash = self.block_hash_for_tag(&block.into()).await?;
 		let params = (transaction, tracer_config).encode();
 		let bytes = self
 			.rpc
-			.state_call("ReviveApi_trace_call", Some(&params), block_hash)
+			.state_call("ReviveApi_trace_call", Some(&params), Some(block_hash))
 			.await
 			.inspect_err(|err| {
 				log::error!(target: LOG_TARGET, "state_call failed with: {err:?}");
