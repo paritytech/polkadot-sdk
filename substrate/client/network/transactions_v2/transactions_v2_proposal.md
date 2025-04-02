@@ -55,7 +55,7 @@ Transaction identifiers are gossiped to all connected peers (except _LightNodes_
 
 The transaction shall not be sent to a peer that already knows its identifier, whether because we received it from that peer or previously sent the transaction identifier to it.
 
-Once the transaction identifier is received and it is not the transaction body, the latter shall be downloaded using the TxRR protocol (see the next section).
+Once a transaction descriptor is received, and it is not a transaction body, the latter shall be downloaded using the TxRR protocol (see the next section).
 
 Not part of the protocol, but maybe noteworthy here: some measures shall be taken to avoid sending single identifier in notification. The [pool import notification stream](https://github.com/paritytech/polkadot-sdk/blob/ec700de9cdca84cdf5d9f501e66164454c2e3b7d/substrate/client/service/src/builder.rs#L593) shall be drained (maybe with some reasonable delay - 30-50ms to speculatively allow more transactions to come).
 
