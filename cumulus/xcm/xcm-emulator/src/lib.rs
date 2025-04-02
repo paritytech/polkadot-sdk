@@ -1346,7 +1346,7 @@ macro_rules! find_mq_processed_id {
 		let events = <$chain as $crate::Chain>::events();
 		events.iter().find_map(|event| {
 			if let RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { id, .. }) = event {
-				Some(id.clone())
+				Some(*id)
 			} else {
 				None
 			}
@@ -1360,7 +1360,7 @@ macro_rules! find_xcm_sent_message_id {
 		let events = <$chain as $crate::Chain>::events();
 		events.iter().find_map(|event| {
 			if let RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) = event {
-				Some(message_id.clone())
+				Some(*message_id)
 			} else {
 				None
 			}

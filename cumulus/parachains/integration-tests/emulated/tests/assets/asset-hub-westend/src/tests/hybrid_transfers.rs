@@ -31,6 +31,10 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
 	);
 
+	println!("Events on PenpalA: {:?}", <PenpalA as Chain>::events());
+	println!("Events on PenpalB: {:?}", <PenpalB as Chain>::events());
+	println!("Events on AssetHubWestend: {:?}", <AssetHubWestend as Chain>::events());
+
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
@@ -107,7 +111,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
 	}]);
-	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+	let result = <PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.assets.into()),
@@ -116,7 +120,15 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		bx!(TransferType::RemoteReserve(asset_hub_location.into())),
 		bx!(VersionedXcm::from(custom_xcm_on_dest)),
 		t.args.weight_limit,
-	)
+	);
+	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
+	let msg_id_on_penpal_a = find_xcm_sent_message_id!(PenpalA);
+	println!("msg_id_on_penpal_a on para_to_para_transfer_assets_through_ah: {:?}", msg_id_on_penpal_a);
+	assert!(msg_id_on_penpal_a.is_some());
+	let prc_id_on_penpal_a = find_mq_processed_id!(PenpalA);
+	println!("prc_id_on_penpal_a on para_to_para_transfer_assets_through_ah: {:?}", prc_id_on_penpal_a);
+
+	result
 }
 
 fn para_to_asset_hub_teleport_foreign_assets(t: ParaToSystemParaTest) -> DispatchResult {

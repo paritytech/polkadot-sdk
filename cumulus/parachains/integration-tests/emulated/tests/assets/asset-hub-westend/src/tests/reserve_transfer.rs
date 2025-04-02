@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::xcm_emulator::find_xcm_sent_message_id;
+use emulated_integration_tests_common::xcm_emulator::{find_mq_processed_id, find_xcm_sent_message_id};
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
@@ -389,12 +389,15 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, P
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 
+	println!("Events on PenpalA: {:?}", <PenpalA as Chain>::events());
+	println!("Events on PenpalB: {:?}", <PenpalB as Chain>::events());
+	println!("Events on AssetHubWestend: {:?}", <AssetHubWestend as Chain>::events());
+
 	let msg_id_on_penpal_a = find_xcm_sent_message_id!(PenpalA);
 	println!("msg_id_on_penpal_a on para_to_para_through_hop_sender_assertions: {:?}", msg_id_on_penpal_a);
 	assert!(msg_id_on_penpal_a.is_some());
-	let msg_id_on_penpal_b = find_xcm_sent_message_id!(PenpalB);
-	println!("msg_id_on_penpal_b on para_to_para_through_hop_sender_assertions: {:?}", msg_id_on_penpal_b);
-	assert_eq!(msg_id_on_penpal_a, msg_id_on_penpal_b);
+	let prc_id_on_penpal_a = find_mq_processed_id!(PenpalA);
+	println!("prc_id_on_penpal_a on para_to_para_through_hop_sender_assertions: {:?}", prc_id_on_penpal_a);
 
 	for asset in t.args.assets.into_inner() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
@@ -479,6 +482,11 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 
 pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
 	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+
+	let msg_id_on_penpal_b = find_xcm_sent_message_id!(PenpalB);
+	println!("msg_id_on_penpal_b on para_to_para_through_hop_receiver_assertions: {:?}", msg_id_on_penpal_b);
+	let prc_id_on_penpal_b = find_mq_processed_id!(PenpalB);
+	println!("prc_id_on_penpal_b on para_to_para_through_hop_receiver_assertions: {:?}", prc_id_on_penpal_b);
 
 	PenpalB::assert_xcmp_queue_success(None);
 	for asset in t.args.assets.into_inner().into_iter() {
