@@ -30,6 +30,14 @@ mod imports {
 	pub use parachains_common::Balance;
 	pub use westend_system_emulated_network::{
 		self,
+<<<<<<< HEAD
+=======
+		asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
+		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
+		coretime_westend_emulated_chain::CoretimeWestendParaPallet as CoretimeWestendPallet,
+		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
+>>>>>>> 3766467f (pallet-xcm: add support to authorize aliases (#6336))
 		people_westend_emulated_chain::{
 			people_westend_runtime::{
 				xcm_config::XcmConfig as PeopleWestendXcmConfig,
@@ -41,7 +49,14 @@ mod imports {
 			genesis::ED as WESTEND_ED, westend_runtime::xcm_config::XcmConfig as WestendXcmConfig,
 			WestendRelayPallet as WestendPallet,
 		},
+<<<<<<< HEAD
 		PeopleWestendPara as PeopleWestend, PeopleWestendParaReceiver as PeopleWestendReceiver,
+=======
+		AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
+		CollectivesWestendPara as CollectivesWestend, CoretimeWestendPara as CoretimeWestend,
+		PenpalBPara as PenpalB, PeopleWestendPara as PeopleWestend,
+		PeopleWestendParaReceiver as PeopleWestendReceiver,
+>>>>>>> 3766467f (pallet-xcm: add support to authorize aliases (#6336))
 		PeopleWestendParaSender as PeopleWestendSender, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};

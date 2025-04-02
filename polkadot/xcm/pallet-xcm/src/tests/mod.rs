@@ -19,22 +19,26 @@
 pub(crate) mod assets_transfer;
 
 use crate::{
+	aliasers_footprint,
 	migration::data::NeedsMigration,
 	mock::*,
 	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
-	AssetTraps, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
-	LatestVersionedLocation, Pallet, Queries, QueryStatus, RecordedXcm, RemoteLockedFungibleRecord,
-	ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
-	VersionNotifyTargets, WeightInfo,
+	AssetTraps, AuthorizedAliasers, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
+	LatestVersionedLocation, MaxAuthorizedAliases, Pallet, Queries, QueryStatus, RecordedXcm,
+	RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage,
+	VersionNotifiers, VersionNotifyTargets, WeightInfo,
 };
 use bounded_collections::BoundedVec;
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok,
-	traits::{Currency, Hooks},
+	traits::{ContainsPair, Currency, Hooks},
 	weights::Weight,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
-use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash};
+use sp_runtime::{
+	traits::{AccountIdConversion, BlakeTwo256, BlockNumberProvider, Hash},
+	SaturatedConversion, TokenError,
+};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::AllowKnownQueryResponses;
 use xcm_executor::{
@@ -44,7 +48,7 @@ use xcm_executor::{
 
 const ALICE: AccountId = AccountId::new([0u8; 32]);
 const BOB: AccountId = AccountId::new([1u8; 32]);
-const INITIAL_BALANCE: u128 = 100;
+const INITIAL_BALANCE: u128 = 1000;
 const SEND_AMOUNT: u128 = 10;
 const FEE_AMOUNT: u128 = 2;
 
@@ -392,6 +396,184 @@ fn execute_withdraw_to_deposit_works() {
 				outcome: Outcome::Complete { used: weight }
 			})
 		);
+	});
+}
+
+/// Test XCM authorized aliases.
+#[test]
+fn authorized_aliases_work() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// --- alias is same as origin
+		let alias: Location = AccountId32 { network: None, id: BOB.into() }.into();
+		assert_eq!(
+			XcmPallet::add_authorized_alias(
+				RuntimeOrigin::signed(BOB),
+				Box::new(alias.into()),
+				None
+			),
+			Err(Error::<Test>::BadLocation.into())
+		);
+
+		// --- alias already expired
+		let alias = Location::here();
+		let expires = Some(System::current_block_number().saturated_into::<u64>());
+		assert_eq!(
+			XcmPallet::add_authorized_alias(
+				RuntimeOrigin::signed(BOB),
+				Box::new(alias.clone().into()),
+				expires
+			),
+			Err(Error::<Test>::ExpiresInPast.into())
+		);
+
+		// --- storage deposit not covered (BOB has no funds)
+		assert_eq!(
+			XcmPallet::add_authorized_alias(
+				RuntimeOrigin::signed(BOB),
+				Box::new(alias.clone().into()),
+				None
+			),
+			Err(sp_runtime::DispatchError::Token(TokenError::FundsUnavailable))
+		);
+
+		// --- setting single alias works
+		let who = ALICE;
+		let first_alias: Location = AccountId32 { network: Some(Polkadot), id: BOB.into() }.into();
+		let total_balance_before = <Balances as Currency<_>>::total_balance(&who);
+		let free_balance = <Balances as Currency<_>>::free_balance(&who);
+		assert_eq!(free_balance, total_balance_before);
+		assert_ok!(XcmPallet::add_authorized_alias(
+			RuntimeOrigin::signed(who.clone()),
+			Box::new(first_alias.clone().into()),
+			None
+		));
+		let footprint = aliasers_footprint(1);
+		let deposit = footprint.size + 2 * footprint.count;
+		let free_balance = <Balances as Currency<_>>::free_balance(&who);
+		let total_balance = <Balances as Currency<_>>::total_balance(&who);
+		assert_eq!(total_balance, total_balance_before);
+		assert_eq!(total_balance, free_balance + deposit as u128);
+
+		// --- setting same alias again only updates its expiry
+		assert_ok!(XcmPallet::add_authorized_alias(
+			RuntimeOrigin::signed(who.clone()),
+			Box::new(first_alias.clone().into()),
+			Some(100)
+		));
+		// deposit is unchanged
+		assert_eq!(total_balance - deposit as u128, <Balances as Currency<_>>::free_balance(&who));
+
+		// --- setting max number of aliases works
+		let mut aliases = vec![];
+		for i in 1..MaxAuthorizedAliases::get() {
+			let alias = Location::new(0, [Parachain(OTHER_PARA_ID), GeneralIndex(i as u128)]);
+			assert_ok!(XcmPallet::add_authorized_alias(
+				RuntimeOrigin::signed(who.clone()),
+				Box::new(alias.clone().into()),
+				None
+			));
+			let footprint = aliasers_footprint(i as usize + 1);
+			let deposit = (footprint.size + 2 * footprint.count) as u128;
+			assert_eq!(total_balance - deposit, <Balances as Currency<_>>::free_balance(&who));
+			aliases.push(alias);
+		}
+
+		// deposit held for MaxAliases
+		let footprint = aliasers_footprint(MaxAuthorizedAliases::get() as usize);
+		let deposit = (footprint.size + 2 * footprint.count) as u128;
+		assert_eq!(total_balance - deposit, <Balances as Currency<_>>::free_balance(&who));
+
+		// --- adding more than max aliases is not allowed
+		let alias = Location::new(
+			0,
+			[Parachain(OTHER_PARA_ID), GeneralIndex(MaxAuthorizedAliases::get() as u128 + 100)],
+		);
+		assert_eq!(
+			XcmPallet::add_authorized_alias(
+				RuntimeOrigin::signed(who.clone()),
+				Box::new(alias.clone().into()),
+				None
+			),
+			Err(Error::<Test>::TooManyAuthorizedAliases.into())
+		);
+
+		// --- remove one alias
+		let target: Location = AccountId32 { network: None, id: who.clone().into() }.into();
+		assert_ok!(XcmPallet::remove_authorized_alias(
+			RuntimeOrigin::signed(who.clone()),
+			Box::new(first_alias.clone().into()),
+		));
+		// deposit held for MaxAliases - 1
+		let footprint = aliasers_footprint(MaxAuthorizedAliases::get() as usize - 1);
+		let deposit = (footprint.size + 2 * footprint.count) as u128;
+		assert_eq!(total_balance - deposit, <Balances as Currency<_>>::free_balance(&who));
+		// de-authorization event
+		assert_eq!(
+			last_events(1),
+			vec![RuntimeEvent::XcmPallet(crate::Event::AliasAuthorizationRemoved {
+				aliaser: first_alias.into(),
+				target: target.clone().into(),
+			})]
+		);
+
+		// --- adding one more is now allowed
+		assert_ok!(XcmPallet::add_authorized_alias(
+			RuntimeOrigin::signed(who.clone()),
+			Box::new(alias.clone().into()),
+			None
+		));
+		assert_eq!(
+			last_events(1),
+			vec![RuntimeEvent::XcmPallet(crate::Event::AliasAuthorized {
+				aliaser: alias.clone().into(),
+				target: target.clone().into(),
+				expiry: None,
+			})]
+		);
+
+		// --- un-authorized alias is correctly filtered/denied
+		assert!(!AuthorizedAliasers::<Test>::contains(&Location::here(), &target));
+		// --- authorized aliases are correctly allowed
+		for i in 1..MaxAuthorizedAliases::get() {
+			assert!(AuthorizedAliasers::<Test>::contains(&aliases[i as usize - 1], &target));
+		}
+		// --- remove alias then verify no longer allowed
+		assert_ok!(XcmPallet::remove_authorized_alias(
+			RuntimeOrigin::signed(who.clone()),
+			Box::new(aliases[0].clone().into()),
+		));
+		assert!(!AuthorizedAliasers::<Test>::contains(&aliases[0], &target));
+
+		// --- remove nonexistent alias
+		assert_eq!(
+			XcmPallet::remove_authorized_alias(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(Location::parent().into())
+			),
+			Err(Error::<Test>::AliasNotFound.into())
+		);
+
+		// --- remove nonexistent alias (BOB has no registered aliases)
+		assert_eq!(
+			XcmPallet::remove_authorized_alias(
+				RuntimeOrigin::signed(BOB),
+				Box::new(Location::parent().into()),
+			),
+			Err(Error::<Test>::AliasNotFound.into())
+		);
+
+		// --- remove all aliases then verify all deposit is returned
+		assert_ok!(XcmPallet::remove_all_authorized_aliases(RuntimeOrigin::signed(who.clone())));
+		// de-authorization event
+		assert_eq!(
+			last_events(1),
+			vec![RuntimeEvent::XcmPallet(crate::Event::AliasesAuthorizationsRemoved {
+				target: target.clone().into(),
+			})]
+		);
+		// all deposit is returned
+		assert_eq!(total_balance_before, <Balances as Currency<_>>::free_balance(&who));
 	});
 }
 
@@ -1058,7 +1240,7 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		let mut counter = 0;
 		while let Some(migration) = maybe_migration.take() {
 			counter += 1;
-			let (_, m) = XcmPallet::check_xcm_version_change(migration, Weight::zero());
+			let (_, m) = XcmPallet::lazy_migration(migration, Weight::zero());
 			maybe_migration = m;
 		}
 		assert_eq!(counter, 4);
@@ -1211,7 +1393,7 @@ fn multistage_migration_works() {
 			let mut weight_used = Weight::zero();
 			while let Some(migration) = maybe_migration.take() {
 				counter += 1;
-				let (w, m) = XcmPallet::check_xcm_version_change(migration, Weight::zero());
+				let (w, m) = XcmPallet::lazy_migration(migration, Weight::zero());
 				maybe_migration = m;
 				weight_used.saturating_accrue(w);
 			}

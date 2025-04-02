@@ -16794,6 +16794,7 @@ dependencies = [
  "scale-info",
  "smallvec",
  "snowbridge-inbound-queue-primitives",
+<<<<<<< HEAD
  "sp-api 36.0.0-rc1",
  "sp-block-builder 36.0.0-rc1",
  "sp-consensus-aura 0.42.0-rc1",
@@ -16812,6 +16813,27 @@ dependencies = [
  "staging-xcm-executor 19.0.0-rc1",
  "substrate-wasm-builder 26.0.0-rc1",
  "xcm-runtime-apis 0.6.0-rc1",
+=======
+ "sp-api 26.0.0",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-offchain",
+ "sp-runtime 31.0.1",
+ "sp-session",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool",
+ "sp-version 29.0.0",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "substrate-wasm-builder",
+ "testnet-parachains-constants",
+ "xcm-runtime-apis",
+>>>>>>> 3766467f (pallet-xcm: add support to authorize aliases (#6336))
 ]
 
 [[package]]

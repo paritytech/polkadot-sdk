@@ -75,7 +75,37 @@ parachain-info.workspace = true
 parachains-common.workspace = true
 snowbridge-inbound-queue-primitives.workspace = true
 
+<<<<<<< HEAD
 primitive-types = { version = "0.12.1", default-features = false, features = [
+=======
+# Polkadot
+pallet-xcm = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
+polkadot-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true }
+
+# Cumulus
+assets-common = { workspace = true }
+cumulus-pallet-aura-ext = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-session-benchmarking = { workspace = true }
+cumulus-pallet-xcm = { workspace = true }
+cumulus-pallet-xcmp-queue = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-utility = { workspace = true }
+pallet-collator-selection = { workspace = true }
+pallet-message-queue = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common = { workspace = true }
+snowbridge-inbound-queue-primitives = { workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true }
+
+primitive-types = { workspace = true, default-features = false, features = [
+>>>>>>> 3766467f (pallet-xcm: add support to authorize aliases (#6336))
 	"codec",
 	"num-traits",
 	"scale-info",
@@ -136,6 +166,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"testnet-parachains-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",

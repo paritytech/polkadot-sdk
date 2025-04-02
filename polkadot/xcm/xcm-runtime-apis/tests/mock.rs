@@ -26,8 +26,8 @@ use frame_support::{
 		BuildStorage, SaturatedConversion,
 	},
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, ContainsPair, Everything, Nothing,
-		OriginTrait,
+		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, ContainsPair, Disabled, Everything,
+		Nothing, OriginTrait,
 	},
 	weights::WeightToFee as WeightToFeeT,
 };
@@ -349,6 +349,8 @@ where
 	}
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId>;
 
 impl pallet_xcm::Config for TestRuntime {
@@ -375,6 +377,7 @@ impl pallet_xcm::Config for TestRuntime {
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 #[allow(dead_code)]

@@ -138,12 +138,17 @@ macro_rules! versioned_type {
 		}
 		impl IntoVersion for $n {
 			fn into_version(self, n: Version) -> Result<Self, ()> {
-				Ok(match n {
-					3 => Self::V3(self.try_into()?),
-					4 => Self::V4(self.try_into()?),
-					5 => Self::V5(self.try_into()?),
-					_ => return Err(()),
-				})
+				let version = self.identify_version();
+				if version == n {
+					Ok(self)
+				} else {
+					Ok(match n {
+						3 => Self::V3(self.try_into()?),
+						4 => Self::V4(self.try_into()?),
+						5 => Self::V5(self.try_into()?),
+						_ => return Err(()),
+					})
+				}
 			}
 		}
 		impl From<$v3> for $n {

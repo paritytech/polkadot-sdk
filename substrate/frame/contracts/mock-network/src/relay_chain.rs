@@ -18,7 +18,7 @@
 
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{Contains, Everything, Nothing},
+	traits::{Contains, Disabled, Everything, Nothing},
 	weights::Weight,
 };
 
@@ -210,6 +210,8 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 impl origin::Config for Runtime {}

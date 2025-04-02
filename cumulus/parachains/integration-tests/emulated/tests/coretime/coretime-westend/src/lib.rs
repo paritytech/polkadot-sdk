@@ -31,9 +31,20 @@ mod imports {
 			coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
 			CoretimeWestendParaPallet as CoretimeWestendPallet,
 		},
+<<<<<<< HEAD
 		CoretimeWestendPara as CoretimeWestend,
 		CoretimeWestendParaReceiver as CoretimeWestendReceiver,
 		CoretimeWestendParaSender as CoretimeWestendSender, WestendRelay as Westend,
+=======
+		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
+		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
+		westend_emulated_chain::genesis::ED as WESTEND_ED,
+		AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
+		CollectivesWestendPara as CollectivesWestend, CoretimeWestendPara as CoretimeWestend,
+		CoretimeWestendParaReceiver as CoretimeWestendReceiver,
+		CoretimeWestendParaSender as CoretimeWestendSender, PenpalBPara as PenpalB,
+		PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
+>>>>>>> 3766467f (pallet-xcm: add support to authorize aliases (#6336))
 	};
 }
 

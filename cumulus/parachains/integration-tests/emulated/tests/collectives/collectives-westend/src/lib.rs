@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use xcm::{prelude::*, v3};
+pub use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
 pub use emulated_integration_tests_common::{
 	accounts::ALICE,
@@ -37,6 +37,15 @@ pub use westend_system_emulated_network::{
 		genesis::ED as COLLECTIVES_WESTEND_ED,
 		CollectivesWestendParaPallet as CollectivesWestendPallet,
 	},
+<<<<<<< HEAD
+=======
+	coretime_westend_emulated_chain::{
+		coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
+		CoretimeWestendParaPallet as CoretimeWestendPallet,
+	},
+	penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
+	people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
+>>>>>>> 3766467f (pallet-xcm: add support to authorize aliases (#6336))
 	westend_emulated_chain::{
 		genesis::ED as WESTEND_ED,
 		westend_runtime::{
@@ -49,7 +58,13 @@ pub use westend_system_emulated_network::{
 	AssetHubWestendParaSender as AssetHubWestendSender,
 	CollectivesWestendPara as CollectivesWestend,
 	CollectivesWestendParaReceiver as CollectivesWestendReceiver,
+<<<<<<< HEAD
 	CollectivesWestendParaSender as CollectivesWestendSender, WestendRelay as Westend,
+=======
+	CollectivesWestendParaSender as CollectivesWestendSender,
+	CoretimeWestendPara as CoretimeWestend, PenpalBPara as PenpalB,
+	PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
+>>>>>>> 3766467f (pallet-xcm: add support to authorize aliases (#6336))
 	WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 };
 
