@@ -1,4 +1,21 @@
-This issue outlines the high level design of a new transaction protocol.
+## `transactions/2` proposal
+This document outlines the high level design of a new transaction protocol. It collects and summarizes ideas discussed in the past in numerous issues.
+
+### TL;DR
+- Phase 1:
+  - introducing a transaction descriptor format,
+  - using transaction identifiers flooding,
+  - The TxRR (tx request response) for requesting transaction bodies,
+
+Phase 1a:
+  - low fanout floding for bodies,
+  - matrix based gossiping between authorithies,
+
+Phase 2:
+  - 32 bit identifier,
+  - include low-fanout strategies and set reconciliations:
+    - naive implemenation to evaluate the impact,
+    - full implementation
 
 ### Problems with Current Implementation.
 - High bandwidth usage due to transaction bodies being gossiped across all peer pairs.
@@ -34,17 +51,18 @@ Proposed descriptor format (`TxDescriptor`):
 Two latter payloads are referred as transaction identifiers.
 
 #### Transactions Identifiers Flooding.
-Transaction identifiers are gossiped to all connected peers (except _LightNodes_) allowing many transaction descriptors in a single networking notification. This reduces the required bandwidth and the depth of queues in networking module implementation. 
+Transaction identifiers are gossiped to all connected peers (except _LightNodes_) allowing many transaction descriptors in a single networking notification. This reduces the required bandwidth and the depth of queues in networking module implementation.
 
-The transaction shall not be sent to a peer that already knows its identifier, whether because we received it from that peer or previously sent the transaction identifier to it. 
+The transaction shall not be sent to a peer that already knows its identifier, whether because we received it from that peer or previously sent the transaction identifier to it.
 
 Once the transaction identifier is received and it is not the transaction body, the latter shall be downloaded using the TxRR protocol (see the next section).
 
 Not part of the protocol, but maybe noteworthy here: some measures shall be taken to avoid sending single identifier in notification. The [pool import notification stream](https://github.com/paritytech/polkadot-sdk/blob/ec700de9cdca84cdf5d9f501e66164454c2e3b7d/substrate/client/service/src/builder.rs#L593) shall be drained (maybe with some reasonable delay - 30-50ms to speculatively allow more transactions to come).
 
+Note: When the combined size of all identifiers to be gossiped is relatively small compared to the network packet size, the network notification can include some of the transaction bodies to reduce the latency required for transaction dissemination.
 
 #### Transaction Data Request-Response Protocol (TxRR).
-After receiving the transaction identifier the node should request the transaction body from the peer whom sent the transaction identifier, provided that the transaction is not already in local pool. 
+After receiving the transaction identifier the node should request the transaction body from the peer whom sent the transaction identifier, provided that the transaction is not already in local pool.
 
 If the requested transaction is not available in the local pool the requesting peer's reputation shall be decreased. However, if the peer requests the transaction whose identifier was previously gossiped to that peer and transaction is found to be unknown (e.g. due to finalization or being dropped) its reputation shall remain unaffected. This kind of race condition is possible and there is little that can be done to prevent it. Once transaction bytes are downloaded the transaction should be sent to pool for further validation and processing.
 
@@ -56,7 +74,7 @@ The request protocol supports batch acquisition of transactions by accepting a `
 Transactions shall be fetched immediately after receiving the transaction identifiers.
 
 Some open issue:
-In theory, the transaction body could be fetched only if there is an available space in transaction pool. Transaction shall not be silently dropped. On the other hand the gossiped transaction identifier may correspond to transaction with higher priority and we should submit such transaction immediately as it may be evicting some other lower-priority transactions. 
+In theory, the transaction body could be fetched only if there is an available space in transaction pool. Transaction shall not be silently dropped. On the other hand the gossiped transaction identifier may correspond to transaction with higher priority and we should submit such transaction immediately as it may be evicting some other lower-priority transactions.
 
 #### [Optional] Transaction Data Low-Fanout.
 The low-fanout strategy is an optional, easily achievable enhancement aimed at improving transaction propagation latency and network resilience.
@@ -72,7 +90,7 @@ When a local pool is full the tx can be dropped (e.g. due to lower priority) and
 Peer reputation shall be adjusted accordingly.
 
 #### [Optional] Authorities matrix for exchanging transactions.
-Not necessarily a part of protocol itself, could be considered as the optimization of implementation. Authorities could use matrix to effectively exchange txs. Doing so may decrease the latency and improve pools alignment. Similar approach was taken in [gossip-support](https://github.com/paritytech/polkadot-sdk/blob/98c6ffcea6794d338514cf9bd84446d2f276cb63/polkadot/node/network/gossip-support/src/lib.rs#L786). This would require authority-discovery on parachains.
+Not necessarily a part of protocol itself, could be considered as the optimization of implementation. Authorities could use matrix to effectively exchange txs. Doing so may decrease the latency and improve pools alignment. Similar approach was taken in `polkadot-gossip-support` module ([code](https://github.com/paritytech/polkadot-sdk/blob/98c6ffcea6794d338514cf9bd84446d2f276cb63/polkadot/node/network/gossip-support/src/lib.rs#L786), [doc](https://web.archive.org/web/20221210090830/https://research.web3.foundation/en/latest/polkadot/networking/3-avail-valid.html])). This would require authority-discovery on parachains and probably a more thinking how it could work.
 
 ### Towards set-reconciliation.
 This section outlines potential future extensions to the transaction protocol. The details of these improvements require further consideration, particularly regarding the cooperation of nodes with different enabled features within the same network. Also some details needs to be figure out - this section only provides a potential directions of future work.
@@ -111,7 +129,7 @@ Nodes supporting both `transactions/1` and `transactions/2` protocols shall only
 - all sync peers shall [join](https://github.com/paritytech/polkadot-sdk/blob/ec700de9cdca84cdf5d9f501e66164454c2e3b7d/substrate/client/network/transactions/src/lib.rs#L378-L401) transaction protocol,
 - two approaches for triggering broadcasts:
   - periodic / tx-import notification driven broadcast. Periodic is needed to feed the peers not connected during import event. (current [implementation](https://github.com/paritytech/polkadot-sdk/blob/ec700de9cdca84cdf5d9f501e66164454c2e3b7d/substrate/client/network/transactions/src/lib.rs#L295))
-  - on-peer-connection / tx-import notification driven broadcast also could be implemented (more reasonable?). 
+  - on-peer-connection / tx-import notification driven broadcast also could be implemented (more reasonable?).
 - [`ready_transactions`](https://github.com/paritytech/polkadot-sdk/blob/ec700de9cdca84cdf5d9f501e66164454c2e3b7d/substrate/client/transaction-pool/api/src/lib.rs#L339) would be nice in TransactionPool API,
 - a `Vec<TxDescriptor>` on notification protocol and `Vec<Transaction>` in TxRR,
 - `Vec<TxDescriptor>` for notification protocol decodes as scale-encoded
