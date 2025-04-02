@@ -19,14 +19,10 @@ use super::xcm_helpers;
 use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
-use frame_support::{
-	assert_noop, assert_ok,
-	traits::{
-		fungible::Mutate, fungibles::InspectEnumerable, Currency, Get, OnFinalize, OnInitialize,
-		OriginTrait,
-	},
-	weights::Weight,
-};
+use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, traits::{
+	fungible::Mutate, fungibles::InspectEnumerable, Currency, Get, OnFinalize, OnInitialize,
+	OriginTrait,
+}, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
 use parachains_runtimes_test_utils::{
@@ -1701,4 +1697,155 @@ where
 		// Now it works!
 		assert_ok!(execution_fees);
 	});
+}
+
+pub fn exchange_asset_on_asset_hub_works<Runtime, RuntimeCall, RuntimeOrigin, Block>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+	account: AccountId,
+	native_asset_location: Location,
+	create_pool: bool,
+	give_amount: Balance,
+	want_amount: Balance,
+	should_succeed: bool,
+) where
+	Runtime: XcmPaymentApiV1<Block>
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
+		+ pallet_balances::Config<Balance = u128>
+		+ pallet_assets::Config<
+			pallet_assets::Instance1,
+			AssetId = u32,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		> + pallet_asset_conversion::Config<
+			AssetKind = Location,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		> + pallet_session::Config
+		+ pallet_timestamp::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
+	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
+		From<<Runtime as frame_system::Config>::AccountId>,
+	Block: BlockT,
+{
+	const UNITS: Balance = 1_000_000_000;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_key.collators())
+		.with_session_keys(collator_session_key.session_keys())
+		.with_para_id(runtime_para_id.into())
+		.with_tracing()
+		.build()
+		.execute_with(|| {
+			let native_asset_id = AssetId(native_asset_location.clone());
+			let origin = RuntimeOrigin::signed(account.clone());
+			let asset_id = 1984u32;
+			let asset_location: Location =
+				(PalletInstance(50), GeneralIndex(asset_id.into())).into();
+
+			// Setup initial state
+			assert_ok!(<pallet_balances::Pallet<Runtime> as Mutate<_>>::mint_into(
+				&account,
+				50_000 * UNITS // Enough for pool creation, liquidity, and exchange
+			));
+			let balance = pallet_balances::Pallet::<Runtime>::free_balance(&account);
+			assert_eq!(balance, 50_000 * UNITS);
+
+			// Create the foreign asset
+			assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				<Runtime as frame_system::Config>::Lookup::unlookup(account.clone()),
+				true,
+				1
+			));
+
+			// Simulate pool creation if required
+			if create_pool {
+				// Mint foreign assets for liquidity
+				assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::mint(
+					RuntimeOrigin::signed(account.clone()),
+					asset_id.into(),
+					<Runtime as frame_system::Config>::Lookup::unlookup(account.clone()),
+					10_000 * UNITS
+				));
+
+				// Create pool and add liquidity
+				assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
+					RuntimeOrigin::signed(account.clone()),
+					native_asset_location.clone().try_into().unwrap(),
+					asset_location.clone().try_into().unwrap(),
+				));
+				assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::add_liquidity(
+					RuntimeOrigin::signed(account.clone()),
+					native_asset_location.clone().try_into().unwrap(),
+					asset_location.clone().try_into().unwrap(),
+					1_000 * UNITS, // Native amount
+					2_000 * UNITS, // Foreign amount
+					0, // Min liquidity
+					0, // Min lp token
+					account.clone(),
+				));
+
+				let (reserve1, reserve2) = pallet_asset_conversion::Pallet::<Runtime>::get_reserves(
+					native_asset_location.clone().try_into().unwrap(),
+					asset_location.clone().try_into().unwrap(),
+				).expect("Pool exists");
+				assert_eq!(reserve1, 1_000 * UNITS);
+				assert_eq!(reserve2, 2_000 * UNITS);
+			}
+
+			// Execute the exchange
+			let foreign_balance_before = pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::balance(asset_id.into(), &account);
+			let native_balance_before = pallet_balances::Pallet::<Runtime>::total_balance(&account);
+
+			let give: Assets = (native_asset_id, give_amount).into();
+			let want: Assets = (AssetId(asset_location.clone()), want_amount).into();
+			let xcm = Xcm(vec![
+				WithdrawAsset(give.clone().into()),
+				ExchangeAsset { give: give.into(), want: want.into(), maximal: true },
+				DepositAsset { assets: Wild(All), beneficiary: account.clone().into() },
+			]);
+
+			let result = pallet_xcm::Pallet::<Runtime>::execute(
+				origin,
+				xcm::VersionedXcm::from(xcm).into(),
+				Weight::MAX
+			);
+
+			// Verify results
+			let foreign_balance_after = pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::balance(asset_id.into(), &account);
+			let native_balance_after = pallet_balances::Pallet::<Runtime>::total_balance(&account);
+
+			if should_succeed {
+				assert_ok!(result);
+				assert!(
+					foreign_balance_after >= foreign_balance_before + want_amount,
+					"Expected foreign balance to increase by at least {want_amount}, got {foreign_balance_after} from {foreign_balance_before}"
+				);
+				assert_eq!(
+					native_balance_after,
+					native_balance_before - give_amount,
+					"Expected native balance to decrease by {give_amount}, got {native_balance_after} from {native_balance_before}"
+				);
+			} else {
+				assert_err_ignore_postinfo!(
+					result,
+					pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete
+				);
+				assert_eq!(
+					foreign_balance_after,
+					foreign_balance_before,
+					"Foreign balance changed unexpectedly: got {foreign_balance_after}, expected {foreign_balance_before}"
+				);
+				assert_eq!(
+					native_balance_after,
+					native_balance_before,
+					"Native balance changed unexpectedly: got {native_balance_after}, expected {native_balance_before}"
+				);
+			}
+		});
 }
