@@ -16,12 +16,12 @@ inputs:
     description: "GITHUB_TOKEN to use for downloading artifacts"
     required: true
 
+env:
+  TEST_NAME: ${{ inputs.test }}
+  PREFIX: ${{ inputs.prefix }}
 
 runs:
   using: "composite"
-  env:
-    TEST_NAME: ${{ inputs.test }}
-    PREFIX: ${{ inputs.prefix }}
   steps:
     - name: k8s_auth
       shell: bash
