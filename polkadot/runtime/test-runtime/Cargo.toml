@@ -63,12 +63,6 @@ xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 
-[dev-dependencies]
-hex-literal = { workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
-
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, default-features = true }
 
