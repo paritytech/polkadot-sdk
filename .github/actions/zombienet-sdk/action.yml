@@ -16,9 +16,7 @@ inputs:
     description: "GITHUB_TOKEN to use for downloading artifacts"
     required: true
 
-env:
-  TEST_NAME: ${{ inputs.test }}
-  PREFIX: ${{ inputs.prefix }}
+
 
 runs:
   using: "composite"
@@ -31,6 +29,9 @@ runs:
 
     - name: common_vars
       shell: bash
+      env:
+        TEST_NAME: ${{ inputs.test }}
+        PREFIX: ${{ inputs.prefix }}
       run: |
         echo "Vars"
         echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
@@ -53,9 +54,12 @@ runs:
 
     - name: zombie_test
       shell: bash
+      env:
+        TEST_NAME: ${{ inputs.test }}
+        PREFIX: ${{ inputs.prefix }}
       run: |
           ls -ltr ./artifacts
-          cargo nextest run --archive-file ./artifacts/${{ inputs.prefix }}-zombienet-tests.tar.zst --no-capture -- functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test
+          cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
 
     - name: upload_logs
       uses: actions/upload-artifact@v4
