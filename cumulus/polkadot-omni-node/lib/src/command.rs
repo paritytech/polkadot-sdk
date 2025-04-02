@@ -16,7 +16,7 @@
 
 use crate::{
 	cli,
-	cli::{ExtraSubcommand, RelayChainCli, Subcommand},
+	cli::{RelayChainCli, Subcommand},
 	common::{
 		chain_spec::{Extensions, LoadSpec},
 		runtime::{
@@ -51,8 +51,7 @@ pub struct RunConfig {
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
 	/// Optional custom command handler.
-	pub extra_command_provider:
-		Option<Box<dyn cli::ExtraCommandProvider<Command = ExtraSubcommand>>>,
+	pub extra_command_provider: Option<Box<dyn cli::ExtraCommandProvider>>,
 }
 
 impl RunConfig {
@@ -71,9 +70,7 @@ impl RunConfig {
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
-		extra_command_provider: Option<
-			Box<dyn cli::ExtraCommandProvider<Command = ExtraSubcommand>>,
-		>,
+		extra_command_provider: Option<Box<dyn cli::ExtraCommandProvider>>,
 	) -> Self {
 		RunConfig { runtime_resolver, chain_spec_loader, extra_command_provider }
 	}
@@ -119,24 +116,18 @@ fn new_node_spec(
 
 /// Parse command line arguments into service configuration.
 pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
-	let mut cli_command = crate::cli::Cli::<CliConfig>::command();
 
-	// If extra command provider exists, augment the CLI with its commands
+	let mut cli_command = crate::cli::Cli::<CliConfig>::command();
 	if let Some(ref provider) = cmd_config.extra_command_provider {
 		cli_command = provider.augment_command(cli_command);
 	}
-
-	// Parse matches
 	let matches = cli_command.get_matches();
 
-	// Check if an extra subcommand was invoked
 	if let Some(ref provider) = cmd_config.extra_command_provider {
 		if let Some((name, sub_matches)) = matches.subcommand() {
 			if provider.is_extra_command(name) {
-				let extra_cmd = ExtraSubcommand::from_arg_matches(sub_matches)
-					.map_err(|e| sc_cli::Error::Cli(e.into()))?;
-				provider.handle_command(&extra_cmd)?;
-				return Ok(()); // Early return after extra subcommand
+				provider.handle_extra_command(sub_matches)?;
+				return Ok(());
 			}
 		}
 	}

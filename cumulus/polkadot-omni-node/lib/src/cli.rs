@@ -70,22 +70,18 @@ pub trait CliConfig {
 
 /// Trait for handling custom commands.
 pub trait ExtraCommandProvider {
-	/// The parser for the extra commands.
-	type Command: clap::Subcommand;
 	/// Handle the extra command.
 	///
 	/// Return:
 	/// - `Ok(())` if handled successfully,
 	/// - an error if the command was recognized but failed.
-	fn handle_command(&self, cmd: &Self::Command) -> sc_cli::Result<()>;
+	fn handle_extra_command(&self, matches: &clap::ArgMatches) -> sc_cli::Result<()>;
 
 	/// Augment the CLI command with extra subcommands.
-	fn augment_command(&self, cmd: Command) -> Command;
+	fn augment_command(&self, cmd: clap::Command) -> clap::Command;
 
 	/// boolean value to judge if there is an extra command
-	fn is_extra_command(&self, name: &str) -> bool {
-		matches!(name, "export-chain-spec")
-	}
+	fn is_extra_command(&self, name: &str) -> bool;
 }
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
@@ -153,13 +149,6 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
-/// Extra SubCommands that can be optionally used to extend the functionality through omni-node-lib
-#[derive(Debug, clap::Subcommand, Clone)]
-#[command(about = "Extra subcommands for extending the CLI", version = env!("CARGO_PKG_VERSION"))]
-pub enum ExtraSubcommand {
-	/// Export the chain specification.
-	ExportChainSpec(sc_cli::ExportChainSpecCmd),
-}
 
 /// CLI Options shipped with `polkadot-omni-node`.
 #[derive(clap::Parser)]

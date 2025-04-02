@@ -21,11 +21,10 @@
 
 mod chain_spec;
 
-use clap::{Parser, Subcommand};
+use clap::{Args, FromArgMatches};
 use polkadot_omni_node_lib::{
 	chain_spec::LoadSpec,
-	cli,
-	cli::{ExtraCommandProvider, ExtraSubcommand},
+	cli::ExtraCommandProvider,
 	run, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
 };
 use sc_cli::Error::Application;
@@ -35,45 +34,24 @@ use std::io;
 pub struct ExportChainSpecExtra;
 
 impl ExtraCommandProvider for ExportChainSpecExtra {
-	type Command = ExtraSubcommand;
-
-	fn handle_command(&self, cmd: &Self::Command) -> sc_cli::Result<()> {
-		match cmd {
-			ExtraSubcommand::ExportChainSpec(ref export_cmd) => {
-				let spec = chain_spec::ChainSpecLoader
-					.load_spec(&export_cmd.chain)
-					.map_err(|e| Application(Box::new(io::Error::new(io::ErrorKind::Other, e))))?;
-				export_cmd.run(spec)
-			},
-		}
+	fn handle_extra_command(&self, matches: &clap::ArgMatches) -> sc_cli::Result<()> {
+		let cmd = sc_cli::ExportChainSpecCmd::from_arg_matches(matches)
+			.map_err(|e| sc_cli::Error::Cli(e.into()))?;
+		let spec = chain_spec::ChainSpecLoader
+			.load_spec(&cmd.chain)
+			.map_err(|e| Application(Box::new(io::Error::new(io::ErrorKind::Other, e))))?;
+		cmd.run(spec)
 	}
 
 	fn augment_command(&self, cmd: clap::Command) -> clap::Command {
-		cmd.subcommand(
-			clap::Command::new("export-chain-spec")
-				.about("Export the chain specification")
-				.arg(
-					clap::Arg::new("chain").long("chain").help("Specify the chain").required(true),
-				),
-		)
+		cmd.subcommand(sc_cli::ExportChainSpecCmd::augment_args_for_update(clap::Command::new("export-chain-spec")))
+	}
+
+	fn is_extra_command(&self, name: &str) -> bool {
+		["export-chain-spec"].contains(&name)
 	}
 }
 
-#[derive(Debug, Parser)]
-#[command(author, version, about, long_about = None)]
-struct ParachainCli {
-	#[clap(flatten)]
-	pub run: sc_cli::RunCmd,
-	#[clap(subcommand)]
-	pub command: ParachainCommand,
-}
-#[derive(Debug, Subcommand)]
-enum ParachainCommand {
-	#[command(flatten)]
-	BuiltIn(cli::Subcommand),
-	#[command(flatten)]
-	Extra(cli::ExtraSubcommand),
-}
 
 struct CliConfig;
 
