@@ -11,6 +11,7 @@ import sys
 
 from cargo_workspace import Workspace, DependencyLocation
 
+# Dependencies and the crate using them that are known to be bad.
 KNOWN_BAD_GIT_DEPS = {
 	'subwasmlib': ['polkadot-zombienet-sdk-tests'],
 }
