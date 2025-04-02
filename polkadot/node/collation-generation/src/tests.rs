@@ -577,6 +577,8 @@ fn v2_receipts_failed_core_index_check() {
 }
 
 #[test]
+// Verify that an ApprovedPeer UMP signal does not break the subsystem (DistributeCollation is
+// sent), assuming CandidateReceiptV2 node feature is enabled.
 fn approved_peer_signal() {
 	let relay_parent = Hash::repeat_byte(0);
 	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));

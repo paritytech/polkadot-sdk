@@ -574,6 +574,12 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 }
 
 #[test]
+// Test v2 receipt validation in the following scenarios:
+// - v2 receipt with mismatching session index in descriptor
+// - v2 candidate has no assignments but a core selector is present
+// - v1 candidate that outputs a UMP signal is invalid.
+// - v2 candidate that outputs an approved peer id is valid.
+// Also check that the validation of invalid candidates only fail during backing checks.
 fn invalid_session_or_ump_signals() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
@@ -627,7 +633,7 @@ fn invalid_session_or_ump_signals() {
 	let mut candidate_receipt =
 		CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
-	// Invalid session index.
+	// Session index specified in CandidateDescriptor does not match expected session.
 	for exec_kind in
 		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
 	{
@@ -807,7 +813,7 @@ fn invalid_session_or_ump_signals() {
 		});
 	}
 
-	// Test that a v2 candidate that outputs an approved peer id valid.
+	// Test that a v2 candidate that outputs an approved peer id is valid.
 	let descriptor = make_valid_candidate_descriptor_v2(
 		ParaId::from(1_u32),
 		dummy_hash(),

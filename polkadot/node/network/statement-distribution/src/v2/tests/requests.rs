@@ -1360,6 +1360,8 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 }
 
 #[test]
+// Test that a v2 descriptor with an ApprovedPeer UMP signal is ok with v2 receipts node feature
+// enabled.
 fn approved_peer_ump_signal() {
 	let group_size = 3;
 	let config = TestConfig {

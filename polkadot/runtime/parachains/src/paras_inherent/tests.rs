@@ -2031,11 +2031,8 @@ mod enter {
 				.unwrap();
 
 			assert_eq!(
-				Pallet::<Test>::create_inherent_inner(&create_inherent_data)
-					.unwrap()
-					.backed_candidates
-					.len(),
-				expected_inherent_data.backed_candidates.len()
+				Pallet::<Test>::create_inherent_inner(&create_inherent_data).unwrap(),
+				expected_inherent_data
 			);
 		});
 	}
