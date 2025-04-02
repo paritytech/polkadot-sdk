@@ -21,7 +21,7 @@ mod tracks;
 
 use super::fellowship::{ranks, Architects, FellowshipCollectiveInstance, Masters};
 use super::*;
-use crate::dday::prover::{AssetHubAccountProver, AssetHubStalledStateRootProvider};
+use crate::dday::prover::{AssetHubAccountProver, StalledAssetHubDataProvider};
 use crate::dday::tracks::TrackId;
 use frame_support::parameter_types;
 use frame_support::traits::{EitherOf, Equals, PollStatus, Polling};
@@ -145,13 +145,12 @@ impl pallet_proofs_voting::Config<DDayVotingInstance> for Runtime {
 	// TODO: FAIL-CI - setup/generate benchmarks
 	type WeightInfo = pallet_proofs_voting::weights::SubstrateWeight<Self>;
 	type Polls = AllowPollingWhenAssetHubIsStalled<DDayDetection>;
-	// Get total issuance from the synced `LastKnownAssetHubHead`.
-	type MaxTurnout = AssetHubStateProvider<LastKnownAssetHubHead>;
 	type MaxVotes = ConstU32<3>;
 	type BlockNumberProvider = System;
 
 	type Prover = AssetHubAccountProver;
-	type ProofRootProvider = AssetHubStalledStateRootProvider<DDayDetection>;
+	type ProofRootProvider = StalledAssetHubDataProvider<DDayDetection>;
+	type MaxTurnoutProvider = StalledAssetHubDataProvider<DDayDetection>;
 }
 
 /// Rank3+ member can start DDay referendum.

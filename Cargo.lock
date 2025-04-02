@@ -2055,9 +2055,9 @@ dependencies = [
 
 [[package]]
 name = "bounded-collections"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32ed0a820ed50891d36358e997d27741a6142e382242df40ff01c89bcdcc7a2b"
+checksum = "64ad8a0bed7827f0b07a5d23cec2e58cc02038a99e4ca81616cb2bb2025f804d"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -12799,7 +12799,6 @@ name = "pallet-proofs-voting"
 version = "1.0.0"
 dependencies = [
  "frame-benchmarking",
- "frame-proofs-primitives",
  "frame-support",
  "frame-system",
  "hash-db",

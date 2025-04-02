@@ -15,25 +15,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Voting by proofs pallet
+//! # DDay Voting by Proofs Pallet
 //!
-//! TODO: FAIL-CI - it is copied from conviction-voting palletso we need to adjust a remove.
-//! TODO: FAIL-CI - we need to adjust and remove what is not needed here.
-//! TODO: FAIL-CI - add desc.
+//! This pallet is a modified version of conviction voting that allows users to vote
+//! using a generic proof from a different chain.
+//!
+//! ## Key Features
+//! - Uses [`ProofDescription`] to describe the external chain and its proof.
+//! - Proof validation is handled by `type Prover: VerifyProof`, which verifies the proof
+//!   against the proof root provided by `type ProofRootProvider: ProvideHash`.
+//! - A valid proof is converted into `VotingPower(account_power: Balance, total: Balance)`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 extern crate core;
 
-use frame_proofs_primitives::ProvideHash;
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure,
 	traits::{Get, Polling},
 };
 use sp_runtime::traits::BlockNumberProvider;
-use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
 
 mod conviction;
 mod proofs;
@@ -44,7 +47,7 @@ pub use self::{
 	conviction::Conviction,
 	pallet::*,
 	proofs::*,
-	types::{Delegations, Tally, UnvoteScope},
+	types::{Delegations, ProvideHash, Tally, TotalForTallyProvider, Totals, UnvoteScope},
 	vote::{AccountVote, Casting, Delegating, Vote, Voting, VotingPower},
 	weights::WeightInfo,
 };
@@ -80,7 +83,8 @@ pub type VotingOf<T, I = ()> = Voting<
 	PollIndexOf<T, I>,
 	<T as Config<I>>::MaxVotes,
 >;
-pub type TallyOf<T, I = ()> = Tally<VotingProofBalanceOf<T, I>, <T as Config<I>>::MaxTurnout>;
+pub type TallyOf<T, I = ()> =
+	Tally<VotingProofBalanceOf<T, I>, <T as Config<I>>::MaxTurnoutProvider>;
 pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
 pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
 
@@ -121,9 +125,6 @@ pub mod pallet {
 		// + LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self, I>>
 		// + fungible::Inspect<Self::AccountId>;
 
-		// TODO: FAIL-CI - we can don't have a hooks when referendum starts, we could add it, but also we could count it dynamically from proofs?
-		type MaxTurnout: Get<VotingProofBalanceOf<Self, I>>;
-
 		/// The maximum number of concurrent votes an account may have.
 		///
 		/// Also used to compute weight, an overly large value can lead to extrinsics with large
@@ -139,6 +140,11 @@ pub mod pallet {
 		type ProofRootProvider: ProvideHash<
 			Key = VotingProofBlockNumberOf<Self, I>,
 			Hash = VotingProofHashOf<Self, I>,
+		>;
+		/// Provides `MaxTurnout` for the `TallyOf<T, I>`.
+		type MaxTurnoutProvider: TotalForTallyProvider<
+			TotalKey = VotingProofBlockNumberOf<Self, I>,
+			Total = VotingProofBalanceOf<Self, I>,
 		>;
 	}
 
@@ -202,8 +208,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(T::Polls::as_ongoing(poll_index).is_some(), Error::<T, I>::NotOngoing);
-			let who_voting_power = Self::voting_power_of(who, proof)?;
-			Self::try_vote(poll_index, vote, who_voting_power)
+			let voting_power = Self::voting_power_of(who, proof)?;
+			Self::try_vote(poll_index, vote, voting_power)
 		}
 
 		/// Remove a vote for a poll.
@@ -220,8 +226,11 @@ pub mod pallet {
 		}
 
 		// TODO: FAIL-CI - do we need other extrinsics here?
-		// fn cleanup_poll(..) {..}
-		// fn set_poll(stalled_state_root) {..} ?
+		//
+		// Set Tally's `Total::get()` data.
+		// Allow this for (any) rank1+ to submit proof with total/inactive issuance
+		// only when have stalled head, it will check proof with stalled state root.
+		// fn set_total(rank_origin, at_block, StorageProof(total_issuance_key/value, inactive_issuance_key/value)) {..}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I>
@@ -232,36 +241,43 @@ pub mod pallet {
 		///
 		/// The account `who` is a signer account from which we extract the `AccountId`
 		/// contained in the proof.
-		fn voting_power_of(
+		pub fn voting_power_of(
 			who: T::AccountId,
 			proof: (VotingProofBlockNumberOf<T, I>, VotingProofOf<T, I>),
-		) -> Result<(VotingProofAccountIdOf<T, I>, VotingPowerOf<T, I>), Error<T, I>> {
+		) -> Result<
+			(VotingProofAccountIdOf<T, I>, VotingProofBlockNumberOf<T, I>, VotingPowerOf<T, I>),
+			Error<T, I>,
+		> {
 			// convert local account to proof account.
 			let proving_who: VotingProofAccountIdOf<T, I> = who.into();
 
 			// get the proof root
 			let (at_block, proof) = proof;
-			let proof_root = T::ProofRootProvider::provide_hash_for(at_block)
+			let proof_root = T::ProofRootProvider::provide_hash_for(&at_block)
 				.ok_or(Error::<T, I>::InvalidProofRoot)?;
 
 			// verify the proof
 			let voting_power = T::Prover::query_voting_power_for(&proving_who, proof_root, proof)
 				.ok_or(Error::<T, I>::InvalidProof)?;
-			Ok((proving_who, voting_power))
+			Ok((proving_who, at_block, voting_power))
 		}
 
 		/// Actually enact a vote, if legit.
 		fn try_vote(
 			poll_index: PollIndexOf<T, I>,
 			vote: AccountVote<VotingProofBalanceOf<T, I>>,
-			account_voting_power: (VotingProofAccountIdOf<T, I>, VotingPowerOf<T, I>),
+			voting_power: (
+				VotingProofAccountIdOf<T, I>,
+				VotingProofBlockNumberOf<T, I>,
+				VotingPowerOf<T, I>,
+			),
 		) -> DispatchResultWithPostInfo {
-			let (who, voting_power) = account_voting_power;
+			let (remote_who, at_remote_block, voting_power) = voting_power;
 			ensure!(vote.balance() <= voting_power.account_power, Error::<T, I>::InsufficientFunds);
 			T::Polls::try_access_poll(poll_index, |poll_status| {
 				let (tally, class) =
 					poll_status.ensure_ongoing().ok_or(Error::<T, I>::NotOngoing)?;
-				VotingFor::<T, I>::try_mutate(who.clone(), &class, |voting| {
+				VotingFor::<T, I>::try_mutate(remote_who.clone(), &class, |voting| {
 					if let Voting::Casting(Casting { ref mut votes, delegations, .. }) = voting {
 						match votes.binary_search_by_key(&poll_index, |i| i.0) {
 							Ok(i) => {
@@ -287,13 +303,16 @@ pub mod pallet {
 						return Err(Error::<T, I>::AlreadyDelegating.into());
 					}
 
+					// Record used total voting power from the proof.
+					tally.record_total(at_remote_block, voting_power.total);
+
 					// TODO: FAIL-CI: Do we need some locking here?
 					// TODO: FAIL-CI: We could `send_xcm(do_remote_lock())` to stalled chain?
 					// Extend the lock to `balance` (rather than setting it) since we don't know what
 					// other votes are in place.
 					// Self::extend_lock(who, &class, vote.balance());
 
-					Self::deposit_event(Event::Voted { who: who.clone(), vote });
+					Self::deposit_event(Event::Voted { who: remote_who.clone(), vote });
 					Ok(Pays::No.into())
 				})
 			})

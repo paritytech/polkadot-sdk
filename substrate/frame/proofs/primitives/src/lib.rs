@@ -23,14 +23,3 @@ extern crate alloc;
 // TODO: FAIL-CI - is this a good location? Move it somewhere else? E.g.:
 // TODO: FAIL-CI - `sp-runtime/src/proving_trie does not have frame-support
 pub mod proving;
-
-/// A trait representing a provider of root hashes.
-pub trait ProvideHash {
-    /// A key type.
-    type Key;
-    /// A hash type.
-    type Hash;
-
-    /// Returns the proof root `Hash` for the given `key`.
-    fn provide_hash_for(key: Self::Key) -> Option<Self::Hash>;
-}

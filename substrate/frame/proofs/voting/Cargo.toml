@@ -14,7 +14,6 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-proofs-primitives = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 hash-db = { workspace = true }
@@ -42,7 +41,6 @@ runtime-benchmarks = [
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
-	"frame-proofs-primitives/std",
 	"frame-support/std",
 	"frame-system/std",
 	"hash-db/std",

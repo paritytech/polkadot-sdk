@@ -17,6 +17,7 @@
 
 //! Miscellaneous additional datatypes.
 
+use crate::{AccountVote, Conviction};
 use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
@@ -24,12 +25,52 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Saturating, Zero},
-	RuntimeDebug,
+	traits::{AtLeast32BitUnsigned, ConstU32, Saturating, Zero},
+	BoundedBTreeMap, Perbill, RuntimeDebug,
 };
 
-use super::*;
-use crate::{AccountVote, Conviction, Vote};
+/// A trait representing a provider of root hashes.
+pub trait ProvideHash {
+	/// A key type.
+	type Key;
+	/// A hash type.
+	type Hash;
+
+	/// Returns the proof root `Hash` for the given `key`.
+	fn provide_hash_for(key: &Self::Key) -> Option<Self::Hash>;
+}
+
+/// A trait that provides a way to compute a total value from a collection of totals.
+pub trait TotalForTallyProvider {
+	/// The key type used to identify totals in the collection.
+	type TotalKey: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen + Ord;
+
+	/// The value type representing a total.
+	type Total: Clone + PartialEq + Eq + Debug + TypeInfo + Codec;
+
+	/// Computes a total value from the provided `Totals` collection.
+	fn total_from(totals: &Totals<Self::TotalKey, Self::Total>) -> Self::Total;
+}
+
+/// The maximum number of totals that can be stored per tally (usually it will be one).
+const MAX_TOTALS_PER_TALLY: u32 = 8;
+
+/// A bounded map structure that holds a collection of totals identified by unique keys.
+#[derive(
+	CloneNoBound,
+	PartialEqNoBound,
+	EqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+)]
+pub struct Totals<
+	Key: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen + Ord,
+	Total: Clone + PartialEq + Eq + Debug + TypeInfo + Codec,
+>(pub BoundedBTreeMap<Key, Total, ConstU32<{ MAX_TOTALS_PER_TALLY }>>);
 
 /// Info regarding an ongoing referendum.
 #[derive(
@@ -43,27 +84,38 @@ use crate::{AccountVote, Conviction, Vote};
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 )]
-#[scale_info(skip_type_params(Total))]
+#[scale_info(skip_type_params(TotalProvider))]
 #[codec(mel_bound(Votes: MaxEncodedLen))]
-pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total> {
+pub struct Tally<
+	Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec,
+	TotalProvider: TotalForTallyProvider<Total = Votes>,
+> {
 	/// The number of aye votes, expressed in terms of post-conviction lock-vote.
 	pub ayes: Votes,
 	/// The number of nay votes, expressed in terms of post-conviction lock-vote.
 	pub nays: Votes,
 	/// The basic number of aye votes, expressed pre-conviction.
 	pub support: Votes,
+	/// Store the recorded total's from proofs.
+	pub totals: Totals<TotalProvider::TotalKey, Votes>,
 	/// Dummy.
-	dummy: PhantomData<Total>,
+	dummy: PhantomData<TotalProvider>,
 }
 
 impl<
 		Votes: Clone + Default + PartialEq + Eq + Debug + Copy + AtLeast32BitUnsigned + TypeInfo + Codec,
-		Total: Get<Votes>,
+		TotalProvider: TotalForTallyProvider<Total = Votes>,
 		Class,
-	> VoteTally<Votes, Class> for Tally<Votes, Total>
+	> VoteTally<Votes, Class> for Tally<Votes, TotalProvider>
 {
 	fn new(_: Class) -> Self {
-		Self { ayes: Zero::zero(), nays: Zero::zero(), support: Zero::zero(), dummy: PhantomData }
+		Self {
+			ayes: Zero::zero(),
+			nays: Zero::zero(),
+			support: Zero::zero(),
+			totals: Totals(BoundedBTreeMap::new()),
+			dummy: PhantomData,
+		}
 	}
 
 	fn ayes(&self, _: Class) -> Votes {
@@ -71,7 +123,7 @@ impl<
 	}
 
 	fn support(&self, _: Class) -> Perbill {
-		Perbill::from_rational(self.support, Total::get())
+		Perbill::from_rational(self.support, TotalProvider::total_from(&self.totals))
 	}
 
 	fn approval(&self, _: Class) -> Perbill {
@@ -80,17 +132,27 @@ impl<
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn unanimity(_: Class) -> Self {
-		Self { ayes: Total::get(), nays: Zero::zero(), support: Total::get(), dummy: PhantomData }
+		Self {
+			ayes: TotalProvider::total_from(&self.totals),
+			nays: Zero::zero(),
+			support: TotalProvider::total_from(&self.totals),
+			dummy: PhantomData,
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn rejection(_: Class) -> Self {
-		Self { ayes: Zero::zero(), nays: Total::get(), support: Total::get(), dummy: PhantomData }
+		Self {
+			ayes: Zero::zero(),
+			nays: TotalProvider::total_from(&self.totals),
+			support: TotalProvider::total_from(&self.totals),
+			dummy: PhantomData,
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn from_requirements(support: Perbill, approval: Perbill, _: Class) -> Self {
-		let support = support.mul_ceil(Total::get());
+		let support = support.mul_ceil(TotalProvider::total_from(&self.totals));
 		let ayes = approval.mul_ceil(support);
 		Self { ayes, nays: support - ayes, support, dummy: PhantomData }
 	}
@@ -101,28 +163,9 @@ impl<
 
 impl<
 		Votes: Clone + Default + PartialEq + Eq + Debug + Copy + AtLeast32BitUnsigned + TypeInfo + Codec,
-		Total: Get<Votes>,
-	> Tally<Votes, Total>
+		TotalProvider: TotalForTallyProvider<Total = Votes>,
+	> Tally<Votes, TotalProvider>
 {
-	/// Create a new tally.
-	pub fn from_vote(vote: Vote, balance: Votes) -> Self {
-		let Delegations { votes, capital } = vote.conviction.votes(balance);
-		Self {
-			ayes: if vote.aye { votes } else { Zero::zero() },
-			nays: if vote.aye { Zero::zero() } else { votes },
-			support: capital,
-			dummy: PhantomData,
-		}
-	}
-
-	pub fn from_parts(
-		ayes_with_conviction: Votes,
-		nays_with_conviction: Votes,
-		support: Votes,
-	) -> Self {
-		Self { ayes: ayes_with_conviction, nays: nays_with_conviction, support, dummy: PhantomData }
-	}
-
 	/// Add an account's vote into the tally.
 	pub fn add(&mut self, vote: AccountVote<Votes>) -> Option<()> {
 		match vote {
@@ -209,6 +252,11 @@ impl<
 			},
 			false => self.nays = self.nays.saturating_sub(delegations.votes),
 		}
+	}
+
+	/// Record total by key.
+	pub fn record_total(&mut self, key: TotalProvider::TotalKey, total: TotalProvider::Total) {
+		let _ = self.totals.0.try_insert(key, total);
 	}
 }
 
