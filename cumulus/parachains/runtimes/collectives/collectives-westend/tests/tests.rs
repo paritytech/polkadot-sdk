@@ -26,9 +26,9 @@ use collectives_westend_runtime::{
 	},
 	fellowship::pallet_fellowship_origins::Origin,
 	xcm_config::{AssetHub, GovernanceLocation, LocationToAccountId},
-	AllPalletsWithoutSystem, Balances, Block, DDayDetection, DDayReferenda, DDayVoting,
+	AllPalletsWithoutSystem, Balances, Block, DDayDetection, DDayReferenda, DDayVoting, Executive,
 	ExistentialDeposit, FellowshipCollective, Preimage, Runtime, RuntimeCall, RuntimeOrigin,
-	System,
+	System, TxExtension, UncheckedExtrinsic,
 };
 use frame_support::{
 	assert_err, assert_ok,
@@ -37,16 +37,57 @@ use frame_support::{
 use pallet_dday_detection::IsStalled;
 use pallet_dday_voting::{AccountVote, Conviction, ProvideHash, VerifyProof, Vote};
 use pallet_referenda::{ReferendumCount, ReferendumInfoFor};
-use parachains_common::AccountId;
+use parachains_common::{AccountId, Hash};
 use parachains_runtimes_test_utils::{GovernanceOrigin, RuntimeHelper};
 use polkadot_parachain_primitives::primitives::HeadData;
-use sp_core::crypto::Ss58Codec;
-use sp_runtime::{Either, Perbill};
+use sp_core::{crypto::Ss58Codec, Pair};
+use sp_runtime::{
+	generic::{Era, SignedPayload},
+	transaction_validity::TransactionValidityError,
+	ApplyExtrinsicResult, Either, MultiSignature, Perbill,
+};
 use testnet_parachains_constants::westend::fee::WeightToFee;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
+
+fn construct_extrinsic(
+	sender: sp_core::sr25519::Pair,
+	call: RuntimeCall,
+) -> Result<UncheckedExtrinsic, TransactionValidityError> {
+	let account_id = sp_core::crypto::AccountId32::from(sender.public());
+	frame_system::BlockHash::<Runtime>::insert(0, Hash::default());
+	let tx_ext: TxExtension = (
+		frame_system::CheckNonZeroSender::<Runtime>::new(),
+		frame_system::CheckSpecVersion::<Runtime>::new(),
+		frame_system::CheckTxVersion::<Runtime>::new(),
+		frame_system::CheckGenesis::<Runtime>::new(),
+		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
+		frame_system::CheckNonce::<Runtime>::from(
+			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+		)
+		.into(),
+		frame_system::CheckWeight::<Runtime>::new(),
+	)
+		.into();
+	let payload = SignedPayload::new(call.clone(), tx_ext.clone())?;
+	let signature = payload.using_encoded(|e| sender.sign(e));
+	Ok(UncheckedExtrinsic::new_signed(
+		call,
+		account_id.into(),
+		MultiSignature::Sr25519(signature),
+		tx_ext,
+	))
+}
+
+fn construct_and_apply_extrinsic(
+	account: sp_core::sr25519::Pair,
+	call: RuntimeCall,
+) -> ApplyExtrinsicResult {
+	let xt = construct_extrinsic(account, call)?;
+	Executive::apply_extrinsic(xt)
+}
 
 #[test]
 fn location_conversion_works() {
@@ -219,7 +260,7 @@ fn governance_authorize_upgrade_works() {
 }
 
 #[test]
-fn dday_feature_works() {
+fn dday_referenda_and_voting_works() {
 	sp_io::TestExternalities::new(Default::default()).execute_with(|| {
 		// Create rank3+ fellow with some balance.
 		let account_fellow_rank3 = AccountId::from([0; 32]);
@@ -250,7 +291,8 @@ fn dday_feature_works() {
 		assert!(ReferendumInfoFor::<Runtime, DDayReferendaInstance>::get(referenda_id).is_some());
 
 		// Prepare sample proofs.
-		let (asset_hub_header, proof, ss58_account, ..) = prover::tests::sample_proof();
+		let (asset_hub_header, proof, (ss58_account, ss58_account_secret_key), ..) =
+			prover::tests::sample_proof();
 		let asset_hub_block_number = asset_hub_header.number;
 		let valid_asset_hub_account =
 			AccountId::from_ss58check(ss58_account).expect("valid accountId");
@@ -332,17 +374,20 @@ fn dday_feature_works() {
 		}
 
 		// Ok - vote by proof - generated for proving account `ss58_account`
-		assert_ok!(DDayVoting::vote(
-			RuntimeOrigin::signed(valid_asset_hub_account),
-			referenda_id,
-			AccountVote::Standard {
-				vote: Vote { aye: true, conviction: Conviction::Locked1x },
-				balance: account_voting_power.account_power
-			},
-			(asset_hub_block_number, proof)
+		// This submits an extrinsic with all transaction extensions, just as an AssetHub user would need to do.
+		assert_ok!(construct_and_apply_extrinsic(
+			sp_core::sr25519::Pair::from_string(ss58_account_secret_key, None).unwrap(),
+			RuntimeCall::DDayVoting(pallet_dday_voting::Call::vote {
+				poll_index: referenda_id,
+				vote: AccountVote::Standard {
+					vote: Vote { aye: true, conviction: Conviction::Locked1x },
+					balance: account_voting_power.account_power
+				},
+				proof: (asset_hub_block_number, proof),
+			})
 		));
 
-		// check after (total was used from proof)
+		// check after - vote is registered and total was recorded from the proof.
 		{
 			let status = DDayReferenda::ensure_ongoing(referenda_id).expect("ongoing referenda");
 			assert_eq!(status.tally.ayes(status.track), account_voting_power.account_power);
@@ -353,6 +398,7 @@ fn dday_feature_works() {
 					account_voting_power.total
 				)
 			);
+			assert_ok!(DDayReferenda::is_referendum_passing(referenda_id), false);
 		}
 	})
 }

@@ -761,7 +761,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
+		dday::SkipCheckIfValidProofWhenStalledAssetHub<frame_system::CheckNonce<Runtime>>,
 		frame_system::CheckWeight<Runtime>,
 	),
 >;

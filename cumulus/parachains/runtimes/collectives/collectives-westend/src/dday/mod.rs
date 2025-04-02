@@ -23,8 +23,10 @@ use super::fellowship::{ranks, Architects, FellowshipCollectiveInstance, Masters
 use super::*;
 use crate::dday::prover::{AssetHubAccountProver, StalledAssetHubDataProvider};
 use crate::dday::tracks::TrackId;
-use frame_support::parameter_types;
-use frame_support::traits::{EitherOf, Equals, PollStatus, Polling};
+use frame_support::{
+	parameter_types,
+	traits::{CallerTrait, ContainsPair, EitherOf, Equals, PollStatus, Polling},
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_dday_detection::IsStalled;
 use pallet_dday_voting::ProofBlockNumberOf;
@@ -180,4 +182,30 @@ impl pallet_referenda::Config<DDayReferendaInstance> for Runtime {
 	type Tracks = tracks::TracksInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = System;
+}
+
+/// A [`TransactionExtension`] that skips the inner `Extension`
+/// if and only if `ValidProofWhenStalledAssetHub` passes. Otherwise, the `Extension` is executed.
+pub type SkipCheckIfValidProofWhenStalledAssetHub<Extension> =
+	frame_system::SkipCheckIf<Runtime, Extension, ValidProofWhenStalledAssetHub>;
+
+/// A DDay dedicated filter that passes only if and only if a `DDayVoting::vote` call is detected
+/// with a valid proof and the AssetHub is stalled.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq)]
+pub struct ValidProofWhenStalledAssetHub;
+impl ContainsPair<RuntimeCall, RuntimeOrigin> for ValidProofWhenStalledAssetHub {
+	fn contains(call: &RuntimeCall, origin: &RuntimeOrigin) -> bool {
+		// Filter only `DDayVoting::vote` calls.
+		let proof = match call {
+			RuntimeCall::DDayVoting(pallet_dday_voting::Call::vote { proof, .. }) => proof,
+			_ => return false,
+		};
+		let Some(signed) = origin.caller.as_signed() else {
+			return false;
+		};
+
+		// Check if the proof is valid (i.e., the AssetHub is stalled,
+		// and the proof is valid according to the stalled state root).
+		DDayVoting::voting_power_of(signed.clone(), proof.clone()).is_ok()
+	}
 }

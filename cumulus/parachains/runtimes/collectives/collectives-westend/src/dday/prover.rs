@@ -19,9 +19,7 @@
 use codec::{Decode, Encode};
 use core::ops::ControlFlow;
 use cumulus_primitives_core::Weight;
-use frame_proofs_primitives::{
-	proving::{RawStorageProof, StorageProofChecker},
-};
+use frame_proofs_primitives::proving::{RawStorageProof, StorageProofChecker};
 use frame_support::{
 	ensure,
 	storage::storage_prefix,
@@ -286,8 +284,14 @@ pub mod tests {
 	///     0x9f099d880ec681799c0cf30e8886371da9ffff8004e32281670d1e60eb9972ad429206eba61af1c96aaac1bbdc1177e39a02908580b73adc8a4fde1b9c0d6c427d7c332bd2b5034b98686593f186fd7a481e64f43080f0c4d7c11a916daa2286eac94c977171953935270920f1f5abc6a4e78c4a3d938041034b4c6798fea37aae92ba80d0be65092120a31075ab3b7dda2505d78a780280bc42a9cdd47ff9a74290ebb6f811360228e908b8121a3c0492b35ebc8b11f64680af7e0c101ba329e3d289d49a26beef939117ce1dfa030f3a3555547c90f7117e80d3cbee33cdef01d03eaf93976ceeb574f9ba268fd8deccb2884892b770f0366080c38b39bc69961af6af12d02fb086c8530de05b091fe29cbc22ae221982d2d722804d62634bdc5e2b48874c061781a285cdeb57acae411377064e5a298df9191e6080e85b31c97cbf72c806c04d688bf2c97e63bf465094eda5c8f56300782353970780df12cc548109c2c505652e28a58aee6706b2f7e1e36128e4a04c3fce7992173280e848153205bd1d3e9bdac355859f17142876718fe22e9b8da4c2f7dc5f656d73809dd6ecb97e421388dcc33c307ef54ee811e531f168458684ef7493e911c6441e80eebcd8b73ac6208c3d7a886867c27f1411b861b6d806a8278e907de4a22072cc80147877616eb7c31f516685db05f253055e12bad5afd3cb15703d54d064814f88801b180fba88a8e432f13a7205cf2c8d13d8d8e9fc7e3ad8ba08d00a22d7ef07a1
 	///   ]
 	/// }
-	pub fn sample_proof(
-	) -> (parachains_common::Header, RawStorageProof, &'static str, Vec<u8>, Vec<u8>, Vec<u8>) {
+	pub fn sample_proof() -> (
+		parachains_common::Header,
+		RawStorageProof,
+		(&'static str, &'static str),
+		Vec<u8>,
+		Vec<u8>,
+		Vec<u8>,
+	) {
 		use cumulus_primitives_core::rpsr_digest::RPSR_CONSENSUS_ID;
 		use hex_literal::hex;
 		use sp_consensus_aura::AURA_ENGINE_ID;
@@ -331,7 +335,19 @@ pub mod tests {
 			hex!("9e261276cc9d1f8598ea4b6a74b15c2f3201801150b96d31c6b046eccab34257faa7b614006927c375cad165518ac0bb08ee57505f0e7b9012096b41c4eb3aaf947f6ea429080100801d509643da0eeb8601df78a957e1b50a9b69ef035cc97c4e9612df24ad0c846c8025a2c7363116c9a9c75890b57156a02ea08827057ef36b3904bcd9f94f8d1361").to_vec(),
 			hex!("9f099d880ec681799c0cf30e8886371da9ffff8004e32281670d1e60eb9972ad429206eba61af1c96aaac1bbdc1177e39a02908580b73adc8a4fde1b9c0d6c427d7c332bd2b5034b98686593f186fd7a481e64f43080f0c4d7c11a916daa2286eac94c977171953935270920f1f5abc6a4e78c4a3d938041034b4c6798fea37aae92ba80d0be65092120a31075ab3b7dda2505d78a780280bc42a9cdd47ff9a74290ebb6f811360228e908b8121a3c0492b35ebc8b11f64680af7e0c101ba329e3d289d49a26beef939117ce1dfa030f3a3555547c90f7117e80d3cbee33cdef01d03eaf93976ceeb574f9ba268fd8deccb2884892b770f0366080c38b39bc69961af6af12d02fb086c8530de05b091fe29cbc22ae221982d2d722804d62634bdc5e2b48874c061781a285cdeb57acae411377064e5a298df9191e6080e85b31c97cbf72c806c04d688bf2c97e63bf465094eda5c8f56300782353970780df12cc548109c2c505652e28a58aee6706b2f7e1e36128e4a04c3fce7992173280e848153205bd1d3e9bdac355859f17142876718fe22e9b8da4c2f7dc5f656d73809dd6ecb97e421388dcc33c307ef54ee811e531f168458684ef7493e911c6441e80eebcd8b73ac6208c3d7a886867c27f1411b861b6d806a8278e907de4a22072cc80147877616eb7c31f516685db05f253055e12bad5afd3cb15703d54d064814f88801b180fba88a8e432f13a7205cf2c8d13d8d8e9fc7e3ad8ba08d00a22d7ef07a1").to_vec()
 		];
+
 		let ss58_account = "5HVxofJkZcPs1emaJMWiJqd5aoWfDWobP7RiKBbbNTEDp5yy";
+		let ss58_account_secret_key = "culture gadget inquiry ginger innocent pottery abstract reveal train gorilla despair emerge";
+		use sp_core::crypto::Ss58Codec;
+		use sp_core::Pair;
+		assert_eq!(
+			ss58_account,
+			sp_core::sr25519::Pair::from_string(ss58_account_secret_key, None)
+				.unwrap()
+				.public()
+				.to_ss58check_with_version(42_u16.into()),
+		);
+
 		let account_balance_key = hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9942ba479328ac3d026b2c4cced7e2508f0709f5078496e42469e70752483d4f820702bb01e335d9e03bad0b54f729251").into();
 		let total_issuance_key =
 			hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").into();
@@ -340,7 +356,7 @@ pub mod tests {
 		(
 			header,
 			proof,
-			ss58_account,
+			(ss58_account, ss58_account_secret_key),
 			account_balance_key,
 			total_issuance_key,
 			inactive_issuance_key,
@@ -359,7 +375,7 @@ pub mod tests {
 			let (
 				asset_hub_header,
 				proof,
-				ss58_account,
+				(ss58_account, _),
 				account_balance_key,
 				total_issuance_key,
 				inactive_issuance_key,
