@@ -46,7 +46,6 @@ use coretime_rococo::{
 		sp_arithmetic::per_things::Perbill,
 	},
 };
-use rococo::on_demand_assignment_provider::events as on_demand_events;
 
 type CoretimeRuntimeCall = coretime_api::runtime_types::coretime_rococo_runtime::RuntimeCall;
 type CoretimeUtilityCall = coretime_api::runtime_types::pallet_utility::pallet::Call;

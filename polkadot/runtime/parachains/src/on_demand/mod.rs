@@ -707,7 +707,7 @@ where
 	}
 
 	#[cfg(test)]
-	fn get_queue_status() -> OrderStatus<BlockNumberFor<T>> {
+	fn get_order_status() -> OrderStatus<BlockNumberFor<T>> {
 		pallet::OrderStatus::<T>::get()
 	}
 

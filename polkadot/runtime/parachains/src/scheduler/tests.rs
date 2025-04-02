@@ -542,6 +542,7 @@ fn session_change_increasing_number_of_cores() {
 			on_demand::Pallet::<Test>::push_back_order(para_a);
 			on_demand::Pallet::<Test>::push_back_order(para_b);
 			assert_eq!(Scheduler::claim_queue_len(), 4);
+			let mut claim_queue = Scheduler::claim_queue();
 
 			assert_eq!(
 				claim_queue.remove(&CoreIndex(0)).unwrap(),
