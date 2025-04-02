@@ -69,6 +69,8 @@ fn construct_extrinsic(
 		)
 		.into(),
 		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0).into(),
+		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 	)
 		.into();
 	let payload = SignedPayload::new(call.clone(), tx_ext.clone())?;

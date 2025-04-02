@@ -326,42 +326,42 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::NonTransfer => !matches!(c, RuntimeCall::Balances { .. }),
 			ProxyType::CancelProxy => matches!(
 				c,
-				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }) |
-					RuntimeCall::Utility { .. } |
-					RuntimeCall::Multisig { .. }
+				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. })
+					| RuntimeCall::Utility { .. }
+					| RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Collator => matches!(
 				c,
-				RuntimeCall::CollatorSelection { .. } |
-					RuntimeCall::Utility { .. } |
-					RuntimeCall::Multisig { .. }
+				RuntimeCall::CollatorSelection { .. }
+					| RuntimeCall::Utility { .. }
+					| RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Alliance => matches!(
 				c,
-				RuntimeCall::AllianceMotion { .. } |
-					RuntimeCall::Alliance { .. } |
-					RuntimeCall::Utility { .. } |
-					RuntimeCall::Multisig { .. }
+				RuntimeCall::AllianceMotion { .. }
+					| RuntimeCall::Alliance { .. }
+					| RuntimeCall::Utility { .. }
+					| RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Fellowship => matches!(
 				c,
-				RuntimeCall::FellowshipCollective { .. } |
-					RuntimeCall::FellowshipReferenda { .. } |
-					RuntimeCall::FellowshipCore { .. } |
-					RuntimeCall::FellowshipSalary { .. } |
-					RuntimeCall::FellowshipTreasury { .. } |
-					RuntimeCall::Utility { .. } |
-					RuntimeCall::Multisig { .. }
+				RuntimeCall::FellowshipCollective { .. }
+					| RuntimeCall::FellowshipReferenda { .. }
+					| RuntimeCall::FellowshipCore { .. }
+					| RuntimeCall::FellowshipSalary { .. }
+					| RuntimeCall::FellowshipTreasury { .. }
+					| RuntimeCall::Utility { .. }
+					| RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Ambassador => matches!(
 				c,
-				RuntimeCall::AmbassadorCollective { .. } |
-					RuntimeCall::AmbassadorReferenda { .. } |
-					RuntimeCall::AmbassadorContent { .. } |
-					RuntimeCall::AmbassadorCore { .. } |
-					RuntimeCall::AmbassadorSalary { .. } |
-					RuntimeCall::Utility { .. } |
-					RuntimeCall::Multisig { .. }
+				RuntimeCall::AmbassadorCollective { .. }
+					| RuntimeCall::AmbassadorReferenda { .. }
+					| RuntimeCall::AmbassadorContent { .. }
+					| RuntimeCall::AmbassadorCore { .. }
+					| RuntimeCall::AmbassadorSalary { .. }
+					| RuntimeCall::Utility { .. }
+					| RuntimeCall::Multisig { .. }
 			),
 		}
 	}
@@ -761,8 +761,14 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		dday::SkipCheckIfValidProofWhenStalledAssetHub<frame_system::CheckNonce<Runtime>>,
+		dday::SkipCheckIfValidProofWhenStalledAssetHub<
+			frame_system::CheckNonce<Runtime>
+		>,
 		frame_system::CheckWeight<Runtime>,
+		dday::SkipCheckIfValidProofWhenStalledAssetHub<
+			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		>,
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),
 >;
 
