@@ -62,9 +62,7 @@ secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = tru
 # bls crypto
 w3f-bls = { optional = true, workspace = true }
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/davxy/ring-vrf", branch = "locked", default-features = false, features = [
-	"substrate-curves",
-], optional = true }
+ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
@@ -82,7 +80,7 @@ bench = false
 default = ["std"]
 
 std = [
-	"bandersnatch_vrfs?/std",
+	"ark-vrf?/std",
 	"bip39/rand",
 	"bip39/std",
 	"blake2/std",
@@ -157,4 +155,4 @@ bls-experimental = ["w3f-bls"]
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bandersnatch-experimental = ["bandersnatch_vrfs"]
+bandersnatch-experimental = ["ark-vrf"]
