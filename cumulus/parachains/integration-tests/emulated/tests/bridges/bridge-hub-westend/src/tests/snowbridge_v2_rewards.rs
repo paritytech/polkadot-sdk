@@ -60,9 +60,8 @@ fn claim_rewards_works() {
 		);
 
 		let relayer_location = Location::new(
-			1,
+			0,
 			[
-				Parachain(1000),
 				Junction::AccountId32 { id: reward_address.clone().into(), network: None },
 			],
 		);
