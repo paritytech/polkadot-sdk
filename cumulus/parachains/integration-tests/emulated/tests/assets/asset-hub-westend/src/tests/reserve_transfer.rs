@@ -386,8 +386,12 @@ fn relay_to_para_assets_receiver_assertions(t: RelayToParaTest) {
 }
 
 pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
-	println!("Events on PenpalA on para_to_para_through_hop_sender_assertions: {:?}", <PenpalA as Chain>::events());
-	println!("Events on AssetHubWestend on para_to_para_through_hop_sender_assertions: {:?}", <AssetHubWestend as Chain>::events());
+	for (i, event) in  <PenpalA as Chain>::events().iter().enumerate() {
+		println!("Event {} on PenpalA on para_to_para_through_hop_sender_assertions: {:?}", i, event);
+	}
+	for (i, event) in  <AssetHubWestend as Chain>::events().iter().enumerate() {
+		println!("Event {} on AssetHubWestend on para_to_para_through_hop_sender_assertions: {:?}", i, event);
+	}
 
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
@@ -477,7 +481,9 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 }
 
 pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
-	println!("Events on PenpalB on para_to_para_through_hop_receiver_assertions: {:?}", <PenpalB as Chain>::events());
+	for (i, event) in  <PenpalB as Chain>::events().iter().enumerate() {
+		println!("Event {} on PenpalB on para_to_para_through_hop_receiver_assertions: {:?}", i, event);
+	}
 
 	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
 

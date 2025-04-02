@@ -23,7 +23,9 @@ use crate::{
 };
 
 fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
-	println!("Events on AssetHubWestend on para_to_para_assethub_hop_assertions: {:?}", <AssetHubWestend as Chain>::events());
+	for (i, event) in  <AssetHubWestend as Chain>::events().iter().enumerate() {
+		println!("Event {} on AssetHubWestend on para_to_para_assethub_hop_assertions: {:?}", i, event);
+	}
 
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	let sov_penpal_a_on_ah = AssetHubWestend::sovereign_account_id_of(
@@ -116,8 +118,12 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		t.args.weight_limit,
 	);
 
-	println!("Events on PenpalA on para_to_para_transfer_assets_through_ah: {:?}", <PenpalA as Chain>::events());
-	println!("Events on AssetHubWestend on para_to_para_transfer_assets_through_ah: {:?}", <AssetHubWestend as Chain>::events());
+	for (i, event) in  <PenpalA as Chain>::events().iter().enumerate() {
+		println!("Event {} on PenpalA on para_to_para_transfer_assets_through_ah: {:?}", i, event);
+	}
+	for (i, event) in  <AssetHubWestend as Chain>::events().iter().enumerate() {
+		println!("Event {} on AssetHubWestend on para_to_para_transfer_assets_through_ah: {:?}", i, event);
+	}
 
 	let msg_id_sent = {
 		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
