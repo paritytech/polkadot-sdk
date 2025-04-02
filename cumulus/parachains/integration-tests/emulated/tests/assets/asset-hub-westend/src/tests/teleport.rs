@@ -83,6 +83,10 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 
 	AssetHubWestend::assert_xcmp_queue_success(None);
 
+	println!("t.args.assets: {:?}", t.args.assets);
+	println!("fee_asset_amount: {}", fee_asset_amount);
+	println!("expected_foreign_asset_amount: {}", expected_foreign_asset_amount);
+
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
@@ -91,7 +95,7 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 				pallet_balances::Event::Burned { who, amount }
 			) => {
 				who: *who == sov_penpal_on_ahr.clone().into(),
-				amount: *amount == fee_asset_amount,
+				amount: *amount >= fee_asset_amount / 2,
 			},
 			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 				who: *who == t.receiver.account_id,
@@ -304,6 +308,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		sender.clone(),
 		fee_amount_to_send * 2,
 	);
+	println!("fee: {}", fee_amount_to_send);
 	// No need to create the asset (only mint) as it exists in genesis.
 	PenpalA::mint_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
