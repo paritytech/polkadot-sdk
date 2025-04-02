@@ -438,7 +438,7 @@ pub const MAX_HEAD_DATA_SIZE: u32 = 1 * 1024 * 1024;
 /// * checking updates to this stored runtime configuration do not exceed this limit
 /// * when detecting a PoV decompression bomb in the client
 // NOTE: This value is used in the runtime so be careful when changing it.
-pub const MAX_POV_SIZE: u32 = 5 * 1024 * 1024;
+pub const MAX_POV_SIZE: u32 = 10 * 1024 * 1024;
 
 /// Default queue size we use for the on-demand order book.
 ///
