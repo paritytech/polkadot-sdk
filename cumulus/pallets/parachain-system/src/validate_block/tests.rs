@@ -18,7 +18,7 @@ use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
-	generate_extrinsic,
+	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
 		self as test_runtime, Block, Hash, Header, TestPalletCall, UncheckedExtrinsic, WASM_BINARY,
 	},
@@ -31,6 +31,8 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 #[cfg(feature = "experimental-ump-signals")]
 use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
+use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
+use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT, Header as HeaderT};
 use sp_trie::{recorder::IgnoredNodes, StorageProof};
@@ -152,6 +154,7 @@ fn build_multiple_blocks_with_witness(
 	mut parent_head: Header,
 	mut sproof_builder: RelayStateSproofBuilder,
 	num_blocks: u32,
+	extra_extrinsics: impl Fn(u32) -> Vec<UncheckedExtrinsic>,
 ) -> TestBlockData {
 	let timestamp = std::time::SystemTime::now()
 		.duration_since(std::time::SystemTime::UNIX_EPOCH)
@@ -173,9 +176,9 @@ fn build_multiple_blocks_with_witness(
 	let mut proof = StorageProof::empty();
 	let mut ignored_nodes = IgnoredNodes::<H256>::default();
 
-	for _ in 0..num_blocks {
+	for i in 0..num_blocks {
 		let cumulus_test_client::BlockBuilderAndSupportData {
-			block_builder,
+			mut block_builder,
 			persisted_validation_data: p_v_data,
 		} = client.init_block_builder_with_ignored_nodes(
 			parent_head.hash(),
@@ -187,7 +190,31 @@ fn build_multiple_blocks_with_witness(
 
 		persisted_validation_data = Some(p_v_data);
 
+		for ext in (extra_extrinsics)(i) {
+			block_builder.push(ext).unwrap();
+		}
+
 		let built_block = block_builder.build().unwrap();
+
+		futures::executor::block_on({
+			dbg!(i);
+			let parent_hash = *built_block.block.header.parent_hash();
+			let state = client.state_at(parent_hash).unwrap();
+
+			let mut api = client.runtime_api();
+			api.record_proof();
+			api.execute_block(parent_hash, built_block.block.clone()).unwrap();
+
+			let (header, extrinsics) = built_block.block.clone().deconstruct();
+
+			let mut import = BlockImportParams::new(BlockOrigin::Own, header);
+			import.body = Some(extrinsics);
+			import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
+			import.state_action = api.into_storage_changes(&state, parent_hash).unwrap().into();
+
+			BlockImport::import_block(&client, import)
+		})
+		.unwrap();
 
 		ignored_nodes.extend(&IgnoredNodes::from_storage_proof::<BlakeTwo256>(
 			&built_block.proof.clone().unwrap(),
@@ -195,11 +222,6 @@ fn build_multiple_blocks_with_witness(
 		ignored_nodes
 			.extend(&IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
 		proof = StorageProof::merge([proof, built_block.proof.unwrap()]);
-
-		futures::executor::block_on(
-			client.import_as_best(BlockOrigin::Own, built_block.block.clone()),
-		)
-		.unwrap();
 
 		parent_head = built_block.block.header.clone();
 
@@ -241,7 +263,17 @@ fn validate_multiple_blocks_work() {
 		parent_head.clone(),
 		Default::default(),
 		blocks_per_pov,
+		|i| {
+			vec![generate_extrinsic_with_pair(
+				&client,
+				Charlie.into(),
+				TestPalletCall::read_and_write_big_value {},
+				Some(i),
+			)]
+		},
 	);
+
+	assert!(block.proof().encoded_size() < 3 * 1024 * 1024);
 
 	let block = seal_block(block, &client);
 	let header = block.blocks().last().unwrap().header().clone();
