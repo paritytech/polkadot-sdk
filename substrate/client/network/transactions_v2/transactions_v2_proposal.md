@@ -62,7 +62,7 @@ Not part of the protocol, but maybe noteworthy here: some measures shall be take
 Note: When the combined size of all identifiers to be gossiped is relatively small compared to the network packet size, the network notification can include some of the transaction bodies to reduce the latency required for transaction dissemination.
 
 #### Transaction Data Request-Response Protocol (TxRR).
-After receiving the transaction identifier the node should request the transaction body from the peer whom sent the transaction identifier, provided that the transaction is not already in local pool.
+After receiving a transaction identifier, the node should request the transaction body from a random peer which gossiped the transaction identifier, if the transaction is not already in the local pool, and there is not a pending request for it. Requests should have a short timeout to avoid denial of service.
 
 If the requested transaction is not available in the local pool the requesting peer's reputation shall be decreased. However, if the peer requests the transaction whose identifier was previously gossiped to that peer and transaction is found to be unknown (e.g. due to finalization or being dropped) its reputation shall remain unaffected. This kind of race condition is possible and there is little that can be done to prevent it. Once transaction bytes are downloaded the transaction should be sent to pool for further validation and processing.
 
