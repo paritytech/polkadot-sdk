@@ -18,8 +18,8 @@
 //! Staking FRAME Pallet.
 
 use alloc::vec::Vec;
-use core::iter::Sum;
 use codec::Codec;
+use core::iter::Sum;
 use frame_election_provider_support::{
 	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
 };
@@ -53,11 +53,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
-	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
-	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
-	UnbondingQueueConfig, UnlockChunk, ValidatorPrefs,
+	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
+	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	SessionInterface, StakingLedger, UnappliedSlash, UnbondingQueueConfig, UnlockChunk,
+	ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -747,7 +747,7 @@ pub mod pallet {
 	/// can be unbonded for a period potentially lower than upper bound eras.
 	#[pallet::storage]
 	pub(crate) type EraLowestRatioTotalStake<T: Config> =
-		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+		StorageValue<_, BoundedVec<BalanceOf<T>, T::BondingDuration>, ValueQuery>;
 
 	/// Parameters for the unbonding queue mechanism.
 	#[pallet::storage]
@@ -1326,8 +1326,7 @@ pub mod pallet {
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
 				// Note: in case there is no current era it is fine to bond one era more.
-				let current_era = CurrentEra::<T>::get()
-					.unwrap_or(0);
+				let current_era = CurrentEra::<T>::get().unwrap_or(0);
 
 				// Calculate unbonding era based on unbonding queue mechanism.
 				let era: EraIndex = Self::process_unbond_queue_request(current_era, value);

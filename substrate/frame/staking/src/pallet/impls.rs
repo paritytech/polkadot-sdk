@@ -50,10 +50,10 @@ use sp_staking::{
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure,
-	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnbondingQueueConfig,
-	ValidatorPrefs, STAKING_ID,
+	BalanceOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
+	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnbondingQueueConfig, ValidatorPrefs,
+	STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -733,7 +733,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Update unbonding queue related storage.
-		Self::calculate_lowest_third_total_stake(new_planned_era, exposures_total_stake);
+		Self::calculate_lowest_total_stake(exposures_total_stake);
 
 		if new_planned_era > 0 {
 			log!(
@@ -749,36 +749,29 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate the total stake of the lowest third validators and store it for the planned era.
 	///
-	/// Removes the stale entry from `EraLowestRatioTotalStake` if it exists.
-	fn calculate_lowest_third_total_stake(
-		new_planned_era: EraIndex,
-		mut exposures: Vec<(T::AccountId, BalanceOf<T>)>,
-	) {
+	/// Removes the stale entry from [`EraLowestRatioTotalStake`] if it exists.
+	fn calculate_lowest_total_stake(mut exposures: Vec<(T::AccountId, BalanceOf<T>)>) {
 		// Only calculate if unbonding queue params have been set.
-		if let Some(params) = <UnbondingQueueParams<T>>::get() {
-			let unbonding_period_upper_bound = T::BondingDuration::get();
+		if let Some(params) = UnbondingQueueParams::<T>::get() {
+			// Determine the total stake from the lowest third of validators and persist for the
+			// era.
+			let validators_to_check =
+				(params.lowest_ratio * exposures.len() as u32).max(1) as usize;
 
-			// Determine the total stake from lowest third of validators and persist for the era.
-			let validators_to_check = (params.lowest_ratio * exposures.len() as u32)
-    .max(1); // this is where the 1375 comes from...now where are the values.
-
-			// Sort exposure total stake by lowest first, and truncate to lowest third.
+			// Sort exposure total stake by lowest first, and truncate to the lowest third.
 			exposures.sort_by(|(_, a), (_, b)| a.cmp(&b));
-			exposures.truncate(validators_to_check.try_into().unwrap_or(Default::default()));
+			exposures.truncate(validators_to_check);
 
 			// Calculate the total stake of the lowest third validators.
-			let total_stake: BalanceOf<T> = exposures
-				.into_iter()
-				.map(|(_, a)| a)
-				.sum();
+			let total_stake = exposures.into_iter().map(|(_, a)| a).sum();
 
 			// Store the total stake of the lowest third validators for the planned era.
-			EraLowestRatioTotalStake::<T>::insert(new_planned_era, total_stake);
-
-			// Remove stale entry from `EraLowestRatioTotalStake`.
-			<EraLowestRatioTotalStake<T>>::remove(
-				new_planned_era.saturating_sub(unbonding_period_upper_bound),
-			);
+			EraLowestRatioTotalStake::<T>::mutate(|lower_ratio| {
+				if lower_ratio.is_full() {
+					lower_ratio.remove(0);
+				}
+				lower_ratio.force_push(total_stake);
+			});
 		}
 	}
 
@@ -821,25 +814,15 @@ impl<T: Config> Pallet<T> {
 
 	/// Gets the lowest of the lowest third validator stake entries for the last
 	/// upper bound eras.
-	pub(crate) fn get_min_lowest_third_stake(
-		from_era: EraIndex,
-	) -> BalanceOf<T> {
+	pub(crate) fn get_min_lowest_third_stake() -> BalanceOf<T> {
 		// Find the minimum total stake of the lowest third validators over the configured number of
 		// eras.
-		let mut eras_checked = 0;
-		let mut current_era = from_era;
-		let mut lowest_stake: BalanceOf<T> = Zero::zero();
-		let last_era = from_era.saturating_sub(T::BondingDuration::get());
-
-		while current_era >= last_era || eras_checked <= T::BondingDuration::get() {
-			if let Some(lowest_third_total_stake) = <EraLowestRatioTotalStake<T>>::get(current_era)
-			{
-				if eras_checked == 0 || lowest_third_total_stake < lowest_stake {
-					lowest_stake = lowest_third_total_stake;
-				}
+		let mut iter = EraLowestRatioTotalStake::<T>::get().into_iter();
+		let mut lowest_stake = iter.next().unwrap_or(Zero::zero());
+		for lowest_third_total_stake in iter {
+			if lowest_third_total_stake < lowest_stake {
+				lowest_stake = lowest_third_total_stake;
 			}
-			current_era = current_era.saturating_sub(1);
-			eras_checked += 1;
 		}
 		lowest_stake
 	}
@@ -857,9 +840,8 @@ impl<T: Config> Pallet<T> {
 
 		// Get the maximum unstake amount for quick unbond time supported at the time of an unbond
 		// request.
-		let max_unstake_as_usize: u128 = (params.min_slashable_share *
-			Self::get_min_lowest_third_stake(CurrentEra::<T>::get().unwrap_or(0)))
-		.saturated_into();
+		let max_unstake_as_usize: u128 =
+			(params.min_slashable_share * Self::get_min_lowest_third_stake()).saturated_into();
 
 		if !max_unstake_as_usize.is_zero() {
 			upper_bound_usize
@@ -877,21 +859,22 @@ impl<T: Config> Pallet<T> {
 			// Calculate unbonding era based on unbonding queue mechanism.
 			let unbonding_eras_delta: EraIndex = Self::get_unbond_eras_delta(value, params);
 
-			let new_back_of_unbonding_queue_era: EraIndex =
-				(era.max(params.back_of_unbonding_queue_era) + unbonding_eras_delta)
-					.min(T::BondingDuration::get());
-
-			let unbonding_era: EraIndex = T::BondingDuration::get().min(
-				new_back_of_unbonding_queue_era
-					.defensive_saturating_sub(era)
-					.max(params.unbond_period_lower_bound),
-			) + era;
-
+			let back_of_unbonding_queue_era: EraIndex = era
+				.max(params.back_of_unbonding_queue_era)
+				.defensive_saturating_add(unbonding_eras_delta);
 			// Update unbonding queue params with new `new_back_of_unbonding_queue_era`.
-			<UnbondingQueueParams<T>>::set(Some(UnbondingQueueConfig {
-				back_of_unbonding_queue_era: new_back_of_unbonding_queue_era,
+			UnbondingQueueParams::<T>::set(Some(UnbondingQueueConfig {
+				back_of_unbonding_queue_era,
 				..params
 			}));
+
+			let unbonding_era: EraIndex = T::BondingDuration::get()
+				.min(
+					back_of_unbonding_queue_era
+						.defensive_saturating_sub(era)
+						.max(params.unbond_period_lower_bound),
+				)
+				.defensive_saturating_add(era);
 			unbonding_era
 		} else {
 			// If unbond queue params are not set, return current era plus maximum bonding duration.
