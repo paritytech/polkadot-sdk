@@ -1341,11 +1341,46 @@ macro_rules! assert_expected_events {
 }
 
 #[macro_export]
+macro_rules! find_all_xcm_topic_events {
+	( $chain:ident ) => {{
+		let events = <$chain as $crate::Chain>::events();
+		let mut xcm_events = Vec::new();
+
+		for event in events.iter() {
+			match event {
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent {
+					message_id,
+					origin,
+					destination,
+					..
+				}) => {
+					xcm_events.push(event.clone());
+				},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+					id,
+					origin,
+					success,
+					..
+				}) => {
+					xcm_events.push(event.clone());
+				},
+				_ => continue,
+			}
+		}
+
+		xcm_events
+	}};
+}
+
+#[macro_export]
 macro_rules! find_mq_processed_id {
 	( $chain:ident ) => {{
 		let events = <$chain as $crate::Chain>::events();
 		events.iter().find_map(|event| {
-			if let RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { id, .. }) = event {
+			if let RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+				id, ..
+			}) = event
+			{
 				Some(*id)
 			} else {
 				None

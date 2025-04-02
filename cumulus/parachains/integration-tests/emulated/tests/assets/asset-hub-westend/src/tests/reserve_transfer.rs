@@ -13,8 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::xcm_emulator::{find_mq_processed_id, find_xcm_sent_message_id};
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
+use emulated_integration_tests_common::xcm_emulator::{
+	find_all_xcm_topic_events, find_mq_processed_id, find_xcm_sent_message_id,
+};
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
@@ -386,13 +388,6 @@ fn relay_to_para_assets_receiver_assertions(t: RelayToParaTest) {
 }
 
 pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
-	for (i, event) in  <PenpalA as Chain>::events().iter().enumerate() {
-		println!("Event {} on PenpalA on para_to_para_through_hop_sender_assertions: {:?}", i, event);
-	}
-	for (i, event) in  <AssetHubWestend as Chain>::events().iter().enumerate() {
-		println!("Event {} on AssetHubWestend on para_to_para_through_hop_sender_assertions: {:?}", i, event);
-	}
-
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 
@@ -411,6 +406,13 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, P
 					balance: *balance == amount,
 				},
 			]
+		);
+	}
+
+	for (i, event) in find_all_xcm_topic_events!(PenpalA).iter().enumerate() {
+		println!(
+			"Event {} on PenpalA on para_to_para_through_hop_sender_assertions: {:?}",
+			i, event
 		);
 	}
 
@@ -481,10 +483,6 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 }
 
 pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
-	for (i, event) in  <PenpalB as Chain>::events().iter().enumerate() {
-		println!("Event {} on PenpalB on para_to_para_through_hop_receiver_assertions: {:?}", i, event);
-	}
-
 	type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
 
 	PenpalB::assert_xcmp_queue_success(None);
@@ -498,6 +496,13 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA,
 					owner: *owner == t.receiver.account_id,
 				},
 			]
+		);
+	}
+
+	for (i, event) in find_all_xcm_topic_events!(PenpalB).iter().enumerate() {
+		println!(
+			"Event {} on PenpalB on para_to_para_through_hop_receiver_assertions: {:?}",
+			i, event
 		);
 	}
 
