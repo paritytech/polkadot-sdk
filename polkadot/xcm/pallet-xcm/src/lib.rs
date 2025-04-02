@@ -46,6 +46,7 @@ use frame_support::{
 use frame_system::pallet_prelude::{BlockNumberFor, *};
 pub use pallet::*;
 use scale_info::TypeInfo;
+use sp_core::H256;
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
@@ -192,7 +193,6 @@ pub mod pallet {
 		parameter_types,
 	};
 	use frame_system::Config as SysConfig;
-	use sp_core::H256;
 	use sp_runtime::traits::Dispatchable;
 	use xcm_executor::traits::{MatchesFungible, WeightBounds};
 
@@ -698,7 +698,6 @@ pub mod pallet {
 
 	/// The ongoing queries.
 	#[pallet::storage]
-	#[pallet::getter(fn query)]
 	pub(super) type Queries<T: Config> =
 		StorageMap<_, Blake2_128Concat, QueryId, QueryStatus<BlockNumberFor<T>>, OptionQuery>;
 
@@ -707,7 +706,6 @@ pub mod pallet {
 	/// Key is the blake2 256 hash of (origin, versioned `Assets`) pair. Value is the number of
 	/// times this pair has been trapped (usually just 1 if it exists at all).
 	#[pallet::storage]
-	#[pallet::getter(fn asset_trap)]
 	pub(super) type AssetTraps<T: Config> = StorageMap<_, Identity, H256, u32, ValueQuery>;
 
 	/// Default version to encode XCM when latest version of destination is unknown. If `None`,
@@ -1565,6 +1563,20 @@ impl<T: Config> QueryHandler for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// The ongoing queries.
+	pub fn query(query_id: &QueryId) -> Option<QueryStatus<BlockNumberFor<T>>> {
+		Queries::<T>::get(query_id)
+	}
+
+	/// The existing asset traps.
+	///
+	/// Key is the blake2 256 hash of (origin, versioned `Assets`) pair.
+	/// Value is the number of times this pair has been trapped
+	/// (usually just 1 if it exists at all).
+	pub fn asset_trap(trap_id: &H256) -> u32 {
+		AssetTraps::<T>::get(trap_id)
+	}
+
 	/// Find `TransferType`s for `assets` and fee identified through `fee_asset_item`, when
 	/// transferring to `dest`.
 	///
@@ -3578,20 +3590,22 @@ impl<
 		L: TryFrom<Location> + TryInto<Location> + Clone,
 	> EnsureOrigin<O> for EnsureXcm<F, L>
 where
-	O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 {
 	type Success = L;
 
 	fn try_origin(outer: O) -> Result<Self::Success, O> {
-		outer.try_with_caller(|caller| {
-			caller.try_into().and_then(|o| match o {
-				Origin::Xcm(ref location)
-					if F::contains(&location.clone().try_into().map_err(|_| o.clone().into())?) =>
-					Ok(location.clone().try_into().map_err(|_| o.clone().into())?),
-				Origin::Xcm(location) => Err(Origin::Xcm(location).into()),
-				o => Err(o.into()),
-			})
-		})
+		match outer.caller().try_into() {
+			Ok(Origin::Xcm(ref location)) =>
+				if let Ok(location) = location.clone().try_into() {
+					if F::contains(&location) {
+						return Ok(location);
+					}
+				},
+			_ => (),
+		}
+
+		Err(outer)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -3605,17 +3619,17 @@ where
 pub struct EnsureResponse<F>(PhantomData<F>);
 impl<O: OriginTrait + From<Origin>, F: Contains<Location>> EnsureOrigin<O> for EnsureResponse<F>
 where
-	O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 {
 	type Success = Location;
 
 	fn try_origin(outer: O) -> Result<Self::Success, O> {
-		outer.try_with_caller(|caller| {
-			caller.try_into().and_then(|o| match o {
-				Origin::Response(responder) => Ok(responder),
-				o => Err(o.into()),
-			})
-		})
+		match outer.caller().try_into() {
+			Ok(Origin::Response(responder)) => return Ok(responder.clone()),
+			_ => (),
+		}
+
+		Err(outer)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

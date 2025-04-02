@@ -17,7 +17,7 @@
 mod imports {
 	// Substrate
 	pub use codec::Encode;
-	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
+	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult, BoundedVec};
 	pub use sp_runtime::DispatchError;
 
 	// Polkadot
@@ -26,7 +26,6 @@ mod imports {
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v5,
 	};
-	pub use xcm_builder::ExternalConsensusLocationsConverterFor;
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
@@ -52,7 +51,8 @@ mod imports {
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_westend_emulated_chain::{
-			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendExistentialDeposit,
+			bridge_hub_westend_runtime, genesis::ED as BRIDGE_HUB_WESTEND_ED,
+			BridgeHubWestendExistentialDeposit,
 			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendRuntimeOrigin,
 			BridgeHubWestendXcmConfig,
 		},
