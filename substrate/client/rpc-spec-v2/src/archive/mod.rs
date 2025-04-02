@@ -34,4 +34,4 @@ pub mod error;
 
 pub use api::ArchiveApiServer;
 pub use archive::Archive;
-pub use types::{MethodResult, MethodResultOk, MethodResultErr};
+pub use types::{MethodResult, MethodResultErr, MethodResultOk};

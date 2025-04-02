@@ -62,29 +62,29 @@ pub struct MethodResultErr {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+	use super::*;
 
-    #[test]
-    fn method_result_ok() {
-        let ok = MethodResult::ok("hello");
-    
-        let ser = serde_json::to_string(&ok).unwrap();
-        let exp = r#"{"success":true,"value":"hello"}"#;
-        assert_eq!(ser, exp);
-    
-        let ok_dec: MethodResult = serde_json::from_str(exp).unwrap();
-        assert_eq!(ok_dec, ok);
-    }
-    
-    #[test]
-    fn method_result_error() {
-        let ok = MethodResult::err("hello");
-    
-        let ser = serde_json::to_string(&ok).unwrap();
-        let exp = r#"{"success":false,"error":"hello"}"#;
-        assert_eq!(ser, exp);
-    
-        let ok_dec: MethodResult = serde_json::from_str(exp).unwrap();
-        assert_eq!(ok_dec, ok);
-    }
+	#[test]
+	fn method_result_ok() {
+		let ok = MethodResult::ok("hello");
+
+		let ser = serde_json::to_string(&ok).unwrap();
+		let exp = r#"{"success":true,"value":"hello"}"#;
+		assert_eq!(ser, exp);
+
+		let ok_dec: MethodResult = serde_json::from_str(exp).unwrap();
+		assert_eq!(ok_dec, ok);
+	}
+
+	#[test]
+	fn method_result_error() {
+		let ok = MethodResult::err("hello");
+
+		let ser = serde_json::to_string(&ok).unwrap();
+		let exp = r#"{"success":false,"error":"hello"}"#;
+		assert_eq!(ser, exp);
+
+		let ok_dec: MethodResult = serde_json::from_str(exp).unwrap();
+		assert_eq!(ok_dec, ok);
+	}
 }

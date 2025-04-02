@@ -19,8 +19,10 @@
 //! API trait of the archive methods.
 
 use crate::{
-	archive::types::MethodResult,
-	archive::error::{Error, Infallible},
+	archive::{
+		error::{Error, Infallible},
+		types::MethodResult,
+	},
 	common::events::{
 		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageEvent, StorageQuery,
 	},
