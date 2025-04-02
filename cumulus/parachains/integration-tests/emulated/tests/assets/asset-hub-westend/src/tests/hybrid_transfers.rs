@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::xcm_emulator::{find_mq_processed_id, find_xcm_sent_message_id};
+use emulated_integration_tests_common::xcm_emulator::{find_all_xcm_topic_events, find_mq_processed_id, find_xcm_sent_message_id};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
 use super::reserve_transfer::*;
@@ -23,10 +23,6 @@ use crate::{
 };
 
 fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
-	for (i, event) in  <AssetHubWestend as Chain>::events().iter().enumerate() {
-		println!("Event {} on AssetHubWestend on para_to_para_assethub_hop_assertions: {:?}", i, event);
-	}
-
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	let sov_penpal_a_on_ah = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
@@ -56,6 +52,13 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 			) => {},
 		]
 	);
+
+	for (i, event) in find_all_xcm_topic_events!(AssetHubWestend).iter().enumerate() {
+		println!(
+			"Event {} on AssetHubWestend on para_to_para_assethub_hop_assertions: {:?}",
+			i, event
+		);
+	}
 
 	let prc_id = find_mq_processed_id!(AssetHubWestend);
 	assert!(prc_id.is_some());
@@ -100,6 +103,8 @@ fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 }
 
 fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> DispatchResult {
+	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
+
 	let fee_idx = t.args.fee_asset_item as usize;
 	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 	let asset_hub_location: Location = PenpalA::sibling_location_of(AssetHubWestend::para_id());
@@ -118,17 +123,14 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		t.args.weight_limit,
 	);
 
-	for (i, event) in  <PenpalA as Chain>::events().iter().enumerate() {
-		println!("Event {} on PenpalA on para_to_para_transfer_assets_through_ah: {:?}", i, event);
-	}
-	for (i, event) in  <AssetHubWestend as Chain>::events().iter().enumerate() {
-		println!("Event {} on AssetHubWestend on para_to_para_transfer_assets_through_ah: {:?}", i, event);
+	for (i, event) in find_all_xcm_topic_events!(PenpalA).iter().enumerate() {
+		println!(
+			"Event {} on PenpalA on para_to_para_transfer_assets_through_ah: {:?}",
+			i, event
+		);
 	}
 
-	let msg_id_sent = {
-		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-		find_xcm_sent_message_id!(PenpalA)
-	};
+	let msg_id_sent = find_xcm_sent_message_id!(PenpalA);
 	assert!(msg_id_sent.is_some());
 
 	result

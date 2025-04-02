@@ -1350,19 +1350,15 @@ macro_rules! find_all_xcm_topic_events {
 			match event {
 				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent {
 					message_id,
-					origin,
-					destination,
 					..
 				}) => {
-					xcm_events.push(event.clone());
+					xcm_events.push((sp_core::H256::from(*message_id), event.clone()));
 				},
 				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
 					id,
-					origin,
-					success,
 					..
 				}) => {
-					xcm_events.push(event.clone());
+					xcm_events.push((*id, event.clone()));
 				},
 				_ => continue,
 			}
