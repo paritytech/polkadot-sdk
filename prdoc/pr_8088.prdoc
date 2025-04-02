@@ -1,8 +1,0 @@
-title: 'RPC Api V2: Move some types to private module'
-doc:
-- audience: Node Dev
-  description: `MethodResult`, `MethodResultOk` and `MethodResultErr` moved to internal\
-    `mod.rs` since they are only used internally in the archive RPC API implementation.
-crates:
-- name: sc-rpc-spec-v2
-  bump: major
