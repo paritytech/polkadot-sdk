@@ -42,7 +42,6 @@ frame-benchmarking = { optional = true, workspace = true }
 bp-xcm-bridge-hub-router = { optional = true, workspace = true }
 
 [dev-dependencies]
-
 # Substrate
 frame-support = { features = ["experimental"], workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }

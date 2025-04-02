@@ -38,7 +38,7 @@ pub enum EthereumSystemFrontendCall {
 #[allow(clippy::large_enum_variant)]
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemFrontend {
-	#[codec(index = 80)]
+	#[codec(index = 36)]
 	EthereumSystemFrontend(EthereumSystemFrontendCall),
 }
 
@@ -72,9 +72,9 @@ fn send_weth_from_asset_hub_to_ethereum() {
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
-					reserve_asset.clone().into(),
-				))],
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Definite(reserve_asset.clone().into()),
+				)]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(AllCounted(2)),
 					beneficiary: beneficiary(),
@@ -106,8 +106,8 @@ fn send_weth_from_asset_hub_to_ethereum() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			reward_address: reward_account.into(),
 			topic: H256::zero(),
-			reward_address: reward_account,
 			success: true,
 		};
 
@@ -218,9 +218,12 @@ fn transfer_relay_token_from_ah() {
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveDeposit(Definite(
-					Asset { id: AssetId(Location::parent()), fun: Fungible(TOKEN_AMOUNT) }.into(),
-				))],
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(
+					Definite(
+						Asset { id: AssetId(Location::parent()), fun: Fungible(TOKEN_AMOUNT) }
+							.into(),
+					),
+				)]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(AllCounted(2)),
 					beneficiary: beneficiary(),
@@ -262,8 +265,8 @@ fn transfer_relay_token_from_ah() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			reward_address: reward_account.into(),
 			topic: H256::zero(),
-			reward_address: reward_account,
 			success: true,
 		};
 
@@ -317,10 +320,10 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![
+				assets: BoundedVec::truncate_from(vec![
 					AssetTransferFilter::ReserveWithdraw(Definite(weth_asset.clone().into())),
 					AssetTransferFilter::ReserveDeposit(Definite(dot_asset.into())),
-				],
+				]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(All),
 					beneficiary: beneficiary(),
@@ -349,8 +352,8 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			reward_address: reward_account.into(),
 			topic: H256::zero(),
-			reward_address: reward_account,
 			success: true,
 		};
 
@@ -410,9 +413,9 @@ fn transact_with_agent_from_asset_hub() {
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
-					reserve_asset.clone().into(),
-				))],
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Definite(reserve_asset.clone().into()),
+				)]),
 				remote_xcm: Xcm(vec![
 					DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
 					Transact {
@@ -445,9 +448,93 @@ fn transact_with_agent_from_asset_hub() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			reward_address: reward_account.into(),
 			topic: H256::zero(),
-			reward_address: reward_account,
 			success: true,
+		};
+
+		// Submit a delivery receipt
+		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt));
+
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				RuntimeEvent::BridgeRelayers(pallet_bridge_relayers::Event::RewardRegistered { .. }) => {},
+			]
+		);
+	});
+}
+
+#[test]
+fn transact_with_agent_from_asset_hub_without_any_asset_transfer() {
+	fund_on_bh();
+
+	register_assets_on_ah();
+
+	fund_on_ah();
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		let local_fee_asset =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+
+		let remote_fee_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
+		let assets = vec![local_fee_asset.clone(), remote_fee_asset.clone()];
+
+		let beneficiary =
+			Location::new(0, [AccountKey20 { network: None, key: AGENT_ADDRESS.into() }]);
+
+		let transact_info =
+			ContractCall::V1 { target: Default::default(), calldata: vec![], gas: 40000, value: 0 };
+
+		let xcms = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: local_fee_asset.clone() },
+			InitiateTransfer {
+				destination: ethereum(),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.clone().into(),
+				))),
+				preserve_origin: true,
+				assets: BoundedVec::new(),
+				remote_xcm: Xcm(vec![
+					DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
+					Transact {
+						origin_kind: OriginKind::SovereignAccount,
+						fallback_max_weight: None,
+						call: transact_info.encode().into(),
+					},
+				]),
+			},
+		]));
+
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			bx!(xcms),
+			Weight::from(EXECUTION_WEIGHT),
+		)
+		.unwrap();
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		// Check that Ethereum message was queue in the Outbound Queue
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+
+		let relayer = BridgeHubWestendSender::get();
+		let reward_account = AssetHubWestendReceiver::get();
+		let receipt = DeliveryReceipt {
+			gateway: EthereumGatewayAddress::get(),
+			nonce: 0,
+			reward_address: reward_account.into(),
+			success: true,
+			topic: Default::default(),
 		};
 
 		// Submit a delivery receipt
@@ -520,9 +607,9 @@ fn register_token_from_penpal() {
 					remote_fee_asset_on_ah.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
-					remote_fee_asset_on_ethereum.clone().into(),
-				))],
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Definite(remote_fee_asset_on_ethereum.clone().into()),
+				)]),
 				remote_xcm: Xcm(vec![
 					DepositAsset { assets: Wild(All), beneficiary: penpal_user_location },
 					Transact {
@@ -562,8 +649,8 @@ fn register_token_from_penpal() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			reward_address: reward_account.into(),
 			topic: H256::zero(),
-			reward_address: reward_account,
 			success: true,
 		};
 
@@ -573,7 +660,7 @@ fn register_token_from_penpal() {
 		assert_expected_events!(
 			BridgeHubWestend,
 			vec![
-				RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageDeliveryProofReceived { .. }) => {},
+				RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageDelivered { .. }) => {},
 			]
 		);
 	});
@@ -635,7 +722,7 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 					remote_fee_asset_on_ah.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![
+				assets: BoundedVec::truncate_from(vec![
 					AssetTransferFilter::ReserveWithdraw(Definite(
 						remote_fee_asset_on_ethereum.clone().into(),
 					)),
@@ -644,21 +731,21 @@ fn send_message_from_penpal_to_ethereum(sudo: bool) {
 					// a. Penpal is configured to allow teleport specific asset to AH
 					// b. AH is configured to trust asset teleport from sibling chain
 					AssetTransferFilter::Teleport(Definite(pna.clone().into())),
-				],
+				]),
 				remote_xcm: Xcm(vec![InitiateTransfer {
 					destination: ethereum(),
 					remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
 						remote_fee_asset_on_ethereum.clone().into(),
 					))),
 					preserve_origin: true,
-					assets: vec![
+					assets: BoundedVec::truncate_from(vec![
 						// should use ReserveDeposit because Ethereum does not trust asset from
 						// penpal. transfer_asset should be reachored first on AH
 						AssetTransferFilter::ReserveDeposit(Definite(
 							transfer_asset_reanchor_on_ah.clone().into(),
 						)),
 						AssetTransferFilter::ReserveWithdraw(Definite(ena.clone().into())),
-					],
+					]),
 					remote_xcm: Xcm(vec![
 						DepositAsset { assets: Wild(All), beneficiary: beneficiary() },
 						Transact {
@@ -727,8 +814,8 @@ fn invalid_nonce_for_delivery_receipt_fails() {
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
 			nonce: 0,
+			reward_address: reward_account.into(),
 			topic: H256::zero(),
-			reward_address: reward_account,
 			success: true,
 		};
 
@@ -779,9 +866,9 @@ fn export_message_from_asset_hub_to_ethereum_is_banned_when_set_operating_mode()
 					remote_fee_asset.clone().into(),
 				))),
 				preserve_origin: true,
-				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
-					reserve_asset.clone().into(),
-				))],
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Definite(reserve_asset.clone().into()),
+				)]),
 				remote_xcm: Xcm(vec![DepositAsset {
 					assets: Wild(AllCounted(2)),
 					beneficiary: beneficiary(),
