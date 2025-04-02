@@ -30,7 +30,7 @@ pallet-message-queue = { workspace = true, default-features = true }
 
 # For building docs
 docify = { workspace = true }
-simple-mermaid = { version = "0.1.1" }
+simple-mermaid = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }
