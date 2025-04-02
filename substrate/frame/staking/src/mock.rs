@@ -661,7 +661,7 @@ pub(crate) fn advance_session() {
 }
 
 /// Progress until the given era.
-pub(crate) fn start_active_era(era_index: EraIndex) { // 1.
+pub(crate) fn start_active_era(era_index: EraIndex) {
 	start_session((era_index * <SessionsPerEra as Get<u32>>::get()).into());
 	assert_eq!(active_era(), era_index);
 	// One way or another, current_era must have changed before the active era, so they must match
