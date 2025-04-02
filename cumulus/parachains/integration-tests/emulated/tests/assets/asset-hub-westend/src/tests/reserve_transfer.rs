@@ -385,14 +385,16 @@ fn relay_to_para_assets_receiver_assertions(t: RelayToParaTest) {
 	);
 }
 
-pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<PenpalA, PenpalB, Hop>) {
+pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, PenpalB, Hop>) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 
-	let topic_id_on_penpal_a = find_xcm_sent_message_id!(PenpalA);
-	assert!(topic_id_on_penpal_a.is_some());
-	let topic_id_on_penpal_b = find_xcm_sent_message_id!(PenpalB);
-	assert_eq!(topic_id_on_penpal_a, topic_id_on_penpal_b);
+	let msg_id_on_penpal_a = find_xcm_sent_message_id!(PenpalA);
+	println!("msg_id_on_penpal_a on para_to_para_through_hop_sender_assertions: {:?}", msg_id_on_penpal_a);
+	assert!(msg_id_on_penpal_a.is_some());
+	let msg_id_on_penpal_b = find_xcm_sent_message_id!(PenpalB);
+	println!("msg_id_on_penpal_b on para_to_para_through_hop_sender_assertions: {:?}", msg_id_on_penpal_b);
+	assert_eq!(msg_id_on_penpal_a, msg_id_on_penpal_b);
 
 	for asset in t.args.assets.into_inner() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
