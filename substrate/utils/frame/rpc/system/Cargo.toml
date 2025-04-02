@@ -20,11 +20,7 @@ codec = { workspace = true, default-features = true }
 docify = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true, default-features = true }
 futures = { workspace = true }
-jsonrpsee = { features = [
-	"client-core",
-	"macros",
-	"server-core",
-], workspace = true }
+jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
 log = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }

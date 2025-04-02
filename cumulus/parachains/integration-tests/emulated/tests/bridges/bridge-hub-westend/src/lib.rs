@@ -17,7 +17,7 @@
 mod imports {
 	// Substrate
 	pub use codec::Encode;
-	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
+	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult, BoundedVec};
 	pub use sp_runtime::DispatchError;
 
 	// Polkadot
@@ -50,7 +50,8 @@ mod imports {
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_westend_emulated_chain::{
-			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendExistentialDeposit,
+			bridge_hub_westend_runtime, genesis::ED as BRIDGE_HUB_WESTEND_ED,
+			BridgeHubWestendExistentialDeposit,
 			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendRuntimeOrigin,
 			BridgeHubWestendXcmConfig,
 		},
