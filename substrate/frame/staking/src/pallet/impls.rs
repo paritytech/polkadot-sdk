@@ -852,17 +852,23 @@ impl<T: Config> Pallet<T> {
 		unbond_stake: BalanceOf<T>,
 		params: UnbondingQueueConfig,
 	) -> EraIndex {
-		let upper_bound_usize: usize = T::BondingDuration::get().saturated_into();
-		let unbond_stake_usize: usize = unbond_stake.saturated_into();
+		let upper_bound_usize: u128 = T::BondingDuration::get().saturated_into();
+		let unbond_stake_usize: u128 = unbond_stake.saturated_into();
 
 		// Get the maximum unstake amount for quick unbond time supported at the time of an unbond
 		// request.
-		let max_unstake_as_usize: usize = (params.min_slashable_share *
+		let max_unstake_as_usize: u128 = (params.min_slashable_share *
 			Self::get_min_lowest_third_stake(CurrentEra::<T>::get().unwrap_or(0)))
 		.saturated_into();
 
-		(unbond_stake_usize.saturating_div(max_unstake_as_usize) * upper_bound_usize)
-			.saturated_into()
+		if !max_unstake_as_usize.is_zero() {
+			upper_bound_usize
+				.saturating_mul(unbond_stake_usize)
+				.saturating_div(max_unstake_as_usize)
+				.saturated_into()
+		} else {
+			upper_bound_usize.saturated_into()
+		}
 	}
 
 	// Gets an unbond era for an unbond request, and updates `back_of_unbonding_queue_era`.
