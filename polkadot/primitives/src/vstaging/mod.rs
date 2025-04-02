@@ -1141,6 +1141,11 @@ mod tests {
 	}
 
 	#[test]
+	// Test valid scenarios for check_ump_signals():
+	// - no signals
+	// - only selected core signal
+	// - only approved peer signal
+	// - both signals in any order
 	fn test_ump_commitments() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2();
 		new_ccr.descriptor.core_index = 123;
