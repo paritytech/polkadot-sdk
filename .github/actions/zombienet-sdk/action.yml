@@ -19,6 +19,9 @@ inputs:
 
 runs:
   using: "composite"
+  env:
+    TEST_NAME: ${{ inputs.test }}
+    PREFIX: ${{ inputs.prefix }}
   steps:
     - name: k8s_auth
       shell: bash
@@ -35,8 +38,8 @@ runs:
         echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
         echo "MALUS_IMAGE: $MALUS_IMAGE"
         echo "Inputs"
-        echo "test: ${{ inputs.test}}"
-        echo "prefix: ${{ inputs.prefix }}"
+        echo "test: $TEST_NAME"
+        echo "prefix: $PREFIX"
 
     - uses: actions/download-artifact@v4.1.8
       with:
