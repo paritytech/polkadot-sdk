@@ -701,7 +701,7 @@ pub mod bridging {
 		use assets_common::matching::FromNetwork;
 		use sp_std::collections::btree_set::BTreeSet;
 		use testnet_parachains_constants::westend::snowbridge::{
-			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX_V1,
 		};
 
 		parameter_types! {
@@ -715,7 +715,7 @@ pub mod bridging {
 				1,
 				[
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(INBOUND_QUEUE_PALLET_INDEX)
+					PalletInstance(INBOUND_QUEUE_PALLET_INDEX_V1)
 				]
 			);
 

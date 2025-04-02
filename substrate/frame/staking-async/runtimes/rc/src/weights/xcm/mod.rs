@@ -172,14 +172,15 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 		_dest: &Location,
 		remote_fees: &Option<AssetTransferFilter>,
 		_preserve_origin: &bool,
-		assets: &Vec<AssetTransferFilter>,
+		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
 		_xcm: &Xcm<()>,
 	) -> Weight {
+		let base_weight = XcmBalancesWeight::<Runtime>::initiate_transfer();
 		let mut weight = if let Some(remote_fees) = remote_fees {
 			let fees = remote_fees.inner();
-			fees.weigh_assets(XcmBalancesWeight::<Runtime>::initiate_transfer())
+			fees.weigh_assets(base_weight)
 		} else {
-			Weight::zero()
+			base_weight
 		};
 		for asset_filter in assets {
 			let assets = asset_filter.inner();
