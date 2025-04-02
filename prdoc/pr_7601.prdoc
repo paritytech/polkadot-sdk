@@ -34,7 +34,7 @@ crates:
   bump: major
 - name: pallet-session-benchmarking
   bump: major
-- name: pallet-staking-next-rc-client
+- name: pallet-staking-async-rc-client
   bump: major
 - name: frame-support
   bump: major

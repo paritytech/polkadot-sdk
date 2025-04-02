@@ -136,8 +136,8 @@ std = [
 	"pallet-session?/std",
 	"pallet-skip-feeless-payment?/std",
 	"pallet-society?/std",
-	"pallet-staking-next-ah-client?/std",
-	"pallet-staking-next-rc-client?/std",
+	"pallet-staking-async-ah-client?/std",
+	"pallet-staking-async-rc-client?/std",
 	"pallet-staking-reward-fn?/std",
 	"pallet-staking-runtime-api?/std",
 	"pallet-staking?/std",
@@ -312,8 +312,8 @@ runtime-benchmarks = [
 	"pallet-session-benchmarking?/runtime-benchmarks",
 	"pallet-skip-feeless-payment?/runtime-benchmarks",
 	"pallet-society?/runtime-benchmarks",
-	"pallet-staking-next-ah-client?/runtime-benchmarks",
-	"pallet-staking-next-rc-client?/runtime-benchmarks",
+	"pallet-staking-async-ah-client?/runtime-benchmarks",
+	"pallet-staking-async-rc-client?/runtime-benchmarks",
 	"pallet-staking?/runtime-benchmarks",
 	"pallet-state-trie-migration?/runtime-benchmarks",
 	"pallet-sudo?/runtime-benchmarks",
@@ -445,8 +445,8 @@ try-runtime = [
 	"pallet-session?/try-runtime",
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
-	"pallet-staking-next-ah-client?/try-runtime",
-	"pallet-staking-next-rc-client?/try-runtime",
+	"pallet-staking-async-ah-client?/try-runtime",
+	"pallet-staking-async-rc-client?/try-runtime",
 	"pallet-staking?/try-runtime",
 	"pallet-state-trie-migration?/try-runtime",
 	"pallet-statement?/try-runtime",
@@ -659,8 +659,8 @@ runtime-full = [
 	"pallet-skip-feeless-payment",
 	"pallet-society",
 	"pallet-staking",
-	"pallet-staking-next-ah-client",
-	"pallet-staking-next-rc-client",
+	"pallet-staking-async-ah-client",
+	"pallet-staking-async-rc-client",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
 	"pallet-staking-runtime-api",
@@ -1634,15 +1634,15 @@ default-features = false
 optional = true
 path = "../substrate/frame/staking"
 
-[dependencies.pallet-staking-next-ah-client]
+[dependencies.pallet-staking-async-ah-client]
 default-features = false
 optional = true
-path = "../substrate/frame/staking-next/ah-client"
+path = "../substrate/frame/staking-async/ah-client"
 
-[dependencies.pallet-staking-next-rc-client]
+[dependencies.pallet-staking-async-rc-client]
 default-features = false
 optional = true
-path = "../substrate/frame/staking-next/rc-client"
+path = "../substrate/frame/staking-async/rc-client"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

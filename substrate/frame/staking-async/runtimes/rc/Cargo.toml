@@ -1,8 +1,8 @@
 [package]
-name = "westend-runtime"
+name = "pallet-staking-async-rc-runtime"
 build = "build.rs"
 version = "7.0.0"
-description = "Westend testnet Relay Chain runtime."
+description = "Staking Async testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -56,7 +56,6 @@ pallet-asset-rate = { workspace = true }
 pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-babe = { workspace = true }
-pallet-bags-list = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-beefy = { workspace = true }
 pallet-beefy-mmr = { workspace = true }
@@ -70,7 +69,6 @@ pallet-identity = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-membership = { workspace = true }
 pallet-message-queue = { workspace = true }
-pallet-meta-tx = { workspace = true }
 pallet-migrations = { workspace = true }
 pallet-mmr = { workspace = true }
 pallet-multisig = { workspace = true }
@@ -86,10 +84,8 @@ pallet-root-testing = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-society = { workspace = true }
-pallet-staking = { workspace = true }
 pallet-staking-async-ah-client = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
-pallet-staking-runtime-api = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -97,12 +93,11 @@ pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-utility = { workspace = true }
-pallet-verify-signature = { workspace = true }
 pallet-vesting = { workspace = true }
 pallet-whitelist = { workspace = true }
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
-westend-runtime-constants = { workspace = true }
+pallet-staking-async-rc-runtime-constants = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
@@ -157,7 +152,6 @@ std = [
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-babe/std",
-	"pallet-bags-list/std",
 	"pallet-balances/std",
 	"pallet-beefy-mmr/std",
 	"pallet-beefy/std",
@@ -172,7 +166,6 @@ std = [
 	"pallet-indices/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
-	"pallet-meta-tx/std",
 	"pallet-migrations/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
@@ -193,8 +186,6 @@ std = [
 	"pallet-society/std",
 	"pallet-staking-async-ah-client/std",
 	"pallet-staking-async-rc-client/std",
-	"pallet-staking-runtime-api/std",
-	"pallet-staking/std",
 	"pallet-state-trie-migration/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
@@ -202,7 +193,6 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"pallet-utility/std",
-	"pallet-verify-signature/std",
 	"pallet-vesting/std",
 	"pallet-whitelist/std",
 	"pallet-xcm-benchmarks?/std",
@@ -237,7 +227,7 @@ std = [
 	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
-	"westend-runtime-constants/std",
+	"pallet-staking-async-rc-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
@@ -251,7 +241,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
-	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-beefy-mmr/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
@@ -265,7 +254,6 @@ runtime-benchmarks = [
 	"pallet-indices/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
-	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -281,7 +269,6 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
 	"pallet-society/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
 	"pallet-staking-async-ah-client/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
@@ -290,7 +277,6 @@ runtime-benchmarks = [
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"pallet-verify-signature/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-whitelist/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
@@ -317,7 +303,6 @@ try-runtime = [
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
-	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-beefy-mmr/try-runtime",
 	"pallet-beefy/try-runtime",
@@ -331,7 +316,6 @@ try-runtime = [
 	"pallet-indices/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
-	"pallet-meta-tx/try-runtime",
 	"pallet-migrations/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -346,7 +330,6 @@ try-runtime = [
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-society/try-runtime",
-	"pallet-staking/try-runtime",
 	"pallet-staking-async-ah-client/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
 	"pallet-state-trie-migration/try-runtime",
@@ -355,7 +338,6 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-utility/try-runtime",
-	"pallet-verify-signature/try-runtime",
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"pallet-xcm/try-runtime",

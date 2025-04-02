@@ -11098,9 +11098,9 @@ dependencies = [
  "pallet-balances",
  "pallet-election-provider-multi-block",
  "pallet-session",
- "pallet-staking-next",
- "pallet-staking-next-ah-client",
- "pallet-staking-next-rc-client",
+ "pallet-staking-async",
+ "pallet-staking-async-ah-client",
+ "pallet-staking-async-rc-client",
  "pallet-timestamp",
  "parity-scale-codec",
  "polkadot-sdk-frame",
@@ -13207,7 +13207,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-next"
+name = "pallet-staking-async"
 version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
@@ -13217,8 +13217,8 @@ dependencies = [
  "log",
  "pallet-bags-list",
  "pallet-balances",
- "pallet-staking-next-rc-client",
- "pallet-staking-next-reward-curve",
+ "pallet-staking-async-rc-client",
+ "pallet-staking-async-reward-curve",
  "parity-scale-codec",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -13235,7 +13235,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-next-ah-client"
+name = "pallet-staking-async-ah-client"
 version = "0.1.0"
 dependencies = [
  "frame-support",
@@ -13243,8 +13243,8 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-session",
- "pallet-staking-next",
- "pallet-staking-next-rc-client",
+ "pallet-staking-async",
+ "pallet-staking-async-rc-client",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
@@ -13255,7 +13255,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-next-parachain-runtime"
+name = "pallet-staking-async-parachain-runtime"
 version = "0.15.0"
 dependencies = [
  "asset-test-utils",
@@ -13313,9 +13313,9 @@ dependencies = [
  "pallet-revive",
  "pallet-scheduler",
  "pallet-session",
- "pallet-staking-next",
- "pallet-staking-next-rc-client",
- "pallet-staking-next-runtime-api",
+ "pallet-staking-async",
+ "pallet-staking-async-rc-client",
+ "pallet-staking-async-runtime-api",
  "pallet-state-trie-migration",
  "pallet-sudo",
  "pallet-timestamp",
@@ -13365,7 +13365,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-next-rc-client"
+name = "pallet-staking-async-rc-client"
 version = "0.1.0"
 dependencies = [
  "frame-support",
@@ -13380,7 +13380,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-next-rc-runtime"
+name = "pallet-staking-async-rc-runtime"
 version = "7.0.0"
 dependencies = [
  "approx",
@@ -13434,9 +13434,9 @@ dependencies = [
  "pallet-session",
  "pallet-session-benchmarking",
  "pallet-society",
- "pallet-staking-next-ah-client",
- "pallet-staking-next-rc-client",
- "pallet-staking-next-rc-runtime-constants",
+ "pallet-staking-async-ah-client",
+ "pallet-staking-async-rc-client",
+ "pallet-staking-async-rc-runtime-constants",
  "pallet-state-trie-migration",
  "pallet-sudo",
  "pallet-timestamp",
@@ -13491,7 +13491,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-next-rc-runtime-constants"
+name = "pallet-staking-async-rc-runtime-constants"
 version = "7.0.0"
 dependencies = [
  "frame-support",
@@ -13506,7 +13506,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-next-reward-curve"
+name = "pallet-staking-async-reward-curve"
 version = "11.0.0"
 dependencies = [
  "proc-macro-crate 3.3.0",
@@ -13517,7 +13517,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-next-reward-fn"
+name = "pallet-staking-async-reward-fn"
 version = "19.0.0"
 dependencies = [
  "log",
@@ -13525,7 +13525,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-next-runtime-api"
+name = "pallet-staking-async-runtime-api"
 version = "14.0.0"
 dependencies = [
  "parity-scale-codec",
@@ -16231,8 +16231,8 @@ dependencies = [
  "pallet-skip-feeless-payment",
  "pallet-society",
  "pallet-staking",
- "pallet-staking-next-ah-client",
- "pallet-staking-next-rc-client",
+ "pallet-staking-async-ah-client",
+ "pallet-staking-async-rc-client",
  "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
  "pallet-staking-runtime-api",
@@ -27922,8 +27922,8 @@ dependencies = [
  "pallet-session-benchmarking",
  "pallet-society",
  "pallet-staking",
- "pallet-staking-next-ah-client",
- "pallet-staking-next-rc-client",
+ "pallet-staking-async-ah-client",
+ "pallet-staking-async-rc-client",
  "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
  "pallet-sudo",
