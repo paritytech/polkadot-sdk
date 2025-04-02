@@ -23,6 +23,10 @@ use crate::{
 };
 
 fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
+	println!("Events on PenpalA on para_to_para_assethub_hop_assertions: {:?}", <PenpalA as Chain>::events());
+	println!("Events on PenpalB on para_to_para_assethub_hop_assertions: {:?}", <PenpalB as Chain>::events());
+	println!("Events on AssetHubWestend on para_to_para_assethub_hop_assertions: {:?}", <AssetHubWestend as Chain>::events());
+
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	let sov_penpal_a_on_ah = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
@@ -30,10 +34,6 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	let sov_penpal_b_on_ah = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
 	);
-
-	println!("Events on PenpalA: {:?}", <PenpalA as Chain>::events());
-	println!("Events on PenpalB: {:?}", <PenpalB as Chain>::events());
-	println!("Events on AssetHubWestend: {:?}", <AssetHubWestend as Chain>::events());
 
 	assert_expected_events!(
 		AssetHubWestend,
@@ -121,6 +121,11 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		bx!(VersionedXcm::from(custom_xcm_on_dest)),
 		t.args.weight_limit,
 	);
+
+	println!("Events on PenpalA on para_to_para_transfer_assets_through_ah: {:?}", <PenpalA as Chain>::events());
+	println!("Events on PenpalB on para_to_para_transfer_assets_through_ah: {:?}", <PenpalB as Chain>::events());
+	println!("Events on AssetHubWestend on para_to_para_transfer_assets_through_ah: {:?}", <AssetHubWestend as Chain>::events());
+
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
 	let msg_id_on_penpal_a = find_xcm_sent_message_id!(PenpalA);
 	println!("msg_id_on_penpal_a on para_to_para_transfer_assets_through_ah: {:?}", msg_id_on_penpal_a);
@@ -601,60 +606,12 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
 	});
 
-	let penpal_a_msg_id = PenpalA::execute_with(|| {
-		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-		find_xcm_sent_message_id!(PenpalA)
-	});
-	println!("PenpalA.message_id before assertion: {:?}", penpal_a_msg_id);
-
-	let penpal_b_msg_id = PenpalB::execute_with(|| {
-		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-		find_xcm_sent_message_id!(PenpalB)
-	});
-	println!("PenpalB.message_id before assertion: {:?}", penpal_b_msg_id);
-
-	let ahw_prc_id = AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		find_mq_processed_id!(AssetHubWestend)
-	});
-	println!("AssetHubWestend.processed_id before assertion: {:?}", ahw_prc_id);
-
-	let ahw_msg_id = AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		find_xcm_sent_message_id!(AssetHubWestend)
-	});
-	println!("AssetHubWestend.message_id before assertion: {:?}", ahw_msg_id);
-
 	// Set assertions and dispatchables
 	test.set_assertion::<PenpalA>(para_to_para_through_hop_sender_assertions);
 	test.set_assertion::<AssetHubWestend>(para_to_para_assethub_hop_assertions);
 	test.set_assertion::<PenpalB>(para_to_para_through_hop_receiver_assertions);
 	test.set_dispatchable::<PenpalA>(para_to_para_transfer_assets_through_ah);
 	test.assert();
-
-	let penpal_a_msg_id = PenpalA::execute_with(|| {
-		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-		find_xcm_sent_message_id!(PenpalA)
-	});
-	println!("PenpalA.message_id after assertion: {:?}", penpal_a_msg_id);
-
-	let penpal_b_msg_id = PenpalB::execute_with(|| {
-		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-		find_xcm_sent_message_id!(PenpalB)
-	});
-	println!("PenpalB.message_id after assertion: {:?}", penpal_b_msg_id);
-
-	let ahw_prc_id = AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		find_mq_processed_id!(AssetHubWestend)
-	});
-	println!("AssetHubWestend.processed_id after assertion: {:?}", ahw_prc_id);
-
-	let ahw_msg_id = AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		find_xcm_sent_message_id!(AssetHubWestend)
-	});
-	println!("AssetHubWestend.message_id after assertion: {:?}", ahw_msg_id);
 
 	// Query final balances
 	let sender_wnds_after = PenpalA::execute_with(|| {
