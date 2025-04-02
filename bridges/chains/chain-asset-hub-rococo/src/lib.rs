@@ -25,11 +25,11 @@ use scale_info::TypeInfo;
 
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
-use bp_runtime::{Chain, ChainId, Parachain};
+use bp_runtime::{decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain};
 pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
 use frame_support::{
 	dispatch::DispatchClass,
-	sp_runtime::{RuntimeDebug, StateVersion},
+	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
 };
 use testnet_parachains_constants::rococo::currency::UNITS;
 use xcm::latest::prelude::*;
@@ -117,4 +117,50 @@ impl Chain for AssetHubRococo {
 impl Parachain for AssetHubRococo {
 	const PARACHAIN_ID: u32 = ASSET_HUB_ROCOCO_PARACHAIN_ID;
 	const MAX_HEADER_SIZE: u32 = MAX_ASSET_HUB_HEADER_SIZE;
+}
+
+/// Describing permissionless lanes instance
+impl ChainWithMessages for AssetHubRococo {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		WITH_ASSET_HUB_ROCOCO_MESSAGES_PALLET_NAME;
+
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+}
+
+/// Public key of the chain account that may be used to verify signatures.
+pub type AccountSigner = MultiSigner;
+
+/// The address format for describing accounts.
+pub type Address = MultiAddress<AccountId, ()>;
+
+/// Name of the With-AssetHubRococo messages pallet instance that is deployed at bridged chains.
+pub const WITH_ASSET_HUB_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessages";
+
+/// Name of the With-AssetHubRococo bridge-relayers pallet instance that is deployed at bridged
+/// chains.
+pub const WITH_ASSET_HUB_ROCOCO_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
+
+/// Pallet index of `BridgeWestendMessages: pallet_bridge_messages::<Instance1>`.
+pub const WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = 62;
+
+decl_bridge_finality_runtime_apis!(asset_hub_rococo);
+decl_bridge_messages_runtime_apis!(asset_hub_rococo, HashedLaneId);
+
+frame_support::parameter_types! {
+	/// TODO: FAIL-CI - probably not needed or ise for MessageExporterPrice
+	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
+	/// BridgeHub.
+	/// (initially was calculated by test `AssetHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
+	pub const AssetHubRococoBaseXcmFeeInRocs: u128 = 57_325_000;
+
+	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
+	/// (initially was calculated by test `AssetHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
+	pub const AssetHubRococoBaseDeliveryFeeInRocs: u128 = 297_685_840;
+
+	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
+	/// (initially was calculated by test `AssetHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
+	pub const AssetHubRococoBaseConfirmationFeeInRocs: u128 = 56_782_099;
 }
