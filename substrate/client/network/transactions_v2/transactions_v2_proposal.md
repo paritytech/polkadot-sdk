@@ -53,7 +53,7 @@ Two latter payloads are referred as transaction identifiers.
 #### Transactions Identifiers Flooding.
 Transaction identifiers are gossiped to all connected peers (except _LightNodes_) allowing many transaction descriptors in a single networking notification. This reduces the required bandwidth and the depth of queues in networking module implementation.
 
-The transaction shall not be sent to a peer that already knows its identifier, whether because we received it from that peer or previously sent the transaction identifier to it.
+The transaction descriptor shall not be sent to a peer that already knows its identifier, whether because we received it from that peer or previously sent the transaction descriptor to it. Known identifiers shall be kept for T seconds, with a maximum of N identifiers per peer. Networks should configure these limits based on their transaction volumes, and node network and memory requirements.
 
 Once a transaction descriptor is received, and it is not a transaction body, the latter shall be downloaded using the TxRR protocol (see the next section).
 
