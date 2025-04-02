@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use emulated_integration_tests_common::xcm_emulator::{find_mq_processed_id, find_xcm_sent_message_id};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
 use super::reserve_transfer::*;
@@ -53,6 +54,9 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 			) => {},
 		]
 	);
+
+	let prc_id = find_mq_processed_id!(AssetHubWestend);
+	assert!(prc_id.is_some());
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
@@ -114,6 +118,12 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 
 	println!("Events on PenpalA on para_to_para_transfer_assets_through_ah: {:?}", <PenpalA as Chain>::events());
 	println!("Events on AssetHubWestend on para_to_para_transfer_assets_through_ah: {:?}", <AssetHubWestend as Chain>::events());
+
+	let msg_id_sent = {
+		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
+		find_xcm_sent_message_id!(PenpalA)
+	};
+	assert!(msg_id_sent.is_some());
 
 	result
 }
