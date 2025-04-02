@@ -363,8 +363,8 @@ mod tests {
 	fn normal_extrinsic_limited_by_maximum_extrinsic_weight() {
 		new_test_ext().execute_with(|| {
 			let max = DispatchInfo {
-				call_weight: block_weights().get(DispatchClass::Normal).max_extrinsic.unwrap() +
-					Weight::from_parts(1, 0),
+				call_weight: block_weights().get(DispatchClass::Normal).max_extrinsic.unwrap()
+					+ Weight::from_parts(1, 0),
 				class: DispatchClass::Normal,
 				..Default::default()
 			};
@@ -704,9 +704,9 @@ mod tests {
 				.0;
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
-				info.total_weight() +
-					Weight::from_parts(128, 0) +
-					block_weights().get(DispatchClass::Normal).base_extrinsic,
+				info.total_weight()
+					+ Weight::from_parts(128, 0)
+					+ block_weights().get(DispatchClass::Normal).base_extrinsic,
 			);
 
 			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
@@ -718,9 +718,9 @@ mod tests {
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
-				info.total_weight() +
-					Weight::from_parts(128, 0) +
-					block_weights().get(DispatchClass::Normal).base_extrinsic,
+				info.total_weight()
+					+ Weight::from_parts(128, 0)
+					+ block_weights().get(DispatchClass::Normal).base_extrinsic,
 			);
 		})
 	}
@@ -905,11 +905,11 @@ mod tests {
 				w.max_total = None;
 			})
 			.build_or_panic();
-		let all_weight = crate::ConsumedWeight::new(|class| match class {
-			DispatchClass::Normal => Weight::from_parts(10, 0),
-			DispatchClass::Operational => Weight::from_parts(10, 0),
-			DispatchClass::Mandatory => Weight::zero(),
-		});
+		let all_weight = crate::ConsumedWeight::new(
+			Weight::from_parts(10, 0),
+			Weight::from_parts(10, 0),
+			Weight::zero(),
+		);
 		assert_eq!(maximum_weight.max_block, all_weight.total().set_proof_size(u64::MAX));
 
 		// fits into reserved
@@ -956,11 +956,11 @@ mod tests {
 				w.max_total = Some(Weight::from_parts(20, 1000));
 			})
 			.build_or_panic();
-		let all_weight = crate::ConsumedWeight::new(|class| match class {
-			DispatchClass::Normal => Weight::from_parts(5, 0),
-			DispatchClass::Operational => Weight::from_parts(5, 0),
-			DispatchClass::Mandatory => Weight::from_parts(0, 0),
-		});
+		let all_weight = crate::ConsumedWeight::new(
+			Weight::from_parts(5, 0),
+			Weight::from_parts(5, 0),
+			Weight::from_parts(0, 0),
+		);
 
 		let normal = DispatchInfo {
 			call_weight: Weight::from_parts(5, 0),

@@ -52,13 +52,11 @@ pub const MAX_BRIDGE_HUB_HEADER_SIZE: u32 = 4_096;
 /// Average block interval in Cumulus-based parachains.
 ///
 pub const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(MILLISECS_PER_BLOCK);
+/// Size limit of the Cumulus-based bridge hub blocks.
+pub const BLOCK_LENGTH: limits::BlockLength =
+	limits::BlockLength::max_normal_const(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 
 parameter_types! {
-	/// Size limit of the Cumulus-based bridge hub blocks.
-	pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
-		5 * 1024 * 1024,
-		NORMAL_DISPATCH_RATIO,
-	);
 
 	/// Importing a block with 0 Extrinsics.
 	pub const BlockExecutionWeight: Weight = Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS, 0)

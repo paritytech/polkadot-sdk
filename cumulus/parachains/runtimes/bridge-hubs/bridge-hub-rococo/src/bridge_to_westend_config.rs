@@ -303,7 +303,7 @@ mod tests {
 			WithBridgeHubWestendMessagesInstance,
 		>(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
-				block_length: bp_bridge_hub_rococo::BlockLength::get(),
+				block_length: bp_bridge_hub_rococo::BLOCK_LENGTH,
 				block_weights: bp_bridge_hub_rococo::BlockWeightsForAsyncBacking::get(),
 			},
 		});

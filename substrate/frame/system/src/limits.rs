@@ -51,20 +51,34 @@ impl Default for BlockLength {
 impl BlockLength {
 	/// Create new `BlockLength` with `max` for every class.
 	pub fn max(max: u32) -> Self {
-		Self { max: PerDispatchClass::new(|_| max) }
+		Self {
+			max: PerDispatchClass::new(
+				max,
+				max,
+				max
+			) 
+		}
+	}
+
+	pub const fn max_normal_const(max: u32, normal: Perbill) -> Self {
+		Self {
+			max: PerDispatchClass::new(
+				normal.multiply_const(max),
+				max,
+				max
+			)
+		}
 	}
 
 	/// Create new `BlockLength` with `max` for `Operational` & `Mandatory`
 	/// and `normal * max` for `Normal`.
 	pub fn max_with_normal_ratio(max: u32, normal: Perbill) -> Self {
 		Self {
-			max: PerDispatchClass::new(|class| {
-				if class == DispatchClass::Normal {
-					normal * max
-				} else {
-					max
-				}
-			}),
+			max: PerDispatchClass::new(
+				normal * max,
+				max,
+				max
+			)
 		}
 	}
 }
@@ -343,16 +357,26 @@ impl BlockWeights {
 			weights: BlockWeights {
 				base_block: constants::BlockExecutionWeight::get(),
 				max_block: Weight::zero(),
-				per_class: PerDispatchClass::new(|class| {
-					let initial =
-						if class == DispatchClass::Mandatory { None } else { Some(Weight::zero()) };
+				per_class: PerDispatchClass::new(
 					WeightsPerClass {
 						base_extrinsic: constants::ExtrinsicBaseWeight::get(),
 						max_extrinsic: None,
-						max_total: initial,
-						reserved: initial,
-					}
-				}),
+						max_total: Some(Weight::zero()),
+						reserved: Some(Weight::zero()),
+					},
+					WeightsPerClass {
+						base_extrinsic: constants::ExtrinsicBaseWeight::get(),
+						max_extrinsic: None,
+						max_total: Some(Weight::zero()),
+						reserved: Some(Weight::zero()),
+					},
+					WeightsPerClass {
+						base_extrinsic: constants::ExtrinsicBaseWeight::get(),
+						max_extrinsic: None,
+						max_total: None,
+						reserved: None,
+					},
+				),
 			},
 			init_cost: None,
 		}

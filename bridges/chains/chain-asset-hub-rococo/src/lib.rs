@@ -103,7 +103,7 @@ impl Chain for AssetHubRococo {
 	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
-		*BlockLength::get().max.get(DispatchClass::Normal)
+		*BLOCK_LENGTH.max.get(DispatchClass::Normal)
 	}
 
 	fn max_extrinsic_weight() -> Weight {
