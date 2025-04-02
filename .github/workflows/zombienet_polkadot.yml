@@ -49,7 +49,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0001-parachains-pvf.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -66,13 +66,14 @@ jobs:
     env:
       ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/colander:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      MALUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/malus:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       DEBUG: ${{ needs.preflight.outputs.DEBUG }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0002-parachains-disputes.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -95,7 +96,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0003-beefy-and-mmr.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -118,7 +119,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0004-parachains-garbage-candidate.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -140,7 +141,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0006-parachains-max-tranche0.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -163,7 +164,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0007-dispute-freshly-finalized.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -186,7 +187,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0008-dispute-old-finalized.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -208,7 +209,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0009-approval-voting-coalescing.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -231,7 +232,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0010-validator-disabling.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -253,7 +254,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0013-systematic-chunk-recovery.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -268,7 +269,8 @@ jobs:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
       ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug"
+      # this test require an old version of polkadot
+      POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/colander:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       DEBUG: ${{ needs.preflight.outputs.DEBUG }}
     steps:
@@ -276,7 +278,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0014-chunk-fetching-network-compatibility.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -302,7 +304,7 @@ jobs:
           cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0015-coretime-shared-core.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -328,7 +330,7 @@ jobs:
           cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0018-shared-core-idle-parachain.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -354,7 +356,7 @@ jobs:
           cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0019-coretime-collation-fetching-fairness.zndsl"
           local-dir: "$LOCAL_DIR/functional"
@@ -378,7 +380,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0001-parachains-smoke-test.zndsl"
           local-dir: "$LOCAL_DIR/smoke"
@@ -400,7 +402,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0002-parachains-upgrade-smoke-test.zndsl"
           local-dir: "$LOCAL_DIR/smoke"
@@ -421,7 +423,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0003-deregister-register-validator-smoke.zndsl"
           local-dir: "$LOCAL_DIR/smoke"
@@ -443,7 +445,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0004-coretime-smoke-test.zndsl"
           local-dir: "$LOCAL_DIR/smoke"
@@ -465,7 +467,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0005-precompile-pvf-smoke.zndsl"
           local-dir: "$LOCAL_DIR/smoke"
@@ -489,7 +491,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        uses: ./.github/actions/zombienet-v1
+        uses: ./.github/actions/zombienet
         with:
           test: "0001-paritydb.zndsl"
           local-dir: "$LOCAL_DIR/misc"
@@ -517,7 +519,7 @@ jobs:
   #         echo "POLKADOT_PR_ARTIFACTS_URL: ${POLKADOT_PR_ARTIFACTS_URL}"
 
   #     - name: zombienet_test
-  #       uses: ./.github/actions/zombienet-v1
+  #       uses: ./.github/actions/zombienet
   #       with:
   #         test: "0002-upgrade-node.zndsl"
   #         local-dir: "$LOCAL_DIR/misc"
@@ -550,35 +552,43 @@ jobs:
       NEXTEST_RETRIES: 0
 
     steps:
-      - name: k8s_auth
-        shell: bash
-        run: |
-          . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-          k8s_auth
+      # - name: k8s_auth
+      #   shell: bash
+      #   run: |
+      #     . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      #     k8s_auth
 
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4.1.8
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet-sdk
         with:
-          name: prepare-polkadot-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          test: "functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test"
+          prefix: "polkadot"
 
-      - name: tar
-        run: tar -xvf artifacts.tar
+      # - uses: actions/download-artifact@v4.1.8
+      #   with:
+      #     name: prepare-polkadot-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
 
-      - name: script
-        run: |
-          echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
-          echo "COL_IMAGE: $COL_IMAGE"
-          echo "MALUS_IMAGE: $MALUS_IMAGE"
-          ls -ltr ./artifacts
-          cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test
+      # - name: tar
+      #   run: tar -xvf artifacts.tar
 
-      - name: upload logs
-        uses: actions/upload-artifact@v4
-        with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+      # - name: script
+      #   run: |
+      #     echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
+      #     echo "COL_IMAGE: $COL_IMAGE"
+      #     echo "MALUS_IMAGE: $MALUS_IMAGE"
+      #     ls -ltr ./artifacts
+      #     cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test
+
+      # - name: upload logs
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: zombienet-logs-${{ github.job }}-${{ github.sha }}
+      #     path: |
+      #       /tmp/zombie*/logs/*
