@@ -1307,7 +1307,6 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 				Weight::MAX,
 			)
 		}));
-		println!("wnds_amount: {:?}", wnds_amount);
 		AssetHubWestend::execute_with(|| {
 			type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 			assert_expected_events!(

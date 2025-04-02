@@ -459,7 +459,6 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		),
 	};
 
-	println!("AMOUNT TO SEND:{}", asset_amount_to_send);
 	let mut ah_to_penpal = SystemParaToParaTest::new(ah_to_penpal_test_args);
 
 	let ah_sender_balance_before = ah_to_penpal.sender.balance;

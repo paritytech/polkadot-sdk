@@ -45,7 +45,6 @@ fn hop_assertions(test: ParaToParaThroughAHTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 	AssetHubRococo::assert_xcmp_queue_success(None);
 
-	println!("expected amount: {}", test.args.amount);
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
