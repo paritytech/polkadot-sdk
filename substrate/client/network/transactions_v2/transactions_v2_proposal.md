@@ -62,7 +62,7 @@ Not part of the protocol, but maybe noteworthy here: some measures shall be take
 Note: When the combined size of all identifiers to be gossiped is relatively small compared to the network packet size, the network notification can include some of the transaction bodies to reduce the latency required for transaction dissemination.
 
 #### Transaction Data Request-Response Protocol (TxRR).
-After receiving a transaction identifier, the node should request the transaction body from a random peer which gossiped the transaction identifier, if the transaction is not already in the local pool, and there is not a pending request for it. Requests should have a short timeout to avoid denial of service.
+After receiving a transaction identifier, the node should request the transaction body from a random peer which gossiped the transaction identifier, if the transaction is not already in the local pool, and there is not a pending request for it. Requests should have a short timeout to avoid denial of service where peers only gossip identifiers (and never provide their bodies).
 
 If the requested transaction is not available in the local pool the requesting peer's reputation shall be decreased. However, if the peer requests the transaction whose identifier was previously gossiped to that peer and transaction is found to be unknown (e.g. due to finalization or being dropped) its reputation shall remain unaffected. This kind of race condition is possible and there is little that can be done to prevent it. Once transaction bytes are downloaded the transaction should be sent to pool for further validation and processing.
 
@@ -70,8 +70,6 @@ If a remote node is unable to provide a transaction it previously announced thro
 
 
 The request protocol supports batch acquisition of transactions by accepting a `Vec<TxIdentifier>`.
-
-Transactions shall be fetched immediately after receiving the transaction identifiers.
 
 Some open issue:
 In theory, the transaction body could be fetched only if there is an available space in transaction pool. Transaction shall not be silently dropped. On the other hand the gossiped transaction identifier may correspond to transaction with higher priority and we should submit such transaction immediately as it may be evicting some other lower-priority transactions.
