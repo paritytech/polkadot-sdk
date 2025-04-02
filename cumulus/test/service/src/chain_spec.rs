@@ -49,6 +49,7 @@ pub fn get_chain_spec_with_extra_endowed(
 	id: Option<ParaId>,
 	extra_endowed_accounts: Vec<AccountId>,
 	code: &[u8],
+	blocks_per_pov: Option<u32>,
 ) -> ChainSpec {
 	let runtime_caller = GenesisConfigBuilderRuntimeCaller::<ParachainHostFunctions>::new(code);
 	let mut development_preset = runtime_caller
@@ -70,6 +71,9 @@ pub fn get_chain_spec_with_extra_endowed(
 	let mut patch_json = json!({
 		"balances": {
 			"balances": all_balances,
+		},
+		"testPallet": {
+			"blocksPerPov": blocks_per_pov,
 		}
 	});
 
@@ -81,6 +85,7 @@ pub fn get_chain_spec_with_extra_endowed(
 				"parachainInfo": {
 					"parachainId": id,
 				},
+
 			}),
 		);
 	};
@@ -104,6 +109,7 @@ pub fn get_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		id,
 		Default::default(),
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		None,
 	)
 }
 
@@ -114,6 +120,7 @@ pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		Default::default(),
 		cumulus_test_runtime::elastic_scaling::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+		None,
 	)
 }
 
@@ -124,6 +131,7 @@ pub fn get_elastic_scaling_500ms_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		Default::default(),
 		cumulus_test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+		None,
 	)
 }
 
@@ -134,6 +142,7 @@ pub fn get_elastic_scaling_mvp_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		Default::default(),
 		cumulus_test_runtime::elastic_scaling_mvp::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+		None,
 	)
 }
 
@@ -143,5 +152,6 @@ pub fn get_elastic_scaling_multi_block_slot_chain_spec(id: Option<ParaId>) -> Ch
 		Default::default(),
 		cumulus_test_runtime::elastic_scaling_multi_block_slot::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+		None,
 	)
 }

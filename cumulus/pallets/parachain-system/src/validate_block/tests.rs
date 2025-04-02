@@ -96,13 +96,14 @@ fn create_test_client() -> (Client, Header) {
 }
 
 /// Create test client using the runtime with `elastic-scaling` feature enabled.
-fn create_elastic_scaling_test_client() -> (Client, Header) {
+fn create_elastic_scaling_test_client(blocks_per_pov: u32) -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
 	builder.genesis_init_mut().wasm = Some(
 		test_runtime::elastic_scaling_multi_block_slot::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec(),
 	);
+	builder.genesis_init_mut().blocks_per_pov = Some(blocks_per_pov);
 	let client = builder.enable_import_proof_recording().build();
 
 	let genesis_header = client
@@ -150,7 +151,7 @@ fn build_multiple_blocks_with_witness(
 	client: &Client,
 	mut parent_head: Header,
 	mut sproof_builder: RelayStateSproofBuilder,
-	num_blocks: usize,
+	num_blocks: u32,
 ) -> TestBlockData {
 	let timestamp = std::time::SystemTime::now()
 		.duration_since(std::time::SystemTime::UNIX_EPOCH)
@@ -233,9 +234,14 @@ fn validate_block_works() {
 fn validate_multiple_blocks_work() {
 	sp_tracing::try_init_simple();
 
-	let (client, parent_head) = create_elastic_scaling_test_client();
-	let TestBlockData { block, validation_data } =
-		build_multiple_blocks_with_witness(&client, parent_head.clone(), Default::default(), 4);
+	let blocks_per_pov = 4;
+	let (client, parent_head) = create_elastic_scaling_test_client(blocks_per_pov);
+	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		Default::default(),
+		blocks_per_pov,
+	);
 
 	let block = seal_block(block, &client);
 	let header = block.blocks().last().unwrap().header().clone();
