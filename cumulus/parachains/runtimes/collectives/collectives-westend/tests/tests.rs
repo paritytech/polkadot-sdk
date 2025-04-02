@@ -375,6 +375,9 @@ fn dday_referenda_and_voting_works() {
 			assert_ok!(DDayReferenda::is_referendum_passing(referenda_id), false);
 		}
 
+		// Check that AssetHub account does not exist at Collectives (means no balance).
+		assert!(!System::account_exists(&valid_asset_hub_account));
+
 		// Ok - vote by proof - generated for proving account `ss58_account`
 		// This submits an extrinsic with all transaction extensions, just as an AssetHub user would need to do.
 		assert_ok!(construct_and_apply_extrinsic(
