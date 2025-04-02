@@ -35,7 +35,7 @@ use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT, Header as HeaderT};
-use sp_trie::{recorder::IgnoredNodes, StorageProof};
+use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes, StorageProof};
 use std::{env, process::Command};
 
 fn call_validate_block_validation_result(
@@ -202,7 +202,9 @@ fn build_multiple_blocks_with_witness(
 			let state = client.state_at(parent_hash).unwrap();
 
 			let mut api = client.runtime_api();
-			api.record_proof();
+			let proof_recorder = ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.clone());
+			api.set_proof_recorder(proof_recorder.clone());
+			api.register_extension(ProofSizeExt::new(proof_recorder));
 			api.execute_block(parent_hash, built_block.block.clone()).unwrap();
 
 			let (header, extrinsics) = built_block.block.clone().deconstruct();

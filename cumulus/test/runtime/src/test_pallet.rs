@@ -81,7 +81,7 @@ pub mod pallet {
 		pub fn read_and_write_big_value(_: OriginFor<T>) -> DispatchResult {
 			let key = &b"really_huge_value"[..];
 			sp_io::storage::get(key);
-			sp_io::storage::set(key, &vec![0u8; 1024 * 1024 * 30]);
+			sp_io::storage::set(key, &vec![0u8; 1024 * 1024 * 5]);
 
 			Ok(())
 		}
