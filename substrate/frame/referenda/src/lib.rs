@@ -97,10 +97,11 @@ use self::branch::{BeginDecidingBranch, OneFewerDecidingBranch, ServiceBranch};
 pub use self::{
 	pallet::*,
 	types::{
-		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf,
-		Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex,
-		ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf,
-		TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
+		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, ConstTrackInfo, Curve, DecidingStatus,
+		DecidingStatusOf, Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf,
+		ReferendumIndex, ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf,
+		ScheduleAddressOf, StringLike, TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf,
+		TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
@@ -224,9 +225,31 @@ pub mod pallet {
 
 	#[pallet::extra_constants]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// A list of tracks.
+		///
+		/// Note: if the tracks are dynamic, the value in the static metadata might be inaccurate.
 		#[pallet::constant_name(Tracks)]
-		fn tracks() -> Vec<Track<TrackIdOf<T, I>, BalanceOf<T, I>, BlockNumberFor<T, I>>> {
-			T::Tracks::tracks().map(|t| t.into_owned()).collect()
+		fn tracks() -> Vec<(TrackIdOf<T, I>, ConstTrackInfo<BalanceOf<T, I>, BlockNumberFor<T, I>>)>
+		{
+			T::Tracks::tracks()
+				.map(|t| t.into_owned())
+				.map(|Track { id, info }| {
+					(
+						id,
+						ConstTrackInfo {
+							name: StringLike(info.name),
+							max_deciding: info.max_deciding,
+							decision_deposit: info.decision_deposit,
+							prepare_period: info.prepare_period,
+							decision_period: info.decision_period,
+							confirm_period: info.confirm_period,
+							min_enactment_period: info.min_enactment_period,
+							min_approval: info.min_approval,
+							min_support: info.min_support,
+						},
+					)
+				})
+				.collect()
 		}
 	}
 
