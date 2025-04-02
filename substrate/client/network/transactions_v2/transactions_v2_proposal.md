@@ -72,7 +72,7 @@ If a remote node is unable to provide a transaction it previously announced thro
 
 The request protocol supports batch acquisition of transactions by accepting a `Vec<TxIdentifier>`.
 
-Some open issue:
+_Note_:
 In theory, the transaction body could be fetched only if there is an available space in transaction pool. Transaction shall not be silently dropped. On the other hand the gossiped transaction identifier may correspond to transaction with higher priority and we should submit such transaction immediately as it may be evicting some other lower-priority transactions.
 
 #### [Optional] Transaction Data Low-Fanout (`TxLF`).
@@ -84,6 +84,7 @@ Multiple transaction descriptors shall be batched into a single network notifica
 
 This extensions could be used to quickly broadcast transactions from the light nodes to the network.
 
+_Note_:
 When a local pool is full the tx can be dropped (e.g. due to lower priority) and there is little we can do about this.
 
 
@@ -97,7 +98,7 @@ This section outlines potential future extensions to the transaction protocol. T
 During the handshake peers shall exchange salts. Later salts shall be used to generate 32-bits transaction identifier that is only valid for given pair of peers. This allows to reduce the size of data being flooded to the network, and lays out foundation for introducing a set sketch based reconciliation.
 
 
-#### [Optional] transaction identifiers low fanout + set reconciliation.
+#### [Optional] transaction identifiers low fanout + set-reconciliation.
 - The number of peers in fanout should be configurable,
 - How/when to select peers?
 - Periodic set-reconciliation between peers. (For early evaluation a naive set-reconciliation could be implemented).
@@ -110,7 +111,7 @@ Purpose of this exercise is to evaluate the benefits of applying set-reconciliat
 - send the difference to the peer,
 - fetch unknown transactions using `TxRR`
 
-#### [Optional] *PinSketch* based.
+#### [Optional] *PinSketch* based set-reconciliation.
 Use *PinSketch* ([mini-sketch](https://github.com/bitcoin-core/minisketch) lib implemented for *Erlay*) to compute the set difference.
 
 ### Protocol metrics.
@@ -128,7 +129,7 @@ Nodes supporting both `transactions/1` and `transactions/2` protocols shall only
 ### Sync overview
 
 #### Accepting transaction descirptors
-Protoocl shall have a dedicated message indicating the readiness to accept the transaction descirptors. This feature can be useful during major sync to inform other peers that no descritpors shall be transmitted to the given node.
+Protocol shall have a dedicated message indicating the readiness to accept the transaction descirptors. This feature can be useful during major sync to inform other peers that no descritpors shall be transmitted to the given node.
 
 _Note_: could we simply disconnect from `transactions/2` instead of having enabled/disabled state?
 
