@@ -569,7 +569,7 @@ fn assignment_proportions_in_core_state_work() {
 		{
 			assert_eq!(
 				CoretimeAssigner::advance_assignments(|_| false).get(&CoreIndex(0)),
-				Some(task_1.into())
+				Some(&task_1.into())
 			);
 
 			assert_eq!(
@@ -593,7 +593,7 @@ fn assignment_proportions_in_core_state_work() {
 		{
 			assert_eq!(
 				CoretimeAssigner::advance_assignments(|_| false).get(&CoreIndex(0)),
-				Some(task_1.into())
+				Some(&task_1.into())
 			);
 			// Pos should have incremented, as assignment had remaining < step
 			assert_eq!(
@@ -616,8 +616,8 @@ fn assignment_proportions_in_core_state_work() {
 
 		// Final check, task 2's turn to be served
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(task_2.into())
+			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
+			Some(&task_2.into())
 		);
 	});
 }
@@ -648,33 +648,33 @@ fn equal_assignments_served_equally() {
 
 		// Test that popped assignments alternate between tasks 1 and 2
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_1.into()))
+			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
+			Some(&task_1.into())
 		);
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_2.into()))
+			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
+			Some(&task_2.into())
 		);
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_1.into()))
+			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
+			Some(&task_1.into())
 		);
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_2.into()))
+			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
+			Some(&task_2.into())
 		);
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_1.into()))
+			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
+			Some(&task_1.into())
 		);
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_2.into()))
+			CoretimeAssigner::advance_assignments(|_| false).get(&core_idx),
+			Some(&task_2.into())
 		);
 	});
 }

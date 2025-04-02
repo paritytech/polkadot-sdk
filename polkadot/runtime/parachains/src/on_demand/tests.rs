@@ -338,7 +338,7 @@ fn place_order_keep_alive_keeps_alive() {
 			para_id
 		),);
 
-		let spot_price = OnDemand::get_queue_status().traffic.saturating_mul_int(
+		let spot_price = OnDemand::get_order_status().traffic.saturating_mul_int(
 			config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<Test>>(),
 		);
 		assert_eq!(Balances::free_balance(&alice), max_amt.saturating_sub(spot_price));
@@ -364,7 +364,7 @@ fn place_order_with_credits() {
 		run_to_block(current_block, |n| if n == current_block { Some(Default::default()) } else { None });
 		assert!(Paras::is_parathread(para_id));
 
-		let queue_status = OnDemand::get_queue_status();
+		let queue_status = OnDemand::get_order_status();
 		let spot_price = queue_status.traffic.saturating_mul_int(
 			config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<Test>>(),
 		);

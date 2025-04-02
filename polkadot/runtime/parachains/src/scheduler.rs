@@ -301,12 +301,14 @@ impl<T: Config> Pallet<T> {
 		GroupRotationInfo { session_start_block, now, group_rotation_frequency }
 	}
 
-	#[cfg(any(feature = "try-runtime", test))]
+	// #[cfg(any(feature = "try-runtime", test))]
+	#[cfg(test)]
 	fn claim_queue_len() -> usize {
 		Self::claim_queue().iter().map(|la_vec| la_vec.1.len()).sum()
 	}
 
-	#[cfg(all(not(feature = "runtime-benchmarks"), test))]
+	// #[cfg(all(not(feature = "runtime-benchmarks"), test))]
+	#[cfg(test)]
 	pub(crate) fn claim_queue_is_empty() -> bool {
 		Self::claim_queue_len() == 0
 	}

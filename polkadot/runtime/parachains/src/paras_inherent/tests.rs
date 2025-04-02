@@ -51,8 +51,7 @@ mod enter {
 		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier},
 		disputes::clear_dispute_storage,
 		initializer::BufferedSessionChange,
-		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
-		scheduler::common::{Assignment, AssignmentProvider},
+		mock::{new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
 		session_info,
 	};
 	use alloc::collections::btree_map::BTreeMap;
@@ -548,7 +547,7 @@ mod enter {
 				candidate_modifier: None,
 			});
 
-			let prev_claim_queue = scheduler::ClaimQueue::<Test>::get();
+			let prev_claim_queue = Scheduler::claim_queue();
 
 			assert_eq!(inclusion::PendingAvailability::<Test>::iter().count(), 2);
 			assert_eq!(
@@ -613,7 +612,7 @@ mod enter {
 				.is_empty());
 
 			// The claim queue should not have been advanced.
-			assert_eq!(prev_claim_queue, scheduler::ClaimQueue::<Test>::get());
+			assert_eq!(prev_claim_queue, Scheduler::claim_queue());
 		});
 	}
 
