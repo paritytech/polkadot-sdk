@@ -127,7 +127,7 @@ macro_rules! log {
 	};
 }
 
-/// The communication trait of `pallet-staking-rc-client` -> `relay-chain`.
+/// The communication trait of `pallet-staking-next-rc-client` -> `relay-chain`.
 ///
 /// This trait should only encapsulate our _outgoing_ communication to the RC. Any incoming
 /// communication comes it directly via our calls.
