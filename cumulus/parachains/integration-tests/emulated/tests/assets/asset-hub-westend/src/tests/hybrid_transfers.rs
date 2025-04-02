@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use emulated_integration_tests_common::xcm_emulator::{find_all_xcm_topic_events, find_mq_processed_id, find_xcm_sent_message_id};
+use emulated_integration_tests_common::xcm_emulator::{
+	find_all_xcm_topic_events, find_mq_processed_id, find_xcm_sent_message_id,
+};
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
 use super::reserve_transfer::*;
@@ -124,10 +126,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 	);
 
 	for (i, event) in find_all_xcm_topic_events!(PenpalA).iter().enumerate() {
-		println!(
-			"Event {} on PenpalA on para_to_para_transfer_assets_through_ah: {:?}",
-			i, event
-		);
+		println!("Event {} on PenpalA on para_to_para_transfer_assets_through_ah: {:?}", i, event);
 	}
 
 	let msg_id_sent = find_xcm_sent_message_id!(PenpalA);

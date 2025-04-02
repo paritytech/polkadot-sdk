@@ -1348,15 +1348,11 @@ macro_rules! find_all_xcm_topic_events {
 
 		for event in events.iter() {
 			match event {
-				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent {
-					message_id,
-					..
-				}) => {
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) => {
 					xcm_events.push((sp_core::H256::from(*message_id), event.clone()));
 				},
 				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
-					id,
-					..
+					id, ..
 				}) => {
 					xcm_events.push((*id, event.clone()));
 				},
