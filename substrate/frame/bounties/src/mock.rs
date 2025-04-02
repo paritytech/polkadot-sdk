@@ -44,8 +44,9 @@ thread_local! {
 	pub static TEST_MAX_BOUNTY_UPDATE_PERIOD: RefCell<bool> = RefCell::new(false);
 }
 
-pub struct TestPay;
-impl Pay for TestPay {
+pub struct TestBountiesPay;
+impl Pay for TestBountiesPay {
+	type Source = u128;
 	type Beneficiary = u128;
 	type Balance = u64;
 	type Id = u64;
@@ -53,7 +54,7 @@ impl Pay for TestPay {
 	type Error = ();
 
 	fn pay(
-		_: &Self::Beneficiary,
+		_: &Self::Source,
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
@@ -70,7 +71,7 @@ impl Pay for TestPay {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
-		_: &Self::Beneficiary,
+		_: &Self::Source,
 		_: &Self::Beneficiary,
 		_: Self::AssetKind,
 		_: Self::Balance,
@@ -88,6 +89,50 @@ impl Pay for TestPay {
 	}
 }
 
+pub struct TestTreasuryPay;
+impl Pay for TestTreasuryPay {
+	type Source = ();
+	type Beneficiary = u128;
+	type Balance = u64;
+	type Id = u64;
+	type AssetKind = u32;
+	type Error = ();
+
+	fn pay(
+		_: &Self::Source,
+		to: &Self::Beneficiary,
+		asset_kind: Self::AssetKind,
+		amount: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {
+		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
+		Ok(LAST_ID.with(|lid| {
+			let x = *lid.borrow();
+			lid.replace(x + 1);
+			x
+		}))
+	}
+	fn check_payment(id: Self::Id) -> PaymentStatus {
+		STATUS.with(|s| s.borrow_mut().entry(id).or_insert(PaymentStatus::InProgress).clone())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(
+		_: &Self::Source,
+		_: &Self::Beneficiary,
+		_: Self::AssetKind,
+		_: Self::Balance,
+	) {
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(id: Self::Id) {
+		let status =
+			STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown));
+		if status == PaymentStatus::InProgress {
+			set_status(id, PaymentStatus::Failure);
+		} else {
+			set_status(id, PaymentStatus::Success);
+		}
+	}
+}
 frame_support::construct_runtime!(
 	pub enum Test
 	{
@@ -176,7 +221,7 @@ impl pallet_treasury::Config for Test {
 	type AssetKind = u32;
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = TestPay;
+	type Paymaster = TestTreasuryPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
@@ -199,7 +244,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type AssetKind = u32;
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = TestPay;
+	type Paymaster = TestTreasuryPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
@@ -216,6 +261,13 @@ parameter_types! {
 	pub static BountyUpdatePeriod: u64 = 20;
 }
 
+pub struct TestBountySource;
+impl TryConvert<(BountyIndex, u32), u128> for TestBountySource {
+	fn try_convert(input: (BountyIndex, u32)) -> Result<u128, (BountyIndex, u32)> {
+		let sub = PalletId(*b"py/bounti").into_sub_account_truncating(("bt", input.0));
+		Ok(sub)
+	}
+}
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = BountyDepositBase;
@@ -230,6 +282,8 @@ impl Config for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
+	type BountySource = TestBountySource;
+	type Paymaster = TestBountiesPay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -248,6 +302,8 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
+	type BountySource = TestBountySource;
+	type Paymaster = TestBountiesPay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

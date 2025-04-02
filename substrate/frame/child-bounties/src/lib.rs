@@ -1444,8 +1444,18 @@ impl<T: Config<I>, I: 'static> pallet_bounties::ChildBountyManager<BountyBalance
 		ParentChildBounties::<T, I>::get(bounty_id)
 	}
 
-	/// Returns cumulative child-bounty curator fees for `bounty_id` also removing the associated
+	/// Returns cumulative child-bounties' value for `bounty_id` and removes the associated
 	/// storage item. This function is assumed to be called when parent bounty is claimed.
+	fn children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -> BountyBalanceOf<T, I> {
+		// This is asked for when the parent bounty is being claimed. No use of
+		// keeping it in state after that. Hence removing.
+		let children_fee_total = ChildrenCuratorFees::<T, I>::get(bounty_id);
+		ChildrenCuratorFees::<T, I>::remove(bounty_id);
+		children_fee_total
+	}
+
+	/// Returns cumulative child-bounties' curator fees for `bounty_id` and removes the associated
+	/// storage item. This function is assumed to be called when the parent bounty is claimed.
 	fn children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -> BountyBalanceOf<T, I> {
 		// This is asked for when the parent bounty is being claimed. No use of
 		// keeping it in state after that. Hence removing.

@@ -267,7 +267,7 @@ pub mod pallet {
 
 		/// Type for processing spends of [`Self::AssetKind`] in favor of [`Self::Beneficiary`].
 		///
-		/// The `Source` type is determined by the `Pay` implementation. For example, it
+		/// The source account is determined by the `Pay` implementation. For example, it
 		/// could use `Pallet::account_id()` or dynamically choose a source based on the `AssetKind`.
 		type Paymaster: Pay<
 			Balance = BalanceOf<Self, I>,
