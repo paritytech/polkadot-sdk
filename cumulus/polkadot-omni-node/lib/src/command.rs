@@ -14,10 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use clap::{CommandFactory, FromArgMatches};
 use crate::{
 	cli,
-	cli::{Cli, RelayChainCli, Subcommand},
+	cli::{ExtraSubcommand, RelayChainCli, Subcommand},
 	common::{
 		chain_spec::{Extensions, LoadSpec},
 		runtime::{
@@ -31,6 +30,7 @@ use crate::{
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
 };
+use clap::{CommandFactory, FromArgMatches};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
@@ -40,7 +40,6 @@ use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-use crate::cli::{ExtraCommandProvider, ExtraSubcommand};
 
 const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
@@ -52,7 +51,8 @@ pub struct RunConfig {
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
 	/// Optional custom command handler.
-	pub extra_command_provider: Option<Box<dyn cli::ExtraCommandProvider<Command = ExtraSubcommand>>>,
+	pub extra_command_provider:
+		Option<Box<dyn cli::ExtraCommandProvider<Command = ExtraSubcommand>>>,
 }
 
 impl RunConfig {
@@ -62,7 +62,8 @@ impl RunConfig {
 	///
 	/// - `runtime_resolver`: A boxed runtime resolver.
 	/// - `chain_spec_loader`: A boxed chain spec loader.
-	/// - `extra_command_provider`: An optional extra command provider which, if provided, will handle extra subcommands.
+	/// - `extra_command_provider`: An optional extra command provider which, if provided, will
+	///   handle extra subcommands.
 	///
 	/// # Returns
 	///
@@ -70,13 +71,11 @@ impl RunConfig {
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
-		extra_command_provider: Option<Box<dyn cli::ExtraCommandProvider<Command = ExtraSubcommand>>>,
+		extra_command_provider: Option<
+			Box<dyn cli::ExtraCommandProvider<Command = ExtraSubcommand>>,
+		>,
 	) -> Self {
-		RunConfig {
-			runtime_resolver,
-			chain_spec_loader,
-			extra_command_provider,
-		}
+		RunConfig { runtime_resolver, chain_spec_loader, extra_command_provider }
 	}
 }
 
@@ -120,7 +119,6 @@ fn new_node_spec(
 
 /// Parse command line arguments into service configuration.
 pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
-
 	let mut cli_command = crate::cli::Cli::<CliConfig>::command();
 
 	// If extra command provider exists, augment the CLI with its commands
@@ -142,7 +140,6 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			}
 		}
 	}
-
 
 	// No extra subcommand, parse base CLI and proceed normally
 	let mut cli = crate::cli::Cli::<CliConfig>::from_arg_matches(&matches)

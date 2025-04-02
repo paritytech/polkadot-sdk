@@ -21,11 +21,15 @@
 
 mod chain_spec;
 
-use std::io;
 use clap::{Parser, Subcommand};
-use polkadot_omni_node_lib::{chain_spec::LoadSpec, cli, run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
-use polkadot_omni_node_lib::cli::{ExtraCommandProvider, ExtraSubcommand};
+use polkadot_omni_node_lib::{
+	chain_spec::LoadSpec,
+	cli,
+	cli::{ExtraCommandProvider, ExtraSubcommand},
+	run, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
+};
 use sc_cli::Error::Application;
+use std::io;
 
 /// Struct to use extra commands within polkadot-parachain
 pub struct ExportChainSpecExtra;
@@ -36,12 +40,11 @@ impl ExtraCommandProvider for ExportChainSpecExtra {
 	fn handle_command(&self, cmd: &Self::Command) -> sc_cli::Result<()> {
 		match cmd {
 			ExtraSubcommand::ExportChainSpec(ref export_cmd) => {
-				let spec = chain_spec::ChainSpecLoader.load_spec(&export_cmd.chain)
-					.map_err(|e| Application(Box::new(
-						io::Error::new(io::ErrorKind::Other, e)
-					)))?;
+				let spec = chain_spec::ChainSpecLoader
+					.load_spec(&export_cmd.chain)
+					.map_err(|e| Application(Box::new(io::Error::new(io::ErrorKind::Other, e))))?;
 				export_cmd.run(spec)
-			}
+			},
 		}
 	}
 
@@ -49,16 +52,12 @@ impl ExtraCommandProvider for ExportChainSpecExtra {
 		cmd.subcommand(
 			clap::Command::new("export-chain-spec")
 				.about("Export the chain specification")
-				.arg(clap::Arg::new("chain")
-					.long("chain")
-					.help("Specify the chain")
-					.required(true)
-				)
+				.arg(
+					clap::Arg::new("chain").long("chain").help("Specify the chain").required(true),
+				),
 		)
 	}
 }
-
-
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]

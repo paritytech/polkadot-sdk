@@ -155,7 +155,7 @@ pub enum Subcommand {
 
 /// Extra SubCommands that can be optionally used to extend the functionality through omni-node-lib
 #[derive(Debug, clap::Subcommand, Clone)]
-#[command(about = "Extra subcommands for extending the CLI")]
+#[command(about = "Extra subcommands for extending the CLI", version = env!("CARGO_PKG_VERSION"))]
 pub enum ExtraSubcommand {
 	/// Export the chain specification.
 	ExportChainSpec(sc_cli::ExportChainSpecCmd),
@@ -164,6 +164,7 @@ pub enum ExtraSubcommand {
 /// CLI Options shipped with `polkadot-omni-node`.
 #[derive(clap::Parser)]
 #[command(
+	version = env!("CARGO_PKG_VERSION"),
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
 	subcommand_negates_reqs = true,
