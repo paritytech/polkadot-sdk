@@ -7,14 +7,14 @@ This document outlines the high level design of a new transaction protocol. It c
   - using transaction identifiers flooding,
   - The TxRR (tx request response) for requesting transaction bodies,
 
-Phase 1a:
+- Phase 1a:
   - low fanout floding for bodies,
   - matrix based gossiping between authorithies,
 
-Phase 2:
-  - 32 bit identifier,
+- Phase 2:
+  - 32 bit transaction fingerprint,
   - include low-fanout strategies and set reconciliations:
-    - naive implemenation to evaluate the impact,
+    - research: naive implemenation to evaluate the impact to latencies/bandwidth,
     - full implementation
 
 ### Problems with Current Implementation.
@@ -28,12 +28,12 @@ In tests where 1000 transactions were submitted to a relay-chain built from 20+1
 1. **Increase Transactions per Network Notification:** This approach, demonstrated in a [Proof of Concept](https://github.com/paritytech/polkadot-sdk/pull/7828), proposes increasing the number of transactions in a single network notification to reduce congestion.
 2. **Introduce a New Transaction Protocol:** A more comprehensive solution may involve the development of a new transaction protocol to address the identified issues. This was discussed and proposed many times e.g. in [#6433](https://github.com/paritytech/polkadot-sdk/issues/6433).
 
-### Some background.
-In the past an introduction of reconciliation set into Polkadot transaction protocol was mentioned many times. This approach was initially evaluated in Erlay extension to the Bitcoin protocol.
+### Prior Work
+In the past an introduction of reconciliation set into Polkadot transaction protocol was mentioned many times. This approach was initially evaluated in *Erlay*.
 
-Erlay is a proposed enhancement to the Bitcoin protocol designed to optimize the bandwidth used during the transaction broadcast process. The protocol introduces a method where transaction hashes are initially shared with a limited set of peers, a phase known as "low fanout". Following this, nodes request the full transaction data using a GETDATA message. Crucially, Erlay periodically triggers a set reconciliation process to synchronize transaction sets between peer pairs.
+*Erlay* is a proposed enhancement to the Bitcoin protocol designed to optimize the bandwidth used during the transaction broadcast process. The protocol introduces a method where transaction hashes are initially shared with a limited set of peers, a phase known as *low fanout*. Following this, nodes request the full transaction data using a `GETDATA` message. Crucially, *Erlay* periodically triggers a set reconciliation process to synchronize transaction sets between peer pairs.
 
-While Erlay significantly reduces bandwidth consumption, it introduces an increase in transactions propagation latency. This trade-off needs careful consideration. Teams in Polkadot ecosystem may have different requirements and some flexibility is required in transaction protocol.
+While *Erlay* significantly reduces bandwidth consumption, it introduces an increase in transactions propagation latency. This trade-off needs careful consideration. Teams in Polkadot ecosystem may have different requirements and some flexibility is required in transaction protocol.
 
 For more detailed insights, consider the following resources [[1](https://delvingbitcoin.org/t/erlay-overview-and-current-approach/1415)](Sections 1-5),[[2](https://arxiv.org/pdf/1905.10518)].
 
@@ -44,9 +44,9 @@ The new transaction protocol introduces a flexible transaction descriptor format
 
 Proposed descriptor format (`TxDescriptor`):
 - The descriptor begins with a format specifier, allowing various types of payload:
-  - `0`: `leb128(size tx body) ++ scale-encoded tx-body` (LEB128-encoded size followed by SCALE-encoded transaction body, enabling direct transmission of the full transaction). Basically full transaction body.
-  - `1`: 32-byte hash,
-  - `2`: 32-bit ID, which allow to further bandwidth optimizations, and lays the ground for pin-sketch implementation.
+  - `0`: transaction body v1: `leb128(size tx body) ++ scale-encoded tx-body` (LEB128-encoded size followed by SCALE-encoded transaction body, enabling direct transmission of the full transaction body),
+  - `1`: 32-byte hash v1 (currently used),
+  - `2`: 32-bit transaction fingerprint v1, allowing further bandwidth optimizations, and laying the ground for *PinSketch* based set-reconciliation implementation as defined in *Erlay*.
 
 Two latter payloads are referred as transaction identifiers.
 
@@ -90,11 +90,11 @@ Peer reputation shall be adjusted accordingly.
 #### [Optional] Authorities matrix for exchanging transactions.
 Not necessarily a part of protocol itself, could be considered as the optimization of implementation. Authorities could use matrix to effectively exchange txs. Doing so may decrease the latency and improve pools alignment. Similar approach was taken in `polkadot-gossip-support` module ([code](https://github.com/paritytech/polkadot-sdk/blob/98c6ffcea6794d338514cf9bd84446d2f276cb63/polkadot/node/network/gossip-support/src/lib.rs#L786), [doc](https://web.archive.org/web/20221210090830/https://research.web3.foundation/en/latest/polkadot/networking/3-avail-valid.html])). This would require authority-discovery on parachains and probably a more thinking how it could work.
 
-### Towards set-reconciliation.
+### [Optional] Towards set-reconciliation.
 This section outlines potential future extensions to the transaction protocol. The details of these improvements require further consideration, particularly regarding the cooperation of nodes with different enabled features within the same network. Also some details needs to be figure out - this section only provides a potential directions of future work.
 
 #### [Optional] 32-bit identifier.
-During the handshake peers shall exchange salts. Later salts shall be used to generate 32-bits transaction identifier that is only valid for given pair of peers. This allows to reduce the size of data being flooded to the network, and lays out foundation for introducing a pin sketch.
+During the handshake peers shall exchange salts. Later salts shall be used to generate 32-bits transaction identifier that is only valid for given pair of peers. This allows to reduce the size of data being flooded to the network, and lays out foundation for introducing a set sketch based reconciliation.
 
 
 #### [Optional] transaction identifiers low fanout + set reconciliation.
@@ -110,8 +110,8 @@ Purpose of this exercise is to evaluate the benefits of applying set-reconciliat
 - send the difference to the peer,
 - fetch unknown transactions using TxRR
 
-#### [Optional] pin-sketch based.
-Use pin sketch ([mini-sketch](https://github.com/bitcoin-core/minisketch) lib implemented for Erlay) to compute the set difference.
+#### [Optional] *PinSketch* based.
+Use *PinSketch* ([mini-sketch](https://github.com/bitcoin-core/minisketch) lib implemented for *Erlay*) to compute the set difference.
 
 ### Protocol metrics.
 At least following protocol metrics shall be implemented:
@@ -119,8 +119,12 @@ At least following protocol metrics shall be implemented:
 - peer reputation adjustments shall be trackable in logs,
 - number of txs in/out (peer label maybe?),
 
+### Protocol handshake
+To maintain future backward compatibility within the protocol, it is advisable to minimize breaking changes. Given the anticipated future enhancements, the handshake process can be strategically designed to accommodate these developments. It is essential for peers to communicate the specific protocol features they support. Accordingly, a designated mechanism or placeholder should be incorporated to facilitate this exchange of capabilities.
+
 ### Interoperability
 Nodes supporting both `transactions/1` and `transactions/2` protocols shall only use `transactions/2` for communication. Node supporting both versions of protocol should use `transactions/1` only to communicate with nodes supporting `transactions/1`. This most likely requires some changes in implementation of `transactions/1` protocol.
+
 
 ### Notes: implementation guidelines
 - re-use (copy) the existing [`transactions/1`](https://github.com/paritytech/polkadot-sdk/blob/ec700de9cdca84cdf5d9f501e66164454c2e3b7d/substrate/client/network/transactions/src/lib.rs) protocol, [instantiation](https://github.com/paritytech/polkadot-sdk/blob/ec700de9cdca84cdf5d9f501e66164454c2e3b7d/substrate/client/service/src/builder.rs#L1067-L1074) can be done in similar manner, CLI arg should be exposed,
