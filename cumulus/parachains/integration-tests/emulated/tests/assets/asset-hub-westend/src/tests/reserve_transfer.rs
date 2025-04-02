@@ -390,15 +390,9 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<Penpal
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 
 	let topic_id_on_penpal_a = find_xcm_sent_message_id!(PenpalA);
-	if let Some(topic_id) = t.topic_id {
-		assert_eq!(topic_id_on_penpal_a, Some(topic_id));
-	} else {
-		assert!(topic_id_on_penpal_a.is_some());
-		t.topic_id = topic_id_on_penpal_a;
-	}
-
+	assert!(topic_id_on_penpal_a.is_some());
 	let topic_id_on_penpal_b = find_xcm_sent_message_id!(PenpalB);
-	assert_eq!(topic_id_on_penpal_b, t.topic_id);
+	assert_eq!(topic_id_on_penpal_a, topic_id_on_penpal_b);
 
 	for asset in t.args.assets.into_inner() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
@@ -417,7 +411,6 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(mut t: Test<Penpal
 			]
 		);
 	}
-	println!("Test.topic_id on para_to_para_through_hop_sender_assertions(): {:?}", t.topic_id);
 }
 
 fn para_to_para_relay_hop_assertions(t: ParaToParaThroughRelayTest) {
