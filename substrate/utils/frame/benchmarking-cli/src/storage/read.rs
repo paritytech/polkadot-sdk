@@ -111,6 +111,18 @@ impl StorageCmd {
 					let mut instance = wasm_module.new_instance().unwrap();
 					let compact = storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
 
+					// Dry run to get the time it takes without storage access
+					let dry_run_params: StorageAccessParams<B> = StorageAccessParams {
+						state_root: *root,
+						storage_proof: compact.clone(),
+						keys: vec![],
+					};
+					let dry_run_encoded = dry_run_params.encode();
+					let dry_run_start = Instant::now();
+					instance.call_export("validate_block", &dry_run_encoded).unwrap();
+					let dry_run_elapsed = dry_run_start.elapsed();
+					info!("validate_block dry-run time {:?}", dry_run_elapsed);
+
 					let params: StorageAccessParams<B> = StorageAccessParams {
 						state_root: *root,
 						storage_proof: compact,
@@ -119,10 +131,13 @@ impl StorageCmd {
 					let encoded = params.encode();
 					let start = Instant::now();
 					instance.call_export("validate_block", &encoded).unwrap();
+					let elapsed = start.elapsed();
+					info!("validate_block time {:?}", elapsed);
 					record.append(
 						on_validation_size / on_validation_batch.len(),
 						std::time::Duration::from_nanos(
-							start.elapsed().as_nanos() as u64 / on_validation_batch.len() as u64,
+							(elapsed - dry_run_elapsed).as_nanos() as u64 /
+								on_validation_batch.len() as u64,
 						),
 					)?;
 				}
@@ -181,6 +196,19 @@ impl StorageCmd {
 						let mut instance = wasm_module.new_instance().unwrap();
 						let compact =
 							storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
+
+						// Dry run to get the time it takes without storage access
+						let dry_run_params: StorageAccessParams<B> = StorageAccessParams {
+							state_root: *root,
+							storage_proof: compact.clone(),
+							keys: vec![],
+						};
+						let dry_run_encoded = dry_run_params.encode();
+						let dry_run_start = Instant::now();
+						instance.call_export("validate_block", &dry_run_encoded).unwrap();
+						let dry_run_elapsed = dry_run_start.elapsed();
+						info!("validate_block dry-run time {:?}", dry_run_elapsed);
+
 						let params: StorageAccessParams<B> = StorageAccessParams {
 							state_root: *root,
 							storage_proof: compact,
@@ -189,10 +217,12 @@ impl StorageCmd {
 						let encoded = params.encode();
 						let start = Instant::now();
 						instance.call_export("validate_block", &encoded).unwrap();
+						let elapsed = start.elapsed();
+						info!("validate_block time {:?}", elapsed);
 						record.append(
 							on_validation_size / on_validation_batch.len(),
 							std::time::Duration::from_nanos(
-								start.elapsed().as_nanos() as u64 /
+								(elapsed - dry_run_elapsed).as_nanos() as u64 /
 									on_validation_batch.len() as u64,
 							),
 						)?;
@@ -239,6 +269,18 @@ impl StorageCmd {
 				let mut instance = wasm_module.new_instance().unwrap();
 				let compact = storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
 
+				// Dry run to get the time it takes without storage access
+				let dry_run_params: StorageAccessParams<B> = StorageAccessParams {
+					state_root: *root,
+					storage_proof: compact.clone(),
+					keys: vec![],
+				};
+				let dry_run_encoded = dry_run_params.encode();
+				let dry_run_start = Instant::now();
+				instance.call_export("validate_block", &dry_run_encoded).unwrap();
+				let dry_run_elapsed = dry_run_start.elapsed();
+				info!("validate_block dry-run time {:?}", dry_run_elapsed);
+
 				let params: StorageAccessParams<B> = StorageAccessParams {
 					state_root: *root,
 					storage_proof: compact,
@@ -247,10 +289,13 @@ impl StorageCmd {
 				let encoded = params.encode();
 				let start = Instant::now();
 				instance.call_export("validate_block", &encoded).unwrap();
+				let elapsed = start.elapsed();
+				info!("validate_block time {:?}", elapsed);
 				record.append(
 					on_validation_size / on_validation_batch.len(),
 					std::time::Duration::from_nanos(
-						start.elapsed().as_nanos() as u64 / on_validation_batch.len() as u64,
+						(elapsed - dry_run_elapsed).as_nanos() as u64 /
+							on_validation_batch.len() as u64,
 					),
 				)?;
 			}
