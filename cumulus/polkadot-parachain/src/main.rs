@@ -23,9 +23,8 @@ mod chain_spec;
 
 use clap::{Args, FromArgMatches};
 use polkadot_omni_node_lib::{
-	chain_spec::LoadSpec,
-	cli::ExtraCommandProvider,
-	run, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
+	chain_spec::LoadSpec, cli::ExtraCommandProvider, run, CliConfig as CliConfigT, RunConfig,
+	NODE_VERSION,
 };
 use sc_cli::Error::Application;
 use std::io;
@@ -44,14 +43,15 @@ impl ExtraCommandProvider for ExportChainSpecExtra {
 	}
 
 	fn augment_command(&self, cmd: clap::Command) -> clap::Command {
-		cmd.subcommand(sc_cli::ExportChainSpecCmd::augment_args_for_update(clap::Command::new("export-chain-spec")))
+		cmd.subcommand(sc_cli::ExportChainSpecCmd::augment_args_for_update(clap::Command::new(
+			"export-chain-spec",
+		)))
 	}
 
 	fn is_extra_command(&self, name: &str) -> bool {
 		["export-chain-spec"].contains(&name)
 	}
 }
-
 
 struct CliConfig;
 
