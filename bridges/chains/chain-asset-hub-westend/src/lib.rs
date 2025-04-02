@@ -148,18 +148,3 @@ pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 60; // TODO:
 decl_bridge_finality_runtime_apis!(asset_hub_westend);
 decl_bridge_messages_runtime_apis!(asset_hub_westend, HashedLaneId);
 
-frame_support::parameter_types! {
-	/// TODO: FAIL-CI - probably not needed
-	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Westend
-	/// AssetHub.
-	/// (initially was calculated by test `AssetHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const AssetHubWestendBaseXcmFeeInWnds: u128 = 57_325_000;
-
-	/// Transaction fee that is paid at the Westend AssetHub for delivering single inbound message.
-	/// (initially was calculated by test `AssetHubWestend::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-	pub const AssetHubWestendBaseDeliveryFeeInWnds: u128 = 297_685_840;
-
-	/// Transaction fee that is paid at the Westend AssetHub for delivering single outbound message confirmation.
-	/// (initially was calculated by test `AssetHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	pub const AssetHubWestendBaseConfirmationFeeInWnds: u128 = 56_782_099;
-}

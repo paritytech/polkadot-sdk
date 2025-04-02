@@ -149,18 +149,3 @@ pub const WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = 62;
 decl_bridge_finality_runtime_apis!(asset_hub_rococo);
 decl_bridge_messages_runtime_apis!(asset_hub_rococo, HashedLaneId);
 
-frame_support::parameter_types! {
-	/// TODO: FAIL-CI - probably not needed or ise for MessageExporterPrice
-	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
-	/// BridgeHub.
-	/// (initially was calculated by test `AssetHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const AssetHubRococoBaseXcmFeeInRocs: u128 = 57_325_000;
-
-	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
-	/// (initially was calculated by test `AssetHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-	pub const AssetHubRococoBaseDeliveryFeeInRocs: u128 = 297_685_840;
-
-	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
-	/// (initially was calculated by test `AssetHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	pub const AssetHubRococoBaseConfirmationFeeInRocs: u128 = 56_782_099;
-}
