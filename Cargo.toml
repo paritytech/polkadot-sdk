@@ -1423,6 +1423,7 @@ xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false 
 zeroize = { version = "1.7.0", default-features = false }
 zombienet-sdk = { version = "0.2.29" }
 zstd = { version = "0.12.4", default-features = false }
+simple-mermaid = { version = "0.1.1" }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
