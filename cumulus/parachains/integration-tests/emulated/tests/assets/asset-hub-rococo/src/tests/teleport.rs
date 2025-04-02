@@ -78,12 +78,10 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 	);
 	let (_, expected_foreign_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
-	let (_, fee_asset_amount) =
-		fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+	let (_, fee_asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 
 	AssetHubRococo::assert_xcmp_queue_success(None);
 
-	println!("expected_foreign_asset_id: {:?}", expected_foreign_asset_id);
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
@@ -112,8 +110,7 @@ fn ah_to_penpal_foreign_assets_sender_assertions(t: SystemParaToParaTest) {
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(None);
 	let (expected_foreign_asset_id, expected_foreign_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
-	let (_, fee_asset_amount) =
-		fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+	let (_, fee_asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
@@ -295,7 +292,6 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	};
 	let asset_amount_to_send = ASSET_HUB_ROCOCO_ED * 1000;
 
-	println!("asset_amount_to_send: {}", asset_amount_to_send);
 	let asset_owner = PenpalAssetOwner::get();
 	let system_para_native_asset_location = RelayLocation::get();
 	let sender = PenpalASender::get();

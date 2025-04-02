@@ -148,11 +148,13 @@ pub fn system_para_to_penpal_receiver_assertions(t: SystemParaToParaTest) {
 	for asset in t.args.assets.into_inner().into_iter() {
 		let mut expected_id: Location = asset.id.0.try_into().unwrap();
 		let relative_id = match expected_id {
-			Location{parents: 1, interior: Here} => expected_id,
+			Location { parents: 1, interior: Here } => expected_id,
 			_ => {
-				expected_id.push_front_interior(Parachain(AssetHubWestend::para_id().into())).unwrap();
+				expected_id
+					.push_front_interior(Parachain(AssetHubWestend::para_id().into()))
+					.unwrap();
 				Location::new(1, expected_id.interior().clone())
-			}
+			},
 		};
 
 		assert_expected_events!(
@@ -221,7 +223,10 @@ pub fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	AssetHubWestend::assert_xcmp_queue_success(None);
 
-	let sov_acc_of_penpal = AssetHubWestend::sovereign_account_id_of(Location::new(1, Parachain(PenpalA::para_id().into())));
+	let sov_acc_of_penpal = AssetHubWestend::sovereign_account_id_of(Location::new(
+		1,
+		Parachain(PenpalA::para_id().into()),
+	));
 	for (idx, asset) in t.args.assets.into_inner().into_iter().enumerate() {
 		let expected_id = asset.id.0.clone().try_into().unwrap();
 		let asset_amount = if let Fungible(a) = asset.fun { Some(a) } else { None }.unwrap();
@@ -467,8 +472,7 @@ fn para_to_para_asset_hub_hop_assertions(t: ParaToParaThroughAHTest) {
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
 
-	let (_, asset_amount) =
-		fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+	let (_, asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 
 	assert_expected_events!(
 		AssetHubWestend,

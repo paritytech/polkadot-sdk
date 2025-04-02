@@ -1243,7 +1243,6 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			// (exec fees: 3_593_000_000, transpo fees: 69_021_561_290 = 72_614_561_290)
 			// TODO: make this exact once we have bridge dry-running
 
-
 			// XCM to be executed at dest (Rococo Asset Hub)
 			let xcm_on_dest = Xcm(vec![
 				// since this is the last hop, we don't need to further use any assets previously

@@ -78,14 +78,9 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 	);
 	let (_, expected_foreign_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
-	let (_, fee_asset_amount) =
-		fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+	let (_, fee_asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 
 	AssetHubWestend::assert_xcmp_queue_success(None);
-
-	println!("t.args.assets: {:?}", t.args.assets);
-	println!("fee_asset_amount: {}", fee_asset_amount);
-	println!("expected_foreign_asset_amount: {}", expected_foreign_asset_amount);
 
 	assert_expected_events!(
 		AssetHubWestend,
@@ -308,7 +303,6 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		sender.clone(),
 		fee_amount_to_send * 2,
 	);
-	println!("fee: {}", fee_amount_to_send);
 	// No need to create the asset (only mint) as it exists in genesis.
 	PenpalA::mint_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),

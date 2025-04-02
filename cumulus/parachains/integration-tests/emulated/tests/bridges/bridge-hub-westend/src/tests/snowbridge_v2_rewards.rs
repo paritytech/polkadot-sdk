@@ -61,9 +61,7 @@ fn claim_rewards_works() {
 
 		let relayer_location = Location::new(
 			0,
-			[
-				Junction::AccountId32 { id: reward_address.clone().into(), network: None },
-			],
+			[Junction::AccountId32 { id: reward_address.clone().into(), network: None }],
 		);
 		let reward_beneficiary =
 			BridgeRewardBeneficiaries::AssetHubLocation(VersionedLocation::V5(relayer_location));
