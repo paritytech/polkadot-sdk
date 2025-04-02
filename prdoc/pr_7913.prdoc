@@ -6,7 +6,7 @@ crates:
 - name: xcm-emulator
   bump: patch
 - name: emulated-integration-tests-common
-  bump: patch
+  bump: minor
 - name: asset-hub-rococo-integration-tests
   bump: patch
 - name: asset-hub-westend-integration-tests
