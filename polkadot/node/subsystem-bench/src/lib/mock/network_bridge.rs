@@ -190,13 +190,13 @@ impl MockNetworkBridgeRx {
 					if let Some(message) = maybe_peer_message {
 						match message {
 							NetworkMessage::MessageFromPeer(peer_id, message) => match message {
-								Versioned::V2(
-									polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(
+								Versioned::V3(
+									polkadot_node_network_protocol::v3::ValidationProtocol::BitfieldDistribution(
 										bitfield,
 									),
 								) => {
 									ctx.send_message(
-										BitfieldDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::Versioned::V2(bitfield)))
+										BitfieldDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::Versioned::V3(bitfield)))
 									).await;
 								},
 								Versioned::V3(
@@ -220,7 +220,7 @@ impl MockNetworkBridgeRx {
 									).await;
 								}
 								_ => {
-									unimplemented!("We only talk v2 network protocol")
+									unimplemented!("We only talk v3 network protocol")
 								},
 							},
 							NetworkMessage::RequestFromPeer(request) => {
