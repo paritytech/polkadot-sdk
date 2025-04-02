@@ -20,7 +20,9 @@
 
 use crate::{
 	archive::{
-		archive_storage::ArchiveStorageDiff, error::Error as ArchiveError, ArchiveApiServer,
+		archive_storage::ArchiveStorageDiff,
+		error::{Error as ArchiveError, Infallible},
+		ArchiveApiServer,
 	},
 	common::{
 		events::{
@@ -33,10 +35,7 @@ use crate::{
 
 use codec::Encode;
 use futures::FutureExt;
-use jsonrpsee::{
-	core::{async_trait, RpcResult},
-	PendingSubscriptionSink,
-};
+use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
@@ -117,7 +116,7 @@ where
 		+ StorageProvider<Block, BE>
 		+ 'static,
 {
-	fn archive_v1_body(&self, hash: Block::Hash) -> RpcResult<Option<Vec<String>>> {
+	fn archive_v1_body(&self, hash: Block::Hash) -> Result<Option<Vec<String>>, Infallible> {
 		let Ok(Some(signed_block)) = self.client.block(hash) else { return Ok(None) };
 
 		let extrinsics = signed_block
@@ -130,21 +129,21 @@ where
 		Ok(Some(extrinsics))
 	}
 
-	fn archive_v1_genesis_hash(&self) -> RpcResult<String> {
+	fn archive_v1_genesis_hash(&self) -> Result<String, Infallible> {
 		Ok(self.genesis_hash.clone())
 	}
 
-	fn archive_v1_header(&self, hash: Block::Hash) -> RpcResult<Option<String>> {
+	fn archive_v1_header(&self, hash: Block::Hash) -> Result<Option<String>, Infallible> {
 		let Ok(Some(header)) = self.client.header(hash) else { return Ok(None) };
 
 		Ok(Some(hex_string(&header.encode())))
 	}
 
-	fn archive_v1_finalized_height(&self) -> RpcResult<u64> {
+	fn archive_v1_finalized_height(&self) -> Result<u64, Infallible> {
 		Ok(self.client.info().finalized_number.saturated_into())
 	}
 
-	fn archive_v1_hash_by_height(&self, height: u64) -> RpcResult<Vec<String>> {
+	fn archive_v1_hash_by_height(&self, height: u64) -> Result<Vec<String>, ArchiveError> {
 		let height: NumberFor<Block> = U256::from(height)
 			.try_into()
 			.map_err(|_| ArchiveError::InvalidParam(format!("Invalid block height: {}", height)))?;
@@ -200,7 +199,7 @@ where
 		hash: Block::Hash,
 		function: String,
 		call_parameters: String,
-	) -> RpcResult<MethodResult> {
+	) -> Result<MethodResult, ArchiveError> {
 		let call_parameters = Bytes::from(parse_hex_param(call_parameters)?);
 
 		let result =
