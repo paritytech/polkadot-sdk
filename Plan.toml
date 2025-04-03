@@ -2089,7 +2089,7 @@ reason = "changed"
 # polkadot/xcm/xcm-runtime-apis
 name = "xcm-runtime-apis"
 from = "0.5.1"
-to = "0.6.0"
+to = "0.7.0"
 bump = "major"
 reason = "changed"
 
