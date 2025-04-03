@@ -549,6 +549,38 @@ mod tests {
 	}
 
 	#[sqlx::test]
+	async fn test_fork(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+
+		for i in [1u8, 2u8] {
+			let block = MockBlockInfo { hash: H256::from([i; 32]), number: 1 };
+			let transaction_hash = H256::from([i as u8; 32]);
+			let receipts = vec![(
+				TransactionSigned::default(),
+				ReceiptInfo {
+					transaction_hash: transaction_hash.clone(),
+					logs: vec![Log {
+						block_hash: block.hash,
+						transaction_hash,
+						..Default::default()
+					}],
+					..Default::default()
+				},
+			)];
+			provider.insert(&block, &receipts).await?;
+		}
+		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, 1);
+		assert_eq!(count(&provider.pool, "logs", None).await, 1);
+		assert_eq!(
+			provider.block_number_to_hash.lock().await.clone(),
+			[(1, H256::from([2 as u8; 32]))].into(),
+			"New receipt for block #1 should replace the old one"
+		);
+
+		return Ok(());
+	}
+
+	#[sqlx::test]
 	async fn test_receipts_count_per_block(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 		let block = MockBlockInfo { hash: H256::default(), number: 0 };
