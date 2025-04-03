@@ -1,0 +1,14 @@
+title: Fix penpal runtime
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: |-
+    Allow to teleport native asset from/to AH.
+    Allow to use native asset to pay fees.
+    Allow unpaid execution from relay chain for sudo calls.
+    Initialize assets into chain_spec for local setup.
+crates:
+- name: penpal-runtime
+  bump: patch
+- name: polkadot-parachain-bin
+  bump: patch
+
