@@ -23,19 +23,19 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use clap::Parser;
 use relay_substrate_client::{ChainWithTransactions, Client};
+use structopt::StructOpt;
 
 /// Start equivocation detection loop.
-#[derive(Parser)]
+#[derive(StructOpt)]
 pub struct DetectEquivocationsParams {
-	#[command(flatten)]
+	#[structopt(flatten)]
 	source: SourceConnectionParams,
-	#[command(flatten)]
+	#[structopt(flatten)]
 	source_sign: SourceSigningParams,
-	#[command(flatten)]
+	#[structopt(flatten)]
 	target: TargetConnectionParams,
-	#[command(flatten)]
+	#[structopt(flatten)]
 	prometheus_params: PrometheusParams,
 }
 
