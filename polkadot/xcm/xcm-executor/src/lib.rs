@@ -446,6 +446,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		self.take_fee(fee, reason)?;
 		match Config::XcmSender::deliver(ticket) {
 			Ok(message_id) => {
+				let process_id = sp_core::H256::from(&message_id);
+				tracing::debug!(target: "xcm::send", ?process_id, ?message_id, "XCM sent successfully");
 				Config::XcmEventEmitter::emit_sent_event(
 					self.original_origin.clone(),
 					dest,

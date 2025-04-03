@@ -53,6 +53,8 @@ impl<Inner: SendXcm> SendXcm for WithUniqueTopic<Inner> {
 			tracing::trace!(target: "xcm::routing", ?unique_id, "`SetTopic` appended to message");
 			unique_id
 		};
+		let process_id = sp_core::H256::from(&unique_id);
+		tracing::debug!(target: "xcm::routing", ?process_id, ?unique_id, ?message, "Message received!");
 		let (ticket, assets) = Inner::validate(destination, &mut Some(message))?;
 		Ok(((ticket, unique_id), assets))
 	}
