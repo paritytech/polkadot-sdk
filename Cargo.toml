@@ -1106,7 +1106,7 @@ polkadot-sdk = { path = "umbrella", default-features = false, version = "2503.0.
 polkadot-sdk-docs = { path = "docs/sdk" }
 polkadot-service = { path = "polkadot/node/service", default-features = false, version = "23.0.0" }
 polkadot-statement-distribution = { path = "polkadot/node/network/statement-distribution", default-features = false, version = "22.0.0" }
-polkadot-statement-table = { path = "polkadot/statement-table", default-features = false, version = "18.0.0" }
+polkadot-statement-table = { path = "polkadot/statement-table", default-features = false, version = "19.0.0" }
 polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client", version = "1.0.0" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime", version = "1.0.0" }

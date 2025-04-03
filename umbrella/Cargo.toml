@@ -2699,7 +2699,7 @@ version = "22.0.0"
 default-features = false
 optional = true
 path = "../polkadot/statement-table"
-version = "18.0.0"
+version = "19.0.0"
 
 [dependencies.sc-allocator]
 default-features = false

@@ -16154,7 +16154,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-statement-table"
-version = "18.0.0"
+version = "19.0.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
