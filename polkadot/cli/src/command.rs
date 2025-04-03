@@ -236,9 +236,6 @@ where
 				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
 				enable_approval_voting_parallel: cli.run.enable_approval_voting_parallel,
 				keep_finalized_for: cli.run.keep_finalized_for,
-				enable_experimental_collator_protocol: cli
-					.run
-					.enable_experimental_collator_protocol,
 			},
 		)
 		.map(|full| full.task_manager)?;

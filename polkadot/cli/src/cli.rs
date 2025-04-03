@@ -158,12 +158,6 @@ pub struct RunCmd {
 	/// networks.
 	#[arg(long)]
 	pub keep_finalized_for: Option<u32>,
-
-	/// Enable experimental collator protocol implementation.
-	///
-	/// **Dangerous!** Do not touch unless explicitly advised to.
-	#[arg(long, default_value = "false")]
-	pub enable_experimental_collator_protocol: bool,
 }
 
 #[allow(missing_docs)]

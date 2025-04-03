@@ -99,7 +99,6 @@ fn main() -> Result<()> {
 						prepare_workers_soft_max_num: None,
 						enable_approval_voting_parallel: false,
 						keep_finalized_for: None,
-						enable_experimental_collator_protocol: false,
 					},
 				)
 				.map_err(|e| e.to_string())?;
