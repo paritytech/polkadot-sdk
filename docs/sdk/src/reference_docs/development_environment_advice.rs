@@ -10,7 +10,7 @@
 //! [Rust Analyzer](https://rust-analyzer.github.io/) is the defacto [LSP](https://langserver.org/) for Rust. Its default
 //! settings are fine for smaller projects, but not well optimised for polkadot-sdk.
 //!
-//! Below is a suggested configuration for VSCode:
+//! Below is a suggested configuration for VSCode or any VSCode-based editor like Cursor:
 //!
 //! ```json
 //! {
@@ -118,7 +118,8 @@
 //! freeing up local resources for other tasks like `rust-analyzer`.
 //!
 //! When using `cargo-remote`, you can configure your editor to perform the the typical
-//! "check-on-save" remotely as well. The configuration for VSCode is as follows:
+//! "check-on-save" remotely as well. The configuration for VSCode (or any VSCode-based editor like
+//! Cursor) is as follows:
 //!
 //! ```json
 //! {
