@@ -169,20 +169,20 @@
 //!         "--target-dir=target/rust-analyzer"
 //!       },
 //!     },
-//!     check = {
-//!       overrideCommand = {
-//!         "cargo",
-//!         "remote",
-//!         "--build-env",
-//!         "SKIP_WASM_BUILD=1",
-//!         "--",
-//!         "check",
-//!         "--workspace",
-//!         "--message-format=json",
-//!         "--all-targets",
-//!         "--all-features",
-//!         "--target-dir=target/rust-analyzer"
-//!       },
+//!   },
+//!   check = {
+//!     overrideCommand = {
+//!       "cargo",
+//!       "remote",
+//!       "--build-env",
+//!       "SKIP_WASM_BUILD=1",
+//!       "--",
+//!       "check",
+//!       "--workspace",
+//!       "--message-format=json",
+//!       "--all-targets",
+//!       "--all-features",
+//!       "--target-dir=target/rust-analyzer"
 //!     },
 //!   },
 //! },
