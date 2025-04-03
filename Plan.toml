@@ -1013,7 +1013,7 @@ reason = "changed"
 # cumulus/bin/pov-validator
 name = "cumulus-pov-validator"
 from = "0.3.1"
-to = "0.4.0"
+to = "0.5.0"
 bump = "major"
 reason = "changed"
 
