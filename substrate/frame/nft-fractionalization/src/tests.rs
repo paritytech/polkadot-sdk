@@ -25,7 +25,7 @@ use frame::{
 };
 use TokenError::FundsUnavailable;
 use fungible::{hold::Inspect as InspectHold, Mutate as MutateFungible};
-use fungibles::{metadata::Inspect, InspectEnumerable};
+use fungibles::{metadata::Inspect,InspectEnumerable};
 
 use pallet_nfts::CollectionConfig;
 
