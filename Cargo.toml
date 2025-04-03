@@ -946,6 +946,7 @@ pallet-default-config-example = { path = "substrate/frame/examples/default-confi
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
 pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features = false }
+pallet-dummy-dim = { path = "substrate/frame/dummy-dim", default-features = false }
 pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
 pallet-elections-phragmen = { path = "substrate/frame/elections-phragmen", default-features = false }
@@ -986,9 +987,11 @@ pallet-nomination-pools-benchmarking = { path = "substrate/frame/nomination-pool
 pallet-nomination-pools-runtime-api = { path = "substrate/frame/nomination-pools/runtime-api", default-features = false }
 pallet-offences = { path = "substrate/frame/offences", default-features = false }
 pallet-offences-benchmarking = { path = "substrate/frame/offences/benchmarking", default-features = false }
+pallet-origin-restriction = { path = "substrate/frame/origin-restriction", default-features = false }
 pallet-paged-list = { path = "substrate/frame/paged-list", default-features = false }
 pallet-parachain-template = { path = "templates/parachain/pallets/template", default-features = false }
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
+pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
@@ -1397,6 +1400,7 @@ twox-hash = { version = "1.6.3", default-features = false }
 txtesttool = { version = "0.4.0", package = "substrate-txtesttool" }
 unsigned-varint = { version = "0.7.2" }
 url = { version = "2.5.4" }
+verifiable = { git = "https://github.com/paritytech/verifiable", branch = "main", version = "*", default-features = false }
 void = { version = "1.0.2" }
 w3f-bls = { version = "0.1.3", default-features = false }
 wait-timeout = { version = "0.2" }
