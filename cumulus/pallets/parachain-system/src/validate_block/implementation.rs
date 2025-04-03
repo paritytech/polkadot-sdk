@@ -425,7 +425,7 @@ pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 	use codec::Decode;
 	use sp_state_machine::Backend;
 
-	let StorageAccessParams { state_root, storage_proof, keys, read } =
+	let StorageAccessParams { state_root, storage_proof, keys, read, dry_run } =
 		StorageAccessParams::<B>::decode(&mut params)
 			.expect("Invalid arguments to `validate_block`.");
 	// Create the db
@@ -483,15 +483,18 @@ pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
 			.replace_implementation(host_storage_proof_size),
 	);
-	if read {
-		for (key, values) in keys {
-			backend
-				.storage(key.0.as_ref())
-				.expect("Key not found")
-				.ok_or("Value unexpectedly empty");
+
+	if !dry_run {
+		if read {
+			for (key, values) in keys {
+				backend
+					.storage(key.0.as_ref())
+					.expect("Key not found")
+					.ok_or("Value unexpectedly empty");
+			}
+		} else {
+			let delta = keys.iter().map(|(key, value)| (key.0.as_ref(), Some(value.as_ref())));
+			let root = backend.storage_root(delta, StateVersion::V1);
 		}
-	} else {
-		let delta = keys.iter().map(|(key, value)| (key.0.as_ref(), Some(value.as_ref())));
-		let root = backend.storage_root(delta, StateVersion::V1);
 	}
 }

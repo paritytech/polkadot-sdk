@@ -129,6 +129,7 @@ impl StorageCmd {
 						storage_proof: compact.clone(),
 						keys: vec![],
 						read: !self.params.write,
+						dry_run: true,
 					};
 					let dry_run_encoded = dry_run_params.encode();
 					let dry_run_start = Instant::now();
@@ -141,6 +142,7 @@ impl StorageCmd {
 						storage_proof: compact,
 						keys: on_validation_batch.clone(),
 						read: !self.params.write,
+						dry_run: false,
 					};
 					let encoded = params.encode();
 					let start = Instant::now();
@@ -215,7 +217,8 @@ impl StorageCmd {
 						let dry_run_params: StorageAccessParams<B> = StorageAccessParams {
 							state_root: *root,
 							storage_proof: compact.clone(),
-							keys: vec![],
+							dry_run: true,
+							keys: on_validation_batch.clone(),
 							read: !self.params.write,
 						};
 						let dry_run_encoded = dry_run_params.encode();
@@ -228,6 +231,7 @@ impl StorageCmd {
 							state_root: *root,
 							storage_proof: compact,
 							read: !self.params.write,
+							dry_run: false,
 							keys: on_validation_batch.clone(),
 						};
 						let encoded = params.encode();
@@ -290,7 +294,8 @@ impl StorageCmd {
 					state_root: *root,
 					storage_proof: compact.clone(),
 					read: !self.params.write,
-					keys: vec![],
+					dry_run: true,
+					keys: on_validation_batch.clone(),
 				};
 				let dry_run_encoded = dry_run_params.encode();
 				let dry_run_start = Instant::now();
@@ -302,6 +307,8 @@ impl StorageCmd {
 					state_root: *root,
 					storage_proof: compact,
 					read: !self.params.write,
+					dry_run: false,
+
 					keys: on_validation_batch.clone(),
 				};
 				let encoded = params.encode();

@@ -76,4 +76,5 @@ pub struct StorageAccessParams<B: sp_runtime::traits::Block> {
 	pub storage_proof: sp_trie::CompactProof,
 	pub keys: crate::Vec<(sp_core::storage::StorageKey, crate::Vec<u8>)>,
 	pub read: bool,
+	pub dry_run: bool,
 }

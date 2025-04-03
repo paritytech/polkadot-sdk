@@ -133,7 +133,7 @@ pub struct StorageParams {
 	#[arg(long, default_value_t = 10_000)]
 	pub batch_size: usize,
 
-	/// Include child trees in benchmark.
+	/// Benchmark writes in validation.
 	#[arg(long)]
 	pub write: bool,
 }
@@ -219,8 +219,15 @@ impl StorageCmd {
 		let (mut rng, _) = new_rng(None);
 		keys.shuffle(&mut rng);
 
+		let mut count = 0;
+		let total = keys.len();
+
 		for i in 0..self.params.warmups {
 			info!("Warmup round {}/{}", i + 1, self.params.warmups);
+			count += 1;
+			if count % 100_000 == 0 {
+				info!("Warmed up {} of total {}", count, total);
+			}
 			let mut child_nodes = Vec::new();
 
 			for key in keys.as_slice() {
