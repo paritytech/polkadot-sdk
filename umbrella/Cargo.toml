@@ -1865,7 +1865,7 @@ version = "19.1.0"
 default-features = false
 optional = true
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
-version = "19.0.0"
+version = "20.0.0"
 
 [dependencies.pallet-xcm-bridge-hub]
 default-features = false

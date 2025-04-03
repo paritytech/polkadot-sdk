@@ -1033,7 +1033,7 @@ pallet-verify-signature = { path = "substrate/frame/verify-signature", default-f
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false, version = "40.1.0" }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false, version = "39.0.0" }
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false, version = "19.1.0" }
-pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false, version = "19.0.0" }
+pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false, version = "20.0.0" }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false, version = "0.16.1" }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false, version = "0.18.0" }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info", version = "0.20.0" }
