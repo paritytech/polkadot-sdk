@@ -55,13 +55,6 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 		]
 	);
 
-	for (i, event) in find_all_xcm_topic_events!(AssetHubWestend).iter().enumerate() {
-		println!(
-			"Event {} on AssetHubWestend on para_to_para_assethub_hop_assertions: {:?}",
-			i, event
-		);
-	}
-
 	let prc_id = find_mq_processed_id!(AssetHubWestend);
 	assert!(prc_id.is_some());
 }
@@ -124,10 +117,6 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		bx!(VersionedXcm::from(custom_xcm_on_dest)),
 		t.args.weight_limit,
 	);
-
-	for (i, event) in find_all_xcm_topic_events!(PenpalA).iter().enumerate() {
-		println!("Event {} on PenpalA on para_to_para_transfer_assets_through_ah: {:?}", i, event);
-	}
 
 	let msg_id_sent = find_xcm_sent_message_id!(PenpalA);
 	assert!(msg_id_sent.is_some());

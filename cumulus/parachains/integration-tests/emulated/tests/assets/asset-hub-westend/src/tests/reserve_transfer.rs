@@ -409,13 +409,6 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, P
 		);
 	}
 
-	for (i, event) in find_all_xcm_topic_events!(PenpalA).iter().enumerate() {
-		println!(
-			"Event {} on PenpalA on para_to_para_through_hop_sender_assertions: {:?}",
-			i, event
-		);
-	}
-
 	let msg_id_sent = find_xcm_sent_message_id!(PenpalA);
 	assert!(msg_id_sent.is_some());
 }
@@ -496,13 +489,6 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA,
 					owner: *owner == t.receiver.account_id,
 				},
 			]
-		);
-	}
-
-	for (i, event) in find_all_xcm_topic_events!(PenpalB).iter().enumerate() {
-		println!(
-			"Event {} on PenpalB on para_to_para_through_hop_receiver_assertions: {:?}",
-			i, event
 		);
 	}
 
