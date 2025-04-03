@@ -59,7 +59,7 @@ pub use sp_core::{
 };
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
-pub use sp_runtime::{traits::Convert, BoundedSlice};
+pub use sp_runtime::BoundedSlice;
 pub use sp_tracing;
 
 // Cumulus
