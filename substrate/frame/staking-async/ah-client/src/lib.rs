@@ -60,7 +60,7 @@ pub use pallet_staking_async::NullIdentity;
 
 extern crate alloc;
 use alloc::vec::Vec;
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::RewardsReporter};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_staking::{
 	offence::{OffenceDetails, OffenceSeverity},
@@ -101,6 +101,23 @@ pub trait SendToAssetHub {
 	);
 }
 
+/// A no-op implementation of [`SendToAssetHub`].
+#[cfg(feature = "std")]
+impl SendToAssetHub for () {
+	type AccountId = u64;
+
+	fn relay_session_report(_session_report: rc_client::SessionReport<Self::AccountId>) {
+		panic!("relay_session_report not implemented");
+	}
+
+	fn relay_new_offence(
+		_session_index: SessionIndex,
+		_offences: Vec<rc_client::Offence<Self::AccountId>>,
+	) {
+		panic!("relay_new_offence not implemented");
+	}
+}
+
 /// Interface to talk to the local session pallet.
 pub trait SessionInterface {
 	/// The validator id type of the session pallet
@@ -126,39 +143,54 @@ impl<T: Config + pallet_session::Config + pallet_session::historical::Config> Se
 	}
 }
 
-/// Means to force this pallet to be partially blocked. This is useful for governance intervention.
+/// Represents the operating mode of the pallet.
 #[derive(
-	Debug,
+	Default,
+	DecodeWithMemTracking,
 	Encode,
 	Decode,
-	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
+	Clone,
 	PartialEq,
 	Eq,
-	Default,
-	Clone,
-	Copy,
+	RuntimeDebug,
 )]
-pub enum Blocked {
-	/// Normal working operations.
+pub enum OperatingMode {
+	/// Fully delegated mode.
+	///
+	/// In this mode, the pallet performs no core logic and forwards all relevant operations
+	/// to the fallback implementation defined in the pallet's `Config::Fallback`.
+	///
+	/// This mode is useful when staking is in synchronous mode and waiting for the signal to
+	/// transition to asynchronous mode.
 	#[default]
-	Not,
-	/// Block all incoming messages.
-	Incoming,
-	/// Block all outgoing messages.
-	Outgoing,
-	/// Block both incoming and outgoing messages.
-	Both,
+	Passive,
+
+	/// Buffered mode for deferred execution.
+	///
+	/// In this mode, offences are accepted and buffered for later transmission to AssetHub.
+	/// However, session change reports are dropped.
+	///
+	/// This mode is useful when the counterpart pallet `pallet-staking-async-rc-client` on
+	/// AssetHub is not yet ready to process incoming messages.
+	Buffered,
+
+	/// Fully active mode.
+	///
+	/// The pallet performs all core logic directly and handles messages immediately.
+	///
+	/// This mode is useful when staking is ready to execute in asynchronous mode and the
+	/// counterpart pallet `pallet-staking-async-rc-client` is ready to accept messages.
+	Active,
 }
 
-impl Blocked {
-	pub(crate) fn allows_incoming(&self) -> bool {
-		matches!(self, Self::Not | Self::Outgoing)
-	}
-
-	pub(crate) fn allows_outgoing(&self) -> bool {
-		matches!(self, Self::Not | Self::Incoming)
+impl OperatingMode {
+	fn can_accept_validator_set(&self) -> bool {
+		match self {
+			OperatingMode::Active => true,
+			_ => false,
+		}
 	}
 }
 
@@ -202,6 +234,17 @@ pub mod pallet {
 
 		/// Interface to talk to the local Session pallet.
 		type SessionInterface: SessionInterface<ValidatorId = Self::AccountId>;
+
+		/// A fallback implementation to delegate logic to when the pallet is in
+		/// `OperatingMode::Passive`.
+		///
+		/// This type must implement the `historical::SessionManager` and `OnOffenceHandler`
+		/// interface and is expected to behave as a stand-in for this pallet’s core logic when
+		/// delegation is active.
+		type Fallback: pallet_session::SessionManager<Self::AccountId>
+			+ OnOffenceHandler<Self::AccountId, (Self::AccountId, ()), Weight>
+			+ frame_support::traits::RewardsReporter<Self::AccountId>
+			+ pallet_authorship::EventHandler<Self::AccountId, BlockNumberFor<Self>>;
 	}
 
 	#[pallet::pallet]
@@ -229,9 +272,12 @@ pub mod pallet {
 	pub type ValidatorPoints<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, u32, ValueQuery>;
 
-	/// Stores whether this pallet is blocked in any way or not.
+	/// Indicates the current operating mode of the pallet.
+	///
+	/// This value determines how the pallet behaves in response to incoming and outgoing messages,
+	/// particularly whether it should execute logic directly, defer it, or delegate it entirely.
 	#[pallet::storage]
-	pub type IsBlocked<T: Config> = StorageValue<_, Blocked, ValueQuery>;
+	pub type Mode<T: Config> = StorageValue<_, OperatingMode, ValueQuery>;
 
 	/// A storage value that is set when a `new_session` gives a new validator set to the session
 	/// pallet, and is cleared on the next call.
@@ -243,6 +289,24 @@ pub mod pallet {
 	/// timestamp to AH.
 	#[pallet::storage]
 	pub type NextSessionChangesValidators<T: Config> = StorageValue<_, u32, OptionQuery>;
+
+	/// The session index at which the latest elected validator set was applied.
+	#[pallet::storage]
+	pub type ValidatorSetAppliedAt<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
+
+	/// Stores offences that have been received while the pallet is in [`OperatingMode::Buffered`]
+	/// mode.
+	///
+	/// These offences are collected and buffered for later processing when the pallet transitions
+	/// to [`OperatingMode::Active`]. This allows the system to defer slashing or reporting logic
+	/// until communication with the counterpart pallet on AssetHub is fully established.
+	///
+	/// This storage is only used in `Buffered` mode; in `Active` mode, offences are immediately
+	/// sent, and in `Passive` mode, they are delegated to the [`Config::Fallback`] implementation.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type BufferedOffences<T: Config> =
+		StorageValue<_, Vec<(SessionIndex, Vec<rc_client::Offence<T::AccountId>>)>, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -268,6 +332,25 @@ pub mod pallet {
 		/// The validator set received is way too small, as per
 		/// [`Config::MinimumValidatorSetSize`].
 		SetTooSmallAndDropped,
+		/// Something occurred that should never happen under normal operation.
+		/// Logged as an event for fail-safe observability.
+		Unexpected(UnexpectedKind),
+	}
+
+	/// Represents unexpected or invariant-breaking conditions encountered during execution.
+	///
+	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has
+	/// failed. While these should never occur under normal operation, they are useful for
+	/// diagnosing issues in production or test environments.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	pub enum UnexpectedKind {
+		/// A validator set was received while the pallet is in [`OperatingMode::Passive`].
+		ReceivedValidatorSetWhilePassive,
+
+		/// An unexpected transition was applied between operating modes.
+		///
+		/// Expected transitions are linear and forward-only: `Passive` → `Buffered` → `Active`.
+		UnexpectedModeTransition,
 	}
 
 	#[pallet::call]
@@ -275,7 +358,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(
 			// Reads:
-			// - IsBlocked
+			// - OperatingMode
 			// - IncompleteValidatorSetReport
 			// Writes:
 			// - IncompleteValidatorSetReport or ValidatorSet
@@ -289,7 +372,20 @@ pub mod pallet {
 			// Ensure the origin is one of Root or whatever is representing AssetHub.
 			log!(info, "Received new validator set report {:?}", report);
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
-			ensure!(IsBlocked::<T>::get().allows_incoming(), Error::<T>::Blocked);
+
+			// Check the operating mode.
+			let mode = Mode::<T>::get();
+			ensure!(mode.can_accept_validator_set(), Error::<T>::Blocked);
+
+			/*
+			if !mode.can_accept_validator_set() {
+				log!(warn, "Validator set received while in {:?} mode", mode);
+				Self::deposit_event(Event::Unexpected(
+					UnexpectedKind::ReceivedValidatorSetWhilePassive,
+				));
+				return Ok(());
+			}
+			*/
 
 			let maybe_merged_report = match IncompleteValidatorSetReport::<T>::take() {
 				Some(old) => old.merge(report.clone()),
@@ -355,11 +451,12 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Allows governance to force set the operating mode of the pallet.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::DbWeight::get().writes(1))]
-		pub fn set_block(origin: OriginFor<T>, block: Blocked) -> DispatchResult {
+		pub fn set_mode(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			IsBlocked::<T>::put(block);
+			Self::do_set_mode(mode);
 			Ok(())
 		}
 	}
@@ -385,37 +482,28 @@ pub mod pallet {
 	}
 
 	impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
-		fn new_session(_: u32) -> Option<Vec<T::AccountId>> {
-			let maybe_validator_set = ValidatorSet::<T>::take().map(|(id, val_set)| {
-				// store the id to be sent back in the next session back to AH
-				NextSessionChangesValidators::<T>::put(id);
-				val_set
-			});
-
-			maybe_validator_set
+		fn new_session(session_index: u32) -> Option<Vec<T::AccountId>> {
+			match Mode::<T>::get() {
+				OperatingMode::Passive => T::Fallback::new_session(session_index),
+				// In `Buffered` mode, we drop the session report and do nothing.
+				OperatingMode::Buffered => None,
+				OperatingMode::Active => Self::do_new_session(),
+			}
 		}
 
-		fn start_session(_: u32) {}
+		fn start_session(session_index: u32) {
+			match Mode::<T>::get() {
+				OperatingMode::Passive => T::Fallback::start_session(session_index),
+				_ => ()
+			}
+		}
 
 		fn end_session(session_index: u32) {
-			use sp_runtime::SaturatedConversion;
-
-			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
-			let activation_timestamp = NextSessionChangesValidators::<T>::take()
-				.map(|id| (T::UnixTime::now().as_millis().saturated_into::<u64>(), id));
-
-			let session_report = pallet_staking_async_rc_client::SessionReport {
-				end_index: session_index,
-				validator_points,
-				activation_timestamp,
-				leftover: false,
-			};
-
-			if IsBlocked::<T>::get().allows_outgoing() {
-				log!(info, "Sending session report {:?}", session_report);
-				T::SendToAssetHub::relay_session_report(session_report);
-			} else {
-				log!(warn, "Session report is blocked and not sent.");
+			match Mode::<T>::get() {
+				OperatingMode::Passive => T::Fallback::end_session(session_index),
+				// In `Buffered` mode, we drop the session report and do nothing.
+				OperatingMode::Buffered => (),
+				OperatingMode::Active => Self::do_end_session(session_index),
 			}
 		}
 	}
@@ -426,14 +514,28 @@ pub mod pallet {
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
+			let mode = Mode::<T>::get();
+			if mode == OperatingMode::Passive {
+				// delegate to the fallback implementation.
+				return T::Fallback::on_offence(offenders, slash_fraction, slash_session);
+			}
+
+			// check if offence is from the active validator set.
+			let ongoing_offence = ValidatorSetAppliedAt::<T>::get()
+				.map(|start_session| slash_session >= start_session)
+				.unwrap_or(false);
+
 			let mut offenders_and_slashes = Vec::new();
 
 			// notify pallet-session about the offences
 			for (offence, fraction) in offenders.iter().cloned().zip(slash_fraction) {
-				T::SessionInterface::report_offence(
-					offence.offender.0.clone(),
-					OffenceSeverity(*fraction),
-				);
+				if ongoing_offence {
+					// report the offence to the session pallet.
+					T::SessionInterface::report_offence(
+						offence.offender.0.clone(),
+						OffenceSeverity(*fraction),
+					);
+				}
 
 				// prepare an `Offence` instance for the XCM message
 				offenders_and_slashes.push(rc_client::Offence {
@@ -443,29 +545,140 @@ pub mod pallet {
 				});
 			}
 
-			if IsBlocked::<T>::get().allows_outgoing() {
-				log!(info, "sending offence report to AH");
-				T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
-			} else {
-				log!(warn, "offence report is blocked and not sent")
+			match mode {
+				OperatingMode::Buffered => {
+					BufferedOffences::<T>::mutate(|buffered| {
+						buffered.push((slash_session, offenders_and_slashes.clone()));
+					});
+					log!(info, "Buffered offences: {:?}", offenders_and_slashes);
+				},
+				OperatingMode::Active => {
+					log!(info, "sending offence report to AH");
+					T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
+				},
+				_ => (),
 			}
 
 			Weight::zero()
 		}
 	}
 
-	impl<T: Config> frame_support::traits::RewardsReporter<T::AccountId> for Pallet<T> {
+	impl<T: Config> RewardsReporter<T::AccountId> for Pallet<T> {
 		fn reward_by_ids(rewards: impl IntoIterator<Item = (T::AccountId, u32)>) {
-			for (validator_id, points) in rewards {
-				ValidatorPoints::<T>::mutate(validator_id, |balance| {
-					balance.saturating_accrue(points);
-				});
+			match Mode::<T>::get() {
+				OperatingMode::Passive => T::Fallback::reward_by_ids(rewards),
+				OperatingMode::Buffered | OperatingMode::Active => Self::do_reward_by_ids(rewards),
 			}
 		}
 	}
 
 	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
 		fn note_author(author: T::AccountId) {
+			match Mode::<T>::get() {
+				OperatingMode::Passive => T::Fallback::note_author(author),
+				OperatingMode::Buffered | OperatingMode::Active => Self::do_note_author(author),
+			}
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Hook to be called when the AssetHub migration begins.
+		///
+		/// This transitions the pallet into [`OperatingMode::Buffered`], meaning it will act as the
+		/// primary staking module on the relay chain but will buffer outgoing messages instead of
+		/// sending them to AssetHub.
+		///
+		/// While in this mode, the pallet stops delegating to the fallback implementation and
+		/// temporarily accumulates events for later processing.
+		pub fn on_migration_start() {
+			debug_assert!(
+				Mode::<T>::get() == OperatingMode::Passive,
+				"we should only be called when in passive mode"
+			);
+			Self::do_set_mode(OperatingMode::Buffered);
+		}
+
+		/// Hook to be called when the AssetHub migration is complete.
+		///
+		/// This transitions the pallet into [`OperatingMode::Active`], meaning the counterpart
+		/// pallet on AssetHub is ready to accept incoming messages, and this pallet can resume
+		/// sending them.
+		///
+		/// In this mode, the pallet becomes fully active and processes all staking-related events
+		/// directly.
+		pub fn on_migration_end() {
+			debug_assert!(
+				Mode::<T>::get() == OperatingMode::Buffered,
+				"we should only be called when in buffered mode"
+			);
+			Self::do_set_mode(OperatingMode::Active);
+
+			// send all buffered offences to AssetHub.
+			BufferedOffences::<T>::take().into_iter().for_each(|(slash_session, offences)| {
+				T::SendToAssetHub::relay_new_offence(slash_session, offences)
+			});
+
+			// TODO: set `pallet_staking::ForceEra` to `ForceNone`.
+		}
+		fn do_set_mode(new_mode: OperatingMode) {
+			let old_mode = Mode::<T>::get();
+			let unexpected = match new_mode {
+				// `Passive` is the initial state, and not expected to be set by the user.
+				OperatingMode::Passive => true,
+				OperatingMode::Buffered => old_mode != OperatingMode::Passive,
+				OperatingMode::Active => old_mode != OperatingMode::Buffered,
+			};
+
+			// this is a defensive check, and should never happen under normal operation.
+			if unexpected {
+				log!(warn, "Unexpected mode transition from {:?} to {:?}", old_mode, new_mode);
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::UnexpectedModeTransition));
+			}
+
+			// apply new mode anyway.
+			Mode::<T>::put(new_mode);
+		}
+
+		fn do_new_session() -> Option<Vec<T::AccountId>> {
+			let maybe_validator_set = ValidatorSet::<T>::take().map(|(id, val_set)| {
+				// store the id to be sent back in the next session back to AH
+				NextSessionChangesValidators::<T>::put(id);
+				val_set
+			});
+
+			maybe_validator_set
+		}
+
+		fn do_end_session(session_index: u32) {
+			use sp_runtime::SaturatedConversion;
+
+			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
+			let activation_timestamp = NextSessionChangesValidators::<T>::take().map(|id| {
+				// keep track of starting session index at which the validator set was applied.
+				ValidatorSetAppliedAt::<T>::put(session_index + 1);
+				// set the timestamp and the identifier of the validator set.
+				(T::UnixTime::now().as_millis().saturated_into::<u64>(), id)
+			});
+
+			let session_report = pallet_staking_async_rc_client::SessionReport {
+				end_index: session_index,
+				validator_points,
+				activation_timestamp,
+				leftover: false,
+			};
+
+			T::SendToAssetHub::relay_session_report(session_report);
+		}
+
+		fn do_reward_by_ids(rewards: impl IntoIterator<Item = (T::AccountId, u32)>) {
+			for (validator_id, points) in rewards {
+				ValidatorPoints::<T>::mutate(validator_id, |balance| {
+					balance.saturating_accrue(points);
+				});
+			}
+		}
+
+		fn do_note_author(author: T::AccountId) {
 			ValidatorPoints::<T>::mutate(author, |points| {
 				points.saturating_accrue(T::PointsPerBlock::get());
 			});

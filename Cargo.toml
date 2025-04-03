@@ -1038,7 +1038,7 @@ pallet-staking-async-reward-fn = { path = "substrate/frame/staking-async/reward-
 pallet-staking-async-runtime-api = { path = "substrate/frame/staking-async/runtime-api", default-features = false }
 pallet-staking-async-rc-runtime = { path = "substrate/frame/staking-async/runtimes/rc" }
 pallet-staking-async-rc-runtime-constants = { path = "substrate/frame/staking-async/runtimes/rc/constants", default-features = false }
-pallet-staking-async-parachain = { path = "substrate/frame/staking-async/runtimes/parachain" }
+pallet-staking-async-parachain-runtime = { path = "substrate/frame/staking-async/runtimes/parachain" }
 pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false }
 pallet-statement = { default-features = false, path = "substrate/frame/statement" }
 pallet-sudo = { path = "substrate/frame/sudo", default-features = false }

@@ -10,14 +10,19 @@ pub mod shared;
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use ah_client::OperatingMode;
 	use frame::testing_prelude::*;
 	use pallet_election_provider_multi_block as multi_block;
 	use pallet_staking_async::{ActiveEra, ActiveEraInfo};
+	use pallet_staking as staking_classic;
+	use pallet_staking_async_ah_client as ah_client;
+	use crate::rc::RootOffences;
 
 	#[test]
 	fn rc_session_change_reported_to_ah() {
 		// sets up AH chain with current and active era.
 		shared::put_ah_state(ah::ExtBuilder::default().build());
+		shared::put_rc_state(rc::ExtBuilder::default().build());
 		// shared::RC_STATE.with(|state| *state.get_mut() = rc::ExtBuilder::default().build());
 
 		// initial state of ah
@@ -31,9 +36,11 @@ mod tests {
 		});
 
 		shared::in_rc(|| {
+			// initial state of rc
+			assert_eq!(ah_client::Mode::<rc::Runtime>::get(), OperatingMode::Active);
 			// go to session 1 in RC and test.
 			// when
-			assert!(frame_system::Pallet::<rc::Runtime>::block_number() == 0);
+			assert!(frame_system::Pallet::<rc::Runtime>::block_number() == 1);
 
 			// given end session 0, start session 1, plan 2
 			rc::roll_until_matches(
@@ -55,7 +62,7 @@ mod tests {
 
 		shared::in_ah(|| {
 			// ah's rc-client has also progressed some blocks, equal to 4 sessions
-			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 121);
+			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 120);
 			// election is ongoing, and has just started
 			assert!(matches!(
 				multi_block::CurrentPhase::<ah::Runtime>::get(),
@@ -121,5 +128,47 @@ mod tests {
 	#[test]
 	fn ah_know_good_era_duration() {
 		// era duration and rewards work.
+	}
+
+	#[test]
+	fn ah_takes_over_staking_post_migration() {
+		// SCENE (1): Pre AHM Migration
+		shared::put_rc_state(rc::ExtBuilder::default().pre_migration().build());
+		shared::put_ah_state(ah::ExtBuilder::default().pre_migration().build());
+
+		shared::in_rc(|| {
+			assert!(staking_classic::ActiveEra::<rc::Runtime>::get().is_none());
+
+			// - staking-classic is active on RC.
+			rc::roll_until_matches(
+				|| staking_classic::ActiveEra::<rc::Runtime>::get().map(|a| a.index).unwrap_or(0) == 1,
+				true,
+			);
+
+			// offence is handled by RC.
+			assert!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(5).is_empty());
+
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(2, Perbill::from_percent(100))],
+			));
+
+			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(5).len(), 1);
+		});
+
+		// Ensure RC Client does not receive any
+		// - session change reports.
+		// - offences
+		shared::in_ah(|| {
+			// No era change in AH.
+			assert!(pallet_staking_async::ActiveEra::<ah::Runtime>::get().unwrap().index == 0);
+			// No offences in AH.
+			assert!(pallet_staking_async::UnappliedSlashes::<ah::Runtime>::iter().collect::<Vec<_>>().is_empty());
+		});
+
+		// SCENE (2): AHM migration begins
+
+
+		// SCENE (3): AHM migration ends
 	}
 }

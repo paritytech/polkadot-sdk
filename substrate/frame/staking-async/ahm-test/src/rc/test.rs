@@ -1,6 +1,6 @@
 use crate::rc::mock::*;
 use frame::testing_prelude::*;
-use pallet_staking_async_ah_client::{self as ah_client, Blocked, IsBlocked};
+use pallet_staking_async_ah_client::{self as ah_client, Mode, OperatingMode};
 use pallet_staking_async_rc_client::{self as rc_client, SessionReport, ValidatorSetReport};
 
 // Tests that are specific to Relay Chain.
@@ -496,64 +496,58 @@ mod blocking {
 	use super::*;
 
 	#[test]
-	fn drops_incoming_if_blocked() {
-		ExtBuilder::default()
-			.local_queue()
-			.blocked(Blocked::Incoming)
-			.build()
-			.execute_with(|| {
-				// given
-				let report = ValidatorSetReport {
-					id: 1,
-					prune_up_to: None,
-					leftover: false,
-					new_validator_set: vec![1, 2, 3, 4],
-				};
+	fn drops_incoming_if_passive_mode() {
+		ExtBuilder::default().local_queue().pre_migration().build().execute_with(|| {
+			// given
+			let report = ValidatorSetReport {
+				id: 1,
+				prune_up_to: None,
+				leftover: false,
+				new_validator_set: vec![1, 2, 3, 4],
+			};
 
-				// when
-				assert_noop!(
-					ah_client::Pallet::<Runtime>::validator_set(RuntimeOrigin::root(), report),
-					ah_client::Error::<Runtime>::Blocked,
-				);
+			// when
+			assert_noop!(
+				ah_client::Pallet::<Runtime>::validator_set(RuntimeOrigin::root(), report),
+				ah_client::Error::<Runtime>::Blocked,
+			);
 
-				// then
-				assert_eq!(ah_client::ValidatorSet::<T>::get(), None);
-			})
+			// then
+			assert_eq!(ah_client::ValidatorSet::<T>::get(), None);
+		})
 	}
 
 	#[test]
-	fn drops_outgoing_if_blocked() {
-		ExtBuilder::default()
-			.local_queue()
-			.blocked(Blocked::Outgoing)
-			.build()
-			.execute_with(|| {
-				// roll 5 sessions
-				roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 5, false);
+	fn drops_outgoing_if_passive_mode() {
+		ExtBuilder::default().local_queue().pre_migration().build().execute_with(|| {
+			// roll 5 sessions
+			roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 5, false);
 
-				// nothing is queued; outgoing messages are blocked.
-				assert_eq!(LocalQueue::get().unwrap(), vec![]);
+			// nothing is queued; No outgoing messages expected in passive mode.
+			assert_eq!(LocalQueue::get().unwrap(), vec![]);
 
-				// unblock
-				IsBlocked::<T>::put(Blocked::Not);
+			// TODO add buffer mode to the test
 
-				// roll another session
-				roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 6, false);
+			// make pallet active
+			Mode::<T>::put(OperatingMode::Active);
 
-				// now session report is queued.
-				assert_eq!(
-					LocalQueue::get().unwrap(),
-					vec![(
-						180,
-						OutgoingMessages::SessionReport(SessionReport {
-							end_index: 5,
-							validator_points: vec![],
-							activation_timestamp: None,
-							leftover: false,
-						})
-					)]
-				);
-			})
+			// roll another session
+			roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 6, false);
+
+			// now session report is queued.
+			assert_eq!(
+				LocalQueue::get().unwrap(),
+				vec![(
+					180,
+					OutgoingMessages::SessionReport(SessionReport {
+						end_index: 5,
+						validator_points: vec![],
+						activation_timestamp: None,
+						leftover: false,
+					})
+				)]
+			);
+		})
 	}
 }
 

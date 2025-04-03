@@ -23,6 +23,7 @@ use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBoundsBuilder},
 	ElectionProvider, SortedListProvider, Support,
 };
+use frame_support::traits::RewardsReporter;
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
