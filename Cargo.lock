@@ -14850,7 +14850,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-pvf-common"
-version = "18.0.0"
+version = "19.0.0"
 dependencies = [
  "assert_matches",
  "cpu-time",
