@@ -2237,7 +2237,7 @@ version = "16.1.0"
 default-features = false
 optional = true
 path = "../polkadot/xcm/xcm-builder"
-version = "19.0.0"
+version = "20.0.0"
 
 [dependencies.staging-xcm-executor]
 default-features = false
