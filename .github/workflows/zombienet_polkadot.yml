@@ -36,7 +36,7 @@ jobs:
   #
   zombienet-polkadot-functional-0001-parachains-pvf:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -59,7 +59,7 @@ jobs:
   #
   zombienet-polkadot-functional-0002-parachains-disputes:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -83,7 +83,7 @@ jobs:
   #
   zombienet-polkadot-functional-0003-beefy-and-mmr:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -105,7 +105,7 @@ jobs:
   #
   zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -128,7 +128,7 @@ jobs:
   #
   zombienet-polkadot-functional-0006-parachains-max-tranche0:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -150,7 +150,7 @@ jobs:
   #
   zombienet-polkadot-functional-0007-dispute-freshly-finalized:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -173,7 +173,7 @@ jobs:
   #
   zombienet-polkadot-functional-0008-dispute-old-finalized:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -196,7 +196,7 @@ jobs:
   #
   zombienet-polkadot-functional-0009-approval-voting-coalescing:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -218,7 +218,7 @@ jobs:
   #
   zombienet-polkadot-functional-0010-validator-disabling:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -241,7 +241,7 @@ jobs:
   #
   zombienet-polkadot-functional-0013-systematic-chunk-recovery:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -263,7 +263,7 @@ jobs:
   #
   zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -287,7 +287,7 @@ jobs:
   #
   zombienet-polkadot-functional-0015-coretime-shared-core:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -313,7 +313,7 @@ jobs:
   #
   zombienet-polkadot-functional-0018-shared-core-idle-parachain:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -339,7 +339,7 @@ jobs:
   #
   zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -367,7 +367,7 @@ jobs:
   #
   zombienet-polkadot-smoke-0001-parachains-smoke-test:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -389,7 +389,7 @@ jobs:
   #
   zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -411,7 +411,7 @@ jobs:
   # (skipped in gitlab)
   zombienet-polkadot-smoke-0003-deregister-register-validator:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -432,7 +432,7 @@ jobs:
   #
   zombienet-polkadot-smoke-0004-coretime-smoke-test:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -454,7 +454,7 @@ jobs:
   #
   zombienet-polkadot-smoke-0005-precompile-pvf-smoke:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -478,7 +478,7 @@ jobs:
   #
   zombienet-polkadot-misc-0001-parachains-paritydb:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -499,7 +499,7 @@ jobs:
   #
   # zombienet-polkadot-misc-0002-upgrade-node:
   #   needs: [preflight]
-  #   if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+  #   if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
   #   runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
   #   timeout-minutes: 60
   #   container:
@@ -531,7 +531,7 @@ jobs:
   #
   zombienet-polkadot-malus-0001-dispute-valid:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -587,7 +587,7 @@ jobs:
   #
   zombienet-polkadot-elastic-scaling-slot-based-3cores:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot }} && ${{ ! contains(github.env.FLAKY_TESTS, github.job) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -615,7 +615,7 @@ jobs:
   #
   zombienet-polkadot-elastic-scaling-slot-based-12cores:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot }} && ${{ ! contains(github.env.FLAKY_TESTS, github.job) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -643,7 +643,7 @@ jobs:
   #
   zombienet-polkadot-elastic-scaling-doesnt-break-parachains:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot }} && ${{ ! contains(github.env.FLAKY_TESTS, github.job) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -671,7 +671,7 @@ jobs:
   #
   zombienet-polkadot-elastic-scaling-basic-3cores:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot }} && ${{ ! contains(github.env.FLAKY_TESTS, github.job) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -699,7 +699,7 @@ jobs:
   #
   zombienet-polkadot-functional-sync-backing:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot }} && ${{ ! contains(github.env.FLAKY_TESTS, github.job) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -727,7 +727,7 @@ jobs:
   #
   zombienet-polkadot-functional-async-backing-6-seconds-rate:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot }} && ${{ ! contains(github.env.FLAKY_TESTS, github.job) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -755,7 +755,7 @@ jobs:
   #
   zombienet-polkadot-functional-duplicate-collations:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot }} && ${{ ! contains(github.env.FLAKY_TESTS, github.job) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -783,7 +783,7 @@ jobs:
   #
   zombienet-polkadot-disputes-slashing:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot }} && ${{ ! contains(github.env.FLAKY_TESTS, github.job) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
@@ -812,7 +812,7 @@ jobs:
   #
   zombienet-polkadot-functional-spam-statement-distribution-requests:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot }} && ${{ ! contains(github.env.FLAKY_TESTS, github.job) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
