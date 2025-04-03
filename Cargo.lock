@@ -23845,7 +23845,7 @@ dependencies = [
 
 [[package]]
 name = "staging-parachain-info"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",

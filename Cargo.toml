@@ -1036,7 +1036,7 @@ pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false, versi
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false, version = "19.0.0" }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false, version = "0.16.1" }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false, version = "0.18.0" }
-parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info", version = "0.19.0" }
+parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info", version = "0.20.0" }
 parachain-template-runtime = { path = "templates/parachain/runtime", version = "0.1.0" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false, version = "20.0.0" }
 parachains-relay = { path = "bridges/relays/parachains", version = "0.1.0" }
