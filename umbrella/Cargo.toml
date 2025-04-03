@@ -3017,7 +3017,7 @@ version = "39.0.0"
 default-features = false
 optional = true
 path = "../substrate/client/utils"
-version = "18.0.0"
+version = "18.0.1"
 
 [dependencies.sp-blockchain]
 default-features = false

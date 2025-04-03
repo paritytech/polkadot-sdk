@@ -20111,7 +20111,7 @@ dependencies = [
 
 [[package]]
 name = "sc-utils"
-version = "18.0.0"
+version = "18.0.1"
 dependencies = [
  "async-channel 1.9.0",
  "futures",
