@@ -729,7 +729,7 @@ cumulus-pallet-solo-to-para = { path = "cumulus/pallets/solo-to-para", default-f
 cumulus-pallet-weight-reclaim = { path = "cumulus/pallets/weight-reclaim", default-features = false, version = "0.2.0" }
 cumulus-pallet-xcm = { path = "cumulus/pallets/xcm", default-features = false, version = "0.19.1" }
 cumulus-pallet-xcmp-queue = { path = "cumulus/pallets/xcmp-queue", default-features = false, version = "0.20.0" }
-cumulus-ping = { path = "cumulus/parachains/pallets/ping", default-features = false, version = "0.19.0" }
+cumulus-ping = { path = "cumulus/parachains/pallets/ping", default-features = false, version = "0.20.0" }
 cumulus-primitives-aura = { path = "cumulus/primitives/aura", default-features = false, version = "0.17.0" }
 cumulus-primitives-core = { path = "cumulus/primitives/core", default-features = false, version = "0.18.1" }
 cumulus-primitives-parachain-inherent = { path = "cumulus/primitives/parachain-inherent", default-features = false, version = "0.18.1" }
