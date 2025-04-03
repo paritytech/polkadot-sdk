@@ -157,11 +157,11 @@ impl<B: BlockInfoProvider> DBReceiptProvider<B> {
 			let oldest_block = latest.saturating_sub(keep_latest_n_blocks as _);
 			let mut to_remove = block_number_to_hash
 				.iter()
-				.take_while(|(n, _)| **n < oldest_block)
+				.take_while(|(n, _)| **n <= oldest_block)
 				.map(|(_, hash)| hash.clone())
 				.collect::<Vec<_>>();
 
-			block_number_to_hash.retain(|&n, _| n >= oldest_block);
+			block_number_to_hash.retain(|&n, _| n > oldest_block);
 			match block_number_to_hash.insert(block.number(), block_hash) {
 				Some(old_hash) if old_hash != block_hash => {
 					to_remove.push(old_hash);
@@ -470,6 +470,23 @@ mod tests {
 	use sp_core::{H160, H256};
 	use sqlx::SqlitePool;
 
+	async fn count(pool: &SqlitePool, table: &str, block_hash: Option<H256>) -> usize {
+		let count: i64 = match block_hash {
+			None =>
+				sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
+					.fetch_one(pool)
+					.await,
+			Some(hash) =>
+				sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table} WHERE block_hash = ?"))
+					.bind(hash.as_ref())
+					.fetch_one(pool)
+					.await,
+		}
+		.unwrap();
+
+		count as _
+	}
+
 	async fn setup_sqlite_provider(pool: SqlitePool) -> DBReceiptProvider<MockBlockInfoProvider> {
 		DBReceiptProvider {
 			pool,
@@ -497,33 +514,38 @@ mod tests {
 		assert_eq!(row, Some((block.hash, 0)));
 
 		provider.remove(&[block.hash()]).await?;
-
-		let transaction_count: i64 = sqlx::query_scalar(
-			r#"
-        SELECT COUNT(*)
-        FROM transaction_hashes
-        WHERE block_hash = ?
-        "#,
-		)
-		.bind(block.hash.as_ref())
-		.fetch_one(&provider.pool)
-		.await
-		.unwrap();
-		assert_eq!(transaction_count, 0);
-
-		let logs_count: i64 = sqlx::query_scalar(
-			r#"
-        SELECT COUNT(*)
-        FROM logs
-        WHERE block_hash = ?
-        "#,
-		)
-		.bind(block.hash.as_ref())
-		.fetch_one(&provider.pool)
-		.await
-		.unwrap();
-		assert_eq!(logs_count, 0);
+		assert_eq!(count(&provider.pool, "transaction_hashes", Some(block.hash())).await, 0);
+		assert_eq!(count(&provider.pool, "logs", Some(block.hash())).await, 0);
 		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_prune(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let n = provider.keep_latest_n_blocks.unwrap();
+
+		for i in 0..2 * n {
+			let block = MockBlockInfo { hash: H256::from([i as u8; 32]), number: i as _ };
+			let transaction_hash = H256::from([i as u8; 32]);
+			let receipts = vec![(
+				TransactionSigned::default(),
+				ReceiptInfo {
+					transaction_hash: transaction_hash.clone(),
+					logs: vec![Log {
+						block_hash: block.hash,
+						transaction_hash,
+						..Default::default()
+					}],
+					..Default::default()
+				},
+			)];
+			provider.insert(&block, &receipts).await?;
+		}
+		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, n);
+		assert_eq!(count(&provider.pool, "logs", None).await, n);
+		assert_eq!(provider.block_number_to_hash.lock().await.len(), n);
+
+		return Ok(());
 	}
 
 	#[sqlx::test]
