@@ -125,8 +125,8 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 
 	if let Some(ref provider) = cmd_config.extra_command_provider {
 		if let Some((name, sub_matches)) = matches.subcommand() {
-			if provider.is_extra_command(name) {
-				provider.handle_extra_command(sub_matches)?;
+			if provider.available_commands().contains(&name) {
+				provider.handle_extra_command(name, sub_matches)?;
 				return Ok(());
 			}
 		}

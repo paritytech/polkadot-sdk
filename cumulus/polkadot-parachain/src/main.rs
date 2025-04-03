@@ -26,30 +26,38 @@ use polkadot_omni_node_lib::{
 	chain_spec::LoadSpec, cli::ExtraCommandProvider, run, CliConfig as CliConfigT, RunConfig,
 	NODE_VERSION,
 };
-use sc_cli::Error::Application;
-use std::io;
+use polkadot_omni_node_lib::extra_commands::ExtraCommandsHandler;
 
 /// Struct to use extra commands within polkadot-parachain
-pub struct ExportChainSpecExtra;
+pub struct ParachainExtraCommands {
+	handler: ExtraCommandsHandler,
+}
 
-impl ExtraCommandProvider for ExportChainSpecExtra {
-	fn handle_extra_command(&self, matches: &clap::ArgMatches) -> sc_cli::Result<()> {
-		let cmd = sc_cli::ExportChainSpecCmd::from_arg_matches(matches)
-			.map_err(|e| sc_cli::Error::Cli(e.into()))?;
-		let spec = chain_spec::ChainSpecLoader
-			.load_spec(&cmd.chain)
-			.map_err(|e| Application(Box::new(io::Error::new(io::ErrorKind::Other, e))))?;
-		cmd.run(spec)
+impl ParachainExtraCommands {
+	pub fn new(chain_spec_loader: Box<dyn LoadSpec>) -> Self {
+		Self {
+			handler: ExtraCommandsHandler::new(chain_spec_loader),
+		}
+	}
+}
+
+impl ExtraCommandProvider for ParachainExtraCommands {
+	fn handle_extra_command(&self, name: &str, matches: &clap::ArgMatches) -> sc_cli::Result<()> {
+		self.handler.handle(name, matches)
 	}
 
 	fn augment_command(&self, cmd: clap::Command) -> clap::Command {
-		cmd.subcommand(sc_cli::ExportChainSpecCmd::augment_args_for_update(clap::Command::new(
-			"export-chain-spec",
-		)))
+		let mut cmd = cmd;
+		for (name, subcmd) in ExtraCommandsHandler::available_commands() {
+			if name == "export-chain-spec" { // <-- Optional condition: can choose which ones to expose
+				cmd = cmd.subcommand(subcmd);
+			}
+		}
+		cmd
 	}
 
-	fn is_extra_command(&self, name: &str) -> bool {
-		["export-chain-spec"].contains(&name)
+	fn available_commands(&self) -> Vec<&'static str> {
+		vec!["export-chain-spec"]
 	}
 }
 
@@ -80,7 +88,7 @@ fn main() -> color_eyre::eyre::Result<()> {
 	let config = RunConfig::new(
 		Box::new(chain_spec::RuntimeResolver),
 		Box::new(chain_spec::ChainSpecLoader),
-		Some(Box::new(ExportChainSpecExtra)),
+		Some(Box::new(ParachainExtraCommands::new(Box::new(chain_spec::ChainSpecLoader)))),
 	);
 	Ok(run::<CliConfig>(config)?)
 }

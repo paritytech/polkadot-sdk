@@ -75,13 +75,13 @@ pub trait ExtraCommandProvider {
 	/// Return:
 	/// - `Ok(())` if handled successfully,
 	/// - an error if the command was recognized but failed.
-	fn handle_extra_command(&self, matches: &clap::ArgMatches) -> sc_cli::Result<()>;
+	fn handle_extra_command(&self, name: &str, matches: &clap::ArgMatches) -> sc_cli::Result<()>;
 
 	/// Augment the CLI command with extra subcommands.
 	fn augment_command(&self, cmd: clap::Command) -> clap::Command;
 
 	/// boolean value to judge if there is an extra command
-	fn is_extra_command(&self, name: &str) -> bool;
+	fn available_commands(&self) -> Vec<&'static str>;
 }
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
