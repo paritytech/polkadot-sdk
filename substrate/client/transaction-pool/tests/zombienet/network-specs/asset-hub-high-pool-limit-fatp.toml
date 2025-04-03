@@ -40,7 +40,7 @@ default_args = [
 ]
 [parachains.genesis.runtimeGenesis.patch.balances]
 devAccounts = [
-	100,
+	1000,
 	1000000000000000000,
 	"//Sender//{}",
 ]

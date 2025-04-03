@@ -31,6 +31,8 @@ use zombienet_sdk::{
 pub mod relaychain_rococo_local_network_spec {
 	pub const HIGH_POOL_LIMIT_FATP: &'static str =
 		"tests/zombienet/network-specs/rococo-local-high-pool-limit-fatp.toml";
+	pub const HIGH_POOL_LIMIT_FATP_TRACE: &'static str =
+		"tests/zombienet/network-specs/rococo-local-high-pool-limit-fatp-trace.toml";
 
 	/// Network specs used for fork-aware tx pool testing of parachains.
 	pub mod parachain_asset_hub_network_spec {
@@ -164,4 +166,5 @@ pub fn default_zn_scenario_builder(net_spawner: &NetworkSpawner) -> ScenarioBuil
 		.with_block_monitoring(shared_params.does_block_monitoring)
 		.with_chain_type(shared_params.chain_type)
 		.with_base_dir_path(net_spawner.base_dir_path().unwrap().to_string())
+		.with_timeout_in_secs(21600) //6 hours
 }

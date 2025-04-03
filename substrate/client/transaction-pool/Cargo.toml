@@ -55,7 +55,8 @@ substrate-test-runtime-transaction-pool = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
-txtesttool = { version = "0.4.0", package = "substrate-txtesttool" }
+# call .submit_transactions_ignoring_follow_events
+txtesttool = { version = "0.5.0", package = "substrate-txtesttool", path="/home/miszka/parity/14-txpool-forks/sender/excercises/tx-test-tool" }
 zombienet-configuration = { workspace = true }
 zombienet-sdk = { workspace = true }
 

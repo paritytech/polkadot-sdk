@@ -20,12 +20,8 @@
 pub mod zombienet;
 
 use crate::zombienet::{
-	default_zn_scenario_builder,
-	relaychain_rococo_local_network_spec::{
-		parachain_asset_hub_network_spec::HIGH_POOL_LIMIT_FATP as PARACHAIN_HIGH_POOL_LIMIT_FATP,
-		HIGH_POOL_LIMIT_FATP as RELAYCHAIN_HIGH_POOL_LIMIT_FATP,
-	},
-	NetworkSpawner,
+	default_zn_scenario_builder, relaychain_rococo_local_network_spec as relay,
+	relaychain_rococo_local_network_spec::parachain_asset_hub_network_spec as para, NetworkSpawner,
 };
 use txtesttool::execution_log::ExecutionLog;
 use zombienet::DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS;
@@ -35,7 +31,7 @@ use zombienet::DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS;
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn send_future_and_ready_from_many_accounts_to_parachain() {
-	let net = NetworkSpawner::from_toml_with_env_logger(PARACHAIN_HIGH_POOL_LIMIT_FATP)
+	let net = NetworkSpawner::from_toml_with_env_logger(para::HIGH_POOL_LIMIT_FATP)
 		.await
 		.unwrap();
 
@@ -86,7 +82,7 @@ async fn send_future_and_ready_from_many_accounts_to_parachain() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn send_future_and_ready_from_many_accounts_to_relaychain() {
-	let net = NetworkSpawner::from_toml_with_env_logger(RELAYCHAIN_HIGH_POOL_LIMIT_FATP)
+	let net = NetworkSpawner::from_toml_with_env_logger(relay::HIGH_POOL_LIMIT_FATP)
 		.await
 		.unwrap();
 
@@ -132,4 +128,62 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 
 	assert_eq!(finalized_future, 10_000);
 	assert_eq!(finalized_ready, 10_000);
+}
+
+// Test which sends 5m transactions to parachain. Long execution time expected.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn send_5m_from_many_accounts_to_parachain() {
+	let net = NetworkSpawner::from_toml_with_env_logger(para::HIGH_POOL_LIMIT_FATP)
+		.await
+		.unwrap();
+
+	// Wait for the parachain collator to start block production.
+	net.wait_for_block_production("charlie").await.unwrap();
+
+	// Create future & ready txs executors.
+	let ws = net.node_rpc_uri("charlie").unwrap();
+	let executor = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws.clone())
+		.with_start_id(0)
+		.with_last_id(999)
+		.with_txs_count(5_000)
+		.with_executor_id("txs-executor".to_string())
+		.build()
+		.await;
+
+	// Execute transactions and fetch the execution logs.
+	let execution_logs = executor.execute().await;
+	let finalized_txs = execution_logs.values().filter_map(|tx_log| tx_log.finalized()).count();
+
+	assert_eq!(finalized_txs, 5_000_000);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn gossiping() {
+	let net = NetworkSpawner::from_toml_with_env_logger(relay::HIGH_POOL_LIMIT_FATP_TRACE)
+		.await
+		.unwrap();
+
+	// Wait for the parachain collator to start block production.
+	net.wait_for_block_production("a00").await.unwrap();
+
+	// Create future & ready txs executors.
+	let ws = net.node_rpc_uri("a00").unwrap();
+	let executor = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws.clone())
+		.with_start_id(0)
+		.with_last_id(999)
+		.with_executor_id("txs-executor".to_string())
+		.build()
+		.await;
+
+	// Execute transactions and fetch the execution logs.
+	let execution_logs = executor.execute().await;
+	let finalized_txs = execution_logs.values().filter_map(|tx_log| tx_log.finalized()).count();
+
+	assert_eq!(finalized_txs, 1000);
+
+	tracing::info!("BASEDIR: {:?}", net.base_dir_path());
 }
