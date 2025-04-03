@@ -742,7 +742,7 @@ cumulus-relay-chain-interface = { path = "cumulus/client/relay-chain-interface",
 cumulus-relay-chain-minimal-node = { path = "cumulus/client/relay-chain-minimal-node", default-features = false, version = "0.23.0" }
 cumulus-relay-chain-rpc-interface = { path = "cumulus/client/relay-chain-rpc-interface", default-features = false, version = "0.22.0" }
 cumulus-test-client = { path = "cumulus/test/client" }
-cumulus-test-relay-sproof-builder = { path = "cumulus/test/relay-sproof-builder", default-features = false, version = "0.18.0" }
+cumulus-test-relay-sproof-builder = { path = "cumulus/test/relay-sproof-builder", default-features = false, version = "0.19.0" }
 cumulus-test-runtime = { path = "cumulus/test/runtime", version = "0.1.0" }
 cumulus-test-service = { path = "cumulus/test/service", version = "0.1.0" }
 cumulus-zombienet-sdk-helpers = { path = "cumulus/zombienet/zombienet-sdk-helpers", default-features = false, version = "0.1.0" }

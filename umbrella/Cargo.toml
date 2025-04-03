@@ -2375,7 +2375,7 @@ version = "0.22.0"
 default-features = false
 optional = true
 path = "../cumulus/test/relay-sproof-builder"
-version = "0.18.0"
+version = "0.19.0"
 
 [dependencies.emulated-integration-tests-common]
 default-features = false
