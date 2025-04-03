@@ -1447,7 +1447,8 @@ where
 	}
 }
 
-type GenericAMO<T> = <<T as Chain>::Runtime as InclusionConfig>::AggregateMessageOrigin;
+type AggregateMessageOriginOf<T> =
+	<<T as Chain>::Runtime as InclusionConfig>::AggregateMessageOrigin;
 
 pub struct DefaultRelayMessageProcessor<T>(PhantomData<T>);
 // Process UMP messages on the relay
@@ -1456,8 +1457,8 @@ where
 	T: RelayChain,
 	T::Runtime: MessageQueueConfig + InclusionConfig,
 	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<GenericAMO<T>>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<GenericAMO<T>> + ServiceQueues,
+		PartialEq<AggregateMessageOriginOf<T>>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOriginOf<T>> + ServiceQueues,
 {
 	type Origin = ParaId;
 
@@ -1484,8 +1485,8 @@ where
 	T: RelayChain,
 	T::Runtime: MessageQueueConfig + InclusionConfig,
 	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<GenericAMO<T>>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<GenericAMO<T>> + ServiceQueues,
+		PartialEq<AggregateMessageOriginOf<T>>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOriginOf<T>> + ServiceQueues,
 {
 	type OverweightMessageAddress = ();
 
