@@ -143,7 +143,7 @@ pub const WITH_ASSET_HUB_WESTEND_MESSAGES_PALLET_NAME: &str = "BridgeWestendMess
 pub const WITH_ASSET_HUB_WESTEND_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
 /// Pallet index of `BridgeRococoMessages: pallet_bridge_messages::<Instance1>`.
-pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 60; // TODO: FAIL-CI - correct index when AssetHubWestend
+pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 63;
 
 decl_bridge_finality_runtime_apis!(asset_hub_westend);
 decl_bridge_messages_runtime_apis!(asset_hub_westend, HashedLaneId);
