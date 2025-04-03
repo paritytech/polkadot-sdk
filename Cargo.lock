@@ -4723,7 +4723,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-timestamp"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "cumulus-primitives-core",
  "sp-inherents",
