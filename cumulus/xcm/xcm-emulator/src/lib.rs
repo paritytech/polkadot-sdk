@@ -108,7 +108,7 @@ thread_local! {
 	/// Most recent `HeadData` of each parachain, encoded.
 	pub static LAST_HEAD: RefCell<HashMap<String, HashMap<u32, HeadData>>> = RefCell::new(HashMap::new());
 	/// Tracked XCM topic IDs per network, each entry is a set of unique topic IDs
-    pub static TRACKED_TOPIC_IDS: RefCell<HashMap<String, HashSet<sp_core::H256>>> = RefCell::new(HashMap::new());
+	pub static TRACKED_TOPIC_IDS: RefCell<HashMap<String, HashSet<sp_core::H256>>> = RefCell::new(HashMap::new());
 }
 pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
@@ -973,7 +973,7 @@ macro_rules! decl_test_networks {
 						$crate::BRIDGED_MESSAGES.with(|b| b.borrow_mut().insert(Self::name().to_string(), $crate::VecDeque::new()));
 						$crate::PARA_IDS.with(|b| b.borrow_mut().insert(Self::name().to_string(), Self::para_ids()));
 						$crate::LAST_HEAD.with(|b| b.borrow_mut().insert(Self::name().to_string(), $crate::HashMap::new()));
-						$crate::TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(Self::name().to_string(), $crate::HashMap::new()));
+						$crate::TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(Self::name().to_string(), $crate::HashSet::new()));
 
 						<$relay_chain<Self> as $crate::RelayChain>::init();
 						$( <$parachain<Self> as $crate::Parachain>::init(); )*
