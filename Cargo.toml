@@ -1063,7 +1063,7 @@ polkadot-cli = { path = "polkadot/cli", default-features = false, version = "23.
 polkadot-collator-protocol = { path = "polkadot/node/network/collator-protocol", default-features = false, version = "22.0.0" }
 polkadot-core-primitives = { path = "polkadot/core-primitives", default-features = false, version = "17.1.0" }
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false, version = "22.0.0" }
-polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false, version = "18.0.0" }
+polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false, version = "19.0.0" }
 polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", default-features = false, version = "22.0.0" }
 polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false, version = "22.0.0" }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false, version = "22.0.0" }

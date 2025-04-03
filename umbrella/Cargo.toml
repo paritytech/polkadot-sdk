@@ -2501,7 +2501,7 @@ version = "22.0.0"
 default-features = false
 optional = true
 path = "../polkadot/erasure-coding"
-version = "18.0.0"
+version = "19.0.0"
 
 [dependencies.polkadot-gossip-support]
 default-features = false

@@ -14399,7 +14399,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-erasure-coding"
-version = "18.0.0"
+version = "19.0.0"
 dependencies = [
  "criterion",
  "parity-scale-codec",
