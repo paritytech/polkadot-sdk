@@ -814,8 +814,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Gets the lowest of the lowest validator stake entries for the last upper bound eras.
 	pub(crate) fn get_min_lowest_stake() -> BalanceOf<T> {
-		// Find the minimum total stake of the lowest portion validators over the configured number of
-		// eras.
+		// Find the minimum total stake of the lowest portion validators over the configured number
+		// of eras.
 		let mut iter = EraLowestRatioTotalStake::<T>::get().into_iter();
 		let mut lowest_stake = iter.next().unwrap_or(Zero::zero());
 		for lowest_portion_total_stake in iter {

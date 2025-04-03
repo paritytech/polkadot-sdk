@@ -8989,7 +8989,8 @@ mod unbonding_queue {
 			// Unbond with amount requiring lower bound (delta = 0 → use upper bound 3 again)
 			let unbond_era = Staking::process_unbond_queue_request(current_era, 100);
 			assert_eq!(unbond_era, 1 + 3); // 4
-								  // Back remains 5 because delta = 0: new_back = max(1, 5) + 0 = 5
+
+			// Back remains 5 because delta = 0: new_back = max(1, 5) + 0 = 5
 			assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 5);
 		});
 	}
@@ -9026,20 +9027,23 @@ mod unbonding_queue {
 			// Unbond with amount requiring lower bound (delta = 0 → use lower bound 1)
 			let unbond_era = Staking::process_unbond_queue_request(current_era, 100);
 			assert_eq!(unbond_era, 1 + 1); // 2
-								  // max(current_era, previous_back) + delta = 0 + 1 = 1
+
+			// max(current_era, previous_back) + delta = 1 + 0 = 1
 			assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 1);
 
 			// Next unbond of 250 (delta = 1.5 -> 1).
 			let unbond_era = Staking::process_unbond_queue_request(current_era, 250);
 			assert_eq!(unbond_era, 1 + 1); // 2
-								  // max(current_era, previous_back) + delta = 1 + 1 = 2
+
+			// max(current_era, previous_back) + delta = 1 + 1 = 2
 			assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 2);
 
 			// Last unbond of 500 (max_unstake is 500, delta = 3, and it hits the maximum unbonding
 			// period of 3 eras).
 			let unbond_era = Staking::process_unbond_queue_request(current_era, 500);
 			assert_eq!(unbond_era, 1 + 3); // 4
-								  // max(current_era, previous_back) + delta = 2 + 3 = 5
+
+			// max(current_era, previous_back) + delta = 2 + 3 = 5
 			assert_eq!(UnbondingQueueParams::<Test>::get().unwrap().back_of_unbonding_queue_era, 5);
 		});
 	}
