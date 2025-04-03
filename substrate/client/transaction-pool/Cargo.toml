@@ -44,7 +44,6 @@ tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
-array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
@@ -55,8 +54,7 @@ substrate-test-runtime-transaction-pool = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
-txtesttool = { version = "0.4.0", package = "substrate-txtesttool" }
-zombienet-configuration = { workspace = true }
+txtesttool = { workspace = true }
 zombienet-sdk = { workspace = true }
 
 [[bench]]

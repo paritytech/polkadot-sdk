@@ -308,6 +308,14 @@ pub struct RunCmd {
 	/// Will use the specified relay chain chainspec.
 	#[arg(long, conflicts_with_all = ["relay_chain_rpc_urls", "collator"])]
 	pub relay_chain_light_client: bool,
+
+	/// EXPERIMENTAL: This is meant to be used only if collator is overshooting the PoV size, and
+	/// building blocks that do not fit in the max_pov_size. It is a percentage of the max_pov_size
+	/// configuration of the relay-chain.
+	///
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	#[arg(long)]
+	pub experimental_max_pov_percentage: Option<u32>,
 }
 
 impl RunCmd {

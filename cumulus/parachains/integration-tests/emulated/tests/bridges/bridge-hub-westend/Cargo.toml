@@ -14,7 +14,6 @@ workspace = true
 codec = { workspace = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
-log = { workspace = true }
 scale-info = { workspace = true }
 
 # Substrate
@@ -63,4 +62,3 @@ snowbridge-pallet-inbound-queue-v2 = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
-snowbridge-pallet-system-v2 = { workspace = true }

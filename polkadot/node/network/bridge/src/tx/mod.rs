@@ -36,8 +36,7 @@ use crate::validator_discovery;
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
-	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
-	send_validation_message_v2, send_validation_message_v3, Network,
+	send_collation_message_v1, send_collation_message_v2, send_validation_message_v3, Network,
 };
 
 use crate::metrics::Metrics;
@@ -195,24 +194,20 @@ where
 			);
 
 			match msg {
-				Versioned::V1(msg) => send_validation_message_v1(
-					peers,
-					WireMessage::ProtocolMessage(msg),
-					&metrics,
-					notification_sinks,
-				),
 				Versioned::V3(msg) => send_validation_message_v3(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 					notification_sinks,
 				),
-				Versioned::V2(msg) => send_validation_message_v2(
-					peers,
-					WireMessage::ProtocolMessage(msg),
-					&metrics,
-					notification_sinks,
-				),
+				_ => {
+					gum::warn!(
+						target: LOG_TARGET,
+						action = "SendValidationMessages",
+						"Can't send validation message with unsupported protocol version. Message: {:?}",
+						msg,
+					);
+				},
 			}
 		},
 		NetworkBridgeTxMessage::SendValidationMessages(msgs) => {
@@ -225,24 +220,20 @@ where
 
 			for (peers, msg) in msgs {
 				match msg {
-					Versioned::V1(msg) => send_validation_message_v1(
-						peers,
-						WireMessage::ProtocolMessage(msg),
-						&metrics,
-						notification_sinks,
-					),
 					Versioned::V3(msg) => send_validation_message_v3(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
 						notification_sinks,
 					),
-					Versioned::V2(msg) => send_validation_message_v2(
-						peers,
-						WireMessage::ProtocolMessage(msg),
-						&metrics,
-						notification_sinks,
-					),
+					_ => {
+						gum::warn!(
+							target: LOG_TARGET,
+							action = "SendValidationMessages",
+							"Can't send validation message with unsupported protocol version. Message: {:?}",
+							msg,
+						);
+					},
 				}
 			}
 		},
