@@ -139,7 +139,10 @@ fn unpaid_execution_should_work() {
 		Weight::from_parts(50, 50),
 		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
+	assert_eq!(
+		r,
+		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::Barrier }
+	);
 
 	let message = Xcm(vec![UnpaidExecution {
 		weight_limit: Limited(Weight::from_parts(10, 10)),

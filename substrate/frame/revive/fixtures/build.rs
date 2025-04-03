@@ -85,19 +85,30 @@ fn create_cargo_toml<'a>(
 	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/_Cargo.toml"))?;
 	let uapi_dep = cargo_toml["dependencies"]["uapi"].as_table_mut().unwrap();
 
-	let metadata = MetadataCommand::new()
-		.manifest_path(fixtures_dir.join("Cargo.toml"))
-		.exec()
-		.expect("Failed to fetch cargo metadata");
+	let manifest_path = fixtures_dir.join("Cargo.toml");
+	let metadata = MetadataCommand::new().manifest_path(&manifest_path).exec().unwrap();
+	let dependency_graph = metadata.resolve.unwrap();
 
-	let mut uapi_pkgs: Vec<_> = metadata
+	// Resolve the pallet-revive-fixtures package id
+	let fixtures_pkg_id = metadata
 		.packages
 		.iter()
-		.filter(|pkg| pkg.name == "pallet-revive-uapi")
-		.collect();
+		.find(|pkg| pkg.manifest_path.as_std_path() == manifest_path)
+		.map(|pkg| pkg.id.clone())
+		.unwrap();
+	let fixtures_pkg_node =
+		dependency_graph.nodes.iter().find(|node| node.id == fixtures_pkg_id).unwrap();
 
-	uapi_pkgs.sort_by(|a, b| b.version.cmp(&a.version));
-	let uapi_pkg = uapi_pkgs.first().unwrap();
+	// Get the pallet-revive-uapi package id
+	let uapi_pkg_id = fixtures_pkg_node
+		.deps
+		.iter()
+		.find(|dep| dep.name == "pallet_revive_uapi")
+		.map(|dep| dep.pkg.clone())
+		.expect("pallet-revive-uapi is a build dependency of pallet-revive-fixtures; qed");
+
+	// Get pallet-revive-uapi package
+	let uapi_pkg = metadata.packages.iter().find(|pkg| pkg.id == uapi_pkg_id).unwrap();
 
 	if uapi_pkg.source.is_none() {
 		uapi_dep.insert(
@@ -197,11 +208,34 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 
 /// Create a directory in the `target` as output directory
 fn create_out_dir() -> Result<PathBuf> {
-	let temp_dir: PathBuf = env::var("OUT_DIR")?.into();
+	let temp_dir: PathBuf =
+		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
 
 	// this is set in case the user has overriden the target directory
 	let out_dir = if let Ok(path) = env::var("CARGO_TARGET_DIR") {
-		path.into()
+		let path = PathBuf::from(path);
+
+		if path.is_absolute() {
+			path
+		} else {
+			let output = std::process::Command::new(env!("CARGO"))
+				.arg("locate-project")
+				.arg("--workspace")
+				.arg("--message-format=plain")
+				.output()
+				.context("Failed to determine workspace root")?
+				.stdout;
+
+			let workspace_root = Path::new(
+				std::str::from_utf8(&output)
+					.context("Invalid output from `locate-project`")?
+					.trim(),
+			)
+			.parent()
+			.expect("Workspace root path contains the `Cargo.toml`; qed");
+
+			PathBuf::from(workspace_root).join(path)
+		}
 	} else {
 		// otherwise just traverse up from the out dir
 		let mut out_dir: PathBuf = temp_dir.clone();
@@ -220,12 +254,13 @@ fn create_out_dir() -> Result<PathBuf> {
 	// clean up some leftover symlink from previous versions of this script
 	let mut out_exists = out_dir.exists();
 	if out_exists && !out_dir.is_dir() {
-		fs::remove_file(&out_dir)?;
+		fs::remove_file(&out_dir).context("Failed to remove `OUT_DIR`.")?;
 		out_exists = false;
 	}
 
 	if !out_exists {
-		fs::create_dir(&out_dir).context("Failed to create output directory")?;
+		fs::create_dir(&out_dir)
+			.context(format!("Failed to create output directory: {})", out_dir.display(),))?;
 	}
 
 	// write the location of the out dir so it can be found later
