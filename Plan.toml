@@ -1313,7 +1313,7 @@ reason = "changed"
 # cumulus/test/relay-sproof-builder
 name = "cumulus-test-relay-sproof-builder"
 from = "0.17.0"
-to = "0.18.0"
+to = "0.19.0"
 bump = "major"
 reason = "changed"
 
