@@ -1133,7 +1133,7 @@ version = "0.12.0"
 default-features = false
 optional = true
 path = "../cumulus/primitives/storage-weight-reclaim"
-version = "10.0.0"
+version = "11.0.0"
 
 [dependencies.cumulus-primitives-timestamp]
 default-features = false
