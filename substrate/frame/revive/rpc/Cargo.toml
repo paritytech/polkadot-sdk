@@ -13,10 +13,6 @@ default-run = "eth-rpc"
 name = "eth-rpc"
 path = "src/main.rs"
 
-[[bin]]
-name = "eth-rpc-tester"
-path = "src/eth-rpc-tester.rs"
-
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
@@ -26,7 +22,6 @@ hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
 log = { workspace = true }
 pallet-revive = { workspace = true, default-features = true }
-pallet-revive-fixtures = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 rlp = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
@@ -50,10 +45,11 @@ tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 env_logger = { workspace = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 
 [build-dependencies]
-git2 = { version = "0.20.0", default-features = false }
+git2 = { workspace = true }
