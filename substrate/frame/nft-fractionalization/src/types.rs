@@ -19,7 +19,7 @@
 
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
-use fungible::Inspect as FunInspect ;
+use fungible::Inspect as FunInspect;
 use fungibles::Inspect;
 use scale_info::TypeInfo;
 

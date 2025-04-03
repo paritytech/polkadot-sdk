@@ -20,10 +20,10 @@
 use crate::{mock::*, *};
 
 use frame::{
-	TokenError::FundsUnavailable,
 	testing_prelude::*,
 	deps::sp_runtime::ModuleError,
 };
+use TokenError::FundsUnavailable;
 use fungible::{hold::Inspect as InspectHold, Mutate as MutateFungible};
 use fungibles::{metadata::Inspect, InspectEnumerable};
 
