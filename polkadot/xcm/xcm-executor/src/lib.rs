@@ -456,7 +456,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		if let Some(SetTopic(id)) = msg.last() {
 			tracing::trace!(target: "xcm::send", ?id, "Message already ends with `SetTopic`");
 		} else {
-			if self.context.origin.is_none() {
+			if self.context.origin.is_none() && self.context.topic.is_none() {
 				let topic_id = self.context.message_id;
 				msg.inner_mut().push(SetTopic(topic_id));
 				tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` appended to message");
