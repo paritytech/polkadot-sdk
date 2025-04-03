@@ -287,7 +287,8 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		while !message.0.is_empty() {
 			let last_message = message.last().cloned();
 			tracing::debug!(target: "xcm::execute", ?last_message);
-			let prop_msg_id =  sp_core::H256::from(properties.message_id.unwrap_or(XcmHash::default()));
+			let prop_msg_id =
+				sp_core::H256::from(properties.message_id.unwrap_or(XcmHash::default()));
 			tracing::debug!(target: "xcm::execute", ?prop_msg_id, "Found from properties.message_id");
 			let vm_msg_id = sp_core::H256::from(vm.context.message_id);
 			tracing::debug!(target: "xcm::execute", ?vm_msg_id, "Found from vm.context.message_id");
