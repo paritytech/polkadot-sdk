@@ -127,7 +127,18 @@ impl<T: Config + pallet_session::Config + pallet_session::historical::Config> Se
 }
 
 /// Represents the operating mode of the pallet.
-#[derive(Default, DecodeWithMemTracking, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(
+	Default,
+	DecodeWithMemTracking,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+)]
 pub enum OperatingMode {
 	/// Fully delegated mode.
 	///
@@ -155,6 +166,16 @@ pub enum OperatingMode {
 	/// This mode is useful when staking is ready to execute in asynchronous mode and the
 	/// counterpart pallet `pallet-staking-async-rc-client` is ready to accept messages.
 	Active,
+}
+
+impl OperatingMode {
+	fn can_accept_validator_set(&self) -> bool {
+		match self {
+			OperatingMode::Passive => false,
+			OperatingMode::Buffered => false,
+			OperatingMode::Active => true,
+		}
+	}
 }
 
 #[frame_support::pallet]
@@ -204,7 +225,8 @@ pub mod pallet {
 		/// This type must implement the `historical::SessionManager` and `OnOffenceHandler`
 		/// interface and is expected to behave as a stand-in for this pallet’s core logic when
 		/// delegation is active.
-		type Fallback: historical::SessionManager<Self::AccountId, ()> + OnOffenceHandler<Self::AccountId, (Self::AccountId, ()), Weight>;
+		type Fallback: historical::SessionManager<Self::AccountId, ()>
+			+ OnOffenceHandler<Self::AccountId, (Self::AccountId, ()), Weight>;
 	}
 
 	#[pallet::pallet]
@@ -250,7 +272,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextSessionChangesValidators<T: Config> = StorageValue<_, u32, OptionQuery>;
 
-
 	/// Stores offences that have been received while the pallet is in [`OperatingMode::Buffered`]
 	/// mode.
 	///
@@ -262,11 +283,8 @@ pub mod pallet {
 	/// sent, and in `Passive` mode, they are delegated to the [`Config::Fallback`] implementation.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type BufferedOffences<T: Config> = StorageValue<
-		_,
-		Vec<rc_client::Offence<T::AccountId>>,
-		ValueQuery,
-	>;
+	pub type BufferedOffences<T: Config> =
+		StorageValue<_, Vec<rc_client::Offence<T::AccountId>>, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -292,6 +310,25 @@ pub mod pallet {
 		/// The validator set received is way too small, as per
 		/// [`Config::MinimumValidatorSetSize`].
 		SetTooSmallAndDropped,
+		/// Something occurred that should never happen under normal operation.
+		/// Logged as an event for fail-safe observability.
+		Unexpected(UnexpectedKind),
+	}
+
+	/// Represents unexpected or invariant-breaking conditions encountered during execution.
+	///
+	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has failed.
+	/// While these should never occur under normal operation, they are useful for diagnosing issues
+	/// in production or test environments.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	pub enum UnexpectedKind {
+		/// A validator set was received while the pallet is in [`OperatingMode::Passive`].
+		ReceivedValidatorSetWhilePassive,
+
+		/// An unexpected transition was applied between operating modes.
+		///
+		/// Expected transitions are linear and forward-only: `Passive` → `Buffered` → `Active`.
+		UnexpectedModeTransition,
 	}
 
 	#[pallet::call]
@@ -299,7 +336,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(
 			// Reads:
-			// - IsBlocked
+			// - OperatingMode
 			// - IncompleteValidatorSetReport
 			// Writes:
 			// - IncompleteValidatorSetReport or ValidatorSet
@@ -313,6 +350,14 @@ pub mod pallet {
 			// Ensure the origin is one of Root or whatever is representing AssetHub.
 			log!(info, "Received new validator set report {:?}", report);
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
+
+			// Check the operating mode.
+			let mode = Mode::<T>::get();
+			if !mode.can_accept_validator_set() {
+				log!(warn, "Validator set received while in {:?} mode", mode);
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::ReceivedValidatorSetWhilePassive));
+				return Ok(());
+			}
 
 			let maybe_merged_report = match IncompleteValidatorSetReport::<T>::take() {
 				Some(old) => old.merge(report.clone()),
@@ -382,6 +427,21 @@ pub mod pallet {
 		#[pallet::weight(T::DbWeight::get().writes(1))]
 		pub fn set_mode(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			let old_mode = Mode::<T>::get();
+			let unexpected = match mode {
+				// `Passive` is the initial state, and not expected to be set by the user.
+				OperatingMode::Passive => true,
+				OperatingMode::Buffered => old_mode != OperatingMode::Passive,
+				OperatingMode::Active => old_mode != OperatingMode::Buffered,
+			};
+
+			// this is a defensive check, and should never happen under normal operation.
+			if unexpected {
+				log!(warn, "Unexpected mode transition from {:?} to {:?}", old_mode, mode);
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::UnexpectedModeTransition));
+			}
+
+			// apply new mode anyway.
 			Mode::<T>::put(mode);
 			Ok(())
 		}
