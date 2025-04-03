@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{extract_revert_message, CallLog, CallTrace, CallType},
+	evm::{decode_revert_reason, CallLog, CallTrace, CallType},
 	primitives::ExecReturnValue,
 	tracing::Tracer,
 	DispatchError, Weight,
@@ -70,9 +70,9 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracer for CallTracer<Gas, GasM
 		self.traces.push(CallTrace {
 			from,
 			to,
-			value,
+			value: if is_read_only { None } else { Some(value) },
 			call_type,
-			input: input.to_vec(),
+			input: input.to_vec().into(),
 			gas: (self.gas_mapper)(gas_left),
 			..Default::default()
 		});
@@ -103,7 +103,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracer for CallTracer<Gas, GasM
 		trace.gas_used = (self.gas_mapper)(gas_used);
 
 		if output.did_revert() {
-			trace.revert_reason = extract_revert_message(&output.data);
+			trace.revert_reason = decode_revert_reason(&output.data);
 			trace.error = Some("execution reverted".to_string());
 		}
 

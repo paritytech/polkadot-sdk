@@ -54,9 +54,8 @@ use pallet_staking::{ActiveEra, CurrentEra, ErasStartSessionIndex, StakerStatus}
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-use frame_support::derive_impl;
-
 use crate::{log, log_current_time};
+use frame_support::{derive_impl, traits::Nothing};
 
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
@@ -142,11 +141,14 @@ impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<Runtime>;
+	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<
+		SLASHING_DISABLING_FACTOR,
+	>;
 	type WeightInfo = ();
 }
 impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -278,6 +280,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BlockNumberProvider = System;
+	type Filter = Nothing;
 }
 
 parameter_types! {
@@ -326,8 +329,6 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type EventListeners = (Pools, DelegatedStaking);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
-	type DisablingStrategy =
-		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<SLASHING_DISABLING_FACTOR>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }
 
@@ -887,7 +888,7 @@ pub(crate) fn on_offence_now(
 	slash_fraction: &[Perbill],
 ) {
 	let now = ActiveEra::<Runtime>::get().unwrap().index;
-	let _ = Staking::on_offence(
+	let _ = <Staking as OnOffenceHandler<_, _, _>>::on_offence(
 		offenders,
 		slash_fraction,
 		ErasStartSessionIndex::<Runtime>::get(now).unwrap(),
@@ -897,10 +898,7 @@ pub(crate) fn on_offence_now(
 // Add offence to validator, slash it.
 pub(crate) fn add_slash(who: &AccountId) {
 	on_offence_now(
-		&[OffenceDetails {
-			offender: (*who, Staking::eras_stakers(active_era(), who)),
-			reporters: vec![],
-		}],
+		&[OffenceDetails { offender: (*who, ()), reporters: vec![] }],
 		&[Perbill::from_percent(10)],
 	);
 }

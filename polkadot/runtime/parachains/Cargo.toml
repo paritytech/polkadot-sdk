@@ -15,7 +15,6 @@ workspace = true
 bitflags = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-derive_more = { workspace = true, default-features = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -64,7 +63,6 @@ polkadot-primitives = { workspace = true, features = ["test"] }
 
 assert_matches = { workspace = true }
 frame-support-test = { workspace = true }
-futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
 rstest = { workspace = true }
@@ -120,6 +118,7 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",

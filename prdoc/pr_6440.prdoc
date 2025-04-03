@@ -6,3 +6,4 @@ doc:
 crates:
 - name: polkadot-node-core-pvf
   validate: false
+  bump: none

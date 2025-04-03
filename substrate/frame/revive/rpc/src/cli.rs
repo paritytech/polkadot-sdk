@@ -18,8 +18,8 @@
 use crate::{
 	client::{connect, native_to_eth_ratio, Client, SubscriptionType, SubstrateBlockNumber},
 	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
-	EthRpcServer, EthRpcServerImpl, ReceiptExtractor, ReceiptProvider, SystemHealthRpcServer,
-	SystemHealthRpcServerImpl, LOG_TARGET,
+	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
+	ReceiptProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl, LOG_TARGET,
 };
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
@@ -37,6 +37,8 @@ const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 // Default port if --rpc-port is not specified
 const DEFAULT_RPC_PORT: u16 = 8545;
 
+const IN_MEMORY_DB: &str = "sqlite::memory:";
+
 // Parsed command instructions from the command line
 #[derive(Parser, Debug)]
 #[clap(author, about, version)]
@@ -49,11 +51,15 @@ pub struct CliCommand {
 	#[clap(long, default_value = "256")]
 	pub cache_size: usize,
 
+	/// Earliest block number to consider when searching for transaction receipts.
+	#[clap(long)]
+	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
+
 	/// The database used to store Ethereum transaction hashes.
 	/// This is only useful if the node needs to act as an archive node and respond to Ethereum RPC
 	/// queries for transactions that are not in the in memory cache.
-	#[clap(long, env = "DATABASE_URL")]
-	pub database_url: Option<String>,
+	#[clap(long, env = "DATABASE_URL", default_value = IN_MEMORY_DB)]
+	pub database_url: String,
 
 	/// If not provided, only new blocks will be indexed
 	#[clap(long)]
@@ -96,8 +102,9 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 fn build_client(
 	tokio_handle: &tokio::runtime::Handle,
 	cache_size: usize,
+	earliest_receipt_block: Option<SubstrateBlockNumber>,
 	node_rpc_url: &str,
-	database_url: Option<&str>,
+	database_url: &str,
 	abort_signal: Signals,
 ) -> anyhow::Result<Client> {
 	let fut = async {
@@ -105,22 +112,25 @@ fn build_client(
 		let block_provider: Arc<dyn BlockInfoProvider> =
 			Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
 
-		let receipt_extractor = ReceiptExtractor::new(native_to_eth_ratio(&api).await?);
-		let receipt_provider: Arc<dyn ReceiptProvider> = if let Some(database_url) = database_url {
-			log::info!(target: LOG_TARGET, "🔗 Connecting to provided database");
-			Arc::new((
-				CacheReceiptProvider::default(),
-				DBReceiptProvider::new(
-					database_url,
-					block_provider.clone(),
-					receipt_extractor.clone(),
-				)
-				.await?,
-			))
-		} else {
-			log::info!(target: LOG_TARGET, "🔌 No database provided, using in-memory cache");
-			Arc::new(CacheReceiptProvider::default())
-		};
+		let prune_old_blocks = database_url == IN_MEMORY_DB;
+		if prune_old_blocks {
+			log::info!( target: LOG_TARGET, "Using in-memory database, keeping only {cache_size} blocks in memory");
+		}
+
+		let receipt_extractor = ReceiptExtractor::new(
+			native_to_eth_ratio(&api).await?,
+			earliest_receipt_block);
+
+		let receipt_provider: Arc<dyn ReceiptProvider> = Arc::new((
+			CacheReceiptProvider::default(),
+			DBReceiptProvider::new(
+				database_url,
+				block_provider.clone(),
+				receipt_extractor.clone(),
+				prune_old_blocks,
+			)
+			.await?,
+		));
 
 		let client =
 			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, receipt_extractor)
@@ -146,6 +156,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		node_rpc_url,
 		cache_size,
 		database_url,
+		earliest_receipt_block,
 		index_until_block,
 		shared_params,
 		..
@@ -186,8 +197,9 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let client = build_client(
 		tokio_handle,
 		cache_size,
+		earliest_receipt_block,
 		&node_rpc_url,
-		database_url.as_deref(),
+		&database_url,
 		tokio_runtime.block_on(async { Signals::capture() })?,
 	)?;
 
@@ -232,10 +244,12 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
 		.into_rpc();
 
-	let health_api = SystemHealthRpcServerImpl::new(client).into_rpc();
+	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
+	let debug_api = DebugRpcServerImpl::new(client).into_rpc();
 
 	let mut module = RpcModule::new(());
 	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
+	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	Ok(module)
 }

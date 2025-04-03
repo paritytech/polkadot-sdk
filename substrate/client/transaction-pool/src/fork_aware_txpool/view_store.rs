@@ -20,22 +20,27 @@
 
 use super::{
 	multi_view_listener::{MultiViewListener, TxStatusStream},
-	view::View,
+	view::{View, ViewPoolObserver},
 };
 use crate::{
 	fork_aware_txpool::dropped_watcher::MultiViewDroppedWatcherController,
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
-		BaseSubmitOutcome, ExtrinsicFor, ExtrinsicHash, TransactionFor, ValidatedPoolSubmitOutcome,
+		BaseSubmitOutcome, BlockHash, ExtrinsicFor, ExtrinsicHash, TransactionFor,
+		ValidatedPoolSubmitOutcome,
 	},
 	ReadyIteratorFor, LOG_TARGET,
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus};
-use sp_blockchain::TreeRoute;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TxInvalidityReportMap};
+use sp_blockchain::{HashAndNumber, TreeRoute};
+use sp_runtime::{
+	generic::BlockId,
+	traits::{Block as BlockT, Saturating},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+};
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	sync::Arc,
@@ -58,8 +63,13 @@ where
 
 /// Helper type representing the callback allowing to trigger per-transaction events on
 /// `ValidatedPool`'s listener.
-type RemovalListener<ChainApi> =
-	Arc<dyn Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>) + Send + Sync>;
+type RemovalCallback<ChainApi> = Arc<
+	dyn Fn(
+			&mut crate::graph::EventDispatcher<ChainApi, ViewPoolObserver<ChainApi>>,
+			ExtrinsicHash<ChainApi>,
+		) + Send
+		+ Sync,
+>;
 
 /// Helper struct to maintain the context for pending transaction removal, executed for
 /// newly inserted views.
@@ -70,7 +80,7 @@ where
 	/// Hash of the transaction that will be removed,
 	xt_hash: ExtrinsicHash<ChainApi>,
 	/// Action that shall be executed on underlying `ValidatedPool`'s listener.
-	listener_action: RemovalListener<ChainApi>,
+	listener_action: RemovalCallback<ChainApi>,
 }
 
 /// This enum represents an action that should be executed on the newly built
@@ -115,7 +125,7 @@ where
 	/// Creates new unprocessed instance of pending transaction removal.
 	fn new_removal_action(
 		xt_hash: ExtrinsicHash<ChainApi>,
-		listener: RemovalListener<ChainApi>,
+		listener: RemovalCallback<ChainApi>,
 	) -> Self {
 		Self {
 			processed: false,
@@ -257,7 +267,7 @@ where
 					target: LOG_TARGET,
 					?tx_hash,
 					%error,
-					"submit_local: err"
+					"submit_local failed"
 				);
 				Err(error)
 			},
@@ -306,7 +316,7 @@ where
 					target: LOG_TARGET,
 					?tx_hash,
 					%error,
-					"submit_and_watch: err"
+					"submit_and_watch failed"
 				);
 				return Err(error);
 			},
@@ -528,49 +538,6 @@ where
 		None
 	}
 
-	/// The pre-finalization event handle for the view store.
-	///
-	/// This function removes the references to the views that will be removed during finalization
-	/// from the dropped stream controller. This will allow for correct dispatching of `Dropped`
-	/// events.
-	pub(crate) async fn handle_pre_finalized(&self, finalized_hash: Block::Hash) {
-		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
-		let mut removed_views = vec![];
-
-		{
-			let active_views = self.active_views.read();
-			let inactive_views = self.inactive_views.read();
-
-			active_views
-				.iter()
-				.filter(|(hash, v)| !match finalized_number {
-					Err(_) | Ok(None) => **hash == finalized_hash,
-					Ok(Some(n)) if v.at.number == n => **hash == finalized_hash,
-					Ok(Some(n)) => v.at.number > n,
-				})
-				.map(|(_, v)| removed_views.push(v.at.hash))
-				.for_each(drop);
-
-			inactive_views
-				.iter()
-				.filter(|(_, v)| !match finalized_number {
-					Err(_) | Ok(None) => false,
-					Ok(Some(n)) => v.at.number >= n,
-				})
-				.map(|(_, v)| removed_views.push(v.at.hash))
-				.for_each(drop);
-		}
-
-		trace!(
-			target: LOG_TARGET,
-			?removed_views,
-			"handle_pre_finalized"
-		);
-		removed_views.iter().for_each(|view| {
-			self.dropped_stream_controller.remove_view(*view);
-		});
-	}
-
 	/// The finalization event handle for the view store.
 	///
 	/// Views that have associated block number less than finalized block number are removed from
@@ -634,7 +601,7 @@ where
 		);
 
 		self.listener.remove_stale_controllers();
-		self.dropped_stream_controller.remove_finalized_txs(finalized_xts.clone());
+		self.dropped_stream_controller.remove_transactions(finalized_xts.clone());
 
 		self.listener.remove_view(finalized_hash);
 		for view in dropped_views {
@@ -667,6 +634,71 @@ where
 			duration = ?start.elapsed(),
 			"finish_background_revalidations"
 		);
+	}
+
+	/// Reports invalid transactions to the view store.
+	///
+	/// This function accepts an array of tuples, each containing a transaction hash and an
+	/// optional error encountered during the transaction execution at a specific (also optional)
+	/// block.
+	///
+	/// Removal operation applies to provided transactions. Their descendants can be removed from
+	/// the view, but will not be invalidated or banned.
+	///
+	/// Invalid future and stale transaction will be removed only from given `at` view, and will be
+	/// kept in the view_store. Such transaction will not be reported in returned vector. They
+	/// also will not be banned from re-entering the pool. No event will be triggered.
+	///
+	/// For other errors, the transaction will be removed from the view_store, and it will be
+	/// included in the returned vector. Additionally, transactions provided as input will be banned
+	/// from re-entering the pool.
+	///
+	/// If the tuple's error is None, the transaction will be forcibly removed from the view_store,
+	/// banned and included into the returned vector.
+	///
+	/// For every transaction removed from the view_store (excluding descendants) an Invalid event
+	/// is triggered.
+	///
+	/// Returns the list of actually removed transactions from the mempool, which were included in
+	/// the provided input list.
+	pub(crate) fn report_invalid(
+		&self,
+		at: Option<Block::Hash>,
+		invalid_tx_errors: TxInvalidityReportMap<ExtrinsicHash<ChainApi>>,
+	) -> Vec<TransactionFor<ChainApi>> {
+		let mut remove_from_view = vec![];
+		let mut remove_from_pool = vec![];
+
+		invalid_tx_errors.into_iter().for_each(|(hash, e)| match e {
+			Some(TransactionValidityError::Invalid(
+				InvalidTransaction::Future | InvalidTransaction::Stale,
+			)) => {
+				remove_from_view.push(hash);
+			},
+			_ => {
+				remove_from_pool.push(hash);
+			},
+		});
+
+		// transaction removed from view, won't be included into the final result, as they may still
+		// be in the pool.
+		at.map(|at| {
+			self.get_view_at(at, true)
+				.map(|(view, _)| view.remove_subtree(&remove_from_view, false, |_, _| {}))
+		});
+
+		let mut removed = vec![];
+		for tx_hash in &remove_from_pool {
+			let removed_from_pool = self.remove_transaction_subtree(*tx_hash, |_, _| {});
+			removed_from_pool
+				.iter()
+				.find(|tx| tx.hash == *tx_hash)
+				.map(|tx| removed.push(tx.clone()));
+		}
+
+		self.listener.transactions_invalidated(&remove_from_pool);
+
+		removed
 	}
 
 	/// Replaces an existing transaction in the view_store with a new one.
@@ -724,7 +756,7 @@ where
 					));
 				},
 				PreInsertAction::RemoveSubtree(ref removal) => {
-					view.remove_subtree(removal.xt_hash, &*removal.listener_action);
+					view.remove_subtree(&[removal.xt_hash], true, &*removal.listener_action);
 				},
 			}
 		}
@@ -804,10 +836,12 @@ where
 		&self,
 		xt_hash: ExtrinsicHash<ChainApi>,
 		listener_action: F,
-	) -> Vec<ExtrinsicHash<ChainApi>>
+	) -> Vec<TransactionFor<ChainApi>>
 	where
-		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>)
-			+ Clone
+		F: Fn(
+				&mut crate::graph::EventDispatcher<ChainApi, ViewPoolObserver<ChainApi>>,
+				ExtrinsicHash<ChainApi>,
+			) + Clone
 			+ Send
 			+ Sync
 			+ 'static,
@@ -827,8 +861,8 @@ where
 			.iter()
 			.chain(self.inactive_views.read().iter())
 			.filter(|(_, view)| view.is_imported(&xt_hash))
-			.flat_map(|(_, view)| view.remove_subtree(xt_hash, &listener_action))
-			.filter(|xt_hash| seen.insert(*xt_hash))
+			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], true, &listener_action))
+			.filter_map(|xt| seen.insert(xt.hash).then(|| xt.clone()))
 			.collect();
 
 		if let Some(removal_action) = self.pending_txs_tasks.write().get_mut(&xt_hash) {
@@ -836,5 +870,41 @@ where
 		}
 
 		removed
+	}
+
+	/// Clears stale views when blockchain finality stalls.
+	///
+	/// This function removes outdated active and inactive views based on the block height
+	/// difference compared to the current block's height. Views are considered stale and
+	/// purged from the `ViewStore` if their height difference from the current block `at`
+	/// exceeds the specified `threshold`.
+	///
+	/// If any views are removed, corresponding cleanup operations are performed on multi-view
+	/// stream controllers to ensure views are also removed there.
+	pub(crate) fn finality_stall_view_cleanup(&self, at: &HashAndNumber<Block>, threshold: usize) {
+		let mut dropped_views = vec![];
+		{
+			let mut active_views = self.active_views.write();
+			let mut inactive_views = self.inactive_views.write();
+			let mut f = |hash: &BlockHash<ChainApi>, v: &View<ChainApi>| -> bool {
+				let diff = at.number.saturating_sub(v.at.number);
+				if diff.into() > threshold.into() {
+					dropped_views.push(*hash);
+					false
+				} else {
+					true
+				}
+			};
+
+			active_views.retain(|h, v| f(h, v));
+			inactive_views.retain(|h, v| f(h, v));
+		}
+
+		if !dropped_views.is_empty() {
+			for view in dropped_views {
+				self.listener.remove_view(view);
+				self.dropped_stream_controller.remove_view(view);
+			}
+		}
 	}
 }

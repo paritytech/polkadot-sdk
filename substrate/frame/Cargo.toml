@@ -18,12 +18,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # external deps
-codec = { features = [
-	"derive",
-], workspace = true }
-scale-info = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { workspace = true }
 
 # primitive deps, used for developing FRAME pallets.
 sp-arithmetic = { workspace = true }
@@ -95,6 +92,7 @@ std = [
 	"frame-try-runtime?/std",
 	"log/std",
 	"scale-info/std",
+	"serde/std",
 	"sp-api?/std",
 	"sp-arithmetic/std",
 	"sp-block-builder?/std",
