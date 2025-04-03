@@ -983,13 +983,13 @@ version = "16.0.0"
 default-features = false
 optional = true
 path = "../bridges/primitives/header-chain"
-version = "0.20.0"
+version = "0.20.1"
 
 [dependencies.bp-messages]
 default-features = false
 optional = true
 path = "../bridges/primitives/messages"
-version = "0.20.0"
+version = "0.20.1"
 
 [dependencies.bp-parachains]
 default-features = false
@@ -1001,19 +1001,19 @@ version = "0.20.0"
 default-features = false
 optional = true
 path = "../bridges/primitives/polkadot-core"
-version = "0.20.0"
+version = "0.20.1"
 
 [dependencies.bp-relayers]
 default-features = false
 optional = true
 path = "../bridges/primitives/relayers"
-version = "0.20.0"
+version = "0.20.1"
 
 [dependencies.bp-runtime]
 default-features = false
 optional = true
 path = "../bridges/primitives/runtime"
-version = "0.20.0"
+version = "0.20.1"
 
 [dependencies.bp-test-utils]
 default-features = false
@@ -1025,7 +1025,7 @@ version = "0.20.0"
 default-features = false
 optional = true
 path = "../bridges/primitives/xcm-bridge-hub"
-version = "0.6.0"
+version = "0.6.1"
 
 [dependencies.bp-xcm-bridge-hub-router]
 default-features = false
@@ -1037,7 +1037,7 @@ version = "0.17.0"
 default-features = false
 optional = true
 path = "../cumulus/parachains/runtimes/bridge-hubs/common"
-version = "0.13.0"
+version = "0.13.1"
 
 [dependencies.bridge-runtime-common]
 default-features = false
@@ -1091,7 +1091,7 @@ version = "0.2.0"
 default-features = false
 optional = true
 path = "../cumulus/pallets/xcm"
-version = "0.19.0"
+version = "0.19.1"
 
 [dependencies.cumulus-pallet-xcmp-queue]
 default-features = false
@@ -1115,13 +1115,13 @@ version = "0.17.0"
 default-features = false
 optional = true
 path = "../cumulus/primitives/core"
-version = "0.18.0"
+version = "0.18.1"
 
 [dependencies.cumulus-primitives-parachain-inherent]
 default-features = false
 optional = true
 path = "../cumulus/primitives/parachain-inherent"
-version = "0.18.0"
+version = "0.18.1"
 
 [dependencies.cumulus-primitives-proof-size-hostfunction]
 default-features = false
@@ -1163,13 +1163,13 @@ version = "30.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/election-provider-support/solution-type"
-version = "16.0.0"
+version = "16.1.0"
 
 [dependencies.frame-election-provider-support]
 default-features = false
 optional = true
 path = "../substrate/frame/election-provider-support"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.frame-executive]
 default-features = false
@@ -1187,7 +1187,7 @@ version = "0.8.0"
 default-features = false
 optional = true
 path = "../substrate/frame/support"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.frame-support-procedural]
 default-features = false
@@ -1205,7 +1205,7 @@ version = "12.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/system"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.frame-system-benchmarking]
 default-features = false
@@ -1229,7 +1229,7 @@ version = "0.46.0"
 default-features = false
 optional = true
 path = "../substrate/frame/alliance"
-version = "39.0.0"
+version = "39.1.0"
 
 [dependencies.pallet-asset-conversion]
 default-features = false
@@ -1283,13 +1283,13 @@ version = "0.7.0"
 default-features = false
 optional = true
 path = "../substrate/frame/assets-holder"
-version = "0.2.0"
+version = "0.2.1"
 
 [dependencies.pallet-atomic-swap]
 default-features = false
 optional = true
 path = "../substrate/frame/atomic-swap"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-aura]
 default-features = false
@@ -1319,19 +1319,19 @@ version = "40.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/bags-list"
-version = "39.0.0"
+version = "39.1.0"
 
 [dependencies.pallet-balances]
 default-features = false
 optional = true
 path = "../substrate/frame/balances"
-version = "41.0.0"
+version = "41.1.0"
 
 [dependencies.pallet-beefy]
 default-features = false
 optional = true
 path = "../substrate/frame/beefy"
-version = "41.0.0"
+version = "41.1.0"
 
 [dependencies.pallet-beefy-mmr]
 default-features = false
@@ -1355,7 +1355,7 @@ version = "0.20.0"
 default-features = false
 optional = true
 path = "../bridges/modules/messages"
-version = "0.20.0"
+version = "0.20.1"
 
 [dependencies.pallet-bridge-parachains]
 default-features = false
@@ -1373,7 +1373,7 @@ version = "0.20.0"
 default-features = false
 optional = true
 path = "../substrate/frame/broker"
-version = "0.19.0"
+version = "0.19.1"
 
 [dependencies.pallet-child-bounties]
 default-features = false
@@ -1391,7 +1391,7 @@ version = "21.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/collective"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-collective-content]
 default-features = false
@@ -1403,7 +1403,7 @@ version = "0.18.0"
 default-features = false
 optional = true
 path = "../substrate/frame/contracts"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-contracts-proc-macro]
 default-features = false
@@ -1421,13 +1421,13 @@ version = "14.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/conviction-voting"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-core-fellowship]
 default-features = false
 optional = true
 path = "../substrate/frame/core-fellowship"
-version = "24.0.0"
+version = "24.1.0"
 
 [dependencies.pallet-delegated-staking]
 default-features = false
@@ -1439,7 +1439,7 @@ version = "7.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/democracy"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-dev-mode]
 default-features = false
@@ -1451,7 +1451,7 @@ version = "22.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/election-provider-multi-phase"
-version = "39.0.0"
+version = "39.1.0"
 
 [dependencies.pallet-election-provider-support-benchmarking]
 default-features = false
@@ -1463,7 +1463,7 @@ version = "39.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/elections-phragmen"
-version = "41.0.0"
+version = "41.1.0"
 
 [dependencies.pallet-fast-unstake]
 default-features = false
@@ -1487,13 +1487,13 @@ version = "40.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/identity"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-im-online]
 default-features = false
 optional = true
 path = "../substrate/frame/im-online"
-version = "39.0.0"
+version = "39.1.0"
 
 [dependencies.pallet-indices]
 default-features = false
@@ -1523,7 +1523,7 @@ version = "40.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/message-queue"
-version = "43.0.0"
+version = "43.1.0"
 
 [dependencies.pallet-meta-tx]
 default-features = false
@@ -1535,13 +1535,13 @@ version = "0.2.0"
 default-features = false
 optional = true
 path = "../substrate/frame/migrations"
-version = "10.0.0"
+version = "10.1.0"
 
 [dependencies.pallet-mixnet]
 default-features = false
 optional = true
 path = "../substrate/frame/mixnet"
-version = "0.16.0"
+version = "0.16.1"
 
 [dependencies.pallet-mmr]
 default-features = false
@@ -1553,7 +1553,7 @@ version = "40.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/multisig"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-nft-fractionalization]
 default-features = false
@@ -1565,7 +1565,7 @@ version = "23.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/nfts"
-version = "34.0.0"
+version = "34.1.0"
 
 [dependencies.pallet-nfts-runtime-api]
 default-features = false
@@ -1589,7 +1589,7 @@ version = "40.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/nomination-pools"
-version = "38.0.0"
+version = "38.1.0"
 
 [dependencies.pallet-nomination-pools-benchmarking]
 default-features = false
@@ -1637,13 +1637,13 @@ version = "40.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/proxy"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-ranked-collective]
 default-features = false
 optional = true
 path = "../substrate/frame/ranked-collective"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-recovery]
 default-features = false
@@ -1655,7 +1655,7 @@ version = "40.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/referenda"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-remark]
 default-features = false
@@ -1697,7 +1697,7 @@ version = "16.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/safe-mode"
-version = "21.0.0"
+version = "21.1.0"
 
 [dependencies.pallet-salary]
 default-features = false
@@ -1739,13 +1739,13 @@ version = "15.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/society"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-staking]
 default-features = false
 optional = true
 path = "../substrate/frame/staking"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
@@ -1769,7 +1769,7 @@ version = "26.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/state-trie-migration"
-version = "44.0.0"
+version = "44.1.0"
 
 [dependencies.pallet-statement]
 default-features = false
@@ -1823,13 +1823,13 @@ version = "39.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/tx-pause"
-version = "21.0.0"
+version = "21.1.0"
 
 [dependencies.pallet-uniques]
 default-features = false
 optional = true
 path = "../substrate/frame/uniques"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-utility]
 default-features = false
@@ -1847,7 +1847,7 @@ version = "0.3.0"
 default-features = false
 optional = true
 path = "../substrate/frame/vesting"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.pallet-whitelist]
 default-features = false
@@ -1859,7 +1859,7 @@ version = "39.0.0"
 default-features = false
 optional = true
 path = "../polkadot/xcm/pallet-xcm"
-version = "19.0.0"
+version = "19.1.0"
 
 [dependencies.pallet-xcm-benchmarks]
 default-features = false
@@ -1871,7 +1871,7 @@ version = "19.0.0"
 default-features = false
 optional = true
 path = "../bridges/modules/xcm-bridge-hub"
-version = "0.16.0"
+version = "0.16.1"
 
 [dependencies.pallet-xcm-bridge-hub-router]
 default-features = false
@@ -1889,25 +1889,25 @@ version = "20.0.0"
 default-features = false
 optional = true
 path = "../polkadot/core-primitives"
-version = "17.0.0"
+version = "17.1.0"
 
 [dependencies.polkadot-parachain-primitives]
 default-features = false
 optional = true
 path = "../polkadot/parachain"
-version = "16.0.0"
+version = "16.1.0"
 
 [dependencies.polkadot-primitives]
 default-features = false
 optional = true
 path = "../polkadot/primitives"
-version = "18.0.0"
+version = "18.1.0"
 
 [dependencies.polkadot-runtime-common]
 default-features = false
 optional = true
 path = "../polkadot/runtime/common"
-version = "19.0.0"
+version = "19.1.0"
 
 [dependencies.polkadot-runtime-metrics]
 default-features = false
@@ -1919,13 +1919,13 @@ version = "19.0.0"
 default-features = false
 optional = true
 path = "../polkadot/runtime/parachains"
-version = "19.0.0"
+version = "19.1.0"
 
 [dependencies.polkadot-sdk-frame]
 default-features = false
 optional = true
 path = "../substrate/frame"
-version = "0.9.0"
+version = "0.9.1"
 
 [dependencies.sc-chain-spec-derive]
 default-features = false
@@ -1961,13 +1961,13 @@ version = "21.0.1"
 default-features = false
 optional = true
 path = "../substrate/primitives/application-crypto"
-version = "40.0.0"
+version = "40.1.0"
 
 [dependencies.sp-arithmetic]
 default-features = false
 optional = true
 path = "../substrate/primitives/arithmetic"
-version = "26.0.0"
+version = "26.1.0"
 
 [dependencies.sp-authority-discovery]
 default-features = false
@@ -1991,19 +1991,19 @@ version = "0.42.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/consensus/babe"
-version = "0.42.0"
+version = "0.42.1"
 
 [dependencies.sp-consensus-beefy]
 default-features = false
 optional = true
 path = "../substrate/primitives/consensus/beefy"
-version = "24.0.0"
+version = "24.1.0"
 
 [dependencies.sp-consensus-grandpa]
 default-features = false
 optional = true
 path = "../substrate/primitives/consensus/grandpa"
-version = "23.0.0"
+version = "23.1.0"
 
 [dependencies.sp-consensus-pow]
 default-features = false
@@ -2015,13 +2015,13 @@ version = "0.42.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/consensus/slots"
-version = "0.42.0"
+version = "0.42.1"
 
 [dependencies.sp-core]
 default-features = false
 optional = true
 path = "../substrate/primitives/core"
-version = "36.0.0"
+version = "36.1.0"
 
 [dependencies.sp-crypto-ec-utils]
 default-features = false
@@ -2099,13 +2099,13 @@ version = "0.14.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/merkle-mountain-range"
-version = "36.0.0"
+version = "36.1.0"
 
 [dependencies.sp-npos-elections]
 default-features = false
 optional = true
 path = "../substrate/primitives/npos-elections"
-version = "36.0.0"
+version = "36.1.0"
 
 [dependencies.sp-offchain]
 default-features = false
@@ -2117,7 +2117,7 @@ version = "36.0.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/runtime"
-version = "41.0.0"
+version = "41.1.0"
 
 [dependencies.sp-runtime-interface]
 default-features = false
@@ -2135,7 +2135,7 @@ version = "18.0.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/session"
-version = "38.0.0"
+version = "38.1.0"
 
 [dependencies.sp-staking]
 default-features = false
@@ -2153,7 +2153,7 @@ version = "0.45.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/statement-store"
-version = "20.0.0"
+version = "20.1.0"
 
 [dependencies.sp-std]
 default-features = false
@@ -2189,13 +2189,13 @@ version = "36.0.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/transaction-storage-proof"
-version = "36.0.0"
+version = "36.1.0"
 
 [dependencies.sp-trie]
 default-features = false
 optional = true
 path = "../substrate/primitives/trie"
-version = "39.0.0"
+version = "39.1.0"
 
 [dependencies.sp-version]
 default-features = false
@@ -2219,7 +2219,7 @@ version = "21.0.1"
 default-features = false
 optional = true
 path = "../substrate/primitives/weights"
-version = "31.0.0"
+version = "31.1.0"
 
 [dependencies.staging-parachain-info]
 default-features = false
@@ -2231,7 +2231,7 @@ version = "0.19.0"
 default-features = false
 optional = true
 path = "../polkadot/xcm"
-version = "16.0.0"
+version = "16.1.0"
 
 [dependencies.staging-xcm-builder]
 default-features = false
@@ -2243,7 +2243,7 @@ version = "19.0.0"
 default-features = false
 optional = true
 path = "../polkadot/xcm/xcm-executor"
-version = "19.0.0"
+version = "19.1.0"
 
 [dependencies.substrate-bip39]
 default-features = false

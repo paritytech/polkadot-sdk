@@ -4,7 +4,7 @@ description = "An abstract and configurable XCM message executor."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "19.0.0"
+version = "19.1.0"
 homepage.workspace = true
 repository.workspace = true
 

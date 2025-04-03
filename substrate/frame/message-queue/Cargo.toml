@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 name = "pallet-message-queue"
-version = "43.0.0"
+version = "43.1.0"
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
