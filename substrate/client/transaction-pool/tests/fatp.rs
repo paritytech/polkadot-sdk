@@ -2079,13 +2079,11 @@ fn fatp_prune_based_on_inactive_views_tags() {
 	block_on(pool.maintain(event));
 	assert_pool_status!(_header08.hash(), &pool, 0, 0);
 	// There are extra 3 validations for the enacted fork:
-	// 1. xt0 - which is the tx that doesn't require any tags, only provides 201, acting as a root
-	//    transaction, required to be revalidated as part of the the enacted fork.
-	// 2. xt6 - not submitted to the retracted fork before.
-	// 3. xt10 - not submitted to the retracted fork before.
-	// The rest of the txs which are not validated are x1 & x2 (because we consider their provides
-	// tags on the inactive views), which are part of the first block
-	// on the enacted block. TODO: explain why x1 & x2 are revalidated without the optimization.
+	// 1. xt0 - which is the tx missing from the views, so makes sense to validate it.
+	// 2. xt6 - not submitted to the retracted fork before, so makes sense to validate it.
+	// 3. xt10 - same as for xt6.
+	// The rest of the txs which are not validated anymore to get their 'provides' tags are x1 & x2,
+	// which can be found in the inactive views.
 	assert_eq!(api.validation_requests().len(), 22);
 }
 
