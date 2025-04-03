@@ -285,13 +285,6 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		vm.message_weight = xcm_weight;
 
 		while !message.0.is_empty() {
-			let last_message = message.last().cloned();
-			tracing::debug!(target: "xcm::execute", ?last_message);
-			let prop_msg_id =
-				sp_core::H256::from(properties.message_id.unwrap_or(XcmHash::default()));
-			tracing::debug!(target: "xcm::execute", ?prop_msg_id, "Found from properties.message_id");
-			let vm_msg_id = sp_core::H256::from(vm.context.message_id);
-			tracing::debug!(target: "xcm::execute", ?vm_msg_id, "Found from vm.context.message_id");
 			let result = vm.process(message);
 			tracing::trace!(target: "xcm::execute", ?result, "Message executed");
 			message = if let Err(error) = result {
@@ -449,11 +442,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			reason = ?reason,
 			"Sending msg",
 		);
-		let last_message = msg.last().cloned();
-		tracing::debug!(target: "xcm::send", ?last_message);
-		let vm_context = self.context.clone();
-		let vm_msg_id = sp_core::H256::from(self.context.message_id);
-		tracing::debug!(target: "xcm::send", ?vm_msg_id, ?vm_context, "Found from XcmExecutor.context.message_id");
 		if let Some(SetTopic(id)) = msg.last() {
 			tracing::trace!(target: "xcm::send", ?id, "Message already ends with `SetTopic`");
 		} else {
@@ -467,8 +455,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		self.take_fee(fee, reason)?;
 		match Config::XcmSender::deliver(ticket) {
 			Ok(message_id) => {
-				let process_id = sp_core::H256::from(&message_id);
-				tracing::debug!(target: "xcm::send", ?process_id, ?message_id, "XCM sent successfully");
 				Config::XcmEventEmitter::emit_sent_event(
 					self.original_origin.clone(),
 					dest,
@@ -1830,8 +1816,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		message_to_weigh.push(remote_instruction);
 		message_to_weigh.push(ClearOrigin);
 		message_to_weigh.extend(xcm.0.clone().into_iter());
-		let topic_id = sp_core::H256::from(self.context.message_id);
-		tracing::info!(target: "xcm::take_delivery_fee_from_assets", ?topic_id);
 		let (_, fee) =
 			validate_send::<Config::XcmSender>(destination.clone(), Xcm(message_to_weigh))?;
 		let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
