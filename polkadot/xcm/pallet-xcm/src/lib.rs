@@ -2385,6 +2385,7 @@ impl<T: Config> Pallet<T> {
 				reserve,
 				xcm: xcm_on_reserve,
 			},
+			SetTopic([42; 32]),
 		]))
 	}
 

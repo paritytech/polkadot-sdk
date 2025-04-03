@@ -285,6 +285,11 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		vm.message_weight = xcm_weight;
 
 		while !message.0.is_empty() {
+			let last_message = message.last().cloned();
+			tracing::debug!(target: "xcm::execute", ?last_message);
+			if let Some(message_id) = properties.message_id {
+				tracing::debug!(target: "xcm::execute", ?message_id, "Found properties.message_id");
+			}
 			let result = vm.process(message);
 			tracing::trace!(target: "xcm::execute", ?result, "Message executed");
 			message = if let Err(error) = result {
