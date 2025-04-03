@@ -450,7 +450,7 @@ impl<'a> TryFrom<&'a VersionedValidationProtocol> for GossipSupportNetworkMessag
 	}
 }
 
-/// Version-annotated messages used by the bitfield distribution subsystem.
+/// Version-annotated messages used by the collator protocol subsystem.
 pub type CollatorProtocolMessage =
 	VersionedCollation<v1::CollatorProtocolMessage, v2::CollatorProtocolMessage>;
 impl_versioned_collation_full_protocol_from!(
