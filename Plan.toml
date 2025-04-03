@@ -1297,7 +1297,7 @@ reason = "changed"
 # cumulus/primitives/storage-weight-reclaim
 name = "cumulus-primitives-storage-weight-reclaim"
 from = "9.1.0"
-to = "10.0.0"
+to = "11.0.0"
 bump = "major"
 reason = "changed"
 
