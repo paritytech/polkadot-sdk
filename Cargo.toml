@@ -812,7 +812,7 @@ git2 = { version = "0.20.0", default-features = false }
 glob = { version = "0.3" }
 glutton-westend-runtime = { path = "cumulus/parachains/runtimes/glutton/glutton-westend", version = "16.0.0" }
 governor = { version = "0.6.0" }
-gum = { path = "polkadot/node/gum", default-features = false, package = "tracing-gum", version = "18.0.0" }
+gum = { path = "polkadot/node/gum", default-features = false, package = "tracing-gum", version = "19.0.0" }
 gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = false, package = "tracing-gum-proc-macro", version = "5.0.0" }
 handlebars = { version = "5.1.0" }
 hash-db = { version = "0.16.0", default-features = false }

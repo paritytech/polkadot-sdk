@@ -3137,7 +3137,7 @@ version = "26.0.0"
 default-features = false
 optional = true
 path = "../polkadot/node/gum"
-version = "18.0.0"
+version = "19.0.0"
 
 [dependencies.xcm-emulator]
 default-features = false

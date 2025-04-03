@@ -25808,7 +25808,7 @@ dependencies = [
 
 [[package]]
 name = "tracing-gum"
-version = "18.0.0"
+version = "19.0.0"
 dependencies = [
  "coarsetime",
  "polkadot-primitives",
