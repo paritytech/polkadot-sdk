@@ -142,6 +142,8 @@ pub struct ExtendedOverseerGenArgs {
 	/// Enable approval-voting-parallel subsystem and disable the standalone approval-voting and
 	/// approval-distribution subsystems.
 	pub enable_approval_voting_parallel: bool,
+	/// Enable the experimental collator protocol subsystem implementation.
+	pub enable_experimental_collator_protocol: bool,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -181,6 +183,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		chain_selection_config,
 		fetch_chunks_threshold,
 		enable_approval_voting_parallel,
+		enable_experimental_collator_protocol,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -299,10 +302,16 @@ where
 					return Err(Error::Overseer(SubsystemError::Context(
 						"build validator overseer for parachain node".to_owned(),
 					))),
-				IsParachainNode::No => ProtocolSide::Validator {
-					keystore: keystore.clone(),
-					eviction_policy: Default::default(),
-					metrics: Metrics::register(registry)?,
+				IsParachainNode::No => match enable_experimental_collator_protocol {
+					true => ProtocolSide::ValidatorExperimental {
+						keystore: keystore.clone(),
+						metrics: Metrics::register(registry)?,
+					},
+					false => ProtocolSide::Validator {
+						keystore: keystore.clone(),
+						eviction_policy: Default::default(),
+						metrics: Metrics::register(registry)?,
+					},
 				},
 			};
 			CollatorProtocolSubsystem::new(side)
@@ -403,6 +412,7 @@ pub fn validator_with_parallel_overseer_builder<Spawner, RuntimeClient>(
 		chain_selection_config,
 		fetch_chunks_threshold,
 		enable_approval_voting_parallel,
+		enable_experimental_collator_protocol,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -520,10 +530,16 @@ where
 					return Err(Error::Overseer(SubsystemError::Context(
 						"build validator overseer for parachain node".to_owned(),
 					))),
-				IsParachainNode::No => ProtocolSide::Validator {
-					keystore: keystore.clone(),
-					eviction_policy: Default::default(),
-					metrics: Metrics::register(registry)?,
+				IsParachainNode::No => match enable_experimental_collator_protocol {
+					true => ProtocolSide::ValidatorExperimental {
+						keystore: keystore.clone(),
+						metrics: Metrics::register(registry)?,
+					},
+					false => ProtocolSide::Validator {
+						keystore: keystore.clone(),
+						eviction_policy: Default::default(),
+						metrics: Metrics::register(registry)?,
+					},
 				},
 			};
 			CollatorProtocolSubsystem::new(side)

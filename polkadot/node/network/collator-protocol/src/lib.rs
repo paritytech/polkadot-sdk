@@ -39,10 +39,9 @@ use polkadot_primitives::CollatorPair;
 
 use polkadot_node_subsystem::{errors::SubsystemError, overseer, DummySubsystem, SpawnedSubsystem};
 
-mod error;
-
 mod collator_side;
 mod validator_side;
+mod validator_side_experimental;
 
 const LOG_TARGET: &'static str = "parachain::collator-protocol";
 
@@ -74,6 +73,13 @@ pub enum ProtocolSide {
 		eviction_policy: CollatorEvictionPolicy,
 		/// Prometheus metrics for validators.
 		metrics: validator_side::Metrics,
+	},
+	/// Experimental variant of the validator side. Do not use in production.
+	ValidatorExperimental {
+		/// The keystore holding validator keys.
+		keystore: KeystorePtr,
+		/// Prometheus metrics for validators.
+		metrics: validator_side_experimental::Metrics,
 	},
 	/// Collators operate on a parachain.
 	Collator {
@@ -112,6 +118,10 @@ impl<Context> CollatorProtocolSubsystem {
 		let future = match self.protocol_side {
 			ProtocolSide::Validator { keystore, eviction_policy, metrics } =>
 				validator_side::run(ctx, keystore, eviction_policy, metrics)
+					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+					.boxed(),
+			ProtocolSide::ValidatorExperimental { keystore, metrics } =>
+				validator_side_experimental::run(ctx, keystore, metrics)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 					.boxed(),
 			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } =>

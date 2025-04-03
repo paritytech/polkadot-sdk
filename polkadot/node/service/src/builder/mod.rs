@@ -92,6 +92,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub hwbench: Option<sc_sysinfo::HwBench>,
 	/// Enable approval voting processing in parallel.
 	pub enable_approval_voting_parallel: bool,
+	/// Enable experimental collator protocol.
+	pub enable_experimental_collator_protocol: bool,
 }
 
 /// Completely built polkadot node service.
@@ -203,6 +205,7 @@ where
 					prepare_workers_hard_max_num,
 					keep_finalized_for,
 					enable_approval_voting_parallel,
+					enable_experimental_collator_protocol,
 				},
 			overseer_connector,
 			partial_components:
@@ -445,6 +448,7 @@ where
 				chain_selection_config,
 				fetch_chunks_threshold,
 				enable_approval_voting_parallel,
+				enable_experimental_collator_protocol,
 			})
 		};
 
