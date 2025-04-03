@@ -812,9 +812,9 @@ impl<T: Config> Pallet<T> {
 			.expect("we only map through support vector which cannot change the size; qed")
 	}
 
-	/// Gets the lowest of the lowest third validator stake entries for the last
+	/// Gets the lowest of the lowest validator stake entries for the last
 	/// upper bound eras.
-	pub(crate) fn get_min_lowest_third_stake() -> BalanceOf<T> {
+	pub(crate) fn get_min_lowest_stake() -> BalanceOf<T> {
 		// Find the minimum total stake of the lowest third validators over the configured number of
 		// eras.
 		let mut iter = EraLowestRatioTotalStake::<T>::get().into_iter();
@@ -835,38 +835,41 @@ impl<T: Config> Pallet<T> {
 		unbond_stake: BalanceOf<T>,
 		params: UnbondingQueueConfig,
 	) -> EraIndex {
-		let upper_bound_usize: u128 = T::BondingDuration::get().saturated_into();
-		let unbond_stake_usize: u128 = unbond_stake.saturated_into();
+		let upper_bound: u128 = T::BondingDuration::get().saturated_into();
+		let unbond_stake: u128 = unbond_stake.saturated_into();
 
 		// Get the maximum unstake amount for quick unbond time supported at the time of an unbond
 		// request.
-		let max_unstake_as_usize: u128 =
-			(params.min_slashable_share * Self::get_min_lowest_third_stake()).saturated_into();
+		let max_unstake: u128 =
+			(params.min_slashable_share * Self::get_min_lowest_stake()).saturated_into();
 
-		if !max_unstake_as_usize.is_zero() {
-			upper_bound_usize
-				.saturating_mul(unbond_stake_usize)
-				.saturating_div(max_unstake_as_usize)
+		if !max_unstake.is_zero() {
+			upper_bound
+				.saturating_mul(unbond_stake)
+				.saturating_div(max_unstake)
 				.saturated_into()
 		} else {
-			upper_bound_usize.saturated_into()
+			upper_bound.saturated_into()
 		}
 	}
 
 	// Gets an unbond era for an unbond request, and updates `back_of_unbonding_queue_era`.
 	pub(crate) fn process_unbond_queue_request(era: EraIndex, value: BalanceOf<T>) -> EraIndex {
-		if let Some(params) = <UnbondingQueueParams<T>>::get() {
+		if let Some(params) = UnbondingQueueParams::<T>::get() {
 			// Calculate unbonding era based on unbonding queue mechanism.
 			let unbonding_eras_delta: EraIndex = Self::get_unbond_eras_delta(value, params);
 
 			let back_of_unbonding_queue_era: EraIndex = era
 				.max(params.back_of_unbonding_queue_era)
 				.defensive_saturating_add(unbonding_eras_delta);
-			// Update unbonding queue params with new `new_back_of_unbonding_queue_era`.
-			UnbondingQueueParams::<T>::set(Some(UnbondingQueueConfig {
-				back_of_unbonding_queue_era,
-				..params
-			}));
+
+			if back_of_unbonding_queue_era > params.back_of_unbonding_queue_era {
+				// Update unbonding queue params with new `new_back_of_unbonding_queue_era`.
+				UnbondingQueueParams::<T>::set(Some(UnbondingQueueConfig {
+					back_of_unbonding_queue_era,
+					..params
+				}));
+			}
 
 			let unbonding_era: EraIndex = T::BondingDuration::get()
 				.min(
