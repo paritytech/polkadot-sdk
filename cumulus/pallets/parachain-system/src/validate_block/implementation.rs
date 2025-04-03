@@ -16,7 +16,9 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams, StorageAccessParams};
+use super::{
+	trie_cache, trie_recorder, AccessMode, MemoryOptimizedValidationParams, StorageAccessParams,
+};
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
@@ -425,7 +427,7 @@ pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 	use codec::Decode;
 	use sp_state_machine::Backend;
 
-	let StorageAccessParams { state_root, storage_proof, keys } =
+	let StorageAccessParams { state_root, storage_proof, keys, mode, is_dry_run } =
 		StorageAccessParams::<B>::decode(&mut params)
 			.expect("Invalid arguments to `validate_block`.");
 	// Create the db
@@ -484,10 +486,16 @@ pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 			.replace_implementation(host_storage_proof_size),
 	);
 
-	for key in keys {
-		backend
-			.storage(key.0.as_ref())
-			.expect("Key not found")
-			.ok_or("Value unexpectedly empty");
+	if is_dry_run {
+		return;
+	}
+
+	if mode == AccessMode::Read {
+		for key in keys {
+			backend
+				.storage(key.0.as_ref())
+				.expect("Key not found")
+				.ok_or("Value unexpectedly empty");
+		}
 	}
 }

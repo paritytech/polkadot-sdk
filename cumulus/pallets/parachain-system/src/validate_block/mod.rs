@@ -69,10 +69,46 @@ pub struct MemoryOptimizedValidationParams {
 	pub relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
 }
 
-#[derive(codec::Decode)]
+#[derive(codec::Decode, Clone)]
 #[cfg_attr(feature = "std", derive(codec::Encode))]
 pub struct StorageAccessParams<B: sp_runtime::traits::Block> {
 	pub state_root: B::Hash,
 	pub storage_proof: sp_trie::CompactProof,
 	pub keys: crate::Vec<sp_core::storage::StorageKey>,
+	pub is_dry_run: bool,
+	pub mode: AccessMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, codec::Decode, codec::Encode)]
+pub enum AccessMode {
+	Read,
+	Write,
+}
+
+impl<B: sp_runtime::traits::Block> StorageAccessParams<B> {
+	pub fn new_read(
+		state_root: B::Hash,
+		storage_proof: sp_trie::CompactProof,
+		keys: crate::Vec<sp_core::storage::StorageKey>,
+	) -> Self {
+		Self { state_root, storage_proof, keys, mode: AccessMode::Read, is_dry_run: false }
+	}
+
+	pub fn new_write(
+		state_root: B::Hash,
+		storage_proof: sp_trie::CompactProof,
+		keys: crate::Vec<sp_core::storage::StorageKey>,
+	) -> Self {
+		Self { state_root, storage_proof, keys, mode: AccessMode::Write, is_dry_run: false }
+	}
+
+	pub fn as_dry_run(&self) -> Self {
+		Self {
+			state_root: self.state_root,
+			storage_proof: self.storage_proof.clone(),
+			keys: self.keys.clone(),
+			mode: self.mode,
+			is_dry_run: true,
+		}
+	}
 }

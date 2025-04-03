@@ -109,24 +109,19 @@ impl StorageCmd {
 					let wasm_module = get_wasm_module();
 					let mut instance = wasm_module.new_instance().unwrap();
 					let compact = storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
+					let params = StorageAccessParams::<B>::new_read(
+						*root,
+						compact,
+						on_validation_batch.clone(),
+					);
 
 					// Dry run to get the time it takes without storage access
-					let dry_run_params: StorageAccessParams<B> = StorageAccessParams {
-						state_root: *root,
-						storage_proof: compact.clone(),
-						keys: vec![],
-					};
-					let dry_run_encoded = dry_run_params.encode();
+					let dry_run_encoded = params.as_dry_run().encode();
 					let dry_run_start = Instant::now();
 					instance.call_export("validate_block", &dry_run_encoded).unwrap();
 					let dry_run_elapsed = dry_run_start.elapsed();
 					info!("validate_block dry-run time {:?}", dry_run_elapsed);
 
-					let params: StorageAccessParams<B> = StorageAccessParams {
-						state_root: *root,
-						storage_proof: compact,
-						keys: on_validation_batch.clone(),
-					};
 					let encoded = params.encode();
 					let start = Instant::now();
 					instance.call_export("validate_block", &encoded).unwrap();
@@ -197,24 +192,19 @@ impl StorageCmd {
 						let mut instance = wasm_module.new_instance().unwrap();
 						let compact =
 							storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
+						let params = StorageAccessParams::<B>::new_read(
+							*root,
+							compact,
+							on_validation_batch.clone(),
+						);
 
 						// Dry run to get the time it takes without storage access
-						let dry_run_params: StorageAccessParams<B> = StorageAccessParams {
-							state_root: *root,
-							storage_proof: compact.clone(),
-							keys: vec![],
-						};
-						let dry_run_encoded = dry_run_params.encode();
+						let dry_run_encoded = params.as_dry_run().encode();
 						let dry_run_start = Instant::now();
 						instance.call_export("validate_block", &dry_run_encoded).unwrap();
 						let dry_run_elapsed = dry_run_start.elapsed();
 						info!("validate_block dry-run time {:?}", dry_run_elapsed);
 
-						let params: StorageAccessParams<B> = StorageAccessParams {
-							state_root: *root,
-							storage_proof: compact,
-							keys: on_validation_batch.clone(),
-						};
 						let encoded = params.encode();
 						let start = Instant::now();
 						instance.call_export("validate_block", &encoded).unwrap();
@@ -269,24 +259,16 @@ impl StorageCmd {
 				let wasm_module = get_wasm_module();
 				let mut instance = wasm_module.new_instance().unwrap();
 				let compact = storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
+				let params =
+					StorageAccessParams::<B>::new_read(*root, compact, on_validation_batch.clone());
 
 				// Dry run to get the time it takes without storage access
-				let dry_run_params: StorageAccessParams<B> = StorageAccessParams {
-					state_root: *root,
-					storage_proof: compact.clone(),
-					keys: vec![],
-				};
-				let dry_run_encoded = dry_run_params.encode();
+				let dry_run_encoded = params.as_dry_run().encode();
 				let dry_run_start = Instant::now();
 				instance.call_export("validate_block", &dry_run_encoded).unwrap();
 				let dry_run_elapsed = dry_run_start.elapsed();
 				info!("validate_block dry-run time {:?}", dry_run_elapsed);
 
-				let params: StorageAccessParams<B> = StorageAccessParams {
-					state_root: *root,
-					storage_proof: compact,
-					keys: on_validation_batch.clone(),
-				};
 				let encoded = params.encode();
 				let start = Instant::now();
 				instance.call_export("validate_block", &encoded).unwrap();
