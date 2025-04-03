@@ -1055,7 +1055,7 @@ version = "0.19.0"
 default-features = false
 optional = true
 path = "../cumulus/pallets/dmp-queue"
-version = "0.19.0"
+version = "0.20.0"
 
 [dependencies.cumulus-pallet-parachain-system]
 default-features = false
