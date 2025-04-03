@@ -438,7 +438,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	fn send(
 		&mut self,
 		dest: Location,
-		msg: Xcm<()>,
+		mut msg: Xcm<()>,
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
 		tracing::trace!(
@@ -450,8 +450,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		let last_message = msg.last().cloned();
 		tracing::debug!(target: "xcm::send", ?last_message);
+		let vm_context = self.context.clone();
 		let vm_msg_id = sp_core::H256::from(self.context.message_id);
-		tracing::debug!(target: "xcm::send", ?vm_msg_id, "Found from XcmExecutor.context.message_id");
+		tracing::debug!(target: "xcm::send", ?vm_msg_id, ?vm_context, "Found from XcmExecutor.context.message_id");
+		if let Some(SetTopic(id)) = msg.last() {
+			tracing::trace!(target: "xcm::send", ?id, "Message already ends with `SetTopic`");
+		} else {
+			if self.context.origin.is_none() {
+				let topic_id = self.context.message_id;
+				msg.inner_mut().push(SetTopic(topic_id));
+				tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` appended to message");
+			}
+		}
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
 		self.take_fee(fee, reason)?;
 		match Config::XcmSender::deliver(ticket) {
