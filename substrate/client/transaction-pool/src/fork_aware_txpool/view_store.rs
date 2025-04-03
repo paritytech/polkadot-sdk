@@ -34,7 +34,9 @@ use crate::{
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TxInvalidityReportMap};
+use sc_transaction_pool_api::{
+	error::Error as PoolError, PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
+};
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
@@ -906,5 +908,36 @@ where
 				self.dropped_stream_controller.remove_view(view);
 			}
 		}
+	}
+
+	/// Provides tags map
+	pub(crate) fn provides_tags_from_views(
+		&self,
+		mut xts_hashes: HashSet<ExtrinsicHash<ChainApi>>,
+		blocks_hashes: Vec<Block::Hash>,
+	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
+		let mut provides_tags_map = HashMap::new();
+		blocks_hashes.into_iter().for_each(|bh| {
+			let view = self.get_view_at(bh, true);
+			let to_remove = Vec::new();
+			// Get tx provides tags from inactive view's pool.
+			let provides_tags = view
+				.map(|(inner, _)| inner.pool.validated_pool().extrinsics_tags(&xts_hashes))
+				.unwrap_or(vec![None; xts_hashes.len()]);
+			let xts_provides_tags = xts_hashes
+				.into_iter()
+				.zip(provides_tags.into_iter())
+				.into_iter()
+				// We filter out the (transaction, tags) pair if no tags where found in the
+				// inactive view for the transaction.
+				.filter_map(|(hash, tags)| tags.map(|inner| (hash, inner)))
+				.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
+			// Since we traverse the retracted from in reverse order, updating the tags map
+			// with tags from the inactive views will keep the tags found in the last views,
+			// which can be considered most recent tags.
+			provides_tags_map.extend(xts_provides_tags);
+		});
+
+		provides_tags_map
 	}
 }

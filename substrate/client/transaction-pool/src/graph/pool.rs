@@ -335,8 +335,8 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 				Some(tags) => future_tags.extend(tags),
 				None => {
 					if !self.validated_pool.status().is_empty() {
-						// and if that's not the case, query the runtime at parent block
-						// to get validity info and tags that the extrinsic provides.
+						// query the runtime at parent block to get validity info and tags that the
+						// extrinsic provides.
 						validated_counter = validated_counter + 1;
 						let validity = self
 							.validated_pool
