@@ -517,6 +517,9 @@ pub mod v2 {
 
 	use polkadot_node_primitives::UncheckedSignedFullStatement;
 
+	/// This parts of the protocol did not change from v1, so just alias them in v2.
+	pub use super::v1::declare_signature_payload;
+
 	/// Network messages used by the collator protocol subsystem
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 	pub enum CollatorProtocolMessage {
@@ -547,16 +550,6 @@ pub mod v2 {
 		#[codec(index = 0)]
 		#[from]
 		CollatorProtocol(CollatorProtocolMessage),
-	}
-
-	/// Get the payload that should be signed and included in a `Declare` message.
-	///
-	/// The payload is the local peer id of the node, which serves to prove that it
-	/// controls the collator key it is declaring an intention to collate under.
-	pub fn declare_signature_payload(peer_id: &sc_network_types::PeerId) -> Vec<u8> {
-		let mut payload = peer_id.to_bytes();
-		payload.extend_from_slice(b"COLL");
-		payload
 	}
 }
 
