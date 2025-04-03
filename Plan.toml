@@ -1831,7 +1831,7 @@ reason = "changed"
 # cumulus/parachains/pallets/ping
 name = "cumulus-ping"
 from = "0.18.0"
-to = "0.19.0"
+to = "0.20.0"
 bump = "major"
 reason = "changed"
 
