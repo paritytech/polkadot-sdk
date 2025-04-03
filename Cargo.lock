@@ -304,15 +304,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
-name = "ansi_term"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "anstream"
 version = "0.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -404,7 +395,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb00293ba84f51ce3bd026bd0de55899c4e68f0a39a5728cebae3a73ffdc0a4f"
 dependencies = [
- "ark-ec",
+ "ark-ec 0.4.2",
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
 ]
@@ -416,7 +407,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20c7021f180a0cbea0380eba97c2af3c57074cdaffe0eef7e840e1c9f2841e55"
 dependencies = [
  "ark-bls12-377",
- "ark-ec",
+ "ark-ec 0.4.2",
  "ark-models-ext",
  "ark-std 0.4.0",
 ]
@@ -427,10 +418,22 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c775f0d12169cba7aae4caeb547bb6a50781c7449a8aa53793827c9ec4abf488"
 dependencies = [
- "ark-ec",
+ "ark-ec 0.4.2",
  "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
+]
+
+[[package]]
+name = "ark-bls12-381"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3df4dcc01ff89867cd86b0da835f23c3f02738353aaee7dde7495af71363b8d5"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
 ]
 
 [[package]]
@@ -439,8 +442,8 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1dc4b3d08f19e8ec06e949712f95b8361e43f1391d94f65e4234df03480631c"
 dependencies = [
- "ark-bls12-381",
- "ark-ec",
+ "ark-bls12-381 0.4.0",
+ "ark-ec 0.4.2",
  "ark-ff 0.4.2",
  "ark-models-ext",
  "ark-serialize 0.4.2",
@@ -454,7 +457,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e0605daf0cc5aa2034b78d008aaf159f56901d92a52ee4f6ecdfdac4f426700"
 dependencies = [
  "ark-bls12-377",
- "ark-ec",
+ "ark-ec 0.4.2",
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
 ]
@@ -466,7 +469,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ccee5fba47266f460067588ee1bf070a9c760bf2050c1c509982c5719aadb4f2"
 dependencies = [
  "ark-bw6-761",
- "ark-ec",
+ "ark-ec 0.4.2",
  "ark-ff 0.4.2",
  "ark-models-ext",
  "ark-std 0.4.0",
@@ -479,7 +482,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "defd9a439d56ac24968cca0571f598a61bc8c55f71d50a89cda591cb750670ba"
 dependencies = [
  "ark-ff 0.4.2",
- "ark-poly",
+ "ark-poly 0.4.2",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
  "derivative",
@@ -491,13 +494,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-ec"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43d68f2d516162846c1238e755a7c4d131b892b70cc70c471a8e3ca3ed818fce"
+dependencies = [
+ "ahash 0.8.11",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "educe",
+ "fnv",
+ "hashbrown 0.15.2",
+ "itertools 0.13.0",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "zeroize",
+]
+
+[[package]]
 name = "ark-ed-on-bls12-377"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b10d901b9ac4b38f9c32beacedfadcdd64e46f8d7f8e88c1ae1060022cf6f6c6"
 dependencies = [
  "ark-bls12-377",
- "ark-ec",
+ "ark-ec 0.4.2",
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
 ]
@@ -508,7 +532,7 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "524a4fb7540df2e1a8c2e67a83ba1d1e6c3947f4f9342cc2359fc2e789ad731d"
 dependencies = [
- "ark-ec",
+ "ark-ec 0.4.2",
  "ark-ed-on-bls12-377",
  "ark-ff 0.4.2",
  "ark-models-ext",
@@ -521,10 +545,22 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9cde0f2aa063a2a5c28d39b47761aa102bda7c13c84fc118a61b87c7b2f785c"
 dependencies = [
- "ark-bls12-381",
- "ark-ec",
+ "ark-bls12-381 0.4.0",
+ "ark-ec 0.4.2",
  "ark-ff 0.4.2",
  "ark-std 0.4.0",
+]
+
+[[package]]
+name = "ark-ed-on-bls12-381-bandersnatch"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1786b2e3832f6f0f7c8d62d5d5a282f6952a1ab99981c54cd52b6ac1d8f02df5"
+dependencies = [
+ "ark-bls12-381 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
 ]
 
 [[package]]
@@ -533,8 +569,8 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d15185f1acb49a07ff8cbe5f11a1adc5a93b19e211e325d826ae98e98e124346"
 dependencies = [
- "ark-ec",
- "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ec 0.4.2",
+ "ark-ed-on-bls12-381-bandersnatch 0.4.0",
  "ark-ff 0.4.2",
  "ark-models-ext",
  "ark-std 0.4.0",
@@ -579,6 +615,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-ff"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a177aba0ed1e0fbb62aa9f6d0502e9b46dad8c2eab04c14258a1212d2557ea70"
+dependencies = [
+ "ark-ff-asm 0.5.0",
+ "ark-ff-macros 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "arrayvec 0.7.4",
+ "digest 0.10.7",
+ "educe",
+ "itertools 0.13.0",
+ "num-bigint",
+ "num-traits",
+ "paste",
+ "zeroize",
+]
+
+[[package]]
 name = "ark-ff-asm"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -596,6 +652,16 @@ checksum = "3ed4aa4fe255d0bc6d79373f7e31d2ea147bcf486cba1be5ba7ea85abdb92348"
 dependencies = [
  "quote 1.0.38",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "ark-ff-asm"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62945a2f7e6de02a31fe400aa489f0e0f5b2502e69f95f853adb82a96c7a6b60"
+dependencies = [
+ "quote 1.0.38",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -624,12 +690,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-ff-macros"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09be120733ee33f7693ceaa202ca41accd5653b779563608f1234f78ae07c4b3"
+dependencies = [
+ "num-bigint",
+ "num-traits",
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
+]
+
+[[package]]
 name = "ark-models-ext"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e9eab5d4b5ff2f228b763d38442adc9b084b0a465409b059fac5c2308835ec2"
 dependencies = [
- "ark-ec",
+ "ark-ec 0.4.2",
  "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
@@ -650,17 +729,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-scale"
-version = "0.0.11"
+name = "ark-poly"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51bd73bb6ddb72630987d37fa963e99196896c0d0ea81b7c894567e74a2f83af"
+checksum = "579305839da207f02b89cd1679e50e67b4331e2f9294a57693e5051b7703fe27"
 dependencies = [
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "parity-scale-codec",
- "scale-info",
+ "ahash 0.8.11",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "educe",
+ "fnv",
+ "hashbrown 0.15.2",
 ]
 
 [[package]]
@@ -669,27 +749,12 @@ version = "0.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f69c00b3b529be29528a6f2fd5fa7b1790f8bed81b9cdca17e326538545a179"
 dependencies = [
- "ark-ec",
+ "ark-ec 0.4.2",
  "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
  "parity-scale-codec",
  "scale-info",
-]
-
-[[package]]
-name = "ark-secret-scalar"
-version = "0.0.2"
-source = "git+https://github.com/davxy/ring-vrf?branch=locked#c64ae9b1aad7755ae1bf88016002365ffcc4912e"
-dependencies = [
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "ark-transcript 0.0.2 (git+https://github.com/davxy/ring-vrf?branch=locked)",
- "digest 0.10.7",
- "getrandom_or_panic",
- "zeroize",
 ]
 
 [[package]]
@@ -708,8 +773,21 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adb7b85a02b83d2f22f89bd5cac66c9c89474240cb6207cb1efc16d098e822a5"
 dependencies = [
- "ark-serialize-derive",
+ "ark-serialize-derive 0.4.2",
  "ark-std 0.4.0",
+ "digest 0.10.7",
+ "num-bigint",
+]
+
+[[package]]
+name = "ark-serialize"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f4d068aaf107ebcd7dfb52bc748f8030e0fc930ac8e360146ca54c1203088f7"
+dependencies = [
+ "ark-serialize-derive 0.5.0",
+ "ark-std 0.5.0",
+ "arrayvec 0.7.4",
  "digest 0.10.7",
  "num-bigint",
 ]
@@ -723,6 +801,17 @@ dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.38",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "ark-serialize-derive"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "213888f660fddcca0d257e88e54ac05bca01885f258ccdf695bafd77031bb69d"
+dependencies = [
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -747,29 +836,46 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-transcript"
-version = "0.0.2"
-source = "git+https://github.com/davxy/ring-vrf?branch=locked#c64ae9b1aad7755ae1bf88016002365ffcc4912e"
+name = "ark-std"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "246a225cc6131e9ee4f24619af0f19d67761fff15d7ccc22e42b80846e69449a"
 dependencies = [
- "ark-ff 0.4.2",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
+ "num-traits",
+ "rand 0.8.5",
+]
+
+[[package]]
+name = "ark-transcript"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47c1c928edb9d8ff24cb5dcb7651d3a98494fff3099eee95c2404cd813a9139f"
+dependencies = [
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
  "digest 0.10.7",
  "rand_core 0.6.4",
  "sha3 0.10.8",
 ]
 
 [[package]]
-name = "ark-transcript"
-version = "0.0.2"
-source = "git+https://github.com/w3f/ark-transcript?rev=288e49d#288e49ddba6f8f8e67be6822715afe36b11c4e65"
+name = "ark-vrf"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9501da18569b2afe0eb934fb7afd5a247d238b94116155af4dd068f319adfe6d"
 dependencies = [
- "ark-ff 0.4.2",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
+ "ark-bls12-381 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-ed-on-bls12-381-bandersnatch 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
  "digest 0.10.7",
- "rand_core 0.6.4",
- "sha3 0.10.8",
+ "rand_chacha 0.3.1",
+ "sha2 0.10.8",
+ "w3f-ring-proof",
+ "zeroize",
 ]
 
 [[package]]
@@ -1618,27 +1724,6 @@ dependencies = [
  "miniz_oxide",
  "object 0.32.2",
  "rustc-demangle",
-]
-
-[[package]]
-name = "bandersnatch_vrfs"
-version = "0.0.4"
-source = "git+https://github.com/davxy/ring-vrf?branch=locked#c64ae9b1aad7755ae1bf88016002365ffcc4912e"
-dependencies = [
- "ark-bls12-381",
- "ark-ec",
- "ark-ed-on-bls12-381-bandersnatch",
- "ark-ff 0.4.2",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "dleq_vrf",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "ring 0.1.0",
- "sha2 0.10.8",
- "sp-ark-bls12-381",
- "sp-ark-ed-on-bls12-381-bandersnatch",
- "zeroize",
 ]
 
 [[package]]
@@ -3358,20 +3443,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "common"
-version = "0.1.0"
-source = "git+https://github.com/davxy/ring-proof?branch=locked#a24b371b8d51725ac2ce195aa3369b31df6c9873"
-dependencies = [
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "fflonk",
- "getrandom_or_panic",
-]
-
-[[package]]
 name = "common-path"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4580,7 +4651,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "tracing",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -5437,22 +5508,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86e3bdc80eee6e16b2b6b0f87fbc98c04bee3455e35174c0de1a125d0688c632"
 
 [[package]]
-name = "dleq_vrf"
-version = "0.0.2"
-source = "git+https://github.com/davxy/ring-vrf?branch=locked#c64ae9b1aad7755ae1bf88016002365ffcc4912e"
-dependencies = [
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-scale 0.0.12",
- "ark-secret-scalar",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "ark-transcript 0.0.2 (git+https://github.com/davxy/ring-vrf?branch=locked)",
- "arrayvec 0.7.4",
- "zeroize",
-]
-
-[[package]]
 name = "dlmalloc"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5649,6 +5704,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "educe"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d7bc049e1bd8cdeb31b68bbd586a9464ecf9f3944af3958a7a9d0f8b9799417"
+dependencies = [
+ "enum-ordinalize",
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
+]
+
+[[package]]
 name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5734,6 +5801,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ffccbb6966c05b32ef8fbac435df276c4ae4d3dc55a8cd0eb9745e6c12f546a"
 dependencies = [
  "heck 0.4.1",
+ "proc-macro2 1.0.93",
+ "quote 1.0.38",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "enum-ordinalize"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fea0dcfa4e54eeb516fe454635a95753ddd39acda650ce703031c6973e315dd5"
+dependencies = [
+ "enum-ordinalize-derive",
+]
+
+[[package]]
+name = "enum-ordinalize-derive"
+version = "4.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d28318a75d4aead5c4db25382e8ef717932d0346600cacae6357eb5941bc5ff"
+dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.38",
  "syn 2.0.98",
@@ -6091,19 +6178,6 @@ checksum = "ded41244b729663b1e574f1b4fb731469f69f79c17667b5d776b16cda0479449"
 dependencies = [
  "rand_core 0.6.4",
  "subtle 2.5.0",
-]
-
-[[package]]
-name = "fflonk"
-version = "0.1.0"
-source = "git+https://github.com/w3f/fflonk?rev=1e854f3#1e854f35e9a65d08b11a86291405cdc95baa0a35"
-dependencies = [
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "merlin",
 ]
 
 [[package]]
@@ -6597,7 +6671,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-statement-store",
  "tempfile",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -7409,6 +7483,7 @@ version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
 dependencies = [
+ "allocator-api2",
  "foldhash",
  "serde",
 ]
@@ -9750,15 +9825,6 @@ name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffbee8634e0d45d258acb448e7eaab3fce7a0a467395d4d9f228e3c1f01fb2e4"
-
-[[package]]
-name = "matchers"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f099785f7595cc4b4553a174ce30dd7589ef93391ff414dbb67f62392b9e0ce1"
-dependencies = [
- "regex-automata 0.1.10",
-]
 
 [[package]]
 name = "matchers"
@@ -13741,6 +13807,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "xcm-runtime-apis",
 ]
 
@@ -15696,7 +15763,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-core-hashing",
  "sp-core-hashing-proc-macro",
- "sp-crypto-ec-utils 0.10.0",
+ "sp-crypto-ec-utils",
  "sp-crypto-hashing 0.1.0",
  "sp-crypto-hashing-proc-macro 0.1.0",
  "sp-database",
@@ -17284,7 +17351,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3779b94aeb87e8bd4e834cee3650289ee9e0d5677f976ecdb6d219e5f4f6cd94"
 dependencies = [
  "rand_chacha 0.9.0",
- "rand_core 0.9.2",
+ "rand_core 0.9.1",
  "zerocopy 0.8.20",
 ]
 
@@ -17305,7 +17372,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
 dependencies = [
  "ppv-lite86",
- "rand_core 0.9.2",
+ "rand_core 0.9.1",
 ]
 
 [[package]]
@@ -17325,9 +17392,9 @@ dependencies = [
 
 [[package]]
 name = "rand_core"
-version = "0.9.2"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a509b1a2ffbe92afab0e55c8fd99dea1c280e8171bd2d88682bb20bc41cbc2c"
+checksum = "a88e0da7a2c97baa202165137c158d0a2e824ac465d13d81046727b34cb247d3"
 dependencies = [
  "getrandom 0.3.1",
  "zerocopy 0.8.20",
@@ -17738,23 +17805,6 @@ checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
 dependencies = [
  "hmac 0.12.1",
  "subtle 2.5.0",
-]
-
-[[package]]
-name = "ring"
-version = "0.1.0"
-source = "git+https://github.com/davxy/ring-proof?branch=locked#a24b371b8d51725ac2ce195aa3369b31df6c9873"
-dependencies = [
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-poly",
- "ark-serialize 0.4.2",
- "ark-std 0.4.0",
- "ark-transcript 0.0.2 (git+https://github.com/w3f/ark-transcript?rev=288e49d)",
- "arrayvec 0.7.4",
- "blake2 0.10.6",
- "common",
- "fflonk",
 ]
 
 [[package]]
@@ -19147,7 +19197,7 @@ dependencies = [
  "substrate-test-runtime",
  "tempfile",
  "tracing",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
  "wat",
 ]
 
@@ -19986,8 +20036,8 @@ dependencies = [
  "sp-tracing 16.0.0",
  "thiserror 1.0.65",
  "tracing",
- "tracing-log 0.2.0",
- "tracing-subscriber 0.3.18",
+ "tracing-log",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -20038,7 +20088,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
  "zombienet-sdk",
 ]
 
@@ -22051,24 +22101,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-ark-bls12-381"
-version = "0.4.2"
-source = "git+https://github.com/paritytech/arkworks-substrate?rev=caa2eed#caa2eed74beb885dd07c7db5f916f2281dad818f"
-dependencies = [
- "ark-bls12-381-ext",
- "sp-crypto-ec-utils 0.4.1",
-]
-
-[[package]]
-name = "sp-ark-ed-on-bls12-381-bandersnatch"
-version = "0.4.2"
-source = "git+https://github.com/paritytech/arkworks-substrate?rev=caa2eed#caa2eed74beb885dd07c7db5f916f2281dad818f"
-dependencies = [
- "ark-ed-on-bls12-381-bandersnatch-ext",
- "sp-crypto-ec-utils 0.4.1",
-]
-
-[[package]]
 name = "sp-authority-discovery"
 version = "26.0.0"
 dependencies = [
@@ -22226,8 +22258,8 @@ dependencies = [
 name = "sp-core"
 version = "28.0.0"
 dependencies = [
+ "ark-vrf",
  "array-bytes",
- "bandersnatch_vrfs",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
@@ -22437,41 +22469,20 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-ec-utils"
-version = "0.4.1"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "ark-bls12-377",
- "ark-bls12-377-ext",
- "ark-bls12-381",
- "ark-bls12-381-ext",
- "ark-bw6-761",
- "ark-bw6-761-ext",
- "ark-ec",
- "ark-ed-on-bls12-377",
- "ark-ed-on-bls12-377-ext",
- "ark-ed-on-bls12-381-bandersnatch",
- "ark-ed-on-bls12-381-bandersnatch-ext",
- "ark-scale 0.0.11",
- "sp-runtime-interface 17.0.0",
- "sp-std 8.0.0",
-]
-
-[[package]]
-name = "sp-crypto-ec-utils"
 version = "0.10.0"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
- "ark-bls12-381",
+ "ark-bls12-381 0.4.0",
  "ark-bls12-381-ext",
  "ark-bw6-761",
  "ark-bw6-761-ext",
- "ark-ec",
+ "ark-ec 0.4.2",
  "ark-ed-on-bls12-377",
  "ark-ed-on-bls12-377-ext",
- "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ed-on-bls12-381-bandersnatch 0.4.0",
  "ark-ed-on-bls12-381-bandersnatch-ext",
- "ark-scale 0.0.12",
+ "ark-scale",
  "sp-runtime-interface 24.0.0",
 ]
 
@@ -22533,16 +22544,6 @@ dependencies = [
 
 [[package]]
 name = "sp-debug-derive"
-version = "8.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
-]
-
-[[package]]
-name = "sp-debug-derive"
 version = "14.0.0"
 dependencies = [
  "proc-macro2 1.0.93",
@@ -22559,17 +22560,6 @@ dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.38",
  "syn 2.0.98",
-]
-
-[[package]]
-name = "sp-externalities"
-version = "0.19.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "environmental",
- "parity-scale-codec",
- "sp-std 8.0.0",
- "sp-storage 13.0.0",
 ]
 
 [[package]]
@@ -22963,24 +22953,6 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime-interface"
-version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "bytes",
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "primitive-types 0.12.2",
- "sp-externalities 0.19.0",
- "sp-runtime-interface-proc-macro 11.0.0",
- "sp-std 8.0.0",
- "sp-storage 13.0.0",
- "sp-tracing 10.0.0",
- "sp-wasm-interface 14.0.0",
- "static_assertions",
-]
-
-[[package]]
-name = "sp-runtime-interface"
 version = "24.0.0"
 dependencies = [
  "bytes",
@@ -23041,18 +23013,6 @@ dependencies = [
  "sp-tracing 17.0.1",
  "sp-wasm-interface 21.0.1",
  "static_assertions",
-]
-
-[[package]]
-name = "sp-runtime-interface-proc-macro"
-version = "11.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "Inflector",
- "proc-macro-crate 1.3.1",
- "proc-macro2 1.0.93",
- "quote 1.0.38",
- "syn 2.0.98",
 ]
 
 [[package]]
@@ -23234,11 +23194,6 @@ dependencies = [
 
 [[package]]
 name = "sp-std"
-version = "8.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-
-[[package]]
-name = "sp-std"
 version = "14.0.0"
 
 [[package]]
@@ -23246,19 +23201,6 @@ name = "sp-std"
 version = "14.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12f8ee986414b0a9ad741776762f4083cd3a5128449b982a3919c4df36874834"
-
-[[package]]
-name = "sp-storage"
-version = "13.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "impl-serde 0.4.0",
- "parity-scale-codec",
- "ref-cast",
- "serde",
- "sp-debug-derive 8.0.0",
- "sp-std 8.0.0",
-]
 
 [[package]]
 name = "sp-storage"
@@ -23322,25 +23264,13 @@ dependencies = [
 
 [[package]]
 name = "sp-tracing"
-version = "10.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "parity-scale-codec",
- "sp-std 8.0.0",
- "tracing",
- "tracing-core",
- "tracing-subscriber 0.2.25",
-]
-
-[[package]]
-name = "sp-tracing"
 version = "16.0.0"
 dependencies = [
  "parity-scale-codec",
  "regex",
  "tracing",
  "tracing-core",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -23352,7 +23282,7 @@ dependencies = [
  "parity-scale-codec",
  "tracing",
  "tracing-core",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -23506,19 +23436,6 @@ dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.38",
  "syn 2.0.98",
-]
-
-[[package]]
-name = "sp-wasm-interface"
-version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
-dependencies = [
- "anyhow",
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "sp-std 8.0.0",
- "wasmtime",
 ]
 
 [[package]]
@@ -24501,7 +24418,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -25240,7 +25157,7 @@ checksum = "3dffced63c2b5c7be278154d76b479f9f9920ed34e7574201407f0b14e2bbb93"
 dependencies = [
  "env_logger 0.11.3",
  "test-log-macros",
- "tracing-subscriber 0.3.18",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -25913,17 +25830,6 @@ dependencies = [
 
 [[package]]
 name = "tracing-log"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78ddad33d2d10b1ed7eb9d1f518a5674713876e97e5bb9b7345a7984fbb4f922"
-dependencies = [
- "lazy_static",
- "log",
- "tracing-core",
-]
-
-[[package]]
-name = "tracing-log"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
@@ -25934,45 +25840,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-serde"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc6b213177105856957181934e4920de57730fc69bf42c37ee5bb664d406d9e1"
-dependencies = [
- "serde",
- "tracing-core",
-]
-
-[[package]]
-name = "tracing-subscriber"
-version = "0.2.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e0d2eaa99c3c2e41547cfa109e910a68ea03823cccad4a0525dcbc9b01e8c71"
-dependencies = [
- "ansi_term",
- "chrono",
- "lazy_static",
- "matchers 0.0.1",
- "regex",
- "serde",
- "serde_json",
- "sharded-slab",
- "smallvec",
- "thread_local",
- "tracing",
- "tracing-core",
- "tracing-log 0.1.3",
- "tracing-serde",
-]
-
-[[package]]
 name = "tracing-subscriber"
 version = "0.3.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
 dependencies = [
  "chrono",
- "matchers 0.1.0",
+ "matchers",
  "nu-ansi-term",
  "once_cell",
  "parking_lot 0.12.3",
@@ -25983,7 +25857,7 @@ dependencies = [
  "time",
  "tracing",
  "tracing-core",
- "tracing-log 0.2.0",
+ "tracing-log",
 ]
 
 [[package]]
@@ -26449,11 +26323,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7335e4c132c28cc43caef6adb339789e599e39adbe78da0c4d547fad48cbc331"
 dependencies = [
  "ark-bls12-377",
- "ark-bls12-381",
- "ark-ec",
+ "ark-bls12-381 0.4.0",
+ "ark-ec 0.4.2",
  "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
- "ark-serialize-derive",
+ "ark-serialize-derive 0.4.2",
  "arrayref",
  "constcat",
  "digest 0.10.7",
@@ -26464,6 +26338,52 @@ dependencies = [
  "sha3 0.10.8",
  "thiserror 1.0.65",
  "zeroize",
+]
+
+[[package]]
+name = "w3f-pcs"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbe7a8d5c914b69392ab3b267f679a2e546fe29afaddce47981772ac71bd02e1"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "merlin",
+]
+
+[[package]]
+name = "w3f-plonk-common"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aca389e494fe08c5c108b512e2328309036ee1c0bc7bdfdb743fef54d448c8c"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "getrandom_or_panic",
+ "rand_core 0.6.4",
+ "w3f-pcs",
+]
+
+[[package]]
+name = "w3f-ring-proof"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a639379402ad51504575dbd258740383291ac8147d3b15859bdf1ea48c677de"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-transcript",
+ "w3f-pcs",
+ "w3f-plonk-common",
 ]
 
 [[package]]
