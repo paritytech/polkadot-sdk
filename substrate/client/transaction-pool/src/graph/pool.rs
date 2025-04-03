@@ -317,10 +317,15 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		let in_pool_hashes =
 			extrinsics.iter().map(|extrinsic| self.hash_of(extrinsic)).collect::<Vec<_>>();
 		let in_pool_tags = self.validated_pool.extrinsics_tags(&in_pool_hashes);
+		// Fill unknown tags based on the known tags computed based on inactive
+		// views.
+		let tags = in_pool_hashes.iter().zip(in_pool_tags).map(|(tx_hash, tags)| {
+			tags.or(known_provides_tags.as_ref().and_then(|inner| inner.get(&tx_hash).cloned()))
+		});
 
 		// Zip the ones from the pool with the full list (we get pairs `(Extrinsic,
 		// Option<Vec<Tag>>)`)
-		let all = extrinsics.iter().zip(in_pool_tags.into_iter());
+		let all = extrinsics.iter().zip(tags);
 		let mut validated_counter: usize = 0;
 		let mut future_tags = Vec::new();
 		let now = Instant::now();
@@ -329,15 +334,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 				// reuse the tags for extrinsics that were found in the pool
 				Some(tags) => future_tags.extend(tags),
 				None => {
-					// if it's not found in the pool, check if the extrinsic `provides`
-					// tags are known (from inactive views, queried at an upper level)
-					let xt_hash = self.hash_of(extrinsic);
-					if let Some(tags) = known_provides_tags
-						.as_ref()
-						.and_then(|inner| inner.get(&xt_hash).map(|tags| tags.clone()))
-					{
-						future_tags.extend(tags);
-					} else if !self.validated_pool.status().is_empty() {
+					if !self.validated_pool.status().is_empty() {
 						// and if that's not the case, query the runtime at parent block
 						// to get validity info and tags that the extrinsic provides.
 						validated_counter = validated_counter + 1;
