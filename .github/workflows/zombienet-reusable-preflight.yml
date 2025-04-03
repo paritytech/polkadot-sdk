@@ -75,6 +75,11 @@ on:
         description: |
           url for download polkadot built artifacts (in zip format).
 
+      FLAKY_TESTS:
+        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
+        description: |
+          comma separated list of flaky tests to skip.
+
       # Zombie vars
       PUSHGATEWAY_URL:
         value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
@@ -130,6 +135,7 @@ jobs:
       RUN_IN_CI: ${{ steps.set_vars.outputs.RUN_IN_CI }}
       KUBERNETES_CPU_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_CPU_REQUEST }}
       KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
+      FLAKY_TESTS: ${{ steps.set_vars.outputs.FLAKY_TESTS }}
 
     steps:
       - uses: actions/checkout@v4
@@ -215,6 +221,7 @@ jobs:
           echo "RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}"
           echo "KUBERNETES_CPU_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_CPU_REQUEST }}"
           echo "KUBERNETES_MEMORY_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}"
+          echo "FLAKY_TESTS: ${{ needs.preflight.outputs.FLAKY_TESTS }}"
           #
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
