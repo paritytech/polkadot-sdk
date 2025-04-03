@@ -171,9 +171,8 @@ pub enum OperatingMode {
 impl OperatingMode {
 	fn can_accept_validator_set(&self) -> bool {
 		match self {
-			OperatingMode::Passive => false,
-			OperatingMode::Buffered => false,
 			OperatingMode::Active => true,
+			_ => false,
 		}
 	}
 }
@@ -468,38 +467,23 @@ pub mod pallet {
 	}
 
 	impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
-		fn new_session(_: u32) -> Option<Vec<T::AccountId>> {
-			let maybe_validator_set = ValidatorSet::<T>::take().map(|(id, val_set)| {
-				// store the id to be sent back in the next session back to AH
-				NextSessionChangesValidators::<T>::put(id);
-				val_set
-			});
-
-			maybe_validator_set
+		fn new_session(session_index: u32) -> Option<Vec<T::AccountId>> {
+			match Mode::<T>::get() {
+				OperatingMode::Passive => T::Fallback::new_session(session_index),
+				// In `Buffered` mode, we drop the session report and do nothing.
+				OperatingMode::Buffered => None,
+				OperatingMode::Active => Self::do_new_session(),
+			}
 		}
 
 		fn start_session(_: u32) {}
 
 		fn end_session(session_index: u32) {
-			use sp_runtime::SaturatedConversion;
-
-			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
-			let activation_timestamp = NextSessionChangesValidators::<T>::take()
-				.map(|id| (T::UnixTime::now().as_millis().saturated_into::<u64>(), id));
-
-			let session_report = pallet_staking_async_rc_client::SessionReport {
-				end_index: session_index,
-				validator_points,
-				activation_timestamp,
-				leftover: false,
-			};
-
-			// TODO(ank4n)
-			if Mode::<T>::get() == OperatingMode::Active {
-				log!(info, "Sending session report {:?}", session_report);
-				T::SendToAssetHub::relay_session_report(session_report);
-			} else {
-				log!(warn, "Session report is blocked and not sent.");
+			match Mode::<T>::get() {
+				OperatingMode::Passive => T::Fallback::end_session(session_index),
+				// In `Buffered` mode, we drop the session report and do nothing.
+				OperatingMode::Buffered => (),
+				OperatingMode::Active => Self::do_end_session(session_index),
 			}
 		}
 	}
@@ -510,6 +494,12 @@ pub mod pallet {
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
+
+			if Mode::<T>::get() == OperatingMode::Passive {
+				// delegate to the fallback implementation.
+				return T::Fallback::on_offence(offenders, slash_fraction, slash_session);
+			}
+
 			let mut offenders_and_slashes = Vec::new();
 
 			// notify pallet-session about the offences
@@ -554,6 +544,35 @@ pub mod pallet {
 			ValidatorPoints::<T>::mutate(author, |points| {
 				points.saturating_accrue(T::PointsPerBlock::get());
 			});
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		fn do_new_session() -> Option<Vec<T::AccountId>> {
+			let maybe_validator_set = ValidatorSet::<T>::take().map(|(id, val_set)| {
+				// store the id to be sent back in the next session back to AH
+				NextSessionChangesValidators::<T>::put(id);
+				val_set
+			});
+
+			maybe_validator_set
+		}
+
+		fn do_end_session(session_index: u32) {
+			use sp_runtime::SaturatedConversion;
+
+			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
+			let activation_timestamp = NextSessionChangesValidators::<T>::take()
+				.map(|id| (T::UnixTime::now().as_millis().saturated_into::<u64>(), id));
+
+			let session_report = pallet_staking_async_rc_client::SessionReport {
+				end_index: session_index,
+				validator_points,
+				activation_timestamp,
+				leftover: false,
+			};
+
+			T::SendToAssetHub::relay_session_report(session_report);
 		}
 	}
 }
