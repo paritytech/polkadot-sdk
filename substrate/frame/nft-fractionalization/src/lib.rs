@@ -58,23 +58,21 @@ pub mod pallet {
 	use super::*;
 	use core::fmt::Display;
 	use fungible::{
-		hold::Mutate as HoldMutateFungible, Inspect as InspectFungible,
-		Mutate as MutateFungible,
+		hold::Mutate as HoldMutateFungible, Inspect as InspectFungible, Mutate as MutateFungible,
 	};
 	use fungibles::{
 		metadata::{MetadataDeposit, Mutate as MutateMetadata},
 		Create, Destroy, Inspect, Mutate,
 	};
 	use nonfungibles_v2::{Inspect as NonFungiblesInspect, Transfer};
-
-	use tokens::{AssetId, Balance as AssetBalance,
-	Fortitude::Polite,
-	Precision::{BestEffort, Exact},
-	Preservation::{Expendable, Preserve},
-	};
 	use scale_info::prelude::{format, string::String};
 
-
+	use tokens::{
+		AssetId, Balance as AssetBalance,
+		Fortitude::Polite,
+		Precision::{BestEffort, Exact},
+		Preservation::{Expendable, Preserve},
+	};
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 

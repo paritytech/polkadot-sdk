@@ -26,7 +26,7 @@ use frame::deps::frame_support::assert_ok;
 use fungible::{Inspect as InspectFungible, Mutate as MutateFungible};
 use nonfungibles_v2::{Create, Mutate};
 
-use frame_system:: RawOrigin as SystemOrigin;
+use frame_system::RawOrigin as SystemOrigin;
 use pallet_nfts::{CollectionConfig, CollectionSettings, ItemConfig, MintSettings};
 
 use crate::Pallet as NftFractionalization;

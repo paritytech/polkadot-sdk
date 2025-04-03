@@ -20,14 +20,8 @@
 use super::*;
 use crate as pallet_nft_fractionalization;
 
-use frame::{
-	traits::Verify,
-	deps::sp_runtime::MultiSignature,
-	testing_prelude::*,
-	};
-
+use frame::{deps::sp_runtime::MultiSignature, testing_prelude::*, traits::Verify};
 use pallet_nfts::PalletFeatures;
-
 
 type Block = MockBlock<Test>;
 type Signature = MultiSignature;
