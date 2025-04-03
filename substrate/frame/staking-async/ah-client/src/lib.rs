@@ -132,23 +132,28 @@ pub enum OperatingMode {
 	/// Fully delegated mode.
 	///
 	/// In this mode, the pallet performs no core logic and forwards all relevant operations
-	/// to the fallback implementation defined in the pallet's `Config::Fallback`. This mode is
-	/// useful when staking is in synchronous mode.
+	/// to the fallback implementation defined in the pallet's `Config::Fallback`.
+	///
+	/// This mode is useful when staking is in synchronous mode and waiting for the signal to
+	/// transition to asynchronous mode.
 	#[default]
 	Passive,
 
 	/// Buffered mode for deferred execution.
 	///
-	/// Messages are accepted and buffered for later processing but are not executed immediately.
-	/// This mode is useful when the counterpart pallet `pallet-staking-async-rc-client` is not
-	/// ready to accept messages yet.
+	/// In this mode, offences are accepted and buffered for later transmission to AssetHub.
+	/// However, session change reports are dropped.
+	///
+	/// This mode is useful when the counterpart pallet `pallet-staking-async-rc-client` on
+	/// AssetHub is not yet ready to process incoming messages.
 	Buffered,
 
 	/// Fully active mode.
 	///
-	/// The pallet performs all core logic directly and handles messages immediately. This mode is
-	/// useful when staking is ready to execute in asynchronous mode and the counterpart pallet
-	/// `pallet-staking-async-rc-client` is ready to accept messages.
+	/// The pallet performs all core logic directly and handles messages immediately.
+	///
+	/// This mode is useful when staking is ready to execute in asynchronous mode and the
+	/// counterpart pallet `pallet-staking-async-rc-client` is ready to accept messages.
 	Active,
 }
 
@@ -244,6 +249,24 @@ pub mod pallet {
 	/// timestamp to AH.
 	#[pallet::storage]
 	pub type NextSessionChangesValidators<T: Config> = StorageValue<_, u32, OptionQuery>;
+
+
+	/// Stores offences that have been received while the pallet is in [`OperatingMode::Buffered`]
+	/// mode.
+	///
+	/// These offences are collected and buffered for later processing when the pallet transitions
+	/// to [`OperatingMode::Active`]. This allows the system to defer slashing or reporting logic
+	/// until communication with the counterpart pallet on AssetHub is fully established.
+	///
+	/// This storage is only used in `Buffered` mode; in `Active` mode, offences are immediately
+	/// sent, and in `Passive` mode, they are delegated to the [`Config::Fallback`] implementation.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type BufferedOffences<T: Config> = StorageValue<
+		_,
+		Vec<rc_client::Offence<T::AccountId>>,
+		ValueQuery,
+	>;
 
 	#[pallet::error]
 	pub enum Error<T> {
