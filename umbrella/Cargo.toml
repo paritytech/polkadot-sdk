@@ -2315,7 +2315,7 @@ version = "0.22.0"
 default-features = false
 optional = true
 path = "../cumulus/client/consensus/proposer"
-version = "0.18.0"
+version = "0.19.0"
 
 [dependencies.cumulus-client-consensus-relay-chain]
 default-features = false
