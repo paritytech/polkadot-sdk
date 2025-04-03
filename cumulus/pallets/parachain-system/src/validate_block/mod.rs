@@ -74,40 +74,48 @@ pub struct MemoryOptimizedValidationParams {
 pub struct StorageAccessParams<B: sp_runtime::traits::Block> {
 	pub state_root: B::Hash,
 	pub storage_proof: sp_trie::CompactProof,
-	pub keys: crate::Vec<sp_core::storage::StorageKey>,
+	pub payload: StorageAccessPayload,
 	pub is_dry_run: bool,
-	pub mode: AccessMode,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, codec::Decode, codec::Encode)]
-pub enum AccessMode {
-	Read,
-	Write,
+#[derive(Debug, Clone, codec::Decode, codec::Encode)]
+pub enum StorageAccessPayload {
+	Read(crate::Vec<sp_core::storage::StorageKey>),
+	Write(crate::Vec<sp_core::storage::StorageKey>),
 }
 
 impl<B: sp_runtime::traits::Block> StorageAccessParams<B> {
 	pub fn new_read(
 		state_root: B::Hash,
 		storage_proof: sp_trie::CompactProof,
-		keys: crate::Vec<sp_core::storage::StorageKey>,
+		payload: crate::Vec<sp_core::storage::StorageKey>,
 	) -> Self {
-		Self { state_root, storage_proof, keys, mode: AccessMode::Read, is_dry_run: false }
+		Self {
+			state_root,
+			storage_proof,
+			payload: StorageAccessPayload::Read(payload),
+			is_dry_run: false,
+		}
 	}
 
 	pub fn new_write(
 		state_root: B::Hash,
 		storage_proof: sp_trie::CompactProof,
-		keys: crate::Vec<sp_core::storage::StorageKey>,
+		payload: crate::Vec<sp_core::storage::StorageKey>,
 	) -> Self {
-		Self { state_root, storage_proof, keys, mode: AccessMode::Write, is_dry_run: false }
+		Self {
+			state_root,
+			storage_proof,
+			payload: StorageAccessPayload::Write(payload),
+			is_dry_run: false,
+		}
 	}
 
 	pub fn as_dry_run(&self) -> Self {
 		Self {
 			state_root: self.state_root,
 			storage_proof: self.storage_proof.clone(),
-			keys: self.keys.clone(),
-			mode: self.mode,
+			payload: self.payload.clone(),
 			is_dry_run: true,
 		}
 	}

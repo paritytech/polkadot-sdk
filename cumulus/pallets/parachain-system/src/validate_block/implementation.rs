@@ -17,7 +17,8 @@
 //! The actual implementation of the validate block functionality.
 
 use super::{
-	trie_cache, trie_recorder, AccessMode, MemoryOptimizedValidationParams, StorageAccessParams,
+	trie_cache, trie_recorder, MemoryOptimizedValidationParams, StorageAccessParams,
+	StorageAccessPayload,
 };
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
@@ -427,7 +428,7 @@ pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 	use codec::Decode;
 	use sp_state_machine::Backend;
 
-	let StorageAccessParams { state_root, storage_proof, keys, mode, is_dry_run } =
+	let StorageAccessParams { state_root, storage_proof, payload, is_dry_run } =
 		StorageAccessParams::<B>::decode(&mut params)
 			.expect("Invalid arguments to `validate_block`.");
 	// Create the db
@@ -490,12 +491,18 @@ pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 		return;
 	}
 
-	if mode == AccessMode::Read {
-		for key in keys {
-			backend
-				.storage(key.0.as_ref())
-				.expect("Key not found")
-				.ok_or("Value unexpectedly empty");
-		}
+	match payload {
+		StorageAccessPayload::Read(keys) =>
+			for key in keys {
+				backend
+					.storage(key.0.as_ref())
+					.expect("Key not found")
+					.ok_or("Value unexpectedly empty");
+			},
+		StorageAccessPayload::Write(keys) => {
+			// TODO: We need a real payload here
+			let delta = keys.iter().map(|key| (key.0.as_ref(), Some(key.0.as_ref())));
+			let root = backend.storage_root(delta, StateVersion::V1);
+		},
 	}
 }
