@@ -162,7 +162,7 @@ pub struct RunCmd {
 	/// Enable experimental collator protocol implementation.
 	///
 	/// **Dangerous!** Do not touch unless explicitly advised to.
-	#[arg(long, default_value = "false", action=ArgAction::Set)]
+	#[arg(long, default_value = "false")]
 	pub enable_experimental_collator_protocol: bool,
 }
 
