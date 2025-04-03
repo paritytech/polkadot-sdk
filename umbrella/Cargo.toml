@@ -2273,7 +2273,7 @@ version = "11.0.2"
 default-features = false
 optional = true
 path = "../polkadot/xcm/xcm-runtime-apis"
-version = "0.6.0"
+version = "0.7.0"
 
 [dependencies.asset-test-utils]
 default-features = false
