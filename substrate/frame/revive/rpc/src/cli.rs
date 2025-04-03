@@ -131,8 +131,7 @@ fn build_client(
 			.await?;
 
 		let client =
-			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, receipt_extractor)
-				.await?;
+			Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
 
 		Ok(client)
 	}

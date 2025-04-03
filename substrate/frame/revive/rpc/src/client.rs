@@ -20,8 +20,8 @@ use crate::{
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, BlockTag, DBReceiptProvider, ReceiptExtractor, SubxtBlockInfoProvider,
-	TransactionInfo, LOG_TARGET,
+	BlockInfoProvider, BlockTag, DBReceiptProvider, SubxtBlockInfoProvider, TransactionInfo,
+	LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
@@ -177,7 +177,6 @@ pub struct Client {
 	rpc: LegacyRpcMethods<SrcChainConfig>,
 	receipt_provider: DBReceiptProvider,
 	block_provider: SubxtBlockInfoProvider,
-	receipt_extractor: ReceiptExtractor,
 	chain_id: u64,
 	max_block_weight: Weight,
 }
@@ -240,7 +239,6 @@ impl Client {
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: DBReceiptProvider,
-		receipt_extractor: ReceiptExtractor,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
@@ -251,7 +249,6 @@ impl Client {
 			rpc,
 			receipt_provider,
 			block_provider,
-			receipt_extractor,
 			chain_id,
 			max_block_weight,
 		})
@@ -349,8 +346,7 @@ impl Client {
 	pub async fn subscribe_and_cache_new_blocks(&self, subscription_type: SubscriptionType) {
 		let res = self
 			.subscribe_new_blocks(subscription_type, |block| async {
-				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
-				self.receipt_provider.insert(&block, &receipts).await;
+				self.receipt_provider.insert_block_receipts(&block).await?;
 				self.block_provider.update_latest(block, subscription_type).await;
 				Ok(())
 			})
@@ -365,8 +361,7 @@ impl Client {
 	pub async fn cache_old_blocks(&self, oldest_block: SubstrateBlockNumber) {
 		let res = self
 			.subscribe_past_blocks(|block| async move {
-				let receipts = self.receipt_extractor.extract_from_block(&block).await?;
-				self.receipt_provider.insert(&block, &receipts).await;
+				self.receipt_provider.insert_block_receipts(&block).await?;
 				if block.number() <= oldest_block {
 					Ok(ControlFlow::Break(()))
 				} else {
@@ -775,7 +770,7 @@ impl Client {
 		let state_root = header.state_root.0.into();
 		let extrinsics_root = header.extrinsics_root.0.into();
 
-		let receipts = self.receipt_extractor.extract_from_block(&block).await.unwrap_or_default();
+		let receipts = self.receipt_provider.receipts_from_block(&block).await.unwrap_or_default();
 		let gas_used =
 			receipts.iter().fold(U256::zero(), |acc, (_, receipt)| acc + receipt.gas_used);
 		let transactions = if hydrated_transactions {
