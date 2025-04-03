@@ -18,21 +18,28 @@
 //! # Test environment for OPF pallet.
 use crate as pallet_opf;
 use crate::Convert;
-use codec::{Decode, Encode};
+// Removed unused import: use codec::{Decode, Encode};
 pub use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, EqualPrivilegeOnly, OnFinalize, OnInitialize, OriginTrait,
-		SortedMembers, VoteTally,
+		SortedMembers, VoteTally, Polling, PollStatus
 	},
-	weights::Weight,
-	PalletId,
+	weights::Weight,pallet_prelude::*,
+	PalletId, pallet_prelude::{DecodeWithMemTracking, TypeInfo, MaxEncodedLen},
 };
 pub use frame_system::{EnsureRoot, EnsureSigned, EnsureSignedBy};
 pub use sp_runtime::{
-	traits::{AccountIdConversion, IdentityLookup},
-	BuildStorage,
+	str_array as s,
+	traits::{AccountIdConversion, IdentityLookup}, DispatchError,
+	BuildStorage, Perbill, SaturatedConversion, Cow,
 };
+use sp_std::{collections::btree_map::BTreeMap,cell::RefCell};
+
+use pallet_conviction_voting::{AccountVote, Status, VotingHooks, TallyOf, Tally as TallyOfConviction};
+
+
+pub use pallet_referenda::{Curve, Track, TrackInfo, TracksInfo};
 pub type Block = frame_system::mocking::MockBlock<Test>;
 pub type Balance = u64;
 pub type AccountId = u64;
@@ -45,7 +52,8 @@ frame_support::construct_runtime!(
 		Preimage: pallet_preimage,
 		Scheduler: pallet_scheduler,
 		Opf: pallet_opf,
-		Democracy: pallet_democracy,
+		Referenda: pallet_referenda,
+		ConvictionVoting: pallet_conviction_voting,
 	}
 );
 
@@ -61,6 +69,17 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 }
 
+impl pallet_conviction_voting::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = pallet_balances::Pallet<Self>;
+	type VoteLockingPeriod = ConstU64<3>;
+	type MaxVotes = ConstU32<3>;
+	type WeightInfo = ();
+	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
+	type Polls = TestPolls;
+	type BlockNumberProvider = System;
+	type VotingHooks = HooksHandler;
+}
 impl pallet_preimage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -88,8 +107,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub static PreimageByteDeposit: u64 = 0;
-	pub static InstantAllowed: bool = false;
+	pub static AlarmInterval: u64 = 1;
 }
 ord_parameter_types! {
 	pub const One: u64 = 1;
@@ -100,45 +118,114 @@ ord_parameter_types! {
 	pub const Six: u64 = 6;
 }
 
-pub struct OneToFive;
-impl SortedMembers<u64> for OneToFive {
-	fn sorted_members() -> Vec<u64> {
-		vec![1, 2, 3, 4, 5]
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn add(_m: &u64) {}
-}
+pub struct TestTracksInfo;
+impl TracksInfo<u64, u64> for TestTracksInfo {
+	type Id = u8;
+	type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
 
-impl pallet_democracy::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = pallet_balances::Pallet<Self>;
-	type EnactmentPeriod = ConstU64<1>;
-	type LaunchPeriod = ConstU64<2>;
-	type VotingPeriod = ConstU64<2>;
-	type VoteLockingPeriod = ConstU64<3>;
-	type FastTrackVotingPeriod = ConstU64<2>;
-	type MinimumDeposit = ConstU64<1>;
-	type MaxDeposits = ConstU32<1000>;
-	type MaxBlacklisted = ConstU32<5>;
-	type SubmitOrigin = EnsureSigned<Self::AccountId>;
-	type ExternalOrigin = EnsureSignedBy<Two, u64>;
-	type ExternalMajorityOrigin = EnsureSignedBy<Three, u64>;
-	type ExternalDefaultOrigin = EnsureSignedBy<One, u64>;
-	type FastTrackOrigin = EnsureSignedBy<Five, u64>;
-	type CancellationOrigin = EnsureSignedBy<Four, u64>;
-	type BlacklistOrigin = EnsureRoot<u64>;
-	type CancelProposalOrigin = EnsureRoot<u64>;
-	type VetoOrigin = EnsureSignedBy<OneToFive, u64>;
-	type CooloffPeriod = ConstU64<2>;
-	type Slash = ();
-	type InstantOrigin = EnsureSignedBy<Six, u64>;
-	type InstantAllowed = InstantAllowed;
-	type Scheduler = Scheduler;
-	type MaxVotes = ConstU32<100>;
-	type PalletsOrigin = OriginCaller;
+	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, u64, u64>>> {
+		static DATA: [Track<u8, u64, u64>; 3] = [
+			Track {
+				id: 0u8,
+				info: TrackInfo {
+					name: s("root"),
+					max_deciding: 1,
+					decision_deposit: 10,
+					prepare_period: 4,
+					decision_period: 4,
+					confirm_period: 2,
+					min_enactment_period: 4,
+					min_approval: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(50),
+						ceil: Perbill::from_percent(100),
+					},
+					min_support: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(0),
+						ceil: Perbill::from_percent(100),
+					},
+				},
+			},
+			Track {
+				id: 1u8,
+				info: TrackInfo {
+					name: s("none"),
+					max_deciding: 3,
+					decision_deposit: 1,
+					prepare_period: 2,
+					decision_period: 2,
+					confirm_period: 1,
+					min_enactment_period: 2,
+					min_approval: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(95),
+						ceil: Perbill::from_percent(100),
+					},
+					min_support: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(90),
+						ceil: Perbill::from_percent(100),
+					},
+				},
+			},
+			Track {
+				id: 2u8,
+				info: TrackInfo {
+					name: s("none"),
+					max_deciding: 3,
+					decision_deposit: 1,
+					prepare_period: 2,
+					decision_period: 2,
+					confirm_period: 1,
+					min_enactment_period: 0,
+					min_approval: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(95),
+						ceil: Perbill::from_percent(100),
+					},
+					min_support: Curve::LinearDecreasing {
+						length: Perbill::from_percent(100),
+						floor: Perbill::from_percent(90),
+						ceil: Perbill::from_percent(100),
+					},
+				},
+			},
+		];
+		DATA.iter().map(Cow::Borrowed)
+	}
+	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
+		if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
+			match system_origin {
+				frame_system::RawOrigin::Root => Ok(0),
+				frame_system::RawOrigin::None => Ok(1),
+				frame_system::RawOrigin::Signed(1) => Ok(2),
+				_ => Err(()),
+			}
+		} else {
+			Err(())
+		}
+	}
+}
+impl pallet_referenda::Config for Test {
 	type WeightInfo = ();
-	type MaxProposals = ConstU32<100>;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type Scheduler = Scheduler;
+	type Currency = pallet_balances::Pallet<Self>;
+	type SubmitOrigin = frame_system::EnsureSigned<u64>;
+	type CancelOrigin = EnsureSignedBy<Four, u64>;
+	type KillOrigin = EnsureRoot<u64>;
+	type Slash = ();
+	type Votes = u32;
+	type Tally = Tally;
+	type SubmissionDeposit = ConstU64<2>;
+	type MaxQueued = ConstU32<3>;
+	type UndecidingTimeout = ConstU64<20>;
+	type AlarmInterval = AlarmInterval;
+	type Tracks = TestTracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -161,6 +248,8 @@ impl pallet_opf::Config for Test {
 	type BlockNumberProvider = System;
 	type TemporaryRewards = TemporaryRewards;
 	type EnactmentPeriod = ConstU64<1>;
+	type Governance = Referenda;
+	type Conviction = ConvictionVoting;
 	type WeightInfo = ();
 }
 
@@ -174,6 +263,222 @@ impl Convert<RuntimeCall, RuntimeCall> for RuntimeCall {
 			call
 		}
 	}
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum TestPollState {
+	Ongoing(TallyOf<Test>, u8),
+	Completed(u64, bool),
+}
+use TestPollState::*;
+
+parameter_types! {
+	pub static Polls: BTreeMap<u8, TestPollState> = vec![
+		(1, Completed(1, true)),
+		(2, Completed(2, false)),
+		(3, Ongoing(TallyOfConviction::from_parts(0, 0, 0), 0)),
+	].into_iter().collect();
+}
+
+pub struct TestPolls;
+impl Polling<TallyOf<Test>> for TestPolls {
+	type Index = u32;
+	type Votes = u64;
+	type Moment = u64;
+	type Class = u8;
+	fn classes() -> Vec<u8> {
+		vec![0, 1, 2]
+	}
+	fn as_ongoing(index: u32) -> Option<(TallyOf<Test>, Self::Class)> {
+		Polls::get().remove(&(index.try_into().unwrap())).and_then(|x| {
+			if let TestPollState::Ongoing(t, c) = x {
+				Some((t, c))
+			} else {
+				None
+			}
+		})
+	}
+	fn access_poll<R>(
+		index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, u64, u8>) -> R,
+	) -> R {
+		let mut polls = Polls::get();
+		let entry = polls.get_mut(&(index.try_into().unwrap()));
+		let r = match entry {
+			Some(Ongoing(ref mut tally_mut_ref, class)) =>
+				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
+			None => f(PollStatus::None),
+		};
+		Polls::set(polls);
+		r
+	}
+	fn try_access_poll<R>(
+		index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, u64, u8>) -> Result<R, DispatchError>,
+	) -> Result<R, DispatchError> {
+		let mut polls = Polls::get();
+		let entry = polls.get_mut(&(index.try_into().unwrap()));
+		let r = match entry {
+			Some(Ongoing(ref mut tally_mut_ref, class)) =>
+				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
+			None => f(PollStatus::None),
+		}?;
+		Polls::set(polls);
+		Ok(r)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_ongoing(class: Self::Class) -> Result<Self::Index, ()> {
+		let mut polls = Polls::get();
+		let i = polls.keys().rev().next().map_or(0, |x| x + 1);
+		polls.insert(i, Ongoing(TallyOfConviction::new(0), class));
+		Polls::set(polls);
+		Ok(i)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn end_ongoing(index: Self::Index, approved: bool) -> Result<(), ()> {
+		let mut polls = Polls::get();
+		match polls.get(&index) {
+			Some(Ongoing(..)) => {},
+			_ => return Err(()),
+		}
+		let now = frame_system::Pallet::<Test>::block_number();
+		polls.insert(index, Completed(now, approved));
+		Polls::set(polls);
+		Ok(())
+	}
+}
+
+thread_local! {
+	static LAST_ON_VOTE_DATA: RefCell<Option<(u64, u8, AccountVote<u64>)>> = RefCell::new(None);
+	static LAST_ON_REMOVE_VOTE_DATA: RefCell<Option<(u64, u8, Status)>> = RefCell::new(None);
+	static LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA: RefCell<Option<(u64, u8)>> = RefCell::new(None);
+	static REMOVE_VOTE_LOCKED_AMOUNT: RefCell<Option<u64>> = RefCell::new(None);
+}
+
+pub struct HooksHandler;
+
+impl HooksHandler {
+	fn last_on_vote_data() -> Option<(u64, u32, AccountVote<u64>)> {
+		let res = LAST_ON_VOTE_DATA.with(|data| *data.borrow());
+		if let Some((who, ref_index, vote)) = res {
+			Some((who, ref_index.try_into().unwrap(), vote))
+		} else {
+			None
+		}
+	}
+
+	fn last_on_remove_vote_data() -> Option<(u64, u32, Status)> {
+		let res = LAST_ON_REMOVE_VOTE_DATA.with(|data| *data.borrow());
+		if let Some((who, ref_index, ongoing)) = res {
+			Some((who, ref_index.try_into().unwrap(), ongoing))
+		} else {
+			None
+		}
+	}
+
+	fn last_locked_if_unsuccessful_vote_data() -> Option<(u64, u32)> {
+		let res =LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow());
+		if let Some((who, ref_index)) = res {
+			Some((who, ref_index.try_into().unwrap()))
+		} else {
+			None
+		}
+	}
+
+	fn reset() {
+		LAST_ON_VOTE_DATA.with(|data| *data.borrow_mut() = None);
+		LAST_ON_REMOVE_VOTE_DATA.with(|data| *data.borrow_mut() = None);
+		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow_mut() = None);
+		REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow_mut() = None);
+	}
+
+	fn with_remove_locked_amount(v: u64) {
+		REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow_mut() = Some(v));
+	}
+}
+
+impl VotingHooks<u64, u32, u64> for HooksHandler {
+	fn on_before_vote(who: &u64, ref_index: u32, vote: AccountVote<u64>) -> DispatchResult {
+		LAST_ON_VOTE_DATA.with(|data| {
+			*data.borrow_mut() = Some((*who, ref_index.try_into().unwrap(), vote));
+		});
+		Ok(())
+	}
+
+	fn on_remove_vote(who: &u64, ref_index: u32, ongoing: Status) {
+		LAST_ON_REMOVE_VOTE_DATA.with(|data| {
+			*data.borrow_mut() = Some((*who, ref_index.try_into().unwrap(), ongoing));
+		});
+	}
+
+	fn lock_balance_on_unsuccessful_vote(who: &u64, ref_index: u32) -> Option<u64> {
+		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| {
+			*data.borrow_mut() = Some((*who, ref_index.try_into().unwrap()));
+
+			REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow())
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn on_vote_worst_case(_who: &u64) {}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn on_remove_vote_worst_case(_who: &u64) {}
+}
+
+
+#[derive(
+	Encode, Debug, Decode, DecodeWithMemTracking, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen,
+)]
+pub struct Tally {
+	pub ayes: u32,
+	pub nays: u32,
+}
+
+impl<Class> VoteTally<u32, Class> for Tally {
+	fn new(_: Class) -> Self {
+		Self { ayes: 0, nays: 0 }
+	}
+
+	fn ayes(&self, _: Class) -> u32 {
+		self.ayes
+	}
+
+	fn support(&self, _: Class) -> Perbill {
+		Perbill::from_percent(self.ayes)
+	}
+
+	fn approval(&self, _: Class) -> Perbill {
+		if self.ayes + self.nays > 0 {
+			Perbill::from_rational(self.ayes, self.ayes + self.nays)
+		} else {
+			Perbill::zero()
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn unanimity(_: Class) -> Self {
+		Self { ayes: 100, nays: 0 }
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn rejection(_: Class) -> Self {
+		Self { ayes: 0, nays: 100 }
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn from_requirements(support: Perbill, approval: Perbill, _: Class) -> Self {
+		let ayes = support.mul_ceil(100u32);
+		let nays = ((ayes as u64) * 1_000_000_000u64 / approval.deconstruct() as u64) as u32 - ayes;
+		Self { ayes, nays }
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup(_: Class, _: Perbill) {}
 }
 
 //Define some accounts and use them
