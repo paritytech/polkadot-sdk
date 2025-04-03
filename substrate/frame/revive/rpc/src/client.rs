@@ -20,7 +20,8 @@ use crate::{
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, BlockTag, DBReceiptProvider, ReceiptExtractor, TransactionInfo, LOG_TARGET,
+	BlockInfoProvider, BlockTag, DBReceiptProvider, ReceiptExtractor, SubxtBlockInfoProvider,
+	TransactionInfo, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
@@ -175,7 +176,7 @@ pub struct Client {
 	rpc_client: ReconnectingRpcClient,
 	rpc: LegacyRpcMethods<SrcChainConfig>,
 	receipt_provider: DBReceiptProvider,
-	block_provider: Arc<dyn BlockInfoProvider>,
+	block_provider: SubxtBlockInfoProvider,
 	receipt_extractor: ReceiptExtractor,
 	chain_id: u64,
 	max_block_weight: Weight,
@@ -237,7 +238,7 @@ impl Client {
 		api: OnlineClient<SrcChainConfig>,
 		rpc_client: ReconnectingRpcClient,
 		rpc: LegacyRpcMethods<SrcChainConfig>,
-		block_provider: Arc<dyn BlockInfoProvider>,
+		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: DBReceiptProvider,
 		receipt_extractor: ReceiptExtractor,
 	) -> Result<Self, ClientError> {

@@ -1,7 +1,7 @@
 use crate::{
 	client::{SubstrateBlock, SubstrateBlockNumber},
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, FilterTopic,
-	ReceiptExtractor, LOG_TARGET,
+	ReceiptExtractor, SubxtBlockInfoProvider, LOG_TARGET,
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
@@ -14,11 +14,11 @@ use tokio::sync::Mutex;
 
 /// A `[ReceiptProvider]` that stores receipts in a SQLite database.
 #[derive(Clone)]
-pub struct DBReceiptProvider {
+pub struct DBReceiptProvider<B: BlockInfoProvider = SubxtBlockInfoProvider> {
 	/// The database pool.
 	pool: SqlitePool,
 	/// The block provider used to fetch blocks, and reconstruct receipts.
-	block_provider: Arc<dyn BlockInfoProvider>,
+	block_provider: B,
 	/// A means to extract receipts from extrinsics.
 	receipt_extractor: ReceiptExtractor,
 	/// When `Some`, old blocks will be pruned.
@@ -46,11 +46,11 @@ impl BlockInfo for SubstrateBlock {
 	}
 }
 
-impl DBReceiptProvider {
+impl<B: BlockInfoProvider> DBReceiptProvider<B> {
 	/// Create a new `DBReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
 		database_url: &str,
-		block_provider: Arc<dyn BlockInfoProvider>,
+		block_provider: B,
 		receipt_extractor: ReceiptExtractor,
 		keep_latest_n_blocks: Option<usize>,
 	) -> Result<Self, sqlx::Error> {
@@ -83,9 +83,7 @@ impl DBReceiptProvider {
 		let transaction_index = result.transaction_index.try_into().ok()?;
 		Some((block_hash, transaction_index))
 	}
-}
 
-impl DBReceiptProvider {
 	/// Deletes older records from the database.
 	pub async fn remove(&self, block_hashes: &[H256]) {
 		if block_hashes.is_empty() {
@@ -119,9 +117,9 @@ impl DBReceiptProvider {
 	}
 
 	/// Insert receipts into the provider.
-	pub async fn insert<B: BlockInfo>(
+	pub async fn insert(
 		&self,
-		block: &B,
+		block: &impl BlockInfo,
 		receipts: &[(TransactionSigned, ReceiptInfo)],
 	) {
 		if receipts.is_empty() {
@@ -461,10 +459,10 @@ mod tests {
 	use sp_core::{H160, H256};
 	use sqlx::SqlitePool;
 
-	async fn setup_sqlite_provider(pool: SqlitePool) -> DBReceiptProvider {
+	async fn setup_sqlite_provider(pool: SqlitePool) -> DBReceiptProvider<MockBlockInfoProvider> {
 		DBReceiptProvider {
 			pool,
-			block_provider: Arc::new(MockBlockInfoProvider {}),
+			block_provider: MockBlockInfoProvider {},
 			receipt_extractor: ReceiptExtractor::new(1_000_000, None),
 			keep_latest_n_blocks: Some(10),
 			block_number_to_hash: Default::default(),

@@ -49,22 +49,18 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 	.expect("Hit timeout")
 }
 
-#[derive(Default)]
 struct SharedResources {
-	_node_handle: Option<std::thread::JoinHandle<()>>,
-	_rpc_handle: Option<std::thread::JoinHandle<()>>,
+	_node_handle: std::thread::JoinHandle<()>,
+	_rpc_handle: std::thread::JoinHandle<()>,
 }
 
 impl SharedResources {
 	fn start() -> Self {
-		if std::env::var("SKIP_START").is_err() {
-			return SharedResources::default()
-		}
 		// Start the node.
-		let node_handle = thread::spawn(move || {
+		let _node_handle = thread::spawn(move || {
 			if let Err(e) = start_node_inline(vec![
 				"--dev",
-				"--rpc-port=9944",
+				"--rpc-port=45789",
 				"--no-telemetry",
 				"--no-prometheus",
 				"-lerror,evm=debug,sc_rpc_server=info,runtime::revive=trace",
@@ -76,23 +72,23 @@ impl SharedResources {
 		// Start the rpc server.
 		let args = CliCommand::parse_from([
 			"--dev",
-			"--rpc-port=8545",
-			"--node-rpc-url=ws://localhost:9944",
+			"--rpc-port=45788",
+			"--node-rpc-url=ws://localhost:45789",
 			"--no-prometheus",
 			"-linfo,eth-rpc=debug",
 		]);
 
-		let rpc_handle = thread::spawn(move || {
+		let _rpc_handle = thread::spawn(move || {
 			if let Err(e) = cli::run(args) {
 				panic!("eth-rpc exited with error: {e:?}");
 			}
 		});
 
-		Self { _node_handle: Some(node_handle), _rpc_handle: Some(rpc_handle) }
+		Self { _node_handle, _rpc_handle }
 	}
 
 	async fn client() -> WsClient {
-		ws_client_with_retry("ws://localhost:8545").await
+		ws_client_with_retry("ws://localhost:45788").await
 	}
 }
 
@@ -126,9 +122,13 @@ async fn transfer() -> anyhow::Result<()> {
 		"Receipt should have the correct contract address."
 	);
 
-	let increase =
-		client.get_balance(ethan.address(), BlockTag::Latest.into()).await? - initial_balance;
-	assert_eq!(value, increase);
+	let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	assert_eq!(
+		Some(value),
+		balance.checked_sub(initial_balance),
+		"Ethan {:?} {balance:?} should have increased by {value:?} from {initial_balance}.",
+		ethan.address()
+	);
 	Ok(())
 }
 
@@ -153,12 +153,9 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	);
 
 	let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
-	let increase = balance
-		.checked_sub(initial_balance)
-		.expect("Balance should have increased by the value sent.");
 	assert_eq!(
-		value,
-		increase,
+		Some(value),
+		balance.checked_sub(initial_balance),
 		"Ethan {:?} {balance:?} should have increased by {value:?} from {initial_balance}.",
 		ethan.address()
 	);
@@ -175,7 +172,7 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	assert_eq!(
 		Some(contract_address),
 		receipt.contract_address,
-		"Contract should be deployed with the correct address."
+		"Contract should be deployed at {contract_address:?}."
 	);
 
 	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
@@ -195,15 +192,11 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	assert_eq!(
 		Some(contract_address),
 		receipt.to,
-		"Receipt should have the correct contract address."
+		"Receipt should have the correct contract address {contract_address:?}."
 	);
 
 	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	let increase = balance.checked_sub(initial_balance).expect(&format!(
-		"Contract {contract_address:?} Balance {balance} should have increased from {initial_balance} by {value}.",
-	));
-
-	assert_eq!(value, increase, "Contract {contract_address:?} Balance {balance} should have increased from {initial_balance} by {value}.");
+	assert_eq!(Some(value), balance.checked_sub(initial_balance), "Contract {contract_address:?} Balance {balance} should have increased from {initial_balance} by {value}.");
 
 	// Balance transfer to contract
 	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
@@ -217,11 +210,9 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 
 	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
 
-	let increase = balance.checked_sub(initial_balance).expect(&format!(
-		"Balance {balance} should have increased from {initial_balance} by {value}."
-	));
 	assert_eq!(
-		value, increase,
+		Some(value),
+		balance.checked_sub(initial_balance),
 		"Balance {balance} should have increased from {initial_balance} by {value}."
 	);
 	Ok(())

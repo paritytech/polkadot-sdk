@@ -55,7 +55,7 @@ pub trait BlockInfoProvider: Send + Sync {
 
 /// Provides information about blocks.
 #[derive(Clone)]
-pub struct BlockInfoProviderImpl {
+pub struct SubxtBlockInfoProvider {
 	/// The latest block.
 	latest_block: Arc<RwLock<Arc<SubstrateBlock>>>,
 
@@ -69,7 +69,7 @@ pub struct BlockInfoProviderImpl {
 	api: OnlineClient<SrcChainConfig>,
 }
 
-impl BlockInfoProviderImpl {
+impl SubxtBlockInfoProvider {
 	pub async fn new(
 		api: OnlineClient<SrcChainConfig>,
 		rpc: LegacyRpcMethods<SrcChainConfig>,
@@ -85,7 +85,7 @@ impl BlockInfoProviderImpl {
 }
 
 #[async_trait]
-impl BlockInfoProvider for BlockInfoProviderImpl {
+impl BlockInfoProvider for SubxtBlockInfoProvider {
 	async fn update_latest(&self, block: SubstrateBlock, subscription_type: SubscriptionType) {
 		let mut latest = match subscription_type {
 			SubscriptionType::FinalizedBlocks => self.latest_finalized_block.write().await,

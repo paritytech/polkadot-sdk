@@ -17,9 +17,9 @@
 //! The Ethereum JSON-RPC server.
 use crate::{
 	client::{connect, native_to_eth_ratio, Client, SubscriptionType, SubstrateBlockNumber},
-	BlockInfoProvider, BlockInfoProviderImpl, DBReceiptProvider, DebugRpcServer,
-	DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor, SystemHealthRpcServer,
-	SystemHealthRpcServerImpl, LOG_TARGET,
+	DBReceiptProvider, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl,
+	ReceiptExtractor, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
+	LOG_TARGET,
 };
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
@@ -29,7 +29,6 @@ use sc_service::{
 	config::{PrometheusConfig, RpcConfiguration},
 	start_rpc_servers, TaskManager,
 };
-use std::sync::Arc;
 
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
@@ -109,8 +108,8 @@ fn build_client(
 ) -> anyhow::Result<Client> {
 	let fut = async {
 		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
-		let block_provider: Arc<dyn BlockInfoProvider> =
-			Arc::new(BlockInfoProviderImpl::new( api.clone(), rpc.clone()).await?);
+		let block_provider  =
+			SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
 
 		let keep_latest_n_blocks = if database_url == IN_MEMORY_DB {
 			log::info!( target: LOG_TARGET, "Using in-memory database, keeping only {cache_size} blocks in memory");
