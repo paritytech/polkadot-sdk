@@ -1169,7 +1169,7 @@ reason = "changed"
 # polkadot/node/core/pvf/common
 name = "polkadot-node-core-pvf-common"
 from = "17.0.1"
-to = "18.0.0"
+to = "19.0.0"
 bump = "major"
 reason = "changed"
 
