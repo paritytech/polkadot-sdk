@@ -19,6 +19,7 @@ use log::info;
 use rand::prelude::*;
 use sc_cli::{Error, Result};
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
+use sc_executor_wasmtime::DeterministicStackLimit;
 use sp_api::CallApiAt;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::{backend::AsTrieBackend, Backend};
@@ -70,6 +71,9 @@ impl StorageCmd {
 		let mut read_in_batch = 0;
 		let mut on_validation_batch = vec![];
 		let mut on_validation_size = 0;
+
+		let (mut rng, _) = new_rng(None);
+
 		for key in keys.as_slice() {
 			match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
 				(true, Some(info)) => {
@@ -81,7 +85,15 @@ impl StorageCmd {
 				_ => {
 					// regular key
 					// let start = Instant::now();
-					on_validation_batch.push(key.clone());
+					let new_v = if self.params.write {
+						let mut new_v = vec![0u8; 8];
+						rng.fill_bytes(&mut new_v[..]);
+						new_v
+					} else {
+						vec![]
+					};
+
+					on_validation_batch.push((key.clone(), new_v));
 					let v = backend
 						.storage(key.0.as_ref())
 						.expect("Checked above to exist")
@@ -116,6 +128,7 @@ impl StorageCmd {
 						state_root: *root,
 						storage_proof: compact.clone(),
 						keys: vec![],
+						read: !self.params.write,
 					};
 					let dry_run_encoded = dry_run_params.encode();
 					let dry_run_start = Instant::now();
@@ -127,6 +140,7 @@ impl StorageCmd {
 						state_root: *root,
 						storage_proof: compact,
 						keys: on_validation_batch.clone(),
+						read: !self.params.write,
 					};
 					let encoded = params.encode();
 					let start = Instant::now();
@@ -168,7 +182,7 @@ impl StorageCmd {
 			info!("Reading {} child keys", child_nodes.len());
 			for (key, info) in child_nodes.as_slice() {
 				// let start = Instant::now();
-				on_validation_batch.push(key.clone());
+				on_validation_batch.push((key.clone(), vec![]));
 				let v = backend
 					.child_storage(info, key.0.as_ref())
 					.expect("Checked above to exist")
@@ -202,6 +216,7 @@ impl StorageCmd {
 							state_root: *root,
 							storage_proof: compact.clone(),
 							keys: vec![],
+							read: !self.params.write,
 						};
 						let dry_run_encoded = dry_run_params.encode();
 						let dry_run_start = Instant::now();
@@ -212,6 +227,7 @@ impl StorageCmd {
 						let params: StorageAccessParams<B> = StorageAccessParams {
 							state_root: *root,
 							storage_proof: compact,
+							read: !self.params.write,
 							keys: on_validation_batch.clone(),
 						};
 						let encoded = params.encode();
@@ -273,6 +289,7 @@ impl StorageCmd {
 				let dry_run_params: StorageAccessParams<B> = StorageAccessParams {
 					state_root: *root,
 					storage_proof: compact.clone(),
+					read: !self.params.write,
 					keys: vec![],
 				};
 				let dry_run_encoded = dry_run_params.encode();
@@ -284,6 +301,7 @@ impl StorageCmd {
 				let params: StorageAccessParams<B> = StorageAccessParams {
 					state_root: *root,
 					storage_proof: compact,
+					read: !self.params.write,
 					keys: on_validation_batch.clone(),
 				};
 				let encoded = params.encode();
@@ -316,11 +334,17 @@ fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::WasmModule> {
 		allow_missing_func_imports: true,
 		cache_path: None,
 		semantics: sc_executor_wasmtime::Semantics {
-			heap_alloc_strategy: sc_executor::DEFAULT_HEAP_ALLOC_STRATEGY,
-			instantiation_strategy: sc_executor::WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
-			deterministic_stack_limit: None,
-			canonicalize_nans: false,
-			parallel_compilation: true,
+			heap_alloc_strategy: sc_executor_common::wasm_runtime::HeapAllocStrategy::Dynamic {
+				maximum_pages: Some(8192),
+			},
+			deterministic_stack_limit: Some(DeterministicStackLimit {
+				logical_max: 65536,
+				native_stack_max: 256 * 1024 * 1024,
+			}),
+			instantiation_strategy:
+				sc_executor::WasmtimeInstantiationStrategy::RecreateInstanceCopyOnWrite,
+			canonicalize_nans: true,
+			parallel_compilation: false,
 			wasm_multi_value: false,
 			wasm_bulk_memory: false,
 			wasm_reference_types: false,

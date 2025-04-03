@@ -132,6 +132,10 @@ pub struct StorageParams {
 	/// block.
 	#[arg(long, default_value_t = 10_000)]
 	pub batch_size: usize,
+
+	/// Include child trees in benchmark.
+	#[arg(long)]
+	pub write: bool,
 }
 
 impl StorageCmd {
