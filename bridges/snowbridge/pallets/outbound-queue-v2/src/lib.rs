@@ -126,7 +126,7 @@ pub mod pallet {
 			+ PartialEq
 			+ TypeInfo
 			+ Debug;
-		type GetAggregateMessageOrigin: Convert<H256, Self::AggregateMessageOrigin>;
+		type OriginToAggregateMessageOrigin: Convert<H256, Self::AggregateMessageOrigin>;
 		type MessageQueue: EnqueueMessage<Self::AggregateMessageOrigin>;
 
 		/// Measures the maximum gas used to execute a command on Ethereum

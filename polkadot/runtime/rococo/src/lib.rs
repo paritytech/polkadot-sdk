@@ -1016,9 +1016,9 @@ impl polkadot_runtime_parachains::inclusion::RewardValidators for RewardValidato
 	fn reward_bitfields(_: impl IntoIterator<Item = ValidatorIndex>) {}
 }
 
-pub struct GetAggregateMessageOrigin;
+pub struct OriginToAggregateMessageOrigin;
 
-impl Convert<UmpQueueId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+impl Convert<UmpQueueId, AggregateMessageOrigin> for OriginToAggregateMessageOrigin {
 	fn convert(queue_id: UmpQueueId) -> AggregateMessageOrigin {
 		AggregateMessageOrigin::Ump(queue_id)
 	}
@@ -1041,7 +1041,7 @@ impl parachains_inclusion::Config for Runtime {
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators = RewardValidators;
 	type AggregateMessageOrigin = AggregateMessageOrigin;
-	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
+	type OriginToAggregateMessageOrigin = OriginToAggregateMessageOrigin;
 	type GetParaFromAggregateMessageOrigin = GetParaFromAggregateMessageOrigin;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;

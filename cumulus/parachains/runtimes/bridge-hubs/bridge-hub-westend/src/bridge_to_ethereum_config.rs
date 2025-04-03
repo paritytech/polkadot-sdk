@@ -123,9 +123,9 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 }
 
-pub struct GetAggregateMessageOrigin;
+pub struct OriginToAggregateMessageOrigin;
 
-impl Convert<H256, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+impl Convert<H256, AggregateMessageOrigin> for OriginToAggregateMessageOrigin {
 	fn convert(origin: H256) -> AggregateMessageOrigin {
 		AggregateMessageOrigin::SnowbridgeV2(origin)
 	}
@@ -201,7 +201,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
 	type AggregateMessageOrigin = AggregateMessageOrigin;
-	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
+	type OriginToAggregateMessageOrigin = OriginToAggregateMessageOrigin;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 }
@@ -293,8 +293,9 @@ pub struct AllowFromEthereumFrontend;
 impl Contains<Location> for AllowFromEthereumFrontend {
 	fn contains(location: &Location) -> bool {
 		match location.unpack() {
-			(1, [Parachain(para_id), PalletInstance(index)]) =>
-				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX,
+			(1, [Parachain(para_id), PalletInstance(index)]) => {
+				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX
+			},
 			_ => false,
 		}
 	}

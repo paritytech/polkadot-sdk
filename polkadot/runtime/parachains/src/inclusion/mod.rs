@@ -302,7 +302,7 @@ pub mod pallet {
 			+ PartialEq
 			+ TypeInfo
 			+ Debug;
-		type GetAggregateMessageOrigin: Convert<UmpQueueId, Self::AggregateMessageOrigin>;
+		type OriginToAggregateMessageOrigin: Convert<UmpQueueId, Self::AggregateMessageOrigin>;
 		type GetParaFromAggregateMessageOrigin: Convert<Self::AggregateMessageOrigin, ParaId>;
 
 		/// The system message queue.
@@ -508,7 +508,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn cleanup_outgoing_ump_dispatch_queue(para: ParaId) {
-		T::MessageQueue::sweep_queue(T::GetAggregateMessageOrigin::convert(UmpQueueId::Para(para)));
+		T::MessageQueue::sweep_queue(T::OriginToAggregateMessageOrigin::convert(UmpQueueId::Para(para)));
 	}
 
 	pub(crate) fn get_occupied_cores(
@@ -932,7 +932,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
-		let fp = T::MessageQueue::footprint(T::GetAggregateMessageOrigin::convert(
+		let fp = T::MessageQueue::footprint(T::OriginToAggregateMessageOrigin::convert(
 			UmpQueueId::Para(para_id),
 		));
 		(fp.storage.count as u32, fp.storage.size as u32)
@@ -1023,7 +1023,7 @@ impl<T: Config> Pallet<T> {
 
 		T::MessageQueue::enqueue_messages(
 			messages.into_iter(),
-			T::GetAggregateMessageOrigin::convert(UmpQueueId::Para(para)),
+			T::OriginToAggregateMessageOrigin::convert(UmpQueueId::Para(para)),
 		);
 		Self::deposit_event(Event::UpwardMessagesReceived { from: para, count });
 	}
@@ -1413,7 +1413,7 @@ impl<T: Config> QueueFootprinter for Pallet<T> {
 	type Origin = UmpQueueId;
 
 	fn message_count(origin: Self::Origin) -> u64 {
-		T::MessageQueue::footprint(T::GetAggregateMessageOrigin::convert(origin))
+		T::MessageQueue::footprint(T::OriginToAggregateMessageOrigin::convert(origin))
 			.storage
 			.count
 	}

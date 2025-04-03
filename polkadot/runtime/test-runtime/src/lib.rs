@@ -531,9 +531,9 @@ impl parachains_shared::Config for Runtime {
 	type DisabledValidators = Session;
 }
 
-pub struct GetAggregateMessageOrigin;
+pub struct OriginToAggregateMessageOrigin;
 
-impl Convert<UmpQueueId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+impl Convert<UmpQueueId, AggregateMessageOrigin> for OriginToAggregateMessageOrigin {
 	fn convert(queue_id: UmpQueueId) -> AggregateMessageOrigin {
 		AggregateMessageOrigin::Ump(queue_id)
 	}
@@ -554,7 +554,7 @@ impl parachains_inclusion::Config for Runtime {
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators = RewardValidatorsWithEraPoints<Runtime, Staking>;
 	type AggregateMessageOrigin = AggregateMessageOrigin;
-	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
+	type OriginToAggregateMessageOrigin = OriginToAggregateMessageOrigin;
 	type GetParaFromAggregateMessageOrigin = GetParaFromAggregateMessageOrigin;
 	type MessageQueue = ();
 	type WeightInfo = ();
