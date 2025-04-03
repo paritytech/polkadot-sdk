@@ -558,7 +558,7 @@ jobs:
 
   zombienet-polkadot-coretime-revenue:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot }} && ${{ ! contains(github.env.FLAKY_TESTS, github.job) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(github.env.FLAKY_TESTS, github.job) }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
     timeout-minutes: 60
     container:
