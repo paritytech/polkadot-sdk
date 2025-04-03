@@ -432,7 +432,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	fn send(
 		&mut self,
 		dest: Location,
-		mut msg: Xcm<()>,
+		msg: Xcm<()>,
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
 		tracing::trace!(
@@ -442,6 +442,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			reason = ?reason,
 			"Sending msg",
 		);
+		let mut msg = msg;
 		if let Some(SetTopic(id)) = msg.last() {
 			tracing::trace!(target: "xcm::send", ?id, "Message already ends with `SetTopic`");
 		} else {
