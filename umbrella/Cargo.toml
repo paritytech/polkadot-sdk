@@ -2621,7 +2621,7 @@ version = "19.0.0"
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf/prepare-worker"
-version = "18.0.0"
+version = "19.0.0"
 
 [dependencies.polkadot-node-core-runtime-api]
 default-features = false
