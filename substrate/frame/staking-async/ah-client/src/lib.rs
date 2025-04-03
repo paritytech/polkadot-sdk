@@ -126,40 +126,30 @@ impl<T: Config + pallet_session::Config + pallet_session::historical::Config> Se
 	}
 }
 
-/// Means to force this pallet to be partially blocked. This is useful for governance intervention.
-#[derive(
-	Debug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	PartialEq,
-	Eq,
-	Default,
-	Clone,
-	Copy,
-)]
-pub enum Blocked {
-	/// Normal working operations.
+/// Represents the operating mode of the pallet.
+#[derive(Default, DecodeWithMemTracking, Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, RuntimeDebug)]
+pub enum OperatingMode {
+	/// Fully delegated mode.
+	///
+	/// In this mode, the pallet performs no core logic and forwards all relevant operations
+	/// to the fallback implementation defined in the pallet's `Config::Fallback`. This mode is
+	/// useful when staking is in synchronous mode.
 	#[default]
-	Not,
-	/// Block all incoming messages.
-	Incoming,
-	/// Block all outgoing messages.
-	Outgoing,
-	/// Block both incoming and outgoing messages.
-	Both,
-}
+	Passive,
 
-impl Blocked {
-	pub(crate) fn allows_incoming(&self) -> bool {
-		matches!(self, Self::Not | Self::Outgoing)
-	}
+	/// Buffered mode for deferred execution.
+	///
+	/// Messages are accepted and buffered for later processing but are not executed immediately.
+	/// This mode is useful when the counterpart pallet `pallet-staking-async-rc-client` is not
+	/// ready to accept messages yet.
+	Buffered,
 
-	pub(crate) fn allows_outgoing(&self) -> bool {
-		matches!(self, Self::Not | Self::Incoming)
-	}
+	/// Fully active mode.
+	///
+	/// The pallet performs all core logic directly and handles messages immediately. This mode is
+	/// useful when staking is ready to execute in asynchronous mode and the counterpart pallet
+	/// `pallet-staking-async-rc-client` is ready to accept messages.
+	Active,
 }
 
 #[frame_support::pallet]
@@ -202,6 +192,14 @@ pub mod pallet {
 
 		/// Interface to talk to the local Session pallet.
 		type SessionInterface: SessionInterface<ValidatorId = Self::AccountId>;
+
+		/// A fallback implementation to delegate logic to when the pallet is in
+		/// `OperatingMode::Passive`.
+		///
+		/// This type must implement the `historical::SessionManager` and `OnOffenceHandler`
+		/// interface and is expected to behave as a stand-in for this pallet’s core logic when
+		/// delegation is active.
+		type Fallback: historical::SessionManager<Self::AccountId, ()> + OnOffenceHandler<Self::AccountId, (Self::AccountId, ()), Weight>;
 	}
 
 	#[pallet::pallet]
@@ -229,9 +227,12 @@ pub mod pallet {
 	pub type ValidatorPoints<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, u32, ValueQuery>;
 
-	/// Stores whether this pallet is blocked in any way or not.
+	/// Indicates the current operating mode of the pallet.
+	///
+	/// This value determines how the pallet behaves in response to incoming and outgoing messages,
+	/// particularly whether it should execute logic directly, defer it, or delegate it entirely.
 	#[pallet::storage]
-	pub type IsBlocked<T: Config> = StorageValue<_, Blocked, ValueQuery>;
+	pub type Mode<T: Config> = StorageValue<_, OperatingMode, ValueQuery>;
 
 	/// A storage value that is set when a `new_session` gives a new validator set to the session
 	/// pallet, and is cleared on the next call.
@@ -289,7 +290,6 @@ pub mod pallet {
 			// Ensure the origin is one of Root or whatever is representing AssetHub.
 			log!(info, "Received new validator set report {:?}", report);
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
-			ensure!(IsBlocked::<T>::get().allows_incoming(), Error::<T>::Blocked);
 
 			let maybe_merged_report = match IncompleteValidatorSetReport::<T>::take() {
 				Some(old) => old.merge(report.clone()),
@@ -357,9 +357,9 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::DbWeight::get().writes(1))]
-		pub fn set_block(origin: OriginFor<T>, block: Blocked) -> DispatchResult {
+		pub fn set_mode(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			IsBlocked::<T>::put(block);
+			Mode::<T>::put(mode);
 			Ok(())
 		}
 	}
@@ -411,7 +411,8 @@ pub mod pallet {
 				leftover: false,
 			};
 
-			if IsBlocked::<T>::get().allows_outgoing() {
+			// TODO(ank4n)
+			if Mode::<T>::get() == OperatingMode::Active {
 				log!(info, "Sending session report {:?}", session_report);
 				T::SendToAssetHub::relay_session_report(session_report);
 			} else {
@@ -443,7 +444,8 @@ pub mod pallet {
 				});
 			}
 
-			if IsBlocked::<T>::get().allows_outgoing() {
+			// TODO(ank4n)
+			if Mode::<T>::get() == OperatingMode::Active {
 				log!(info, "sending offence report to AH");
 				T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
 			} else {
