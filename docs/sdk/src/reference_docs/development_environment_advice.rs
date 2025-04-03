@@ -85,6 +85,47 @@
 //! },
 //! ```
 //!
+//! Similarly for Zed, a suggested configuration in `~/.config/zed/settings.json` is as follows:
+//! ```json
+//! "lsp": {
+//!   "rust-analyzer": {
+//!     "initialization_options": {
+//!       "rust": {
+//!         // Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
+//!         // Analyzer and cargo on the command line at the same time.
+//!         "analyzerTargetDir": "target/zed-rust-analyzer"
+//!       },
+//!       // Improve stability
+//!       "server": {
+//!         "extraEnv": {
+//!           "CHALK_OVERFLOW_DEPTH": "100000000",
+//!           "CHALK_SOLVER_MAX_SIZE": "10000000"
+//!         }
+//!       },
+//!       // Check feature-gated code
+//!       "cargo": {
+//!         "features": "all",
+//!         "extraEnv": {
+//!           "SKIP_WASM_BUILD": "1"
+//!         },
+//!       },
+//!       // Don't expand some problematic proc_macros
+//!       "procMacro": {
+//!         "ignored": {
+//!           "async-trait": ["async_trait"],
+//!           "napi-derive": ["napi"],
+//!           "async-recursion": ["async_recursion"],
+//!           "async-std": ["async_std"]
+//!         }
+//!       },
+//!       // Use nightly formatting.
+//!       // See the polkadot-sdk CI job that checks formatting for the current version used in
+//!       // polkadot-sdk.
+//!       "rustfmt.extraArgs": ["+nightly-2024-04-10"],
+//!     }
+//!   }
+//! },
+//! ```
 //! For the full set of configuration options see <https://rust-analyzer.github.io/manual.html#configuration>.
 //!
 //! ## Cargo Usage
@@ -186,5 +227,45 @@
 //!       "--target-dir=target/rust-analyzer"
 //!     },
 //!   },
+//! },
+//! ```
+//! For Zed please add the  following in your `~/.config/zed/settings.json`:
+//! ```json
+//! "lsp": {
+//!   "rust-analyzer": {
+//!     "initialization_options": {
+//!       "cargo": {
+//!         "buildScripts": {
+//!           "overrideCommand": [
+//!             "cargo",
+//!             "remote",
+//!             "--build-env",
+//!             "SKIP_WASM_BUILD=1",
+//!             "--",
+//!             "check",
+//!             "--message-format=json",
+//!             "--all-targets",
+//!             "--all-features",
+//!             "--target-dir=target/rust-analyzer"
+//!           ]
+//!         }
+//!       },
+//!       "check": {
+//!         "overrideCommand": [
+//!           "cargo",
+//!           "remote",
+//!           "--build-env",
+//!           "SKIP_WASM_BUILD=1",
+//!           "--",
+//!           "check",
+//!           "--workspace",
+//!           "--message-format=json",
+//!           "--all-targets",
+//!           "--all-features",
+//!           "--target-dir=target/rust-analyzer"
+//!         ]
+//!       }
+//!     }
+//!   }
 //! },
 //! ```
