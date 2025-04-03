@@ -8928,7 +8928,7 @@ mod unbonding_queue {
 				ConfigOp::Set(config.clone())
 			));
 
-			// Set a known minimum lowest third stake.
+			// Set a known minimum stake.
 			let min_lowest_stake = 1000;
 			assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(min_lowest_stake));
 

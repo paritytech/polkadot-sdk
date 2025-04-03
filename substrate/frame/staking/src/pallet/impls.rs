@@ -705,7 +705,7 @@ impl<T: Config> Pallet<T> {
 		// Populate elected stash, stakers, exposures, and the snapshot of validator prefs.
 		let mut total_stake: BalanceOf<T> = Zero::zero();
 		let mut elected_stashes = Vec::with_capacity(exposures.len());
-		// Populate exposures by total stake, to be truncated to lowest third.
+		// Populate exposures by total stake, to be truncated to the lowest portion.
 		let mut exposures_total_stake: Vec<(T::AccountId, BalanceOf<T>)> =
 			Vec::with_capacity(exposures.len());
 
@@ -747,25 +747,25 @@ impl<T: Config> Pallet<T> {
 		elected_stashes
 	}
 
-	/// Calculate the total stake of the lowest third validators and store it for the planned era.
+	/// Calculate the total stake of the lowest portion validators and store it for the planned era.
 	///
 	/// Removes the stale entry from [`EraLowestRatioTotalStake`] if it exists.
 	fn calculate_lowest_total_stake(mut exposures: Vec<(T::AccountId, BalanceOf<T>)>) {
 		// Only calculate if unbonding queue params have been set.
 		if let Some(params) = UnbondingQueueParams::<T>::get() {
-			// Determine the total stake from the lowest third of validators and persist for the
+			// Determine the total stake from the lowest portion of validators and persist for the
 			// era.
 			let validators_to_check =
 				(params.lowest_ratio * exposures.len() as u32).max(1) as usize;
 
-			// Sort exposure total stake by lowest first, and truncate to the lowest third.
+			// Sort exposure total stake by the lowest first, and truncate to the lowest portion.
 			exposures.sort_by(|(_, a), (_, b)| a.cmp(&b));
 			exposures.truncate(validators_to_check);
 
-			// Calculate the total stake of the lowest third validators.
+			// Calculate the total stake of the lowest portion validators.
 			let total_stake = exposures.into_iter().map(|(_, a)| a).sum();
 
-			// Store the total stake of the lowest third validators for the planned era.
+			// Store the total stake of the lowest portion validators for the planned era.
 			EraLowestRatioTotalStake::<T>::mutate(|lower_ratio| {
 				if lower_ratio.is_full() {
 					lower_ratio.remove(0);
@@ -812,16 +812,15 @@ impl<T: Config> Pallet<T> {
 			.expect("we only map through support vector which cannot change the size; qed")
 	}
 
-	/// Gets the lowest of the lowest validator stake entries for the last
-	/// upper bound eras.
+	/// Gets the lowest of the lowest validator stake entries for the last upper bound eras.
 	pub(crate) fn get_min_lowest_stake() -> BalanceOf<T> {
-		// Find the minimum total stake of the lowest third validators over the configured number of
+		// Find the minimum total stake of the lowest portion validators over the configured number of
 		// eras.
 		let mut iter = EraLowestRatioTotalStake::<T>::get().into_iter();
 		let mut lowest_stake = iter.next().unwrap_or(Zero::zero());
-		for lowest_third_total_stake in iter {
-			if lowest_third_total_stake < lowest_stake {
-				lowest_stake = lowest_third_total_stake;
+		for lowest_portion_total_stake in iter {
+			if lowest_portion_total_stake < lowest_stake {
+				lowest_stake = lowest_portion_total_stake;
 			}
 		}
 		lowest_stake

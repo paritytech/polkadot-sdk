@@ -742,7 +742,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
-	/// The total amount of stake backed by the lowest third of validators for the last
+	/// The total amount of stake backed by the lowest proportion of validators for the last
 	/// upper bound eras. This is used to determine the maximum amount of stake that
 	/// can be unbonded for a period potentially lower than upper bound eras.
 	#[pallet::storage]
