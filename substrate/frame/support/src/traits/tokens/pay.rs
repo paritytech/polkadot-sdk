@@ -30,9 +30,9 @@ use super::{fungible, fungibles, Balance, Preservation::Expendable};
 pub trait Pay {
 	/// The type by which we measure units of the currency in which we make payments.
 	type Balance: Balance;
-	/// The type by which we identify the sources to whom a payment may be made.
+	/// The type by which we identify the sources from which a payment may be made.
 	type Source;
-	/// The type by which we identify the sources from which payments may be made.
+	/// The type by which we identify the beneficiaries to whom a payment may be made.
 	type Beneficiary;
 	/// The type for the kinds of asset that are going to be paid.
 	///
@@ -86,8 +86,8 @@ pub enum PaymentStatus {
 }
 
 /// Simple implementation of `Pay` which makes a payment from a "pot" - i.e. a single account.
-pub struct PayFromAssetAccount<F, A>(core::marker::PhantomData<(F, A)>);
-impl<A, F> Pay for PayFromAssetAccount<F, A>
+pub struct PayFromAccount<F, A>(core::marker::PhantomData<(F, A)>);
+impl<A, F> Pay for PayFromAccount<F, A>
 where
 	A: TypedGet,
 	F: fungible::Mutate<A::Type>,
@@ -112,7 +112,12 @@ where
 		PaymentStatus::Success
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Source, _: &Self::Beneficiary, _: Self::AssetKind, amount: Self::Balance) {
+	fn ensure_successful(
+		_: &Self::Source,
+		_: &Self::Beneficiary,
+		_: Self::AssetKind,
+		amount: Self::Balance,
+	) {
 		<F as fungible::Mutate<_>>::mint_into(&A::get(), amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
