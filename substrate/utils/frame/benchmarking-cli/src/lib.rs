@@ -122,9 +122,9 @@ impl CliConfiguration for BenchmarkCmd {
 		}
 	}
 
-	fn unlimited_local_cache(&self) -> Result<bool> {
+	fn use_trusted_local_cache(&self) -> Result<bool> {
 		unwrap_cmd! {
-			self, cmd, cmd.unlimited_local_cache()
+			self, cmd, cmd.use_trusted_local_cache()
 		}
 	}
 }

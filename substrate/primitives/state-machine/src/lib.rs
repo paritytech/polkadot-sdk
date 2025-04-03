@@ -321,7 +321,7 @@ mod execution {
 	) -> Result<(Vec<u8>, StorageProof), Box<dyn Error>>
 	where
 		B: AsTrieBackend<H>,
-		H: Hasher + 'static,
+		H: Hasher,
 		H::Out: Ord + 'static + codec::Codec,
 		Exec: CodeExecutor + Clone + 'static,
 	{
@@ -357,7 +357,7 @@ mod execution {
 	) -> Result<(Vec<u8>, StorageProof), Box<dyn Error>>
 	where
 		S: trie_backend_essence::TrieBackendStorage<H>,
-		H: Hasher + 'static,
+		H: Hasher,
 		H::Out: Ord + 'static + codec::Codec,
 		Exec: CodeExecutor + 'static + Clone,
 	{
@@ -440,7 +440,7 @@ mod execution {
 	pub fn prove_read<B, H, I>(backend: B, keys: I) -> Result<StorageProof, Box<dyn Error>>
 	where
 		B: AsTrieBackend<H>,
-		H: Hasher + 'static,
+		H: Hasher,
 		H::Out: Ord + Codec,
 		I: IntoIterator,
 		I::Item: AsRef<[u8]>,
@@ -574,7 +574,7 @@ mod execution {
 	) -> Result<(StorageProof, u32), Box<dyn Error>>
 	where
 		B: AsTrieBackend<H>,
-		H: Hasher + 'static,
+		H: Hasher,
 		H::Out: Ord + Codec,
 	{
 		let trie_backend = backend.as_trie_backend();
@@ -698,7 +698,7 @@ mod execution {
 	) -> Result<(StorageProof, u32), Box<dyn Error>>
 	where
 		B: AsTrieBackend<H>,
-		H: Hasher + 'static,
+		H: Hasher,
 		H::Out: Ord + Codec,
 	{
 		let trie_backend = backend.as_trie_backend();
@@ -763,7 +763,7 @@ mod execution {
 	) -> Result<StorageProof, Box<dyn Error>>
 	where
 		B: AsTrieBackend<H>,
-		H: Hasher + 'static,
+		H: Hasher,
 		H::Out: Ord + Codec,
 		I: IntoIterator,
 		I::Item: AsRef<[u8]>,

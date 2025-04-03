@@ -21,19 +21,17 @@ use crate::cache::LOG_TARGET;
 ///! that combines both caches and is exported to the outside.
 use super::{
 	CacheSize, LocalNodeCacheConfig, LocalNodeCacheLimiter, LocalValueCacheConfig,
-	LocalValueCacheLimiter, NodeCacheMap, NodeCached, TrieHitStats, TrieHitStatsSnapshot,
-	ValueAccessSet, ValueCacheMap,
+	LocalValueCacheLimiter, NodeCached, TrieHitStats, TrieHitStatsSnapshot,
 };
 use core::{hash::Hash, time::Duration};
 use hash_db::Hasher;
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
 use schnellru::LruMap;
-use sp_core::traits::SpawnNamed;
 use std::{
 	collections::{hash_map::Entry as SetEntry, HashMap},
 	hash::{BuildHasher, Hasher as _},
-	sync::{mpsc::RecvTimeoutError, Arc, LazyLock},
+	sync::{Arc, LazyLock},
 	time::Instant,
 };
 use trie_db::{node::NodeOwned, CachedValue};
@@ -42,9 +40,6 @@ static RANDOM_STATE: LazyLock<ahash::RandomState> = LazyLock::new(|| {
 	let mut rng = rand::thread_rng();
 	ahash::RandomState::generate_with(rng.gen(), rng.gen(), rng.gen(), rng.gen())
 });
-
-// Writeback trigger timout.
-const WRITEBACK_TRIGGER_TIMEOUT: Duration = Duration::from_secs(12);
 
 pub struct SharedNodeCacheLimiter {
 	/// The maximum size (in bytes) the cache can hold inline.
@@ -83,8 +78,7 @@ where
 		// Once we hit the limit of max items evicted this will return `false` and prevent
 		// any further evictions, but this is fine because the outer loop which inserts
 		// items into this cache will just detect this and stop inserting new items.
-		// self.items_evicted <= self.max_items_evicted && self.heap_size > self.max_heap_size
-		self.heap_size > self.max_heap_size
+		self.items_evicted <= self.max_items_evicted && self.heap_size > self.max_heap_size
 	}
 
 	#[inline]
@@ -583,26 +577,11 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 }
 
 /// The inner of [`SharedTrieCache`].
-pub(super) struct SharedTrieCacheInner<H: Hasher + 'static> {
+pub(super) struct SharedTrieCacheInner<H: Hasher> {
 	node_cache: SharedNodeCache<H::Out>,
 	value_cache: SharedValueCache<H::Out>,
 	stats: TrieHitStats,
-	queued_work: Option<Vec<LocalCacheDataToWriteBack<H>>>,
-}
-
-/// Holds the `TrieLocalCache` data that needs to be propagated back
-/// to the shared trie cache.
-///
-/// This can be done either synchronously when the local cache is dropped or in the background when
-/// we are dealing with an unlimited local trie cache.
-#[derive(Clone)]
-pub(super) struct LocalCacheDataToWriteBack<H: Hasher + 'static> {
-	node_cache: Arc<Mutex<NodeCacheMap<H::Out>>>,
-	value_cache: Arc<Mutex<ValueCacheMap<H::Out>>>,
-	shared_value_cache_access: Arc<Mutex<ValueAccessSet>>,
-	value_cache_config: LocalValueCacheConfig,
-	node_cache_config: LocalNodeCacheConfig,
-	stats: TrieHitStatsSnapshot,
+	previous_stats_dump: Instant,
 }
 
 impl<H: Hasher> SharedTrieCacheInner<H> {
@@ -628,20 +607,15 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 		&mut self.node_cache
 	}
 
-	pub(super) fn stats(&mut self) -> &TrieHitStats {
-		&self.stats
-	}
-
-	pub(super) fn write_back(&mut self, write_back_work: LocalCacheDataToWriteBack<H>) {
-		self.stats().add_snapshot(&write_back_work.stats);
-		self.node_cache_mut()
-			.update(write_back_work.node_cache.lock().drain(), &write_back_work.node_cache_config);
-
-		self.value_cache_mut().update(
-			write_back_work.value_cache.lock().drain(),
-			write_back_work.shared_value_cache_access.lock().drain().map(|(key, ())| key),
-			&write_back_work.value_cache_config,
-		);
+	/// Returns a mutable reference to the [`TrieHitStats`].
+	pub(super) fn stats_add_snapshot(&mut self, snapshot: &TrieHitStatsSnapshot) {
+		self.stats.add_snapshot(&snapshot);
+		// Print trie cache every 60 seconds.
+		if self.previous_stats_dump.elapsed() > Duration::from_secs(60) {
+			self.previous_stats_dump = Instant::now();
+			let snapshot = self.stats.snapshot();
+			tracing::debug!(target: LOG_TARGET, "Shared trie cache stats node_cache {:} value_cache {:}", snapshot.node_cache, snapshot.value_cache);
+		}
 	}
 }
 
@@ -652,29 +626,19 @@ impl<H: Hasher> SharedTrieCacheInner<H> {
 /// bounds given via the [`CacheSize`] at startup.
 ///
 /// The instance of this object can be shared between multiple threads.
-pub struct SharedTrieCache<H: Hasher + 'static> {
+pub struct SharedTrieCache<H: Hasher> {
 	inner: Arc<RwLock<SharedTrieCacheInner<H>>>,
-	/// The channel used by the writeback thread to wait for the trigger that it needs to start
-	/// promoting the local trie cache accesses to the shared trie cache. This is used only when
-	/// `promote_in_background` is passed to the constructor.
-	writeback_thread_rx: Arc<Mutex<Option<std::sync::mpsc::Receiver<bool>>>>,
-	/// The channel used to trigger the writeback thread.
-	tx: Option<std::sync::mpsc::Sender<bool>>,
 }
 
 impl<H: Hasher> Clone for SharedTrieCache<H> {
 	fn clone(&self) -> Self {
-		Self {
-			inner: self.inner.clone(),
-			tx: self.tx.clone(),
-			writeback_thread_rx: self.writeback_thread_rx.clone(),
-		}
+		Self { inner: self.inner.clone() }
 	}
 }
 
-impl<H: Hasher + 'static> SharedTrieCache<H> {
+impl<H: Hasher> SharedTrieCache<H> {
 	/// Create a new [`SharedTrieCache`].
-	pub fn new(cache_size: CacheSize, promote_in_background: bool) -> Self {
+	pub fn new(cache_size: CacheSize) -> Self {
 		let total_budget = cache_size.0;
 
 		// Split our memory budget between the two types of caches.
@@ -708,12 +672,7 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 			value_cache_max_inline_size,
 			value_cache_max_heap_size,
 		);
-		let (tx, rx) = if promote_in_background {
-			let (tx, rx) = std::sync::mpsc::channel();
-			(Some(tx), Some(rx))
-		} else {
-			(None, None)
-		};
+
 		Self {
 			inner: Arc::new(RwLock::new(SharedTrieCacheInner {
 				node_cache: SharedNodeCache::new(
@@ -725,10 +684,8 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 					value_cache_max_heap_size,
 				),
 				stats: Default::default(),
-				queued_work: if promote_in_background { Some(Vec::new()) } else { None },
+				previous_stats_dump: Instant::now(),
 			})),
-			writeback_thread_rx: Arc::new(Mutex::new(rx)),
-			tx,
 		}
 	}
 
@@ -739,45 +696,49 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 
 		super::LocalTrieCache {
 			shared: self.clone(),
-			node_cache: Arc::new(Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(
-				Default::default(),
-			)))),
-			value_cache: Arc::new(Mutex::new(LruMap::with_hasher(
+			node_cache: Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(Default::default()))),
+			value_cache: Mutex::new(LruMap::with_hasher(
 				LocalValueCacheLimiter::new(Default::default()),
 				Default::default(),
-			))),
-			shared_value_cache_access: Arc::new(Mutex::new(super::ValueAccessSet::with_hasher(
+			)),
+			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(
 				schnellru::ByLength::new(
 					local_value_cache_config.shared_value_cache_max_promoted_keys,
 				),
 				Default::default(),
-			))),
+			)),
 			value_cache_config: local_value_cache_config,
 			node_cache_config: local_node_cache_config,
 			stats: Default::default(),
 		}
 	}
 
-	/// Create a new [`LocalTrieCache`](super::LocalTrieCache) instance from this shared cache.
-	pub fn local_cache_unlimited(&self) -> super::LocalTrieCache<H> {
-		let local_value_cache_config = LocalValueCacheConfig::unlimited();
-		let local_node_cache_config = LocalNodeCacheConfig::unlimited();
+	/// Creates a TrieCache that allows the local_caches to grow to fit the needs,
+	/// also everything is promoted to the shared cache.
+	///
+	/// This is safe to be used only for trusted paths because it removes all limits on cache
+	/// growth and promotion, which could lead to excessive memory usage if used in untrusted or
+	/// uncontrolled environments. It is intended for scenarios like block authoring or importing,
+	/// where the operations are bounded already and there are no risks of unbounded memory usage.
+	pub fn local_cache_trusted(&self) -> super::LocalTrieCache<H> {
+		let local_value_cache_config = LocalValueCacheConfig::trusted();
+		let local_node_cache_config = LocalNodeCacheConfig::trusted();
 
 		super::LocalTrieCache {
 			shared: self.clone(),
-			node_cache: Arc::new(Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(
-				super::LocalNodeCacheConfig::unlimited(),
-			)))),
-			value_cache: Arc::new(Mutex::new(LruMap::with_hasher(
-				LocalValueCacheLimiter::new(super::LocalValueCacheConfig::unlimited()),
-				Default::default(),
+			node_cache: Mutex::new(LruMap::new(LocalNodeCacheLimiter::new(
+				super::LocalNodeCacheConfig::trusted(),
 			))),
-			shared_value_cache_access: Arc::new(Mutex::new(super::ValueAccessSet::with_hasher(
+			value_cache: Mutex::new(LruMap::with_hasher(
+				LocalValueCacheLimiter::new(super::LocalValueCacheConfig::trusted()),
+				Default::default(),
+			)),
+			shared_value_cache_access: Mutex::new(super::ValueAccessSet::with_hasher(
 				schnellru::ByLength::new(
 					local_value_cache_config.shared_value_cache_max_promoted_keys,
 				),
 				Default::default(),
-			))),
+			)),
 			value_cache_config: local_value_cache_config,
 			node_cache_config: local_node_cache_config,
 			stats: Default::default(),
@@ -816,7 +777,6 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 	/// Returns the used memory size of this cache in bytes.
 	pub fn used_memory_size(&self) -> usize {
 		let inner = self.inner.read();
-
 		let value_cache_size =
 			inner.value_cache.lru.memory_usage() + inner.value_cache.lru.limiter().heap_size;
 		let node_cache_size =
@@ -856,109 +816,6 @@ impl<H: Hasher + 'static> SharedTrieCache<H> {
 		// and notify us that there's a problem.
 		self.inner.try_write_for(super::SHARED_CACHE_WRITE_LOCK_TIMEOUT)
 	}
-
-	/// Depending on the configuration, either queue the promotion of the local cache data to the
-	/// shared cache or perform it right away.
-	///
-	/// This is needed because in the case of an unlimited local cache, promoting all the changes
-	/// could be costly, so we don't want to paid the prices synchronously but rather queue the
-	/// work to be done in the background after the block has been built or imported.
-	pub(super) fn queue_or_promote_local_cache_data(
-		&self,
-		node_cache: Arc<Mutex<NodeCacheMap<H::Out>>>,
-		value_cache: Arc<Mutex<ValueCacheMap<H::Out>>>,
-		shared_value_cache_access: Arc<Mutex<ValueAccessSet>>,
-		value_cache_config: LocalValueCacheConfig,
-		node_cache_config: LocalNodeCacheConfig,
-		stats: TrieHitStatsSnapshot,
-	) {
-		let write_back_work = LocalCacheDataToWriteBack {
-			node_cache,
-			value_cache,
-			shared_value_cache_access,
-			value_cache_config,
-			node_cache_config,
-			stats,
-		};
-		let mut shared_inner = match self.write_lock_inner() {
-			Some(inner) => inner,
-			None => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					"Timeout while trying to acquire a write lock for the shared trie cache"
-				);
-				return
-			},
-		};
-		if let Some(queued_work) = &mut shared_inner.queued_work {
-			queued_work.push(write_back_work);
-		} else {
-			shared_inner.write_back(write_back_work);
-		}
-	}
-
-	/// Kick the writeback thread to start promoting the local cache data to the shared cache.
-	pub fn trigger_writeback(&self, spawn_handle: &Box<dyn SpawnNamed>) {
-		if let Some(tx) = self.tx.as_ref() {
-			let writeback_receiver = { self.writeback_thread_rx.lock().take() };
-
-			// Kick the writeback thread.
-			if let Err(err) = tx.send(true) {
-				tracing::error!(target: LOG_TARGET, "Failed to kick trie-cache writeback thread: {:?}", err);
-			};
-
-			// Spawn the writeback thread if the first time this function gets called.
-			if let Some(writeback_receiver) = writeback_receiver {
-				let shared_cache = self.clone();
-				spawn_handle.spawn_blocking(
-					"flush_local_cache_trie",
-					Some("shared_cache_trie"),
-					Box::pin(async move {
-						loop {
-							// We don't want changes to accumulate in the queue, so we'll flush it every 12 seconds, if we don't receive any trigger.
-							match writeback_receiver.recv_timeout(WRITEBACK_TRIGGER_TIMEOUT) {
-									Ok(_) | Err(RecvTimeoutError::Timeout) => {},
-									Err(RecvTimeoutError::Disconnected) => break,
-								}
-
-							let start = Instant::now();
-							// Drain the queue and update the shared cache data.
-							let mut stats = TrieHitStatsSnapshot::default();
-							loop {
-								let mut shared_inner = match shared_cache.write_lock_inner() {
-									Some(inner) => inner,
-									None => {
-										tracing::warn!(
-											target: LOG_TARGET,
-											"Timeout while trying to acquire a write lock for the shared trie cache"
-										);
-										return
-									},
-								};
-
-								if let Some(work) = shared_inner
-									.queued_work
-									.as_mut()
-									.and_then(|queued_work| queued_work.pop())
-								{
-									shared_inner.write_back(work);
-									stats = shared_inner.stats.snapshot();
-								} else {
-									break;
-								}
-							}
-
-							tracing::info!(target: LOG_TARGET, "Flushing the local cache to the shared cache took {:} ms", start.elapsed().as_millis());
-							tracing::info!(target: LOG_TARGET, "Node cache stats {:}", stats.node_cache);
-							tracing::info!(target: LOG_TARGET, "Value cache stats {:}",stats.value_cache);
-
-						}
-						tracing::info!(target: LOG_TARGET, "Writeback thread stopped, this is expected at shutdown");
-					}),
-				);
-			}
-		}
-	}
 }
 
 #[cfg(test)]
@@ -981,6 +838,7 @@ mod tests {
 				(ValueCacheKey::new_value(&key[..], root1), CachedValue::NonExisting),
 			],
 			vec![],
+			&LocalValueCacheConfig::default(),
 		);
 
 		// Ensure that the basics are working
@@ -999,7 +857,11 @@ mod tests {
 		assert_eq!(cache.lru.limiter().heap_size, 10);
 
 		// Just accessing a key should not change anything on the size and number of entries.
-		cache.update(vec![], vec![ValueCacheKey::hash_data(&key[..], &root0)]);
+		cache.update(
+			vec![],
+			vec![ValueCacheKey::hash_data(&key[..], &root0)],
+			&LocalValueCacheConfig::default(),
+		);
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
 		assert_eq!(
 			3,
@@ -1021,6 +883,7 @@ mod tests {
 				(ValueCacheKey::new_value(&key[..], root0), CachedValue::NonExisting),
 			],
 			vec![],
+			&LocalValueCacheConfig::default(),
 		);
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
 		assert_eq!(
@@ -1043,6 +906,7 @@ mod tests {
 				.map(|i| vec![i; 10])
 				.map(|key| (ValueCacheKey::new_value(&key[..], root0), CachedValue::NonExisting)),
 			vec![],
+			&LocalValueCacheConfig::default(),
 		);
 
 		assert_eq!(cache.lru.limiter().items_evicted, 2);
@@ -1067,6 +931,7 @@ mod tests {
 		cache.update(
 			vec![(ValueCacheKey::new_value(vec![10; 10], root0), CachedValue::NonExisting)],
 			vec![],
+			&LocalValueCacheConfig::default(),
 		);
 
 		assert!(cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).is_none());

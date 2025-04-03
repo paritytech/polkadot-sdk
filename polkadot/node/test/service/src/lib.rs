@@ -241,7 +241,7 @@ pub fn node_config(
 		tracing_receiver: Default::default(),
 		announce_block: true,
 		data_path: root,
-		unlimited_local_cache: false,
+		use_trusted_local_cache: false,
 		base_path,
 	}
 }

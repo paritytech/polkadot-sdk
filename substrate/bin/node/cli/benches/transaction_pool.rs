@@ -95,6 +95,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		data_path: base_path.path().into(),
 		base_path,
 		wasm_runtime_overrides: None,
+		use_trusted_local_cache: false,
 	};
 
 	tokio_handle.block_on(async move {

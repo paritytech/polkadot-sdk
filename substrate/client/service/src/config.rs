@@ -113,8 +113,8 @@ pub struct Configuration {
 	pub data_path: PathBuf,
 	/// Base path of the configuration. This is shared between chains.
 	pub base_path: BasePath,
-	// Enables unlimited trie local cache when importing or building blocks.
-	pub unlimited_local_cache: bool,
+	/// Enables unlimited trie local cache when importing or building blocks.
+	pub use_trusted_local_cache: bool,
 }
 
 /// Type for tasks spawned by the executor.
@@ -219,7 +219,7 @@ impl Configuration {
 			state_pruning: self.state_pruning.clone(),
 			source: self.database.clone(),
 			blocks_pruning: self.blocks_pruning,
-			unlimited_local_cache: self.unlimited_local_cache,
+			use_trusted_local_cache: self.use_trusted_local_cache,
 		}
 	}
 }

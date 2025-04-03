@@ -252,9 +252,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(self.import_params().map(|x| x.trie_cache_maximum_size()).unwrap_or_default())
 	}
 
-	/// Get the unlimited local cache size.
-	fn unlimited_local_cache(&self) -> Result<bool> {
-		Ok(self.import_params().map(|x| x.unlimited_local_cache()).unwrap_or_default())
+	/// Get the trusted local cache configuration.
+	fn use_trusted_local_cache(&self) -> Result<bool> {
+		Ok(self.import_params().map(|x| x.use_trusted_local_cache()).unwrap_or_default())
 	}
 
 	/// Get the state pruning mode.
@@ -533,7 +533,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			database: self.database_config(&config_dir, database_cache_size, database)?,
 			data_path: config_dir,
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
-			unlimited_local_cache: self.unlimited_local_cache()?,
+			use_trusted_local_cache: self.use_trusted_local_cache()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
 			executor: ExecutorConfiguration {

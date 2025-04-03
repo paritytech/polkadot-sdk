@@ -384,7 +384,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 
 /// Something that can be converted into a [`TrieBackend`].
 #[cfg(feature = "std")]
-pub trait AsTrieBackend<H: Hasher + 'static, C = sp_trie::cache::LocalTrieCache<H>> {
+pub trait AsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H>> {
 	/// Type of trie backend storage.
 	type TrieBackendStorage: TrieBackendStorage<H>;
 

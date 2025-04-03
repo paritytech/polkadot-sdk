@@ -77,7 +77,7 @@ impl ChainInfoCmd {
 			state_pruning: config.state_pruning.clone(),
 			source: config.database.clone(),
 			blocks_pruning: config.blocks_pruning,
-			unlimited_local_cache: config.unlimited_local_cache,
+			use_trusted_local_cache: config.use_trusted_local_cache,
 		};
 		let backend = sc_service::new_db_backend::<B>(db_config)?;
 		let info: ChainInfo<B> = backend.blockchain().info().into();

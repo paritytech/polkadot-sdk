@@ -451,8 +451,14 @@ impl Default for LocalNodeCacheConfig {
 }
 
 impl LocalNodeCacheConfig {
-	// Creates a configuration that allows unlimited growth and promotion to the shared cache.
-	fn unlimited() -> Self {
+	/// Creates a configuration that can be called from a trusted path and allows the local_cache
+	/// to grow to fit the needs, also everything is promoted to the shared cache.
+	///
+	/// This configuration is safe only for trusted paths because it removes all limits on cache
+	/// growth and promotion, which could lead to excessive memory usage if used in untrusted or
+	/// uncontrolled environments. It is intended for scenarios like block authoring or importing,
+	/// where the operations are bounded already and there are no risks of unbounded memory usage.
+	fn trusted() -> Self {
 		LocalNodeCacheConfig {
 			local_node_cache_max_heap_size: usize::MAX,
 			local_node_cache_max_inline_size: usize::MAX,
@@ -474,8 +480,14 @@ impl Default for LocalValueCacheConfig {
 }
 
 impl LocalValueCacheConfig {
-	/// Creates a configuration that allows unlimited growth and promotion to the shared cache.
-	fn unlimited() -> Self {
+	/// Creates a configuration that can be called from a trusted path and allows the local_cache
+	/// to grow to fit the needs, also everything is promoted to the shared cache.
+	///
+	/// This configuration is safe only for trusted paths because it removes all limits on cache
+	/// growth and promotion, which could lead to excessive memory usage if used in untrusted or
+	/// uncontrolled environments. It is intended for scenarios like block authoring or importing,
+	/// where the operations are bounded already and there are no risks of unbounded memory usage.
+	fn trusted() -> Self {
 		LocalValueCacheConfig {
 			shared_value_cache_max_promoted_keys: u32::MAX,
 			shared_value_cache_max_replace_percent: 100,
@@ -495,15 +507,15 @@ impl LocalValueCacheConfig {
 /// When using [`Self::as_trie_db_cache`] or [`Self::as_trie_db_mut_cache`], it will lock Mutexes.
 /// So, it is important that these methods are not called multiple times, because they otherwise
 /// deadlock.
-pub struct LocalTrieCache<H: Hasher + 'static> {
+pub struct LocalTrieCache<H: Hasher> {
 	/// The shared trie cache that created this instance.
 	shared: SharedTrieCache<H>,
 
 	/// The local cache for the trie nodes.
-	node_cache: Arc<Mutex<NodeCacheMap<H::Out>>>,
+	node_cache: Mutex<NodeCacheMap<H::Out>>,
 
 	/// The local cache for the values.
-	value_cache: Arc<Mutex<ValueCacheMap<H::Out>>>,
+	value_cache: Mutex<ValueCacheMap<H::Out>>,
 
 	/// Keeps track of all values accessed in the shared cache.
 	///
@@ -513,7 +525,7 @@ pub struct LocalTrieCache<H: Hasher + 'static> {
 	/// as we only use this set to update the lru position it is fine, even if we bring the wrong
 	/// value to the top. The important part is that we always get the correct value from the value
 	/// cache for a given key.
-	shared_value_cache_access: Arc<Mutex<ValueAccessSet>>,
+	shared_value_cache_access: Mutex<ValueAccessSet>,
 	/// The configuration for the value cache.
 	value_cache_config: LocalValueCacheConfig,
 	/// The configuration for the node cache.
@@ -559,7 +571,7 @@ impl<H: Hasher> LocalTrieCache<H> {
 	}
 }
 
-impl<H: Hasher + 'static> Drop for LocalTrieCache<H> {
+impl<H: Hasher> Drop for LocalTrieCache<H> {
 	fn drop(&mut self) {
 		tracing::debug!(
 			target: LOG_TARGET,
@@ -572,13 +584,27 @@ impl<H: Hasher + 'static> Drop for LocalTrieCache<H> {
 			"Local value trie cache dropped: {}",
 			self.stats.value_cache
 		);
-		self.shared.queue_or_promote_local_cache_data(
-			Arc::clone(&self.node_cache),
-			Arc::clone(&self.value_cache),
-			Arc::clone(&self.shared_value_cache_access),
-			self.value_cache_config,
-			self.node_cache_config,
-			self.stats.snapshot(),
+
+		let mut shared_inner = match self.shared.write_lock_inner() {
+			Some(inner) => inner,
+			None => {
+				tracing::warn!(
+					target: LOG_TARGET,
+					"Timeout while trying to acquire a write lock for the shared trie cache"
+				);
+				return
+			},
+		};
+		shared_inner.stats_add_snapshot(&self.stats.snapshot());
+
+		shared_inner
+			.node_cache_mut()
+			.update(self.node_cache.get_mut().drain(), &self.node_cache_config);
+
+		shared_inner.value_cache_mut().update(
+			self.value_cache.get_mut().drain(),
+			self.shared_value_cache_access.get_mut().drain().map(|(key, ())| key),
+			&self.value_cache_config,
 		);
 	}
 }
@@ -674,7 +700,7 @@ impl<H: Hasher> ValueCache<'_, H> {
 /// If this instance was created for using it with a [`TrieDBMut`](trie_db::TrieDBMut), it needs to
 /// be merged back into the [`LocalTrieCache`] with [`Self::merge_into`] after all operations are
 /// done.
-pub struct TrieCache<'a, H: Hasher + 'static> {
+pub struct TrieCache<'a, H: Hasher> {
 	shared_cache: SharedTrieCache<H>,
 	local_cache: MutexGuard<'a, NodeCacheMap<H::Out>>,
 	value_cache: ValueCache<'a, H>,

@@ -24,7 +24,7 @@ use parking_lot::RwLock;
 
 use sp_api::CallContext;
 use sp_consensus::BlockOrigin;
-use sp_core::{offchain::OffchainStorage, traits::SpawnNamed};
+use sp_core::offchain::OffchainStorage;
 use sp_runtime::{
 	traits::{Block as BlockT, HashingFor, NumberFor},
 	Justification, Justifications, StateVersion, Storage,
@@ -493,6 +493,28 @@ pub trait StorageProvider<Block: BlockT, B: Backend<Block>> {
 	) -> sp_blockchain::Result<Option<MerkleValue<Block::Hash>>>;
 }
 
+/// Specify the desired trie cache context.
+/// This is used to determine the size of the local trie cache.
+#[derive(Debug, Clone, Copy)]
+pub enum TrieCacheContext {
+	/// This is used when calling state_at in the context of building a block or importing it.
+	/// In this case the local trie cache can grow to contain everything that is needed and
+	/// everything will be propagated back to the shared trie cache.
+	Trusted,
+	/// This is used when calling state_at in from untrusted paths, and the local cache is bounded
+	/// by its preconfigured size.
+	Untrusted,
+}
+
+impl From<CallContext> for TrieCacheContext {
+	fn from(call_context: CallContext) -> Self {
+		match call_context {
+			CallContext::Onchain => TrieCacheContext::Trusted,
+			CallContext::Offchain => TrieCacheContext::Untrusted,
+		}
+	}
+}
+
 /// Client backend.
 ///
 /// Manages the data layer.
@@ -585,14 +607,14 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Returns true if state for given block is available.
 	fn have_state_at(&self, hash: Block::Hash, _number: NumberFor<Block>) -> bool {
-		self.state_at(hash, None).is_ok()
+		self.state_at(hash, TrieCacheContext::Untrusted).is_ok()
 	}
 
 	/// Returns state backend with post-state of given block.
 	fn state_at(
 		&self,
 		hash: Block::Hash,
-		call_context: Option<CallContext>,
+		trie_cache_context: TrieCacheContext,
 	) -> sp_blockchain::Result<Self::State>;
 
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
@@ -642,12 +664,5 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	fn requires_full_sync(&self) -> bool;
 }
 
-// A trait to trigger the flushing of the local trie cache accesses to the shared trie cache.
-pub trait ManualTrieCacheFlush {
-	/// Trigger writeback of the local trie cache accesses to the shared trie cache.
-	/// This is a no-op for backend that don't configure an un
-	fn trigger_writeback_to_shared(&self, spawn_handle: &Box<dyn SpawnNamed>);
-}
-
 /// Mark for all Backend implementations, that are making use of state data, stored locally.
-pub trait LocalBackend<Block: BlockT>: Backend<Block> + ManualTrieCacheFlush {}
+pub trait LocalBackend<Block: BlockT>: Backend<Block> {}

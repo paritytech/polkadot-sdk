@@ -28,7 +28,6 @@ use futures::{
 };
 use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
-use sc_client_api::ManualTrieCacheFlush;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxInvalidityReportMap};
 use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
@@ -234,13 +233,7 @@ impl<A, Block, C, PR> sp_consensus::Environment<Block> for ProposerFactory<A, C,
 where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
-	C: HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ CallApiAt<Block>
-		+ ManualTrieCacheFlush
-		+ Send
-		+ Sync
-		+ 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
@@ -273,13 +266,7 @@ impl<A, Block, C, PR> sp_consensus::Proposer<Block> for Proposer<Block, C, A, PR
 where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
-	C: HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ CallApiAt<Block>
-		+ ManualTrieCacheFlush
-		+ Send
-		+ Sync
-		+ 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
@@ -330,13 +317,7 @@ impl<A, Block, C, PR> Proposer<Block, C, A, PR>
 where
 	A: TransactionPool<Block = Block>,
 	Block: BlockT,
-	C: HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ ManualTrieCacheFlush
-		+ CallApiAt<Block>
-		+ Send
-		+ Sync
-		+ 'static,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
@@ -365,7 +346,6 @@ where
 		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
-		self.client.trigger_writeback_to_shared(&self.spawn_handle);
 		let proof =
 			PR::into_proof(proof).map_err(|e| sp_blockchain::Error::Application(Box::new(e)))?;
 
@@ -625,7 +605,7 @@ mod tests {
 
 	use futures::executor::block_on;
 	use parking_lot::Mutex;
-	use sc_client_api::Backend;
+	use sc_client_api::{Backend, TrieCacheContext};
 	use sc_transaction_pool::BasicPool;
 	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionSource};
 	use sp_api::Core;
@@ -796,7 +776,7 @@ mod tests {
 		let api = client.runtime_api();
 		api.execute_block(genesis_hash, proposal.block).unwrap();
 
-		let state = backend.state_at(genesis_hash, None).unwrap();
+		let state = backend.state_at(genesis_hash, TrieCacheContext::Untrusted).unwrap();
 
 		let storage_changes = api.into_storage_changes(&state, genesis_hash).unwrap();
 

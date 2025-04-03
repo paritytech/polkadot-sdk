@@ -23,6 +23,7 @@ use jsonrpsee::{
 	types::error::{ErrorCode, ErrorObject, ErrorObjectOwned},
 	Extensions,
 };
+use sc_client_api::TrieCacheContext;
 use sc_rpc_api::check_if_safe;
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Block as BlockT;
@@ -73,7 +74,7 @@ fn count_migrate<'a, H: Hasher>(
 /// Check trie migration status.
 pub fn migration_status<H, B>(backend: &B) -> std::result::Result<MigrationStatusResult, String>
 where
-	H: Hasher + 'static,
+	H: Hasher,
 	H::Out: codec::Codec,
 	B: AsTrieBackend<H>,
 {
@@ -167,7 +168,10 @@ where
 		check_if_safe(ext)?;
 
 		let hash = at.unwrap_or_else(|| self.client.info().best_hash);
-		let state = self.backend.state_at(hash, None).map_err(error_into_rpc_err)?;
+		let state = self
+			.backend
+			.state_at(hash, TrieCacheContext::Untrusted)
+			.map_err(error_into_rpc_err)?;
 		migration_status(&state).map_err(error_into_rpc_err)
 	}
 }

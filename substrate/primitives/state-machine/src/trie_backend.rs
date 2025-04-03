@@ -542,9 +542,7 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<S: TrieBackendStorage<H>, H: Hasher + 'static, C> AsTrieBackend<H, C>
-	for TrieBackend<S, H, C>
-{
+impl<S: TrieBackendStorage<H>, H: Hasher, C> AsTrieBackend<H, C> for TrieBackend<S, H, C> {
 	type TrieBackendStorage = S;
 
 	fn as_trie_backend(&self) -> &TrieBackend<S, H, C> {

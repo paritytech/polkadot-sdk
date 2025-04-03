@@ -40,8 +40,8 @@ use sc_client_api::{
 	},
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
-	CallExecutor, ExecutorProvider, KeysIter, ManualTrieCacheFlush, OnFinalityAction,
-	OnImportAction, PairsIter, ProofProvider, UnpinWorkerMessage, UsageProvider,
+	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
+	ProofProvider, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -114,7 +114,6 @@ where
 	telemetry: Option<TelemetryHandle>,
 	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	code_provider: CodeProvider<Block, B, E>,
-	spawn_handle: Box<dyn SpawnNamed>,
 	_phantom: PhantomData<RA>,
 }
 
@@ -222,7 +221,7 @@ where
 
 impl<B, E, Block, RA> BlockOf for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -231,7 +230,7 @@ where
 
 impl<B, E, Block, RA> LockImportRun<Block, B> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -340,7 +339,7 @@ where
 impl<B, E, Block, RA> LockImportRun<Block, B> for &Client<B, E, Block, RA>
 where
 	Block: BlockT,
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 {
 	fn lock_import_and_run<R, Err, F>(&self, f: F) -> Result<R, Err>
@@ -354,7 +353,7 @@ where
 
 impl<B, E, Block, RA> Client<B, E, Block, RA>
 where
-	B: backend::Backend<Block> + ManualTrieCacheFlush,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 	Block::Header: Clone,
@@ -422,7 +421,6 @@ where
 			telemetry,
 			unpin_worker_sender,
 			code_provider,
-			spawn_handle,
 			_phantom: Default::default(),
 		})
 	}
@@ -441,7 +439,7 @@ where
 
 	/// Get a reference to the state at a given block.
 	pub fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<B::State> {
-		self.backend.state_at(hash, None)
+		self.backend.state_at(hash, TrieCacheContext::Untrusted)
 	}
 
 	/// Get the code at a given block.
@@ -832,8 +830,8 @@ where
 			// block.
 			(true, None, Some(ref body)) => {
 				let mut runtime_api = self.runtime_api();
-
-				runtime_api.set_call_context(CallContext::Onchain);
+				let call_context = CallContext::Onchain;
+				runtime_api.set_call_context(call_context);
 
 				if self.config.enable_import_proof_recording {
 					runtime_api.record_proof();
@@ -848,12 +846,10 @@ where
 					Block::new(import_block.header.clone(), body.clone()),
 				)?;
 
-				let state = self.backend.state_at(*parent_hash, Some(CallContext::Onchain))?;
+				let state = self.backend.state_at(*parent_hash, call_context.into())?;
 				let gen_storage_changes = runtime_api
 					.into_storage_changes(&state, *parent_hash)
 					.map_err(sp_blockchain::Error::Storage)?;
-
-				self.backend.trigger_writeback_to_shared(&self.spawn_handle);
 
 				if import_block.header.state_root() != &gen_storage_changes.transaction_storage_root
 				{
@@ -1193,7 +1189,7 @@ where
 
 impl<B, E, Block, RA> UsageProvider<Block> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -1205,7 +1201,7 @@ where
 
 impl<B, E, Block, RA> ProofProvider<Block> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -1394,7 +1390,7 @@ where
 
 impl<B, E, Block, RA> ExecutorProvider<Block> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -1411,7 +1407,7 @@ where
 
 impl<B, E, Block, RA> StorageProvider<Block, B> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -1519,7 +1515,7 @@ where
 
 impl<B, E, Block, RA> HeaderMetadata<Block> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -1543,7 +1539,7 @@ where
 
 impl<B, E, Block, RA> ProvideUncles<Block> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -1561,7 +1557,7 @@ where
 
 impl<B, E, Block, RA> ChainHeaderBackend<Block> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
 	RA: Send + Sync,
@@ -1592,7 +1588,7 @@ where
 
 impl<B, E, Block, RA> BlockIdTo<Block> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
 	RA: Send + Sync,
@@ -1613,7 +1609,7 @@ where
 
 impl<B, E, Block, RA> ChainHeaderBackend<Block> for &Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
 	RA: Send + Sync,
@@ -1644,7 +1640,7 @@ where
 
 impl<B, E, Block, RA> ProvideRuntimeApi<Block> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block, Backend = B> + Send + Sync,
 	Block: BlockT,
 	RA: ConstructRuntimeApi<Block, Self> + Send + Sync,
@@ -1656,21 +1652,9 @@ where
 	}
 }
 
-impl<B, E, Block, RA> backend::ManualTrieCacheFlush for Client<B, E, Block, RA>
-where
-	B: backend::Backend<Block> + backend::ManualTrieCacheFlush,
-	E: CallExecutor<Block, Backend = B> + Send + Sync,
-	Block: BlockT,
-	RA: ConstructRuntimeApi<Block, Self> + Send + Sync,
-{
-	fn trigger_writeback_to_shared(&self, spawn_handle: &Box<dyn SpawnNamed>) {
-		self.backend.trigger_writeback_to_shared(spawn_handle)
-	}
-}
-
 impl<B, E, Block, RA> CallApiAt<Block> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block, Backend = B> + Send + Sync,
 	Block: BlockT,
 	RA: Send + Sync,
@@ -1718,7 +1702,7 @@ where
 #[async_trait::async_trait]
 impl<B, E, Block, RA> sc_consensus::BlockImport<Block> for &Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
 	Client<B, E, Block, RA>: ProvideRuntimeApi<Block>,
@@ -1827,7 +1811,7 @@ where
 #[async_trait::async_trait]
 impl<B, E, Block, RA> sc_consensus::BlockImport<Block> for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block> + Send + Sync,
 	Block: BlockT,
 	Self: ProvideRuntimeApi<Block>,
@@ -1853,7 +1837,7 @@ where
 
 impl<B, E, Block, RA> Finalizer<Block, B> for Client<B, E, Block, RA>
 where
-	B: backend::Backend<Block> + ManualTrieCacheFlush,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -1882,7 +1866,7 @@ where
 
 impl<B, E, Block, RA> Finalizer<Block, B> for &Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -1955,7 +1939,7 @@ where
 
 impl<B, E, Block, RA> BlockBackend<Block> for Client<B, E, Block, RA>
 where
-	B: backend::Backend<Block> + ManualTrieCacheFlush,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 {
@@ -2005,7 +1989,7 @@ where
 
 impl<B, E, Block, RA> backend::AuxStore for Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 	Self: ProvideRuntimeApi<Block>,
@@ -2037,7 +2021,7 @@ where
 
 impl<B, E, Block, RA> backend::AuxStore for &Client<B, E, Block, RA>
 where
-	B: ManualTrieCacheFlush + backend::Backend<Block>,
+	B: backend::Backend<Block>,
 	E: CallExecutor<Block>,
 	Block: BlockT,
 	Client<B, E, Block, RA>: ProvideRuntimeApi<Block>,
@@ -2064,7 +2048,7 @@ where
 
 impl<BE, E, B, RA> sp_consensus::block_validation::Chain<B> for Client<BE, E, B, RA>
 where
-	BE: backend::Backend<B> + ManualTrieCacheFlush,
+	BE: backend::Backend<B>,
 	E: CallExecutor<B>,
 	B: BlockT,
 {
@@ -2078,7 +2062,7 @@ where
 
 impl<BE, E, B, RA> sp_transaction_storage_proof::IndexedBody<B> for Client<BE, E, B, RA>
 where
-	BE: backend::Backend<B> + ManualTrieCacheFlush,
+	BE: backend::Backend<B>,
 	E: CallExecutor<B>,
 	B: BlockT,
 {

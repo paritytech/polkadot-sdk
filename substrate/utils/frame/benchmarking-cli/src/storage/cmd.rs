@@ -117,9 +117,9 @@ pub struct StorageParams {
 	#[arg(long)]
 	pub include_child_trees: bool,
 
-	// Enables unlimited trie local cache when importing or building blocks.
+	// Enables the usage of a trie local cache similar with importing or building blocks.
 	#[arg(long)]
-	pub unlimited_local_cache: bool,
+	pub use_trusted_local_cache: bool,
 }
 
 impl StorageCmd {
@@ -235,7 +235,7 @@ impl CliConfiguration for StorageCmd {
 		}
 	}
 
-	fn unlimited_local_cache(&self) -> Result<bool> {
-		Ok(self.params.unlimited_local_cache)
+	fn use_trusted_local_cache(&self) -> Result<bool> {
+		Ok(self.params.use_trusted_local_cache)
 	}
 }
