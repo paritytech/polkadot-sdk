@@ -4638,7 +4638,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pov-validator"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "clap",
