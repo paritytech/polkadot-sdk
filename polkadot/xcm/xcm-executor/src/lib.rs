@@ -287,9 +287,8 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		while !message.0.is_empty() {
 			let last_message = message.last().cloned();
 			tracing::debug!(target: "xcm::execute", ?last_message);
-			if let Some(topic_id) = properties.message_id {
-				tracing::debug!(target: "xcm::execute", ?topic_id, "Found properties.message_id");
-			}
+			let topic_id =  properties.message_id;
+			tracing::debug!(target: "xcm::execute", ?topic_id, "Found properties.message_id");
 			let vm_msg_id = vm.context.message_id;
 			tracing::debug!(target: "xcm::execute", ?vm_msg_id, "Found vm.context.message_id");
 			let result = vm.process(message);
