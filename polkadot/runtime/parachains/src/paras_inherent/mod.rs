@@ -1018,7 +1018,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	};
 
-	if let Err(err) = candidate.candidate().check_ump_signals(&rp_info.claim_queue) {
+	if let Err(err) = candidate.candidate().parse_ump_signals(&rp_info.claim_queue) {
 		log::debug!(
 			target: LOG_TARGET,
 			"UMP signal check failed: {:?}. Dropping candidate {:?} for paraid {:?}.",

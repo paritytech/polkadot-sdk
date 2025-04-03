@@ -617,7 +617,7 @@ async fn construct_and_distribute_receipt(
 			commitments,
 		};
 
-		ccr.check_ump_signals(&transposed_claim_queue)
+		ccr.parse_ump_signals(&transposed_claim_queue)
 			.map_err(Error::CandidateReceiptCheck)?;
 
 		ccr.to_plain()

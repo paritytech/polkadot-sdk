@@ -742,7 +742,7 @@ fn validate_complete_response(
 			return invalid_candidate_output(COST_UNSUPPORTED_DESCRIPTOR_VERSION)
 		}
 		// Validate the ump signals.
-		if let Err(err) = response.candidate_receipt.check_ump_signals(transposed_cq) {
+		if let Err(err) = response.candidate_receipt.parse_ump_signals(transposed_cq) {
 			gum::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,

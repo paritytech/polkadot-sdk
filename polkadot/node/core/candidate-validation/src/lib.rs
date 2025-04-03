@@ -1031,7 +1031,7 @@ async fn validate_candidate_exhaustive(
 							};
 
 							if let Err(err) = committed_candidate_receipt
-								.check_ump_signals(&transpose_claim_queue(claim_queue.0))
+								.parse_ump_signals(&transpose_claim_queue(claim_queue.0))
 							{
 								gum::warn!(
 									target: LOG_TARGET,
