@@ -37,13 +37,6 @@ mod mock;
 mod test;
 
 pub use crate::weights::WeightInfo;
-use frame_support::{
-	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::Balance,
-	},
-	weights::WeightToFee,
-};
 use frame_system::ensure_signed;
 use snowbridge_core::{
 	sparse_bitmap::{SparseBitmap, SparseBitmapImpl},
@@ -67,8 +60,6 @@ pub use pallet::*;
 pub const LOG_TARGET: &str = "snowbridge-pallet-inbound-queue-v2";
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-type BalanceOf<T> =
-	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type Nonce<T> = SparseBitmapImpl<crate::NonceBitmap<T>>;
 
@@ -96,8 +87,6 @@ pub mod pallet {
 		type XcmSender: SendXcm;
 		/// Handler for XCM fees.
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
-		/// Ethereum NetworkId
-		type EthereumNetwork: Get<NetworkId>;
 		/// Address of the Gateway contract.
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
@@ -109,8 +98,6 @@ pub mod pallet {
 		type MessageProcessor: MessageProcessor<Self::AccountId>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
-		/// Used for the dry run API implementation.
-		type Balance: Balance + From<u128>;
 		/// Reward discriminator type.
 		type RewardKind: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
 		/// The default RewardKind discriminator for rewards allocated to relayers from this pallet.
@@ -118,12 +105,9 @@ pub mod pallet {
 		type DefaultRewardKind: Get<Self::RewardKind>;
 		/// Relayer reward payment.
 		type RewardPayment: RewardLedger<Self::AccountId, Self::RewardKind, u128>;
-		type WeightInfo: WeightInfo;
-		/// Convert a weight value into deductible balance type.
-		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
-		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
 		/// AccountId to Location converter
 		type AccountToLocation: for<'a> TryConvert<&'a Self::AccountId, Location>;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::event]
@@ -138,8 +122,6 @@ pub mod pallet {
 		},
 		/// Set OperatingMode
 		OperatingModeChanged { mode: BasicOperatingMode },
-		/// XCM delivery fees were paid.
-		FeesPaid { paying: Location, fees: Assets },
 	}
 
 	#[pallet::error]
@@ -267,7 +249,13 @@ pub mod pallet {
 				})?;
 
 			// Pay relayer reward
-			T::RewardPayment::register_reward(&relayer, T::DefaultRewardKind::get(), relayer_fee);
+			if !relayer_fee.is_zero() {
+				T::RewardPayment::register_reward(
+					&relayer,
+					T::DefaultRewardKind::get(),
+					relayer_fee,
+				);
+			}
 
 			// Mark message as received
 			Nonce::<T>::set(nonce.into());
@@ -299,7 +287,6 @@ pub mod pallet {
 				);
 				SendError::Fees
 			})?;
-			Self::deposit_event(Event::FeesPaid { paying: fee_payer, fees: fee });
 			T::XcmSender::deliver(ticket)
 		}
 	}

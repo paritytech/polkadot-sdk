@@ -4,11 +4,11 @@ use super::*;
 
 use crate::{self as inbound_queue_v2, message_processors::DefaultMessageProcessor};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types, traits::ConstU32, weights::IdentityFee};
+use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types, traits::ConstU32};
 use hex_literal::hex;
 use scale_info::TypeInfo;
 use snowbridge_beacon_primitives::{
-	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
+	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::TokenId;
 use snowbridge_inbound_queue_primitives::{v2::MessageToXcm, Log, Proof, VerificationError};
@@ -27,7 +27,6 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>},
 		InboundQueue: inbound_queue_v2::{Pallet, Call, Storage, Event<T>},
 	}
 );
@@ -56,42 +55,6 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
-parameter_types! {
-	pub const ChainForkVersions: ForkVersions = ForkVersions {
-		genesis: Fork {
-			version: [0, 0, 0, 1], // 0x00000001
-			epoch: 0,
-		},
-		altair: Fork {
-			version: [1, 0, 0, 1], // 0x01000001
-			epoch: 0,
-		},
-		bellatrix: Fork {
-			version: [2, 0, 0, 1], // 0x02000001
-			epoch: 0,
-		},
-		capella: Fork {
-			version: [3, 0, 0, 1], // 0x03000001
-			epoch: 0,
-		},
-		deneb: Fork {
-			version: [4, 0, 0, 1], // 0x04000001
-			epoch: 0,
-		},
-		electra: Fork {
-			version: [5, 0, 0, 0], // 0x05000000
-			epoch: 80000000000,
-		}
-	};
-}
-
-impl snowbridge_pallet_ethereum_client::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type ForkVersions = ChainForkVersions;
-	type FreeHeadersInterval = ConstU32<32>;
-	type WeightInfo = ();
-}
-
 // Mock verifier
 pub struct MockVerifier;
 
@@ -107,7 +70,7 @@ impl Verifier for MockVerifier {
 const GATEWAY_ADDRESS: [u8; 20] = hex!["b1185ede04202fe62d38f5db72f71e38ff3e8305"];
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
+impl<T: Config> BenchmarkHelper<T> for Test {
 	// not implemented since the MockVerifier is used for tests
 	fn initialize_storage(_: BeaconHeader, _: H256) {}
 }
@@ -161,12 +124,17 @@ pub enum BridgeReward {
 	Snowbridge,
 }
 
+parameter_types! {
+	pub static RegisteredRewardsCount: u128 = 0;
+}
+
 impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward, u128> for () {
 	fn register_reward(
 		_relayer: &<mock::Test as frame_system::Config>::AccountId,
 		_reward: BridgeReward,
 		_reward_balance: u128,
 	) {
+		RegisteredRewardsCount::set(RegisteredRewardsCount::get().saturating_add(1));
 	}
 }
 
@@ -200,7 +168,6 @@ impl inbound_queue_v2::Config for Test {
 	type XcmSender = MockXcmSender;
 	type XcmExecutor = MockXcmExecutor;
 	type RewardPayment = ();
-	type EthereumNetwork = EthereumNetwork;
 	type GatewayAddress = GatewayAddress;
 	type AssetHubParaId = ConstU32<1000>;
 	type MessageConverter = MessageToXcm<
@@ -217,10 +184,7 @@ impl inbound_queue_v2::Config for Test {
 	type MessageProcessor = (DummyPrefix, DefaultMessageProcessor<Test>, DummySuffix); 
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
-	type Balance = u128;
 	type WeightInfo = ();
-	type WeightToFee = IdentityFee<u128>;
-	type Token = Balances;
 	type AccountToLocation = MockAccountLocationConverter<AccountId>;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
