@@ -44,6 +44,8 @@ impl<Inner: SendXcm> SendXcm for WithUniqueTopic<Inner> {
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		let mut message = message.take().ok_or(SendError::MissingArgument)?;
+		let last_message = message.last().cloned();
+		tracing::debug!(target: "xcm::routing", ?last_message);
 		let unique_id = if let Some(SetTopic(id)) = message.last() {
 			tracing::trace!(target: "xcm::routing", ?id, "Message already ends with `SetTopic`");
 			*id
