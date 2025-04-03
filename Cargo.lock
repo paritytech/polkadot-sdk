@@ -15389,7 +15389,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-metrics"
-version = "19.0.0"
+version = "20.0.0"
 dependencies = [
  "bs58",
  "frame-benchmarking",

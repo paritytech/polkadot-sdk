@@ -1100,7 +1100,7 @@ polkadot-primitives = { path = "polkadot/primitives", default-features = false, 
 polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers", version = "0.1.0" }
 polkadot-rpc = { path = "polkadot/rpc", default-features = false, version = "23.0.0" }
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false, version = "19.1.0" }
-polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false, version = "19.0.0" }
+polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false, version = "20.0.0" }
 polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "19.1.0" }
 polkadot-sdk = { path = "umbrella", default-features = false, version = "2503.0.0" }
 polkadot-sdk-docs = { path = "docs/sdk" }

@@ -1913,7 +1913,7 @@ version = "19.1.0"
 default-features = false
 optional = true
 path = "../polkadot/runtime/metrics"
-version = "19.0.0"
+version = "20.0.0"
 
 [dependencies.polkadot-runtime-parachains]
 default-features = false
