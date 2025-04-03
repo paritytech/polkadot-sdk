@@ -22,7 +22,9 @@ extern crate alloc;
 
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
-use bp_runtime::{decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain};
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
+};
 pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
 use codec::{Decode, Encode};
 use frame_support::{
@@ -147,4 +149,3 @@ pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 63;
 
 decl_bridge_finality_runtime_apis!(asset_hub_westend);
 decl_bridge_messages_runtime_apis!(asset_hub_westend, HashedLaneId);
-

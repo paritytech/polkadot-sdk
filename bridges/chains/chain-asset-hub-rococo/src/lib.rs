@@ -25,7 +25,9 @@ use scale_info::TypeInfo;
 
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
-use bp_runtime::{decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain};
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
+};
 pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
 use frame_support::{
 	dispatch::DispatchClass,
@@ -148,4 +150,3 @@ pub const WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = 62;
 
 decl_bridge_finality_runtime_apis!(asset_hub_rococo);
 decl_bridge_messages_runtime_apis!(asset_hub_rococo, HashedLaneId);
-
