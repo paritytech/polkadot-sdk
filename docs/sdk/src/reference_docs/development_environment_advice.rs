@@ -85,53 +85,17 @@
 //! },
 //! ```
 //!
-//! Alternatively for neovim, if you are using [Rustaceanvim](https://github.com/mrcjkb/rustaceanvim) - as
-//! installed currently by default in LazyVim via [:LazyExtras](https://www.lazyvim.org/extras/lang/rust),
-//! you can achieve the same configuring `rustaceanvim` as follows:
+//! Alternatively for neovim, if you are using [Rustaceanvim](https://github.com/mrcjkb/rustaceanvim),
+//! you can achieve the same configuring `rust-analyzer` via `rustaceanvim` as follows:
 //! ```lua
 //! return {
 //!  {
 //!    "mrcjkb/rustaceanvim",
-//!    lazy = false,
 //!    opts = {
 //!      server = {
 //!        default_settings = {
 //!           ["rust-analyzer"] = {
-//!            rust = {
-//!              -- Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
-//!              --  Analyzer and cargo on the command line at the same time.
-//!              analyzerTargetDir = "target/nvim-rust-analyzer",
-//!            },
-//!            server = {
-//!              -- Improve stability
-//!              extraEnv = {
-//!                ["CHALK_OVERFLOW_DEPTH"] = "100000000",
-//!                ["CHALK_SOLVER_MAX_SIZE"] = "100000000",
-//!              },
-//!            },
-//!            cargo = {
-//!              -- Check feature-gated code
-//!              features = "all",
-//!              extraEnv = {
-//!                -- Skip building WASM, there is never need for it here
-//!                ["SKIP_WASM_BUILD"] = "1",
-//!              },
-//!            },
-//!            procMacro = {
-//!              -- Don't expand some problematic proc_macros
-//!              ignored = {
-//!                ["async-trait"] = { "async_trait" },
-//!                ["napi-derive"] = { "napi" },
-//!                ["async-recursion"] = { "async_recursion" },
-//!                ["async-std"] = { "async_std" },
-//!              },
-//!            },
-//!            rustfmt = {
-//!              -- Use nightly formatting.
-//!              -- See the polkadot-sdk CI job that checks formatting for the current version used in
-//!              -- polkadot-sdk.
-//!              extraArgs = { "+nightly-2024-04-10" },
-//!            },
+//!            // put the same config as for nvim-lspconfig here
 //!          },
 //!        },
 //!      },
@@ -140,47 +104,20 @@
 //! }
 //! ```
 //!
-//! Similarly for Zed, a suggested configuration in `~/.config/zed/settings.json` is as follows:
+//! Similarly for Zed, you can replicate the same VSCode configuration  in
+//! `~/.config/zed/settings.json` as follows:
 //! ```json
 //! "lsp": {
 //!   "rust-analyzer": {
 //!     "initialization_options": {
-//!       "rust": {
-//!         // Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
-//!         // Analyzer and cargo on the command line at the same time.
-//!         "analyzerTargetDir": "target/zed-rust-analyzer"
-//!       },
-//!       // Improve stability
-//!       "server": {
-//!         "extraEnv": {
-//!           "CHALK_OVERFLOW_DEPTH": "100000000",
-//!           "CHALK_SOLVER_MAX_SIZE": "10000000"
-//!         }
-//!       },
-//!       // Check feature-gated code
-//!       "cargo": {
-//!         "features": "all",
-//!         "extraEnv": {
-//!           "SKIP_WASM_BUILD": "1"
-//!         },
-//!       },
-//!       // Don't expand some problematic proc_macros
-//!       "procMacro": {
-//!         "ignored": {
-//!           "async-trait": ["async_trait"],
-//!           "napi-derive": ["napi"],
-//!           "async-recursion": ["async_recursion"],
-//!           "async-std": ["async_std"]
-//!         }
-//!       },
-//!       // Use nightly formatting.
-//!       // See the polkadot-sdk CI job that checks formatting for the current version used in
-//!       // polkadot-sdk.
-//!       "rustfmt.extraArgs": ["+nightly-2024-04-10"],
+//!       // same config as for VSCode for rust, cargo, procMacros, ...
 //!     }
 //!   }
 //! },
 //! ```
+//!
+//! In general, refer to your favorite editor / IDE's documentation to properly configure
+//! `rust-analyzer` as language server.
 //! For the full set of configuration options see <https://rust-analyzer.github.io/manual.html#configuration>.
 //!
 //! ## Cargo Usage
@@ -282,93 +219,5 @@
 //!       "--target-dir=target/rust-analyzer"
 //!     },
 //!   },
-//! },
-//! ```
-//! Alternatively in neovim, you can achieve the same configuring `rustaceanvim` as follows:
-//! ```lua
-//! return {
-//!   {
-//!     "mrcjkb/rustaceanvim",
-//!     opts = {
-//!       server = {
-//!         default_settings = {
-//!           ["rust-analyzer"] = {
-//!             cargo = {
-//!               buildScripts = {
-//!                 overrideCommand = {
-//!                   "cargo",
-//!                   "remote",
-//!                   "--build-env",
-//!                   "SKIP_WASM_BUILD=1",
-//!                   "--",
-//!                   "check",
-//!                   "--message-format=json",
-//!                   "--all-targets",
-//!                   "--all-features",
-//!                   "--target-dir=target/rust-analyzer",
-//!                 },
-//!               },
-//!             },
-//!             check = {
-//!               overrideCommand = {
-//!                 "cargo",
-//!                 "remote",
-//!                 "--build-env",
-//!                 "SKIP_WASM_BUILD=1",
-//!                 "--",
-//!                 "check", -- or clippy, but will be slower
-//!                 "--workspace",
-//!                 "--message-format=json",
-//!                 "--all-targets",
-//!                 "--all-features",
-//!                 "--target-dir=target/nvim-rust-analyzer",
-//!               },
-//!             },
-//!           },
-//!         },
-//!       },
-//!     },
-//!   },
-//! }
-//! ```
-//!
-//! For Zed please add the  following in your `~/.config/zed/settings.json`:
-//! ```json
-//! "lsp": {
-//!   "rust-analyzer": {
-//!     "initialization_options": {
-//!       "cargo": {
-//!         "buildScripts": {
-//!           "overrideCommand": [
-//!             "cargo",
-//!             "remote",
-//!             "--build-env",
-//!             "SKIP_WASM_BUILD=1",
-//!             "--",
-//!             "check",
-//!             "--message-format=json",
-//!             "--all-targets",
-//!             "--all-features",
-//!             "--target-dir=target/rust-analyzer"
-//!           ]
-//!         }
-//!       },
-//!       "check": {
-//!         "overrideCommand": [
-//!           "cargo",
-//!           "remote",
-//!           "--build-env",
-//!           "SKIP_WASM_BUILD=1",
-//!           "--",
-//!           "check",
-//!           "--workspace",
-//!           "--message-format=json",
-//!           "--all-targets",
-//!           "--all-features",
-//!           "--target-dir=target/rust-analyzer"
-//!         ]
-//!       }
-//!     }
-//!   }
 //! },
 //! ```
