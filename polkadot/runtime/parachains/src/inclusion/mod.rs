@@ -652,7 +652,7 @@ impl<T: Config> Pallet<T> {
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
 	{
 		if candidates.is_empty() {
-			return Ok(Default::default());
+			return Ok(Default::default())
 		}
 
 		let now = frame_system::Pallet::<T>::block_number();
@@ -666,7 +666,7 @@ impl<T: Config> Pallet<T> {
 			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
 				None => {
 					defensive!("Latest included head data for paraid {:?} is None", para_id);
-					continue;
+					continue
 				},
 				Some(latest_head_data) => latest_head_data,
 			};
@@ -957,7 +957,7 @@ impl<T: Config> Pallet<T> {
 			return Err(UmpAcceptanceCheckErr::MoreMessagesThanPermitted {
 				sent: additional_msgs,
 				permitted: config.max_upward_message_num_per_candidate,
-			});
+			})
 		}
 
 		let (para_queue_count, mut para_queue_size) = Self::relay_dispatch_queue_size(para);
@@ -966,7 +966,7 @@ impl<T: Config> Pallet<T> {
 			return Err(UmpAcceptanceCheckErr::CapacityExceeded {
 				count: para_queue_count.saturating_add(additional_msgs).into(),
 				limit: config.max_upward_queue_count.into(),
-			});
+			})
 		}
 
 		for (idx, msg) in upward_messages.into_iter().enumerate() {
@@ -976,7 +976,7 @@ impl<T: Config> Pallet<T> {
 					idx: idx as u32,
 					msg_size,
 					max_size: config.max_upward_message_size,
-				});
+				})
 			}
 			// make sure that the queue is not overfilled.
 			// we do it here only once since returning false invalidates the whole relay-chain
@@ -985,7 +985,7 @@ impl<T: Config> Pallet<T> {
 				return Err(UmpAcceptanceCheckErr::TotalSizeExceeded {
 					total_size: para_queue_size.saturating_add(msg_size).into(),
 					limit: config.max_upward_queue_size.into(),
-				});
+				})
 			}
 			para_queue_size.saturating_accrue(msg_size);
 		}
@@ -1018,7 +1018,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		let count = messages.len() as u32;
 		if count == 0 {
-			return;
+			return
 		}
 
 		T::MessageQueue::enqueue_messages(
