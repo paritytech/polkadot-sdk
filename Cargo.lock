@@ -7301,7 +7301,7 @@ dependencies = [
 
 [[package]]
 name = "glutton-westend-runtime"
-version = "16.0.0"
+version = "17.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
