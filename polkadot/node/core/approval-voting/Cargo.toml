@@ -11,6 +11,12 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[[bench]]
+name = "approval-voting-regression-bench"
+path = "benches/approval-voting-regression-bench.rs"
+harness = false
+required-features = ["subsystem-benchmarks"]
+
 [dependencies]
 async-trait = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
@@ -36,9 +42,9 @@ sp-application-crypto = { features = ["full_crypto"], workspace = true }
 sp-consensus = { workspace = true }
 sp-consensus-slots = { workspace = true }
 sp-runtime = { workspace = true }
-# rand_core should match schnorrkel
 rand = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
+# rand_core should match schnorrkel
 rand_core = { workspace = true }
 
 [dev-dependencies]
@@ -56,12 +62,6 @@ sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
 
 polkadot-subsystem-bench = { workspace = true }
-
-[[bench]]
-name = "approval-voting-regression-bench"
-path = "benches/approval-voting-regression-bench.rs"
-harness = false
-required-features = ["subsystem-benchmarks"]
 
 [features]
 subsystem-benchmarks = []

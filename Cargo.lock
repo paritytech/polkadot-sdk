@@ -2251,7 +2251,6 @@ dependencies = [
  "bp-runtime",
  "frame-support",
  "frame-system",
- "hex",
  "hex-literal",
  "pallet-utility",
  "parity-scale-codec",
@@ -2595,7 +2594,6 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
- "hex",
  "hex-literal",
  "pallet-asset-conversion",
  "pallet-assets",
@@ -3127,15 +3125,6 @@ dependencies = [
  "crypto-common",
  "inout",
  "zeroize",
-]
-
-[[package]]
-name = "ckb-merkle-mountain-range"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56ccb671c5921be8a84686e6212ca184cb1d7c51cadcdbfcbd1cc3f042f5dfb8"
-dependencies = [
- "cfg-if",
 ]
 
 [[package]]
@@ -4486,7 +4475,6 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
- "cumulus-test-runtime",
  "environmental",
  "frame-benchmarking",
  "frame-support",
@@ -4500,7 +4488,6 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "rand 0.8.5",
- "sc-client-api",
  "scale-info",
  "sp-consensus-slots",
  "sp-core 28.0.0",
@@ -4508,7 +4495,6 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-inherents",
  "sp-io 30.0.0",
- "sp-keyring",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-std 14.0.0",
@@ -6756,12 +6742,10 @@ dependencies = [
  "quote 1.0.38",
  "regex",
  "scale-info",
- "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-metadata-ir 0.6.0",
  "sp-runtime 31.0.1",
- "static_assertions",
  "syn 2.0.98",
 ]
 
@@ -11004,10 +10988,8 @@ dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-storage 19.0.0",
 ]
 
 [[package]]
@@ -11060,10 +11042,8 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-storage 19.0.0",
 ]
 
 [[package]]
@@ -11334,13 +11314,13 @@ dependencies = [
  "bp-beefy",
  "bp-runtime",
  "bp-test-utils",
- "ckb-merkle-mountain-range",
  "frame-support",
  "frame-system",
  "log",
  "pallet-beefy-mmr",
  "pallet-mmr",
  "parity-scale-codec",
+ "polkadot-ckb-merkle-mountain-range",
  "rand 0.8.5",
  "scale-info",
  "serde",
@@ -12781,7 +12761,6 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",
@@ -12795,7 +12774,6 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -12876,7 +12854,6 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -12917,7 +12894,6 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -12948,7 +12924,6 @@ dependencies = [
  "rand_chacha 0.3.1",
  "scale-info",
  "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -13061,7 +13036,6 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -13091,7 +13065,6 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-inherents",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -13130,7 +13103,6 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -13174,7 +13146,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 28.0.0",
  "sp-inherents",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -13225,7 +13196,6 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -13257,7 +13227,6 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
@@ -13274,7 +13243,6 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -15041,7 +15009,6 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "rand 0.8.5",
- "sc-client-api",
  "schnellru",
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",
@@ -15124,7 +15091,6 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-aura",
  "sp-core 28.0.0",
- "sp-crypto-hashing 0.1.0",
  "sp-genesis-builder",
  "sp-inherents",
  "sp-keystore 0.34.0",
@@ -16067,14 +16033,12 @@ dependencies = [
 name = "polkadot-statement-distribution"
 version = "7.0.0"
 dependencies = [
- "arrayvec 0.7.4",
  "assert_matches",
  "async-channel 1.9.0",
  "bitvec",
  "fatality",
  "futures",
  "futures-timer",
- "indexmap 2.7.1",
  "parity-scale-codec",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
@@ -16093,7 +16057,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-keystore 0.34.0",
- "sp-staking",
  "sp-tracing 16.0.0",
  "thiserror 1.0.65",
  "tracing-gum",
@@ -21430,7 +21393,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex",
  "hex-literal",
  "log",
  "pallet-balances",
@@ -24056,7 +24018,6 @@ dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
  "sc-rpc-api",
- "scale-info",
  "serde",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",

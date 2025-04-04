@@ -18,12 +18,10 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true }
 
 # Bridge Dependencies
-
 bp-beefy = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate Dependencies
-
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
