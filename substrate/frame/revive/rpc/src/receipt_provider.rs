@@ -150,6 +150,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			return Ok(());
 		}
 
+		// Keep track of the latest block hashes, so we can prune older blocks.
 		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
 			let latest = block.number();
 			let mut block_number_to_hash = self.block_number_to_hash.lock().await;
@@ -169,6 +170,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				_ => {},
 			}
 
+			log::trace!(target: LOG_TARGET, "Pruning old blocks: {to_remove:?}");
 			self.remove(&to_remove).await?;
 		}
 
@@ -190,7 +192,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 			for log in &receipt.logs {
 				let log_index = log.log_index.as_u32() as i32;
-				let address = log.address.as_ref();
+				let address: &[u8] = log.address.as_ref();
 
 				let topic_0 = log.topics.first().as_ref().map(|v| &v[..]);
 				let topic_1 = log.topics.get(1).as_ref().map(|v| &v[..]);
@@ -198,7 +200,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
 				let data = log.data.as_ref().map(|v| &v.0[..]);
 
-				// TODO check if the log already exists
 				query!(
 					r#"
 					INSERT OR REPLACE INTO logs(
