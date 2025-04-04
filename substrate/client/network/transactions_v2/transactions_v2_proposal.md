@@ -2,20 +2,11 @@
 This document outlines the high level design of a new transaction protocol. It collects and summarizes ideas discussed in the past in numerous issues.
 
 ### TL;DR
-- Phase 1:
-  - introducing a transaction descriptor format,
-  - using transaction identifiers flooding,
-  - The `TxRR` (tx request response) for requesting transaction bodies,
 
-- Phase 1a:
-  - low fanout floding for bodies,
-  - matrix based gossiping between authorithies,
+The new transaction protocol streamlines the process of handling transactions to improve efficiency and reduce network congestion. When a transaction is submitted and validated, a compact transaction descriptor is created and flooded to connected peers instead of the full transaction body. This significantly reduces bandwidth usage. Nodes receiving the descriptor request the full transaction data from peers using a request-response protocol, ensuring that only necessary data is transmitted.
 
-- Phase 2:
-  - 32 bit transaction fingerprint,
-  - include low-fanout strategies and set reconciliations:
-    - research: naive implemenation to evaluate the impact to latencies/bandwidth,
-    - full implementation
+To further optimize the process, the protocol includes future optional enhancements such as a low-fanout strategy, where full transaction data is relayed to a select group of peers, and set reconciliation techniques to synchronize transaction sets across the network periodically. The protocol is designed to be interoperable with existing systems, supporting both old and new protocols for a smooth transition, and also allows future extensions.
+
 
 ### Problems with Current Implementation.
 - High bandwidth usage due to transaction bodies being gossiped across all peer pairs.
@@ -48,7 +39,9 @@ Proposed descriptor format (`TxDescriptor`):
   - `1`: 32-byte hash v1 (currently used),
   - `2`: 32-bit transaction fingerprint v1, allowing further bandwidth optimizations, and laying the ground for *PinSketch* based set-reconciliation implementation as defined in *Erlay*.
 
-Two latter payloads are referred as transaction identifiers.
+Two latter payloads (and possible extensions in future) are referred as transaction identifiers (`TxIdentifier`).
+
+It is worth noting that all nodes must handle both transaction hashes (1) and bodies (0) within descriptors to maintain basic protocol functionality.
 
 #### Transactions Identifiers Flooding (`TxIF`).
 Transaction identifiers are gossiped to all connected peers (except _LightNodes_) allowing many transaction descriptors in a single networking notification. This reduces the required bandwidth and the depth of queues in networking module implementation. Identifiers are transmitted after a transaction is submitted to the local pool and validated as ready.
@@ -57,7 +50,7 @@ The transaction descriptor shall not be sent to a peer that already knows its id
 
 Once a transaction descriptor is received, and it is not a transaction body, the latter shall be downloaded using the `TxRR` protocol (see the next section) and imported to the local pool. If a received transaction descriptor contains the transaction data it shall be imported to the pool.
 
-If the transaction associated with recieved desriptor is found to be invalid, the reputation of peer gossiping invalid desciptor shall be decreased.
+If the transaction associated with recieved descriptor is found to be invalid, the reputation of peer gossiping invalid desciptor shall be decreased.
 
 _Notes_:
 - some measures shall be taken to avoid sending single identifier in notification. The [pool import notification stream](https://github.com/paritytech/polkadot-sdk/blob/ec700de9cdca84cdf5d9f501e66164454c2e3b7d/substrate/client/service/src/builder.rs#L593) shall be drained (maybe with some reasonable delay - 30-50ms to speculatively allow more transactions to come).
@@ -66,11 +59,16 @@ _Notes_:
 #### Transaction Data Request-Response Protocol (`TxRR`).
 After receiving a transaction identifier, the node should request the transaction body from a random peer which gossiped the transaction identifier, if the transaction is not already in the local pool, and there is not a pending request for it. Requests should have a short timeout to avoid denial of service where peers only gossip identifiers (and never provide their bodies).
 
+The timeout shall have constant base (e.g. 500ms) and a component proportional to the number of transactions.
+
+The response must include transaction bodies in the same order they were requested. If a transaction body cannot be delivered, a placeholder should be included in its place.
+
 If the requested transaction is not available in the local pool the requesting peer's reputation shall be decreased. However, if the peer requests the transaction whose identifier was previously gossiped to that peer and transaction is found to be unknown (e.g. due to finalization or being dropped) its reputation shall remain unaffected. This kind of race condition is possible and there is little that can be done to prevent it. Once transaction bytes are downloaded the transaction should be sent to pool for further validation and processing.
 
 If a remote node is unable to provide a transaction it previously announced through identifiers flooding, the requesting node shall decrease its reputation. As noted in the previous paragraph, such situations may occur but should not be common. Reputation of nodes that gossip identifiers without being able to provide the corresponding transaction bodies should be decreased.
 
 The request protocol supports batch acquisition of transactions by accepting a `Vec<TxIdentifier>`.
+
 
 _Note_:
 In theory, the transaction body could be fetched only if there is an available space in transaction pool. Transaction shall not be silently dropped. On the other hand the gossiped transaction identifier may correspond to transaction with higher priority and we should submit such transaction immediately as it may be evicting some other lower-priority transactions.
@@ -78,7 +76,8 @@ In theory, the transaction body could be fetched only if there is an available s
 #### [Optional] Transaction Data Low-Fanout (`TxLF`).
 The low-fanout strategy is an optional, easily achievable enhancement aimed at improving transaction propagation latency and network resilience.
 
-The transaction descriptors containing full transaction data are relayed to a small number of (randomly / based on reputation) selected peers. This approach is taken in [etheruem protocol](https://github.com/ethereum/devp2p/blob/master/caps/eth.md#transaction-exchange).
+The transaction descriptors containing full transaction data are relayed to a small number of (randomly / based on reputation) selected peers. This approach is taken in [etheruem protocol](https://github.com/ethereum/devp2p/blob/master/caps/eth.md#transaction-exchange). When a transaction is submitted via RPC to the local node, the full transaction data may be relayed to an increased number of peers, as no other nodes initially possess this data. This approach helps decrease propagation time by ensuring quicker dissemination.
+
 
 Multiple transaction descriptors shall be batched into a single network notification.
 
@@ -120,8 +119,14 @@ At least following protocol metrics shall be implemented:
 - peer reputation adjustments shall be trackable in logs,
 - number of txs in/out (peer label maybe?),
 
-### Protocol handshake
-To maintain future backward compatibility within the protocol, it is advisable to minimize breaking changes. Given the anticipated future enhancements, the handshake process can be strategically designed to accommodate these developments. It is essential for peers to communicate the specific protocol features they support. Accordingly, a designated mechanism or placeholder should be incorporated to facilitate this exchange of capabilities.
+### Protocol Handshake
+To ensure future compatibility and extensibility, the protocol handshake process should include a mechanism for nodes to declare their capabilities. This allows peers to communicate the specific features they support, facilitating future upgrades.
+During the handshake, nodes should exchange a set of capabilities, including:
+
+- **Support for `TxIdentifier`:** Nodes should declare what `TxIdentifier` (e.g. 32-bit fingerprints) they support,
+- **Set Reconciliation Versions:** Nodes should specify the versions of set reconciliation they support, as multiple versions are planned,
+
+By including these capability declarations in the handshake, the protocol remains flexible and adaptable to future enhancements, ensuring that nodes can efficiently communicate their supported features and maintain compatibility across the network.
 
 ### Interoperability
 Nodes supporting both `transactions/1` and `transactions/2` protocols shall only use `transactions/2` for communication. Node supporting both versions of protocol should use `transactions/1` only to communicate with nodes supporting `transactions/1`. This most likely requires some changes in implementation of `transactions/1` protocol.
@@ -158,6 +163,33 @@ _Note_:  I currently don't see the reason why we would need to have (2). In case
 - input of `TxRR` would be: input (scale-encoded `Vec<Hashes>` )
 - output response of `TxRR` would be: `(leb128(size tx body) ++ scale-encoded tx-body) ++ ...++ (leb128(size tx body) ++ scale-encoded tx-body)`
 - `TxRR`: Implementation could be inspired by existing (e.g. [beefy](https://github.com/paritytech/polkadot-sdk/blob/0404a8624964441011730e274c7a02972b63245c/substrate/client/consensus/beefy/src/communication/request_response/mod.rs)) request response protocol.
+
+### Roll-out plan
+- Phase 1:
+  - introducing a transaction descriptor format,
+  - using transaction identifiers flooding (`TxIF`),
+  - The `TxRR` (tx request response) for requesting transaction bodies,
+
+- Phase 1a:
+  - low fanout flooding for bodies (`TxLF`),
+
+- Phase 1b:
+  - matrix based gossiping between authorithies,
+
+- Phase 2:
+  - 32 bit transaction fingerprint,
+  - include low-fanout strategies and set reconciliations:
+    - research: naive implemenation to evaluate the impact to latencies/bandwidth,
+    - full implementation
+
+### Definitions
+
+- *Transaction Descriptor (`TxDescriptor`)* – A flexible format for representing transactions on the network layer, supporting multiple identification schemes (full body, hash, fingerprint).
+- *Transaction Identifier (`TxIdentifier`)* – A compact representation of a transaction, such as a hash or fingerprint, used for efficient propagation, embedded in `TxDescriptor`,
+- *Transaction Body* – The full transaction data, transaction bytes.
+- *Transaction Identifiers Flooding (`TxIF`)* – A mechanism for broadcasting transaction identifiers to peers instead of full transaction bodies.
+- *Transaction Request-Response (`TxRR`)* – A protocol for requesting and receiving full transaction bodies when needed.
+- *Low-Fanout Transaction Data (`TxLF`)* – An optional strategy where full transactions are shared with a small subset of peers instead of all nodes.
 
 
 ### References
