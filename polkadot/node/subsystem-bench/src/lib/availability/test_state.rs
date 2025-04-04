@@ -25,7 +25,7 @@ use colored::Colorize;
 use itertools::Itertools;
 use polkadot_node_network_protocol::{
 	request_response::{v2::ChunkFetchingRequest, ReqProtocolNames},
-	Versioned, VersionedValidationProtocol,
+	ValidationProtocols, VersionedValidationProtocol,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_test_helpers::{
@@ -299,7 +299,7 @@ fn peer_bitfield_message_v3(
 		signed_bitfield.into(),
 	);
 
-	Versioned::V3(polkadot_node_network_protocol::v3::ValidationProtocol::BitfieldDistribution(
-		bitfield,
-	))
+	ValidationProtocols::V3(
+		polkadot_node_network_protocol::v3::ValidationProtocol::BitfieldDistribution(bitfield),
+	)
 }
