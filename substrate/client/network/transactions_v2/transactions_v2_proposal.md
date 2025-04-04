@@ -46,11 +46,11 @@ It is worth noting that all nodes must handle both transaction hashes (1) and bo
 #### Transactions Identifiers Flooding (`TxIF`).
 Transaction identifiers are gossiped to all connected peers (except _LightNodes_) allowing many transaction descriptors in a single networking notification. This reduces the required bandwidth and the depth of queues in networking module implementation. Identifiers are transmitted after a transaction is submitted to the local pool and validated as ready.
 
-The transaction descriptor shall not be sent to a peer that already knows its identifier, whether because we received it from that peer or previously sent the transaction descriptor to it. Known identifiers shall be kept for T seconds, with a maximum of N identifiers per peer. Networks should configure these limits based on their transaction volumes, and node network and memory requirements.
+The transaction descriptor shall not be sent to a peer that already knows its identifier, whether because we received it from that peer or previously sent the transaction descriptor to it. The reputation of a peer that sends descriptors for the same transaction multiple times should be decreased. Known identifiers shall be kept for T seconds, with a maximum of N identifiers per peer. Networks should configure these limits based on their transaction volumes, and node network and memory requirements. Since the transaction pool can track transactions that are dropped or finalized, these notifications can also be leveraged to maintain internal structures.
 
 Once a transaction descriptor is received, and it is not a transaction body, the latter shall be downloaded using the `TxRR` protocol (see the next section) and imported to the local pool. If a received transaction descriptor contains the transaction data it shall be imported to the pool.
 
-If the transaction associated with recieved descriptor is found to be invalid, the reputation of peer gossiping invalid desciptor shall be decreased.
+If the transaction associated with recieved descriptor is found to be invalid, the reputation of peer gossiping invalid descriptor shall be decreased.
 
 _Notes_:
 - some measures shall be taken to avoid sending single identifier in notification. The [pool import notification stream](https://github.com/paritytech/polkadot-sdk/blob/ec700de9cdca84cdf5d9f501e66164454c2e3b7d/substrate/client/service/src/builder.rs#L593) shall be drained (maybe with some reasonable delay - 30-50ms to speculatively allow more transactions to come).
