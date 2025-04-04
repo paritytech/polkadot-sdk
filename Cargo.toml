@@ -659,7 +659,7 @@ bp-asset-hub-westend = { path = "bridges/chains/chain-asset-hub-westend", defaul
 bp-beefy = { path = "bridges/primitives/beefy", default-features = false, version = "0.1.0" }
 bp-bridge-hub-cumulus = { path = "bridges/chains/chain-bridge-hub-cumulus", default-features = false, version = "0.21.0" }
 bp-bridge-hub-rococo = { path = "bridges/chains/chain-bridge-hub-rococo", default-features = false, version = "0.21.0" }
-bp-bridge-hub-westend = { path = "bridges/chains/chain-bridge-hub-westend", default-features = false, version = "0.16.0" }
+bp-bridge-hub-westend = { path = "bridges/chains/chain-bridge-hub-westend", default-features = false, version = "0.17.0" }
 bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false, version = "0.20.1" }
 bp-messages = { path = "bridges/primitives/messages", default-features = false, version = "0.20.1" }
 bp-parachains = { path = "bridges/primitives/parachains", default-features = false, version = "0.20.0" }
