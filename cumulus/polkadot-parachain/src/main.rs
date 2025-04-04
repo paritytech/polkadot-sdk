@@ -22,12 +22,14 @@
 mod chain_spec;
 
 use clap::{Args, FromArgMatches};
-use polkadot_omni_node_lib::{chain_spec::LoadSpec, run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
-use polkadot_omni_node_lib::chain_spec::DiskChainSpecLoader;
-use polkadot_omni_node_lib::cli::ExtraSubcommand;
-use polkadot_omni_node_lib::extra_commands::ExportChainSpec;
-use polkadot_omni_node_lib::runtime::DefaultRuntimeResolver;
-
+use polkadot_omni_node_lib::{
+	chain_spec::{DiskChainSpecLoader, LoadSpec},
+	cli::ExtraSubcommand,
+	extra_commands::ExportChainSpec,
+	run,
+	runtime::DefaultRuntimeResolver,
+	CliConfig as CliConfigT, RunConfig, NODE_VERSION,
+};
 
 struct CliConfig;
 
@@ -52,8 +54,9 @@ impl CliConfigT for CliConfig {
 
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
-	let config = RunConfig::new(Box::new(chain_spec::RuntimeResolver),
-								Box::new(chain_spec::ChainSpecLoader));
+	let config = RunConfig::new(
+		Box::new(chain_spec::RuntimeResolver),
+		Box::new(chain_spec::ChainSpecLoader),
+	);
 	Ok(run::<CliConfig, ExportChainSpec>(config)?)
-
 }

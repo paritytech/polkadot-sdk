@@ -22,9 +22,8 @@
 #![warn(unused_extern_crates)]
 
 use polkadot_omni_node_lib::{
-	chain_spec::DiskChainSpecLoader, run,
-	runtime::DefaultRuntimeResolver, CliConfig as CliConfigT, RunConfig,
-	NODE_VERSION, extra_commands::NoExtraSubcommand
+	chain_spec::DiskChainSpecLoader, extra_commands::NoExtraSubcommand, run,
+	runtime::DefaultRuntimeResolver, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
 };
 
 struct CliConfig;
