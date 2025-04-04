@@ -83,8 +83,9 @@ Multiple transaction descriptors shall be batched into a single network notifica
 
 This extensions could be used to quickly broadcast transactions from the light nodes to the network.
 
-_Note_:
-When a local pool is full the tx can be dropped (e.g. due to lower priority) and there is little we can do about this.
+_Notes_:
+- when a local pool is full the tx can be dropped (e.g. due to lower priority) and there is little we can do about this.
+- `TxLF` only requires extra implementation on the sending side - handling transaction body in `TxDescriptor` is mandatory so no extra support is requried.
 
 
 #### [Optional] Authorities matrix for exchanging transactions.
