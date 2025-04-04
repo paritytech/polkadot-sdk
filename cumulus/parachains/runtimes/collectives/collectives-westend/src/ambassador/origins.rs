@@ -13,20 +13,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The Ambassador Program's origins.
+//! The Ambassador Fellowship Program's origins.
+
+use super::ranks;
+pub use pallet_origins::*;
 
 #[frame_support::pallet]
 pub mod pallet_origins {
-	use crate::ambassador::ranks;
+	use super::ranks;
 	use frame_support::pallet_prelude::*;
 	use pallet_ranked_collective::Rank;
 
-	#[pallet::pallet]
-	pub struct Pallet<T>(PhantomData<T>);
-
-	/// The pallet configuration trait.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(PhantomData<T>);
 
 	#[derive(
 		PartialEq,
@@ -41,33 +43,50 @@ pub mod pallet_origins {
 	)]
 	#[pallet::origin]
 	pub enum Origin {
-		/// Plurality voice of the [ranks::AMBASSADOR_TIER_1] members or above given via
+		/// Plurality voice of the [ranks::ADVOCATE_AMBASSADOR] members or above given via
 		/// referendum.
-		Ambassadors,
-		/// Plurality voice of the [ranks::AMBASSADOR_TIER_2] members or above given via
+		AdvocateAmbassadors,
+		/// Plurality voice of the [ranks::ASSOCIATE_AMBASSADOR] members or above given via
 		/// referendum.
-		AmbassadorsTier2,
-		/// Plurality voice of the [ranks::SENIOR_AMBASSADOR_TIER_3] members or above given via
+		AssociateAmbassadors,
+		/// Plurality voice of the [ranks::LEAD_AMBASSADOR] members or above given via
+		/// referendum.
+		LeadAmbassadors,
+		/// Plurality voice of the [ranks::SENIOR_AMBASSADOR] members or above given via
 		/// referendum.
 		SeniorAmbassadors,
-		/// Plurality voice of the [ranks::SENIOR_AMBASSADOR_TIER_4] members or above given via
+		/// Plurality voice of the [ranks::PRINCIPAL_AMBASSADOR] members or above given via
 		/// referendum.
-		SeniorAmbassadorsTier4,
-		/// Plurality voice of the [ranks::HEAD_AMBASSADOR_TIER_5] members or above given via
+		PrincipalAmbassadors,
+		/// Plurality voice of the [ranks::GLOBAL_AMBASSADOR] members or above given via
 		/// referendum.
-		HeadAmbassadors,
-		/// Plurality voice of the [ranks::HEAD_AMBASSADOR_TIER_6] members or above given via
+		GlobalAmbassadors,
+		/// Plurality voice of the [ranks::GLOBAL_HEAD_AMBASSADOR] members or above given via
 		/// referendum.
-		HeadAmbassadorsTier6,
-		/// Plurality voice of the [ranks::HEAD_AMBASSADOR_TIER_7] members or above given via
-		/// referendum.
-		HeadAmbassadorsTier7,
-		/// Plurality voice of the [ranks::MASTER_AMBASSADOR_TIER_8] members or above given via
-		/// referendum.
-		MasterAmbassadors,
-		/// Plurality voice of the [ranks::MASTER_AMBASSADOR_TIER_9] members or above given via
-		/// referendum.
-		MasterAmbassadorsTier9,
+		GlobalHeadAmbassadors,
+
+		RetainAt1Rank,
+		RetainAt2Rank,
+		RetainAt3Rank,
+		RetainAt4Rank,
+		RetainAt5Rank,
+		RetainAt6Rank,
+		RetainAt7Rank,
+
+		DemoteTo1Rank,
+		DemoteTo2Rank,
+		DemoteTo3Rank,
+		DemoteTo4Rank,
+		DemoteTo5Rank,
+		DemoteTo6Rank,
+
+		PromoteTo1Rank,
+		PromoteTo2Rank,
+		PromoteTo3Rank,
+		PromoteTo4Rank,
+		PromoteTo5Rank,
+		PromoteTo6Rank,
+		PromoteTo7Rank,
 	}
 
 	impl Origin {
@@ -75,33 +94,32 @@ pub mod pallet_origins {
 		/// any.
 		pub fn as_voice(&self) -> Option<Rank> {
 			Some(match &self {
-				Origin::Ambassadors => ranks::AMBASSADOR_TIER_1,
-				Origin::AmbassadorsTier2 => ranks::AMBASSADOR_TIER_2,
-				Origin::SeniorAmbassadors => ranks::SENIOR_AMBASSADOR_TIER_3,
-				Origin::SeniorAmbassadorsTier4 => ranks::SENIOR_AMBASSADOR_TIER_4,
-				Origin::HeadAmbassadors => ranks::HEAD_AMBASSADOR_TIER_5,
-				Origin::HeadAmbassadorsTier6 => ranks::HEAD_AMBASSADOR_TIER_6,
-				Origin::HeadAmbassadorsTier7 => ranks::HEAD_AMBASSADOR_TIER_7,
-				Origin::MasterAmbassadors => ranks::MASTER_AMBASSADOR_TIER_8,
-				Origin::MasterAmbassadorsTier9 => ranks::MASTER_AMBASSADOR_TIER_9,
+				Origin::AdvocateAmbassadors => ranks::ADVOCATE_AMBASSADOR,
+				Origin::AssociateAmbassadors => ranks::ASSOCIATE_AMBASSADOR,
+				Origin::LeadAmbassadors => ranks::LEAD_AMBASSADOR,
+				Origin::SeniorAmbassadors => ranks::SENIOR_AMBASSADOR,
+				Origin::PrincipalAmbassadors => ranks::PRINCIPAL_AMBASSADOR,
+				Origin::GlobalAmbassadors => ranks::GLOBAL_AMBASSADOR,
+				Origin::GlobalHeadAmbassadors => ranks::GLOBAL_HEAD_AMBASSADOR,
+				_ => return None,
 			})
 		}
 	}
 
-	/// Implementation of the [EnsureOrigin] trait for the [Origin::HeadAmbassadors] origin.
-	pub struct EnsureHeadAmbassadorsVoice;
-	impl<O: Into<Result<Origin, O>> + From<Origin>> EnsureOrigin<O> for EnsureHeadAmbassadorsVoice {
+	/// Implementation of the [EnsureOrigin] trait for the [Origin::GlobalHeadAmbassadors] origin.
+	pub struct EnsureGlobalHeadAmbassadorsVoice;
+	impl<O: Into<Result<Origin, O>> + From<Origin>> EnsureOrigin<O> for EnsureGlobalHeadAmbassadorsVoice {
 		type Success = ();
 		fn try_origin(o: O) -> Result<Self::Success, O> {
 			o.into().and_then(|o| match o {
-				Origin::HeadAmbassadors => Ok(()),
+				Origin::GlobalHeadAmbassadors => Ok(()),
 				r => Err(O::from(r)),
 			})
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
 		fn try_successful_origin() -> Result<O, ()> {
-			Ok(O::from(Origin::HeadAmbassadors))
+			Ok(O::from(Origin::GlobalHeadAmbassadors))
 		}
 	}
 
@@ -121,9 +139,9 @@ pub mod pallet_origins {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		fn try_successful_origin() -> Result<O, ()> {
-			ranks::MASTER_AMBASSADOR_TIER_9
+			ranks::GLOBAL_HEAD_AMBASSADOR
 				.ge(&R::get())
-				.then(|| O::from(Origin::MasterAmbassadorsTier9))
+				.then(|| O::from(Origin::GlobalHeadAmbassadors))
 				.ok_or(())
 		}
 	}
@@ -139,7 +157,137 @@ pub mod pallet_origins {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		fn try_successful_origin() -> Result<O, ()> {
-			Ok(O::from(Origin::MasterAmbassadorsTier9))
+			Ok(O::from(Origin::GlobalHeadAmbassadors))
+		}
+	}
+
+	// Define a macro for creating EnsureOrigin implementations for specific origins
+	macro_rules! decl_unit_ensures {
+		( $name:ident: $success_type:ty = $success:expr ) => {
+			pub struct $name;
+			impl<O: Into<Result<Origin, O>> + From<Origin>> EnsureOrigin<O> for $name {
+				type Success = $success_type;
+				fn try_origin(o: O) -> Result<Self::Success, O> {
+					o.into().and_then(|o| match o {
+						Origin::$name => Ok($success),
+						r => Err(O::from(r)),
+					})
+				}
+				#[cfg(feature = "runtime-benchmarks")]
+				fn try_successful_origin() -> Result<O, ()> {
+					Ok(O::from(Origin::$name))
+				}
+			}
+		};
+		( $name:ident ) => { decl_unit_ensures! { $name : () = () } };
+		( $name:ident: $success_type:ty = $success:expr, $( $rest:tt )* ) => {
+			decl_unit_ensures! { $name: $success_type = $success }
+			decl_unit_ensures! { $( $rest )* }
+		};
+		( $name:ident, $( $rest:tt )* ) => {
+			decl_unit_ensures! { $name }
+			decl_unit_ensures! { $( $rest )* }
+		};
+		() => {}
+	}
+
+	// Implement specific EnsureOrigin types for each ambassador rank
+	decl_unit_ensures!(
+		AdvocateAmbassadors: Rank = ranks::ADVOCATE_AMBASSADOR,
+		AssociateAmbassadors: Rank = ranks::ASSOCIATE_AMBASSADOR,
+		LeadAmbassadors: Rank = ranks::LEAD_AMBASSADOR,
+		SeniorAmbassadors: Rank = ranks::SENIOR_AMBASSADOR,
+		PrincipalAmbassadors: Rank = ranks::PRINCIPAL_AMBASSADOR,
+		GlobalAmbassadors: Rank = ranks::GLOBAL_AMBASSADOR,
+		GlobalHeadAmbassadors: Rank = ranks::GLOBAL_HEAD_AMBASSADOR,
+	);
+
+	// Define the decl_ensure! macro for creating more complex EnsureOrigin implementations
+	macro_rules! decl_ensure {
+		(
+			$vis:vis type $name:ident: EnsureOrigin<Success = $success_type:ty> {
+				$( $item:ident = $success:expr, )*
+			}
+		) => {
+			$vis struct $name;
+			impl<O: Into<Result<Origin, O>> + From<Origin>>
+				EnsureOrigin<O> for $name
+			{
+				type Success = $success_type;
+				fn try_origin(o: O) -> Result<Self::Success, O> {
+					o.into().and_then(|o| match o {
+						$(
+							Origin::$item => Ok($success),
+						)*
+						r => Err(O::from(r)),
+					})
+				}
+				#[cfg(feature = "runtime-benchmarks")]
+				fn try_successful_origin() -> Result<O, ()> {
+					// By convention the more privileged origins go later, so for greatest chance
+					// of success, we want the last one.
+					let _result: Result<O, ()> = Err(());
+					$(
+						let _result: Result<O, ()> = Ok(O::from(Origin::$item));
+					)*
+					_result
+				}
+			}
+		};
+	}
+
+	// Ambassador origin indicating weighted voting from at least the rank of `Success` on a
+	// week-long track.
+	decl_ensure! {
+		pub type EnsureAmbassador: EnsureOrigin<Success = Rank> {
+			AdvocateAmbassadors = ranks::ADVOCATE_AMBASSADOR,
+			AssociateAmbassadors = ranks::ASSOCIATE_AMBASSADOR,
+			LeadAmbassadors = ranks::LEAD_AMBASSADOR,
+			SeniorAmbassadors = ranks::SENIOR_AMBASSADOR,
+			PrincipalAmbassadors = ranks::PRINCIPAL_AMBASSADOR,
+			GlobalAmbassadors = ranks::GLOBAL_AMBASSADOR,
+			GlobalHeadAmbassadors = ranks::GLOBAL_HEAD_AMBASSADOR,
+		}
+	}
+
+	// Ambassador origin indicating weighted voting from at least the rank of `Success + 2` on
+	// a fortnight-long track; needed for Ambassador retention voting.
+	decl_ensure! {
+		pub type EnsureCanRetainAt: EnsureOrigin<Success = Rank> {
+			RetainAt1Rank = ranks::ADVOCATE_AMBASSADOR,
+			RetainAt2Rank = ranks::ASSOCIATE_AMBASSADOR,
+			RetainAt3Rank = ranks::LEAD_AMBASSADOR,
+			RetainAt4Rank = ranks::SENIOR_AMBASSADOR,
+			RetainAt5Rank = ranks::PRINCIPAL_AMBASSADOR,
+			RetainAt6Rank = ranks::GLOBAL_AMBASSADOR,
+			RetainAt7Rank = ranks::GLOBAL_HEAD_AMBASSADOR,
+		}
+	}
+
+	// Ambassador origin indicating weighted voting from at least the rank of `Success + 2` on
+	// a fortnight-long track; needed for Ambassador demotion voting.
+	decl_ensure! {
+		pub type EnsureCanDemoteTo: EnsureOrigin<Success = Rank> {
+			DemoteTo1Rank = ranks::ADVOCATE_AMBASSADOR,
+			DemoteTo2Rank = ranks::ASSOCIATE_AMBASSADOR,
+			DemoteTo3Rank = ranks::LEAD_AMBASSADOR,
+			DemoteTo4Rank = ranks::SENIOR_AMBASSADOR,
+			DemoteTo5Rank = ranks::PRINCIPAL_AMBASSADOR,
+			DemoteTo6Rank = ranks::GLOBAL_AMBASSADOR,
+		}
+	}
+
+	// Ambassador origin indicating weighted voting from at least the rank of `Success + 2` on
+	// a fortnight-long track; needed for Ambassador promotion voting.
+	decl_ensure! {
+		pub type EnsureCanPromoteTo: EnsureOrigin<Success = Rank> {
+			PromoteTo1Rank = ranks::ADVOCATE_AMBASSADOR,
+			PromoteTo2Rank = ranks::ASSOCIATE_AMBASSADOR,
+			PromoteTo3Rank = ranks::LEAD_AMBASSADOR,
+			PromoteTo4Rank = ranks::SENIOR_AMBASSADOR,
+			PromoteTo5Rank = ranks::PRINCIPAL_AMBASSADOR,
+			PromoteTo6Rank = ranks::GLOBAL_AMBASSADOR,
+			PromoteTo7Rank = ranks::GLOBAL_HEAD_AMBASSADOR,
 		}
 	}
 }

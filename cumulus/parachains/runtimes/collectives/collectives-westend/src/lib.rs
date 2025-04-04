@@ -722,13 +722,14 @@ construct_runtime!(
 		// pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
 		FellowshipTreasury: pallet_treasury::<Instance1> = 65,
 
-		// Ambassador Program.
+		// Ambassador Fellowship Program.
 		AmbassadorCollective: pallet_ranked_collective::<Instance2> = 70,
 		AmbassadorReferenda: pallet_referenda::<Instance2> = 71,
 		AmbassadorOrigins: pallet_ambassador_origins = 72,
 		AmbassadorCore: pallet_core_fellowship::<Instance2> = 73,
 		AmbassadorSalary: pallet_salary::<Instance2> = 74,
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
+		AmbassadorOptimisticFunding: pallet_optimistic_funding::<Instance1> = 76,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
 	}

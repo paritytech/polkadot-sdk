@@ -16,7 +16,7 @@
 //! Managed Collective Content Pallet
 //!
 //! The pallet provides the functionality to store different types of content. This would typically
-//! be used by an on-chain collective, such as the Polkadot Alliance or Ambassador Program.
+//! be used by an on-chain collective, such as the Polkadot Alliance or Ambassador Fellowship Program.
 //!
 //! The pallet stores content as an [OpaqueCid], which should correspond to some off-chain hosting
 //! service, such as IPFS, and contain any type of data. Each type of content has its own origin

@@ -274,6 +274,7 @@ macro_rules! parameter_types {
 		$( $rest:tt )*
 	) => (
 		$( #[ $attr ] )*
+		#[derive(Debug)]
 		$vis struct $name $(
 			< $($ty_params),* >( $(core::marker::PhantomData<$ty_params>),* )
 		)?;
@@ -286,6 +287,7 @@ macro_rules! parameter_types {
 		$( $rest:tt )*
 	) => (
 		$( #[ $attr ] )*
+		#[derive(Debug)]
 		$vis struct $name $(
 			< $($ty_params),* >( $(core::marker::PhantomData<$ty_params>),* )
 		)?;
@@ -298,6 +300,7 @@ macro_rules! parameter_types {
 		$( $rest:tt )*
 	) => (
 		$( #[ $attr ] )*
+		#[derive(Debug)]
 		$vis struct $name $(
 			< $($ty_params),* >( $(core::marker::PhantomData<$ty_params>),* )
 		)?;

@@ -44,6 +44,7 @@ impl DescribeLocation for Tuple {
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct DescribeTerminus;
 impl DescribeLocation for DescribeTerminus {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
@@ -54,6 +55,7 @@ impl DescribeLocation for DescribeTerminus {
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct DescribePalletTerminal;
 impl DescribeLocation for DescribePalletTerminal {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
@@ -64,6 +66,7 @@ impl DescribeLocation for DescribePalletTerminal {
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct DescribeAccountId32Terminal;
 impl DescribeLocation for DescribeAccountId32Terminal {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
@@ -74,6 +77,7 @@ impl DescribeLocation for DescribeAccountId32Terminal {
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct DescribeAccountKey20Terminal;
 impl DescribeLocation for DescribeAccountKey20Terminal {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
@@ -86,6 +90,7 @@ impl DescribeLocation for DescribeAccountKey20Terminal {
 
 /// Create a description of the remote treasury `location` if possible. No two locations should have
 /// the same descriptor.
+#[derive(Clone, Debug)]
 pub struct DescribeTreasuryVoiceTerminal;
 
 impl DescribeLocation for DescribeTreasuryVoiceTerminal {
@@ -100,6 +105,7 @@ impl DescribeLocation for DescribeTreasuryVoiceTerminal {
 
 pub type DescribeAccountIdTerminal = (DescribeAccountId32Terminal, DescribeAccountKey20Terminal);
 
+#[derive(Clone, Debug)]
 pub struct DescribeBodyTerminal;
 impl DescribeLocation for DescribeBodyTerminal {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
@@ -119,6 +125,7 @@ pub type DescribeAllTerminal = (
 	DescribeBodyTerminal,
 );
 
+#[derive(Clone, Debug)]
 pub struct DescribeFamily<DescribeInterior>(PhantomData<DescribeInterior>);
 impl<Suffix: DescribeLocation> DescribeLocation for DescribeFamily<Suffix> {
 	fn describe_location(l: &Location) -> Option<Vec<u8>> {
@@ -144,6 +151,7 @@ impl<Suffix: DescribeLocation> DescribeLocation for DescribeFamily<Suffix> {
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct HashedDescription<AccountId, Describe>(PhantomData<(AccountId, Describe)>);
 impl<AccountId: From<[u8; 32]> + Clone, Describe: DescribeLocation> ConvertLocation<AccountId>
 	for HashedDescription<AccountId, Describe>
@@ -267,6 +275,7 @@ impl LegacyDescribeForeignChainAccount {
 pub type ForeignChainAliasAccount<AccountId> =
 	HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;
 
+#[derive(Clone,Debug)]
 pub struct Account32Hash<Network, AccountId>(PhantomData<(Network, AccountId)>);
 impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
 	ConvertLocation<AccountId> for Account32Hash<Network, AccountId>
@@ -278,6 +287,7 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 
 /// A [`Location`] consisting of a single `Parent` [`Junction`] will be converted to the
 /// parent `AccountId`.
+#[derive(Clone, Debug)]
 pub struct ParentIsPreset<AccountId>(PhantomData<AccountId>);
 impl<AccountId: Decode + Eq + Clone> ConvertLocation<AccountId> for ParentIsPreset<AccountId> {
 	fn convert_location(location: &Location) -> Option<AccountId> {
@@ -293,6 +303,7 @@ impl<AccountId: Decode + Eq + Clone> ConvertLocation<AccountId> for ParentIsPres
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct ChildParachainConvertsVia<ParaId, AccountId>(PhantomData<(ParaId, AccountId)>);
 impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: Clone>
 	ConvertLocation<AccountId> for ChildParachainConvertsVia<ParaId, AccountId>
@@ -305,6 +316,7 @@ impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: 
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct SiblingParachainConvertsVia<ParaId, AccountId>(PhantomData<(ParaId, AccountId)>);
 impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: Clone>
 	ConvertLocation<AccountId> for SiblingParachainConvertsVia<ParaId, AccountId>
@@ -318,6 +330,7 @@ impl<ParaId: From<u32> + Into<u32> + AccountIdConversion<AccountId>, AccountId: 
 }
 
 /// Extracts the `AccountId32` from the passed `location` if the network matches.
+#[derive(Clone, Debug)]
 pub struct AccountId32Aliases<Network, AccountId>(PhantomData<(Network, AccountId)>);
 impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
 	ConvertLocation<AccountId> for AccountId32Aliases<Network, AccountId>
@@ -352,6 +365,7 @@ impl<TreasuryAccount: Get<AccountId>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 /// Conversion implementation which converts from a `[u8; 32]`-based `AccountId` into a
 /// `Location` consisting solely of a `AccountId32` junction with a fixed value for its
 /// network (provided by `Network`) and the `AccountId`'s `[u8; 32]` datum for the `id`.
+#[derive(Clone, Debug)]
 pub struct AliasesIntoAccountId32<Network, AccountId>(PhantomData<(Network, AccountId)>);
 impl<'a, Network: Get<Option<NetworkId>>, AccountId: Clone + Into<[u8; 32]> + Clone>
 	TryConvert<&'a AccountId, Location> for AliasesIntoAccountId32<Network, AccountId>
