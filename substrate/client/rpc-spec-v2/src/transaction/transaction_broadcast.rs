@@ -23,7 +23,7 @@ use crate::{
 	SubscriptionTaskExecutor,
 };
 use codec::Decode;
-use futures::{FutureExt, Stream, StreamExt};
+use futures::{FutureExt, StreamExt};
 use futures_util::stream::AbortHandle;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
