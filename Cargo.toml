@@ -1147,7 +1147,7 @@ rlp = { version = "0.6.1", default-features = false }
 rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/rococo", version = "0.1.0" }
 rococo-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/rococo-parachain", version = "0.20.0" }
 rococo-runtime = { path = "polkadot/runtime/rococo", version = "22.1.0" }
-rococo-runtime-constants = { path = "polkadot/runtime/rococo/constants", default-features = false, version = "19.0.0" }
+rococo-runtime-constants = { path = "polkadot/runtime/rococo/constants", default-features = false, version = "20.0.0" }
 rococo-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/rococo-system", version = "0.1.0" }
 rococo-westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/rococo-westend-system", version = "0.1.0" }
 rpassword = { version = "7.0.0" }
