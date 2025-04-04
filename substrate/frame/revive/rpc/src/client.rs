@@ -288,6 +288,8 @@ impl Client {
 					.block_by_hash(&parent_hash)
 					.await?
 					.ok_or(ClientError::BlockNotFound)?;
+			} else {
+				return Ok(());
 			}
 		}
 	}
@@ -328,7 +330,7 @@ impl Client {
 				},
 			};
 
-			log::trace!(target: LOG_TARGET, "Pushing block: {}", block.number());
+			log::trace!(target: LOG_TARGET, "Processing {subscription_type:?} block: {}", block.number());
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block: {err:?}");
 			}
@@ -358,7 +360,7 @@ impl Client {
 	pub async fn subscribe_and_cache_blocks(&self, index_last_n_blocks: SubstrateBlockNumber) {
 		let last = self.latest_block().await.number().saturating_sub(1);
 		let range = last.saturating_sub(index_last_n_blocks)..last;
-		log::info!(target: LOG_TARGET, "🗄️ Indexing blocks in range {range:?}");
+		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
 		let res = self
 			.subscribe_past_blocks(range, |block| async move {
 				self.receipt_provider.insert_block_receipts(&block).await?;
@@ -368,6 +370,8 @@ impl Client {
 
 		if let Err(err) = res {
 			log::error!(target: LOG_TARGET, "Past Block subscription error: {err:?}");
+		} else {
+			log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
 		}
 	}
 
@@ -518,8 +522,9 @@ impl Client {
 
 		let payload = subxt_client::apis()
 			.revive_api()
-			.get_storage(contract_address, key.to_big_endian());
+			.get_storage(contract_address, key.to_little_endian());
 		let result = runtime_api.call(payload).await?.unwrap_or_default().unwrap_or_default();
+
 		Ok(result)
 	}
 

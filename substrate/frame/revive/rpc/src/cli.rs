@@ -112,7 +112,7 @@ fn build_client(
 			SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
 
 		let keep_latest_n_blocks = if database_url == IN_MEMORY_DB {
-			log::info!( target: LOG_TARGET, "Using in-memory database, keeping only {cache_size} blocks in memory");
+			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {cache_size} blocks in memory");
 			Some(cache_size)
 		} else {
 			None
