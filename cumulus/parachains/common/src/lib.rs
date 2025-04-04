@@ -82,6 +82,7 @@ mod constants {
 		PalletId,
 	};
 	use sp_runtime::Perbill;
+	use sp_std::time::Duration;
 	/// This determines the average expected block time that we are targeting. Blocks will be
 	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
 	/// `pallet_timestamp` which is in turn picked up by `pallet_aura` to implement `fn
@@ -90,6 +91,8 @@ mod constants {
 	/// Change this to adjust the block time.
 	pub const MILLISECS_PER_BLOCK: u64 = 12000;
 	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+	pub const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(
+		MILLISECS_PER_BLOCK);
 
 	// Time is measured by number of blocks.
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
@@ -109,8 +112,21 @@ mod constants {
 		polkadot_primitives::MAX_POV_SIZE as u64,
 	);
 
+	/// We allow for 2 seconds of compute with a 6 second average block.
+	pub const MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING: Weight = Weight::from_parts(
+		WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
+		polkadot_primitives::MAX_POV_SIZE as u64,
+	);
+
 	/// Treasury pallet id of the local chain, used to convert into AccountId
 	pub const TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
+
+	/// Maximal asset hub header size.
+	pub const MAX_ASSET_HUB_HEADER_SIZE: u32 = 4_096;
+	
+	/// Maximal bridge hub header size.
+	pub const MAX_BRIDGE_HUB_HEADER_SIZE: u32 = 4_096;
+	
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

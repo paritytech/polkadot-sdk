@@ -26,6 +26,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-api = { workspace = true }
 sp-std = { workspace = true }
+parachains-common = { workspace = true }
 
 # Polkadot Dependencies
 polkadot-primitives = { workspace = true }
