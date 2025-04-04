@@ -33,10 +33,7 @@ sp-crypto-hashing = { workspace = true }
 syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]
-codec = { features = [
-	"derive",
-	"max-encoded-len",
-], workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pretty_assertions = { workspace = true }
@@ -45,9 +42,7 @@ scale-info = { features = ["derive"], workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-metadata-ir = { workspace = true }
-sp-runtime = { features = [
-	"serde",
-], workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
 static_assertions = { workspace = true }
 
 [features]

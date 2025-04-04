@@ -39,7 +39,6 @@ snowbridge-outbound-queue-primitives = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 
 [dev-dependencies]
-hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }

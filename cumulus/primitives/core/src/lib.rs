@@ -21,7 +21,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
@@ -262,12 +262,39 @@ pub enum CumulusDigestItem {
 	/// A digest item indicating the relay-parent a parachain block was built against.
 	#[codec(index = 0)]
 	RelayParent(relay_chain::Hash),
+	/// A digest item indicating which core to select on the relay chain for this block.
+	#[codec(index = 1)]
+	SelectCore {
+		/// The selector that determines the actual core.
+		selector: CoreSelector,
+		/// The claim queue offset that determines how far "into the future" the core is selected.
+		claim_queue_offset: ClaimQueueOffset,
+	},
 }
 
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
 		DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode())
+	}
+
+	/// Find [`CumulusDigestItem::SelectCore`] in the given `digest`.
+	///
+	/// If there are multiple valid digests, this returns the value of the first one, although
+	/// well-behaving runtimes should not produce headers with more than one.
+	pub fn find_select_core(digest: &Digest) -> Option<(CoreSelector, ClaimQueueOffset)> {
+		digest.convert_first(|d| match d {
+			DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::SelectCore { selector, claim_queue_offset }) =
+					CumulusDigestItem::decode_all(&mut &val[..])
+				else {
+					return None
+				};
+
+				Some((selector, claim_queue_offset))
+			},
+			_ => None,
+		})
 	}
 }
 
