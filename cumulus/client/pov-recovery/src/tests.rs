@@ -692,19 +692,20 @@ async fn single_pending_candidate_recovery_success(
 		)) => {
 			assert_eq!(receipt.hash(), candidate_hash);
 			assert_eq!(session_index, TEST_SESSION_INDEX);
+			let block_data =
+					ParachainBlockData::<Block>::new(
+						vec![Block::new(header.clone(), vec![])], CompactProof { encoded_nodes: vec![] }
+					);
+
 			response_tx.send(
 				Ok(
 					AvailableData {
 						pov: Arc::new(PoV {
-							block_data: if latest_block_data { ParachainBlockData::<Block>::new(
-								vec![Block::new(header.clone(), vec![])], CompactProof { encoded_nodes: vec![] }
-							).encode()} else {
-								cumulus_primitives_core::parachain_block_data::v0::ParachainBlockData::<Block> {
-									header: header.clone(),
-									extrinsics: Vec::new(),
-									storage_proof: CompactProof { encoded_nodes: Vec::new() }
-								}.encode()
-							}.into()
+							block_data: if latest_block_data {
+								block_data
+							} else {
+								block_data.as_v0().unwrap()
+							}.encode().into()
 						}),
 						validation_data: dummy_pvd(),
 					}
