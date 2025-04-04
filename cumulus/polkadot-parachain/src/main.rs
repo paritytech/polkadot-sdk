@@ -22,44 +22,12 @@
 mod chain_spec;
 
 use clap::{Args, FromArgMatches};
-use polkadot_omni_node_lib::{
-	chain_spec::LoadSpec, cli::ExtraCommandProvider, run, CliConfig as CliConfigT, RunConfig,
-	NODE_VERSION,
-};
-use polkadot_omni_node_lib::extra_commands::ExtraCommandsHandler;
+use polkadot_omni_node_lib::{chain_spec::LoadSpec, run, CliConfig as CliConfigT, RunConfig, NODE_VERSION};
+use polkadot_omni_node_lib::chain_spec::DiskChainSpecLoader;
+use polkadot_omni_node_lib::cli::ExtraSubcommand;
+use polkadot_omni_node_lib::extra_commands::ExportChainSpec;
+use polkadot_omni_node_lib::runtime::DefaultRuntimeResolver;
 
-/// Struct to use extra commands within polkadot-parachain
-pub struct ParachainExtraCommands {
-	handler: ExtraCommandsHandler,
-}
-
-impl ParachainExtraCommands {
-	pub fn new(chain_spec_loader: Box<dyn LoadSpec>) -> Self {
-		Self {
-			handler: ExtraCommandsHandler::new(chain_spec_loader),
-		}
-	}
-}
-
-impl ExtraCommandProvider for ParachainExtraCommands {
-	fn handle_extra_command(&self, name: &str, matches: &clap::ArgMatches) -> sc_cli::Result<()> {
-		self.handler.handle(name, matches)
-	}
-
-	fn augment_command(&self, cmd: clap::Command) -> clap::Command {
-		let mut cmd = cmd;
-		for (name, subcmd) in ExtraCommandsHandler::available_commands() {
-			if name == "export-chain-spec" { // <-- Optional condition: can choose which ones to expose
-				cmd = cmd.subcommand(subcmd);
-			}
-		}
-		cmd
-	}
-
-	fn available_commands(&self) -> Vec<&'static str> {
-		vec!["export-chain-spec"]
-	}
-}
 
 struct CliConfig;
 
@@ -84,11 +52,8 @@ impl CliConfigT for CliConfig {
 
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
+	let config = RunConfig::new(Box::new(chain_spec::RuntimeResolver),
+								Box::new(chain_spec::ChainSpecLoader));
+	Ok(run::<CliConfig, ExportChainSpec>(config)?)
 
-	let config = RunConfig::new(
-		Box::new(chain_spec::RuntimeResolver),
-		Box::new(chain_spec::ChainSpecLoader),
-		Some(Box::new(ParachainExtraCommands::new(Box::new(chain_spec::ChainSpecLoader)))),
-	);
-	Ok(run::<CliConfig>(config)?)
 }

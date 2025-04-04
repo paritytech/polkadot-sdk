@@ -68,21 +68,21 @@ pub trait CliConfig {
 	fn copyright_start_year() -> u16;
 }
 
-/// Trait for handling custom commands.
-pub trait ExtraCommandProvider {
-	/// Handle the extra command.
-	///
-	/// Return:
-	/// - `Ok(())` if handled successfully,
-	/// - an error if the command was recognized but failed.
-	fn handle_extra_command(&self, name: &str, matches: &clap::ArgMatches) -> sc_cli::Result<()>;
+/// Marker trait for optional extra subcommands.
+pub trait ExtraSubcommand: Sized {
 
 	/// Augment the CLI command with extra subcommands.
-	fn augment_command(&self, cmd: clap::Command) -> clap::Command;
 
-	/// boolean value to judge if there is an extra command
-	fn available_commands(&self) -> Vec<&'static str>;
-}
+	fn augment_command(cmd: Command) -> Command;
+
+	/// Run function for running with or without additional CLI commands
+	fn try_run(
+		name: &str,
+		matches: &clap::ArgMatches,
+		chain_spec_loader: &dyn LoadSpec,
+	) -> Option<sc_cli::Result<()>>;}
+
+
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {

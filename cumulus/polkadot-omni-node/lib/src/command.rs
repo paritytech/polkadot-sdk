@@ -50,8 +50,6 @@ pub struct RunConfig {
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
-	/// Optional custom command handler.
-	pub extra_command_provider: Option<Box<dyn cli::ExtraCommandProvider>>,
 }
 
 impl RunConfig {
@@ -61,8 +59,6 @@ impl RunConfig {
 	///
 	/// - `runtime_resolver`: A boxed runtime resolver.
 	/// - `chain_spec_loader`: A boxed chain spec loader.
-	/// - `extra_command_provider`: An optional extra command provider which, if provided, will
-	///   handle extra subcommands.
 	///
 	/// # Returns
 	///
@@ -70,9 +66,8 @@ impl RunConfig {
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
-		extra_command_provider: Option<Box<dyn cli::ExtraCommandProvider>>,
 	) -> Self {
-		RunConfig { runtime_resolver, chain_spec_loader, extra_command_provider }
+		RunConfig { runtime_resolver, chain_spec_loader}
 	}
 }
 
@@ -115,20 +110,22 @@ fn new_node_spec(
 }
 
 /// Parse command line arguments into service configuration.
-pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
+///
+/// pub fn run<CliConfig, Extra>(cmd_config: RunConfig) -> Result<()>
+// +where
+// +	CliConfig: crate::cli::CliConfig,
+// +	Extra: crate::cli::ExtraSubcommand,
+pub fn run<CliConfig, Extra>(cmd_config: RunConfig) -> Result<()> where
+	CliConfig: cli::CliConfig,
+	Extra: cli::ExtraSubcommand{
 
-	let mut cli_command = crate::cli::Cli::<CliConfig>::command();
-	if let Some(ref provider) = cmd_config.extra_command_provider {
-		cli_command = provider.augment_command(cli_command);
-	}
+	let cli_command = Extra::augment_command(crate::cli::Cli::<CliConfig>::command());
+
 	let matches = cli_command.get_matches();
 
-	if let Some(ref provider) = cmd_config.extra_command_provider {
-		if let Some((name, sub_matches)) = matches.subcommand() {
-			if provider.available_commands().contains(&name) {
-				provider.handle_extra_command(name, sub_matches)?;
-				return Ok(());
-			}
+	if let Some((name, sub_matches)) = matches.subcommand() {
+		if let Some(result) = Extra::try_run(name, sub_matches, &*cmd_config.chain_spec_loader) {
+			return result;
 		}
 	}
 
