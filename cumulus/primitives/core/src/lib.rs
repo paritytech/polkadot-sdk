@@ -21,7 +21,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
