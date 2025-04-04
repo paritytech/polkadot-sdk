@@ -1995,24 +1995,24 @@ fn fatp_prune_based_on_inactive_views_tags() {
 	let xt11 = uxt(Alice, 211);
 
 	// Push an empty common block.
-	let header0 = api.push_block(1, vec![], true);
-	let event = new_best_block_event(&pool, None, header0.hash());
+	let header01 = api.push_block_with_parent(api.genesis_hash(), vec![], true);
+	let event = new_best_block_event(&pool, Some(api.genesis_hash()), header01.hash());
 	block_on(pool.maintain(event));
-	assert_pool_status!(header0.hash(), &pool, 0, 0);
+	assert_pool_status!(header01.hash(), &pool, 0, 0);
 	assert_eq!(api.validation_requests().len(), 0);
 
 	// Submit a tx to the txpool.
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
-	assert_pool_status!(header0.hash(), &pool, 0, 2);
+	assert_pool_status!(header01.hash(), &pool, 0, 2);
 	assert_eq!(api.validation_requests().len(), 2);
 
 	// Push the first retracted fork block, with the ready tx.
-	let header01a = api.push_block_with_parent(header0.hash(), vec![xt0.clone()], true);
-	api.set_nonce(header01a.hash(), Alice.into(), 200);
-	let event = new_best_block_event(&pool, None, header01a.hash());
+	let header02a = api.push_block_with_parent(header01.hash(), vec![xt0.clone()], true);
+	api.set_nonce(header02a.hash(), Alice.into(), 200);
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02a.hash());
 	block_on(pool.maintain(event));
-	assert_pool_status!(header01a.hash(), &pool, 2, 0);
+	assert_pool_status!(header02a.hash(), &pool, 2, 0);
 	assert_eq!(api.validation_requests().len(), 5);
 
 	// Submit a second ready tx.
@@ -2020,64 +2020,64 @@ fn fatp_prune_based_on_inactive_views_tags() {
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4.clone())).unwrap();
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt5.clone())).unwrap();
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt11.clone())).unwrap();
-	assert_pool_status!(header01a.hash(), &pool, 5, 1);
+	assert_pool_status!(header02a.hash(), &pool, 5, 1);
 	assert_eq!(api.validation_requests().len(), 9);
 
 	// Push the second retracted fork block, containing xt1.
-	let header02a = api.push_block_with_parent(header01a.hash(), vec![xt1.clone()], true);
-	api.set_nonce(header02a.hash(), Alice.into(), 201);
-	let event = new_best_block_event(&pool, None, header02a.hash());
+	let header03a = api.push_block_with_parent(header02a.hash(), vec![xt1.clone()], true);
+	api.set_nonce(header03a.hash(), Alice.into(), 201);
+	let event = new_best_block_event(&pool, Some(header02a.hash()), header03a.hash());
 	block_on(pool.maintain(event));
-	assert_pool_status!(header02a.hash(), &pool, 4, 1);
+	assert_pool_status!(header03a.hash(), &pool, 4, 1);
 	assert_eq!(api.validation_requests().len(), 13);
 
 	// Submit another batch of future txs.
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt9.clone())).unwrap();
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt8.clone())).unwrap();
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt7.clone())).unwrap();
-	assert_pool_status!(header02a.hash(), &pool, 4, 4);
+	assert_pool_status!(header03a.hash(), &pool, 4, 4);
 	assert_eq!(api.validation_requests().len(), 16);
 
 	// Push the third retracted fork block, containing xt1.
-	let header03a = api.push_block_with_parent(header02a.hash(), vec![xt2.clone()], true);
-	api.set_nonce(header03a.hash(), Alice.into(), 202);
-	let event = new_best_block_event(&pool, None, header03a.hash());
+	let header04a = api.push_block_with_parent(header03a.hash(), vec![xt2.clone()], true);
+	api.set_nonce(header04a.hash(), Alice.into(), 202);
+	let event = new_best_block_event(&pool, Some(header03a.hash()), header04a.hash());
 	block_on(pool.maintain(event));
-	assert_pool_status!(header03a.hash(), &pool, 3, 4);
+	assert_pool_status!(header04a.hash(), &pool, 3, 4);
 	assert_eq!(api.validation_requests().len(), 19);
 
-	let header01b = api.push_block_with_parent(
-		header0.hash(),
+	let header02b = api.push_block_with_parent(
+		header01.hash(),
 		vec![xt0.clone(), xt1.clone(), xt2.clone()],
 		true,
 	);
-	api.set_nonce(header01b.hash(), Alice.into(), 202);
-
-	let header02b = api.push_block_with_parent(
-		header01b.hash(),
-		vec![xt3.clone(), xt4.clone(), xt5.clone()],
-		true,
-	);
-	api.set_nonce(header02b.hash(), Alice.into(), 205);
+	api.set_nonce(header02b.hash(), Alice.into(), 202);
 
 	let header03b = api.push_block_with_parent(
 		header02b.hash(),
-		vec![xt6.clone(), xt7.clone(), xt8.clone()],
+		vec![xt3.clone(), xt4.clone(), xt5.clone()],
 		true,
 	);
-	api.set_nonce(header03b.hash(), Alice.into(), 208);
+	api.set_nonce(header03b.hash(), Alice.into(), 205);
 
 	let header04b = api.push_block_with_parent(
 		header03b.hash(),
+		vec![xt6.clone(), xt7.clone(), xt8.clone()],
+		true,
+	);
+	api.set_nonce(header04b.hash(), Alice.into(), 208);
+
+	let header05b = api.push_block_with_parent(
+		header04b.hash(),
 		vec![xt9.clone(), xt10.clone(), xt11.clone()],
 		true,
 	);
-	api.set_nonce(header04b.hash(), Alice.into(), 211);
+	api.set_nonce(header05b.hash(), Alice.into(), 211);
 
 	// Notify a whole new fork.
-	let event = new_best_block_event(&pool, None, header04b.hash());
+	let event = new_best_block_event(&pool, Some(header04b.hash()), header05b.hash());
 	block_on(pool.maintain(event));
-	assert_pool_status!(header04b.hash(), &pool, 0, 0);
+	assert_pool_status!(header05b.hash(), &pool, 0, 0);
 	// There are extra 3 validations for the enacted fork:
 	// 1. xt0 - which is the tx missing from the views, so makes sense to validate it.
 	// 2. xt6 - not submitted to the retracted fork before, so makes sense to validate it.

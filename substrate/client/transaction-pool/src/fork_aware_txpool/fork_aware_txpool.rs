@@ -1395,20 +1395,18 @@ where
 		}
 	}
 
-	/// Fetches the 'provides' tags associated to transactions part of blocks
-	/// of an enacted fork.
+	/// Attempts to search the view store for the `provides` tags of enacted
+	/// transactions associated with the specified `tree_route`.
 	///
 	/// The 'provides' tags of transactions from enacted blocks are searched
-	/// in inactive views. These tags serve as cache based on the inactive views,
-	/// since prunning transactions is based on their 'provides' tags, which if
-	/// not found in the enacted fork tip active view, then they will be obtained
-	/// by revalidating the transaction, which takes time.
+	/// in inactive views. Found `provide` tags are intended to serve as cache,
+	/// helping to avoid unnecessary revalidations during pruning.
 	async fn provides_tags_from_inactive_views(
 		&self,
 		tree_route: &TreeRoute<Block>,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
-		// For every enacted block, take its txs.
-		let mut xts_hashes = future::join_all(
+		// Fetch all enacted blocks txs hashes.
+		let xts_hashes = future::join_all(
 			tree_route
 				.enacted()
 				.iter()
@@ -1428,13 +1426,10 @@ where
 			.await
 			.into_iter()
             .flatten()
-            .map(|ext| self.hash_of(ext))
-			.collect::<HashSet<_>>();
+            .map(|ext| self.hash_of(&ext))
+			.collect::<Vec<_>>();
 
-		// For each enacted block transaction, look for its provides tags in
-		// inactive views of blocks on the retracted fork. It is possible that
-		// transactions of the enacted block to show up in multiple inactive
-		// views, but we'll consider the tags from most recent inactive view.
+		// Get retracted blocks hashes corresponding to inactive views.
 		let inactive_views = tree_route
 			.retracted()
 			.iter()
@@ -1445,7 +1440,7 @@ where
 			.chain(std::iter::once(tree_route.common_block()))
 			.map(|h| h.hash)
 			.collect::<Vec<_>>();
-		self.view_store.provides_tags_from_views(blocks_xts, inactive_views)
+		self.view_store.provides_tags_from_views(xts_hashes, inactive_views)
 	}
 
 	/// Updates the view with the transactions from the given tree route.

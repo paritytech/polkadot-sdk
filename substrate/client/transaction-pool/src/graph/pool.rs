@@ -334,6 +334,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 				// views
 				Some(tags) => future_tags.extend(tags),
 				None => {
+					// Avoid validating block txs if the pool is empty
 					if !self.validated_pool.status().is_empty() {
 						// query the runtime at parent block to get validity info and tags that the
 						// extrinsic provides.

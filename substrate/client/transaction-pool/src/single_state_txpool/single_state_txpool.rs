@@ -582,7 +582,7 @@ impl<N: Clone + Copy + AtLeast32Bit> RevalidationStatus<N> {
 	}
 }
 
-/// Prune the known txs from the given view for the given block.
+/// Prune the known txs from the given pool for the given block.
 ///
 /// Returns the hashes of all transactions included in given block.
 pub async fn prune_known_txs_for_block<
