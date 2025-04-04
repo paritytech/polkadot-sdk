@@ -97,9 +97,9 @@ mod storage;
 #[cfg(feature = "experimental")]
 pub use storage::MaybeConsideration;
 pub use storage::{
-	Consideration, ConstantStoragePrice, Footprint, Incrementable, Instance, LinearStoragePrice,
-	PartialStorageInfoTrait, StorageInfo, StorageInfoTrait, StorageInstance, TrackedStorageKey,
-	WhitelistedStorageKeys,
+	Consideration, ConstantStoragePrice, Disabled, Footprint, Incrementable, Instance,
+	LinearStoragePrice, PartialStorageInfoTrait, StorageInfo, StorageInfoTrait, StorageInstance,
+	TrackedStorageKey, WhitelistedStorageKeys,
 };
 
 mod dispatch;
