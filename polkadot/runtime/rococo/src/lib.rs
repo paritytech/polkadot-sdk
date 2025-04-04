@@ -153,6 +153,7 @@ use governance::{
 	pallet_custom_origins, AuctionAdmin, Fellows, GeneralAdmin, LeaseAdmin, Treasurer,
 	TreasurySpender,
 };
+use sp_runtime::traits::ConvertBack;
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -1016,21 +1017,16 @@ impl polkadot_runtime_parachains::inclusion::RewardValidators for RewardValidato
 	fn reward_bitfields(_: impl IntoIterator<Item = ValidatorIndex>) {}
 }
 
-pub struct OriginToAggregateMessageOrigin;
+pub struct AggregateMessageOriginConverter;
 
-impl Convert<UmpQueueId, AggregateMessageOrigin> for OriginToAggregateMessageOrigin {
-	fn convert(queue_id: UmpQueueId) -> AggregateMessageOrigin {
-		AggregateMessageOrigin::Ump(queue_id)
+impl Convert<ParaId, AggregateMessageOrigin> for AggregateMessageOriginConverter {
+	fn convert(para: ParaId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Ump(UmpQueueId::Para(para))
 	}
 }
-
-pub struct GetParaFromAggregateMessageOrigin;
-
-impl Convert<AggregateMessageOrigin, polkadot_primitives::Id>
-	for GetParaFromAggregateMessageOrigin
-{
-	fn convert(x: AggregateMessageOrigin) -> ParaId {
-		match x {
+impl ConvertBack<ParaId, AggregateMessageOrigin> for AggregateMessageOriginConverter {
+	fn convert_back(origin: AggregateMessageOrigin) -> ParaId {
+		match origin {
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)) => para_id,
 		}
 	}
@@ -1041,8 +1037,7 @@ impl parachains_inclusion::Config for Runtime {
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators = RewardValidators;
 	type AggregateMessageOrigin = AggregateMessageOrigin;
-	type OriginToAggregateMessageOrigin = OriginToAggregateMessageOrigin;
-	type GetParaFromAggregateMessageOrigin = GetParaFromAggregateMessageOrigin;
+	type AggregateMessageOriginConverter = AggregateMessageOriginConverter;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }

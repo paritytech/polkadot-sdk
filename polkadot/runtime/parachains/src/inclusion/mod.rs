@@ -56,7 +56,7 @@ use polkadot_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Convert, Debug, One},
+	traits::{Convert, ConvertBack, Debug, One},
 	DispatchError, SaturatedConversion, Saturating,
 };
 
@@ -302,8 +302,7 @@ pub mod pallet {
 			+ PartialEq
 			+ TypeInfo
 			+ Debug;
-		type OriginToAggregateMessageOrigin: Convert<UmpQueueId, Self::AggregateMessageOrigin>;
-		type GetParaFromAggregateMessageOrigin: Convert<Self::AggregateMessageOrigin, ParaId>;
+		type AggregateMessageOriginConverter: ConvertBack<ParaId, Self::AggregateMessageOrigin>;
 
 		/// The system message queue.
 		///
@@ -508,7 +507,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn cleanup_outgoing_ump_dispatch_queue(para: ParaId) {
-		T::MessageQueue::sweep_queue(T::OriginToAggregateMessageOrigin::convert(UmpQueueId::Para(para)));
+		T::MessageQueue::sweep_queue(T::AggregateMessageOriginConverter::convert(para));
 	}
 
 	pub(crate) fn get_occupied_cores(
@@ -652,7 +651,7 @@ impl<T: Config> Pallet<T> {
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
 	{
 		if candidates.is_empty() {
-			return Ok(Default::default())
+			return Ok(Default::default());
 		}
 
 		let now = frame_system::Pallet::<T>::block_number();
@@ -932,9 +931,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
-		let fp = T::MessageQueue::footprint(T::OriginToAggregateMessageOrigin::convert(
-			UmpQueueId::Para(para_id),
-		));
+		let fp = T::MessageQueue::footprint(T::AggregateMessageOriginConverter::convert(para_id));
 		(fp.storage.count as u32, fp.storage.size as u32)
 	}
 
@@ -1023,7 +1020,7 @@ impl<T: Config> Pallet<T> {
 
 		T::MessageQueue::enqueue_messages(
 			messages.into_iter(),
-			T::OriginToAggregateMessageOrigin::convert(UmpQueueId::Para(para)),
+			T::AggregateMessageOriginConverter::convert(para),
 		);
 		Self::deposit_event(Event::UpwardMessagesReceived { from: para, count });
 	}
@@ -1206,7 +1203,7 @@ impl AcceptanceCheckErr {
 impl<T: Config> OnQueueChanged<T::AggregateMessageOrigin> for Pallet<T> {
 	// Write back the remaining queue capacity into `relay_dispatch_queue_remaining_capacity`.
 	fn on_queue_changed(origin: T::AggregateMessageOrigin, fp: QueueFootprint) {
-		let para = T::GetParaFromAggregateMessageOrigin::convert(origin);
+		let para = T::AggregateMessageOriginConverter::convert_back(origin);
 		let QueueFootprint { storage: Footprint { count, size }, .. } = fp;
 		let (count, size) = (count.saturated_into(), size.saturated_into());
 		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
@@ -1413,8 +1410,11 @@ impl<T: Config> QueueFootprinter for Pallet<T> {
 	type Origin = UmpQueueId;
 
 	fn message_count(origin: Self::Origin) -> u64 {
-		T::MessageQueue::footprint(T::OriginToAggregateMessageOrigin::convert(origin))
-			.storage
-			.count
+		match origin {
+			UmpQueueId::Para(para_id) =>
+				T::MessageQueue::footprint(T::AggregateMessageOriginConverter::convert(para_id))
+					.storage
+					.count,
+		}
 	}
 }
