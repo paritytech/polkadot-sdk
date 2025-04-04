@@ -34,8 +34,8 @@ use polkadot_node_network_protocol::{
 		outgoing::{Recipient, RequestError},
 		v1 as request_v1, v2 as request_v2, OutgoingRequest, Requests,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
-	Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, CollationProtocols, OurView, PeerId,
+	UnifiedReputationChange as Rep, View,
 };
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
@@ -639,12 +639,14 @@ async fn notify_collation_seconded(
 ) {
 	let statement = statement.into();
 	let wire_message = match version {
-		CollationVersion::V1 => Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(
-			protocol_v1::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
-		)),
-		CollationVersion::V2 => Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
-			protocol_v2::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
-		)),
+		CollationVersion::V1 =>
+			CollationProtocols::V1(protocol_v1::CollationProtocol::CollatorProtocol(
+				protocol_v1::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
+			)),
+		CollationVersion::V2 =>
+			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+				protocol_v2::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
+			)),
 	};
 	sender
 		.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![peer_id], wire_message))
@@ -759,16 +761,18 @@ async fn process_incoming_peer_message<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	origin: PeerId,
-	msg: Versioned<protocol_v1::CollatorProtocolMessage, protocol_v2::CollatorProtocolMessage>,
+	msg: CollationProtocols<
+		protocol_v1::CollatorProtocolMessage,
+		protocol_v2::CollatorProtocolMessage,
+	>,
 ) {
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use sp_runtime::traits::AppVerify;
 
 	match msg {
-		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
-		Versioned::V2(V2::Declare(collator_id, para_id, signature)) |
-		Versioned::V3(V2::Declare(collator_id, para_id, signature)) => {
+		CollationProtocols::V1(V1::Declare(collator_id, para_id, signature)) |
+		CollationProtocols::V2(V2::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
 				modify_reputation(
 					&mut state.reputation,
@@ -865,7 +869,7 @@ async fn process_incoming_peer_message<Context>(
 				disconnect_peer(ctx.sender(), origin).await;
 			}
 		},
-		Versioned::V1(V1::AdvertiseCollation(relay_parent)) =>
+		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) =>
 			if let Err(err) =
 				handle_advertisement(ctx.sender(), state, relay_parent, origin, None).await
 			{
@@ -881,12 +885,7 @@ async fn process_incoming_peer_message<Context>(
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
 			},
-		Versioned::V3(V2::AdvertiseCollation {
-			relay_parent,
-			candidate_hash,
-			parent_head_data_hash,
-		}) |
-		Versioned::V2(V2::AdvertiseCollation {
+		CollationProtocols::V2(V2::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
@@ -914,9 +913,8 @@ async fn process_incoming_peer_message<Context>(
 				}
 			}
 		},
-		Versioned::V1(V1::CollationSeconded(..)) |
-		Versioned::V2(V2::CollationSeconded(..)) |
-		Versioned::V3(V2::CollationSeconded(..)) => {
+		CollationProtocols::V1(V1::CollationSeconded(..)) |
+		CollationProtocols::V2(V2::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
