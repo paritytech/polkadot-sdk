@@ -12762,7 +12762,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-mock-network"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "frame-support",
  "frame-system",
