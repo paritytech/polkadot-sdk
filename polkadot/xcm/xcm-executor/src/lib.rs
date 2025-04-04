@@ -806,7 +806,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 
 	/// Preserves the original message ID as a topic if none exists and origin is cleared.
-	fn preserve_message_topic<T>(&mut self, msg: &mut Xcm<T>) {
+	fn preserve_message_topic<T>(&self, msg: &mut Xcm<T>) {
 		if let Some(SetTopic(id)) = msg.last() {
 			tracing::trace!(target: "xcm::send", ?id, "Message already ends with `SetTopic`");
 		} else {
@@ -1824,7 +1824,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		message_to_weigh.push(remote_instruction);
 		message_to_weigh.push(ClearOrigin);
 		message_to_weigh.extend(xcm.0.clone().into_iter());
-		let (_, fee) = validate_send::<Config::XcmSender>(destination.clone(),  Xcm(message_to_weigh))?;
+		let mut msg = Xcm(message_to_weigh);
+		self.preserve_message_topic(&mut msg);
+		let (_, fee) = validate_send::<Config::XcmSender>(destination.clone(), msg)?;
 		let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
 			tracing::trace!(
 				target: "xcm::fees::take_delivery_fee_from_assets",
