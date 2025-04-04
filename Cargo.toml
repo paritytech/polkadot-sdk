@@ -1362,7 +1362,7 @@ test-parachain-adder = { path = "polkadot/parachain/test-parachains/adder", vers
 test-parachain-halt = { path = "polkadot/parachain/test-parachains/halt", version = "0.1.0" }
 test-parachain-undying = { path = "polkadot/parachain/test-parachains/undying", version = "1.0.0" }
 test-runtime-constants = { path = "polkadot/runtime/test-runtime/constants", default-features = false, version = "1.0.0" }
-testnet-parachains-constants = { path = "cumulus/parachains/runtimes/constants", default-features = false, version = "12.0.0" }
+testnet-parachains-constants = { path = "cumulus/parachains/runtimes/constants", default-features = false, version = "13.0.0" }
 thiserror = { version = "1.0.64" }
 thousands = { version = "0.2.0" }
 threadpool = { version = "1.7" }
