@@ -192,8 +192,7 @@ fn create_funded_bounty<T: Config<I>, I: 'static>(
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
 	let setup = initialize_approved_bounty::<T, I>(origin)?;
 	let payment_id = get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-	<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
-
+	<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id, PaymentStatus::Success);
 	Bounties::<T, I>::check_payment_status(
 		RawOrigin::Signed(setup.caller.clone()).into(),
 		setup.bounty_id,
@@ -589,7 +588,7 @@ mod benchmarks {
 			initialize_approved_bounty::<T, I>(origin)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id, PaymentStatus::Success);
 			true
 		} else {
 			false
@@ -627,7 +626,7 @@ mod benchmarks {
 			initialize_approved_bounty::<T, I>(origin)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id, PaymentStatus::Success);
 			true
 		} else {
 			false
@@ -676,7 +675,7 @@ mod benchmarks {
 			Bounties::<T, I>::close_bounty(origin, setup.bounty_id)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id, PaymentStatus::Success);
 			true
 		} else {
 			false
@@ -740,8 +739,8 @@ mod benchmarks {
 			let beneficiary_payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, Some(setup.beneficiary.clone()))
 					.expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(curator_payment_id);
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(beneficiary_payment_id);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(curator_payment_id, PaymentStatus::Success);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(beneficiary_payment_id, PaymentStatus::Success);
 			true
 		} else {
 			false
@@ -785,8 +784,7 @@ mod benchmarks {
 			let setup = initialize_approved_bounty::<T, I>(origin)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::check_payment(payment_id);
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id, PaymentStatus::Failure);
 			Bounties::<T, I>::check_payment_status(
 				RawOrigin::Signed(setup.caller.clone()).into(),
 				setup.bounty_id,
@@ -836,8 +834,7 @@ mod benchmarks {
 			Bounties::<T, I>::close_bounty(origin, setup.bounty_id)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::check_payment(payment_id);
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id, PaymentStatus::Failure);
 			Bounties::<T, I>::check_payment_status(
 				RawOrigin::Signed(setup.caller.clone()).into(),
 				setup.bounty_id,
@@ -894,10 +891,8 @@ mod benchmarks {
 			let beneficiary_payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, Some(setup.beneficiary))
 					.expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::check_payment(curator_payment_id);
-			<T as pallet::Config<I>>::Paymaster::check_payment(beneficiary_payment_id);
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(curator_payment_id);
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(beneficiary_payment_id);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(curator_payment_id, PaymentStatus::Failure);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(beneficiary_payment_id, PaymentStatus::Failure);
 			Bounties::<T, I>::check_payment_status(
 				RawOrigin::Signed(setup.caller.clone()).into(),
 				setup.bounty_id,

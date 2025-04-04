@@ -67,7 +67,7 @@ impl Pay for TestBountiesPay {
 		}))
 	}
 	fn check_payment(id: Self::Id) -> PaymentStatus {
-		STATUS.with(|s| s.borrow_mut().entry(id).or_insert(PaymentStatus::InProgress).clone())
+		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::InProgress))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
@@ -75,17 +75,10 @@ impl Pay for TestBountiesPay {
 		_: &Self::Beneficiary,
 		_: Self::AssetKind,
 		_: Self::Balance,
-	) {
-	}
+	) {}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id) {
-		let status =
-			STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown));
-		if status == PaymentStatus::InProgress {
-			set_status(id, PaymentStatus::Failure);
-		} else {
-			set_status(id, PaymentStatus::Success);
-		}
+	fn ensure_concluded(id: Self::Id, status: PaymentStatus) {
+		set_status(id, status);
 	}
 }
 
@@ -100,38 +93,20 @@ impl Pay for TestTreasuryPay {
 
 	fn pay(
 		_: &Self::Source,
-		to: &Self::Beneficiary,
-		asset_kind: Self::AssetKind,
-		amount: Self::Balance,
-	) -> Result<Self::Id, Self::Error> {
-		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
-		Ok(LAST_ID.with(|lid| {
-			let x = *lid.borrow();
-			lid.replace(x + 1);
-			x
-		}))
-	}
-	fn check_payment(id: Self::Id) -> PaymentStatus {
-		STATUS.with(|s| s.borrow_mut().entry(id).or_insert(PaymentStatus::InProgress).clone())
-	}
+		_: &Self::Beneficiary,
+		_: Self::AssetKind,
+		_: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {Ok(0)}
+	fn check_payment(id: Self::Id) -> PaymentStatus {PaymentStatus::InProgress}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
 		_: &Self::Source,
 		_: &Self::Beneficiary,
 		_: Self::AssetKind,
 		_: Self::Balance,
-	) {
-	}
+	) {}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id) {
-		let status =
-			STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown));
-		if status == PaymentStatus::InProgress {
-			set_status(id, PaymentStatus::Failure);
-		} else {
-			set_status(id, PaymentStatus::Success);
-		}
-	}
+	fn ensure_concluded(_: Self::Id, _: PaymentStatus) {}
 }
 frame_support::construct_runtime!(
 	pub enum Test

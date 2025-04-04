@@ -164,7 +164,7 @@ mod benchmarks {
 			Attempted { id, .. } => id,
 			_ => panic!("No claim made"),
 		};
-		T::Paymaster::ensure_concluded(id);
+		T::Paymaster::ensure_concluded(id, PaymentStatus::Failure);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));

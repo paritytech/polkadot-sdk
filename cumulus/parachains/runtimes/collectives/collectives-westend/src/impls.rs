@@ -176,7 +176,7 @@ pub mod benchmarks {
 			E::ensure_successful();
 			O::ensure_successful(who, asset_kind, amount)
 		}
-		fn ensure_concluded(id: Self::Id) {
+		fn ensure_concluded(id: Self::Id, _: PaymentStatus) {
 			O::ensure_concluded(id)
 		}
 	}

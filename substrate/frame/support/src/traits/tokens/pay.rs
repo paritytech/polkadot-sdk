@@ -65,10 +65,9 @@ pub trait Pay {
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	);
-	/// Ensure that a call to `check_payment` with the given parameters will return either `Success`
-	/// or `Failure`.
+	/// Ensure that a call to `check_payment` with the given parameters will return the given status.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id);
+	fn ensure_concluded(id: Self::Id, status: PaymentStatus);
 }
 
 /// Status for making a payment via the `Pay::pay` trait function.
@@ -121,7 +120,7 @@ where
 		<F as fungible::Mutate<_>>::mint_into(&A::get(), amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(_: Self::Id) {}
+	fn ensure_concluded(_: Self::Id, _: PaymentStatus) {}
 }
 
 /// Implementation of the `Pay` trait using a single fungible token (e.g., the native currency)
@@ -159,7 +158,7 @@ where
 		<F as fungible::Mutate<_>>::mint_into(&source, amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(_: Self::Id) {}
+	fn ensure_concluded(_: Self::Id, _: PaymentStatus) {}
 }
 
 /// Implementation of the `Pay` trait using multiple fungible asset classes (e.g., `pallet_assets`)
@@ -198,5 +197,5 @@ where
 		<F as fungibles::Mutate<_>>::mint_into(asset, &source, amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(_: Self::Id) {}
+	fn ensure_concluded(_: Self::Id, _: PaymentStatus) {}
 }
