@@ -920,12 +920,12 @@ where
 		blocks_hashes: Vec<Block::Hash>,
 	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
 		let mut provides_tags_map = HashMap::new();
+
 		blocks_hashes.into_iter().for_each(|bh| {
 			if let Some((view, _)) = self.get_view_at(bh, true) {
-				let xts_clone = xts_hashes.clone();
 				// Get tx provides tags from inactive view's pool.
-				let provides_tags = view.pool.validated_pool().extrinsics_tags(&xts_clone);
-				let xts_provides_tags = xts_clone
+				let provides_tags = view.pool.validated_pool().extrinsics_tags(&xts_hashes);
+				let xts_provides_tags = xts_hashes
 					.iter()
 					.zip(provides_tags.into_iter())
 					// We filter out the (transaction, tags) pair if no tags where found in the
