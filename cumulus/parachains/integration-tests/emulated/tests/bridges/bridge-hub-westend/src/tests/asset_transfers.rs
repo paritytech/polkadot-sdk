@@ -14,7 +14,10 @@
 // limitations under the License.
 
 use crate::{create_pool_with_native_on, tests::*};
-use emulated_integration_tests_common::macros::Dmp;
+use emulated_integration_tests_common::{
+	macros::Dmp,
+	xcm_emulator::{find_all_xcm_topic_ids, helpers::TopicIdTracker},
+};
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
@@ -1438,6 +1441,9 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		)
 	});
 
+	// reset topic tracker
+	TopicIdTracker::reset();
+
 	// transfer assets
 	do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 		(wnd_at_westend_parachains.clone(), wnds_to_send),
@@ -1460,6 +1466,22 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 				) => {},
 			]
 		);
+
+		let topic_ids = find_all_xcm_topic_ids!(AssetHubRococo);
+		for id in topic_ids.iter() {
+			TopicIdTracker::insert(*id);
+		}
+		TopicIdTracker::assert_unique();
+	});
+
+	PenpalB::execute_with(|| {
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+
+		let topic_ids = find_all_xcm_topic_ids!(PenpalB);
+		for id in topic_ids.iter() {
+			TopicIdTracker::insert(*id);
+		}
+		TopicIdTracker::assert_unique();
 	});
 
 	// account balances after

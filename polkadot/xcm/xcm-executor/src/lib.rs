@@ -443,16 +443,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			"Sending msg",
 		);
 		let mut msg = msg;
-		tracing::trace!(target: "xcm::send", "XCM context={:?}", self.context);
-		if let Some(SetTopic(id)) = msg.last() {
-			tracing::trace!(target: "xcm::send", ?id, "Message already ends with `SetTopic`");
-		} else {
-			if self.context.origin.is_none() && self.context.topic.is_none() {
-				let topic_id = self.context.message_id;
-				msg.inner_mut().push(SetTopic(topic_id));
-				tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` appended to message");
-			}
-		}
+		self.preserve_message_topic(&mut msg);
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
 		self.take_fee(fee, reason)?;
 		match Config::XcmSender::deliver(ticket) {
@@ -814,6 +805,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		assets.into_assets_iter().collect::<Vec<_>>().into()
 	}
 
+	fn preserve_message_topic<T>(&mut self, msg: &mut Xcm<T>) {
+		if let Some(SetTopic(id)) = msg.last() {
+			tracing::trace!(target: "xcm::send", ?id, "Message already ends with `SetTopic`");
+		} else {
+			if self.context.origin.is_none() && self.context.topic.is_none() {
+				let topic_id = self.context.message_id;
+				msg.inner_mut().push(SetTopic(topic_id));
+				tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` appended to message");
+			}
+		}
+	}
+
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn bench_process(&mut self, xcm: Xcm<Config::RuntimeCall>) -> Result<(), ExecutorError> {
 		self.process(xcm)
@@ -833,6 +836,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			error_handler_weight = ?self.error_handler_weight,
 		);
 		let mut result = Ok(());
+		let mut xcm = xcm;
+		self.preserve_message_topic(&mut xcm);
 		for (i, mut instr) in xcm.0.into_iter().enumerate() {
 			match &mut result {
 				r @ Ok(()) => {
