@@ -16,6 +16,7 @@ construct_runtime! {
 
 		Session: pallet_session,
 		SessionHistorical: pallet_session::historical,
+		Staking: pallet_staking,
 		StakingAhClient: pallet_staking_async_ah_client,
 	}
 }
@@ -136,6 +137,19 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, StakingAhClient>;
 
 	type WeightInfo = ();
+}
+
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
+impl pallet_staking::Config for Runtime {
+	type OldCurrency = Balances;
+	type Currency = Balances;
+	type UnixTime = pallet_timestamp::Pallet<Self>;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type EraPayout = ();
+	type ElectionProvider = frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
+	type GenesisElectionProvider = Self::ElectionProvider;
+	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
+	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 }
 
 #[derive(Clone, Debug, PartialEq)]
