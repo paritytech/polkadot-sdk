@@ -71,7 +71,7 @@ The request protocol supports batch acquisition of transactions by accepting a `
 
 
 _Note_:
-In theory, the transaction body could be fetched only if there is an available space in transaction pool. Transaction shall not be silently dropped. On the other hand the gossiped transaction identifier may correspond to transaction with higher priority and we should submit such transaction immediately as it may be evicting some other lower-priority transactions.
+In theory, the transaction body could be fetched only if there is an available space in transaction pool. Transaction shall not be silently dropped. On the other hand the gossiped transaction identifier may correspond to transaction with higher priority and we should submit such transaction immediately as it may be evicting some other lower-priority transactions. To avoid downloading same transaction multiple times, the implementation shall keep track of downloaded transactions. A txpool API could be leveraged for this (see implemntation notes).
 
 #### [Optional] Transaction Data Low-Fanout (`TxLF`).
 The low-fanout strategy is an optional, easily achievable enhancement aimed at improving transaction propagation latency and network resilience.
@@ -164,6 +164,7 @@ _Note_:  I currently don't see the reason why we would need to have (2). In case
 - input of `TxRR` would be: input (scale-encoded `Vec<Hashes>` )
 - output response of `TxRR` would be: `(leb128(size tx body) ++ scale-encoded tx-body) ++ ...++ (leb128(size tx body) ++ scale-encoded tx-body)`
 - `TxRR`: Implementation could be inspired by existing (e.g. [beefy](https://github.com/paritytech/polkadot-sdk/blob/0404a8624964441011730e274c7a02972b63245c/substrate/client/consensus/beefy/src/communication/request_response/mod.rs)) request response protocol.
+- a txpool could expose the API to check if given transction hash is banned. This could be used as a guard to prevent downloading transactions that were already dropped from the pool.
 
 ### Roll-out plan
 - Phase 1:
