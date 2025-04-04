@@ -317,8 +317,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		let in_pool_hashes =
 			extrinsics.iter().map(|extrinsic| self.hash_of(extrinsic)).collect::<Vec<_>>();
 		let in_pool_tags = self.validated_pool.extrinsics_tags(&in_pool_hashes);
-		// Fill unknown tags based on the known tags computed based on inactive
-		// views.
+		// Fill unknown tags based on the known tags from inactive views.
 		let tags = in_pool_hashes.iter().zip(in_pool_tags).map(|(tx_hash, tags)| {
 			tags.or(known_provides_tags.as_ref().and_then(|inner| inner.get(&tx_hash).cloned()))
 		});
@@ -331,7 +330,8 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		let now = Instant::now();
 		for (extrinsic, in_pool_tags) in all {
 			match in_pool_tags {
-				// reuse the tags for extrinsics that were found in the pool
+				// reuse the tags for extrinsics that were found in the pool or in the inactive
+				// views
 				Some(tags) => future_tags.extend(tags),
 				None => {
 					if !self.validated_pool.status().is_empty() {
