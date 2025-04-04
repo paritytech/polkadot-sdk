@@ -68,6 +68,7 @@ pub use cumulus_primitives_core::{
 };
 pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+use frame_support::traits::Len;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
 pub use polkadot_primitives;
@@ -107,8 +108,8 @@ thread_local! {
 	pub static INITIALIZED: RefCell<HashMap<String, bool>> = RefCell::new(HashMap::new());
 	/// Most recent `HeadData` of each parachain, encoded.
 	pub static LAST_HEAD: RefCell<HashMap<String, HashMap<u32, HeadData>>> = RefCell::new(HashMap::new());
-	/// Tracked XCM topic IDs per network, each entry is a set of unique topic IDs
-	pub static TRACKED_TOPIC_IDS: RefCell<HashMap<String, HashSet<sp_core::H256>>> = RefCell::new(HashMap::new());
+	/// Tracked XCM topic IDs
+	pub static TRACKED_TOPIC_IDS: RefCell<HashSet<sp_core::H256>> = RefCell::new(HashSet::new());
 }
 pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
@@ -349,6 +350,22 @@ impl Error for BridgeMessageDispatchError {}
 impl fmt::Display for BridgeMessageDispatchError {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(f, "{:?}", self.0)
+	}
+}
+
+pub struct TopicIdTracker;
+impl TopicIdTracker {
+	pub fn contains(id: &sp_core::H256) -> bool {
+		TRACKED_TOPIC_IDS.with(|b| b.borrow().contains(id))
+	}
+	pub fn insert(id: sp_core::H256) {
+		TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
+	}
+	pub fn is_unique() -> bool {
+		TRACKED_TOPIC_IDS.with(|b| b.borrow().len() == 1)
+	}
+	pub fn reset() {
+		TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());
 	}
 }
 
@@ -956,7 +973,6 @@ macro_rules! decl_test_networks {
 					$crate::HORIZONTAL_MESSAGES.with(|b| b.borrow_mut().remove(Self::name()));
 					$crate::BRIDGED_MESSAGES.with(|b| b.borrow_mut().remove(Self::name()));
 					$crate::LAST_HEAD.with(|b| b.borrow_mut().remove(Self::name()));
-					$crate::TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().remove(Self::name()));
 
 					<$relay_chain<Self>>::reset_ext();
 					$( <$parachain<Self>>::reset_ext(); )*
@@ -973,7 +989,6 @@ macro_rules! decl_test_networks {
 						$crate::BRIDGED_MESSAGES.with(|b| b.borrow_mut().insert(Self::name().to_string(), $crate::VecDeque::new()));
 						$crate::PARA_IDS.with(|b| b.borrow_mut().insert(Self::name().to_string(), Self::para_ids()));
 						$crate::LAST_HEAD.with(|b| b.borrow_mut().insert(Self::name().to_string(), $crate::HashMap::new()));
-						$crate::TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(Self::name().to_string(), $crate::HashSet::new()));
 
 						<$relay_chain<Self> as $crate::RelayChain>::init();
 						$( <$parachain<Self> as $crate::Parachain>::init(); )*
