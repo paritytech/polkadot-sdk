@@ -1043,10 +1043,10 @@ mod benchmarks {
 			ConfigOp::Set(Perbill::max_value()),
 			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(UnbondingQueueConfig {
-				min_slashable_share: Perbill::max_value(),
+				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: u32::MAX,
-				back_of_unbonding_queue_era: u32::MAX,
+				unbond_period_lower_bound: 1,
+				back_of_unbonding_queue_era: 0,
 			}),
 		);
 
@@ -1060,10 +1060,10 @@ mod benchmarks {
 		assert_eq!(
 			UnbondingQueueParams::<T>::get(),
 			Some(UnbondingQueueConfig {
-				min_slashable_share: Perbill::from_percent(100),
+				min_slashable_share: Perbill::from_percent(50),
 				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: u32::MAX,
-				back_of_unbonding_queue_era: u32::MAX,
+				unbond_period_lower_bound: 1,
+				back_of_unbonding_queue_era: 0,
 			})
 		);
 	}
