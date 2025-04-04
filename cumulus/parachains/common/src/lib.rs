@@ -120,12 +120,6 @@ mod constants {
 
 	/// Treasury pallet id of the local chain, used to convert into AccountId
 	pub const TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
-
-	/// Maximal asset hub header size.
-	pub const MAX_ASSET_HUB_HEADER_SIZE: u32 = 4_096;
-	
-	/// Maximal bridge hub header size.
-	pub const MAX_BRIDGE_HUB_HEADER_SIZE: u32 = 4_096;
 	
 }
 
