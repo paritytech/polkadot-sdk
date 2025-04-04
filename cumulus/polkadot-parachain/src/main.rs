@@ -23,7 +23,7 @@ mod chain_spec;
 
 use clap::{Args, FromArgMatches};
 use polkadot_omni_node_lib::{
-	extra_commands::ExportChainSpec, run, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
+	extra_commands::ExtraSubcommands, run, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
 };
 
 struct CliConfig;
@@ -53,5 +53,5 @@ fn main() -> color_eyre::eyre::Result<()> {
 		Box::new(chain_spec::RuntimeResolver),
 		Box::new(chain_spec::ChainSpecLoader),
 	);
-	Ok(run::<CliConfig, ExportChainSpec>(config)?)
+	Ok(run::<CliConfig, ExtraSubcommands>(config)?)
 }

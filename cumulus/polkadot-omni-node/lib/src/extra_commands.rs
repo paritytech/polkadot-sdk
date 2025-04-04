@@ -16,7 +16,7 @@
 
 //! Optional/Additional CLI options of the omni-node-lib to be used by other binaries. See [`ExtraSubcommands`].
 use crate::chain_spec::LoadSpec;
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::{ArgMatches, Args, Command, FromArgMatches, Subcommand};
 use sc_cli::{ExportChainSpecCmd, Result as CliResult};
 
 /// A trait for adding and executing extra CLI commands.
@@ -45,8 +45,21 @@ pub trait ExtraSubcommand: Sized {
     ) -> Option<CliResult<()>>;
 }
 
+/// Enum representing all supported extra subcommands.
+///
+/// This is used internally to help dispatch logic and augment the CLI automatically
+/// using the `clap` derive system
+#[derive(Debug, Subcommand)]
+pub enum ExtraCommands {
+    /// Export the chain spec to JSON.
+    #[command(name = "export-chain-spec")]
+    ExportChainSpec(ExportChainSpecCmd),
+}
 
-/// A no-op subcommand handler, for runtimes without extra subcommands.
+
+/// No-op subcommand handler. Use this when a binary does not expose any extra subcommands.
+///
+/// Acts as the default `ExtraSubcommand` implementation when no extras are provided.
 pub struct NoExtraSubcommand;
 
 impl ExtraSubcommand for NoExtraSubcommand {
@@ -59,36 +72,32 @@ impl ExtraSubcommand for NoExtraSubcommand {
 }
 
 /// Provides the `export-chain-spec` subcommand.
-pub struct ExportChainSpec;
+pub struct ExtraSubcommands;
 
-impl ExtraSubcommand for ExportChainSpec {
+impl ExtraSubcommand for ExtraSubcommands {
     fn augment_command(cmd: Command) -> Command {
-        cmd.subcommand(
-            ExportChainSpecCmd::augment_args_for_update(Command::new("export-chain-spec"))
-        )
+        let base = cmd.version(env!("CARGO_PKG_VERSION"));
+        ExtraCommands::augment_subcommands(base)
     }
 
     fn maybe_run(
-        name: &str,
+        _name: &str,
         matches: &ArgMatches,
         chain_spec_loader: &dyn LoadSpec,
     ) -> Option<sc_cli::Result<()>> {
-        let binding = ExportChainSpecCmd::augment_args_for_update(Command::new(""));
-        let expected_name = binding.get_name();
-
-        if name != expected_name {
-            return None;
+        match ExtraCommands::from_arg_matches(matches) {
+            Ok(ExtraCommands::ExportChainSpec(cmd)) => {
+                let spec = chain_spec_loader
+                    .load_spec(&cmd.chain)
+                    .map_err(|e| sc_cli::Error::Application(Box::new(std::io::Error::other(e))))
+                    .ok()?;
+                Some(cmd.run(spec))
+            }
+            Err(e) => {
+                eprintln!("Error parsing subcommand: {e}");
+                None
+            }
         }
-
-        let cmd = ExportChainSpecCmd::from_arg_matches(matches)
-            .map_err(|e| sc_cli::Error::Cli(e.into()))
-            .ok()?;
-
-        let spec = chain_spec_loader
-            .load_spec(&cmd.chain)
-            .map_err(|e| sc_cli::Error::Application(Box::new(std::io::Error::other(e))))
-            .ok()?;
-
-        Some(cmd.run(spec))
     }
+
 }
