@@ -68,7 +68,6 @@ pub use cumulus_primitives_core::{
 };
 pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-use frame_support::traits::Len;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
 pub use polkadot_primitives;
@@ -1354,16 +1353,16 @@ macro_rules! find_all_xcm_topic_ids {
 				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
 					id, ..
 				}) => {
-					xcm_events.push(*id);
+					topic_ids.push(*id);
 				},
 				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) => {
-					xcm_events.push(sp_core::H256::from(*message_id));
+					topic_ids.push(sp_core::H256::from(*message_id));
 				},
 				_ => continue,
 			}
 		}
 
-		xcm_events
+		topic_ids
 	}};
 }
 
@@ -1698,9 +1697,6 @@ pub mod helpers {
 
 	pub struct TopicIdTracker;
 	impl TopicIdTracker {
-		pub fn contains(id: &sp_core::H256) -> bool {
-			TRACKED_TOPIC_IDS.with(|b| b.borrow().contains(id))
-		}
 		pub fn insert(id: sp_core::H256) {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
 		}

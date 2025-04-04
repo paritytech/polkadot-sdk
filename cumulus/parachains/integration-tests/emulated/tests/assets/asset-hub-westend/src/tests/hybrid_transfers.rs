@@ -25,8 +25,6 @@ use crate::{
 };
 
 fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
-	use std::collections::HashSet;
-
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	let sov_penpal_a_on_ah = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
@@ -57,8 +55,9 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 		]
 	);
 
-	for id in find_all_xcm_topic_ids!(AssetHubWestend).iter() {
-		TopicIdTracker::insert(id);
+	let topic_ids = find_all_xcm_topic_ids!(AssetHubWestend);
+	for id in topic_ids.iter() {
+		TopicIdTracker::insert(*id);
 	}
 	assert!(TopicIdTracker::is_unique());
 }
