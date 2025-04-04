@@ -23,9 +23,7 @@ mod chain_spec;
 
 use clap::{Args, FromArgMatches};
 use polkadot_omni_node_lib::{
-	extra_commands::ExportChainSpec,
-	run,
-	CliConfig as CliConfigT, RunConfig, NODE_VERSION,
+	extra_commands::ExportChainSpec, run, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
 };
 
 struct CliConfig;

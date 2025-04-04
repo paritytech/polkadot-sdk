@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{cli, cli::{RelayChainCli, Subcommand}, common::{
+use crate::{cli::{Cli, RelayChainCli, Subcommand}, common::{
 	chain_spec::{Extensions, LoadSpec},
 	runtime::{
 		AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
@@ -113,10 +113,10 @@ fn new_node_spec(
 /// - `CliConfig`: Runtime-specific configuration (e.g., network, spec versions)
 /// - `Extra`: One or more subcommands implementing `ExtraSubcommand`
 pub fn run<CliConfig, Extra>(cmd_config: RunConfig) -> Result<()> where
-	CliConfig: cli::CliConfig,
+	CliConfig: crate::cli::CliConfig,
 	Extra: extra_commands::ExtraSubcommand{
 
-	let cli_command = Extra::augment_command(crate::cli::Cli::<CliConfig>::command());
+	let cli_command = Extra::augment_command(Cli::<CliConfig>::command());
 
 	let matches = cli_command.get_matches();
 
@@ -127,7 +127,7 @@ pub fn run<CliConfig, Extra>(cmd_config: RunConfig) -> Result<()> where
 	}
 
 	// No extra subcommand, parse base CLI and proceed normally
-	let mut cli = crate::cli::Cli::<CliConfig>::from_arg_matches(&matches)
+	let mut cli = Cli::<CliConfig>::from_arg_matches(&matches)
 		.map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 

@@ -68,7 +68,6 @@ pub trait CliConfig {
 	fn copyright_start_year() -> u16;
 }
 
-
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
@@ -135,14 +134,12 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
-
 /// CLI Options shipped with `polkadot-omni-node`.
 #[derive(clap::Parser)]
 #[command(
-	version = env!("CARGO_PKG_VERSION"),
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
-	subcommand_negates_reqs = true,
+	subcommand_negates_reqs = true
 )]
 pub struct Cli<Config: CliConfig> {
 	#[arg(skip)]
