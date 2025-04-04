@@ -310,7 +310,7 @@ pub enum ProxyType {
 	Alliance,
 	/// Fellowship proxy. Allows calls related to the Fellowship.
 	Fellowship,
-	/// Ambassador proxy. Allows calls related to the Ambassador Program.
+	/// Ambassador proxy. Allows calls related to the Ambassador Fellowship Program.
 	Ambassador,
 }
 impl Default for ProxyType {
