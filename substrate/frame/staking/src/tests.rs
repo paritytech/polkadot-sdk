@@ -8907,6 +8907,35 @@ mod unbonding_queue {
 	}
 
 	#[test]
+	fn get_unbond_eras_delta_with_zero_max_unstake_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			let config = UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+				back_of_unbonding_queue_era: 0,
+			};
+
+			// Must be the maximum because the minimum lowest stake is zero, which defaults to
+			// the maximum unbonding period.
+			assert_eq!(EraLowestRatioTotalStake::<Test>::get().into_inner(), vec![]);
+			assert_eq!(Staking::get_unbond_eras_delta(1, config), 3);
+
+			let config = UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(0),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+				back_of_unbonding_queue_era: 0,
+			};
+
+			// Now the minimum lowest stake is also zero because the slashable share is zero, so
+			// again it must be the maximum unbonding period.
+			assert_ok!(EraLowestRatioTotalStake::<Test>::try_append(1000));
+			assert_eq!(Staking::get_unbond_eras_delta(1, config), 3);
+		});
+	}
+
+	#[test]
 	fn get_unbond_eras_delta_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let config = UnbondingQueueConfig {
