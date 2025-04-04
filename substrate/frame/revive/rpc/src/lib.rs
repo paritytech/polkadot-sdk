@@ -219,7 +219,6 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_balance(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<U256> {
 		let balance = self.client.balance(address, &block).await?;
-		log::debug!(target: LOG_TARGET, "balance({address:?}): {balance:?} - latest: {} - finalized: {}", self.client.latest_block().await.number(), self.client.latest_finalized_block().await.number());
 		Ok(balance)
 	}
 
