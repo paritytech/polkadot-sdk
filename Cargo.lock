@@ -15856,7 +15856,7 @@ dependencies = [
  "sc-service",
  "scale-info",
  "serde_json",
- "simple-mermaid 0.1.1",
+ "simple-mermaid",
  "solochain-template-runtime",
  "sp-api 26.0.0",
  "sp-arithmetic 23.0.0",
@@ -20851,11 +20851,6 @@ dependencies = [
 
 [[package]]
 name = "simple-mermaid"
-version = "0.1.0"
-source = "git+https://github.com/kianenigma/simple-mermaid.git?branch=main#e48b187bcfd5cc75111acd9d241f1bd36604344b"
-
-[[package]]
-name = "simple-mermaid"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "620a1d43d70e142b1d46a929af51d44f383db9c7a2ec122de2cd992ccfcf3c18"
@@ -22803,7 +22798,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "simple-mermaid 0.1.1",
+ "simple-mermaid",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
  "sp-arithmetic 23.0.0",
@@ -22836,7 +22831,7 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "serde",
- "simple-mermaid 0.1.1",
+ "simple-mermaid",
  "sp-application-crypto 35.0.0",
  "sp-arithmetic 26.0.0",
  "sp-core 32.0.0",
@@ -22862,7 +22857,7 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "serde",
- "simple-mermaid 0.1.1",
+ "simple-mermaid",
  "sp-application-crypto 36.0.0",
  "sp-arithmetic 26.0.0",
  "sp-core 33.0.1",
@@ -27520,7 +27515,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "polkadot-sdk-frame",
  "scale-info",
- "simple-mermaid 0.1.0",
+ "simple-mermaid",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "staging-xcm",
