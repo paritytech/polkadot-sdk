@@ -1305,7 +1305,7 @@ dependencies = [
 
 [[package]]
 name = "assets-common"
-version = "0.20.0"
+version = "0.21.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",

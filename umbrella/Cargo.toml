@@ -971,7 +971,7 @@ workspace = true
 default-features = false
 optional = true
 path = "../cumulus/parachains/runtimes/assets/common"
-version = "0.20.0"
+version = "0.21.0"
 
 [dependencies.binary-merkle-tree]
 default-features = false
