@@ -1079,7 +1079,7 @@ version = "21.0.0"
 default-features = false
 optional = true
 path = "../cumulus/pallets/solo-to-para"
-version = "0.19.0"
+version = "0.20.0"
 
 [dependencies.cumulus-pallet-weight-reclaim]
 default-features = false

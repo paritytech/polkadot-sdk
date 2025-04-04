@@ -4551,7 +4551,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-solo-to-para"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "frame-support",
