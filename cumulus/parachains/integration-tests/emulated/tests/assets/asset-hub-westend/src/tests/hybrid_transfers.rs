@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use emulated_integration_tests_common::xcm_emulator::{
-	find_all_xcm_topic_events, find_mq_processed_id, find_xcm_sent_message_id,
+	find_all_xcm_topic_ids, find_mq_processed_id, find_xcm_sent_message_id,
 };
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
@@ -57,10 +57,8 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 		]
 	);
 
-	let topic_ids: HashSet<_> = find_all_xcm_topic_events!(AssetHubWestend)
-		.iter()
-		.map(|event| event.0)
-		.collect();
+	let topic_ids: HashSet<_> =
+		find_all_xcm_topic_ids!(AssetHubWestend).iter().map(|event| event.0).collect();
 	assert_eq!(topic_ids.len(), 1);
 
 	let prc_id = find_mq_processed_id!(AssetHubWestend);
