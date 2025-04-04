@@ -131,7 +131,7 @@ where
 
 						if state.parent_storage_keys.len() == 0 && state.state_root.len() == 0 {
 							// AHM
-							const TEN_DOTS: u128 = 10_000_000_000_000_u128;
+							const TEN_DOTS: u128 = 100000000000_u128;
 							let account_to_subtract_k: Vec<u8> = hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da91cdb29d91f7665b36dc5ec5903de32467628a5be63c4d3c8dbb96c2904b1a9682e02831a1af836c7efc808020b92fa63").into();
 							let account_alice_k: Vec<u8> = hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9de1e86a9a8c739864cf3cc5ec2bea59fd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d").into();
 							{
@@ -509,6 +509,7 @@ fn subtract_free_balance_from_state(data: &Vec<u8>, amount:u128) -> Vec<u8> {
 fn default_with_amount_free(amount:u128) -> Vec<u8> {
 	let mut account = AccountInfo::<u32, AccountData<u128>>::default();
 	account.data.free = amount;
+	account.providers = 1;
 	account.encode()
 }
 
