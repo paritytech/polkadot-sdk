@@ -140,6 +140,33 @@ pub fn create_validator_with_nominators<T: Config>(
 	Ok((v_stash, nominators))
 }
 
+pub fn prepare_unbonding_scenario<T: Config>() {
+	Staking::<T>::set_staking_configs(
+		RawOrigin::Root.into(),
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Set(UnbondingQueueConfig {
+			min_slashable_share: Perbill::from_percent(50),
+			lowest_ratio: Perbill::from_percent(34),
+			unbond_period_lower_bound: 1,
+			back_of_unbonding_queue_era: Zero::zero(),
+		}),
+	)
+	.expect("failed to set staking configs");
+
+	let mut min_stakes = BoundedVec::new();
+	for _ in 0..T::BondingDuration::get() {
+		let _ = min_stakes.try_push(1000u32.into()).unwrap();
+	}
+	assert!(min_stakes.is_full());
+	EraLowestRatioTotalStake::<T>::set(min_stakes);
+}
+
 struct ListScenario<T: Config> {
 	/// Stash that is expected to be moved.
 	origin_stash1: T::AccountId,
@@ -292,31 +319,9 @@ mod benchmarks {
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_bonded: BalanceOf<T> = ledger.active;
 
+		prepare_unbonding_scenario::<T>();
+
 		whitelist_account!(controller);
-
-		Staking::<T>::set_staking_configs(
-			RawOrigin::Root.into(),
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Set(UnbondingQueueConfig {
-				min_slashable_share: Perbill::from_percent(50),
-				lowest_ratio: Perbill::from_percent(34),
-				unbond_period_lower_bound: 1,
-				back_of_unbonding_queue_era: Zero::zero(),
-			}),
-		)?;
-
-		let mut min_stakes = BoundedVec::new();
-		for _ in 0..T::BondingDuration::get() {
-			let _ = min_stakes.try_push(1000u32.into()).unwrap();
-		}
-		assert!(min_stakes.is_full());
-		EraLowestRatioTotalStake::<T>::set(min_stakes);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(controller.clone()), amount);
@@ -856,6 +861,7 @@ mod benchmarks {
 			None,
 		)?;
 		let session_index = SessionIndex::one();
+		prepare_unbonding_scenario::<T>();
 
 		let validators;
 		#[block]
@@ -864,7 +870,7 @@ mod benchmarks {
 				Staking::<T>::try_trigger_new_era(session_index, true).ok_or("`new_era` failed")?;
 		}
 
-		assert!(validators.len() == v as usize);
+		assert_eq!(validators.len(), v as usize);
 
 		Ok(())
 	}
