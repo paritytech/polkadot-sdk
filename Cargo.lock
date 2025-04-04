@@ -2113,7 +2113,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-cumulus"
-version = "0.20.0"
+version = "0.21.0"
 dependencies = [
  "bp-messages",
  "bp-polkadot-core",
