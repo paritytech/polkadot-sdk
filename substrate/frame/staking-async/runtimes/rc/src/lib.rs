@@ -525,7 +525,6 @@ impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValid
 /// A testing type that implements SessionManager, it receives a new validator set from
 /// `StakingNextAhClient`, but it prevents them from being passed over to the session pallet and
 /// just uses the previous session keys.
-#[deprecated(note = "this is a warning to remind you this can only be used in testing!")]
 pub struct AckButPreviousSessionValidatorsPersist<I>(core::marker::PhantomData<I>);
 
 impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManager<AccountId>

@@ -121,6 +121,7 @@ impl pallet_balances::Config for Runtime {
 
 #[derive(Clone, Debug)]
 pub enum FallbackModes {
+	Continue,
 	Emergency,
 	Onchain,
 }

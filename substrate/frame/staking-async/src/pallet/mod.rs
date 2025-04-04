@@ -1265,6 +1265,7 @@ pub mod pallet {
 						prune_up_to
 					);
 
+					// TODO: should we not drain this? it is not needed by us anymore at this point.
 					T::RcClientInterface::validator_set(
 						ElectableStashes::<T>::get().into_iter().collect(),
 						id,

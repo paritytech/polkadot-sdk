@@ -78,8 +78,13 @@
 //! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
 use crate::{
-	asset, log, slashing, ActiveEra, ActiveEraInfo, BalanceOf, BondedEras, Config, CurrentEra, EraIndex, EraPayout, EraRewardPoints, ErasClaimedRewards, ErasRewardPoints, ErasStakersOverview, ErasStakersPaged, ErasStartSessionIndex, ErasTotalStake, ErasValidatorPrefs, ErasValidatorReward, Event, ForceEra, Forcing, MaxStakedRewards, PagedExposure, Pallet, ValidatorPrefs
+	asset, log, slashing, ActiveEra, ActiveEraInfo, BalanceOf, BondedEras, Config, CurrentEra,
+	EraIndex, EraPayout, EraRewardPoints, ErasClaimedRewards, ErasRewardPoints,
+	ErasStakersOverview, ErasStakersPaged, ErasStartSessionIndex, ErasTotalStake,
+	ErasValidatorPrefs, ErasValidatorReward, Event, ForceEra, Forcing, MaxStakedRewards,
+	PagedExposure, Pallet, ValidatorPrefs,
 };
+use alloc::vec::Vec;
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	pallet_prelude::*,
@@ -87,7 +92,6 @@ use frame_support::{
 };
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{Exposure, Page, PagedExposureMetadata, SessionIndex};
-use alloc::vec::Vec;
 
 /// A handler for all era-based storage items.
 ///
@@ -348,7 +352,9 @@ impl<T: Config> Eras<T> {
 	}
 
 	/// Add reward points to validators using their stash account ID.
-	pub(crate) fn reward_active_era(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+	pub(crate) fn reward_active_era(
+		validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
+	) {
 		if let Some(active_era) = ActiveEra::<T>::get() {
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
@@ -376,6 +382,21 @@ impl<T: Config> Eras<T> {
 pub struct Rotator<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Rotator<T> {
+	#[cfg(feature = "runtime-benchmarks")]
+	pub(crate) fn legacy_try_plan_era() -> Vec<T::AccountId> {
+		// Plan the era,
+		Self::plan_new_era();
+		// immediately call into the election provider to fetch and process the results. We assume
+		// we are using an instant, onchain election here.
+		let msp = <T::ElectionProvider as ElectionProvider>::msp();
+		let lsp = 0;
+		for p in (lsp..=msp).rev() {
+			Pallet::<T>::do_elect_paged(p);
+		}
+
+		crate::ElectableStashes::<T>::get().into_iter().collect()
+	}
+
 	pub fn sanity_check() {
 		let planned = Self::planning_era();
 		let active = Self::active_era();
