@@ -1049,7 +1049,7 @@ version = "0.21.0"
 default-features = false
 optional = true
 path = "../cumulus/pallets/aura-ext"
-version = "0.19.0"
+version = "0.20.0"
 
 [dependencies.cumulus-pallet-dmp-queue]
 default-features = false

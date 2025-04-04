@@ -720,7 +720,7 @@ cumulus-client-network = { path = "cumulus/client/network", default-features = f
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false, version = "0.16.0" }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false, version = "0.22.0" }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false, version = "0.23.0" }
-cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false, version = "0.19.0" }
+cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false, version = "0.20.0" }
 cumulus-pallet-dmp-queue = { default-features = false, path = "cumulus/pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false, version = "0.20.0" }
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false, version = "0.6.0" }
