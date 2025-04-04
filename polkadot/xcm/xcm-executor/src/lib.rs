@@ -443,7 +443,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			"Sending msg",
 		);
 		let mut msg = msg;
-		tracing::trace!(target: "xcm::send", ?xcm_context=self.context);
+		tracing::trace!(target: "xcm::send", "XCM context={:?}", self.context);
 		if let Some(SetTopic(id)) = msg.last() {
 			tracing::trace!(target: "xcm::send", ?id, "Message already ends with `SetTopic`");
 		} else {
