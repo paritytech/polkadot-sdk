@@ -1145,7 +1145,7 @@ version = "0.19.0"
 default-features = false
 optional = true
 path = "../cumulus/primitives/utility"
-version = "0.19.0"
+version = "0.20.0"
 
 [dependencies.frame-benchmarking]
 default-features = false
