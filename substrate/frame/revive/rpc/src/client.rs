@@ -20,7 +20,7 @@ use crate::{
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, BlockTag, DBReceiptProvider, SubxtBlockInfoProvider, TransactionInfo,
+	BlockInfoProvider, BlockTag, ReceiptProvider, SubxtBlockInfoProvider, TransactionInfo,
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
@@ -175,7 +175,7 @@ pub struct Client {
 	api: OnlineClient<SrcChainConfig>,
 	rpc_client: ReconnectingRpcClient,
 	rpc: LegacyRpcMethods<SrcChainConfig>,
-	receipt_provider: DBReceiptProvider,
+	receipt_provider: ReceiptProvider,
 	block_provider: SubxtBlockInfoProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
@@ -238,7 +238,7 @@ impl Client {
 		rpc_client: ReconnectingRpcClient,
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
-		receipt_provider: DBReceiptProvider,
+		receipt_provider: ReceiptProvider,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;

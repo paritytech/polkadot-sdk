@@ -17,7 +17,7 @@
 //! The Ethereum JSON-RPC server.
 use crate::{
 	client::{connect, native_to_eth_ratio, Client, SubscriptionType, SubstrateBlockNumber},
-	DBReceiptProvider, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl,
+	ReceiptProvider, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl,
 	ReceiptExtractor, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	LOG_TARGET,
 };
@@ -122,7 +122,7 @@ fn build_client(
 			native_to_eth_ratio(&api).await?,
 			earliest_receipt_block);
 
-		let receipt_provider = DBReceiptProvider::new(
+		let receipt_provider = ReceiptProvider::new(
 				database_url,
 				block_provider.clone(),
 				receipt_extractor.clone(),

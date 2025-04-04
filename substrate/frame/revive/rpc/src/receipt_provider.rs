@@ -12,9 +12,9 @@ use std::{
 };
 use tokio::sync::Mutex;
 
-/// A `[ReceiptProvider]` that stores receipts in a SQLite database.
+/// ReceiptProvider stores transaction receipts and logs in a SQLite database.
 #[derive(Clone)]
-pub struct DBReceiptProvider<B: BlockInfoProvider = SubxtBlockInfoProvider> {
+pub struct ReceiptProvider<B: BlockInfoProvider = SubxtBlockInfoProvider> {
 	/// The database pool.
 	pool: SqlitePool,
 	/// The block provider used to fetch blocks, and reconstruct receipts.
@@ -46,8 +46,8 @@ impl BlockInfo for SubstrateBlock {
 	}
 }
 
-impl<B: BlockInfoProvider> DBReceiptProvider<B> {
-	/// Create a new `DBReceiptProvider` with the given database URL and block provider.
+impl<B: BlockInfoProvider> ReceiptProvider<B> {
+	/// Create a new `ReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
 		database_url: &str,
 		block_provider: B,
@@ -487,8 +487,8 @@ mod tests {
 		count as _
 	}
 
-	async fn setup_sqlite_provider(pool: SqlitePool) -> DBReceiptProvider<MockBlockInfoProvider> {
-		DBReceiptProvider {
+	async fn setup_sqlite_provider(pool: SqlitePool) -> ReceiptProvider<MockBlockInfoProvider> {
+		ReceiptProvider {
 			pool,
 			block_provider: MockBlockInfoProvider {},
 			receipt_extractor: ReceiptExtractor::new(1_000_000, None),

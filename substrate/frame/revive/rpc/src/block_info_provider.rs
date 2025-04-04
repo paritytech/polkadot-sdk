@@ -133,7 +133,7 @@ pub mod test {
 	use super::*;
 	use crate::BlockInfo;
 
-	/// A Noop BlockInfoProvider used to test [`db::DBReceiptProvider`].
+	/// A Noop BlockInfoProvider used to test [`db::ReceiptProvider`].
 	pub struct MockBlockInfoProvider;
 
 	pub struct MockBlockInfo {
