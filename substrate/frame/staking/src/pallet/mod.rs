@@ -1329,7 +1329,7 @@ pub mod pallet {
 				let current_era = CurrentEra::<T>::get().unwrap_or(0);
 
 				// Calculate unbonding era based on unbonding queue mechanism.
-				let era: EraIndex = Self::process_unbond_queue_request(current_era, value);
+				let era = Self::process_unbond_queue_request(current_era, value);
 
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since

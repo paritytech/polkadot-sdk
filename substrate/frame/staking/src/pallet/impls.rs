@@ -706,7 +706,7 @@ impl<T: Config> Pallet<T> {
 		let mut total_stake: BalanceOf<T> = Zero::zero();
 		let mut elected_stashes = Vec::with_capacity(exposures.len());
 		// Populate exposures by total stake, to be truncated to the lowest portion.
-		let mut exposures_total_stake: Vec<BalanceOf<T>> = Vec::with_capacity(exposures.len());
+		let mut exposures_total_stake = Vec::with_capacity(exposures.len());
 
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			// build elected stash
