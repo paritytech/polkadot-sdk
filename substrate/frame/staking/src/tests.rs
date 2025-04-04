@@ -94,7 +94,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
-			ConfigOp::Noop
+			ConfigOp::Noop,
 		)));
 
 		// removing works
@@ -107,7 +107,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
-			ConfigOp::Remove
+			ConfigOp::Remove,
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 0);
 		assert_eq!(MinValidatorBond::<Test>::get(), 0);
@@ -5233,7 +5233,7 @@ fn min_bond_checks_work() {
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(3), 1000));
 		})
 }
-/*
+
 #[test]
 fn chill_other_works() {
 	ExtBuilder::default()
@@ -5341,7 +5341,7 @@ fn chill_other_works() {
 				Error::<Test>::CannotChillOther
 			);
 
-			// 4. Add chil threshold, but no other limits
+			// 4. Add chill threshold, but no other limits
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
@@ -5364,18 +5364,17 @@ fn chill_other_works() {
 				Error::<Test>::CannotChillOther
 			);
 
-			// 5. Add bond and count limits, but no threshold
+			// 5. Add bond and count limits, but no threshold.
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Set(1_500),
 				ConfigOp::Set(2_000),
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
-				ConfigOp::Set(Percent::from_percent(75)),
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-
+				ConfigOp::Remove,
 			));
 
 			// Still can't chill these users
@@ -5574,7 +5573,7 @@ fn capped_stakers_works() {
 		));
 	})
 }
-*/
+
 #[test]
 fn min_commission_works() {
 	ExtBuilder::default().build_and_execute(|| {
