@@ -286,7 +286,7 @@ impl CumulusDigestItem {
 		digest.convert_first(|d| match d {
 			DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
 				let Ok(CumulusDigestItem::SelectCore { selector, claim_queue_offset }) =
-					CumulusDigestItem::decode(&mut &val[..])
+					CumulusDigestItem::decode_all(&mut &val[..])
 				else {
 					return None
 				};
