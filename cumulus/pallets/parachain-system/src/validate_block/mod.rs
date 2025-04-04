@@ -81,7 +81,7 @@ pub struct StorageAccessParams<B: sp_runtime::traits::Block> {
 #[derive(Debug, Clone, codec::Decode, codec::Encode)]
 pub enum StorageAccessPayload {
 	Read(crate::Vec<sp_core::storage::StorageKey>),
-	Write(crate::Vec<sp_core::storage::StorageKey>),
+	Write(crate::Vec<(crate::Vec<u8>, crate::Vec<u8>)>),
 }
 
 impl<B: sp_runtime::traits::Block> StorageAccessParams<B> {
@@ -101,7 +101,7 @@ impl<B: sp_runtime::traits::Block> StorageAccessParams<B> {
 	pub fn new_write(
 		state_root: B::Hash,
 		storage_proof: sp_trie::CompactProof,
-		payload: crate::Vec<sp_core::storage::StorageKey>,
+		payload: crate::Vec<(crate::Vec<u8>, crate::Vec<u8>)>,
 	) -> Self {
 		Self {
 			state_root,

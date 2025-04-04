@@ -494,14 +494,16 @@ pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 	match payload {
 		StorageAccessPayload::Read(keys) =>
 			for key in keys {
+				// TODO: add child keys reading
 				backend
 					.storage(key.0.as_ref())
 					.expect("Key not found")
 					.ok_or("Value unexpectedly empty");
 			},
-		StorageAccessPayload::Write(keys) => {
+		StorageAccessPayload::Write(changes) => {
 			// TODO: We need a real payload here
-			let delta = keys.iter().map(|key| (key.0.as_ref(), Some(key.0.as_ref())));
+			let delta = changes.iter().map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
+			// TODO: add child keys writing
 			let root = backend.storage_root(delta, StateVersion::V1);
 		},
 	}

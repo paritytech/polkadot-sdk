@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use codec::Encode;
+use cumulus_pallet_parachain_system::validate_block::StorageAccessParams;
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::{DbHash, DbState, DbStateBuilder};
@@ -22,7 +24,7 @@ use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::Backend as StateBackend;
-use sp_trie::PrefixedMemoryDB;
+use sp_trie::{PrefixedMemoryDB, StorageProof};
 
 use log::{info, trace};
 use rand::prelude::*;
@@ -33,7 +35,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use super::cmd::StorageCmd;
+use super::{cmd::StorageCmd, get_wasm_module};
 use crate::shared::{new_rng, BenchRecord};
 
 impl StorageCmd {
@@ -59,22 +61,14 @@ impl StorageCmd {
 		let header = client.header(best_hash)?.ok_or("Header not found")?;
 		let original_root = *header.state_root();
 
+		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
+		let recorder_clone = recorder.clone();
+		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
+			.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache()))
+			.with_optional_recorder(recorder)
+			.build();
+
 		info!("Preparing keys from block {}", best_hash);
-		let build_trie_backend =
-			|storage: Arc<dyn sp_state_machine::Storage<HashingFor<Block>>>,
-			 original_root,
-			 enable_pov_recorder: bool| {
-				let pov_recorder = enable_pov_recorder.then(|| Default::default());
-
-				DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
-					.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache()))
-					.with_optional_recorder(pov_recorder)
-					.build()
-			};
-
-		let trie =
-			build_trie_backend(storage.clone(), original_root, !self.params.disable_pov_recorder);
-
 		// Load all KV pairs and randomly shuffle them.
 		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
 		let (mut rng, _) = new_rng(None);
@@ -123,13 +117,38 @@ impl StorageCmd {
 						continue
 					}
 
+					let storage_proof = {
+						let recorder =
+							(!self.params.disable_pov_recorder).then(|| Default::default());
+						let recorder_clone = recorder.clone();
+						let trie = DbStateBuilder::<HashingFor<Block>>::new(
+							storage.clone(),
+							original_root,
+						)
+						.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache()))
+						.with_optional_recorder(recorder)
+						.build();
+
+						for (key, _) in batched_keys.iter() {
+							let v = trie
+								.storage(key)
+								.expect("Checked above to exist")
+								.ok_or("Value unexpectedly empty")?;
+						}
+						recorder_clone.map(|r| r.drain_storage_proof())
+					};
+
 					// For every batched write use a different trie instance and recorder, so we
 					// don't benefit from past runs.
-					let trie = build_trie_backend(
-						storage.clone(),
-						original_root,
-						!self.params.disable_pov_recorder,
-					);
+					let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
+					let trie =
+						DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
+							.with_optional_cache(
+								shared_trie_cache.as_ref().map(|c| c.local_cache()),
+							)
+							.with_optional_recorder(recorder)
+							.build();
+
 					// Write each value in one commit.
 					let (size, duration) = measure_per_key_amortised_write_cost::<Block>(
 						db.clone(),
@@ -138,6 +157,7 @@ impl StorageCmd {
 						self.state_version(),
 						state_col,
 						None,
+						storage_proof,
 					)?;
 					record.append(size, duration)?;
 					batched_keys.clear();
@@ -176,11 +196,13 @@ impl StorageCmd {
 						continue
 					}
 
-					let trie = build_trie_backend(
-						storage.clone(),
-						original_root,
-						!self.params.disable_pov_recorder,
-					);
+					let trie =
+						DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
+							.with_optional_cache(
+								shared_trie_cache.as_ref().map(|c| c.local_cache()),
+							)
+							.with_optional_recorder(None)
+							.build();
 
 					let (size, duration) = measure_per_key_amortised_write_cost::<Block>(
 						db.clone(),
@@ -189,6 +211,7 @@ impl StorageCmd {
 						self.state_version(),
 						state_col,
 						Some(&info),
+						None,
 					)?;
 					record.append(size, duration)?;
 					batched_keys.clear();
@@ -235,8 +258,51 @@ fn measure_per_key_amortised_write_cost<Block: BlockT>(
 	version: StateVersion,
 	col: ColumnId,
 	child_info: Option<&ChildInfo>,
+	storage_proof: Option<StorageProof>,
 ) -> Result<(usize, Duration)> {
-	let start = Instant::now();
+	let root = trie.root();
+	info!(
+		"POV: len {:?} {:?}",
+		storage_proof.as_ref().map(|p| p.len()),
+		storage_proof
+			.clone()
+			.map(|p| p.encoded_compact_size::<HashingFor<Block>>(*root))
+	);
+	if let Some(storage_proof) = storage_proof {
+		info!("storage_proof is ready");
+		let compact = storage_proof.into_compact_proof::<HashingFor<Block>>(*root).unwrap();
+		let params = StorageAccessParams::<Block>::new_write(*root, compact, changes.clone());
+
+		info!("validate_block with {} keys", changes.len());
+		let wasm_module = get_wasm_module();
+		let mut instance = wasm_module.new_instance().unwrap();
+
+		// Dry run to get the time it takes without storage access
+		let dry_run_encoded = params.as_dry_run().encode();
+		let dry_run_start = Instant::now();
+		instance.call_export("validate_block", &dry_run_encoded).unwrap();
+		let dry_run_elapsed = dry_run_start.elapsed();
+		info!("validate_block dry-run time {:?}", dry_run_elapsed);
+
+		let encoded = params.encode();
+		let start = Instant::now();
+		instance.call_export("validate_block", &encoded).unwrap();
+		let elapsed = start.elapsed();
+		info!("validate_block time {:?}", elapsed);
+
+		let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / changes.len();
+		let result = (
+			average_len,
+			std::time::Duration::from_nanos(
+				(elapsed - dry_run_elapsed).as_nanos() as u64 / changes.len() as u64,
+			),
+		);
+		info!("result 1 {:?}", result);
+
+		return Ok(result)
+	}
+
+	// let start = Instant::now();
 	// Create a TX that will modify the Trie in the DB and
 	// calculate the root hash of the Trie after the modification.
 	let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / changes.len();
@@ -249,13 +315,17 @@ fn measure_per_key_amortised_write_cost<Block: BlockT>(
 		None => trie.storage_root(replace.iter().cloned(), version).1,
 	};
 	// Only the keep the insertions, since we do not want to benchmark pruning.
-	let tx = convert_tx::<Block>(db.clone(), stx.clone(), false, col);
-	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
-	let result = (average_len, start.elapsed() / changes.len() as u32);
+	// let tx = convert_tx::<Block>(db.clone(), stx.clone(), false, col);
+	// db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+	// let result = (average_len, start.elapsed() / changes.len() as u32);
 
 	// Now undo the changes by removing what was added.
-	let tx = convert_tx::<Block>(db.clone(), stx.clone(), true, col);
-	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+	// let tx = convert_tx::<Block>(db.clone(), stx.clone(), true, col);
+	// db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+	// Ok(result)
+
+	let result = (average_len, Duration::from_secs(1));
+	info!("result 2 {:?}", result);
 	Ok(result)
 }
 
