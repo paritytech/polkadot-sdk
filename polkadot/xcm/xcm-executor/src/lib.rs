@@ -1824,9 +1824,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		message_to_weigh.push(remote_instruction);
 		message_to_weigh.push(ClearOrigin);
 		message_to_weigh.extend(xcm.0.clone().into_iter());
-		self.preserve_message_topic(&mut message_to_weigh);
+		let mut msg = Xcm(message_to_weigh);
+		self.preserve_message_topic(&mut msg);
 		let (_, fee) =
-			validate_send::<Config::XcmSender>(destination.clone(), Xcm(message_to_weigh))?;
+			validate_send::<Config::XcmSender>(destination.clone(), msg)?;
 		let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
 			tracing::trace!(
 				target: "xcm::fees::take_delivery_fee_from_assets",
