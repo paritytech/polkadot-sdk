@@ -285,6 +285,10 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		vm.message_weight = xcm_weight;
 
 		while !message.0.is_empty() {
+			if vm.context.topic.is_none() && vm.context.message_id != *id {
+				vm.preserve_message_topic(&mut message);
+			}
+
 			let result = vm.process(message);
 			tracing::trace!(target: "xcm::execute", ?result, "Message executed");
 			message = if let Err(error) = result {
@@ -805,6 +809,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		assets.into_assets_iter().collect::<Vec<_>>().into()
 	}
 
+	/// Preserves the original message ID as a topic if none exists and origin is cleared.
 	fn preserve_message_topic<T>(&mut self, msg: &mut Xcm<T>) {
 		if let Some(SetTopic(id)) = msg.last() {
 			tracing::trace!(target: "xcm::send", ?id, "Message already ends with `SetTopic`");
@@ -836,8 +841,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			error_handler_weight = ?self.error_handler_weight,
 		);
 		let mut result = Ok(());
-		let mut xcm = xcm;
-		self.preserve_message_topic(&mut xcm);
 		for (i, mut instr) in xcm.0.into_iter().enumerate() {
 			match &mut result {
 				r @ Ok(()) => {
