@@ -30,7 +30,7 @@ sp-std = { workspace = true }
 
 [dev-dependencies]
 bp-test-utils = { workspace = true, default-features = true }
-mmr-lib = { workspace = true }
+mmr-lib = { workspace = true, default-features = true }
 pallet-beefy-mmr = { workspace = true, default-features = true }
 pallet-mmr = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
