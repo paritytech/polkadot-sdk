@@ -358,6 +358,9 @@ pub mod pallet {
 
 			// Check the operating mode.
 			let mode = Mode::<T>::get();
+			ensure!(mode.can_accept_validator_set(), Error::<T>::Blocked);
+
+			/*
 			if !mode.can_accept_validator_set() {
 				log!(warn, "Validator set received while in {:?} mode", mode);
 				Self::deposit_event(Event::Unexpected(
@@ -365,6 +368,7 @@ pub mod pallet {
 				));
 				return Ok(());
 			}
+			*/
 
 			let maybe_merged_report = match IncompleteValidatorSetReport::<T>::take() {
 				Some(old) => old.merge(report.clone()),

@@ -1,6 +1,6 @@
 use crate::rc::mock::*;
 use frame::testing_prelude::*;
-use pallet_staking_async_ah_client::{self as ah_client, Blocked, IsBlocked};
+use pallet_staking_async_ah_client::{self as ah_client, OperatingMode, Mode};
 use pallet_staking_async_rc_client::{self as rc_client, SessionReport, ValidatorSetReport};
 
 // Tests that are specific to Relay Chain.
@@ -496,10 +496,10 @@ mod blocking {
 	use super::*;
 
 	#[test]
-	fn drops_incoming_if_blocked() {
+	fn drops_incoming_if_passive_mode() {
 		ExtBuilder::default()
 			.local_queue()
-			.blocked(Blocked::Incoming)
+			.mode(OperatingMode::Passive)
 			.build()
 			.execute_with(|| {
 				// given
@@ -522,20 +522,22 @@ mod blocking {
 	}
 
 	#[test]
-	fn drops_outgoing_if_blocked() {
+	fn drops_outgoing_if_passive_mode() {
 		ExtBuilder::default()
 			.local_queue()
-			.blocked(Blocked::Outgoing)
+			.mode(OperatingMode::Passive)
 			.build()
 			.execute_with(|| {
 				// roll 5 sessions
 				roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 5, false);
 
-				// nothing is queued; outgoing messages are blocked.
+				// nothing is queued; No outgoing messages expected in passive mode.
 				assert_eq!(LocalQueue::get().unwrap(), vec![]);
 
-				// unblock
-				IsBlocked::<T>::put(Blocked::Not);
+				// TODO add buffer mode to the test
+
+				// make pallet active
+				Mode::<T>::put(OperatingMode::Active);
 
 				// roll another session
 				roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 6, false);

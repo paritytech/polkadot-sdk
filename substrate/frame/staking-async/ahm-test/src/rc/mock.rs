@@ -3,6 +3,7 @@ use frame::{
 };
 use pallet_staking_async_ah_client as ah_client;
 use sp_staking::SessionIndex;
+use frame_support::traits::FindAuthor;
 
 use crate::shared;
 
@@ -11,6 +12,7 @@ pub type T = Runtime;
 construct_runtime! {
 	pub enum Runtime {
 		System: frame_system,
+		Authorship: pallet_authorship,
 		Balances: pallet_balances,
 		Timestamp: pallet_timestamp,
 
@@ -55,11 +57,12 @@ pub type BlockNumber = BlockNumberFor<Runtime>;
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = MockBlock<Self>;
-	type AccountData = pallet_balances::AccountData<u64>;
+	type AccountData = pallet_balances::AccountData<u128>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+	type Balance = u128;
 	type AccountStore = System;
 }
 
@@ -139,6 +142,22 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 
+/// Author of block is always 11
+pub struct Author11;
+impl FindAuthor<AccountId> for Author11 {
+	fn find_author<'a, I>(_digests: I) -> Option<AccountId>
+	where
+		I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
+	{
+		Some(11)
+	}
+}
+
+impl pallet_authorship::Config for Runtime {
+	type FindAuthor = Author11;
+	type EventHandler = ();
+}
+
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
 	type OldCurrency = Balances;
@@ -150,6 +169,7 @@ impl pallet_staking::Config for Runtime {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -185,7 +205,7 @@ impl ah_client::Config for Runtime {
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
 	type PointsPerBlock = ConstU32<20>;
 	type SessionInterface = Self;
-	// TODO type Fallback = Staking;
+	type Fallback = Staking;
 }
 
 use pallet_staking_async_rc_client as rc_client;
@@ -266,12 +286,12 @@ pub fn ah_client_events_since_last_call() -> Vec<ah_client::Event<Runtime>> {
 
 pub struct ExtBuilder {
 	session_keys: Vec<AccountId>,
-	blocked: ah_client::Blocked,
+	mode: ah_client::OperatingMode,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self { session_keys: vec![], blocked: ah_client::Blocked::default() }
+		Self { session_keys: vec![], mode: ah_client::OperatingMode::default() }
 	}
 }
 
@@ -289,9 +309,9 @@ impl ExtBuilder {
 		self
 	}
 
-	/// Set the blocked status.
-	pub fn blocked(mut self, blocked: ah_client::Blocked) -> Self {
-		self.blocked = blocked;
+	/// Set the Operating Mode of the pallet.
+	pub fn mode(mut self, mode: ah_client::OperatingMode) -> Self {
+		self.mode = mode;
 		self
 	}
 
@@ -314,7 +334,7 @@ impl ExtBuilder {
 				.unwrap();
 			}
 
-			ah_client::IsBlocked::<T>::put(self.blocked);
+			ah_client::Mode::<T>::put(self.mode);
 		});
 
 		state

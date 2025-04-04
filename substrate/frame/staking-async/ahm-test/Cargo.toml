@@ -38,11 +38,16 @@ frame-election-provider-support = { workspace = true, default-features = true }
 pallet-session = { workspace = true, default-features = true }
 pallet-staking-async-ah-client = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
+pallet-authorship = { workspace = true, default-features = true }
+# staking classic which will be replaced by ah-client
+pallet-staking = { workspace = true, default-features = true }
 
 [features]
 std = []
 try-runtime = [
 	"pallet-balances/try-runtime",
+
+	"pallet-staking/try-runtime",
 
 	"pallet-staking-async/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",

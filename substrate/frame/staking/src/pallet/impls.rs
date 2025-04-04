@@ -29,6 +29,7 @@ use frame_support::{
 	traits::{
 		Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
 		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
+		RewardsReporter,
 	},
 	weights::Weight,
 };
@@ -833,28 +834,6 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Add reward points to validators using their stash account ID.
-	///
-	/// Validators are keyed by stash account ID and must be in the current elected set.
-	///
-	/// For each element in the iterator the given number of points in u32 is added to the
-	/// validator, thus duplicates are handled.
-	///
-	/// At the end of the era each the total payout will be distributed among validator
-	/// relatively to their points.
-	///
-	/// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
-	pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
-		if let Some(active_era) = ActiveEra::<T>::get() {
-			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
-				for (validator, points) in validators_points.into_iter() {
-					*era_rewards.individual.entry(validator).or_default() += points;
-					era_rewards.total += points;
-				}
-			});
-		}
-	}
-
 	/// Helper to set a new `ForceEra` mode.
 	pub(crate) fn set_force_era(mode: Forcing) {
 		log!(info, "Setting force era mode {:?}.", mode);
@@ -1377,6 +1356,30 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+impl<T: Config> RewardsReporter<T::AccountId> for Pallet<T> {
+	/// Add reward points to validators using their stash account ID.
+	///
+	/// Validators are keyed by stash account ID and must be in the current elected set.
+	///
+	/// For each element in the iterator the given number of points in u32 is added to the
+	/// validator, thus duplicates are handled.
+	///
+	/// At the end of the era each the total payout will be distributed among validator
+	/// relatively to their points.
+	///
+	/// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
+		if let Some(active_era) = ActiveEra::<T>::get() {
+			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
+				for (validator, points) in validators_points.into_iter() {
+					*era_rewards.individual.entry(validator).or_default() += points;
+					era_rewards.total += points;
+				}
+			});
+		}
+	}
+
+}
 impl<T: Config> Pallet<T> {
 	/// Returns the current nominations quota for nominators.
 	///
@@ -1648,7 +1651,7 @@ where
 	T: Config + pallet_authorship::Config + pallet_session::Config,
 {
 	fn note_author(author: T::AccountId) {
-		Self::reward_by_ids(vec![(author, 20)])
+		<Self as RewardsReporter<T::AccountId>>::reward_by_ids(vec![(author, 20)])
 	}
 }
 
