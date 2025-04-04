@@ -80,7 +80,6 @@ pallet-collator-selection = { workspace = true }
 pallet-message-queue = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
-snowbridge-inbound-queue-primitives = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 primitive-types = { workspace = true, default-features = false, features = [
@@ -131,7 +130,6 @@ std = [
 	"polkadot-runtime-common/std",
 	"primitive-types/std",
 	"scale-info/std",
-	"snowbridge-inbound-queue-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -179,7 +177,6 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
-	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

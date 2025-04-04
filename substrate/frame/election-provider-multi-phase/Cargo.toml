@@ -31,7 +31,6 @@ sp-runtime = { workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
-pallet-election-provider-support-benchmarking = { optional = true, workspace = true }
 rand = { features = ["alloc", "small_rng"], optional = true, workspace = true }
 strum = { features = ["derive"], optional = true, workspace = true }
 
@@ -55,7 +54,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances/std",
-	"pallet-election-provider-support-benchmarking?/std",
 	"rand/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
@@ -72,7 +70,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
 	"rand",
 	"sp-runtime/runtime-benchmarks",
 	"strum",

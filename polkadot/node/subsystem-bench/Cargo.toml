@@ -28,7 +28,6 @@ colored = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
-jemalloc_pprof = { workspace = true, optional = true }
 polkadot-availability-bitfield-distribution = { workspace = true, default-features = true }
 polkadot-availability-distribution = { workspace = true, default-features = true }
 polkadot-availability-recovery = { features = ["subsystem-benchmarks"], workspace = true, default-features = true }
@@ -88,6 +87,5 @@ strum = { features = ["derive"], workspace = true, default-features = true }
 [features]
 default = []
 memprofile = [
-	"dep:jemalloc_pprof",
 	"dep:tikv-jemallocator",
 ]

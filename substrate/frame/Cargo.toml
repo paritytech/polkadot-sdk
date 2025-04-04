@@ -59,9 +59,6 @@ frame-try-runtime = { optional = true, workspace = true }
 docify = { workspace = true }
 log = { workspace = true }
 
-[dev-dependencies]
-pallet-examples = { workspace = true }
-
 [features]
 default = ["runtime", "std"]
 experimental = ["frame-support/experimental"]
@@ -122,6 +119,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
-	"pallet-examples/try-runtime",
 	"sp-runtime/try-runtime",
 ]

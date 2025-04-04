@@ -1108,7 +1108,6 @@ dependencies = [
  "rococo-runtime-constants",
  "scale-info",
  "serde_json",
- "snowbridge-inbound-queue-primitives",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -1245,7 +1244,6 @@ dependencies = [
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
- "snowbridge-inbound-queue-primitives",
  "snowbridge-outbound-queue-primitives",
  "snowbridge-pallet-system-frontend",
  "snowbridge-runtime-common",
@@ -3018,11 +3016,6 @@ dependencies = [
  "cmd_lib",
  "docify",
  "frame-support",
- "pallet-balances",
- "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "sc-chain-spec",
@@ -3034,7 +3027,6 @@ dependencies = [
  "sp-genesis-builder",
  "sp-keyring",
  "sp-runtime 31.0.1",
- "staging-chain-spec-builder",
  "substrate-wasm-builder",
 ]
 
@@ -7310,7 +7302,6 @@ dependencies = [
  "cumulus-pallet-xcm",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
- "cumulus-primitives-timestamp",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -8413,23 +8404,6 @@ name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
-
-[[package]]
-name = "jemalloc_pprof"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96368c0fc161a0a1a20b3952b6fd31ee342fffc87ed9e48ac1ed49fb25686655"
-dependencies = [
- "anyhow",
- "libc",
- "mappings",
- "once_cell",
- "pprof_util",
- "tempfile",
- "tikv-jemalloc-ctl",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "jni"
@@ -9808,19 +9782,6 @@ name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
-
-[[package]]
-name = "mappings"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fa2605f461115ef6336342b12f0d8cabdfd7b258fed86f5f98c725535843601"
-dependencies = [
- "anyhow",
- "libc",
- "once_cell",
- "pprof_util",
- "tracing",
-]
 
 [[package]]
 name = "match_cfg"
@@ -11820,7 +11781,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-election-provider-support-benchmarking",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rand 0.8.5",
@@ -11960,10 +11920,8 @@ name = "pallet-example-single-block-migrations"
 version = "0.0.1"
 dependencies = [
  "docify",
- "frame-executive",
  "frame-support",
  "frame-system",
- "frame-try-runtime",
  "log",
  "pallet-balances",
  "parity-scale-codec",
@@ -12007,7 +11965,6 @@ dependencies = [
 name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking",
  "frame-metadata 20.0.0",
  "frame-support",
  "frame-system",
@@ -12665,7 +12622,6 @@ dependencies = [
  "assert_matches",
  "derive_more 0.99.17",
  "environmental",
- "ethabi-decode",
  "ethereum-types",
  "frame-benchmarking",
  "frame-support",
@@ -13367,7 +13323,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -13791,7 +13746,6 @@ dependencies = [
  "primitive-types 0.13.1",
  "scale-info",
  "smallvec",
- "snowbridge-inbound-queue-primitives",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -15861,10 +15815,8 @@ dependencies = [
  "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-aura",
- "pallet-authorship",
  "pallet-babe",
  "pallet-balances",
- "pallet-broker",
  "pallet-collective",
  "pallet-contracts",
  "pallet-default-config-example",
@@ -15874,23 +15826,17 @@ dependencies = [
  "pallet-example-single-block-migrations",
  "pallet-examples",
  "pallet-grandpa",
- "pallet-multisig",
  "pallet-nfts",
  "pallet-preimage",
- "pallet-proxy",
- "pallet-referenda",
  "pallet-scheduler",
  "pallet-skip-feeless-payment",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-uniques",
- "pallet-utility",
  "pallet-xcm",
- "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
  "polkadot-sdk 0.1.0",
- "polkadot-sdk-docs-first-pallet",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
  "rand 0.8.5",
@@ -15926,7 +15872,6 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
  "sp-weights 27.0.0",
- "staging-chain-spec-builder",
  "staging-node-cli",
  "staging-parachain-info",
  "staging-xcm",
@@ -15980,7 +15925,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "log",
- "pallet-examples",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -16176,7 +16120,6 @@ dependencies = [
  "futures",
  "hex",
  "itertools 0.11.0",
- "jemalloc_pprof",
  "kvdb-memorydb",
  "orchestra",
  "parity-scale-codec",
@@ -16740,19 +16683,6 @@ dependencies = [
  "symbolic-demangle",
  "tempfile",
  "thiserror 2.0.11",
-]
-
-[[package]]
-name = "pprof_util"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c620a1858d6ebf10d7c60256629078b2d106968d0e6ff63b850d9ecd84008fbe"
-dependencies = [
- "anyhow",
- "flate2",
- "num",
- "paste",
- "prost 0.11.9",
 ]
 
 [[package]]
@@ -17949,7 +17879,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -21279,7 +21208,6 @@ name = "snowbridge-core"
 version = "0.2.0"
 dependencies = [
  "bp-relayers",
- "ethabi-decode",
  "frame-support",
  "frame-system",
  "hex-literal",
@@ -21415,12 +21343,9 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
- "snowbridge-core",
  "snowbridge-merkle-tree",
- "snowbridge-outbound-queue-primitives",
  "sp-api 26.0.0",
  "sp-std 14.0.0",
- "staging-xcm",
 ]
 
 [[package]]
@@ -21455,7 +21380,6 @@ version = "0.9.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
- "snowbridge-core",
  "snowbridge-verification-primitives",
  "sp-core 28.0.0",
  "sp-std 14.0.0",
@@ -21634,7 +21558,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-core",
@@ -21658,13 +21581,10 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-balances",
- "pallet-xcm",
  "parity-scale-codec",
- "polkadot-primitives",
  "scale-info",
  "snowbridge-core",
  "snowbridge-outbound-queue-primitives",
- "snowbridge-pallet-outbound-queue-v2",
  "snowbridge-pallet-system",
  "snowbridge-test-utils",
  "sp-core 28.0.0",
@@ -21753,14 +21673,11 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex",
  "log",
- "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-outbound-queue-primitives",
  "sp-core 28.0.0",
- "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -22963,7 +22880,6 @@ dependencies = [
  "polkavm-derive 0.18.0",
  "primitive-types 0.13.1",
  "rustversion",
- "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
  "sp-runtime-interface-proc-macro 17.0.0",
@@ -25260,15 +25176,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-parachains"
-version = "1.0.0"
-dependencies = [
- "parity-scale-codec",
- "test-parachain-adder",
- "test-parachain-halt",
-]
-
-[[package]]
 name = "test-runtime-constants"
 version = "1.0.0"
 dependencies = [
@@ -27027,12 +26934,10 @@ dependencies = [
  "pallet-delegated-staking",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
- "pallet-elections-phragmen",
  "pallet-fast-unstake",
  "pallet-grandpa",
  "pallet-identity",
  "pallet-indices",
- "pallet-membership",
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-migrations",
@@ -27052,10 +26957,8 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
- "pallet-society",
  "pallet-staking",
  "pallet-staking-runtime-api",
- "pallet-state-trie-migration",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -27698,7 +27601,6 @@ dependencies = [
 name = "xcm-runtime-apis"
 version = "0.1.1"
 dependencies = [
- "frame-executive",
  "frame-support",
  "frame-system",
  "hex-literal",
