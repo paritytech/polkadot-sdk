@@ -26,9 +26,9 @@ In the past an introduction of reconciliation set into Polkadot transaction prot
 
 While *Erlay* significantly reduces bandwidth consumption, it introduces an increase in transactions propagation latency. This trade-off needs careful consideration. Teams in Polkadot ecosystem may have different requirements and some flexibility is required in transaction protocol.
 
-For more detailed insights, consider the following resources [[1](https://delvingbitcoin.org/t/erlay-overview-and-current-approach/1415)](Sections 1-5),[[2](https://arxiv.org/pdf/1905.10518)].
+For more detailed insights, consider the following resources [[1](https://delvingbitcoin.org/t/erlay-overview-and-current-approach/1415)],[[2](https://arxiv.org/pdf/1905.10518)](sections 1-5).
 
-### Components of new transaction protocol proposal.
+### Components of new transaction protocol.
 
 #### Transaction Descriptor.
 The new transaction protocol introduces a flexible transaction descriptor format, living only on the network layer, supporting multiple identification schemes (including full transaction body), enabling seamless future protocol extensions with minimal rework.
@@ -46,7 +46,7 @@ It is worth noting that all nodes must handle both transaction hashes (1) and bo
 #### Transactions Identifiers Flooding (`TxIF`).
 Transaction identifiers are gossiped to all connected peers (except _LightNodes_) allowing many transaction descriptors in a single networking notification. This reduces the required bandwidth and the depth of queues in networking module implementation. Identifiers are transmitted after a transaction is submitted to the local pool and validated as ready.
 
-The transaction descriptor shall not be sent to a peer that already knows its identifier, whether because we received it from that peer or previously sent the transaction descriptor to it. The reputation of a peer that sends descriptors for the same transaction multiple times should be decreased. Known identifiers shall be kept for T seconds, with a maximum of N identifiers per peer. Networks should configure these limits based on their transaction volumes, and node network and memory requirements. Since the transaction pool can track transactions that are dropped or finalized, these notifications can also be leveraged to maintain internal structures.
+The transaction descriptor shall not be sent to a peer that already knows its identifier, whether because we received it from that peer or previously sent the transaction descriptor to it. This behavior is punishable by decreasing the peer's reputation. Known identifiers shall be kept for T seconds, with a maximum of N identifiers per peer. Networks should configure these limits based on their transaction volumes, and node network and memory requirements. Since the transaction pool can track transactions that are dropped or finalized, these notifications can also be leveraged to maintain internal structures.
 
 Once a transaction descriptor is received, and it is not a transaction body, the latter shall be downloaded using the `TxRR` protocol (see the next section) and imported to the local pool. If a received transaction descriptor contains the transaction data it shall be imported to the pool.
 
@@ -57,21 +57,22 @@ _Notes_:
 - when the combined size of all identifiers to be gossiped is relatively small compared to the network packet size, the network notification can include some of the transaction bodies to reduce the latency required for transaction dissemination. It is up to implementation to decide what is the most efficient approach.
 
 #### Transaction Data Request-Response Protocol (`TxRR`).
-After receiving a transaction identifier, the node should request the transaction body from a random peer which gossiped the transaction identifier, if the transaction is not already in the local pool, and there is not a pending request for it. Requests should have a short timeout to avoid denial of service where peers only gossip identifiers (and never provide their bodies).
+After receiving a transaction identifier, the node should request the transaction body from a random peer which gossiped the transaction identifier, if the transaction is not already in the local pool, and there is not a pending request for it. Requests should have a short timeout to avoid denial of service where peers only gossip identifiers (and never provide their bodies). The timeout shall have constant base (e.g. 500ms) and a component proportional to the number of transactions.
 
-The timeout shall have constant base (e.g. 500ms) and a component proportional to the number of transactions.
+The response must include transaction bodies in the same order they were requested. If a transaction body cannot be delivered, an indicator that the transaction was not available should be included in its place.
 
-The response must include transaction bodies in the same order they were requested. If a transaction body cannot be delivered, a placeholder should be included in its place.
+If the requested transaction is not available in the local pool the requesting peer's reputation shall be decreased. However, if the peer requests the transaction whose identifier was previously gossiped to that peer and transaction is found to be unknown (e.g. due to finalization or being dropped) its reputation shall remain unaffected. This kind of race condition is possible and there is little that can be done to prevent it.
 
-If the requested transaction is not available in the local pool the requesting peer's reputation shall be decreased. However, if the peer requests the transaction whose identifier was previously gossiped to that peer and transaction is found to be unknown (e.g. due to finalization or being dropped) its reputation shall remain unaffected. This kind of race condition is possible and there is little that can be done to prevent it. Once transaction bytes are downloaded the transaction should be sent to pool for further validation and processing.
+Once transaction bytes are downloaded the transaction should be sent to pool for further validation and processing.
 
 If a remote node is unable to provide a transaction it previously announced through identifiers flooding, the requesting node shall decrease its reputation. As noted in the previous paragraph, such situations may occur but should not be common. Reputation of nodes that gossip identifiers without being able to provide the corresponding transaction bodies should be decreased.
 
 The request protocol supports batch acquisition of transactions by accepting a `Vec<TxIdentifier>`.
 
 
-_Note_:
-In theory, the transaction body could be fetched only if there is an available space in transaction pool. Transaction shall not be silently dropped. On the other hand the gossiped transaction identifier may correspond to transaction with higher priority and we should submit such transaction immediately as it may be evicting some other lower-priority transactions. To avoid downloading same transaction multiple times, the implementation shall keep track of downloaded transactions. A txpool API could be leveraged for this (see implemntation notes).
+_Notes_:
+- In theory, the transaction body could be fetched only if there is an available space in transaction pool. Transaction shall not be silently dropped. On the other hand the gossiped transaction identifier may correspond to transaction with higher priority and we should submit such transaction immediately as it may be evicting some other lower-priority transactions. To avoid downloading same transaction multiple times, the implementation shall keep track of downloaded transactions. A txpool API could be leveraged for this (see implemntation notes).
+- The node could retain the bodies of transactions that were broadcasted and then dropped from the pool. This would prevent its reputation from being decreased due to an inability to provide a transaction body when the pool is under high pressure and operating at its limits.
 
 #### [Optional] Transaction Data Low-Fanout (`TxLF`).
 The low-fanout strategy is an optional, easily achievable enhancement aimed at improving transaction propagation latency and network resilience.
@@ -81,7 +82,7 @@ The transaction descriptors containing full transaction data are relayed to a sm
 
 Multiple transaction descriptors shall be batched into a single network notification.
 
-This extensions could be used to quickly broadcast transactions from the light nodes to the network.
+This extension could be used to quickly broadcast transactions from the light nodes to the network.
 
 _Notes_:
 - when a local pool is full the tx can be dropped (e.g. due to lower priority) and there is little we can do about this.
