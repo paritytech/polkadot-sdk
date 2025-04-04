@@ -26,8 +26,8 @@ pub use bp_polkadot_core::{
 };
 
 pub use parachains_common::{
-	AVERAGE_BLOCK_INTERVAL, AVERAGE_ON_INITIALIZE_RATIO, MAXIMUM_BLOCK_WEIGHT,
-	MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING, NORMAL_DISPATCH_RATIO,
+	AVERAGE_ON_INITIALIZE_RATIO, MAXIMUM_BLOCK_WEIGHT, MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING,
+	NORMAL_DISPATCH_RATIO, SLOT_DURATION
 };
 
 use bp_messages::*;
@@ -42,6 +42,10 @@ use frame_support::{
 	weights::constants,
 };
 use frame_system::limits;
+use sp_std::time::Duration;
+
+/// Average block time for Cumulus-based parachains
+pub const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(SLOT_DURATION);
 
 /// Maximal asset hub header size.
 pub const MAX_ASSET_HUB_HEADER_SIZE: u32 = 4_096;
