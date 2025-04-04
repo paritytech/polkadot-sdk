@@ -268,7 +268,8 @@ pub mod pallet {
 		/// Type for processing spends of [`Self::AssetKind`] in favor of [`Self::Beneficiary`].
 		///
 		/// The source account is determined by the `Pay` implementation. For example, it
-		/// could use `Pallet::account_id()` or dynamically choose a source based on the `AssetKind`.
+		/// could use `Pallet::account_id()` or dynamically choose a source based on the
+		/// `AssetKind`.
 		type Paymaster: Pay<
 			Balance = BalanceOf<Self, I>,
 			Source = (),
@@ -748,13 +749,9 @@ pub mod pallet {
 				Error::<T, I>::AlreadyAttempted
 			);
 
-			let id = T::Paymaster::pay(
-				&(),
-				&spend.beneficiary,
-				spend.asset_kind.clone(),
-				spend.amount,
-			)
-			.map_err(|_| Error::<T, I>::PayoutError)?;
+			let id =
+				T::Paymaster::pay(&(), &spend.beneficiary, spend.asset_kind.clone(), spend.amount)
+					.map_err(|_| Error::<T, I>::PayoutError)?;
 
 			spend.status = PaymentState::Attempted { id };
 			spend.expire_at = now.saturating_add(T::PayoutPeriod::get());

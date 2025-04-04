@@ -261,13 +261,6 @@ parameter_types! {
 	pub static BountyUpdatePeriod: u64 = 20;
 }
 
-pub struct TestBountySource;
-impl TryConvert<(BountyIndex, u32), u128> for TestBountySource {
-	fn try_convert(input: (BountyIndex, u32)) -> Result<u128, (BountyIndex, u32)> {
-		let sub = PalletId(*b"py/bounti").into_sub_account_truncating(("bt", input.0));
-		Ok(sub)
-	}
-}
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = BountyDepositBase;
@@ -282,7 +275,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
-	type BountySource = TestBountySource;
+	type BountySource = BountySource<Test, ()>;
 	type Paymaster = TestBountiesPay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -302,7 +295,7 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
-	type BountySource = TestBountySource;
+	type BountySource = BountySource<Test, Instance1>;
 	type Paymaster = TestBountiesPay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
