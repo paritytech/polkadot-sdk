@@ -14542,6 +14542,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-doppelganger-consensus"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bincode",
+ "cumulus-primitives-proof-size-hostfunction",
+ "frame-system",
+ "hex",
+ "hex-literal",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "sc-chain-spec",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-executor 0.32.0",
+ "serde_json",
+ "sp-authority-discovery",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-runtime-interface 24.0.0",
+ "sp-storage 19.0.0",
+ "sp-trie 29.0.0",
+ "tokio",
+]
+
+[[package]]
+name = "polkadot-doppelganger-node"
+version = "1.0.0"
+dependencies = [
+ "clap 4.5.13",
+ "color-eyre",
+ "log",
+ "polkadot-cli",
+ "substrate-build-script-utils",
+]
+
+[[package]]
 name = "polkadot-erasure-coding"
 version = "7.0.0"
 dependencies = [
@@ -15332,6 +15373,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-cli",
+ "polkadot-doppelganger-consensus",
  "polkadot-primitives",
  "sc-basic-authorship",
  "sc-chain-spec",
@@ -16246,6 +16288,7 @@ dependencies = [
  "polkadot-collator-protocol",
  "polkadot-core-primitives",
  "polkadot-dispute-distribution",
+ "polkadot-doppelganger-consensus",
  "polkadot-gossip-support",
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",
