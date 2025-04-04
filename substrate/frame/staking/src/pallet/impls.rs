@@ -1999,7 +1999,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn max_bonding_duration(value: Self::Balance) -> EraIndex {
-		Self::get_unbond_eras_delta(value, <UnbondingQueueParams<T>>::get().unwrap_or_default())
+		Self::get_unbond_eras_delta(value, UnbondingQueueParams::<T>::get().unwrap_or_default())
 	}
 
 	fn current_era() -> EraIndex {
