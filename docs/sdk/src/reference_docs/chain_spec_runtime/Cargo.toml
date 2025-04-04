@@ -18,7 +18,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
-frame = { features = ["experimental", "runtime", ], workspace = true }
+frame = { features = ["experimental", "runtime"], workspace = true }
 
 # genesis builder that allows us to interact with runtime genesis config
 sp-application-crypto = { features = ["serde"], workspace = true }
