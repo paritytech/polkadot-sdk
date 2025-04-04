@@ -1991,8 +1991,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map_err(|e| e.into())
 	}
 
-	// TODO: use `get_unbond_eras_delta` to calculate quickest unbonding period. Either rename to
-	// `max_bonding_duration` or create new function.
 	fn bonding_duration() -> EraIndex {
 		T::BondingDuration::get()
 	}
