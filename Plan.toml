@@ -3335,7 +3335,7 @@ reason = "changed"
 # cumulus/parachains/runtimes/assets/test-utils
 name = "asset-test-utils"
 from = "21.0.1"
-to = "22.0.0"
+to = "23.0.0"
 bump = "major"
 reason = "changed"
 
