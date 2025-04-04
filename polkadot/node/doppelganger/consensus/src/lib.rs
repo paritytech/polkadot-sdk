@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::env;
 
-use codec::Decode;
+use codec::{Encode, Decode};
 use hex_literal::hex;
 use log::debug;
 use polkadot_primitives::Slot;
@@ -19,7 +19,7 @@ use sc_chain_spec::resolve_state_version_from_wasm;
 use sc_executor::WasmExecutor;
 use sp_runtime::traits::{Block as BlockT, Header, PhantomData, HashingFor};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild};
-use sp_core::{hexdisplay::HexDisplay, Encode};
+use sp_core::hexdisplay::HexDisplay;
 use tokio::io::AsyncWriteExt;
 
 const LOG_TARGET: &str = "doppelganger";
@@ -130,6 +130,15 @@ where
 
 
 						if state.parent_storage_keys.len() == 0 && state.state_root.len() == 0 {
+							// AHM
+							const TEN_DOTS: u128 = 10_000_000_000_000_u128;
+							let account_to_subtract_k: Vec<u8> = hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da91cdb29d91f7665b36dc5ec5903de32467628a5be63c4d3c8dbb96c2904b1a9682e02831a1af836c7efc808020b92fa63").into();
+							let account_alice_k: Vec<u8> = hex!("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9de1e86a9a8c739864cf3cc5ec2bea59fd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d").into();
+							{
+								// inject 10 dots to alice
+								state.key_values.push( (account_alice_k.clone(), default_with_amount_free(TEN_DOTS)));
+							}
+
 							// hack for para override wasm
 							// TODO: needs to refactor
 							let current_code_para_1000_k: Vec<u8> = hex!("cd710b30bd2eab0352ddcc26417aa194e2d1c22ba0a888147714a3487bd51c63b6ff6f7d467b87a9e8030000").into();
@@ -143,6 +152,12 @@ where
 							const GENESIS_SLOT_KEY: [u8;32] = hex!("1cb6f36e027abb2091cfb5110ab5087f678711d15ebbceba5cd0cea158e6675a");
 							const CURRENT_SLOT_KEY: [u8;32] = hex!("1cb6f36e027abb2091cfb5110ab5087f06155b3cd9a8c9e5e9a23fd5dc13a5ed");
 							const CURRENT_EPOCH_INDEX: [u8;32] = hex!("1cb6f36e027abb2091cfb5110ab5087f38316cbf8fa0da822a20ac1c55bf1be3");
+
+
+							let _current_code_para_1000: Vec<u8> = hex!("cd710b30bd2eab0352ddcc26417aa194e2d1c22ba0a888147714a3487bd51c63b6ff6f7d467b87a9e8030000").into();
+							let code_refs_prefix = "cd710b30bd2eab0352ddcc26417aa1948c27d984a48a10b1ebf28036a4a4444b";
+							let code_by_hash_ref = "cd710b30bd2eab0352ddcc26417aa194383e6dcb39e0be0a2e6aeb8b94951ab6";
+
 
 							let mut genesis_slot_value: Vec<u8> = vec![];
 							let mut current_slot_value: Vec<u8> = vec![];
@@ -180,12 +195,6 @@ where
 								// 	return None;
 								// }
 
-								let _current_code_para_1000: Vec<u8> = hex!("cd710b30bd2eab0352ddcc26417aa194e2d1c22ba0a888147714a3487bd51c63b6ff6f7d467b87a9e8030000").into();
-								let code_refs_prefix = "cd710b30bd2eab0352ddcc26417aa1948c27d984a48a10b1ebf28036a4a4444b";
-								let code_by_hash_ref = "cd710b30bd2eab0352ddcc26417aa194383e6dcb39e0be0a2e6aeb8b94951ab6";
-								// if key.starts_with(&p) {
-								// 	println!("[JAVIER_DEBUG]: key: {} value: {}", hex::encode(key), hex::encode(value));
-								// }
 
 								if let DoppelGangerContext::Relaychain = self.context {
 									let para_1000_code_hash_kv = para_1000_code_hash_kv.unwrap();
@@ -217,6 +226,15 @@ where
 											storage.top.insert(k.clone(), v.clone());
 											return Some((k.clone(), v.clone()))
 										}
+									}
+
+									// AHM (move 10 dots to alice)
+									if key == &account_to_subtract_k {
+										debug!(target: LOG_TARGET, "Moving 10 dots from: {} to alice", HexDisplay::from(&account_to_subtract_k));
+										let new_value = subtract_free_balance_from_state(value, TEN_DOTS);
+
+										storage.top.insert(key.clone(), new_value.clone());
+										return Some((key.clone(), new_value.clone()))
 									}
 								}
 
@@ -362,6 +380,15 @@ where
 				}
 			}
 
+			// store the block number
+			if let Ok(zombie_info_path) = env::var("ZOMBIE_INFO_PATH") {
+				let err_msg = format!("write to 'ZOMBIE_INFO_PATH'= {zombie_info_path} should work");
+				tokio::fs::write(zombie_info_path, format!("{number}")).await.expect(&err_msg);
+			} else {
+				// send to stdout
+				io::stdout().write_all(&format!("{number}").as_bytes()).expect("write to stdout should work");
+			}
+
 			if std::env::var("ZOMBIE_KEEP_ALIVE_ON_SYNC").is_ok() {
 				return res;
 
@@ -468,11 +495,40 @@ fn calculate_genesis_slot(current: Vec<u8>, epoch_idx: Vec<u8>) -> Slot {
 	genesis_slot
 }
 
+// AHM
+use frame_system::AccountInfo;
+use pallet_balances::AccountData;
+
+fn subtract_free_balance_from_state(data: &Vec<u8>, amount:u128) -> Vec<u8> {
+	let mut account_info = AccountInfo::<u32, AccountData<u128>>::decode(&mut data.as_slice()).unwrap();
+	debug!(target: LOG_TARGET, "AccountInfo to subtract: {:?} ", account_info);
+	account_info.data.free -= amount;
+	account_info.encode()
+}
+
+fn default_with_amount_free(amount:u128) -> Vec<u8> {
+	let mut account = AccountInfo::<u32, AccountData<u128>>::default();
+	account.data.free = amount;
+	account.encode()
+}
+
 #[cfg(test)]
 mod tests {
+	use super::*;
 	use super::calculate_genesis_slot;
     use codec::{Encode, Decode};
     use polkadot_primitives::Slot;
+
+	#[test]
+	#[ignore]
+	fn account_info_should_works() {
+        let data: Vec<u8>  = hex::decode("2900000002000000010000000000000070a95481242d000000000000000000000086c46b5d000000000000000000000000203d88792d0000000000000000000000000000000000000000000000000080").unwrap();
+        let  account: AccountInfo<u32, AccountData<u128>> = AccountInfo::<u32, AccountData<u128>>::decode(&mut data.as_slice()).unwrap();
+        println!("{account:?}");
+		let new_account_data = subtract_free_balance_from_state(&data, 10_000_000_000_000_u128);
+		let  new_account: AccountInfo<u32, AccountData<u128>> = AccountInfo::<u32, AccountData<u128>>::decode(&mut new_account_data.as_slice()).unwrap();
+		println!("{new_account:?}");
+	}
 
 	#[test]
 	#[ignore]
