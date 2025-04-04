@@ -2279,7 +2279,7 @@ version = "0.7.0"
 default-features = false
 optional = true
 path = "../cumulus/parachains/runtimes/assets/test-utils"
-version = "22.0.0"
+version = "23.0.0"
 
 [dependencies.bridge-hub-test-utils]
 default-features = false

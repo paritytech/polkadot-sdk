@@ -634,7 +634,7 @@ asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests
 asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.25.1" }
 asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend", version = "0.1.0" }
 asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", version = "0.29.1" }
-asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false, version = "22.0.0" }
+asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false, version = "23.0.0" }
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false, version = "0.21.0" }
 async-channel = { version = "1.8.0" }
 async-std = { version = "1.9.0" }
