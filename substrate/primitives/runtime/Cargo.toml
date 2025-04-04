@@ -38,7 +38,7 @@ sp-trie = { workspace = true }
 sp-weights = { workspace = true }
 tracing = { workspace = true, features = ["log"], default-features = false }
 
-simple-mermaid = { version = "0.1.1", optional = true }
+simple-mermaid = { workspace = true, optional = true }
 tuplex = { version = "0.1.2", default-features = false }
 
 [dev-dependencies]
