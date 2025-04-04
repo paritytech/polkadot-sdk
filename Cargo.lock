@@ -27737,7 +27737,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-simulator-example"
-version = "19.0.0"
+version = "20.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
