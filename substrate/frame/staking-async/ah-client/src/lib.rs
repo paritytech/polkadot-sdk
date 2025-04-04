@@ -289,7 +289,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type BufferedOffences<T: Config> =
-		StorageValue<_, Vec<rc_client::Offence<T::AccountId>>, ValueQuery>;
+		StorageValue<_, Vec<(SessionIndex, Vec<rc_client::Offence<T::AccountId>>)>, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -322,9 +322,9 @@ pub mod pallet {
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
 	///
-	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has failed.
-	/// While these should never occur under normal operation, they are useful for diagnosing issues
-	/// in production or test environments.
+	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has
+	/// failed. While these should never occur under normal operation, they are useful for
+	/// diagnosing issues in production or test environments.
 	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
 	pub enum UnexpectedKind {
 		/// A validator set was received while the pallet is in [`OperatingMode::Passive`].
@@ -430,26 +430,12 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Allows governance to force set the operating mode of the pallet.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::DbWeight::get().writes(1))]
 		pub fn set_mode(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			let old_mode = Mode::<T>::get();
-			let unexpected = match mode {
-				// `Passive` is the initial state, and not expected to be set by the user.
-				OperatingMode::Passive => true,
-				OperatingMode::Buffered => old_mode != OperatingMode::Passive,
-				OperatingMode::Active => old_mode != OperatingMode::Buffered,
-			};
-
-			// this is a defensive check, and should never happen under normal operation.
-			if unexpected {
-				log!(warn, "Unexpected mode transition from {:?} to {:?}", old_mode, mode);
-				Self::deposit_event(Event::Unexpected(UnexpectedKind::UnexpectedModeTransition));
-			}
-
-			// apply new mode anyway.
-			Mode::<T>::put(mode);
+			Self::do_set_mode(mode);
 			Ok(())
 		}
 	}
@@ -535,8 +521,8 @@ pub mod pallet {
 
 			match mode {
 				OperatingMode::Buffered => {
-					BufferedOffences::<T>::mutate(|offences| {
-						offences.extend(offenders_and_slashes.clone());
+					BufferedOffences::<T>::mutate(|buffered| {
+						buffered.push((slash_session, offenders_and_slashes.clone()));
 					});
 					log!(info, "Buffered offences: {:?}", offenders_and_slashes);
 				},
@@ -557,7 +543,6 @@ pub mod pallet {
 				OperatingMode::Passive => T::Fallback::reward_by_ids(rewards),
 				OperatingMode::Buffered | OperatingMode::Active => Self::do_reward_by_ids(rewards),
 			}
-
 		}
 	}
 
@@ -571,6 +556,64 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Hook to be called when the AssetHub migration begins.
+		///
+		/// This transitions the pallet into [`OperatingMode::Buffered`], meaning it will act as the
+		/// primary staking module on the relay chain but will buffer outgoing messages instead of
+		/// sending them to AssetHub.
+		///
+		/// While in this mode, the pallet stops delegating to the fallback implementation and
+		/// temporarily accumulates events for later processing.
+		pub fn on_migration_start() {
+			debug_assert!(
+				Mode::<T>::get() == OperatingMode::Passive,
+				"we should only be called when in passive mode"
+			);
+			Self::do_set_mode(OperatingMode::Buffered);
+		}
+
+		/// Hook to be called when the AssetHub migration is complete.
+		///
+		/// This transitions the pallet into [`OperatingMode::Active`], meaning the counterpart
+		/// pallet on AssetHub is ready to accept incoming messages, and this pallet can resume
+		/// sending them.
+		///
+		/// In this mode, the pallet becomes fully active and processes all staking-related events
+		/// directly.
+		pub fn on_migration_end() {
+			debug_assert!(
+				Mode::<T>::get() == OperatingMode::Buffered,
+				"we should only be called when in buffered mode"
+			);
+			Self::do_set_mode(OperatingMode::Active);
+
+			// send all buffered offences to AssetHub.
+			BufferedOffences::<T>::get().into_iter().for_each(|(slash_session, offences)| {
+				T::SendToAssetHub::relay_new_offence(slash_session, offences)
+			});
+
+			// TODO: set `pallet_staking::ForceEra` to `ForceNone`.
+		}
+
+		fn do_set_mode(new_mode: OperatingMode) {
+			let old_mode = Mode::<T>::get();
+			let unexpected = match new_mode {
+				// `Passive` is the initial state, and not expected to be set by the user.
+				OperatingMode::Passive => true,
+				OperatingMode::Buffered => old_mode != OperatingMode::Passive,
+				OperatingMode::Active => old_mode != OperatingMode::Buffered,
+			};
+
+			// this is a defensive check, and should never happen under normal operation.
+			if unexpected {
+				log!(warn, "Unexpected mode transition from {:?} to {:?}", old_mode, new_mode);
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::UnexpectedModeTransition));
+			}
+
+			// apply new mode anyway.
+			Mode::<T>::put(new_mode);
+		}
+
 		fn do_new_session() -> Option<Vec<T::AccountId>> {
 			let maybe_validator_set = ValidatorSet::<T>::take().map(|(id, val_set)| {
 				// store the id to be sent back in the next session back to AH

@@ -44,7 +44,6 @@ pub mod weights;
 mod pallet;
 mod session_rotation;
 
-
 extern crate alloc;
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
