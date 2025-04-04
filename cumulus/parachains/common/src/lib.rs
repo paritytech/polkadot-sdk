@@ -91,8 +91,7 @@ mod constants {
 	/// Change this to adjust the block time.
 	pub const MILLISECS_PER_BLOCK: u64 = 12000;
 	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-	pub const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(
-		MILLISECS_PER_BLOCK);
+	pub const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(MILLISECS_PER_BLOCK);
 
 	// Time is measured by number of blocks.
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
