@@ -2453,7 +2453,7 @@ version = "43.0.0"
 default-features = false
 optional = true
 path = "../cumulus/parachains/runtimes/test-utils"
-version = "21.0.0"
+version = "22.0.0"
 
 [dependencies.polkadot-approval-distribution]
 default-features = false
