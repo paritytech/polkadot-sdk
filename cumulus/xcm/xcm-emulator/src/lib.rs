@@ -22,7 +22,7 @@ pub use log;
 pub use paste;
 pub use std::{
 	any::type_name,
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	error::Error,
 	fmt,
 	marker::PhantomData,
@@ -108,7 +108,7 @@ thread_local! {
 	/// Most recent `HeadData` of each parachain, encoded.
 	pub static LAST_HEAD: RefCell<HashMap<String, HashMap<u32, HeadData>>> = RefCell::new(HashMap::new());
 	/// Tracked XCM topic IDs
-	pub static TRACKED_TOPIC_IDS: RefCell<HashSet<sp_core::H256>> = RefCell::new(HashSet::new());
+	pub static TRACKED_TOPIC_IDS: RefCell<std::collections::HashSet<sp_core::H256>> = RefCell::new(std::collections::HashSet::new());
 }
 pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
