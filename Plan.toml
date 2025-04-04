@@ -2493,7 +2493,7 @@ reason = "changed"
 # bridges/chains/chain-bridge-hub-cumulus
 name = "bp-bridge-hub-cumulus"
 from = "0.19.0"
-to = "0.20.0"
+to = "0.21.0"
 bump = "major"
 reason = "changed"
 
