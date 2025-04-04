@@ -114,6 +114,12 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 	}
 
 	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+		if hash == &self.latest_block().await.hash() {
+			return Ok(Some(self.latest_block().await));
+		} else if hash == &self.latest_finalized_block().await.hash() {
+			return Ok(Some(self.latest_finalized_block().await));
+		}
+
 		match self.api.blocks().at(*hash).await {
 			Ok(block) => Ok(Some(Arc::new(block))),
 			Err(subxt::Error::Block(subxt::error::BlockError::NotFound(_))) => Ok(None),

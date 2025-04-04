@@ -60,9 +60,9 @@ pub struct CliCommand {
 	#[clap(long, env = "DATABASE_URL", default_value = IN_MEMORY_DB)]
 	pub database_url: String,
 
-	/// If not provided, only new blocks will be indexed
+	/// If provided, index the last n blocks
 	#[clap(long)]
-	pub index_until_block: Option<SubstrateBlockNumber>,
+	pub index_last_n_blocks: Option<SubstrateBlockNumber>,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -154,7 +154,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		cache_size,
 		database_url,
 		earliest_receipt_block,
-		index_until_block,
+		index_last_n_blocks,
 		shared_params,
 		..
 	} = cmd;
@@ -223,8 +223,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			let fut1 = client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks);
 			let fut2 = client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks);
 
-			if let Some(index_until_block) = index_until_block {
-				let fut3 = client.cache_old_blocks(index_until_block);
+			if let Some(index_last_n_blocks) = index_last_n_blocks {
+				let fut3 = client.subscribe_and_cache_blocks(index_last_n_blocks);
 				tokio::join!(fut1, fut2, fut3);
 			} else {
 				tokio::join!(fut1, fut2);

@@ -35,7 +35,7 @@ use pallet_revive::{
 };
 use sp_runtime::OpaqueExtrinsic;
 use sp_weights::Weight;
-use std::{ops::ControlFlow, sync::Arc, time::Duration};
+use std::{ops::Range, sync::Arc, time::Duration};
 use subxt::{
 	backend::{
 		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
@@ -258,40 +258,36 @@ impl Client {
 	/// The subscription continues iterating past blocks until the closure returns
 	/// `ControlFlow::Break`. Blocks are iterated starting from the latest block and moving
 	/// backward.
-	#[allow(dead_code)]
-	async fn subscribe_past_blocks<F, Fut>(&self, callback: F) -> Result<(), ClientError>
+	async fn subscribe_past_blocks<F, Fut>(
+		&self,
+		range: Range<SubstrateBlockNumber>,
+		callback: F,
+	) -> Result<(), ClientError>
 	where
-		F: Fn(SubstrateBlock) -> Fut + Send + Sync,
-		Fut: std::future::Future<Output = Result<ControlFlow<()>, ClientError>> + Send,
+		F: Fn(Arc<SubstrateBlock>) -> Fut + Send + Sync,
+		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
 	{
-		log::info!(target: LOG_TARGET, "🔍 Subscribing to past blocks");
-		let mut block = self.api.blocks().at_latest().await.inspect_err(|err| {
-			log::error!(target: LOG_TARGET, "Failed to fetch latest block: {err:?}");
-		})?;
+		let mut block = self
+			.block_provider
+			.block_by_number(range.end)
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
 
 		loop {
 			let block_number = block.number();
 			log::trace!(target: LOG_TARGET, "Processing past block #{block_number}");
 
 			let parent_hash = block.header().parent_hash;
-			let control_flow = callback(block).await.inspect_err(|err| {
+			callback(block.clone()).await.inspect_err(|err| {
 				log::error!(target: LOG_TARGET, "Failed to process past block #{block_number}: {err:?}");
 			})?;
 
-			match control_flow {
-				ControlFlow::Continue(_) => {
-					if block_number == 0 {
-						log::info!(target: LOG_TARGET, "All past blocks processed");
-						return Ok(());
-					}
-					block = self.api.blocks().at(parent_hash).await.inspect_err(|err| {
-						log::error!(target: LOG_TARGET, "Failed to fetch block at {parent_hash:?}: {err:?}");
-					})?;
-				},
-				ControlFlow::Break(_) => {
-					log::info!(target: LOG_TARGET, "Stopping past block subscription at {block_number}");
-					return Ok(());
-				},
+			if range.start < block_number {
+				block = self
+					.block_provider
+					.block_by_hash(&parent_hash)
+					.await?
+					.ok_or(ClientError::BlockNotFound)?;
 			}
 		}
 	}
@@ -344,6 +340,7 @@ impl Client {
 
 	/// Start the block subscription, and populate the block cache.
 	pub async fn subscribe_and_cache_new_blocks(&self, subscription_type: SubscriptionType) {
+		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		let res = self
 			.subscribe_new_blocks(subscription_type, |block| async {
 				self.receipt_provider.insert_block_receipts(&block).await?;
@@ -358,15 +355,14 @@ impl Client {
 	}
 
 	/// Cache old blocks up to the given block number.
-	pub async fn cache_old_blocks(&self, oldest_block: SubstrateBlockNumber) {
+	pub async fn subscribe_and_cache_blocks(&self, index_last_n_blocks: SubstrateBlockNumber) {
+		let last = self.latest_block().await.number().saturating_sub(1);
+		let range = last.saturating_sub(index_last_n_blocks)..last;
+		log::info!(target: LOG_TARGET, "🗄️ Indexing blocks in range {range:?}");
 		let res = self
-			.subscribe_past_blocks(|block| async move {
+			.subscribe_past_blocks(range, |block| async move {
 				self.receipt_provider.insert_block_receipts(&block).await?;
-				if block.number() <= oldest_block {
-					Ok(ControlFlow::Break(()))
-				} else {
-					Ok(ControlFlow::Continue(()))
-				}
+				Ok(())
 			})
 			.await;
 
