@@ -706,8 +706,7 @@ impl<T: Config> Pallet<T> {
 		let mut total_stake: BalanceOf<T> = Zero::zero();
 		let mut elected_stashes = Vec::with_capacity(exposures.len());
 		// Populate exposures by total stake, to be truncated to the lowest portion.
-		let mut exposures_total_stake: Vec<(T::AccountId, BalanceOf<T>)> =
-			Vec::with_capacity(exposures.len());
+		let mut exposures_total_stake: Vec<BalanceOf<T>> = Vec::with_capacity(exposures.len());
 
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			// build elected stash
@@ -715,7 +714,7 @@ impl<T: Config> Pallet<T> {
 			// accumulate total stake
 			total_stake = total_stake.saturating_add(exposure.total);
 			// add this validator's total stake to the lowest ratio total stake
-			exposures_total_stake.push((stash.clone(), exposure.total));
+			exposures_total_stake.push(exposure.total);
 			// store staker exposure for this era
 			EraInfo::<T>::set_exposure(new_planned_era, &stash, exposure);
 		});
@@ -750,7 +749,7 @@ impl<T: Config> Pallet<T> {
 	/// Calculate the total stake of the lowest portion validators and store it for the planned era.
 	///
 	/// Removes the stale entry from [`EraLowestRatioTotalStake`] if it exists.
-	fn calculate_lowest_total_stake(mut exposures: Vec<(T::AccountId, BalanceOf<T>)>) {
+	fn calculate_lowest_total_stake(mut exposures: Vec<BalanceOf<T>>) {
 		// Only calculate if unbonding queue params have been set.
 		if let Some(params) = UnbondingQueueParams::<T>::get() {
 			// Determine the total stake from the lowest portion of validators and persist for the
@@ -759,11 +758,11 @@ impl<T: Config> Pallet<T> {
 				(params.lowest_ratio * exposures.len() as u32).max(1) as usize;
 
 			// Sort exposure total stake by the lowest first, and truncate to the lowest portion.
-			exposures.sort_by(|(_, a), (_, b)| a.cmp(&b));
+			exposures.sort();
 			exposures.truncate(validators_to_check);
 
 			// Calculate the total stake of the lowest portion validators.
-			let total_stake = exposures.into_iter().map(|(_, a)| a).sum();
+			let total_stake = exposures.into_iter().sum();
 
 			// Store the total stake of the lowest portion validators for the planned era.
 			EraLowestRatioTotalStake::<T>::mutate(|lower_ratio| {
