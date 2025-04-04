@@ -14,22 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	cli,
-	cli::{RelayChainCli, Subcommand},
-	common::{
-		chain_spec::{Extensions, LoadSpec},
-		runtime::{
-			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
-			RuntimeResolver,
-		},
-		types::Block,
-		NodeBlock, NodeExtraArgs,
+use crate::{cli, cli::{RelayChainCli, Subcommand}, common::{
+	chain_spec::{Extensions, LoadSpec},
+	runtime::{
+		AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
+		RuntimeResolver,
 	},
-	fake_runtime_api,
-	nodes::DynNodeSpecExt,
-	runtime::BlockNumber,
-};
+	types::Block,
+	NodeBlock, NodeExtraArgs,
+}, extra_commands, fake_runtime_api, nodes::DynNodeSpecExt, runtime::BlockNumber};
 use clap::{CommandFactory, FromArgMatches};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
@@ -110,21 +103,25 @@ fn new_node_spec(
 }
 
 /// Parse command line arguments into service configuration.
+/// Entrypoint to run the CLI with optional extra subcommands.
 ///
-/// pub fn run<CliConfig, Extra>(cmd_config: RunConfig) -> Result<()>
-// +where
-// +	CliConfig: crate::cli::CliConfig,
-// +	Extra: crate::cli::ExtraSubcommand,
+/// This function wraps the parsing of arguments and dispatching to either:
+/// - A built-in subcommand (e.g., `build-spec`, `export-genesis-head`)
+/// - A user-defined extra subcommand via the `ExtraSubcommand` trait
+///
+/// # Type Parameters
+/// - `CliConfig`: Runtime-specific configuration (e.g., network, spec versions)
+/// - `Extra`: One or more subcommands implementing `ExtraSubcommand`
 pub fn run<CliConfig, Extra>(cmd_config: RunConfig) -> Result<()> where
 	CliConfig: cli::CliConfig,
-	Extra: cli::ExtraSubcommand{
+	Extra: extra_commands::ExtraSubcommand{
 
 	let cli_command = Extra::augment_command(crate::cli::Cli::<CliConfig>::command());
 
 	let matches = cli_command.get_matches();
 
 	if let Some((name, sub_matches)) = matches.subcommand() {
-		if let Some(result) = Extra::try_run(name, sub_matches, &*cmd_config.chain_spec_loader) {
+		if let Some(result) = Extra::maybe_run(name, sub_matches, &*cmd_config.chain_spec_loader) {
 			return result;
 		}
 	}

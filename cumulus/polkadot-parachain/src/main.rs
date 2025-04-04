@@ -23,11 +23,8 @@ mod chain_spec;
 
 use clap::{Args, FromArgMatches};
 use polkadot_omni_node_lib::{
-	chain_spec::{DiskChainSpecLoader, LoadSpec},
-	cli::ExtraSubcommand,
 	extra_commands::ExportChainSpec,
 	run,
-	runtime::DefaultRuntimeResolver,
 	CliConfig as CliConfigT, RunConfig, NODE_VERSION,
 };
 

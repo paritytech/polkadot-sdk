@@ -68,20 +68,6 @@ pub trait CliConfig {
 	fn copyright_start_year() -> u16;
 }
 
-/// Marker trait for optional extra subcommands.
-pub trait ExtraSubcommand: Sized {
-
-	/// Augment the CLI command with extra subcommands.
-
-	fn augment_command(cmd: Command) -> Command;
-
-	/// Run function for running with or without additional CLI commands
-	fn try_run(
-		name: &str,
-		matches: &clap::ArgMatches,
-		chain_spec_loader: &dyn LoadSpec,
-	) -> Option<sc_cli::Result<()>>;}
-
 
 /// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
