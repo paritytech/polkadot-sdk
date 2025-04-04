@@ -29,6 +29,7 @@ serde_json = { workspace = true }
 simple-mermaid = { workspace = true }
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
+chain-spec-builder = { workspace = true, default-features = true }
 frame-benchmarking = { workspace = true }
 frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true, default-features = true }
