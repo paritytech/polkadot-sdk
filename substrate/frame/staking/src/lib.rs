@@ -395,12 +395,13 @@ pub struct ActiveEraInfo {
 	Default,
 )]
 pub struct UnbondingQueueConfig {
-	/// The share of stake backing the lowest 1/3 of validators that is slashable at any point in
-	/// time. It offers a trade-off between security and unbonding time.
+	/// The share of stake backing the lowest portion of validators that is slashable at any point
+	/// in time. It should offer a trade-off between security and unbonding time. 50% is considered
+	/// a reasonable value.
 	pub min_slashable_share: Perbill,
-	/// Min truncate ratio stake.
+	/// Minimum truncate stake ratio. 1/3 is considered a reasonable value.
 	pub lowest_ratio: Perbill,
-	/// The minimum unbonding time for an active stake.
+	/// The minimum unbonding time, in eras, for an active stake.
 	pub unbond_period_lower_bound: EraIndex,
 	/// The era when all the existing unbonders have unbonded.
 	pub back_of_unbonding_queue_era: EraIndex,
