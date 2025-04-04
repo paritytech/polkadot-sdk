@@ -17,8 +17,8 @@
 //! The Ethereum JSON-RPC server.
 use crate::{
 	client::{connect, native_to_eth_ratio, Client, SubscriptionType, SubstrateBlockNumber},
-	ReceiptProvider, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl,
-	ReceiptExtractor, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
+	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
+	ReceiptProvider, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	LOG_TARGET,
 };
 use clap::Parser;
