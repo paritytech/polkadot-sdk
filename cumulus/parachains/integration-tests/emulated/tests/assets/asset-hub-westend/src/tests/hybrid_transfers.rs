@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use emulated_integration_tests_common::xcm_emulator::{
-	find_all_xcm_topic_ids, find_mq_processed_id, find_xcm_sent_message_id,
+	find_all_xcm_topic_ids, find_xcm_sent_message_id, helpers::TopicIdTracker,
 };
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
@@ -57,12 +57,10 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 		]
 	);
 
-	let topic_ids: HashSet<_> =
-		find_all_xcm_topic_ids!(AssetHubWestend).iter().map(|event| event.0).collect();
-	assert_eq!(topic_ids.len(), 1);
-
-	let prc_id = find_mq_processed_id!(AssetHubWestend);
-	assert!(prc_id.is_some());
+	for id in find_all_xcm_topic_ids!(AssetHubWestend).iter() {
+		TopicIdTracker::insert(id);
+	}
+	assert!(TopicIdTracker::is_unique());
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
@@ -125,7 +123,12 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 	);
 
 	let msg_id_sent = find_xcm_sent_message_id!(PenpalA);
-	assert!(msg_id_sent.is_some());
+	if let Some(msg_id) = msg_id_sent {
+		TopicIdTracker::insert(msg_id.into());
+		assert!(TopicIdTracker::is_unique());
+	} else {
+		assert!(false, "Missing Sent Event");
+	}
 
 	result
 }
@@ -563,6 +566,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		),
 	};
 	let mut test = ParaToParaThroughAHTest::new(test_args);
+	TopicIdTracker::reset();
 
 	// Query initial balances
 	let sender_wnds_before = PenpalA::execute_with(|| {

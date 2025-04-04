@@ -353,22 +353,6 @@ impl fmt::Display for BridgeMessageDispatchError {
 	}
 }
 
-pub struct TopicIdTracker;
-impl TopicIdTracker {
-	pub fn contains(id: &sp_core::H256) -> bool {
-		TRACKED_TOPIC_IDS.with(|b| b.borrow().contains(id))
-	}
-	pub fn insert(id: sp_core::H256) {
-		TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
-	}
-	pub fn is_unique() -> bool {
-		TRACKED_TOPIC_IDS.with(|b| b.borrow().len() == 1)
-	}
-	pub fn reset() {
-		TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());
-	}
-}
-
 // Relay Chain Implementation
 #[macro_export]
 macro_rules! decl_test_relay_chains {
@@ -1710,5 +1694,21 @@ pub mod helpers {
 			within_threshold(threshold_size, expected_weight.proof_size(), weight.proof_size());
 
 		ref_time_within && proof_size_within
+	}
+
+	pub struct TopicIdTracker;
+	impl TopicIdTracker {
+		pub fn contains(id: &sp_core::H256) -> bool {
+			TRACKED_TOPIC_IDS.with(|b| b.borrow().contains(id))
+		}
+		pub fn insert(id: sp_core::H256) {
+			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
+		}
+		pub fn is_unique() -> bool {
+			TRACKED_TOPIC_IDS.with(|b| b.borrow().len() == 1)
+		}
+		pub fn reset() {
+			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());
+		}
 	}
 }
