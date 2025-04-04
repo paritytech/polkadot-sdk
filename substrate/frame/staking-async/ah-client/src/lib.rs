@@ -224,7 +224,7 @@ pub mod pallet {
 		/// This type must implement the `historical::SessionManager` and `OnOffenceHandler`
 		/// interface and is expected to behave as a stand-in for this pallet’s core logic when
 		/// delegation is active.
-		type Fallback: historical::SessionManager<Self::AccountId, ()>
+		type Fallback: pallet_session::SessionManager<Self::AccountId>
 			+ OnOffenceHandler<Self::AccountId, (Self::AccountId, ()), Weight>;
 	}
 
@@ -270,6 +270,10 @@ pub mod pallet {
 	/// timestamp to AH.
 	#[pallet::storage]
 	pub type NextSessionChangesValidators<T: Config> = StorageValue<_, u32, OptionQuery>;
+
+	/// The session index at which the latest elected validator set was applied.
+	#[pallet::storage]
+	pub type ValidatorSetAppliedAt<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
 
 	/// Stores offences that have been received while the pallet is in [`OperatingMode::Buffered`]
 	/// mode.
@@ -494,20 +498,26 @@ pub mod pallet {
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
-
-			if Mode::<T>::get() == OperatingMode::Passive {
+			let mode = Mode::<T>::get();
+			if mode == OperatingMode::Passive {
 				// delegate to the fallback implementation.
 				return T::Fallback::on_offence(offenders, slash_fraction, slash_session);
 			}
+
+			// check if offence is from the active validator set.
+			let ongoing_offence = ValidatorSetAppliedAt::<T>::get().map(|start_session| slash_session >= start_session).unwrap_or(false);
 
 			let mut offenders_and_slashes = Vec::new();
 
 			// notify pallet-session about the offences
 			for (offence, fraction) in offenders.iter().cloned().zip(slash_fraction) {
-				T::SessionInterface::report_offence(
-					offence.offender.0.clone(),
-					OffenceSeverity(*fraction),
-				);
+				if ongoing_offence {
+					// report the offence to the session pallet.
+					T::SessionInterface::report_offence(
+						offence.offender.0.clone(),
+						OffenceSeverity(*fraction),
+					);
+				}
 
 				// prepare an `Offence` instance for the XCM message
 				offenders_and_slashes.push(rc_client::Offence {
@@ -517,12 +527,18 @@ pub mod pallet {
 				});
 			}
 
-			// TODO(ank4n)
-			if Mode::<T>::get() == OperatingMode::Active {
-				log!(info, "sending offence report to AH");
-				T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
-			} else {
-				log!(warn, "offence report is blocked and not sent")
+			match mode {
+				OperatingMode::Buffered => {
+					BufferedOffences::<T>::mutate(|offences| {
+						offences.extend(offenders_and_slashes.clone());
+					});
+					log!(info, "Buffered offences: {:?}", offenders_and_slashes);
+				}
+				OperatingMode::Active => {
+					log!(info, "sending offence report to AH");
+					T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
+				},
+				_ => ()
 			}
 
 			Weight::zero()
@@ -563,7 +579,12 @@ pub mod pallet {
 
 			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
 			let activation_timestamp = NextSessionChangesValidators::<T>::take()
-				.map(|id| (T::UnixTime::now().as_millis().saturated_into::<u64>(), id));
+				.map(|id| {
+					// keep track of starting session index at which the validator set was applied.
+					ValidatorSetAppliedAt::<T>::put(session_index + 1);
+					// set the timestamp and the identifier of the validator set.
+					(T::UnixTime::now().as_millis().saturated_into::<u64>(), id)
+				});
 
 			let session_report = pallet_staking_async_rc_client::SessionReport {
 				end_index: session_index,
