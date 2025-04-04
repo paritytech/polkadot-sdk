@@ -60,7 +60,7 @@ pub use pallet_staking_async::NullIdentity;
 
 extern crate alloc;
 use alloc::vec::Vec;
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::RewardsReporter};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_staking::{
 	offence::{OffenceDetails, OffenceSeverity},
@@ -225,7 +225,9 @@ pub mod pallet {
 		/// interface and is expected to behave as a stand-in for this pallet’s core logic when
 		/// delegation is active.
 		type Fallback: pallet_session::SessionManager<Self::AccountId>
-			+ OnOffenceHandler<Self::AccountId, (Self::AccountId, ()), Weight>;
+			+ OnOffenceHandler<Self::AccountId, (Self::AccountId, ()), Weight>
+			+ frame_support::traits::RewardsReporter<Self::AccountId>
+			+ pallet_authorship::EventHandler<Self::AccountId, BlockNumberFor<Self>>;
 	}
 
 	#[pallet::pallet]
@@ -358,7 +360,9 @@ pub mod pallet {
 			let mode = Mode::<T>::get();
 			if !mode.can_accept_validator_set() {
 				log!(warn, "Validator set received while in {:?} mode", mode);
-				Self::deposit_event(Event::Unexpected(UnexpectedKind::ReceivedValidatorSetWhilePassive));
+				Self::deposit_event(Event::Unexpected(
+					UnexpectedKind::ReceivedValidatorSetWhilePassive,
+				));
 				return Ok(());
 			}
 
@@ -505,7 +509,9 @@ pub mod pallet {
 			}
 
 			// check if offence is from the active validator set.
-			let ongoing_offence = ValidatorSetAppliedAt::<T>::get().map(|start_session| slash_session >= start_session).unwrap_or(false);
+			let ongoing_offence = ValidatorSetAppliedAt::<T>::get()
+				.map(|start_session| slash_session >= start_session)
+				.unwrap_or(false);
 
 			let mut offenders_and_slashes = Vec::new();
 
@@ -533,33 +539,34 @@ pub mod pallet {
 						offences.extend(offenders_and_slashes.clone());
 					});
 					log!(info, "Buffered offences: {:?}", offenders_and_slashes);
-				}
+				},
 				OperatingMode::Active => {
 					log!(info, "sending offence report to AH");
 					T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
 				},
-				_ => ()
+				_ => (),
 			}
 
 			Weight::zero()
 		}
 	}
 
-	impl<T: Config> frame_support::traits::RewardsReporter<T::AccountId> for Pallet<T> {
+	impl<T: Config> RewardsReporter<T::AccountId> for Pallet<T> {
 		fn reward_by_ids(rewards: impl IntoIterator<Item = (T::AccountId, u32)>) {
-			for (validator_id, points) in rewards {
-				ValidatorPoints::<T>::mutate(validator_id, |balance| {
-					balance.saturating_accrue(points);
-				});
+			match Mode::<T>::get() {
+				OperatingMode::Passive => T::Fallback::reward_by_ids(rewards),
+				OperatingMode::Buffered | OperatingMode::Active => Self::do_reward_by_ids(rewards),
 			}
+
 		}
 	}
 
 	impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
 		fn note_author(author: T::AccountId) {
-			ValidatorPoints::<T>::mutate(author, |points| {
-				points.saturating_accrue(T::PointsPerBlock::get());
-			});
+			match Mode::<T>::get() {
+				OperatingMode::Passive => T::Fallback::note_author(author),
+				OperatingMode::Buffered | OperatingMode::Active => Self::do_note_author(author),
+			}
 		}
 	}
 
@@ -578,13 +585,12 @@ pub mod pallet {
 			use sp_runtime::SaturatedConversion;
 
 			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
-			let activation_timestamp = NextSessionChangesValidators::<T>::take()
-				.map(|id| {
-					// keep track of starting session index at which the validator set was applied.
-					ValidatorSetAppliedAt::<T>::put(session_index + 1);
-					// set the timestamp and the identifier of the validator set.
-					(T::UnixTime::now().as_millis().saturated_into::<u64>(), id)
-				});
+			let activation_timestamp = NextSessionChangesValidators::<T>::take().map(|id| {
+				// keep track of starting session index at which the validator set was applied.
+				ValidatorSetAppliedAt::<T>::put(session_index + 1);
+				// set the timestamp and the identifier of the validator set.
+				(T::UnixTime::now().as_millis().saturated_into::<u64>(), id)
+			});
 
 			let session_report = pallet_staking_async_rc_client::SessionReport {
 				end_index: session_index,
@@ -594,6 +600,20 @@ pub mod pallet {
 			};
 
 			T::SendToAssetHub::relay_session_report(session_report);
+		}
+
+		fn do_reward_by_ids(rewards: impl IntoIterator<Item = (T::AccountId, u32)>) {
+			for (validator_id, points) in rewards {
+				ValidatorPoints::<T>::mutate(validator_id, |balance| {
+					balance.saturating_accrue(points);
+				});
+			}
+		}
+
+		fn do_note_author(author: T::AccountId) {
+			ValidatorPoints::<T>::mutate(author, |points| {
+				points.saturating_accrue(T::PointsPerBlock::get());
+			});
 		}
 	}
 }
