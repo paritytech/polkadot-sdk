@@ -294,6 +294,30 @@ mod benchmarks {
 
 		whitelist_account!(controller);
 
+		Staking::<T>::set_staking_configs(
+			RawOrigin::Root.into(),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+			ConfigOp::Set(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 1,
+				back_of_unbonding_queue_era: Zero::zero(),
+			}),
+		)?;
+
+		let mut min_stakes = BoundedVec::new();
+		for _ in 0..T::BondingDuration::get() {
+			let _ = min_stakes.try_push(1000u32.into()).unwrap();
+		}
+		assert!(min_stakes.is_full());
+		EraLowestRatioTotalStake::<T>::set(min_stakes);
+
 		#[extrinsic_call]
 		_(RawOrigin::Signed(controller.clone()), amount);
 
