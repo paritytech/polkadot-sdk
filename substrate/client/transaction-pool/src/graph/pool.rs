@@ -319,7 +319,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		let in_pool_tags = self.validated_pool.extrinsics_tags(&in_pool_hashes);
 		// Fill unknown tags based on the known tags from inactive views.
 		let tags = in_pool_hashes.iter().zip(in_pool_tags).map(|(tx_hash, tags)| {
-			tags.or(known_provides_tags.as_ref().and_then(|inner| inner.get(&tx_hash).cloned()))
+			tags.or_else(|| known_provides_tags.as_ref().and_then(|inner| inner.get(&tx_hash).cloned()))
 		});
 
 		// Zip the ones from the pool with the full list (we get pairs `(Extrinsic,
