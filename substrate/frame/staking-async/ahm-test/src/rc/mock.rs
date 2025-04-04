@@ -171,7 +171,7 @@ impl ah_client::Config for Runtime {
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
 	type PointsPerBlock = ConstU32<20>;
 	type SessionInterface = Self;
-	type StakingClassic = ();
+	// TODO type Fallback = Staking;
 }
 
 use pallet_staking_async_rc_client as rc_client;
