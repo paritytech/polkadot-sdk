@@ -2729,7 +2729,7 @@ reason = "changed"
 # cumulus/pallets/parachain-system
 name = "cumulus-pallet-parachain-system"
 from = "0.18.1"
-to = "0.19.0"
+to = "0.20.0"
 bump = "major"
 reason = "changed"
 
