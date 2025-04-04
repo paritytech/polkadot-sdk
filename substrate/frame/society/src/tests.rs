@@ -279,7 +279,7 @@ fn bidding_works() {
 		assert_eq!(Pot::<Test>::get(), 1_800);
 		assert_eq!(Balances::free_balance(Society::account_id()), 8_800);
 		// No more candidates satisfy the requirements
-		assert_eq!(candidacies(), vec![]);
+		assert_eq!(candidacies(), vec![] as Vec<(u128, Candidacy<u128, u64>)>);
 		assert_ok!(Society::defender_vote(Origin::signed(10), true)); // Keep defender around
 																// Next period
 		System::run_to_block::<AllPalletsWithSystem>(16);
@@ -587,7 +587,7 @@ fn suspended_candidate_rejected_works() {
 		next_intake();
 		conclude_intake(false, None);
 		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
-		assert_eq!(candidates(), vec![]);
+		assert_eq!(candidates(), vec![] as Vec<u128>);
 		assert_eq!(Balances::free_balance(60), 25);
 		assert_eq!(Balances::reserved_balance(60), 0);
 		assert_eq!(Balances::free_balance(Society::account_id()), 10030);
@@ -1301,7 +1301,7 @@ fn resign_candidacy_works() {
 		assert_eq!(candidates(), vec![30]);
 		assert_ok!(Society::resign_candidacy(Origin::signed(30)));
 		// 30 candidacy has gone.
-		assert_eq!(candidates(), vec![]);
+		assert_eq!(candidates(), vec![] as Vec<u128>);
 	});
 }
 
@@ -1318,6 +1318,6 @@ fn drop_candidate_works() {
 		System::run_to_block::<AllPalletsWithSystem>(12);
 		assert_ok!(Society::drop_candidate(Origin::signed(50), 40));
 		// 40 candidacy has gone.
-		assert_eq!(candidates(), vec![]);
+		assert_eq!(candidates(), vec![] as Vec<u128>);
 	});
 }

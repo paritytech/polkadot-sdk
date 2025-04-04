@@ -302,7 +302,7 @@ pub fn check_assignments_sum<T: PerThing>(assignments: &[Assignment<AccountId, T
 		distribution
 			.iter()
 			.for_each(|(_, p)| sum += p.deconstruct().saturated_into::<u128>());
-		assert_eq!(sum, T::ACCURACY.saturated_into(), "Assignment ratio sum is not 100%");
+		assert_eq!(sum, T::ACCURACY.saturated_into::<u128>(), "Assignment ratio sum is not 100%");
 	}
 }
 
