@@ -42,7 +42,7 @@ pub use origins::pallet_origins as pallet_ambassador_origins;
 
 use super::*;
 use crate::xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub};
-use frame_support::traits::{EitherOf, MapSuccess, TryMapSuccess};
+use frame_support::traits::{EitherOf, MapSuccess, RankedMembers, TryMapSuccess};
 use frame_support::traits::tokens::GetSalary;
 use frame_system::EnsureRootWithSuccess;
 use pallet_optimistic_funding;
@@ -289,6 +289,17 @@ parameter_types! {
 	pub const OptimisticFundingPalletId: PalletId = PalletId(*b"opt/fund");
 }
 
+// Wrapper struct to implement external traits for AmbassadorCollective
+pub struct AmbassadorRankAdapter;
+
+// Implementation of GetRank for the Ambassador Collective via the wrapper
+impl pallet_optimistic_funding::GetRank<AccountId> for AmbassadorRankAdapter {
+	fn get_rank(who: &AccountId) -> Option<u16> {
+		// Use the rank_of method from the RankedMembers trait
+		AmbassadorCollective::rank_of(who)
+	}
+}
+
 pub type AmbassadorOptimisticFundingInstance = pallet_optimistic_funding::Instance1;
 
 impl pallet_optimistic_funding::Config<AmbassadorOptimisticFundingInstance> for Runtime {
@@ -302,4 +313,5 @@ impl pallet_optimistic_funding::Config<AmbassadorOptimisticFundingInstance> for 
 	type TreasuryOrigin = EnsureGlobalHeadAmbassadorsVoice;
 	type WeightInfo = pallet_optimistic_funding::weights::SubstrateWeight<Runtime>;
 	type PalletId = OptimisticFundingPalletId;
+	type RankedMembers = AmbassadorRankAdapter;
 }

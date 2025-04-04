@@ -62,6 +62,12 @@ pub type FundingRequestOf<T, I = ()> = FundingRequest<
     BoundedVec<u8, ConstU32<100>>
 >;
 
+/// Get the rank of an account.
+pub trait GetRank<AccountId> {
+	/// Returns the rank of the given account, if it has one.
+	fn get_rank(who: &AccountId) -> Option<u16>;
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -106,6 +112,9 @@ pub mod pallet {
 		/// The pallet ID, used for deriving its sovereign account ID.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+
+		/// Member ranks are used to weight votes based on the voter's rank.
+		type RankedMembers: GetRank<Self::AccountId>;
 	}
 
 	#[pallet::storage]
@@ -295,19 +304,32 @@ pub mod pallet {
 			// Reserve the vote amount
 			T::Currency::reserve(&voter, amount)?;
 
-			// Create the vote
+			// Get the voter's rank (default to 0 if not a ranked member)
+			let rank = T::RankedMembers::get_rank(&voter).unwrap_or(0);
+
+			// Calculate vote weight based on amount and rank using formula:
+			// `amount * (rank + 1)` to ensure that even rank 0 members have
+			// some voting power.
+			let rank_multiplier = BalanceOf::<T, I>::from((rank as u32) + 1);
+			let weighted_amount = amount.saturating_mul(rank_multiplier);
+
+			// Create vote
 			let vote = Vote { amount, status: VoteStatus::Active };
 
-			// Store the vote
+			// Store vote
 			<Votes<T, I>>::insert(request_hash, &voter, vote);
 
-			// Update the request's vote count
+			// Update request
 			request.votes_count = request.votes_count.saturating_add(1);
-			request.votes_amount = request.votes_amount.saturating_add(amount);
+			request.votes_amount = request.votes_amount.saturating_add(weighted_amount);
 			<FundingRequests<T, I>>::insert(request_hash, request);
 
-			// Emit an event
-			Self::deposit_event(Event::<T, I>::VoteCast { request_hash, voter, amount });
+			// Emit event
+			Self::deposit_event(Event::<T, I>::VoteCast {
+				request_hash,
+				voter,
+				amount,
+			});
 
 			Ok(())
 		}
@@ -317,30 +339,38 @@ pub mod pallet {
 		pub fn cancel_vote(origin: OriginFor<T>, request_hash: T::Hash) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
 
-			// Check if the request exists
+			// Check if request exists
 			let mut request =
 				<FundingRequests<T, I>>::get(request_hash).ok_or(Error::<T, I>::RequestDoesNotExist)?;
 
-			// Check if the vote exists
-			let mut vote =
+			// Check if vote exists
+			let vote =
 				<Votes<T, I>>::get(request_hash, &voter).ok_or(Error::<T, I>::VoteDoesNotExist)?;
 
-			// Check if the vote has already been cancelled
+			// Check if vote has already been cancelled
 			ensure!(vote.status == VoteStatus::Active, Error::<T, I>::VoteAlreadyCancelled);
 
-			// Update the vote status
-			vote.status = VoteStatus::Cancelled;
-			<Votes<T, I>>::insert(request_hash, &voter, vote.clone());
+			// Get voter's rank (default to 0 if not a ranked member)
+			let rank = T::RankedMembers::get_rank(&voter).unwrap_or(0);
 
-			// Update the request's vote count
-			request.votes_count = request.votes_count.saturating_sub(1);
-			request.votes_amount = request.votes_amount.saturating_sub(vote.amount);
-			<FundingRequests<T, I>>::insert(request_hash, request);
+			// Calculate original weighted amount that was added
+			let rank_multiplier = BalanceOf::<T, I>::from((rank as u32) + 1);
+			let weighted_amount = vote.amount.saturating_mul(rank_multiplier);
 
-			// Unreserve the vote amount
+			// Update vote status
+			let mut updated_vote = vote.clone();
+			updated_vote.status = VoteStatus::Cancelled;
+			<Votes<T, I>>::insert(request_hash, &voter, updated_vote);
+
+			// Unreserve vote amount
 			T::Currency::unreserve(&voter, vote.amount);
 
-			// Emit an event
+			// Update request's vote count and amount
+			request.votes_count = request.votes_count.saturating_sub(1);
+			request.votes_amount = request.votes_amount.saturating_sub(weighted_amount);
+			<FundingRequests<T, I>>::insert(request_hash, request);
+
+			// Emit event
 			Self::deposit_event(Event::<T, I>::VoteCancelled { request_hash, voter });
 
 			Ok(())
@@ -354,10 +384,10 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			T::TreasuryOrigin::ensure_origin(origin)?;
 
-			// Get the treasury account
+			// Get treasury account
 			let treasury_account = Self::treasury_account();
 
-			// Transfer the funds to the treasury account
+			// Transfer funds to the treasury account
 			T::Currency::transfer(
 				&T::PalletId::get().into_account_truncating(),
 				&treasury_account,
@@ -365,7 +395,7 @@ pub mod pallet {
 				ExistenceRequirement::KeepAlive,
 			)?;
 
-			// Update the treasury balance
+			// Update treasury balance
 			<TreasuryBalance<T, I>>::mutate(|balance| *balance = balance.saturating_add(amount));
 
 			// Emit an event
@@ -379,18 +409,18 @@ pub mod pallet {
 		pub fn reject_request(origin: OriginFor<T>, request_hash: T::Hash) -> DispatchResult {
 			T::TreasuryOrigin::ensure_origin(origin)?;
 
-			// Check if the request exists
+			// Check if request exists
 			let request =
 				<FundingRequests<T, I>>::get(request_hash).ok_or(Error::<T, I>::RequestDoesNotExist)?;
 
-			// Remove the request
+			// Remove request
 			<FundingRequests<T, I>>::remove(request_hash);
 			<ActiveRequestCount<T, I>>::mutate(|count| *count = count.saturating_sub(1));
 
-			// Unreserve the deposit
+			// Unreserve deposit
 			T::Currency::unreserve(&request.proposer, T::RequestDeposit::get());
 
-			// Emit an event
+			// Emit event
 			Self::deposit_event(Event::<T, I>::RequestRejected { request_hash });
 
 			Ok(())
@@ -401,21 +431,21 @@ pub mod pallet {
 		pub fn allocate_funds(origin: OriginFor<T>, request_hash: T::Hash) -> DispatchResult {
 			T::TreasuryOrigin::ensure_origin(origin)?;
 
-			// Check if the request exists
+			// Check if request exists
 			let request =
 				<FundingRequests<T, I>>::get(request_hash).ok_or(Error::<T, I>::RequestDoesNotExist)?;
 
-			// Check if the treasury has enough funds
+			// Check if treasury has enough funds
 			let treasury_balance = <TreasuryBalance<T, I>>::get();
 			ensure!(
 				treasury_balance >= request.amount,
 				Error::<T, I>::InsufficientTreasuryFunds
 			);
 
-			// Get the treasury account
+			// Get treasury account
 			let treasury_account = Self::treasury_account();
 
-			// Transfer the funds from the treasury account to the recipient
+			// Transfer funds from treasury account to recipient
 			T::Currency::transfer(
 				&treasury_account,
 				&request.proposer,
@@ -423,17 +453,17 @@ pub mod pallet {
 				ExistenceRequirement::KeepAlive,
 			)?;
 
-			// Update the treasury balance
+			// Update treasury balance
 			<TreasuryBalance<T, I>>::mutate(|balance| *balance = balance.saturating_sub(request.amount));
 
-			// Remove the request
+			// Remove request
 			<FundingRequests<T, I>>::remove(request_hash);
 			<ActiveRequestCount<T, I>>::mutate(|count| *count = count.saturating_sub(1));
 
-			// Unreserve the deposit
+			// Unreserve deposit
 			T::Currency::unreserve(&request.proposer, T::RequestDeposit::get());
 
-			// Emit an event
+			// Emit event
 			Self::deposit_event(Event::<T, I>::FundsAllocated {
 				request_hash,
 				recipient: request.proposer,
@@ -451,10 +481,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::TreasuryOrigin::ensure_origin(origin)?;
 
-			// Set the period end
+			// Set period end
 			<CurrentPeriodEnd<T, I>>::put(period_end);
 
-			// Emit an event
+			// Emit event
 			Self::deposit_event(Event::<T, I>::PeriodEnded { period_end });
 
 			Ok(())
@@ -466,22 +496,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I>
 where
 	T: Config<I>,
 {
-	/// Get the treasury account.
+	/// Get treasury account.
 	pub fn treasury_account() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
 	}
 
-	/// Get the treasury balance.
+	/// Get treasury balance.
 	pub fn treasury_balance() -> BalanceOf<T, I> {
 		<TreasuryBalance<T, I>>::get()
 	}
 
-	/// Get the active request count.
+	/// Get active request count.
 	pub fn active_request_count() -> u32 {
 		<ActiveRequestCount<T, I>>::get()
 	}
 
-	/// Get the current period end.
+	/// Get current period end.
 	pub fn current_period_end() -> BlockNumberFor<T> {
 		<CurrentPeriodEnd<T, I>>::get()
 	}
