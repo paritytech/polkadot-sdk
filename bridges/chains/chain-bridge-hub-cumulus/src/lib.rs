@@ -39,6 +39,9 @@ use frame_support::{
 use frame_system::limits;
 use sp_std::time::Duration;
 
+/// Maximal asset hub header size.
+pub const MAX_ASSET_HUB_HEADER_SIZE: u32 = 4_096;
+
 /// Maximal bridge hub header size.
 pub const MAX_BRIDGE_HUB_HEADER_SIZE: u32 = 4_096;
 

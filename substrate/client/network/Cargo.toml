@@ -37,7 +37,6 @@ linked_hash_set = { workspace = true }
 litep2p = { workspace = true }
 log = { workspace = true, default-features = true }
 mockall = { workspace = true }
-once_cell = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 partial_sort = { workspace = true }
 pin-project = { workspace = true }
@@ -70,25 +69,19 @@ mockall = { workspace = true }
 multistream-select = { workspace = true }
 rand = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
-sc-network-light = { workspace = true, default-features = true }
-sc-network-sync = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
-sp-test-primitives = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
 tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }
-tokio-test = { workspace = true }
 tokio-util = { features = ["compat"], workspace = true }
 
 criterion = { workspace = true, default-features = true, features = ["async_tokio"] }
-sc-consensus = { workspace = true, default-features = true }
 
 [features]
 default = []
-
 
 [[bench]]
 name = "notifications_protocol"
