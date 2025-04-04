@@ -885,7 +885,7 @@ async fn send_peer_message(
 	virtual_overseer
 		.send(FromOrchestra::Communication {
 			msg: StatementDistributionMessage::NetworkBridgeUpdate(
-				NetworkBridgeEvent::PeerMessage(peer, VersionedValidation::V3(message)),
+				NetworkBridgeEvent::PeerMessage(peer, ValidationProtocols::V3(message)),
 			),
 		})
 		.await;

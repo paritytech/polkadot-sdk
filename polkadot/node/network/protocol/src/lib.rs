@@ -237,41 +237,41 @@ impl View {
 
 /// A protocol-versioned type for validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum VersionedValidation<V3> {
+pub enum ValidationProtocols<V3> {
 	/// V3 type.
 	V3(V3),
 }
 
 /// A protocol-versioned type for collation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum VersionedCollation<V1, V2> {
+pub enum CollationProtocols<V1, V2> {
 	/// V1 type.
 	V1(V1),
 	/// V2 type.
 	V2(V2),
 }
 
-impl<V3: Clone> VersionedValidation<&'_ V3> {
+impl<V3: Clone> ValidationProtocols<&'_ V3> {
 	/// Convert to a fully-owned version of the message.
-	pub fn clone_inner(&self) -> VersionedValidation<V3> {
+	pub fn clone_inner(&self) -> ValidationProtocols<V3> {
 		match *self {
-			VersionedValidation::V3(inner) => VersionedValidation::V3(inner.clone()),
+			ValidationProtocols::V3(inner) => ValidationProtocols::V3(inner.clone()),
 		}
 	}
 }
 
-impl<V1: Clone, V2: Clone> VersionedCollation<&'_ V1, &'_ V2> {
+impl<V1: Clone, V2: Clone> CollationProtocols<&'_ V1, &'_ V2> {
 	/// Convert to a fully-owned version of the message.
-	pub fn clone_inner(&self) -> VersionedCollation<V1, V2> {
+	pub fn clone_inner(&self) -> CollationProtocols<V1, V2> {
 		match *self {
-			VersionedCollation::V1(inner) => VersionedCollation::V1(inner.clone()),
-			VersionedCollation::V2(inner) => VersionedCollation::V2(inner.clone()),
+			CollationProtocols::V1(inner) => CollationProtocols::V1(inner.clone()),
+			CollationProtocols::V2(inner) => CollationProtocols::V2(inner.clone()),
 		}
 	}
 }
 
 /// All supported versions of the validation protocol message.
-pub type VersionedValidationProtocol = VersionedValidation<v3::ValidationProtocol>;
+pub type VersionedValidationProtocol = ValidationProtocols<v3::ValidationProtocol>;
 
 impl From<v3::ValidationProtocol> for VersionedValidationProtocol {
 	fn from(v3: v3::ValidationProtocol) -> Self {
@@ -281,7 +281,7 @@ impl From<v3::ValidationProtocol> for VersionedValidationProtocol {
 
 /// All supported versions of the collation protocol message.
 pub type VersionedCollationProtocol =
-	VersionedCollation<v1::CollationProtocol, v2::CollationProtocol>;
+	CollationProtocols<v1::CollationProtocol, v2::CollationProtocol>;
 
 impl From<v1::CollationProtocol> for VersionedCollationProtocol {
 	fn from(v1: v1::CollationProtocol) -> Self {
@@ -300,7 +300,7 @@ macro_rules! impl_versioned_validation_full_protocol_from {
 		impl From<$from> for $out {
 			fn from(versioned_from: $from) -> $out {
 				match versioned_from {
-					VersionedValidation::V3(x) => VersionedValidation::V3(x.into()),
+					ValidationProtocols::V3(x) => ValidationProtocols::V3(x.into()),
 				}
 			}
 		}
@@ -312,8 +312,8 @@ macro_rules! impl_versioned_collation_full_protocol_from {
 		impl From<$from> for $out {
 			fn from(versioned_from: $from) -> $out {
 				match versioned_from {
-					VersionedCollation::V1(x) => VersionedCollation::V1(x.into()),
-					VersionedCollation::V2(x) => VersionedCollation::V2(x.into()),
+					CollationProtocols::V1(x) => CollationProtocols::V1(x.into()),
+					CollationProtocols::V2(x) => CollationProtocols::V2(x.into()),
 				}
 			}
 		}
@@ -334,7 +334,7 @@ macro_rules! impl_versioned_validation_try_from {
 			fn try_from(x: $from) -> Result<$out, Self::Error> {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
-					VersionedValidation::V3($v3_pat) => Ok(VersionedValidation::V3($v3_out)),
+					ValidationProtocols::V3($v3_pat) => Ok(ValidationProtocols::V3($v3_out)),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -346,8 +346,8 @@ macro_rules! impl_versioned_validation_try_from {
 			fn try_from(x: &'a $from) -> Result<$out, Self::Error> {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
-					VersionedValidation::V3($v3_pat) =>
-						Ok(VersionedValidation::V3($v3_out.clone())),
+					ValidationProtocols::V3($v3_pat) =>
+						Ok(ValidationProtocols::V3($v3_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -370,8 +370,8 @@ macro_rules! impl_versioned_collation_try_from {
 			fn try_from(x: $from) -> Result<$out, Self::Error> {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
-					VersionedCollation::V1($v1_pat) => Ok(VersionedCollation::V1($v1_out)),
-					VersionedCollation::V2($v2_pat) => Ok(VersionedCollation::V2($v2_out)),
+					CollationProtocols::V1($v1_pat) => Ok(CollationProtocols::V1($v1_out)),
+					CollationProtocols::V2($v2_pat) => Ok(CollationProtocols::V2($v2_out)),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -383,8 +383,8 @@ macro_rules! impl_versioned_collation_try_from {
 			fn try_from(x: &'a $from) -> Result<$out, Self::Error> {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
-					VersionedCollation::V1($v1_pat) => Ok(VersionedCollation::V1($v1_out.clone())),
-					VersionedCollation::V2($v2_pat) => Ok(VersionedCollation::V2($v2_out.clone())),
+					CollationProtocols::V1($v1_pat) => Ok(CollationProtocols::V1($v1_out.clone())),
+					CollationProtocols::V2($v2_pat) => Ok(CollationProtocols::V2($v2_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -393,7 +393,7 @@ macro_rules! impl_versioned_collation_try_from {
 }
 
 /// Version-annotated messages used by the bitfield distribution subsystem.
-pub type BitfieldDistributionMessage = VersionedValidation<v3::BitfieldDistributionMessage>;
+pub type BitfieldDistributionMessage = ValidationProtocols<v3::BitfieldDistributionMessage>;
 impl_versioned_validation_full_protocol_from!(
 	BitfieldDistributionMessage,
 	VersionedValidationProtocol,
@@ -406,7 +406,7 @@ impl_versioned_validation_try_from!(
 );
 
 /// Version-annotated messages used by the statement distribution subsystem.
-pub type StatementDistributionMessage = VersionedValidation<v3::StatementDistributionMessage>;
+pub type StatementDistributionMessage = ValidationProtocols<v3::StatementDistributionMessage>;
 impl_versioned_validation_full_protocol_from!(
 	StatementDistributionMessage,
 	VersionedValidationProtocol,
@@ -419,7 +419,7 @@ impl_versioned_validation_try_from!(
 );
 
 /// Version-annotated messages used by the approval distribution subsystem.
-pub type ApprovalDistributionMessage = VersionedValidation<v3::ApprovalDistributionMessage>;
+pub type ApprovalDistributionMessage = ValidationProtocols<v3::ApprovalDistributionMessage>;
 impl_versioned_validation_full_protocol_from!(
 	ApprovalDistributionMessage,
 	VersionedValidationProtocol,
@@ -433,7 +433,7 @@ impl_versioned_validation_try_from!(
 );
 
 /// Version-annotated messages used by the gossip-support subsystem (this is void).
-pub type GossipSupportNetworkMessage = VersionedValidation<v3::GossipSupportNetworkMessage>;
+pub type GossipSupportNetworkMessage = ValidationProtocols<v3::GossipSupportNetworkMessage>;
 
 // This is a void enum placeholder, so never gets sent over the wire.
 impl TryFrom<VersionedValidationProtocol> for GossipSupportNetworkMessage {
@@ -452,7 +452,7 @@ impl<'a> TryFrom<&'a VersionedValidationProtocol> for GossipSupportNetworkMessag
 
 /// Version-annotated messages used by the collator protocol subsystem.
 pub type CollatorProtocolMessage =
-	VersionedCollation<v1::CollatorProtocolMessage, v2::CollatorProtocolMessage>;
+	CollationProtocols<v1::CollatorProtocolMessage, v2::CollatorProtocolMessage>;
 impl_versioned_collation_full_protocol_from!(
 	CollatorProtocolMessage,
 	VersionedCollationProtocol,

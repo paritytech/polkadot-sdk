@@ -414,13 +414,13 @@ async fn connect_and_declare_collator(
 
 	let wire_message = match version {
 		CollationVersion::V1 =>
-			VersionedCollation::V1(protocol_v1::CollatorProtocolMessage::Declare(
+			CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
 				collator.public(),
 				para_id,
 				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
 			)),
 		CollationVersion::V2 =>
-			VersionedCollation::V2(protocol_v2::CollatorProtocolMessage::Declare(
+			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
 				collator.public(),
 				para_id,
 				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
@@ -446,12 +446,12 @@ async fn advertise_collation(
 ) {
 	let wire_message = match candidate {
 		Some((candidate_hash, parent_head_data_hash)) =>
-			VersionedCollation::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
+			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 				relay_parent,
 				candidate_hash,
 				parent_head_data_hash,
 			}),
-		None => VersionedCollation::V1(protocol_v1::CollatorProtocolMessage::AdvertiseCollation(
+		None => CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::AdvertiseCollation(
 			relay_parent,
 		)),
 	};
@@ -491,7 +491,7 @@ fn collator_authentication_verification_works() {
 			&mut virtual_overseer,
 			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				peer_b,
-				VersionedCollation::V1(protocol_v1::CollatorProtocolMessage::Declare(
+				CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
 					test_state.collators[0].public(),
 					test_state.chain_ids[0],
 					test_state.collators[0].sign(&[42]),
@@ -1026,7 +1026,7 @@ fn disconnect_if_wrong_declare() {
 			&mut virtual_overseer,
 			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				peer_b,
-				VersionedCollation::V1(protocol_v1::CollatorProtocolMessage::Declare(
+				CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
 					pair.public(),
 					ParaId::from(69),
 					pair.sign(&protocol_v1::declare_signature_payload(&peer_b)),
@@ -1078,7 +1078,7 @@ fn delay_reputation_change() {
 			&mut virtual_overseer,
 			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				peer_b,
-				VersionedCollation::V1(protocol_v1::CollatorProtocolMessage::Declare(
+				CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
 					pair.public(),
 					ParaId::from(69),
 					pair.sign(&protocol_v1::declare_signature_payload(&peer_b)),
@@ -1091,7 +1091,7 @@ fn delay_reputation_change() {
 			&mut virtual_overseer,
 			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				peer_b,
-				VersionedCollation::V1(protocol_v1::CollatorProtocolMessage::Declare(
+				CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
 					pair.public(),
 					ParaId::from(69),
 					pair.sign(&protocol_v1::declare_signature_payload(&peer_b)),

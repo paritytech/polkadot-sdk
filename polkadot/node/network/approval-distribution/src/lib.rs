@@ -31,7 +31,7 @@ use polkadot_node_network_protocol::{
 	self as net_protocol, filter_by_peer_version,
 	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
 	peer_set::MAX_NOTIFICATION_SIZE,
-	v3 as protocol_v3, PeerId, UnifiedReputationChange as Rep, VersionedValidation, View,
+	v3 as protocol_v3, PeerId, UnifiedReputationChange as Rep, ValidationProtocols, View,
 };
 use polkadot_node_primitives::{
 	approval::{
@@ -1125,7 +1125,7 @@ impl State {
 		runtime_api_sender: &mut RA,
 		metrics: &Metrics,
 		peer_id: PeerId,
-		msg: VersionedValidation<protocol_v3::ApprovalDistributionMessage>,
+		msg: ValidationProtocols<protocol_v3::ApprovalDistributionMessage>,
 		rng: &mut R,
 		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
 		clock: &(impl Clock + ?Sized),
@@ -1137,7 +1137,7 @@ impl State {
 		R: CryptoRng + Rng,
 	{
 		match msg {
-			VersionedValidation::V3(protocol_v3::ApprovalDistributionMessage::Assignments(
+			ValidationProtocols::V3(protocol_v3::ApprovalDistributionMessage::Assignments(
 				assignments,
 			)) => {
 				gum::trace!(
@@ -1163,7 +1163,7 @@ impl State {
 				)
 				.await;
 			},
-			VersionedValidation::V3(protocol_v3::ApprovalDistributionMessage::Approvals(
+			ValidationProtocols::V3(protocol_v3::ApprovalDistributionMessage::Approvals(
 				approvals,
 			)) => {
 				let sanitized_approvals =
@@ -2855,7 +2855,7 @@ async fn send_assignments_batched_inner(
 	sender
 		.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			peers,
-			VersionedValidation::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+			ValidationProtocols::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
 				protocol_v3::ApprovalDistributionMessage::Assignments(batch.into_iter().collect()),
 			)),
 		))
@@ -2907,7 +2907,7 @@ pub(crate) async fn send_approvals_batched(
 			sender
 				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 					v3_peers.clone(),
-					VersionedValidation::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
 						protocol_v3::ApprovalDistributionMessage::Approvals(batch),
 					)),
 				))

@@ -18,8 +18,8 @@
 use super::*;
 
 use polkadot_node_network_protocol::{
-	peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames, VersionedCollation,
-	VersionedValidation,
+	peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames, CollationProtocols,
+	ValidationProtocols,
 };
 
 use polkadot_node_subsystem::{
@@ -195,7 +195,7 @@ where
 			);
 
 			match msg {
-				VersionedValidation::V3(msg) => send_validation_message_v3(
+				ValidationProtocols::V3(msg) => send_validation_message_v3(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -213,7 +213,7 @@ where
 
 			for (peers, msg) in msgs {
 				match msg {
-					VersionedValidation::V3(msg) => send_validation_message_v3(
+					ValidationProtocols::V3(msg) => send_validation_message_v3(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
@@ -230,13 +230,13 @@ where
 			);
 
 			match msg {
-				VersionedCollation::V1(msg) => send_collation_message_v1(
+				CollationProtocols::V1(msg) => send_collation_message_v1(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 					notification_sinks,
 				),
-				VersionedCollation::V2(msg) => send_collation_message_v2(
+				CollationProtocols::V2(msg) => send_collation_message_v2(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -253,13 +253,13 @@ where
 
 			for (peers, msg) in msgs {
 				match msg {
-					VersionedCollation::V1(msg) => send_collation_message_v1(
+					CollationProtocols::V1(msg) => send_collation_message_v1(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
 						notification_sinks,
 					),
-					VersionedCollation::V2(msg) => send_collation_message_v2(
+					CollationProtocols::V2(msg) => send_collation_message_v2(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,

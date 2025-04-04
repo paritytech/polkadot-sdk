@@ -29,7 +29,7 @@ use polkadot_node_network_protocol::{
 		MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS,
 	},
 	v3::{self as protocol_v3, StatementFilter},
-	IfDisconnected, PeerId, UnifiedReputationChange as Rep, VersionedValidation, View,
+	IfDisconnected, PeerId, UnifiedReputationChange as Rep, ValidationProtocols, View,
 };
 use polkadot_node_primitives::{
 	SignedFullStatementWithPVD, StatementWithPVD as FullStatementWithPVD,
@@ -917,7 +917,7 @@ fn pending_statement_network_message(
 			.map(|signed| {
 				protocol_v3::StatementDistributionMessage::Statement(relay_parent, signed)
 			})
-			.map(|msg| (vec![peer.0], VersionedValidation::V3(msg).into())),
+			.map(|msg| (vec![peer.0], ValidationProtocols::V3(msg).into())),
 	}
 }
 
@@ -1038,7 +1038,7 @@ async fn send_pending_grid_messages<Context>(
 				match peer_id.1 {
 					ValidationVersion::V3 => messages.push((
 						vec![peer_id.0],
-						VersionedValidation::V3(
+						ValidationProtocols::V3(
 							protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 								manifest,
 							),
@@ -1414,7 +1414,7 @@ async fn circulate_statement<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			statement_to_v3_peers,
-			VersionedValidation::V3(protocol_v3::StatementDistributionMessage::Statement(
+			ValidationProtocols::V3(protocol_v3::StatementDistributionMessage::Statement(
 				relay_parent,
 				statement.as_unchecked().clone(),
 			))
@@ -2023,7 +2023,7 @@ async fn provide_candidate_to_grid<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			manifest_peers_v3,
-			VersionedValidation::V3(
+			ValidationProtocols::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 			)
 			.into(),
@@ -2043,7 +2043,7 @@ async fn provide_candidate_to_grid<Context>(
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			ack_peers_v3,
-			VersionedValidation::V3(
+			ValidationProtocols::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
 			)
 			.into(),
@@ -2402,7 +2402,7 @@ fn post_acknowledgement_statement_messages(
 			false,
 		);
 		match peer.1.into() {
-			ValidationVersion::V3 => messages.push(VersionedValidation::V3(
+			ValidationVersion::V3 => messages.push(ValidationProtocols::V3(
 				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement.as_unchecked().clone(),
@@ -2542,7 +2542,7 @@ fn acknowledgement_and_statement_messages(
 	let mut messages = match peer.1 {
 		ValidationVersion::V3 => vec![(
 			vec![peer.0],
-			VersionedValidation::V3(
+			ValidationProtocols::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(acknowledgement),
 			)
 			.into(),

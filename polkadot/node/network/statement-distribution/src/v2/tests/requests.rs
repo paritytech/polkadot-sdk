@@ -173,7 +173,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] allow_v2_descripto
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						VersionedValidation::V3(
+						ValidationProtocols::V3(
 							protocol_v3::ValidationProtocol::StatementDistribution(
 								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
@@ -793,7 +793,7 @@ fn peer_reported_for_duplicate_statements() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						VersionedValidation::V3(
+						ValidationProtocols::V3(
 							protocol_v3::ValidationProtocol::StatementDistribution(
 								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
@@ -1202,7 +1202,7 @@ fn peer_reported_for_invalid_v2_descriptor() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					VersionedValidation::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
@@ -1633,7 +1633,7 @@ fn disabled_validators_added_to_unwanted_mask() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						VersionedValidation::V3(
+						ValidationProtocols::V3(
 							protocol_v3::ValidationProtocol::StatementDistribution(
 								protocol_v3::StatementDistributionMessage::Statement(hash, statement),
 							),
@@ -1956,7 +1956,7 @@ fn local_node_sanity_checks_incoming_requests() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					VersionedValidation::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
@@ -2130,7 +2130,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				VersionedValidation::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 					protocol_v3::StatementDistributionMessage::Statement(
 						r,
 						s,
@@ -2231,7 +2231,7 @@ fn local_node_checks_that_peer_can_request_before_responding() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					VersionedValidation::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
@@ -2433,7 +2433,7 @@ fn local_node_respects_statement_mask() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						VersionedValidation::V3(
+						ValidationProtocols::V3(
 							protocol_v3::ValidationProtocol::StatementDistribution(
 								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
