@@ -1038,7 +1038,7 @@ pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-featu
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false, version = "0.18.0" }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info", version = "0.20.0" }
 parachain-template-runtime = { path = "templates/parachain/runtime", version = "0.1.0" }
-parachains-common = { path = "cumulus/parachains/common", default-features = false, version = "20.0.0" }
+parachains-common = { path = "cumulus/parachains/common", default-features = false, version = "21.0.0" }
 parachains-relay = { path = "bridges/relays/parachains", version = "0.1.0" }
 parachains-runtimes-test-utils = { path = "cumulus/parachains/runtimes/test-utils", default-features = false, version = "21.0.0" }
 parity-bytes = { version = "0.1.2", default-features = false }

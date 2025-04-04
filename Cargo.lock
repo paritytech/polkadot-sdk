@@ -13465,7 +13465,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-common"
-version = "20.0.0"
+version = "21.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
