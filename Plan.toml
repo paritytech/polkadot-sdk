@@ -2967,7 +2967,7 @@ reason = "changed"
 # cumulus/parachains/common
 name = "parachains-common"
 from = "19.0.0"
-to = "20.0.0"
+to = "21.0.0"
 bump = "major"
 reason = "changed"
 
