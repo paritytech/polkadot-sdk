@@ -1013,7 +1013,7 @@ pallet-skip-feeless-payment = { path = "substrate/frame/transaction-payment/skip
 pallet-society = { path = "substrate/frame/society", default-features = false, version = "40.1.0" }
 pallet-staking = { path = "substrate/frame/staking", default-features = false, version = "40.1.0" }
 pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false, version = "12.0.0" }
-pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false, version = "22.0.0" }
+pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false, version = "22.0.1" }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false, version = "26.0.0" }
 pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false, version = "44.1.0" }
 pallet-statement = { default-features = false, path = "substrate/frame/statement" }
