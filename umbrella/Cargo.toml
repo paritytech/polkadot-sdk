@@ -3149,7 +3149,7 @@ version = "0.19.0"
 default-features = false
 optional = true
 path = "../polkadot/xcm/xcm-simulator"
-version = "19.0.0"
+version = "20.0.0"
 
 [package.metadata.docs.rs]
 features = ["node", "runtime-full"]

@@ -1419,7 +1419,7 @@ xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, ve
 xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "19.1.0" }
 xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false, version = "11.0.2" }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false, version = "0.7.0" }
-xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false, version = "19.0.0" }
+xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false, version = "20.0.0" }
 zeroize = { version = "1.7.0", default-features = false }
 zombienet-sdk = { version = "0.2.29" }
 zstd = { version = "0.12.4", default-features = false }
