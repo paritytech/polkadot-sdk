@@ -248,8 +248,6 @@ impl<InnerBarrier: ShouldExecute> ShouldExecute for TrailingSetTopicAsId<InnerBa
 			"TrailingSetTopicAsId"
 		);
 		let until = if let Some(SetTopic(t)) = instructions.last() {
-			let topic_id = t;
-			tracing::trace!(target: "xcm::barriers", ?topic_id, "Removing `SetTopic`");
 			properties.message_id = Some(*t);
 			instructions.len() - 1
 		} else {

@@ -497,8 +497,8 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA,
 		);
 	}
 
-	let mg_prc_id = find_mq_processed_id!(PenpalB);
-	if let Some(prc_id) = mg_prc_id {
+	let mq_prc_id = find_mq_processed_id!(PenpalB);
+	if let Some(prc_id) = mq_prc_id {
 		TopicIdTracker::insert(prc_id.into());
 		TopicIdTracker::assert_unique();
 	} else {

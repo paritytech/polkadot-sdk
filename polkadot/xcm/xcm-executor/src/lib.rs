@@ -285,10 +285,6 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		vm.message_weight = xcm_weight;
 
 		while !message.0.is_empty() {
-			if vm.context.topic.is_none() && vm.context.message_id != *id {
-				vm.preserve_message_topic(&mut message);
-			}
-
 			let result = vm.process(message);
 			tracing::trace!(target: "xcm::execute", ?result, "Message executed");
 			message = if let Err(error) = result {
@@ -1624,7 +1620,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						tracing::error!(target: "xcm::xcm_executor::process_instruction", ?e, ?unlocker, ?context, "Failed to re-anchor origin");
 						XcmError::ReanchorFailed
 					})?;
-					let msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
+					let mut msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
+					self.preserve_message_topic(&mut msg);
 					let (ticket, price) = validate_send::<Config::XcmSender>(unlocker, msg)?;
 					self.take_fee(price, FeeReason::LockAsset)?;
 					lock_ticket.enact()?;
@@ -1655,8 +1652,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					asset,
 					origin.clone(),
 				)?;
-				let msg =
+				let mut msg =
 					Xcm::<()>(vec![UnlockAsset { asset: remote_asset, target: remote_target }]);
+				self.preserve_message_topic(&mut msg);
 				let (ticket, price) = validate_send::<Config::XcmSender>(locker, msg)?;
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
@@ -1826,6 +1824,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		message_to_weigh.push(remote_instruction);
 		message_to_weigh.push(ClearOrigin);
 		message_to_weigh.extend(xcm.0.clone().into_iter());
+		self.preserve_message_topic(&mut message_to_weigh);
 		let (_, fee) =
 			validate_send::<Config::XcmSender>(destination.clone(), Xcm(message_to_weigh))?;
 		let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
