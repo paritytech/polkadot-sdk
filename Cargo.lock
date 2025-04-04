@@ -27108,7 +27108,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime-constants"
-version = "19.0.0"
+version = "20.0.0"
 dependencies = [
  "frame-support",
  "polkadot-primitives",
