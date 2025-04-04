@@ -59,7 +59,7 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	for id in topic_ids.iter() {
 		TopicIdTracker::insert(*id);
 	}
-	assert!(TopicIdTracker::is_unique());
+	TopicIdTracker::assert_unique();
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
@@ -124,7 +124,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 	let msg_id_sent = find_xcm_sent_message_id!(PenpalA);
 	if let Some(msg_id) = msg_id_sent {
 		TopicIdTracker::insert(msg_id.into());
-		assert!(TopicIdTracker::is_unique());
+		TopicIdTracker::assert_unique();
 	} else {
 		assert!(false, "Missing Sent Event");
 	}

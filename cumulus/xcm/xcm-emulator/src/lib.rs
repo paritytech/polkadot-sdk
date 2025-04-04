@@ -1700,8 +1700,8 @@ pub mod helpers {
 		pub fn insert(id: sp_core::H256) {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
 		}
-		pub fn is_unique() -> bool {
-			TRACKED_TOPIC_IDS.with(|b| b.borrow().len() == 1)
+		pub fn assert_unique() {
+			TRACKED_TOPIC_IDS.with(|b| assert_eq!(b.borrow().len(), 1));
 		}
 		pub fn reset() {
 			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());

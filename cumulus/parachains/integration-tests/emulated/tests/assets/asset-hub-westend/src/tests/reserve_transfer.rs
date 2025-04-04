@@ -412,7 +412,7 @@ pub fn para_to_para_through_hop_sender_assertions<Hop: Clone>(t: Test<PenpalA, P
 	let msg_id_sent = find_xcm_sent_message_id!(PenpalA);
 	if let Some(msg_id) = msg_id_sent {
 		TopicIdTracker::insert(msg_id.into());
-		assert!(TopicIdTracker::is_unique());
+		TopicIdTracker::assert_unique();
 	} else {
 		assert!(false, "Missing Sent Event");
 	}
@@ -500,7 +500,7 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA,
 	let mg_prc_id = find_mq_processed_id!(PenpalB);
 	if let Some(prc_id) = mg_prc_id {
 		TopicIdTracker::insert(prc_id.into());
-		assert!(TopicIdTracker::is_unique());
+		TopicIdTracker::assert_unique();
 	} else {
 		assert!(false, "Missing Processed Event");
 	}
