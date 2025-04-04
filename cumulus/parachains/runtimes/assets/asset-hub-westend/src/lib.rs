@@ -1280,6 +1280,7 @@ impl pallet_ah_migrator::Config for Runtime {
 		EnsureXcm<IsVoiceOfBody<Collectives, FellowsBodyId>>,
 	>;
 	type Currency = Balances;
+	type Assets = NativeAndAllAssets;
 	type CheckingAccount = xcm_config::CheckingAccount;
 	type RcHoldReason = ah_migration::RcHoldReason;
 	type RcFreezeReason = ah_migration::RcFreezeReason;
@@ -1287,6 +1288,7 @@ impl pallet_ah_migrator::Config for Runtime {
 	type RcToAhFreezeReason = ah_migration::RcToAhFreezeReason;
 	type RcProxyType = ah_migration::RcProxyType;
 	type RcToProxyType = ah_migration::RcToProxyType;
+	type RcToAhDelay = sp_runtime::traits::Identity; // Westend AH is already on 6 seconds
 	type RcBlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type RcToAhCall = ah_migration::RcToAhCall;
 	type RcPalletsOrigin = ah_migration::RcPalletsOrigin;
