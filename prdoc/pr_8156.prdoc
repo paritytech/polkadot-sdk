@@ -1,7 +1,7 @@
-title: 'Backport: make macro expansion not rely on sp-std in scope.'
+title: 'bp-runtime: make macro expansion not rely on sp-std in scope.'
 doc:
 - audience: Runtime Dev
-  description: make macro in bp-runtime no longer require sp-std in scope.
+  description: Make macro in bp-runtime no longer require sp-std in scope.
 crates:
 - name: bp-runtime
   bump: patch
