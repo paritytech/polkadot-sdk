@@ -108,8 +108,7 @@ fn build_client(
 ) -> anyhow::Result<Client> {
 	let fut = async {
 		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
-		let block_provider  =
-			SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
+		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
 
 		let keep_latest_n_blocks = if database_url == IN_MEMORY_DB {
 			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {cache_size} blocks in memory");
