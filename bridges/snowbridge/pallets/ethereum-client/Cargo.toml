@@ -42,6 +42,7 @@ snowbridge-verification-primitives = { workspace = true }
 static_assertions = { workspace = true }
 
 [dev-dependencies]
+hex-literal = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

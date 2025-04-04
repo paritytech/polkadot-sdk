@@ -24018,6 +24018,7 @@ dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
  "sc-rpc-api",
+ "scale-info",
  "serde",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
