@@ -392,6 +392,7 @@ pub struct ActiveEraInfo {
 	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
+	Default,
 )]
 pub struct UnbondingQueueConfig {
 	/// The share of stake backing the lowest 1/3 of validators that is slashable at any point in
@@ -405,16 +406,6 @@ pub struct UnbondingQueueConfig {
 	pub back_of_unbonding_queue_era: EraIndex,
 }
 
-impl Default for UnbondingQueueConfig {
-	fn default() -> Self {
-		Self {
-			min_slashable_share: Zero::zero(),
-			lowest_ratio: Zero::zero(),
-			unbond_period_lower_bound: Zero::zero(),
-			back_of_unbonding_queue_era: Zero::zero(),
-		}
-	}
-}
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
