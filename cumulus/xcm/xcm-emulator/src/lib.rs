@@ -22,7 +22,7 @@ pub use log;
 pub use paste;
 pub use std::{
 	any::type_name,
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	error::Error,
 	fmt,
 	marker::PhantomData,
@@ -107,6 +107,8 @@ thread_local! {
 	pub static INITIALIZED: RefCell<HashMap<String, bool>> = RefCell::new(HashMap::new());
 	/// Most recent `HeadData` of each parachain, encoded.
 	pub static LAST_HEAD: RefCell<HashMap<String, HashMap<u32, HeadData>>> = RefCell::new(HashMap::new());
+	/// Tracked XCM topic IDs
+	pub static TRACKED_TOPIC_IDS: RefCell<HashSet<sp_core::H256>> = RefCell::new(HashSet::new());
 }
 pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
@@ -1341,11 +1343,38 @@ macro_rules! assert_expected_events {
 }
 
 #[macro_export]
+macro_rules! find_all_xcm_topic_ids {
+	( $chain:ident ) => {{
+		let events = <$chain as $crate::Chain>::events();
+		let mut topic_ids = Vec::new();
+
+		for event in events.iter() {
+			match event {
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+					id, ..
+				}) => {
+					topic_ids.push(*id);
+				},
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { message_id, .. }) => {
+					topic_ids.push(sp_core::H256::from(*message_id));
+				},
+				_ => continue,
+			}
+		}
+
+		topic_ids
+	}};
+}
+
+#[macro_export]
 macro_rules! find_mq_processed_id {
 	( $chain:ident ) => {{
 		let events = <$chain as $crate::Chain>::events();
 		events.iter().find_map(|event| {
-			if let RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { id, .. }) = event {
+			if let RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
+				id, ..
+			}) = event
+			{
 				Some(*id)
 			} else {
 				None
@@ -1664,5 +1693,18 @@ pub mod helpers {
 			within_threshold(threshold_size, expected_weight.proof_size(), weight.proof_size());
 
 		ref_time_within && proof_size_within
+	}
+
+	pub struct TopicIdTracker;
+	impl TopicIdTracker {
+		pub fn insert(id: sp_core::H256) {
+			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().insert(id));
+		}
+		pub fn assert_unique() {
+			TRACKED_TOPIC_IDS.with(|b| assert_eq!(b.borrow().len(), 1));
+		}
+		pub fn reset() {
+			TRACKED_TOPIC_IDS.with(|b| b.borrow_mut().clear());
+		}
 	}
 }
