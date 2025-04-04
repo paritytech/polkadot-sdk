@@ -1,0 +1,36 @@
+title: Derive `DecodeWithMemTracking` for bridge and xcm pallets
+doc:
+- audience: Runtime Dev
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/issues/7360
+
+    Just deriving `DecodeWithMemTracking` for the types used by the bridge, snowbridge and xcm pallets
+crates:
+- name: pallet-xcm
+  bump: minor
+- name: staging-xcm
+  bump: minor
+- name: staging-xcm-executor
+  bump: minor
+- name: pallet-bridge-messages
+  bump: minor
+- name: pallet-xcm-bridge-hub
+  bump: minor
+- name: bp-header-chain
+  bump: minor
+- name: bp-messages
+  bump: minor
+- name: bp-polkadot-core
+  bump: minor
+- name: bp-relayers
+  bump: minor
+- name: bp-runtime
+  bump: minor
+- name: bp-xcm-bridge-hub
+  bump: minor
+- name: snowbridge-pallet-inbound-queue
+  bump: minor
+- name: snowbridge-beacon-primitives
+  bump: minor
+- name: snowbridge-core
+  bump: minor
