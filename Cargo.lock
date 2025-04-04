@@ -11630,7 +11630,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-contracts-mock-network"
-version = "16.0.0"
+version = "17.0.0"
 dependencies = [
  "frame-support",
  "frame-system",

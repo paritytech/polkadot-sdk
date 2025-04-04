@@ -2429,7 +2429,7 @@ version = "40.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/contracts/mock-network"
-version = "16.0.0"
+version = "17.0.0"
 
 [dependencies.pallet-revive-eth-rpc]
 default-features = false
