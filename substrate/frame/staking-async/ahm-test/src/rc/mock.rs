@@ -153,7 +153,7 @@ impl FindAuthor<AccountId> for Author11 {
 	}
 }
 
-impl pallet_authorship::Config for Runtime {
+impl pallet_authorship::Config for Runtime	 {
 	type FindAuthor = Author11;
 	type EventHandler = ();
 }
@@ -291,7 +291,7 @@ pub struct ExtBuilder {
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self { session_keys: vec![], mode: ah_client::OperatingMode::default() }
+		Self { session_keys: vec![], mode: ah_client::OperatingMode::Active }
 	}
 }
 

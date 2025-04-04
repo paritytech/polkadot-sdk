@@ -13,11 +13,13 @@ mod tests {
 	use frame::testing_prelude::*;
 	use pallet_election_provider_multi_block as multi_block;
 	use pallet_staking_async::{ActiveEra, ActiveEraInfo};
+	use pallet_staking_async_ah_client as ah_client;
 
 	#[test]
 	fn rc_session_change_reported_to_ah() {
 		// sets up AH chain with current and active era.
 		shared::put_ah_state(ah::ExtBuilder::default().build());
+		shared::put_rc_state(rc::ExtBuilder::default().build());
 		// shared::RC_STATE.with(|state| *state.get_mut() = rc::ExtBuilder::default().build());
 
 		// initial state of ah
@@ -31,9 +33,11 @@ mod tests {
 		});
 
 		shared::in_rc(|| {
+			// initial state of rc
+			assert_eq!(ah_client::Mode::<rc::Runtime>::get(), ah_client::OperatingMode::Active);
 			// go to session 1 in RC and test.
 			// when
-			assert!(frame_system::Pallet::<rc::Runtime>::block_number() == 0);
+			assert!(frame_system::Pallet::<rc::Runtime>::block_number() == 1);
 
 			// given end session 0, start session 1, plan 2
 			rc::roll_until_matches(
@@ -55,7 +59,7 @@ mod tests {
 
 		shared::in_ah(|| {
 			// ah's rc-client has also progressed some blocks, equal to 4 sessions
-			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 121);
+			assert_eq!(frame_system::Pallet::<ah::Runtime>::block_number(), 120);
 			// election is ongoing, and has just started
 			assert!(matches!(
 				multi_block::CurrentPhase::<ah::Runtime>::get(),
