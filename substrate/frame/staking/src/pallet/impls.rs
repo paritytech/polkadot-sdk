@@ -825,10 +825,10 @@ impl<T: Config> Pallet<T> {
 		lowest_stake
 	}
 
-	// Get the unbonding time, in eras, for quick unbond for an unbond request.
-	//
-	// We implement the calculation `unbonding_time_delta = new_unbonding_stake / max_unstake *
-	// upper bound period in blocks.
+	/// Get the unbonding time, in eras, for quick unbond for an unbond request.
+	///
+	/// We implement the calculation `unbonding_time_delta = new_unbonding_stake / max_unstake *
+	/// upper bound period in blocks.
 	pub(crate) fn get_unbond_eras_delta(
 		unbond_stake: BalanceOf<T>,
 		params: UnbondingQueueConfig,
@@ -851,7 +851,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	// Gets an unbond era for an unbond request, and updates `back_of_unbonding_queue_era`.
+	/// Gets an unbond era for an unbond request, and updates `back_of_unbonding_queue_era`.
 	pub(crate) fn process_unbond_queue_request(era: EraIndex, value: BalanceOf<T>) -> EraIndex {
 		if let Some(params) = UnbondingQueueParams::<T>::get() {
 			// Calculate unbonding era based on unbonding queue mechanism.
