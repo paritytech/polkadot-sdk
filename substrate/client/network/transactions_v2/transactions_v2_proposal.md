@@ -129,7 +129,7 @@ Nodes supporting both `transactions/1` and `transactions/2` protocols shall only
 ### Sync overview
 
 #### Accepting transaction descirptors
-Protocol shall have a dedicated message indicating the readiness to accept the transaction descirptors. This feature can be useful during major sync to inform other peers that no descritpors shall be transmitted to the given node.
+Protocol shall have a dedicated message indicating the readiness to accept the transaction desriptors. This feature can be useful during major sync to inform other peers that no descriptors shall be transmitted to the given node.
 
 _Note_: could we simply disconnect from `transactions/2` instead of having enabled/disabled state?
 
