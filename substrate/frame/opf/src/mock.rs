@@ -20,24 +20,27 @@ use crate as pallet_opf;
 use crate::Convert;
 // Removed unused import: use codec::{Decode, Encode};
 pub use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types,
+	derive_impl, ord_parameter_types,
+	pallet_prelude::{DecodeWithMemTracking, MaxEncodedLen, TypeInfo, *},
+	parameter_types,
 	traits::{
-		ConstU32, ConstU64, EqualPrivilegeOnly, OnFinalize, OnInitialize, OriginTrait,
-		SortedMembers, VoteTally, Polling, PollStatus
+		ConstU32, ConstU64, EqualPrivilegeOnly, OnFinalize, OnInitialize, OriginTrait, PollStatus,
+		Polling, VoteTally,
 	},
-	weights::Weight,pallet_prelude::*,
-	PalletId, pallet_prelude::{DecodeWithMemTracking, TypeInfo, MaxEncodedLen},
+	weights::Weight,
+	PalletId,
 };
-pub use frame_system::{EnsureRoot, EnsureSigned, EnsureSignedBy};
+pub use frame_system::{EnsureRoot, EnsureSignedBy};
 pub use sp_runtime::{
 	str_array as s,
-	traits::{AccountIdConversion, IdentityLookup}, DispatchError,
-	BuildStorage, Perbill, SaturatedConversion, Cow,
+	traits::{AccountIdConversion, IdentityLookup},
+	BuildStorage, Cow, DispatchError, Perbill,
 };
-use sp_std::{collections::btree_map::BTreeMap,cell::RefCell};
+use sp_std::{cell::RefCell, collections::btree_map::BTreeMap};
 
-use pallet_conviction_voting::{AccountVote, Status, VotingHooks, TallyOf, Tally as TallyOfConviction};
-
+use pallet_conviction_voting::{
+	AccountVote, Status, Tally as TallyOfConviction, TallyOf, VotingHooks,
+};
 
 pub use pallet_referenda::{Curve, Track, TrackInfo, TracksInfo};
 pub type Block = frame_system::mocking::MockBlock<Test>;
@@ -381,7 +384,7 @@ impl HooksHandler {
 	}
 
 	fn last_locked_if_unsuccessful_vote_data() -> Option<(u64, u32)> {
-		let res =LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow());
+		let res = LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow());
 		if let Some((who, ref_index)) = res {
 			Some((who, ref_index.try_into().unwrap()))
 		} else {
@@ -429,7 +432,6 @@ impl VotingHooks<u64, u32, u64> for HooksHandler {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn on_remove_vote_worst_case(_who: &u64) {}
 }
-
 
 #[derive(
 	Encode, Debug, Decode, DecodeWithMemTracking, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen,
@@ -486,6 +488,11 @@ pub const ALICE: AccountId = 10;
 pub const BOB: AccountId = 11;
 pub const DAVE: AccountId = 12;
 pub const EVE: AccountId = 13;
+pub const PROJECT101: AccountId = 101;
+pub const PROJECT102: AccountId = 102;
+pub const PROJECT103: AccountId = 103;
+pub const PROJECT104: AccountId = 104;
+pub const PROJECT105: AccountId = 105;
 pub const BSX: Balance = 100_000_000_000;
 
 pub fn expect_events(e: Vec<RuntimeEvent>) {
@@ -502,6 +509,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(BOB, 200_000 * BSX),
 			(DAVE, 150_000 * BSX),
 			(EVE, 150_000 * BSX),
+			(PROJECT101, 150_000 * BSX),
+			(PROJECT102, 150_000 * BSX),
+			(PROJECT103, 150_000 * BSX),
+			(PROJECT104, 150_000 * BSX),
+			(PROJECT105, 150_000 * BSX),
 			(pot_account, 150_000_000 * BSX),
 		],
 		..Default::default()

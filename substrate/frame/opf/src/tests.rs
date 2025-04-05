@@ -80,7 +80,7 @@ fn first_round_creation_works() {
 		assert_eq!(first_round_info, round_info);
 	})
 }
-/*
+
 #[test]
 fn project_registration_works() {
 	new_test_ext().execute_with(|| {
@@ -88,12 +88,12 @@ fn project_registration_works() {
 		next_block();
 		let mut round_info = VotingRounds::<Test>::get(0).unwrap();
 		assert_eq!(round_info.batch_submitted, false);
-		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
+		let origin = RawOrigin::Root.into();
+		assert_ok!(Opf::register_projects_batch(origin, batch));
 		let project_list = WhiteListedProjectAccounts::<Test>::get(101);
 		assert!(project_list.is_some());
 		// we should have 3 referendum started
-		//assert_eq!(pallet_democracy::PublicProps::<Test>::get().len(), 3);
-		assert_eq!(pallet_democracy::ReferendumCount::<Test>::get(), 3);
+		assert_eq!(<Test as Config>::Governance::referendum_count(), 3);
 		// The storage infos are correct
 		round_info = VotingRounds::<Test>::get(0).unwrap();
 		assert_eq!(round_info.batch_submitted, true);
@@ -107,17 +107,16 @@ fn cannot_register_twice_in_same_round() {
 		next_block();
 		let mut round_info = VotingRounds::<Test>::get(0).unwrap();
 		assert_eq!(round_info.batch_submitted, false);
-		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch.clone()));
+		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch.clone()));
 		let project_list = WhiteListedProjectAccounts::<Test>::get(101);
 		assert!(project_list.is_some());
 		// we should have 3 referendum started
-		//assert_eq!(pallet_democracy::PublicProps::<Test>::get().len(), 3);
-		assert_eq!(pallet_democracy::ReferendumCount::<Test>::get(), 3);
+		assert_eq!(<Test as Config>::Governance::referendum_count(), 3);
 		// The storage infos are correct
 		round_info = VotingRounds::<Test>::get(0).unwrap();
 		assert_eq!(round_info.batch_submitted, true);
 		assert_noop!(
-			Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch),
+			Opf::register_projects_batch(RawOrigin::Root.into(), batch),
 			Error::<Test>::BatchAlreadySubmitted
 		);
 	})
@@ -134,23 +133,11 @@ fn conviction_vote_works() {
 		//round_end_block
 		let round_end = now.saturating_add(voting_period);
 
-		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
+		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch));
 		// Bob vote for project_101
-		assert_ok!(Opf::vote(
-			RuntimeOrigin::signed(BOB),
-			101,
-			100,
-			true,
-			pallet_democracy::Conviction::Locked1x
-		));
+		assert_ok!(Opf::vote(RuntimeOrigin::signed(BOB), 101, 100, true, Conviction::Locked1x));
 		// Dave vote for project_102
-		assert_ok!(Opf::vote(
-			RuntimeOrigin::signed(DAVE),
-			102,
-			100,
-			true,
-			pallet_democracy::Conviction::Locked2x
-		));
+		assert_ok!(Opf::vote(RuntimeOrigin::signed(DAVE), 102, 100, true, Conviction::Locked2x));
 		//Round number is 0
 		let round_number = NextVotingRoundNumber::<Test>::get().saturating_sub(1);
 		assert_eq!(round_number, 0);
@@ -173,7 +160,7 @@ fn conviction_vote_works() {
 		assert_eq!(dave_vote_info.funds_unlock_block, dave_vote_unlock);
 	})
 }
-
+/*
 #[test]
 fn rewards_calculation_works() {
 	new_test_ext().execute_with(|| {
@@ -191,7 +178,7 @@ fn rewards_calculation_works() {
 			101,
 			1000 * BSX,
 			true,
-			pallet_democracy::Conviction::Locked2x
+			Conviction::Locked2x
 		));
 
 		// Alice nominate project_101 with an amount of 5000*BSX with conviction 1x => equivalent to
@@ -201,7 +188,7 @@ fn rewards_calculation_works() {
 			101,
 			5000 * BSX,
 			true,
-			pallet_democracy::Conviction::Locked1x
+			Conviction::Locked1x
 		));
 
 		// DAVE vote against project_102 with an amount of 3000*BSX with conviction 1x => equivalent
@@ -211,7 +198,7 @@ fn rewards_calculation_works() {
 			102,
 			3000 * BSX,
 			false,
-			pallet_democracy::Conviction::Locked1x
+			Conviction::Locked1x
 		));
 		// Eve nominate project_102 with an amount of 5000*BSX with conviction 1x => equivalent to
 		// 5000*BSX locked
@@ -220,7 +207,7 @@ fn rewards_calculation_works() {
 			102,
 			5000 * BSX,
 			true,
-			pallet_democracy::Conviction::Locked1x
+			Conviction::Locked1x
 		));
 
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
@@ -279,7 +266,7 @@ fn vote_removal_works() {
 			101,
 			1000,
 			true,
-			pallet_democracy::Conviction::Locked1x
+			Conviction::Locked1x
 		));
 
 		// Eve nominate project_101 with an amount of 5000 & conviction 1x => equivalent to
@@ -289,7 +276,7 @@ fn vote_removal_works() {
 			101,
 			5000,
 			true,
-			pallet_democracy::Conviction::Locked1x
+			Conviction::Locked1x
 		));
 
 		// ProjectFund is correctly updated
@@ -337,7 +324,7 @@ fn vote_overwrite_works() {
 			101,
 			1000,
 			true,
-			pallet_democracy::Conviction::Locked2x
+			Conviction::Locked2x
 		));
 
 		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted { who: BOB, project_id: 101 })]);
@@ -353,7 +340,7 @@ fn vote_overwrite_works() {
 			103,
 			5000,
 			true,
-			pallet_democracy::Conviction::Locked1x
+			Conviction::Locked1x
 		));
 
 		// 10000 is allocated to project 103
@@ -373,7 +360,7 @@ fn vote_overwrite_works() {
 			103,
 			4500,
 			true,
-			pallet_democracy::Conviction::Locked2x
+			Conviction::Locked2x
 		));
 
 		// Allocated amount to project 103 is now 13500
@@ -390,7 +377,7 @@ fn vote_overwrite_works() {
 			);
 
 		assert_eq!(4500, vote_info.amount);
-		assert_eq!(pallet_democracy::Conviction::Locked2x, vote_info.conviction);
+		assert_eq!(Conviction::Locked2x, vote_info.conviction);
 		assert_eq!(locked_balance0, 5500);
 	})
 }
@@ -413,7 +400,7 @@ fn voting_action_locked() {
 			101,
 			1000,
 			true,
-			pallet_democracy::Conviction::Locked3x
+			Conviction::Locked3x
 		));
 
 		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted { who: BOB, project_id: 101 })]);
@@ -424,7 +411,7 @@ fn voting_action_locked() {
 			103,
 			5000,
 			true,
-			pallet_democracy::Conviction::Locked1x
+			Conviction::Locked1x
 		));
 
 		// Voter's funds are locked
@@ -455,7 +442,7 @@ fn voting_action_locked() {
 				101,
 				2000,
 				true,
-				pallet_democracy::Conviction::Locked2x
+				Conviction::Locked2x
 			),
 			Error::<Test>::VotingRoundOver
 		);
@@ -485,7 +472,7 @@ fn not_enough_funds_to_vote() {
 				101,
 				balance_plus,
 				true,
-				pallet_democracy::Conviction::Locked1x
+				Conviction::Locked1x
 			),
 			Error::<Test>::NotEnoughFunds
 		);
@@ -504,7 +491,7 @@ fn not_enough_funds_to_vote() {
 			102,
 			balance_minus,
 			true,
-			pallet_democracy::Conviction::Locked1x
+			Conviction::Locked1x
 		));
 
 		//Bob tries to commit total_balance to project 102
@@ -514,7 +501,7 @@ fn not_enough_funds_to_vote() {
 				103,
 				balance,
 				true,
-				pallet_democracy::Conviction::Locked1x
+				Conviction::Locked1x
 			),
 			Error::<Test>::NotEnoughFunds
 		);
@@ -539,7 +526,7 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 			101,
 			amount1,
 			true,
-			pallet_democracy::Conviction::None
+			Conviction::None
 		));
 
 		assert_ok!(Opf::vote(
@@ -547,7 +534,7 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 			102,
 			amount2,
 			true,
-			pallet_democracy::Conviction::None
+			Conviction::None
 		));
 
 		assert_ok!(Opf::vote(
@@ -555,7 +542,7 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 			103,
 			amount3,
 			true,
-			pallet_democracy::Conviction::Locked1x
+			Conviction::Locked1x
 		));
 
 		// The Spends Storage should be empty

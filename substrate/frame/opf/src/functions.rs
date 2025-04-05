@@ -30,7 +30,7 @@ impl<T: Config> Pallet<T> {
 		Some(conviction_amount)
 	}
 
-	pub fn start_dem_referendum(
+	pub fn start_referendum(
 		caller: ProjectId<T>,
 		proposal_call: pallet::Call<T>,
 	) -> Result<u32, DispatchError> {
@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T> {
 
 		let infos = WhiteListedProjectAccounts::<T>::get(project.clone())
 			.ok_or(Error::<T>::NoProjectAvailable)?;
-		let ref_index = infos.index;
+		let _ref_index = infos.index;
 
 		let conviction_fund =
 			Self::conviction_amount(amount, conviction).ok_or("Invalid conviction")?;
@@ -117,14 +117,6 @@ impl<T: Config> Pallet<T> {
 			Votes::<T>::mutate(&project, &voter_id, |value| {
 				*value = Some(new_vote);
 			});
-
-			// Adjust locked amount
-			let total_hold = T::NativeBalance::total_balance_on_hold(&voter_id);
-			let new_hold = total_hold.saturating_sub(old_amount).saturating_add(amount);
-			T::NativeBalance::set_on_hold(&HoldReason::FundsReserved.into(), &voter_id, new_hold)?;
-
-			// Remove previous vote from Referendum
-			T::Conviction::try_remove_vote(&voter_id, ref_index.into())?;
 		} else {
 			Votes::<T>::insert(&project, &voter_id, new_vote);
 			ProjectFunds::<T>::mutate(&project, |val| {
@@ -136,8 +128,6 @@ impl<T: Config> Pallet<T> {
 				}
 				*val = val0;
 			});
-			// Lock the necessary amount
-			T::NativeBalance::hold(&HoldReason::FundsReserved.into(), &voter_id, amount)?;
 		}
 
 		Ok(())
@@ -286,6 +276,12 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub fn convert_moment_to_block_number(
+        moment: <<T as pallet::Config>::Governance as traits::ReferendumTrait<<T as frame_system::Config>::AccountId>>::Moment,
+	) -> <<T as pallet::Config>::BlockNumberProvider as sp_runtime::traits::BlockNumberProvider>::BlockNumber where <<T as pallet::Config>::BlockNumberProvider as sp_runtime::traits::BlockNumberProvider>::BlockNumber: From<<<T as pallet::Config>::Governance as traits::ReferendumTrait<<T as frame_system::Config>::AccountId>>::Moment>{
+		moment.saturated_into()
+	}
+
 	// To be executed in a hook, on_initialize
 	pub fn on_idle_function(limit: Weight) -> Weight {
 		let now = T::BlockNumberProvider::current_block_number();
@@ -295,19 +291,16 @@ impl<T: Config> Pallet<T> {
 		if meter.try_consume(max_block_weight).is_err() {
 			return meter.consumed();
 		}
-		let mut round_index = NextVotingRoundNumber::<T>::get();
-
-		// No active round?
+		let round_index = NextVotingRoundNumber::<T>::get();
 		if round_index == 0 {
-			// Start the first voting round
-			let _round0 = VotingRoundInfo::<T>::new();
-			round_index = NextVotingRoundNumber::<T>::get();
+			return meter.consumed();
 		}
 
 		let current_round_index = round_index.saturating_sub(1);
 
 		if let Some(round_infos) = VotingRounds::<T>::get(current_round_index) {
-			let round_ending_block = round_infos.round_ending_block;
+			if round_infos.round_ending_block != round_infos.round_starting_block
+			{let round_ending_block = round_infos.round_ending_block;
 
 			if now >= round_ending_block {
 				// Emmit event
@@ -325,7 +318,7 @@ impl<T: Config> Pallet<T> {
 
 				// Clear ProjectFunds storage
 				ProjectFunds::<T>::drain();
-			}
+			}}
 		}
 		meter.consumed()
 	}

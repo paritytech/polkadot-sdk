@@ -41,7 +41,7 @@ pub use frame_support::{
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use pallet_conviction_voting::{Conviction, Tally};
-pub use pallet_referenda::{PalletsOriginOf, ReferendumIndex};
+pub use pallet_referenda::{DecidingStatus, PalletsOriginOf, ReferendumIndex};
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::{
 	traits::{
@@ -67,7 +67,7 @@ pub type VoterId<T> = AccountIdOf<T>;
 pub type ProvidedBlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 pub use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
-
+pub type SubmitOrigin<T> = <T as pallet_referenda::Config>::SubmitOrigin;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 pub enum ReferendumStates {
 	Ongoing,
@@ -183,8 +183,7 @@ impl<T: Config> VoteInfo<T> {
 		let conviction_coeff = <u8 as From<Conviction>>::from(self.conviction);
 		let funds_unlock_block = self
 			.round
-			.round_ending_block
-			.saturating_add(T::VoteValidityPeriod::get().saturating_mul(conviction_coeff.into()));
+			.round_ending_block;
 		self.funds_unlock_block = funds_unlock_block;
 	}
 }
@@ -225,7 +224,7 @@ impl<T: Config> VotingRoundInfo<T> {
 		let round_starting_block = T::BlockNumberProvider::current_block_number();
 		let batch_submitted = false;
 		let round_ending_block =
-			round_starting_block.saturating_add(<T as Config>::VotingPeriod::get());
+			round_starting_block;
 		let round_number = NextVotingRoundNumber::<T>::mutate(|n| {
 			let res = *n;
 			*n = n.saturating_add(1);

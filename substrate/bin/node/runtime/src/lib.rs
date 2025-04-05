@@ -1639,7 +1639,7 @@ impl pallet_opf::Config for Runtime {
 	/// Time period in which people can vote.
 	/// After the period has ended, the votes are counted (STOP THE COUNT)
 	/// and then the funds are distributed into Spends.
-	type VotingPeriod = VotingPeriod;
+	type VotingPeriod = UndecidingTimeout;
 
 	/// Time for claiming a Spend.
 	/// After the period has passed, a spend is thrown away

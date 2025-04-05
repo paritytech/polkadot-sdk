@@ -21,6 +21,8 @@ pub trait ReferendumTrait<AccountId> {
 	fn submit_proposal(caller: AccountId, proposal: Self::Proposal) -> Result<u32, DispatchError>;
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo>;
 	fn handle_referendum_info(infos: Self::ReferendumInfo) -> Option<ReferendumStates>;
+	fn referendum_count() -> Self::Index;
+	fn get_decision_period(index: Self::Index) -> Result<u128, DispatchError>;
 }
 
 pub trait ConvictionVotingTrait<AccountId> {
@@ -147,13 +149,9 @@ where
 			frame_system::RawOrigin::Root.into(),
 			nudge_call,
 		);
-		debug_assert!(
-			result.is_ok(),
-			"Unable to schedule a new alarm at #{:?} (now: #{:?}), scheduler error: `{:?}`",
-			when,
-			T::BlockNumberProvider::current_block_number(),
-			result.unwrap_err(),
-		);
+		if let Err(_e) = result {
+			return Err(DispatchError::Other("SchedulerError"));
+		}
 		let alarm = result.ok().map(|x| (when, x));
 
 		let status = pallet_referenda::ReferendumStatus {
@@ -185,6 +183,29 @@ where
 			Self::ReferendumInfo::Rejected(..) => Some(ReferendumStates::Rejected),
 			Self::ReferendumInfo::Ongoing(..) => Some(ReferendumStates::Ongoing),
 			_ => None,
+		}
+	}
+
+	fn referendum_count() -> Self::Index {
+		pallet_referenda::ReferendumCount::<T, I>::get()
+	}
+
+	fn get_decision_period(index: Self::Index) -> Result<u128, DispatchError> {
+		let info = Self::get_referendum_info(index)
+			.ok_or_else(|| DispatchError::Other("No referendum info found"))?;
+		match info {
+			Self::ReferendumInfo::Ongoing(ref info) => {
+				let track_id = info.track;
+				let track = T::Tracks::info(track_id)
+					.ok_or_else(|| DispatchError::Other("No track info found"))?;
+				let total_period = track.decision_period.saturating_add(track.prepare_period);
+				// convert total_period to u128
+				let total_period: u128 = total_period.try_into().map_err(|_| {
+					DispatchError::Other("Failed to convert decision period to u128")
+				})?;
+				Ok(total_period)
+			},
+			_ => Err(DispatchError::Other("Not an ongoing referendum")),
 		}
 	}
 }

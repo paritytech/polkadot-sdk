@@ -300,8 +300,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			projects_id: BoundedVec<ProjectId<T>, T::MaxProjects>,
 		) -> DispatchResult {
-			let _ = T::AdminOrigin::ensure_origin(origin.clone())?;
-			let who = ensure_signed(origin)?;
+			T::AdminOrigin::ensure_origin_or_root(origin.clone())?;
+			//let who = ensure_signed(origin)?;
 			// Only 1 batch submission per round
 			let mut round_index = NextVotingRoundNumber::<T>::get();
 
@@ -320,7 +320,9 @@ pub mod pallet {
 			// Check no Project batch has been submitted yet
 			ensure!(!round_infos.batch_submitted, Error::<T>::BatchAlreadySubmitted);
 			round_infos.batch_submitted = true;
-			let round_ending_block = round_infos.round_ending_block;
+
+			let mut round_ending_block = round_infos.round_ending_block;
+			let round_start = round_infos.round_starting_block;
 
 			// If current voting round is over, start a new one
 			let when = T::BlockNumberProvider::current_block_number();
@@ -335,7 +337,7 @@ pub mod pallet {
 				// Prepare the proposal call
 				let call = Call::<T>::on_registration { project_id: project_id.clone() };
 
-				let referendum_index = Self::start_dem_referendum(who.clone(), call)?;
+				let referendum_index = Self::start_referendum(project_id.clone(), call)?;
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 					.ok_or(Error::<T>::NoProjectAvailable)?;
 				new_infos.index = referendum_index;
@@ -343,7 +345,16 @@ pub mod pallet {
 				WhiteListedProjectAccounts::<T>::mutate(project_id, |value| {
 					*value = Some(new_infos);
 				});
-			}
+				let decision_period_128:u128 = T::Governance::get_decision_period(referendum_index.into())?;
+				// convert decision_period to block number, as it is a u128
+				let decision_period:ProvidedBlockNumberFor<T> = decision_period_128
+					.try_into()
+					.map_err(|_| Error::<T>::InvalidResult)?;
+					if round_ending_block == round_start {
+						
+				round_ending_block = round_ending_block.saturating_add(decision_period.into());
+					}
+				}
 			VotingRounds::<T>::mutate(current_round_index, |round| *round = Some(round_infos));
 
 			Self::deposit_event(Event::Projectslisted { projects_id: projects_id.to_vec() });
