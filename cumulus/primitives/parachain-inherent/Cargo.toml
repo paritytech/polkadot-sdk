@@ -14,11 +14,11 @@ workspace = true
 [dependencies]
 async-trait = { optional = true, workspace = true }
 codec = { features = ["derive"], workspace = true }
+cumulus-primitives-core.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 sp-core.workspace = true
 sp-inherents.workspace = true
 sp-trie.workspace = true
-cumulus-primitives-core.workspace = true
 
 [features]
 default = ["std"]

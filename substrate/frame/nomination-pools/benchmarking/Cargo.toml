@@ -18,7 +18,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 # parity
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 frame-benchmarking.workspace = true
 frame-election-provider-support.workspace = true
 frame-support.workspace = true
@@ -27,6 +26,7 @@ pallet-bags-list.workspace = true
 pallet-delegated-staking.workspace = true
 pallet-nomination-pools.workspace = true
 pallet-staking.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-runtime.workspace = true
 sp-runtime-interface.workspace = true
 sp-staking.workspace = true

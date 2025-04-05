@@ -14,11 +14,11 @@ workspace = true
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
 docify = { workspace = true }
-scale-info = { workspace = true, features = ["derive"] }
-serde = { features = ["derive"], optional = true, workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support.workspace = true
 frame-system.workspace = true
+scale-info = { workspace = true, features = ["derive"] }
+serde = { features = ["derive"], optional = true, workspace = true }
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true

@@ -21,19 +21,19 @@ ahash = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
-prometheus-endpoint.workspace = true
 prometheus-endpoint.default-features = true
-sc-network.workspace = true
+prometheus-endpoint.workspace = true
 sc-network.default-features = true
-sc-network-common.workspace = true
+sc-network.workspace = true
 sc-network-common.default-features = true
-sc-network-sync.workspace = true
+sc-network-common.workspace = true
 sc-network-sync.default-features = true
-sc-network-types.workspace = true
+sc-network-sync.workspace = true
 sc-network-types.default-features = true
+sc-network-types.workspace = true
 schnellru = { workspace = true }
-sp-runtime.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]

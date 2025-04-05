@@ -19,22 +19,22 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint.workspace = true
 prometheus-endpoint.default-features = true
-sc-client-api.workspace = true
+prometheus-endpoint.workspace = true
 sc-client-api.default-features = true
-sc-keystore.workspace = true
+sc-client-api.workspace = true
 sc-keystore.default-features = true
-sp-api.workspace = true
+sc-keystore.workspace = true
 sp-api.default-features = true
-sp-blockchain.workspace = true
+sp-api.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-runtime.workspace = true
+sp-core.workspace = true
 sp-runtime.default-features = true
-sp-statement-store.workspace = true
+sp-runtime.workspace = true
 sp-statement-store.default-features = true
+sp-statement-store.workspace = true
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]

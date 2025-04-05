@@ -11,15 +11,15 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 bp-messages.workspace = true
 bp-runtime.workspace = true
 bp-xcm-bridge-hub.workspace = true
-pallet-bridge-messages.workspace = true
+codec = { workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+log = { workspace = true }
+pallet-bridge-messages.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-core.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true

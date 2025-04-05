@@ -20,24 +20,24 @@ exclude-from-umbrella = true
 [dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { features = ["derive"], workspace = true }
-hex-literal = { optional = true, workspace = true, default-features = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+hex-literal = { optional = true, workspace = true, default-features = true }
+log = { workspace = true }
 pallet-balances.workspace = true
+scale-info = { features = ["derive"], workspace = true }
+serde = { optional = true, workspace = true, default-features = true }
+snowbridge-beacon-primitives.workspace = true
+snowbridge-core.workspace = true
+snowbridge-inbound-queue-primitives.workspace = true
+snowbridge-pallet-inbound-queue-fixtures = { optional = true, workspace = true }
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
 xcm.workspace = true
 xcm-executor.workspace = true
-snowbridge-beacon-primitives.workspace = true
-snowbridge-core.workspace = true
-snowbridge-inbound-queue-primitives.workspace = true
-snowbridge-pallet-inbound-queue-fixtures = { optional = true, workspace = true }
 
 [dev-dependencies]
 frame-benchmarking = { default-features = true, path = "../../../../substrate/frame/benchmarking" }

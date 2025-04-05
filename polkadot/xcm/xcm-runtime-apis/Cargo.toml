@@ -12,8 +12,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive", "serde"], workspace = true }
 frame-support.workspace = true
+scale-info = { features = ["derive", "serde"], workspace = true }
 sp-api.workspace = true
 sp-weights.workspace = true
 xcm.workspace = true

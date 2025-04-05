@@ -11,15 +11,15 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 bp-header-chain.workspace = true
 bp-messages.workspace = true
 bp-runtime.workspace = true
+codec = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-runtime.workspace = true
 sp-std.workspace = true
 sp-trie = { optional = true, workspace = true }
