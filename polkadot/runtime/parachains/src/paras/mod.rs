@@ -550,6 +550,19 @@ impl AssignCoretime for () {
 	}
 }
 
+/// Holds an authorized validation code hash along with its expiry timestamp.
+#[derive(Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+#[cfg_attr(test, derive(PartialEq))]
+pub struct AuthorizedCodeHashAndExpiry<T> {
+	code_hash: ValidationCodeHash,
+	expire_at: T,
+}
+impl<T> From<(ValidationCodeHash, T)> for AuthorizedCodeHashAndExpiry<T> {
+	fn from(value: (ValidationCodeHash, T)) -> Self {
+		AuthorizedCodeHashAndExpiry { code_hash: value.0, expire_at: value.1 }
+	}
+}
+
 pub trait WeightInfo {
 	fn force_set_current_code(c: u32) -> Weight;
 	fn force_set_current_head(s: u32) -> Weight;
@@ -690,7 +703,7 @@ pub mod pallet {
 		PvfCheckRejected(ValidationCodeHash, ParaId),
 		/// New code hash has been authorized for a Para.
 		CodeAuthorized {
-			// Para
+			/// Para
 			para_id: ParaId,
 			/// Authorized code hash.
 			code_hash: ValidationCodeHash,
@@ -831,7 +844,7 @@ pub mod pallet {
 	/// The code hash authorizations for a para which will expire `expire_at` `BlockNumberFor<T>`.
 	#[pallet::storage]
 	pub type AuthorizedCodeHash<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, (ValidationCodeHash, BlockNumberFor<T>)>;
+		StorageMap<_, Twox64Concat, ParaId, AuthorizedCodeHashAndExpiry<BlockNumberFor<T>>>;
 
 	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
 	/// procedure.
@@ -1214,7 +1227,10 @@ pub mod pallet {
 			let expire_at = now.saturating_add(valid_period);
 
 			// insert authorized code hash and make sure to overwrite existing one for a para.
-			AuthorizedCodeHash::<T>::insert(&para, (new_code_hash, expire_at));
+			AuthorizedCodeHash::<T>::insert(
+				&para,
+				AuthorizedCodeHashAndExpiry::from((new_code_hash, expire_at)),
+			);
 			Self::deposit_event(Event::CodeAuthorized {
 				para_id: para,
 				code_hash: new_code_hash,
@@ -1615,13 +1631,15 @@ impl<T: Config> Pallet<T> {
 	/// meaning their `expire_at` block is less than or equal to the current block (`now`).
 	fn prune_expired_authorizations(now: BlockNumberFor<T>) -> Weight {
 		let mut weight = T::DbWeight::get().reads(1);
-		let to_remove = AuthorizedCodeHash::<T>::iter().filter_map(|(para, (_, expire_at))| {
-			if expire_at <= now {
-				Some(para)
-			} else {
-				None
-			}
-		});
+		let to_remove = AuthorizedCodeHash::<T>::iter().filter_map(
+			|(para, AuthorizedCodeHashAndExpiry { expire_at, .. })| {
+				if expire_at <= now {
+					Some(para)
+				} else {
+					None
+				}
+			},
+		);
 		for para in to_remove {
 			AuthorizedCodeHash::<T>::remove(&para);
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
@@ -2493,7 +2511,8 @@ impl<T: Config> Pallet<T> {
 		code: &ValidationCode,
 		para: &ParaId,
 	) -> Result<(ValidationCodeHash, BlockNumberFor<T>), Error<T>> {
-		let (authorized_code_hash, expire_at) = AuthorizedCodeHash::<T>::get(para).ok_or(Error::<T>::NothingAuthorized))?
+		let AuthorizedCodeHashAndExpiry { code_hash: authorized_code_hash, expire_at } =
+			AuthorizedCodeHash::<T>::get(para).ok_or(Error::<T>::NothingAuthorized)?;
 		ensure!(authorized_code_hash == code.hash(), Error::<T>::Unauthorized);
 		ensure!(
 			expire_at > frame_system::Pallet::<T>::block_number(),

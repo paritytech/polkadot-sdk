@@ -2072,7 +2072,10 @@ fn authorize_force_set_current_code_hash_works() {
 			code_1_hash,
 			valid_period
 		));
-		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_a), Some((code_1_hash, 1 + valid_period)));
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_a),
+			Some((code_1_hash, 1 + valid_period).into())
+		);
 		System::set_block_number(5);
 		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
@@ -2080,7 +2083,10 @@ fn authorize_force_set_current_code_hash_works() {
 			code_2_hash,
 			valid_period,
 		));
-		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_b), Some((code_2_hash, 5 + valid_period)));
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_b),
+			Some((code_2_hash, 5 + valid_period).into())
+		);
 		assert_eq!(AuthorizedCodeHash::<Test>::iter().count(), 2);
 
 		// request for the same para is overwritten
@@ -2090,14 +2096,20 @@ fn authorize_force_set_current_code_hash_works() {
 			code_1_hash,
 			valid_period
 		));
-		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_a), Some((code_1_hash, 5 + valid_period)));
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_a),
+			Some((code_1_hash, 5 + valid_period).into())
+		);
 		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
 			para_a,
 			code_2_hash,
 			valid_period
 		));
-		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_a), Some((code_2_hash, 5 + valid_period)));
+		assert_eq!(
+			AuthorizedCodeHash::<Test>::get(&para_a),
+			Some((code_2_hash, 5 + valid_period).into())
+		);
 	})
 }
 
@@ -2138,7 +2150,10 @@ fn apply_authorized_force_set_current_code_works() {
 
 		// authorize
 		System::set_block_number(5);
-		AuthorizedCodeHash::<Test>::insert(&para_a, (code_1_hash, valid_period + 5));
+		AuthorizedCodeHash::<Test>::insert(
+			&para_a,
+			AuthorizedCodeHashAndExpiry::from((code_1_hash, valid_period + 5)),
+		);
 
 		// cannot apply unauthorized code_2
 		assert_eq!(
@@ -2189,18 +2204,24 @@ fn prune_expired_authorizations_works() {
 		let code_1_hash = code_1.hash();
 
 		// add authorizations
-		AuthorizedCodeHash::<Test>::insert(&para_a, (code_1_hash, 201));
-		AuthorizedCodeHash::<Test>::insert(&para_b, (code_1_hash, 202));
+		AuthorizedCodeHash::<Test>::insert(
+			&para_a,
+			AuthorizedCodeHashAndExpiry::from((code_1_hash, 201)),
+		);
+		AuthorizedCodeHash::<Test>::insert(
+			&para_b,
+			AuthorizedCodeHashAndExpiry::from((code_1_hash, 202)),
+		);
 
 		// nothing prunned at 200
 		let _ = Paras::prune_expired_authorizations(200);
-		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_a), Some((code_1_hash, 201)));
-		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_b), Some((code_1_hash, 202)));
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_a), Some((code_1_hash, 201).into()));
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_b), Some((code_1_hash, 202).into()));
 
 		// pruned at 201
 		let _ = Paras::prune_expired_authorizations(201);
 		assert!(AuthorizedCodeHash::<Test>::get(&para_a).is_none());
-		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_b), Some((code_1_hash, 202)));
+		assert_eq!(AuthorizedCodeHash::<Test>::get(&para_b), Some((code_1_hash, 202).into()));
 
 		// pruned at 203
 		let _ = Paras::prune_expired_authorizations(203);
