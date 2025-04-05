@@ -38,7 +38,7 @@ use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	request_response::{IncomingRequest, ReqProtocolNames},
 	v3::{self, BackedCandidateManifest, StatementFilter},
-	view, Versioned, View,
+	view, ValidationProtocols, View,
 };
 use polkadot_node_subsystem::messages::{
 	network_bridge_event::NewGossipTopology, AllMessages, NetworkBridgeEvent,
@@ -278,7 +278,7 @@ pub async fn benchmark_statement_distribution(
 		let message = AllMessages::StatementDistribution(
 			StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				seconding_peer_id,
-				Versioned::V3(v3::StatementDistributionMessage::Statement(
+				ValidationProtocols::V3(v3::StatementDistributionMessage::Statement(
 					block_info.hash,
 					statement,
 				)),
@@ -394,9 +394,9 @@ pub async fn benchmark_statement_distribution(
 			let message = AllMessages::StatementDistribution(
 				StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 					seconding_peer_id,
-					Versioned::V3(v3::StatementDistributionMessage::BackedCandidateManifest(
-						manifest,
-					)),
+					ValidationProtocols::V3(
+						v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
+					),
 				)),
 			);
 			env.send_message(message).await;

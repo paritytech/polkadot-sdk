@@ -31,7 +31,7 @@ use polkadot_node_network_protocol::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v3 as protocol_v3, OurView, PeerId, UnifiedReputationChange as Rep, Versioned, View,
+	v3 as protocol_v3, OurView, PeerId, UnifiedReputationChange as Rep, ValidationProtocols, View,
 };
 use polkadot_node_subsystem::{
 	messages::*, overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
@@ -91,7 +91,7 @@ impl BitfieldGossipMessage {
 	) -> net_protocol::BitfieldDistributionMessage {
 		match ValidationVersion::try_from(recipient_version).ok() {
 			Some(ValidationVersion::V3) =>
-				Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
+				ValidationProtocols::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
@@ -103,7 +103,7 @@ impl BitfieldGossipMessage {
 				);
 
 				// fall back to v3 to avoid
-				Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
+				ValidationProtocols::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
 				))
@@ -490,18 +490,10 @@ async fn process_incoming_peer_message<Context>(
 	rng: &mut (impl CryptoRng + Rng),
 ) {
 	let (relay_parent, bitfield) = match message {
-		Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
+		ValidationProtocols::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,
 		)) => (relay_parent, bitfield),
-		_ => {
-			gum::warn!(
-				target: LOG_TARGET,
-				peer = %origin,
-				"Received bitfield distribution message with unsupported protocol version",
-			);
-			return
-		},
 	};
 
 	gum::trace!(
