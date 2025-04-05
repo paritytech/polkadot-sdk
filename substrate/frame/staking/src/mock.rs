@@ -22,6 +22,7 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, BoundedSupports, SequentialPhragmen, Support, VoteWeight,
 };
+use frame_support::traits::RewardsReporter;
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
@@ -96,6 +97,7 @@ frame_support::construct_runtime!(
 		Session: pallet_session,
 		Historical: pallet_session::historical,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		AhClient: pallet_staking_async_ah_client,
 	}
 );
 
@@ -139,7 +141,7 @@ sp_runtime::impl_opaque_keys! {
 	}
 }
 impl pallet_session::Config for Test {
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, AhClient>;
 	type Keys = SessionKeys;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionHandler = (OtherSessionHandler,);
@@ -222,6 +224,19 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type BagThresholds = BagThresholds;
 	type Score = VoteWeight;
 }
+
+impl pallet_staking_async_ah_client::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type SendToAssetHub = ();
+	type AssetHubOrigin = EnsureRoot<AccountId>;
+	type UnixTime = Timestamp;
+	type MinimumValidatorSetSize = ConstU32<100>;
+	type PointsPerBlock = ConstU32<20>;
+	type SessionInterface = Self;
+	type Fallback = Staking;
+}
+
 
 parameter_types! {
 	pub static MaxBackersPerWinner: u32 = 256;

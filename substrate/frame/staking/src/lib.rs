@@ -160,6 +160,7 @@
 //!
 //! ```
 //! use pallet_staking::{self as staking};
+//! use frame_support::traits::RewardsReporter;
 //!
 //! #[frame_support::pallet(dev_mode)]
 //! pub mod pallet {

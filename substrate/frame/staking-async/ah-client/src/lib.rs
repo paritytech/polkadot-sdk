@@ -101,6 +101,23 @@ pub trait SendToAssetHub {
 	);
 }
 
+/// A no-op implementation of [`SendToAssetHub`].
+#[cfg(feature = "std")]
+impl SendToAssetHub for () {
+	type AccountId = u64;
+
+	fn relay_session_report(_session_report: rc_client::SessionReport<Self::AccountId>) {
+		panic!("relay_session_report not implemented");
+	}
+
+	fn relay_new_offence(
+		_session_index: SessionIndex,
+		_offences: Vec<rc_client::Offence<Self::AccountId>>,
+	) {
+		panic!("relay_new_offence not implemented");
+	}
+}
+
 /// Interface to talk to the local session pallet.
 pub trait SessionInterface {
 	/// The validator id type of the session pallet
@@ -474,7 +491,12 @@ pub mod pallet {
 			}
 		}
 
-		fn start_session(_: u32) {}
+		fn start_session(session_index: u32) {
+			match Mode::<T>::get() {
+				OperatingMode::Passive => T::Fallback::start_session(session_index),
+				_ => ()
+			}
+		}
 
 		fn end_session(session_index: u32) {
 			match Mode::<T>::get() {
