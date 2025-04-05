@@ -184,6 +184,8 @@ pub mod pallet {
 		FundingPeriodEnded,
 		/// The funding period has not been set.
 		FundingPeriodNotSet,
+		/// The voter does not have a sufficient rank to vote.
+		InsufficientRank,
 	}
 
 	#[pallet::hooks]
@@ -307,11 +309,22 @@ pub mod pallet {
 			// Get the voter's rank (default to 0 if not a ranked member)
 			let rank = T::RankedMembers::get_rank(&voter).unwrap_or(0);
 
-			// Calculate vote weight based on amount and rank using formula:
-			// `amount * (rank + 1)` to ensure that even rank 0 members have
-			// some voting power.
-			let rank_multiplier = BalanceOf::<T, I>::from((rank as u32) + 1);
-			let weighted_amount = amount.saturating_mul(rank_multiplier);
+			// Calculate vote weight based on rank according to the following table:
+			// Rank 0 (Advocate Ambassador): Not eligible for voting
+			// Rank 1 (Associate Ambassador): weight = 1
+			// Rank 2 (Lead Ambassador): weight = 3
+			// Rank 3 (Senior Ambassador): weight = 9
+			// Rank 4 (Principal Ambassador): weight = 27
+			// Rank 5 (Global Ambassador): weight = 81
+			// Rank 6 (Global Head Ambassador): weight = 243
+			let weighted_amount = if rank == 0 {
+				// Rank 0 members cannot vote
+				return Err(Error::<T, I>::InsufficientRank.into());
+			} else {
+				// Calculate 3^(rank-1) for ranks 1-6
+				let weight = 3_u32.saturating_pow(rank.saturating_sub(1) as u32);
+				amount.saturating_mul(BalanceOf::<T, I>::from(weight))
+			};
 
 			// Create vote
 			let vote = Vote { amount, status: VoteStatus::Active };
@@ -354,8 +367,15 @@ pub mod pallet {
 			let rank = T::RankedMembers::get_rank(&voter).unwrap_or(0);
 
 			// Calculate original weighted amount that was added
-			let rank_multiplier = BalanceOf::<T, I>::from((rank as u32) + 1);
-			let weighted_amount = vote.amount.saturating_mul(rank_multiplier);
+			// For ranks 1-6, the weight is 3^(rank-1)
+			// Rank 0 shouldn't have been able to vote, but we handle it defensively
+			let weighted_amount = if rank == 0 {
+				// This shouldn't happen as rank 0 members can't vote, but handle it defensively
+				vote.amount
+			} else {
+				let weight = 3_u32.saturating_pow(rank.saturating_sub(1) as u32);
+				vote.amount.saturating_mul(BalanceOf::<T, I>::from(weight))
+			};
 
 			// Update vote status
 			let mut updated_vote = vote.clone();

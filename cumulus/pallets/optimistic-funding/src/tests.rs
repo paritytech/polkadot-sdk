@@ -866,6 +866,8 @@ fn process_period_end_with_insufficient_funds() {
     });
 }
 
+// Rank-weighted voting
+// Reference: // https://github.com/polkadot-phoenix/manifesto/blob/main/version-controle/version5.md#64-rank-weighted-voting
 #[test]
 fn rank_weighted_voting_works() {
     new_test_ext().execute_with(|| {
@@ -899,53 +901,69 @@ fn rank_weighted_voting_works() {
             }
         }).expect("Expected RequestSubmitted event");
 
-        // Account 2 (rank 1) votes with 100 tokens
-        // Their vote should count as 100 * (1 + 1) = 200
+        // Account 1 (rank 0 - Advocate Ambassador) should not be able to vote
+        assert_noop!(
+            OptimisticFunding::vote(RuntimeOrigin::signed(1), *request_hash, 100u64),
+            Error::<Test>::InsufficientRank
+        );
+
+        // Account 2 (rank 1 - Associate Ambassador) votes with 100 tokens
+        // Their vote weight is 100 * 3^(1-1) = 100 * 1 = 100
         assert_ok!(OptimisticFunding::vote(RuntimeOrigin::signed(2), *request_hash, 100u64));
 
         // Check the request's votes_amount is updated correctly
         let request = FundingRequests::<Test>::get(request_hash).unwrap();
         assert_eq!(request.votes_count, 1);
-        assert_eq!(request.votes_amount, 200); // 100 * (rank 1 + 1)
+        assert_eq!(request.votes_amount, 100); // 100 * 1 = 100
 
-        // Account 3 (rank 2) votes with 100 tokens
-        // Their vote should count as 100 * (2 + 1) = 300
+        // Account 3 (rank 2 - Lead Ambassador) votes with 100 tokens
+        // Their vote weight is 100 * 3^(2-1) = 100 * 3 = 300
         assert_ok!(OptimisticFunding::vote(RuntimeOrigin::signed(3), *request_hash, 100u64));
 
         // Check the request's votes_amount is updated correctly
         let request = FundingRequests::<Test>::get(request_hash).unwrap();
         assert_eq!(request.votes_count, 2);
-        assert_eq!(request.votes_amount, 500); // 200 + 300 = 500
+        assert_eq!(request.votes_amount, 400); // 100 + 300 = 400
 
-        // Account 4 (rank 3) votes with 100 tokens
-        // Their vote should count as 100 * (3 + 1) = 400
+        // Account 4 (rank 3 - Senior Ambassador) votes with 100 tokens
+        // Their vote weight is 100 * 3^(3-1) = 100 * 9 = 900
         assert_ok!(OptimisticFunding::vote(RuntimeOrigin::signed(4), *request_hash, 100u64));
 
         // Check the request's votes_amount is updated correctly
         let request = FundingRequests::<Test>::get(request_hash).unwrap();
         assert_eq!(request.votes_count, 3);
-        assert_eq!(request.votes_amount, 900); // 500 + 400 = 900
+        assert_eq!(request.votes_amount, 1300); // 400 + 900 = 1300
 
-        // Account 5 (rank 4) cancels their vote
-        // Their vote would have counted as 100 * (4 + 1) = 500
+        // Account 5 (rank 4 - Principal Ambassador) votes with 100 tokens
+        // Their vote weight is 100 * 3^(4-1) = 100 * 27 = 2700
         assert_ok!(OptimisticFunding::vote(RuntimeOrigin::signed(5), *request_hash, 100u64));
         let request = FundingRequests::<Test>::get(request_hash).unwrap();
-        assert_eq!(request.votes_amount, 1400); // 900 + 500 = 1400
+        assert_eq!(request.votes_amount, 4000); // 1300 + 2700 = 4000
 
+        // Account 5 cancels their vote
         assert_ok!(OptimisticFunding::cancel_vote(RuntimeOrigin::signed(5), *request_hash));
 
         // Check the request's votes_amount is updated correctly
         let request = FundingRequests::<Test>::get(request_hash).unwrap();
-        assert_eq!(request.votes_count, 3); // Still 3 because we don't decrement count on cancel
-        assert_eq!(request.votes_amount, 900); // 1400 - 500 = 900
+        assert_eq!(request.votes_count, 3); // Vote count is decremented
+        assert_eq!(request.votes_amount, 1300); // 4000 - 2700 = 1300
 
-        // Account 8 (no rank) votes with 100 tokens
-        // Their vote should count as 100 * (0 + 1) = 100
-        assert_ok!(OptimisticFunding::vote(RuntimeOrigin::signed(8), *request_hash, 100u64));
-
-        // Check the request's votes_amount is updated correctly
+        // Account 6 (rank 5 - Global Ambassador) votes with 100 tokens
+        // Their vote weight is 100 * 3^(5-1) = 100 * 81 = 8100
+        assert_ok!(OptimisticFunding::vote(RuntimeOrigin::signed(6), *request_hash, 100u64));
         let request = FundingRequests::<Test>::get(request_hash).unwrap();
-        assert_eq!(request.votes_count, 4);
-        assert_eq!(request.votes_amount, 1000); // 900 + 100 = 1000
+        assert_eq!(request.votes_amount, 9400); // 1300 + 8100 = 9400
+
+        // Account 7 (rank 6 - Global Head Ambassador) votes with 100 tokens
+        // Their vote weight is 100 * 3^(6-1) = 100 * 243 = 24300
+        assert_ok!(OptimisticFunding::vote(RuntimeOrigin::signed(7), *request_hash, 100u64));
+        let request = FundingRequests::<Test>::get(request_hash).unwrap();
+        assert_eq!(request.votes_amount, 33700); // 9400 + 24300 = 33700
+
+        // Account 8 (no rank) should not be able to vote
+        assert_noop!(
+            OptimisticFunding::vote(RuntimeOrigin::signed(8), *request_hash, 100u64),
+            Error::<Test>::InsufficientRank
+        );
     });
 }
