@@ -22,11 +22,8 @@ use polkadot_node_primitives::{
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,
 };
 use polkadot_primitives::{
-	vstaging::{
-		CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	},
-	CandidateHash, Hash, HeadData, Id as ParaId, ValidatorIndex,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, HeadData, Id as ParaId,
+	ValidatorIndex,
 };
 
 use super::{IsRequest, Protocol};
@@ -189,32 +186,6 @@ impl From<Option<AvailableData>> for AvailableDataFetchingResponse {
 impl IsRequest for AvailableDataFetchingRequest {
 	type Response = AvailableDataFetchingResponse;
 	const PROTOCOL: Protocol = Protocol::AvailableDataFetchingV1;
-}
-
-/// Request for fetching a large statement via request/response.
-#[derive(Debug, Clone, Encode, Decode)]
-pub struct StatementFetchingRequest {
-	/// Data needed to locate and identify the needed statement.
-	pub relay_parent: Hash,
-	/// Hash of candidate that was used create the `CommittedCandidateReceipt`.
-	pub candidate_hash: CandidateHash,
-}
-
-/// Respond with found full statement.
-///
-/// In this protocol the requester will only request data it was previously notified about,
-/// therefore not having the data is not really an option and would just result in a
-/// `RequestFailure`.
-#[derive(Debug, Clone, Encode, Decode)]
-pub enum StatementFetchingResponse {
-	/// Data missing to reconstruct the full signed statement.
-	#[codec(index = 0)]
-	Statement(CommittedCandidateReceipt),
-}
-
-impl IsRequest for StatementFetchingRequest {
-	type Response = StatementFetchingResponse;
-	const PROTOCOL: Protocol = Protocol::StatementFetchingV1;
 }
 
 /// A dispute request.
