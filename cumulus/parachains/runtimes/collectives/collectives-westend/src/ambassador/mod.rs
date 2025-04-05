@@ -39,6 +39,7 @@ pub use origins::pallet_origins::{
     EnsureGlobalHeadAmbassadorsVoice, Origin,
 };
 pub use origins::pallet_origins as pallet_ambassador_origins;
+pub use pallet_ambassador_registration;
 
 use super::*;
 use crate::xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub};
@@ -295,8 +296,18 @@ pub struct AmbassadorRankAdapter;
 // Implementation of GetRank for the Ambassador Collective via the wrapper
 impl pallet_optimistic_funding::GetRank<AccountId> for AmbassadorRankAdapter {
 	fn get_rank(who: &AccountId) -> Option<u16> {
-		// Use the rank_of method from the RankedMembers trait
-		AmbassadorCollective::rank_of(who)
+		// First check if the account has a rank in the Ambassador Collective
+		if let Some(rank) = AmbassadorCollective::rank_of(who) {
+			// Return the rank from the collective (ranks 1-6)
+			Some(rank)
+		} else {
+			// If not in the collective, check if they're registered as an Advocate Ambassador (Rank 0)
+			if AmbassadorRegistration::is_registered(who) {
+				Some(0)
+			} else {
+				None
+			}
+		}
 	}
 }
 
@@ -314,4 +325,18 @@ impl pallet_optimistic_funding::Config<AmbassadorOptimisticFundingInstance> for 
 	type WeightInfo = pallet_optimistic_funding::weights::SubstrateWeight<Runtime>;
 	type PalletId = OptimisticFundingPalletId;
 	type RankedMembers = AmbassadorRankAdapter;
+}
+
+// Type alias for the Ambassador Registration pallet
+pub type AmbassadorRegistration = pallet_ambassador_registration::Pallet<Runtime>;
+
+// Implementation of the Ambassador Registration pallet
+impl pallet_ambassador_registration::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	// Only Global Head Ambassadors (Rank 6) can verify introductions
+	type VerifierOrigin = EnsureGlobalHeadAmbassadorsVoice;
+	// Only Global Head Ambassadors (Rank 6) can manage registrations
+	type AdminOrigin = EnsureGlobalHeadAmbassadorsVoice;
+	type WeightInfo = pallet_ambassador_registration::weights::SubstrateWeight<Runtime>;
 }

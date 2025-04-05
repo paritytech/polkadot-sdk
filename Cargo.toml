@@ -907,6 +907,7 @@ num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.19.0" }
 orchestra = { version = "0.4.0", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
+pallet-ambassador-registration = { path = "cumulus/pallets/ambassador-registration", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
 pallet-asset-conversion-ops = { path = "substrate/frame/asset-conversion/ops", default-features = false }
 pallet-asset-conversion-tx-payment = { path = "substrate/frame/transaction-payment/asset-conversion-tx-payment", default-features = false }

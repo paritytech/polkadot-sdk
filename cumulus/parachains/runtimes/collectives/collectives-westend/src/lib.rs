@@ -46,7 +46,12 @@ pub mod fellowship;
 
 extern crate alloc;
 
-pub use ambassador::pallet_ambassador_origins;
+pub use ambassador::{
+	origins::pallet_origins as pallet_ambassador_origins, AmbassadorCollective, AmbassadorCore,
+	AmbassadorOptimisticFundingInstance, AmbassadorReferenda, AmbassadorRegistration, AmbassadorSalary,
+	EnsureAmbassador, EnsureAmbassadorsVoice, EnsureAmbassadorsVoiceFrom, EnsureCanDemoteTo,
+	EnsureCanPromoteTo, EnsureCanRetainAt, EnsureGlobalHeadAmbassadorsVoice, Origin as AmbassadorOrigin,
+};
 
 use alloc::{vec, vec::Vec};
 use ambassador::AmbassadorCoreInstance;
@@ -730,6 +735,7 @@ construct_runtime!(
 		AmbassadorSalary: pallet_salary::<Instance2> = 74,
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 		AmbassadorOptimisticFunding: pallet_optimistic_funding::<Instance1> = 76,
+		AmbassadorRegistration: pallet_ambassador_registration = 77,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
 	}

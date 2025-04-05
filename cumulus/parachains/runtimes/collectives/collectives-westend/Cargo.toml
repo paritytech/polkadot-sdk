@@ -86,9 +86,10 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 pallet-message-queue = { workspace = true }
 
+pallet-ambassador-registration = { path = "../../../../pallets/ambassador-registration", default-features = false }
 pallet-collator-selection = { workspace = true }
-pallet-collective-content = { workspace = true }
-pallet-optimistic-funding = { workspace = true }
+pallet-collective-content = { path = "../../../../parachains/pallets/collective-content", default-features = false }
+pallet-optimistic-funding = { path = "../../../../pallets/optimistic-funding", default-features = false }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
@@ -114,6 +115,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
+	"pallet-ambassador-registration/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
@@ -122,6 +124,7 @@ runtime-benchmarks = [
 	"pallet-core-fellowship/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-optimistic-funding/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-ranked-collective/runtime-benchmarks",
@@ -208,6 +211,8 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-collective-content/std",
+	"pallet-optimistic-funding/std",
+	"pallet-ambassador-registration/std",
 	"pallet-collective/std",
 	"pallet-core-fellowship/std",
 	"pallet-message-queue/std",
