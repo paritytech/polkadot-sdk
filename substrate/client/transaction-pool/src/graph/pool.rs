@@ -424,8 +424,8 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 			target: LOG_TARGET,
 			?at,
 			reverified_transactions = reverified_transactions.len(),
-			elapsed = ?now.elapsed(),
-			"Pruning at. Resubmitting transactions."
+			duration = ?now.elapsed(),
+			"Pruned. Resubmitting transactions."
 		);
 		log_xt_trace!(data: tuple, target: LOG_TARGET, &reverified_transactions, "Resubmitting transaction: {:?}");
 

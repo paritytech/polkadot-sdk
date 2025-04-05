@@ -88,7 +88,7 @@ async fn batch_revalidate<Api: ChainApi>(
 				target: LOG_TARGET,
 				?at,
 				?error,
-				"Revalidation skipped at block."
+				"Revalidation skipped."
 			);
 			return
 		},
@@ -285,7 +285,7 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 							if this.members.len() > 0 {
 								trace!(
 									target: LOG_TARGET,
-									best_block = ?this.best_block,
+									at = ?this.best_block,
 									transactions = ?this.members,
 									"Updated revalidation queue."
 								);

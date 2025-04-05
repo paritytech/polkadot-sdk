@@ -776,8 +776,8 @@ where
 				.update(&event, &compute_tree_route, &block_id_to_number);
 
 		match result {
-			Err(message) => {
-				trace!(target: LOG_TARGET, %message, "enactment state update");
+			Err(error) => {
+				trace!(target: LOG_TARGET, %error, "enactment state update");
 				self.enactment_state.lock().force_update(&event);
 			},
 			Ok(EnactmentAction::Skip) => return,

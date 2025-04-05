@@ -373,48 +373,36 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 					// re-import them.
 					removed.append(&mut replaced);
 				},
-				Err(error @ error::Error::TooLowPriority { .. }) =>
+				Err(error @ error::Error::TooLowPriority { .. }) => {
+					trace!(
+						target: LOG_TARGET,
+						tx_hash = ?current_tx.hash,
+						?first,
+						%error,
+						"Error importing transaction"
+					);
 					if first {
-						trace!(
-							target: LOG_TARGET,
-							tx_hash = ?current_tx.hash,
-							?first,
-							%error,
-							"Error importing transaction"
-						);
 						return Err(error)
 					} else {
-						trace!(
-							target: LOG_TARGET,
-							tx_hash = ?current_tx.hash,
-							?first,
-							?error,
-							"Error importing transaction"
-						);
 						removed.push(current_tx);
 						promoted.retain(|hash| *hash != current_hash);
-					},
+					}
+				}
 				// transaction failed to be imported.
-				Err(error) =>
+				Err(error) => {
+					trace!(
+						target: LOG_TARGET,
+						tx_hash = ?current_tx.hash,
+						?error,
+						first,
+						"Error importing transaction"
+					);
 					if first {
-						trace!(
-							target: LOG_TARGET,
-							tx_hash = ?current_tx.hash,
-							?error,
-							first,
-							"Error importing transaction"
-						);
 						return Err(error)
 					} else {
-						trace!(
-							target: LOG_TARGET,
-							tx_hash = ?current_tx.hash,
-							first = ?first,
-							error = ?error,
-							"Error importing transaction"
-						);
 						failed.push(current_tx.hash.clone());
-					},
+					}
+				}
 			}
 			first = false;
 		}
