@@ -275,7 +275,7 @@ impl LegacyDescribeForeignChainAccount {
 pub type ForeignChainAliasAccount<AccountId> =
 	HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Account32Hash<Network, AccountId>(PhantomData<(Network, AccountId)>);
 impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
 	ConvertLocation<AccountId> for Account32Hash<Network, AccountId>
