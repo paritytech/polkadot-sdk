@@ -387,7 +387,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 						removed.push(current_tx);
 						promoted.retain(|hash| *hash != current_hash);
 					}
-				}
+				},
 				// transaction failed to be imported.
 				Err(error) => {
 					trace!(
@@ -402,7 +402,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 					} else {
 						failed.push(current_tx.hash.clone());
 					}
-				}
+				},
 			}
 			first = false;
 		}
