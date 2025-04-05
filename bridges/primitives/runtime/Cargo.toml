@@ -12,14 +12,14 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
 hash-db = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 num-traits = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }

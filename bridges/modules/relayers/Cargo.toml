@@ -11,20 +11,20 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+codec = { workspace = true }
+log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 bp-header-chain.workspace = true
 bp-messages.workspace = true
 bp-relayers.workspace = true
 bp-runtime.workspace = true
-codec = { workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
-log = { workspace = true }
 pallet-bridge-grandpa.workspace = true
 pallet-bridge-messages.workspace = true
 pallet-bridge-parachains.workspace = true
+frame-benchmarking = { optional = true, workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 pallet-transaction-payment.workspace = true
-scale-info = { features = ["derive"], workspace = true }
 sp-arithmetic.workspace = true
 sp-runtime.workspace = true
 

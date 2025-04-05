@@ -14,14 +14,14 @@ exclude-from-umbrella = true
 workspace = true
 
 [dependencies]
+codec = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+frame-support.workspace = true
+sp-core.workspace = true
 bp-bridge-hub-cumulus.workspace = true
 bp-messages.workspace = true
 bp-runtime.workspace = true
 bp-xcm-bridge-hub-router.workspace = true
-codec = { workspace = true }
-frame-support.workspace = true
-scale-info = { features = ["derive"], workspace = true }
-sp-core.workspace = true
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 xcm.workspace = true
 

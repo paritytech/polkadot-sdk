@@ -17,13 +17,10 @@ exclude-from-umbrella = true
 [dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-snowbridge-beacon-primitives.workspace = true
-snowbridge-core.workspace = true
-snowbridge-verification-primitives.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
@@ -31,6 +28,9 @@ sp-std.workspace = true
 xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
+snowbridge-beacon-primitives.workspace = true
+snowbridge-core.workspace = true
+snowbridge-verification-primitives.workspace = true
 
 hex-literal = { workspace = true, default-features = true }
 

@@ -19,16 +19,16 @@ metered = { features = ["futures_channel"], workspace = true }
 # Both `sc-service` and `sc-cli` are required by runtime metrics `logger_hook()`.
 bs58 = { features = ["alloc"], workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
-polkadot-primitives.default-features = true
 polkadot-primitives.workspace = true
-prometheus-endpoint.default-features = true
+polkadot-primitives.default-features = true
 prometheus-endpoint.workspace = true
-sc-cli.default-features = false
+prometheus-endpoint.default-features = true
 sc-cli.workspace = true
-sc-service.default-features = false
+sc-cli.default-features = false
 sc-service.workspace = true
-sc-tracing.default-features = true
+sc-service.default-features = false
 sc-tracing.workspace = true
+sc-tracing.default-features = true
 
 [dev-dependencies]
 http-body-util = { workspace = true }

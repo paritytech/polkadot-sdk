@@ -13,13 +13,13 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-polkadot-core-primitives.workspace = true
-polkadot-parachain-primitives.workspace = true
-polkadot-primitives.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 sp-api.workspace = true
 sp-runtime.workspace = true
 sp-trie.workspace = true
+polkadot-core-primitives.workspace = true
+polkadot-parachain-primitives.workspace = true
+polkadot-primitives.workspace = true
 xcm.workspace = true
 
 [features]

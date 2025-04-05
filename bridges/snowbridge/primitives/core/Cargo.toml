@@ -18,13 +18,12 @@ exclude-from-umbrella = true
 codec = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
-polkadot-parachain-primitives.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
+polkadot-parachain-primitives.workspace = true
 xcm.workspace = true
 xcm-builder.workspace = true
 
-bp-relayers.workspace = true
 ethabi = { workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
@@ -34,6 +33,7 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
 xcm-executor.workspace = true
+bp-relayers.workspace = true
 
 [features]
 default = ["std"]
