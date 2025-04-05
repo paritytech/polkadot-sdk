@@ -1324,20 +1324,14 @@ pub mod pallet {
 				},
 				Call::apply_authorized_force_set_current_code { para, new_code } => {
 					match Self::validate_code_is_authorized(new_code, para) {
-						Ok((authorized_code_hash, expire_at)) => {
+						Ok(authorized_code) => {
 							let now = frame_system::Pallet::<T>::block_number();
-							if expire_at < now {
-								// this should not happen, because
-								// `Self::validate_code_is_authorized` validates `expire_at`.
-								return InvalidTransaction::Stale.into();
-							}
-							let longevity =
-								expire_at.saturating_sub(frame_system::Pallet::<T>::block_number());
+							let longevity = authorized_code.expire_at.saturating_sub(now);
 
 							ValidTransaction::with_tag_prefix("ApplyAuthorizedForceSetCurrentCode")
 								.priority(T::UnsignedPriority::get())
 								.longevity(TryInto::<u64>::try_into(longevity).unwrap_or(64_u64))
-								.and_provides((para, authorized_code_hash))
+								.and_provides((para, authorized_code.code_hash))
 								.propagate(true)
 								.build()
 						},
@@ -2510,15 +2504,12 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn validate_code_is_authorized(
 		code: &ValidationCode,
 		para: &ParaId,
-	) -> Result<(ValidationCodeHash, BlockNumberFor<T>), Error<T>> {
-		let AuthorizedCodeHashAndExpiry { code_hash: authorized_code_hash, expire_at } =
-			AuthorizedCodeHash::<T>::get(para).ok_or(Error::<T>::NothingAuthorized)?;
-		ensure!(authorized_code_hash == code.hash(), Error::<T>::Unauthorized);
-		ensure!(
-			expire_at > frame_system::Pallet::<T>::block_number(),
-			Error::<T>::InvalidBlockNumber
-		);
-		Ok((authorized_code_hash, expire_at))
+	) -> Result<AuthorizedCodeHashAndExpiry<BlockNumberFor<T>>, Error<T>> {
+		let authorized = AuthorizedCodeHash::<T>::get(para).ok_or(Error::<T>::NothingAuthorized)?;
+		let now = frame_system::Pallet::<T>::block_number();
+		ensure!(authorized.code_hash == code.hash(), Error::<T>::Unauthorized);
+		ensure!(authorized.expire_at > now, Error::<T>::InvalidBlockNumber);
+		Ok(authorized)
 	}
 }
 
