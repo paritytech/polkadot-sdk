@@ -88,6 +88,26 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 	height: BlockNumber,
 }
 
+/// The type of deposit
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+	DecodeWithMemTracking,
+)]
+pub enum DepositKind {
+	/// Proxy registration deposit
+	Proxies,
+	/// Announcement deposit
+	Announcements,
+}
+
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
@@ -529,6 +549,105 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Poke / Adjust deposits made for proxies and announcements based on current values.
+		/// This can be used by accounts to possibly lower their locked amount.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// The transaction fee is waived if the deposit amount has changed.
+		///
+		/// Emits `DepositPoked` if successful.
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::poke_deposit())]
+		pub fn poke_deposit(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let mut deposit_updated = false;
+
+			// Check and update proxy deposits
+			Proxies::<T>::try_mutate_exists(&who, |maybe_proxies| -> DispatchResult {
+				let (proxies, old_deposit) = maybe_proxies.take().unwrap_or_default();
+				let maybe_new_deposit = Self::rejig_deposit(
+					&who,
+					old_deposit,
+					T::ProxyDepositBase::get(),
+					T::ProxyDepositFactor::get(),
+					proxies.len(),
+				)?;
+
+				match maybe_new_deposit {
+					Some(new_deposit) if new_deposit != old_deposit => {
+						*maybe_proxies = Some((proxies, new_deposit));
+						deposit_updated = true;
+						Self::deposit_event(Event::DepositPoked {
+							who: who.clone(),
+							kind: DepositKind::Proxies,
+							old_deposit,
+							new_deposit,
+						});
+					},
+					Some(_) => {
+						*maybe_proxies = Some((proxies, old_deposit));
+					},
+					None => {
+						*maybe_proxies = None;
+						if !old_deposit.is_zero() {
+							deposit_updated = true;
+							Self::deposit_event(Event::DepositPoked {
+								who: who.clone(),
+								kind: DepositKind::Proxies,
+								old_deposit,
+								new_deposit: BalanceOf::<T>::zero(),
+							});
+						}
+					},
+				}
+				Ok(())
+			})?;
+
+			// Check and update announcement deposits
+			Announcements::<T>::try_mutate_exists(&who, |maybe_announcements| -> DispatchResult {
+				let (announcements, old_deposit) = maybe_announcements.take().unwrap_or_default();
+				let maybe_new_deposit = Self::rejig_deposit(
+					&who,
+					old_deposit,
+					T::AnnouncementDepositBase::get(),
+					T::AnnouncementDepositFactor::get(),
+					announcements.len(),
+				)?;
+
+				match maybe_new_deposit {
+					Some(new_deposit) if new_deposit != old_deposit => {
+						*maybe_announcements = Some((announcements, new_deposit));
+						deposit_updated = true;
+						Self::deposit_event(Event::DepositPoked {
+							who: who.clone(),
+							kind: DepositKind::Announcements,
+							old_deposit,
+							new_deposit,
+						});
+					},
+					Some(_) => {
+						*maybe_announcements = Some((announcements, old_deposit));
+					},
+					None => {
+						*maybe_announcements = None;
+						if !old_deposit.is_zero() {
+							deposit_updated = true;
+							Self::deposit_event(Event::DepositPoked {
+								who: who.clone(),
+								kind: DepositKind::Announcements,
+								old_deposit,
+								new_deposit: BalanceOf::<T>::zero(),
+							});
+						}
+					},
+				}
+				Ok(())
+			})?;
+
+			Ok(if deposit_updated { Pays::No.into() } else { Pays::Yes.into() })
+		}
 	}
 
 	#[pallet::event]
@@ -559,6 +678,13 @@ pub mod pallet {
 			delegatee: T::AccountId,
 			proxy_type: T::ProxyType,
 			delay: BlockNumberFor<T>,
+		},
+		/// A deposit stored for proxies or announcements was poked / updated.
+		DepositPoked {
+			who: T::AccountId,
+			kind: DepositKind,
+			old_deposit: BalanceOf<T>,
+			new_deposit: BalanceOf<T>,
 		},
 	}
 
@@ -779,9 +905,16 @@ impl<T: Config> Pallet<T> {
 		let new_deposit =
 			if len == 0 { BalanceOf::<T>::zero() } else { base + factor * (len as u32).into() };
 		if new_deposit > old_deposit {
-			T::Currency::reserve(who, new_deposit - old_deposit)?;
+			T::Currency::reserve(who, new_deposit.saturating_sub(old_deposit))?;
 		} else if new_deposit < old_deposit {
-			T::Currency::unreserve(who, old_deposit - new_deposit);
+			let excess = old_deposit.saturating_sub(new_deposit);
+			let remaining_unreserved = T::Currency::unreserve(who, excess);
+			if !remaining_unreserved.is_zero() {
+				defensive!(
+					"Failed to unreserve full amount. (Requested, Actual)",
+					(excess, excess.saturating_sub(remaining_unreserved))
+				);
+			}
 		}
 		Ok(if len == 0 { None } else { Some(new_deposit) })
 	}

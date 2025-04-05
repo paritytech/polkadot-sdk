@@ -44,6 +44,7 @@ pub fn glutton_westend_config(
 	.with_genesis_config_patch(
 		glutton_westend_runtime::genesis_config_presets::glutton_westend_genesis(
 			authorities,
+			Some(Sr25519Keyring::Alice.to_account_id()),
 			para_id,
 		),
 	)

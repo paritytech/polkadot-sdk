@@ -27,7 +27,7 @@ use crate::{
 	},
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
-	limits, pure_precompiles,
+	limits,
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
@@ -617,7 +617,7 @@ struct ExtensionInput<'a> {
 
 impl<'a> ExtensionInput<'a> {
 	fn to_vec(&self) -> Vec<u8> {
-		((self.extension_id as u32) << 16 | (self.func_id as u32))
+		(((self.extension_id as u32) << 16) | (self.func_id as u32))
 			.to_le_bytes()
 			.iter()
 			.chain(self.extra)
@@ -1458,16 +1458,14 @@ fn crypto_hashes() {
 			};
 		}
 		// All hash functions and their associated output byte lengths.
-		let test_cases: &[(Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] = &[
-			(dyn_hash_fn!(sha2_256), 32),
-			(dyn_hash_fn!(keccak_256), 32),
-			(dyn_hash_fn!(blake2_256), 32),
-			(dyn_hash_fn!(blake2_128), 16),
+		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] = &[
+			(2, dyn_hash_fn!(keccak_256), 32),
+			(3, dyn_hash_fn!(blake2_256), 32),
+			(4, dyn_hash_fn!(blake2_128), 16),
 		];
 		// Test the given hash functions for the input: "_DEAD_BEEF"
-		for (n, (hash_fn, expected_size)) in test_cases.iter().enumerate() {
-			// We offset data in the contract tables by 1.
-			let mut params = vec![(n + 1) as u8];
+		for (n, hash_fn, expected_size) in test_cases.iter() {
+			let mut params = vec![*n];
 			params.extend_from_slice(input);
 			let result = builder::bare_call(addr).data(params).build_and_unwrap_result();
 			assert!(!result.did_revert());
@@ -4213,7 +4211,7 @@ fn origin_must_be_mapped() {
 
 #[test]
 fn mapped_address_works() {
-	let (code, _) = compile_module("terminate_and_send_to_eve").unwrap();
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -4222,7 +4220,7 @@ fn mapped_address_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
-		builder::bare_call(addr).build_and_unwrap_result();
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
 
 		// after mapping it will be sent to the real eve account
@@ -4231,9 +4229,40 @@ fn mapped_address_works() {
 		// need some balance to pay for the map deposit
 		<Test as Config>::Currency::set_balance(&EVE, 1_000);
 		<Pallet<Test>>::map_account(RuntimeOrigin::signed(EVE)).unwrap();
-		builder::bare_call(addr).build_and_unwrap_result();
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 1_100);
+	});
+}
+
+#[test]
+fn recovery_works() {
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// eve puts her AccountId20 as argument to terminate but forgot to register
+		// her AccountId32 first so now the funds are trapped in her fallback account
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
+
+		let call = RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+			dest: EVE,
+			keep_alive: false,
+		});
+
+		// she now uses the recovery function to move all funds from the fallback
+		// account to her real account
+		<Pallet<Test>>::dispatch_as_fallback_account(RuntimeOrigin::signed(EVE), Box::new(call))
+			.unwrap();
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 0);
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 100);
 	});
 }
 
@@ -4251,7 +4280,7 @@ fn skip_transfer_works() {
 			Pallet::<Test>::bare_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
-					input: Some(code.clone().into()),
+					input: code.clone().into(),
 					gas: Some(1u32.into()),
 					..Default::default()
 				},
@@ -4267,7 +4296,7 @@ fn skip_transfer_works() {
 		assert_ok!(Pallet::<Test>::bare_eth_transact(
 			GenericTransaction {
 				from: Some(ALICE_ADDR),
-				input: Some(code.clone().into()),
+				input: code.clone().into(),
 				..Default::default()
 			},
 			Weight::MAX,
@@ -4302,7 +4331,7 @@ fn skip_transfer_works() {
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
-				input: Some((0u32, &addr).encode().into()),
+				input: (0u32, &addr).encode().into(),
 				gas: Some(1u32.into()),
 				..Default::default()
 			},
@@ -4323,7 +4352,7 @@ fn skip_transfer_works() {
 			GenericTransaction {
 				from: Some(BOB_ADDR),
 				to: Some(caller_addr),
-				input: Some((0u32, &addr).encode().into()),
+				input: (0u32, &addr).encode().into(),
 				..Default::default()
 			},
 			Weight::MAX,
@@ -4560,7 +4589,7 @@ fn unknown_precompiles_revert() {
 
 		let cases: Vec<(H160, Box<dyn FnOnce(_)>)> = vec![
 			(
-				H160::from_low_u64_be(0x2),
+				H160::from_low_u64_be(10),
 				Box::new(|result| {
 					assert_err!(result, <Error<Test>>::ContractTrapped);
 				}),
@@ -4588,42 +4617,91 @@ fn unknown_precompiles_revert() {
 }
 
 #[test]
-fn ecrecover_precompile_works() {
+fn pure_precompile_works() {
 	use hex_literal::hex;
 
 	let cases = vec![
-			(
-				hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"),
-				hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b").to_vec(),
-			),
-			(
-				hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000000173b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"),
-				[0u8; 0].to_vec(),
-			),
-		];
+		(
+			// ECRecover
+			H160::from_low_u64_be(1),
+			hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549").to_vec(),
+			hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b").to_vec(),
+		),
+		(
+			// Sha256
+			H160::from_low_u64_be(2),
+			hex!("ec07171c4f0f0e2b").to_vec(),
+			hex!("d0591ea667763c69a5f5a3bae657368ea63318b2c9c8349cccaf507e3cbd7c7a").to_vec(),
+		),
+		(
+			// Ripemd160
+			H160::from_low_u64_be(3),
+			hex!("ec07171c4f0f0e2b").to_vec(),
+			hex!("000000000000000000000000a9c5ebaf7589fd8acfd542c3a008956de84fbeb7").to_vec(),
+		),
+		(
+			// Identity
+			H160::from_low_u64_be(4),
+			[42u8; 128].to_vec(),
+			[42u8; 128].to_vec(),
+		),
+		(
+			// Modexp
+			H160::from_low_u64_be(5),
+			hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002003fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f").to_vec(),
+			hex!("0000000000000000000000000000000000000000000000000000000000000001").to_vec(),
+		),
+		(
+			// Bn128Add
+			H160::from_low_u64_be(6),
+			hex!("18b18acfb4c2c30276db5411368e7185b311dd124691610c5d3b74034e093dc9063c909c4720840cb5134cb9f59fa749755796819658d32efc0d288198f3726607c2b7f58a84bd6145f00c9c2bc0bb1a187f20ff2c92963a88019e7c6a014eed06614e20c147e940f2d70da3f74c9a17df361706a4485c742bd6788478fa17d7").to_vec(),
+			hex!("2243525c5efd4b9c3d3c45ac0ca3fe4dd85e830a4ce6b65fa1eeaee202839703301d1d33be6da8e509df21cc35964723180eed7532537db9ae5e7d48f195c915").to_vec(),
+		),
+		(
+			// Bn128Mul
+			H160::from_low_u64_be(7),
+			hex!("2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb721611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb20400000000000000000000000000000000000000000000000011138ce750fa15c2").to_vec(),
+			hex!("070a8d6a982153cae4be29d434e8faef8a47b274a053f5a4ee2a6c9c13c31e5c031b8ce914eba3a9ffb989f9cdd5b0f01943074bf4f0f315690ec3cec6981afc").to_vec(),
+		),
+		(
+			// Bn128Pairing
+			H160::from_low_u64_be(8),
+			hex!("1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f593034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf704bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a416782bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550111e129f1cf1097710d41c4ac70fcdfa5ba2023c6ff1cbeac322de49d1b6df7c2032c61a830e3c17286de9462bf242fca2883585b93870a73853face6a6bf411198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c21800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa").to_vec(),
+			hex!("0000000000000000000000000000000000000000000000000000000000000001").to_vec(),
+		),
+		(
+			// Blake2F
+			H160::from_low_u64_be(9),
+			hex!("0000000048c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001").to_vec(),
+			hex!("08c9bcf367e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d282e6ad7f520e511f6c3e2b8c68059b9442be0454267ce079217e1319cde05b").to_vec(),
+		),
+	];
 
-	for (input, output) in cases {
+	for (precompile_addr, input, output) in cases {
 		let (code, _code_hash) = compile_module("call_and_return").unwrap();
 		ExtBuilder::default().build().execute_with(|| {
+			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
 				.value(1000)
 				.build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
-				.data((pure_precompiles::ECRECOVER, 100u64, input).encode())
+				.data(
+					(&precompile_addr, 100u64)
+						.encode()
+						.into_iter()
+						.chain(input)
+						.collect::<Vec<_>>(),
+				)
 				.build_and_unwrap_result();
 
-			test_utils::get_balance(&<Test as Config>::AddressMapper::to_account_id(
-				&pure_precompiles::ECRECOVER,
-			));
+			assert_eq!(test_utils::get_balance(&id), 101u64);
 			assert_eq!(
-				test_utils::get_balance(&<Test as Config>::AddressMapper::to_account_id(
-					&pure_precompiles::ECRECOVER
-				)),
-				101u64
+				alloy_core::hex::encode(result.data),
+				alloy_core::hex::encode(output),
+				"Unexpected output for precompile: {precompile_addr:?}",
 			);
-			assert_eq!(result.data, output);
 			assert_eq!(result.flags, ReturnFlags::empty());
 		});
 	}

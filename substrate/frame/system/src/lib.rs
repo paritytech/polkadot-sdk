@@ -292,6 +292,7 @@ pub struct DispatchEventInfo {
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::{self as frame_system, pallet_prelude::*, *};
+	use codec::HasCompact;
 	use frame_support::pallet_prelude::*;
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -531,6 +532,7 @@ pub mod pallet {
 
 		/// This stores the number of previous transactions associated with a sender account.
 		type Nonce: Parameter
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Member
 			+ MaybeSerializeDeserialize
 			+ Debug
@@ -710,7 +712,7 @@ pub mod pallet {
 		#[pallet::weight((T::SystemWeightInfo::set_code(), DispatchClass::Operational))]
 		pub fn set_code(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			Self::can_set_code(&code)?;
+			Self::can_set_code(&code, true).into_result()?;
 			T::OnSetCode::set_code(code)?;
 			// consume the rest of the block to prevent further transactions
 			Ok(Some(T::BlockWeights::get().max_block).into())
@@ -727,6 +729,7 @@ pub mod pallet {
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
+			Self::can_set_code(&code, false).into_result()?;
 			T::OnSetCode::set_code(code)?;
 			Ok(Some(T::BlockWeights::get().max_block).into())
 		}
@@ -861,8 +864,32 @@ pub mod pallet {
 			_: OriginFor<T>,
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			let post = Self::do_apply_authorize_upgrade(code)?;
-			Ok(post)
+			let res = Self::validate_code_is_authorized(&code)?;
+			AuthorizedUpgrade::<T>::kill();
+
+			match Self::can_set_code(&code, res.check_version) {
+				CanSetCodeResult::Ok => {},
+				CanSetCodeResult::MultiBlockMigrationsOngoing =>
+					return Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+				CanSetCodeResult::InvalidVersion(error) => {
+					// The upgrade is invalid and there is no benefit in trying to apply this again.
+					Self::deposit_event(Event::RejectedInvalidAuthorizedUpgrade {
+						code_hash: res.code_hash,
+						error: error.into(),
+					});
+
+					// Not the fault of the caller of call.
+					return Ok(Pays::No.into())
+				},
+			};
+			T::OnSetCode::set_code(code)?;
+
+			Ok(PostDispatchInfo {
+				// consume the rest of the block to prevent further transactions
+				actual_weight: Some(T::BlockWeights::get().max_block),
+				// no fee for valid upgrade
+				pays_fee: Pays::No,
+			})
 		}
 	}
 
@@ -892,6 +919,8 @@ pub mod pallet {
 		TaskFailed { task: T::RuntimeTask, err: DispatchError },
 		/// An upgrade was authorized.
 		UpgradeAuthorized { code_hash: T::Hash, check_version: bool },
+		/// An invalid authorized upgrade was rejected while trying to apply it.
+		RejectedInvalidAuthorizedUpgrade { code_hash: T::Hash, error: DispatchError },
 	}
 
 	/// Error for the System pallet
@@ -1089,16 +1118,19 @@ pub mod pallet {
 		type Call = Call<T>;
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::apply_authorized_upgrade { ref code } = call {
-				if let Ok(hash) = Self::validate_authorized_upgrade(&code[..]) {
-					return Ok(ValidTransaction {
-						priority: 100,
-						requires: Vec::new(),
-						provides: vec![hash.as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
+				if let Ok(res) = Self::validate_code_is_authorized(&code[..]) {
+					if Self::can_set_code(&code, false).is_ok() {
+						return Ok(ValidTransaction {
+							priority: u64::max_value(),
+							requires: Vec::new(),
+							provides: vec![res.code_hash.encode()],
+							longevity: TransactionLongevity::max_value(),
+							propagate: true,
+						})
+					}
 				}
 			}
+
 			#[cfg(feature = "experimental")]
 			if let Call::do_task { ref task } = call {
 				if task.is_valid() {
@@ -1111,6 +1143,7 @@ pub mod pallet {
 					})
 				}
 			}
+
 			Err(InvalidTransaction::Call.into())
 		}
 	}
@@ -1211,20 +1244,18 @@ impl From<RuntimeVersion> for LastRuntimeUpgradeInfo {
 
 /// Ensure the origin is Root.
 pub struct EnsureRoot<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
-	EnsureOrigin<O> for EnsureRoot<AccountId>
-{
+impl<O: OriginTrait, AccountId> EnsureOrigin<O> for EnsureRoot<AccountId> {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Root => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Root) => Ok(()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Root))
+		Ok(O::root())
 	}
 }
 
@@ -1238,23 +1269,20 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 pub struct EnsureRootWithSuccess<AccountId, Success>(
 	core::marker::PhantomData<(AccountId, Success)>,
 );
-impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
-		AccountId,
-		Success: TypedGet,
-	> EnsureOrigin<O> for EnsureRootWithSuccess<AccountId, Success>
+impl<O: OriginTrait, AccountId, Success: TypedGet> EnsureOrigin<O>
+	for EnsureRootWithSuccess<AccountId, Success>
 {
 	type Success = Success::Type;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Root => Ok(Success::get()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Root) => Ok(Success::get()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Root))
+		Ok(O::root())
 	}
 }
 
@@ -1269,12 +1297,8 @@ pub struct EnsureWithSuccess<Ensure, AccountId, Success>(
 	core::marker::PhantomData<(Ensure, AccountId, Success)>,
 );
 
-impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
-		Ensure: EnsureOrigin<O>,
-		AccountId,
-		Success: TypedGet,
-	> EnsureOrigin<O> for EnsureWithSuccess<Ensure, AccountId, Success>
+impl<O: OriginTrait, Ensure: EnsureOrigin<O>, AccountId, Success: TypedGet> EnsureOrigin<O>
+	for EnsureWithSuccess<Ensure, AccountId, Success>
 {
 	type Success = Success::Type;
 
@@ -1290,27 +1314,27 @@ impl<
 
 /// Ensure the origin is any `Signed` origin.
 pub struct EnsureSigned<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId: Decode>
-	EnsureOrigin<O> for EnsureSigned<AccountId>
+impl<O: OriginTrait<AccountId = AccountId>, AccountId: Decode + Clone> EnsureOrigin<O>
+	for EnsureSigned<AccountId>
 {
 	type Success = AccountId;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Signed(who) => Ok(who),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Signed(who)) => Ok(who.clone()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
 		let zero_account_id =
 			AccountId::decode(&mut TrailingZeroInput::zeroes()).map_err(|_| ())?;
-		Ok(O::from(RawOrigin::Signed(zero_account_id)))
+		Ok(O::signed(zero_account_id))
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., AccountId: Decode, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, AccountId: Decode + Clone, T } >
 		EnsureOriginWithArg<O, T> for EnsureSigned<AccountId>
 	{}
 }
@@ -1318,17 +1342,17 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 /// Ensure the origin is `Signed` origin from the given `AccountId`.
 pub struct EnsureSignedBy<Who, AccountId>(core::marker::PhantomData<(Who, AccountId)>);
 impl<
-		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
+		O: OriginTrait<AccountId = AccountId>,
 		Who: SortedMembers<AccountId>,
 		AccountId: PartialEq + Clone + Ord + Decode,
 	> EnsureOrigin<O> for EnsureSignedBy<Who, AccountId>
 {
 	type Success = AccountId;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Signed(ref who) if Who::contains(who) => Ok(who.clone()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::Signed(ref who)) if Who::contains(who) => Ok(who.clone()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1337,37 +1361,35 @@ impl<
 			Some(account) => account.clone(),
 			None => AccountId::decode(&mut TrailingZeroInput::zeroes()).map_err(|_| ())?,
 		};
-		Ok(O::from(RawOrigin::Signed(first_member)))
+		Ok(O::signed(first_member))
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., Who: SortedMembers<AccountId>, AccountId: PartialEq + Clone + Ord + Decode, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, Who: SortedMembers<AccountId>, AccountId: PartialEq + Clone + Ord + Decode, T } >
 		EnsureOriginWithArg<O, T> for EnsureSignedBy<Who, AccountId>
 	{}
 }
 
 /// Ensure the origin is `None`. i.e. unsigned transaction.
 pub struct EnsureNone<AccountId>(core::marker::PhantomData<AccountId>);
-impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
-	EnsureOrigin<O> for EnsureNone<AccountId>
-{
+impl<O: OriginTrait<AccountId = AccountId>, AccountId> EnsureOrigin<O> for EnsureNone<AccountId> {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::None => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.as_system_ref() {
+			Some(RawOrigin::None) => Ok(()),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::None))
+		Ok(O::none())
 	}
 }
 
 impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., AccountId, T } >
+	impl< { O: OriginTrait<AccountId = AccountId>, AccountId, T } >
 		EnsureOriginWithArg<O, T> for EnsureNone<AccountId>
 	{}
 }
@@ -1466,6 +1488,33 @@ pub enum DecRefStatus {
 	Reaped,
 	/// Account still exists.
 	Exists,
+}
+
+/// Result of [`Pallet::can_set_code`].
+pub enum CanSetCodeResult<T: Config> {
+	/// Everything is fine.
+	Ok,
+	/// Multi-block migrations are on-going.
+	MultiBlockMigrationsOngoing,
+	/// The runtime version is invalid or could not be fetched.
+	InvalidVersion(Error<T>),
+}
+
+impl<T: Config> CanSetCodeResult<T> {
+	/// Convert `Self` into a result.
+	pub fn into_result(self) -> Result<(), DispatchError> {
+		match self {
+			Self::Ok => Ok(()),
+			Self::MultiBlockMigrationsOngoing =>
+				Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+			Self::InvalidVersion(err) => Err(err.into()),
+		}
+	}
+
+	/// Is this `Ok`?
+	pub fn is_ok(&self) -> bool {
+		matches!(self, Self::Ok)
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -1633,7 +1682,7 @@ impl<T: Config> Pallet<T> {
 						DecRefStatus::Reaped
 					},
 					(x, _) => {
-						account.sufficients = x - 1;
+						account.sufficients = x.saturating_sub(1);
 						*maybe_account = Some(account);
 						DecRefStatus::Exists
 					},
@@ -2211,71 +2260,55 @@ impl<T: Config> Pallet<T> {
 
 	/// Determine whether or not it is possible to update the code.
 	///
-	/// Checks the given code if it is a valid runtime wasm blob by instantiating
-	/// it and extracting the runtime version of it. It checks that the runtime version
-	/// of the old and new runtime has the same spec name and that the spec version is increasing.
-	pub fn can_set_code(code: &[u8]) -> Result<(), sp_runtime::DispatchError> {
+	/// - `check_version`: Should the runtime version be checked?
+	pub fn can_set_code(code: &[u8], check_version: bool) -> CanSetCodeResult<T> {
 		if T::MultiBlockMigrator::ongoing() {
-			return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+			return CanSetCodeResult::MultiBlockMigrationsOngoing
 		}
 
-		let current_version = T::Version::get();
-		let new_version = sp_io::misc::runtime_version(code)
-			.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
-			.ok_or(Error::<T>::FailedToExtractRuntimeVersion)?;
+		if check_version {
+			let current_version = T::Version::get();
+			let Some(new_version) = sp_io::misc::runtime_version(code)
+				.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
+			else {
+				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion)
+			};
 
-		cfg_if::cfg_if! {
-			if #[cfg(all(feature = "runtime-benchmarks", not(test)))] {
+			cfg_if::cfg_if! {
+				if #[cfg(all(feature = "runtime-benchmarks", not(test)))] {
 					// Let's ensure the compiler doesn't optimize our fetching of the runtime version away.
 					core::hint::black_box((new_version, current_version));
-					Ok(())
-			} else {
-				if new_version.spec_name != current_version.spec_name {
-					return Err(Error::<T>::InvalidSpecName.into())
-				}
+				} else {
+					if new_version.spec_name != current_version.spec_name {
+						return CanSetCodeResult::InvalidVersion( Error::<T>::InvalidSpecName)
+					}
 
-				if new_version.spec_version <= current_version.spec_version {
-					return Err(Error::<T>::SpecVersionNeedsToIncrease.into())
+					if new_version.spec_version <= current_version.spec_version {
+						return CanSetCodeResult::InvalidVersion(Error::<T>::SpecVersionNeedsToIncrease)
+					}
 				}
-
-				Ok(())
 			}
 		}
+
+		CanSetCodeResult::Ok
 	}
 
-	/// To be called after any origin/privilege checks. Put the code upgrade authorization into
-	/// storage and emit an event. Infallible.
+	/// Authorize the given `code_hash` as upgrade.
 	pub fn do_authorize_upgrade(code_hash: T::Hash, check_version: bool) {
 		AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
 		Self::deposit_event(Event::UpgradeAuthorized { code_hash, check_version });
 	}
 
-	/// Apply an authorized upgrade, performing any validation checks, and remove the authorization.
-	/// Whether or not the code is set directly depends on the `OnSetCode` configuration of the
-	/// runtime.
-	pub fn do_apply_authorize_upgrade(code: Vec<u8>) -> Result<PostDispatchInfo, DispatchError> {
-		Self::validate_authorized_upgrade(&code[..])?;
-		T::OnSetCode::set_code(code)?;
-		AuthorizedUpgrade::<T>::kill();
-		let post = PostDispatchInfo {
-			// consume the rest of the block to prevent further transactions
-			actual_weight: Some(T::BlockWeights::get().max_block),
-			// no fee for valid upgrade
-			pays_fee: Pays::No,
-		};
-		Ok(post)
-	}
-
-	/// Check that provided `code` can be upgraded to. Namely, check that its hash matches an
-	/// existing authorization and that it meets the specification requirements of `can_set_code`.
-	pub fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
+	/// Check that provided `code` is authorized as an upgrade.
+	///
+	/// Returns the [`CodeUpgradeAuthorization`].
+	fn validate_code_is_authorized(
+		code: &[u8],
+	) -> Result<CodeUpgradeAuthorization<T>, DispatchError> {
 		let authorization = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
 		let actual_hash = T::Hashing::hash(code);
 		ensure!(actual_hash == authorization.code_hash, Error::<T>::Unauthorized);
-		if authorization.check_version {
-			Self::can_set_code(code)?
-		}
-		Ok(actual_hash)
+		Ok(authorization)
 	}
 
 	/// Reclaim the weight for the extrinsic given info and post info.

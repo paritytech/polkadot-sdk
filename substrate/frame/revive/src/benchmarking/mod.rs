@@ -59,12 +59,6 @@ use sp_runtime::{
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
 
-/// How many runs we do per instruction benchmark.
-///
-/// Same rationale as for [`API_BENCHMARK_RUNS`]. The number is bigger because instruction
-/// benchmarks are faster.
-const INSTR_BENCHMARK_RUNS: u32 = 5000;
-
 /// Number of layers in a Radix16 unbalanced trie.
 const UNBALANCED_TRIE_LAYERS: u32 = 20;
 
@@ -549,7 +543,7 @@ mod benchmarks {
 	fn noop_host_fn(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let mut setup = CallSetup::<T>::new(WasmModule::noop());
 		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode());
+		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode(), 0);
 		#[block]
 		{
 			prepared.call().unwrap();
@@ -1860,16 +1854,50 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_sha2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
+	fn sha2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let input = vec![0u8; n as usize];
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_hash_sha2_256(memory.as_mut_slice(), 32, n, 0);
+			result = pure_precompiles::Sha256::execute(ext.gas_meter_mut(), &input);
 		}
-		assert_eq!(sp_io::hashing::sha2_256(&memory[32..]), &memory[0..32]);
-		assert_ok!(result);
+		assert_eq!(sp_io::hashing::sha2_256(&input).to_vec(), result.unwrap().data);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn identity(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let input = vec![0u8; n as usize];
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = pure_precompiles::Identity::execute(ext.gas_meter_mut(), &input);
+		}
+		assert_eq!(input, result.unwrap().data);
+	}
+
+	// `n`: Input to hash in bytes
+	#[benchmark(pov_mode = Measured)]
+	fn ripemd_160(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		use ripemd::Digest;
+		let input = vec![0u8; n as usize];
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = pure_precompiles::Ripemd160::execute(ext.gas_meter_mut(), &input);
+		}
+		let mut expected = [0u8; 32];
+		expected[12..32].copy_from_slice(&ripemd::Ripemd160::digest(input));
+
+		assert_eq!(expected.to_vec(), result.unwrap().data);
 	}
 
 	// `n`: Input to hash in bytes
@@ -1963,6 +1991,74 @@ mod benchmarks {
 		assert_eq!(result.unwrap().data, expected);
 	}
 
+	#[benchmark(pov_mode = Measured)]
+	fn bn128_add() {
+		use hex_literal::hex;
+		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b3625f8c89ea3437f44f8fc8b6bfbb6312074dc6f983809a5e809ff4e1d076dd5850b38c7ced6e4daef9c4347f370d6d8b58f4b1d8dc61a3c59d651a0644a2a27cf");
+		let expected = hex!("0a6678fd675aa4d8f0d03a1feb921a27f38ebdcb860cc083653519655acd6d79172fd5b3b2bfdd44e43bcec3eace9347608f9f0a16f1e184cb3f52e6f259cbeb");
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+
+		#[block]
+		{
+			result = pure_precompiles::Bn128Add::execute(ext.gas_meter_mut(), &input);
+		}
+
+		assert_eq!(result.unwrap().data, expected);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn bn128_mul() {
+		use hex_literal::hex;
+		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b36ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+		let expected = hex!("0bf982b98a2757878c051bfe7eee228b12bc69274b918f08d9fcb21e9184ddc10b17c77cbf3c19d5d27e18cbd4a8c336afb488d0e92c18d56e64dd4ea5c437e6");
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+
+		#[block]
+		{
+			result = pure_precompiles::Bn128Mul::execute(ext.gas_meter_mut(), &input);
+		}
+
+		assert_eq!(result.unwrap().data, expected);
+	}
+
+	// `n`: pairings to perform
+	#[benchmark(pov_mode = Measured)]
+	fn bn128_pairing(n: Linear<0, { limits::code::BLOB_BYTES / 192 }>) {
+		let input = pure_precompiles::generate_random_ecpairs(n as usize);
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = pure_precompiles::Bn128Pairing::execute(ext.gas_meter_mut(), &input);
+		}
+		assert_ok!(result);
+	}
+
+	// `n`: number of rounds to perform
+	#[benchmark(pov_mode = Measured)]
+	fn blake2f(n: Linear<0, 1200>) {
+		use hex_literal::hex;
+		let input = hex!("48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001");
+		let input = n.to_be_bytes().to_vec().into_iter().chain(input.to_vec()).collect::<Vec<_>>();
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = pure_precompiles::Blake2F::execute(ext.gas_meter_mut(), &input);
+		}
+		assert_ok!(result);
+	}
+
 	// Only calling the function itself for the list of
 	// generated different ECDSA keys.
 	// This is a slow call: We reduce the number of runs.
@@ -2004,11 +2100,82 @@ mod benchmarks {
 	}
 
 	// Benchmark the execution of instructions.
+	//
+	// It benchmarks the absolute worst case by allocating a lot of memory
+	// and then accessing it so that each instruction generates two cache misses.
 	#[benchmark(pov_mode = Ignored)]
-	fn instr(r: Linear<0, INSTR_BENCHMARK_RUNS>) {
-		let mut setup = CallSetup::<T>::new(WasmModule::instr());
+	fn instr(r: Linear<0, 10_000>) {
+		use rand::{seq::SliceRandom, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		// Ideally, this needs to be bigger than the cache.
+		const MEMORY_SIZE: u64 = sp_core::MAX_POSSIBLE_ALLOCATION as u64;
+
+		// This is benchmarked for x86-64.
+		const CACHE_LINE_SIZE: u64 = 64;
+
+		// An 8 byte load from this misalignment will reach into the subsequent line.
+		const MISALIGNMENT: u64 = 60;
+
+		// We only need one address per cache line.
+		// -1 because we skip the first address
+		const NUM_ADDRESSES: u64 = (MEMORY_SIZE - MISALIGNMENT) / CACHE_LINE_SIZE - 1;
+
+		assert!(
+			u64::from(r) <= NUM_ADDRESSES / 2,
+			"If we do too many iterations we run into the risk of loading from warm cache lines",
+		);
+
+		let mut setup = CallSetup::<T>::new(WasmModule::instr(true));
 		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode());
+		let mut prepared =
+			CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), MEMORY_SIZE as u32);
+
+		assert!(
+			u64::from(prepared.aux_data_base()) & (CACHE_LINE_SIZE - 1) == 0,
+			"aux data base must be cache aligned"
+		);
+
+		// Addresses data will be located inside the aux data.
+		let misaligned_base = u64::from(prepared.aux_data_base()) + MISALIGNMENT;
+
+		// Create all possible addresses and shuffle them. This makes sure
+		// the accesses are random but no address is accessed more than once.
+		// we skip the first address since it is our entry point
+		let mut addresses = Vec::with_capacity(NUM_ADDRESSES as usize);
+		for i in 1..NUM_ADDRESSES {
+			let addr = (misaligned_base + i * CACHE_LINE_SIZE).to_le_bytes();
+			addresses.push(addr);
+		}
+		let mut rng = Pcg64::seed_from_u64(1337);
+		addresses.shuffle(&mut rng);
+
+		// The addresses need to be padded to be one cache line apart.
+		let mut memory = Vec::with_capacity((NUM_ADDRESSES * CACHE_LINE_SIZE) as usize);
+		for address in addresses {
+			memory.extend_from_slice(&address);
+			memory.resize(memory.len() + CACHE_LINE_SIZE as usize - address.len(), 0);
+		}
+
+		// Copies `memory` to `aux_data_base + MISALIGNMENT`.
+		// Sets `a0 = MISALIGNMENT` and `a1 = r`.
+		prepared
+			.setup_aux_data(memory.as_slice(), MISALIGNMENT as u32, r.into())
+			.unwrap();
+
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn instr_empty_loop(r: Linear<0, 100_000>) {
+		let mut setup = CallSetup::<T>::new(WasmModule::instr(false));
+		let (mut ext, module) = setup.ext();
+		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
+		prepared.setup_aux_data(&[], 0, r.into()).unwrap();
+
 		#[block]
 		{
 			prepared.call().unwrap();
