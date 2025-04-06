@@ -1456,10 +1456,10 @@ pub struct EnsureFounder<T>(core::marker::PhantomData<T>);
 impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureFounder<T> {
 	type Success = T::AccountId;
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		o.into().and_then(|o| match (o, Founder::<T>::get()) {
-			(frame_system::RawOrigin::Signed(ref who), Some(ref f)) if who == f => Ok(who.clone()),
-			(r, _) => Err(T::RuntimeOrigin::from(r)),
-		})
+		match (o.as_signer(), Founder::<T>::get()) {
+			(Some(who), Some(f)) if *who == f => Ok(f),
+			_ => Err(o),
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
