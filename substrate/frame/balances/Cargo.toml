@@ -27,10 +27,10 @@ sp-core.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-frame-support = { features = ["experimental"], default-features = true, path = "../support" }
-pallet-transaction-payment = { default-features = true, path = "../transaction-payment" }
+frame-support = { workspace = true, features = ["experimental"], default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
 paste = { workspace = true, default-features = true }
-sp-io = { default-features = true, path = "../../primitives/io" }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

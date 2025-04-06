@@ -39,4 +39,4 @@ parachains-common.default-features = true
 westend-system-emulated-network.workspace = true
 
 [dev-dependencies]
-sp-tracing = { features = ["test-utils"], default-features = true, path = "../../../../../../../substrate/primitives/tracing" }
+sp-tracing = { features = ["test-utils"], default-features = true, workspace = true }

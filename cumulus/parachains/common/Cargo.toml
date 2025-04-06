@@ -39,8 +39,8 @@ pallet-collator-selection.workspace = true
 parachain-info.workspace = true
 
 [dev-dependencies]
-pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+pallet-authorship = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]

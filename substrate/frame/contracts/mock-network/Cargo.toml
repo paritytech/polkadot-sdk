@@ -50,7 +50,7 @@ xcm-simulator.workspace = true
 xcm-simulator.default-features = true
 
 [dev-dependencies]
-pallet-contracts-fixtures = { path = "../fixtures", default-features = false }
+pallet-contracts-fixtures = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]

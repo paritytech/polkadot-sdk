@@ -49,7 +49,7 @@ docify = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
-pallet-examples = { path = "examples" }
+pallet-examples = { workspace = true }
 
 [features]
 default = ["runtime", "std"]

@@ -32,14 +32,14 @@ rand = { features = ["alloc", "small_rng"], optional = true, workspace = true }
 strum = { features = ["derive"], optional = true, workspace = true }
 
 [dev-dependencies]
-frame-benchmarking = { default-features = true, path = "../benchmarking" }
-pallet-balances = { default-features = true, path = "../balances" }
+frame-benchmarking = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
 parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-io = { default-features = true, path = "../../primitives/io" }
-sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+sp-core = { workspace = true, default-features = false }
+sp-io = { default-features = true, workspace = true }
+sp-npos-elections = { workspace = true, default-features = false }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

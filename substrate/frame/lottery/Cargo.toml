@@ -23,10 +23,10 @@ scale-info = { features = ["derive"], workspace = true }
 sp-runtime.workspace = true
 
 [dev-dependencies]
-frame-support-test = { path = "../support/test" }
-pallet-balances = { default-features = true, path = "../balances" }
-sp-core = { default-features = true, path = "../../primitives/core" }
-sp-io = { default-features = true, path = "../../primitives/io" }
+frame-support-test = { workspace = true }
+pallet-balances = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

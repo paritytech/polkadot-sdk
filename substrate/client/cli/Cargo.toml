@@ -71,7 +71,7 @@ tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = t
 
 [dev-dependencies]
 futures-timer = { workspace = true }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+sp-tracing = { default-features = true, workspace = true }
 tempfile = { workspace = true }
 
 [features]

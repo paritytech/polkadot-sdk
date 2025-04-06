@@ -38,5 +38,5 @@ sp-statement-store.default-features = true
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-tracing = { path = "../../primitives/tracing", default-features = false }
+sp-tracing = { workspace = true, default-features = false }
 tempfile = { workspace = true }

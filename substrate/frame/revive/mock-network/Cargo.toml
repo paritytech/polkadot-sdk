@@ -47,7 +47,7 @@ xcm-simulator.workspace = true
 xcm-simulator.default-features = true
 
 [dev-dependencies]
-pallet-revive-fixtures = { path = "../fixtures", default-features = false }
+pallet-revive-fixtures = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]

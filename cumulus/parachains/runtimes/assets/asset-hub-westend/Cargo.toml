@@ -105,8 +105,8 @@ snowbridge-pallet-system-frontend.workspace = true
 snowbridge-runtime-common.workspace = true
 
 [dev-dependencies]
-asset-test-utils = { default-features = true, path = "../test-utils" }
-parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
+asset-test-utils = { default-features = true, workspace = true }
+parachains-runtimes-test-utils = { default-features = true, workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

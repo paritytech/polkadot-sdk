@@ -66,4 +66,4 @@ runtime-benchmarks = [
 ]
 
 [dev-dependencies]
-sp-tracing = { features = ["test-utils"], path = "../../../../substrate/primitives/tracing", default-features = false }
+sp-tracing = { features = ["test-utils"], workspace = true, default-features = false }

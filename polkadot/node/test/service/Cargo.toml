@@ -77,7 +77,7 @@ sp-state-machine.default-features = true
 substrate-test-client.workspace = true
 
 [dev-dependencies]
-pallet-balances = { path = "../../../../substrate/frame/balances", default-features = false }
+pallet-balances = { workspace = true, default-features = false }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [features]
