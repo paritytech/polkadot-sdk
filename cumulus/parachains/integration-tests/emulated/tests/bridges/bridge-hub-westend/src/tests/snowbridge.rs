@@ -21,7 +21,10 @@ use crate::{
 	},
 	tests::{
 		penpal_emulated_chain::penpal_runtime,
-		snowbridge_common::{ethereum, snowbridge_sovereign},
+		snowbridge_common::{
+			bridged_roc_at_ah_westend, ethereum, register_roc_on_bh, snowbridge_sovereign,
+		},
+		snowbridge_v2_outbound_from_rococo::create_foreign_on_ah_westend,
 	},
 };
 use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
@@ -219,6 +222,10 @@ fn send_weth_from_ethereum_to_penpal() {
 	);
 
 	PenpalB::execute_with(|| {
+		let key = PenpalCustomizableAssetFromSystemAssetHub::key().to_vec();
+		let value = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode();
+		assert_eq!(key, hex!("770800eb78be69c327d8334d09276072"));
+		assert_eq!(value, hex!("020109079edaa802"));
 		assert_ok!(<PenpalB as Chain>::System::set_storage(
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			vec![(
@@ -1189,7 +1196,7 @@ fn transfer_ah_token() {
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
 		));
 
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets(
 			RuntimeOrigin::signed(AssetHubWestendSender::get()),
 			Box::new(VersionedLocation::from(ethereum_destination)),
 			Box::new(beneficiary),
@@ -1749,6 +1756,265 @@ fn mint_native_asset_on_penpal_from_relay_chain() {
 					..
 				}) => {},
 			]
+		);
+	});
+}
+
+pub(crate) fn set_up_pool_with_wnd_on_ah_westend(
+	asset: Location,
+	is_foreign: bool,
+	initial_fund: u128,
+	initial_liquidity: u128,
+) {
+	let wnd: Location = Parent.into();
+	AssetHubWestend::fund_accounts(vec![(AssetHubWestendSender::get(), initial_fund)]);
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		let owner = AssetHubWestendSender::get();
+		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
+
+		if is_foreign {
+			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
+				signed_owner.clone(),
+				asset.clone().into(),
+				owner.clone().into(),
+				initial_fund,
+			));
+		} else {
+			let asset_id = match asset.interior.last() {
+				Some(GeneralIndex(id)) => *id as u32,
+				_ => unreachable!(),
+			};
+			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
+				signed_owner.clone(),
+				asset_id.into(),
+				owner.clone().into(),
+				initial_fund,
+			));
+		}
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
+			signed_owner.clone(),
+			Box::new(wnd.clone()),
+			Box::new(asset.clone()),
+		));
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
+			signed_owner.clone(),
+			Box::new(wnd),
+			Box::new(asset),
+			initial_liquidity,
+			initial_liquidity,
+			1,
+			1,
+			owner.into()
+		));
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
+			]
+		);
+	});
+}
+
+#[test]
+fn transfer_roc_from_ah_with_legacy_api_will_fail() {
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(
+		BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id()),
+	);
+	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
+
+	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+
+	let bridged_roc_at_asset_hub_westend = bridged_roc_at_ah_westend();
+
+	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true);
+
+	let asset_id: Location = bridged_roc_at_asset_hub_westend.clone();
+
+	let initial_fund: u128 = 200_000_000_000_000;
+	let initial_liquidity: u128 = initial_fund / 2;
+	// Setup pool and add liquidity
+	set_up_pool_with_wnd_on_ah_westend(
+		bridged_roc_at_asset_hub_westend.clone(),
+		true,
+		initial_fund,
+		initial_liquidity,
+	);
+
+	register_roc_on_bh();
+
+	// Send token to Ethereum
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		// Send partial of the token, will fail if send all
+		let assets =
+			vec![Asset { id: AssetId(asset_id.clone()), fun: Fungible(initial_fund / 10) }];
+		let versioned_assets = VersionedAssets::from(Assets::from(assets));
+
+		let beneficiary = VersionedLocation::from(Location::new(
+			0,
+			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+		));
+
+		let result = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets(
+			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			Box::new(VersionedLocation::from(ethereum_destination)),
+			Box::new(beneficiary),
+			Box::new(versioned_assets),
+			0,
+			Unlimited,
+		);
+
+		assert_err!(
+			result,
+			DispatchError::Module(sp_runtime::ModuleError {
+				index: 31,
+				error: [21, 0, 0, 0],
+				message: Some("InvalidAssetUnknownReserve")
+			})
+		);
+	});
+}
+
+#[test]
+fn transfer_roc_from_ah_with_transfer_and_then() {
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(
+		BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id()),
+	);
+	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
+
+	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+
+	let ethereum_sovereign: AccountId = snowbridge_sovereign();
+	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+
+	let bridged_roc_at_asset_hub_westend = bridged_roc_at_ah_westend();
+
+	create_foreign_on_ah_westend(bridged_roc_at_asset_hub_westend.clone(), true);
+
+	let asset_id: Location = bridged_roc_at_asset_hub_westend.clone();
+
+	let initial_fund: u128 = 200_000_000_000_000;
+	let initial_liquidity: u128 = initial_fund / 2;
+	// Setup pool and add liquidity
+	set_up_pool_with_wnd_on_ah_westend(
+		bridged_roc_at_asset_hub_westend.clone(),
+		true,
+		initial_fund,
+		initial_liquidity,
+	);
+
+	register_roc_on_bh();
+
+	// Send token to Ethereum
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		// Send partial of the token, will fail if send all
+		let asset = Asset { id: AssetId(asset_id.clone()), fun: Fungible(initial_fund / 10) };
+		let assets = vec![asset.clone()];
+		let versioned_assets = VersionedAssets::from(Assets::from(assets.clone()));
+
+		let beneficiary = Location::new(
+			0,
+			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+		);
+
+		let custom_xcm = Xcm::<()>(vec![DepositAsset {
+			assets: Wild(AllCounted(assets.len() as u32)),
+			beneficiary,
+		}]);
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			Box::new(VersionedLocation::from(ethereum_destination)),
+			Box::new(versioned_assets),
+			Box::new(TransferType::LocalReserve),
+			Box::new(VersionedAssetId::from(asset_id.clone())),
+			Box::new(TransferType::LocalReserve),
+			Box::new(VersionedXcm::from(custom_xcm)),
+			Unlimited,
+		));
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Transferred{ .. }) => {},]
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		// Check that the transfer token back to Ethereum message was queue in the Ethereum
+		// Outbound Queue
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+
+	// Send token back from Ethereum
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		let asset_id_after_reanchor: Location =
+			Location::new(1, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))]);
+		let token_id = TokenIdOf::convert_location(&asset_id_after_reanchor).unwrap();
+		let message = VersionedMessage::V1(MessageV1 {
+			chain_id: CHAIN_ID,
+			command: Command::SendNativeToken {
+				token_id,
+				destination: Destination::AccountId32 { id: AssetHubWestendReceiver::get().into() },
+				amount: initial_fund / 10,
+				fee: XCM_FEE,
+			},
+		});
+		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
+		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued{..}) => {},]
+		);
+
+		let events = AssetHubWestend::events();
+
+		// Check that the native token burnt from reserved account
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { owner, .. })
+					if *owner == ethereum_sovereign.clone(),
+			)),
+			"token burnt from Ethereum sovereign account."
+		);
+
+		// Check that the token was minted to beneficiary
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { owner, .. })
+					if *owner == AssetHubWestendReceiver::get()
+			)),
+			"Token minted to beneficiary."
 		);
 	});
 }
