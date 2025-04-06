@@ -324,13 +324,7 @@ pub mod pallet {
 			let mut round_ending_block = round_infos.round_ending_block;
 			let round_start = round_infos.round_starting_block;
 
-			// If current voting round is over, start a new one
-			let when = T::BlockNumberProvider::current_block_number();
-			if when >= round_ending_block {
-				// Create a new round.
-				let _new_round = VotingRoundInfo::<T>::new();
-			}
-
+			
 			for project_id in &projects_id {
 				ProjectInfo::<T>::new(project_id.clone());
 
@@ -350,13 +344,20 @@ pub mod pallet {
 				let decision_period:ProvidedBlockNumberFor<T> = decision_period_128
 					.try_into()
 					.map_err(|_| Error::<T>::InvalidResult)?;
-					if round_ending_block == round_start {
+					if round_infos.round_ending_block == round_infos.round_starting_block {
 						
 				round_ending_block = round_ending_block.saturating_add(decision_period.into());
+				round_infos.round_ending_block = round_ending_block;
 					}
 				}
 			VotingRounds::<T>::mutate(current_round_index, |round| *round = Some(round_infos));
 
+			// If current voting round is over, start a new one
+			let when = T::BlockNumberProvider::current_block_number();
+			if when >= round_ending_block {
+				// Create a new round.
+				let _new_round = VotingRoundInfo::<T>::new();
+			}
 			Self::deposit_event(Event::Projectslisted { projects_id: projects_id.to_vec() });
 			Ok(())
 		}

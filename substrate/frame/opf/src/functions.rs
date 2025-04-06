@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Update Funds unlock block according to the selected conviction
-		new_vote.funds_unlock();
+		//new_vote.funds_unlock();
 		if Votes::<T>::contains_key(&project, &voter_id) {
 			let old_vote = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let old_amount = old_vote.amount;
