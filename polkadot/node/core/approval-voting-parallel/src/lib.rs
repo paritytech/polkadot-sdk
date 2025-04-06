@@ -518,7 +518,7 @@ fn validator_index_for_msg(
 	Option<Vec<(ValidatorIndex, polkadot_node_network_protocol::ApprovalDistributionMessage)>>,
 ) {
 	match msg {
-		polkadot_node_network_protocol::Versioned::V3(ref message) => match message {
+		polkadot_node_network_protocol::ValidationProtocols::V3(ref message) => match message {
 			polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(msgs) =>
 				if let Ok(validator) = msgs.iter().map(|(msg, _)| msg.validator).all_equal_value() {
 					(Some((validator, msg)), None)
@@ -528,7 +528,7 @@ fn validator_index_for_msg(
 						.map(|(msg, claimed_candidates)| {
 							(
 								msg.validator,
-								polkadot_node_network_protocol::Versioned::V3(
+								polkadot_node_network_protocol::ValidationProtocols::V3(
 									polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Assignments(
 										vec![(msg.clone(), claimed_candidates.clone())]
 									),
@@ -547,7 +547,7 @@ fn validator_index_for_msg(
 						.map(|vote| {
 							(
 								vote.validator,
-								polkadot_node_network_protocol::Versioned::V3(
+								polkadot_node_network_protocol::ValidationProtocols::V3(
 									polkadot_node_network_protocol::v3::ApprovalDistributionMessage::Approvals(
 										vec![vote.clone()]
 									),
@@ -557,14 +557,6 @@ fn validator_index_for_msg(
 						.collect_vec();
 					(None, Some(split))
 				},
-		},
-		_ => {
-			gum::warn!(
-				target: LOG_TARGET,
-				"Received approval distribution message with unsupported protocol version",
-			);
-
-			(None, None)
 		},
 	}
 }
