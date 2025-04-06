@@ -40,4 +40,6 @@ std = [
 	"log/std",
 	"scale-info/std",
 	"sp-runtime/std",
+	"sp-io/std",
+	"sp-trie/std"
 ]
