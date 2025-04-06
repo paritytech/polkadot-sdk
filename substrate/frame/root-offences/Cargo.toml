@@ -17,11 +17,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-pallet-session = { features = ["historical"], workspace = true }
-pallet-staking.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
+pallet-session = { features = ["historical"], workspace = true }
+pallet-staking.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-runtime.workspace = true
 sp-staking.workspace = true
 
@@ -37,17 +37,23 @@ frame-election-provider-support = { default-features = true, workspace = true }
 
 [features]
 runtime-benchmarks = [
+	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
+	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
+	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 default = ["std"]
@@ -58,6 +64,7 @@ std = [
 	"pallet-session/std",
 	"pallet-staking/std",
 	"scale-info/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 ]

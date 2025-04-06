@@ -22,9 +22,9 @@ frame-system.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 sp-io.workspace = true
 sp-runtime.workspace = true
-xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 pallet-assets = { default-features = true, workspace = true }
@@ -49,6 +49,8 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

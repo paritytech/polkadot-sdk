@@ -18,7 +18,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 # parity
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 frame-benchmarking.workspace = true
 frame-election-provider-support.workspace = true
 frame-support.workspace = true
@@ -27,8 +26,9 @@ pallet-bags-list.workspace = true
 pallet-delegated-staking.workspace = true
 pallet-nomination-pools.workspace = true
 pallet-staking.workspace = true
-sp-runtime.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-runtime-interface.workspace = true
+sp-runtime.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
@@ -48,6 +48,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-bags-list/std",
+	"pallet-balances/std",
 	"pallet-delegated-staking/std",
 	"pallet-nomination-pools/std",
 	"pallet-staking/std",
@@ -63,9 +64,11 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]

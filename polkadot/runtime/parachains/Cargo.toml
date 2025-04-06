@@ -15,8 +15,27 @@ workspace = true
 bitflags = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
+pallet-authority-discovery.workspace = true
+pallet-authorship.workspace = true
+pallet-babe.workspace = true
+pallet-balances.workspace = true
+pallet-broker.workspace = true
+pallet-message-queue.workspace = true
+pallet-mmr = { workspace = true, optional = true }
+pallet-session.workspace = true
+pallet-staking.workspace = true
+pallet-timestamp.workspace = true
+polkadot-core-primitives.workspace = true
+polkadot-parachain-primitives.workspace = true
+polkadot-primitives.workspace = true
+polkadot-runtime-metrics.workspace = true
+rand = { workspace = true }
+rand_chacha = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-api.workspace = true
@@ -31,28 +50,9 @@ sp-session.workspace = true
 sp-staking = { features = ["serde"], workspace = true }
 sp-std = { workspace = true, optional = true }
 sp-tracing = { optional = true, workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
-pallet-authority-discovery.workspace = true
-pallet-authorship.workspace = true
-pallet-babe.workspace = true
-pallet-balances.workspace = true
-pallet-broker.workspace = true
-pallet-message-queue.workspace = true
-pallet-mmr = { workspace = true, optional = true }
-pallet-session.workspace = true
-pallet-staking.workspace = true
-pallet-timestamp.workspace = true
-polkadot-primitives.workspace = true
-xcm.workspace = true
-xcm-executor.workspace = true
-polkadot-core-primitives.workspace = true
-polkadot-parachain-primitives.workspace = true
-polkadot-runtime-metrics.workspace = true
-rand = { workspace = true }
-rand_chacha = { workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
+xcm-executor.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
@@ -114,6 +114,7 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
@@ -134,6 +135,7 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
+	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authority-discovery/try-runtime",
