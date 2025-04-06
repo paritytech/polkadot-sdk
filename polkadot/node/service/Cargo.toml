@@ -250,13 +250,13 @@ runtime-benchmarks = [
 	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
+	"polkadot-test-client/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"polkadot-test-client/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-system/try-runtime",
