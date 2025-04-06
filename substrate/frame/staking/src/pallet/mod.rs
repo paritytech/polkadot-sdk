@@ -1754,6 +1754,7 @@ pub mod pallet {
 		/// Can be called by the `T::AdminOrigin`.
 		///
 		/// Parameters: era and indices of the slashes for that era to kill.
+		/// They **must** be sorted in ascending order, *and* unique.
 		#[pallet::call_index(17)]
 		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
 		pub fn cancel_deferred_slash(
