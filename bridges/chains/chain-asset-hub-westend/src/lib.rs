@@ -22,12 +22,14 @@ extern crate alloc;
 
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
-use bp_runtime::{Chain, ChainId, Parachain};
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
+};
 pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::DispatchClass,
-	sp_runtime::{RuntimeDebug, StateVersion},
+	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
 };
 use scale_info::TypeInfo;
 use testnet_parachains_constants::westend::currency::UNITS;
@@ -117,3 +119,33 @@ impl Parachain for AssetHubWestend {
 	const PARACHAIN_ID: u32 = ASSET_HUB_WESTEND_PARACHAIN_ID;
 	const MAX_HEADER_SIZE: u32 = MAX_ASSET_HUB_HEADER_SIZE;
 }
+
+/// Describing permissionless lanes instance
+impl ChainWithMessages for AssetHubWestend {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		WITH_ASSET_HUB_WESTEND_MESSAGES_PALLET_NAME;
+
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+}
+
+/// Public key of the chain account that may be used to verify signatures.
+pub type AccountSigner = MultiSigner;
+
+/// The address format for describing accounts.
+pub type Address = MultiAddress<AccountId, ()>;
+
+/// Name of the With-AssetHubWestend messages pallet instance that is deployed at bridged chains.
+pub const WITH_ASSET_HUB_WESTEND_MESSAGES_PALLET_NAME: &str = "BridgeWestendMessages";
+
+/// Name of the With-AssetHubWestend bridge-relayers pallet instance that is deployed at bridged
+/// chains.
+pub const WITH_ASSET_HUB_WESTEND_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
+
+/// Pallet index of `BridgeRococoMessages: pallet_bridge_messages::<Instance1>`.
+pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 63;
+
+decl_bridge_finality_runtime_apis!(asset_hub_westend);
+decl_bridge_messages_runtime_apis!(asset_hub_westend, HashedLaneId);
