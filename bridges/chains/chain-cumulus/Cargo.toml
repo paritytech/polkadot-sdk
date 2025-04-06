@@ -39,6 +39,7 @@ std = [
 	"bp-runtime/std",
 	"frame-support/std",
 	"frame-system/std",
+	"parachains-common/std",
 	"polkadot-primitives/std",
 	"sp-api/std",
 	"sp-std/std",
