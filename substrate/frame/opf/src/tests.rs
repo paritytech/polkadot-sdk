@@ -116,13 +116,13 @@ fn conviction_vote_works() {
 		// Bob vote for project_101
 		assert_ok!(Opf::vote(RuntimeOrigin::signed(BOB), 101, 100, true, Conviction::Locked1x));
 		// Dave vote for project_102
-		/*assert_ok!(Opf::vote(RuntimeOrigin::signed(DAVE), 102, 100, true, Conviction::Locked2x));
+		assert_ok!(Opf::vote(RuntimeOrigin::signed(DAVE), 102, 100, true, Conviction::Locked2x));
 		//Round number is 0
 		let round_number = NextVotingRoundNumber::<Test>::get().saturating_sub(1);
 		assert_eq!(round_number, 0);
 
 		//Bobs funds are locked
-		let bob_hold = <Test as Config>::NativeBalance::total_balance_on_hold(&BOB);
+		/*let bob_hold = <Test as Config>::NativeBalance::total_balance_on_hold(&BOB);
 		let dave_hold = <Test as Config>::NativeBalance::total_balance_on_hold(&DAVE);
 		assert_eq!(bob_hold, 100);
 		assert_eq!(dave_hold, 100);
