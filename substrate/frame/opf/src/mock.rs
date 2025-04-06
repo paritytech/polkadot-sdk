@@ -79,7 +79,7 @@ impl pallet_conviction_voting::Config for Test {
 	type MaxVotes = ConstU32<3>;
 	type WeightInfo = ();
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
-	type Polls = TestPolls;
+	type Polls = Referenda;
 	type BlockNumberProvider = System;
 	type VotingHooks = HooksHandler;
 }
@@ -220,8 +220,8 @@ impl pallet_referenda::Config for Test {
 	type CancelOrigin = EnsureSignedBy<Four, u64>;
 	type KillOrigin = EnsureRoot<u64>;
 	type Slash = ();
-	type Votes = u32;
-	type Tally = Tally;
+	type Votes =  pallet_conviction_voting::VotesOf<Test>;
+	type Tally = pallet_conviction_voting::TallyOf<Test>;
 	type SubmissionDeposit = ConstU64<2>;
 	type MaxQueued = ConstU32<3>;
 	type UndecidingTimeout = ConstU64<20>;

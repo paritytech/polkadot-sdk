@@ -114,7 +114,7 @@ fn conviction_vote_works() {
 			round.round_ending_block > round.round_starting_block,
 		);
 		// Bob vote for project_101
-		//assert_ok!(Opf::vote(RuntimeOrigin::signed(BOB), 101, 100, true, Conviction::Locked1x));
+		assert_ok!(Opf::vote(RuntimeOrigin::signed(BOB), 101, 100, true, Conviction::Locked1x));
 		// Dave vote for project_102
 		/*assert_ok!(Opf::vote(RuntimeOrigin::signed(DAVE), 102, 100, true, Conviction::Locked2x));
 		//Round number is 0
