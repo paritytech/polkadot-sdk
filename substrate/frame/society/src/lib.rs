@@ -619,6 +619,8 @@ pub mod pallet {
 		InsufficientFunds,
 		/// The candidate/defender has no stale votes to remove.
 		NoVotes,
+		/// There is no deposit associated with a bid.
+		NoDeposit,
 	}
 
 	#[pallet::event]
@@ -1389,7 +1391,7 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Poke / reconsider the deposit reserved when bidding.
+		/// Poke the deposit reserved when bidding.
 		///
 		/// The dispatch origin for this call must be _Signed_ and must be the bidder.
 		///
@@ -1403,15 +1405,12 @@ pub mod pallet {
 
 			// Get current bids and find the bidder's bid
 			let mut bids = Bids::<T, I>::get();
-			let bid_position =
-				bids.iter().position(|bid| bid.who == who).ok_or(Error::<T, I>::NotBidder)?;
-
-			let bid = &mut bids[bid_position];
+			let bid = bids.iter_mut().find(|bid| bid.who == who).ok_or(Error::<T, I>::NotBidder)?;
 
 			// Only handle deposit bids
 			let old_deposit = match &bid.kind {
 				BidKind::Deposit(amount) => *amount,
-				_ => return Err(Error::<T, I>::NotBidder.into()),
+				_ => return Err(Error::<T, I>::NoDeposit.into()),
 			};
 
 			let params = Parameters::<T, I>::get().ok_or(Error::<T, I>::NotGroup)?;

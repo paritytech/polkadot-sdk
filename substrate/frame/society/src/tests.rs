@@ -1328,9 +1328,9 @@ fn poke_deposit_fails_for_non_bidder() {
 		assert_noop!(Society::poke_deposit(Origin::signed(20)), Error::<Test>::NotBidder);
 		assert_eq!(Balances::reserved_balance(20), 0);
 
-		// Also fails for vouched bid
+		// Also fails for vouched bid (no deposit)
 		assert_ok!(Society::vouch(Origin::signed(10), 20, 100, 0));
-		assert_noop!(Society::poke_deposit(Origin::signed(20)), Error::<Test>::NotBidder);
+		assert_noop!(Society::poke_deposit(Origin::signed(20)), Error::<Test>::NoDeposit);
 		assert_eq!(Balances::reserved_balance(20), 0);
 	});
 }
@@ -1467,17 +1467,5 @@ fn poke_deposit_handles_insufficient_balance() {
 			Society::poke_deposit(Origin::signed(20)),
 			pallet_balances::Error::<Test>::InsufficientBalance
 		);
-
-		// Verify nothing changed
-		assert_eq!(Balances::reserved_balance(20), initial_deposit);
-		let bids = Bids::<Test>::get();
-		let bid = bids.iter().find(|b| b.who == 20).unwrap();
-		assert_eq!(bid.kind, BidKind::Deposit(initial_deposit));
-
-		// Verify no event was emitted
-		assert!(!System::events().iter().any(|record| matches!(
-			record.event,
-			RuntimeEvent::Society(Event::DepositPoked { .. })
-		)));
 	});
 }
