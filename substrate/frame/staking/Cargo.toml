@@ -17,20 +17,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-election-provider-support.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 log = { workspace = true }
 pallet-authorship.workspace = true
 pallet-session = { features = ["historical"], workspace = true }
+rand_chacha = { optional = true, workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-io.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
-rand_chacha = { optional = true, workspace = true }
 
 [dev-dependencies]
 frame-benchmarking = { default-features = true, path = "../benchmarking" }

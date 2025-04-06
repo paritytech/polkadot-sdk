@@ -23,8 +23,8 @@ sp-application-crypto.workspace = true
 sp-core.workspace = true
 sp-crypto-hashing.workspace = true
 sp-externalities.workspace = true
-sp-runtime.workspace = true
 sp-runtime-interface.workspace = true
+sp-runtime.workspace = true
 thiserror = { optional = true, workspace = true }
 
 # ECIES dependencies

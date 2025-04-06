@@ -12,12 +12,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive", "serde"], workspace = true }
 frame-support.workspace = true
+scale-info = { features = ["derive", "serde"], workspace = true }
 sp-api.workspace = true
 sp-weights.workspace = true
-xcm.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
