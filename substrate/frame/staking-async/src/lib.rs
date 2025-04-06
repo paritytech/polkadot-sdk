@@ -70,7 +70,7 @@ pub use weights::WeightInfo;
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
-pub(crate) const LOG_TARGET: &str = "runtime::staking";
+pub(crate) const LOG_TARGET: &str = "runtime::staking-async";
 
 // syntactic sugar for logging.
 #[macro_export]

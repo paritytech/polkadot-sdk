@@ -41,6 +41,7 @@ pallet-timestamp = { workspace = true, default-features = true }
 pallet-authorship = { workspace = true, default-features = true }
 # staking classic which will be replaced by ah-client
 pallet-staking = { workspace = true, default-features = true }
+pallet-root-offences = { workspace = true, default-features = true }
 
 [features]
 std = []

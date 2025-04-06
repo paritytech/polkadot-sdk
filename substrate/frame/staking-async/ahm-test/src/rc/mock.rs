@@ -1,9 +1,12 @@
+use ah_client::OperatingMode;
 use frame::{
 	deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*, traits::fungible::Mutate,
 };
+use frame_election_provider_support::{onchain, SequentialPhragmen};
+use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
+use frame_support::traits::FindAuthor;
 use pallet_staking_async_ah_client as ah_client;
 use sp_staking::SessionIndex;
-use frame_support::traits::FindAuthor;
 
 use crate::shared;
 
@@ -20,6 +23,7 @@ construct_runtime! {
 		SessionHistorical: pallet_session::historical,
 		Staking: pallet_staking,
 		StakingAhClient: pallet_staking_async_ah_client,
+		RootOffences: pallet_root_offences,
 	}
 }
 
@@ -35,9 +39,18 @@ pub fn roll_next() {
 	StakingAhClient::on_initialize(next);
 }
 
+parameter_types! {
+	/// The maximum number of blocks to roll before we stop rolling.
+	///
+	/// Avoids infinite loops in tests.
+	pub static MaxRollsUntilCriteria: u16 = 1000;
+}
+
 pub fn roll_until_matches(criteria: impl Fn() -> bool, with_ah: bool) {
+	let mut rolls = 0;
 	while !criteria() {
 		roll_next();
+		rolls += 1;
 		if with_ah {
 			if LocalQueue::get().is_some() {
 				panic!("when local queue is set, you cannot roll ah forward as well!")
@@ -45,6 +58,10 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_ah: bool) {
 			shared::in_ah(|| {
 				crate::ah::roll_next();
 			});
+		}
+
+		if rolls > MaxRollsUntilCriteria::get() {
+			panic!("rolled too many times");
 		}
 	}
 }
@@ -119,7 +136,7 @@ parameter_types! {
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking_async::NullIdentity;
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 impl pallet_session::Config for Runtime {
@@ -153,9 +170,26 @@ impl FindAuthor<AccountId> for Author11 {
 	}
 }
 
-impl pallet_authorship::Config for Runtime	 {
+impl pallet_authorship::Config for Runtime {
 	type FindAuthor = Author11;
 	type EventHandler = ();
+}
+
+parameter_types! {
+	pub static MaxBackersPerWinner: u32 = 256;
+	pub static MaxWinnersPerPage: u32 = 100;
+	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
+}
+pub struct OnChainSeqPhragmen;
+impl onchain::Config for OnChainSeqPhragmen {
+	type System = Runtime;
+	type Solver = SequentialPhragmen<AccountId, Perbill>;
+	type DataProvider = Staking;
+	type WeightInfo = ();
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type Bounds = ElectionsBounds;
+	type Sort = ConstBool<true>;
 }
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
@@ -165,11 +199,17 @@ impl pallet_staking::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type EraPayout = ();
-	type ElectionProvider = frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
+	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
+	type SlashDeferDuration = ConstU32<3>;
+}
+
+impl pallet_root_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OffenceHandler = StakingAhClient;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -284,14 +324,17 @@ pub fn ah_client_events_since_last_call() -> Vec<ah_client::Event<Runtime>> {
 	all.into_iter().skip(seen).collect()
 }
 
+const INITIAL_STAKE: Balance = 100;
+const INITIAL_BALANCE: Balance = 1000;
+
 pub struct ExtBuilder {
 	session_keys: Vec<AccountId>,
-	mode: ah_client::OperatingMode,
+	pre_migration: bool,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self { session_keys: vec![], mode: ah_client::OperatingMode::Active }
+		Self { session_keys: vec![], pre_migration: false }
 	}
 }
 
@@ -309,23 +352,79 @@ impl ExtBuilder {
 		self
 	}
 
-	/// Set the Operating Mode of the pallet.
-	pub fn mode(mut self, mode: ah_client::OperatingMode) -> Self {
-		self.mode = mode;
+	/// Set the staking-classic state to be pre-AHM-migration state.
+	pub fn pre_migration(mut self) -> Self {
+		self.pre_migration = true;
 		self
 	}
 
 	pub fn build(self) -> TestState {
 		let _ = sp_tracing::try_init_simple();
-		let t = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
+		let mut t = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
+
+		// add pre-migration state to staking-classic.
+		let operating_mode = if self.pre_migration {
+			let validators = vec![1, 2, 3, 4, 5, 6, 7, 8]
+				.into_iter()
+				.map(|x| (x, x, INITIAL_STAKE, pallet_staking::StakerStatus::Validator));
+
+			let nominators = vec![
+				(100, vec![1, 2]),
+				(101, vec![2, 5]),
+				(102, vec![1, 1]),
+				(103, vec![3, 3]),
+				(104, vec![1, 5]),
+				(105, vec![5, 4]),
+				(106, vec![6, 2]),
+				(107, vec![1, 6]),
+				(108, vec![2, 7]),
+				(109, vec![4, 8]),
+				(110, vec![5, 2]),
+				(111, vec![6, 6]),
+				(112, vec![8, 1]),
+			]
+			.into_iter()
+			.map(|(x, y)| {
+				let y = y.into_iter().map(|x| x).collect::<Vec<_>>();
+				(x, x, INITIAL_STAKE, pallet_staking_async::StakerStatus::Nominator(y))
+			});
+
+			let stakers = validators.chain(nominators).collect::<Vec<_>>();
+			let balances = stakers
+				.clone()
+				.into_iter()
+				.map(|(x, _, _, _)| (x, INITIAL_BALANCE))
+				.collect::<Vec<_>>();
+
+			pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
+				.assimilate_storage(&mut t)
+				.unwrap();
+
+			pallet_staking::GenesisConfig::<Runtime> {
+				stakers,
+				validator_count: 4,
+				minimum_validator_count: 2,
+				..Default::default()
+			}
+			.assimilate_storage(&mut t)
+			.unwrap();
+
+			// Set ah client in passive mode -> implies it is inactive and staking-classic is
+			// active.
+			OperatingMode::Passive
+		} else {
+			OperatingMode::Active
+		};
+
 		let mut state: TestState = t.into();
+
 		state.execute_with(|| {
 			// so events can be deposited.
-			frame_system::Pallet::<T>::set_block_number(1);
+			roll_next();
 
 			for v in self.session_keys {
 				// min some funds, create account and ref counts
-				pallet_balances::Pallet::<T>::mint_into(&v, 1).unwrap();
+				pallet_balances::Pallet::<T>::mint_into(&v, INITIAL_BALANCE).unwrap();
 				pallet_session::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(v),
 					SessionKeys { other: UintAuthorityId(v) },
@@ -334,7 +433,7 @@ impl ExtBuilder {
 				.unwrap();
 			}
 
-			ah_client::Mode::<T>::put(self.mode);
+			ah_client::Mode::<T>::put(operating_mode);
 		});
 
 		state

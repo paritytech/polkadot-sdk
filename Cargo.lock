@@ -10979,6 +10979,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-election-provider-multi-block",
+ "pallet-root-offences",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-async",
