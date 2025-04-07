@@ -19,7 +19,7 @@ use snowbridge_beacon_primitives::{
 	types::deneb,
 	Fork, ForkVersions, NextSyncCommitteeUpdate, VersionedExecutionPayloadHeader,
 };
-use snowbridge_inbound_queue_primitives::{VerificationError, Verifier};
+use snowbridge_verification_primitives::{VerificationError, Verifier};
 use sp_core::H256;
 use sp_runtime::DispatchError;
 
