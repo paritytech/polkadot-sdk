@@ -137,6 +137,7 @@ pub enum Subcommand {
 /// CLI Options shipped with `polkadot-omni-node`.
 #[derive(clap::Parser)]
 #[command(
+	version = env!("CARGO_PKG_VERSION"),
 	propagate_version = true,
 	args_conflicts_with_subcommands = true,
 	subcommand_negates_reqs = true
