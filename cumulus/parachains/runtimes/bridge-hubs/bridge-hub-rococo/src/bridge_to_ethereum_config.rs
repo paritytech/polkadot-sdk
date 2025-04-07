@@ -24,7 +24,9 @@ use crate::{
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
-use snowbridge_router_primitives::{inbound::MessageToXcm, outbound::EthereumBlobExporter};
+use snowbridge_inbound_queue_primitives::v1::MessageToXcm;
+use snowbridge_outbound_queue_primitives::v1::EthereumBlobExporter;
+
 use sp_core::H160;
 use testnet_parachains_constants::rococo::{
 	currency::*,
@@ -35,7 +37,9 @@ use testnet_parachains_constants::rococo::{
 use crate::xcm_config::RelayNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
+use bp_asset_hub_rococo::CreateForeignAssetDeposit;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
+use hex_literal::hex;
 use pallet_xcm::EnsureXcm;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
@@ -54,12 +58,11 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 
 // Ethereum Bridge
 parameter_types! {
-	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
+	pub storage EthereumGatewayAddress: H160 = H160(hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
 }
 
 parameter_types! {
 	pub const CreateAssetCall: [u8;2] = [53, 0];
-	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
@@ -84,7 +87,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type Helper = Runtime;
 	type MessageConverter = MessageToXcm<
 		CreateAssetCall,
-		CreateAssetDeposit,
+		CreateForeignAssetDeposit,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
 		AccountId,
 		Balance,
@@ -107,7 +110,7 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type Decimals = ConstU8<12>;
 	type MaxMessagePayloadSize = ConstU32<2048>;
 	type MaxMessagesPerBlock = ConstU32<32>;
-	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
+	type GasMeter = crate::ConstantGasMeter;
 	type Balance = Balance;
 	type WeightToFee = WeightToFee;
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue::WeightInfo<Runtime>;
@@ -119,24 +122,28 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [0, 0, 0, 0], // 0x00000000
+			version: hex!("00000000"),
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [1, 0, 0, 0], // 0x01000000
+			version: hex!("01000000"),
 			epoch: 0,
 		},
 		bellatrix: Fork {
-			version: [2, 0, 0, 0], // 0x02000000
+			version: hex!("02000000"),
 			epoch: 0,
 		},
 		capella: Fork {
-			version: [3, 0, 0, 0], // 0x03000000
+			version: hex!("03000000"),
 			epoch: 0,
 		},
 		deneb: Fork {
-			version: [4, 0, 0, 0], // 0x04000000
+			version: hex!("04000000"),
 			epoch: 0,
+		},
+		electra: Fork {
+			version: hex!("05000000"),
+			epoch: 80000000000,
 		}
 	};
 }
@@ -145,24 +152,28 @@ parameter_types! {
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [144, 0, 0, 111], // 0x90000069
+			version: hex!("90000069"),
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [144, 0, 0, 112], // 0x90000070
+			version: hex!("90000070"),
 			epoch: 50,
 		},
 		bellatrix: Fork {
-			version: [144, 0, 0, 113], // 0x90000071
+			version: hex!("90000071"),
 			epoch: 100,
 		},
 		capella: Fork {
-			version: [144, 0, 0, 114], // 0x90000072
+			version: hex!("90000072"),
 			epoch: 56832,
 		},
 		deneb: Fork {
-			version: [144, 0, 0, 115], // 0x90000073
+			version: hex!("90000073"),
 			epoch: 132608,
+		},
+		electra: Fork {
+			version: hex!("90000074"),
+			epoch: 222464, // https://github.com/ethereum/EIPs/pull/9322/files
 		},
 	};
 }

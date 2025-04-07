@@ -23,7 +23,17 @@ extern crate alloc;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
+pub use bp_bridge_hub_cumulus::*;
+use bp_messages::*;
+use bp_runtime::{
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
+};
 pub use bp_xcm_bridge_router::XcmBridgeHubCall;
+use frame_support::{
+	dispatch::DispatchClass,
+	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
+};
+use testnet_parachains_constants::rococo::currency::UNITS;
 use xcm::latest::prelude::*;
 
 /// `AssetHubRococo` Runtime `Call` enum.
@@ -45,6 +55,8 @@ pub enum Call {
 frame_support::parameter_types! {
 	/// Some sane weight to execute `xcm::Transact(pallet-xcm-bridge-hub-router::Call::report_bridge_status)`.
 	pub const XcmBridgeHubRouterTransactCallMaxWeight: frame_support::weights::Weight = frame_support::weights::Weight::from_parts(200_000_000, 6144);
+	/// Should match the `AssetDeposit` of the `ForeignAssets` pallet on Asset Hub.
+	pub const CreateForeignAssetDeposit: u128 = UNITS / 10;
 }
 
 /// Builds an (un)congestion XCM program with the `report_bridge_status` call for
@@ -71,3 +83,70 @@ pub fn build_congestion_message<RuntimeCall>(
 
 /// Identifier of AssetHubRococo in the Rococo relay chain.
 pub const ASSET_HUB_ROCOCO_PARACHAIN_ID: u32 = 1000;
+
+/// AssetHubRococo parachain.
+#[derive(RuntimeDebug)]
+
+pub struct AssetHubRococo;
+
+impl Chain for AssetHubRococo {
+	const ID: ChainId = *b"ahro";
+
+	type BlockNumber = BlockNumber;
+	type Hash = Hash;
+	type Hasher = Hasher;
+	type Header = Header;
+
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type Nonce = Nonce;
+	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
+	fn max_extrinsic_size() -> u32 {
+		*BlockLength::get().max.get(DispatchClass::Normal)
+	}
+
+	fn max_extrinsic_weight() -> Weight {
+		BlockWeightsForAsyncBacking::get()
+			.get(DispatchClass::Normal)
+			.max_extrinsic
+			.unwrap_or(Weight::MAX)
+	}
+}
+
+impl Parachain for AssetHubRococo {
+	const PARACHAIN_ID: u32 = ASSET_HUB_ROCOCO_PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 = MAX_ASSET_HUB_HEADER_SIZE;
+}
+
+/// Describing permissionless lanes instance
+impl ChainWithMessages for AssetHubRococo {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		WITH_ASSET_HUB_ROCOCO_MESSAGES_PALLET_NAME;
+
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+}
+
+/// Public key of the chain account that may be used to verify signatures.
+pub type AccountSigner = MultiSigner;
+
+/// The address format for describing accounts.
+pub type Address = MultiAddress<AccountId, ()>;
+
+/// Name of the With-AssetHubRococo messages pallet instance that is deployed at bridged chains.
+pub const WITH_ASSET_HUB_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessages";
+
+/// Name of the With-AssetHubRococo bridge-relayers pallet instance that is deployed at bridged
+/// chains.
+pub const WITH_ASSET_HUB_ROCOCO_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
+
+/// Pallet index of `BridgeWestendMessages: pallet_bridge_messages::<Instance1>`.
+pub const WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = 62;
+
+decl_bridge_finality_runtime_apis!(asset_hub_rococo);
+decl_bridge_messages_runtime_apis!(asset_hub_rococo, HashedLaneId);

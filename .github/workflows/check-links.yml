@@ -18,12 +18,15 @@ permissions:
   packages: read
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   link-checker:
     runs-on: ubuntu-latest
+    needs: isdraft
     timeout-minutes: 10
     steps:
       - name: Restore lychee cache
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v3.3.2 (7. Sep 2023)
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2 (12. March 2025)
         with:
           path: .lycheecache
           key: cache-lychee-${{ github.sha }}

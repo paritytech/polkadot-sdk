@@ -146,20 +146,20 @@ struct ScheduledV1<Call, BlockNumber> {
 }
 
 /// Information regarding an item to be executed in the future.
-#[cfg_attr(any(feature = "std", test), derive(PartialEq, Eq))]
-#[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	/// The unique identity for this task, if there is one.
-	maybe_id: Option<Name>,
+	pub maybe_id: Option<Name>,
 	/// This task's priority.
-	priority: schedule::Priority,
+	pub priority: schedule::Priority,
 	/// The call to be dispatched.
-	call: Call,
+	pub call: Call,
 	/// If the call is periodic, then this points to the information concerning that.
-	maybe_periodic: Option<schedule::Period<BlockNumber>>,
+	pub maybe_periodic: Option<schedule::Period<BlockNumber>>,
 	/// The origin with which to dispatch the call.
-	origin: PalletsOrigin,
-	_phantom: PhantomData<AccountId>,
+	pub origin: PalletsOrigin,
+	#[doc(hidden)]
+	pub _phantom: PhantomData<AccountId>,
 }
 
 impl<Name, Call, BlockNumber, PalletsOrigin, AccountId>
@@ -323,6 +323,7 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
+	/// Block number at which the agenda began incomplete execution.
 	#[pallet::storage]
 	pub type IncompleteSince<T: Config> = StorageValue<_, BlockNumberFor<T>>;
 
@@ -351,7 +352,7 @@ pub mod pallet {
 	/// For v3 -> v4 the previously unbounded identities are Blake2-256 hashed to form the v4
 	/// identities.
 	#[pallet::storage]
-	pub(crate) type Lookup<T: Config> =
+	pub type Lookup<T: Config> =
 		StorageMap<_, Twox64Concat, TaskName, TaskAddress<BlockNumberFor<T>>>;
 
 	/// Events type.
@@ -386,6 +387,8 @@ pub mod pallet {
 		RetryFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task can never be executed since it is overweight.
 		PermanentlyOverweight { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
+		/// Agenda is incomplete from `when`.
+		AgendaIncomplete { when: BlockNumberFor<T> },
 	}
 
 	#[pallet::error]
@@ -1202,6 +1205,7 @@ impl<T: Config> Pallet<T> {
 		}
 		incomplete_since = incomplete_since.min(when);
 		if incomplete_since <= now {
+			Self::deposit_event(Event::AgendaIncomplete { when: incomplete_since });
 			IncompleteSince::<T>::put(incomplete_since);
 		}
 	}
@@ -1235,10 +1239,7 @@ impl<T: Config> Pallet<T> {
 		let mut dropped = 0;
 
 		for (agenda_index, _) in ordered.into_iter().take(max as usize) {
-			let task = match agenda[agenda_index as usize].take() {
-				None => continue,
-				Some(t) => t,
-			};
+			let Some(task) = agenda[agenda_index as usize].take() else { continue };
 			let base_weight = T::WeightInfo::service_task(
 				task.call.lookup_len().map(|x| x as usize),
 				task.maybe_id.is_some(),
@@ -1246,6 +1247,7 @@ impl<T: Config> Pallet<T> {
 			);
 			if !weight.can_consume(base_weight) {
 				postponed += 1;
+				agenda[agenda_index as usize] = Some(task);
 				break
 			}
 			let result = Self::service_task(weight, now, when, agenda_index, *executed == 0, task);

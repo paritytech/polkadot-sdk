@@ -32,14 +32,14 @@ use frame_support::{
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
-use sp_core::{ConstBool, H256};
+use sp_core::H256;
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	impl_opaque_keys,
 	testing::{TestXt, UintAuthorityId},
 	traits::OpaqueKeys,
-	BoundedVec, BuildStorage, DigestItem, Perbill,
+	BuildStorage, DigestItem, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -104,12 +104,13 @@ impl pallet_session::Config for Test {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <TestSessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = TestSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<u64, u128>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Self>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::NullIdentity;
 }
 
 impl pallet_authorship::Config for Test {
@@ -155,9 +156,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<u64, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinnersPerPage = ConstU32<100>;
-	type MaxBackersPerWinner = ConstU32<100>;
-	type Sort = ConstBool<true>;
+	type MaxWinners = ConstU32<100>;
 	type Bounds = ElectionsBoundsOnChain;
 }
 
@@ -224,7 +223,6 @@ pub fn new_test_ext(vec: Vec<(u64, u64)>) -> sp_io::TestExternalities {
 }
 
 pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestExternalities {
-	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
@@ -262,7 +260,7 @@ pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestEx
 		validator_count: 8,
 		force_era: pallet_staking::Forcing::ForceNew,
 		minimum_validator_count: 0,
-		invulnerables: BoundedVec::new(),
+		invulnerables: vec![],
 		..Default::default()
 	};
 
@@ -291,9 +289,8 @@ pub fn start_session(session_index: SessionIndex) {
 		Timestamp::set_timestamp(System::block_number() * 6000);
 
 		System::on_initialize(System::block_number());
-		// staking has to be initialized before session as per the multi-block staking PR.
-		Staking::on_initialize(System::block_number());
 		Session::on_initialize(System::block_number());
+		Staking::on_initialize(System::block_number());
 		Grandpa::on_initialize(System::block_number());
 	}
 

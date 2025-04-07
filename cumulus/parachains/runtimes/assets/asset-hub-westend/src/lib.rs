@@ -24,6 +24,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod bridge_to_ethereum_config;
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
@@ -35,7 +36,8 @@ use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use bp_asset_hub_westend::CreateForeignAssetDeposit;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::{
@@ -101,6 +103,7 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+	Version as XcmVersion,
 };
 use xcm_builder::{NetworkExportTable, SovereignPaidRemoteExporter};
 
@@ -513,8 +516,7 @@ impl pallet_asset_conversion_ops::Config for Runtime {
 }
 
 parameter_types! {
-	// we just reuse the same deposits
-	pub const ForeignAssetsAssetDeposit: Balance = AssetDeposit::get();
+	pub const ForeignAssetsAssetDeposit: Balance = CreateForeignAssetDeposit::get();
 	pub const ForeignAssetsAssetAccountDeposit: Balance = AssetAccountDeposit::get();
 	pub const ForeignAssetsApprovalDeposit: Balance = ApprovalDeposit::get();
 	pub const ForeignAssetsAssetsStringLimit: u32 = AssetsStringLimit::get();
@@ -615,6 +617,7 @@ parameter_types! {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
@@ -886,6 +889,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
@@ -1168,6 +1172,8 @@ construct_runtime!(
 		// Bridge utilities.
 		ToRococoXcmRouter: pallet_xcm_bridge_router::<Instance1> = 34,
 		MessageQueue: pallet_message_queue = 35,
+		// Snowbridge
+		SnowbridgeSystemFrontend: snowbridge_pallet_system_frontend = 36,
 
 		// Handy utilities.
 		Utility: pallet_utility = 40,
@@ -1270,6 +1276,10 @@ pub type Migrations = (
 		ConstU32<50_000_000>,
 		Runtime,
 		TrustBackedAssetsInstance,
+	>,
+	pallet_session::migrations::v1::MigrateV0ToV1<
+		Runtime,
+		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
@@ -1492,6 +1502,7 @@ mod benches {
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		[snowbridge_pallet_system_frontend, SnowbridgeSystemFrontend]
 	);
 }
 
@@ -1735,8 +1746,8 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
@@ -1753,6 +1764,30 @@ impl_runtime_apis! {
 				AccountId,
 				xcm_config::LocationToAccountId,
 			>::convert_location(location)
+		}
+	}
+
+	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl xcm_runtime_apis::authorized_aliases::AuthorizedAliasersApi<Block> for Runtime {
+		fn authorized_aliasers(target: VersionedLocation) -> Result<
+			Vec<xcm_runtime_apis::authorized_aliases::OriginAliaser>,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::authorized_aliasers(target)
+		}
+		fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> Result<
+			bool,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::is_authorized_alias(origin, target)
 		}
 	}
 
@@ -1893,10 +1928,12 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
+			use frame_support::assert_ok;
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
@@ -2016,9 +2053,27 @@ impl_runtime_apis! {
 				}
 
 				fn get_asset() -> Asset {
+					use frame_benchmarking::whitelisted_caller;
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let account = whitelisted_caller();
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let asset_id = 1984;
+					assert_ok!(Assets::force_create(
+						RuntimeOrigin::root(),
+						asset_id.into(),
+						account.into(),
+						true,
+						1u128,
+					));
+					let amount = 1_000_000u128;
+					let asset_location = Location::new(0, [PalletInstance(50), GeneralIndex(u32::from(asset_id).into())]);
+
 					Asset {
-						id: AssetId(Location::parent()),
-						fun: Fungible(ExistentialDeposit::get()),
+						id: AssetId(asset_location),
+						fun: Fungible(amount),
 					}
 				}
 			}
@@ -2097,9 +2152,26 @@ impl_runtime_apis! {
 				type TrustedReserve = TrustedReserve;
 
 				fn get_asset() -> Asset {
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let asset_id = 1984;
+					assert_ok!(Assets::force_create(
+						RuntimeOrigin::root(),
+						asset_id.into(),
+						account.clone().into(),
+						true,
+						1u128,
+					));
+					let amount = 1_000_000u128;
+					let asset_location = Location::new(0, [PalletInstance(50), GeneralIndex(u32::from(asset_id).into())]);
+
 					Asset {
-						id: AssetId(WestendLocation::get()),
-						fun: Fungible(UNITS),
+						id: AssetId(asset_location),
+						fun: Fungible(amount),
 					}
 				}
 			}
@@ -2113,7 +2185,54 @@ impl_runtime_apis! {
 				}
 
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					let native_asset_location = WestendLocation::get();
+					let native_asset_id = AssetId(native_asset_location.clone());
+					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+					let origin = RuntimeOrigin::signed(account.clone());
+					let asset_location = Location::new(1, [Parachain(2001)]);
+					let asset_id = AssetId(asset_location.clone());
+
+					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+						&account,
+						ExistentialDeposit::get() + (1_000 * UNITS)
+					));
+
+					assert_ok!(ForeignAssets::force_create(
+						RuntimeOrigin::root(),
+						asset_location.clone().into(),
+						account.clone().into(),
+						true,
+						1,
+					));
+
+					assert_ok!(ForeignAssets::mint(
+						origin.clone(),
+						asset_location.clone().into(),
+						account.clone().into(),
+						3_000 * UNITS,
+					));
+
+					assert_ok!(AssetConversion::create_pool(
+						origin.clone(),
+						native_asset_location.clone().into(),
+						asset_location.clone().into(),
+					));
+
+					assert_ok!(AssetConversion::add_liquidity(
+						origin,
+						native_asset_location.into(),
+						asset_location.into(),
+						1_000 * UNITS,
+						2_000 * UNITS,
+						1,
+						1,
+						account.into(),
+					));
+
+					let give_assets: XcmAssets = (native_asset_id, 500 * UNITS).into();
+					let receive_assets: XcmAssets = (asset_id, 660 * UNITS).into();
+
+					Ok((give_assets, receive_assets))
 				}
 
 				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
@@ -2193,15 +2312,6 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
-		}
-	}
-
-	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
-		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
-			PolkadotXcm::is_trusted_reserve(asset, location)
-		}
-		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
-			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
 
@@ -2360,11 +2470,15 @@ impl_runtime_apis! {
 		{
 			use pallet_revive::tracing::trace;
 			let mut tracer = config.build(Revive::evm_gas_from_weight);
-			trace(&mut tracer, || {
-				Self::eth_transact(tx)
-			})?;
+			let result = trace(&mut tracer, || Self::eth_transact(tx));
 
-			Ok(tracer.collect_traces().pop().expect("eth_transact succeeded, trace must exist, qed"))
+			if let Some(trace) = tracer.collect_traces().pop() {
+				Ok(trace)
+			} else if let Err(err) = result {
+				Err(err)
+			} else {
+				Ok(Default::default())
+			}
 		}
 	}
 }

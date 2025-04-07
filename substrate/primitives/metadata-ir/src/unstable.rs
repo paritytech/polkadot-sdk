@@ -20,8 +20,8 @@
 use crate::{
 	DeprecationInfoIR, DeprecationStatusIR, OuterEnumsIR, PalletAssociatedTypeMetadataIR,
 	PalletCallMetadataIR, PalletConstantMetadataIR, PalletErrorMetadataIR, PalletEventMetadataIR,
-	PalletStorageMetadataIR, PalletViewFunctionMethodMetadataIR,
-	PalletViewFunctionMethodParamMetadataIR, StorageEntryMetadataIR,
+	PalletStorageMetadataIR, PalletViewFunctionMetadataIR, PalletViewFunctionParamMetadataIR,
+	StorageEntryMetadataIR,
 };
 
 use super::types::{
@@ -59,6 +59,7 @@ impl From<RuntimeApiMetadataIR> for RuntimeApiMetadata {
 			methods: ir.methods.into_iter().map(Into::into).collect(),
 			docs: ir.docs,
 			deprecation_info: ir.deprecation_info.into(),
+			version: ir.version.into(),
 		}
 	}
 }
@@ -145,8 +146,8 @@ impl From<PalletCallMetadataIR> for PalletCallMetadata {
 	}
 }
 
-impl From<PalletViewFunctionMethodMetadataIR> for PalletViewFunctionMetadata {
-	fn from(ir: PalletViewFunctionMethodMetadataIR) -> Self {
+impl From<PalletViewFunctionMetadataIR> for PalletViewFunctionMetadata {
+	fn from(ir: PalletViewFunctionMetadataIR) -> Self {
 		PalletViewFunctionMetadata {
 			name: ir.name,
 			id: ir.id,
@@ -158,8 +159,8 @@ impl From<PalletViewFunctionMethodMetadataIR> for PalletViewFunctionMetadata {
 	}
 }
 
-impl From<PalletViewFunctionMethodParamMetadataIR> for PalletViewFunctionParamMetadata {
-	fn from(ir: PalletViewFunctionMethodParamMetadataIR) -> Self {
+impl From<PalletViewFunctionParamMetadataIR> for PalletViewFunctionParamMetadata {
+	fn from(ir: PalletViewFunctionParamMetadataIR) -> Self {
 		PalletViewFunctionParamMetadata { name: ir.name, ty: ir.ty }
 	}
 }

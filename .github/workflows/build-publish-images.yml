@@ -6,7 +6,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -18,7 +18,10 @@ jobs:
   #
   #
   #
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   ### Build ########################
@@ -263,6 +266,9 @@ jobs:
           path: artifacts.tar
           retention-days: 1
 
+
+  ### Build zombienet test artifacts ########################
+
   #
   #
   #
@@ -282,6 +288,66 @@ jobs:
         run: |
           mkdir -p ./artifacts/bridges-polkadot-sdk/bridges
           cp -r bridges/testing ./artifacts/bridges-polkadot-sdk/bridges/testing
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  prepare-polkadot-zombienet-artifacts:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          forklift cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --locked --features zombie-metadata,zombie-ci --archive-file polkadot-zombienet-tests.tar.zst
+      - name: pack artifacts
+        run: |
+          mkdir -p artifacts
+          cp polkadot-zombienet-tests.tar.zst ./artifacts
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          path: artifacts.tar
+          retention-days: 1
+
+  #
+  #
+  #
+  prepare-cumulus-zombienet-artifacts:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          forklift cargo nextest --manifest-path cumulus/zombienet/zombienet-sdk/Cargo.toml archive --locked --features zombie-ci --archive-file cumulus-zombienet-tests.tar.zst
+      - name: pack artifacts
+        run: |
+          mkdir -p artifacts
+          cp cumulus-zombienet-tests.tar.zst ./artifacts
 
       - name: tar
         run: tar -cvf artifacts.tar artifacts

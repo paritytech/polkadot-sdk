@@ -45,12 +45,6 @@ xcm-runtime-apis = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
 pallet-xcm-bridge-router = { workspace = true }
 
-[dev-dependencies]
-hex-literal = { workspace = true, default-features = true }
-
-[build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 std = [
