@@ -27,8 +27,7 @@ use assets_common::{
 use frame_support::{
 	parameter_types,
 	traits::{
-		tokens::imbalance::{ResolveAssetTo, ResolveTo},
-		ConstU32, Contains, Equals, Everything, PalletInfoAccess,
+		fungible::HoldConsideration, tokens::imbalance::{ResolveAssetTo, ResolveTo}, ConstU32, Contains, Equals, Everything, LinearStoragePrice, PalletInfoAccess
 	},
 };
 use frame_system::EnsureRoot;
@@ -554,6 +553,10 @@ pub type XcmRouter = WithUniqueTopic<(
 
 parameter_types! {
 	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
+
+	pub const DepositPerItem: Balance = crate::deposit(1, 0);
+	pub const DepositPerByte: Balance = crate::deposit(0, 1);
+	pub const AuthorizeAliasHoldReason: crate::RuntimeHoldReason = crate::RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
 }
 
 impl pallet_xcm::Config for Runtime {
@@ -584,6 +587,12 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	type AuthorizedAliasConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		AuthorizeAliasHoldReason,
+		LinearStoragePrice<DepositPerItem, DepositPerByte, Balance>,
+	>;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

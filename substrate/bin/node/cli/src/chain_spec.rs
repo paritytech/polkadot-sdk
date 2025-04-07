@@ -338,7 +338,6 @@ pub fn testnet_genesis(
 		root_key,
 		endowed_accounts,
 		stakers,
-		staking_playground_config,
 	)
 }
 

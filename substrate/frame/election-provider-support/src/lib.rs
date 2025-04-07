@@ -381,7 +381,6 @@ pub trait ElectionDataProvider {
 	/// [`ElectionProvider::elect`].
 	///
 	/// This is only useful for stateful election providers.
-	#[deprecated(note = "Use `ElectionProvider::start` instead.")]
 	fn next_election_prediction(now: Self::BlockNumber) -> Self::BlockNumber;
 
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,

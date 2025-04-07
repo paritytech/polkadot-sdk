@@ -24,7 +24,7 @@ use kitchensink_runtime::{
 	RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus, StakingConfig,
 };
 use sp_keyring::Ed25519Keyring;
-use sp_runtime::{BoundedVec, Perbill};
+use sp_runtime::Perbill;
 
 /// Create genesis runtime configuration for tests.
 pub fn config() -> RuntimeGenesisConfig {
