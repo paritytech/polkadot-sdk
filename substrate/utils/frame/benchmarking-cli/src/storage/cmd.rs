@@ -125,7 +125,7 @@ pub struct StorageParams {
 	/// should be activated.
 	///
 	/// Hence, when generating weights for a parachain this should be activated and when generating
-	/// a weight for a standalone chain this should be deactivated.
+	/// weights for a standalone chain this should be deactivated.
 	#[arg(long, default_value = "false")]
 	pub disable_pov_recorder: bool,
 
