@@ -15,6 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::{cmd::StorageCmd, get_wasm_module};
+use crate::shared::{new_rng, BenchRecord};
+use codec::Encode;
+use cumulus_pallet_parachain_system::validate_block::StorageAccessParams;
 use log::info;
 use rand::prelude::*;
 use sc_cli::{Error, Result};
@@ -23,9 +27,6 @@ use sp_api::CallApiAt;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::{backend::AsTrieBackend, Backend};
 use std::{fmt::Debug, sync::Arc, time::Instant};
-
-use super::{cmd::StorageCmd, get_wasm_module};
-use crate::shared::{new_rng, BenchRecord};
 
 impl StorageCmd {
 	/// Benchmarks the time it takes to read a single Storage item.
@@ -79,31 +80,116 @@ impl StorageCmd {
 				},
 				_ => {
 					// regular key
-					// let start = Instant::now();
+					let start = Instant::now();
 					on_validation_batch.push(key.clone());
 					let v = backend
 						.storage(key.0.as_ref())
 						.expect("Checked above to exist")
 						.ok_or("Value unexpectedly empty")?;
 					on_validation_size += v.len();
-					// record.append(v.len(), start.elapsed())?;
+					if !self.params.on_block_validation {
+						record.append(v.len(), start.elapsed())?;
+					}
 				},
 			}
 			read_in_batch += 1;
 
 			// Read keys on block validation
-			if on_validation_batch.len() >= self.params.batch_size {
+			if on_validation_batch.len() >= self.params.batch_size &&
+				self.params.on_block_validation
+			{
 				let root = backend.root();
-				let pov = recorder_clone.clone().map(|r| r.drain_storage_proof());
+				let storage_proof = recorder_clone
+					.clone()
+					.map(|r| r.drain_storage_proof())
+					.expect("Storage proof must exist for block validation");
 				info!(
 					"POV: len {:?} {:?}",
-					pov.as_ref().map(|p| p.len()),
-					pov.clone().map(|p| p.encoded_compact_size::<HashingFor<B>>(*root))
+					storage_proof.len(),
+					storage_proof.clone().encoded_compact_size::<HashingFor<B>>(*root)
 				);
 
-				if let Some(storage_proof) = pov {
-					use codec::Encode;
-					use cumulus_pallet_parachain_system::validate_block::StorageAccessParams;
+				info!("validate_block with {} keys", on_validation_batch.len());
+				let wasm_module = get_wasm_module();
+				let mut instance = wasm_module.new_instance().unwrap();
+				let compact = storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
+				let params =
+					StorageAccessParams::<B>::new_read(*root, compact, on_validation_batch.clone());
+
+				// Dry run to get the time it takes without storage access
+				let dry_run_encoded = params.as_dry_run().encode();
+				let dry_run_start = Instant::now();
+				instance.call_export("validate_block", &dry_run_encoded).unwrap();
+				let dry_run_elapsed = dry_run_start.elapsed();
+				info!("validate_block dry-run time {:?}", dry_run_elapsed);
+
+				let encoded = params.encode();
+				let start = Instant::now();
+				instance.call_export("validate_block", &encoded).unwrap();
+				let elapsed = start.elapsed();
+				info!("validate_block time {:?}", elapsed);
+				record.append(
+					on_validation_size / on_validation_batch.len(),
+					std::time::Duration::from_nanos(
+						(elapsed - dry_run_elapsed).as_nanos() as u64 /
+							on_validation_batch.len() as u64,
+					),
+				)?;
+
+				on_validation_batch = vec![];
+				on_validation_size = 0;
+			}
+
+			if read_in_batch >= self.params.batch_size {
+				// Using a new recorder for every read vs using the same for the entire batch
+				// produces significant different results. Since in the real use case we use a
+				// single recorder per block, simulate the same behavior by creating a new
+				// recorder every batch size, so that the amortized cost of reading a key is
+				// measured in conditions closer to the real world.
+				let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
+				recorder_clone = recorder.clone();
+				state = client
+					.state_at(best_hash)
+					.map_err(|_err| Error::Input("State not found".to_string()))?;
+				as_trie_backend = state.as_trie_backend();
+				backend = sp_state_machine::TrieBackendBuilder::wrap(&as_trie_backend)
+					.with_optional_recorder(recorder)
+					.build();
+				read_in_batch = 0;
+			}
+		}
+
+		if self.params.include_child_trees {
+			child_nodes.shuffle(&mut rng);
+
+			info!("Reading {} child keys", child_nodes.len());
+			for (key, info) in child_nodes.as_slice() {
+				let start = Instant::now();
+				on_validation_batch.push(key.clone());
+				let v = backend
+					.child_storage(info, key.0.as_ref())
+					.expect("Checked above to exist")
+					.ok_or("Value unexpectedly empty")?;
+				on_validation_size += v.len();
+				if !self.params.on_block_validation {
+					record.append(v.len(), start.elapsed())?;
+				}
+				read_in_batch += 1;
+
+				// Read child keys on block validation
+				if on_validation_batch.len() >= self.params.batch_size &&
+					self.params.on_block_validation
+				{
+					let root = backend.root();
+					let storage_proof = recorder_clone
+						.clone()
+						.map(|r| r.drain_storage_proof())
+						.expect("Storage proof must exist for block validation");
+					info!(
+						"POV: len {:?} {:?}",
+						storage_proof.len(),
+						storage_proof.clone().encoded_compact_size::<HashingFor<B>>(*root)
+					);
 
 					info!("validate_block with {} keys", on_validation_batch.len());
 					let wasm_module = get_wasm_module();
@@ -134,90 +220,7 @@ impl StorageCmd {
 								on_validation_batch.len() as u64,
 						),
 					)?;
-				}
-				on_validation_batch = vec![];
-				on_validation_size = 0;
-			}
 
-			if read_in_batch >= self.params.batch_size {
-				// Using a new recorder for every read vs using the same for the entire batch
-				// produces significant different results. Since in the real use case we use a
-				// single recorder per block, simulate the same behavior by creating a new
-				// recorder every batch size, so that the amortized cost of reading a key is
-				// measured in conditions closer to the real world.
-				let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
-				recorder_clone = recorder.clone();
-				state = client
-					.state_at(best_hash)
-					.map_err(|_err| Error::Input("State not found".to_string()))?;
-				as_trie_backend = state.as_trie_backend();
-				backend = sp_state_machine::TrieBackendBuilder::wrap(&as_trie_backend)
-					.with_optional_recorder(recorder)
-					.build();
-				read_in_batch = 0;
-			}
-		}
-		// TODO: implement detecting and reading child keys in the runtime
-		if self.params.include_child_trees {
-			child_nodes.shuffle(&mut rng);
-
-			info!("Reading {} child keys", child_nodes.len());
-			for (key, info) in child_nodes.as_slice() {
-				// let start = Instant::now();
-				on_validation_batch.push(key.clone());
-				let v = backend
-					.child_storage(info, key.0.as_ref())
-					.expect("Checked above to exist")
-					.ok_or("Value unexpectedly empty")?;
-				on_validation_size += v.len();
-				// record.append(v.len(), start.elapsed())?;
-				read_in_batch += 1;
-
-				// Read child keys on block validation
-				if on_validation_batch.len() >= self.params.batch_size {
-					let root = backend.root();
-					let pov = recorder_clone.clone().map(|r| r.drain_storage_proof());
-					info!(
-						"POV: len {:?} {:?}",
-						pov.as_ref().map(|p| p.len()),
-						pov.clone().map(|p| p.encoded_compact_size::<HashingFor<B>>(*root))
-					);
-
-					if let Some(storage_proof) = pov {
-						use codec::Encode;
-						use cumulus_pallet_parachain_system::validate_block::StorageAccessParams;
-
-						info!("validate_block with {} keys", on_validation_batch.len());
-						let wasm_module = get_wasm_module();
-						let mut instance = wasm_module.new_instance().unwrap();
-						let compact =
-							storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
-						let params = StorageAccessParams::<B>::new_read(
-							*root,
-							compact,
-							on_validation_batch.clone(),
-						);
-
-						// Dry run to get the time it takes without storage access
-						let dry_run_encoded = params.as_dry_run().encode();
-						let dry_run_start = Instant::now();
-						instance.call_export("validate_block", &dry_run_encoded).unwrap();
-						let dry_run_elapsed = dry_run_start.elapsed();
-						info!("validate_block dry-run time {:?}", dry_run_elapsed);
-
-						let encoded = params.encode();
-						let start = Instant::now();
-						instance.call_export("validate_block", &encoded).unwrap();
-						let elapsed = start.elapsed();
-						info!("validate_block time {:?}", elapsed);
-						record.append(
-							on_validation_size / on_validation_batch.len(),
-							std::time::Duration::from_nanos(
-								(elapsed - dry_run_elapsed).as_nanos() as u64 /
-									on_validation_batch.len() as u64,
-							),
-						)?;
-					}
 					on_validation_batch = vec![];
 					on_validation_size = 0;
 				}
@@ -238,49 +241,6 @@ impl StorageCmd {
 						.build();
 					read_in_batch = 0;
 				}
-			}
-		}
-
-		// Read rest of the keys which are less tham a batch size
-		if !on_validation_batch.is_empty() {
-			let root = backend.root();
-			let pov = recorder_clone.clone().map(|r| r.drain_storage_proof());
-			info!(
-				"POV: len {:?} {:?}",
-				pov.as_ref().map(|p| p.len()),
-				pov.clone().map(|p| p.encoded_compact_size::<HashingFor<B>>(*root))
-			);
-
-			if let Some(storage_proof) = pov {
-				use codec::Encode;
-				use cumulus_pallet_parachain_system::validate_block::StorageAccessParams;
-
-				info!("validate_block with {} keys", on_validation_batch.len());
-				let wasm_module = get_wasm_module();
-				let mut instance = wasm_module.new_instance().unwrap();
-				let compact = storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
-				let params =
-					StorageAccessParams::<B>::new_read(*root, compact, on_validation_batch.clone());
-
-				// Dry run to get the time it takes without storage access
-				let dry_run_encoded = params.as_dry_run().encode();
-				let dry_run_start = Instant::now();
-				instance.call_export("validate_block", &dry_run_encoded).unwrap();
-				let dry_run_elapsed = dry_run_start.elapsed();
-				info!("validate_block dry-run time {:?}", dry_run_elapsed);
-
-				let encoded = params.encode();
-				let start = Instant::now();
-				instance.call_export("validate_block", &encoded).unwrap();
-				let elapsed = start.elapsed();
-				info!("validate_block time {:?}", elapsed);
-				record.append(
-					on_validation_size / on_validation_batch.len(),
-					std::time::Duration::from_nanos(
-						(elapsed - dry_run_elapsed).as_nanos() as u64 /
-							on_validation_batch.len() as u64,
-					),
-				)?;
 			}
 		}
 
