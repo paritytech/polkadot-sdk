@@ -37,8 +37,8 @@ use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
 	DropAssets, Enact, EventEmitter, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
 	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
-	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
-	XcmAssetTransfers,
+	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightFee,
+	WeightTrader, XcmAssetTransfers,
 };
 
 pub use traits::RecordXcm;
@@ -519,7 +519,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			"Refunding surplus",
 		);
 
-		self.refund_weight(current_surplus);
+		if let Some(refund @ (_, amount)) = self.refund_weight(current_surplus) {
+			if amount != 0 {
+				// != 0 to avoid inserting zero amount into holding if asset is not present there
+				self.holding.subsume(refund.into());
+			}
+		}
 
 		// If there are any leftover `fees`, merge them with `holding`.
 		if !self.fees.is_empty() {
@@ -533,15 +538,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(())
 	}
 
-	fn refund_weight(&mut self, xcm_weight: Weight) {
+	fn refund_weight(&mut self, xcm_weight: Weight) -> Option<(AssetId, u128)> {
 		if !xcm_weight.any_gt(Weight::zero()) {
 			// Nothing to refund
-			return;
+			return None;
 		}
 
 		let Some(mut fee_payment) = self.fee_payment.as_ref().cloned() else {
 			// No asset was used to pay, nothing to refund
-			return;
+			return None;
 		};
 
 		if !self
@@ -550,53 +555,54 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			&& self.ensure_can_subsume_assets(1).is_err()
 		{
 			// The Holding Register can't subsume the refund asset
-			return;
+			return None;
 		}
 
-		let Ok((refund_asset_id, refund_amount)) = Config::Trader::weight_price(
+		let Some(refund_amount) = Config::Trader::refund_amount(
 			&xcm_weight,
 			&fee_payment.used_fee_asset_id,
+			fee_payment.paid_amount,
 			Some(&self.context),
 		) else {
-			return;
+			// Best effort
+			return None;
 		};
-
-		if refund_asset_id != fee_payment.used_fee_asset_id {
-			defensive!(
-				"refund_asset_id must be equal to used_fee_asset_id",
-				(&refund_asset_id, &fee_payment.used_fee_asset_id),
-			);
-			return;
-		}
 
 		let Some(decreased_paid) = fee_payment.paid_amount.checked_sub(refund_amount) else {
 			// Can't refund more than was paid
-			return;
+			return None;
 		};
+
+		if decreased_paid == 0 {
+			defensive!("refund shouldn't result in free execution");
+			return None;
+		}
 
 		let desired_asset_refund_amount;
 		if fee_payment.desired_fee_asset_id != fee_payment.used_fee_asset_id {
 			if let Some(desired_refund) = self.quote_and_exchange_exact_give(
-				(refund_asset_id, refund_amount).into(),
+				(fee_payment.used_fee_asset_id.clone(), refund_amount).into(),
 				fee_payment.desired_fee_asset_id.clone(),
 			) {
 				desired_asset_refund_amount = desired_refund;
 			} else {
 				// Can't exchange to get the desired refund asset
-				return;
+				return None;
 			}
 		} else {
 			desired_asset_refund_amount = refund_amount;
 		};
 
-		let refund_asset: Asset =
-			(fee_payment.desired_fee_asset_id.clone(), desired_asset_refund_amount).into();
-		self.holding.subsume(refund_asset);
+		if desired_asset_refund_amount != 0 {}
+
+		let refund = (fee_payment.desired_fee_asset_id.clone(), desired_asset_refund_amount);
 
 		self.total_refunded.saturating_accrue(xcm_weight);
 
 		fee_payment.paid_amount = decreased_paid;
 		self.fee_payment = Some(fee_payment);
+
+		Some(refund)
 	}
 
 	fn take_fee(&mut self, fees: Assets, reason: FeeReason) -> XcmResult {
@@ -1421,7 +1427,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let max_fee = max_fee_assets.into_assets_iter().next().ok_or(XcmError::TooExpensive)?;
 				let result = Config::TransactionalProcessor::process(|| {
 					let unspent = self.buy_weight(weight, max_fee)?;
-					self.holding.subsume_assets(unspent);
+					self.holding.subsume(unspent.into());
 					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
@@ -1456,7 +1462,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 					// Move unspent to the `fees` register, it can later be moved to holding
 					// by calling `RefundSurplus`.
-					self.fees.subsume_assets(unspent);
+					self.fees.subsume(unspent.into());
 					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
@@ -1775,30 +1781,58 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	fn buy_weight(
 		&mut self,
 		xcm_weight: Weight,
-		max_wanted_fees: Asset,
-	) -> Result<AssetsInHolding, XcmError> {
-		if let Fungible(max_amount) = max_wanted_fees.fun {
-			let wanted_fees_id = max_wanted_fees.id.clone();
-			let (required_fee_asset_id, required_fee_amount) = Config::Trader::weight_price(
+		max_desired_fees: Asset,
+	) -> Result<(AssetId, u128), XcmError> {
+		if let Fungible(max_amount) = max_desired_fees.fun {
+			let desired_fee_asset_id = max_desired_fees.id.clone();
+			let weight_fee = Config::Trader::weight_fee(
 				&xcm_weight,
-				&max_wanted_fees.id,
+				&desired_fee_asset_id,
 				Some(&self.context),
 			)?;
 
-			let unspent = if required_fee_asset_id != wanted_fees_id {
-				self.quote_and_exchange_max_want(
-					(max_wanted_fees.id.clone(), max_amount),
-					(required_fee_asset_id.clone(), required_fee_amount),
-				)
-				.ok_or(XcmError::FeesNotMet)?
-			} else {
-				max_amount.checked_sub(required_fee_amount).ok_or(XcmError::TooExpensive)?
-			};
+			let used_fee_asset_id;
+			let paid_amount;
+			let unspent;
+			match weight_fee {
+				WeightFee::Desired(required_fee_amount) => {
+					used_fee_asset_id = desired_fee_asset_id.clone();
+					paid_amount = required_fee_amount;
+					unspent = max_amount.checked_sub(paid_amount).ok_or(XcmError::TooExpensive)?;
+				},
+				WeightFee::Swap {
+					required_fee: (required_asset_id, required_amount),
+					swap_amount,
+				} => {
+					used_fee_asset_id = required_asset_id;
+					paid_amount = required_amount;
+
+					// Do not swap unless we have the needed amount
+					unspent = max_amount.checked_sub(swap_amount).ok_or(XcmError::TooExpensive)?;
+
+					let give: Asset = (desired_fee_asset_id.clone(), swap_amount).into();
+					let want: Asset = (used_fee_asset_id.clone(), required_amount).into();
+					Config::AssetExchanger::exchange_asset(
+						self.origin_ref(),
+						give.clone().into(),
+						&want.clone().into(),
+						false,
+					)
+					.map_err(|given_assets| {
+						tracing::error!(
+							target: "xcm::fees",
+							?given_assets, "buy_weight: couldn't swap the asset {:?} for {:?}", give, want,
+						);
+
+						XcmError::FeesNotMet
+					})?;
+				},
+			}
 
 			self.fee_payment = Some(FeePayment {
-				desired_fee_asset_id: wanted_fees_id,
-				used_fee_asset_id: required_fee_asset_id.clone(),
-				paid_amount: required_fee_amount,
+				desired_fee_asset_id: desired_fee_asset_id.clone(),
+				used_fee_asset_id: used_fee_asset_id.clone(),
+				paid_amount,
 			});
 
 			tracing::trace!(
@@ -1806,45 +1840,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				fee_payment = ?self.fee_payment
 			);
 
-			Ok(Asset { id: required_fee_asset_id, fun: Fungible(unspent) }.into())
+			Ok((desired_fee_asset_id, unspent))
 		} else {
 			Err(XcmError::FeesNotMet)
 		}
-	}
-
-	fn quote_and_exchange_max_want(
-		&self,
-		give: (AssetId, u128),
-		max_want: (AssetId, u128),
-	) -> Option<u128> {
-		let give_assets: Assets = Asset::from(give.clone()).into();
-		let want_assets: Assets = Asset::from(max_want).into();
-		let exchange_assets =
-			Config::AssetExchanger::quote_exchange_price(&give_assets, &want_assets, false)?
-				.into_inner();
-
-		let Some(Fungible(exchange_price)) = exchange_assets.get(0).map(|a| a.fun.clone()) else {
-			return None;
-		};
-
-		let (give_id, give_amount) = give;
-
-		let change = give_amount.checked_sub(exchange_price)?;
-
-		let to_exchange: AssetsInHolding = Asset::from((give_id, exchange_price)).into();
-		Config::AssetExchanger::exchange_asset(
-			self.origin_ref(),
-			to_exchange.clone(),
-			&want_assets,
-			false,
-		).inspect_err(|given_assets| {
-			tracing::error!(
-				target: "xcm::fees",
-				?given_assets, "quote_and_exchange_max_want: couldn't swap the asset {:?} for {:?}", to_exchange, want_assets,
-			);
-		}).ok()?;
-
-		Some(change)
 	}
 
 	fn quote_and_exchange_exact_give(&self, give: Asset, want_id: AssetId) -> Option<u128> {
@@ -1979,5 +1978,27 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			delivery_fee
 		});
 		Ok(maybe_delivery_fee)
+	}
+}
+
+impl<Config: config::Config> traits::weight_testing::TraderTest for XcmExecutor<Config> {
+	fn test_buy_weight(
+		&mut self,
+		weight: Weight,
+		max_payment: Asset,
+	) -> Result<(AssetId, u128), XcmError> {
+		self.buy_weight(weight, max_payment)
+	}
+
+	fn test_refund_weight(&mut self, weight: Weight) -> Option<(AssetId, u128)> {
+		self.refund_weight(weight)
+	}
+
+	fn test_take_fee(self) {
+		if let Some(fee_payment) = self.fee_payment {
+			if !Config::Trader::take_fee(&fee_payment.used_fee_asset_id, fee_payment.paid_amount) {
+				defensive!("The trader must take the fee");
+			}
+		}
 	}
 }

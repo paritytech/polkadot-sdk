@@ -28,7 +28,7 @@ use xcm_builder::{
 	SignedAccountId32AsNative, SignedToAccountId32, WithUniqueTopic,
 };
 use xcm_executor::{
-	traits::{TransactAsset, WeightTrader},
+	traits::{TransactAsset, WeightFee, WeightTrader},
 	AssetsInHolding,
 };
 
@@ -107,17 +107,16 @@ impl TransactAsset for DummyAssetTransactor {
 #[derive(Clone)]
 pub struct DummyWeightTrader;
 impl WeightTrader for DummyWeightTrader {
-	fn new() -> Self {
-		DummyWeightTrader
+	fn weight_fee(
+		_weight: &Weight,
+		_asset_id: &AssetId,
+		_context: Option<&XcmContext>,
+	) -> Result<WeightFee, XcmError> {
+		Ok(WeightFee::Desired(0))
 	}
 
-	fn buy_weight(
-		&mut self,
-		_weight: Weight,
-		_payment: AssetsInHolding,
-		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
+	fn take_fee(_asset_id: &AssetId, _amount: u128) -> bool {
+		true
 	}
 }
 

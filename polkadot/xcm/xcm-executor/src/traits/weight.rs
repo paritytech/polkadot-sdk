@@ -28,6 +28,15 @@ pub trait WeightBounds<RuntimeCall> {
 	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, ()>;
 }
 
+#[derive(Debug, Clone,PartialEq, Eq)]
+pub enum WeightFee {
+	Desired(u128),
+	Swap {
+		required_fee: (AssetId, u128),
+		swap_amount: u128,
+	}
+}
+
 // FIXME docs
 /// Get the weight price in order to buy it to execute XCM.
 ///
@@ -36,18 +45,25 @@ pub trait WeightBounds<RuntimeCall> {
 /// implementation of these two functions, in the order of which they appear in the tuple,
 /// returning early when a successful result is returned.
 pub trait WeightTrader {
-	fn weight_price(weight: &Weight, asset_id: &AssetId, context: Option<&XcmContext>) -> Result<(AssetId, u128), XcmError>;
+	fn weight_fee(weight: &Weight, desired_asset_id: &AssetId, context: Option<&XcmContext>) -> Result<WeightFee, XcmError>;
+
+	fn refund_amount(weight: &Weight, used_asset_id: &AssetId, paid_amount: u128, context: Option<&XcmContext>) -> Option<u128> {
+		Self::weight_fee(weight, used_asset_id, context)
+			.ok()
+			.map(|wf| if let WeightFee::Desired(amount) = wf { Some(amount) } else { None })
+			.flatten()
+	}
 
 	fn take_fee(asset_id: &AssetId, amount: u128) -> bool;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl WeightTrader for Tuple {
-	fn weight_price(weight: &Weight, asset_id: &AssetId, context: Option<&XcmContext>) -> Result<(AssetId, u128), XcmError> {
+	fn weight_fee(weight: &Weight, desired_asset_id: &AssetId, context: Option<&XcmContext>) -> Result<WeightFee, XcmError> {
 		for_tuples!( #(
 			let weight_trader = core::any::type_name::<Tuple>();
 			
-			match Tuple::weight_price(weight, asset_id, context) {
+			match Tuple::weight_fee(weight, desired_asset_id, context) {
 				Ok(fee) => {
 					tracing::trace!(
 						target: "xcm::weight_trader", 
@@ -76,6 +92,38 @@ impl WeightTrader for Tuple {
 		Err(XcmError::TooExpensive)
 	}
 
+	fn refund_amount(weight: &Weight, used_asset_id: &AssetId, paid_amount: u128, context: Option<&XcmContext>) -> Option<u128> {
+		for_tuples!( #(
+			let weight_trader = core::any::type_name::<Tuple>();
+			
+			match Tuple::refund_amount(weight, used_asset_id, paid_amount, context) {
+				Some(refund_amount) => {
+					tracing::trace!(
+						target: "xcm::weight_trader", 
+						%weight_trader,
+						"Getting refund amount succeeded",
+					);
+
+					return Some(refund_amount);
+				},
+				None => {
+					tracing::trace!(
+						target: "xcm::weight_trader", 
+						%weight_trader,
+						"Getting refund amount failed",
+					);
+				}
+			}
+		)* );
+
+		tracing::trace!(
+			target: "xcm::weight_trader",
+			"Getting refund amount failed",
+		);
+
+		None
+	}
+
 	fn take_fee(asset_id: &AssetId, amount: u128) -> bool {
 		for_tuples!( #(
 			let weight_trader = core::any::type_name::<Tuple>();
@@ -102,5 +150,19 @@ impl WeightTrader for Tuple {
 		);
 
 		false
+	}
+}
+
+// FIXME docs
+/// Must not be used in production
+pub mod testing {
+	use super::*;
+
+	pub trait TraderTest {
+		fn test_buy_weight(&mut self, weight: Weight, max_payment: Asset) -> Result<(AssetId, u128), XcmError>;
+
+		fn test_refund_weight(&mut self, weight: Weight) -> Option<(AssetId, u128)>;
+
+		fn test_take_fee(self);
 	}
 }

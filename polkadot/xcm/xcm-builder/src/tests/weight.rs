@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::assert_ok;
+use xcm_executor::traits::WeightFee;
+
 use super::*;
 
 #[test]
@@ -23,44 +26,29 @@ fn fixed_rate_of_fungible_should_work() {
 			(Here.into(), WEIGHT_REF_TIME_PER_SECOND.into(), WEIGHT_PROOF_SIZE_PER_MB.into());
 	}
 
-	let mut trader = FixedRateOfFungible::<WeightPrice, ()>::new();
+	type Trader = FixedRateOfFungible<WeightPrice, ()>;
 	let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
-	// supplies 100 unit of asset, 80 still remains after purchasing weight
-	assert_eq!(
-		trader.buy_weight(
-			Weight::from_parts(10, 10),
-			fungible_multi_asset(Here.into(), 100).into(),
-			&ctx,
-		),
-		Ok(fungible_multi_asset(Here.into(), 80).into()),
+	// Correctly computes the fee
+	assert_ok!(
+		Trader::weight_fee(&Weight::from_parts(10, 10), &Here.into(), Some(&ctx),),
+		WeightFee::Desired(20),
 	);
-	// should have nothing left, as 5 + 5 = 10, and we supplied 10 units of asset.
-	assert_eq!(
-		trader.buy_weight(
-			Weight::from_parts(5, 5),
-			fungible_multi_asset(Here.into(), 10).into(),
-			&ctx,
-		),
-		Ok(vec![].into()),
+
+	assert_ok!(
+		Trader::weight_fee(&Weight::from_parts(5, 5), &Here.into(), Some(&ctx),),
+		WeightFee::Desired(10),
 	);
-	// should have 5 left, as there are no proof size components
-	assert_eq!(
-		trader.buy_weight(
-			Weight::from_parts(5, 0),
-			fungible_multi_asset(Here.into(), 10).into(),
-			&ctx,
-		),
-		Ok(fungible_multi_asset(Here.into(), 5).into()),
+
+	assert_ok!(
+		Trader::weight_fee(&Weight::from_parts(5, 0), &Here.into(), Some(&ctx),),
+		WeightFee::Desired(5),
 	);
-	// not enough to purchase the combined weights
+
+	// Won't accept unknown token
 	assert_err!(
-		trader.buy_weight(
-			Weight::from_parts(5, 5),
-			fungible_multi_asset(Here.into(), 5).into(),
-			&ctx,
-		),
-		XcmError::TooExpensive,
+		Trader::weight_fee(&Weight::from_parts(10, 10), &Parachain(1).into(), Some(&ctx)),
+		XcmError::FeesNotMet,
 	);
 }
 
@@ -188,7 +176,7 @@ fn weight_trader_tuple_should_work() {
 		pub static HereWeightPrice: (AssetId, u128, u128) =
 			(Here.into(), WEIGHT_REF_TIME_PER_SECOND.into(), WEIGHT_PROOF_SIZE_PER_MB.into());
 		pub static Para1WeightPrice: (AssetId, u128, u128) =
-			(Parachain(1).into(), WEIGHT_REF_TIME_PER_SECOND.into(), WEIGHT_PROOF_SIZE_PER_MB.into());
+			(Parachain(1).into(), (5 * WEIGHT_REF_TIME_PER_SECOND).into(), (5 * WEIGHT_PROOF_SIZE_PER_MB).into());
 	}
 
 	type Traders = (
@@ -198,46 +186,23 @@ fn weight_trader_tuple_should_work() {
 		FixedRateOfFungible<Para1WeightPrice, ()>,
 	);
 
-	let mut traders = Traders::new();
 	let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
-	// trader one buys weight
-	assert_eq!(
-		traders.buy_weight(
-			Weight::from_parts(5, 5),
-			fungible_multi_asset(Here.into(), 10).into(),
-			&ctx
-		),
-		Ok(vec![].into()),
-	);
-	// trader one refunds
-	assert_eq!(
-		traders.refund_weight(Weight::from_parts(2, 2), &ctx),
-		Some(fungible_multi_asset(Here.into(), 4))
+	// the first trader computes the weight fee
+	assert_ok!(
+		Traders::weight_fee(&Weight::from_parts(5, 5), &Here.into(), Some(&ctx)),
+		WeightFee::Desired(10),
 	);
 
-	let mut traders = Traders::new();
-	// trader one failed; trader two buys weight
-	assert_eq!(
-		traders.buy_weight(
-			Weight::from_parts(5, 5),
-			fungible_multi_asset(para_1.clone(), 10).into(),
-			&ctx
-		),
-		Ok(vec![].into()),
-	);
-	// trader two refunds
-	assert_eq!(
-		traders.refund_weight(Weight::from_parts(2, 2), &ctx),
-		Some(fungible_multi_asset(para_1, 4))
+	// the second trader computes the weight fee
+	assert_ok!(
+		Traders::weight_fee(&Weight::from_parts(5, 5), &para_1.into(), Some(&ctx)),
+		WeightFee::Desired(50),
 	);
 
-	let mut traders = Traders::new();
-	// all traders fails
+	// unknown asset, all traders fail to compute the weight fee
 	assert_err!(
-		traders.buy_weight(Weight::from_parts(5, 5), fungible_multi_asset(para_2, 10).into(), &ctx),
+		Traders::weight_fee(&Weight::from_parts(5, 5), &para_2.into(), Some(&ctx)),
 		XcmError::TooExpensive,
 	);
-	// and no refund
-	assert_eq!(traders.refund_weight(Weight::from_parts(2, 2), &ctx), None);
 }
