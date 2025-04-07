@@ -50,7 +50,7 @@ impl ReceiptExtractor {
 		Self { native_to_eth_ratio, earliest_receipt_block }
 	}
 
-	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] and  from an extrinsic.
+	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
 	async fn extract_from_extrinsic(
 		&self,
 		block: &SubstrateBlock,
@@ -139,7 +139,7 @@ impl ReceiptExtractor {
 		Ok((signed_tx, receipt))
 	}
 
-	///  Extract receipts from block.
+	/// Extract receipts from block.
 	pub async fn extract_from_block(
 		&self,
 		block: &SubstrateBlock,
@@ -170,7 +170,7 @@ impl ReceiptExtractor {
 			.collect::<Result<Vec<_>, _>>()
 	}
 
-	///  Extract receipt from transaction
+	/// Extract receipt from transaction
 	pub async fn extract_from_transaction(
 		&self,
 		block: &SubstrateBlock,
