@@ -703,7 +703,7 @@ impl Notifications {
 					self.events.push_back(ToSwarm::NotifyHandler {
 						peer_id,
 						handler: NotifyHandler::One(*connec_id),
-						event: NotifsHandlerIn::Open { protocol_index: set_id.into() },
+						event: NotifsHandlerIn::Open { protocol_index: set_id.into(), peer_id },
 					});
 					*connec_state = ConnectionState::Opening;
 					*occ_entry.into_mut() = PeerState::Enabled { connections };
@@ -1062,7 +1062,10 @@ impl Notifications {
 					self.events.push_back(ToSwarm::NotifyHandler {
 						peer_id: incoming.peer_id,
 						handler: NotifyHandler::One(*connec_id),
-						event: NotifsHandlerIn::Open { protocol_index: incoming.set_id.into() },
+						event: NotifsHandlerIn::Open {
+							protocol_index: incoming.set_id.into(),
+							peer_id: incoming.peer_id,
+						},
 					});
 					*connec_state = ConnectionState::Opening;
 				}
@@ -1260,7 +1263,10 @@ impl NetworkBehaviour for Notifications {
 							self.events.push_back(ToSwarm::NotifyHandler {
 								peer_id,
 								handler: NotifyHandler::One(connection_id),
-								event: NotifsHandlerIn::Open { protocol_index: set_id.into() },
+								event: NotifsHandlerIn::Open {
+									protocol_index: set_id.into(),
+									peer_id,
+								},
 							});
 
 							let mut connections = SmallVec::new();
@@ -1672,6 +1678,7 @@ impl NetworkBehaviour for Notifications {
 			FromSwarm::ExternalAddrConfirmed(_) => {},
 			FromSwarm::AddressChange(_) => {},
 			FromSwarm::NewListenAddr(_) => {},
+			FromSwarm::NewExternalAddrOfPeer(_) => {},
 			event => {
 				warn!(target: "sub-libp2p", "New unknown `FromSwarm` libp2p event: {event:?}");
 			},
@@ -1762,7 +1769,10 @@ impl NetworkBehaviour for Notifications {
 								self.events.push_back(ToSwarm::NotifyHandler {
 									peer_id,
 									handler: NotifyHandler::One(connection_id),
-									event: NotifsHandlerIn::Open { protocol_index: set_id.into() },
+									event: NotifsHandlerIn::Open {
+										protocol_index: set_id.into(),
+										peer_id,
+									},
 								});
 								*connec_state = ConnectionState::Opening;
 							} else {
@@ -1849,7 +1859,10 @@ impl NetworkBehaviour for Notifications {
 								self.events.push_back(ToSwarm::NotifyHandler {
 									peer_id,
 									handler: NotifyHandler::One(connection_id),
-									event: NotifsHandlerIn::Open { protocol_index: set_id.into() },
+									event: NotifsHandlerIn::Open {
+										protocol_index: set_id.into(),
+										peer_id,
+									},
 								});
 								*connec_state = ConnectionState::Opening;
 
@@ -2336,7 +2349,7 @@ impl NetworkBehaviour for Notifications {
 						self.events.push_back(ToSwarm::NotifyHandler {
 							peer_id,
 							handler: NotifyHandler::One(*connec_id),
-							event: NotifsHandlerIn::Open { protocol_index: set_id.into() },
+							event: NotifsHandlerIn::Open { protocol_index: set_id.into(), peer_id },
 						});
 						*connec_state = ConnectionState::Opening;
 						*peer_state = PeerState::Enabled { connections: mem::take(connections) };
