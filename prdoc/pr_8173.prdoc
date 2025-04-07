@@ -1,10 +1,7 @@
-title: expose current advertised xcm version
+title: Expose current advertised xcm version
 doc:
-- audience: Runtime Dev
-  description: Right now there is no "easy" way of knowing what is the currently supported
-    xcm version without looking at the code or the metadata. Since pallet-xcm already
-    has a constant to detect the latest advertised version, there is no reason (I
-    think) to not expose it as a constant
+- audience: Runtime User
+  description: Exposes `AdvertisedXcmVersion` via a metadata constant.
 crates:
 - name: pallet-xcm
   bump: patch
