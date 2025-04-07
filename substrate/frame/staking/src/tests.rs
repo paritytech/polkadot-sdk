@@ -4667,18 +4667,20 @@ fn validator_existence_check() {
 	ExtBuilder::default().build_and_execute(|| {
 		mock::start_active_era(1);
 
-		 // Given: 11 is an active validator for Era 1
+		// Given: 11 is an active validator for Era 1
 		assert!(ErasStakersOverview::<Test>::get(1, 11).is_some());
 
 		// And: 31 is not an active validator for Era 1
 		assert!(ErasStakersOverview::<Test>::get(1, 31).is_none());
 
 		// Then: 11 converts to Exists.
-		assert_eq!(ExistenceOrLegacyExposureOf::<Test>::convert(11), Some(ExistenceOrLegacyExposure::Exists));
+		assert_eq!(
+			ExistenceOrLegacyExposureOf::<Test>::convert(11),
+			Some(ExistenceOrLegacyExposure::Exists)
+		);
 
 		// And: 31 converts to None (Not Exists).
 		assert_eq!(ExistenceOrLegacyExposureOf::<Test>::convert(31), None);
-
 	});
 }
 
