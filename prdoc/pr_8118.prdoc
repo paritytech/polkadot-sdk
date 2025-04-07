@@ -1,19 +1,54 @@
-title: Fix compilation through explicit conversions
+title: ' Fix compilation by making conversions explicit'
 doc:
-- audience: [Node Dev, Runtime Dev]
+- audience: Todo
   description: |-
-    Fix various compilation issues for crates in polkadot-sdk which are consumed by the templates.
+    # Description
 
+    Syncing templates for stable2412-4 fails for each template because of compilation issues like we've seen here: https://github.com/paritytech/polkadot-sdk/pull/8094. Failing PRs given in the Review Notes section.
+
+    This fixes compilation of downstream usage of the crates based on master. We should backport to `stable2412` & `stable2503`. I used rustc 1.84.1 to test the fixes.
+
+    Closes #8007
+
+    ## Integration
+
+    N/A
+
+    ## Review Notes
+
+    The changes in this PR were backported  locally on top of `stable2412` and then path dependencies were added in the following PRs (opened after syncing them with stable2412-4) for each template's monorepo dependencies:
+
+    1. https://github.com/paritytech/polkadot-sdk-parachain-template/pull/26.  We can not sync templates for parachain-template for stable2412-4 until stable2412-5 (which should include this PR backported), but we can still sync it for past patches (1,2,3) if we would use the `polkadot-sdk` 0.12.2 (published with stable2412-4). So it would be a mix of crates published over a few patches, but it doesn't matter to users, since we don't version the templates repos (we try to keep them in sync with latest & greatest).
+    2. https://github.com/paritytech/polkadot-sdk-minimal-template/pull/22 - can not merge due to compilation issues, which should be fixed with stable2412-5 if this PR gets backported to stable2412 branch by then.
+    3. https://github.com/paritytech/polkadot-sdk-solochain-template/pull/23 - can not merge due to compilation issues, which should be fixed with stable2412-5 if this PR gets backported to stable2412 branch by then.
+
+    **NOTE**: For next stable releases we should double check each template builds correctly with path dependencies based on the stable release just before publishing the crates from there. A CI job that does this automatically might be added by then: https://github.com/paritytech/polkadot-sdk/issues/8123.
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
 - name: pallet-bridge-parachains
-  bump: patch
+  bump: major
 - name: polkadot-node-core-chain-selection
-  bump: patch
+  bump: major
 - name: polkadot-runtime-common
-  bump: patch
+  bump: major
 - name: substrate-wasm-builder
-  bump: patch
+  bump: major
 - name: pallet-revive
-  bump: patch
+  bump: major
+- name: pallet-society
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: sp-npos-elections
+  bump: major
+- name: pallet-broker
+  bump: major
+- name: pallet-nomination-pools
+  bump: major
+- name: polkadot-node-core-approval-voting
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
