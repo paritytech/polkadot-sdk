@@ -1051,7 +1051,7 @@ impl pallet_xcm_bridge_router::Config<ToRococoXcmRouterInstance> for Runtime {
 	// BridgeHub.
 	type MessageExporter = SovereignPaidRemoteExporter<
 		// `ExporterFor` wrapper handling dynamic fees for congestion.
-		pallet_xcm_bridge_router::impls::ViaRemoteBridgeHubExporter<
+		pallet_xcm_bridge_router::impls::ViaRemoteBridgeExporter<
 			Runtime,
 			ToRococoXcmRouterInstance,
 			NetworkExportTable<xcm_config::bridging::to_rococo::BridgeTable>,

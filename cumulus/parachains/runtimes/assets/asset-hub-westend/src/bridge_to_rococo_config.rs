@@ -226,7 +226,7 @@ impl pallet_xcm_bridge_router::Config<ToRococoOverAssetHubRococoXcmRouterInstanc
 
 	// We use `LocalExporter` with `ViaLocalBridgeHubExporter` ensures that
 	// `pallet_xcm_bridge_router` can trigger directly `pallet_xcm_bridge` as exporter.
-	type MessageExporter = pallet_xcm_bridge_router::impls::ViaLocalBridgeHubExporter<
+	type MessageExporter = pallet_xcm_bridge_router::impls::ViaLocalBridgeExporter<
 		Runtime,
 		ToRococoOverAssetHubRococoXcmRouterInstance,
 		LocalExporter<XcmOverAssetHubRococo, UniversalLocation>,

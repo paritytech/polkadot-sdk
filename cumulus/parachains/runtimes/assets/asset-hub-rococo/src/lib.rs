@@ -1004,7 +1004,7 @@ impl pallet_xcm_bridge_router::Config<ToWestendXcmRouterInstance> for Runtime {
 	// BridgeHub.
 	type MessageExporter = SovereignPaidRemoteExporter<
 		// `ExporterFor` wrapper handling dynamic fees for congestion.
-		pallet_xcm_bridge_router::impls::ViaRemoteBridgeHubExporter<
+		pallet_xcm_bridge_router::impls::ViaRemoteBridgeExporter<
 			Runtime,
 			ToWestendXcmRouterInstance,
 			NetworkExportTable<xcm_config::bridging::to_westend::BridgeTable>,
