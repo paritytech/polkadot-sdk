@@ -17,6 +17,7 @@ codec = { workspace = true, default-features = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 paste = { workspace = true, default-features = true }
+<<<<<<< HEAD
 frame-support.workspace = true
 frame-support.default-features = true
 frame-system.workspace = true
@@ -57,3 +58,32 @@ xcm.workspace = true
 xcm.default-features = true
 xcm-executor.workspace = true
 xcm-executor.default-features = true
+=======
+
+# Substrate
+frame-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-message-queue = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+
+# Cumulus
+cumulus-pallet-parachain-system = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+parachains-common = { workspace = true, default-features = true }
+
+# Polkadot
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+xcm = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
+>>>>>>> 4962d65a (`xcm-emulator` improved callback triggering (`on_initialize`, `on_finalize`, `on_idle`, `OnSystemEvent`). (#8083))
