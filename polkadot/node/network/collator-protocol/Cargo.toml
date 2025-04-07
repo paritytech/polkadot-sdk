@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+async-trait = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
