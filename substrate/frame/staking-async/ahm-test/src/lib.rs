@@ -166,10 +166,9 @@ mod tests {
 			assert!(pallet_staking_async::UnappliedSlashes::<ah::Runtime>::iter().collect::<Vec<_>>().is_empty());
 		});
 
-		// Ensure era rotation happens as usual on staking-classic
+		// SCENE (2): AHM migration begins
 
-		// SCENE (2): WHEN migration starts
 
-		// SCENE (3): WHEN migration ends
+		// SCENE (3): AHM migration ends
 	}
 }
