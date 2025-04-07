@@ -27636,6 +27636,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-message-queue",
+ "pallet-timestamp",
  "parachains-common",
  "parity-scale-codec",
  "paste",
