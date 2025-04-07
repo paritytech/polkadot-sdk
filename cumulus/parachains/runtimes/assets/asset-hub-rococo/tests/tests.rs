@@ -24,17 +24,11 @@ use asset_hub_rococo_runtime::{
 		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
 		TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
 	},
-<<<<<<< HEAD
-	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection,
-	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
-	MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	SessionKeys, ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
-=======
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
 	CollatorSelection, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
 	MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, SessionKeys, TrustBackedAssetsInstance, XcmpQueue,
->>>>>>> 139691b1 (Fix `XcmPaymentApi::query_weight_to_asset_fee` version conversion (#6459))
+	RuntimeEvent, RuntimeOrigin, SessionKeys, ToWestendXcmRouterInstance,
+	TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,

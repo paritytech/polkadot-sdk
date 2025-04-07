@@ -86,12 +86,8 @@ testnet-parachains-constants = { features = ["westend"], workspace = true }
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-<<<<<<< HEAD
-sp-io = { features = ["std"], default-features = true, path = "../../../../../substrate/primitives/io" }
-=======
 sp-io = { features = ["std"], workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
->>>>>>> 139691b1 (Fix `XcmPaymentApi::query_weight_to_asset_fee` version conversion (#6459))
 
 [features]
 default = ["std"]

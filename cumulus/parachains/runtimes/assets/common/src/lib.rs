@@ -137,6 +137,36 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 		TryConvertInto,
 	>;
 
+/// Returns an iterator of all assets in a pool with `asset`.
+///
+/// Should only be used in runtime APIs since it iterates over the whole
+/// `pallet_asset_conversion::Pools` map.
+///
+/// It takes in any version of an XCM Location but always returns the latest one.
+/// This is to allow some margin of migrating the pools when updating the XCM version.
+///
+/// An error of type `()` is returned if the version conversion fails for XCM locations.
+/// This error should be mapped by the caller to a more descriptive one.
+pub fn get_assets_in_pool_with<
+	Runtime: pallet_asset_conversion::Config<PoolId = (L, L)>,
+	L: TryInto<Location> + Clone + Decode + EncodeLike + PartialEq,
+>(
+	asset: &L,
+) -> Result<Vec<AssetId>, ()> {
+	pallet_asset_conversion::Pools::<Runtime>::iter_keys()
+		.filter_map(|(asset_1, asset_2)| {
+			if asset_1 == *asset {
+				Some(asset_2)
+			} else if asset_2 == *asset {
+				Some(asset_1)
+			} else {
+				None
+			}
+		})
+		.map(|location| location.try_into().map_err(|_| ()).map(AssetId))
+		.collect::<Result<Vec<_>, _>>()
+}
+
 /// Adapter implementation for accessing pools (`pallet_asset_conversion`) that uses `AssetKind` as
 /// a `xcm::v*` which could be different from the `xcm::latest`.
 pub struct PoolAdapter<Runtime>(PhantomData<Runtime>);
