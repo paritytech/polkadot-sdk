@@ -51,7 +51,7 @@ mod benchmarks {
 			mock::EnqueuedMessages::set(vec![]);
 		}
 
-		let msg = BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::try_from(vec![0; n as usize]).unwrap();
+		let msg = BoundedVec::try_from(vec![0; n as usize]).unwrap();
 
 		#[cfg(not(test))]
 		let fp_before = T::XcmpQueue::footprint(0.into());
@@ -81,7 +81,7 @@ mod benchmarks {
 			mock::EnqueuedMessages::set(vec![]);
 		}
 
-		let msgs = vec![BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::default(); n as usize];
+		let msgs = vec![Default::default(); n as usize];
 
 		#[cfg(not(test))]
 		let fp_before = T::XcmpQueue::footprint(0.into());
@@ -93,7 +93,6 @@ mod benchmarks {
 				&mut WeightMeter::new()
 			));
 		}
-		#[cfg(not(test))]
 		#[cfg(not(test))]
 		{
 			let fp_after = T::XcmpQueue::footprint(0.into());
@@ -121,8 +120,7 @@ mod benchmarks {
 		let max_msg_len = MaxXcmpMessageLenOf::<T>::get() as usize;
 		let mut msgs = vec![];
 		for _i in 0..n {
-			let msg =
-				BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::try_from(vec![0; max_msg_len]).unwrap();
+			let msg = BoundedVec::try_from(vec![0; max_msg_len]).unwrap();
 			msgs.push(msg);
 		}
 
@@ -147,7 +145,7 @@ mod benchmarks {
 	fn enqueue_1000_small_xcmp_messages() {
 		let mut msgs = vec![];
 		for _i in 0..1000 {
-			msgs.push(BoundedVec::<u8, MaxXcmpMessageLenOf<T>>::try_from(vec![0; 3]).unwrap());
+			msgs.push(BoundedVec::try_from(vec![0; 3]).unwrap());
 		}
 
 		#[cfg(not(test))]

@@ -51,7 +51,7 @@ pub mod weights;
 pub mod weights_ext;
 
 pub use weights::WeightInfo;
-#[cfg(feature = "test-utils")]
+#[cfg(feature = "std")]
 pub use weights_ext::check_weight_info_ext_accuracy;
 pub use weights_ext::WeightInfoExt;
 
@@ -676,6 +676,9 @@ impl<T: Config> Pallet<T> {
 	/// individual items.
 	///
 	/// We directly encode them again since that is needed later on.
+	///
+	/// On error returns a partial batch with all the XCMs processed before the failure.
+	/// This can happen in case of a decoding/re-encoding failure.
 	pub(crate) fn take_first_concatenated_xcm(
 		data: &mut &[u8],
 		meter: &mut WeightMeter,
@@ -848,11 +851,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 					}
 
 					let mut can_process_next_batch = true;
-					loop {
-						if !can_process_next_batch {
-							break;
-						}
-
+					while can_process_next_batch {
 						let batch = match Self::take_first_concatenated_xcms(
 							&mut data,
 							XCM_BATCH_SIZE,

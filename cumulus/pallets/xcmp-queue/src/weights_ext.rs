@@ -64,7 +64,7 @@ pub trait WeightInfoExt: WeightInfo {
 
 impl<T: WeightInfo> WeightInfoExt for T {}
 
-#[cfg(any(test, feature = "test-utils"))]
+#[cfg(feature = "std")]
 pub fn check_weight_info_ext_accuracy<T: WeightInfoExt>(err_margin: u8) {
 	assert!(err_margin < 100);
 	let err_margin = err_margin as u64;
