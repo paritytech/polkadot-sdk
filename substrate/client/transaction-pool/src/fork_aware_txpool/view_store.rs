@@ -921,8 +921,7 @@ where
 	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
 		let mut provides_tags_map = HashMap::new();
 
-		blocks_hashes.into_iter().filter_map(|bh| self.get_view_at(bh, true).map(|(view, _)| view))
-for_each(|view| {
+		blocks_hashes.into_iter().filter_map(|bh| self.get_view_at(bh, true).map(|(view, _)| view)).for_each(|view| {
 				// Get tx provides tags from inactive view's pool.
 				let provides_tags = view.pool.validated_pool().extrinsics_tags(&xts_hashes);
 				let xts_provides_tags = xts_hashes
