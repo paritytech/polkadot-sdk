@@ -1,0 +1,23 @@
+title: YAP NG FTW!
+doc:
+- audience: Runtime Dev
+  description: 'Yet Another Parachain ported onto the latest master branch. '
+crates:
+- name: yet-another-parachain-runtime
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor
+- name: sc-basic-authorship
+  bump: minor
+- name: sc-transaction-pool
+  bump: minor
+- name: cumulus-pov-validator
+  bump: minor
+- name: sc-network-transactions
+  bump: minor
+- name: sc-service
+  bump: minor
+- name: sc-network
+  bump: minor
+- name: frame-system
+  bump: minor
