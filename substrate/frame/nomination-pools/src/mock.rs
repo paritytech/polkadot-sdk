@@ -737,7 +737,7 @@ mod test {
 	use super::*;
 	#[test]
 	fn u256_to_balance_convert_works() {
-		assert_eq!(U256ToBalance::convert(0u32.into()), Zero::zero());
+		assert_eq!(U256ToBalance::convert(0u32.into()), u128::zero());
 		assert_eq!(U256ToBalance::convert(Balance::max_value().into()), Balance::max_value())
 	}
 
