@@ -1326,7 +1326,7 @@ pub mod pallet {
 						.propagate(true)
 						.build()
 				},
-				Call::apply_authorized_force_set_current_code { para, new_code } => {
+				Call::apply_authorized_force_set_current_code { para, new_code } =>
 					match Self::validate_code_is_authorized(new_code, para) {
 						Ok(authorized_code) => {
 							let now = frame_system::Pallet::<T>::block_number();
@@ -1341,8 +1341,7 @@ pub mod pallet {
 						},
 						Err(_) =>
 							return InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into(),
-					}
-				},
+					},
 				_ => InvalidTransaction::Call.into(),
 			}
 		}
