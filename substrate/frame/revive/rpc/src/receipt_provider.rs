@@ -28,8 +28,8 @@ pub struct ReceiptProvider<B: BlockInfoProvider = SubxtBlockInfoProvider> {
 }
 
 /// Provides information about a block,
-/// This is an abstratction on top of [`SubstrateBlock`] used to test the [`BlockCache`].
-/// Can be removed once https://github.com/paritytech/subxt/issues/1883 is fixed.
+/// This is an abstratction on top of [`SubstrateBlock`] that can't be mocked in tests.
+/// Can be removed once <https://github.com/paritytech/subxt/issues/1883> is fixed.
 pub trait BlockInfo {
 	/// Returns the block hash.
 	fn hash(&self) -> H256;
