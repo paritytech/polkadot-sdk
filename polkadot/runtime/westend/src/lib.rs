@@ -35,10 +35,10 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
+		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, EverythingBut,
+		FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing,
+		ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -126,6 +126,7 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
 use pallet_staking::UseValidatorsMap;
 pub use pallet_timestamp::Call as TimestampCall;
+use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use sp_runtime::traits::Get;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -1261,6 +1262,13 @@ impl parachains_paras::Config for Runtime {
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
 	type AssignCoretime = CoretimeAssignmentProvider;
+	type AuthorizeCurrentCodeOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		// Collectives DDay plurality mapping.
+		AsEnsureOriginWithArg<
+			EnsureXcm<IsVoiceOfBody<xcm_config::Collectives, xcm_config::DDayBodyId>>,
+		>,
+	>;
 }
 
 parameter_types! {

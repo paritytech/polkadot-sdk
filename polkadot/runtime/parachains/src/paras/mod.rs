@@ -118,7 +118,9 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
 use core::{cmp, mem};
 use frame_support::{
-	dispatch::PostDispatchInfo, pallet_prelude::*, traits::EstimateNextSessionRotation,
+	dispatch::PostDispatchInfo,
+	pallet_prelude::*,
+	traits::{EnsureOriginWithArg, EstimateNextSessionRotation},
 	DefaultNoBound,
 };
 use frame_system::pallet_prelude::*;
@@ -677,6 +679,9 @@ pub mod pallet {
 		///
 		/// TODO: Remove once coretime is the standard across all chains.
 		type AssignCoretime: AssignCoretime;
+
+		/// The origin that can authorize `force_set_current_code_hash`.
+		type AuthorizeCurrentCodeOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, ParaId>;
 	}
 
 	#[pallet::event]
@@ -1221,7 +1226,7 @@ pub mod pallet {
 			new_code_hash: ValidationCodeHash,
 			valid_period: BlockNumberFor<T>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AuthorizeCurrentCodeOrigin::ensure_origin(origin, &para)?;
 
 			let now = frame_system::Pallet::<T>::block_number();
 			let expire_at = now.saturating_add(valid_period);
@@ -1260,13 +1265,12 @@ pub mod pallet {
 			Self::do_force_set_current_code_update(para, new_code);
 
 			// if ok, then allows "for free"
-			let post = PostDispatchInfo {
+			Ok(PostDispatchInfo {
 				// consume the rest of the block to prevent further transactions
 				actual_weight: Some(T::BlockWeights::get().max_block),
 				// no fee for valid upgrade
 				pays_fee: Pays::No,
-			};
-			Ok(post)
+			})
 		}
 	}
 
