@@ -160,7 +160,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			let mut to_remove = block_number_to_hash
 				.iter()
 				.take_while(|(n, _)| **n <= oldest_block)
-				.map(|(_, hash)| hash.clone())
+				.map(|(_, hash)| *hash)
 				.collect::<Vec<_>>();
 
 			block_number_to_hash.retain(|&n, _| n > oldest_block);
