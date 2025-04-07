@@ -18,6 +18,7 @@
 //! Traits for managing message queuing and handling.
 
 use super::storage::Footprint;
+use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
@@ -122,17 +123,6 @@ impl<OverweightAddr> ServiceQueues for NoopServiceQueues<OverweightAddr> {
 	}
 }
 
-/// The resource footprint of a queue.
-#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
-pub struct QueueFootprint {
-	/// The number of pages in the queue (including overweight pages).
-	pub pages: u32,
-	/// The number of pages that are ready (not yet processed and also not overweight).
-	pub ready_pages: u32,
-	/// The storage footprint of the queue (including overweight messages).
-	pub storage: Footprint,
-}
-
 /// Can enqueue messages for multiple origins.
 pub trait EnqueueMessage<Origin: MaxEncodedLen> {
 	/// The maximal length any enqueued message may have.
@@ -162,6 +152,28 @@ impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
 	fn sweep_queue(_: Origin) {}
 }
 
+/// The resource footprint of a queue.
+#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+pub struct QueueFootprint {
+	/// The number of pages in the queue (including overweight pages).
+	pub pages: u32,
+	/// The number of pages that are ready (not yet processed and also not overweight).
+	pub ready_pages: u32,
+	/// The storage footprint of the queue (including overweight messages).
+	pub storage: Footprint,
+}
+
+/// The resource footprint of a batch of messages.
+#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+pub struct BatchFootprint {
+	/// The number of messages in the batch.
+	pub msgs_count: usize,
+	/// The total size in bytes of all the messages in the batch.
+	pub size_in_bytes: usize,
+	/// The number of resulting new pages in the queue if the current batch was added.
+	pub new_pages_count: u32,
+}
+
 /// Provides information on queue footprint.
 pub trait QueueFootprintQuery<Origin> {
 	/// The maximal length any enqueued message may have.
@@ -170,17 +182,13 @@ pub trait QueueFootprintQuery<Origin> {
 	/// Return the state footprint of the given queue.
 	fn footprint(origin: Origin) -> QueueFootprint;
 
-	/// Check if the number of resulting new pages after enqueuing the provided messages respects
-	/// the provided limit.
-	///
-	/// On success, it returns the number of resulting new pages.
-	/// On error, it returns a tuple containing the number of resulting new pages and the index
-	/// of the first message that would need to be dropped.
-	fn check_messages_footprint<'a>(
+	/// Get the `BatchFootprint` for each batch of messages `[0..n]`
+	/// as long as the total number of pages would be <= `total_pages_limit`.
+	fn get_batches_footprints<'a>(
 		origin: Origin,
 		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		total_pages_limit: u32,
-	) -> Result<u32, (u32, usize)>;
+	) -> Vec<BatchFootprint>;
 }
 
 impl<Origin: MaxEncodedLen> QueueFootprintQuery<Origin> for () {
@@ -190,12 +198,12 @@ impl<Origin: MaxEncodedLen> QueueFootprintQuery<Origin> for () {
 		QueueFootprint::default()
 	}
 
-	fn check_messages_footprint<'a>(
+	fn get_batches_footprints<'a>(
 		_origin: Origin,
 		_msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		_total_pages_limit: u32,
-	) -> Result<u32, (u32, usize)> {
-		Ok(0)
+	) -> Vec<BatchFootprint> {
+		vec![]
 	}
 }
 
@@ -231,12 +239,12 @@ impl<E: QueueFootprintQuery<O>, O: MaxEncodedLen, N: MaxEncodedLen, C: Convert<N
 		E::footprint(C::convert(origin))
 	}
 
-	fn check_messages_footprint<'a>(
+	fn get_batches_footprints<'a>(
 		origin: N,
 		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		total_pages_limit: u32,
-	) -> Result<u32, (u32, usize)> {
-		E::check_messages_footprint(C::convert(origin), msgs, total_pages_limit)
+	) -> Vec<BatchFootprint> {
+		E::get_batches_footprints(C::convert(origin), msgs, total_pages_limit)
 	}
 }
 

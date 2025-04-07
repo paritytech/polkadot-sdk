@@ -189,24 +189,30 @@ impl<T: OnQueueChanged<ParaId>> QueueFootprintQuery<ParaId> for EnqueueToLocalSt
 		footprint
 	}
 
-	fn check_messages_footprint<'a>(
+	fn get_batches_footprints<'a>(
 		origin: ParaId,
 		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		total_pages_limit: u32,
-	) -> Result<u32, (u32, usize)> {
+	) -> Vec<BatchFootprint> {
 		// Let's consider that we add one message per page
 		let footprint = Self::footprint(origin);
-		let total_pages_count = footprint.pages + msgs.count() as u32;
-		match total_pages_limit.checked_sub(total_pages_count) {
-			Some(new_pages_count) => {
-				//debug
-				Ok(new_pages_count)
-			},
-			None => {
-				let new_pages_count = total_pages_limit.saturating_sub(footprint.pages);
-				Err((new_pages_count, new_pages_count as usize))
-			},
+		let mut batches_footprints = vec![];
+		let mut new_pages_count = 0;
+		let mut total_size = 0;
+		for (idx, msg) in msgs.enumerate() {
+			new_pages_count += 1;
+			if footprint.pages + new_pages_count > total_pages_limit {
+				break;
+			}
+
+			total_size += msg.len();
+			batches_footprints.push(BatchFootprint {
+				msgs_count: idx + 1,
+				size_in_bytes: total_size,
+				new_pages_count,
+			})
 		}
+		batches_footprints
 	}
 }
 

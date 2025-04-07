@@ -2140,11 +2140,12 @@ fn force_set_head_works() {
 	});
 }
 
-fn call_check_messages_footprint(
+fn check_get_batches_footprints(
 	origin: MessageOrigin,
 	sizes: &[u32],
 	total_pages_limit: u32,
-) -> Result<u32, (u32, usize)> {
+	expected_new_pages_counts: Vec<u32>,
+) {
 	let mut msgs = vec![];
 	for size in sizes {
 		let msg =
@@ -2152,15 +2153,28 @@ fn call_check_messages_footprint(
 		msgs.push(msg)
 	}
 
-	MessageQueue::check_messages_footprint(
+	let batches_footprints = MessageQueue::get_batches_footprints(
 		origin,
 		msgs.iter().map(|msg| msg.as_bounded_slice()),
 		total_pages_limit,
-	)
+	);
+	assert_eq!(batches_footprints.len(), expected_new_pages_counts.len());
+
+	let mut total_size = 0;
+	let mut expected_batches_footprint = vec![];
+	for (idx, expected_new_pages_count) in expected_new_pages_counts.iter().enumerate() {
+		total_size += msgs[idx].len();
+		expected_batches_footprint.push(BatchFootprint {
+			msgs_count: idx + 1,
+			size_in_bytes: total_size,
+			new_pages_count: *expected_new_pages_count,
+		});
+	}
+	assert_eq!(batches_footprints, expected_batches_footprint);
 }
 
 #[test]
-fn check_messages_footprint_works() {
+fn get_batches_footprints_works() {
 	use crate::tests::MessageOrigin::*;
 
 	let max_message_len = MaxMessageLenOf::<Test>::get();
@@ -2168,44 +2182,35 @@ fn check_messages_footprint_works() {
 
 	build_and_execute::<Test>(|| {
 		// Perform some checks with an empty queue
-		assert_eq!(call_check_messages_footprint(Here, &[max_message_len], 0), Err((0, 0)));
-		assert_eq!(call_check_messages_footprint(Here, &[max_message_len], 1), Ok(1));
+		check_get_batches_footprints(Here, &[max_message_len], 0, vec![]);
+		check_get_batches_footprints(Here, &[max_message_len], 1, vec![1]);
 
-		assert_eq!(call_check_messages_footprint(Here, &[max_message_len, 1], 1), Err((1, 1)));
-		assert_eq!(call_check_messages_footprint(Here, &[max_message_len, 1], 2), Ok(2));
-		assert_eq!(
-			call_check_messages_footprint(Here, &[max_message_len - 2 * header_size, 1, 1], 1),
-			Err((1, 2))
+		check_get_batches_footprints(Here, &[max_message_len, 1], 1, vec![1]);
+		check_get_batches_footprints(Here, &[max_message_len, 1], 2, vec![1, 2]);
+		check_get_batches_footprints(
+			Here,
+			&[max_message_len - 2 * header_size, 1, 1],
+			1,
+			vec![1, 1],
 		);
 
 		// Fill a little over 1 page
 		MessageQueue::enqueue_message(msg("A".repeat(max_message_len as usize).as_str()), Here);
 		MessageQueue::enqueue_message(msg(""), Here);
 		// Now, let's perform some more checks
-		assert_eq!(
-			call_check_messages_footprint(Here, &[max_message_len - header_size], 1),
-			Err((0, 0))
-		);
-		assert_eq!(call_check_messages_footprint(Here, &[max_message_len - header_size], 2), Ok(0));
+		check_get_batches_footprints(Here, &[max_message_len - header_size], 1, vec![]);
+		check_get_batches_footprints(Here, &[max_message_len - header_size], 2, vec![0]);
 
-		assert_eq!(
-			call_check_messages_footprint(Here, &[max_message_len - header_size, 1], 2),
-			Err((0, 1))
-		);
-		assert_eq!(
-			call_check_messages_footprint(Here, &[max_message_len - header_size, 1], 3),
-			Ok(1)
-		);
-		assert_eq!(
-			call_check_messages_footprint(
-				Here,
-				&[max_message_len - header_size, max_message_len - 2 * header_size, 1, 1],
-				3
-			),
-			Err((1, 3))
+		check_get_batches_footprints(Here, &[max_message_len - header_size, 1], 2, vec![0]);
+		check_get_batches_footprints(Here, &[max_message_len - header_size, 1], 3, vec![0, 1]);
+		check_get_batches_footprints(
+			Here,
+			&[max_message_len - header_size, max_message_len - 2 * header_size, 1, 1],
+			3,
+			vec![0, 1, 1],
 		);
 
 		// Check that we can append messages to a different origin
-		assert_eq!(call_check_messages_footprint(There, &[max_message_len], 1), Ok(1));
+		check_get_batches_footprints(There, &[max_message_len], 1, vec![1]);
 	});
 }

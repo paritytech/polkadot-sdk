@@ -68,8 +68,8 @@ use cumulus_primitives_core::{
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
-		Defensive, EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueueFootprintQuery,
-		QueuePausedQuery,
+		BatchFootprint, Defensive, EnqueueMessage, EnsureOrigin, Get, QueueFootprint,
+		QueueFootprintQuery, QueuePausedQuery,
 	},
 	weights::{Weight, WeightMeter},
 	BoundedVec,
@@ -650,29 +650,47 @@ impl<T: Config> Pallet<T> {
 		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
-		let (xcms, new_page_count) = match T::XcmpQueue::check_messages_footprint(
+		let batches_footprints = T::XcmpQueue::get_batches_footprints(
 			sender,
 			xcms.iter().map(|xcm| xcm.as_bounded_slice()),
 			drop_threshold,
-		) {
-			Ok(new_page_count) => (xcms, new_page_count),
-			Err((new_page_count, drop_idx)) => {
-				// This should not happen since the channel should have been suspended in
-				// [`on_queue_changed`].
-				log::error!("XCMP queue for sibling {:?} is full; dropping messages.", sender);
-				(&xcms[..drop_idx], new_page_count)
-			},
-		};
+		);
 
-		let xcms_size = xcms.iter().map(|xcm| xcm.len()).sum();
-		let required_weight =
-			T::WeightInfo::enqueue_xcmp_messages(new_page_count, xcms.len(), xcms_size);
-		if meter.try_consume(required_weight).is_err() {
-			log::error!("Out of weight: cannot enqueue XCMP messages; dropping batch");
-			return Err(())
+		let best_batch_idx = batches_footprints.binary_search_by(|batch_info| {
+			let required_weight = T::WeightInfo::enqueue_xcmp_messages(
+				batch_info.new_pages_count,
+				batch_info.msgs_count,
+				batch_info.size_in_bytes,
+			);
+
+			match meter.can_consume(required_weight) {
+				true => core::cmp::Ordering::Less,
+				false => core::cmp::Ordering::Greater,
+			}
+		});
+		let best_batch_footprint = match best_batch_idx {
+			// Shouldn't happen since we never return `core::cmp::Ordering::Equal`.
+			// But it's safer to handle it.
+			Ok(last_ok_idx) => batches_footprints[last_ok_idx],
+			Err(0) => BatchFootprint { msgs_count: 0, size_in_bytes: 0, new_pages_count: 0 },
+			Err(first_err_idx) => batches_footprints[first_err_idx - 1],
+		};
+		if best_batch_footprint.msgs_count < xcms.len() {
+			log::error!(
+				"Out of weight: cannot enqueue entire XCMP messages batch; \
+				dropping some or all messages in batch"
+			);
 		}
 
-		T::XcmpQueue::enqueue_messages(xcms.iter().map(|xcm| xcm.as_bounded_slice()), sender);
+		meter.consume(T::WeightInfo::enqueue_xcmp_messages(
+			best_batch_footprint.new_pages_count,
+			best_batch_footprint.msgs_count,
+			best_batch_footprint.size_in_bytes,
+		));
+		T::XcmpQueue::enqueue_messages(
+			xcms[..best_batch_footprint.msgs_count].iter().map(|xcm| xcm.as_bounded_slice()),
+			sender,
+		);
 		Ok(())
 	}
 

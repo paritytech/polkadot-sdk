@@ -194,6 +194,42 @@ fn xcm_enqueueing_starts_dropping_on_overflow() {
 	})
 }
 
+#[test]
+fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
+	// Our mocked queue enqueues 1 message per page.
+	// Let's make sure we don't hit the drop threshold.
+	new_test_ext().execute_with(|| {
+		<QueueConfig<Test>>::set(QueueConfigData {
+			suspend_threshold: 300,
+			drop_threshold: 300,
+			resume_threshold: 300,
+		});
+
+		let mut total_size = 0;
+		let xcms = generate_mock_xcm_batch(0, 10);
+		for (idx, xcm) in xcms.iter().enumerate() {
+			EnqueuedMessages::set(vec![]);
+
+			total_size += xcm.len();
+			let required_weight = <<Test as Config>::WeightInfo>::enqueue_xcmp_messages(
+				idx as u32 + 1,
+				idx + 1,
+				total_size,
+			);
+
+			let mut weight_meter = WeightMeter::with_limit(required_weight);
+			assert!(XcmpQueue::enqueue_xcmp_messages(1000.into(), &xcms, &mut weight_meter).is_ok());
+			assert_eq!(
+				EnqueuedMessages::get(),
+				xcms[..idx + 1]
+					.iter()
+					.map(|xcm| (1000.into(), xcm.to_vec()))
+					.collect::<Vec<_>>()
+			);
+		}
+	})
+}
+
 /// First enqueue 10 good, 1 bad and then 10 good XCMs.
 ///
 /// It should only process the first 10 good though.

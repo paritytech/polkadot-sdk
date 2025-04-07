@@ -212,7 +212,7 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
+		BatchFootprint, Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
 		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
 		QueueFootprintQuery, QueuePausedQuery, ServiceQueues,
 	},
@@ -1818,11 +1818,13 @@ impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
 	type MaxMessageLen =
 		MaxMessageLen<<T::MessageProcessor as ProcessMessage>::Origin, T::Size, T::HeapSize>;
 
-	fn check_messages_footprint<'a>(
+	fn get_batches_footprints<'a>(
 		origin: MessageOriginOf<T>,
 		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		total_pages_limit: u32,
-	) -> Result<u32, (u32, usize)> {
+	) -> Vec<BatchFootprint> {
+		let mut batches_footprints = vec![];
+
 		let mut new_pages_count = 0;
 		let mut total_pages_count = 0;
 		let mut current_page_pos: usize = T::HeapSize::get().into() as usize;
@@ -1836,9 +1838,10 @@ impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
 		}
 
 		let mut msgs = msgs.enumerate().peekable();
+		let mut total_msgs_size = 0;
 		while let Some((idx, msg)) = msgs.peek() {
 			if total_pages_count > total_pages_limit {
-				return Err((new_pages_count.saturating_sub(1), *idx));
+				return batches_footprints;
 			}
 
 			match Page::<T::Size, T::HeapSize>::check_can_append_message(
@@ -1846,7 +1849,13 @@ impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
 				msg.len(),
 			) {
 				Ok(new_pos) => {
+					total_msgs_size += msg.len();
 					current_page_pos = new_pos;
+					batches_footprints.push(BatchFootprint {
+						msgs_count: idx + 1,
+						size_in_bytes: total_msgs_size,
+						new_pages_count,
+					});
 					msgs.next();
 				},
 				Err(_) => {
@@ -1857,7 +1866,7 @@ impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
 			}
 		}
 
-		Ok(new_pages_count)
+		batches_footprints
 	}
 
 	fn footprint(origin: MessageOriginOf<T>) -> QueueFootprint {
