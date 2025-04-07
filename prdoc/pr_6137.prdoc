@@ -6,9 +6,8 @@ doc:
     From the relay chain PoV nothing changes and these `PoV`s appear like any other `PoV`. Internally this `PoV` then executes the blocks sequentially. However, all these blocks together can use the same amount of resources like a single `PoV`.
     This pull request is basically a preparation to support running parachains with a faster block time than the relay chain.
 
-    This breaks the encoding of `ParachainBlockData`. It requires that the collators upgrade first before the runtime requiring the new `ParachainBlockData` is enacted.
-    The collators will decide based on the api version of `CollectCollationInfo`, which `ParachainBlockData` format they will send to the relay chain so that the validation code can interpret it correctly.
-
+    This changes the encoding of ParachainBlockData. However, encoding and decoding is made in a backwards and forwards compatible way. This means that there is no dependency between the collator and runtime upgrade.
+    
 crates:
 - name: cumulus-client-collator
   bump: major

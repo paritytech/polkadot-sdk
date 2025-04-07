@@ -361,32 +361,27 @@ where
 		data: &[u8],
 		expected_block_hash: Block::Hash,
 	) -> Option<ParachainBlockData<Block>> {
-		if let Ok(block_data) = ParachainBlockData::<Block>::decode_all(&mut &data[..]) {
-			if block_data.blocks().last().map_or(false, |b| b.hash() == expected_block_hash) {
-				return Some(block_data)
-			}
+		match ParachainBlockData::<Block>::decode_all(&mut &data[..]) {
+			Ok(block_data) => {
+				if block_data.blocks().last().map_or(false, |b| b.hash() == expected_block_hash) {
+					return Some(block_data)
+				}
 
-			tracing::debug!(
-				target: LOG_TARGET,
-				?expected_block_hash,
-				"Could not find the expected block hash as latest block in `ParachainBlockData`"
-			);
+				tracing::debug!(
+					target: LOG_TARGET,
+					?expected_block_hash,
+					"Could not find the expected block hash as latest block in `ParachainBlockData`"
+				);
+			},
+			Err(error) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?expected_block_hash,
+					?error,
+					"Could not decode `ParachainBlockData` from recovered PoV",
+				);
+			},
 		}
-
-		if let Ok(block_data) =
-			cumulus_primitives_core::parachain_block_data::v0::ParachainBlockData::<Block>::decode_all(
-				&mut &data[..],
-			) {
-			if block_data.header.hash() == expected_block_hash {
-				return Some(block_data.into())
-			}
-		}
-
-		tracing::warn!(
-			target: LOG_TARGET,
-			?expected_block_hash,
-			"Could not decode `ParachainBlockData` from recovered PoV",
-		);
 
 		None
 	}

@@ -249,6 +249,7 @@ where
 				crate::UpwardMessages::<PSC>::get()
 					.into_iter()
 					.filter_map(|m| {
+						// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
 						if cfg!(feature = "experimental-ump-signals") {
 							if m == UMP_SEPARATOR {
 								found_separator = true;
@@ -259,6 +260,7 @@ where
 								}
 								None
 							} else {
+								// No signal or separator
 								Some(m)
 							}
 						} else {
@@ -292,8 +294,8 @@ where
 		let mut selected_core: Option<(CoreSelector, ClaimQueueOffset)> = None;
 
 		upward_message_signals.iter().for_each(|s| {
-			if let Ok(UMPSignal::SelectCore(selector, offset)) = UMPSignal::decode(&mut &s[..]) {
-				match &selected_core {
+			match UMPSignal::decode(&mut &s[..]).expect("Failed to decode `UMPSignal`") {
+				UMPSignal::SelectCore(selector, offset) => match &selected_core {
 					Some(selected_core) if *selected_core != (selector, offset) => {
 						panic!(
 							"All `SelectCore` signals need to select the same core {:?} vs {:?}",
@@ -305,7 +307,7 @@ where
 					None => {
 						selected_core = Some((selector, offset));
 					},
-				}
+				},
 			}
 		});
 
