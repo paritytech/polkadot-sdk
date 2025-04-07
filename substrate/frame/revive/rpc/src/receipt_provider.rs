@@ -532,7 +532,7 @@ mod tests {
 			let receipts = vec![(
 				TransactionSigned::default(),
 				ReceiptInfo {
-					transaction_hash: transaction_hash.clone(),
+					transaction_hash,
 					logs: vec![Log {
 						block_hash: block.hash,
 						transaction_hash,
@@ -556,7 +556,7 @@ mod tests {
 
 		for i in [1u8, 2u8] {
 			let block = MockBlockInfo { hash: H256::from([i; 32]), number: 1 };
-			let transaction_hash = H256::from([i as u8; 32]);
+			let transaction_hash = H256::from([i; 32]);
 			let receipts = vec![(
 				TransactionSigned::default(),
 				ReceiptInfo {
