@@ -18,14 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 exclude-from-umbrella = true
 
 [dependencies]
-codec = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
-pallet-xcm = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 snowbridge-core = { workspace = true }
 sp-core = { workspace = true }
@@ -48,7 +45,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-xcm/std",
 	"scale-info/std",
 	"snowbridge-core/std",
 	"sp-core/std",
@@ -64,7 +60,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-xcm/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -75,6 +70,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-xcm/try-runtime",
 	"sp-runtime/try-runtime",
 ]
