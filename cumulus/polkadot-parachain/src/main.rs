@@ -53,5 +53,8 @@ fn main() -> color_eyre::eyre::Result<()> {
 		Box::new(chain_spec::RuntimeResolver),
 		Box::new(chain_spec::ChainSpecLoader),
 	);
+	// This enables polkadot-parachain to support additional subcommands like `export-chain-spec`.
+	// To add more, extend the `ExtraCommands` enum in
+	// `cumulus/polkadot-omni-node/lib/src/extra_commands.rs` and handle them in `maybe_run`.
 	Ok(run::<CliConfig, ExtraSubcommands>(config)?)
 }
