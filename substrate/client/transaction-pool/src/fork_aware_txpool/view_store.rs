@@ -934,7 +934,6 @@ where
 					.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
 
 				// Remove txs that have been resolved.
-				// hash_set.retain(|h| xts_provides_tags.contains_key(*h));
 				xts_hashes.retain(|xth| !xts_provides_tags.contains_key(xth));
 
 				// Collect the (extrinsic hash, tags) pairs in a map.
