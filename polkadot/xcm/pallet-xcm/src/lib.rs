@@ -502,10 +502,6 @@ pub mod pallet {
 		/// Query response has been received and query is removed. There was a general error with
 		/// dispatching the notification call.
 		NotifyDispatchError { query_id: QueryId, callback: <T as Config>::RuntimeCall },
-		/// Query response has been received and query is removed. The dispatch was unable to be
-		/// decoded into a `Call`; this might be due to dispatch function having a signature which
-		/// is not `(origin, QueryId, Response)`.
-		NotifyDecodeFailed { query_id: QueryId, callback: <T as Config>::RuntimeCall },
 		/// Expected query response has been received but the origin location of the response does
 		/// not match that expected. The query remains registered for a later, valid, response to
 		/// be received and acted upon.
@@ -703,7 +699,7 @@ pub mod pallet {
 
 	/// The status of a query.
 	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	pub enum QueryStatus<BlockNumber> {
+	pub enum QueryStatus<BlockNumber, RuntimeCall> {
 		/// The query was sent but no response has yet been received.
 		Pending {
 			/// The `QueryResponse` XCM must have this origin to be considered a reply for this

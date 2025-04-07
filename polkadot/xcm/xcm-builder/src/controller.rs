@@ -118,6 +118,7 @@ pub trait QueryControllerWeightInfo {
 /// - Handling versioning.
 /// - Calling the [`QueryHandler`] to register the query.
 pub trait QueryController<Origin, Timeout>: QueryHandler {
+	/// Weight information for QueryController functions.
 	type WeightInfo: QueryControllerWeightInfo;
 
 	/// Query a remote location.
