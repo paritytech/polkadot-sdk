@@ -501,7 +501,6 @@ pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 					.ok_or("Value unexpectedly empty");
 			},
 		StorageAccessPayload::Write(changes) => {
-			// TODO: We need a real payload here
 			let delta = changes.iter().map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
 			// TODO: add child keys writing
 			let root = backend.storage_root(delta, StateVersion::V1);
