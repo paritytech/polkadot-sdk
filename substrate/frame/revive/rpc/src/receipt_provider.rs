@@ -109,6 +109,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
+	/// Fetch receipts from the given block.
 	pub async fn receipts_from_block(
 		&self,
 		block: &SubstrateBlock,
@@ -124,7 +125,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Insert receipts into the provider.
 	///
-	/// Note: Can be removed once https://github.com/paritytech/subxt/issues/1883 is fixed and subxt let
+	/// Note: Can be merged into `insert_block_receipts` once https://github.com/paritytech/subxt/issues/1883 is fixed and subxt let
 	/// us create Mock `SubstrateBlock`
 	async fn insert(
 		&self,

@@ -254,10 +254,7 @@ impl Client {
 		})
 	}
 
-	/// Subscribe to past blocks executing the callback for each block.
-	/// The subscription continues iterating past blocks until the closure returns
-	/// `ControlFlow::Break`. Blocks are iterated starting from the latest block and moving
-	/// backward.
+	/// Subscribe to past blocks executing the callback for each block in `range`.
 	async fn subscribe_past_blocks<F, Fut>(
 		&self,
 		range: Range<SubstrateBlockNumber>,
@@ -294,8 +291,7 @@ impl Client {
 		}
 	}
 
-	/// Subscribe to new best blocks, and execute the async closure with
-	/// the extracted block and ethereum transactions
+	/// Subscribe to new blocks, and execute the async closure for each block.
 	async fn subscribe_new_blocks<F, Fut>(
 		&self,
 		subscription_type: SubscriptionType,
@@ -419,12 +415,12 @@ impl Client {
 		Ok(self.api.runtime_api().at(hash))
 	}
 
-	/// Get the most recent block stored in the cache.
+	/// Get the latest finalized block.
 	pub async fn latest_finalized_block(&self) -> Arc<SubstrateBlock> {
 		self.block_provider.latest_finalized_block().await
 	}
 
-	/// Get the most recent block stored in the cache.
+	/// Get the latest best block.
 	pub async fn latest_block(&self) -> Arc<SubstrateBlock> {
 		self.block_provider.latest_block().await
 	}
