@@ -1,4 +1,4 @@
-title: ' Fix compilation by making conversions explicit'
+title: Fix compilation by making conversions explicit
 doc:
 - audience: Todo
   description: |-
