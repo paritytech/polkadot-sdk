@@ -62,7 +62,6 @@ impl StorageCmd {
 		let original_root = *header.state_root();
 
 		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
-		let recorder_clone = recorder.clone();
 		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
 			.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache()))
 			.with_optional_recorder(recorder)
@@ -117,7 +116,8 @@ impl StorageCmd {
 						continue
 					}
 
-					let storage_proof = {
+					// Write each value in one commit.
+					let (size, duration) = if self.params.on_block_validation {
 						let recorder =
 							(!self.params.disable_pov_recorder).then(|| Default::default());
 						let recorder_clone = recorder.clone();
@@ -130,35 +130,41 @@ impl StorageCmd {
 						.build();
 
 						for (key, _) in batched_keys.iter() {
-							let v = trie
+							let _v = trie
 								.storage(key)
 								.expect("Checked above to exist")
 								.ok_or("Value unexpectedly empty")?;
 						}
-						recorder_clone.map(|r| r.drain_storage_proof())
+
+						let storage_proof = recorder_clone.map(|r| r.drain_storage_proof());
+
+						measure_per_key_amortised_write_cost_on_block_validation::<Block>(
+							&trie,
+							batched_keys.clone(),
+							storage_proof,
+						)?
+					} else {
+						// For every batched write use a different trie instance and recorder, so we
+						// don't benefit from past runs.
+						let recorder =
+							(!self.params.disable_pov_recorder).then(|| Default::default());
+						let trie = DbStateBuilder::<HashingFor<Block>>::new(
+							storage.clone(),
+							original_root,
+						)
+						.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache()))
+						.with_optional_recorder(recorder)
+						.build();
+
+						measure_per_key_amortised_write_cost::<Block>(
+							db.clone(),
+							&trie,
+							batched_keys.clone(),
+							self.state_version(),
+							state_col,
+							None,
+						)?
 					};
-
-					// For every batched write use a different trie instance and recorder, so we
-					// don't benefit from past runs.
-					let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
-					let trie =
-						DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
-							.with_optional_cache(
-								shared_trie_cache.as_ref().map(|c| c.local_cache()),
-							)
-							.with_optional_recorder(recorder)
-							.build();
-
-					// Write each value in one commit.
-					let (size, duration) = measure_per_key_amortised_write_cost::<Block>(
-						db.clone(),
-						&trie,
-						batched_keys.clone(),
-						self.state_version(),
-						state_col,
-						None,
-						storage_proof,
-					)?;
 					record.append(size, duration)?;
 					batched_keys.clear();
 				},
@@ -211,7 +217,6 @@ impl StorageCmd {
 						self.state_version(),
 						state_col,
 						Some(&info),
-						None,
 					)?;
 					record.append(size, duration)?;
 					batched_keys.clear();
@@ -258,51 +263,8 @@ fn measure_per_key_amortised_write_cost<Block: BlockT>(
 	version: StateVersion,
 	col: ColumnId,
 	child_info: Option<&ChildInfo>,
-	storage_proof: Option<StorageProof>,
 ) -> Result<(usize, Duration)> {
-	let root = trie.root();
-	info!(
-		"POV: len {:?} {:?}",
-		storage_proof.as_ref().map(|p| p.len()),
-		storage_proof
-			.clone()
-			.map(|p| p.encoded_compact_size::<HashingFor<Block>>(*root))
-	);
-	if let Some(storage_proof) = storage_proof {
-		info!("storage_proof is ready");
-		let compact = storage_proof.into_compact_proof::<HashingFor<Block>>(*root).unwrap();
-		let params = StorageAccessParams::<Block>::new_write(*root, compact, changes.clone());
-
-		info!("validate_block with {} keys", changes.len());
-		let wasm_module = get_wasm_module();
-		let mut instance = wasm_module.new_instance().unwrap();
-
-		// Dry run to get the time it takes without storage access
-		let dry_run_encoded = params.as_dry_run().encode();
-		let dry_run_start = Instant::now();
-		instance.call_export("validate_block", &dry_run_encoded).unwrap();
-		let dry_run_elapsed = dry_run_start.elapsed();
-		info!("validate_block dry-run time {:?}", dry_run_elapsed);
-
-		let encoded = params.encode();
-		let start = Instant::now();
-		instance.call_export("validate_block", &encoded).unwrap();
-		let elapsed = start.elapsed();
-		info!("validate_block time {:?}", elapsed);
-
-		let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / changes.len();
-		let result = (
-			average_len,
-			std::time::Duration::from_nanos(
-				(elapsed - dry_run_elapsed).as_nanos() as u64 / changes.len() as u64,
-			),
-		);
-		info!("result 1 {:?}", result);
-
-		return Ok(result)
-	}
-
-	// let start = Instant::now();
+	let start = Instant::now();
 	// Create a TX that will modify the Trie in the DB and
 	// calculate the root hash of the Trie after the modification.
 	let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / changes.len();
@@ -315,17 +277,58 @@ fn measure_per_key_amortised_write_cost<Block: BlockT>(
 		None => trie.storage_root(replace.iter().cloned(), version).1,
 	};
 	// Only the keep the insertions, since we do not want to benchmark pruning.
-	// let tx = convert_tx::<Block>(db.clone(), stx.clone(), false, col);
-	// db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
-	// let result = (average_len, start.elapsed() / changes.len() as u32);
+	let tx = convert_tx::<Block>(db.clone(), stx.clone(), false, col);
+	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+	let result = (average_len, start.elapsed() / changes.len() as u32);
 
 	// Now undo the changes by removing what was added.
-	// let tx = convert_tx::<Block>(db.clone(), stx.clone(), true, col);
-	// db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
-	// Ok(result)
+	let tx = convert_tx::<Block>(db.clone(), stx.clone(), true, col);
+	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+	Ok(result)
+}
 
-	let result = (average_len, Duration::from_secs(1));
-	info!("result 2 {:?}", result);
+/// Measures write benchmark on block validation
+/// if `child_info` exist then it means this is a child tree key
+fn measure_per_key_amortised_write_cost_on_block_validation<Block: BlockT>(
+	trie: &DbState<HashingFor<Block>>,
+	changes: Vec<(Vec<u8>, Vec<u8>)>,
+	storage_proof: Option<StorageProof>,
+) -> Result<(usize, Duration)> {
+	let root = trie.root();
+	let storage_proof = storage_proof.expect("Storage proof must exist for block validation");
+	info!(
+		"POV: len {:?} {:?}",
+		storage_proof.len(),
+		storage_proof.clone().encoded_compact_size::<HashingFor<Block>>(*root)
+	);
+	let compact = storage_proof.into_compact_proof::<HashingFor<Block>>(*root).unwrap();
+	let params = StorageAccessParams::<Block>::new_write(*root, compact, changes.clone());
+
+	info!("validate_block with {} keys", changes.len());
+	let wasm_module = get_wasm_module();
+	let mut instance = wasm_module.new_instance().unwrap();
+
+	// Dry run to get the time it takes without storage access
+	let dry_run_encoded = params.as_dry_run().encode();
+	let dry_run_start = Instant::now();
+	instance.call_export("validate_block", &dry_run_encoded).unwrap();
+	let dry_run_elapsed = dry_run_start.elapsed();
+	info!("validate_block dry-run time {:?}", dry_run_elapsed);
+
+	let encoded = params.encode();
+	let start = Instant::now();
+	instance.call_export("validate_block", &encoded).unwrap();
+	let elapsed = start.elapsed();
+	info!("validate_block time {:?}", elapsed);
+
+	let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / changes.len();
+	let result = (
+		average_len,
+		std::time::Duration::from_nanos(
+			(elapsed - dry_run_elapsed).as_nanos() as u64 / changes.len() as u64,
+		),
+	);
+
 	Ok(result)
 }
 
