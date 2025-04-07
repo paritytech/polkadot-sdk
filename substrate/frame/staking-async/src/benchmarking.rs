@@ -109,7 +109,6 @@ pub fn create_validator_with_nominators<T: Config>(
 	}
 
 	ValidatorCount::<T>::put(1);
-	MinimumValidatorCount::<T>::put(1);
 
 	// Start a new Era
 	let new_validators = Rotator::<T>::legacy_try_plan_era();

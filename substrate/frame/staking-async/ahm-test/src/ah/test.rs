@@ -1,10 +1,7 @@
 use crate::ah::mock::*;
-
-use frame_support::assert_ok;
+use frame_support::{assert_noop, assert_ok};
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
-use pallet_staking_async::{
-	ActiveEra, ActiveEraInfo, CurrentEra, Event as StakingEvent,
-};
+use pallet_staking_async::{ActiveEra, ActiveEraInfo, CurrentEra, Event as StakingEvent};
 use pallet_staking_async_rc_client as rc_client;
 use pallet_staking_async_rc_client::ValidatorSetReport;
 
@@ -174,7 +171,7 @@ fn on_receive_session_report() {
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
-					prune_up_to: Some(0),
+					prune_up_to: None,
 					leftover: false
 				})
 			)]
@@ -250,18 +247,119 @@ fn roll_many_eras() {
 }
 
 #[test]
-fn receives_too_many_session_reports_at_once() {
-	todo!()
-}
+fn receives_old_session_report() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// Initial state
+		assert_eq!(CurrentEra::<T>::get(), Some(0));
+		assert_eq!(pallet_staking_async::ErasStartSessionIndex::<T>::get(0), Some(0));
+		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), None);
 
-#[test]
-fn receives_session_old_session_report() {
-	todo!()
+		// Receive report for end of 1, start of 1 and plan 2.
+		let session_report = rc_client::SessionReport {
+			end_index: 0,
+			validator_points: vec![(5, 50)],
+			activation_timestamp: None,
+			leftover: false,
+		};
+
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			session_report.clone(),
+		));
+
+		// then
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
+		assert_eq!(
+			rc_client_events_since_last_call(),
+			vec![rc_client::Event::SessionReportReceived {
+				end_index: 0,
+				activation_timestamp: None,
+				validator_points_counts: 1,
+				leftover: false
+			}]
+		);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![pallet_staking_async::Event::SessionRotated {
+				starting_session: 1,
+				active_era: 0,
+				planned_era: 0
+			}]
+		);
+
+		// reward points are added
+		assert_eq!(pallet_staking_async::ErasRewardPoints::<T>::get(&0).total, 50);
+
+		// this is ok, but no new session report is received in staking.
+		assert_noop!(
+			rc_client::Pallet::<T>::relay_session_report(
+				RuntimeOrigin::root(),
+				session_report.clone(),
+			),
+			rc_client::Error::<T>::SessionIndexNotValid
+		);
+	})
 }
 
 #[test]
 fn receives_session_report_in_future() {
-	todo!()
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// Initial state
+		assert_eq!(CurrentEra::<T>::get(), Some(0));
+		assert_eq!(pallet_staking_async::ErasStartSessionIndex::<T>::get(0), Some(0));
+		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), None);
+
+		// Receive report for end of 1, start of 1 and plan 2.
+
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 0,
+				validator_points: vec![(5, 50)],
+				activation_timestamp: None,
+				leftover: false,
+			},
+		));
+
+		// then
+		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
+		assert_eq!(
+			rc_client_events_since_last_call(),
+			vec![rc_client::Event::SessionReportReceived {
+				end_index: 0,
+				activation_timestamp: None,
+				validator_points_counts: 1,
+				leftover: false
+			}]
+		);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![pallet_staking_async::Event::SessionRotated {
+				starting_session: 1,
+				active_era: 0,
+				planned_era: 0
+			}]
+		);
+
+		// reward points are added
+		assert_eq!(pallet_staking_async::ErasRewardPoints::<T>::get(&0).total, 50);
+
+		// skip end_index 1
+		assert_noop!(
+			rc_client::Pallet::<T>::relay_session_report(
+				RuntimeOrigin::root(),
+				rc_client::SessionReport {
+					end_index: 2,
+					validator_points: vec![(5, 50)],
+					activation_timestamp: None,
+					leftover: false,
+				},
+			),
+			rc_client::Error::<T>::SessionIndexNotValid
+		);
+	})
 }
 
 #[test]

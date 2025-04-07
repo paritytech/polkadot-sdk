@@ -77,19 +77,14 @@
 //! * end 4, start 5, plan 6 // RC::session receives and queues this set.
 //! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
-use crate::{
-	asset, log, slashing, ActiveEra, ActiveEraInfo, BalanceOf, BondedEras, Config, CurrentEra,
-	EraIndex, EraPayout, EraRewardPoints, ErasClaimedRewards, ErasRewardPoints,
-	ErasStakersOverview, ErasStakersPaged, ErasStartSessionIndex, ErasTotalStake,
-	ErasValidatorPrefs, ErasValidatorReward, Event, ForceEra, Forcing, MaxStakedRewards,
-	PagedExposure, Pallet, ValidatorPrefs,
-};
+use crate::*;
 use alloc::vec::Vec;
-use frame_election_provider_support::ElectionProvider;
+use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced},
+	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
 };
+use sp_staking::currency_to_vote::CurrencyToVote;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{Exposure, Page, PagedExposureMetadata, SessionIndex};
 
@@ -110,10 +105,6 @@ use sp_staking::{Exposure, Page, PagedExposureMetadata, SessionIndex};
 pub struct Eras<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Eras<T> {
-	pub(crate) fn sanity_check() {
-		todo!();
-	}
-
 	pub(crate) fn prune_era(era: EraIndex) {
 		// TODO: lazy deletion -- after an era is marked is delete-able, all of the info associated
 		// with it can be removed.
@@ -397,7 +388,8 @@ impl<T: Config> Rotator<T> {
 		crate::ElectableStashes::<T>::get().into_iter().collect()
 	}
 
-	pub fn sanity_check() {
+	#[cfg(any(feature = "try-runtime", test))]
+	pub(crate) fn sanity_check() {
 		let planned = Self::planning_era();
 		let active = Self::active_era();
 		assert!(
@@ -622,5 +614,264 @@ impl<T: Config> Rotator<T> {
 			log!(debug, "Removing era information for {:?}", old_era);
 			Eras::<T>::prune_era(old_era);
 		}
+	}
+}
+
+/// Manager type which collects the election results from [`Config::ElectionProvider`] and
+/// finalizes the planning of a new era.
+///
+/// A new election is fetched over multiple pages, and finalized upon fetching the last page.
+///
+/// * The intermediate state of fetching the election result is kept in [`NextElectionPage`]. If
+///   `Some(_)` something is ongoing, otherwise not.
+/// * We fully trust [`Config::ElectionProvider`] to give us a full set of validators, with enough
+///   backing. Note that older versions of this pallet had a `MinimumValidatorCount` to double-check
+///   this, but we don't check it anymore.
+/// * This function returns no weight. Its weight should be taken account in the e2e benchmarking of
+///   the [`Config::ElectionProvider`].
+pub(crate) struct EraElectionPlanner<T: Config>(PhantomData<T>);
+impl<T: Config> EraElectionPlanner<T> {
+	pub(crate) fn maybe_fetch_election_results() {
+		if let Ok(true) = T::ElectionProvider::status() {
+			crate::log!(
+				debug,
+				"Election provider is ready, our status is {:?}",
+				NextElectionPage::<T>::get()
+			);
+
+			debug_assert!(
+				CurrentEra::<T>::get().unwrap_or(0) ==
+					ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
+				"Next era must be already planned."
+			);
+
+			let current_page = NextElectionPage::<T>::get()
+				.unwrap_or(Pallet::<T>::election_pages().defensive_saturating_sub(1));
+			let maybe_next_page = current_page.checked_sub(1);
+			crate::log!(debug, "fetching page {:?}, next {:?}", current_page, maybe_next_page);
+
+			Self::do_elect_paged(current_page);
+			NextElectionPage::<T>::set(maybe_next_page);
+
+			// if current page was `Some`, and next is `None`, we have finished an election and
+			// we can report it now.
+			if maybe_next_page.is_none() {
+				use pallet_staking_async_rc_client::RcClientInterface;
+				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
+				let prune_up_to = Self::get_prune_up_to();
+
+				crate::log!(
+					info,
+					"Send new validator set to RC. ID: {:?}, prune_up_to: {:?}",
+					id,
+					prune_up_to
+				);
+
+				T::RcClientInterface::validator_set(
+					ElectableStashes::<T>::take().into_iter().collect(),
+					id,
+					prune_up_to,
+				);
+			}
+		}
+	}
+
+	/// Get the right value of the first session that needs to be pruned on the RC's historical
+	/// session pallet.
+	fn get_prune_up_to() -> Option<SessionIndex> {
+		let bonded_eras = BondedEras::<T>::get();
+
+		// get the first session of the oldest era in the bonded eras.
+		if (bonded_eras.len() as u32) < T::BondingDuration::get() {
+			None
+		} else {
+			Some(bonded_eras.first().map(|(_, first_session)| *first_session).unwrap_or(0))
+		}
+	}
+
+	/// Paginated elect.
+	///
+	/// Fetches the election page with index `page` from the election provider.
+	///
+	/// The results from the elect call should be stored in the `ElectableStashes` storage. In
+	/// addition, it stores stakers' information for next planned era based on the paged
+	/// solution data returned.
+	///
+	/// If any new election winner does not fit in the electable stashes storage, it truncates
+	/// the result of the election. We ensure that only the winners that are part of the
+	/// electable stashes have exposures collected for the next era.
+	pub(crate) fn do_elect_paged(page: PageIndex) {
+		let election_result = T::ElectionProvider::elect(page);
+		match election_result {
+			Ok(supports) => {
+				let inner_processing_results = Self::do_elect_paged_inner(supports);
+				if let Err(not_included) = inner_processing_results {
+					defensive!(
+						"electable stashes exceeded limit, unexpected but election proceeds.\
+                		{} stashes from election result discarded",
+						not_included
+					);
+				};
+
+				Pallet::<T>::deposit_event(Event::PagedElectionProceeded {
+					page,
+					result: inner_processing_results.map(|x| x as u32).map_err(|x| x as u32),
+				});
+			},
+			Err(e) => {
+				log!(warn, "election provider page failed due to {:?} (page: {})", e, page);
+				Pallet::<T>::deposit_event(Event::PagedElectionProceeded { page, result: Err(0) });
+			},
+		}
+	}
+
+	/// Inner implementation of [`Self::do_elect_paged`].
+	///
+	/// Returns an error if adding election winners to the electable stashes storage fails due
+	/// to exceeded bounds. In case of error, it returns the index of the first stash that
+	/// failed to be included.
+	pub(crate) fn do_elect_paged_inner(
+		mut supports: BoundedSupportsOf<T::ElectionProvider>,
+	) -> Result<usize, usize> {
+		let planning_era = Rotator::<T>::planning_era();
+
+		match Self::add_electables(supports.iter().map(|(s, _)| s.clone())) {
+			Ok(added) => {
+				let exposures = Self::collect_exposures(supports);
+				let _ = Self::store_stakers_info(exposures, planning_era);
+				Ok(added)
+			},
+			Err(not_included_idx) => {
+				let not_included = supports.len().saturating_sub(not_included_idx);
+
+				log!(
+					warn,
+					"not all winners fit within the electable stashes, excluding {:?} accounts from solution.",
+					not_included,
+				);
+
+				// filter out supports of stashes that do not fit within the electable stashes
+				// storage bounds to prevent collecting their exposures.
+				supports.truncate(not_included_idx);
+				let exposures = Self::collect_exposures(supports);
+				let _ = Self::store_stakers_info(exposures, planning_era);
+
+				Err(not_included)
+			},
+		}
+	}
+
+	/// Process the output of a paged election.
+	///
+	/// Store staking information for the new planned era of a single election page.
+	pub(crate) fn store_stakers_info(
+		exposures: BoundedExposuresOf<T>,
+		new_planned_era: EraIndex,
+	) -> BoundedVec<T::AccountId, MaxWinnersPerPageOf<T::ElectionProvider>> {
+		// populate elected stash, stakers, exposures, and the snapshot of validator prefs.
+		let mut total_stake_page: BalanceOf<T> = Zero::zero();
+		let mut elected_stashes_page = Vec::with_capacity(exposures.len());
+		let mut total_backers = 0u32;
+
+		exposures.into_iter().for_each(|(stash, exposure)| {
+			log!(
+				trace,
+				"stored exposure for stash {:?} and {:?} backers",
+				stash,
+				exposure.others.len()
+			);
+			// build elected stash.
+			elected_stashes_page.push(stash.clone());
+			// accumulate total stake.
+			total_stake_page = total_stake_page.saturating_add(exposure.total);
+			// set or update staker exposure for this era.
+			total_backers += exposure.others.len() as u32;
+			Eras::<T>::upsert_exposure(new_planned_era, &stash, exposure);
+		});
+
+		let elected_stashes: BoundedVec<_, MaxWinnersPerPageOf<T::ElectionProvider>> =
+			elected_stashes_page
+				.try_into()
+				.expect("both types are bounded by MaxWinnersPerPageOf; qed");
+
+		// adds to total stake in this era.
+		Eras::<T>::add_total_stake(new_planned_era, total_stake_page);
+
+		// collect or update the pref of all winners.
+		for stash in &elected_stashes {
+			let pref = Validators::<T>::get(stash);
+			Eras::<T>::set_validator_prefs(new_planned_era, stash, pref);
+		}
+
+		log!(
+			info,
+			"stored a page of stakers with {:?} validators and {:?} total backers for era {:?}",
+			elected_stashes.len(),
+			total_backers,
+			new_planned_era,
+		);
+
+		elected_stashes
+	}
+
+	/// Consume a set of [`BoundedSupports`] from [`sp_npos_elections`] and collect them into a
+	/// [`Exposure`].
+	///
+	/// Returns vec of all the exposures of a validator in `paged_supports`, bounded by the
+	/// number of max winners per page returned by the election provider.
+	fn collect_exposures(
+		supports: BoundedSupportsOf<T::ElectionProvider>,
+	) -> BoundedExposuresOf<T> {
+		let total_issuance = asset::total_issuance::<T>();
+		let to_currency = |e: frame_election_provider_support::ExtendedBalance| {
+			T::CurrencyToVote::to_currency(e, total_issuance)
+		};
+
+		supports
+			.into_iter()
+			.map(|(validator, support)| {
+				// Build `struct exposure` from `support`.
+				let mut others = Vec::with_capacity(support.voters.len());
+				let mut own: BalanceOf<T> = Zero::zero();
+				let mut total: BalanceOf<T> = Zero::zero();
+				support
+					.voters
+					.into_iter()
+					.map(|(nominator, weight)| (nominator, to_currency(weight)))
+					.for_each(|(nominator, stake)| {
+						if nominator == validator {
+							defensive_assert!(own == Zero::zero(), "own stake should be unique");
+							own = own.saturating_add(stake);
+						} else {
+							others.push(IndividualExposure { who: nominator, value: stake });
+						}
+						total = total.saturating_add(stake);
+					});
+
+				let exposure = Exposure { own, others, total };
+				(validator, exposure)
+			})
+			.try_collect()
+			.expect("we only map through support vector which cannot change the size; qed")
+	}
+
+	/// Adds a new set of stashes to the electable stashes.
+	///
+	/// Returns:
+	///
+	/// `Ok(newly_added)` if all stashes were added successfully.
+	/// `Err(first_un_included)` if some stashes cannot be added due to bounds.
+	pub(crate) fn add_electables(new_stashes: impl Iterator<Item = T::AccountId>) -> Result<usize, usize> {
+		ElectableStashes::<T>::mutate(|electable| {
+			let pre_size = electable.len();
+
+			for (idx, stash) in new_stashes.enumerate() {
+				if electable.try_insert(stash).is_err() {
+					return Err(idx);
+				}
+			}
+
+			Ok(electable.len() - pre_size)
+		})
 	}
 }

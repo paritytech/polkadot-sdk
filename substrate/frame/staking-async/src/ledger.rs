@@ -272,7 +272,7 @@ impl<T: Config> StakingLedger<T> {
 		})?
 	}
 
-	#[cfg(feature = "std")]
+	#[cfg(test)]
 	pub(crate) fn assert_stash_killed(stash: T::AccountId) {
 		assert!(!Ledger::<T>::contains_key(&stash));
 		assert!(!Bonded::<T>::contains_key(&stash));

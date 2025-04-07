@@ -18,10 +18,7 @@ use core::marker::PhantomData;
 ///! Staking, and election related pallet configurations.
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
-use frame_election_provider_support::{
-	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, ElectionDataProvider, SequentialPhragmen,
-};
+use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
 use frame_support::traits::{ConstU128, EitherOf};
 use pallet_election_provider_multi_block::{
 	self as multi_block, weights::measured, SolutionAccuracyOf,
@@ -59,7 +56,7 @@ parameter_types! {
 	pub const MaxBackersPerWinner: u32 = VoterSnapshotPerBlock::get();
 
 	/// Total number of backers per winner across all pages. This is not used in the code yet.
-	pub const MaxBackersPerWinnerFinal: u32 = 512;
+	pub const MaxBackersPerWinnerFinal: u32 = MaxBackersPerWinner::get();
 
 	/// Size of the exposures. This should be small enough to make the reward payouts feasible.
 	pub const MaxExposurePageSize: u32 = 64;
@@ -77,25 +74,6 @@ frame_election_provider_support::generate_solution_type!(
 		MaxVoters = VoterSnapshotPerBlock,
 	>(16)
 );
-
-parameter_types! {
-	/// Onchain election only happens in genesis, and iff configured as fallback. It should use a small number of stakers.
-	pub OnchainElectionBounds: ElectionBounds =
-		ElectionBoundsBuilder::default().voters_count(1000.into()).targets_count(1000.into()).build();
-}
-
-/// The onchain election backup. Used only in genesis, and possible as a fallback.
-pub struct OnChainSeqPhragmen;
-impl onchain::Config for OnChainSeqPhragmen {
-	type Sort = ConstBool<true>;
-	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
-	type DataProvider = Staking;
-	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-	type Bounds = OnchainElectionBounds;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
-}
 
 impl multi_block::Config for Runtime {
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
@@ -261,7 +239,6 @@ impl pallet_staking_async::Config for Runtime {
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlock;
-	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type TargetList = UseValidatorsMap<Self>;
 	type MaxValidatorSet = MaxValidatorSet;
@@ -288,17 +265,17 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 // Call indices taken from westend-next runtime.
 pub enum RelayChainRuntimePallets {
 	#[codec(index = 67)]
-	AhClient(AhClientCalls)
+	AhClient(AhClientCalls),
 }
 
 #[derive(Encode, Decode)]
 pub enum AhClientCalls {
 	#[codec(index = 0)]
-	ValidatorSet(rc_client::ValidatorSetReport<AccountId>)
+	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
 }
 
 use pallet_staking_async_rc_client as rc_client;
-use xcm::latest::{SendXcm, prelude::*};
+use xcm::latest::{prelude::*, SendXcm};
 
 pub struct XcmToRelayChain<T: SendXcm>(PhantomData<T>);
 impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
@@ -314,20 +291,22 @@ impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
 				fallback_max_weight: None,
-				call: RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode().into(),
-			}
+				call: RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report))
+					.encode()
+					.into(),
+			},
 		]);
 		let dest = Location::parent();
 		let result = send_xcm::<T>(dest, message);
 
 		match result {
-			Ok(_) => log::info!(target: "runtime", "Successfully sent validator set report to relay chain"),
-			Err(e) => log::error!(target: "runtime", "Failed to send validator set report to relay chain: {:?}", e),
+			Ok(_) =>
+				log::info!(target: "runtime", "Successfully sent validator set report to relay chain"),
+			Err(e) =>
+				log::error!(target: "runtime", "Failed to send validator set report to relay chain: {:?}", e),
 		}
 	}
 }
-
-
 
 impl pallet_fast_unstake::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

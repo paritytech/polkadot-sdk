@@ -239,7 +239,6 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyToVote = ();
 
 	type ElectionProvider = MultiBlock;
-	type GenesisElectionProvider = Self::ElectionProvider;
 
 	type EraPayout = ();
 	type EventListeners = ();
@@ -364,7 +363,6 @@ impl ExtBuilder {
 		pallet_staking_async::GenesisConfig::<Runtime> {
 			stakers,
 			validator_count: 4,
-			minimum_validator_count: 2,
 			active_era: (0, 0, 0),
 			..Default::default()
 		}
@@ -385,7 +383,19 @@ impl ExtBuilder {
 parameter_types! {
 	static StakingEventsIndex: usize = 0;
 	static ElectionEventsIndex: usize = 0;
+	static RcClientEventsIndex: usize = 0;
 }
+
+pub(crate) fn rc_client_events_since_last_call() -> Vec<pallet_staking_async_rc_client::Event<T>> {
+	let all: Vec<_> = System::events()
+		.into_iter()
+		.filter_map(|r| if let RuntimeEvent::RcClient(inner) = r.event { Some(inner) } else { None })
+		.collect();
+	let seen = RcClientEventsIndex::get();
+	RcClientEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
+}
+
 pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking_async::Event<T>> {
 	let all: Vec<_> = System::events()
 		.into_iter()

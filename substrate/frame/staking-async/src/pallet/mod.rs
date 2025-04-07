@@ -70,9 +70,8 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
-
-	use crate::{PagedExposureMetadata, SnapshotStatus};
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 
 	/// The in-code storage version.
@@ -148,15 +147,6 @@ pub mod pallet {
 			BlockNumber = BlockNumberFor<Self>,
 			// we only accept an election provider that has staking as data provider.
 			DataProvider = Pallet<Self>,
-		>;
-		/// Something that provides the election functionality at genesis.
-		#[pallet::no_default]
-		type GenesisElectionProvider: ElectionProvider<
-			AccountId = Self::AccountId,
-			BlockNumber = BlockNumberFor<Self>,
-			DataProvider = Pallet<Self>,
-			MaxWinnersPerPage = <Self::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
-			MaxBackersPerWinner = <Self::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
 		>;
 
 		/// Something that defines the maximum number of nominations per nominator.
@@ -412,10 +402,6 @@ pub mod pallet {
 	/// The ideal number of active validators.
 	#[pallet::storage]
 	pub type ValidatorCount<T> = StorageValue<_, u32, ValueQuery>;
-
-	/// Minimum number of staking participants before emergency conditions are imposed.
-	#[pallet::storage]
-	pub type MinimumValidatorCount<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Any validators that may never be slashed or forcibly kicked. It's a Vec since they're
 	/// easy to initialize and the performance hit is minimal (we expect no more than four
@@ -793,7 +779,6 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub validator_count: u32,
-		pub minimum_validator_count: u32,
 		pub invulnerables: BoundedVec<T::AccountId, T::MaxInvulnerables>,
 		pub force_era: Forcing,
 		pub slash_reward_fraction: Perbill,
@@ -839,7 +824,6 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			ValidatorCount::<T>::put(self.validator_count);
-			MinimumValidatorCount::<T>::put(self.minimum_validator_count);
 			assert!(
 				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
 				"Too many invulnerable validators at genesis."
@@ -1188,9 +1172,9 @@ pub mod pallet {
 				Self::apply_unapplied_slashes(active_era.index);
 			}
 
-			let fetch_weight = Self::on_initialize_maybe_fetch_election_results();
+			session_rotation::EraElectionPlanner::<T>::maybe_fetch_election_results();
 
-			consumed_weight.saturating_add(fetch_weight)
+			consumed_weight
 		}
 
 		fn integrity_test() {
@@ -1213,69 +1197,6 @@ pub mod pallet {
 		#[cfg(feature = "try-runtime")]
 		fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state(n)
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		pub(crate) fn on_initialize_maybe_fetch_election_results() -> Weight {
-			if let Ok(true) = T::ElectionProvider::status() {
-				crate::log!(
-					debug,
-					"Election provider is ready, our status is {:?}",
-					NextElectionPage::<T>::get()
-				);
-
-				debug_assert!(
-					CurrentEra::<T>::get().unwrap_or(0) ==
-						ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
-					"Next era must be already planned."
-				);
-
-				// TODO(ank4n): Both `NextElectionPage` and `VoterSnapshotStatus` need be
-				// checked carefully again.
-				let current_page = NextElectionPage::<T>::get()
-					.unwrap_or(Self::election_pages().defensive_saturating_sub(1));
-				let maybe_next_page = current_page.checked_sub(1);
-				crate::log!(debug, "fetching page {:?}, next {:?}", current_page, maybe_next_page);
-
-				Self::do_elect_paged(current_page);
-				NextElectionPage::<T>::set(maybe_next_page);
-
-				// if current page was `Some`, and next is `None`, we have
-				// finished an election and we can report it now.
-				if maybe_next_page.is_none() {
-					// TODO: do one last check if this is a good election or not.
-					// If not, delete everything.
-					// minimum_validator_count
-					use pallet_staking_async_rc_client::RcClientInterface;
-					let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
-					let bonded_eras = BondedEras::<T>::get();
-
-					// get the first session of the oldest era in the bonded eras.
-					let prune_up_to = if (bonded_eras.len() as u32) < T::BondingDuration::get() {
-						0
-					} else {
-						bonded_eras.first().map(|(_, first_session)| *first_session).unwrap_or(0)
-					};
-
-					crate::log!(
-						info,
-						"Send new validator set to RC. ID: {:?}, prune_up_to: {:?}",
-						id,
-						prune_up_to
-					);
-
-					// TODO: should we not drain this? it is not needed by us anymore at this point.
-					T::RcClientInterface::validator_set(
-						ElectableStashes::<T>::get().into_iter().collect(),
-						id,
-						Some(prune_up_to),
-					);
-				}
-				T::DbWeight::get().reads_writes(1, 1)
-			} else {
-				T::DbWeight::get().reads(1)
-			}
 		}
 	}
 
@@ -1579,6 +1500,14 @@ pub mod pallet {
 				}
 			}
 
+			// dedup targets
+			let mut targets = targets
+				.into_iter()
+				.map(|t| T::Lookup::lookup(t).map_err(DispatchError::from))
+				.collect::<Result<Vec<_>, _>>()?;
+			targets.sort();
+			targets.dedup();
+
 			ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
 			ensure!(
 				targets.len() <= T::NominationsQuota::get_quota(ledger.active) as usize,
@@ -1589,17 +1518,14 @@ pub mod pallet {
 
 			let targets: BoundedVec<_, _> = targets
 				.into_iter()
-				.map(|t| T::Lookup::lookup(t).map_err(DispatchError::from))
 				.map(|n| {
-					n.and_then(|n| {
-						if old.contains(&n) || !Validators::<T>::get(&n).blocked {
-							Ok(n)
-						} else {
-							Err(Error::<T>::BadTarget.into())
-						}
-					})
+					if old.contains(&n) || !Validators::<T>::get(&n).blocked {
+						Ok(n)
+					} else {
+						Err(Error::<T>::BadTarget.into())
+					}
 				})
-				.collect::<Result<Vec<_>, _>>()?
+				.collect::<Result<Vec<_>, DispatchError>>()?
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyNominators)?;
 

@@ -18,7 +18,9 @@
 //! Test utilities
 
 use crate::{
-	self as pallet_staking_async, session_rotation::{Eras, Rotator}, *
+	self as pallet_staking_async,
+	session_rotation::{Eras, Rotator},
+	*,
 };
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -102,7 +104,7 @@ impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
 	}
 }
 
-const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
+pub(crate) const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
 parameter_types! {
@@ -146,6 +148,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 }
+
 pub struct TestElectionProvider;
 impl ElectionProvider for TestElectionProvider {
 	type AccountId = AccountId;
@@ -234,6 +237,12 @@ pub mod session_mock {
 			CurrentIndex::get()
 		}
 
+		pub fn roll_until(block: BlockNumber) {
+			while System::block_number() < block {
+				Self::roll_next();
+			}
+		}
+
 		pub fn roll_next() {
 			let now = System::block_number();
 			Timestamp::mutate(|ts| *ts += BLOCK_TIME);
@@ -300,6 +309,13 @@ pub mod session_mock {
 		pub static Active: Vec<AccountId> = Vec::new();
 		pub static CurrentIndex: u32 = 0;
 		pub static Timestamp: u64 = INIT_TIMESTAMP;
+	}
+
+	impl ReceivedValidatorSets {
+		pub fn get_last() -> ValidatorSetReport<AccountId> {
+			let mut data = Self::get();
+			data.pop_last().unwrap().1
+		}
 	}
 
 	impl pallet_staking_async_rc_client::RcClientInterface for Session {
@@ -370,7 +386,6 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxValidatorSet = MaxValidatorSet;
 	type ElectionProvider = TestElectionProvider;
-	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterBagsList;
 	type TargetList = UseValidatorsMap<Self>;
 	type NominationsQuota = WeightedNominationsQuota<16>;
@@ -417,7 +432,6 @@ parameter_types! {
 pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
-	minimum_validator_count: u32,
 	invulnerables: BoundedVec<AccountId, <Test as Config>::MaxInvulnerables>,
 	has_stakers: bool,
 	pub min_nominator_bond: Balance,
@@ -434,7 +448,6 @@ impl Default for ExtBuilder {
 		Self {
 			nominate: true,
 			validator_count: 2,
-			minimum_validator_count: 0,
 			balance_factor: 1,
 			invulnerables: BoundedVec::new(),
 			has_stakers: true,
@@ -448,6 +461,7 @@ impl Default for ExtBuilder {
 	}
 }
 
+#[allow(unused)]
 impl ExtBuilder {
 	pub(crate) fn existential_deposit(self, existential_deposit: Balance) -> Self {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = existential_deposit);
@@ -475,10 +489,6 @@ impl ExtBuilder {
 	}
 	pub(crate) fn validator_count(mut self, count: u32) -> Self {
 		self.validator_count = count;
-		self
-	}
-	pub(crate) fn minimum_validator_count(mut self, count: u32) -> Self {
-		self.minimum_validator_count = count;
 		self
 	}
 	pub(crate) fn slash_defer_duration(self, eras: EraIndex) -> Self {
@@ -541,6 +551,14 @@ impl ExtBuilder {
 	}
 	pub(crate) fn multi_page_election_provider(self, pages: PageIndex) -> Self {
 		Pages::set(pages);
+		self
+	}
+	pub(crate) fn election_bounds(self, voter_count: u32, target_count: u32) -> Self {
+		let bounds = ElectionBoundsBuilder::default()
+			.voters_count(voter_count.into())
+			.targets_count(target_count.into())
+			.build();
+		ElectionsBounds::set(bounds);
 		self
 	}
 	pub(crate) fn max_winners_per_page(self, max: u32) -> Self {
@@ -616,7 +634,6 @@ impl ExtBuilder {
 		let _ = pallet_staking_async::GenesisConfig::<Test> {
 			stakers: maybe_stakers,
 			validator_count: self.validator_count,
-			minimum_validator_count: self.minimum_validator_count,
 			invulnerables: self.invulnerables,
 			active_era: (0, 0, INIT_TIMESTAMP),
 			slash_reward_fraction: Perbill::from_percent(10),
@@ -722,10 +739,13 @@ pub(crate) fn reward_all_elected() {
 }
 
 pub(crate) fn era_exposures(era: u32) -> Vec<(AccountId, Exposure<AccountId, Balance>)> {
-	Session::validators()
-		.into_iter()
-		.map(|v| (v, Staking::eras_stakers(era, &v)))
+	ErasStakersOverview::<T>::iter_prefix(era)
+		.map(|(v, _overview)| (v, Staking::eras_stakers(era, &v)))
 		.collect::<Vec<_>>()
+}
+
+pub(crate) fn session_validators() -> Vec<AccountId> {
+	Session::validators()
 }
 
 /// Add a slash for who
@@ -736,6 +756,35 @@ pub(crate) fn add_slash(who: AccountId) {
 			offender: who,
 			reporters: vec![],
 			slash_fraction: Perbill::from_percent(10),
+		}],
+	);
+}
+
+pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex) {
+	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
+		ErasStartSessionIndex::<T>::get(era).unwrap(),
+		vec![rc_client::Offence {
+			offender: who,
+			reporters: vec![],
+			slash_fraction: Perbill::from_percent(10),
+		}],
+	);
+}
+
+pub(crate) fn add_slash_in_era_with_value(who: AccountId, era: EraIndex, p: Perbill) {
+	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
+		ErasStartSessionIndex::<T>::get(era).unwrap(),
+		vec![rc_client::Offence { offender: who, reporters: vec![], slash_fraction: p }],
+	);
+}
+
+pub(crate) fn add_slash_with_percent(who: AccountId, percent: u32) {
+	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
+		session_mock::Session::current_index(),
+		vec![rc_client::Offence {
+			offender: who,
+			reporters: vec![],
+			slash_fraction: Perbill::from_percent(percent),
 		}],
 	);
 }
@@ -768,6 +817,7 @@ pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> 
 
 	<Bonded<Test>>::insert(stash, controller);
 	<Ledger<Test>>::insert(controller, StakingLedger::<Test>::default_from(stash));
+	<Payee<Test>>::insert(stash, RewardDestination::Staked);
 
 	Ok(())
 }
@@ -894,11 +944,6 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 	let seen = StakingEventsIndex::get();
 	StakingEventsIndex::set(all.len());
 	all.into_iter().skip(seen).collect()
-}
-
-#[deprecated]
-pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
-	(asset::stakeable_balance::<Test>(who), Balances::reserved_balance(who))
 }
 
 pub(crate) fn to_bounded_supports(

@@ -273,6 +273,176 @@ fn nomination_quota_checks_at_nominate_works() {
 }
 
 #[test]
+#[should_panic]
+#[cfg(debug_assertions)]
+fn change_of_absolute_max_nominations() {
+	use frame_election_provider_support::ElectionDataProvider;
+	ExtBuilder::default()
+		.add_staker(61, 10, StakerStatus::Nominator(vec![1]))
+		.add_staker(71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
+		.balance_factor(10)
+		.build_and_execute(|| {
+			// pre-condition
+			assert_eq!(AbsoluteMaxNominations::get(), 16);
+
+			assert_eq!(
+				Nominators::<Test>::iter()
+					.map(|(k, n)| (k, n.targets.len()))
+					.collect::<Vec<_>>(),
+				vec![(101, 2), (71, 3), (61, 1)]
+			);
+
+			// default bounds are unbounded.
+			let bounds = DataProviderBounds::default();
+
+			// 3 validators and 3 nominators
+			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
+
+			// abrupt change from 16 to 4, everyone should be fine.
+			AbsoluteMaxNominations::set(4);
+
+			assert_eq!(
+				Nominators::<Test>::iter()
+					.map(|(k, n)| (k, n.targets.len()))
+					.collect::<Vec<_>>(),
+				vec![(101, 2), (71, 3), (61, 1)]
+			);
+			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
+
+			// No one can be chilled on account of non-decodable keys.
+			for k in Nominators::<Test>::iter_keys() {
+				assert_noop!(
+					Staking::chill_other(RuntimeOrigin::signed(1), k),
+					Error::<Test>::CannotChillOther
+				);
+			}
+
+			// abrupt change from 4 to 3, everyone should be fine.
+			AbsoluteMaxNominations::set(3);
+
+			assert_eq!(
+				Nominators::<Test>::iter()
+					.map(|(k, n)| (k, n.targets.len()))
+					.collect::<Vec<_>>(),
+				vec![(101, 2), (71, 3), (61, 1)]
+			);
+			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 3);
+
+			// As before, no one can be chilled on account of non-decodable keys.
+			for k in Nominators::<Test>::iter_keys() {
+				assert_noop!(
+					Staking::chill_other(RuntimeOrigin::signed(1), k),
+					Error::<Test>::CannotChillOther
+				);
+			}
+
+			// abrupt change from 3 to 2, this should cause some nominators to be non-decodable,
+			// and thus non-existent unless they update.
+			AbsoluteMaxNominations::set(2);
+
+			assert_eq!(
+				Nominators::<Test>::iter()
+					.map(|(k, n)| (k, n.targets.len()))
+					.collect::<Vec<_>>(),
+				vec![(101, 2), (61, 1)]
+			);
+
+			// 101 and 61 still cannot be chilled by someone else.
+			for k in [101, 61].iter() {
+				assert_noop!(
+					Staking::chill_other(RuntimeOrigin::signed(1), *k),
+					Error::<Test>::CannotChillOther
+				);
+			}
+
+			// 71 is still in storage..
+			assert!(Nominators::<Test>::contains_key(71));
+			// but its value cannot be decoded and default is returned.
+			assert!(Nominators::<Test>::get(71).is_none());
+
+			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 2);
+			assert!(Nominators::<Test>::contains_key(101));
+
+			// abrupt change from 2 to 1, this should cause some nominators to be non-decodable,
+			// and thus non-existent unless they update.
+			AbsoluteMaxNominations::set(1);
+
+			assert_eq!(
+				Nominators::<Test>::iter()
+					.map(|(k, n)| (k, n.targets.len()))
+					.collect::<Vec<_>>(),
+				vec![(61, 1)]
+			);
+
+			// 61 *still* cannot be chilled by someone else.
+			assert_noop!(
+				Staking::chill_other(RuntimeOrigin::signed(1), 61),
+				Error::<Test>::CannotChillOther
+			);
+
+			assert!(Nominators::<Test>::contains_key(71));
+			assert!(Nominators::<Test>::contains_key(61));
+			assert!(Nominators::<Test>::get(71).is_none());
+			assert!(Nominators::<Test>::get(61).is_some());
+			assert_eq!(Staking::electing_voters(bounds, 0).unwrap().len(), 3 + 1);
+
+			// now one of them can revive themselves by re-nominating to a proper value.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(71), vec![1]));
+			assert_eq!(
+				Nominators::<Test>::iter()
+					.map(|(k, n)| (k, n.targets.len()))
+					.collect::<Vec<_>>(),
+				vec![(71, 1), (61, 1)]
+			);
+
+			// or they can be chilled by any account.
+			assert!(Nominators::<Test>::contains_key(101));
+			assert!(Nominators::<Test>::get(101).is_none());
+			assert_ok!(Staking::chill_other(RuntimeOrigin::signed(71), 101));
+			assert_eq!(*staking_events().last().unwrap(), Event::Chilled { stash: 101 });
+			assert!(!Nominators::<Test>::contains_key(101));
+			assert!(Nominators::<Test>::get(101).is_none());
+		})
+}
+
+#[test]
+fn nomination_quota_max_changes_decoding() {
+	use frame_election_provider_support::ElectionDataProvider;
+	ExtBuilder::default()
+		.add_staker(60, 10, StakerStatus::Nominator(vec![1]))
+		.add_staker(70, 10, StakerStatus::Nominator(vec![1, 2, 3]))
+		.add_staker(30, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
+		.add_staker(50, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
+		.balance_factor(11)
+		.build_and_execute(|| {
+			// pre-condition.
+			assert_eq!(MaxNominationsOf::<Test>::get(), 16);
+
+			let unbonded_election = DataProviderBounds::default();
+
+			assert_eq!(
+				Nominators::<Test>::iter()
+					.map(|(k, n)| (k, n.targets.len()))
+					.collect::<Vec<_>>(),
+				vec![(70, 3), (101, 2), (50, 4), (30, 4), (60, 1)]
+			);
+
+			// 4 validators and 4 nominators
+			assert_eq!(Staking::electing_voters(unbonded_election, 0).unwrap().len(), 4 + 4);
+		});
+}
+
+#[test]
+fn api_nominations_quota_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_eq!(Staking::api_nominations_quota(10), MaxNominationsOf::<Test>::get());
+		assert_eq!(Staking::api_nominations_quota(333), MaxNominationsOf::<Test>::get());
+		assert_eq!(Staking::api_nominations_quota(222), 2);
+		assert_eq!(Staking::api_nominations_quota(111), 1);
+	})
+}
+
+#[test]
 fn lazy_quota_npos_voters_works_above_quota() {
 	ExtBuilder::default()
 		.nominate(false)
@@ -304,11 +474,7 @@ fn lazy_quota_npos_voters_works_above_quota() {
 fn nominations_quota_limits_size_work() {
 	ExtBuilder::default()
 		.nominate(false)
-		.add_staker(
-			71,
-			333,
-			StakerStatus::<AccountId>::Nominator(vec![16, 15, 14, 13, 12, 11, 10]),
-		)
+		.add_staker(71, 333, StakerStatus::<AccountId>::Nominator(vec![16, 15, 14, 13, 12, 11, 10]))
 		.build_and_execute(|| {
 			// nominations of controller 70 won't be added due to voter size limit exceeded.
 			let bounds = ElectionBoundsBuilder::default().voters_size(100.into()).build();
@@ -337,5 +503,220 @@ fn nominations_quota_limits_size_work() {
 					.collect::<Vec<_>>(),
 				vec![(11, 1), (21, 1), (31, 1), (71, 7)],
 			);
+		});
+}
+
+mod sorted_list_provider {
+	use super::*;
+	use frame_election_provider_support::SortedListProvider;
+
+	#[test]
+	fn re_nominate_does_not_change_counters_or_list() {
+		ExtBuilder::default().nominate(true).build_and_execute(|| {
+			// given
+			let pre_insert_voter_count =
+				(Nominators::<Test>::count() + Validators::<Test>::count()) as u32;
+			assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
+
+			assert_eq!(
+				<Test as Config>::VoterList::iter().collect::<Vec<_>>(),
+				vec![11, 21, 31, 101]
+			);
+
+			// when account 101 renominates
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![41]));
+
+			// then counts don't change
+			assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
+			// and the list is the same
+			assert_eq!(
+				<Test as Config>::VoterList::iter().collect::<Vec<_>>(),
+				vec![11, 21, 31, 101]
+			);
+		});
+	}
+
+	#[test]
+	fn re_validate_does_not_change_counters_or_list() {
+		ExtBuilder::default().nominate(false).build_and_execute(|| {
+			// given
+			let pre_insert_voter_count =
+				(Nominators::<Test>::count() + Validators::<Test>::count()) as u32;
+			assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
+
+			assert_eq!(<Test as Config>::VoterList::iter().collect::<Vec<_>>(), vec![11, 21, 31]);
+
+			// when account 11 re-validates
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(11), Default::default()));
+
+			// then counts don't change
+			assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
+			// and the list is the same
+			assert_eq!(<Test as Config>::VoterList::iter().collect::<Vec<_>>(), vec![11, 21, 31]);
+		});
+	}
+}
+
+mod paged_snapshot {
+	use super::*;
+
+	#[test]
+	fn target_snapshot_works() {
+		ExtBuilder::default()
+			.nominate(true)
+			.set_status(41, StakerStatus::Validator)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(101, StakerStatus::Idle)
+			.build_and_execute(|| {
+				// all registered validators.
+				let all_targets = vec![51, 31, 41, 21, 11];
+				assert_eq_uvec!(
+					<Test as Config>::TargetList::iter().collect::<Vec<_>>(),
+					all_targets,
+				);
+
+				// 3 targets per page.
+				let bounds =
+					ElectionBoundsBuilder::default().targets_count(3.into()).build().targets;
+
+				let targets =
+					<Staking as ElectionDataProvider>::electable_targets(bounds, 0).unwrap();
+				assert_eq_uvec!(targets, all_targets.iter().take(3).cloned().collect::<Vec<_>>());
+
+				// emulates a no bounds target snapshot request.
+				let bounds =
+					ElectionBoundsBuilder::default().targets_count(u32::MAX.into()).build().targets;
+
+				let single_page_targets =
+					<Staking as ElectionDataProvider>::electable_targets(bounds, 0).unwrap();
+
+				// complete set of paged targets is the same as single page, no bounds set of
+				// targets.
+				assert_eq_uvec!(all_targets, single_page_targets);
+			})
+	}
+
+	#[test]
+	fn target_snaposhot_multi_page_redundant() {
+		ExtBuilder::default().build_and_execute(|| {
+			let all_targets = vec![31, 21, 11];
+			assert_eq_uvec!(<Test as Config>::TargetList::iter().collect::<Vec<_>>(), all_targets,);
+
+			// no bounds.
+			let bounds =
+				ElectionBoundsBuilder::default().targets_count(u32::MAX.into()).build().targets;
+
+			// target snapshot supports only single-page, thus it is redundant what's the page index
+			// requested.
+			let snapshot = Staking::electable_targets(bounds, 0).unwrap();
+			assert!(
+				snapshot == all_targets &&
+					snapshot == Staking::electable_targets(bounds, 1).unwrap() &&
+					snapshot == Staking::electable_targets(bounds, 2).unwrap() &&
+					snapshot == Staking::electable_targets(bounds, u32::MAX).unwrap(),
+			);
+		})
+	}
+
+	#[test]
+	fn voter_snapshot_works() {
+		ExtBuilder::default()
+			.nominate(true)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(41, StakerStatus::Nominator(vec![51]))
+			.set_status(101, StakerStatus::Validator)
+			.build_and_execute(|| {
+				let bounds = ElectionBoundsBuilder::default().voters_count(3.into()).build().voters;
+				assert_eq!(
+					<Test as Config>::VoterList::iter()
+						.collect::<Vec<_>>()
+						.into_iter()
+						.map(|v| (v, <Test as Config>::VoterList::get_score(&v).unwrap()))
+						.collect::<Vec<_>>(),
+					vec![(41, 4000), (51, 5000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
+				);
+
+				let mut all_voters = vec![];
+
+				let voters_page_3 = <Staking as ElectionDataProvider>::electing_voters(bounds, 3)
+					.unwrap()
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+				all_voters.extend(voters_page_3.clone());
+
+				assert_eq!(voters_page_3, vec![41, 51, 11]);
+
+				let voters_page_2 = <Staking as ElectionDataProvider>::electing_voters(bounds, 2)
+					.unwrap()
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+				all_voters.extend(voters_page_2.clone());
+
+				assert_eq!(voters_page_2, vec![21, 31, 101]);
+
+				// all voters in the list have been consumed.
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+
+				// thus page 1 and 0 are empty.
+				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
+					.unwrap()
+					.is_empty());
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+
+				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
+					.unwrap()
+					.is_empty());
+
+				// last page has been requested, reset the snapshot status to waiting.
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+
+				// now request 1 page with bounds where all registered voters fit. u32::MAX
+				// emulates a no bounds request.
+				let bounds =
+					ElectionBoundsBuilder::default().voters_count(u32::MAX.into()).build().targets;
+
+				let single_page_voters =
+					<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
+						.unwrap()
+						.into_iter()
+						.map(|(a, _, _)| a)
+						.collect::<Vec<_>>();
+
+				// complete set of paged voters is the same as single page, no bounds set of
+				// voters.
+				assert_eq!(all_voters, single_page_voters);
+			})
+	}
+}
+
+#[test]
+fn locked_during_snapshot() {
+	todo!();
+}
+
+#[test]
+fn from_most_staked_to_least_staked() {
+	ExtBuilder::default()
+		.nominate(true)
+		.set_status(51, StakerStatus::Validator)
+		.set_status(41, StakerStatus::Nominator(vec![51]))
+		.set_status(101, StakerStatus::Validator)
+		.set_stake(41, 11000)
+		.set_stake(51, 2500)
+		.set_stake(101, 35)
+		.build_and_execute(|| {
+			assert_eq!(THRESHOLDS.to_vec(), [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000]);
+
+			assert_eq!(
+				<Test as Config>::VoterList::iter()
+					.collect::<Vec<_>>()
+					.into_iter()
+					.map(|v| (v, <Test as Config>::VoterList::get_score(&v).unwrap()))
+					.collect::<Vec<_>>(),
+				vec![(41, 11000), (51, 2500), (11, 1000), (21, 1000), (31, 500), (101, 35)],
+			);
+
 		});
 }

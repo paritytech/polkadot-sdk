@@ -53,8 +53,8 @@
 //!
 //! The staking pallet in AH has no communication with session pallet whatsoever, therefore its
 //! implementation of `SessionManager`, and it associated type `SessionInterface` no longer exists.
-//! Moreover, pallet-staking-async no longer has a notion of timestamp locally, and only relies in the
-//! timestamp passed in in the `SessionReport`.
+//! Moreover, pallet-staking-async no longer has a notion of timestamp locally, and only relies in
+//! the timestamp passed in in the `SessionReport`.
 //!
 //! ## Session Change
 //!
@@ -322,6 +322,10 @@ pub mod pallet {
 	pub type IncompleteSessionReport<T: Config> =
 		StorageValue<_, SessionReport<T::AccountId>, OptionQuery>;
 
+	/// The last session report's `end_index` that we have acted upon.
+	#[pallet::storage]
+	pub type LastSessionReportEndingIndex<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
+
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
@@ -353,15 +357,29 @@ pub mod pallet {
 			validator_points_counts: u32,
 			leftover: bool,
 		},
-
+		/// We could not merge, and therefore dropped a buffered message.
+		///
+		/// Note that this event is more resembling an error, but we use an event because in this
+		/// pallet we need to mutate storage upon some failures.
+		CouldNotMergeAndDropped,
 		/// A new offence was reported.
 		OffenceReceived { slash_session: SessionIndex, offences_count: u32 },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// The session report was not valid, due to a bad end index.
+		SessionIndexNotValid,
 	}
 
 	impl<T: Config> RcClientInterface for Pallet<T> {
 		type AccountId = T::AccountId;
 
-		fn validator_set(new_validator_set: Vec<Self::AccountId>, id: u32, prune_up_tp: Option<u32>) {
+		fn validator_set(
+			new_validator_set: Vec<Self::AccountId>,
+			id: u32,
+			prune_up_tp: Option<u32>,
+		) {
 			let report = ValidatorSetReport::new_terminal(new_validator_set, id, prune_up_tp);
 			T::SendToRelayChain::validator_set(report);
 		}
@@ -379,6 +397,21 @@ pub mod pallet {
 			log!(info, "Received session report: {:?}", report);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
 
+			match LastSessionReportEndingIndex::<T>::get() {
+				None => {},
+				Some(last) if report.end_index == last + 1 => {},
+				Some(incorrect) => {
+					log!(
+						error,
+						"Session report end index is not valid. last_index={:?}, report.index={:?}",
+						incorrect,
+						report.end_index
+					);
+					// NOTE: we may want to set ourself to a blocked mode at this point.
+					return Err(Error::<T>::SessionIndexNotValid.into());
+				},
+			}
+
 			Self::deposit_event(Event::SessionReportReceived {
 				end_index: report.end_index,
 				activation_timestamp: report.activation_timestamp,
@@ -387,18 +420,27 @@ pub mod pallet {
 			});
 
 			// If we have anything previously buffered, then merge it.
-			let new_session_report = match IncompleteSessionReport::<T>::take() {
-				// TODO: update this to be like the ah-client -- returning error will nullify the
-				// `::take()`.
-				Some(old) => old.merge(report.clone()).map_err(|_| "CouldNotMerge")?,
-				None => report,
+			let maybe_new_session_report = match IncompleteSessionReport::<T>::take() {
+				Some(old) => old.merge(report.clone()),
+				None => Ok(report),
 			};
+
+			if let Err(_) = maybe_new_session_report {
+				Self::deposit_event(Event::CouldNotMergeAndDropped);
+				debug_assert!(
+					IncompleteSessionReport::<T>::get().is_none(),
+					"we have ::take() it above, we don't want to keep the old data"
+				);
+				return Ok(());
+			}
+			let new_session_report = maybe_new_session_report.expect("checked above; qed");
 
 			if new_session_report.leftover {
 				// this is still not final -- buffer it.
 				IncompleteSessionReport::<T>::put(new_session_report);
 			} else {
 				// this is final, report it.
+				LastSessionReportEndingIndex::<T>::put(new_session_report.end_index);
 				T::AHStakingInterface::on_relay_session_report(new_session_report);
 			}
 
