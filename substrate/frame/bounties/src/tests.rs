@@ -1616,29 +1616,38 @@ fn check_and_process_funding_and_payout_payment_works() {
 			Error::<Test>::PayoutInconclusive
 		);
 
-		// When/Then (check BountyStatus::PayoutAttempted - PaymentState::PayoutAttempted - 1x
-		// PaymentStatus::Failure)
+		// When/Then (check BountyStatus::PayoutAttempted - 2x PaymentState::Attempted - 1x
+		// PaymentStatus::Failure 1x PaymentStatus::InProgress)
+		let (final_fee, payout) = Bounties::calculate_curator_fee_and_payout(bounty_id, fee, value);
 		set_status(beneficiary_payment_id, PaymentStatus::Failure);
+		unpay(beneficiary, asset_kind, payout);
 		let res = Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id);
 		assert_eq!(res.unwrap().pays_fee, Pays::Yes);
 
-		// When/Then (check BountyStatus::PayoutAttempted - PaymentState::Failed)
+		// When/Then (check BountyStatus::PayoutAttempted - 1x PaymentState::Failed 1x
+		// PaymentState::Attempted)
 		assert_noop!(
 			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id),
 			Error::<Test>::UnexpectedStatus
 		);
 
-		// When
-		// TODO: continue
-		// Tiago: process_payment does not change bounty.status state. Should it change?
-		// assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_id));
-		// let beneficiary_payment_id = get_payment_id(bounty_id,
-		// Some(beneficiary)).expect("no payment attempt"); set_status(beneficiary_payment_id,
-		// PaymentStatus::Success); let curator_payment_id = get_payment_id(bounty_id,
-		// Some(curator_stash)).expect("no payment attempt"); set_status(curator_payment_id,
-		// PaymentStatus::Success); assert_ok!(
-		// 	Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id)
-		// );
+		// When/Then (process BountyStatus::PayoutAttempted and check 1x PaymentState::Success 1x
+		// PaymentState::Attempted)
+		assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_id));
+		approve_payment(beneficiary, bounty_id, asset_kind, payout);
+		assert_noop!(
+			Bounties::process_payment(RuntimeOrigin::signed(user), bounty_id),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// When/Then (process BountyStatus::PayoutAttempted and check 2x PaymentState::Success)
+		assert!(get_payment_id(bounty_id, Some(beneficiary)).is_none());
+		approve_payment(curator_stash, bounty_id, asset_kind, final_fee);
+		let bounty_account =
+			Bounties::bounty_account_id(bounty_id, asset_kind).expect("conversion failed");
+		assert_eq!(Balances::free_balance(bounty_account), 0);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(bounty_id), None);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(bounty_id), None);
 	});
 }
 
@@ -1659,7 +1668,12 @@ fn check_payment_status_approved_with_curator() {
 			value,
 			b"12345".to_vec()
 		));
-		assert_ok!(Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), bounty_id, curator, fee));
+		assert_ok!(Bounties::approve_bounty_with_curator(
+			RuntimeOrigin::root(),
+			bounty_id,
+			curator,
+			fee
+		));
 
 		// When/Then (check BountyStatus::ApprovedWithCurator - PaymentState::Attempted -
 		// PaymentStatus::InProgress)

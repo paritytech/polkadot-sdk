@@ -75,7 +75,8 @@ impl Pay for TestBountiesPay {
 		_: &Self::Beneficiary,
 		_: Self::AssetKind,
 		_: Self::Balance,
-	) {}
+	) {
+	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id, status: PaymentStatus) {
 		set_status(id, status);
@@ -96,15 +97,20 @@ impl Pay for TestTreasuryPay {
 		_: &Self::Beneficiary,
 		_: Self::AssetKind,
 		_: Self::Balance,
-	) -> Result<Self::Id, Self::Error> {Ok(0)}
-	fn check_payment(id: Self::Id) -> PaymentStatus {PaymentStatus::InProgress}
+	) -> Result<Self::Id, Self::Error> {
+		Ok(0)
+	}
+	fn check_payment(id: Self::Id) -> PaymentStatus {
+		PaymentStatus::InProgress
+	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
 		_: &Self::Source,
 		_: &Self::Beneficiary,
 		_: Self::AssetKind,
 		_: Self::Balance,
-	) {}
+	) {
+	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(_: Self::Id, _: PaymentStatus) {}
 }
@@ -347,7 +353,7 @@ pub fn paid(who: u128, asset_id: u32) -> u64 {
 }
 
 /// reduce paid balance for a given account and asset ids
-fn unpay(who: u128, asset_id: u32, amount: u64) {
+pub fn unpay(who: u128, asset_id: u32, amount: u64) {
 	PAID.with(|p| p.borrow_mut().entry((who, asset_id)).or_default().saturating_reduce(amount))
 }
 

@@ -127,7 +127,7 @@ type PaymentIdOf<T, I = ()> = <<T as crate::Config<I>>::Paymaster as Pay>::Id;
 pub type BountyIndex = u32;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BountyOf<T, I> = Bounty<
+pub type BountyOf<T, I> = Bounty<
 	<T as frame_system::Config>::AccountId,
 	BalanceOf<T, I>,
 	BlockNumberFor<T, I>,
@@ -1292,14 +1292,14 @@ pub mod pallet {
 						_ => (
 							BountyStatus::Approved { payment_status: new_payment_status },
 							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-						)
+						),
 					}
 				},
 				ApprovedWithCurator { ref payment_status, ref curator } => {
 					let new_payment_status = Self::do_check_funding_payment_status(
 						bounty_id,
 						&bounty,
-						payment_status.clone()
+						payment_status.clone(),
 					)?;
 					match new_payment_status {
 						PaymentState::Succeeded => (
@@ -1307,11 +1307,13 @@ pub mod pallet {
 							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
 						),
 						_ => (
-							BountyStatus::ApprovedWithCurator { curator: curator.clone(), payment_status: new_payment_status },
+							BountyStatus::ApprovedWithCurator {
+								curator: curator.clone(),
+								payment_status: new_payment_status,
+							},
 							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-						)
+						),
 					}
-
 				},
 				RefundAttempted { ref payment_status } => {
 					let new_payment_status = Self::do_check_refund_payment_status(
@@ -1322,30 +1324,39 @@ pub mod pallet {
 					// TODO: change weight
 					match new_payment_status {
 						PaymentState::Succeeded => return Ok(Pays::No.into()),
-						_ => {
-							(
-								BountyStatus::RefundAttempted { payment_status: new_payment_status },
-								<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-							)
-						}
+						_ => (
+							BountyStatus::RefundAttempted { payment_status: new_payment_status },
+							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
+						),
 					}
 				},
-				PayoutAttempted { ref curator, ref curator_stash, ref beneficiary, } => {
-					let (new_curator_stash_payment_status, new_beneficiary_payment_status) = Self::do_check_payout_payment_status(
-						bounty_id,
-						&bounty,
-						curator.clone(),
-						curator_stash.clone(),
-						beneficiary.clone(),
-					)?;
+				PayoutAttempted { ref curator, ref curator_stash, ref beneficiary } => {
+					let (new_curator_stash_payment_status, new_beneficiary_payment_status) =
+						Self::do_check_payout_payment_status(
+							bounty_id,
+							&bounty,
+							curator.clone(),
+							curator_stash.clone(),
+							beneficiary.clone(),
+						)?;
 					// TODO: change weight
-					match (new_curator_stash_payment_status.clone(), new_beneficiary_payment_status.clone()) {
-						(PaymentState::Succeeded, PaymentState::Succeeded) => return Ok(Pays::No.into()),
+					match (
+						new_curator_stash_payment_status.clone(),
+						new_beneficiary_payment_status.clone(),
+					) {
+						(PaymentState::Succeeded, PaymentState::Succeeded) =>
+							return Ok(Pays::No.into()),
 						_ => (
 							BountyStatus::PayoutAttempted {
 								curator: curator.clone(),
-								curator_stash: (curator_stash.0.clone(), new_curator_stash_payment_status.clone()),
-								beneficiary: (beneficiary.0.clone(), new_beneficiary_payment_status.clone()),
+								curator_stash: (
+									curator_stash.0.clone(),
+									new_curator_stash_payment_status.clone(),
+								),
+								beneficiary: (
+									beneficiary.0.clone(),
+									new_beneficiary_payment_status.clone(),
+								),
 							},
 							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
 						),
@@ -1353,7 +1364,7 @@ pub mod pallet {
 				},
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
-			
+
 			bounty.status = new_status;
 			Bounties::<T, I>::insert(bounty_id, bounty);
 
@@ -1504,7 +1515,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Cleanup a bounty from the storage.
-	fn remove_bounty(bounty_id: BountyIndex)  {
+	fn remove_bounty(bounty_id: BountyIndex) {
 		Bounties::<T, I>::remove(bounty_id);
 		BountyDescriptions::<T, I>::remove(bounty_id);
 		T::ChildBountyManager::bounty_removed(bounty_id);
@@ -1607,7 +1618,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let (mut curator_status, mut beneficiary_status) = (curator_stash.1, beneficiary.1);
 		let (process_curator, process_beneficiary) = match (&curator_status, &beneficiary_status) {
 			(None, None) => (true, true),
-			(Some(curator), Some(beneficiary)) => (curator.is_pending_or_failed(), beneficiary.is_pending_or_failed()),
+			(Some(curator), Some(beneficiary)) =>
+				(curator.is_pending_or_failed(), beneficiary.is_pending_or_failed()),
 			_ => unreachable!(),
 		};
 		ensure!(process_curator || process_beneficiary, Error::<T, I>::UnexpectedStatus);
@@ -1652,9 +1664,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		bounty: &BountyOf<T, I>,
 		payment_status: PaymentState<PaymentIdOf<T, I>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
-		let payment_id = payment_status
-			.get_attempt_id()
-			.ok_or(Error::<T, I>::UnexpectedStatus)?;
+		let payment_id = payment_status.get_attempt_id().ok_or(Error::<T, I>::UnexpectedStatus)?;
 
 		match <T as pallet::Config<I>>::Paymaster::check_payment(payment_id) {
 			PaymentStatus::Success => {
@@ -1664,7 +1674,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(PaymentState::Succeeded)
 			},
 			PaymentStatus::InProgress => return Err(Error::<T, I>::FundingInconclusive.into()),
-			PaymentStatus::Unknown | PaymentStatus::Failure => return Ok(PaymentState::Failed)
+			PaymentStatus::Unknown | PaymentStatus::Failure => return Ok(PaymentState::Failed),
 		}
 	}
 
@@ -1673,25 +1683,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		bounty: &BountyOf<T, I>,
 		payment_status: PaymentState<PaymentIdOf<T, I>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
-		let payment_id = payment_status
-			.get_attempt_id()
-			.ok_or(Error::<T, I>::UnexpectedStatus)?;
+		let payment_id = payment_status.get_attempt_id().ok_or(Error::<T, I>::UnexpectedStatus)?;
 
 		match <T as pallet::Config<I>>::Paymaster::check_payment(payment_id) {
 			PaymentStatus::Success => {
 				// refund succeeded, cleanup the bounty
 				Self::remove_bounty(bounty_id);
-				Self::deposit_event(Event::<T, I>::BountyCanceled {
-					index: bounty_id,
-				});
+				Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
 				Ok(PaymentState::Succeeded)
 			},
 			PaymentStatus::InProgress =>
-				// nothing new to report
+			// nothing new to report
 				Err(Error::<T, I>::RefundInconclusive.into()),
-			PaymentStatus::Unknown | PaymentStatus::Failure => 
-				// assume payment has failed, allow user to retry
-				Ok(PaymentState::Failed)
+			PaymentStatus::Unknown | PaymentStatus::Failure =>
+			// assume payment has failed, allow user to retry
+				Ok(PaymentState::Failed),
 		}
 	}
 
@@ -1700,11 +1706,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		bounty: &BountyOf<T, I>,
 		curator: T::AccountId,
 		curator_stash: (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
-		beneficiary: (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>)
-	) -> Result<(PaymentState<PaymentIdOf<T, I>>, PaymentState<PaymentIdOf<T, I>>), DispatchError> {
-		// counters for payments that have changed state during this call and that have finished processing successfully. For
-		// If one payment succeeds and another fails, both count as "progressed" since
-		// they advanced the state machine.
+		beneficiary: (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
+	) -> Result<(PaymentState<PaymentIdOf<T, I>>, PaymentState<PaymentIdOf<T, I>>), DispatchError>
+	{
+		// counters for payments that have changed state during this call and that have finished
+		// processing successfully. For If one payment succeeds and another fails, both count as
+		// "progressed" since they advanced the state machine.
 		let (mut payments_progressed, mut payments_succeeded) = (0, 0);
 		// check both curator, and beneficiary payments
 		let (mut curator_stash_status, mut beneficiary_status) = (curator_stash.1, beneficiary.1);
@@ -1736,16 +1743,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// best scenario, both payments have succeeded,
 		if payments_succeeded >= 2 {
-			let (_final_fee, payout) = Self::calculate_curator_fee_and_payout(
-				bounty_id,
-				bounty.fee,
-				bounty.value,
-			);
+			let (_final_fee, payout) =
+				Self::calculate_curator_fee_and_payout(bounty_id, bounty.fee, bounty.value);
 			// payout succeeded, cleanup the bounty
 			Self::remove_bounty(bounty_id);
 			// Unreserve the curator deposit when payment succeeds
-			let err_amount =
-				T::Currency::unreserve(&curator, bounty.curator_deposit);
+			let err_amount = T::Currency::unreserve(&curator, bounty.curator_deposit);
 			debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
 			Self::deposit_event(Event::<T, I>::BountyClaimed {
 				index: bounty_id,
