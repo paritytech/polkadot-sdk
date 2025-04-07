@@ -14,7 +14,6 @@ std = [
 	"bp-messages?/std",
 	"bp-parachains?/std",
 	"bp-polkadot-core?/std",
-	"bp-polkadot?/std",
 	"bp-relayers?/std",
 	"bp-runtime?/std",
 	"bp-test-utils?/std",
@@ -525,7 +524,6 @@ runtime-full = [
 	"bp-header-chain",
 	"bp-messages",
 	"bp-parachains",
-	"bp-polkadot",
 	"bp-polkadot-core",
 	"bp-relayers",
 	"bp-runtime",
@@ -993,11 +991,6 @@ path = "../bridges/primitives/messages"
 default-features = false
 optional = true
 path = "../bridges/primitives/parachains"
-
-[dependencies.bp-polkadot]
-default-features = false
-optional = true
-path = "../bridges/chains/chain-polkadot"
 
 [dependencies.bp-polkadot-core]
 default-features = false
