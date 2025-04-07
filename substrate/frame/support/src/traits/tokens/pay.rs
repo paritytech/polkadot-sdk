@@ -121,7 +121,7 @@ where
 		<F as fungible::Mutate<_>>::mint_into(&A::get(), amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(_: Self::Id, _: PaymentStatus) {}
+	fn ensure_concluded(_: Self::Id) {}
 }
 
 /// Implementation of the `Pay` trait using a single fungible token (e.g., the native currency)
@@ -159,7 +159,7 @@ where
 		<F as fungible::Mutate<_>>::mint_into(&source, amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(_: Self::Id, _: PaymentStatus) {}
+	fn ensure_concluded(_: Self::Id) {}
 }
 
 /// Implementation of the `Pay` trait using multiple fungible asset classes (e.g., `pallet_assets`)
@@ -198,5 +198,5 @@ where
 		<F as fungibles::Mutate<_>>::mint_into(asset, &source, amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(_: Self::Id, _: PaymentStatus) {}
+	fn ensure_concluded(_: Self::Id) {}
 }

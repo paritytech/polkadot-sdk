@@ -112,7 +112,7 @@ impl Pay for TestTreasuryPay {
 	) {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(_: Self::Id, _: PaymentStatus) {}
+	fn ensure_concluded(_: Self::Id) {}
 }
 frame_support::construct_runtime!(
 	pub enum Test

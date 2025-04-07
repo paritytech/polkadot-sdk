@@ -79,7 +79,7 @@ impl Pay for TestPay {
 	) {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(_: Self::Id, _: PaymentStatus) {
+	fn ensure_concluded(_: Self::Id) {
 		unreachable!()
 	}
 }
