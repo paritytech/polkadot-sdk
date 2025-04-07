@@ -1,0 +1,37 @@
+title: 'Add voting hooks to Conviction_Voting'
+doc:
+  - audience: Runtime Dev
+    description: |
+      This change introduces voting hooks to the conviction-voting pallet, enabling developers to 
+      customize behavior during various stages of the voting process. These hooks provide a mechanism 
+      to execute specific logic before a vote is recorded, before a vote is removed, or when a vote 
+      fails to be recorded, while maintaining compatibility with the existing conviction-voting pallet.
+
+      The key hooks include:
+      - `on_vote`: Called before a vote is recorded. This hook allows developers to validate or 
+      perform actions based on the vote. If it returns an error, the voting operation is reverted. 
+      However, any storage modifications made by this hook will persist even if the vote fails later.
+      - `on_remove_vote`: Called before a vote is removed. This hook cannot fail and is useful for 
+      cleanup or additional logic when a vote is removed.
+      - `lock_balance_on_unsuccessful_vote`: Called when a vote fails to be recorded, such as due to 
+      insufficient balance. It allows locking a specific balance amount as part of the failure handling.
+
+      Advantages of using voting hooks:
+      - Flexibility: Developers can implement custom logic to extend or modify the behavior of the 
+      conviction-voting pallet.
+      - Control: Hooks provide fine-grained control over different stages of the voting process.
+      - Error Handling: The `on_vote` hook enables early validation, preventing (to some extent) invalid votes from 
+      being recorded.
+
+      How to use:
+      - Implement the `VotingHooks` trait in your runtime or custom module.
+      - Define the desired behavior for each hook method, such as validation logic in `on_vote` or 
+      cleanup actions in `on_remove_vote`.
+      - Integrate the implementation with the conviction-voting pallet to enable the hooks.
+crates: 
+- name: pallet-conviction-voting
+  bump: major
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
