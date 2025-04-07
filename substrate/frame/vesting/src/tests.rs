@@ -16,15 +16,21 @@
 // limitations under the License.
 
 use codec::EncodeLike;
-use frame_support::{assert_noop, assert_ok, assert_storage_noop};
+use frame_support::{
+	assert_noop, assert_ok, assert_storage_noop,
+	traits::fungible::{BalancedHold, Mutate, MutateHold},
+};
 use frame_system::RawOrigin;
+use pallet_balances::AccountData;
 use sp_runtime::{
 	traits::{BadOrigin, Identity},
 	TokenError,
 };
 
 use super::{Vesting as VestingStorage, *};
-use crate::mock::{Balances, ExtBuilder, System, Test, Vesting};
+use crate::mock::{
+	Balances, ExtBuilder, MockRuntimeHoldReason, RuntimeOrigin, System, Test, Vesting,
+};
 
 /// A default existential deposit.
 const ED: u64 = 256;
@@ -1234,5 +1240,88 @@ fn vested_transfer_impl_works() {
 			<Vesting as VestedTransfer<_>>::vested_transfer(&3, &4, ED * 5, 0, 10),
 			Error::<Test>::InvalidScheduleParams
 		);
+	});
+}
+
+#[test]
+fn slash_one_schedule() {
+	ExtBuilder::default().vesting_genesis_config(vec![]).build().execute_with(|| {
+		<Balances as Mutate<u64>>::set_balance(&1, 0);
+		<Balances as Mutate<u64>>::set_balance(&2, 1000);
+		let vesting_info = VestingInfo::new(1000, 100, 1);
+		assert_ok!(Vesting::vested_transfer(RuntimeOrigin::signed(2), 1, vesting_info));
+		assert_ok!(<Balances as MutateHold<u64>>::hold(
+			&MockRuntimeHoldReason::Reason,
+			&1u64,
+			300u64
+		));
+
+		assert_eq!(Balances::usable_balance(1), 0);
+
+		System::set_block_number(3);
+		// Unlock 200
+		assert_ok!(Vesting::vest(RuntimeOrigin::signed(1)));
+		assert_eq!(Balances::usable_balance(1), 200);
+
+		// Slash 300
+		let _ =
+			<Balances as BalancedHold<u64>>::slash(&MockRuntimeHoldReason::Reason, &1u64, 300u64);
+
+		// After calling slashing, the previously unlocked 200 should still be available
+		assert_eq!(Balances::usable_balance(1), 200);
+	});
+}
+
+#[test]
+fn slash_multiple_schedules() {
+	ExtBuilder::default().vesting_genesis_config(vec![]).build().execute_with(|| {
+		<Balances as Mutate<u64>>::set_balance(&1, 0);
+		<Balances as Mutate<u64>>::set_balance(&2, 1000 + 1300 + 750 + 2000);
+
+		// Duration 10 blocks
+		let vesting_info_1 = VestingInfo::new(1000, 100, 1);
+		// Duration 2 blocks
+		let vesting_info_2 = VestingInfo::new(1300, 650, 1);
+		// Duration 15 blocks
+		let vesting_info_3 = VestingInfo::new(750, 50, 1);
+		// Duration 10 blocks
+		let vesting_info_4 = VestingInfo::new(2000, 200, 1);
+
+		assert_ok!(Vesting::vested_transfer(RuntimeOrigin::signed(2), 1, vesting_info_1));
+		assert_ok!(Vesting::vested_transfer(RuntimeOrigin::signed(2), 1, vesting_info_2));
+		assert_ok!(Vesting::vested_transfer(RuntimeOrigin::signed(2), 1, vesting_info_3));
+		assert_ok!(Vesting::vested_transfer(RuntimeOrigin::signed(2), 1, vesting_info_4));
+
+		assert_ok!(<Balances as MutateHold<u64>>::hold(
+			&MockRuntimeHoldReason::Reason,
+			&1u64,
+			1000u64
+		));
+		assert_eq!(Balances::usable_balance(1), 0);
+
+		System::set_block_number(3);
+
+		// Unlock 100*2 + 650*2 + 50*2 + 200*2 = 2000
+		assert_ok!(Vesting::vest(RuntimeOrigin::signed(1)));
+		assert_eq!(Balances::usable_balance(1), 2000);
+
+		let _ =
+			<Balances as BalancedHold<u64>>::slash(&MockRuntimeHoldReason::Reason, &1u64, 650u64);
+
+		let schedules = <crate::Vesting<Test>>::get(1).unwrap().to_vec();
+
+		// Schedule 2 was fully vested before the slash, schedule 3 got the full amount reduced
+		// after the slash
+		assert_eq!(schedules, vec![VestingInfo::new(150, 18, 3), VestingInfo::new(950, 118, 3),]);
+
+		assert_eq!(
+			System::account(1).data,
+			AccountData { free: 4050, reserved: 350, frozen: 1100, flags: Default::default() }
+		);
+
+		// What part of the frozen restriction applies to the free balance after applying it to the
+		// slash
+		let untouchable = 1100 - 350;
+		assert_eq!(Balances::usable_balance(1), 4050 - untouchable);
 	});
 }

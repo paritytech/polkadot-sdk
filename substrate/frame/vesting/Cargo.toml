@@ -23,6 +23,7 @@ frame-system = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-runtime = { workspace = true }
+serde = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
