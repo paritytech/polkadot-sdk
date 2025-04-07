@@ -6,7 +6,7 @@ title: Add vested transfer event emission
 doc:
   - audience: [Runtime Dev, Runtime User]
     description: |
-      Add event emission for vested transfer.
+      Add event `VestingCreated` and emit on vested transfer.
 
 crates:
   - name: pallet-staking
