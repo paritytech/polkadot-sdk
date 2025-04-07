@@ -816,7 +816,7 @@ impl ChainBuilder {
 			parent_hash != Self::GENESIS_PARENT_HASH,
 			"cannot add block with genesis parent hash"
 		);
-		assert!(self.blocks_by_hash.len() < u8::MAX.into());
+		assert!(self.blocks_by_hash.len() < u8::MAX as usize);
 		self.add_block_inner(hash, parent_hash, number, config)
 	}
 
