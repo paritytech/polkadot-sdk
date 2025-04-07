@@ -762,10 +762,7 @@ where
 		// will give the correct new locked amount.
 		ensure!(schedules.try_push(vesting_schedule).is_ok(), Error::<T>::AtMaxVestingSchedules);
 
-		debug_assert!(
-			schedules.len() > 0,
-			"schedules cannot be empty after insertion"
-		);
+		debug_assert!(schedules.len() > 0, "schedules cannot be empty after insertion");
 		let schedule_index = schedules.len() - 1;
 		Self::deposit_event(Event::<T>::VestingCreated {
 			account: who.clone(),

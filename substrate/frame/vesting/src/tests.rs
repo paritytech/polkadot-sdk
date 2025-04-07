@@ -24,7 +24,7 @@ use sp_runtime::{
 };
 
 use super::{Vesting as VestingStorage, *};
-use crate::mock::{Balances, ExtBuilder, System, Test, Vesting, vesting_events_since_last_call};
+use crate::mock::{vesting_events_since_last_call, Balances, ExtBuilder, System, Test, Vesting};
 
 /// A default existential deposit.
 const ED: u64 = 256;
