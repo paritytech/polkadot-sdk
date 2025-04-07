@@ -117,14 +117,6 @@ match_types! {
 
 pub struct MockWeights;
 impl crate::WeightInfo for MockWeights {
-	fn as_personal_identity() -> sp_runtime::Weight {
-		Weight::from_parts(1, 1)
-	}
-
-	fn as_personal_alias() -> sp_runtime::Weight {
-		Weight::from_parts(2, 2)
-	}
-
 	fn under_alias() -> sp_runtime::Weight {
 		Weight::from_parts(3, 3)
 	}
@@ -219,7 +211,6 @@ impl crate::Config for Test {
 	type MaxRingSize = MaxRingSize;
 	type OnboardingQueuePageSize = ConstU32<40>;
 	type RingBakingInterval = ConstU64<10>;
-	type QueuePageMergingInterval = ConstU64<10>;
 	type MaxTaskLifespan = ConstU64<5>;
 
 	#[cfg(feature = "runtime-benchmarks")]

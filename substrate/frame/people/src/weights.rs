@@ -45,8 +45,6 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_ranked_collective.
 pub trait WeightInfo {
-	fn as_personal_identity() -> Weight;
-	fn as_personal_alias() -> Weight;
 	fn under_alias() -> Weight;
 	fn set_alias_account() -> Weight;
 	fn unset_alias_account() -> Weight;
@@ -72,9 +70,6 @@ pub trait WeightInfo {
 
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	fn as_personal_identity() -> Weight { Weight::zero() }
-	fn as_personal_alias() -> Weight { Weight::zero() }
-
 	fn under_alias() -> Weight {
 		Weight::zero()
 	}
@@ -162,9 +157,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	fn as_personal_identity() -> Weight { Weight::zero() }
-	fn as_personal_alias() -> Weight { Weight::zero() }
-
 	fn under_alias() -> Weight {
 		Weight::zero()
 	}

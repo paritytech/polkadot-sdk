@@ -182,6 +182,7 @@ pub trait CountedMembers {
 	fn active_count(&self) -> u32;
 }
 
+/// A legitimate verdict on a particular statement.
 #[derive(
 	Clone,
 	Copy,
@@ -203,6 +204,7 @@ pub enum Truth {
 	False,
 }
 
+/// Judgement passed on the truth and validity of a statement.
 #[derive(
 	Clone,
 	Copy,

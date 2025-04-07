@@ -143,7 +143,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The type that represent the entities tracked, its allowance and the conversion from
-		/// origin is bounded in [`Restriction`].
+		/// origin is bounded in [`RestrictedEntity`].
 		///
 		/// This is the canonical origin from the point of view of usage tracking.
 		/// Each entity is tracked separately.

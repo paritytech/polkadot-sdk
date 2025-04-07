@@ -137,29 +137,6 @@ fn recognize_person_with_duplicate_key() {
 	});
 }
 
-// #[test]
-// fn multiple_rings_works() {
-// 	TestExt::new().execute_with(|| {
-// 		// At the start of creating a new ring, you refresh the root.
-// 		assert_ok!(PeoplePallet::refresh_root(RuntimeOrigin::none()));
-
-// 		// Let's create some people...
-// 		let max_ring_size: u32 = <Test as crate::Config>::MaxRingSize::get();
-// 		// Generate enough people to fill 2 rings, and use a third.
-// 		let people = generate_people((max_ring_size * 3 - 1) as u8);
-
-// 		// Alice and two friends are placed into ring 0.
-// 		for person in &people {
-// 			assert_ok!(PeoplePallet::push_member(RuntimeOrigin::none(), person.0));
-// 		}
-
-// 		assert_ok!(PeoplePallet::bake_root(RuntimeOrigin::none(), 0));
-// 		assert_ok!(PeoplePallet::bake_root(RuntimeOrigin::none(), 1));
-// 		assert_ok!(PeoplePallet::bake_root(RuntimeOrigin::none(), 2));
-// 		assert_noop!(PeoplePallet::bake_root(RuntimeOrigin::none(), 3), Error::<Test>::NotBuilding);
-// 	});
-// }
-
 #[test]
 fn recognize_same_person_2_times() {
 	TestExt::new().execute_with(|| {
@@ -3039,5 +3016,165 @@ fn resetting_alias_account_for_new_revision_is_refunded() {
 		let origin = RuntimeOrigin::from(PeopleOrigin::PersonalAlias(rev_ca_new.clone()));
 		let result = PeoplePallet::set_alias_account(origin, account, 0);
 		assert_eq!(result.unwrap(), frame_support::pallet_prelude::Pays::No.into());
+	});
+}
+
+#[test]
+fn replay_protection_for_identity() {
+	new_test_ext().execute_with(|| {
+		const EXTENSION_VERSION: u8 = 0;
+		// Setup alice as a member.
+		let alice_sec = Simple::new_secret([1u8; 32]);
+		let alice_pub = Simple::member_from_secret(&alice_sec);
+		let alice_index = PeoplePallet::reserve_new_id();
+		PeoplePallet::recognize_personhood(alice_index, Some(alice_pub)).unwrap();
+		let generate_setup_account_tx_ext_for_call = |call: RuntimeCall| {
+			let other_tx_ext = (frame_system::CheckNonce::<Test>::from(0),);
+			// Here we simply ignore implicit as they are null.
+			let msg = (&EXTENSION_VERSION, &call, &other_tx_ext)
+				.using_encoded(sp_io::hashing::blake2_256);
+			let signature = Simple::sign(&alice_sec, &msg).unwrap();
+			(
+				AsPerson::<Test>::new(Some(AsPersonInfo::AsPersonalIdentityWithProof(
+					signature,
+					alice_index,
+				))),
+				other_tx_ext.0,
+			)
+		};
+		// Transaction 1: Alice sets its personal id account to 10.
+		let call = RuntimeCall::PeoplePallet(crate::Call::set_personal_id_account {
+			account: 10,
+			call_valid_at: System::block_number(),
+		});
+		let tx_ext = generate_setup_account_tx_ext_for_call(call.clone());
+		assert_ok!(exec_tx(None, tx_ext.clone(), call.clone()));
+		assert_eq!(crate::People::<Test>::get(alice_index).unwrap().account, Some(10));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(10), Some(alice_index));
+		// Somebody tries to replay the transaction, it must fail, replay is protected.
+		assert_noop!(exec_tx(None, tx_ext.clone(), call.clone()), InvalidTransaction::Stale);
+		// Transaction 2: Alice sets its personal id account to 11, with call valid only in the
+		// future.
+		let call_2 = RuntimeCall::PeoplePallet(crate::Call::set_personal_id_account {
+			account: 11,
+			call_valid_at: System::block_number() + 1,
+		});
+		let tx_ext_2 = generate_setup_account_tx_ext_for_call(call_2.clone());
+		// Transaction 2 is not valid yet.
+		assert_noop!(exec_tx(None, tx_ext_2.clone(), call_2.clone()), InvalidTransaction::Future);
+		assert_eq!(crate::People::<Test>::get(alice_index).unwrap().account, Some(10));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(10), Some(alice_index));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(11), None);
+		// Advance some time. Transaction 1 is still valid, transaction 2 becomes valid.
+		mock::advance_to(System::block_number() + PeoplePallet::account_setup_time_tolerance());
+		// Transaction 2 is now valid.
+		assert_ok!(exec_tx(None, tx_ext_2.clone(), call_2.clone()));
+		assert_eq!(crate::People::<Test>::get(alice_index).unwrap().account, Some(11));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(11), Some(alice_index));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(10), None);
+		// Somebody replays the transaction 1, it must succeed. It is within time tolerance.
+		assert_ok!(exec_tx(None, tx_ext.clone(), call.clone()));
+		assert_eq!(crate::People::<Test>::get(alice_index).unwrap().account, Some(10));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(10), Some(alice_index));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(11), None);
+		// Replay the transaction 2.
+		assert_ok!(exec_tx(None, tx_ext_2.clone(), call_2.clone()));
+		assert_eq!(crate::People::<Test>::get(alice_index).unwrap().account, Some(11));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(11), Some(alice_index));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(10), None);
+		// Advance some time, Now time tolerance is exceeded for transaction 1.
+		mock::advance_to(System::block_number() + 1);
+		// Somebody replays the first transaction, it is invalid.
+		assert_noop!(exec_tx(None, tx_ext, call), InvalidTransaction::Stale);
+		assert_eq!(crate::People::<Test>::get(alice_index).unwrap().account, Some(11));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(11), Some(alice_index));
+		assert_eq!(crate::AccountToPersonalId::<Test>::get(10), None);
+	});
+}
+#[test]
+fn replay_protection_for_alias() {
+	new_test_ext().execute_with(|| {
+		const EXTENSION_VERSION: u8 = 0;
+		// Setup Alice as a member.
+		PeoplePallet::set_onboarding_size(RuntimeOrigin::root(), 1).unwrap();
+		let alice_sec = Simple::new_secret([1u8; 32]);
+		let alice_pub = Simple::member_from_secret(&alice_sec);
+		let alice_index = PeoplePallet::reserve_new_id();
+		PeoplePallet::recognize_personhood(alice_index, Some(alice_pub.clone())).unwrap();
+		assert_ok!(PeoplePallet::onboard_people(RuntimeOrigin::none()));
+		assert_ok!(PeoplePallet::build_ring(RuntimeOrigin::none(), 0, None));
+		let generate_alias_tx_ext_for_call = |call: RuntimeCall| {
+			let other_tx_ext = (frame_system::CheckNonce::<Test>::from(0),);
+			// The message is the hash over the extension version, call, and other extensions.
+			let msg = (&EXTENSION_VERSION, &call, &other_tx_ext)
+				.using_encoded(sp_io::hashing::blake2_256);
+			// Open a commitment (using Alice’s public key and public data)
+			let commitment = Simple::open(&alice_pub, Some(alice_pub.clone()).into_iter()).unwrap();
+			// Create a VRF proof and compute the alias output from the call message.
+			let (proof, alias_value) =
+				Simple::create(commitment, &alice_sec, &MOCK_CONTEXT, &msg).unwrap();
+			let alias = ContextualAlias { context: MOCK_CONTEXT, alias: alias_value };
+			let tx_ext = (
+				AsPerson::<Test>::new(Some(AsPersonInfo::AsPersonalAliasWithProof(
+					proof,
+					0,
+					MOCK_CONTEXT,
+				))),
+				other_tx_ext.0,
+			);
+			(tx_ext, alias)
+		};
+		// --- Transaction 1: set alias account to 10 ---
+		// Use the current block number as the valid time.
+		let call1 = RuntimeCall::PeoplePallet(crate::Call::set_alias_account {
+			account: 10,
+			call_valid_at: System::block_number(),
+		});
+		let (tx_ext1, alias) = generate_alias_tx_ext_for_call(call1.clone());
+		let rev_alias = RevisedContextualAlias { revision: 0, ring: 0, ca: alias.clone() };
+		// Execute transaction 1. It should succeed.
+		assert_ok!(exec_tx(None, tx_ext1.clone(), call1.clone()));
+		assert_eq!(crate::AliasToAccount::<Test>::get(&alias), Some(10));
+		assert_eq!(crate::AccountToAlias::<Test>::get(10), Some(rev_alias.clone()));
+		// Replay transaction 1 immediately: it must fail (replay protected).
+		assert_noop!(exec_tx(None, tx_ext1.clone(), call1.clone()), InvalidTransaction::Stale);
+		// --- Transaction 2: set alias account to 11 ---
+		// Set its valid time to the future: current block number plus the allowed tolerance + 1.
+		let call2 = RuntimeCall::PeoplePallet(crate::Call::set_alias_account {
+			account: 11,
+			call_valid_at: System::block_number() + 1,
+		});
+		let (tx_ext2, _) = generate_alias_tx_ext_for_call(call2.clone());
+		// Transaction 2 is too early: it should be rejected as "Future".
+		assert_noop!(exec_tx(None, tx_ext2.clone(), call2.clone()), InvalidTransaction::Future);
+		// The mapping still reflects transaction 1.
+		assert_eq!(crate::AliasToAccount::<Test>::get(&alias), Some(10));
+		assert_eq!(crate::AccountToAlias::<Test>::get(10), Some(rev_alias.clone()));
+		assert_eq!(crate::AccountToAlias::<Test>::get(11), None);
+		// Advance time by the allowed tolerance. Now transaction 2 becomes valid.
+		mock::advance_to(System::block_number() + PeoplePallet::account_setup_time_tolerance());
+		// Execute transaction 2. It now succeeds.
+		assert_ok!(exec_tx(None, tx_ext2.clone(), call2.clone()));
+		assert_eq!(crate::AliasToAccount::<Test>::get(&alias), Some(11));
+		assert_eq!(crate::AccountToAlias::<Test>::get(11), Some(rev_alias.clone()));
+		assert_eq!(crate::AccountToAlias::<Test>::get(10), None);
+		// --- Replaying old transactions within tolerance ---
+		// Replay transaction 1. Within the tolerance window its replay is allowed.
+		assert_ok!(exec_tx(None, tx_ext1.clone(), call1.clone()));
+		assert_eq!(crate::AliasToAccount::<Test>::get(&alias), Some(10));
+		assert_eq!(crate::AccountToAlias::<Test>::get(10), Some(rev_alias.clone()));
+		assert_eq!(crate::AccountToAlias::<Test>::get(11), None);
+		// Replay transaction 2 to set it back to 11.
+		assert_ok!(exec_tx(None, tx_ext2.clone(), call2.clone()));
+		assert_eq!(crate::AliasToAccount::<Test>::get(&alias), Some(11));
+		assert_eq!(crate::AccountToAlias::<Test>::get(11), Some(rev_alias.clone()));
+		assert_eq!(crate::AccountToAlias::<Test>::get(10), None);
+		// --- Advance time beyond tolerance ---
+		// After advancing time a bit more, the time tolerance for transaction 1 is exceeded.
+		mock::advance_to(System::block_number() + 1);
+		// Now replaying transaction 1 must be rejected as stale.
+		assert_noop!(exec_tx(None, tx_ext1, call1), InvalidTransaction::Stale);
+		assert_eq!(crate::AliasToAccount::<Test>::get(&alias), Some(11));
+		assert_eq!(crate::AccountToAlias::<Test>::get(11), Some(rev_alias));
 	});
 }

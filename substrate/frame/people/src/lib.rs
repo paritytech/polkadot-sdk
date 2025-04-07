@@ -60,6 +60,11 @@
 //!   needs to be reasonably large to enhance privacy by obscuring the exact timing of when
 //!   individuals' keys were added to the ring, making it more difficult to correlate specific
 //!   persons with their keys.
+//! - `onboard_people(origin)`: Onboard people from the onboarding queue into a ring. This task
+//!   takes the unincluded keys of recognized people from the onboarding queue and registers them
+//!   into the ring. People can be onboarded only in batches of at least `OnboardingSize` and when
+//!   the remaining open slots in a ring are at least `OnboardingSize`. This does not compute the
+//!   root, that is done using `build_ring`.
 //!
 //! ### Storage Items
 //!
@@ -205,15 +210,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type OnboardingQueuePageSize: Get<u32>;
 
-		/// Interval at which calls to build_ring will be accepted
-		/// e.g., if interval = 10, calls to bake rings will only succeed at blocks 0, 10, 20 etc.
+		/// Interval at which offchain worker will look if `build_ring` should be called, and submit
+		/// the call if it should. e.g., if interval = 10, and `build_ring` should be called 3
+		/// times, then offchain worker will call `build_ring` at block 0, 10 and 20.
 		#[pallet::constant]
 		type RingBakingInterval: Get<BlockNumberFor<Self>>;
-
-		/// Interval at which the offchain worker will look to merge onboarding queue pages, in
-		/// blocks.
-		#[pallet::constant]
-		type QueuePageMergingInterval: Get<BlockNumberFor<Self>>;
 
 		/// Maximum time in blocks that a task transaction to drive ring changes may stay alive.
 		#[pallet::constant]
@@ -233,8 +234,6 @@ pub mod pallet {
 	pub type CurrentRingIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Maximum number of people queued before onboarding to a ring.
-	///
-	/// TODO: To be moved to config for the production version.
 	#[pallet::storage]
 	pub type OnboardingSize<T: Config> = StorageValue<_, u32, ValueQuery>;
 
@@ -442,6 +441,8 @@ pub mod pallet {
 		/// Invalid suspension of a key belonging to a person whose index in the ring has already
 		/// been included in the pending suspensions list.
 		KeyAlreadySuspended,
+		/// The onboarding size must not exceed the maximum ring size.
+		InvalidOnboardingSize,
 	}
 
 	#[pallet::origin]
@@ -469,13 +470,6 @@ pub mod pallet {
 				"chunk page size must hold at least one element"
 			);
 			assert!(<T as Config>::MaxRingSize::get() > 0, "rings must hold at least one person");
-			// Uncomment when `OnboardingSize` becomes a config value again.
-			// assert!(OnboardingSize::<T>::get() > 0, "onboarding size must be more than one
-			// person");
-			assert!(
-				OnboardingSize::<T>::get() <= <T as Config>::MaxRingSize::get(),
-				"onboarding size must be less than or equal to max ring size"
-			);
 			assert!(
 				<T as Config>::MaxRingSize::get() <= <T as Config>::OnboardingQueuePageSize::get(),
 				"onboarding queue page size must greater than or equal to max ring size"
@@ -720,7 +714,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Build a ring root by including registered people.
 		///
-		/// This is a task!!
+		/// This is a task, origin must be none, it can be called from an unsigned transaction.
 		#[pallet::weight(T::WeightInfo::validate_unsigned_with_build_ring(limit.unwrap_or_else(T::MaxRingSize::get)))]
 		#[pallet::call_index(100)]
 		pub fn build_ring(
@@ -780,9 +774,9 @@ pub mod pallet {
 		/// registering them into the ring. This does not compute the root, that is done using
 		/// `build_ring`.
 		///
-		/// This is a task!!
+		/// This is a task, origin must be none, it can be called from an unsigned transaction.
 		#[pallet::weight(T::WeightInfo::validate_unsigned_with_onboard_people())]
-		#[pallet::call_index(105)]
+		#[pallet::call_index(101)]
 		pub fn onboard_people(origin: OriginFor<T>) -> DispatchResult {
 			ensure_none(origin)?;
 
@@ -878,7 +872,7 @@ pub mod pallet {
 		/// Task that merges two rings. In order for the rings to be eligible for merging, they must
 		/// be below 1/2 of max capacity, have no pending suspensions and not be the top ring used
 		/// for onboarding.
-		#[pallet::call_index(110)]
+		#[pallet::call_index(102)]
 		pub fn merge_rings(
 			_origin: OriginFor<T>,
 			base_ring_index: RingIndex,
@@ -946,57 +940,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// NOTE: This might be removed in the future. Use the `AsPerson` transaction
-		// extension to dispatch call with signature instead.
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::as_personal_identity().saturating_add(call.get_dispatch_info().call_weight))]
-		pub fn as_personal_identity(
-			origin: OriginFor<T>,
-			index: PersonalId,
-			call: Box<<T as frame_system::Config>::RuntimeCall>,
-			signature: <T::Crypto as GenerateVerifiable>::Signature,
-		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin.clone())?;
-			let record = People::<T>::get(index).ok_or(Error::<T>::NotPerson)?;
-			let key = record.key;
-			let ok = call.using_encoded(|msg| T::Crypto::verify_signature(&signature, msg, &key));
-			ensure!(ok, Error::<T>::InvalidSignature);
-			let derivation_weight = T::WeightInfo::as_personal_identity();
-			Self::derivative_call(origin, Origin::PersonalIdentity(index), *call, derivation_weight)
-		}
-
-		// NOTE: This might be removed in the future. Use the `AsPerson` transaction
-		// extension to dispatch call with signature instead.
-		/// Generally this should not be used since it does not protect against replay attacks. If
-		/// used then it is important to use mortal transactions with a short lifespan.
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::as_personal_alias().saturating_add(call.get_dispatch_info().call_weight))]
-		pub fn as_personal_alias(
-			origin: OriginFor<T>,
-			context: Context,
-			call: Box<<T as frame_system::Config>::RuntimeCall>,
-			proof: <T::Crypto as GenerateVerifiable>::Proof,
-			ring_index: RingIndex,
-		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin.clone())?;
-			let ring = Root::<T>::get(ring_index).ok_or(Error::<T>::NoMembers)?;
-			let alias = call
-				.using_encoded(|msg| T::Crypto::validate(&proof, &ring.root, &context, msg))
-				.map_err(|_| Error::<T>::InvalidProof)?;
-			let local_origin = Origin::PersonalAlias(RevisedContextualAlias {
-				revision: ring.revision,
-				ring: ring_index,
-				ca: ContextualAlias { alias, context },
-			});
-			let derivation_weight = T::WeightInfo::as_personal_alias();
-			Self::derivative_call(origin, local_origin, *call, derivation_weight)
-		}
-
-		// NOTE: This might be removed in the future. Use the `AsPerson` transaction
-		// extension to dispatch call with signature instead.
-		// Note this is not feeless even if the `call` is feeless. This is because we cannot
-		// easily fetch the feelessness of `call` from within our feeless condition.
-		#[pallet::call_index(3)]
+		/// Dispatch a call under an alias using the `account <-> alias` mapping.
+		///
+		/// This is a call version of the transaction extension `AsPersonalAliasWithAccount`.
+		/// It is recommended to use the transaction extension instead when suitable.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::under_alias().saturating_add(call.get_dispatch_info().call_weight))]
 		pub fn under_alias(
 			origin: OriginFor<T>,
@@ -1023,7 +971,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `account`: The account to set the alias for.
 		/// - `call_valid_at`: The block number when the call becomes valid.
-		#[pallet::call_index(4)]
+		#[pallet::call_index(1)]
 		pub fn set_alias_account(
 			origin: OriginFor<T>,
 			account: T::AccountId,
@@ -1075,7 +1023,8 @@ pub mod pallet {
 			}
 		}
 
-		#[pallet::call_index(5)]
+		/// Remove the mapping from a particular alias to its registered account.
+		#[pallet::call_index(2)]
 		pub fn unset_alias_account(origin: OriginFor<T>) -> DispatchResult {
 			let alias = Self::ensure_personal_alias(origin)?;
 			let account = AliasToAccount::<T>::take(&alias).ok_or(Error::<T>::InvalidAccount)?;
@@ -1085,19 +1034,13 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(6)]
-		pub fn reset_root(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
-			let _: Vec<_> = Root::<T>::drain().collect();
-			let _: Vec<_> = Keys::<T>::drain().collect();
-			let _: Vec<_> = People::<T>::drain().collect();
-			let _: Vec<_> = AliasToAccount::<T>::drain().collect();
-			let _: Vec<_> = AccountToAlias::<T>::drain().collect();
-
-			Ok(Pays::No.into())
-		}
-
-		#[pallet::call_index(7)]
+		/// Recognize a set of people without any additional checks.
+		///
+		/// The people are identified by the provided list of keys and will each be assigned, in
+		/// order, the next available personal ID.
+		///
+		/// The origin for this call must have root privileges.
+		#[pallet::call_index(3)]
 		pub fn force_recognize_personhood(
 			origin: OriginFor<T>,
 			people: Vec<MemberOf<T>>,
@@ -1125,7 +1068,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `account`: The account to set the alias for.
 		/// - `call_valid_at`: The block number when the call becomes valid.
-		#[pallet::call_index(8)]
+		#[pallet::call_index(4)]
 		pub fn set_personal_id_account(
 			origin: OriginFor<T>,
 			account: T::AccountId,
@@ -1157,7 +1100,7 @@ pub mod pallet {
 		}
 
 		/// Unset the personal id account.
-		#[pallet::call_index(9)]
+		#[pallet::call_index(5)]
 		pub fn unset_personal_id_account(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let id = Self::ensure_personal_identity(origin)?;
 			let mut record = People::<T>::get(id).ok_or(Error::<T>::NotPerson)?;
@@ -1172,7 +1115,7 @@ pub mod pallet {
 		/// Migrate the key for a person who was onboarded and is currently included in a ring. The
 		/// migration is not instant as the key replacement and subsequent inclusion in a new ring
 		/// root will happen only after the next mutation session.
-		#[pallet::call_index(10)]
+		#[pallet::call_index(6)]
 		pub fn migrate_included_key(
 			origin: OriginFor<T>,
 			new_key: MemberOf<T>,
@@ -1215,7 +1158,7 @@ pub mod pallet {
 
 		/// Migrate the key for a person who is currently onboarding. The operation is instant,
 		/// replacing the old key in the onboarding queue.
-		#[pallet::call_index(11)]
+		#[pallet::call_index(7)]
 		pub fn migrate_onboarding_key(
 			origin: OriginFor<T>,
 			new_key: MemberOf<T>,
@@ -1254,12 +1197,16 @@ pub mod pallet {
 		}
 
 		/// Force set the onboarding size for new people. This call requires root privileges.
-		#[pallet::call_index(50)]
+		#[pallet::call_index(8)]
 		pub fn set_onboarding_size(
 			origin: OriginFor<T>,
 			onboarding_size: u32,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
+			ensure!(
+				onboarding_size <= <T as Config>::MaxRingSize::get(),
+				Error::<T>::InvalidOnboardingSize
+			);
 			OnboardingSize::<T>::put(onboarding_size);
 			Ok(Pays::No.into())
 		}

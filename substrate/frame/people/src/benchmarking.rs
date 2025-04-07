@@ -139,71 +139,6 @@ mod benches {
 	use sp_runtime::{traits::ValidateUnsigned, transaction_validity::TransactionSource};
 
 	#[benchmark]
-	fn as_personal_identity() -> Result<(), BenchmarkError> {
-		prepare_chunks::<T>();
-
-		// Generate people and build a ring
-		let caller: T::AccountId = whitelisted_caller();
-		let members = generate_members_for_ring::<T>(SEED);
-		let recognized_people = recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
-
-		// Select one of the generated people's information
-		let (personal_id, _, secret): &(PersonalId, MemberOf<T>, SecretOf<T>) =
-			&recognized_people[0];
-
-		// A simple call to benchmark with
-		let call = frame_system::Call::<T>::remark { remark: vec![] };
-		let boxed_call: Box<<T as frame_system::Config>::RuntimeCall> = Box::new(call.into());
-		let signature = boxed_call.using_encoded(|msg| {
-			<T::Crypto as GenerateVerifiable>::sign(secret, msg)
-				.expect("failed to create signature")
-		});
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), *personal_id, boxed_call, signature);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn as_personal_alias() -> Result<(), BenchmarkError> {
-		prepare_chunks::<T>();
-
-		// Generate people and build a ring
-		let caller: T::AccountId = whitelisted_caller();
-		let members = generate_members_for_ring::<T>(SEED);
-		recognize_people::<T>(&members);
-		assert_ok!(pallet::Pallet::<T>::onboard_people(SystemOrigin::None.into()));
-		assert_ok!(pallet::Pallet::<T>::build_ring(SystemOrigin::None.into(), RI_ZERO, None));
-
-		// A simple call to benchmark with
-		let call = frame_system::Call::<T>::remark { remark: vec![] };
-		let boxed_call: Box<<T as frame_system::Config>::RuntimeCall> = Box::new(call.into());
-
-		let context = T::BenchmarkHelper::valid_account_context();
-
-		// Generate a valid proof
-		let proof = boxed_call.using_encoded(|msg| {
-			let (secret, member) = &members[0];
-			T::Crypto::create(
-				T::Crypto::open(member, members.iter().map(|(_, m)| m.clone())).unwrap(),
-				secret,
-				&context[..],
-				msg,
-			)
-			.map(|(p, _)| p)
-			.expect("should create proof")
-		});
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), context, boxed_call, proof, RI_ZERO);
-
-		Ok(())
-	}
-
-	#[benchmark]
 	fn under_alias() -> Result<(), BenchmarkError> {
 		prepare_chunks::<T>();
 
@@ -415,9 +350,9 @@ mod benches {
 	#[benchmark]
 	fn set_onboarding_size() -> Result<(), BenchmarkError> {
 		#[extrinsic_call]
-		_(SystemOrigin::Root, u32::MAX);
+		_(SystemOrigin::Root, 1);
 
-		assert_eq!(OnboardingSize::<T>::get(), u32::MAX);
+		assert_eq!(OnboardingSize::<T>::get(), 1);
 
 		Ok(())
 	}
