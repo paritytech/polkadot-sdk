@@ -186,6 +186,7 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	type AuthorizedAliasConsideration = ();
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

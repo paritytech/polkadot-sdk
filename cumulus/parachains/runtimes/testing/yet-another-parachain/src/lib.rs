@@ -110,12 +110,7 @@ pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
 pub const YAP: Balance = 1_000_000_000_000;
-// pub const MILLIYAP: Balance = 1_000_000_000;
-// pub const MICROYAP: Balance = 1_000_000;
 pub const NANOYAP: Balance = 1_000;
-
-// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
-pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]

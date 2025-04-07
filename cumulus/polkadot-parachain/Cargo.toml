@@ -59,7 +59,7 @@ yet-another-parachain-runtime = { workspace = true }
 substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
-default = ['full-pov-size']
+default = []
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
@@ -102,4 +102,3 @@ fast-runtime = [
 	"coretime-rococo-runtime/fast-runtime",
 	"coretime-westend-runtime/fast-runtime",
 ]
-full-pov-size = ["cumulus-client-consensus-aura/full-pov-size"]
