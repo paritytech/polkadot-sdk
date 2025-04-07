@@ -275,7 +275,10 @@ mod benchmarks {
 		let para_id = ParaId::from(1000);
 		let expire_at =
 			frame_system::Pallet::<T>::block_number().saturating_add(BlockNumberFor::<T>::from(c));
-		AuthorizedCodeHash::<T>::insert(&para_id, (code.hash(), expire_at));
+		AuthorizedCodeHash::<T>::insert(
+			&para_id,
+			AuthorizedCodeHashAndExpiry::from((code.hash(), expire_at))
+		);
 		generate_disordered_pruning::<T>();
 
 		#[extrinsic_call]
