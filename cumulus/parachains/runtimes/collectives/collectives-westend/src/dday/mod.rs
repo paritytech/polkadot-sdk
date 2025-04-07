@@ -16,6 +16,7 @@
 
 //! New governance configurations for the D-Day parachain rescue (primary AssetHub) scenario.
 
+mod origins;
 pub mod prover;
 mod tracks;
 
@@ -32,10 +33,13 @@ use frame_support::{
 	traits::{CallerTrait, ContainsPair, EitherOf, Equals, PollStatus, Polling},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+pub use origins::pallet_origins as pallet_dday_origins;
 use pallet_dday_detection::IsStalled;
 use pallet_dday_voting::ProofBlockNumberOf;
 use pallet_referenda::ReferendumIndex;
 use sp_runtime::DispatchError;
+
+impl pallet_dday_origins::Config for Runtime {}
 
 parameter_types! {
 	/// If the last AssetHub block update is older than this, AssetHub is considered stalled.

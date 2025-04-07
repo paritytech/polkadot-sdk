@@ -48,6 +48,7 @@ pub mod fellowship;
 extern crate alloc;
 
 pub use ambassador::pallet_ambassador_origins;
+pub use dday::pallet_dday_origins;
 
 use alloc::{vec, vec::Vec};
 use ambassador::AmbassadorCoreInstance;
@@ -738,6 +739,7 @@ construct_runtime!(
 		DDayReferenda: pallet_referenda::<Instance3> = 81,
 		DDayVoting: pallet_dday_voting::<Instance1> = 82,
 		DDayDetection: pallet_dday_detection::<Instance1> = 83,
+		DDayOrigins: pallet_dday_origins = 84,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
 	}

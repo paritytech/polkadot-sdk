@@ -14,16 +14,17 @@
 // limitations under the License.
 
 use super::{
-	dday::prover::AllowTransactWithDDayDataUpdatesFrom, AccountId, AllPalletsWithSystem, Balance,
-	Balances, BaseDeliveryFee, FeeAssetId, Fellows, ParachainInfo, ParachainSystem, PolkadotXcm,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, TransactionByteFee,
-	WeightToFee, WestendTreasuryAccount, XcmpQueue,
+	dday::{pallet_dday_origins::EnsureDDayOrigin, prover::AllowTransactWithDDayDataUpdatesFrom},
+	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, Fellows,
+	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeHoldReason, RuntimeOrigin, TransactionByteFee, WeightToFee, WestendTreasuryAccount,
+	XcmpQueue,
 };
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, Contains, Equals,
-		Everything, LinearStoragePrice, Nothing,
+		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, Contains, EitherOf,
+		Equals, Everything, LinearStoragePrice, Nothing,
 	},
 };
 use frame_system::EnsureRoot;
@@ -137,6 +138,8 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	// Fellows pluralistic body.
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
+	// DDay pluralistic body.
+	pub const DDayBodyId: BodyId = BodyId::Moniker([b'd', b'd', b'a', b'y']);
 }
 
 pub struct ParentOrParentsPlurality;
@@ -285,6 +288,8 @@ parameter_types! {
 
 /// Type to convert the Fellows origin to a Plurality `Location` value.
 pub type FellowsToPlurality = OriginToPluralityVoice<RuntimeOrigin, Fellows, FellowsBodyId>;
+/// Type to convert the DDay origin to a Plurality `Location` value.
+pub type DDayToPlurality = OriginToPluralityVoice<RuntimeOrigin, EnsureDDayOrigin, DDayBodyId>;
 
 parameter_types! {
 	pub const DepositPerItem: Balance = crate::deposit(1, 0);
@@ -294,8 +299,13 @@ parameter_types! {
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// We only allow the Fellows to send messages.
-	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, FellowsToPlurality>;
+	// We only allow to send messages for:
+	type SendXcmOrigin = EitherOf<
+		// the Fellows origin
+		EnsureXcmOrigin<RuntimeOrigin, FellowsToPlurality>,
+		// the DDay origin
+		EnsureXcmOrigin<RuntimeOrigin, DDayToPlurality>,
+	>;
 	type XcmRouter = XcmRouter;
 	// We support local origins dispatching XCM executions.
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
