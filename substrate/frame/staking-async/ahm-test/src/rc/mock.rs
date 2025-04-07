@@ -205,6 +205,7 @@ impl pallet_staking::Config for Runtime {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type SlashDeferDuration = ConstU32<3>;
+	type BondingDuration = ConstU32<4>;
 }
 
 impl pallet_root_offences::Config for Runtime {
