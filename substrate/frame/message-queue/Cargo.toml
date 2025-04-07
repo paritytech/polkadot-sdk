@@ -14,6 +14,9 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 environmental = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
@@ -22,16 +25,13 @@ sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 sp-weights.workspace = true
-frame-benchmarking = { optional = true, workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
 
 [dev-dependencies]
-frame-support = { features = ["experimental"], path = "../support", default-features = false }
+frame-support = { features = ["experimental"], workspace = true, default-features = false }
 rand = { workspace = true, default-features = true }
 rand_distr = { workspace = true }
-sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+sp-crypto-hashing = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

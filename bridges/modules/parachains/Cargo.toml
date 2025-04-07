@@ -11,25 +11,25 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 bp-header-chain.workspace = true
 bp-parachains.workspace = true
 bp-polkadot-core.workspace = true
 bp-runtime.workspace = true
-pallet-bridge-grandpa.workspace = true
+codec = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+log = { workspace = true }
+pallet-bridge-grandpa.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-runtime.workspace = true
 sp-std.workspace = true
 
 [dev-dependencies]
-bp-header-chain = { default-features = true, path = "../../primitives/header-chain" }
-bp-test-utils = { default-features = true, path = "../../primitives/test-utils" }
-sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
-sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
+bp-header-chain = { default-features = true, workspace = true }
+bp-test-utils = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

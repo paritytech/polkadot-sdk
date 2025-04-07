@@ -13,8 +13,8 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = { workspace = true }
 regex = { workspace = true }
-sp-core.workspace = true
 sp-core.default-features = true
+sp-core.workspace = true
 
 [[bin]]
 name = "fuzz_address_uri"

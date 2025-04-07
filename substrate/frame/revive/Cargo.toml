@@ -57,8 +57,8 @@ sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
-xcm.workspace = true
 xcm-builder.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -68,14 +68,14 @@ secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 
 # Polkadot SDK Dependencies
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-proxy = { default-features = true, path = "../proxy" }
-pallet-revive-fixtures = { default-features = true, path = "fixtures" }
-pallet-timestamp = { default-features = true, path = "../timestamp" }
-pallet-utility = { default-features = true, path = "../utility" }
-sp-keystore = { default-features = true, path = "../../primitives/keystore" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
-xcm-builder = { default-features = true, path = "../../../polkadot/xcm/xcm-builder", package = "staging-xcm-builder" }
+pallet-balances = { default-features = true, workspace = true }
+pallet-proxy = { default-features = true, workspace = true }
+pallet-revive-fixtures = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
+pallet-utility = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+xcm-builder = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
@@ -100,7 +100,9 @@ std = [
 	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
+	"secp256k1/std",
 	"serde/std",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-consensus-aura/std",
@@ -117,8 +119,12 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",
+	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"polkavm-common/alloc",
 	"rand",
 	"rand_pcg",
@@ -132,6 +138,10 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -15,23 +15,23 @@ workspace = true
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.workspace = true
 gum.default-features = true
+gum.workspace = true
 orchestra = { features = ["futures_channel"], workspace = true }
-polkadot-node-metrics.workspace = true
 polkadot-node-metrics.default-features = true
-polkadot-node-network-protocol.workspace = true
+polkadot-node-metrics.workspace = true
 polkadot-node-network-protocol.default-features = true
-polkadot-node-primitives.workspace = true
+polkadot-node-network-protocol.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-node-subsystem-types.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-node-subsystem-types.default-features = true
-polkadot-primitives.workspace = true
+polkadot-node-subsystem-types.workspace = true
 polkadot-primitives.default-features = true
-sc-client-api.workspace = true
+polkadot-primitives.workspace = true
 sc-client-api.default-features = true
-sp-core.workspace = true
+sc-client-api.workspace = true
 sp-core.default-features = true
+sp-core.workspace = true
 tikv-jemalloc-ctl = { optional = true, workspace = true }
 
 [dev-dependencies]
@@ -39,9 +39,9 @@ assert_matches = { workspace = true }
 femme = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 metered = { features = ["futures_channel"], workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
-sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+sp-core = { default-features = true, workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemalloc-ctl = { workspace = true }
@@ -49,5 +49,5 @@ tikv-jemalloc-ctl = { workspace = true }
 [features]
 default = ["futures_channel"]
 expand = ["orchestra/expand"]
-futures_channel = [ "orchestra/futures_channel"]
+futures_channel = ["orchestra/futures_channel"]
 jemalloc-allocator = ["dep:tikv-jemalloc-ctl"]

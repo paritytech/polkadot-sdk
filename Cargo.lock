@@ -1109,7 +1109,7 @@ dependencies = [
  "scale-info",
  "serde_json",
  "snowbridge-inbound-queue-primitives",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -1249,7 +1249,7 @@ dependencies = [
  "snowbridge-outbound-queue-primitives",
  "snowbridge-pallet-system-frontend",
  "snowbridge-runtime-common",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -1276,7 +1276,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -1305,7 +1305,7 @@ dependencies = [
 
 [[package]]
 name = "assets-common"
-version = "0.20.0"
+version = "0.21.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -1316,7 +1316,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-runtime 41.1.0",
  "staging-xcm",
  "staging-xcm-builder",
@@ -2121,7 +2121,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "polkadot-primitives",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-std 14.0.0",
 ]
 
@@ -2135,7 +2135,7 @@ dependencies = [
  "bp-xcm-bridge-hub",
  "frame-support",
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
 ]
@@ -2150,7 +2150,7 @@ dependencies = [
  "bp-xcm-bridge-hub",
  "frame-support",
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
 ]
@@ -2219,7 +2219,7 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-runtime 41.1.0",
  "sp-std 14.0.0",
 ]
@@ -2268,7 +2268,7 @@ dependencies = [
  "bp-polkadot-core",
  "bp-runtime",
  "frame-support",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-std 14.0.0",
 ]
 
@@ -2322,7 +2322,7 @@ dependencies = [
  "bp-polkadot-core",
  "bp-runtime",
  "frame-support",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-std 14.0.0",
 ]
 
@@ -2502,7 +2502,7 @@ dependencies = [
  "snowbridge-runtime-common",
  "snowbridge-runtime-test-common",
  "snowbridge-system-runtime-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -2709,7 +2709,7 @@ dependencies = [
  "snowbridge-runtime-test-common",
  "snowbridge-system-runtime-api",
  "snowbridge-system-v2-runtime-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -3345,7 +3345,7 @@ dependencies = [
  "polkadot-runtime-common",
  "scale-info",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -3714,7 +3714,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -3813,7 +3813,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -4191,7 +4191,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "sc-client-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-consensus",
  "sp-core 36.1.0",
  "sp-maybe-compressed-blob 11.0.0",
@@ -4232,7 +4232,7 @@ dependencies = [
  "sc-telemetry",
  "sc-utils",
  "schnellru",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-block-builder",
  "sp-blockchain",
@@ -4309,7 +4309,7 @@ dependencies = [
  "futures",
  "parking_lot 0.12.3",
  "sc-consensus",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
@@ -4340,7 +4340,7 @@ dependencies = [
  "polkadot-test-client",
  "rstest",
  "sc-client-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
@@ -4393,7 +4393,7 @@ dependencies = [
  "sc-client-api",
  "sc-consensus",
  "sc-utils",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-maybe-compressed-blob 11.0.0",
@@ -4431,7 +4431,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-utils",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
@@ -4658,7 +4658,7 @@ dependencies = [
 name = "cumulus-primitives-aura"
 version = "0.17.0"
 dependencies = [
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-consensus-aura",
 ]
 
@@ -4671,7 +4671,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-runtime 41.1.0",
  "sp-trie 39.1.0",
  "staging-xcm",
@@ -4765,7 +4765,7 @@ dependencies = [
  "sc-sysinfo",
  "sc-telemetry",
  "sc-tracing",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-consensus",
  "sp-core 36.1.0",
  "sp-keyring",
@@ -4784,7 +4784,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-overseer",
  "sc-client-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-state-machine 0.45.0",
  "sp-version 39.0.0",
@@ -4815,7 +4815,7 @@ dependencies = [
  "sc-service",
  "sc-tracing",
  "sc-utils",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
@@ -4887,7 +4887,7 @@ dependencies = [
  "sc-executor 0.42.0",
  "sc-executor-common 0.38.0",
  "sc-service",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-blockchain",
  "sp-consensus-aura",
@@ -4938,7 +4938,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -5012,7 +5012,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-blockchain",
  "sp-consensus",
@@ -6402,7 +6402,7 @@ dependencies = [
  "sc-client-db",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
  "sp-externalities 0.30.0",
@@ -6451,7 +6451,7 @@ dependencies = [
  "sc-sysinfo",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-blockchain",
  "sp-core 36.1.0",
@@ -6648,7 +6648,7 @@ dependencies = [
  "merkleized-metadata",
  "parity-scale-codec",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "sp-transaction-pool",
@@ -6720,7 +6720,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
@@ -6806,7 +6806,7 @@ dependencies = [
  "rustversion",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
  "sp-io 40.0.0",
@@ -6895,7 +6895,7 @@ version = "36.0.0"
 dependencies = [
  "docify",
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
 ]
 
 [[package]]
@@ -6904,7 +6904,7 @@ version = "0.46.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -7301,7 +7301,7 @@ dependencies = [
 
 [[package]]
 name = "glutton-westend-runtime"
-version = "16.0.0"
+version = "17.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -7325,7 +7325,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -8757,7 +8757,7 @@ dependencies = [
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",
- "polkadot-sdk 2503.0.0",
+ "polkadot-sdk 2503.0.1",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
@@ -9981,7 +9981,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk 2503.0.0",
+ "polkadot-sdk 2503.0.1",
 ]
 
 [[package]]
@@ -9990,7 +9990,7 @@ version = "0.1.0"
 dependencies = [
  "pallet-minimal-template",
  "parity-scale-codec",
- "polkadot-sdk 2503.0.0",
+ "polkadot-sdk 2503.0.1",
  "scale-info",
  "serde_json",
 ]
@@ -10052,7 +10052,7 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api",
  "sc-offchain",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-beefy",
@@ -10072,7 +10072,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-core 36.1.0",
  "sp-mmr-primitives",
@@ -10511,7 +10511,7 @@ dependencies = [
  "sc-rpc",
  "sc-sync-state-rpc",
  "sc-transaction-pool-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-block-builder",
  "sp-blockchain",
@@ -10569,7 +10569,7 @@ dependencies = [
  "sc-consensus",
  "sc-executor 0.42.0",
  "sc-service",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
@@ -11001,7 +11001,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types 0.13.1",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
  "sp-io 40.0.0",
@@ -11075,7 +11075,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types 0.13.1",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
  "sp-io 40.0.0",
@@ -11338,7 +11338,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-consensus-beefy",
  "sp-core 36.1.0",
  "sp-io 40.0.0",
@@ -11494,7 +11494,7 @@ dependencies = [
  "parity-scale-codec",
  "pretty_assertions",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
  "sp-io 40.0.0",
@@ -11602,7 +11602,7 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-core 36.1.0",
  "sp-io 40.0.0",
  "sp-keystore 0.42.0",
@@ -11647,7 +11647,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-core 36.1.0",
  "sp-io 40.0.0",
  "sp-keystore 0.42.0",
@@ -12269,7 +12269,7 @@ name = "pallet-minimal-template"
 version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk 2503.0.0",
+ "polkadot-sdk 2503.0.1",
  "scale-info",
 ]
 
@@ -12351,7 +12351,7 @@ name = "pallet-nfts-runtime-api"
 version = "26.0.0"
 dependencies = [
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
 ]
 
 [[package]]
@@ -12437,7 +12437,7 @@ version = "36.0.0"
 dependencies = [
  "pallet-nomination-pools",
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
 ]
 
 [[package]]
@@ -12695,7 +12695,7 @@ dependencies = [
  "secp256k1 0.28.2",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-consensus-aura",
  "sp-consensus-babe",
@@ -13049,7 +13049,7 @@ name = "pallet-staking-runtime-api"
 version = "26.0.0"
 dependencies = [
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-staking",
 ]
 
@@ -13086,7 +13086,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-core 36.1.0",
  "sp-io 40.0.0",
  "sp-runtime 41.1.0",
@@ -13184,7 +13184,7 @@ dependencies = [
  "jsonrpsee",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-core 36.1.0",
  "sp-rpc",
@@ -13198,7 +13198,7 @@ version = "40.0.0"
 dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-runtime 41.1.0",
  "sp-weights 31.1.0",
 ]
@@ -13441,7 +13441,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parachain-template-runtime",
- "polkadot-sdk 2503.0.0",
+ "polkadot-sdk 2503.0.1",
  "serde",
  "substrate-prometheus-endpoint",
 ]
@@ -13456,7 +13456,7 @@ dependencies = [
  "log",
  "pallet-parachain-template",
  "parity-scale-codec",
- "polkadot-sdk 2503.0.0",
+ "polkadot-sdk 2503.0.1",
  "scale-info",
  "serde_json",
  "smallvec",
@@ -13465,7 +13465,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-common"
-version = "20.0.0"
+version = "21.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
@@ -13507,7 +13507,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "21.0.0"
+version = "22.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -13790,7 +13790,7 @@ dependencies = [
  "scale-info",
  "smallvec",
  "snowbridge-inbound-queue-primitives",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -13886,7 +13886,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -13987,7 +13987,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -14926,7 +14926,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "schnellru",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-consensus-babe",
  "sp-core 36.1.0",
  "sp-keyring",
@@ -15051,7 +15051,7 @@ dependencies = [
  "sc-network-types",
  "sc-transaction-pool-api",
  "smallvec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-authority-discovery",
  "sp-blockchain",
  "sp-consensus-babe",
@@ -15163,7 +15163,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus",
  "sp-consensus-aura",
@@ -15274,7 +15274,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-arithmetic 26.1.0",
  "sp-authority-discovery",
@@ -15320,7 +15320,7 @@ dependencies = [
  "sc-rpc",
  "sc-sync-state-rpc",
  "sc-transaction-pool-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-block-builder",
  "sp-blockchain",
@@ -15371,7 +15371,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slot-range-helper",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-core 36.1.0",
  "sp-inherents",
  "sp-io 40.0.0",
@@ -15435,7 +15435,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
@@ -15466,7 +15466,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2503.0.0"
+version = "2503.0.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -15755,8 +15755,8 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "slot-range-helper",
- "sp-api 36.0.0",
- "sp-api-proc-macro 21.0.1",
+ "sp-api 36.0.1",
+ "sp-api-proc-macro 22.0.0",
  "sp-application-crypto 40.1.0",
  "sp-arithmetic 26.1.0",
  "sp-authority-discovery",
@@ -15887,7 +15887,7 @@ dependencies = [
  "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
- "polkadot-sdk 2503.0.0",
+ "polkadot-sdk 2503.0.1",
  "polkadot-sdk-docs-first-pallet",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
@@ -15910,7 +15910,7 @@ dependencies = [
  "serde_json",
  "simple-mermaid 0.1.1",
  "solochain-template-runtime",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
  "sp-genesis-builder",
@@ -15982,7 +15982,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -16084,7 +16084,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-blockchain",
@@ -16240,7 +16240,7 @@ dependencies = [
  "sc-block-builder",
  "sc-consensus",
  "sc-service",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
@@ -16312,7 +16312,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-babe",
@@ -17931,7 +17931,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 36.1.0",
@@ -18021,7 +18021,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-arithmetic 26.1.0",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -18052,7 +18052,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-runtime-constants"
-version = "19.0.0"
+version = "20.0.0"
 dependencies = [
  "frame-support",
  "polkadot-primitives",
@@ -18609,7 +18609,7 @@ dependencies = [
  "sc-client-api",
  "sc-network",
  "sc-network-types",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-authority-discovery",
  "sp-blockchain",
  "sp-core 36.1.0",
@@ -18635,7 +18635,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
@@ -18650,7 +18650,7 @@ name = "sc-block-builder"
 version = "0.44.0"
 dependencies = [
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-blockchain",
  "sp-core 36.1.0",
@@ -18758,7 +18758,7 @@ dependencies = [
  "sc-executor 0.42.0",
  "sc-transaction-pool-api",
  "sc-utils",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
@@ -18844,7 +18844,7 @@ dependencies = [
  "sc-network",
  "sc-network-test",
  "sc-telemetry",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-block-builder",
  "sp-blockchain",
@@ -18886,7 +18886,7 @@ dependencies = [
  "sc-network-test",
  "sc-telemetry",
  "sc-transaction-pool-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-block-builder",
  "sp-blockchain",
@@ -18919,7 +18919,7 @@ dependencies = [
  "sc-rpc-api",
  "sc-transaction-pool-api",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-blockchain",
  "sp-consensus",
@@ -18954,7 +18954,7 @@ dependencies = [
  "sc-network-types",
  "sc-utils",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-arithmetic 26.1.0",
  "sp-blockchain",
@@ -19036,7 +19036,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-arithmetic 26.1.0",
  "sp-blockchain",
@@ -19098,7 +19098,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-aura",
@@ -19128,7 +19128,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "sc-client-api",
  "sc-consensus",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
@@ -19204,7 +19204,7 @@ dependencies = [
  "sc-runtime-test",
  "sc-tracing",
  "schnellru",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.30.0",
@@ -19361,7 +19361,7 @@ dependencies = [
  "sc-network",
  "sc-network-types",
  "sc-transaction-pool-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-consensus",
  "sp-core 36.1.0",
  "sp-keystore 0.42.0",
@@ -19636,7 +19636,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "sc-utils",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-consensus",
  "sp-core 36.1.0",
  "sp-externalities 0.30.0",
@@ -19680,7 +19680,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
@@ -19766,7 +19766,7 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
@@ -19853,7 +19853,7 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
@@ -19898,7 +19898,7 @@ dependencies = [
  "sc-network-sync",
  "sc-service",
  "sc-transaction-pool-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
@@ -19932,7 +19932,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "sc-client-api",
  "sc-keystore",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-core 36.1.0",
  "sp-runtime 41.1.0",
@@ -20028,7 +20028,7 @@ dependencies = [
  "sc-client-api",
  "sc-tracing-proc-macro",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-core 36.1.0",
  "sp-rpc",
@@ -20071,7 +20071,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
@@ -21402,7 +21402,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-merkle-tree",
  "snowbridge-outbound-queue-primitives",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-std 14.0.0",
 ]
 
@@ -21416,7 +21416,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-merkle-tree",
  "snowbridge-outbound-queue-primitives",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-std 14.0.0",
  "staging-xcm",
 ]
@@ -21728,7 +21728,7 @@ version = "0.13.0"
 dependencies = [
  "parity-scale-codec",
  "snowbridge-core",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-std 14.0.0",
  "staging-xcm",
 ]
@@ -21739,7 +21739,7 @@ version = "0.2.0"
 dependencies = [
  "parity-scale-codec",
  "snowbridge-core",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-std 14.0.0",
  "staging-xcm",
 ]
@@ -21853,7 +21853,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "solochain-template-runtime",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus-aura",
@@ -21891,7 +21891,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-consensus-grandpa",
@@ -21933,14 +21933,14 @@ dependencies = [
 
 [[package]]
 name = "sp-api"
-version = "36.0.0"
+version = "36.0.1"
 dependencies = [
  "docify",
  "hash-db",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-api-proc-macro 21.0.1",
+ "sp-api-proc-macro 22.0.0",
  "sp-core 36.1.0",
  "sp-externalities 0.30.0",
  "sp-metadata-ir 0.10.0",
@@ -21970,7 +21970,7 @@ dependencies = [
 
 [[package]]
 name = "sp-api-proc-macro"
-version = "21.0.1"
+version = "22.0.0"
 dependencies = [
  "Inflector",
  "assert_matches",
@@ -21993,7 +21993,7 @@ dependencies = [
  "rustversion",
  "sc-block-builder",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-consensus",
  "sp-core 36.1.0",
  "sp-metadata-ir 0.10.0",
@@ -22049,7 +22049,7 @@ dependencies = [
 name = "sp-application-crypto-test"
 version = "2.0.0"
 dependencies = [
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
  "sp-keystore 0.42.0",
@@ -22106,7 +22106,7 @@ version = "36.0.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-runtime 41.1.0",
 ]
@@ -22115,7 +22115,7 @@ dependencies = [
 name = "sp-block-builder"
 version = "36.0.0"
 dependencies = [
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-inherents",
  "sp-runtime 41.1.0",
 ]
@@ -22128,7 +22128,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "schnellru",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-consensus",
  "sp-core 36.1.0",
  "sp-database",
@@ -22158,7 +22158,7 @@ dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-consensus-slots",
  "sp-inherents",
@@ -22174,7 +22174,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-consensus-slots",
  "sp-core 36.1.0",
@@ -22191,7 +22191,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
@@ -22213,7 +22213,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
  "sp-keystore 0.42.0",
@@ -22225,7 +22225,7 @@ name = "sp-consensus-pow"
 version = "0.42.0"
 dependencies = [
  "parity-scale-codec",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-core 36.1.0",
  "sp-runtime 41.1.0",
 ]
@@ -22237,7 +22237,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-consensus-slots",
  "sp-core 36.1.0",
@@ -22600,7 +22600,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -22783,7 +22783,7 @@ version = "0.14.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
 ]
 
@@ -22797,7 +22797,7 @@ dependencies = [
  "polkadot-ckb-merkle-mountain-range",
  "scale-info",
  "serde",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-core 36.1.0",
  "sp-debug-derive 14.0.0",
  "sp-runtime 41.1.0",
@@ -22832,7 +22832,7 @@ dependencies = [
 name = "sp-offchain"
 version = "36.0.0"
 dependencies = [
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-core 36.1.0",
  "sp-runtime 41.1.0",
 ]
@@ -22935,7 +22935,7 @@ dependencies = [
  "serde",
  "serde_json",
  "simple-mermaid 0.1.1",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-arithmetic 26.1.0",
  "sp-core 36.1.0",
@@ -23084,7 +23084,7 @@ version = "38.1.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-core 36.1.0",
  "sp-keystore 0.42.0",
  "sp-runtime 41.1.0",
@@ -23181,7 +23181,7 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "sha2 0.10.8",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
@@ -23289,7 +23289,7 @@ dependencies = [
 name = "sp-transaction-pool"
 version = "36.0.0"
 dependencies = [
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-runtime 41.1.0",
 ]
 
@@ -23807,7 +23807,7 @@ dependencies = [
  "node-rpc",
  "node-testing",
  "parity-scale-codec",
- "polkadot-sdk 2503.0.0",
+ "polkadot-sdk 2503.0.1",
  "pretty_assertions",
  "rand 0.8.5",
  "regex",
@@ -24164,7 +24164,7 @@ dependencies = [
  "sc-rpc-api",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-block-builder",
  "sp-blockchain",
  "sp-core 36.1.0",
@@ -24323,7 +24323,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-block-builder",
  "sp-consensus",
@@ -24359,7 +24359,7 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api",
  "sc-consensus",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 36.1.0",
@@ -25278,7 +25278,7 @@ dependencies = [
 
 [[package]]
 name = "testnet-parachains-constants"
-version = "12.0.0"
+version = "13.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -27074,7 +27074,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-application-crypto 40.1.0",
  "sp-arithmetic 26.1.0",
  "sp-authority-discovery",
@@ -27108,7 +27108,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime-constants"
-version = "19.0.0"
+version = "20.0.0"
 dependencies = [
  "frame-support",
  "polkadot-primitives",
@@ -27706,7 +27706,7 @@ dependencies = [
  "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
- "sp-api 36.0.0",
+ "sp-api 36.0.1",
  "sp-io 40.0.0",
  "sp-tracing 17.1.0",
  "sp-weights 31.1.0",
@@ -27737,7 +27737,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-simulator-example"
-version = "19.0.0"
+version = "20.0.0"
 dependencies = [
  "frame-support",
  "frame-system",

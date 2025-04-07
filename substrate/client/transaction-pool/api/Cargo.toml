@@ -18,8 +18,8 @@ futures = { workspace = true }
 indexmap = { workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-blockchain.workspace = true
 sp-blockchain.default-features = true
+sp-blockchain.workspace = true
 sp-core.workspace = true
 sp-runtime.workspace = true
 thiserror = { workspace = true }

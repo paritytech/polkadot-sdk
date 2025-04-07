@@ -14,15 +14,20 @@ workspace = true
 [dependencies]
 bytes = { workspace = true }
 codec = { features = ["derive"], workspace = true }
+cumulus-pallet-parachain-system-proc-macro.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-parachain-inherent.workspace = true
+cumulus-primitives-proof-size-hostfunction.workspace = true
 environmental = { workspace = true }
-impl-trait-for-tuples = { workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-trie-db = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+impl-trait-for-tuples = { workspace = true }
+log = { workspace = true }
 pallet-message-queue.workspace = true
+polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
+polkadot-runtime-parachains.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-core.workspace = true
 sp-externalities.workspace = true
 sp-inherents.workspace = true
@@ -32,14 +37,9 @@ sp-state-machine.workspace = true
 sp-std.workspace = true
 sp-trie.workspace = true
 sp-version.workspace = true
-polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
-polkadot-runtime-parachains.workspace = true
-xcm.workspace = true
+trie-db = { workspace = true }
 xcm-builder.workspace = true
-cumulus-pallet-parachain-system-proc-macro.workspace = true
-cumulus-primitives-core.workspace = true
-cumulus-primitives-parachain-inherent.workspace = true
-cumulus-primitives-proof-size-hostfunction.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -49,17 +49,17 @@ rand = { workspace = true, default-features = true }
 trie-standardmap = { workspace = true }
 
 # Substrate
-sc-client-api = { default-features = true, path = "../../../substrate/client/api" }
-sp-consensus-slots = { default-features = true, path = "../../../substrate/primitives/consensus/slots" }
-sp-crypto-hashing = { default-features = true, path = "../../../substrate/primitives/crypto/hashing" }
-sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
-sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
-sp-version = { default-features = true, path = "../../../substrate/primitives/version" }
+sc-client-api = { default-features = true, workspace = true }
+sp-consensus-slots = { default-features = true, workspace = true }
+sp-crypto-hashing = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+sp-version = { default-features = true, workspace = true }
 
 # Cumulus
-cumulus-test-client = { path = "../../test/client" }
-cumulus-test-relay-sproof-builder = { default-features = true, path = "../../test/relay-sproof-builder" }
-cumulus-test-runtime = { path = "../../test/runtime" }
+cumulus-test-client = { workspace = true }
+cumulus-test-relay-sproof-builder = { default-features = true, workspace = true }
+cumulus-test-runtime = { workspace = true }
 
 [features]
 default = ["std"]
@@ -94,6 +94,7 @@ std = [
 
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
