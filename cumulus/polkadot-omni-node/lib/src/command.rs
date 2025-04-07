@@ -14,16 +14,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{cli::{Cli, RelayChainCli, Subcommand}, common::{
-	chain_spec::{Extensions, LoadSpec},
-	runtime::{
-		AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
-		RuntimeResolver,
+use crate::{
+	cli::{Cli, RelayChainCli, Subcommand},
+	common::{
+		chain_spec::{Extensions, LoadSpec},
+		runtime::{
+			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
+			RuntimeResolver,
+		},
+		types::Block,
+		NodeBlock, NodeExtraArgs,
 	},
-	types::Block,
-	NodeBlock, NodeExtraArgs,
-}, extra_commands, fake_runtime_api, nodes::DynNodeSpecExt, runtime::BlockNumber};
-use clap::{CommandFactory, FromArgMatches};
+	extra_commands::{ExtraSubcommand, ExtraSubcommands},
+	fake_runtime_api,
+	nodes::DynNodeSpecExt,
+	runtime::BlockNumber,
+};
+use clap::{Args, CommandFactory, FromArgMatches};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
@@ -60,7 +67,7 @@ impl RunConfig {
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
 	) -> Self {
-		RunConfig { runtime_resolver, chain_spec_loader}
+		RunConfig { runtime_resolver, chain_spec_loader }
 	}
 }
 
@@ -112,23 +119,25 @@ fn new_node_spec(
 /// # Type Parameters
 /// - `CliConfig`: Runtime-specific configuration (e.g., network, spec versions)
 /// - `Extra`: One or more subcommands implementing `ExtraSubcommand`
-pub fn run<CliConfig, Extra>(cmd_config: RunConfig) -> Result<()> where
+pub fn run<CliConfig, Extra: ExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
+where
 	CliConfig: crate::cli::CliConfig,
-	Extra: extra_commands::ExtraSubcommand{
-
-	let cli_command = Extra::augment_command(Cli::<CliConfig>::command());
-
+	Extra: ExtraSubcommand,
+{
+	let cli_command = if let Some(extra_cli) = Extra::command() {
+		Cli::<CliConfig>::augment_args(extra_cli)
+	} else {
+		Cli::<CliConfig>::command()
+	};
 	let matches = cli_command.get_matches();
 
-	if let Some((name, sub_matches)) = matches.subcommand() {
-		if let Some(result) = Extra::maybe_run(name, sub_matches, &*cmd_config.chain_spec_loader) {
-			return result;
-		}
+	if ExtraSubcommands::handle_with_matches(&matches, &cmd_config)? {
+		return Ok(())
 	}
 
 	// No extra subcommand, parse base CLI and proceed normally
-	let mut cli = Cli::<CliConfig>::from_arg_matches(&matches)
-		.map_err(|e| sc_cli::Error::Cli(e.into()))?;
+	let mut cli =
+		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
 	#[allow(deprecated)]
