@@ -17,7 +17,7 @@
 use super::*;
 
 use bitvec::order::Lsb0;
-use polkadot_node_network_protocol::v2::{BackedCandidateAcknowledgement, BackedCandidateManifest};
+use polkadot_node_network_protocol::v3::{BackedCandidateAcknowledgement, BackedCandidateManifest};
 use polkadot_node_subsystem::messages::CandidateBackingMessage;
 use polkadot_primitives_test_helpers::make_candidate;
 
@@ -202,7 +202,7 @@ fn backed_candidate_leads_to_advertisement() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V3(
+						ValidationProtocols::V3(
 							protocol_v3::ValidationProtocol::StatementDistribution(
 								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
@@ -528,7 +528,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V3(
+						ValidationProtocols::V3(
 							protocol_v3::ValidationProtocol::StatementDistribution(
 								protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack),
 							),
@@ -572,7 +572,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 
 					assert_matches!(
 						&messages[0].1,
-						Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 							protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack)
 						)) if *ack == expected_ack
 					);
@@ -763,7 +763,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V3(
+						ValidationProtocols::V3(
 							protocol_v3::ValidationProtocol::StatementDistribution(
 								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
@@ -1323,7 +1323,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V3(
+						ValidationProtocols::V3(
 							protocol_v3::ValidationProtocol::StatementDistribution(
 								protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack),
 							),
@@ -1387,14 +1387,14 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 
 					assert_matches!(
 						&messages[0].1,
-						Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 							protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack)
 						)) if *ack == expected_ack
 					);
 
 					assert_matches!(
 						&messages[1].1,
-						Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 							protocol_v3::StatementDistributionMessage::Statement(r, s)
 						)) if *r == relay_parent && s.unchecked_payload() == &CompactStatement::Seconded(candidate_hash) && s.unchecked_validator_index() == v_e
 					);
@@ -1605,7 +1605,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 
 					assert_matches!(
 						&messages[0].1,
-						Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 							protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest)
 						)) => {
 							assert_eq!(*manifest, expected_manifest);
@@ -1797,7 +1797,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V3(
+						ValidationProtocols::V3(
 							protocol_v3::ValidationProtocol::StatementDistribution(
 								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
