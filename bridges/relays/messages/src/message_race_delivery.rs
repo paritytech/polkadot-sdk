@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright 2019-2021 Parity Technologies (UK) Ltd.message_race_delivera
 // This file is part of Parity Bridges Common.
 
 // Parity Bridges Common is free software: you can redistribute it and/or modify
@@ -510,7 +510,7 @@ where
 			.flat_map(|(_, subrange)| {
 				subrange
 					.iter()
-					.filter(|(nonce, _)| range.contains(nonce))
+					.filter(|(nonce, _)| range.contains(*nonce))
 					.map(|(_, details)| details.dispatch_weight)
 			})
 			.fold(Weight::zero(), |total, weight| total.saturating_add(weight))
