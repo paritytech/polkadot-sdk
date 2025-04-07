@@ -5,7 +5,7 @@ use super::*;
 use crate::{mock::*, Error};
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
-use snowbridge_inbound_queue_primitives::{v2::XcmPayload, EventProof, Proof};
+use snowbridge_inbound_queue_primitives::{v2::Payload, EventProof, Proof};
 use snowbridge_test_utils::mock_xcm::{set_charge_fees_override, set_sender_override};
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
@@ -331,7 +331,7 @@ fn zero_reward_does_not_register_reward() {
 			Message {
 				nonce: 0,
 				assets: vec![],
-				xcm: XcmPayload::Raw(vec![]),
+				xcm: Payload::Raw(vec![]),
 				claimer: None,
 				execution_fee: 1_000_000_000,
 				relayer_fee: 0,
