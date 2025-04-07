@@ -2316,476 +2316,571 @@ path = "../polkadot/node/core/parachains-inherent"
 default-features = false
 optional = true
 path = "../polkadot/node/core/prospective-parachains"
+version = "21.0.0"
 
 [dependencies.polkadot-node-core-provisioner]
 default-features = false
 optional = true
 path = "../polkadot/node/core/provisioner"
+version = "22.0.0"
 
 [dependencies.polkadot-node-core-pvf]
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf"
+version = "22.0.0"
 
 [dependencies.polkadot-node-core-pvf-checker]
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf-checker"
+version = "22.0.0"
 
 [dependencies.polkadot-node-core-pvf-common]
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf/common"
+version = "19.0.0"
 
 [dependencies.polkadot-node-core-pvf-execute-worker]
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf/execute-worker"
+version = "19.0.0"
 
 [dependencies.polkadot-node-core-pvf-prepare-worker]
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf/prepare-worker"
+version = "19.0.0"
 
 [dependencies.polkadot-node-core-runtime-api]
 default-features = false
 optional = true
 path = "../polkadot/node/core/runtime-api"
+version = "22.0.0"
 
 [dependencies.polkadot-node-metrics]
 default-features = false
 optional = true
 path = "../polkadot/node/metrics"
+version = "22.0.0"
 
 [dependencies.polkadot-node-network-protocol]
 default-features = false
 optional = true
 path = "../polkadot/node/network/protocol"
+version = "22.0.0"
 
 [dependencies.polkadot-node-primitives]
 default-features = false
 optional = true
 path = "../polkadot/node/primitives"
+version = "19.0.0"
 
 [dependencies.polkadot-node-subsystem]
 default-features = false
 optional = true
 path = "../polkadot/node/subsystem"
+version = "22.0.0"
 
 [dependencies.polkadot-node-subsystem-types]
 default-features = false
 optional = true
 path = "../polkadot/node/subsystem-types"
+version = "22.0.0"
 
 [dependencies.polkadot-node-subsystem-util]
 default-features = false
 optional = true
 path = "../polkadot/node/subsystem-util"
+version = "22.0.0"
 
 [dependencies.polkadot-omni-node-lib]
 default-features = false
 optional = true
 path = "../cumulus/polkadot-omni-node/lib"
+version = "0.5.0"
 
 [dependencies.polkadot-overseer]
 default-features = false
 optional = true
 path = "../polkadot/node/overseer"
+version = "22.0.0"
 
 [dependencies.polkadot-rpc]
 default-features = false
 optional = true
 path = "../polkadot/rpc"
+version = "23.0.0"
 
 [dependencies.polkadot-service]
 default-features = false
 optional = true
 path = "../polkadot/node/service"
+version = "23.0.0"
 
 [dependencies.polkadot-statement-distribution]
 default-features = false
 optional = true
 path = "../polkadot/node/network/statement-distribution"
+version = "22.0.0"
 
 [dependencies.polkadot-statement-table]
 default-features = false
 optional = true
 path = "../polkadot/statement-table"
+version = "19.0.0"
 
 [dependencies.sc-allocator]
 default-features = false
 optional = true
 path = "../substrate/client/allocator"
+version = "31.0.0"
 
 [dependencies.sc-authority-discovery]
 default-features = false
 optional = true
 path = "../substrate/client/authority-discovery"
+version = "0.49.0"
 
 [dependencies.sc-basic-authorship]
 default-features = false
 optional = true
 path = "../substrate/client/basic-authorship"
+version = "0.49.0"
 
 [dependencies.sc-block-builder]
 default-features = false
 optional = true
 path = "../substrate/client/block-builder"
+version = "0.44.0"
 
 [dependencies.sc-chain-spec]
 default-features = false
 optional = true
 path = "../substrate/client/chain-spec"
+version = "42.0.0"
 
 [dependencies.sc-cli]
 default-features = false
 optional = true
 path = "../substrate/client/cli"
+version = "0.51.0"
 
 [dependencies.sc-client-api]
 default-features = false
 optional = true
 path = "../substrate/client/api"
+version = "39.0.0"
 
 [dependencies.sc-client-db]
 default-features = false
 optional = true
 path = "../substrate/client/db"
+version = "0.46.0"
 
 [dependencies.sc-consensus]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/common"
+version = "0.48.0"
 
 [dependencies.sc-consensus-aura]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/aura"
+version = "0.49.0"
 
 [dependencies.sc-consensus-babe]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/babe"
+version = "0.49.0"
 
 [dependencies.sc-consensus-babe-rpc]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/babe/rpc"
+version = "0.49.0"
 
 [dependencies.sc-consensus-beefy]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/beefy"
+version = "28.0.0"
 
 [dependencies.sc-consensus-beefy-rpc]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/beefy/rpc"
+version = "28.0.0"
 
 [dependencies.sc-consensus-epochs]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/epochs"
+version = "0.48.0"
 
 [dependencies.sc-consensus-grandpa]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/grandpa"
+version = "0.34.0"
 
 [dependencies.sc-consensus-grandpa-rpc]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/grandpa/rpc"
+version = "0.34.0"
 
 [dependencies.sc-consensus-manual-seal]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/manual-seal"
+version = "0.50.0"
 
 [dependencies.sc-consensus-pow]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/pow"
+version = "0.48.0"
 
 [dependencies.sc-consensus-slots]
 default-features = false
 optional = true
 path = "../substrate/client/consensus/slots"
+version = "0.48.0"
 
 [dependencies.sc-executor]
 default-features = false
 optional = true
 path = "../substrate/client/executor"
+version = "0.42.0"
 
 [dependencies.sc-executor-common]
 default-features = false
 optional = true
 path = "../substrate/client/executor/common"
+version = "0.38.0"
 
 [dependencies.sc-executor-polkavm]
 default-features = false
 optional = true
 path = "../substrate/client/executor/polkavm"
+version = "0.35.0"
 
 [dependencies.sc-executor-wasmtime]
 default-features = false
 optional = true
 path = "../substrate/client/executor/wasmtime"
+version = "0.38.0"
 
 [dependencies.sc-informant]
 default-features = false
 optional = true
 path = "../substrate/client/informant"
+version = "0.48.0"
 
 [dependencies.sc-keystore]
 default-features = false
 optional = true
 path = "../substrate/client/keystore"
+version = "35.0.0"
 
 [dependencies.sc-mixnet]
 default-features = false
 optional = true
 path = "../substrate/client/mixnet"
+version = "0.19.0"
 
 [dependencies.sc-network]
 default-features = false
 optional = true
 path = "../substrate/client/network"
+version = "0.49.0"
 
 [dependencies.sc-network-common]
 default-features = false
 optional = true
 path = "../substrate/client/network/common"
+version = "0.48.0"
 
 [dependencies.sc-network-gossip]
 default-features = false
 optional = true
 path = "../substrate/client/network-gossip"
+version = "0.49.0"
 
 [dependencies.sc-network-light]
 default-features = false
 optional = true
 path = "../substrate/client/network/light"
+version = "0.48.0"
 
 [dependencies.sc-network-statement]
 default-features = false
 optional = true
 path = "../substrate/client/network/statement"
+version = "0.31.0"
 
 [dependencies.sc-network-sync]
 default-features = false
 optional = true
 path = "../substrate/client/network/sync"
+version = "0.48.0"
 
 [dependencies.sc-network-transactions]
 default-features = false
 optional = true
 path = "../substrate/client/network/transactions"
+version = "0.48.0"
 
 [dependencies.sc-network-types]
 default-features = false
 optional = true
 path = "../substrate/client/network/types"
+version = "0.15.3"
 
 [dependencies.sc-offchain]
 default-features = false
 optional = true
 path = "../substrate/client/offchain"
+version = "44.0.0"
 
 [dependencies.sc-proposer-metrics]
 default-features = false
 optional = true
 path = "../substrate/client/proposer-metrics"
+version = "0.20.0"
 
 [dependencies.sc-rpc]
 default-features = false
 optional = true
 path = "../substrate/client/rpc"
+version = "44.0.0"
 
 [dependencies.sc-rpc-api]
 default-features = false
 optional = true
 path = "../substrate/client/rpc-api"
+version = "0.48.0"
 
 [dependencies.sc-rpc-server]
 default-features = false
 optional = true
 path = "../substrate/client/rpc-servers"
+version = "21.0.0"
 
 [dependencies.sc-rpc-spec-v2]
 default-features = false
 optional = true
 path = "../substrate/client/rpc-spec-v2"
+version = "0.49.0"
 
 [dependencies.sc-runtime-utilities]
 default-features = false
 optional = true
 path = "../substrate/client/runtime-utilities"
+version = "0.2.0"
 
 [dependencies.sc-service]
 default-features = false
 optional = true
 path = "../substrate/client/service"
+version = "0.50.0"
 
 [dependencies.sc-state-db]
 default-features = false
 optional = true
 path = "../substrate/client/state-db"
+version = "0.38.0"
 
 [dependencies.sc-statement-store]
 default-features = false
 optional = true
 path = "../substrate/client/statement-store"
+version = "21.0.0"
 
 [dependencies.sc-storage-monitor]
 default-features = false
 optional = true
 path = "../substrate/client/storage-monitor"
+version = "0.24.0"
 
 [dependencies.sc-sync-state-rpc]
 default-features = false
 optional = true
 path = "../substrate/client/sync-state-rpc"
+version = "0.49.0"
 
 [dependencies.sc-sysinfo]
 default-features = false
 optional = true
 path = "../substrate/client/sysinfo"
+version = "42.0.0"
 
 [dependencies.sc-telemetry]
 default-features = false
 optional = true
 path = "../substrate/client/telemetry"
+version = "28.1.0"
 
 [dependencies.sc-tracing]
 default-features = false
 optional = true
 path = "../substrate/client/tracing"
+version = "39.0.0"
 
 [dependencies.sc-transaction-pool]
 default-features = false
 optional = true
 path = "../substrate/client/transaction-pool"
+version = "39.0.0"
 
 [dependencies.sc-transaction-pool-api]
 default-features = false
 optional = true
 path = "../substrate/client/transaction-pool/api"
+version = "39.0.0"
 
 [dependencies.sc-utils]
 default-features = false
 optional = true
 path = "../substrate/client/utils"
+version = "18.0.1"
 
 [dependencies.sp-blockchain]
 default-features = false
 optional = true
 path = "../substrate/primitives/blockchain"
+version = "39.0.0"
 
 [dependencies.sp-consensus]
 default-features = false
 optional = true
 path = "../substrate/primitives/consensus/common"
+version = "0.42.0"
 
 [dependencies.sp-core-hashing]
 default-features = false
 optional = true
 path = "../substrate/deprecated/hashing"
+version = "16.0.0"
 
 [dependencies.sp-core-hashing-proc-macro]
 default-features = false
 optional = true
 path = "../substrate/deprecated/hashing/proc-macro"
+version = "16.0.0"
 
 [dependencies.sp-database]
 default-features = false
 optional = true
 path = "../substrate/primitives/database"
+version = "10.0.0"
 
 [dependencies.sp-maybe-compressed-blob]
 default-features = false
 optional = true
 path = "../substrate/primitives/maybe-compressed-blob"
+version = "11.0.0"
 
 [dependencies.sp-panic-handler]
 default-features = false
 optional = true
 path = "../substrate/primitives/panic-handler"
+version = "13.0.2"
 
 [dependencies.sp-rpc]
 default-features = false
 optional = true
 path = "../substrate/primitives/rpc"
+version = "34.0.0"
 
 [dependencies.staging-chain-spec-builder]
 default-features = false
 optional = true
 path = "../substrate/bin/utils/chain-spec-builder"
+version = "10.0.0"
 
 [dependencies.staging-node-inspect]
 default-features = false
 optional = true
 path = "../substrate/bin/node/inspect"
+version = "0.27.0"
 
 [dependencies.staging-tracking-allocator]
 default-features = false
 optional = true
 path = "../polkadot/node/tracking-allocator"
+version = "2.0.0"
 
 [dependencies.subkey]
 default-features = false
 optional = true
 path = "../substrate/bin/utils/subkey"
+version = "24.0.0"
 
 [dependencies.substrate-build-script-utils]
 default-features = false
 optional = true
 path = "../substrate/utils/build-script-utils"
+version = "11.0.0"
 
 [dependencies.substrate-frame-rpc-support]
 default-features = false
 optional = true
 path = "../substrate/utils/frame/rpc/support"
+version = "44.0.0"
 
 [dependencies.substrate-frame-rpc-system]
 default-features = false
 optional = true
 path = "../substrate/utils/frame/rpc/system"
+version = "43.0.0"
 
 [dependencies.substrate-prometheus-endpoint]
 default-features = false
 optional = true
 path = "../substrate/utils/prometheus"
+version = "0.17.2"
 
 [dependencies.substrate-rpc-client]
 default-features = false
 optional = true
 path = "../substrate/utils/frame/rpc/client"
+version = "0.48.0"
 
 [dependencies.substrate-state-trie-migration-rpc]
 default-features = false
 optional = true
 path = "../substrate/utils/frame/rpc/state-trie-migration-rpc"
+version = "42.0.0"
 
 [dependencies.substrate-wasm-builder]
 default-features = false
 optional = true
 path = "../substrate/utils/wasm-builder"
+version = "26.0.0"
 
 [dependencies.tracing-gum]
 default-features = false
 optional = true
 path = "../polkadot/node/gum"
+version = "19.0.0"
 
 [dependencies.xcm-emulator]
 default-features = false
 optional = true
 path = "../cumulus/xcm/xcm-emulator"
+version = "0.19.0"
 
 [dependencies.xcm-simulator]
 default-features = false
 optional = true
 path = "../polkadot/xcm/xcm-simulator"
+version = "20.0.0"
 
 [package.metadata.docs.rs]
 features = ["node", "runtime-full"]
