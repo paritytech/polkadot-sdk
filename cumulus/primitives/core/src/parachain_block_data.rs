@@ -172,7 +172,7 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 		);
 	}
 
-	/// Converts into [`v0::ParachainBlockData`].
+	/// Converts into [`ParachainBlockData::V0`].
 	///
 	/// Returns `None` if there is not exactly one block.
 	pub fn as_v0(&self) -> Option<Self> {
