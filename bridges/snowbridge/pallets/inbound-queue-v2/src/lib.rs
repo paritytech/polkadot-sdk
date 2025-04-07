@@ -27,8 +27,8 @@ extern crate alloc;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod weights;
 pub mod message_processors;
+pub mod weights;
 
 #[cfg(test)]
 mod mock;

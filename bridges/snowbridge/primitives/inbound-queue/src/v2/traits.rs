@@ -45,7 +45,7 @@ impl<AccountId> MessageProcessor<AccountId> for Tuple {
 		false
 	}
 
-	fn process_message(who: AccountId, message: Message) -> DispatchResult{
+	fn process_message(who: AccountId, message: Message) -> DispatchResult {
 		for_tuples!( #(
  			match Tuple::can_process_message(&who, &message) {
 				true => {

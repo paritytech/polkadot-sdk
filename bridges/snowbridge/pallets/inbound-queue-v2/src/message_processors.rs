@@ -7,17 +7,14 @@ use sp_std::marker::PhantomData;
 pub struct DefaultMessageProcessor<T>(pub PhantomData<T>);
 
 impl<AccountId, T> MessageProcessor<AccountId> for DefaultMessageProcessor<T>
-where 
-    T: crate::Config<AccountId = AccountId>,
+where
+	T: crate::Config<AccountId = AccountId>,
 {
-    fn can_process_message(_who: &AccountId, message: &Message) -> bool {
-        T::MessageConverter::convert(message.clone()).is_ok()
-    }
+	fn can_process_message(_who: &AccountId, message: &Message) -> bool {
+		T::MessageConverter::convert(message.clone()).is_ok()
+	}
 
-    fn process_message(who: AccountId, message: Message) -> DispatchResult {
-        crate::Pallet::<T>::process_message(
-            who,
-            message,
-        )
-    }
+	fn process_message(who: AccountId, message: Message) -> DispatchResult {
+		crate::Pallet::<T>::process_message(who, message)
+	}
 }

@@ -181,7 +181,7 @@ impl inbound_queue_v2::Config for Test {
 		AssetHubFromEthereum,
 	>;
 	// Passively test that the implementation of MessageProcessor trait works correctly for tuple
-	type MessageProcessor = (DummyPrefix, DefaultMessageProcessor<Test>, DummySuffix); 
+	type MessageProcessor = (DummyPrefix, DefaultMessageProcessor<Test>, DummySuffix);
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type WeightInfo = ();
