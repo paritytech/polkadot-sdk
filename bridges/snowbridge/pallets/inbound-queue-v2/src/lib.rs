@@ -94,7 +94,7 @@ pub mod pallet {
 		type AssetHubParaId: Get<u32>;
 		/// Convert a command from Ethereum to an XCM message.
 		type MessageConverter: ConvertMessage;
-		/// Process the message that was submitted
+		/// Process the message that was submitted.
 		type MessageProcessor: MessageProcessor<Self::AccountId>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
