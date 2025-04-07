@@ -137,7 +137,7 @@ impl Pay for TestPay {
 	) {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id, _: PaymentStatus) {
+	fn ensure_concluded(id: Self::Id) {
 		set_status(id, PaymentStatus::Failure)
 	}
 }

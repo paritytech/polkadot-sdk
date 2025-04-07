@@ -65,9 +65,10 @@ pub trait Pay {
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	);
-	/// Ensure that a call to `check_payment` with the given parameters will return the given status.
+	/// Ensure that a call to `check_payment` with the given parameters will return either `Success`
+	/// or `Failure`.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id, status: PaymentStatus);
+	fn ensure_concluded(id: Self::Id);
 }
 
 /// Status for making a payment via the `Pay::pay` trait function.

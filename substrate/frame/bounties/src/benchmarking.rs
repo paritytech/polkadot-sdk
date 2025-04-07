@@ -119,6 +119,26 @@ pub fn get_payment_id<T: Config<I>, I: 'static>(
 	}
 }
 
+pub fn set_payment_status<T: Config<I>, I: 'static>(
+	bounty_id: BountyIndex,
+	new_payment_status: PaymentState<PaymentIdOf<T, I>>,
+) {
+	let mut bounty = pallet_bounties::Bounties::<T, I>::get(bounty_id).expect("no bounty");
+
+	match &mut bounty.status {
+		BountyStatus::Approved { payment_status } |
+		BountyStatus::ApprovedWithCurator { payment_status, .. } |
+		BountyStatus::RefundAttempted { payment_status } => *payment_status = new_payment_status,
+		BountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } => {
+			curator_stash.1 = new_payment_status.clone();
+			beneficiary.1 = new_payment_status;
+		},
+		_ => {},
+	};
+
+	pallet_bounties::Bounties::<T, I>::insert(bounty_id, bounty);
+}
+
 // Create the pre-requisite information needed to create a treasury `propose_bounty`.
 fn setup_bounty<T: Config<I>, I: 'static>(user: u32, description: u32) -> BenchmarkBounty<T, I> {
 	let caller = account("caller", user, SEED);
@@ -803,10 +823,7 @@ mod benchmarks {
 				payment_id,
 				PaymentStatus::Failure,
 			);
-			Bounties::<T, I>::check_payment_status(
-				RawOrigin::Signed(setup.caller.clone()).into(),
-				setup.bounty_id,
-			)?;
+			set_payment_status::<T, I>(setup.bounty_id, PaymentState::Failed);
 			true
 		} else {
 			false
@@ -856,10 +873,7 @@ mod benchmarks {
 				payment_id,
 				PaymentStatus::Failure,
 			);
-			Bounties::<T, I>::check_payment_status(
-				RawOrigin::Signed(setup.caller.clone()).into(),
-				setup.bounty_id,
-			)?;
+			set_payment_status::<T, I>(setup.bounty_id, PaymentState::Failed);
 			true
 		} else {
 			false
@@ -920,10 +934,7 @@ mod benchmarks {
 				beneficiary_payment_id,
 				PaymentStatus::Failure,
 			);
-			Bounties::<T, I>::check_payment_status(
-				RawOrigin::Signed(setup.caller.clone()).into(),
-				setup.bounty_id,
-			)?;
+			set_payment_status::<T, I>(setup.bounty_id, PaymentState::Failed);
 			true
 		} else {
 			false

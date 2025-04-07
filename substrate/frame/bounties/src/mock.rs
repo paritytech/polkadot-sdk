@@ -78,8 +78,8 @@ impl Pay for TestBountiesPay {
 	) {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id, status: PaymentStatus) {
-		set_status(id, status);
+	fn ensure_concluded(id: Self::Id) {
+		set_status(id, PaymentStatus::Success);
 	}
 }
 

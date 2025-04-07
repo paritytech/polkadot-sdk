@@ -157,7 +157,7 @@ impl<
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id, _: PaymentStatus) {
+	fn ensure_concluded(id: Self::Id) {
 		Querier::expect_response(id, Response::ExecutionResult(None));
 	}
 }

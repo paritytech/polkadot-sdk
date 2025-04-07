@@ -284,7 +284,7 @@ mod benchmarks {
 			Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into(), 0u32)?;
 			match Spends::<T, I>::get(0).unwrap().status {
 				PaymentState::Attempted { id, .. } => {
-					T::Paymaster::ensure_concluded(id, PaymentStatus::Failure);
+					T::Paymaster::ensure_concluded(id);
 				},
 				_ => panic!("No payout attempt made"),
 			};

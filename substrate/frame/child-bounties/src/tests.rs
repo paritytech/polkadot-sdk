@@ -35,13 +35,13 @@ fn add_child_bounty() {
 	new_test_ext().execute_with(|| {
 		// TestProcedure.
 		// 1, Create bounty & move to active state with enough bounty fund & parent curator.
-		// 2, Parent curator adds child-bounty child-bounty-1, test for error like RequireCurator
-		//    ,InsufficientProposersBalance, InsufficientBountyBalance with invalid arguments.
+		// 2, Parent curator adds child-bounty child-bounty-1, test for error like RequireCurator,
+		//    InsufficientProposersBalance, InsufficientBountyBalance with invalid arguments.
 		// 3, Parent curator adds child-bounty child-bounty-1, moves to "Approved" state &
 		//    test for the event Added.
 		// 4, Test for DB state of `Bounties` & `ChildBounties`.
-		// 5, Observe fund transaction moment between Bounty, Child-bounty,
-		//    Curator, child-bounty curator & beneficiary.
+		// 5, Observe fund transaction moment between Bounty, Child-bounty, Curator, child-bounty
+		//    curator & beneficiary.
 
 		// Given (make the parent bounty)
 		// proposer = 0;
@@ -59,9 +59,17 @@ fn add_child_bounty() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		assert_eq!(Balances::free_balance(Bounties::account_id()), 101 - 50);
-		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 50);
+		assert_eq!(
+			Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")),
+			50
+		);
 		let fee = 8;
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), fee));
 		Balances::make_free_balance_be(&account_id(4), 10);
@@ -93,8 +101,16 @@ fn add_child_bounty() {
 		// Update the parent curator balance.
 		Balances::make_free_balance_be(&account_id(4), 101);
 		// parent curator fee is reserved on parent bounty account.
-		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 50);
-		assert_eq!(Balances::reserved_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 0);
+		assert_eq!(
+			Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")),
+			50
+		);
+		assert_eq!(
+			Balances::reserved_balance(
+				Bounties::bounty_account_id(0, 1).expect("conversion failed")
+			),
+			0
+		);
 		assert_noop!(
 			ChildBounties::add_child_bounty(
 				RuntimeOrigin::signed(account_id(4)),
@@ -158,7 +174,10 @@ fn add_child_bounty() {
 		approve_child_bounty_payment(ChildBounties::child_bounty_account_id(0, 0), 0, 0, 1, 10);
 
 		// Then (funding returned)
-		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 40);
+		assert_eq!(
+			Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")),
+			40
+		);
 		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 10);
 		assert_eq!(
 			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap(),
@@ -202,7 +221,12 @@ fn child_bounty_assign_curator() {
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 		go_to_block(2);
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		let fee = 4;
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), fee));
 		assert_ok!(Bounties::accept_curator(
@@ -211,8 +235,16 @@ fn child_bounty_assign_curator() {
 			account_id(10)
 		));
 		// Bounty account status before adding child-bounty.
-		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 50);
-		assert_eq!(Balances::reserved_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 0);
+		assert_eq!(
+			Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")),
+			50
+		);
+		assert_eq!(
+			Balances::reserved_balance(
+				Bounties::bounty_account_id(0, 1).expect("conversion failed")
+			),
+			0
+		);
 		// Check the balance of parent curator.
 		// Curator deposit is reserved for parent curator on parent bounty.
 		let expected_deposit = Bounties::calculate_curator_deposit(&fee, 1).unwrap();
@@ -229,8 +261,16 @@ fn child_bounty_assign_curator() {
 		approve_child_bounty_payment(ChildBounties::child_bounty_account_id(0, 0), 0, 0, 1, 10);
 		assert_eq!(last_event(), ChildBountiesEvent::Added { index: 0, child_index: 0 });
 		// Bounty account status after adding child-bounty.
-		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 40);
-		assert_eq!(Balances::reserved_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 0);
+		assert_eq!(
+			Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")),
+			40
+		);
+		assert_eq!(
+			Balances::reserved_balance(
+				Bounties::bounty_account_id(0, 1).expect("conversion failed")
+			),
+			0
+		);
 		// Child-bounty account status.
 		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 10);
 		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
@@ -301,8 +341,16 @@ fn child_bounty_assign_curator() {
 		assert_eq!(Balances::free_balance(account_id(8)), 101 - expected_child_deposit);
 		assert_eq!(Balances::reserved_balance(account_id(8)), expected_child_deposit);
 		// Bounty account status at exit.
-		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 40);
-		assert_eq!(Balances::reserved_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 0);
+		assert_eq!(
+			Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")),
+			40
+		);
+		assert_eq!(
+			Balances::reserved_balance(
+				Bounties::bounty_account_id(0, 1).expect("conversion failed")
+			),
+			0
+		);
 		// Child-bounty account status at exit.
 		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 10);
 		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
@@ -337,7 +385,12 @@ fn award_claim_child_bounty() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		go_to_block(2);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 		assert_ok!(Bounties::accept_curator(
@@ -476,7 +529,12 @@ fn close_child_bounty_added() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		go_to_block(2);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 		assert_ok!(Bounties::accept_curator(
@@ -533,8 +591,16 @@ fn close_child_bounty_added() {
 		// Check the child-bounty count.
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
 		// Parent-bounty account status.
-		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 50);
-		assert_eq!(Balances::reserved_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 0);
+		assert_eq!(
+			Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")),
+			50
+		);
+		assert_eq!(
+			Balances::reserved_balance(
+				Bounties::bounty_account_id(0, 1).expect("conversion failed")
+			),
+			0
+		);
 		// Child-bounty account status.
 		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
 		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
@@ -559,7 +625,12 @@ fn close_child_bounty_active() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		go_to_block(2);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 		assert_ok!(Bounties::accept_curator(
@@ -620,8 +691,16 @@ fn close_child_bounty_active() {
 		// Check the child-bounty count.
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
 		// Parent-bounty account status.
-		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 50);
-		assert_eq!(Balances::reserved_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")), 0);
+		assert_eq!(
+			Balances::free_balance(Bounties::bounty_account_id(0, 1).expect("conversion failed")),
+			50
+		);
+		assert_eq!(
+			Balances::reserved_balance(
+				Bounties::bounty_account_id(0, 1).expect("conversion failed")
+			),
+			0
+		);
 		// Child-bounty account status.
 		assert_eq!(Balances::free_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
 		assert_eq!(Balances::reserved_balance(ChildBounties::child_bounty_account_id(0, 0)), 0);
@@ -646,7 +725,12 @@ fn close_child_bounty_pending() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		go_to_block(2);
 		let parent_fee = 6;
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), parent_fee));
@@ -723,7 +807,12 @@ fn child_bounty_added_unassign_curator() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		go_to_block(2);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 		assert_ok!(Bounties::accept_curator(
@@ -767,7 +856,12 @@ fn child_bounty_curator_proposed_unassign_curator() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		go_to_block(2);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 		assert_ok!(Bounties::accept_curator(
@@ -856,7 +950,12 @@ fn child_bounty_active_unassign_curator() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		go_to_block(2);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 		assert_ok!(Bounties::accept_curator(
@@ -1116,7 +1215,12 @@ fn parent_bounty_inactive_unassign_curator_child_bounty() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		go_to_block(2);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 		assert_ok!(Bounties::accept_curator(
@@ -1291,7 +1395,12 @@ fn close_parent_with_child_bounty() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 
 		// When/Then (Try add child-bounty)
 		// Should fail, parent bounty not active yet.
@@ -1379,7 +1488,12 @@ fn children_curator_fee_calculation_test() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
-		approve_bounty_payment(Bounties::bounty_account_id(0, 1).expect("conversion failed"), 0, 1, 50);
+		approve_bounty_payment(
+			Bounties::bounty_account_id(0, 1).expect("conversion failed"),
+			0,
+			1,
+			50,
+		);
 		go_to_block(2);
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
 		assert_ok!(Bounties::accept_curator(
