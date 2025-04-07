@@ -214,7 +214,7 @@ use frame_support::{
 	traits::{
 		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
 		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
-		QueuePausedQuery, ServiceQueues,
+		QueueFootprintQuery, QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -1812,10 +1812,11 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 		}
 		BookStateFor::<T>::insert(&origin, &book_state);
 	}
+}
 
-	fn footprint(origin: MessageOriginOf<T>) -> QueueFootprint {
-		BookStateFor::<T>::get(&origin).into()
-	}
+impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
+	type MaxMessageLen =
+		MaxMessageLen<<T::MessageProcessor as ProcessMessage>::Origin, T::Size, T::HeapSize>;
 
 	fn check_messages_footprint<'a>(
 		origin: MessageOriginOf<T>,
@@ -1857,5 +1858,9 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 		}
 
 		Ok(new_pages_count)
+	}
+
+	fn footprint(origin: MessageOriginOf<T>) -> QueueFootprint {
+		BookStateFor::<T>::get(&origin).into()
 	}
 }

@@ -5,7 +5,7 @@ use alloy_core::primitives::FixedBytes;
 
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
-	traits::{Hooks, ProcessMessage, ProcessMessageError},
+	traits::{Hooks, ProcessMessage, ProcessMessageError, QueueFootprintQuery},
 	weights::WeightMeter,
 	BoundedVec,
 };

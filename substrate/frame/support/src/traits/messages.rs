@@ -149,6 +149,23 @@ pub trait EnqueueMessage<Origin: MaxEncodedLen> {
 
 	/// Any remaining unprocessed messages should happen only lazily, not proactively.
 	fn sweep_queue(origin: Origin);
+}
+
+impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
+	type MaxMessageLen = ConstU32<0>;
+	fn enqueue_message(_: BoundedSlice<u8, Self::MaxMessageLen>, _: Origin) {}
+	fn enqueue_messages<'a>(
+		_: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		_: Origin,
+	) {
+	}
+	fn sweep_queue(_: Origin) {}
+}
+
+/// Provides information on queue footprint.
+pub trait QueueFootprintQuery<Origin> {
+	/// The maximal length any enqueued message may have.
+	type MaxMessageLen: Get<u32>;
 
 	/// Return the state footprint of the given queue.
 	fn footprint(origin: Origin) -> QueueFootprint;
@@ -166,15 +183,9 @@ pub trait EnqueueMessage<Origin: MaxEncodedLen> {
 	) -> Result<u32, (u32, usize)>;
 }
 
-impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
+impl<Origin: MaxEncodedLen> QueueFootprintQuery<Origin> for () {
 	type MaxMessageLen = ConstU32<0>;
-	fn enqueue_message(_: BoundedSlice<u8, Self::MaxMessageLen>, _: Origin) {}
-	fn enqueue_messages<'a>(
-		_: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
-		_: Origin,
-	) {
-	}
-	fn sweep_queue(_: Origin) {}
+
 	fn footprint(_: Origin) -> QueueFootprint {
 		QueueFootprint::default()
 	}
@@ -209,6 +220,12 @@ impl<E: EnqueueMessage<O>, O: MaxEncodedLen, N: MaxEncodedLen, C: Convert<N, O>>
 	fn sweep_queue(origin: N) {
 		E::sweep_queue(C::convert(origin));
 	}
+}
+
+impl<E: QueueFootprintQuery<O>, O: MaxEncodedLen, N: MaxEncodedLen, C: Convert<N, O>>
+	QueueFootprintQuery<N> for TransformOrigin<E, O, N, C>
+{
+	type MaxMessageLen = E::MaxMessageLen;
 
 	fn footprint(origin: N) -> QueueFootprint {
 		E::footprint(C::convert(origin))
@@ -238,9 +255,6 @@ pub trait HandleMessage {
 
 	/// Any remaining unprocessed messages should happen only lazily, not proactively.
 	fn sweep_queue();
-
-	/// Return the state footprint of the queue.
-	fn footprint() -> QueueFootprint;
 }
 
 /// Adapter type to transform an [`EnqueueMessage`] with an origin into a [`HandleMessage`] impl.
@@ -263,10 +277,6 @@ where
 
 	fn sweep_queue() {
 		E::sweep_queue(O::get());
-	}
-
-	fn footprint() -> QueueFootprint {
-		E::footprint(O::get())
 	}
 }
 

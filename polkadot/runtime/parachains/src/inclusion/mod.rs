@@ -38,7 +38,7 @@ use core::fmt;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	traits::{EnqueueMessage, Footprint, QueueFootprint},
+	traits::{EnqueueMessage, Footprint, QueueFootprint, QueueFootprintQuery},
 	BoundedSlice,
 };
 use frame_system::pallet_prelude::*;
@@ -295,7 +295,8 @@ pub mod pallet {
 		/// The message queue provides general queueing and processing functionality. Currently it
 		/// replaces the old `UMP` dispatch queue. Other use-cases can be implemented as well by
 		/// adding new variants to `AggregateMessageOrigin`.
-		type MessageQueue: EnqueueMessage<AggregateMessageOrigin>;
+		type MessageQueue: EnqueueMessage<AggregateMessageOrigin>
+			+ QueueFootprintQuery<AggregateMessageOrigin, MaxMessageLen = MaxUmpMessageLenOf<Self>>;
 
 		/// Weight info for the calls of this pallet.
 		type WeightInfo: WeightInfo;

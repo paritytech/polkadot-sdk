@@ -67,7 +67,10 @@ use cumulus_primitives_core::{
 
 use frame_support::{
 	defensive, defensive_assert,
-	traits::{Defensive, EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
+	traits::{
+		Defensive, EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueueFootprintQuery,
+		QueuePausedQuery,
+	},
 	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
@@ -130,7 +133,8 @@ pub mod pallet {
 		///
 		/// This defines the maximal message length via [`crate::MaxXcmpMessageLenOf`]. The pallet
 		/// assumes that this hook will eventually process all the pushed messages.
-		type XcmpQueue: EnqueueMessage<ParaId>;
+		type XcmpQueue: EnqueueMessage<ParaId>
+			+ QueueFootprintQuery<ParaId, MaxMessageLen = MaxXcmpMessageLenOf<Self>>;
 
 		/// The maximum number of inbound XCMP channels that can be suspended simultaneously.
 		///
