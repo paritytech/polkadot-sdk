@@ -136,6 +136,12 @@ pub struct StorageParams {
 	/// block.
 	#[arg(long, default_value_t = 10_000)]
 	pub batch_size: usize,
+
+	/// Run the benchmark on block validation.
+	///
+	/// PoV recorder must be activated to provide a storage proof for block validation at runtime.
+	#[arg(long, default_value_t = false, conflicts_with = "disable_pov_recorder")]
+	pub on_block_validation: bool,
 }
 
 impl StorageCmd {
