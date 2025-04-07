@@ -620,10 +620,7 @@ mod tests {
 		let secret_uri = "//Alice";
 		let key_pair =
 			bandersnatch::Pair::from_string(secret_uri, None).expect("Generates key pair");
-
-		let in1 = bandersnatch::vrf::VrfInput::new("in", "foo");
-		let sign_data =
-			bandersnatch::vrf::VrfSignData::new_unchecked(b"Test", Some("m1"), Some(in1));
+		let sign_data = bandersnatch::vrf::VrfSignData::new(b"vrf_input", b"aux_data");
 
 		let result = store.bandersnatch_vrf_sign(BANDERSNATCH, &key_pair.public(), &sign_data);
 		assert!(result.unwrap().is_none());
@@ -651,15 +648,13 @@ mod tests {
 			.collect();
 
 		let prover_idx = 3;
-		let prover = ring_ctx.prover(&pks, prover_idx).unwrap();
+		let prover = ring_ctx.prover(&pks, prover_idx);
 
 		let secret_uri = "//Alice";
 		let pair = bandersnatch::Pair::from_string(secret_uri, None).expect("Generates key pair");
 		pks[prover_idx] = pair.public();
 
-		let in1 = bandersnatch::vrf::VrfInput::new("in1", "foo");
-		let sign_data =
-			bandersnatch::vrf::VrfSignData::new_unchecked(b"Test", &["m1", "m2"], [in1]);
+		let sign_data = bandersnatch::vrf::VrfSignData::new(b"vrf_input", b"aux_data");
 
 		let result =
 			store.bandersnatch_ring_vrf_sign(BANDERSNATCH, &pair.public(), &sign_data, &prover);
