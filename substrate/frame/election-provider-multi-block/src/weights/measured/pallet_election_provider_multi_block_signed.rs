@@ -63,6 +63,7 @@ pub trait WeightInfo {
 	fn submit_page() -> Weight;
 	fn unset_page() -> Weight;
 	fn bail() -> Weight;
+	fn clear_old_round_data(p: u32) -> Weight;
 }
 
 /// Weights for `pallet_election_provider_multi_block::signed` using the Substrate node and recommended hardware.
@@ -167,6 +168,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(69_u64))
 			.saturating_add(T::DbWeight::get().writes(67_u64))
 	}
+	fn clear_old_round_data(p: u32) -> Weight {
+		Default::default()
+	}
 }
 
 // For backwards compatibility and tests.
@@ -269,5 +273,8 @@ impl WeightInfo for () {
 		Weight::from_parts(151_360_000, 164947)
 			.saturating_add(RocksDbWeight::get().reads(69_u64))
 			.saturating_add(RocksDbWeight::get().writes(67_u64))
+	}
+	fn clear_old_round_data(p: u32) -> Weight {
+		Default::default()
 	}
 }

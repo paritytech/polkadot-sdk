@@ -757,6 +757,8 @@ pub mod pallet {
 		NoSubmission,
 		/// Round is not yet over.
 		RoundNotOver,
+		/// Bad witness data provided.
+		BadWitnessData,
 	}
 
 	#[pallet::call]
@@ -857,10 +859,11 @@ pub mod pallet {
 		/// This can only be called for submissions that end up being discarded, as in they are not
 		/// processed and they end up lingering in the queue.
 		#[pallet::call_index(3)]
-		#[pallet::weight(0)]
+		#[pallet::weight(SignedWeightsOf::<T>::clear_old_round_data(*witness_pages))]
 		pub fn clear_old_round_data(
 			origin: OriginFor<T>,
 			round: u32,
+			witness_pages: u32,
 		) -> DispatchResultWithPostInfo {
 			let discarded = ensure_signed(origin)?;
 
@@ -870,6 +873,10 @@ pub mod pallet {
 
 			let metadata = Submissions::<T>::take_submission_with_data(round, &discarded)
 				.ok_or(Error::<T>::NoSubmission)?;
+			ensure!(
+				metadata.pages.iter().filter(|p| **p).count() as u32 <= witness_pages,
+				Error::<T>::BadWitnessData
+			);
 
 			// give back their deposit.
 			let _res = T::Currency::release(

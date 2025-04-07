@@ -119,6 +119,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 }
 
+#[allow(unused)]
 #[derive(Clone, Debug)]
 pub enum FallbackModes {
 	Continue,

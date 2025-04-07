@@ -68,6 +68,9 @@ impl crate::signed::WeightInfo for AllZeroWeights {
 	fn unset_page() -> Weight {
 		Default::default()
 	}
+	fn clear_old_round_data(p: u32) -> Weight {
+		Default::default()
+	}
 }
 
 impl crate::unsigned::WeightInfo for AllZeroWeights {

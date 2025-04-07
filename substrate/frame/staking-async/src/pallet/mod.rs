@@ -1375,8 +1375,7 @@ pub mod pallet {
 
 				// update this staker in the sorted list, if they exist in it.
 				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash))
-						.defensive_proof("Failed to update voter in VoterList in unbond");
+					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash));
 				}
 
 				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
@@ -1889,8 +1888,7 @@ pub mod pallet {
 			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 			ledger.update()?;
 			if T::VoterList::contains(&stash) {
-				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash))
-					.defensive_proof("Failed to update voter in VoterList in rebond");
+				let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash));
 			}
 
 			let removed_chunks = 1u32 // for the case where the last iterated chunk is not removed

@@ -274,6 +274,8 @@ impl<AccountId> SessionReport<AccountId> {
 pub trait AHStakingInterface {
 	/// The validator account id type.
 	type AccountId;
+	/// Maximum number of validators that the staking system may have.
+	type MaxValidatorSet: Get<u32>;
 
 	/// New session report from the relay chain.
 	fn on_relay_session_report(report: SessionReport<Self::AccountId>);
@@ -318,7 +320,7 @@ pub mod pallet {
 
 	/// An incomplete incoming session report that we have not acted upon yet.
 	#[pallet::storage]
-	#[pallet::unbounded] // TODO: use a max validator set size bound
+	#[pallet::unbounded] // TODO: use `AHStakingInterface::MaxValidatorSet` to bound this.
 	pub type IncompleteSessionReport<T: Config> =
 		StorageValue<_, SessionReport<T::AccountId>, OptionQuery>;
 
@@ -389,7 +391,12 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Called to indicate the start of a new session on the relay chain.
 		#[pallet::call_index(0)]
-		#[pallet::weight(0)]
+		#[pallet::weight(
+			// `LastSessionReportEndingIndex`: rw
+			// `IncompleteSessionReport`: rw
+			// TODO: since this is in a parachain, we need better benchmarking
+			T::DbWeight::get().reads_writes(2, 2)
+		)]
 		pub fn relay_session_report(
 			origin: OriginFor<T>,
 			report: SessionReport<T::AccountId>,
@@ -449,7 +456,10 @@ pub mod pallet {
 
 		/// Called to report one or more new offenses on the relay chain.
 		#[pallet::call_index(2)]
-		#[pallet::weight(0)]
+		#[pallet::weight(
+			// TODO: since this is in a parachain, we need better benchmarking
+			Weight::default()
+		)]
 		pub fn relay_new_offence(
 			origin: OriginFor<T>,
 			slash_session: SessionIndex,

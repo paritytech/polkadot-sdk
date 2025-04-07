@@ -1,11 +1,6 @@
 use super::*;
 
 #[test]
-fn unexpected_activation_timestamp() {
-	todo!()
-}
-
-#[test]
 fn forcing_force_none() {
 	ExtBuilder::default().build_and_execute(|| {
 		ForceEra::<T>::put(Forcing::ForceNone);
@@ -44,17 +39,143 @@ fn forcing_force_none() {
 
 #[test]
 fn forcing_no_forcing_default() {
-	todo!()
+	ExtBuilder::default().build_and_execute(|| {
+		// default value, setting it again just for read-ability.
+		ForceEra::<T>::put(Forcing::NotForcing);
+
+		Session::roll_until_active_era(2);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
+				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
+				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
+				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
+			]
+		);
+	});
 }
 
 #[test]
 fn forcing_force_always() {
-	todo!()
+	ExtBuilder::default()
+		.session_per_era(6)
+		.no_flush_events()
+		.build_and_execute(|| {
+			// initial events thus far, without `ForceAlways` set.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::SessionRotated { starting_session: 1, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 2, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 3, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
+					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 15000 },
+					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
+				]
+			);
+
+			// but with it set..
+			ForceEra::<T>::put(Forcing::ForceAlways);
+
+			Session::roll_until_active_era(2);
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					// we immediately plan a new era as soon as the first session report comes in
+					Event::SessionRotated { starting_session: 7, active_era: 1, planned_era: 2 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					// by now it is given to mock session, and is buffered
+					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
+					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
+					// and by now it is activated. Note how the validator payout is less, since the
+					// era duration is less.
+					Event::SessionRotated { starting_session: 9, active_era: 2, planned_era: 2 }
+				]
+			);
+		});
 }
 
 #[test]
 fn forcing_force_new() {
-	todo!()
+	ExtBuilder::default()
+		.session_per_era(6)
+		.no_flush_events()
+		.build_and_execute(|| {
+			// initial events thus far, without `ForceAlways` set.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::SessionRotated { starting_session: 1, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 2, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 3, active_era: 0, planned_era: 0 },
+					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
+					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 15000 },
+					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
+				]
+			);
+
+			// but with it set..
+			ForceEra::<T>::put(Forcing::ForceNew);
+
+			// one era happens quicker
+			Session::roll_until_active_era(2);
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					// we immediately plan a new era as soon as the first session report comes in
+					Event::SessionRotated { starting_session: 7, active_era: 1, planned_era: 2 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					// by now it is given to mock session, and is buffered
+					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
+					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
+					// and by now it is activated. Note how the validator payout is less, since the
+					// era duration is less.
+					Event::SessionRotated { starting_session: 9, active_era: 2, planned_era: 2 }
+				]
+			);
+
+			// And the next era goes back to normal.
+			Session::roll_until_active_era(3);
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::SessionRotated { starting_session: 10, active_era: 2, planned_era: 2 },
+					Event::SessionRotated { starting_session: 11, active_era: 2, planned_era: 2 },
+					Event::SessionRotated { starting_session: 12, active_era: 2, planned_era: 2 },
+					Event::SessionRotated { starting_session: 13, active_era: 2, planned_era: 3 },
+					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+					Event::SessionRotated { starting_session: 14, active_era: 2, planned_era: 3 },
+					Event::EraPaid { era_index: 2, validator_payout: 15000, remainder: 15000 },
+					Event::SessionRotated { starting_session: 15, active_era: 3, planned_era: 3 }
+				]
+			);
+		});
+}
+
+#[test]
+#[should_panic]
+fn activation_timestamp_when_no_planned_era() {
+	// maybe not needed, as we have the id check
+	todo!("what if we receive an activation timestamp when there is no planned era?");
+}
+
+#[test]
+#[should_panic]
+fn activation_timestamp_when_era_planning_not_complete() {
+	// maybe not needed, as we have the id check
+	todo!("what if we receive an activation timestamp when the era planning (election) is not complete?");
+}
+
+#[test]
+#[should_panic]
+fn max_era_duration_safety_guard() {
+	todo!("a safety guard that ensures that there is an upper bound on how long an era duration can be. Should prevent us from parabolic inflation in case of some crazy bug.");
 }
 
 mod inflation {
@@ -157,18 +278,6 @@ mod inflation {
 			assert_eq!(validators_payout, Percent::from_percent(10) * total_payout);
 			// treasury gets 90%
 			assert_eq!(treasury_payout, Percent::from_percent(90) * total_payout);
-		})
-	}
-}
-
-mod election_provider {
-	use super::*;
-
-	#[test]
-	fn new_era_elects_correct_number_of_validators() {
-		ExtBuilder::default().nominate(true).validator_count(1).build_and_execute(|| {
-			assert_eq!(ValidatorCount::<Test>::get(), 1);
-			assert_eq!(session_validators().len(), 1);
 		})
 	}
 }

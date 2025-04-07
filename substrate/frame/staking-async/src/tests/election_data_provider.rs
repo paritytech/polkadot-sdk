@@ -646,6 +646,7 @@ mod paged_snapshot {
 				all_voters.extend(voters_page_3.clone());
 
 				assert_eq!(voters_page_3, vec![41, 51, 11]);
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(11));
 
 				let voters_page_2 = <Staking as ElectionDataProvider>::electing_voters(bounds, 2)
 					.unwrap()
@@ -689,11 +690,140 @@ mod paged_snapshot {
 				assert_eq!(all_voters, single_page_voters);
 			})
 	}
-}
 
-#[test]
-fn locked_during_snapshot() {
-	todo!();
+	#[test]
+	fn voter_list_locked_during_multi_page_snapshot() {
+		ExtBuilder::default()
+			.nominate(true)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(41, StakerStatus::Nominator(vec![51]))
+			.set_status(101, StakerStatus::Validator)
+			.build_and_execute(|| {
+				let bounds = ElectionBoundsBuilder::default().voters_count(2.into()).build().voters;
+				assert_eq!(
+					<Test as Config>::VoterList::iter()
+						.collect::<Vec<_>>()
+						.into_iter()
+						.map(|v| (v, <Test as Config>::VoterList::get_score(&v).unwrap()))
+						.collect::<Vec<_>>(),
+					vec![(41, 4000), (51, 5000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
+				);
+
+				// initially not locked
+				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
+
+				let voters_page_3 = <Staking as ElectionDataProvider>::electing_voters(bounds, 3)
+					.unwrap()
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+
+				assert_eq!(voters_page_3, vec![41, 51]);
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(51));
+				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
+
+				hypothetically!({});
+
+				let voters_page_2 = <Staking as ElectionDataProvider>::electing_voters(bounds, 2)
+					.unwrap()
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+
+				// still locked
+				assert_eq!(voters_page_2, vec![11, 21]);
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(21));
+				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
+
+				let voters_page_1 = <Staking as ElectionDataProvider>::electing_voters(bounds, 1)
+					.unwrap()
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+
+				// consumed, and we already unlock
+				assert_eq!(voters_page_1, vec![31, 101]);
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
+
+				// calling page zero will unlock us.
+				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
+					.unwrap()
+					.is_empty());
+
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
+			})
+	}
+
+	#[test]
+	fn voter_list_not_updated_when_locked() {
+		ExtBuilder::default()
+			.nominate(true)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(41, StakerStatus::Nominator(vec![51]))
+			.set_status(101, StakerStatus::Validator)
+			.build_and_execute(|| {
+				let bounds = ElectionBoundsBuilder::default().voters_count(2.into()).build().voters;
+				assert_eq!(
+					<Test as Config>::VoterList::iter()
+						.collect::<Vec<_>>()
+						.into_iter()
+						.map(|v| (v, <Test as Config>::VoterList::get_score(&v).unwrap()))
+						.collect::<Vec<_>>(),
+					vec![(41, 4000), (51, 5000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
+				);
+
+				// initial bag of 51
+				assert_eq!(
+					pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(51).unwrap().bag_upper,
+					10_000
+				);
+
+				// original bag of 11
+				assert_eq!(
+					pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(11).unwrap().bag_upper,
+					1000
+				);
+
+
+				// initially not locked
+				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
+
+				let voters_page_3 = <Staking as ElectionDataProvider>::electing_voters(bounds, 3)
+					.unwrap()
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+
+				assert_eq!(voters_page_3, vec![41, 51]);
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(51));
+				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
+
+				// 51 who is already part of the list might want to unbond. They are already in the
+				// snapshot, and their position is not updated
+				hypothetically!({
+					assert_ok!(Staking::unbond(RuntimeOrigin::signed(51), 500));
+					// they are still in the original bag
+					assert_eq!(
+						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(51).unwrap().bag_upper,
+						10_000
+					);
+				});
+
+				// 11 who is not part of the snapshot yet might want to bond a lot extra, this is
+				// not reflected in this election.
+				hypothetically!({
+					crate::asset::set_stakeable_balance::<T>(&11, 10000);
+					assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 5000));
+					// they are still in the original bag
+					assert_eq!(
+						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(11).unwrap().bag_upper,
+						1000
+					);
+				});
+			})
+	}
 }
 
 #[test]
@@ -717,6 +847,5 @@ fn from_most_staked_to_least_staked() {
 					.collect::<Vec<_>>(),
 				vec![(41, 11000), (51, 2500), (11, 1000), (21, 1000), (31, 500), (101, 35)],
 			);
-
 		});
 }

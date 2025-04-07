@@ -170,6 +170,34 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark(pov_mode = Measured)]
+	fn clear_old_round_data(p: Linear<1, { T::Pages::get() }>) -> Result<(), BenchmarkError> {
+		// set signed phase and alice ready to submit
+		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
+		let alice = crate::Pallet::<T>::funded_account("alice", 0);
+
+		// register alice
+		let score = ElectionScore::default();
+		Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score)?;
+
+		// submit a solution with p pages.
+		for pp in 0..p {
+			let page = Some(Default::default());
+			Pallet::<T>::submit_page(RawOrigin::Signed(alice.clone()).into(), pp, page)?;
+		}
+
+		// force rotate to the next round.
+		let prev_round = Round::<T>::get();
+		crate::Pallet::<T>::rotate_round();
+
+		#[block]
+		{
+			Pallet::<T>::clear_old_round_data(RawOrigin::Signed(alice).into(), prev_round, p)?;
+		}
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::ExtBuilder::signed().build_unchecked(),

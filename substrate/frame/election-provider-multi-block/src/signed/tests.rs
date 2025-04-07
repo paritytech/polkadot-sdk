@@ -608,14 +608,14 @@ mod e2e {
 
 			// we cannot cleanup just yet.
 			assert_noop!(
-				SignedPallet::clear_old_round_data(RuntimeOrigin::signed(99), 0),
+				SignedPallet::clear_old_round_data(RuntimeOrigin::signed(99), 0, Pages::get()),
 				Error::<T>::RoundNotOver
 			);
 
 			MultiBlock::rotate_round();
 
 			// now we can delete our stuff.
-			assert_ok!(SignedPallet::clear_old_round_data(RuntimeOrigin::signed(99), 0));
+			assert_ok!(SignedPallet::clear_old_round_data(RuntimeOrigin::signed(99), 0, Pages::get()));
 			// our stuff is gone.
 			assert_ok!(Submissions::<Runtime>::ensure_killed_with(&99, 0));
 

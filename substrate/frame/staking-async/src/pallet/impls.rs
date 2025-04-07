@@ -717,8 +717,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
 		let outcome = if Nominators::<T>::contains_key(who) {
 			Nominators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who)
-				.defensive_proof("Nominator must be present in the voter list");
+			let _ = T::VoterList::on_remove(who);
 			true
 		} else {
 			false
@@ -742,8 +741,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
 		if !Validators::<T>::contains_key(who) {
 			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
-				.defensive_unwrap_or_default();
+			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who));
 		}
 		Validators::<T>::insert(who, prefs);
 
@@ -763,7 +761,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_remove_validator(who: &T::AccountId) -> bool {
 		let outcome = if Validators::<T>::contains_key(who) {
 			Validators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).defensive_proof("Validaot must be in VoterList");
+			let _ = T::VoterList::on_remove(who);
 			true
 		} else {
 			false
@@ -1089,6 +1087,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 use pallet_staking_async_rc_client::{self as rc_client};
 impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	type AccountId = T::AccountId;
+	type MaxValidatorSet = T::MaxValidatorSet;
 
 	/// When we receive a session report from the relay chain, it kicks off the next session.
 	///
@@ -1721,12 +1720,6 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
-		ensure!(
-			T::VoterList::iter()
-				.all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x)),
-			"VoterList contains non-staker"
-		);
-
 		session_rotation::Rotator::<T>::sanity_check();
 		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;

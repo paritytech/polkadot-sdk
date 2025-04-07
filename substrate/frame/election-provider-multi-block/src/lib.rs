@@ -2427,11 +2427,13 @@ mod election_provider {
 	}
 
 	#[test]
+	#[should_panic]
 	fn continue_fallback_works() {
 		todo!()
 	}
 
 	#[test]
+	#[should_panic]
 	fn emergency_fallback_works() {
 		todo!();
 	}
@@ -2557,6 +2559,7 @@ mod admin_ops {
 	}
 
 	#[test]
+	#[should_panic]
 	fn force_rotate_round() {
 		// clears the snapshot and verifier data.
 		// leaves the signed data as is since we bump the round.

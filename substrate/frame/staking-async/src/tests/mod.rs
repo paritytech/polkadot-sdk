@@ -38,7 +38,7 @@ use substrate_test_utils::assert_eq_uvec;
 mod bonding;
 mod configs;
 mod controller;
-mod election;
+mod election_provider;
 mod election_data_provider;
 mod era_rotation;
 mod force_unstake_kill_stash;

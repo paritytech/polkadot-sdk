@@ -100,6 +100,14 @@ fn planning_era_offset_more_works() {
 }
 
 #[test]
+fn new_era_elects_correct_number_of_validators() {
+	ExtBuilder::default().nominate(true).validator_count(1).build_and_execute(|| {
+		assert_eq!(ValidatorCount::<Test>::get(), 1);
+		assert_eq!(session_validators().len(), 1);
+	})
+}
+
+#[test]
 fn less_than_needed_candidates_works() {
 	ExtBuilder::default().validator_count(4).nominate(false).build_and_execute(|| {
 		assert_eq_uvec!(Session::validators(), vec![31, 21, 11]);
