@@ -11,9 +11,6 @@ repository.workspace = true
 [lints]
 workspace = true
 
-[dev-dependencies]
-portpicker = "0.1.1"
-
 [dependencies]
 polkadot-overseer = { workspace = true, default-features = true }
 
@@ -52,3 +49,6 @@ smoldot-light = { default-features = false, features = ["std"], workspace = true
 thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }
 url = { workspace = true }
+
+[dev-dependencies]
+portpicker = { workspace = true }
