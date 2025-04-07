@@ -22,7 +22,6 @@ xcm = { workspace = true }
 
 # Bridge dependencies
 bp-messages = { workspace = true }
-pallet-bridge-relayers = { workspace = true }
 
 # Cumulus
 bridge-hub-common = { workspace = true }
