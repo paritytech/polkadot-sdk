@@ -531,14 +531,7 @@ fn generate_runtime_info_impl(trait_: &ItemTrait, version: u32) -> TokenStream {
 	});
 	let maybe_allow_attrs = trait_.attrs.iter().filter(|attr| attr.path().is_ident("allow"));
 	let maybe_allow_deprecated = trait_.attrs.iter().filter_map(|attr| {
-		if attr.path().is_ident("deprecated") {
-			let attr: syn::Attribute = syn::parse_quote! {
-				#[allow(deprecated)]
-			};
-			Some(attr)
-		} else {
-			None
-		}
+		attr.path().is_ident("deprecated").then(|| quote! { #[allow(deprecated)] })
 	});
 
 	quote!(
