@@ -82,7 +82,7 @@ mod constants {
 		PalletId,
 	};
 	use sp_runtime::Perbill;
-	
+
 	/// This determines the average expected block time that we are targeting. Blocks will be
 	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
 	/// `pallet_timestamp` which is in turn picked up by `pallet_aura` to implement `fn
@@ -118,7 +118,6 @@ mod constants {
 
 	/// Treasury pallet id of the local chain, used to convert into AccountId
 	pub const TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
-	
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
