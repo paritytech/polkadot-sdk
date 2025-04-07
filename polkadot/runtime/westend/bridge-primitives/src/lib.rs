@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Primitives of the Westend chain.
+//! Bridge-related primitives of the Westend chain.
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
