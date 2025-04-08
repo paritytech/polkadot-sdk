@@ -41,6 +41,7 @@ use polkadot_node_subsystem::{errors::SubsystemError, overseer, DummySubsystem, 
 
 mod collator_side;
 mod validator_side;
+#[cfg(feature = "experimental-collator-protocol")]
 mod validator_side_experimental;
 
 const LOG_TARGET: &'static str = "parachain::collator-protocol";
@@ -75,6 +76,7 @@ pub enum ProtocolSide {
 		metrics: validator_side::Metrics,
 	},
 	/// Experimental variant of the validator side. Do not use in production.
+	#[cfg(feature = "experimental-collator-protocol")]
 	ValidatorExperimental {
 		/// The keystore holding validator keys.
 		keystore: KeystorePtr,
@@ -120,6 +122,7 @@ impl<Context> CollatorProtocolSubsystem {
 				validator_side::run(ctx, keystore, eviction_policy, metrics)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 					.boxed(),
+			#[cfg(feature = "experimental-collator-protocol")]
 			ProtocolSide::ValidatorExperimental { keystore, metrics } =>
 				validator_side_experimental::run(ctx, keystore, metrics)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
