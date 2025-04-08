@@ -18,9 +18,10 @@
 use crate::{
 	address::{self, AddressMapper},
 	gas::GasMeter,
-	limits,
+	limits, precompiles,
 	primitives::{ExecReturnValue, StorageDeposit},
 	pure_precompiles::{self, is_precompile},
+	precompiles::is_mutating_precompile,
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
@@ -1134,8 +1135,9 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1403,13 +1405,22 @@ where
 					value_transferred,
 				)?;
 			}
-
-			pure_precompiles::Precompiles::<T>::execute(
-				precompile_address,
-				self.gas_meter_mut(),
-				input_data,
-			)
-			.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
+			let origin = &self.origin.clone();
+			if is_mutating_precompile(&precompile_address) {
+				precompiles::MutatingPrecompiles::<T>::execute(
+					precompile_address,
+					input_data,
+					origin,
+				)
+				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
+			} else {
+				pure_precompiles::Precompiles::<T>::execute(
+					precompile_address,
+					self.gas_meter_mut(),
+					input_data,
+				)
+				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
+			}
 		};
 
 		let transaction_outcome =

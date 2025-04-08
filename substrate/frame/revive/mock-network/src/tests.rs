@@ -202,3 +202,97 @@ fn test_xcm_send() {
 		assert_eq!(INITIAL_BALANCE + amount - fee, relay_chain::Balances::free_balance(ALICE));
 	});
 }
+
+#[test]
+fn test_xcm_execute_precompile() {
+	use alloy_sol_types::{sol, SolType};
+	use hex_literal::hex;
+
+	MockNet::reset();
+	let Contract { addr, .. } = instantiate_test_contract("call_and_return");
+	let amount: u128 = 10 * CENTS;
+
+	// Execute XCM instructions through the contract using precompile.
+	ParaA::execute_with(|| {
+		let initial_bob_balance = ParachainBalances::free_balance(BOB);
+		let assets: Asset = (Here, amount).into();
+		let beneficiary = AccountId32 { network: None, id: BOB.clone().into() };
+
+		let message: Xcm<()> = Xcm::builder_unsafe()
+			.withdraw_asset(assets.clone())
+			.deposit_asset(assets, beneficiary)
+			.build();
+
+		type DecodedType = sol!((bytes4, bytes));
+		let selector: [u8; 4] = hex!("afceee62"); // xcm_execute selector
+		let versioned_message = VersionedXcm::V4(message);
+		let encoded_message = DecodedType::abi_encode(&(selector, versioned_message.encode()));
+		bare_call(addr)
+			.data(
+				(H160::from_low_u64_be(10), 5000u64)
+					.encode()
+					.into_iter()
+					.chain(encoded_message)
+					.collect::<Vec<_>>(),
+			)
+			.build_and_unwrap_result();
+
+		// Check if Bob's balance has increased by the expected amount
+		let final_bob_balance = ParachainBalances::free_balance(BOB);
+		assert_eq!(
+			final_bob_balance,
+			initial_bob_balance + amount,
+			"Bob's balance should increase by the specified amount"
+		);
+	});
+}
+
+#[test]
+fn test_xcm_send_precompile() {
+	use alloy_sol_types::{sol, SolType};
+	use hex_literal::hex;
+	// WIP Test
+	MockNet::reset();
+	let Contract { addr, account_id } = instantiate_test_contract("call_and_return");
+	let amount = 1_000 * CENTS;
+	let fee: u128 = parachain::estimate_message_fee(4);
+
+	ParaA::execute_with(|| {
+		let dest = VersionedLocation::V4(Parent.into());
+		let assets: Asset = (Here, amount).into();
+		let beneficiary = AccountId32 { network: None, id: ALICE.clone().into() };
+
+		let message: Xcm<()> = Xcm::builder_unsafe()
+			.withdraw_asset(assets.clone())
+			.buy_execution((Here, fee), Unlimited)
+			.deposit_asset(assets, beneficiary)
+			.build();
+
+		type DecodedType = sol!((bytes4, bytes, bytes));
+		let selector: [u8; 4] = hex!("c0addb55"); // xcm_send selector
+		let encoded_message =
+			DecodedType::abi_encode(&(selector, dest.encode(), VersionedXcm::V4(message).encode()));
+
+		let result = bare_call(addr)
+			.data(
+				(H160::from_low_u64_be(10), 5000u64)
+					.encode()
+					.into_iter()
+					.chain(encoded_message)
+					.collect::<Vec<_>>(),
+			)
+			.build_and_unwrap_result();
+
+		let mut data = &result.data[..];
+		XcmHash::decode(&mut data).expect("Failed to decode xcm_send message_id");
+	});
+
+	Relay::execute_with(|| {
+		let derived_contract_addr = &parachain_account_sovereign_account_id(1, account_id);
+		assert_eq!(
+			INITIAL_BALANCE - amount,
+			relay_chain::Balances::free_balance(derived_contract_addr)
+		);
+		assert_eq!(INITIAL_BALANCE + amount - fee, relay_chain::Balances::free_balance(ALICE));
+	});
+}

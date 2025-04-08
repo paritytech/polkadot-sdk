@@ -28,10 +28,10 @@ mod gas;
 mod limits;
 mod primitives;
 mod pure_precompiles;
+mod precompiles;
 mod storage;
 mod transient_storage;
 mod wasm;
-
 #[cfg(test)]
 mod tests;
 
