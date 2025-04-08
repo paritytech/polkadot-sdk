@@ -799,7 +799,7 @@ frame-support-procedural-tools-derive = { path = "substrate/frame/support/proced
 frame-support-test = { path = "substrate/frame/support/test" }
 frame-system = { path = "substrate/frame/system", default-features = false }
 frame-system-benchmarking = { path = "substrate/frame/system/benchmarking", default-features = false }
-frame-system-rpc-runtime-api = { path = "substrate/frame/system/rpc/runtime-api", default-features = false  }
+frame-system-rpc-runtime-api = { path = "substrate/frame/system/rpc/runtime-api", default-features = false }
 frame-try-runtime = { path = "substrate/frame/try-runtime", default-features = false }
 fs4 = { version = "0.7.0" }
 fs_extra = { version = "1.3.0" }
