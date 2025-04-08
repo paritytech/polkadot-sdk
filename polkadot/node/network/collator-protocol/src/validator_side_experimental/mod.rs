@@ -21,7 +21,7 @@ use sp_keystore::KeystorePtr;
 
 pub use metrics::Metrics;
 
-/// The main run loop.
+/// The main run loop
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 pub(crate) async fn run<Context>(
 	_ctx: Context,
