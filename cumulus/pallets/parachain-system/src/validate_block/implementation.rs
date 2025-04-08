@@ -209,7 +209,7 @@ where
 
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
-			&mut recorder,
+			&mut SizeOnlyRecorderProvider::new(),
 			&mut Default::default(),
 			|| {
 				let relay_chain_proof = crate::RelayChainStateProof::new(
