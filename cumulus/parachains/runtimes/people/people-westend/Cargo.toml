@@ -1,6 +1,6 @@
 [package]
 name = "people-westend-runtime"
-version = "0.13.1"
+version = "0.13.2"
 authors.workspace = true
 edition.workspace = true
 description = "Westend's People parachain runtime"
@@ -72,7 +72,7 @@ parachains-common.workspace = true
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 [dev-dependencies]
-parachains-runtimes-test-utils = { workspace = true, default-features = true }
+parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
 
 [features]
 default = ["std"]

@@ -805,7 +805,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.24.1"
+version = "0.24.2"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -941,7 +941,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1028,7 +1028,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "21.0.1"
+version = "21.0.2"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -1059,7 +1059,7 @@ dependencies = [
 
 [[package]]
 name = "assets-common"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -2200,7 +2200,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.18.2"
+version = "0.18.3"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2394,7 +2394,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.15.2"
+version = "0.15.3"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -3113,7 +3113,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "17.1.0"
+version = "17.1.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3547,7 +3547,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3648,7 +3648,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -13424,7 +13424,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "20.0.1"
+version = "20.0.2"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -13751,7 +13751,7 @@ dependencies = [
 
 [[package]]
 name = "people-rococo-runtime"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -13853,7 +13853,7 @@ dependencies = [
 
 [[package]]
 name = "people-westend-runtime"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -27260,7 +27260,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "frame-executive",
  "frame-support",

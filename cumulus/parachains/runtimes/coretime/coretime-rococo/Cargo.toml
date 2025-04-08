@@ -1,6 +1,6 @@
 [package]
 name = "coretime-rococo-runtime"
-version = "0.13.1"
+version = "0.13.2"
 authors.workspace = true
 edition.workspace = true
 description = "Rococo's Coretime parachain runtime"
@@ -75,7 +75,7 @@ parachains-common.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
 
 [dev-dependencies]
-parachains-runtimes-test-utils = { workspace = true }
+parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false }
 
 [features]
 default = ["std"]
@@ -117,7 +117,6 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
-	"parachains-runtimes-test-utils/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"rococo-runtime-constants/std",

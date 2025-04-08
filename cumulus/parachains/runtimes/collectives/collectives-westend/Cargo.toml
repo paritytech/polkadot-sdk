@@ -1,6 +1,6 @@
 [package]
 name = "collectives-westend-runtime"
-version = "17.1.0"
+version = "17.1.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -86,8 +86,8 @@ testnet-parachains-constants = { features = ["westend"], workspace = true }
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-io = { features = ["std"], workspace = true, default-features = true }
-parachains-runtimes-test-utils = { workspace = true, default-features = true }
+sp-io = { features = ["std"], default-features = true, path = "../../../../../substrate/primitives/io" }
+parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
 
 [features]
 default = ["std"]

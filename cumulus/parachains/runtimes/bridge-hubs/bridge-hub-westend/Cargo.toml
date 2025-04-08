@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-westend-runtime"
-version = "0.15.2"
+version = "0.15.3"
 authors.workspace = true
 edition.workspace = true
 description = "Westend's BridgeHub parachain runtime"
@@ -107,11 +107,11 @@ snowbridge-runtime-common.workspace = true
 
 
 [dev-dependencies]
-bridge-hub-test-utils = { workspace = true, default-features = true }
-bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
-pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
-snowbridge-runtime-test-common = { workspace = true, default-features = true }
-parachains-runtimes-test-utils = { workspace = true, default-features = true }
+bridge-hub-test-utils = { default-features = true, path = "../test-utils" }
+bridge-runtime-common = { features = ["integrity-test"], default-features = true, path = "../../../../../bridges/bin/runtime-common" }
+pallet-bridge-relayers = { features = ["integrity-test"], path = "../../../../../bridges/modules/relayers", default-features = false }
+snowbridge-runtime-test-common = { default-features = true, path = "../../../../../bridges/snowbridge/runtime/test-common" }
+parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
 
 [features]
 default = ["std"]
