@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM docker.io/parity/base-bin
 
 # metadata
 ARG VCS_REF
