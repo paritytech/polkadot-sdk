@@ -10859,9 +10859,9 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openssl"
-version = "0.10.70"
+version = "0.10.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61cfb4e166a8bb8c9b55c500bc2308550148ece889be90f609377e58140f42c6"
+checksum = "fedfea7d58a1f73118430a55da6a286e7b044961736ce96a16a17068ea25e5da"
 dependencies = [
  "bitflags 2.6.0",
  "cfg-if",
@@ -10891,9 +10891,9 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.105"
+version = "0.9.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b22d5b84be05a8d6947c7cb71f7c849aa0f112acd4bf51c2a7c1c988ac0a9dc"
+checksum = "8288979acd84749c744a9014b4382d42b8f7b2592847b5afb2ed29e5d16ede07"
 dependencies = [
  "cc",
  "libc",
@@ -10978,9 +10978,12 @@ dependencies = [
  "frame-election-provider-support",
  "frame-support",
  "log",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-election-provider-multi-block",
+ "pallet-root-offences",
  "pallet-session",
+ "pallet-staking",
  "pallet-staking-async",
  "pallet-staking-async-ah-client",
  "pallet-staking-async-rc-client",
@@ -13112,7 +13115,7 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-session",
- "pallet-staking-async",
+ "pallet-staking",
  "pallet-staking-async-rc-client",
  "parity-scale-codec",
  "polkadot-primitives",
@@ -13270,6 +13273,7 @@ dependencies = [
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
+ "pallet-bags-list",
  "pallet-balances",
  "pallet-beefy",
  "pallet-beefy-mmr",
@@ -13302,6 +13306,7 @@ dependencies = [
  "pallet-session",
  "pallet-session-benchmarking",
  "pallet-society",
+ "pallet-staking",
  "pallet-staking-async-ah-client",
  "pallet-staking-async-rc-client",
  "pallet-staking-async-rc-runtime-constants",
@@ -16287,7 +16292,7 @@ dependencies = [
  "sc-service",
  "scale-info",
  "serde_json",
- "simple-mermaid 0.1.1",
+ "simple-mermaid",
  "solochain-template-runtime",
  "sp-api 26.0.0",
  "sp-arithmetic 23.0.0",
@@ -21298,11 +21303,6 @@ dependencies = [
 
 [[package]]
 name = "simple-mermaid"
-version = "0.1.0"
-source = "git+https://github.com/kianenigma/simple-mermaid.git?branch=main#e48b187bcfd5cc75111acd9d241f1bd36604344b"
-
-[[package]]
-name = "simple-mermaid"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "620a1d43d70e142b1d46a929af51d44f383db9c7a2ec122de2cd992ccfcf3c18"
@@ -23262,7 +23262,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "simple-mermaid 0.1.1",
+ "simple-mermaid",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
  "sp-arithmetic 23.0.0",
@@ -23295,7 +23295,7 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "serde",
- "simple-mermaid 0.1.1",
+ "simple-mermaid",
  "sp-application-crypto 35.0.0",
  "sp-arithmetic 26.0.0",
  "sp-core 32.0.0",
@@ -23321,7 +23321,7 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "serde",
- "simple-mermaid 0.1.1",
+ "simple-mermaid",
  "sp-application-crypto 36.0.0",
  "sp-arithmetic 26.0.0",
  "sp-core 33.0.1",
@@ -27995,7 +27995,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "polkadot-sdk-frame",
  "scale-info",
- "simple-mermaid 0.1.0",
+ "simple-mermaid",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "staging-xcm",
@@ -28020,6 +28020,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-message-queue",
+ "pallet-timestamp",
  "parachains-common",
  "parity-scale-codec",
  "paste",

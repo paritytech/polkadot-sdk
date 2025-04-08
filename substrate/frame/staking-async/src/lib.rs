@@ -44,7 +44,6 @@ pub mod weights;
 mod pallet;
 mod session_rotation;
 
-
 extern crate alloc;
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
@@ -56,6 +55,7 @@ use frame_support::{
 	},
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
 };
+pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -68,10 +68,9 @@ use sp_staking::{
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
-pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
-pub(crate) const LOG_TARGET: &str = "runtime::staking";
+pub(crate) const LOG_TARGET: &str = "runtime::staking-async";
 
 // syntactic sugar for logging.
 #[macro_export]
@@ -273,8 +272,8 @@ pub struct StakingLedger<T: Config> {
 	/// List of eras for which the stakers behind a validator have claimed rewards. Only updated
 	/// for validators.
 	///
-	/// This is deprecated as of V14 in favor of `T::ErasClaimedRewards` and will be removed in future.
-	/// Refer to issue <https://github.com/paritytech/polkadot-sdk/issues/433>
+	/// This is deprecated as of V14 in favor of `T::ErasClaimedRewards` and will be removed in
+	/// future. Refer to issue <https://github.com/paritytech/polkadot-sdk/issues/433>
 	/// TODO: remove this
 	pub legacy_claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
 

@@ -27,7 +27,9 @@ use assets_common::{
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::imbalance::{ResolveAssetTo, ResolveTo}, ConstU32, Contains, Equals, Everything, LinearStoragePrice, PalletInfoAccess
+		fungible::HoldConsideration,
+		tokens::imbalance::{ResolveAssetTo, ResolveTo},
+		ConstU32, Contains, Equals, Everything, LinearStoragePrice, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;

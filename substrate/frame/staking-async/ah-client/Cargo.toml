@@ -14,7 +14,7 @@ frame-system = { workspace = true }
 log = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-session = { features = ["historical"], workspace = true }
-pallet-staking-async = { workspace = true }
+pallet-staking = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
 polkadot-primitives = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
@@ -33,7 +33,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-session/std",
 	"pallet-staking-async-rc-client/std",
-	"pallet-staking-async/std",
+	"pallet-staking/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
@@ -45,7 +45,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
-	"pallet-staking-async/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -57,7 +57,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
-	"pallet-staking-async/try-runtime",
+	"pallet-staking/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -26,6 +26,7 @@ use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced, OneSessionHandler,
+		RewardsReporter,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -154,8 +155,8 @@ impl pallet_session::Config for Test {
 
 impl pallet_session::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = ();
-	type FullIdentificationOf = NullIdentity;
+	type FullIdentification = Existence;
+	type FullIdentificationOf = ExistenceOf<Test>;
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;

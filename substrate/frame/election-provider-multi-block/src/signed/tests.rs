@@ -615,7 +615,11 @@ mod e2e {
 			MultiBlock::rotate_round();
 
 			// now we can delete our stuff.
-			assert_ok!(SignedPallet::clear_old_round_data(RuntimeOrigin::signed(99), 0, Pages::get()));
+			assert_ok!(SignedPallet::clear_old_round_data(
+				RuntimeOrigin::signed(99),
+				0,
+				Pages::get()
+			));
 			// our stuff is gone.
 			assert_ok!(Submissions::<Runtime>::ensure_killed_with(&99, 0));
 

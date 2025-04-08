@@ -776,16 +776,19 @@ mod paged_snapshot {
 
 				// initial bag of 51
 				assert_eq!(
-					pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(51).unwrap().bag_upper,
+					pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(51)
+						.unwrap()
+						.bag_upper,
 					10_000
 				);
 
 				// original bag of 11
 				assert_eq!(
-					pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(11).unwrap().bag_upper,
+					pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(11)
+						.unwrap()
+						.bag_upper,
 					1000
 				);
-
 
 				// initially not locked
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
@@ -806,7 +809,9 @@ mod paged_snapshot {
 					assert_ok!(Staking::unbond(RuntimeOrigin::signed(51), 500));
 					// they are still in the original bag
 					assert_eq!(
-						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(51).unwrap().bag_upper,
+						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(51)
+							.unwrap()
+							.bag_upper,
 						10_000
 					);
 				});
@@ -818,7 +823,9 @@ mod paged_snapshot {
 					assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 5000));
 					// they are still in the original bag
 					assert_eq!(
-						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(11).unwrap().bag_upper,
+						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(11)
+							.unwrap()
+							.bag_upper,
 						1000
 					);
 				});

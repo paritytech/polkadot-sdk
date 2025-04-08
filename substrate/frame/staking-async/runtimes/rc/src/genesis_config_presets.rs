@@ -24,6 +24,7 @@ use crate::{
 use alloc::format;
 use alloc::{vec, vec::Vec};
 use frame_support::build_struct_json_patch;
+use pallet_staking_async_rc_runtime_constants::currency::UNITS as WND;
 use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
@@ -32,7 +33,6 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use pallet_staking_async_rc_runtime_constants::currency::UNITS as WND;
 
 /// Helper function to generate stash, controller and session key from seed
 fn get_authority_keys_from_seed(

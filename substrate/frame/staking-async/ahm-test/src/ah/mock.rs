@@ -6,6 +6,7 @@ use frame_election_provider_support::{
 };
 use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
+use pallet_staking_async::Forcing;
 
 construct_runtime! {
 	pub enum Runtime {
@@ -305,15 +306,23 @@ parameter_types! {
 	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
 }
 
-pub struct ExtBuilder {}
+pub struct ExtBuilder {
+	// if true, emulate pre-ahm-migration state
+	pre_migration: bool,
+}
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self {}
+		Self { pre_migration: false }
 	}
 }
 
 impl ExtBuilder {
+	/// Set this if you want to emulate pre-migration state of staking-async.
+	pub fn pre_migration(self) -> Self {
+		Self { pre_migration: true }
+	}
+
 	/// Set this if you want to test the ah-runtime locally. This will push outgoing messages to
 	/// `LocalQueue` instead of enacting them on RC.
 	pub fn local_queue(self) -> Self {
@@ -325,6 +334,9 @@ impl ExtBuilder {
 		let _ = sp_tracing::try_init_simple();
 		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
+		// Note: The state in pallet-staking-async is retained even when pre-migration is set.
+		// This does not impact the tests, but for strict accuracy, be aware that the state isn't
+		// fully representative.
 		let validators = vec![1, 2, 3, 4, 5, 6, 7, 8]
 			.into_iter()
 			.map(|x| (x, INITIAL_STAKE, pallet_staking_async::StakerStatus::Validator));
@@ -360,10 +372,12 @@ impl ExtBuilder {
 		pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
+
 		pallet_staking_async::GenesisConfig::<Runtime> {
 			stakers,
 			validator_count: 4,
 			active_era: (0, 0, 0),
+			force_era: if self.pre_migration { Forcing::ForceNone } else { Forcing::default() },
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
@@ -389,7 +403,9 @@ parameter_types! {
 pub(crate) fn rc_client_events_since_last_call() -> Vec<pallet_staking_async_rc_client::Event<T>> {
 	let all: Vec<_> = System::events()
 		.into_iter()
-		.filter_map(|r| if let RuntimeEvent::RcClient(inner) = r.event { Some(inner) } else { None })
+		.filter_map(
+			|r| if let RuntimeEvent::RcClient(inner) = r.event { Some(inner) } else { None },
+		)
 		.collect();
 	let seen = RcClientEventsIndex::get();
 	RcClientEventsIndex::set(all.len());
