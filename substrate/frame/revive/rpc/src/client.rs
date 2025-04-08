@@ -20,16 +20,16 @@ use crate::{
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, BlockTag, ReceiptProvider, SubxtBlockInfoProvider, TransactionInfo,
-	LOG_TARGET,
+	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
+	TransactionInfo, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, CallTrace, Filter,
-		GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
-		TransactionSigned, TransactionTrace, H160, H256, U256,
+		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, CallTrace,
+		FeeHistoryResult, Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress,
+		SyncingStatus, TracerConfig, TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
@@ -179,6 +179,7 @@ pub struct Client {
 	rpc: LegacyRpcMethods<SrcChainConfig>,
 	receipt_provider: ReceiptProvider,
 	block_provider: SubxtBlockInfoProvider,
+	fee_history_provider: FeeHistoryProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
 }
@@ -251,6 +252,7 @@ impl Client {
 			rpc,
 			receipt_provider,
 			block_provider,
+			fee_history_provider: FeeHistoryProvider::default(),
 			chain_id,
 			max_block_weight,
 		})
@@ -827,5 +829,20 @@ impl Client {
 		let logs =
 			self.receipt_provider.logs(filter).await.map_err(ClientError::LogFilterFailed)?;
 		Ok(logs)
+	}
+
+	pub async fn fee_history(
+		&self,
+		block_count: u32,
+		latest_block: BlockNumberOrTag,
+		reward_percentiles: Option<Vec<f64>>,
+	) -> Result<FeeHistoryResult, ClientError> {
+		let Some(latest_block) = self.block_by_number_or_tag(&latest_block).await? else {
+			return Err(ClientError::BlockNotFound);
+		};
+
+		self.fee_history_provider
+			.fee_history(block_count, latest_block.number(), reward_percentiles)
+			.await
 	}
 }
