@@ -92,29 +92,17 @@ pub mod v1 {
 		T: Config,
 	{
 		fn on_runtime_upgrade() -> Weight {
-			let pricing_parameters = Pallet::<T>::parameters();
-			// if !Pallet::<T>::is_initialized() {
-			// 	Pallet::<T>::initialize(
-			// 		BridgeHubParaId::get().into(),
-			// 		AssetHubParaId::get().into(),
-			// 	)
-			// 	.expect("infallible; qed");
-			// 	log::info!(
-			// 		target: LOG_TARGET,
-			// 		"Ethereum system initialized."
-			// 	);
-			// 	T::DbWeight::get().reads_writes(2, 5)
-			// } else {
-			// 	log::info!(
-			// 		target: LOG_TARGET,
-			// 		"Ethereum system already initialized. Skipping."
-			// 	);
-			// 	T::DbWeight::get().reads(2)
-			// }
+			let mut pricing_parameters = Pallet::<T>::parameters();
+			let old_fee_per_gas = pricing_parameters.fee_per_gas;
+
+			pricing_parameters.fee_per_gas /= 2;
+
+			let new_fee_per_gas = pricing_parameters.fee_per_gas;
+			PricingParameters::<T>::put(pricing_parameters);
 
 			log::info!(
 				target: LOG_TARGET,
-				"Gas migrated.",
+				"Fee per gas migrated from {old_fee_per_gas} to {new_fee_per_gas}.",
 			);
 			T::DbWeight::get().reads(0)
 		}
@@ -124,7 +112,7 @@ pub mod v1 {
 			let pricing_parameters = Pallet::<T>::parameters();
 			log::info!(
 				target: LOG_TARGET,
-				"Pre gas migration pricing parameters = {pricing_parameters:?}"
+				"Pre fee per gas migration pricing parameters = {pricing_parameters:?}"
 			);
 			Ok(vec![])
 		}
@@ -134,7 +122,7 @@ pub mod v1 {
 			let pricing_parameters = Pallet::<T>::parameters();
 			log::info!(
 				target: LOG_TARGET,
-				"Pre gas migration pricing parameters = {pricing_parameters:?}"
+				"Post fee per gas migration pricing parameters = {pricing_parameters:?}"
 			);
 			Ok(())
 		}
