@@ -104,7 +104,7 @@ pub mod v1 {
 				target: LOG_TARGET,
 				"Fee per gas migrated from {old_fee_per_gas} to {new_fee_per_gas}.",
 			);
-			T::DbWeight::get().reads(0)
+			T::DbWeight::get().reads(1).writes(1)
 		}
 
 		#[cfg(feature = "try-runtime")]
