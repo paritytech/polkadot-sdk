@@ -39,7 +39,7 @@ sp-weights = { workspace = true }
 tracing = { workspace = true, features = ["log"], default-features = false }
 
 simple-mermaid = { workspace = true, optional = true }
-tuplex = { version = "0.1.2", default-features = false }
+tuplex = { workspace = true, default-features = false }
 
 [dev-dependencies]
 rand = { workspace = true, default-features = true }
