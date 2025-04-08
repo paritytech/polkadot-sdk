@@ -71,6 +71,9 @@ parachain-info.workspace = true
 parachains-common.workspace = true
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
+[dev-dependencies]
+parachains-runtimes-test-utils = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [

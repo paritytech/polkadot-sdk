@@ -86,7 +86,8 @@ testnet-parachains-constants = { features = ["westend"], workspace = true }
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-io = { features = ["std"], default-features = true, path = "../../../../../substrate/primitives/io" }
+sp-io = { features = ["std"], workspace = true, default-features = true }
+parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
