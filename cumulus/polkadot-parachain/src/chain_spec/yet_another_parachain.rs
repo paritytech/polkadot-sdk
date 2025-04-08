@@ -51,9 +51,7 @@ fn derive_accounts(n: usize, seed: String) -> Vec<SrPair> {
 
 	threads
 		.into_iter()
-		.map(|h| h.join().unwrap())
-		.flatten()
-		// .map(|p| (p, funds))
+		.flat_map(|h| h.join().unwrap())
 		.collect()
 }
 
