@@ -22,8 +22,6 @@ ENV RUST_BACKTRACE 1
 USER root
 WORKDIR /app
 
-RUN useradd -ms /bin/sh parity
-
 # add polkadot and polkadot-*-worker binaries to the docker image
 COPY bin/* /usr/local/bin/
 COPY entrypoint.sh .
