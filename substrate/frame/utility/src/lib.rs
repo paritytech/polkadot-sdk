@@ -75,7 +75,6 @@ pub use weights::WeightInfo;
 pub use pallet::*;
 
 /// Hooks that will be called for `batch` calls.
-#[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait BatchHook {
 	/// Will be called before a batch is executed.
 	fn on_batch_start() -> sp_runtime::DispatchResult;
@@ -85,15 +84,16 @@ pub trait BatchHook {
 	fn on_batch_end() -> sp_runtime::DispatchResult;
 }
 
-impl BatchHook for () {
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl BatchHook for Tuple {
 	fn on_batch_start() -> sp_runtime::DispatchResult {
+		for_tuples!( #( Tuple::on_batch_start()?; )* );
 		Ok(())
 	}
-
 	fn on_batch_end() -> sp_runtime::DispatchResult {
+		for_tuples!( #( Tuple::on_batch_end()?; )* );
 		Ok(())
 	}
-
 }
 
 #[frame_support::pallet]

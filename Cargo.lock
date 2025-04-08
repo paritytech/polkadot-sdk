@@ -15778,6 +15778,7 @@ dependencies = [
  "frame-benchmarking 28.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
+ "impl-trait-for-tuples",
  "pallet-balances 28.0.0",
  "pallet-collective 28.0.0",
  "pallet-root-testing 4.0.0",
