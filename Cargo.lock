@@ -13116,7 +13116,7 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-session",
- "pallet-staking-async",
+ "pallet-staking",
  "pallet-staking-async-rc-client",
  "parity-scale-codec",
  "polkadot-primitives",

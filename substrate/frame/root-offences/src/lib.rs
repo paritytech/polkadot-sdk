@@ -33,6 +33,7 @@ use alloc::vec::Vec;
 use pallet_session::historical::IdentificationTuple;
 use sp_runtime::Perbill;
 use sp_staking::offence::OnOffenceHandler;
+use pallet_staking::{BalanceOf, ExistenceOrLegacyExposure, ExistenceOrLegacyExposureOf};
 
 pub use pallet::*;
 
@@ -45,11 +46,15 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config:
 		frame_system::Config
+		+ pallet_staking::Config
 		+ pallet_session::Config<ValidatorId = <Self as frame_system::Config>::AccountId>
 		+ pallet_session::historical::Config<
-			FullIdentification = pallet_staking::Existence,
-			FullIdentificationOf = pallet_staking::ExistenceOf<Self>,
-		>
+			FullIdentification = ExistenceOrLegacyExposure<
+				<Self as frame_system::Config>::AccountId,
+				BalanceOf<Self>,
+			>,
+			FullIdentificationOf = ExistenceOrLegacyExposureOf<Self>,
+	>
 	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type OffenceHandler: OnOffenceHandler<Self::AccountId, IdentificationTuple<Self>, Weight>;
@@ -106,7 +111,7 @@ pub mod pallet {
 				.clone()
 				.into_iter()
 				.map(|(o, _)| OffenceDetails::<T> {
-					offender: (o.clone(), ()),
+					offender: (o.clone(), ExistenceOrLegacyExposure::Exists),
 					reporters: Default::default(),
 				})
 				.collect())

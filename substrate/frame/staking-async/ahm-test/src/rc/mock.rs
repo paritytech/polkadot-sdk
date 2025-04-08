@@ -135,8 +135,8 @@ parameter_types! {
 
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentification = pallet_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
+	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Runtime>;
 }
 
 impl pallet_session::Config for Runtime {
@@ -223,6 +223,10 @@ parameter_types! {
 	pub static MinimumValidatorSetSize: u32 = 4;
 	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
 	pub static LocalQueueLastIndex: usize = 0;
+	// // counts how many times a new offence message is sent from RC -> AH.
+	// pub static CounterRCAHNewOffence: u32 = 0;
+	// // counts how many times a new session report is sent from RC -> AH.
+	// pub static CounterRCAHSessionReport: u32 = 0;
 }
 
 impl LocalQueue {
@@ -239,6 +243,7 @@ impl LocalQueue {
 
 impl ah_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CurrencyBalance = Balance;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SendToAssetHub = DeliverToAH;
 	type AssetHubOrigin = EnsureSigned<AccountId>;
@@ -264,6 +269,7 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 			));
 			LocalQueue::set(Some(local_queue));
 		} else {
+			shared::CounterRCAHNewOffence::set(shared::CounterRCAHNewOffence::get() + 1);
 			shared::in_ah(|| {
 				let origin = crate::ah::RuntimeOrigin::root();
 				rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence(
@@ -282,6 +288,7 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 				.push((System::block_number(), OutgoingMessages::SessionReport(session_report)));
 			LocalQueue::set(Some(local_queue));
 		} else {
+			shared::CounterRCAHSessionReport::set(shared::CounterRCAHSessionReport::get() + 1);
 			shared::in_ah(|| {
 				let origin = crate::ah::RuntimeOrigin::root();
 				rc_client::Pallet::<crate::ah::Runtime>::relay_session_report(

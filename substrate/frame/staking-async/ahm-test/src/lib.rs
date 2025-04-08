@@ -167,6 +167,10 @@ mod tests {
 		});
 
 		// SCENE (2): AHM migration begins
+		shared::in_rc(|| {
+			ah_client::Pallet::<rc::Runtime>::on_migration_start();
+			assert_eq!(ah_client::Mode::<rc::Runtime>::get(), OperatingMode::Buffered);
+		});
 
 
 		// SCENE (3): AHM migration ends
