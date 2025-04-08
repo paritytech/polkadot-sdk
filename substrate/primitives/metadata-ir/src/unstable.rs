@@ -18,8 +18,8 @@
 //! Convert the IR to V16 metadata.
 
 use crate::{
-	DeprecationInfoIR, DeprecationStatusIR, PalletAssociatedTypeMetadataIR,
-	PalletCallMetadataIR, PalletConstantMetadataIR, PalletErrorMetadataIR, PalletEventMetadataIR,
+	DeprecationInfoIR, DeprecationStatusIR, PalletAssociatedTypeMetadataIR, PalletCallMetadataIR,
+	PalletConstantMetadataIR, PalletErrorMetadataIR, PalletEventMetadataIR,
 	PalletStorageMetadataIR, PalletViewFunctionMetadataIR, PalletViewFunctionParamMetadataIR,
 	StorageEntryMetadataIR,
 };
@@ -30,15 +30,15 @@ use super::types::{
 };
 
 use frame_metadata::v16::{
-	CustomMetadata, DeprecationInfo, DeprecationStatus, ExtrinsicMetadata,
+	CustomMetadata, DeprecationInfo, DeprecationStatus, ExtrinsicMetadata, FunctionParamMetadata,
 	PalletAssociatedTypeMetadata, PalletCallMetadata, PalletConstantMetadata, PalletErrorMetadata,
 	PalletEventMetadata, PalletMetadata, PalletStorageMetadata, PalletViewFunctionMetadata,
-	FunctionParamMetadata, RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeMetadataV16, StorageEntryMetadata,
+	RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeMetadataV16, StorageEntryMetadata,
 	TransactionExtensionMetadata,
 };
 
-use scale_info::form::MetaForm;
 use codec::Compact;
+use scale_info::form::MetaForm;
 
 impl From<MetadataIR> for RuntimeMetadataV16 {
 	fn from(ir: MetadataIR) -> Self {
