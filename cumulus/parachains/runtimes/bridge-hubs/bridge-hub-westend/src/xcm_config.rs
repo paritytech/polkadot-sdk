@@ -298,6 +298,7 @@ impl pallet_xcm::Config for Runtime {
 		RuntimeCall,
 		MaxInstructions,
 	>;
+	type Trader = <XcmConfig as xcm_executor::Config>::Trader;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -336,7 +337,7 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 		let Some(loc) = origin else { return false };
 		if let Export { network, destination: Here } = fee_reason {
 			if network == EthereumNetwork::get().into() {
-				return false
+				return false;
 			}
 		}
 		WaivedLocations::contains(loc)

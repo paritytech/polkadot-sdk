@@ -47,7 +47,7 @@ pub enum WeightFee {
 pub trait WeightTrader {
 	fn weight_fee(weight: &Weight, desired_asset_id: &AssetId, context: Option<&XcmContext>) -> Result<WeightFee, XcmError>;
 
-	fn refund_amount(weight: &Weight, used_asset_id: &AssetId, paid_amount: u128, context: Option<&XcmContext>) -> Option<u128> {
+	fn refund_amount(weight: &Weight, used_asset_id: &AssetId, _paid_amount: u128, context: Option<&XcmContext>) -> Option<u128> {
 		Self::weight_fee(weight, used_asset_id, context)
 			.ok()
 			.map(|wf| if let WeightFee::Desired(amount) = wf { Some(amount) } else { None })

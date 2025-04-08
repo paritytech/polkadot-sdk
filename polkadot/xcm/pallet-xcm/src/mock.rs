@@ -232,10 +232,10 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	) -> SendResult<(Location, Xcm<()>)> {
 		if let Some(dest) = dest.as_ref() {
 			if !dest.eq(&Para3000Location::get()) {
-				return Err(SendError::NotApplicable)
+				return Err(SendError::NotApplicable);
 			}
 		} else {
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
@@ -564,6 +564,7 @@ impl pallet_xcm::Config for Test {
 	type XcmTeleportFilter = EverythingBut<XcmTeleportFiltered>;
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
+	type Trader = <XcmConfig as xcm_executor::Config>::Trader;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
