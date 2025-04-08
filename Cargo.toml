@@ -211,7 +211,6 @@ members = [
 	"polkadot/node/tracking-allocator",
 	"polkadot/node/zombienet-backchannel",
 	"polkadot/parachain",
-	"polkadot/parachain/test-parachains",
 	"polkadot/parachain/test-parachains/adder",
 	"polkadot/parachain/test-parachains/adder/collator",
 	"polkadot/parachain/test-parachains/halt",
@@ -845,7 +844,6 @@ is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 isahc = { version = "1.2" }
 itertools = { version = "0.11" }
-jemalloc_pprof = { version = "0.4" }
 jobserver = { version = "0.1.26" }
 jsonpath_lib = { version = "0.3" }
 jsonrpsee = { version = "0.24.3" }
@@ -882,7 +880,7 @@ minimal-template-node = { path = "templates/minimal/node" }
 minimal-template-runtime = { path = "templates/minimal/runtime" }
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
-mmr-lib = { version = "0.5.2", package = "ckb-merkle-mountain-range" }
+mmr-lib = { version = "0.8.1", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
 mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false }
 mockall = { version = "0.13.1" }
 multiaddr = { version = "0.18.1" }
@@ -1330,6 +1328,7 @@ sp-version-proc-macro = { path = "substrate/primitives/version/proc-macro", defa
 sp-wasm-interface = { path = "substrate/primitives/wasm-interface", default-features = false }
 sp-weights = { path = "substrate/primitives/weights", default-features = false }
 spinners = { version = "4.1.1" }
+sqlx = { version = "0.8.2" }
 ss58-registry = { version = "1.34.0", default-features = false }
 ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
@@ -1371,7 +1370,7 @@ tikv-jemalloc-ctl = { version = "0.5.0" }
 tikv-jemallocator = { version = "0.5.0" }
 time = { version = "0.3" }
 tiny-keccak = { version = "2.0.2" }
-tokio = { version = "1.40.0", default-features = false }
+tokio = { version = "1.43.1", default-features = false }
 tokio-retry = { version = "0.3.0" }
 tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.4" }
