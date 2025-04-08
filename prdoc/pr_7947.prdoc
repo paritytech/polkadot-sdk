@@ -16,5 +16,7 @@ crates:
     bump: patch
   - name: bridge-hub-rococo-runtime
     bump: patch
-  - name: snowbridge-core
+  - name: snowbridge-outbound-queue-primitives
+    bump: patch
+  - name: snowbridge-pallet-system
     bump: patch
