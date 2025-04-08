@@ -19,4 +19,4 @@ crates:
   - name: snowbridge-outbound-queue-primitives
     bump: patch
   - name: snowbridge-pallet-system
-    bump: patch
+    bump: minor
