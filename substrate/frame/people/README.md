@@ -12,7 +12,7 @@ before allowing the transaction to proceed. This enables other pallets to check 
 unique persons while preserving privacy through the ring-based structure.
 
 The pallet accepts new persons after they prove their uniqueness elsewhere, stores their
-information, and will support removing persons in the future. While other systems (e.g., wallets)
+information, and supports removing persons via suspensions. While other systems (e.g., wallets)
 generate the proofs, this pallet handles the storage of all necessary data and verifies the proofs
 when used.
 
