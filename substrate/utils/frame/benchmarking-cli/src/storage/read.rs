@@ -84,8 +84,8 @@ impl StorageCmd {
 				},
 				_ => {
 					// regular key
+					on_validation_batch.push((key.0.clone(), None));
 					let start = Instant::now();
-					on_validation_batch.push(key.clone());
 					let v = backend
 						.storage(key.0.as_ref())
 						.expect("Checked above to exist")
@@ -168,8 +168,8 @@ impl StorageCmd {
 
 			info!("Reading {} child keys", child_nodes.len());
 			for (key, info) in child_nodes.as_slice() {
+				on_validation_batch.push((key.0.clone(), Some(info.clone())));
 				let start = Instant::now();
-				on_validation_batch.push(key.clone());
 				let v = backend
 					.child_storage(info, key.0.as_ref())
 					.expect("Checked above to exist")
