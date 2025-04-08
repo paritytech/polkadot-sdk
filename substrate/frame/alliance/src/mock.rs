@@ -103,7 +103,6 @@ ord_parameter_types! {
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 type EnsureTwoOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<Two, AccountId>>;
 
-
 #[cfg(feature = "runtime-benchmarks")]
 pub struct BenchmarkHelper;
 
