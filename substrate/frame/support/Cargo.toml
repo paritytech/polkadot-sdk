@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = { workspace = true }
-binary-merkle-tree.workspace = true
+binary-merkle-tree = { workspace = true }
 bitflags = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 docify = { workspace = true }
@@ -57,7 +57,7 @@ Inflector = { workspace = true }
 frame-system = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true }
+sp-timestamp = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -85,7 +85,6 @@ std = [
 	"sp-staking/std",
 	"sp-state-machine/std",
 	"sp-std/std",
-	"sp-timestamp/std",
 	"sp-tracing/std",
 	"sp-trie/std",
 	"sp-weights/std",
