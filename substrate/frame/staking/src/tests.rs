@@ -7363,8 +7363,8 @@ mod ledger {
 				assert_eq!(ledger_updated.stash, stash);
 
 				// Check `active` and `total` values match the original ledger set by controller.
-				assert_eq!(ledger_updated.active, u128::from((10 + ctlr)));
-				assert_eq!(ledger_updated.total, u128::from((10 + ctlr)));
+				assert_eq!(ledger_updated.active, u128::from(10 + ctlr));
+				assert_eq!(ledger_updated.total, u128::from(10 + ctlr));
 			}
 		})
 	}
