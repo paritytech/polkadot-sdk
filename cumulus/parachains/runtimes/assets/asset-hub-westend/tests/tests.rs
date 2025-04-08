@@ -494,8 +494,8 @@ fn test_asset_xcm_at_least_minimum_balance_fee() {
 			executor.test_buy_weight(bought, asset).expect("Expected Ok");
 
 			// We will refund a lot of weight so that only a small portion of it is left.
-			// This test checks if the fee for a small weight (which costs less than minimum_balance)
-			// is at least minimum_balance
+			// This test checks if the fee for a small weight (which costs less than
+			// minimum_balance) is at least minimum_balance
 
 			// Ensure the specified small weight costs less than minimum_balance
 			let small_weight = Weight::from_parts(30000, 0);

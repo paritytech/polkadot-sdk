@@ -164,8 +164,8 @@ pub type ExcludeFromForeignAssets = (
 	// Ignore asset which starts explicitly with our `GlobalConsensus(NetworkId)`, means:
 	// - foreign assets from our consensus should be: `Location {parents: 1, X*(Parachain(xyz),
 	//   ..)}
-	// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` wont
-	//   be accepted here
+	// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` wont be
+	//   accepted here
 	StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
 );
 
@@ -266,9 +266,9 @@ impl Contains<Location> for FellowshipEntities {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
-				| (1, [Parachain(COLLECTIVES_ID), PalletInstance(64)])
-				| (1, [Parachain(COLLECTIVES_ID), PalletInstance(65)])
+			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }]) |
+				(1, [Parachain(COLLECTIVES_ID), PalletInstance(64)]) |
+				(1, [Parachain(COLLECTIVES_ID), PalletInstance(65)])
 		)
 	}
 }

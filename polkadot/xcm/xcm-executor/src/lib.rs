@@ -551,8 +551,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 		if !self
 			.holding
-			.contains_asset(&(fee_payment.desired_fee_asset_id.clone(), 1).into())
-			&& self.ensure_can_subsume_assets(1).is_err()
+			.contains_asset(&(fee_payment.desired_fee_asset_id.clone(), 1).into()) &&
+			self.ensure_can_subsume_assets(1).is_err()
 		{
 			// The Holding Register can't subsume the refund asset
 			return None;
@@ -917,11 +917,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						});
 					}
 				},
-				Err(ref mut error) => {
+				Err(ref mut error) =>
 					if let Ok(x) = Config::Weigher::instr_weight(&mut instr) {
 						error.weight.saturating_accrue(x)
-					}
-				},
+					},
 			}
 		}
 		result
