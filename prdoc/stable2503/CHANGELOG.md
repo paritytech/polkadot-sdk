@@ -133,7 +133,7 @@ The `sc-network` interface is therefore updated accordingly.
 
 Removed useless debug message
 
-#### [#7464]: Enable importing sc-tracing macros through polkadot-sdk
+#### [#7464]: Enable importing sc-tracing macros through Polkadot-sdk
 
 This PR makes it possible to use the sc-tracing macros when they are imported through the umbrella crate.
 
@@ -155,13 +155,13 @@ Adds a check that parachain candidates do not send out UMP signals with v1 descr
 
 #### [#7195]: Unify Import verifier usage across parachain template and omninode
 
-In polkadot-omni-node block import pipeline it uses default aura verifier without checking equivocation, This Pr replaces the check with full verification with equivocation like in parachain template block import
+In Polkadot-omni-node block import pipeline it uses default aura verifier without checking equivocation, This Pr replaces the check with full verification with equivocation like in parachain template block import
 
 #### [#7610]: runtime-api: remove redundant version checks
 
 This PR removes unnecessary runtime API version checks for APIs supported by Polkadot (the most recent network to upgrade). Specifically, it applies to the `DisabledValidators`, `MinimumBackingVotes` and `NodeFeatures` APIs.
 
-#### [#6983]: cumulus: bump PARENT_SEARCH_DEPTH to allow for 12-core elastic scaling
+#### [#6983]: Cumulus: bump PARENT_SEARCH_DEPTH to allow for 12-core elastic scaling
 
 Bumps the PARENT_SEARCH_DEPTH constant to a larger value (30).
 This is a node-side limit that restricts the number of allowed pending availability candidates when choosing the parent parablock during authoring.
@@ -241,7 +241,7 @@ all networks it should always be true.
 
 #### [#7708]: Support adding extra request-response protocols to the node
 
-Allow adding extra request-response protocols during polkadot service initialization. This is required to add a request-response protocol described in [RFC-0008](https://polkadot-fellows.github.io/RFCs/approved/0008-parachain-bootnodes-dht.html) to the relay chain side of the parachain node.
+Allow adding extra request-response protocols during Polkadot service initialization. This is required to add a request-response protocol described in [RFC-0008](https://polkadot-fellows.github.io/RFCs/approved/0008-parachain-bootnodes-dht.html) to the relay chain side of the parachain node.
 
 #### [#7554]: sc-informant: Print full hash when debug logging is enabled
 
@@ -251,9 +251,9 @@ When debugging stuff, it is useful to see the full hashes and not only the "shor
 
 Previously, the method result was encoded to a json containing a "result" field. However, the spec specifies a "value" field. This aims to rectify that.
 
-#### [#6913]: Enable approval-voting-parallel by default on polkadot
+#### [#6913]: Enable approval-voting-parallel by default on Polkadot
 
-Enable approval-voting-parallel by default on polkadot
+Enable approval-voting-parallel by default on Polkadot
 
 #### [#6628]: Remove ReportCollator message
 
@@ -360,7 +360,7 @@ This pull request introduces measures to handle finality stalls by :
 
 An item is considered _outdated_ when the difference between its associated block and the current block exceeds a pre-defined threshold.
 
-#### [#6889]: Remove polkadot-omni-node-lib unused dependency
+#### [#6889]: Remove Polkadot-omni-node-lib unused dependency
 
 Removed an unused dependency for `polkadot-omni-node-lib`.
 
@@ -435,7 +435,7 @@ This PR does not introduce changes in the logic.
 
 #### [#7866]: Make litep2p the default backend in Kusama
 
-A new trait `IdentifyNetworkBackend` is introduced for the polkadot-service. The purpose of the trait is to specify the default network backend for individual chains. For Kusama based chains, the default is now litep2p. For other chains, the default remains unchanged to libp2p.
+A new trait `IdentifyNetworkBackend` is introduced for the Polkadot-service. The purpose of the trait is to specify the default network backend for individual chains. For Kusama based chains, the default is now litep2p. For other chains, the default remains unchanged to libp2p.
 The network backend field of the network configuration is made optional to accomodate for this change.
 
 #### [#5703]: Properly handle block gap created by fast sync
@@ -546,13 +546,13 @@ The `AllowExplicitUnpaidExecutionFrom` barrier now allows instructions for recei
 #### [#6836]: [pallet-revive-eth-rpc] persist eth transaction hash
 
 Add an option to persist EVM transaction hash to a SQL db.
-This make it possible to run a full archive ETH RPC node (assuming the substrate node is also a full archive node)
+This make it possible to run a full archive ETH RPC node (assuming the Substrate node is also a full archive node)
 
 Some queries such as eth_getTransactionByHash, eth_getBlockTransactionCountByHash, and other need to work with a transaction hash index, which is not available in Substrate and need to be stored by the eth-rpc proxy.
 
 The refactoring break down the Client  into a `BlockInfoProvider` and `ReceiptProvider`
 
-- BlockInfoProvider does not need any persistence data, as we can fetch all block info from the source substrate chain
+- BlockInfoProvider does not need any persistence data, as we can fetch all block info from the source Substrate chain
 - ReceiptProvider comes in two flavor,
   - An in memory cache implementation - This is the one we had so far.
   - A DB implementation - This one persist rows with the block_hash, the transaction_index and the transaction_hash, so that we can later fetch the block and extrinsic for that receipt and reconstruct the ReceiptInfo object.
@@ -590,7 +590,7 @@ Reference issue with more details: <https://github.com/paritytech/contract-issue
 #### [#7959]: Update expire date on treasury payout
 
 Resets the `payout.expire_at` field with the `PayoutPeriod` every time that there is a valid Payout attempt.
-Prior to this change, when a spend is approved, it receives an expiry date so that if it’s never claimed, it automatically expires. This makes sense under normal circumstances. However, if someone attempts to claim a valid payout and there isn’t sufficient liquidity to fulfill it, the expiry date currently remains unchanged. This effectively penalizes the claimant in the same way as if they had never requested the payout in the first place.
+Prior to this change, when a spend is approved, it receives an expiry date so that if it's never claimed, it automatically expires. This makes sense under normal circumstances. However, if someone attempts to claim a valid payout and there isn't sufficient liquidity to fulfill it, the expiry date currently remains unchanged. This effectively penalizes the claimant in the same way as if they had never requested the payout in the first place.
 With this change users are not penalized for liquidity shortages and have a fair window to claim once the funds are available.
 
 #### [#7282]: AHM Multi-block staking election pallet
@@ -971,12 +971,13 @@ This PR introduces an implementation for `worst_case_asset_exchange()` in the `A
 
 This PR addresses an issue with the handling of message execution when blocked by the barrier. Instead of returning an `Outcome::Error`, we modify the behaviour to return `Outcome::Incomplete`, which includes the weight consumed up to the point of rejection and the error that caused the blockage.
 
-This change ensures more accurate weight tracking during message execution, even when interrupted. It improves resource management and aligns the XCM executor’s behaviour with better error handling practices.
+This change ensures more accurate weight tracking during message execution, even when interrupted. It improves resource management and aligns the XCM executor's behaviour with better error handling practices.
 
 #### [#7281]: [pallet-revive] fix eth fee estimation
 
-Fix EVM fee cost estimation.
-The current estimation was shown in Native and not EVM decimal currency.
+This PR addresses an issue with the handling of message execution when blocked by the barrier. Instead of returning an `Outcome::Error`, we modify the behaviour to return `Outcome::Incomplete`, which includes the weight consumed up to the point of rejection and the error that caused the blockage.
+
+This change ensures more accurate weight tracking during message execution, even when interrupted. It improves resource management and aligns the XCM executor's behaviour with better error handling practices.
 
 #### [#7481]: add genesis presets for glutton westend
 
@@ -1087,8 +1088,7 @@ and the `BlockNumberProvider` uses the relay chain block number.
 #### [#6452]: elastic scaling RFC 103 end-to-end tests
 
 Adds end-to-end zombienet-sdk tests for elastic scaling using the RFC103 implementation.
-Only notable user-facing change is that the default chain configurations of westend and rococo
-now enable by default the CandidateReceiptV2 node feature.
+Only notable user-facing change is that the default chain configurations of westend and rococo now enable by default the CandidateReceiptV2 node feature.
 
 #### [#7377]: Add missing events to nomination pool extrinsics
 
@@ -1105,9 +1105,9 @@ Introduces events to extrinsics from `pallet_nomination_pools` that previously h
 In solidity `block.timestamp` should be expressed in seconds
 see <https://docs.soliditylang.org/en/latest/units-and-global-variables.html#block-and-transaction-properties>
 
-#### [#7619]: Add chain-spec-builder as a subcommand to the polkadot-omni-node
+#### [#7619]: Add chain-spec-builder as a subcommand to the Polkadot-omni-node
 
-This PR add chain-spec-builder as a subcommand to the polkadot-omni-node
+This PR add chain-spec-builder as a subcommand to the Polkadot-omni-node
 
 #### [#6349]: runtimes: presets are provided as config patches
 
@@ -1197,7 +1197,8 @@ This PR refactors the slashing mechanism in `pallet-staking` to be bounded by in
 
 #### [#6623]: Update Society Pallet to Support Block Number Provider
 
-This PR makes the block number provider in the Society pallet configurable so that runtimes can choose between using the system block number or an alternative source like the relay chain’s block number.
+This PR makes the block number provider in the Society pallet configurable so that runtimes can choose between using the system block number or an alternative source like the relay chain's block number.
+
 If you want to keep the existing behavior, simply set the provider to System. For scenarios that require a different notion of block number—such as using a relay chain number you can select another provider,
 ensuring flexibility in how the Society pallet references the current block.
 
@@ -1425,7 +1426,8 @@ Update to PolkaVM `0.19`. This version renumbers the opcodes in order to be in-l
 
 #### [#6715]: Update Nomination Pool Pallet to Support Block Number Provider
 
-This PR makes the block number provider in the Society pallet configurable so that runtimes can choose between using the system block number or an alternative source like the relay chain’s block number.
+This PR makes the block number provider in the Society pallet configurable so that runtimes can choose between using the system block number or an alternative source like the relay chain's block number.
+
 If you want to keep the existing behavior, simply set the provider to System. For scenarios that require a different notion of block number—such as using a relay chain number you can select another provider,
 ensuring flexibility in how the nomination pools pallet references the current block.
 
@@ -1478,7 +1480,8 @@ Closes #299.
 
 #### [#6608]: [pallet-revive] eth-prc fix geth diff
 
-* Add a bunch of differential tests to ensure that responses from eth-rpc matches the one from `geth`
+- Add a bunch of differential tests to ensure that responses from eth-rpc matches the one from `geth`
+
 - EVM RPC server will not fail gas_estimation if no gas is specified, I updated pallet-revive to add an extra `skip_transfer` boolean check to replicate this behavior in our pallet
 - `eth_transact` and `bare_eth_transact` api have been updated to use `GenericTransaction` directly as this is what is used by `eth_estimateGas` and `eth_call`
 
@@ -1501,7 +1504,7 @@ This was to have a fallback when sending a message to v4 chains, which happens i
 We originally put no fallback for a message in snowbridge's inbound queue but we should have one.
 This PR adds it.
 
-#### [#6140]: Accurate weight reclaim with frame_system::WeightReclaim and cumulus `StorageWeightReclaim` transaction extensions
+#### [#6140]: Accurate weight reclaim with frame_system::WeightReclaim and Cumulus `StorageWeightReclaim` transaction extensions
 
 Since the introduction of transaction extension, the transaction extension weight is no longer part of base extrinsic weight. As a consequence some weight of transaction extensions are missed when calculating post dispatch weight and reclaiming unused block weight.
 
@@ -1668,6 +1671,7 @@ Read-only view functions can now be defined on pallets. These functions provide 
 #### [#6290]: Migrate pallet-transaction-storage and pallet-indices to benchmark v2
 
 Part of:
+
 # 6202
 
 #### [#6425]: Introduce `ConstUint` to make dependent types in `DefaultConfig` more adaptable
@@ -1760,11 +1764,11 @@ Construct runtime uses autoref-based specialization to fetch the metadata about 
 
 Closes: <https://github.com/paritytech/polkadot-sdk/issues/6659>
 
-#### [#7627]: Derive `DecodeWithMemTracking` for cumulus pallets and for `polkadot-sdk` runtimes
+#### [#7627]: Derive `DecodeWithMemTracking` for Cumulus pallets and for `polkadot-sdk` runtimes
 
 Related to <https://github.com/paritytech/polkadot-sdk/issues/7360>
 
-Derive `DecodeWithMemTracking` for the structures in the cumulus pallets and for the structures in the `polkadot-sdk` runtimes.
+Derive `DecodeWithMemTracking` for the structures in the Cumulus pallets and for the structures in the `polkadot-sdk` runtimes.
 
 The PR contains no functional changes and no manual implementation. Just deriving `DecodeWithMemTracking`.
 
@@ -1844,6 +1848,7 @@ Bump Asset-Hub westend spec version
 Migrates pallet-nft-fractionalization to benchmarking v2 syntax.
 
 Part of:
+
 - #6202
 
 #### [#6604]: dmp: Check that the para exist before delivering a message
@@ -1864,10 +1869,6 @@ Additionally, it replaces the usages of `log` with `tracing`.
 #### [#6486]: sp-trie: minor fix to avoid panic on badly-constructed proof
 
 "Added a check when decoding encoded proof nodes in `sp-trie` to avoid panicking when receiving a badly constructed proof, instead erroring out."
-
-#### [#7641]: XCM: Process PayFees only once
-
-The `PayFees` instruction should only ever be used once. If it's used more than once, it's just a noop.
 
 #### [#6890]: Alter semantic meaning of 0 in metering limits of EVM contract calls
 
@@ -1905,7 +1906,7 @@ Apply some fixes to properly estimate ethereum tx fees:
 
 - Set the `extension_weight` on the dispatch_info to properly calculate the fee with pallet_transaction_payment
 - Expose the gas_price through Runtime API, just in case we decide to tweak the value in future updates, it should be read from the chain rather than be a shared constant exposed by the crate
-- add a `evm_gas_to_fee` utility function to properly convert gas to substrate fee
+- add a `evm_gas_to_fee` utility function to properly convert gas to Substrate fee
 - Fix some minor gas encoding for edge cases
 
 #### [#7986]: Assume elastic scaling MVP feature is always enabled in the runtime
@@ -2012,6 +2013,7 @@ This PR exposes the Extension weights from the `frame-system`
 This PR implements the base fee syscall API method. Currently this is implemented as a compile time constant in the revive compiler, returning 0. However, since this is an opocde, if we ever need to implement it for compatibility reasons with [EIP-1559](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md), it would break already deployed contracts. Thus we provide a syscall method instead.
 
 #### [#6522]: Removes constraint in BlockNumberProvider from treasury
+
 <https://github.com/paritytech/polkadot-sdk/pull/3970> updated the treasury pallet to support
 relay chain block number provider. However, it added a constraint to the `BlockNumberProvider`
 trait to have the same block number type as `frame_system`:
@@ -2028,7 +2030,7 @@ This PR removes that constraint and allows the treasury pallet to use any block 
 
 #### [#6923]: omni-node: Tolerate failing metadata check
 
-# 6450 introduced metadata checks. Supported are metadata v14 and higher.
+# 6450 introduced metadata checks. Supported are metadata v14 and higher
 
 However, of course old chain-specs have a genesis code blob that might be on older version. This needs to be tolerated. We should just skip the checks in that case.
 
