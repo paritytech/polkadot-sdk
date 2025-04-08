@@ -1424,6 +1424,10 @@ mod tests {
 											to_discover[swarm_n].remove(&other);
 										},
 										DiscoveryOut::RandomKademliaStarted => {},
+										DiscoveryOut::ClosestPeersFound(..) => {},
+										// libp2p emits this event when it is not particularly
+										// happy, but this doesn't break the discovery.
+										DiscoveryOut::ClosestPeersNotFound(..) => {},
 										e => {
 											panic!("Unexpected event: {:?}", e)
 										},
