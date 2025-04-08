@@ -17,6 +17,7 @@ mod tests {
 	use pallet_staking as staking_classic;
 	use pallet_staking_async::{ActiveEra, ActiveEraInfo};
 	use pallet_staking_async_ah_client as ah_client;
+	use pallet_staking_async_rc_client as rc_client;
 
 	#[test]
 	fn rc_session_change_reported_to_ah() {
@@ -159,24 +160,75 @@ mod tests {
 			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(5).len(), 1);
 		});
 
-		// Ensure RC Client does not receive any
-		// - session change reports.
+		// Ensure AH does not receive any
 		// - offences
-		shared::in_ah(|| {
-			// No era change in AH.
-			assert!(pallet_staking_async::ActiveEra::<ah::Runtime>::get().unwrap().index == 0);
-			// No offences in AH.
-			assert!(pallet_staking_async::UnappliedSlashes::<ah::Runtime>::iter()
-				.collect::<Vec<_>>()
-				.is_empty());
-		});
+		// - session change reports.
+		assert_eq!(shared::CounterRCAHNewOffence::get(), 0);
+		assert_eq!(shared::CounterRCAHSessionReport::get(), 0);
 
 		// SCENE (2): AHM migration begins
 		shared::in_rc(|| {
+			let pre_migration_era_points =
+				staking_classic::ErasRewardPoints::<rc::Runtime>::get(1).total;
 			ah_client::Pallet::<rc::Runtime>::on_migration_start();
 			assert_eq!(ah_client::Mode::<rc::Runtime>::get(), OperatingMode::Buffered);
+			// get current session
+			let mut current_session = pallet_session::CurrentIndex::<rc::Runtime>::get();
+			// go forward by more than `SessionsPerEra` sessions.
+			rc::roll_until_matches(
+				|| {
+					pallet_session::CurrentIndex::<rc::Runtime>::get() ==
+						current_session + ah::SessionsPerEra::get() + 1
+				},
+				true,
+			);
+			current_session = pallet_session::CurrentIndex::<rc::Runtime>::get();
+
+			// ensure era is still 1 on RC.
+			// (Session events are received by AHClient and never passed on to staking-classic once
+			// migration starts)
+			assert_eq!(staking_classic::ActiveEra::<rc::Runtime>::get().unwrap().index, 1);
+			// no new era is planned
+			assert_eq!(staking_classic::CurrentEra::<rc::Runtime>::get().unwrap(), 1);
+
+			// no new block author points accumulated
+			assert_eq!(
+				staking_classic::ErasRewardPoints::<rc::Runtime>::get(1).total,
+				pre_migration_era_points
+			);
+
+			// let's create a new offence.
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(3, Perbill::from_percent(100))],
+			));
+
+			// no new unapplied slashes are created (other than the previously created).
+			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(5).len(), 1);
+
+			// there is a buffered offence in the AHClient.
+			assert_eq!(ah_client::BufferedOffences::<rc::Runtime>::get().len(), 1);
+			assert_eq!(
+				ah_client::BufferedOffences::<rc::Runtime>::get()[0],
+				(
+					current_session,
+					vec![rc_client::Offence {
+						offender: 3,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(100),
+					}],
+				)
+			);
 		});
 
-		// SCENE (3): AHM migration ends
+		// Ensure AH still does not receive any offence while migration is ongoing.
+		assert_eq!(shared::CounterRCAHNewOffence::get(), 0);
+		assert_eq!(shared::CounterRCAHSessionReport::get(), 0);
+
+		// SCENE (3): AHM migration ends.
+		// Migrate state (era, session, block points).
+		// Send offences.
+		// Election starts at next session boundary.
+		// new validator set.
 	}
 }

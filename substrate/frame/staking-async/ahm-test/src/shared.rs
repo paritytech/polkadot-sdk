@@ -12,6 +12,7 @@ parameter_types! {
 	// counts how many times a new session report is sent from RC -> AH.
 	pub static CounterRCAHSessionReport: u32 = 0;
 }
+
 pub fn put_ah_state(ah: TestState) {
 	AH_STATE.with(|state| unsafe {
 		let ptr = state.get();
