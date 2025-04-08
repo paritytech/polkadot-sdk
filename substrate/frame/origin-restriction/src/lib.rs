@@ -30,8 +30,8 @@
 //!
 //! Then when dispatching a transaction, if the entity’s new usage would exceed its max allowance,
 //! the transaction is invalid, except if the call is in the set of calls permitted to exceed that
-//! limit (`OperationAllowedOneTimeExcess`). In that case, as long as the entity's usage prior to
-//! dispatch was zero, the transaction is valid (with respect to usage). If the entity's
+//! limit (see `OperationAllowedOneTimeExcess`). In that case, as long as the entity's usage prior
+//! to dispatch was zero, the transaction is valid (with respect to usage). If the entity's
 //! usage is already above the limit, the transaction is always invalid. After dispatch, any call
 //! flagged as `Pays::No` fully restores the consumed usage.
 //!
