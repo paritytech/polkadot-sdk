@@ -83,7 +83,6 @@ pub mod v0 {
 
 pub mod v1 {
 	use super::*;
-	use codec::{Decode, Encode};
 
 	/// Halves the gas price.
 	pub struct FeePerGasMigration<T>(PhantomData<T>);
@@ -93,6 +92,8 @@ pub mod v1 {
 		T: Config,
 	{
 		fn on_runtime_upgrade() -> Weight {
+			use codec::Encode;
+
 			let mut pricing_parameters = Pallet::<T>::parameters();
 			let old_fee_per_gas = pricing_parameters.fee_per_gas;
 
@@ -120,6 +121,8 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			use codec::Decode;
+
 			let old_pricing_parameters: PricingParametersOf<T> =
 				Decode::decode(&mut &state[..]).unwrap();
 			let new_pricing_parameters = Pallet::<T>::parameters();
