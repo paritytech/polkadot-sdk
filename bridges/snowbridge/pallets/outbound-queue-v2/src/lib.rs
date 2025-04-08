@@ -224,6 +224,10 @@ pub mod pallet {
 		InvalidPendingNonce,
 		/// Reward payment failed
 		RewardPaymentFailed,
+		/// Reward account invalid
+		InvalidRewardAccount,
+		/// Relayer account invalid
+		InvalidRelayerAccount,
 	}
 
 	/// Messages to be committed in the current block. This storage value is killed in
@@ -418,11 +422,16 @@ pub mod pallet {
 
 		/// Process a delivery receipt from a relayer, to allocate the relayer reward.
 		pub fn process_delivery_receipt(
-			relayer: <T as frame_system::Config>::AccountId,
+			relayer: T::AccountId,
 			receipt: DeliveryReceipt,
 		) -> DispatchResult {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == receipt.gateway, Error::<T>::InvalidGateway);
+
+			// Verify the reward account is same as the account that relayed the message
+			let reward_account = T::AccountId::decode(&mut receipt.reward_address.as_slice())
+				.map_err(|_| Error::<T>::InvalidRewardAccount)?;
+			ensure!(relayer == reward_account, Error::<T>::InvalidRelayerAccount);
 
 			let nonce = receipt.nonce;
 
