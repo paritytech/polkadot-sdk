@@ -22,11 +22,11 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, BoundedSupports, SequentialPhragmen, Support, VoteWeight,
 };
-use frame_support::traits::RewardsReporter;
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced, OneSessionHandler,
+		RewardsReporter,
 	},
 	weights::constants::RocksDbWeight,
 };

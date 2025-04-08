@@ -66,7 +66,6 @@ use sp_staking::{
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 use pallet_staking::ExistenceOrLegacyExposure;
 
-
 const LOG_TARGET: &str = "runtime::staking::ah-client";
 
 // syntactic sugar for logging.
@@ -79,7 +78,6 @@ macro_rules! log {
 		)
 	};
 }
-
 
 /// The interface to communicate to asset hub.
 ///
@@ -215,19 +213,18 @@ pub mod pallet {
 		/// Overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
-		+ codec::FullCodec
-		+ DecodeWithMemTracking
-		+ codec::HasCompact<Type: DecodeWithMemTracking>
-		+ Copy
-		+ MaybeSerializeDeserialize
-		+ core::fmt::Debug
-		+ Default
-		+ From<u64>
-		+ TypeInfo
-		+ Send
-		+ Sync
-		+ MaxEncodedLen;
-
+			+ codec::FullCodec
+			+ DecodeWithMemTracking
+			+ codec::HasCompact<Type: DecodeWithMemTracking>
+			+ Copy
+			+ MaybeSerializeDeserialize
+			+ core::fmt::Debug
+			+ Default
+			+ From<u64>
+			+ TypeInfo
+			+ Send
+			+ Sync
+			+ MaxEncodedLen;
 
 		/// An origin type that ensures an incoming message is from asset hub.
 		type AssetHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -257,8 +254,11 @@ pub mod pallet {
 		/// interface and is expected to behave as a stand-in for this pallet’s core logic when
 		/// delegation is active.
 		type Fallback: pallet_session::SessionManager<Self::AccountId>
-			+ OnOffenceHandler<Self::AccountId, (Self::AccountId, ExistenceOrLegacyExposure<Self::AccountId, BalanceOf<Self>>), Weight>
-			+ frame_support::traits::RewardsReporter<Self::AccountId>
+			+ OnOffenceHandler<
+				Self::AccountId,
+				(Self::AccountId, ExistenceOrLegacyExposure<Self::AccountId, BalanceOf<Self>>),
+				Weight,
+			> + frame_support::traits::RewardsReporter<Self::AccountId>
 			+ pallet_authorship::EventHandler<Self::AccountId, BlockNumberFor<Self>>;
 	}
 
@@ -476,10 +476,20 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> historical::SessionManager<T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> for Pallet<T> {
+	impl<T: Config>
+		historical::SessionManager<
+			T::AccountId,
+			ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>,
+		> for Pallet<T>
+	{
 		fn new_session(
 			new_index: sp_staking::SessionIndex,
-		) -> Option<Vec<(<T as frame_system::Config>::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>)>> {
+		) -> Option<
+			Vec<(
+				<T as frame_system::Config>::AccountId,
+				ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>,
+			)>,
+		> {
 			<Self as pallet_session::SessionManager<_>>::new_session(new_index)
 				.map(|v| v.into_iter().map(|v| (v, ExistenceOrLegacyExposure::Exists)).collect())
 		}
@@ -509,7 +519,7 @@ pub mod pallet {
 		fn start_session(session_index: u32) {
 			match Mode::<T>::get() {
 				OperatingMode::Passive => T::Fallback::start_session(session_index),
-				_ => ()
+				_ => (),
 			}
 		}
 
@@ -523,9 +533,18 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> OnOffenceHandler<T::AccountId, (T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>), Weight> for Pallet<T> {
+	impl<T: Config>
+		OnOffenceHandler<
+			T::AccountId,
+			(T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>),
+			Weight,
+		> for Pallet<T>
+	{
 		fn on_offence(
-			offenders: &[OffenceDetails<T::AccountId, (T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>)>],
+			offenders: &[OffenceDetails<
+				T::AccountId,
+				(T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>),
+			>],
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {

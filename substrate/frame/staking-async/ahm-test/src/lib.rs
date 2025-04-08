@@ -10,13 +10,13 @@ pub mod shared;
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::rc::RootOffences;
 	use ah_client::OperatingMode;
 	use frame::testing_prelude::*;
 	use pallet_election_provider_multi_block as multi_block;
-	use pallet_staking_async::{ActiveEra, ActiveEraInfo};
 	use pallet_staking as staking_classic;
+	use pallet_staking_async::{ActiveEra, ActiveEraInfo};
 	use pallet_staking_async_ah_client as ah_client;
-	use crate::rc::RootOffences;
 
 	#[test]
 	fn rc_session_change_reported_to_ah() {
@@ -141,7 +141,10 @@ mod tests {
 
 			// - staking-classic is active on RC.
 			rc::roll_until_matches(
-				|| staking_classic::ActiveEra::<rc::Runtime>::get().map(|a| a.index).unwrap_or(0) == 1,
+				|| {
+					staking_classic::ActiveEra::<rc::Runtime>::get().map(|a| a.index).unwrap_or(0) ==
+						1
+				},
 				true,
 			);
 
@@ -163,7 +166,9 @@ mod tests {
 			// No era change in AH.
 			assert!(pallet_staking_async::ActiveEra::<ah::Runtime>::get().unwrap().index == 0);
 			// No offences in AH.
-			assert!(pallet_staking_async::UnappliedSlashes::<ah::Runtime>::iter().collect::<Vec<_>>().is_empty());
+			assert!(pallet_staking_async::UnappliedSlashes::<ah::Runtime>::iter()
+				.collect::<Vec<_>>()
+				.is_empty());
 		});
 
 		// SCENE (2): AHM migration begins
@@ -171,7 +176,6 @@ mod tests {
 			ah_client::Pallet::<rc::Runtime>::on_migration_start();
 			assert_eq!(ah_client::Mode::<rc::Runtime>::get(), OperatingMode::Buffered);
 		});
-
 
 		// SCENE (3): AHM migration ends
 	}

@@ -876,7 +876,6 @@ fn reducing_max_unlocking_chunks_abrupt() {
 	})
 }
 
-
 #[test]
 fn switching_roles() {
 	// Test that it should be possible to switch between roles (nominator, validator, idle)
@@ -975,61 +974,58 @@ fn bond_with_no_staked_value() {
 
 #[test]
 fn bond_with_little_staked_value_bounded() {
-	ExtBuilder::default()
-		.validator_count(3)
-		.nominate(false)
-		.build_and_execute(|| {
-			// setup
-			assert_ok!(Staking::chill(RuntimeOrigin::signed(31)));
-			assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
+	ExtBuilder::default().validator_count(3).nominate(false).build_and_execute(|| {
+		// setup
+		assert_ok!(Staking::chill(RuntimeOrigin::signed(31)));
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 
-			// Stingy validator.
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 1, RewardDestination::Account(1)));
-			assert_ok!(Staking::validate(RuntimeOrigin::signed(1), ValidatorPrefs::default()));
+		// Stingy validator.
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 1, RewardDestination::Account(1)));
+		assert_ok!(Staking::validate(RuntimeOrigin::signed(1), ValidatorPrefs::default()));
 
-			reward_all_elected();
-			Session::roll_until_active_era(2);
-			let _ = staking_events_since_last_call();
-			mock::make_all_reward_payment(1);
+		reward_all_elected();
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+		mock::make_all_reward_payment(1);
 
-			// 1 is elected.
-			assert_eq_uvec!(session_validators(), vec![21, 11, 1]);
+		// 1 is elected.
+		assert_eq_uvec!(session_validators(), vec![21, 11, 1]);
 
-			// Old ones are rewarded.
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![
-					Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-					Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: 2500 },
-					Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
-					Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 2500 },
-					Event::PayoutStarted { era_index: 1, validator_stash: 31, page: 0, next: None },
-					Event::Rewarded { stash: 31, dest: RewardDestination::Staked, amount: 2500 }
-				]
-			);
+		// Old ones are rewarded.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
+				Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: 2500 },
+				Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
+				Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 2500 },
+				Event::PayoutStarted { era_index: 1, validator_stash: 31, page: 0, next: None },
+				Event::Rewarded { stash: 31, dest: RewardDestination::Staked, amount: 2500 }
+			]
+		);
 
-			// reward era 2
-			reward_all_elected();
-			Session::roll_until_active_era(3);
-			let _ = staking_events_since_last_call();
-			mock::make_all_reward_payment(2);
+		// reward era 2
+		reward_all_elected();
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+		mock::make_all_reward_payment(2);
 
-			// 1 is also rewarded
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![
-					Event::PayoutStarted { era_index: 2, validator_stash: 1, page: 0, next: None },
-					Event::Rewarded { stash: 1, dest: RewardDestination::Account(1), amount: 2500 },
-					Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 0, next: None },
-					Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: 2500 },
-					Event::PayoutStarted { era_index: 2, validator_stash: 21, page: 0, next: None },
-					Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 2500 }
-				]
-			);
+		// 1 is also rewarded
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::PayoutStarted { era_index: 2, validator_stash: 1, page: 0, next: None },
+				Event::Rewarded { stash: 1, dest: RewardDestination::Account(1), amount: 2500 },
+				Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 0, next: None },
+				Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: 2500 },
+				Event::PayoutStarted { era_index: 2, validator_stash: 21, page: 0, next: None },
+				Event::Rewarded { stash: 21, dest: RewardDestination::Staked, amount: 2500 }
+			]
+		);
 
-			assert_eq_uvec!(session_validators(), vec![21, 11, 1]);
-			assert_eq!(Staking::eras_stakers(active_era(), &1).total, 1);
-		});
+		assert_eq_uvec!(session_validators(), vec![21, 11, 1]);
+		assert_eq!(Staking::eras_stakers(active_era(), &1).total, 1);
+	});
 }
 
 #[test]
@@ -1606,34 +1602,31 @@ mod nominate {
 
 	#[test]
 	fn blocking_and_kicking_works() {
-		ExtBuilder::default()
-			.validator_count(4)
-			.nominate(true)
-			.build_and_execute(|| {
-				// given
-				assert_ok!(Staking::validate(
-					RuntimeOrigin::signed(11),
-					ValidatorPrefs { blocked: true, ..Default::default() }
-				));
+		ExtBuilder::default().validator_count(4).nominate(true).build_and_execute(|| {
+			// given
+			assert_ok!(Staking::validate(
+				RuntimeOrigin::signed(11),
+				ValidatorPrefs { blocked: true, ..Default::default() }
+			));
 
-				// attempt to nominate from 101
-				assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
+			// attempt to nominate from 101
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
 
-				// should have worked since we're already nominated them
-				assert_eq!(Nominators::<Test>::get(&101).unwrap().targets, vec![11]);
+			// should have worked since we're already nominated them
+			assert_eq!(Nominators::<Test>::get(&101).unwrap().targets, vec![11]);
 
-				// kick the nominator
-				assert_ok!(Staking::kick(RuntimeOrigin::signed(11), vec![101]));
+			// kick the nominator
+			assert_ok!(Staking::kick(RuntimeOrigin::signed(11), vec![101]));
 
-				// should have been kicked now
-				assert!(Nominators::<Test>::get(&101).unwrap().targets.is_empty());
+			// should have been kicked now
+			assert!(Nominators::<Test>::get(&101).unwrap().targets.is_empty());
 
-				// attempt to nominate from 100/101...
-				assert_noop!(
-					Staking::nominate(RuntimeOrigin::signed(101), vec![11]),
-					Error::<Test>::BadTarget
-				);
-			});
+			// attempt to nominate from 100/101...
+			assert_noop!(
+				Staking::nominate(RuntimeOrigin::signed(101), vec![11]),
+				Error::<Test>::BadTarget
+			);
+		});
 	}
 }
 

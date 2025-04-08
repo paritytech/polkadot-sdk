@@ -403,7 +403,9 @@ parameter_types! {
 pub(crate) fn rc_client_events_since_last_call() -> Vec<pallet_staking_async_rc_client::Event<T>> {
 	let all: Vec<_> = System::events()
 		.into_iter()
-		.filter_map(|r| if let RuntimeEvent::RcClient(inner) = r.event { Some(inner) } else { None })
+		.filter_map(
+			|r| if let RuntimeEvent::RcClient(inner) = r.event { Some(inner) } else { None },
+		)
 		.collect();
 	let seen = RcClientEventsIndex::get();
 	RcClientEventsIndex::set(all.len());

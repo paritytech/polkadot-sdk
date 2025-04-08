@@ -31,9 +31,9 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use pallet_session::historical::IdentificationTuple;
+use pallet_staking::{BalanceOf, ExistenceOrLegacyExposure, ExistenceOrLegacyExposureOf};
 use sp_runtime::Perbill;
 use sp_staking::offence::OnOffenceHandler;
-use pallet_staking::{BalanceOf, ExistenceOrLegacyExposure, ExistenceOrLegacyExposureOf};
 
 pub use pallet::*;
 
@@ -54,7 +54,7 @@ pub mod pallet {
 				BalanceOf<Self>,
 			>,
 			FullIdentificationOf = ExistenceOrLegacyExposureOf<Self>,
-	>
+		>
 	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type OffenceHandler: OnOffenceHandler<Self::AccountId, IdentificationTuple<Self>, Weight>;

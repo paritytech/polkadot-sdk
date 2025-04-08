@@ -445,7 +445,7 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		use frame_support::traits::Get;
 		(
 			T::BagThresholds::get().first().cloned().unwrap_or_default(),
-			T::BagThresholds::get().last().cloned().unwrap_or_default()
+			T::BagThresholds::get().last().cloned().unwrap_or_default(),
 		)
 	}
 

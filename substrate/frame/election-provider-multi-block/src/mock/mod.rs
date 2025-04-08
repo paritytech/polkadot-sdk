@@ -174,7 +174,7 @@ impl Get<Phase<Runtime>> for AreWeDone {
 	fn get() -> Phase<Runtime> {
 		match <Self as Get<AreWeDoneModes>>::get() {
 			AreWeDoneModes::BackToSigned => RevertToSignedIfNotQueuedOf::<Runtime>::get(),
-			AreWeDoneModes::Proceed => ProceedRegardlessOf::<Runtime>::get()
+			AreWeDoneModes::Proceed => ProceedRegardlessOf::<Runtime>::get(),
 		}
 	}
 }
@@ -243,7 +243,6 @@ impl onchain::Config for Runtime {
 	type WeightInfo = ();
 	type Bounds = OnChainElectionBounds;
 }
-
 
 pub struct MockFallback;
 impl ElectionProvider for MockFallback {

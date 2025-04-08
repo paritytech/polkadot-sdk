@@ -28,6 +28,9 @@ use alloc::{
 	vec::Vec,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_election_provider_support::{
+	bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen, VoteWeight,
+};
 use frame_support::{
 	derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
@@ -35,15 +38,14 @@ use frame_support::{
 	pallet_prelude::PhantomData,
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons, ConstBool, Nothing,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstBool, ConstU32, Contains,
+		EitherOf, EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage,
+		ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
 };
-use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen, VoteWeight};
 pub use frame_system::Call as SystemCall;
 use frame_system::{EnsureRoot, EnsureSigned};
 pub use pallet_balances::Call as BalancesCall;
@@ -111,7 +113,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent, Permill,
 };
-use sp_staking::{SessionIndex, currency_to_vote::CurrencyToVote};
+use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -665,10 +667,8 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 
 impl pallet_staking_async_ah_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AssetHubOrigin = frame_support::traits::EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		EnsureAssetHub,
-	>;
+	type AssetHubOrigin =
+		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
 	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter, AssetHubId>;
@@ -729,7 +729,10 @@ pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type Sort = ConstBool<true>;
 	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>>;
+	type Solver = SequentialPhragmen<
+		AccountId,
+		pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
+	>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type Bounds = ElectionBounds;
@@ -771,11 +774,11 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedMaxRefunds = SignedMaxRefunds;
 	type SignedRewardBase = SignedRewardBase;
 	type SignedDepositBase =
-	GeometricDepositBase<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>;
+		GeometricDepositBase<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>;
 	type SignedDepositByte = SignedDepositByte;
 	type SignedDepositWeight = ();
 	type SignedMaxWeight =
-	<Self::MinerConfig as pallet_election_provider_multi_phase::MinerConfig>::MaxWeight;
+		<Self::MinerConfig as pallet_election_provider_multi_phase::MinerConfig>::MaxWeight;
 	type MinerConfig = Self;
 	type SlashHandler = (); // burn slashes
 	type RewardHandler = (); // rewards are minted from the void
@@ -820,7 +823,7 @@ impl pallet_staking::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type UnixTime = Timestamp;
-	type SessionInterface =  Self;
+	type SessionInterface = Self;
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
@@ -864,7 +867,6 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
 }
-
 
 parameter_types! {
 	pub const SpendPeriod: BlockNumber = 6 * DAYS;

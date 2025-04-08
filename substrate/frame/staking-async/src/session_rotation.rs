@@ -84,9 +84,10 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
 };
-use sp_staking::currency_to_vote::CurrencyToVote;
 use sp_runtime::{Perbill, Percent, Saturating};
-use sp_staking::{Exposure, Page, PagedExposureMetadata, SessionIndex};
+use sp_staking::{
+	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
+};
 
 /// A handler for all era-based storage items.
 ///
@@ -861,7 +862,9 @@ impl<T: Config> EraElectionPlanner<T> {
 	///
 	/// `Ok(newly_added)` if all stashes were added successfully.
 	/// `Err(first_un_included)` if some stashes cannot be added due to bounds.
-	pub(crate) fn add_electables(new_stashes: impl Iterator<Item = T::AccountId>) -> Result<usize, usize> {
+	pub(crate) fn add_electables(
+		new_stashes: impl Iterator<Item = T::AccountId>,
+	) -> Result<usize, usize> {
 		ElectableStashes::<T>::mutate(|electable| {
 			let pre_size = electable.len();
 

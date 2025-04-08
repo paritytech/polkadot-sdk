@@ -2,8 +2,10 @@ use ah_client::OperatingMode;
 use frame::{
 	deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*, traits::fungible::Mutate,
 };
-use frame_election_provider_support::{onchain, SequentialPhragmen};
-use frame_election_provider_support::bounds::{ElectionBounds, ElectionBoundsBuilder};
+use frame_election_provider_support::{
+	bounds::{ElectionBounds, ElectionBoundsBuilder},
+	onchain, SequentialPhragmen,
+};
 use frame_support::traits::FindAuthor;
 use pallet_staking_async_ah_client as ah_client;
 use sp_staking::SessionIndex;

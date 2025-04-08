@@ -102,7 +102,7 @@ pub mod pallet {
 		/// The merkle root of the validators of the said session were stored
 		RootStored { index: SessionIndex },
 		/// The merkle roots of up to this session index were pruned
-		RootsPruned { up_to: SessionIndex }
+		RootsPruned { up_to: SessionIndex },
 	}
 }
 

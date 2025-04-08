@@ -28,8 +28,8 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
-		RewardsReporter,
+		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, RewardsReporter, TryCollect,
+		UnixTime,
 	},
 	weights::Weight,
 };

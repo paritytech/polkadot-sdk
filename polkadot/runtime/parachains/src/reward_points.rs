@@ -23,7 +23,7 @@
 
 use crate::{session_info, shared};
 use alloc::collections::btree_set::BTreeSet;
-use frame_support::traits::{Defensive, ValidatorSet, RewardsReporter};
+use frame_support::traits::{Defensive, RewardsReporter, ValidatorSet};
 use polkadot_primitives::{SessionIndex, ValidatorIndex};
 
 /// The amount of era points given by backing a candidate that is included.

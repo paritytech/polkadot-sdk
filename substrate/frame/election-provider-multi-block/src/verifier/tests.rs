@@ -868,8 +868,8 @@ mod async_verification {
 }
 
 mod multi_page_sync_verification {
-	use frame_support::hypothetically;
 	use super::*;
+	use frame_support::hypothetically;
 
 	#[test]
 	fn basic_sync_verification_works() {

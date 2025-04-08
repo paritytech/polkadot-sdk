@@ -1,6 +1,5 @@
 use super::*;
 
-
 #[test]
 fn set_staking_configs_works() {
 	ExtBuilder::default().build_and_execute(|| {
@@ -55,4 +54,3 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxStakedRewards::<Test>::get(), None);
 	});
 }
-

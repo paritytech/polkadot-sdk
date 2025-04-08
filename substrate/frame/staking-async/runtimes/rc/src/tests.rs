@@ -139,7 +139,6 @@ mod remote_tests {
 			.unwrap();
 		ext.execute_with(|| Runtime::on_runtime_upgrade(UpgradeCheckSelect::PreAndPost));
 	}
-
 }
 
 #[test]
@@ -214,4 +213,3 @@ fn location_conversion_works() {
 		assert_eq!(got, expected, "{}", tc.description);
 	}
 }
-

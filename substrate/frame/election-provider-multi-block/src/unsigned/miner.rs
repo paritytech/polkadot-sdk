@@ -2198,7 +2198,11 @@ mod offchain_worker_miner {
 					crate::verifier::Event::Verified(1, 2),
 					crate::verifier::Event::Verified(2, 2),
 					crate::verifier::Event::Queued(
-						ElectionScore { minimal_stake: 55, sum_stake: 130, sum_stake_squared: 8650 },
+						ElectionScore {
+							minimal_stake: 55,
+							sum_stake: 130,
+							sum_stake_squared: 8650
+						},
 						None
 					)
 				]

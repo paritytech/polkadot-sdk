@@ -310,10 +310,10 @@ mod pallet;
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use frame_election_provider_support::ElectionProvider;
 use codec::{
 	Decode, DecodeWithMemTracking, Encode, EncodeLike, HasCompact, Input, MaxEncodedLen, Output,
 };
+use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{

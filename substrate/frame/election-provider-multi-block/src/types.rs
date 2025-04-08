@@ -300,7 +300,9 @@ impl<T: crate::Config> Phase<T> {
 			Self::Snapshot(0) =>
 				if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one()) {
 					Self::Signed(signed_duration)
-				} else if let Some(unsigned_duration) = T::UnsignedPhase::get().checked_sub(&One::one()) {
+				} else if let Some(unsigned_duration) =
+					T::UnsignedPhase::get().checked_sub(&One::one())
+				{
 					Self::Unsigned(unsigned_duration)
 				} else {
 					T::AreWeDone::get()
