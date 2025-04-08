@@ -425,7 +425,7 @@ impl<H: Copy> From<CandidateReceiptV2<H>> for super::v8::CandidateReceipt<H> {
 pub struct CoreSelector(pub u8);
 
 /// An offset in the relay chain claim queue.
-#[derive(PartialEq, Eq, Clone, Copy Encode, Decode, TypeInfo, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, Debug)]
 pub struct ClaimQueueOffset(pub u8);
 
 /// Approved PeerId type. PeerIds in polkadot should typically be 32 bytes long but for identity
