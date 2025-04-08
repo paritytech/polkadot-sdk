@@ -18,4 +18,6 @@ crates:
   bump: major
 - name: polkadot-omni-node-lib
   bump: major
+- name: polkadot
+  bump: patch
 
