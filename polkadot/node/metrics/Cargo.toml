@@ -15,12 +15,12 @@ workspace = true
 futures = { workspace = true }
 futures-timer = { workspace = true }
 
-metered = { features = ["futures_channel"], workspace = true }
-# Both `sc-service` and `sc-cli` are required by runtime metrics `logger_hook()`.
 bs58 = { features = ["alloc"], workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
+metered = { features = ["futures_channel"], workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
+# Both `sc-service` and `sc-cli` are required by runtime metrics `logger_hook()`.
 sc-cli = { workspace = true, default-features = false }
 sc-service = { workspace = true, default-features = false }
 sc-tracing = { workspace = true, default-features = true }

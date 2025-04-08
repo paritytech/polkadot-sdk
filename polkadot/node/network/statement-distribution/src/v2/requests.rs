@@ -45,7 +45,7 @@ use polkadot_node_network_protocol::{
 		v2::{AttestedCandidateRequest, AttestedCandidateResponse},
 		OutgoingRequest, OutgoingResult, MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS,
 	},
-	v2::StatementFilter,
+	v3::StatementFilter,
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::{
