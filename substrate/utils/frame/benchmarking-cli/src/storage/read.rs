@@ -54,7 +54,11 @@ impl StorageCmd {
 		let mut child_nodes = Vec::new();
 		// Interesting part here:
 		// Read all the keys in the database and measure the time it takes to access each.
-		info!("Reading {} keys", keys.len());
+		info!("Reading {} keys in batches of {}", keys.len(), self.params.batch_size);
+		let remainder = keys.len() % self.params.batch_size;
+		if self.params.on_block_validation && remainder != 0 {
+			info!("Remaining {} keys will be skipped", remainder);
+		}
 
 		// Read using the same TrieBackend and recorder for up to `batch_size` keys.
 		// This would allow us to measure the amortized cost of reading a key.

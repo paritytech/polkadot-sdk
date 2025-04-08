@@ -72,7 +72,11 @@ impl StorageCmd {
 		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
 		let (mut rng, _) = new_rng(None);
 		kvs.shuffle(&mut rng);
-		info!("Writing {} keys", kvs.len());
+		info!("Writing {} keys in batches of {}", kvs.len(), self.params.batch_size);
+		let remainder = kvs.len() % self.params.batch_size;
+		if self.params.on_block_validation && remainder != 0 {
+			info!("Remaining {} keys will be skipped", remainder);
+		}
 
 		let mut child_nodes = Vec::new();
 		let mut batched_keys = Vec::new();
