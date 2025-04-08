@@ -69,7 +69,7 @@ parameter_types! {
 	pub BridgeHubLocation: Location = Location::new(1, [Parachain(1002)]);
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(Polkadot), Parachain(1000)].into();
-	pub PalletLocation: InteriorLocation = [PalletInstance(80)].into();
+	pub PalletLocation: InteriorLocation = [PalletInstance(36)].into();
 }
 
 impl crate::Config for Test {

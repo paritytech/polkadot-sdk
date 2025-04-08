@@ -2,15 +2,13 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate::{mock::*, *};
 use alloy_core::primitives::FixedBytes;
-
+use codec::Encode;
 use frame_support::{
-	assert_err, assert_noop, assert_ok,
+	assert_err, assert_ok,
 	traits::{Hooks, ProcessMessage, ProcessMessageError, QueueFootprintQuery},
 	weights::WeightMeter,
 	BoundedVec,
 };
-
-use codec::Encode;
 use hex_literal::hex;
 use snowbridge_core::{ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{
@@ -86,7 +84,7 @@ fn process_message_yields_on_max_messages_per_block() {
 
 		let mut meter = WeightMeter::new();
 
-		assert_noop!(
+		assert_err!(
 			OutboundQueue::process_message(
 				message.encode().as_slice(),
 				origin,
@@ -95,6 +93,18 @@ fn process_message_yields_on_max_messages_per_block() {
 			),
 			ProcessMessageError::Yield
 		);
+		let events = System::events();
+		let last_event = events.last().expect("Expected at least one event").event.clone();
+
+		match last_event {
+			mock::RuntimeEvent::OutboundQueue(Event::MessagePostponed {
+				payload: _,
+				reason: ProcessMessageError::Yield,
+			}) => {},
+			_ => {
+				panic!("Expected Event::MessagePostponed(Yield) but got {:?}", last_event);
+			},
+		}
 	})
 }
 
@@ -116,7 +126,26 @@ fn process_message_fails_on_max_nonce_reached() {
 			&mut meter,
 			&mut [0u8; 32],
 		);
-		assert_err!(result, ProcessMessageError::Unsupported)
+		assert_err!(result, ProcessMessageError::Unsupported);
+
+		let events = System::events();
+		let last_event = events.last().expect("Expected at least one event").event.clone();
+
+		match last_event {
+			mock::RuntimeEvent::OutboundQueue(Event::MessageRejected {
+				id: Some(id),
+				payload: _,
+				error: ProcessMessageError::Unsupported,
+			}) => {
+				assert_eq!(
+					id,
+					hex!("0000000000000000000000000000000000000000000000000000000000000001").into()
+				);
+			},
+			_ => {
+				panic!("Expected Event::MessageRejected(Unsupported) but got {:?}", last_event);
+			},
+		}
 	})
 }
 
@@ -128,7 +157,7 @@ fn process_message_fails_on_overweight_message() {
 		let origin = AggregateMessageOrigin::SnowbridgeV2(H256::zero());
 		let message: Message = mock_message(sibling_id);
 		let mut meter = WeightMeter::with_limit(Weight::from_parts(1, 1));
-		assert_noop!(
+		assert_err!(
 			OutboundQueue::process_message(
 				message.encode().as_slice(),
 				origin,
@@ -137,6 +166,18 @@ fn process_message_fails_on_overweight_message() {
 			),
 			ProcessMessageError::Overweight(<Test as Config>::WeightInfo::do_process_message())
 		);
+		let events = System::events();
+		let last_event = events.last().expect("Expected at least one event").event.clone();
+
+		match last_event {
+			mock::RuntimeEvent::OutboundQueue(Event::MessagePostponed {
+				payload: _,
+				reason: ProcessMessageError::Overweight(_),
+			}) => {},
+			_ => {
+				panic!("Expected Event::MessagePostponed(Overweight(_)) but got {:?}", last_event);
+			},
+		}
 	})
 }
 
@@ -257,7 +298,7 @@ fn encode_unlock_message() {
 	let message: Message = mock_message(1000);
 	let message_abi_encoded = encode_mock_message(message);
 	println!("{}", HexDisplay::from(&message_abi_encoded));
-	assert_eq!(hex!("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000186a000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000060000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000eda338e4dc46038493b885327842fd3e301cab3900000000000000000000000000000000000000000000000000000000000f4240").to_vec(), message_abi_encoded)
+	assert_eq!(hex!("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000186a000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000060000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000b1185ede04202fe62d38f5db72f71e38ff3e830500000000000000000000000000000000000000000000000000000000000f4240").to_vec(), message_abi_encoded)
 }
 
 #[test]
