@@ -220,6 +220,7 @@ impl Configuration {
 			source: self.database.clone(),
 			blocks_pruning: self.blocks_pruning,
 			use_trusted_local_cache: self.use_trusted_local_cache,
+			metrics_registry: self.prometheus_registry().cloned(),
 		}
 	}
 }

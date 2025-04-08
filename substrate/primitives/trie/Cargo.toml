@@ -36,6 +36,7 @@ thiserror = { optional = true, workspace = true }
 tracing = { optional = true, workspace = true, default-features = true }
 trie-db = { workspace = true }
 trie-root = { workspace = true }
+prometheus-endpoint = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -53,6 +54,7 @@ std = [
 	"memory-db/std",
 	"nohash-hasher",
 	"parking_lot",
+	"prometheus-endpoint",
 	"rand",
 	"scale-info/std",
 	"schnellru",

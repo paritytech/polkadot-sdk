@@ -44,6 +44,7 @@ mod utils;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
+use prometheus_endpoint::Registry;
 use std::{
 	collections::{HashMap, HashSet},
 	io,
@@ -315,6 +316,9 @@ pub struct DatabaseSettings {
 
 	/// Specify if we should use a trusted local cache for block authoring and import.
 	pub use_trusted_local_cache: bool,
+
+	/// Prometheus metrics registry.
+	pub metrics_registry: Option<Registry>,
 }
 
 /// Block pruning settings.
@@ -1176,6 +1180,7 @@ impl<Block: BlockT> Backend<Block> {
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
 			use_trusted_local_cache: false,
+			metrics_registry: None,
 		};
 
 		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
@@ -1241,7 +1246,10 @@ impl<Block: BlockT> Backend<Block> {
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
 			shared_trie_cache: config.trie_cache_maximum_size.map(|maximum_size| {
-				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
+				SharedTrieCache::new(
+					sp_trie::cache::CacheSize::new(maximum_size),
+					config.metrics_registry.as_ref(),
+				)
 			}),
 			use_trusted_local_cache: config.use_trusted_local_cache,
 		};
@@ -2789,6 +2797,7 @@ pub(crate) mod tests {
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
 				use_trusted_local_cache: false,
+				metrics_registry: None,
 			},
 			0,
 		)

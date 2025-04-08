@@ -50,6 +50,7 @@ use std::{
 };
 use trie_db::{node::NodeOwned, CachedValue};
 
+mod metrics;
 mod shared_cache;
 
 pub use shared_cache::SharedTrieCache;
@@ -595,17 +596,40 @@ impl<H: Hasher> Drop for LocalTrieCache<H> {
 				return
 			},
 		};
-		shared_inner.stats_add_snapshot(&self.stats.snapshot());
+		let stats_snapshot = self.stats.snapshot();
+		shared_inner.stats_add_snapshot(&stats_snapshot);
+		let metrics = shared_inner.metrics().cloned();
+		metrics.as_ref().map(|metrics| metrics.observe_hits_stats(&stats_snapshot));
+		{
+			let _node_update_duration =
+				metrics.as_ref().map(|metrics| metrics.start_shared_node_update_timer());
+			let node_cache = self.node_cache.get_mut();
 
-		shared_inner
-			.node_cache_mut()
-			.update(self.node_cache.get_mut().drain(), &self.node_cache_config);
+			metrics
+				.as_ref()
+				.map(|metrics| metrics.observe_local_node_cache_length(node_cache.len()));
 
-		shared_inner.value_cache_mut().update(
-			self.value_cache.get_mut().drain(),
-			self.shared_value_cache_access.get_mut().drain().map(|(key, ())| key),
-			&self.value_cache_config,
-		);
+			shared_inner.node_cache_mut().update(
+				node_cache.drain(),
+				&self.node_cache_config,
+				&metrics,
+			);
+		}
+		{
+			let _node_update_duration =
+				metrics.as_ref().map(|metrics| metrics.start_shared_value_update_timer());
+			let value_cache = self.shared_value_cache_access.get_mut();
+			metrics
+				.as_ref()
+				.map(|metrics| metrics.observe_local_value_cache_length(value_cache.len()));
+
+			shared_inner.value_cache_mut().update(
+				self.value_cache.get_mut().drain(),
+				value_cache.drain().map(|(key, ())| key),
+				&self.value_cache_config,
+				&metrics,
+			);
+		}
 	}
 }
 
@@ -870,7 +894,7 @@ mod tests {
 	fn basic_cache_works() {
 		let (db, root) = create_trie();
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 		let local_cache = shared_cache.local_cache();
 
 		{
@@ -921,7 +945,7 @@ mod tests {
 		// Use some long value to not have it inlined
 		let new_value = vec![23; 64];
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 		let mut new_root = root;
 
 		{
@@ -956,7 +980,7 @@ mod tests {
 	fn trie_db_cache_and_recorder_work_together() {
 		let (db, root) = create_trie();
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 
 		for i in 0..5 {
 			// Clear some of the caches.
@@ -1001,7 +1025,7 @@ mod tests {
 
 		let (db, root) = create_trie();
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 
 		// Run this twice so that we use the data cache in the second run.
 		for i in 0..5 {
@@ -1052,7 +1076,7 @@ mod tests {
 	fn cache_lru_works() {
 		let (db, root) = create_trie();
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 
 		{
 			let local_cache = shared_cache.local_cache();
@@ -1140,7 +1164,7 @@ mod tests {
 	fn cache_respects_bounds() {
 		let (mut db, root) = create_trie();
 
-		let shared_cache = Cache::new(CACHE_SIZE);
+		let shared_cache = Cache::new(CACHE_SIZE, None);
 		{
 			let local_cache = shared_cache.local_cache();
 

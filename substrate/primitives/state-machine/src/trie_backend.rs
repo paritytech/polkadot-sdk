@@ -599,19 +599,19 @@ pub mod tests {
 			fn $name() {
 				let parameters = vec![
 					(StateVersion::V0, None, None),
-					(StateVersion::V0, Some(SharedCache::new(CacheSize::unlimited())), None),
+					(StateVersion::V0, Some(SharedCache::new(CacheSize::unlimited(), None)), None),
 					(StateVersion::V0, None, Some(Recorder::default())),
 					(
 						StateVersion::V0,
-						Some(SharedCache::new(CacheSize::unlimited())),
+						Some(SharedCache::new(CacheSize::unlimited(), None)),
 						Some(Recorder::default()),
 					),
 					(StateVersion::V1, None, None),
-					(StateVersion::V1, Some(SharedCache::new(CacheSize::unlimited())), None),
+					(StateVersion::V1, Some(SharedCache::new(CacheSize::unlimited(), None)), None),
 					(StateVersion::V1, None, Some(Recorder::default())),
 					(
 						StateVersion::V1,
-						Some(SharedCache::new(CacheSize::unlimited())),
+						Some(SharedCache::new(CacheSize::unlimited(), None)),
 						Some(Recorder::default()),
 					),
 				];
@@ -1148,7 +1148,7 @@ pub mod tests {
 			.clone()
 			.for_each(|i| assert_eq!(trie.storage(&[i]).unwrap().unwrap(), vec![i; size_content]));
 
-		for cache in [Some(SharedTrieCache::new(CacheSize::unlimited())), None] {
+		for cache in [Some(SharedTrieCache::new(CacheSize::unlimited(), None)), None] {
 			// Run multiple times to have a different cache conditions.
 			for i in 0..5 {
 				if let Some(cache) = &cache {
@@ -1181,7 +1181,7 @@ pub mod tests {
 		proof_record_works_with_iter_inner(StateVersion::V1);
 	}
 	fn proof_record_works_with_iter_inner(state_version: StateVersion) {
-		for cache in [Some(SharedTrieCache::new(CacheSize::unlimited())), None] {
+		for cache in [Some(SharedTrieCache::new(CacheSize::unlimited(), None)), None] {
 			// Run multiple times to have a different cache conditions.
 			for i in 0..5 {
 				if let Some(cache) = &cache {
@@ -1258,7 +1258,7 @@ pub mod tests {
 			assert_eq!(in_memory.child_storage(child_info_2, &[i]).unwrap().unwrap(), vec![i])
 		});
 
-		for cache in [Some(SharedTrieCache::new(CacheSize::unlimited())), None] {
+		for cache in [Some(SharedTrieCache::new(CacheSize::unlimited(), None)), None] {
 			// Run multiple times to have a different cache conditions.
 			for i in 0..5 {
 				eprintln!("Running with cache {}, iteration {}", cache.is_some(), i);
@@ -1390,7 +1390,7 @@ pub mod tests {
 			nodes
 		};
 
-		let cache = SharedTrieCache::<BlakeTwo256>::new(CacheSize::unlimited());
+		let cache = SharedTrieCache::<BlakeTwo256>::new(CacheSize::unlimited(), None);
 		{
 			let local_cache = cache.local_cache();
 			let mut trie_cache = local_cache.as_trie_db_cache(child_1_root);
@@ -1481,7 +1481,7 @@ pub mod tests {
 
 	#[test]
 	fn new_data_is_added_to_the_cache() {
-		let shared_cache = SharedTrieCache::new(CacheSize::unlimited());
+		let shared_cache = SharedTrieCache::new(CacheSize::unlimited(), None);
 		let new_data = vec![
 			(&b"new_data0"[..], Some(&b"0"[..])),
 			(&b"new_data1"[..], Some(&b"1"[..])),
@@ -1547,7 +1547,7 @@ pub mod tests {
 		assert_eq!(in_memory.child_storage(child_info_1, &key).unwrap().unwrap(), child_trie_1_val);
 		assert_eq!(in_memory.child_storage(child_info_2, &key).unwrap().unwrap(), child_trie_2_val);
 
-		for cache in [Some(SharedTrieCache::new(CacheSize::unlimited())), None] {
+		for cache in [Some(SharedTrieCache::new(CacheSize::unlimited(), None)), None] {
 			// Run multiple times to have a different cache conditions.
 			for i in 0..5 {
 				eprintln!("Running with cache {}, iteration {}", cache.is_some(), i);

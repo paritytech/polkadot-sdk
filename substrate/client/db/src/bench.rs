@@ -154,7 +154,7 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 			proof_recorder: record_proof.then(Default::default),
 			proof_recorder_root: Cell::new(root),
 			// Enable the cache, but do not sync anything to the shared state.
-			shared_trie_cache: SharedTrieCache::new(CacheSize::new(0)),
+			shared_trie_cache: SharedTrieCache::new(CacheSize::new(0), None),
 		};
 
 		state.add_whitelist_to_tracker();

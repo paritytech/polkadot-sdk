@@ -206,9 +206,9 @@ mod tests {
 			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
 				SizeOnlyRecorderProvider::new();
 			let reference_cache: SharedTrieCache<sp_core::Blake2Hasher> =
-				SharedTrieCache::new(CacheSize::new(1024 * 5));
+				SharedTrieCache::new(CacheSize::new(1024 * 5), None);
 			let cache_for_test: SharedTrieCache<sp_core::Blake2Hasher> =
-				SharedTrieCache::new(CacheSize::new(1024 * 5));
+				SharedTrieCache::new(CacheSize::new(1024 * 5), None);
 			{
 				let local_cache = cache_for_test.local_cache();
 				let mut trie_cache_for_reference = local_cache.as_trie_db_cache(root);

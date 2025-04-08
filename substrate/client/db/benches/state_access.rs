@@ -126,6 +126,7 @@ fn create_backend(config: BenchmarkConfig, temp_dir: &TempDir) -> Backend<Block>
 		source: DatabaseSource::ParityDb { path },
 		blocks_pruning: BlocksPruning::KeepAll,
 		use_trusted_local_cache: false,
+		metrics_registry: None,
 	};
 
 	Backend::new(settings, 100).expect("Creates backend")
