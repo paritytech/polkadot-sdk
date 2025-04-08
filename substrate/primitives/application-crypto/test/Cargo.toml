@@ -20,9 +20,7 @@ sp-api = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-keystore = { workspace = true }
-substrate-test-runtime-client = { workspace = true, features = [
-  "bls-experimental",
-] }
+substrate-test-runtime-client = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [features]

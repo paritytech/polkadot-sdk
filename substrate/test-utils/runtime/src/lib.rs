@@ -630,12 +630,12 @@ impl_runtime_apis! {
 
 		#[cfg(not(feature = "bls-experimental"))]
 		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
-			()
+			((),())
 		}
 
 		#[cfg(not(feature = "bls-experimental"))]
 		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
-			()
+			((), ())
 		}
 
 		fn test_storage() {

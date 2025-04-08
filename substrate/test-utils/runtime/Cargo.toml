@@ -18,7 +18,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 sp-application-crypto = { features = [
   "serde",
-  "bls-experimental",
 ], workspace = true }
 sp-consensus-aura = { features = ["serde"], workspace = true }
 sp-consensus-babe = { features = ["serde"], workspace = true }
@@ -131,4 +130,4 @@ disable-logging = ["sp-api/disable-logging"]
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bls-experimental = []
+bls-experimental = ["sp-application-crypto/bls-experimental"]
