@@ -102,7 +102,7 @@ futures-timer = "3.0.3"
 assert_cmd = { workspace = true }
 cumulus-test-runtime = { workspace = true }
 nix = { features = ["signal"], workspace = true }
-tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
+tokio = { version = "1.43.1", features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }
 
 [features]
