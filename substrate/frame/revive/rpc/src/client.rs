@@ -187,12 +187,6 @@ async fn chain_id(api: &OnlineClient<SrcChainConfig>) -> Result<u64, ClientError
 	api.constants().at(&query).map_err(|err| err.into())
 }
 
-/// Fetch the native_to_eth_ratio
-pub async fn native_to_eth_ratio(api: &OnlineClient<SrcChainConfig>) -> Result<u32, ClientError> {
-	let query = subxt_client::constants().revive().native_to_eth_ratio();
-	api.constants().at(&query).map_err(|err| err.into())
-}
-
 /// Fetch the max block weight from the substrate chain.
 async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, ClientError> {
 	let query = subxt_client::constants().system().block_weights();

@@ -185,7 +185,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			.with_context(|| "transaction failed")?;
 
 		Ok(SubmittedTransaction {
-			tx: GenericTransaction::from_signed(signed_tx, Some(from)),
+			tx: GenericTransaction::from_signed(signed_tx, gas_price, Some(from)),
 			hash,
 			client,
 		})
