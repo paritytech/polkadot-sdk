@@ -16,6 +16,10 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "bench"
+harness = false
+
 [dependencies]
 parking_lot = { workspace = true, default-features = true }
 schnellru = { workspace = true }
@@ -52,10 +56,6 @@ substrate-test-runtime = { workspace = true }
 tempfile = { workspace = true }
 tracing-subscriber = { workspace = true }
 wat = { workspace = true }
-
-[[bench]]
-name = "bench"
-harness = false
 
 [features]
 default = ["std"]

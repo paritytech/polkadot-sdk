@@ -19,9 +19,7 @@ codec = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = [
-	"derive",
-], workspace = true, default-features = true }
+serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 serde_json = { features = ["alloc"], workspace = true }
 
 # Substrate
@@ -125,9 +123,7 @@ bridge-hub-common = { workspace = true }
 
 [dev-dependencies]
 bridge-hub-test-utils = { workspace = true, default-features = true }
-bridge-runtime-common = { features = [
-	"integrity-test",
-], workspace = true, default-features = true }
+bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
 pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 snowbridge-runtime-test-common = { workspace = true, default-features = true }
@@ -230,7 +226,6 @@ std = [
 	"xcm-runtime-apis/std",
 	"xcm/std",
 ]
-
 runtime-benchmarks = [
 	"bridge-hub-common/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
@@ -275,7 +270,6 @@ runtime-benchmarks = [
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
-
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
@@ -311,7 +305,6 @@ try-runtime = [
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
 fast-runtime = []
 
 # A feature that should be enabled when the runtime should be built for on-chain
