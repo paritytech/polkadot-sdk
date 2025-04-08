@@ -17,8 +17,8 @@
 use crate::validator_side_experimental::{common::Score, peer_manager::ReputationUpdate};
 use async_trait::async_trait;
 use polkadot_node_network_protocol::PeerId;
-use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
-use std::collections::{BTreeMap, HashMap};
+use polkadot_primitives::{BlockNumber, Id as ParaId};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// Trait describing the interface of the reputation database.
 #[async_trait]
@@ -26,18 +26,20 @@ pub trait Backend {
 	/// Instantiate a new backend.
 	async fn new() -> Self;
 	/// Return the latest known leaf for which the backend processed bumps.
-	async fn highest_known_leaf() -> Option<(Hash, BlockNumber)>;
+	async fn latest_block_number(&self) -> Option<BlockNumber>;
 	/// Get the peer's stored reputation for this paraid, if any.
 	async fn query(&self, peer_id: &PeerId, para_id: &ParaId) -> Option<Score>;
 	/// Slash the peer's reputation for this paraid, with the given value.
 	async fn slash(&mut self, peer_id: &PeerId, para_id: &ParaId, value: Score);
-	/// Remove all stored data for this paraid. Useful when a para gets deregistered.
-	async fn remove_para(&mut self, para_id: &ParaId);
+	/// Prune all data for paraids that are no longer in this registered set.
+	async fn prune_paras(&mut self, registered_paras: BTreeSet<ParaId>);
 	/// Process the reputation bumps, returning all the reputation changes that were done in
 	/// consequence. This is needed because a reputation bump for a para also means a reputation
-	/// decay for the other collators of that para.
+	/// decay for the other collators of that para (if the `decay_value` param is present).
 	async fn process_bumps(
 		&mut self,
+		leaf_number: BlockNumber,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
+		decay_value: Option<Score>,
 	) -> Vec<ReputationUpdate>;
 }

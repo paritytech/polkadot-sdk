@@ -20,13 +20,12 @@ use sp_keystore::KeystorePtr;
 /// All state relevant for the validator side of the protocol lives here.
 pub struct State<B> {
 	peer_manager: PeerManager<B>,
-
 	keystore: KeystorePtr,
-
 	metrics: Metrics,
 }
 
 impl<B: Backend> State<B> {
+	/// Instantiate a new subsystem `State`.
 	pub fn new(peer_manager: PeerManager<B>, keystore: KeystorePtr, metrics: Metrics) -> Self {
 		Self { peer_manager, keystore, metrics }
 	}

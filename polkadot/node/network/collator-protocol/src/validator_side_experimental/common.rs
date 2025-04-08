@@ -27,12 +27,23 @@ pub const CONNECTED_PEERS_LIMIT: u16 = 300;
 /// Must be smaller than `CONNECTED_PEERS_LIMIT`.
 pub const CONNECTED_PEERS_PARA_LIMIT: u16 = 100;
 
+/// Maximum number of relay parents to process for reputation bumps on startup.
+pub const MAX_STARTUP_ANCESTRY_LOOKBACK: u32 = 20;
+
+/// Reputation bump for getting a valid candidate included.
+pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 10;
+
+/// Reputation slash for peer inactivity (for each included candidate of the para that was not
+/// authored by the peer)
+pub const INACTIVITY_DECAY: u16 = 1;
+
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 pub struct Score(u16);
 
 impl Score {
-	pub fn new(val: u16) -> Option<Self> {
+	/// Create a new instance. Fail if over the `MAX_SCORE`.
+	pub const fn new(val: u16) -> Option<Self> {
 		if val > MAX_SCORE {
 			None
 		} else {
@@ -40,6 +51,7 @@ impl Score {
 		}
 	}
 
+	/// Add `val` to the inner value, saturating at `MAX_SCORE`.
 	pub fn saturating_add(&mut self, val: u16) {
 		if (MAX_SCORE - self.0) >= val {
 			self.0 += val;
@@ -48,6 +60,7 @@ impl Score {
 		}
 	}
 
+	/// Subtract `val` from the inner value, saturating at 0.
 	pub fn saturating_sub(&mut self, val: u16) {
 		if val >= self.0 {
 			self.0 = 0;
@@ -65,7 +78,9 @@ impl From<Score> for u16 {
 
 /// Information about a connected peer.
 pub struct PeerInfo {
+	/// Protocol version.
 	pub version: CollationVersion,
+	/// State of the peer.
 	pub state: PeerState,
 }
 

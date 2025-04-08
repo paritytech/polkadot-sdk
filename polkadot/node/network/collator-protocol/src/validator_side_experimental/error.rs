@@ -16,6 +16,9 @@
 
 use crate::LOG_TARGET;
 use fatality::Nested;
+use polkadot_node_subsystem::{ChainApiError, SubsystemError};
+use polkadot_node_subsystem_util::runtime;
+use polkadot_primitives::Hash;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type FatalResult<T> = std::result::Result<T, FatalError>;
@@ -23,15 +26,28 @@ pub type FatalResult<T> = std::result::Result<T, FatalError>;
 #[fatality::fatality(splitable)]
 pub enum Error {
 	#[fatal]
+	#[error("Oneshot for receiving ancestors from chain API got cancelled")]
+	CanceledAncestors,
+	#[fatal]
 	#[error("Oneshot for receiving block number from chain API got cancelled")]
 	CanceledBlockNumber,
+	#[error("Block number for {0} not found")]
+	BlockNumberNotFound(Hash),
+	#[error(transparent)]
+	ChainApi(#[from] ChainApiError),
+	#[fatal(forward)]
+	#[error("Error while accessing runtime information {0}")]
+	Runtime(#[from] runtime::Error),
+	#[fatal]
+	#[error("Receiving message from overseer failed: {0}")]
+	SubsystemReceive(#[source] SubsystemError),
 }
 
 /// Utility for eating top level errors and log them.
 ///
 /// We basically always want to try and continue on error. This utility function is meant to
 /// consume top-level errors by simply logging them
-pub fn log_error(result: Result<()>) -> std::result::Result<(), FatalError> {
+pub fn log_error(result: Result<()>) -> FatalResult<()> {
 	match result.into_nested()? {
 		Ok(()) => Ok(()),
 		Err(jfyi) => {

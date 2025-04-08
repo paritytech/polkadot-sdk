@@ -14332,6 +14332,7 @@ name = "polkadot-collator-protocol"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
+ "async-trait",
  "bitvec",
  "fatality",
  "futures",

@@ -17,11 +17,16 @@ mod backend;
 mod connected;
 mod db;
 
-use std::collections::BTreeSet;
+use futures::channel::oneshot;
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::{
-	validator_side_experimental::common::{
-		Score, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
+	validator_side_experimental::{
+		common::{
+			PeerInfo, PeerState, Score, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
+			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, VALID_INCLUDED_CANDIDATE_BUMP,
+		},
+		error::{Error, Result},
 	},
 	LOG_TARGET,
 };
@@ -32,19 +37,25 @@ use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	PeerId,
 };
-use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, CollatorProtocolSenderTrait};
-use polkadot_primitives::Id as ParaId;
+use polkadot_node_subsystem::{
+	messages::{ChainApiMessage, NetworkBridgeTxMessage},
+	ActivatedLeaf, CollatorProtocolSenderTrait,
+};
+use polkadot_node_subsystem_util::{
+	request_candidate_events, request_candidates_pending_availability, runtime::recv_runtime,
+};
+use polkadot_primitives::{
+	vstaging::CandidateEvent, BlockNumber, CandidateHash, Hash, Id as ParaId,
+};
 
-use super::common::{PeerInfo, PeerState};
-
-struct ReputationUpdate {
+pub struct ReputationUpdate {
 	pub peer_id: PeerId,
 	pub para_id: ParaId,
 	pub value: Score,
 	pub kind: ReputationUpdateKind,
 }
 
-enum ReputationUpdateKind {
+pub enum ReputationUpdateKind {
 	Bump,
 	Slash,
 }
@@ -83,6 +94,98 @@ pub struct PeerManager<B> {
 }
 
 impl<B: Backend> PeerManager<B> {
+	/// Initialize the peer manager (called on subsystem startup).
+	pub async fn startup<Sender: CollatorProtocolSenderTrait>(
+		sender: &mut Sender,
+		first_leaf: ActivatedLeaf,
+		scheduled_paras: BTreeSet<ParaId>,
+	) -> Result<Self> {
+		// Open the Db.
+		let db = B::new().await;
+		let latest_block_number = db.latest_block_number().await;
+
+		let mut instance = Self {
+			db,
+			connected: ConnectedPeers::new(
+				scheduled_paras,
+				CONNECTED_PEERS_LIMIT,
+				CONNECTED_PEERS_PARA_LIMIT,
+			),
+		};
+
+		let ancestry_len = if let Some(number) = latest_block_number {
+			if first_leaf.number <= number {
+				// Shouldn't be possible, but in this case there is no other initialisation needed.
+				return Ok(instance)
+			}
+			std::cmp::min(first_leaf.number.saturating_sub(number), MAX_STARTUP_ANCESTRY_LOOKBACK)
+		} else {
+			MAX_STARTUP_ANCESTRY_LOOKBACK
+		};
+
+		let mut ancestors = get_ancestors(sender, ancestry_len as usize, first_leaf.hash).await?;
+		ancestors.push(first_leaf.hash);
+		ancestors.reverse();
+
+		let bumps = extract_reputation_bumps_from_ancestry(sender, &ancestors[..]).await?;
+
+		instance.db.process_bumps(first_leaf.number, bumps, None).await;
+
+		Ok(instance)
+	}
+
+	/// Handle new leaves update, by updating peer reputations.
+	pub async fn update_reputations_on_new_leaves<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		new_leaves: Vec<Hash>,
+		cached_parents: &mut HashMap<Hash, Hash>,
+	) -> Result<()> {
+		for leaf in new_leaves {
+			let block_number = get_block_number(sender, leaf).await?;
+
+			let latest_processed_block_number = self.db.latest_block_number().await;
+			if latest_processed_block_number.unwrap_or(0) > block_number {
+				continue
+			}
+
+			let parent = if let Some(parent) = cached_parents.get(&leaf) {
+				*parent
+			} else {
+				let parent = get_ancestors(sender, 1, leaf).await?.remove(0);
+				cached_parents.insert(leaf, parent);
+				parent
+			};
+
+			let ancestors = vec![parent, leaf];
+			let bumps = extract_reputation_bumps_from_ancestry(sender, &ancestors[..]).await?;
+
+			let updates = self
+				.db
+				.process_bumps(
+					block_number,
+					bumps,
+					Some(Score::new(INACTIVITY_DECAY).expect("INACTIVITY_DECAY is a valid score")),
+				)
+				.await;
+			for update in updates {
+				self.connected.update_reputation(update);
+			}
+		}
+
+		Ok(())
+	}
+
+	/// Process the registered paras and cleanup all data pertaining to any unregistered paras, if
+	/// any. Should be called every N finalized block notifications, since it's expected that para
+	/// deregistrations are rare.
+	pub async fn registered_paras_update(&mut self, registered_paras: BTreeSet<ParaId>) {
+		// Tell the DB to cleanup paras that are no longer registered. No need to clean up the
+		// connected peers state, since it will get automatically cleaned up as the claim queue
+		// gets rid of these stale assignments.
+		self.db.prune_paras(registered_paras).await;
+	}
+
 	/// Process a potential change of the scheduled paras.
 	pub async fn scheduled_paras_update<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
@@ -119,7 +222,8 @@ impl<B: Backend> PeerManager<B> {
 
 		// Build a closure that can be used to first query the in-memory past reputations of the
 		// peers before reaching for the DB.
-		// TODO: warm-up the DB for these specific paraids.
+		// TODO: we could warm-up the DB for these specific paraids. (Cache them in memory on the
+		// Backend impl)
 
 		// Borrow these for use in the closure.
 		let cached_scores = &cached_scores;
@@ -213,19 +317,6 @@ impl<B: Backend> PeerManager<B> {
 		});
 	}
 
-	/// Handle new leaves update, by updating peer reputations.
-	// pub async fn update_reputations_on_new_leaves<Sender: CollatorProtocolSenderTrait>(
-	// 	&mut self,
-	// 	sender: &mut Sender,
-	// 	bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
-	// 	max_leaf: (BlockNumber, Hash),
-	// ) {
-	// 	let updates = self.db.active_leaves_update(sender, bumps, max_leaf).await;
-	// 	for update in updates {
-	// 		self.connected.update_rep(&update);
-	// 	}
-	// }
-
 	/// Process a peer disconnected event coming from the network.
 	pub fn disconnected(&mut self, peer_id: &PeerId) {
 		self.connected.remove(peer_id);
@@ -297,4 +388,84 @@ impl<B: Backend> PeerManager<B> {
 			.send_message(NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation))
 			.await;
 	}
+}
+
+async fn get_ancestors<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	k: usize,
+	hash: Hash,
+) -> Result<Vec<Hash>> {
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(ChainApiMessage::Ancestors { hash, k, response_channel: tx })
+		.await;
+
+	Ok(rx.await.map_err(|_| Error::CanceledAncestors)??)
+}
+
+async fn get_block_number<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	hash: Hash,
+) -> Result<BlockNumber> {
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockNumber(hash, tx)).await;
+
+	rx.await
+		.map_err(|_| Error::CanceledBlockNumber)??
+		.ok_or_else(|| Error::BlockNumberNotFound(hash))
+}
+
+async fn extract_reputation_bumps_from_ancestry<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	ancestors: &[Hash],
+) -> Result<BTreeMap<ParaId, HashMap<PeerId, Score>>> {
+	let mut candidates_per_rp: HashMap<Hash, BTreeMap<ParaId, HashSet<CandidateHash>>> =
+		HashMap::with_capacity(ancestors.len());
+
+	for i in 1..ancestors.len() {
+		let rp = ancestors[i];
+		let parent_rp = ancestors[i - 1];
+		let candidate_events = recv_runtime(request_candidate_events(rp, sender).await).await?;
+
+		for event in candidate_events {
+			if let CandidateEvent::CandidateIncluded(receipt, _, _, _) = event {
+				let para_id = receipt.descriptor.para_id();
+				let candidate_hash = receipt.hash();
+				candidates_per_rp
+					.entry(parent_rp)
+					.or_default()
+					.entry(para_id)
+					.or_default()
+					.insert(candidate_hash);
+			}
+		}
+	}
+
+	// This could be removed if we implemented https://github.com/paritytech/polkadot-sdk/issues/7732.
+	let mut updates: BTreeMap<ParaId, HashMap<PeerId, Score>> = BTreeMap::new();
+	for (rp, per_para) in candidates_per_rp {
+		for (para_id, included_candidates) in per_para {
+			let candidates_pending_availability =
+				recv_runtime(request_candidates_pending_availability(rp, para_id, sender).await)
+					.await?;
+
+			for candidate in candidates_pending_availability {
+				if included_candidates.contains(&candidate.hash()) {
+					// TODO: uncomment after my approved peer PR gets merged.
+					// if let Some(approved_peer) = candidate.commitments.approved_peer() {
+					// 	if let Ok(peer_id) = PeerId::from_bytes(&approved_peer.0) {
+					// 		updates
+					// 			.entry(para_id)
+					// 			.or_default()
+					// 			.entry(peer_id)
+					// 			.or_default()
+					// 			.saturating_add(VALID_INCLUDED_CANDIDATE_BUMP);
+					// 	}
+					// }
+				}
+			}
+		}
+	}
+
+	Ok(updates)
 }

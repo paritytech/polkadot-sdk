@@ -21,38 +21,34 @@ use crate::validator_side_experimental::{
 use async_trait::async_trait;
 use polkadot_node_network_protocol::PeerId;
 use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 pub struct Db;
 
 // Dummy implementation for now
 #[async_trait]
 impl Backend for Db {
-	/// Instantiate a new backend.
 	async fn new() -> Self {
 		Db
 	}
 
-	/// Return the latest known leaf for which the backend processed bumps.
-	async fn highest_known_leaf() -> Option<(Hash, BlockNumber)> {
+	async fn latest_block_number(&self) -> Option<BlockNumber> {
 		None
 	}
 
-	/// Get the peer's stored reputation for this paraid, if any.
 	async fn query(&self, _peer_id: &PeerId, _para_id: &ParaId) -> Option<Score> {
 		None
 	}
 
-	/// Slash the peer's reputation for this paraid, with the given value.
 	async fn slash(&mut self, _peer_id: &PeerId, _para_id: &ParaId, _value: Score) {}
 
-	/// Remove all stored data for this paraid. Useful when a para gets deregistered.
-	async fn remove_para(&mut self, _para_id: &ParaId) {}
+	async fn prune_paras(&mut self, _registered_paras: BTreeSet<ParaId>) {}
 
-	/// Process the reputation bumps.
 	async fn process_bumps(
 		&mut self,
+		_leaf_number: BlockNumber,
 		_bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
+		_decay_value: Option<Score>,
 	) -> Vec<ReputationUpdate> {
 		vec![]
 	}

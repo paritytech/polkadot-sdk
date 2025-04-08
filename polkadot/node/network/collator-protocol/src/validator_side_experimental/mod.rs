@@ -14,20 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+#![allow(unused)]
+
 mod common;
 mod error;
 mod metrics;
 mod peer_manager;
 mod state;
 
-use futures::select;
+use std::collections::VecDeque;
 
 use error::{FatalError, FatalResult, Result};
-use peer_manager::{Backend, Db, PeerManager};
-use state::State;
-
-use polkadot_node_subsystem::{overseer, ActivatedLeaf, FromOrchestra, OverseerSignal};
+use fatality::Split;
+use peer_manager::{Db, PeerManager};
+use polkadot_node_subsystem::{
+	overseer, ActivatedLeaf, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
+};
+use polkadot_node_subsystem_util::{
+	find_validator_group, request_claim_queue, request_validator_groups, request_validators,
+	runtime::recv_runtime, signing_key_and_index,
+};
+use polkadot_primitives::{Hash, Id as ParaId};
 use sp_keystore::KeystorePtr;
+use state::State;
 
 pub use metrics::Metrics;
 
@@ -36,13 +45,13 @@ use crate::LOG_TARGET;
 /// The main run loop.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 pub(crate) async fn run<Context>(
-	ctx: Context,
+	mut ctx: Context,
 	keystore: KeystorePtr,
 	metrics: Metrics,
-) -> std::result::Result<(), std::convert::Infallible> {
-	let state = initialize(&mut ctx, keystore, metrics).await;
-
-	run_inner(state, ctx).await;
+) -> FatalResult<()> {
+	if let Some(_state) = initialize(&mut ctx, keystore, metrics).await? {
+		// run_inner(state);
+	}
 
 	Ok(())
 }
@@ -52,26 +61,37 @@ async fn initialize<Context>(
 	ctx: &mut Context,
 	keystore: KeystorePtr,
 	metrics: Metrics,
-) -> State<Db> {
+) -> FatalResult<Option<State<Db>>> {
 	loop {
-		let first_leaf = match wait_for_first_leaf(ctx).await {
-			Ok(Some(activated_leaf)) => activated_leaf,
-			Ok(None) => continue,
-			Err(e) => {
-				// e.split()?.log();
+		let first_leaf = match wait_for_first_leaf(ctx).await? {
+			Some(activated_leaf) => activated_leaf,
+			None => return Ok(None),
+		};
+
+		let scheduled_paras = match scheduled_paras(ctx.sender(), first_leaf.hash, &keystore).await
+		{
+			Ok(paras) => paras,
+			Err(err) => {
+				err.split()?.log();
 				continue
 			},
 		};
 
-		if let Some(peer_manager) = PeerManager::try_init(ctx, first_leaf) {
-			return State::new(peer_manager, keystore, metrics)
+		match PeerManager::startup(ctx.sender(), first_leaf, scheduled_paras.into_iter().collect())
+			.await
+		{
+			Ok(peer_manager) => return Ok(Some(State::new(peer_manager, keystore, metrics))),
+			Err(err) => {
+				err.split()?.log();
+				continue
+			},
 		}
 	}
 }
 
 /// Wait for `ActiveLeavesUpdate`, returns `None` if `Conclude` signal came first.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<ActivatedLeaf>> {
+async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<ActivatedLeaf>> {
 	loop {
 		match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(None),
@@ -82,6 +102,8 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<Activa
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_, _)) => {},
 			FromOrchestra::Communication { msg } => {
+				// TODO: we should actually disconnect peers connected on collation protocol while
+				// we're still bootstrapping. OR buffer these messages until we've bootstrapped.
 				gum::warn!(
 					target: LOG_TARGET,
 					?msg,
@@ -92,22 +114,25 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<Activa
 	}
 }
 
-#[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn run_inner<Context>(state: State<Db>, mut ctx: Context) {
-	loop {
-		select! {
-			res = ctx.recv().fuse() => {
-				match res {
-					Ok(FromOrchestra::Communication { msg }) => {
-						gum::trace!(target: LOG_TARGET, msg = ?msg, "received a message");
-						unimplemented!();
-					}
-					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => break,
-					Ok(FromOrchestra::Signal(_)) => continue,
-				}
-			},
-		}
-	}
+async fn scheduled_paras<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	hash: Hash,
+	keystore: &KeystorePtr,
+) -> Result<VecDeque<ParaId>> {
+	let validators = recv_runtime(request_validators(hash, sender).await).await?;
 
-	Ok(())
+	let (groups, rotation_info) =
+		recv_runtime(request_validator_groups(hash, sender).await).await?;
+
+	let core_now = if let Some(group) = signing_key_and_index(&validators, keystore)
+		.and_then(|(_, index)| find_validator_group(&groups, index))
+	{
+		rotation_info.core_for_group(group, groups.len())
+	} else {
+		gum::trace!(target: LOG_TARGET, ?hash, "Not a validator");
+		return Ok(VecDeque::new())
+	};
+
+	let mut claim_queue = recv_runtime(request_claim_queue(hash, sender).await).await?;
+	Ok(claim_queue.remove(&core_now).unwrap_or_else(|| VecDeque::new()))
 }
