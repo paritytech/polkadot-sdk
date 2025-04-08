@@ -136,12 +136,12 @@ impl Command {
 		match self {
 			Command::AgentExecute { .. } => 0,
 			Command::Upgrade { .. } => 1,
-			Command::SetOperatingMode { .. } => 2,
-			Command::SetTokenTransferFees { .. } => 3,
-			Command::SetPricingParameters { .. } => 4,
-			Command::UnlockNativeToken { .. } => 5,
-			Command::RegisterForeignToken { .. } => 6,
-			Command::MintForeignToken { .. } => 7,
+			Command::SetOperatingMode { .. } => 5,
+			Command::SetTokenTransferFees { .. } => 7,
+			Command::SetPricingParameters { .. } => 8,
+			Command::UnlockNativeToken { .. } => 9,
+			Command::RegisterForeignToken { .. } => 10,
+			Command::MintForeignToken { .. } => 11,
 		}
 	}
 

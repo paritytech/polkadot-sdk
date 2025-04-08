@@ -1157,6 +1157,8 @@ construct_runtime!(
 		// Bridge utilities.
 		ToRococoXcmRouter: pallet_xcm_bridge_hub_router::<Instance1> = 34,
 		MessageQueue: pallet_message_queue = 35,
+		// Snowbridge
+		SnowbridgeSystemFrontend: snowbridge_pallet_system_frontend = 36,
 
 		// Handy utilities.
 		Utility: pallet_utility = 40,
@@ -1180,9 +1182,6 @@ construct_runtime!(
 		AssetRewards: pallet_asset_rewards = 61,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
-
-		// Snowbridge
-		SnowbridgeSystemFrontend: snowbridge_pallet_system_frontend = 80,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
@@ -1753,6 +1752,30 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl xcm_runtime_apis::authorized_aliases::AuthorizedAliasersApi<Block> for Runtime {
+		fn authorized_aliasers(target: VersionedLocation) -> Result<
+			Vec<xcm_runtime_apis::authorized_aliases::OriginAliaser>,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::authorized_aliasers(target)
+		}
+		fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> Result<
+			bool,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::is_authorized_alias(origin, target)
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
 		for Runtime
 	{
@@ -2294,15 +2317,6 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
-		}
-	}
-
-	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
-		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
-			PolkadotXcm::is_trusted_reserve(asset, location)
-		}
-		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
-			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
 

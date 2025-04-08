@@ -211,7 +211,6 @@ members = [
 	"polkadot/node/tracking-allocator",
 	"polkadot/node/zombienet-backchannel",
 	"polkadot/parachain",
-	"polkadot/parachain/test-parachains",
 	"polkadot/parachain/test-parachains/adder",
 	"polkadot/parachain/test-parachains/adder/collator",
 	"polkadot/parachain/test-parachains/halt",
@@ -625,6 +624,7 @@ ark-ed-on-bls12-377-ext = { version = "0.4.1", default-features = false }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false }
 ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.4.1", default-features = false }
 ark-scale = { version = "0.0.12", default-features = false }
+ark-vrf = { version = "0.1.0", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
@@ -643,7 +643,8 @@ backoff = { version = "0.4" }
 backtrace = { version = "0.3.71" }
 binary-merkle-tree = { path = "substrate/utils/binary-merkle-tree", default-features = false }
 bincode = { version = "1.3.3" }
-bip39 = { version = "2.0.0" }
+# personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
+bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false }
 bitflags = { version = "1.3.2" }
 bitvec = { version = "1.0.1", default-features = false }
 blake2 = { version = "0.10.4", default-features = false }
@@ -690,7 +691,6 @@ chain-spec-guide-runtime = { path = "docs/sdk/src/reference_docs/chain_spec_runt
 chrono = { version = "0.4.31" }
 cid = { version = "0.9.0" }
 clap = { version = "4.5.13" }
-clap-num = { version = "1.0.2" }
 clap_complete = { version = "4.5.13" }
 cmd_lib = { version = "1.9.5" }
 coarsetime = { version = "0.1.22" }
@@ -803,11 +803,11 @@ frame-try-runtime = { path = "substrate/frame/try-runtime", default-features = f
 fs4 = { version = "0.7.0" }
 fs_extra = { version = "1.3.0" }
 futures = { version = "0.3.31" }
-futures-channel = { version = "0.3.23" }
 futures-timer = { version = "3.0.2" }
 futures-util = { version = "0.3.30", default-features = false }
 generate-bags = { path = "substrate/utils/frame/generate-bags", default-features = false }
 gethostname = { version = "0.2.3" }
+git2 = { version = "0.20.0", default-features = false }
 glob = { version = "0.3" }
 glutton-westend-runtime = { path = "cumulus/parachains/runtimes/glutton/glutton-westend" }
 governor = { version = "0.6.0" }
@@ -844,7 +844,6 @@ is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 isahc = { version = "1.2" }
 itertools = { version = "0.11" }
-jemalloc_pprof = { version = "0.4" }
 jobserver = { version = "0.1.26" }
 jsonpath_lib = { version = "0.3" }
 jsonrpsee = { version = "0.24.3" }
@@ -860,6 +859,7 @@ libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }
 libp2p = { version = "0.54.1" }
 libp2p-identity = { version = "0.2.9" }
+libp2p-kad = { version = "0.46.2", default-features = false }
 libsecp256k1 = { version = "0.7.0", default-features = false }
 linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
@@ -880,12 +880,11 @@ minimal-template-node = { path = "templates/minimal/node" }
 minimal-template-runtime = { path = "templates/minimal/runtime" }
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
-mmr-lib = { version = "0.5.2", package = "ckb-merkle-mountain-range" }
+mmr-lib = { version = "0.8.1", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
 mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false }
 mockall = { version = "0.13.1" }
 multiaddr = { version = "0.18.1" }
 multihash = { version = "0.19.1", default-features = false }
-multihash-codetable = { version = "0.1.1" }
 multistream-select = { version = "0.13.0" }
 names = { version = "0.14.0", default-features = false }
 nix = { version = "0.29.0" }
@@ -1115,9 +1114,7 @@ polkavm-derive = "0.18.0"
 polkavm-linker = "0.18.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
-primitive-types = { version = "0.13.1", default-features = false, features = [
-	"num-traits",
-] }
+primitive-types = { version = "0.13.1", default-features = false, features = ["num-traits"] }
 proc-macro-crate = { version = "3.0.0" }
 proc-macro-warning = { version = "1.0.0", default-features = false }
 proc-macro2 = { version = "1.0.86" }
@@ -1137,14 +1134,12 @@ rand_chacha = { version = "0.3.1", default-features = false }
 rand_core = { version = "0.6.2" }
 rand_distr = { version = "0.4.3" }
 rand_pcg = { version = "0.3.1" }
-rayon = { version = "1.5.1" }
 rbtag = { version = "0.3" }
 ref-cast = { version = "1.0.23" }
 regex = { version = "1.10.2" }
 relay-substrate-client = { path = "bridges/relays/client-substrate" }
 relay-utils = { path = "bridges/relays/utils" }
 remote-externalities = { path = "substrate/utils/frame/remote-externalities", default-features = false, package = "frame-remote-externalities" }
-reqwest = { version = "0.12.9", default-features = false }
 ripemd = { version = "0.1.3", default-features = false }
 rlp = { version = "0.6.1", default-features = false }
 rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/rococo" }
@@ -1241,6 +1236,7 @@ sha1 = { version = "0.10.6" }
 sha2 = { version = "0.10.7", default-features = false }
 sha3 = { version = "0.10.0", default-features = false }
 shlex = { version = "1.3.0" }
+simple-mermaid = { version = "0.1.1" }
 slot-range-helper = { path = "polkadot/runtime/common/slot_range_helper", default-features = false }
 slotmap = { version = "1.0" }
 smallvec = { version = "1.11.0", default-features = false }
@@ -1332,6 +1328,7 @@ sp-version-proc-macro = { path = "substrate/primitives/version/proc-macro", defa
 sp-wasm-interface = { path = "substrate/primitives/wasm-interface", default-features = false }
 sp-weights = { path = "substrate/primitives/weights", default-features = false }
 spinners = { version = "4.1.1" }
+sqlx = { version = "0.8.2" }
 ss58-registry = { version = "1.34.0", default-features = false }
 ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
@@ -1373,7 +1370,7 @@ tikv-jemalloc-ctl = { version = "0.5.0" }
 tikv-jemallocator = { version = "0.5.0" }
 time = { version = "0.3" }
 tiny-keccak = { version = "2.0.2" }
-tokio = { version = "1.40.0", default-features = false }
+tokio = { version = "1.43.1", default-features = false }
 tokio-retry = { version = "0.3.0" }
 tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.4" }
@@ -1397,6 +1394,7 @@ trybuild = { version = "1.0.103" }
 tt-call = { version = "1.0.8" }
 tuplex = { version = "0.1", default-features = false }
 twox-hash = { version = "1.6.3", default-features = false }
+txtesttool = { version = "0.4.0", package = "substrate-txtesttool" }
 unsigned-varint = { version = "0.7.2" }
 url = { version = "2.5.4" }
 void = { version = "1.0.2" }
@@ -1423,7 +1421,6 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.2.29" }
 zombienet-sdk = { version = "0.2.29" }
 zstd = { version = "0.12.4", default-features = false }
 
@@ -1458,6 +1455,7 @@ overflow-checks = true
 #
 # This list is ordered alphabetically.
 [profile.dev.package]
+ark-vrf = { opt-level = 3 }
 blake2 = { opt-level = 3 }
 blake2b_simd = { opt-level = 3 }
 chacha20poly1305 = { opt-level = 3 }
