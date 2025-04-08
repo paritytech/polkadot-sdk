@@ -92,8 +92,6 @@ pub mod v1 {
 		T: Config,
 	{
 		fn on_runtime_upgrade() -> Weight {
-			use codec::Encode;
-
 			let mut pricing_parameters = Pallet::<T>::parameters();
 			let old_fee_per_gas = pricing_parameters.fee_per_gas;
 
@@ -111,6 +109,8 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			use codec::Encode;
+
 			let pricing_parameters = Pallet::<T>::parameters();
 			log::info!(
 				target: LOG_TARGET,
