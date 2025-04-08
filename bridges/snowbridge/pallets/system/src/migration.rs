@@ -16,6 +16,9 @@ use sp_runtime::TryRuntimeError;
 
 const LOG_TARGET: &str = "ethereum_system::migration";
 
+/// The in-code storage version.
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 pub mod v0 {
 	use super::*;
 
