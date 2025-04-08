@@ -150,6 +150,32 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelper<Public, AccountId, Signature> {
+		fn signer() -> (Public, AccountId);
+		fn sign(signer: &Public, message: &[u8]) -> Signature;
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	impl
+		BenchmarkHelper<
+			sp_runtime::MultiSigner,
+			sp_runtime::AccountId32,
+			sp_runtime::MultiSignature,
+		> for ()
+	{
+		fn signer() -> (sp_runtime::MultiSigner, sp_runtime::AccountId32) {
+			let public = sp_io::crypto::sr25519_generate(0.into(), None);
+			let account = sp_runtime::MultiSigner::Sr25519(public).into_account();
+			(public.into(), account)
+		}
+		fn sign(signer: &sp_runtime::MultiSigner, message: &[u8]) -> sp_runtime::MultiSignature {
+			sp_runtime::MultiSignature::Sr25519(
+				sp_io::crypto::sr25519_sign(0.into(), &signer.clone().try_into().unwrap(), message)
+					.unwrap(),
+			)
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
@@ -225,6 +251,14 @@ pub mod pallet {
 		/// The maximum length of a username, including its suffix and any system-added delimiters.
 		#[pallet::constant]
 		type MaxUsernameLength: Get<u32>;
+
+		#[cfg(feature = "runtime-benchmarks")]
+		/// A set of helper functions for benchmarking.
+		type Helper: BenchmarkHelper<
+			Self::SigningPublicKey,
+			Self::AccountId,
+			Self::OffchainSignature,
+		>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
