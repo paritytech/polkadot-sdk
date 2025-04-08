@@ -18,7 +18,8 @@
 
 //! Pool periodic revalidation.
 
-use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction};
+use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, ValidatedTransaction};
+use futures::prelude::*;
 use indexmap::IndexMap;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::{
@@ -28,16 +29,16 @@ use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	pin::Pin,
 	sync::Arc,
+	time::Duration,
 };
-
-use futures::prelude::*;
-use std::time::Duration;
 
 const BACKGROUND_REVALIDATION_INTERVAL: Duration = Duration::from_millis(200);
 
 const MIN_BACKGROUND_REVALIDATION_BATCH_SIZE: usize = 20;
 
 const LOG_TARGET: &str = "txpool::revalidation";
+
+type Pool<Api> = crate::graph::Pool<Api, ()>;
 
 /// Payload from queue to worker.
 struct WorkerPayload<Api: ChainApi> {

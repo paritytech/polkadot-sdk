@@ -34,7 +34,6 @@ use frame_support::{
 	traits::{EitherOf, Equals},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
-use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
 	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
@@ -65,7 +64,7 @@ parameter_types! {
 		[GlobalConsensus(RococoGlobalConsensusNetwork::get())]
 	);
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
-	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+	pub PriorityBoostPerMessage: u64 = 364_088_888_888_888;
 
 	// The other side of the bridge
 	pub AssetHubRococoLocation: Location = Location::new(
@@ -90,7 +89,6 @@ pub type OnAssetHubWestendRefundAssetHubRococoMessages = BridgeRelayersTransacti
 		BridgeRelayersInstance,
 		PriorityBoostPerMessage,
 	>,
-	LaneIdOf<Runtime, WithAssetHubRococoMessagesInstance>,
 >;
 bp_runtime::generate_static_str_provider!(OnAssetHubWestendRefundAssetHubRococoMessages);
 

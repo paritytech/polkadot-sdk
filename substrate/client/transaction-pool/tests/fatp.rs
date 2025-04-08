@@ -664,7 +664,6 @@ fn fatp_fork_no_xts_ready_switch_to_future() {
 
 	// wait 10 blocks for revalidation and 1 extra for applying revalidation results
 	let mut prev_header = forks[1][2].clone();
-	log::debug!("====> {:?}", prev_header);
 	for _ in 3..=12 {
 		let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
 		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());

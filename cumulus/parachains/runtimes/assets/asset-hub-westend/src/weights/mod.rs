@@ -48,6 +48,8 @@ pub mod pallet_xcm_bridge_router_to_rococo_over_asset_hub_rococo;
 pub mod pallet_xcm_bridge_router_to_rococo_over_bridge_hub;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
+pub mod snowbridge_pallet_system_backend;
+pub mod snowbridge_pallet_system_frontend;
 pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;

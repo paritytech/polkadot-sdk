@@ -31,7 +31,17 @@ pub mod pallet_origins {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	#[derive(PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		MaxEncodedLen,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		RuntimeDebug,
+	)]
 	#[pallet::origin]
 	pub enum Origin {
 		/// Origin aggregated through weighted votes of those with rank 1 or above; `Success` is 1.
@@ -136,15 +146,18 @@ pub mod pallet_origins {
 	macro_rules! decl_unit_ensures {
 		( $name:ident: $success_type:ty = $success:expr ) => {
 			pub struct $name;
-			impl<O: Into<Result<Origin, O>> + From<Origin>>
-				EnsureOrigin<O> for $name
+			impl<O: OriginTrait + From<Origin>> EnsureOrigin<O> for $name
+			where
+				for <'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 			{
 				type Success = $success_type;
 				fn try_origin(o: O) -> Result<Self::Success, O> {
-					o.into().and_then(|o| match o {
-						Origin::$name => Ok($success),
-						r => Err(O::from(r)),
-					})
+					match o.caller().try_into() {
+						Ok(Origin::$name) => return Ok($success),
+						_ => (),
+					}
+
+					Err(o)
 				}
 				#[cfg(feature = "runtime-benchmarks")]
 				fn try_successful_origin() -> Result<O, ()> {
@@ -177,17 +190,20 @@ pub mod pallet_origins {
 			}
 		) => {
 			$vis struct $name;
-			impl<O: Into<Result<Origin, O>> + From<Origin>>
-				EnsureOrigin<O> for $name
+			impl<O: OriginTrait + From<Origin>> EnsureOrigin<O> for $name
+			where
+				for <'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 			{
 				type Success = $success_type;
 				fn try_origin(o: O) -> Result<Self::Success, O> {
-					o.into().and_then(|o| match o {
+					match o.caller().try_into() {
 						$(
-							Origin::$item => Ok($success),
+							Ok(Origin::$item) => return Ok($success),
 						)*
-						r => Err(O::from(r)),
-					})
+						_ => (),
+					}
+
+					Err(o)
 				}
 				#[cfg(feature = "runtime-benchmarks")]
 				fn try_successful_origin() -> Result<O, ()> {

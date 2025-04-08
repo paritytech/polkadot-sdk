@@ -34,7 +34,8 @@ pub mod pallet_bridge_grandpa;
 pub mod pallet_bridge_messages_rococo_to_rococo_bulletin;
 pub mod pallet_bridge_messages_rococo_to_westend;
 pub mod pallet_bridge_parachains;
-pub mod pallet_bridge_relayers;
+pub mod pallet_bridge_relayers_legacy;
+pub mod pallet_bridge_relayers_permissionless_lanes;
 pub mod pallet_collator_selection;
 pub mod pallet_message_queue;
 pub mod pallet_multisig;
@@ -69,7 +70,7 @@ impl GrandpaWeightInfoExt for pallet_bridge_grandpa::WeightInfo<crate::Runtime> 
 		// 1) checks whether relayer registration is active from validate/pre_dispatch;
 		// 2) may slash and deregister relayer from post_dispatch
 		// (2) includes (1), so (2) is the worst case
-		pallet_bridge_relayers::WeightInfo::<Runtime>::slash_and_deregister()
+		pallet_bridge_relayers_legacy::WeightInfo::<Runtime>::slash_and_deregister()
 	}
 }
 
@@ -81,12 +82,12 @@ impl MessagesWeightInfoExt
 	}
 
 	fn receive_messages_proof_overhead_from_runtime() -> Weight {
-		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_proof_overhead_from_runtime(
+		pallet_bridge_relayers_permissionless_lanes::WeightInfo::<Runtime>::receive_messages_proof_overhead_from_runtime(
 		)
 	}
 
 	fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight {
-		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_delivery_proof_overhead_from_runtime()
+		pallet_bridge_relayers_permissionless_lanes::WeightInfo::<Runtime>::receive_messages_delivery_proof_overhead_from_runtime()
 	}
 }
 
@@ -98,12 +99,12 @@ impl MessagesWeightInfoExt
 	}
 
 	fn receive_messages_proof_overhead_from_runtime() -> Weight {
-		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_proof_overhead_from_runtime(
+		pallet_bridge_relayers_legacy::WeightInfo::<Runtime>::receive_messages_proof_overhead_from_runtime(
 		)
 	}
 
 	fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight {
-		pallet_bridge_relayers::WeightInfo::<Runtime>::receive_messages_delivery_proof_overhead_from_runtime()
+		pallet_bridge_relayers_legacy::WeightInfo::<Runtime>::receive_messages_delivery_proof_overhead_from_runtime()
 	}
 }
 
@@ -117,6 +118,6 @@ impl ParachainsWeightInfoExt for pallet_bridge_parachains::WeightInfo<crate::Run
 		// 1) checks whether relayer registration is active from validate/pre_dispatch;
 		// 2) may slash and deregister relayer from post_dispatch
 		// (2) includes (1), so (2) is the worst case
-		pallet_bridge_relayers::WeightInfo::<Runtime>::slash_and_deregister()
+		pallet_bridge_relayers_legacy::WeightInfo::<Runtime>::slash_and_deregister()
 	}
 }

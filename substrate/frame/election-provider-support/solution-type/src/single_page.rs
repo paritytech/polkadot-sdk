@@ -74,7 +74,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 		);
 		quote! {
 			#compact_impl
-			#[derive(Default, PartialEq, Eq, Clone, Debug, PartialOrd, Ord)]
+			#[derive(Default, PartialEq, Eq, Clone, Debug, PartialOrd, Ord, _fepsp::codec::DecodeWithMemTracking)]
 		}
 	} else {
 		// automatically derived.
@@ -88,6 +88,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 			PartialOrd,
 			_fepsp::codec::Encode,
 			_fepsp::codec::Decode,
+			_fepsp::codec::DecodeWithMemTracking,
 			_fepsp::scale_info::TypeInfo,
 		)])
 	};

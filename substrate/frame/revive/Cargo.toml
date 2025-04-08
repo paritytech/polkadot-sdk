@@ -23,20 +23,23 @@ derive_more = { workspace = true }
 environmental = { workspace = true }
 ethabi = { workspace = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
-hex = { workspace = true }
+hex-literal = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
+num-bigint = { workspace = true }
+num-integer = { workspace = true }
+num-traits = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.21.0", default-features = false }
 polkavm-common = { version = "0.21.0", default-features = false, optional = true }
+rand = { workspace = true, optional = true }
+rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { features = [
-	"alloc",
-	"derive",
-], workspace = true, default-features = false }
+serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
 
 # Polkadot SDK Dependencies
+bn = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -44,6 +47,7 @@ pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
 pallet-revive-uapi = { workspace = true, features = ["scale"] }
 pallet-transaction-payment = { workspace = true }
+ripemd = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-consensus-aura = { workspace = true, optional = true }
@@ -52,16 +56,13 @@ sp-consensus-slots = { workspace = true, optional = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-subxt-signer = { workspace = true, optional = true, features = [
-	"unstable-eth",
-] }
+subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-hex-literal = { workspace = true }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
@@ -87,8 +88,10 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"hex/std",
 	"log/std",
+	"num-bigint/std",
+	"num-integer/std",
+	"num-traits/std",
 	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
 	"pallet-timestamp/std",
@@ -96,6 +99,8 @@ std = [
 	"pallet-utility/std",
 	"polkavm-common?/std",
 	"polkavm/std",
+	"rand?/std",
+	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
 	"secp256k1/std",
@@ -125,6 +130,8 @@ runtime-benchmarks = [
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"polkavm-common/alloc",
+	"rand",
+	"rand_pcg",
 	"sp-consensus-aura",
 	"sp-consensus-babe",
 	"sp-consensus-slots",

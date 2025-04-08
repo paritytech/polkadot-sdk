@@ -17,6 +17,7 @@
 //! Bridge definitions that can be used by multiple bridges.
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
+use bp_relayers::RewardsAccountParams;
 
 frame_support::parameter_types! {
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
@@ -29,9 +30,16 @@ frame_support::parameter_types! {
 pub type BridgeRelayersInstance = pallet_bridge_relayers::Instance1;
 impl pallet_bridge_relayers::Config<BridgeRelayersInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Reward = Balance;
-	type PaymentProcedure =
-		pallet_bridge_relayers::PayRewardFromAccount<Balances, AccountId, Self::LaneId>;
+
+	type RewardBalance = Balance;
+	type Reward = RewardsAccountParams<bp_messages::HashedLaneId>;
+	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
+		pallet_balances::Pallet<Runtime>,
+		AccountId,
+		bp_messages::HashedLaneId,
+		Self::RewardBalance,
+	>;
+
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
 		BlockNumber,
@@ -40,6 +48,6 @@ impl pallet_bridge_relayers::Config<BridgeRelayersInstance> for Runtime {
 		RequiredStakeForStakeAndSlash,
 		RelayerStakeLease,
 	>;
+	type Balance = Balance;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
-	type LaneId = bp_messages::HashedLaneId;
 }

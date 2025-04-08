@@ -22,7 +22,7 @@
 use bp_messages::LaneIdType;
 use bp_runtime::{AccountIdOf, BalanceOf, Chain};
 pub use call_info::XcmBridgeCall;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure, sp_runtime::RuntimeDebug, CloneNoBound, PalletError, PartialEqNoBound,
 	RuntimeDebugNoBound,
@@ -58,6 +58,7 @@ pub type XcmAsPlainPayload = sp_std::vec::Vec<u8>;
 	Clone,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Encode,
 	Eq,
 	Ord,
@@ -204,6 +205,7 @@ pub struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
 #[derive(
 	CloneNoBound,
 	Decode,
+	DecodeWithMemTracking,
 	Encode,
 	Eq,
 	PartialEqNoBound,
@@ -231,7 +233,17 @@ impl Receiver {
 pub type DepositOf<ThisChain> = Deposit<AccountIdOf<ThisChain>, BalanceOf<ThisChain>>;
 
 /// A structure containing information about from whom the deposit is reserved.
-#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+	Clone,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebug
+)]
 pub struct Deposit<AccountId, Balance> {
 	/// Account with the reserved funds.
 	pub account: AccountId,
@@ -260,7 +272,7 @@ pub struct BridgeLocations {
 }
 
 /// Errors that may happen when we check bridge locations.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
 pub enum BridgeLocationsError {
 	/// Origin or destination locations are not universal.
 	NonUniversalLocation,

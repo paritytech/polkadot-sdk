@@ -30,6 +30,7 @@ bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
 bp-xcm-bridge = { workspace = true }
 bp-xcm-bridge-router = { workspace = true }
+testnet-parachains-constants = { features = ["rococo"], workspace = true }
 
 # Polkadot dependencies
 xcm = { workspace = true }
@@ -51,5 +52,6 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"testnet-parachains-constants/std",
 	"xcm/std",
 ]

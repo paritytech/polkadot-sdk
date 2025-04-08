@@ -21,7 +21,7 @@ use derive_syn_parse::Parse;
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::{
 	parse::{Nothing, ParseStream},
 	parse_quote,
@@ -959,12 +959,12 @@ fn expand_benchmark(
 			let origin = match origin {
 				Expr::Cast(t) => {
 					let ty = t.ty.clone();
-					quote! {
+					quote_spanned! { origin.span() =>
 						<<T as #frame_system::Config>::RuntimeOrigin as From<#ty>>::from(#origin);
 					}
 				},
-				_ => quote! {
-					#origin.into();
+				_ => quote_spanned! { origin.span() =>
+					Into::<<T as #frame_system::Config>::RuntimeOrigin>::into(#origin);
 				},
 			};
 
@@ -1008,6 +1008,7 @@ fn expand_benchmark(
 				let __call_decoded = <Call<#type_use_generics> as #codec::Decode>
 					::decode(&mut &__benchmarked_call_encoded[..])
 					.expect("call is encoded above, encoding must be correct");
+				#[allow(clippy::useless_conversion)]
 				let __origin = #origin;
 				<Call<#type_use_generics> as #traits::UnfilteredDispatchable>::dispatch_bypass_filter(
 					__call_decoded,
