@@ -83,6 +83,7 @@ pub mod v0 {
 
 pub mod v1 {
 	use super::*;
+	use codec::{Decode, Encode};
 
 	/// Halves the gas price.
 	pub struct UncheckedGasPriceMigration<T>(PhantomData<T>);
@@ -104,7 +105,7 @@ pub mod v1 {
 				target: LOG_TARGET,
 				"Fee per gas migrated from {old_fee_per_gas} to {new_fee_per_gas}.",
 			);
-			T::DbWeight::get().reads(1).writes(1)
+			T::DbWeight::get().reads_writes(1, 1)
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -114,15 +115,34 @@ pub mod v1 {
 				target: LOG_TARGET,
 				"Pre fee per gas migration pricing parameters = {pricing_parameters:?}"
 			);
-			Ok(vec![])
+			Ok(pricing_parameters.encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let pricing_parameters = Pallet::<T>::parameters();
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let old_pricing_parameters: PricingParametersOf<T> =
+				Decode::decode(&mut &state[..]).unwrap();
+			let new_pricing_parameters = Pallet::<T>::parameters();
+
+			ensure!(
+				old_pricing_parameters.exchange_rate == new_pricing_parameters.exchange_rate,
+				"Exchange rate unchanged."
+			);
+			ensure!(
+				old_pricing_parameters.rewards == new_pricing_parameters.rewards,
+				"Rewards unchanged."
+			);
+			ensure!(
+				(old_pricing_parameters.fee_per_gas / 2) == new_pricing_parameters.fee_per_gas,
+				"Fee per gas halved."
+			);
+			ensure!(
+				old_pricing_parameters.multiplier == new_pricing_parameters.multiplier,
+				"Multiplier unchanged."
+			);
 			log::info!(
 				target: LOG_TARGET,
-				"Post fee per gas migration pricing parameters = {pricing_parameters:?}"
+				"Post fee per gas migration pricing parameters = {new_pricing_parameters:?}"
 			);
 			Ok(())
 		}
