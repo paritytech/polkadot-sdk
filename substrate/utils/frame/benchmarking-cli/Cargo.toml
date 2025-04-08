@@ -34,6 +34,7 @@ handlebars = { workspace = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
+polkadot-node-core-pvf-common = { workspace = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 rand = { features = ["small_rng"], workspace = true, default-features = true }

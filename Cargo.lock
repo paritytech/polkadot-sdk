@@ -6458,6 +6458,7 @@ dependencies = [
  "linked-hash-map",
  "log",
  "parity-scale-codec",
+ "polkadot-node-core-pvf-common",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "rand 0.8.5",
