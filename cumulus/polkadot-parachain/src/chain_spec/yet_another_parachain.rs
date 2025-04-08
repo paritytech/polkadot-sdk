@@ -49,10 +49,7 @@ fn derive_accounts(n: usize, seed: String) -> Vec<SrPair> {
 		}));
 	});
 
-	threads
-		.into_iter()
-		.flat_map(|h| h.join().unwrap())
-		.collect()
+	threads.into_iter().flat_map(|h| h.join().unwrap()).collect()
 }
 
 pub fn yet_another_parachain_config(
