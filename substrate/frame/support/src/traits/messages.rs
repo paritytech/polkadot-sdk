@@ -18,7 +18,7 @@
 //! Traits for managing message queuing and handling.
 
 use super::storage::Footprint;
-use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
@@ -27,7 +27,7 @@ use sp_weights::{Weight, WeightMeter};
 
 /// Errors that can happen when attempting to process a message with
 /// [`ProcessMessage::process_message()`].
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub enum ProcessMessageError {
 	/// The message data format is unknown (e.g. unrecognised header)
 	BadFormat,

@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Cumulus related core primitive types and traits.
 
@@ -21,7 +21,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
@@ -85,7 +85,9 @@ impl From<MessageSendError> for &'static str {
 }
 
 /// The origin of an inbound message.
-#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug,
+)]
 pub enum AggregateMessageOrigin {
 	/// The message came from the para-chain itself.
 	Here,
@@ -260,12 +262,39 @@ pub enum CumulusDigestItem {
 	/// A digest item indicating the relay-parent a parachain block was built against.
 	#[codec(index = 0)]
 	RelayParent(relay_chain::Hash),
+	/// A digest item indicating which core to select on the relay chain for this block.
+	#[codec(index = 1)]
+	SelectCore {
+		/// The selector that determines the actual core.
+		selector: CoreSelector,
+		/// The claim queue offset that determines how far "into the future" the core is selected.
+		claim_queue_offset: ClaimQueueOffset,
+	},
 }
 
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
 		DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode())
+	}
+
+	/// Find [`CumulusDigestItem::SelectCore`] in the given `digest`.
+	///
+	/// If there are multiple valid digests, this returns the value of the first one, although
+	/// well-behaving runtimes should not produce headers with more than one.
+	pub fn find_select_core(digest: &Digest) -> Option<(CoreSelector, ClaimQueueOffset)> {
+		digest.convert_first(|d| match d {
+			DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::SelectCore { selector, claim_queue_offset }) =
+					CumulusDigestItem::decode_all(&mut &val[..])
+				else {
+					return None
+				};
+
+				Some((selector, claim_queue_offset))
+			},
+			_ => None,
+		})
 	}
 }
 

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::traits::Block;
 
@@ -39,7 +39,19 @@ pub mod known_payloads {
 /// Identifiers MUST be sorted by the [`BeefyPayloadId`] to allow efficient lookup of expected
 /// value. Duplicated identifiers are disallowed. It's okay for different implementations to only
 /// support a subset of possible values.
-#[derive(Decode, Encode, Debug, PartialEq, Eq, Clone, Ord, PartialOrd, Hash, TypeInfo)]
+#[derive(
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Debug,
+	PartialEq,
+	Eq,
+	Clone,
+	Ord,
+	PartialOrd,
+	Hash,
+	TypeInfo,
+)]
 pub struct Payload(Vec<(BeefyPayloadId, Vec<u8>)>);
 
 impl Payload {
@@ -60,7 +72,7 @@ impl Payload {
 	pub fn get_all_raw<'a>(
 		&'a self,
 		id: &'a BeefyPayloadId,
-	) -> impl Iterator<Item = &Vec<u8>> + 'a {
+	) -> impl Iterator<Item = &'a Vec<u8>> + 'a {
 		self.0
 			.iter()
 			.filter_map(move |probe| if &probe.0 != id { return None } else { Some(&probe.1) })

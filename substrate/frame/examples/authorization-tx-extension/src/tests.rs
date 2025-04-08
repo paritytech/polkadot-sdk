@@ -1,19 +1,25 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 //! Tests for pallet-example-authorization-tx-extension.
 
@@ -24,7 +30,7 @@ use frame_support::{
 	pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
 use pallet_verify_signature::VerifySignature;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	generic::ExtensionVersion,
 	traits::{Applyable, Checkable, IdentityLookup, TransactionExtension},
@@ -36,7 +42,7 @@ use crate::{extensions::AuthorizeCoownership, mock::*, pallet_assets};
 #[test]
 fn create_asset_works() {
 	new_test_ext().execute_with(|| {
-		let alice_keyring = AccountKeyring::Alice;
+		let alice_keyring = Sr25519Keyring::Alice;
 		let alice_account = AccountId::from(alice_keyring.public());
 		// Simple call to create asset with Id `42`.
 		let create_asset_call =
@@ -99,9 +105,9 @@ fn create_asset_works() {
 #[test]
 fn create_coowned_asset_works() {
 	new_test_ext().execute_with(|| {
-		let alice_keyring = AccountKeyring::Alice;
-		let bob_keyring = AccountKeyring::Bob;
-		let charlie_keyring = AccountKeyring::Charlie;
+		let alice_keyring = Sr25519Keyring::Alice;
+		let bob_keyring = Sr25519Keyring::Bob;
+		let charlie_keyring = Sr25519Keyring::Charlie;
 		let alice_account = AccountId::from(alice_keyring.public());
 		let bob_account = AccountId::from(bob_keyring.public());
 		let charlie_account = AccountId::from(charlie_keyring.public());
@@ -189,9 +195,9 @@ fn create_coowned_asset_works() {
 #[test]
 fn inner_authorization_works() {
 	new_test_ext().execute_with(|| {
-		let alice_keyring = AccountKeyring::Alice;
-		let bob_keyring = AccountKeyring::Bob;
-		let charlie_keyring = AccountKeyring::Charlie;
+		let alice_keyring = Sr25519Keyring::Alice;
+		let bob_keyring = Sr25519Keyring::Bob;
+		let charlie_keyring = Sr25519Keyring::Charlie;
 		let charlie_account = AccountId::from(charlie_keyring.public());
 		// Simple call to create asset with Id `42`.
 		let create_asset_call =

@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 extern crate alloc;
 
@@ -37,20 +37,22 @@ pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessa
 pub use frame_support::{
 	assert_ok,
 	sp_runtime::{
-		traits::{Dispatchable, Header as HeaderT},
-		DispatchResult,
+		traits::{Convert, Dispatchable, Header as HeaderT, Zero},
+		Digest, DispatchResult,
 	},
 	traits::{
-		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
-		ProcessMessage, ProcessMessageError, ServiceQueues,
+		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnFinalize, OnIdle, OnInitialize,
+		OriginTrait, ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
 	weights::{Weight, WeightMeter},
 };
 pub use frame_system::{
-	pallet_prelude::BlockNumberFor, Config as SystemConfig, Pallet as SystemPallet,
+	limits::BlockWeights as BlockWeightsLimits, pallet_prelude::BlockNumberFor,
+	Config as SystemConfig, Pallet as SystemPallet,
 };
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
+pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_arithmetic::traits::Bounded;
 pub use sp_core::{
 	crypto::get_public_from_string_or_panic, parameter_types, sr25519, storage::Storage, Pair,
@@ -61,7 +63,9 @@ pub use sp_runtime::BoundedSlice;
 pub use sp_tracing;
 
 // Cumulus
-pub use cumulus_pallet_parachain_system::Pallet as ParachainSystemPallet;
+pub use cumulus_pallet_parachain_system::{
+	Call as ParachainSystemCall, Pallet as ParachainSystemPallet,
+};
 pub use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RelayBlockNumber, HeadData, HrmpChannelId},
 	AbridgedHrmpChannel, DmpMessageHandler, ParaId, PersistedValidationData, XcmpMessageHandler,
@@ -108,7 +112,6 @@ thread_local! {
 	/// Most recent `HeadData` of each parachain, encoded.
 	pub static LAST_HEAD: RefCell<HashMap<String, HashMap<u32, HeadData>>> = RefCell::new(HashMap::new());
 }
-
 pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
 	Origin: Chain + Clone,
@@ -264,6 +267,7 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
+	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
 
 	fn init();
 
@@ -599,6 +603,7 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
+					$( DigestProvider: $digest_provider:ty, )?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -639,11 +644,13 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
+				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
 				fn init() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{Chain, TestExt};
+
 					// Initialize the thread local variable
 					$crate::paste::paste! {
 						[<LOCAL_EXT_ $name:upper>].with(|v| *v.borrow_mut() = Self::build_new_ext($genesis));
@@ -657,7 +664,9 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt};
+					use $crate::{
+						Dispatchable, Chain, Convert, TestExt, Zero,
+					};
 
 					let para_id = Self::para_id().into();
 
@@ -677,22 +686,51 @@ macro_rules! decl_test_parachains {
 							.expect("network not initialized?")
 							.clone()
 						);
-						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
-						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumberFor<Self::Runtime>>>::on_initialize(block_number);
 
-						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
-							<Self as Chain>::RuntimeOrigin::none(),
-							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						// Initialze `System`.
+						let digest = <Self as Parachain>::DigestProvider::convert(block_number);
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
+
+						// Process `on_initialize` for all pallets except `System`.
+						let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
+
+						// Process parachain inherents:
+
+						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
+							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+						}.into();
+						$crate::assert_ok!(
+							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+
+						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
+							// We need to satisfy `pallet_timestamp::on_finalize`.
+							now: Zero::zero(),
+						}.into();
+						$crate::assert_ok!(
+							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 					});
 				}
 
 				fn finalize_block() {
-					use $crate::{Chain, Encode, Hooks, Network, Parachain, TestExt};
+					use $crate::{BlockWeightsLimits, Chain, OnFinalize, OnIdle, SystemConfig, TestExt, Weight};
 
 					Self::ext_wrapper(|| {
 						let block_number = <Self as Chain>::System::block_number();
-						<Self as Parachain>::ParachainSystem::on_finalize(block_number);
+
+						// Process `on_idle` for all pallets.
+						let weight = <Self as Chain>::System::block_weight();
+						let max_weight: Weight = <<<Self as Chain>::Runtime as SystemConfig>::BlockWeights as frame_support::traits::Get<BlockWeightsLimits>>::get().max_block;
+						let remaining_weight = max_weight.saturating_sub(weight.total());
+						if remaining_weight.all_gt(Weight::zero()) {
+							let _ = $runtime::AllPalletsWithSystem::on_idle(block_number, remaining_weight);
+						}
+
+						// Process `on_finalize` for all pallets except `System`.
+						$runtime::AllPalletsWithoutSystem::on_finalize(block_number);
 					});
 
 					Self::set_last_head();
@@ -700,7 +738,7 @@ macro_rules! decl_test_parachains {
 
 
 				fn set_last_head() {
-					use $crate::{Chain, Encode, HeadData, Network, Parachain, TestExt};
+					use $crate::{Chain, Encode, HeadData, TestExt};
 
 					let para_id = Self::para_id().into();
 
@@ -734,6 +772,8 @@ macro_rules! decl_test_parachains {
 			$crate::__impl_check_assertion!($name, N);
 		)+
 	};
+	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
+	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
 }
 
 #[macro_export]
@@ -1118,6 +1158,7 @@ macro_rules! decl_test_networks {
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
+					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
@@ -1149,7 +1190,7 @@ macro_rules! decl_test_networks {
 
 					$crate::ParachainInherentData {
 						validation_data: $crate::PersistedValidationData {
-							parent_head: Default::default(),
+							parent_head: parent_head_data.clone(),
 							relay_parent_number,
 							relay_parent_storage_root: relay_storage_root,
 							max_pov_size: Default::default(),

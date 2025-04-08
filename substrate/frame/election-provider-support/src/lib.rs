@@ -187,7 +187,7 @@ use sp_runtime::{
 };
 
 pub use bounds::DataProviderBounds;
-pub use codec::{Decode, Encode};
+pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 /// Re-export the solution generation macro.
 pub use frame_election_provider_solution_type::generate_solution_type;
 pub use frame_support::{traits::Get, weights::Weight, BoundedVec};

@@ -1,0 +1,35 @@
+[package]
+description = "Substrate client utilities for frame runtime functions calls."
+name = "sc-runtime-utilities"
+version = "0.1.0"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation = "https://docs.rs/sc-metadata"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { workspace = true, default-features = true }
+
+sc-executor = { workspace = true, default-features = true }
+sc-executor-common = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-wasm-interface = { workspace = true, default-features = true }
+
+thiserror = { workspace = true }
+
+[dev-dependencies]
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
+cumulus-test-runtime = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
+subxt = { workspace = true, features = ["native"] }

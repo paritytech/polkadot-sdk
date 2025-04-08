@@ -46,7 +46,7 @@ fn transfer_and_transact_in_same_xcm(
 		Transact { origin_kind: OriginKind::Xcm, call, fallback_max_weight: None },
 		ExpectTransactStatus(MaybeErrorCode::Success),
 		// since this is the last hop, we don't need to further use any assets previously
-		// reserved for fees (there are no further hops to cover transport fees for); we
+		// reserved for fees (there are no further hops to cover delivery fees for); we
 		// RefundSurplus to get back any unspent fees
 		RefundSurplus,
 		DepositAsset { assets: Wild(All), beneficiary },
@@ -56,7 +56,7 @@ fn transfer_and_transact_in_same_xcm(
 		destination,
 		remote_fees: Some(AssetTransferFilter::ReserveDeposit(Wild(All))),
 		preserve_origin: true,
-		assets: vec![],
+		assets: BoundedVec::new(),
 		remote_xcm: xcm_on_dest,
 	}]);
 	let xcm = Xcm::<()>(vec![
@@ -66,7 +66,9 @@ fn transfer_and_transact_in_same_xcm(
 			destination: asset_hub_location,
 			remote_fees: Some(AssetTransferFilter::ReserveWithdraw(fees_for_ah.into())),
 			preserve_origin: true,
-			assets: vec![AssetTransferFilter::ReserveWithdraw(usdt_to_ah_then_onward.into())],
+			assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+				usdt_to_ah_then_onward.into(),
+			)]),
 			remote_xcm: xcm_on_ah,
 		},
 	]);

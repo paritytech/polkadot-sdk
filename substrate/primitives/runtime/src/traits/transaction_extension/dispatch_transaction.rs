@@ -111,7 +111,7 @@ where
 			info,
 			len,
 			self.implicit()?,
-			&(extension_version, call),
+			&TxBaseImplication((extension_version, call)),
 			source,
 		) {
 			// After validation, some origin must have been authorized.
