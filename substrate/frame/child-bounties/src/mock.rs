@@ -34,8 +34,8 @@ use pallet_bounties::{BountyIndex, BountyStatus, PaymentState};
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill, Permill};
 
 type Block = frame_system::mocking::MockBlock<Test>;
-type AccountId = sp_core::U256; // must be at least 20 bytes long because of child-bounty account derivation.
-type Balance = u64;
+pub type AccountId = sp_core::U256; // must be at least 20 bytes long because of child-bounty account derivation.
+pub type Balance = u64;
 
 thread_local! {
 	pub static PAID: RefCell<BTreeMap<(AccountId, u32), u64>> = RefCell::new(BTreeMap::new());
@@ -44,6 +44,8 @@ thread_local! {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub static TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
+	#[cfg(feature = "runtime-benchmarks")]
+	pub static TEST_MAX_BOUNTY_UPDATE_PERIOD: RefCell<bool> = RefCell::new(false);
 }
 
 pub struct TestBountiesPay;
@@ -146,13 +148,13 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
+
 parameter_types! {
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const SpendLimit: Balance = u64::MAX;
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
-
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
@@ -175,12 +177,12 @@ impl pallet_treasury::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
+
 parameter_types! {
 	// This will be 50% of the bounty fee.
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMax: Balance = 1_000;
 	pub const CuratorDepositMin: Balance = 3;
-
 }
 impl pallet_bounties::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -201,9 +203,13 @@ impl pallet_bounties::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
+
+parameter_types! {
+	pub static MaxActiveChildBountyCount: u32 = 2;
+}
 impl pallet_child_bounties::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type MaxActiveChildBountyCount = ConstU32<2>;
+	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
@@ -220,19 +226,60 @@ pub fn go_to_block(n: u64) {
 	<Treasury as OnInitialize<u64>>::on_initialize(n);
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		// Total issuance will be 200 with treasury account initialized at ED.
-		balances: vec![(account_id(0), 100), (account_id(1), 98), (account_id(2), 1)],
-		..Default::default()
+pub struct ExtBuilder {}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		#[cfg(feature = "runtime-benchmarks")]
+		TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow_mut() = false);
+		#[cfg(feature = "runtime-benchmarks")]
+		TEST_MAX_BOUNTY_UPDATE_PERIOD.with(|i| *i.borrow_mut() = false);
+		Self {}
 	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-	pallet_treasury::GenesisConfig::<Test>::default()
-		.assimilate_storage(&mut t)
-		.unwrap();
-	t.into()
+}
+
+impl ExtBuilder {
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn spend_origin_succesful_origin_err(self) -> Self {
+		TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow_mut() = true);
+		self
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn max_bounty_update_period(self) -> Self {
+		TEST_MAX_BOUNTY_UPDATE_PERIOD.with(|i| *i.borrow_mut() = true);
+		self
+	}
+
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+			system: frame_system::GenesisConfig::default(),
+			balances: pallet_balances::GenesisConfig {
+				balances: vec![(account_id(0), 100), (account_id(1), 98), (account_id(2), 1)],
+				..Default::default()
+			},
+			treasury: Default::default(),
+		}
+		.build_storage()
+		.unwrap()
+		.into();
+		ext.execute_with(|| {
+			<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(1);
+
+			#[cfg(feature = "runtime-benchmarks")]
+			if TEST_MAX_BOUNTY_UPDATE_PERIOD.with(|v| *v.borrow()) {
+				use crate::mock::*;
+				crate::mock::BountyUpdatePeriod::set(SystemBlockNumberFor::<Test>::max_value());
+			}
+		});
+		ext
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+		})
+	}
 }
 
 pub fn last_event() -> ChildBountiesEvent<Test> {

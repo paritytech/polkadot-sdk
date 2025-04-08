@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO: update docs.
 //! # Child Bounties Pallet ( `pallet-child-bounties` )
 //!
 //! ## Child Bounty
@@ -197,7 +196,7 @@ pub mod pallet {
 			index: BountyIndex,
 			child_index: BountyIndex,
 			asset_kind: T::AssetKind,
-			asset_payout: BalanceOf<T, I>,
+			value: BalanceOf<T, I>,
 			beneficiary: <T as pallet_treasury::Config<I>>::Beneficiary,
 		},
 		/// A child-bounty is cancelled.
@@ -312,7 +311,7 @@ pub mod pallet {
 				BountiesError::<T, I>::InvalidValue
 			);
 			ensure!(
-				ParentChildBounties::<T, I>::get(parent_bounty_id) <=
+				ParentChildBounties::<T, I>::get(parent_bounty_id) <
 					T::MaxActiveChildBountyCount::get() as u32,
 				Error::<T, I>::TooManyChildBounties,
 			);
@@ -1046,6 +1045,7 @@ pub mod pallet {
 			#[pallet::compact] child_bounty_id: BountyIndex,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
+
 			ChildBounties::<T, I>::try_mutate_exists(
 				parent_bounty_id,
 				child_bounty_id,
@@ -1137,7 +1137,7 @@ pub mod pallet {
 									index: parent_bounty_id,
 									child_index: child_bounty_id,
 									asset_kind: parent_bounty.asset_kind.clone(),
-									asset_payout: payout,
+									value: payout,
 									beneficiary: beneficiary.0.clone(),
 								});
 
@@ -1284,14 +1284,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn create_child_bounty(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: BountyIndex,
-		child_bounty_asset_kind: T::AssetKind,
+		asset_kind: T::AssetKind,
 		child_bounty_value: BalanceOf<T, I>,
 		description: BoundedVec<u8, T::MaximumReasonLength>,
 		payment_status: PaymentState<PaymentIdOf<T, I>>,
 	) {
 		let child_bounty = ChildBounty {
 			parent_bounty: parent_bounty_id,
-			asset_kind: child_bounty_asset_kind,
+			asset_kind,
 			value: child_bounty_value,
 			fee: 0u32.into(),
 			curator_deposit: 0u32.into(),

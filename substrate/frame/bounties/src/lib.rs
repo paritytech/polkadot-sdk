@@ -604,7 +604,6 @@ pub mod pallet {
 					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
 				ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 
-				// Tiago: maybe we should come up with a different error
 				if bounty.status != BountyStatus::Funded {
 					return Err(Error::<T, I>::UnexpectedStatus.into());
 				}

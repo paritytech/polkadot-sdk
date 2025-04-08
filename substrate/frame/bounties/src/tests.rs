@@ -733,6 +733,7 @@ fn assign_curator_works() {
 				status: BountyStatus::Active { curator, update_due: 22, curator_stash: proposer },
 			}
 		);
+		assert_eq!(last_event(), BountiesEvent::CuratorAccepted { bounty_id, curator });
 		assert_eq!(Balances::free_balance(&curator), 10 - expected_deposit);
 		assert_eq!(Balances::reserved_balance(&curator), expected_deposit);
 	});
@@ -1235,6 +1236,7 @@ fn extend_expiry() {
 		assert_ok!(Bounties::extend_bounty_expiry(RuntimeOrigin::signed(curator), bounty_id, Vec::new()));
 
 		// Then
+		assert_eq!(last_event(), BountiesEvent::BountyExtended { index: bounty_id });
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
 			Bounty {
