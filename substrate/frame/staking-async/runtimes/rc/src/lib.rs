@@ -113,7 +113,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent, Permill,
 };
-use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
+use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -571,8 +571,8 @@ impl pallet_session::Config for Runtime {
 
 impl session_historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = ();
-	type FullIdentificationOf = ah_client::NullIdentity;
+	type FullIdentification = ah_client::ExistenceOrLegacyExposure<AccountId, Balance>;
+	type FullIdentificationOf = ah_client::ExistenceOrLegacyExposureOf<Self>;
 }
 
 pub struct AssetHubLocation;
@@ -667,6 +667,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 
 impl pallet_staking_async_ah_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CurrencyBalance = Balance;
 	type AssetHubOrigin =
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
 	type AdminOrigin = EnsureRoot<AccountId>;

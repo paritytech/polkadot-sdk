@@ -63,8 +63,10 @@ use sp_staking::{
 	SessionIndex,
 };
 
+/// Re-export the `FullIdentification` type from pallet-staking that should be used as in a rc
+/// runtime.
+pub use pallet_staking::{ExistenceOrLegacyExposure, ExistenceOrLegacyExposureOf};
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
-use pallet_staking::ExistenceOrLegacyExposure;
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";
 
