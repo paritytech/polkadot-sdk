@@ -42,7 +42,6 @@ pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
-pallet-staking-async-ah-client = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-npos-elections = { workspace = true, default-features = true }
@@ -63,7 +62,6 @@ std = [
 	"pallet-balances/std",
 	"pallet-session/std",
 	"pallet-timestamp/std",
-	"pallet-staking-async-ah-client/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-application-crypto/std",
@@ -82,7 +80,6 @@ runtime-benchmarks = [
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-staking-async-ah-client/runtime-benchmarks",
 	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -96,6 +93,5 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-timestamp/try-runtime",
-	"pallet-staking-async-ah-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

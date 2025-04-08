@@ -476,7 +476,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config + pallet_staking::Config> historical::SessionManager<T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> for Pallet<T> {
+	impl<T: Config> historical::SessionManager<T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> for Pallet<T> {
 		fn new_session(
 			new_index: sp_staking::SessionIndex,
 		) -> Option<Vec<(<T as frame_system::Config>::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>)>> {
