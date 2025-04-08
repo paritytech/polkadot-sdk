@@ -15,11 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::utils::apply_still_bind;
 use syn::spanned::Spanned;
 
-/// Derive Clone but do not bound any generic.
+/// Derive Clone but do not bound any generic. Optionally select which generics will still be bound
+/// with `still_bind(...)`.
 pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let input = syn::parse_macro_input!(input as syn::DeriveInput);
+	let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
+
+	if let Err(e) = apply_still_bind(&mut input, quote::quote!(::core::clone::Clone)) {
+		return e.to_compile_error().into();
+	}
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();

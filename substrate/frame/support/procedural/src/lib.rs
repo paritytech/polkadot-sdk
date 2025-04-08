@@ -34,6 +34,7 @@ mod pallet;
 mod pallet_error;
 mod runtime;
 mod storage_alias;
+mod stored;
 mod transactional;
 mod tt_macro;
 
@@ -300,18 +301,29 @@ pub fn require_transactional(attr: TokenStream, input: TokenStream) -> TokenStre
 		.unwrap_or_else(|e| e.to_compile_error().into())
 }
 
-/// Derive [`Clone`] but do not bound any generic.
+///
+/// ---
+///
+/// Documentation for this macro can be found at `frame_support::stored`.
+#[proc_macro_attribute]
+pub fn stored(attr: TokenStream, input: TokenStream) -> TokenStream {
+	stored::stored(attr, input)
+}
+
+/// Derive [`Clone`] but do not bound any generic. Optionally select which generics will still be
+/// bound with `still_bind(...)`.
 ///
 /// Docs at `frame_support::CloneNoBound`.
-#[proc_macro_derive(CloneNoBound)]
+#[proc_macro_derive(CloneNoBound, attributes(still_bind))]
 pub fn derive_clone_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::clone::derive_clone_no_bound(input)
 }
 
-/// Derive [`Debug`] but do not bound any generics.
+/// Derive [`Debug`] but do not bound any generics. Optionally select which generics will still be
+/// bound with `still_bind(...)`.
 ///
 /// Docs at `frame_support::DebugNoBound`.
-#[proc_macro_derive(DebugNoBound)]
+#[proc_macro_derive(DebugNoBound, attributes(still_bind))]
 pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::debug::derive_debug_no_bound(input)
 }
@@ -319,85 +331,54 @@ pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 /// Derive [`Debug`], if `std` is enabled it uses `frame_support::DebugNoBound`, if `std` is not
 /// enabled it just returns `"<wasm:stripped>"`.
 /// This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.
-#[proc_macro_derive(RuntimeDebugNoBound)]
+///
+/// Optionally select which generics will still be bound with `still_bind(...)`.
+#[proc_macro_derive(RuntimeDebugNoBound, attributes(still_bind))]
 pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
-	let try_runtime_or_std_impl: proc_macro2::TokenStream =
-		no_bound::debug::derive_debug_no_bound(input.clone()).into();
-
-	let stripped_impl = {
-		let input = syn::parse_macro_input!(input as syn::DeriveInput);
-
-		let name = &input.ident;
-		let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-
-		quote::quote!(
-			const _: () = {
-				impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
-					fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> core::fmt::Result {
-						fmt.write_str("<wasm:stripped>")
-					}
-				}
-			};
-		)
-	};
-
-	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
-		Ok(frame_support) => frame_support,
-		Err(e) => return e.to_compile_error().into(),
-	};
-
-	quote::quote!(
-		#frame_support::try_runtime_or_std_enabled! {
-			#try_runtime_or_std_impl
-		}
-		#frame_support::try_runtime_and_std_not_enabled! {
-			#stripped_impl
-		}
-	)
-	.into()
+	no_bound::runtime_debug::derive_runtime_debug_no_bound(input)
 }
 
-/// Derive [`PartialEq`] but do not bound any generic.
+/// Derive [`PartialEq`] but do not bound any generic. Optionally select which generics will still
+/// be bound with `still_bind(...)`.
 ///
 /// Docs at `frame_support::PartialEqNoBound`.
-#[proc_macro_derive(PartialEqNoBound)]
+#[proc_macro_derive(PartialEqNoBound, attributes(still_bind))]
 pub fn derive_partial_eq_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::partial_eq::derive_partial_eq_no_bound(input)
 }
 
-/// DeriveEq but do no bound any generic.
+/// Derive [`Eq`] but do no bound any generic. Optionally select which generics will still be bound
+/// with `still_bind(...)`.
 ///
 /// Docs at `frame_support::EqNoBound`.
-#[proc_macro_derive(EqNoBound)]
+#[proc_macro_derive(EqNoBound, attributes(still_bind))]
 pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
-	let input = syn::parse_macro_input!(input as syn::DeriveInput);
-
-	let name = &input.ident;
-	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-
-	quote::quote_spanned!(name.span() =>
-		const _: () = {
-			impl #impl_generics ::core::cmp::Eq for #name #ty_generics #where_clause {}
-		};
-	)
-	.into()
+	no_bound::eq::derive_eq_no_bound(input)
 }
 
-/// Derive [`PartialOrd`] but do not bound any generic. Docs are at
-/// `frame_support::PartialOrdNoBound`.
-#[proc_macro_derive(PartialOrdNoBound)]
+/// Derive [`PartialOrd`] but do not bound any generic.  Optionally select which generics will still
+/// be bound with `still_bind(...)`.
+///
+/// Docs at `frame_support::PartialOrdNoBound`.
+#[proc_macro_derive(PartialOrdNoBound, attributes(still_bind))]
 pub fn derive_partial_ord_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::partial_ord::derive_partial_ord_no_bound(input)
 }
 
-/// Derive [`Ord`] but do no bound any generic. Docs are at `frame_support::OrdNoBound`.
-#[proc_macro_derive(OrdNoBound)]
+/// Derive [`Ord`] but do no bound any generic. Optionally select which generics will still be bound
+/// with `still_bind(...)`.
+///
+/// Docs are at `frame_support::OrdNoBound`.
+#[proc_macro_derive(OrdNoBound, attributes(still_bind))]
 pub fn derive_ord_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::ord::derive_ord_no_bound(input)
 }
 
-/// derive `Default` but do no bound any generic. Docs are at `frame_support::DefaultNoBound`.
-#[proc_macro_derive(DefaultNoBound, attributes(default))]
+/// Derive `Default` but do no bound any generic. Optionally select which generics will still be
+/// bound with `still_bind(...)`.
+///
+/// Docs are at `frame_support::DefaultNoBound`.
+#[proc_macro_derive(DefaultNoBound, attributes(default, still_bind))]
 pub fn derive_default_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::default::derive_default_no_bound(input)
 }

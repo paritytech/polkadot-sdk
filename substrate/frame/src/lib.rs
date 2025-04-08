@@ -203,7 +203,7 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-		defensive, defensive_assert,
+		defensive, defensive_assert, stored,
 		traits::{
 			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
 			Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll,
@@ -566,7 +566,7 @@ pub mod token {
 ///
 /// This is already part of the [`prelude`].
 pub mod derive {
-	pub use codec::{Decode, Encode};
+	pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 	pub use core::fmt::Debug;
 	pub use frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,

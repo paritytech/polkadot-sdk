@@ -18,11 +18,7 @@
 //! Types used in the Fast Unstake pallet.
 
 use crate::Config;
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	traits::Currency, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-};
-use scale_info::TypeInfo;
+use frame_support::{traits::Currency, BoundedVec};
 use sp_staking::{EraIndex, StakingInterface};
 
 /// Maximum number of eras that we might check for a single staker.
@@ -45,17 +41,7 @@ pub type BalanceOf<T> =
 ///
 /// This is stored in [`crate::Head`] storage item and points to the current unstake request that is
 /// being processed.
-#[derive(
-	Encode,
-	Decode,
-	EqNoBound,
-	PartialEqNoBound,
-	CloneNoBound,
-	TypeInfo,
-	RuntimeDebugNoBound,
-	MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(T))]
+#[frame_support::stored(skip(T))]
 pub struct UnstakeRequest<T: Config> {
 	/// This list of stashes are being processed in this request, and their corresponding deposit.
 	pub stashes: BoundedVec<(T::AccountId, BalanceOf<T>), T::BatchSize>,
