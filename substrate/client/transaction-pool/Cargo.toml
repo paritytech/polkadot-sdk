@@ -15,6 +15,10 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "basics"
+harness = false
+
 [dependencies]
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
@@ -56,7 +60,3 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
 txtesttool = { workspace = true }
 zombienet-sdk = { workspace = true }
-
-[[bench]]
-name = "basics"
-harness = false

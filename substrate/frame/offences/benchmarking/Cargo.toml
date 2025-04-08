@@ -62,7 +62,6 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 ]
-
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
