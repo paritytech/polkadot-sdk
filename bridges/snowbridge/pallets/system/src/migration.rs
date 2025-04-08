@@ -86,9 +86,9 @@ pub mod v1 {
 	use codec::{Decode, Encode};
 
 	/// Halves the gas price.
-	pub struct UncheckedGasPriceMigration<T>(PhantomData<T>);
+	pub struct FeePerGasMigration<T>(PhantomData<T>);
 
-	impl<T> UncheckedOnRuntimeUpgrade for UncheckedGasPriceMigration<T>
+	impl<T> UncheckedOnRuntimeUpgrade for FeePerGasMigration<T>
 	where
 		T: Config,
 	{
@@ -150,10 +150,10 @@ pub mod v1 {
 }
 
 /// Run the migration of the gas price and increment the pallet version so it cannot be re-run.
-pub type GasPriceMigrationV0ToV1<T> = VersionedMigration<
+pub type FeePerGasMigrationV0ToV1<T> = VersionedMigration<
 	0,
 	1,
-	v1::UncheckedGasPriceMigration<T>,
+	v1::FeePerGasMigration<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
