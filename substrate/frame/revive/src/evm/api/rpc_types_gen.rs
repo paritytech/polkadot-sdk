@@ -839,7 +839,7 @@ pub struct TransactionLegacySigned {
 	pub v: U256,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct FeeHistoryResult {
 	/// Lowest number block of the returned range.

@@ -134,9 +134,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Extract and insert receipts from the given block.
-	pub async fn insert_block_receipts(&self, block: &SubstrateBlock) -> Result<(), ClientError> {
+	pub async fn insert_block_receipts(
+		&self,
+		block: &SubstrateBlock,
+	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		let receipts = self.receipts_from_block(block).await?;
-		self.insert(block, &receipts).await
+		self.insert(block, &receipts).await?;
+		return Ok(receipts);
 	}
 
 	/// Insert receipts into the provider.

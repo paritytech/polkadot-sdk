@@ -42,7 +42,7 @@ impl From<TransactionSigned> for TransactionUnsigned {
 
 impl TransactionInfo {
 	/// Create a new [`TransactionInfo`] from a receipt and a signed transaction.
-	pub fn new(receipt: ReceiptInfo, transaction_signed: TransactionSigned) -> Self {
+	pub fn new(receipt: &ReceiptInfo, transaction_signed: TransactionSigned) -> Self {
 		Self {
 			block_hash: receipt.block_hash,
 			block_number: receipt.block_number,

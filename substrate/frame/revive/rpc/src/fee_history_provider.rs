@@ -9,13 +9,13 @@ use sp_core::U256;
 use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
 
-const MAX_BLOCK_COUNT: u32 = 1024;
+const CACHE_SIZE: u32 = 1024;
 
 #[derive(Default, Clone)]
 pub struct FeeHistoryCacheItem {
-	pub base_fee: U256,
+	pub base_fee: u64,
 	pub gas_used_ratio: f64,
-	pub rewards: Vec<U256>,
+	pub rewards: Vec<u64>,
 }
 
 #[derive(Default, Clone)]
@@ -25,11 +25,10 @@ pub struct FeeHistoryProvider {
 
 impl FeeHistoryProvider {
 	pub async fn update_fee_history(&self, block: &Block, receipts: &[ReceiptInfo]) {
-		let block_number: SubstrateBlockNumber =
-			block.number.try_into().expect("Block number is always valid");
-		let base_fee = block.base_fee_per_gas.unwrap_or_default();
-		let gas_used_ratio = (block.gas_used.as_u128() as f64) / (block.gas_limit.as_u128() as f64);
-
+		// Evenly spaced percentile list from 0.0 to 100.0 with a 0.5 resolution.
+		// This means we cache 200 percentile points.
+		// Later in request handling we will approximate by rounding percentiles that
+		// fall in between with `(round(n*2)/2)`.
 		let reward_percentiles: Vec<f64> = {
 			let mut percentile: f64 = 0.0;
 			(0..201)
@@ -40,18 +39,46 @@ impl FeeHistoryProvider {
 				})
 				.collect()
 		};
+		let block_number: SubstrateBlockNumber =
+			block.number.try_into().expect("Block number is always valid");
 
-		receipts.iter().map(|receipt| {
-			let gas_used = receipt.gas_used;
-			let reward = receipt.gas_price.saturating_sub(base_fee);
+		let base_fee = block.base_fee_per_gas.unwrap_or_default().as_u64();
+		let gas_used = block.gas_used.as_u64();
+		let gas_used_ratio = (gas_used as f64) / (block.gas_limit.as_u64() as f64);
+		let mut result = FeeHistoryCacheItem { base_fee, gas_used_ratio, rewards: vec![] };
 
-			return (gas_used, reward);
-		});
+		let mut receipts = receipts
+			.iter()
+			.map(|receipt| {
+				let gas_used = receipt.gas_used.as_u64();
+				let effective_reward =
+					receipt.effective_gas_price.as_u64().saturating_sub(base_fee);
+				return (gas_used, effective_reward);
+			})
+			.collect::<Vec<_>>();
+		receipts.sort_by(|(_, a), (_, b)| a.cmp(&b));
 
-		let mut result = FeeHistoryCacheItem::default();
-		let gas_used = block.gas_used;
+		// Calculate percentile rewards.
+		result.rewards = reward_percentiles
+			.into_iter()
+			.filter_map(|p| {
+				let target_gas = (p * gas_used as f64 / 100f64) as u64;
+				let mut sum_gas = 0u64;
+				for (gas_used, reward) in &receipts {
+					sum_gas += gas_used;
+					if target_gas <= sum_gas {
+						return Some(*reward);
+					}
+				}
+				None
+			})
+			.collect();
 
-		self.fee_history_cache.write().await.insert(block_number, result);
+		let mut cache = self.fee_history_cache.write().await;
+		if cache.len() >= CACHE_SIZE as usize {
+			cache.pop_first();
+		}
+		cache.insert(block_number, result);
 	}
 
 	pub async fn fee_history(
@@ -60,7 +87,7 @@ impl FeeHistoryProvider {
 		highest: SubstrateBlockNumber,
 		reward_percentiles: Option<Vec<f64>>,
 	) -> Result<FeeHistoryResult, ClientError> {
-		let block_count = block_count.min(MAX_BLOCK_COUNT);
+		let block_count = block_count.min(CACHE_SIZE);
 
 		let cache = self.fee_history_cache.read().await;
 		let Some(lowest_in_cache) = cache.first_key_value().map(|(k, _)| *k) else {
@@ -83,7 +110,7 @@ impl FeeHistoryProvider {
 
 		let mut rewards = &mut response.reward;
 		// Iterate over the requested block range.
-		for n in lowest..highest + 1 {
+		for n in lowest..=highest {
 			if let Some(block) = cache.get(&n) {
 				response.base_fee_per_gas.push(U256::from(block.base_fee));
 				response.gas_used_ratio.push(block.gas_used_ratio);
@@ -114,6 +141,58 @@ impl FeeHistoryProvider {
 			}
 		}
 
+		// Next block base fee, use constant value for now
+		let base_fee = cache
+			.last_key_value()
+			.map(|(_, block)| U256::from(block.base_fee))
+			.unwrap_or_default();
+		response.base_fee_per_gas.push(base_fee);
 		Ok(response)
 	}
+}
+
+#[tokio::test]
+async fn test_update_fee_history() {
+	// Create a sample block with rounded numbers
+	let block = Block {
+		number: U256::from(200u64),
+		base_fee_per_gas: Some(U256::from(1000u64)),
+		gas_used: U256::from(600u64),
+		gas_limit: U256::from(1200u64),
+		..Default::default()
+	};
+
+	// Create three sample receipts with rounded numbers
+	let receipts = vec![
+		ReceiptInfo {
+			gas_used: U256::from(200u64),
+			effective_gas_price: U256::from(1200u64),
+			..Default::default()
+		},
+		ReceiptInfo {
+			gas_used: U256::from(200u64),
+			effective_gas_price: U256::from(1100u64),
+			..Default::default()
+		},
+		ReceiptInfo {
+			gas_used: U256::from(200u64),
+			effective_gas_price: U256::from(1050u64),
+			..Default::default()
+		},
+	];
+
+	// Create the FeeHistoryProvider
+	let provider = FeeHistoryProvider { fee_history_cache: Arc::new(RwLock::new(BTreeMap::new())) };
+	provider.update_fee_history(&block, &receipts).await;
+
+	// Update fee history with the sample block and receipts
+	let fee_history_result =
+		provider.fee_history(1, 200, Some(vec![0.0f64, 50.0, 100.0])).await.unwrap();
+	let expected_result = FeeHistoryResult {
+		oldest_block: U256::from(200),
+		base_fee_per_gas: vec![U256::from(1000)],
+		gas_used_ratio: vec![0.5f64],
+		reward: vec![vec![U256::from(50), U256::from(100), U256::from(200)]],
+	};
+	assert_eq!(fee_history_result, expected_result);
 }
