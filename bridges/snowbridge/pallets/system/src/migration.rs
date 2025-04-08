@@ -3,7 +3,10 @@
 //! Governance API for controlling the Ethereum side of the bridge
 use super::*;
 use frame_support::{
-	migrations::VersionedMigration, pallet_prelude::*, traits::OnRuntimeUpgrade, weights::Weight,
+	migrations::VersionedMigration,
+	pallet_prelude::*,
+	traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
+	weights::Weight,
 };
 use log;
 use sp_std::marker::PhantomData;
@@ -81,14 +84,12 @@ pub mod v1 {
 	/// Halves the gas price.
 	pub struct UncheckedGasPriceMigration<T>(PhantomData<T>);
 
-	impl<T> OnRuntimeUpgrade for UncheckedGasPriceMigration<T>
+	impl<T> UncheckedOnRuntimeUpgrade for UncheckedGasPriceMigration<T>
 	where
 		T: Config,
 	{
 		fn on_runtime_upgrade() -> Weight {
-
 			let pricing_parameters = Pallet::<T>::parameters();
-			pricing_parameters.
 			// if !Pallet::<T>::is_initialized() {
 			// 	Pallet::<T>::initialize(
 			// 		BridgeHubParaId::get().into(),
@@ -110,7 +111,7 @@ pub mod v1 {
 
 			log::info!(
 				target: LOG_TARGET,
-				"Gas migrated."
+				"Gas migrated.",
 			);
 			T::DbWeight::get().reads(0)
 		}
