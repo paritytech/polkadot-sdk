@@ -1499,7 +1499,7 @@ fn approved_peer_ump_signal() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 					peers,
-					Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
