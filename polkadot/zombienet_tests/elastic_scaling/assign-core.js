@@ -1,1 +1,0 @@
-../assign-core.js

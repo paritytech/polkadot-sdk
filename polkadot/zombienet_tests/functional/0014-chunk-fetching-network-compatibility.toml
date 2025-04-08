@@ -42,7 +42,8 @@ chain = "glutton-westend-local-{{id}}"
 
     [parachains.collator]
     name = "collator"
-    image = "{{CUMULUS_IMAGE}}"
+    # Use an old image that does not send out v2 receipts, as the old validators will still check the collator signatures.
+    image = "docker.io/paritypr/polkadot-parachain-debug:master-bde0bbe5"
     args = ["-lparachain=debug"]
 
 {% endfor %}

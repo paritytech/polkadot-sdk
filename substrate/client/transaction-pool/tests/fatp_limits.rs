@@ -29,7 +29,7 @@ use sc_transaction_pool_api::{
 	error::Error as TxPoolError, MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
 use std::thread::sleep;
-use substrate_test_runtime_client::AccountKeyring::*;
+use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 
 #[test]
@@ -377,11 +377,10 @@ fn fatp_limits_watcher_view_can_drop_transcation() {
 	assert_eq!(xt0_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped,]);
 
 	assert_ready_iterator!(header01.hash(), pool, [xt1, xt2]);
+	let xt3_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
 
 	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
 	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header02.hash())));
-
-	let xt3_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
 
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(2).collect::<Vec<_>>();
 	assert_eq!(xt1_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);

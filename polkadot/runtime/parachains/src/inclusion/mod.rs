@@ -33,7 +33,7 @@ use alloc::{
 	vec::Vec,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::fmt;
 use frame_support::{
 	defensive,
@@ -216,7 +216,17 @@ impl QueueFootprinter for () {
 ///
 /// Can be extended to serve further use-cases besides just UMP. Is stored in storage, so any change
 /// to existing values will require a migration.
-#[derive(Encode, Decode, Clone, MaxEncodedLen, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	MaxEncodedLen,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub enum AggregateMessageOrigin {
 	/// Inbound upward message.
 	#[codec(index = 0)]
@@ -227,7 +237,17 @@ pub enum AggregateMessageOrigin {
 ///
 /// It is written in verbose form since future variants like `Here` and `Bridged` are already
 /// foreseeable.
-#[derive(Encode, Decode, Clone, MaxEncodedLen, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	MaxEncodedLen,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub enum UmpQueueId {
 	/// The message originated from this parachain.
 	#[codec(index = 0)]
@@ -608,7 +628,6 @@ impl<T: Config> Pallet<T> {
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
-		core_index_enabled: bool,
 	) -> Result<
 		Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
 		DispatchError,
@@ -668,12 +687,8 @@ impl<T: Config> Pallet<T> {
 					group_validators(group_idx).ok_or_else(|| Error::<T>::InvalidGroupIndex)?;
 
 				// Check backing vote count and validity.
-				let (backers, backer_idx_and_attestation) = Self::check_backing_votes(
-					candidate,
-					&validators,
-					group_vals,
-					core_index_enabled,
-				)?;
+				let (backers, backer_idx_and_attestation) =
+					Self::check_backing_votes(candidate, &validators, group_vals)?;
 
 				// Found a valid candidate.
 				latest_head_data = candidate.candidate().commitments.head_data.clone();
@@ -740,7 +755,6 @@ impl<T: Config> Pallet<T> {
 		backed_candidate: &BackedCandidate<T::Hash>,
 		validators: &[ValidatorId],
 		group_vals: Vec<ValidatorIndex>,
-		core_index_enabled: bool,
 	) -> Result<(BitVec<u8, BitOrderLsb0>, Vec<(ValidatorIndex, ValidityAttestation)>), Error<T>> {
 		let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
 
@@ -750,8 +764,7 @@ impl<T: Config> Pallet<T> {
 			session_index: shared::CurrentSessionIndex::<T>::get(),
 		};
 
-		let (validator_indices, _) =
-			backed_candidate.validator_indices_and_core_index(core_index_enabled);
+		let (validator_indices, _) = backed_candidate.validator_indices_and_core_index();
 
 		// check the signatures in the backing and that it is a majority.
 		let maybe_amount_validated = polkadot_primitives::check_candidate_backing(

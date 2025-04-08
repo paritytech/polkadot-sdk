@@ -355,12 +355,12 @@ impl<T: Config> HandleReports<T> for () {
 }
 
 pub trait WeightInfo {
-	fn report_dispute_lost(validator_count: ValidatorSetCount) -> Weight;
+	fn report_dispute_lost_unsigned(validator_count: ValidatorSetCount) -> Weight;
 }
 
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
-	fn report_dispute_lost(_validator_count: ValidatorSetCount) -> Weight {
+	fn report_dispute_lost_unsigned(_validator_count: ValidatorSetCount) -> Weight {
 		Weight::zero()
 	}
 }
@@ -445,7 +445,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::report_dispute_lost(
+		#[pallet::weight(<T as Config>::WeightInfo::report_dispute_lost_unsigned(
 			key_owner_proof.validator_count()
 		))]
 		pub fn report_dispute_lost_unsigned(

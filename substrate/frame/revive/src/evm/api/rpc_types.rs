@@ -121,6 +121,28 @@ fn m3_2048(bloom: &mut [u8; 256], bytes: &[u8]) {
 }
 
 #[test]
+fn can_deserialize_input_or_data_field_from_generic_transaction() {
+	let cases = [
+		("with input", r#"{"input": "0x01"}"#),
+		("with data", r#"{"data": "0x01"}"#),
+		("with both", r#"{"data": "0x01", "input": "0x01"}"#),
+	];
+
+	for (name, json) in cases {
+		let tx = serde_json::from_str::<GenericTransaction>(json).unwrap();
+		assert_eq!(tx.input.to_vec(), vec![1u8], "{}", name);
+	}
+
+	let err = serde_json::from_str::<GenericTransaction>(r#"{"data": "0x02", "input": "0x01"}"#)
+		.unwrap_err();
+	assert!(
+		err.to_string().starts_with(
+		"Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data"
+		)
+	);
+}
+
+#[test]
 fn logs_bloom_works() {
 	let receipt: ReceiptInfo = serde_json::from_str(
 		r#"
@@ -175,7 +197,7 @@ impl GenericTransaction {
 				from,
 				r#type: Some(tx.r#type.as_byte()),
 				chain_id: tx.chain_id,
-				input: Some(tx.input),
+				input: tx.input.into(),
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
 				to: tx.to,
@@ -187,12 +209,16 @@ impl GenericTransaction {
 				from,
 				r#type: Some(tx.r#type.as_byte()),
 				chain_id: Some(tx.chain_id),
-				input: Some(tx.input),
+				input: tx.input.into(),
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
 				to: Some(tx.to),
 				gas: Some(tx.gas),
-				gas_price: Some(tx.max_fee_per_blob_gas),
+				gas_price: Some(
+					U256::from(crate::GAS_PRICE)
+						.saturating_add(tx.max_priority_fee_per_gas)
+						.max(tx.max_fee_per_blob_gas),
+				),
 				access_list: Some(tx.access_list),
 				blob_versioned_hashes: tx.blob_versioned_hashes,
 				max_fee_per_blob_gas: Some(tx.max_fee_per_blob_gas),
@@ -204,12 +230,16 @@ impl GenericTransaction {
 				from,
 				r#type: Some(tx.r#type.as_byte()),
 				chain_id: Some(tx.chain_id),
-				input: Some(tx.input),
+				input: tx.input.into(),
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
 				to: tx.to,
 				gas: Some(tx.gas),
-				gas_price: Some(tx.gas_price),
+				gas_price: Some(
+					U256::from(crate::GAS_PRICE)
+						.saturating_add(tx.max_priority_fee_per_gas)
+						.max(tx.max_fee_per_gas),
+				),
 				access_list: Some(tx.access_list),
 				max_fee_per_gas: Some(tx.max_fee_per_gas),
 				max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
@@ -219,7 +249,7 @@ impl GenericTransaction {
 				from,
 				r#type: Some(tx.r#type.as_byte()),
 				chain_id: Some(tx.chain_id),
-				input: Some(tx.input),
+				input: tx.input.into(),
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
 				to: tx.to,
@@ -237,7 +267,7 @@ impl GenericTransaction {
 			TYPE_LEGACY => Ok(TransactionLegacyUnsigned {
 				r#type: TypeLegacy {},
 				chain_id: self.chain_id,
-				input: self.input.unwrap_or_default(),
+				input: self.input.to_bytes(),
 				nonce: self.nonce.unwrap_or_default(),
 				value: self.value.unwrap_or_default(),
 				to: self.to,
@@ -248,7 +278,7 @@ impl GenericTransaction {
 			TYPE_EIP1559 => Ok(Transaction1559Unsigned {
 				r#type: TypeEip1559 {},
 				chain_id: self.chain_id.unwrap_or_default(),
-				input: self.input.unwrap_or_default(),
+				input: self.input.to_bytes(),
 				nonce: self.nonce.unwrap_or_default(),
 				value: self.value.unwrap_or_default(),
 				to: self.to,
@@ -262,7 +292,7 @@ impl GenericTransaction {
 			TYPE_EIP2930 => Ok(Transaction2930Unsigned {
 				r#type: TypeEip2930 {},
 				chain_id: self.chain_id.unwrap_or_default(),
-				input: self.input.unwrap_or_default(),
+				input: self.input.to_bytes(),
 				nonce: self.nonce.unwrap_or_default(),
 				value: self.value.unwrap_or_default(),
 				to: self.to,
@@ -274,7 +304,7 @@ impl GenericTransaction {
 			TYPE_EIP4844 => Ok(Transaction4844Unsigned {
 				r#type: TypeEip4844 {},
 				chain_id: self.chain_id.unwrap_or_default(),
-				input: self.input.unwrap_or_default(),
+				input: self.input.to_bytes(),
 				nonce: self.nonce.unwrap_or_default(),
 				value: self.value.unwrap_or_default(),
 				to: self.to.unwrap_or_default(),

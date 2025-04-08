@@ -20,7 +20,7 @@ use crate::{account_and_location, new_executor, EnsureDelivery, XcmCallOf};
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use frame_benchmarking::v2::*;
-use frame_support::traits::fungible::Inspect;
+use frame_support::{traits::fungible::Inspect, BoundedVec};
 use xcm::{
 	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight, MAX_ITEMS_IN_ASSETS},
 	DoubleEncoded,
@@ -140,11 +140,15 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_asset_claimer() -> Result<(), BenchmarkError> {
+	fn asset_claimer() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
 		let (_, sender_location) = account_and_location::<T>(1);
 
-		let instruction = Instruction::SetAssetClaimer { location: sender_location.clone() };
+		let instruction = Instruction::SetHints {
+			hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![AssetClaimer {
+				location: sender_location.clone(),
+			}]),
+		};
 
 		let xcm = Xcm(vec![instruction]);
 		#[block]
@@ -295,7 +299,9 @@ mod benchmarks {
 		let xcm = Xcm(vec![instruction]);
 		#[block]
 		{
-			executor.bench_process(xcm)?;
+			executor
+				.bench_process(xcm)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		}
 		assert_eq!(executor.origin(), &Some(Location { parents: 0, interior: Here }),);
 
@@ -403,6 +409,9 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(origin.clone());
 		let instruction = Instruction::SubscribeVersion { query_id, max_response_weight };
 		let xcm = Xcm(vec![instruction]);
+
+		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
+
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -418,6 +427,9 @@ mod benchmarks {
 		use xcm_executor::traits::VersionChangeNotifier;
 		// First we need to subscribe to notifications.
 		let (origin, _) = T::transact_origin_and_runtime_call()?;
+
+		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
+
 		let query_id = Default::default();
 		let max_response_weight = Default::default();
 		<T::XcmConfig as xcm_executor::Config>::SubscriptionService::start(
@@ -696,7 +708,7 @@ mod benchmarks {
 		{
 			executor.bench_process(xcm)?;
 		}
-		assert_eq!(executor.holding(), &want.into());
+		assert!(executor.holding().contains(&want.into()));
 		Ok(())
 	}
 

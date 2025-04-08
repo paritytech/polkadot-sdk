@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::common::{
 	command::NodeCommandRunner,
@@ -30,9 +30,12 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::{BlockT, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
+use futures::FutureExt;
 use parachains_common::Hash;
+use polkadot_cli::service::IdentifyNetworkBackend;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
+use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
@@ -41,26 +44,32 @@ use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
-pub(crate) trait BuildImportQueue<Block: BlockT, RuntimeApi> {
+pub(crate) trait BuildImportQueue<
+	Block: BlockT,
+	RuntimeApi,
+	BlockImport: sc_consensus::BlockImport<Block>,
+>
+{
 	fn build_import_queue(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: ParachainBlockImport<Block, RuntimeApi>,
+		block_import: ParachainBlockImport<Block, BlockImport>,
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>>;
 }
 
-pub(crate) trait StartConsensus<Block: BlockT, RuntimeApi>
+pub(crate) trait StartConsensus<Block: BlockT, RuntimeApi, BI, BIAuxiliaryData>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: ParachainBlockImport<Block, RuntimeApi>,
+		block_import: ParachainBlockImport<Block, BI>,
 		prometheus_registry: Option<&Registry>,
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
@@ -74,6 +83,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
+		block_import_extra_return_value: BIAuxiliaryData,
 	) -> Result<(), sc_service::Error>;
 }
 
@@ -92,6 +102,31 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	}
 }
 
+pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
+	type BlockImport: sc_consensus::BlockImport<Block> + Clone + Send + Sync;
+	type BlockImportAuxiliaryData;
+
+	fn init_block_import(
+		client: Arc<ParachainClient<Block, RuntimeApi>>,
+	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)>;
+}
+
+pub(crate) struct ClientBlockImport;
+
+impl<Block: BlockT, RuntimeApi> InitBlockImport<Block, RuntimeApi> for ClientBlockImport
+where
+	RuntimeApi: Send + ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+{
+	type BlockImport = Arc<ParachainClient<Block, RuntimeApi>>;
+	type BlockImportAuxiliaryData = ();
+
+	fn init_block_import(
+		client: Arc<ParachainClient<Block, RuntimeApi>>,
+	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
+		Ok((client.clone(), ()))
+	}
+}
+
 pub(crate) trait BaseNodeSpec {
 	type Block: NodeBlock;
 
@@ -100,7 +135,13 @@ pub(crate) trait BaseNodeSpec {
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 	>;
 
-	type BuildImportQueue: BuildImportQueue<Self::Block, Self::RuntimeApi>;
+	type BuildImportQueue: BuildImportQueue<
+		Self::Block,
+		Self::RuntimeApi,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+	>;
+
+	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
 
 	/// Starts a `ServiceBuilder` for a full service.
 	///
@@ -108,7 +149,14 @@ pub(crate) trait BaseNodeSpec {
 	/// be able to perform chain operations.
 	fn new_partial(
 		config: &Configuration,
-	) -> sc_service::error::Result<ParachainService<Self::Block, Self::RuntimeApi>> {
+	) -> sc_service::error::Result<
+		ParachainService<
+			Self::Block,
+			Self::RuntimeApi,
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData
+		>
+	>{
 		let telemetry = config
 			.telemetry_endpoints
 			.clone()
@@ -160,7 +208,10 @@ pub(crate) trait BaseNodeSpec {
 			.build(),
 		);
 
-		let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+		let (block_import, block_import_auxiliary_data) =
+			Self::InitBlockImport::init_block_import(client.clone())?;
+
+		let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
 		let import_queue = Self::BuildImportQueue::build_import_queue(
 			client.clone(),
@@ -178,7 +229,7 @@ pub(crate) trait BaseNodeSpec {
 			task_manager,
 			transaction_pool,
 			select_chain: (),
-			other: (block_import, telemetry, telemetry_worker_handle),
+			other: (block_import, telemetry, telemetry_worker_handle, block_import_auxiliary_data),
 		})
 	}
 }
@@ -190,7 +241,12 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
 	>;
 
-	type StartConsensus: StartConsensus<Self::Block, Self::RuntimeApi>;
+	type StartConsensus: StartConsensus<
+		Self::Block,
+		Self::RuntimeApi,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData,
+	>;
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
@@ -208,151 +264,174 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	where
 		Net: NetworkBackend<Self::Block, Hash>,
 	{
-		Box::pin(
-			async move {
-				let parachain_config = prepare_node_config(parachain_config);
+		let fut = async move {
+			let parachain_config = prepare_node_config(parachain_config);
 
-				let params = Self::new_partial(&parachain_config)?;
-				let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
+			let params = Self::new_partial(&parachain_config)?;
+			let (block_import, mut telemetry, telemetry_worker_handle, block_import_auxiliary_data) =
+				params.other;
+			let client = params.client.clone();
+			let backend = params.backend.clone();
+			let mut task_manager = params.task_manager;
+			let (relay_chain_interface, collator_key) = build_relay_chain_interface(
+				polkadot_config,
+				&parachain_config,
+				telemetry_worker_handle,
+				&mut task_manager,
+				collator_options.clone(),
+				hwbench.clone(),
+			)
+			.await
+			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
-				let client = params.client.clone();
-				let backend = params.backend.clone();
+			let validator = parachain_config.role.is_authority();
+			let prometheus_registry = parachain_config.prometheus_registry().cloned();
+			let transaction_pool = params.transaction_pool.clone();
+			let import_queue_service = params.import_queue.service();
+			let net_config = FullNetworkConfiguration::<_, _, Net>::new(
+				&parachain_config.network,
+				prometheus_registry.clone(),
+			);
 
-				let mut task_manager = params.task_manager;
-				let (relay_chain_interface, collator_key) = build_relay_chain_interface(
-					polkadot_config,
-					&parachain_config,
-					telemetry_worker_handle,
-					&mut task_manager,
-					collator_options.clone(),
-					hwbench.clone(),
-				)
-				.await
-				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
-
-				let validator = parachain_config.role.is_authority();
-				let prometheus_registry = parachain_config.prometheus_registry().cloned();
-				let transaction_pool = params.transaction_pool.clone();
-				let import_queue_service = params.import_queue.service();
-				let net_config = FullNetworkConfiguration::<_, _, Net>::new(
-					&parachain_config.network,
-					prometheus_registry.clone(),
-				);
-
-				let (network, system_rpc_tx, tx_handler_controller, sync_service) =
-					build_network(BuildNetworkParams {
-						parachain_config: &parachain_config,
-						net_config,
-						client: client.clone(),
-						transaction_pool: transaction_pool.clone(),
-						para_id,
-						spawn_handle: task_manager.spawn_handle(),
-						relay_chain_interface: relay_chain_interface.clone(),
-						import_queue: params.import_queue,
-						sybil_resistance_level: Self::SYBIL_RESISTANCE,
-					})
-					.await?;
-
-				let rpc_builder = {
-					let client = client.clone();
-					let transaction_pool = transaction_pool.clone();
-					let backend_for_rpc = backend.clone();
-
-					Box::new(move |_| {
-						Self::BuildRpcExtensions::build_rpc_extensions(
-							client.clone(),
-							backend_for_rpc.clone(),
-							transaction_pool.clone(),
-						)
-					})
-				};
-
-				sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-					rpc_builder,
+			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+				build_network(BuildNetworkParams {
+					parachain_config: &parachain_config,
+					net_config,
 					client: client.clone(),
 					transaction_pool: transaction_pool.clone(),
-					task_manager: &mut task_manager,
-					config: parachain_config,
-					keystore: params.keystore_container.keystore(),
-					backend: backend.clone(),
-					network: network.clone(),
-					sync_service: sync_service.clone(),
-					system_rpc_tx,
-					tx_handler_controller,
-					telemetry: telemetry.as_mut(),
-				})?;
-
-				if let Some(hwbench) = hwbench {
-					sc_sysinfo::print_hwbench(&hwbench);
-					if validator {
-						warn_if_slow_hardware(&hwbench);
-					}
-
-					if let Some(ref mut telemetry) = telemetry {
-						let telemetry_handle = telemetry.handle();
-						task_manager.spawn_handle().spawn(
-							"telemetry_hwbench",
-							None,
-							sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
-						);
-					}
-				}
-
-				let announce_block = {
-					let sync_service = sync_service.clone();
-					Arc::new(move |hash, data| sync_service.announce_block(hash, data))
-				};
-
-				let relay_chain_slot_duration = Duration::from_secs(6);
-
-				let overseer_handle = relay_chain_interface
-					.overseer_handle()
-					.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
-
-				start_relay_chain_tasks(StartRelayChainTasksParams {
-					client: client.clone(),
-					announce_block: announce_block.clone(),
 					para_id,
+					spawn_handle: task_manager.spawn_handle(),
 					relay_chain_interface: relay_chain_interface.clone(),
-					task_manager: &mut task_manager,
-					da_recovery_profile: if validator {
-						DARecoveryProfile::Collator
-					} else {
-						DARecoveryProfile::FullNode
-					},
-					import_queue: import_queue_service,
-					relay_chain_slot_duration,
-					recovery_handle: Box::new(overseer_handle.clone()),
-					sync_service,
-				})?;
+					import_queue: params.import_queue,
+					sybil_resistance_level: Self::SYBIL_RESISTANCE,
+				})
+				.await?;
 
-				if validator {
-					Self::StartConsensus::start_consensus(
+			if parachain_config.offchain_worker.enabled {
+				let offchain_workers =
+					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+						runtime_api_provider: client.clone(),
+						keystore: Some(params.keystore_container.keystore()),
+						offchain_db: backend.offchain_storage(),
+						transaction_pool: Some(OffchainTransactionPoolFactory::new(
+							transaction_pool.clone(),
+						)),
+						network_provider: Arc::new(network.clone()),
+						is_validator: parachain_config.role.is_authority(),
+						enable_http_requests: false,
+						custom_extensions: move |_| vec![],
+					})?;
+				task_manager.spawn_handle().spawn(
+					"offchain-workers-runner",
+					"offchain-work",
+					offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
+				);
+			}
+
+			let rpc_builder = {
+				let client = client.clone();
+				let transaction_pool = transaction_pool.clone();
+				let backend_for_rpc = backend.clone();
+
+				Box::new(move |_| {
+					Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
-						block_import,
-						prometheus_registry.as_ref(),
-						telemetry.as_ref().map(|t| t.handle()),
-						&task_manager,
-						relay_chain_interface.clone(),
-						transaction_pool,
-						params.keystore_container.keystore(),
-						relay_chain_slot_duration,
-						para_id,
-						collator_key.expect("Command line arguments do not allow this. qed"),
-						overseer_handle,
-						announce_block,
-						backend.clone(),
-						node_extra_args,
-					)?;
+						backend_for_rpc.clone(),
+						transaction_pool.clone(),
+					)
+				})
+			};
+
+			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+				rpc_builder,
+				client: client.clone(),
+				transaction_pool: transaction_pool.clone(),
+				task_manager: &mut task_manager,
+				config: parachain_config,
+				keystore: params.keystore_container.keystore(),
+				backend: backend.clone(),
+				network: network.clone(),
+				sync_service: sync_service.clone(),
+				system_rpc_tx,
+				tx_handler_controller,
+				telemetry: telemetry.as_mut(),
+			})?;
+
+			if let Some(hwbench) = hwbench {
+				sc_sysinfo::print_hwbench(&hwbench);
+				if validator {
+					warn_if_slow_hardware(&hwbench);
 				}
 
-				Ok(task_manager)
+				if let Some(ref mut telemetry) = telemetry {
+					let telemetry_handle = telemetry.handle();
+					task_manager.spawn_handle().spawn(
+						"telemetry_hwbench",
+						None,
+						sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
+					);
+				}
 			}
-			.instrument(sc_tracing::tracing::info_span!(
+
+			let announce_block = {
+				let sync_service = sync_service.clone();
+				Arc::new(move |hash, data| sync_service.announce_block(hash, data))
+			};
+
+			let relay_chain_slot_duration = Duration::from_secs(6);
+
+			let overseer_handle = relay_chain_interface
+				.overseer_handle()
+				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+
+			start_relay_chain_tasks(StartRelayChainTasksParams {
+				client: client.clone(),
+				announce_block: announce_block.clone(),
+				para_id,
+				relay_chain_interface: relay_chain_interface.clone(),
+				task_manager: &mut task_manager,
+				da_recovery_profile: if validator {
+					DARecoveryProfile::Collator
+				} else {
+					DARecoveryProfile::FullNode
+				},
+				import_queue: import_queue_service,
+				relay_chain_slot_duration,
+				recovery_handle: Box::new(overseer_handle.clone()),
+				sync_service,
+			})?;
+
+			if validator {
+				Self::StartConsensus::start_consensus(
+					client.clone(),
+					block_import,
+					prometheus_registry.as_ref(),
+					telemetry.as_ref().map(|t| t.handle()),
+					&task_manager,
+					relay_chain_interface.clone(),
+					transaction_pool,
+					params.keystore_container.keystore(),
+					relay_chain_slot_duration,
+					para_id,
+					collator_key.expect("Command line arguments do not allow this. qed"),
+					overseer_handle,
+					announce_block,
+					backend.clone(),
+					node_extra_args,
+					block_import_auxiliary_data,
+				)?;
+			}
+
+			Ok(task_manager)
+		};
+
+		Box::pin(Instrument::instrument(
+			fut,
+			sc_tracing::tracing::info_span!(
 				sc_tracing::logging::PREFIX_LOG_SPAN,
-				name = "Parachain",
-			)),
-		)
+				name = "Parachain"
+			),
+		))
 	}
 }
 
@@ -381,7 +460,10 @@ where
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
-		match parachain_config.network.network_backend {
+		// If the network backend is unspecified, use the default for the given chain.
+		let default_backend = parachain_config.chain_spec.network_backend();
+		let network_backend = parachain_config.network.network_backend.unwrap_or(default_backend);
+		match network_backend {
 			sc_network::config::NetworkBackendType::Libp2p =>
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
 					parachain_config,

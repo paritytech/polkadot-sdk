@@ -15,6 +15,7 @@
 
 pub mod block_weights;
 pub mod cumulus_pallet_parachain_system;
+pub mod cumulus_pallet_weight_reclaim;
 pub mod cumulus_pallet_xcmp_queue;
 pub mod extrinsic_weights;
 pub mod frame_system;
@@ -22,12 +23,14 @@ pub mod frame_system_extensions;
 pub mod pallet_asset_conversion;
 pub mod pallet_asset_conversion_ops;
 pub mod pallet_asset_conversion_tx_payment;
+pub mod pallet_asset_rewards;
 pub mod pallet_assets_foreign;
 pub mod pallet_assets_local;
 pub mod pallet_assets_pool;
 pub mod pallet_balances;
 pub mod pallet_collator_selection;
 pub mod pallet_message_queue;
+pub mod pallet_migrations;
 pub mod pallet_multisig;
 pub mod pallet_nft_fractionalization;
 pub mod pallet_nfts;
@@ -41,6 +44,8 @@ pub mod pallet_xcm;
 pub mod pallet_xcm_bridge_hub_router;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
+pub mod snowbridge_pallet_system_backend;
+pub mod snowbridge_pallet_system_frontend;
 pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;

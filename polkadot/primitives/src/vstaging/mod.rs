@@ -19,10 +19,11 @@ use crate::{ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
 use super::{
-	async_backing::Constraints, BlakeTwo256, BlockNumber, CandidateCommitments,
-	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CoreIndex, GroupIndex, Hash,
-	HashT, HeadData, Header, Id, Id as ParaId, MultiDisputeStatementSet, ScheduledCore,
-	UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
+	async_backing::{InboundHrmpLimitations, OutboundHrmpChannelLimitations},
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
+	CollatorSignature, CoreIndex, GroupIndex, Hash, HashT, HeadData, Header, Id, Id as ParaId,
+	MultiDisputeStatementSet, ScheduledCore, UncheckedSignedAvailabilityBitfields,
+	UpgradeRestriction, ValidationCodeHash,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet, VecDeque},
@@ -30,7 +31,7 @@ use alloc::{
 	vec::Vec,
 };
 use bitvec::prelude::*;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::ByteArray;
 use sp_core::RuntimeDebug;
@@ -44,7 +45,9 @@ pub mod async_backing;
 pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
 
 /// A type representing the version of the candidate descriptor and internal version number.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, TypeInfo, RuntimeDebug, Copy)]
+#[derive(
+	PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, RuntimeDebug, Copy,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct InternalVersion(pub u8);
 
@@ -61,7 +64,7 @@ pub enum CandidateDescriptorVersion {
 }
 
 /// A unique descriptor of the candidate receipt.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CandidateDescriptorV2<H = Hash> {
 	/// The ID of the para this is a candidate for.
@@ -264,7 +267,7 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 }
 
 /// A candidate-receipt at version 2.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CandidateReceiptV2<H = Hash> {
 	/// The descriptor of the candidate.
@@ -274,7 +277,7 @@ pub struct CandidateReceiptV2<H = Hash> {
 }
 
 /// A candidate-receipt with commitments directly included.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CommittedCandidateReceiptV2<H = Hash> {
 	/// The descriptor of the candidate.
@@ -416,11 +419,11 @@ impl<H: Copy> From<CandidateReceiptV2<H>> for super::v8::CandidateReceipt<H> {
 
 /// A strictly increasing sequence number, typically this would be the least significant byte of the
 /// block number.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 pub struct CoreSelector(pub u8);
 
 /// An offset in the relay chain claim queue.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 pub struct ClaimQueueOffset(pub u8);
 
 /// Signals that a parachain can send to the relay chain via the UMP queue.
@@ -505,6 +508,10 @@ pub enum CommittedCandidateReceiptError {
 	/// Currenly only one such message is allowed.
 	#[cfg_attr(feature = "std", error("Too many UMP signals"))]
 	TooManyUMPSignals,
+	/// If the parachain runtime started sending core selectors, v1 descriptors are no longer
+	/// allowed.
+	#[cfg_attr(feature = "std", error("Version 1 receipt does not support core selectors"))]
+	CoreSelectorWithV1Decriptor,
 }
 
 macro_rules! impl_getter {
@@ -603,15 +610,25 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 		&self,
 		cores_per_para: &TransposedClaimQueue,
 	) -> Result<(), CommittedCandidateReceiptError> {
+		let maybe_core_selector = self.commitments.core_selector()?;
+
 		match self.descriptor.version() {
-			// Don't check v1 descriptors.
-			CandidateDescriptorVersion::V1 => return Ok(()),
+			CandidateDescriptorVersion::V1 => {
+				// If the parachain runtime started sending core selectors, v1 descriptors are no
+				// longer allowed.
+				if maybe_core_selector.is_some() {
+					return Err(CommittedCandidateReceiptError::CoreSelectorWithV1Decriptor)
+				} else {
+					// Nothing else to check for v1 descriptors.
+					return Ok(())
+				}
+			},
 			CandidateDescriptorVersion::V2 => {},
 			CandidateDescriptorVersion::Unknown =>
 				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
-		let (maybe_core_index_selector, cq_offset) = self.commitments.core_selector()?.map_or_else(
+		let (maybe_core_index_selector, cq_offset) = maybe_core_selector.map_or_else(
 			|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)),
 			|(sel, off)| (Some(sel), off),
 		);
@@ -661,7 +678,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 }
 
 /// A backed (or backable, depending on context) candidate.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct BackedCandidate<H = Hash> {
 	/// The candidate referred to.
 	candidate: CommittedCandidateReceiptV2<H>,
@@ -674,7 +691,7 @@ pub struct BackedCandidate<H = Hash> {
 }
 
 /// Parachains inherent-data passed into the runtime by a block author
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct InherentData<HDR: HeaderT = Header> {
 	/// Signed bitfields by validators about availability.
 	pub bitfields: UncheckedSignedAvailabilityBitfields,
@@ -692,12 +709,10 @@ impl<H> BackedCandidate<H> {
 		candidate: CommittedCandidateReceiptV2<H>,
 		validity_votes: Vec<ValidityAttestation>,
 		validator_indices: BitVec<u8, bitvec::order::Lsb0>,
-		core_index: Option<CoreIndex>,
+		core_index: CoreIndex,
 	) -> Self {
 		let mut instance = Self { candidate, validity_votes, validator_indices };
-		if let Some(core_index) = core_index {
-			instance.inject_core_index(core_index);
-		}
+		instance.inject_core_index(core_index);
 		instance
 	}
 
@@ -752,20 +767,13 @@ impl<H> BackedCandidate<H> {
 	/// Get a copy of the validator indices and the assumed core index, if any.
 	pub fn validator_indices_and_core_index(
 		&self,
-		core_index_enabled: bool,
 	) -> (&BitSlice<u8, bitvec::order::Lsb0>, Option<CoreIndex>) {
-		// This flag tells us if the block producers must enable Elastic Scaling MVP hack.
-		// It extends `BackedCandidate::validity_indices` to store a 8 bit core index.
-		if core_index_enabled {
-			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
-			if core_idx_offset > 0 {
-				let (validator_indices_slice, core_idx_slice) =
-					self.validator_indices.split_at(core_idx_offset);
-				return (
-					validator_indices_slice,
-					Some(CoreIndex(core_idx_slice.load::<u8>() as u32)),
-				);
-			}
+		// `BackedCandidate::validity_indices` are extended to store a 8 bit core index.
+		let core_idx_offset = self.validator_indices.len().saturating_sub(8);
+		if core_idx_offset > 0 {
+			let (validator_indices_slice, core_idx_slice) =
+				self.validator_indices.split_at(core_idx_offset);
+			return (validator_indices_slice, Some(CoreIndex(core_idx_slice.load::<u8>() as u32)));
 		}
 
 		(&self.validator_indices, None)
@@ -1207,8 +1215,7 @@ mod tests {
 		assert_eq!(new_ccr.hash(), v2_ccr.hash());
 	}
 
-	// Only check descriptor `core_index` field of v2 descriptors. If it is v1, that field
-	// will be garbage.
+	// V1 descriptors are forbidden once the parachain runtime started sending UMP signals.
 	#[test]
 	fn test_v1_descriptors_with_ump_signal() {
 		let mut ccr = dummy_old_committed_candidate_receipt();
@@ -1234,9 +1241,12 @@ mod tests {
 		cq.insert(CoreIndex(0), vec![v1_ccr.descriptor.para_id()].into());
 		cq.insert(CoreIndex(1), vec![v1_ccr.descriptor.para_id()].into());
 
-		assert!(v1_ccr.check_core_index(&transpose_claim_queue(cq)).is_ok());
-
 		assert_eq!(v1_ccr.descriptor.core_index(), None);
+
+		assert_eq!(
+			v1_ccr.check_core_index(&transpose_claim_queue(cq)),
+			Err(CommittedCandidateReceiptError::CoreSelectorWithV1Decriptor)
+		);
 	}
 
 	#[test]

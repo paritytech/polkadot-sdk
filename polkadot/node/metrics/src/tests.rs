@@ -21,7 +21,7 @@ use hyper::Uri;
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use polkadot_primitives::metric_definitions::PARACHAIN_INHERENT_DATA_BITFIELDS_PROCESSED;
 use polkadot_test_service::{node_config, run_validator_node, test_prometheus_config};
-use sp_keyring::AccountKeyring::*;
+use sp_keyring::Sr25519Keyring::*;
 use std::collections::HashMap;
 
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;

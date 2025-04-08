@@ -13,6 +13,6 @@ workspace = true
 
 [dependencies]
 coarsetime = { workspace = true }
-tracing = { workspace = true, default-features = true }
 gum-proc-macro = { workspace = true, default-features = true }
 polkadot-primitives = { features = ["std"], workspace = true, default-features = true }
+tracing = { workspace = true, default-features = true }

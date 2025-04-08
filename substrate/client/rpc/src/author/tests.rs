@@ -39,15 +39,15 @@ use std::sync::Arc;
 use substrate_test_runtime_client::{
 	self,
 	runtime::{Block, Extrinsic, ExtrinsicBuilder, SessionKeys, Transfer},
-	AccountKeyring, Backend, Client, DefaultTestClientBuilderExt, TestClientBuilderExt,
+	Backend, Client, DefaultTestClientBuilderExt, Sr25519Keyring, TestClientBuilderExt,
 };
 
-fn uxt(sender: AccountKeyring, nonce: u64) -> Extrinsic {
+fn uxt(sender: Sr25519Keyring, nonce: u64) -> Extrinsic {
 	let tx = Transfer {
 		amount: Default::default(),
 		nonce,
 		from: sender.into(),
-		to: AccountKeyring::Bob.into(),
+		to: Sr25519Keyring::Bob.into(),
 	};
 	ExtrinsicBuilder::new_transfer(tx).build()
 }
@@ -99,7 +99,7 @@ impl TestSetup {
 async fn author_submit_transaction_should_not_cause_error() {
 	let api = TestSetup::into_rpc();
 
-	let xt: Bytes = uxt(AccountKeyring::Alice, 1).encode().into();
+	let xt: Bytes = uxt(Sr25519Keyring::Alice, 1).encode().into();
 	let extrinsic_hash: H256 = blake2_256(&xt).into();
 	let response: H256 = api.call("author_submitExtrinsic", [xt.clone()]).await.unwrap();
 
@@ -116,7 +116,7 @@ async fn author_should_watch_extrinsic() {
 	let api = TestSetup::into_rpc();
 	let xt = to_hex(
 		&ExtrinsicBuilder::new_call_with_priority(0)
-			.signer(AccountKeyring::Alice.into())
+			.signer(Sr25519Keyring::Alice.into())
 			.build()
 			.encode(),
 		true,
@@ -135,7 +135,7 @@ async fn author_should_watch_extrinsic() {
 	// Replace the extrinsic and observe the subscription is notified.
 	let (xt_replacement, xt_hash) = {
 		let tx = ExtrinsicBuilder::new_call_with_priority(1)
-			.signer(AccountKeyring::Alice.into())
+			.signer(Sr25519Keyring::Alice.into())
 			.build()
 			.encode();
 		let hash = blake2_256(&tx);
@@ -172,7 +172,7 @@ async fn author_should_return_watch_validation_error() {
 async fn author_should_return_pending_extrinsics() {
 	let api = TestSetup::into_rpc();
 
-	let xt_bytes: Bytes = uxt(AccountKeyring::Alice, 0).encode().into();
+	let xt_bytes: Bytes = uxt(Sr25519Keyring::Alice, 0).encode().into();
 	api.call::<_, H256>("author_submitExtrinsic", [to_hex(&xt_bytes, true)])
 		.await
 		.unwrap();
@@ -190,14 +190,14 @@ async fn author_should_remove_extrinsics() {
 
 	// Submit three extrinsics, then remove two of them (will cause the third to be removed as well,
 	// having a higher nonce)
-	let xt1_bytes = uxt(AccountKeyring::Alice, 0).encode();
+	let xt1_bytes = uxt(Sr25519Keyring::Alice, 0).encode();
 	let xt1 = to_hex(&xt1_bytes, true);
 	let xt1_hash: H256 = api.call("author_submitExtrinsic", [xt1]).await.unwrap();
 
-	let xt2 = to_hex(&uxt(AccountKeyring::Alice, 1).encode(), true);
+	let xt2 = to_hex(&uxt(Sr25519Keyring::Alice, 1).encode(), true);
 	let xt2_hash: H256 = api.call("author_submitExtrinsic", [xt2]).await.unwrap();
 
-	let xt3 = to_hex(&uxt(AccountKeyring::Bob, 0).encode(), true);
+	let xt3 = to_hex(&uxt(Sr25519Keyring::Bob, 0).encode(), true);
 	let xt3_hash: H256 = api.call("author_submitExtrinsic", [xt3]).await.unwrap();
 	assert_eq!(setup.pool.status().ready, 3);
 

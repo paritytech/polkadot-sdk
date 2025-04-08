@@ -48,6 +48,8 @@ pub mod pallet {
 		/// A DMP message couldn't be sent because it exceeds the maximum size allowed for a
 		/// downward message.
 		ExceedsMaxMessageSize,
+		/// A DMP message couldn't be sent because the destination is unreachable.
+		Unroutable,
 		/// Could not schedule para cleanup.
 		CouldntCleanup,
 		/// Not a parathread (on-demand parachain).
@@ -157,6 +159,7 @@ pub mod pallet {
 			{
 				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize =>
 					Error::<T>::ExceedsMaxMessageSize.into(),
+				dmp::QueueDownwardMessageError::Unroutable => Error::<T>::Unroutable.into(),
 			})
 		}
 
