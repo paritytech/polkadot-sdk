@@ -8,6 +8,10 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 
+# helps with debugging omni-bencher
+[profile.release]
+debug = 1
+
 [lints]
 workspace = true
 
@@ -53,7 +57,6 @@ pallet-nomination-pools-runtime-api = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-referenda = { workspace = true }
-pallet-revive = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking-async = { workspace = true }
@@ -170,7 +173,6 @@ runtime-benchmarks = [
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
-	"pallet-revive/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-staking-async/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
@@ -232,7 +234,6 @@ try-runtime = [
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-referenda/try-runtime",
-	"pallet-revive/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking-async/try-runtime",
@@ -305,7 +306,6 @@ std = [
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-referenda/std",
-	"pallet-revive/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
 	"pallet-staking-async-runtime-api/std",

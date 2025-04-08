@@ -34,7 +34,7 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
+use sp_staking::currency_to_vote::CurrencyToVote;
 use testing_utils::*;
 
 const SEED: u32 = 0;
@@ -1113,14 +1113,15 @@ mod tests {
 		ExtBuilder::default().build_and_execute(|| {
 			let n = 10;
 
-			let (validator_stash, nominators, current_era) = create_validator_with_nominators::<Test>(
-				n,
-				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
-				false,
-				false,
-				RewardDestination::Staked,
-			)
-			.unwrap();
+			let (validator_stash, nominators, current_era) =
+				create_validator_with_nominators::<Test>(
+					n,
+					<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
+					false,
+					false,
+					RewardDestination::Staked,
+				)
+				.unwrap();
 
 			assert_eq!(nominators.len() as u32, n);
 

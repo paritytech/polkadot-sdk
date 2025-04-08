@@ -38,6 +38,9 @@ fn staking_async_parachain_genesis(
 	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
+	let validator_count = core::option_env!("VALIDATORS")
+		.map(|v| v.parse::<u32>().unwrap())
+		.unwrap_or(500);
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
@@ -62,9 +65,7 @@ fn staking_async_parachain_genesis(
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 		sudo: SudoConfig { key: Some(root) },
 		staking: StakingConfig {
-			// we wish to elect 500 validators, maximum is set to 1000 in the runtime configs.
-			validator_count: 500,
-			// initial stakers
+			validator_count,
 			dev_stakers,
 			..Default::default()
 		}
@@ -79,7 +80,9 @@ mod preset_names {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
-	let dev_stakers = Some((1_000, 25_000));
+	let dev_validators = core::option_env!("VALIDATORS").map(|v| v.parse::<u32>().unwrap()).unwrap_or(1000);
+	let dev_nominators = core::option_env!("NOMINATORS").map(|v| v.parse::<u32>().unwrap()).unwrap_or(25_000);
+	let dev_stakers = Some((dev_validators, dev_nominators));
 	let patch = match id.as_ref() {
 		PRESET_GENESIS => staking_async_parachain_genesis(
 			// initial collators.

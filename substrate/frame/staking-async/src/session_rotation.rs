@@ -382,7 +382,7 @@ impl<T: Config> Rotator<T> {
 		let msp = <T::ElectionProvider as ElectionProvider>::msp();
 		let lsp = 0;
 		for p in (lsp..=msp).rev() {
-			Pallet::<T>::do_elect_paged(p);
+			EraElectionPlanner::<T>::do_elect_paged(p);
 		}
 
 		crate::ElectableStashes::<T>::get().into_iter().collect()

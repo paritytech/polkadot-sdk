@@ -46,7 +46,6 @@ use frame_support::{
 pub use frame_system::Call as SystemCall;
 use frame_system::{EnsureRoot, EnsureSigned};
 pub use pallet_balances::Call as BalancesCall;
-pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_session::historical as session_historical;
@@ -1739,7 +1738,6 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_beefy_mmr, BeefyMmrLeaf]
 		[pallet_conviction_voting, ConvictionVoting]
-		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[frame_election_provider_support, ElectionProviderBench::<Runtime>]
 		[pallet_identity, Identity]
 		[pallet_indices, Indices]

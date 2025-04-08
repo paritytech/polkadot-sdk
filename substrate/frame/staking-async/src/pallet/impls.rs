@@ -1004,7 +1004,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn fetch_page(page: PageIndex) {
-		Self::do_elect_paged(page);
+		session_rotation::EraElectionPlanner::<T>::do_elect_paged(page);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1657,7 +1657,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		) {
 			let others = exposures
 				.iter()
-				.map(|(who, value)| IndividualExposure { who: who.clone(), value: *value })
+				.map(|(who, value)| crate::IndividualExposure { who: who.clone(), value: *value })
 				.collect::<Vec<_>>();
 			let exposure = Exposure { total: Default::default(), own: Default::default(), others };
 			Eras::<T>::upsert_exposure(*current_era, stash, exposure);

@@ -44,6 +44,7 @@ pallet-broker = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-mmr = { workspace = true, optional = true }
 pallet-session = { workspace = true }
+pallet-staking = { workspace = true }
 pallet-timestamp = { workspace = true }
 
 polkadot-primitives = { workspace = true }
@@ -90,6 +91,7 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-mmr?/std",
 	"pallet-session/std",
+	"pallet-staking/std",
 	"pallet-timestamp/std",
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
@@ -124,6 +126,7 @@ runtime-benchmarks = [
 	"pallet-broker/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -147,6 +150,7 @@ try-runtime = [
 	"pallet-message-queue/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
