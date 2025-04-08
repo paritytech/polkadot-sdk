@@ -16,7 +16,7 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::{connect, native_to_eth_ratio, Client, SubscriptionType, SubstrateBlockNumber},
+	client::{connect, Client, SubscriptionType, SubstrateBlockNumber},
 	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
 	ReceiptProvider, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	LOG_TARGET,
@@ -118,8 +118,8 @@ fn build_client(
 		};
 
 		let receipt_extractor = ReceiptExtractor::new(
-			native_to_eth_ratio(&api).await?,
-			earliest_receipt_block);
+			api.clone(),
+			earliest_receipt_block).await?;
 
 		let receipt_provider = ReceiptProvider::new(
 				database_url,
