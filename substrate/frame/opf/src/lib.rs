@@ -302,63 +302,63 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin.clone())?;
 			//let who = ensure_signed(origin)?;
-			// Only 1 batch submission per round
-			let mut round_index = NextVotingRoundNumber::<T>::get();
-
-			// No active round?
-			if round_index == 0 {
-				// Start the first voting round
-				let _round0 = VotingRoundInfo::<T>::new();
-				round_index = NextVotingRoundNumber::<T>::get();
-			}
-
+			Self::round_check()?;
+			let round_index = NextVotingRoundNumber::<T>::get();
 			let current_round_index = round_index.saturating_sub(1);
-
 			let mut round_infos =
 				VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::InvalidResult)?;
+						
 
+			
 			// Check no Project batch has been submitted yet
 			ensure!(!round_infos.batch_submitted, Error::<T>::BatchAlreadySubmitted);
 			round_infos.batch_submitted = true;
 
 			let mut round_ending_block = round_infos.round_ending_block;
 			let round_start = round_infos.round_starting_block;
-
+			let mut projects_submitted: Vec<ProjectId<T>> = vec![];
+			let mut wrapped_time_periods:Option<TimePeriods> = None;
 			
 			for project_id in &projects_id {
 				ProjectInfo::<T>::new(project_id.clone());
-
+				// Check if the project is already submitted
+				ensure!(
+					!round_infos.projects_submitted.contains(project_id),
+					Error::<T>::SubmittedProjectId
+				);
+				projects_submitted.push(project_id.clone());
 				// Prepare the proposal call
 				let call = Call::<T>::on_registration { project_id: project_id.clone() };
-
+				
 				let referendum_index = Self::start_referendum(project_id.clone(), call)?;
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 					.ok_or(Error::<T>::NoProjectAvailable)?;
 				new_infos.index = referendum_index;
+				
 
 				WhiteListedProjectAccounts::<T>::mutate(project_id, |value| {
 					*value = Some(new_infos);
 				});
-				let decision_period_128:u128 = T::Governance::get_decision_period(referendum_index.into())?;
+				let time_periods = T::Governance::get_time_periods(referendum_index.into())?;
+				wrapped_time_periods = Some(time_periods.clone());
+				let total_period_128 = time_periods.total_period;
 				// convert decision_period to block number, as it is a u128
-				let decision_period:ProvidedBlockNumberFor<T> = decision_period_128
+				let total_period:ProvidedBlockNumberFor<T> = total_period_128
 					.try_into()
 					.map_err(|_| Error::<T>::InvalidResult)?;
 					if round_infos.round_ending_block == round_infos.round_starting_block {
 						
-				round_ending_block = round_ending_block.saturating_add(decision_period.into());
+				round_ending_block = round_ending_block.saturating_add(total_period.into());
 				round_infos.round_ending_block = round_ending_block;
+				round_infos.time_periods = Some(time_periods);
 					}
 				}
+				round_infos.projects_submitted= 
+					projects_submitted.clone().try_into().map_err(|_| Error::<T>::InvalidResult)?; 
 			VotingRounds::<T>::mutate(current_round_index, |round| *round = Some(round_infos));
 
-			// If current voting round is over, start a new one
-			let when = T::BlockNumberProvider::current_block_number();
-			if when >= round_ending_block {
-				// Create a new round.
-				let _new_round = VotingRoundInfo::<T>::new();
-			}
-			Self::deposit_event(Event::Projectslisted { projects_id: projects_id.to_vec() });
+			
+			Self::deposit_event(Event::Projectslisted { projects_id: projects_submitted });
 			Ok(())
 		}
 

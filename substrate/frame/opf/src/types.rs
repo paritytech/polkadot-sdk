@@ -100,7 +100,18 @@ impl<T: Config> Default for Funds<T> {
 		Funds { positive_funds: Zero::zero(), negative_funds: Zero::zero() }
 	}
 }
-//Processed Reward status
+
+/// Time periods of referendum
+#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct TimePeriods {
+	pub prepare_period: u128,
+	pub decision_period: u128,
+	pub confirm_period: u128,
+	pub min_enactment_period: u128,
+	pub total_period: u128,
+}
+/// Processed Reward status
 #[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct SpendInfo<T: Config> {
@@ -194,13 +205,13 @@ impl<T: Config> Default for VoteInfo<T> {
 		let amount = Zero::zero();
 		let fund = false;
 		let conviction = Conviction::None;
-
+		
 		// get round number
 		if let Some(round) = VotingRounds::<T>::get(0) {
 			let funds_unlock_block = round.round_ending_block;
 			VoteInfo { amount, round, fund, conviction, funds_unlock_block }
 		} else {
-			let round = VotingRoundInfo::<T>::new();
+			let round = VotingRoundInfo::<T>::new(None);
 			let funds_unlock_block = round.round_ending_block;
 			VoteInfo { amount, round, fund, conviction, funds_unlock_block }
 		}
@@ -217,12 +228,15 @@ pub struct VotingRoundInfo<T: Config> {
 	pub total_positive_votes_amount: BalanceOf<T>,
 	pub total_negative_votes_amount: BalanceOf<T>,
 	pub batch_submitted: bool,
+	pub time_periods: Option<TimePeriods>,
+	pub projects_submitted: BoundedVec<ProjectId<T>, <T as Config>::MaxProjects>,
 }
 
 impl<T: Config> VotingRoundInfo<T> {
-	pub fn new() -> Self {
+	pub fn new(time_periods: Option<TimePeriods>) -> Self {
 		let round_starting_block = T::BlockNumberProvider::current_block_number();
 		let batch_submitted = false;
+		let projects_submitted = BoundedVec::default();
 		let round_ending_block =
 			round_starting_block;
 		let round_number = NextVotingRoundNumber::<T>::mutate(|n| {
@@ -242,6 +256,8 @@ impl<T: Config> VotingRoundInfo<T> {
 			total_positive_votes_amount,
 			total_negative_votes_amount,
 			batch_submitted,
+			time_periods: time_periods,
+			projects_submitted,
 		};
 		VotingRounds::<T>::insert(round_number, round_infos.clone());
 		round_infos

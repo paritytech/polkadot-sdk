@@ -281,13 +281,35 @@ impl<T: Config> Pallet<T> {
 	) -> <<T as pallet::Config>::BlockNumberProvider as sp_runtime::traits::BlockNumberProvider>::BlockNumber where <<T as pallet::Config>::BlockNumberProvider as sp_runtime::traits::BlockNumberProvider>::BlockNumber: From<<<T as pallet::Config>::Governance as traits::ReferendumTrait<<T as frame_system::Config>::AccountId>>::Moment>{
 		moment.saturated_into()
 	}
+	pub fn convert_u128_to_block_number(
+		moment: u128,
+	) -> ProvidedBlockNumberFor<T>{
+		moment.try_into().unwrap_or_else(|_| panic!("Failed to convert u128 to BlockNumber"))
+	}
 
+	pub fn round_check() -> DispatchResult {
+		let now = T::BlockNumberProvider::current_block_number();
+		let round_index = NextVotingRoundNumber::<T>::get();
+		if round_index == 0 {
+			// Start the first voting round
+			let _round0 = VotingRoundInfo::<T>::new(None);
+			return Ok(());
+		}
+		let current_round_index = round_index.saturating_sub(1);
+		if let Some(round_infos) = VotingRounds::<T>::get(current_round_index) {
+			if now >= round_infos.round_ending_block {
+				let _new_round = VotingRoundInfo::<T>::new(None);
+				return Ok(());
+			}
+		}
+		Ok(())
+	}
 	// To be executed in a hook, on_initialize
 	pub fn on_idle_function(limit: Weight) -> Weight {
 		let now = T::BlockNumberProvider::current_block_number();
 		let mut meter = WeightMeter::with_limit(limit);
 		let max_block_weight = T::BlockWeights::get().max_block;
-
+		
 		if meter.try_consume(max_block_weight).is_err() {
 			return meter.consumed();
 		}
@@ -300,7 +322,33 @@ impl<T: Config> Pallet<T> {
 
 		if let Some(round_infos) = VotingRounds::<T>::get(current_round_index) {
 			if round_infos.round_ending_block != round_infos.round_starting_block
-			{let round_ending_block = round_infos.round_ending_block;
+			{
+				let round_ending_block = round_infos.round_ending_block;
+				let mut prep_period  = 0;
+				if let Some(period) = round_infos.time_periods{
+					prep_period = period.prepare_period;
+				}
+				let prepare_period= Self::convert_u128_to_block_number(prep_period);
+				let decision_block = round_infos.round_starting_block
+					.saturating_add(prepare_period);
+				if now >= decision_block {
+					let projects_submitted = round_infos.projects_submitted.clone();
+					for project_id in projects_submitted {
+						if WhiteListedProjectAccounts::<T>::contains_key(&project_id) {
+							let infos = WhiteListedProjectAccounts::<T>::get(&project_id);
+							if let Some(project_infos) = infos {
+								let ref_index = project_infos.index;
+								// Enter decision period
+								let decision_period = T::Governance::enter_decision_period(
+									project_infos.index.into(),
+									project_id.clone(),
+								);
+
+							}
+							}
+					}
+				}
+
 
 			if now >= round_ending_block {
 				// Emmit event

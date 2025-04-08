@@ -30,6 +30,7 @@ pub fn next_block() {
 		<Test as Config>::BlockNumberProvider::current_block_number(),
 		Weight::MAX,
 	);
+	
 }
 
 pub fn project_list() -> BoundedVec<u64, <Test as Config>::MaxProjects> {
@@ -44,6 +45,9 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 	while <Test as Config>::BlockNumberProvider::current_block_number() < n {
 		if <Test as Config>::BlockNumberProvider::current_block_number() > 1 {
 			AllPalletsWithSystem::on_finalize(
+				<Test as Config>::BlockNumberProvider::current_block_number(),
+			);
+			AllPalletsWithSystem::on_initialize(
 				<Test as Config>::BlockNumberProvider::current_block_number(),
 			);
 		}
@@ -139,16 +143,21 @@ fn conviction_vote_works() {
 		assert_eq!(dave_vote_info.funds_unlock_block, dave_vote_unlock);*/
 	})
 }
-/*
+
 #[test]
 fn rewards_calculation_works() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
-		let voting_period = <Test as Config>::VotingPeriod::get();
+		
+		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch));
+		let voting_period = <Test as Config>::Governance::get_time_periods(1).ok().unwrap().total_period;
+		println!("voting_period: {:?}", voting_period);
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
+		// convert voting_period to u64
+		let voting_period_64 = voting_period.try_into().unwrap_or(0);
 		//round_end_block
-		let round_end = now.saturating_add(voting_period);
-		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
+		let round_end = now.saturating_add(voting_period_64);
+		assert_eq!(round_end>0, true);
 
 		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to
 		// 2000*BSX locked
@@ -191,15 +200,19 @@ fn rewards_calculation_works() {
 
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
 
+		let infos = WhiteListedProjectAccounts::<Test>::get(&101).unwrap();
+		let referendum_info =
+			<Test as Config>::Governance::get_referendum_info(infos.index).unwrap();
+		
 		run_to_block(round_end);
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
+		
 
 		assert_eq!(now, round_info.round_ending_block);
 
 		// The right events are emitted
 		expect_events(vec![
 			RuntimeEvent::Opf(Event::VotingRoundEnded { round_number: 0 }),
-			RuntimeEvent::Democracy(pallet_democracy::Event::Passed { ref_index: 0 }),
 		]);
 
 		// The total equivalent positive amount voted is 12000
@@ -217,6 +230,12 @@ fn rewards_calculation_works() {
 
 		next_block();
 
+		let referendum_status =
+			<Test as Config>::Governance::handle_referendum_info(referendum_info).unwrap();
+			println!("referendum_status: {:?}", referendum_status);
+		/*assert_eq!(referendum_status, ReferendumStates::Approved);
+		
+		
 		// Enactment happened as expected
 		assert_eq!(Spends::<Test>::contains_key(101), true);
 
@@ -227,11 +246,11 @@ fn rewards_calculation_works() {
 		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
 			project_id: 101,
 			amount: reward_101,
-		})]);
+		})]);*/
 	})
 }
 
-#[test]
+/*#[test]
 fn vote_removal_works() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();

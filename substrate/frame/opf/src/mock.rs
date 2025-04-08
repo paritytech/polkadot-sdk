@@ -224,7 +224,7 @@ impl pallet_referenda::Config for Test {
 	type Tally = pallet_conviction_voting::TallyOf<Test>;
 	type SubmissionDeposit = ConstU64<2>;
 	type MaxQueued = ConstU32<3>;
-	type UndecidingTimeout = ConstU64<20>;
+	type UndecidingTimeout = ConstU64<5>;
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TestTracksInfo;
 	type Preimages = Preimage;

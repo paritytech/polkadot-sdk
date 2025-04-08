@@ -22,7 +22,10 @@ pub trait ReferendumTrait<AccountId> {
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo>;
 	fn handle_referendum_info(infos: Self::ReferendumInfo) -> Option<ReferendumStates>;
 	fn referendum_count() -> Self::Index;
-	fn get_decision_period(index: Self::Index) -> Result<u128, DispatchError>;
+	fn get_time_periods(index: Self::Index) -> Result<TimePeriods, DispatchError>;
+	fn enter_decision_period(
+		index: Self::Index, project_id: AccountId
+	) -> Result<u128, DispatchError> ;
 }
 
 pub trait ConvictionVotingTrait<AccountId> {
@@ -190,7 +193,7 @@ where
 		pallet_referenda::ReferendumCount::<T, I>::get()
 	}
 
-	fn get_decision_period(index: Self::Index) -> Result<u128, DispatchError> {
+	fn get_time_periods(index: Self::Index) -> Result<TimePeriods, DispatchError> {
 		let info = Self::get_referendum_info(index)
 			.ok_or_else(|| DispatchError::Other("No referendum info found"))?;
 		match info {
@@ -198,12 +201,64 @@ where
 				let track_id = info.track;
 				let track = T::Tracks::info(track_id)
 					.ok_or_else(|| DispatchError::Other("No track info found"))?;
-				let total_period = track.decision_period.saturating_add(track.prepare_period);
-				// convert total_period to u128
+
+				let decision_period: u128 = track.decision_period.try_into().map_err(|_| {
+					DispatchError::Other("Failed to convert decision period to u128")
+				})?;
+				let prepare_period: u128 = track.prepare_period.try_into().map_err(|_| {
+					DispatchError::Other("Failed to convert decision period to u128")
+				})?;
+				let confirm_period: u128 = track.confirm_period.try_into().map_err(|_| {
+					DispatchError::Other("Failed to convert decision period to u128")
+				})?;
+				let min_enactment_period: u128 = track.min_enactment_period.try_into().map_err(|_| {
+					DispatchError::Other("Failed to convert decision period to u128")
+				})?; 
+				// Calculate the total period
+				let total_period = decision_period + prepare_period + confirm_period + min_enactment_period;
 				let total_period: u128 = total_period.try_into().map_err(|_| {
 					DispatchError::Other("Failed to convert decision period to u128")
 				})?;
-				Ok(total_period)
+				let time_periods = TimePeriods {
+					prepare_period,
+					decision_period,
+					confirm_period,
+					min_enactment_period,
+					total_period,
+				};
+				Ok(time_periods)
+			},
+			_ => Err(DispatchError::Other("Not an ongoing referendum")),
+		}
+	}
+
+	fn enter_decision_period(
+		index: Self::Index, project_id: AccountIdOf<T>
+	) -> Result<u128, DispatchError> {
+		let now = T::BlockNumberProvider::current_block_number();
+		let origin = RawOrigin::Signed(project_id.clone()).into();
+		let info = Self::get_referendum_info(index)
+			.ok_or_else(|| DispatchError::Other("No referendum info found"))?;
+		match info {
+			Self::ReferendumInfo::Ongoing(ref info) => {
+				let track_id = info.track;
+				let track = T::Tracks::info(track_id)
+					.ok_or_else(|| DispatchError::Other("No track info found"))?;
+				// Check when the referendum was submitted
+				let submitted = info.submitted;
+				// if prepare period has passed place decision deposit
+				if submitted.saturating_add(track.prepare_period) > now {
+					pallet_referenda::Pallet::<T, I>::place_decision_deposit(
+						origin,
+						index,
+					).map_err(|_| {
+						DispatchError::Other("Failed to place decision deposit")
+					})?;
+				}
+				let decision_period: u128 = track.decision_period.try_into().map_err(|_| {
+					DispatchError::Other("Failed to convert decision period to u128")
+				})?;
+				Ok(decision_period)
 			},
 			_ => Err(DispatchError::Other("Not an ongoing referendum")),
 		}
