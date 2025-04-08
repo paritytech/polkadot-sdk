@@ -37,7 +37,7 @@
 use crate::{Error, NodeCodec};
 use hash_db::Hasher;
 use nohash_hasher::BuildNoHashHasher;
-use parking_lot::{Mutex, MutexGuard};
+use parking_lot::{Mutex, MutexGuard, RwLockWriteGuard};
 use schnellru::LruMap;
 use shared_cache::{ValueCacheKey, ValueCacheRef};
 use std::{
@@ -533,6 +533,8 @@ pub struct LocalTrieCache<H: Hasher> {
 	node_cache_config: LocalNodeCacheConfig,
 	/// The stats for the cache.
 	stats: TrieHitStats,
+	/// Specifies if we are in a trusted path like block authoring and importing or not.
+	trusted: bool,
 }
 
 impl<H: Hasher> LocalTrieCache<H> {
@@ -615,6 +617,14 @@ impl<H: Hasher> Drop for LocalTrieCache<H> {
 				&metrics,
 			);
 		}
+
+		// Since the trie cache is not called from a time sensitive context like block authoring or
+		// block import give the option to a more important task to acquire the lock and do its
+		// job.
+		if !self.trusted {
+			RwLockWriteGuard::bump(&mut shared_inner);
+		}
+
 		{
 			let _node_update_duration =
 				metrics.as_ref().map(|metrics| metrics.start_shared_value_update_timer());

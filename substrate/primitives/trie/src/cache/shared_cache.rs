@@ -734,6 +734,7 @@ impl<H: Hasher> SharedTrieCache<H> {
 			value_cache_config: local_value_cache_config,
 			node_cache_config: local_node_cache_config,
 			stats: Default::default(),
+			trusted: false,
 		}
 	}
 
@@ -770,6 +771,7 @@ impl<H: Hasher> SharedTrieCache<H> {
 			value_cache_config: local_value_cache_config,
 			node_cache_config: local_node_cache_config,
 			stats: Default::default(),
+			trusted: true,
 		}
 	}
 
