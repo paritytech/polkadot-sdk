@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{exec::ExecResult,  Config, Error, ExecReturnValue, GasMeter, H160, LOG_TARGET};
+use crate::{exec::ExecResult, Config, Error, ExecReturnValue, GasMeter, H160, LOG_TARGET};
 
 mod ecrecover;
 pub use ecrecover::*;
@@ -55,7 +55,6 @@ pub struct Precompiles<T: Config> {
 	_phantom: core::marker::PhantomData<T>,
 }
 
-
 impl<T: Config> Precompiles<T> {
 	pub fn execute(addr: H160, gas_meter: &mut GasMeter<T>, input: &[u8]) -> ExecResult {
 		match addr.as_bytes()[19] {
@@ -75,7 +74,6 @@ impl<T: Config> Precompiles<T> {
 			Error::<T>::PrecompileFailure.into()
 		})
 	}
-	
 }
 
 #[cfg(test)]
