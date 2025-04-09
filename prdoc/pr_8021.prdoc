@@ -8,29 +8,29 @@ doc:
     The PR also moves the `footprint()` method from the `EnqueuMessage` trait to a new `QueueuFootprintQuery` trait.
 crates:
 - name: cumulus-pallet-xcmp-queue
-  bump: minor
+  bump: major
 - name: pallet-message-queue
   bump: minor
 - name: frame-support
   bump: major
 - name: asset-hub-rococo-runtime
-  bump: minor
+  bump: patch
 - name: asset-hub-westend-runtime
-  bump: minor
+  bump: patch
 - name: bridge-hub-rococo-runtime
-  bump: minor
+  bump: patch
 - name: bridge-hub-westend-runtime
-  bump: minor
+  bump: patch
 - name: collectives-westend-runtime
-  bump: minor
+  bump: patch
 - name: coretime-rococo-runtime
-  bump: minor
+  bump: patch
 - name: coretime-westend-runtime
-  bump: minor
+  bump: patch
 - name: people-rococo-runtime
-  bump: minor
+  bump: patch
 - name: people-westend-runtime
-  bump: minor
+  bump: patch
 - name: snowbridge-pallet-outbound-queue-v2
   bump: none
 - name: snowbridge-pallet-outbound-queue
@@ -38,4 +38,4 @@ crates:
 - name: cumulus-pallet-dmp-queue
   bump: none
 - name: polkadot-runtime-parachains
-  bump: minor
+  bump: patch
