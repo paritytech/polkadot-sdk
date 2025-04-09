@@ -378,6 +378,12 @@ pub mod pallet {
 		pub fn cycle_period() -> BlockNumberFor<T> {
 			T::RegistrationPeriod::get() + T::PayoutPeriod::get()
 		}
+		fn calculate_periods_to_pay(last_payout: BlockNumberFor<T>, now: BlockNumberFor<T>) -> u32 {
+			// TODO: retrieve payout period from core-fellowship config?
+			let payout_period = T::PayoutPeriod::get();
+			let elapsed = now.saturating_sub(last_payout);
+			(elapsed / payout_period) as u32
+		}
 		fn do_payout(who: T::AccountId, beneficiary: T::AccountId) -> DispatchResult {
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
 			let mut claimant = Claimant::<T, I>::get(&who).ok_or(Error::<T, I>::NotInducted)?;
@@ -404,7 +410,9 @@ pub mod pallet {
 				Nothing | Attempted { .. } if claimant.last_active < status.cycle_index => {
 					// Not registered for this cycle. Pay from whatever is left.
 					let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::NotMember)?;
-					let ideal_payout = T::Salary::get_salary(rank, &who);
+					let salary_per_period = T::Salary::get_salary(rank, &who);
+					let periods_to_pay = Self::calculate_periods_to_pay(status.cycle_start, now);
+					let ideal_payout = salary_per_period.saturating_mul(periods_to_pay.into());
 
 					let pot = status
 						.budget

@@ -84,8 +84,13 @@ impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for MigrateToV1<T, I> {
 		let old_value = v0::Params::<T, I>::take();
 		// Write the new value to storage
 		let new = crate::ParamsType {
-			active_salary: BoundedVec::defensive_truncate_from(old_value.active_salary.to_vec()),
-			passive_salary: BoundedVec::defensive_truncate_from(old_value.passive_salary.to_vec()),
+			active_salary_per_period: BoundedVec::defensive_truncate_from(
+				old_value.active_salary.to_vec(),
+			),
+			passive_salary_per_period: BoundedVec::defensive_truncate_from(
+				old_value.passive_salary.to_vec(),
+			),
+			payout_period_duration: old_value.payout_period,
 			demotion_period: BoundedVec::defensive_truncate_from(
 				old_value.demotion_period.to_vec(),
 			),
