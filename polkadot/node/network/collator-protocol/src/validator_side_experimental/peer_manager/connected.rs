@@ -208,6 +208,7 @@ impl PerPara {
 		// other connected peer.
 		if self.sorted_scores.len() < (self.limit as usize) {
 			self.sorted_scores.insert(OrderedPeerScoreEntry { peer_id, score });
+			self.per_peer_score.insert(peer_id, score);
 			TryAcceptOutcome::Added
 		} else {
 			let Some(min_score) = self.sorted_scores.first() else {
