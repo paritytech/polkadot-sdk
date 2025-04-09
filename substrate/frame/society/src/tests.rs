@@ -281,7 +281,7 @@ fn bidding_works() {
 		// No more candidates satisfy the requirements
 		assert_eq!(candidacies(), Vec::<(u128, Candidacy<u128, u64>)>::new());
 		assert_ok!(Society::defender_vote(Origin::signed(10), true)); // Keep defender around
-															  // Next period
+																// Next period
 		System::run_to_block::<AllPalletsWithSystem>(16);
 		// Same members
 		assert_eq!(members(), vec![10, 30, 40, 50]);
