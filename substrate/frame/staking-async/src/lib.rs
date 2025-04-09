@@ -729,14 +729,6 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	}
 }
 
-#[derive(Clone)]
-pub struct NullIdentity;
-impl<T> Convert<T, Option<()>> for NullIdentity {
-	fn convert(_: T) -> Option<()> {
-		Some(())
-	}
-}
-
 /// Filter historical offences out and only allow those from the bonding period.
 pub struct FilterHistoricalOffences<T, R> {
 	_inner: core::marker::PhantomData<(T, R)>,
