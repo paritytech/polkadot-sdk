@@ -24,8 +24,9 @@ pub trait ReferendumTrait<AccountId> {
 	fn referendum_count() -> Self::Index;
 	fn get_time_periods(index: Self::Index) -> Result<TimePeriods, DispatchError>;
 	fn enter_decision_period(
-		index: Self::Index, project_id: AccountId
-	) -> Result<u128, DispatchError> ;
+		index: Self::Index,
+		project_id: AccountId,
+	) -> Result<u128, DispatchError>;
 }
 
 pub trait ConvictionVotingTrait<AccountId> {
@@ -211,11 +212,13 @@ where
 				let confirm_period: u128 = track.confirm_period.try_into().map_err(|_| {
 					DispatchError::Other("Failed to convert decision period to u128")
 				})?;
-				let min_enactment_period: u128 = track.min_enactment_period.try_into().map_err(|_| {
-					DispatchError::Other("Failed to convert decision period to u128")
-				})?; 
+				let min_enactment_period: u128 =
+					track.min_enactment_period.try_into().map_err(|_| {
+						DispatchError::Other("Failed to convert decision period to u128")
+					})?;
 				// Calculate the total period
-				let total_period = decision_period + prepare_period + confirm_period + min_enactment_period;
+				let total_period =
+					decision_period + prepare_period + confirm_period + min_enactment_period;
 				let total_period: u128 = total_period.try_into().map_err(|_| {
 					DispatchError::Other("Failed to convert decision period to u128")
 				})?;
@@ -233,7 +236,8 @@ where
 	}
 
 	fn enter_decision_period(
-		index: Self::Index, project_id: AccountIdOf<T>
+		index: Self::Index,
+		project_id: AccountIdOf<T>,
 	) -> Result<u128, DispatchError> {
 		let now = T::BlockNumberProvider::current_block_number();
 		let origin = RawOrigin::Signed(project_id.clone()).into();
@@ -246,14 +250,10 @@ where
 					.ok_or_else(|| DispatchError::Other("No track info found"))?;
 				// Check when the referendum was submitted
 				let submitted = info.submitted;
-				
-					pallet_referenda::Pallet::<T, I>::place_decision_deposit(
-						origin,
-						index,
-					).map_err(|_| {
-						DispatchError::Other("Failed to place decision deposit")
-					})?;
-				
+
+				pallet_referenda::Pallet::<T, I>::place_decision_deposit(origin, index)
+					.map_err(|_| DispatchError::Other("Failed to place decision deposit"))?;
+
 				let decision_period: u128 = track.decision_period.try_into().map_err(|_| {
 					DispatchError::Other("Failed to convert decision period to u128")
 				})?;

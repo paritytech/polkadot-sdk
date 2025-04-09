@@ -220,7 +220,7 @@ impl pallet_referenda::Config for Test {
 	type CancelOrigin = EnsureSignedBy<Four, u64>;
 	type KillOrigin = EnsureRoot<u64>;
 	type Slash = ();
-	type Votes =  pallet_conviction_voting::VotesOf<Test>;
+	type Votes = pallet_conviction_voting::VotesOf<Test>;
 	type Tally = pallet_conviction_voting::TallyOf<Test>;
 	type SubmissionDeposit = ConstU64<2>;
 	type MaxQueued = ConstU32<3>;

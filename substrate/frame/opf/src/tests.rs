@@ -30,7 +30,6 @@ pub fn next_block() {
 		<Test as Config>::BlockNumberProvider::current_block_number(),
 		Weight::MAX,
 	);
-	
 }
 
 pub fn project_list() -> BoundedVec<u64, <Test as Config>::MaxProjects> {
@@ -108,15 +107,13 @@ fn conviction_vote_works() {
 		let vote_validity = <Test as Config>::VoteValidityPeriod::get();
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 		//round_end_block
-		
+
 		let round_end = now.saturating_add(voting_period);
 
 		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch));
 		let round = VotingRounds::<Test>::get(0).unwrap();
-		
-		assert!(
-			round.round_ending_block > round.round_starting_block,
-		);
+
+		assert!(round.round_ending_block > round.round_starting_block,);
 		// Bob vote for project_101
 		assert_ok!(Opf::vote(RuntimeOrigin::signed(BOB), 101, 100, true, Conviction::Locked1x));
 		// Dave vote for project_102
@@ -148,7 +145,7 @@ fn conviction_vote_works() {
 fn rewards_calculation_works() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
-		
+
 		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch));
 
 		let time_periods = <Test as Config>::Governance::get_time_periods(1).ok().unwrap();
@@ -158,13 +155,12 @@ fn rewards_calculation_works() {
 		let decision_period = time_periods.decision_period.try_into().unwrap_or(0);
 		let enactment_period = time_periods.min_enactment_period.try_into().unwrap_or(0);
 		let confirm_period = time_periods.confirm_period.try_into().unwrap_or(0);
-		
-	
+
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 		//round_end_block
 		let round_end = now.saturating_add(voting_period);
 		let decision_block = now.saturating_add(decision_period + prepare_period);
-		assert_eq!(decision_block>0, true);
+		assert_eq!(decision_block > 0, true);
 
 		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to
 		// 2000*BSX locked
@@ -223,12 +219,10 @@ fn rewards_calculation_works() {
 		let referendum_status =
 			<Test as Config>::Governance::handle_referendum_info(referendum_info).unwrap();
 		// Referendum 101 status is Approved
-			assert_eq!(referendum_status, ReferendumStates::Approved);
+		assert_eq!(referendum_status, ReferendumStates::Approved);
 
 		// The right events are emitted
-		expect_events(vec![
-			RuntimeEvent::Opf(Event::VotingRoundEnded { round_number: 0 }),
-		]);
+		expect_events(vec![RuntimeEvent::Opf(Event::VotingRoundEnded { round_number: 0 })]);
 
 		// The total equivalent positive amount voted is 12000
 		// Project 101: 7000 -> ~58.3%; Project 102: 2000 -> ~16.6%
@@ -240,16 +234,17 @@ fn rewards_calculation_works() {
 		assert_eq!(reward_101, 58000);
 		assert_eq!(reward_102, 16000);
 
-
 		// Proposal Enactment did not happened yet
 		assert_eq!(Spends::<Test>::contains_key(101), false);
-		
 
-		next_block();
+		run_to_block(22);
+
+		let scheduled = pallet_scheduler::Agenda::<Test>::get(21);
+		println!("Scheduled: {:?}", scheduled);
 		// Enactment happened as expected
-		/*assert_eq!(Spends::<Test>::contains_key(101), true);
+		//assert_eq!(Spends::<Test>::contains_key(101), true);
 
-		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
+		/*expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
 			project_id: 102,
 			amount: reward_102,
 		})]);

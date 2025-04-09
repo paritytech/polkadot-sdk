@@ -281,10 +281,10 @@ impl<T: Config> Pallet<T> {
 	) -> <<T as pallet::Config>::BlockNumberProvider as sp_runtime::traits::BlockNumberProvider>::BlockNumber where <<T as pallet::Config>::BlockNumberProvider as sp_runtime::traits::BlockNumberProvider>::BlockNumber: From<<<T as pallet::Config>::Governance as traits::ReferendumTrait<<T as frame_system::Config>::AccountId>>::Moment>{
 		moment.saturated_into()
 	}
-	pub fn convert_u128_to_block_number(
-		moment: u128,
-	) -> ProvidedBlockNumberFor<T>{
-		moment.try_into().unwrap_or_else(|_| panic!("Failed to convert u128 to BlockNumber"))
+	pub fn convert_u128_to_block_number(moment: u128) -> ProvidedBlockNumberFor<T> {
+		moment
+			.try_into()
+			.unwrap_or_else(|_| panic!("Failed to convert u128 to BlockNumber"))
 	}
 
 	pub fn round_check() -> DispatchResult {
@@ -309,7 +309,7 @@ impl<T: Config> Pallet<T> {
 		let now = T::BlockNumberProvider::current_block_number();
 		let mut meter = WeightMeter::with_limit(limit);
 		let max_block_weight = T::BlockWeights::get().max_block;
-		
+
 		if meter.try_consume(max_block_weight).is_err() {
 			return meter.consumed();
 		}
@@ -321,16 +321,15 @@ impl<T: Config> Pallet<T> {
 		let current_round_index = round_index.saturating_sub(1);
 
 		if let Some(round_infos) = VotingRounds::<T>::get(current_round_index) {
-			if round_infos.round_ending_block != round_infos.round_starting_block
-			{
+			if round_infos.round_ending_block != round_infos.round_starting_block {
 				let round_ending_block = round_infos.round_ending_block;
-				let mut prep_period  = 0;
-				if let Some(period) = round_infos.time_periods{
+				let mut prep_period = 0;
+				if let Some(period) = round_infos.time_periods {
 					prep_period = period.prepare_period;
 				}
-				let prepare_period= Self::convert_u128_to_block_number(prep_period);
-				let decision_block = round_infos.round_starting_block
-					.saturating_add(prepare_period);
+				let prepare_period = Self::convert_u128_to_block_number(prep_period);
+				let decision_block =
+					round_infos.round_starting_block.saturating_add(prepare_period);
 				if now >= decision_block {
 					let projects_submitted = round_infos.projects_submitted.clone();
 					for project_id in projects_submitted {
@@ -343,30 +342,29 @@ impl<T: Config> Pallet<T> {
 									project_infos.index.into(),
 									project_id.clone(),
 								);
-
 							}
-							}
+						}
 					}
 				}
 
+				if now >= round_ending_block {
+					// Emmit event
+					Self::deposit_event(Event::<T>::VoteActionLocked {
+						round_number: round_infos.round_number,
+					});
+					// Emmit events
+					Self::deposit_event(Event::<T>::VotingRoundEnded {
+						round_number: round_infos.round_number,
+					});
+					// prepare reward distribution
+					// for now we are using the temporary-constant reward.
+					let _ = Self::calculate_rewards(T::TemporaryRewards::get())
+						.map_err(|_| Error::<T>::FailedRewardCalculation);
 
-			if now >= round_ending_block {
-				// Emmit event
-				Self::deposit_event(Event::<T>::VoteActionLocked {
-					round_number: round_infos.round_number,
-				});
-				// Emmit events
-				Self::deposit_event(Event::<T>::VotingRoundEnded {
-					round_number: round_infos.round_number,
-				});
-				// prepare reward distribution
-				// for now we are using the temporary-constant reward.
-				let _ = Self::calculate_rewards(T::TemporaryRewards::get())
-					.map_err(|_| Error::<T>::FailedRewardCalculation);
-
-				// Clear ProjectFunds storage
-				ProjectFunds::<T>::drain();
-			}}
+					// Clear ProjectFunds storage
+					ProjectFunds::<T>::drain();
+				}
+			}
 		}
 		meter.consumed()
 	}

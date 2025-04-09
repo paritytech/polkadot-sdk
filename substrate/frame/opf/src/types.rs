@@ -192,9 +192,7 @@ pub struct VoteInfo<T: Config> {
 impl<T: Config> VoteInfo<T> {
 	pub fn funds_unlock(&mut self) {
 		let conviction_coeff = <u8 as From<Conviction>>::from(self.conviction);
-		let funds_unlock_block = self
-			.round
-			.round_ending_block;
+		let funds_unlock_block = self.round.round_ending_block;
 		self.funds_unlock_block = funds_unlock_block;
 	}
 }
@@ -205,7 +203,7 @@ impl<T: Config> Default for VoteInfo<T> {
 		let amount = Zero::zero();
 		let fund = false;
 		let conviction = Conviction::None;
-		
+
 		// get round number
 		if let Some(round) = VotingRounds::<T>::get(0) {
 			let funds_unlock_block = round.round_ending_block;
@@ -237,8 +235,7 @@ impl<T: Config> VotingRoundInfo<T> {
 		let round_starting_block = T::BlockNumberProvider::current_block_number();
 		let batch_submitted = false;
 		let projects_submitted = BoundedVec::default();
-		let round_ending_block =
-			round_starting_block;
+		let round_ending_block = round_starting_block;
 		let round_number = NextVotingRoundNumber::<T>::mutate(|n| {
 			let res = *n;
 			*n = n.saturating_add(1);
@@ -256,7 +253,7 @@ impl<T: Config> VotingRoundInfo<T> {
 			total_positive_votes_amount,
 			total_negative_votes_amount,
 			batch_submitted,
-			time_periods: time_periods,
+			time_periods,
 			projects_submitted,
 		};
 		VotingRounds::<T>::insert(round_number, round_infos.clone());
