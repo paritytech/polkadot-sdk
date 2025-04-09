@@ -14,209 +14,164 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Optional/Additional CLI options of the omni-node-lib to be used by other binaries. See [`ExtraSubcommands`].
-use crate::chain_spec::LoadSpec;
-use clap::{ArgMatches, Args, Command, FromArgMatches, Subcommand};
-use sc_cli::{ExportChainSpecCmd, Result as CliResult};
+//! Optional/Additional CLI options of the omni-node-lib to be used by other binaries. See
+//! [`ExtraSubcommands`].
+use clap::{ArgMatches, Command, CommandFactory, FromArgMatches, Parser};
+use sc_cli::{ExportChainSpecCmd, Result};
+
+use crate::RunConfig;
 
 /// A trait for injecting and handling additional CLI subcommands in a composable way.
 ///
-/// This trait allows developers to modularly extend the CLI without modifying the core command
-/// definitions. It is particularly useful in projects using `polkadot-omni-node-lib` where downstream
-/// crates like parachains may want to define their own custom commands.
+/// This trait allows downstream crates using `polkadot-omni-node-lib` to plug in their own custom
+/// subcommands without having to modify the main CLI definition. This is especially useful for
+/// parachain node binaries that want to define optional utilities like exporting data,
+/// telemetry tools, or anything domain-specific.
 ///
-/// You can use this by implementing `ExtraSubcommand` for your custom command,
-/// and passing it into the `run::<CliConfig, YourExtraSubcommands>()` function.
+/// ## Implementing a Custom Extra Command
+///
+/// To create your own subcommand:
+///
+/// 1. Define the subcommand using [`clap::Parser`].
+/// 2. Implement this trait for it.
+/// 3. Register it in your CLI runner via `run::<CliConfig, YourExtraCommand>(config)`.
+///
+/// ### Minimal Example:
 ///
 ///
-/// # Example
-///
-/// Suppose you want to add a custom subcommand `foo` that prints `"bar"` when run,
-/// and takes an optional `--foo <value>` argument.
-///
-/// First, define your subcommand struct:
+/// use clap::Parser;
+/// use polkadot_omni_node_lib::{ExtraSubcommand, RunConfig};
 ///
 /// #[derive(Debug, Clone, Parser)]
 /// pub struct FooCmd {
+///     /// Prints a foo message
 ///     #[arg(long)]
 ///     pub foo: Option<String>,
 /// }
 ///
-/// Then, define a subcommand enum (required by `augment_subcommands`):
+/// pub struct FooCommand;
 ///
+/// impl ExtraSubcommand for FooCommand {
+///     type P = FooCmd;
 ///
-/// #[derive(Debug, Subcommand)]
-/// pub enum MyExtraCommands {
-///     #[command(name = "foo")]
-///     Foo(FooCmd),
-/// }
-///
-/// Now implement `ExtraSubcommand`:
-///
-///
-/// pub struct MyExtra;
-///
-/// impl ExtraSubcommand for MyExtra {
-///     fn augment_command(cmd: Command) -> Command {
-///         let base = cmd.version(env!("CARGO_PKG_VERSION"));
-///         MyExtraCommands::augment_subcommands(base)
-///     }
-///
-///     fn maybe_run(name: &str, matches: &ArgMatches, _loader: &dyn LoadSpec) -> Option<sc_cli::Result<()>> {
-///         let cmd_enum = MyExtraCommands::from_arg_matches(matches).ok()?;
-///         match cmd_enum {
-///             MyExtraCommands::Foo(cmd) => {
-///                 println!("Hello from foo! {:?}", cmd.foo);
-///                 Some(Ok(()))
-///             }
-///         }
+///     fn handle(cmd: FooCmd, _config: &RunConfig) -> sc_cli::Result<()> {
+///         println!("Hello from Foo! {:?}", cmd.foo);
+///         Ok(())
 ///     }
 /// }
 ///
 ///
-/// Finally, wire it in:
+/// To use this in a binary:
 ///
 ///
 /// let config = RunConfig::new(...);
-/// run::<CliConfig, MyExtra>(config)?;
+/// run::<CliConfig, FooCommand>(config)?;
 ///
 ///
-/// And that's it! Your binary now supports:
-///
-/// ```bash
-/// $ my-binary foo --foo hello
-/// Hello from foo! Some("hello")
-/// ```
-///
-/// This design is composable. If you need to support **multiple** extra commands, implement your
-/// own enum to match over them.
-///
-/// ## Multiple Subcommands
-///
-/// To support multiple custom subcommands:
-///
-/// 1. Extend the `ExtraCommands` enum with your custom subcommands.
-/// 2. Update the `maybe_run` match logic.
-/// 3. Reuse the `ExtraSubcommands` struct (or define your own).
-///
-/// ### Example
-///
-/// Suppose you want to add a second subcommand `dummy`:
-///
-///
-/// #[derive(Debug, Clone, Parser)]
-/// pub struct DummyCmd {
-///     #[arg(long)]
-///     pub message: Option<String>,
-/// }
-///
-/// Extend the existing enum:
-///
-/// #[derive(Debug, Subcommand)]
-/// pub enum ExtraCommands {
-///     #[command(name = "export-chain-spec")]
-///     ExportChainSpec(sc_cli::ExportChainSpecCmd),
-///
-///     #[command(name = "dummy")]
-///     Dummy(DummyCmd),
-/// }
-///
-/// Update the `maybe_run` method:
-///
-/// match ExtraCommands::from_arg_matches(matches) {
-///     Ok(ExtraCommands::ExportChainSpec(cmd)) => {
-///         let spec = chain_spec_loader.load_spec(&cmd.chain).ok()?;
-///         Some(cmd.run(spec))
-///     }
-///     Ok(ExtraCommands::Dummy(cmd)) => {
-///         println!("Dummy command invoked with: {:?}", cmd.message);
-///         Some(Ok(()))
-///     }
-///     Err(_) => None,
-/// }
-///
-/// Then in your binary:
-///
-/// Ok(run::<MyCliConfig, ExtraSubcommands>(config)?)
-///
-/// Now your CLI supports:
+/// Running it:
 ///
 /// ```bash
-/// $ my-binary dummy --message hello
-/// Dummy command invoked with: Some("hello")
+/// $ your-binary foo --foo bar
+/// Hello from Foo! Some("bar")
 /// ```
+///
+/// ## Supporting Multiple Subcommands
+///
+/// You can compose multiple extra commands via an enum. Just derive [`clap::Parser`] and match
+/// over the variants in `handle`.
+///
+///
+/// #[derive(Debug, clap::Parser)]
+/// pub enum MyExtras {
+///     Foo(FooCmd),
+///     Bar(BarCmd),
+/// }
+///
+/// impl ExtraSubcommand for MyExtras {
+///     type P = Self;
+///
+///     fn handle(cmd: Self, config: &RunConfig) -> sc_cli::Result<()> {
+///         match cmd {
+///             MyExtras::Foo(foo) => { ... }
+///             MyExtras::Bar(bar) => { ... }
+///         }
+///         Ok(())
+///     }
+/// }
+///
 
-pub trait ExtraSubcommand: Sized {
-    /// Augments the CLI definition with an additional subcommand.
-    ///
-    /// This allows the subcommand to be shown in `--help` and parsed by Clap.
-    fn augment_command(cmd: Command) -> Command;
 
-    /// Tries to run the subcommand by matching on the name and arguments.
-    ///
-    /// If this subcommand is not recognized, returns `None`.
-    fn maybe_run(
-        name: &str,
-        matches: &ArgMatches,
-        chain_spec_loader: &dyn LoadSpec,
-    ) -> Option<CliResult<()>>;
+/// A trait for CLI subcommands that can be optionally added by downstream consumers.
+pub trait ExtraSubcommand {
+	/// The clap [`Parser`] type representing this extra command (usually a struct or enum).
+	type P: Parser;
+
+	/// Optionally override the subcommand metadata (name, version, help).
+	///
+	/// Defaults to [`Parser::command`] on `Self::P`.
+	fn command() -> Option<Command> {
+		Some(Self::P::command())
+	}
+
+	/// Parse and handle this extra subcommand, if recognized.
+	///
+	/// Returns `Ok(true)` if this subcommand matches and is handled.
+	/// Returns `Ok(false)` if this subcommand is unrelated to the extra handler.
+	/// Returns `Err(_)` if the extra command failed at runtime or parsing.
+	fn handle_with_matches(matches: &ArgMatches, config: &RunConfig) -> Result<bool> {
+		match Self::P::from_arg_matches(matches) {
+			Ok(res) => Self::handle(res, config).map(|_| true),
+			Err(_) => Ok(false),
+		}
+	}
+
+	/// Handle the command once it's been parsed.
+	fn handle(p: Self::P, config: &RunConfig) -> Result<()>;
 }
 
-/// Enum representing all supported extra subcommands bundled in `polkadot-omni-node-lib`.
+/// Built-in extra subcommands provided by `polkadot-omni-node-lib`.
 ///
-/// This enum is automatically used when you enable the default extra commands (like `export-chain-spec`)
-/// by passing `ExtraSubcommands` to `run::<CliConfig, ExtraSubcommands>()`.
+/// Currently includes:
+/// - `export-chain-spec`
 ///
-/// Downstream crates may define their own enums and implementations to plug in custom logic.
-#[derive(Debug, Subcommand)]
-pub enum ExtraCommands {
-    /// Export the chain spec to JSON.
-    #[command(name = "export-chain-spec")]
-    ExportChainSpec(ExportChainSpecCmd),
+/// You can use this by passing [`ExtraSubcommands`] to `run::<CliConfig, ExtraSubcommands>()`.
+/// This enables default support for utilities like:
+///
+/// ```bash
+/// $ your-binary export-chain-spec --chain westmint
+/// ```
+///
+/// Downstream crates may use this enum directly or extend it with their own subcommands.
+#[derive(Debug, Parser)]
+pub enum ExtraSubcommands {
+	/// Export the chain spec to JSON.
+	ExportChainSpec(ExportChainSpecCmd),
 }
-
 
 /// No-op subcommand handler. Use this when a binary does not expose any extra subcommands.
 ///
 /// Acts as the default `ExtraSubcommand` implementation when no extras are provided.
+#[derive(Parser)]
 pub struct NoExtraSubcommand;
 
 impl ExtraSubcommand for NoExtraSubcommand {
-    fn augment_command(cmd: Command) -> Command {
-        cmd
-    }
-    fn maybe_run(_name: &str, _matches: &ArgMatches, _disk_chain_spec_loader: &dyn LoadSpec) -> Option<sc_cli::Result<()>> {
-        None
-    }
+	type P = Self;
+	fn handle(_p: NoExtraSubcommand, _config: &RunConfig) -> Result<()> {
+		Ok(())
+	}
 }
 
-/// Provides the `export-chain-spec` subcommand.
-pub struct ExtraSubcommands;
-
 impl ExtraSubcommand for ExtraSubcommands {
-    fn augment_command(cmd: Command) -> Command {
-        let base = cmd.version(env!("CARGO_PKG_VERSION"));
-        ExtraCommands::augment_subcommands(base)
-    }
+	type P = Self;
 
-    fn maybe_run(
-        _name: &str,
-        matches: &ArgMatches,
-        chain_spec_loader: &dyn LoadSpec,
-    ) -> Option<sc_cli::Result<()>> {
-        match ExtraCommands::from_arg_matches(matches) {
-            Ok(ExtraCommands::ExportChainSpec(cmd)) => {
-                let spec = chain_spec_loader
-                    .load_spec(&cmd.chain)
-                    .map_err(|e| sc_cli::Error::Application(Box::new(std::io::Error::other(e))))
-                    .ok()?;
-                Some(cmd.run(spec))
-            }
-            Err(e) => {
-                eprintln!("Error parsing subcommand: {e}");
-                None
-            }
-        }
-    }
+	fn handle(p: ExtraSubcommands, config: &RunConfig) -> Result<()> {
+		match p {
+			ExtraSubcommands::ExportChainSpec(cmd) => {
+				let spec = config.chain_spec_loader.load_spec(&cmd.chain)?;
+				cmd.run(spec)?;
+			},
+		}
 
+		Ok(())
+	}
 }
