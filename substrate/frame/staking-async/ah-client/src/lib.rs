@@ -188,10 +188,7 @@ pub enum OperatingMode {
 
 impl OperatingMode {
 	fn can_accept_validator_set(&self) -> bool {
-		match self {
-			OperatingMode::Active => true,
-			_ => false,
-		}
+		matches!(self, OperatingMode::Active)
 	}
 }
 
@@ -519,9 +516,8 @@ pub mod pallet {
 		}
 
 		fn start_session(session_index: u32) {
-			match Mode::<T>::get() {
-				OperatingMode::Passive => T::Fallback::start_session(session_index),
-				_ => (),
+			if Mode::<T>::get() == OperatingMode::Passive {
+				T::Fallback::start_session(session_index)
 			}
 		}
 
@@ -676,13 +672,11 @@ pub mod pallet {
 		}
 
 		fn do_new_session() -> Option<Vec<T::AccountId>> {
-			let maybe_validator_set = ValidatorSet::<T>::take().map(|(id, val_set)| {
+			ValidatorSet::<T>::take().map(|(id, val_set)| {
 				// store the id to be sent back in the next session back to AH
 				NextSessionChangesValidators::<T>::put(id);
 				val_set
-			});
-
-			maybe_validator_set
+			})
 		}
 
 		fn do_end_session(session_index: u32) {

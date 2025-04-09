@@ -1120,8 +1120,9 @@ impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::Accoun
 	fn convert(
 		validator: T::AccountId,
 	) -> Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> {
-			T::SessionInterface::validators().contains(&validator)
-				.then_some(ExistenceOrLegacyExposure::Exists)
+		// TODO: Move this to AH Client.
+		T::SessionInterface::validators().contains(&validator)
+			.then_some(ExistenceOrLegacyExposure::Exists)
 	}
 }
 

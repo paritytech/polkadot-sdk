@@ -607,7 +607,7 @@ pub mod pallet {
 			};
 
 			// in all cases, go to next phase
-			let next_phase = current_phase.clone().next();
+			let next_phase = current_phase.next();
 
 			let weight2 = match next_phase {
 				Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
