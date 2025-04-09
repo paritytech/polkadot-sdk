@@ -43,7 +43,7 @@ fn test_submit_happy_path() {
 				RuntimeEvent::InboundQueue(Event::MessageReceived { nonce, ..})
 					if nonce == 1
 			)),
-			"no event emit."
+			"No event emitted."
 		);
 
 		let delivery_cost = InboundQueue::calculate_delivery_cost(message.encode().len() as u32);
