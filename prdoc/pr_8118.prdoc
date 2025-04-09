@@ -1,8 +1,8 @@
-title: Fix compilation by making conversions explicit
+title: Make a subset of conversions explicit
 doc:
 - audience: [Node Dev, Runtime Dev]
   description: |-
-    Fix various compilation issues for crates in polkadot-sdk after upgrading degrade to 0.4.1.
+	Make some of the conversions safer or explicit.
 crates:
 - name: polkadot-runtime-parachains
   bump: patch 
