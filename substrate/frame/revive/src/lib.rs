@@ -1309,7 +1309,6 @@ where
 		};
 
 		let payload = unsigned_tx.dummy_signed_payload();
-		let len = payload.len();
 		let eth_dispatch_call = crate::Call::<T>::eth_transact { payload };
 
 		let fee = tx_fee(eth_dispatch_call, dispatch_info);
