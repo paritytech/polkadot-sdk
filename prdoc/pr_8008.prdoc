@@ -1,0 +1,9 @@
+title: "Migrate 0006-parachains-max-tranche0.zndsl to zombienet-sdk"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR removes the old Zombienet test `0006-parachains-max-tranche0.zndsl`
+      and implements a new test using the Zombienet SDK.
+
+crates: []
