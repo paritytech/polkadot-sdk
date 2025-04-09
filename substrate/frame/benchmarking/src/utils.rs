@@ -261,7 +261,9 @@ pub fn current_time() -> u128 {
 /// Interface that provides functions for benchmarking the runtime.
 #[sp_runtime_interface::runtime_interface]
 pub trait Benchmarking {
-	/// Get the number of nanoseconds passed since the UNIX epoch
+	/// Get the number of nanoseconds passed since the UNIX epoch, as u128 le-bytes.
+	///
+	/// You may want to use the standalone function [`current_time`].
 	///
 	/// WARNING! This is a non-deterministic call. Do not use this within
 	/// consensus critical logic.
