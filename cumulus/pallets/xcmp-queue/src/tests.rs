@@ -368,23 +368,16 @@ fn suspend_and_resume_xcm_execution_work() {
 
 #[test]
 fn xcm_enqueueing_backpressure_works() {
-	let max_message_size =
-		<<<Test as Config>::XcmpQueue as EnqueueMessage<_>>::MaxMessageLen as Get<u32>>::get()
-			as usize;
 	let para: ParaId = 1000.into();
 	new_test_ext().execute_with(|| {
 		assert_ok!(XcmpQueue::update_resume_threshold(Origin::root(), 1));
-		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 2));
-		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 3));
+		assert_ok!(XcmpQueue::update_suspend_threshold(Origin::root(), 3));
+		assert_ok!(XcmpQueue::update_drop_threshold(Origin::root(), 5));
 		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
 		let data = (ConcatenatedVersionedXcm, &xcm).encode();
 
-		XcmpQueue::handle_xcmp_messages(
-			repeat((para, 1, data.as_slice())).take(max_message_size / xcm.encoded_size()),
-			Weight::MAX,
-		);
-
-		assert_eq!(EnqueuedMessages::get().len(), max_message_size / xcm.encoded_size());
+		XcmpQueue::handle_xcmp_messages(repeat((para, 1, data.as_slice())).take(2), Weight::MAX);
+		assert_eq!(EnqueuedMessages::get().len(), 2);
 		// Not yet suspended:
 		assert!(InboundXcmpSuspended::<Test>::get().is_empty());
 
@@ -396,16 +389,11 @@ fn xcm_enqueueing_backpressure_works() {
 		let _ = std::panic::catch_unwind(|| {
 			// Now enqueueing many more will only work until the drop threshold:
 			XcmpQueue::handle_xcmp_messages(
-				repeat((para, 1, data.as_slice()))
-					.take((3 * max_message_size) / xcm.encoded_size()),
+				repeat((para, 1, data.as_slice())).take(10),
 				Weight::MAX,
 			)
 		});
-
-		assert_eq!(
-			mock::EnqueuedMessages::get().len(),
-			(2 * max_message_size) / xcm.encoded_size() + 1
-		);
+		assert_eq!(mock::EnqueuedMessages::get().len(), 5);
 
 		crate::mock::EnqueueToLocalStorage::<Pallet<Test>>::sweep_queue(para);
 		XcmpQueue::handle_xcmp_messages(once((para, 1, data.as_slice())), Weight::MAX);
