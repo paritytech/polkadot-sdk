@@ -392,10 +392,9 @@ impl ExtBuilder {
 				(112, vec![8, 1]),
 			]
 			.into_iter()
-			.map(|(x, y)| {
-				let y = y.into_iter().map(|x| x).collect::<Vec<_>>();
+			.map(|(x, y)|
 				(x, x, INITIAL_STAKE, pallet_staking_async::StakerStatus::Nominator(y))
-			});
+			);
 
 			let stakers = validators.chain(nominators).collect::<Vec<_>>();
 			let balances = stakers
