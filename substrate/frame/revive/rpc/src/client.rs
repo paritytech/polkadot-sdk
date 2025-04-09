@@ -801,7 +801,7 @@ impl Client {
 				.into()
 		} else {
 			receipts
-				.into_iter()
+				.iter()
 				.map(|receipt| receipt.transaction_hash)
 				.collect::<Vec<_>>()
 				.into()

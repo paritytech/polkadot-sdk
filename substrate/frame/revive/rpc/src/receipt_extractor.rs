@@ -34,15 +34,14 @@ use sp_core::keccak_256;
 use std::{future::Future, pin::Pin, sync::Arc};
 use subxt::OnlineClient;
 
+type FetchGasPriceFn = Arc<
+	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
+>;
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
 	/// Fetch the gas price from the chain.
-	fetch_gas_price: Arc<
-		dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>>
-			+ Send
-			+ Sync,
-	>,
+	fetch_gas_price: FetchGasPriceFn,
 
 	/// The native to eth decimal ratio, used to calculated gas from native fees.
 	native_to_eth_ratio: u32,

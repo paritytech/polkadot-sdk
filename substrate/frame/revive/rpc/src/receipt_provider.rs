@@ -140,7 +140,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		let receipts = self.receipts_from_block(block).await?;
 		self.insert(block, &receipts).await?;
-		return Ok(receipts);
+		Ok(receipts)
 	}
 
 	/// Insert receipts into the provider.

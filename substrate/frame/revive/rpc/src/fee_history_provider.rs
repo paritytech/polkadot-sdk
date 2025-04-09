@@ -53,10 +53,10 @@ impl FeeHistoryProvider {
 				let gas_used = receipt.gas_used.as_u64();
 				let effective_reward =
 					receipt.effective_gas_price.as_u64().saturating_sub(base_fee);
-				return (gas_used, effective_reward);
+				(gas_used, effective_reward)
 			})
 			.collect::<Vec<_>>();
-		receipts.sort_by(|(_, a), (_, b)| a.cmp(&b));
+		receipts.sort_by(|(_, a), (_, b)| a.cmp(b));
 
 		// Calculate percentile rewards.
 		result.rewards = reward_percentiles
@@ -190,7 +190,7 @@ async fn test_update_fee_history() {
 		provider.fee_history(1, 200, Some(vec![0.0f64, 50.0, 100.0])).await.unwrap();
 	let expected_result = FeeHistoryResult {
 		oldest_block: U256::from(200),
-		base_fee_per_gas: vec![U256::from(1000)],
+		base_fee_per_gas: vec![U256::from(1000), U256::from(1000)],
 		gas_used_ratio: vec![0.5f64],
 		reward: vec![vec![U256::from(50), U256::from(100), U256::from(200)]],
 	};
