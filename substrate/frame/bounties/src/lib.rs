@@ -951,13 +951,15 @@ pub mod pallet {
 		/// Only `T::RejectOrigin` is able to cancel a bounty.
 		///
 		/// ## Details
-		/// - If the bounty is in the `Proposed` state, the deposit will be slashed, and the bounty
-		///   will be removed.
-		/// - If the bounty is in the `Active` state, the curator’s deposit will be unreserved.
+		/// - If the bounty is in the `Proposed` state, the deposit will be slashed and the bounty removed.
+		/// - If the bounty is in the `Funded` or `CuratorProposed` state, a refund payment is initiated.
+		/// - If the bounty is in the `Active` state, a refund payment is initiated and the bounty 
+		///   status is updated with the curator account.
 		/// - If the bounty is already in the payout phase, it cannot be canceled.
-		/// - In case of a refund failure, the bounty status must be updated with the
-		///   `check_payment_status`
-		/// dispatchable before retrying with `process_payment` call.
+		/// - When a payment is initiated, the bounty status must be updated via the `check_payment_status`
+		///   dispatchable.
+		/// - In case of a refund payment failure, the bounty status must be updated with the
+		///   `check_payment_status` dispatchable before retrying with `process_payment` call.
 		///
 		/// ### Parameters
 		/// - `bounty_id`: The index of the bounty to cancel.
@@ -965,6 +967,7 @@ pub mod pallet {
 		/// ## Events
 		/// - Emits `BountyRejected` if the bounty was in the `Proposed` state.
 		/// - Emits `BountyCanceled` if the bounty was already funded and is being refunded.
+		/// - Emits `Paid` if the bounty refund payment is initialized.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -1273,8 +1276,9 @@ pub mod pallet {
 		/// - If the bounty is in the `PayoutAttempted` state, it checks the status of curator and
 		///   beneficiary payouts. If both payments succeed, the bounty is removed, and the
 		///   curator's deposit is unreserved. If any payment failed, the bounty status is updated.
-		/// - If the bounty is in the `RefundAttempted` state, it checks if the refund was
-		///   completed. If successful, the bounty is removed.
+		/// - If the bounty is in the `RefundAttempted` state, it checks whether the refund has been
+		///   completed. If successful, the bounty is removed, and the curator's deposit is returned 
+		///   if a curator was already assigned.
 		/// - If no progress is made in the state machine, an error is returned.
 		///
 		/// ### Parameters
