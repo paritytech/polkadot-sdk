@@ -1394,7 +1394,7 @@ pub trait Crypto {
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
-	) -> AllocateAndReturnPointer<bandersnatch::Public, 33> {
+	) -> AllocateAndReturnPointer<bandersnatch::Public, 32> {
 		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
