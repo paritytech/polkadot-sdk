@@ -1,0 +1,52 @@
+title: 'XCMP: use batching when enqueuing inbound messages'
+doc:
+- audience: Runtime Dev
+  description: "This is a follow-up for https://github.com/paritytech/polkadot-sdk/pull/7963\n\
+    \nhttps://github.com/paritytech/polkadot-sdk/pull/7963 introduced some [performance\
+    \ improvements for the message_queue enqueuing logic](https://github.com/paritytech/polkadot-sdk/pull/7963/commits/ae657d631422b11acf129229e1aeb19580dba788).\
+    \ This PR leverages those improvements by implementing batching in the XCMP queue\
+    \ pallet.\n\nAlso the PR increases the weight metering accuracy for the enqueuing\
+    \ logic.\n\nThe performance difference can be seen in [this commit](https://github.com/paritytech/polkadot-sdk/commit/1d6c4266e2ee06368cb697084ffd0cc9b47dcdb0):\n\
+    \n```\n\tfn enqueue_1000_small_xcmp_messages() -> Weight {\n\t\t// Proof Size\
+    \ summary in bytes:\n\t\t//  Measured:  `151`\n\t\t//  Estimated: `5487`\n\t\t\
+    // Minimum execution time: 134_166_000 picoseconds.\n\t\tWeight::from_parts(138_915_000,\
+    \ 5487)\n\t\t\t.saturating_add(T::DbWeight::get().reads(4_u64))\n\t\t\t.saturating_add(T::DbWeight::get().writes(3_u64))\n\
+    \t}\n\n\tfn enqueue_1000_small_xcmp_messages_individually() -> Weight {\n\t\t\
+    // Proof Size summary in bytes:\n\t\t//  Measured:  `151`\n\t\t//  Estimated:\
+    \ `5487`\n\t\t// Minimum execution time: 10_181_142_000 picoseconds.\n\t\tWeight::from_parts(10_200_139_000,\
+    \ 5487)\n\t\t\t.saturating_add(T::DbWeight::get().reads(4_u64))\n\t\t\t.saturating_add(T::DbWeight::get().writes(3_u64))\n\
+    \t}\n```\n\nFor 1000 messages of 3 bytes each it takes `134us` to enqueue them\
+    \ using batching and `10181us` to enqueue them individually. This is a ~75x improvement."
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: pallet-message-queue
+  bump: major
+- name: frame-support
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: major
+- name: snowbridge-pallet-outbound-queue
+  bump: major
+- name: cumulus-pallet-dmp-queue
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
