@@ -863,6 +863,12 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 			_ => Err(o),
 		}
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		// TODO: what should this be?
+		Ok(RuntimeOrigin::root())
+	}
 }
 
 // TODO - AHM: this pallet is currently in place, but does nothing. Upon AHM, it should become
