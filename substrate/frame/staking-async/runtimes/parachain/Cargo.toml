@@ -10,7 +10,7 @@ repository.workspace = true
 
 # helps with debugging omni-bencher
 [profile.release]
-debug = 1
+# debug = true
 
 [lints]
 workspace = true

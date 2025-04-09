@@ -30,23 +30,22 @@ case "$1" in
         ;;
     *)
         echo "Error: Invalid argument \"$1\""
-        echo "Usage: $0 [dot|ksm]"
+        echo "Usage: $0 [dot|ksm|fast]"
         exit 1
         ;;
 esac
 
 if [ "$2" != "no-compile" ]; then
-    WASM_BACKTRACE=full VALIDATOR_COUNT=${VALIDATOR_COUNT} VALIDATORS=${VALIDATORS} NOMINATORS=${NOMINATORS} RUST_LOG=${LOG} cargo build --release -p pallet-staking-async-parachain-runtime --features runtime-benchmarks
+    VALIDATOR_COUNT=${VALIDATOR_COUNT} VALIDATORS=${VALIDATORS} NOMINATORS=${NOMINATORS} RUST_LOG=${LOG} cargo build -p pallet-staking-async-parachain-runtime --features runtime-benchmarks
 else
       echo "Skipping compilation because 'no-compile' argument was provided."
 fi
 
-
-RUST_LOG=${LOG} RUST_BACKTRACE=1 WASM_BACKTRACE=full \
+RUST_LOG=${LOG}  \
   frame-omni-bencher v1 benchmark pallet \
   --pallet pallet-election-provider-multi-block \
   --extrinsic "export_terminal" \
-  --runtime ../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.wasm \
+  --runtime ../../../../../target/debug/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.wasm \
   --steps $STEPS \
   --repeat $REPEAT \
   --genesis-builder-policy=none \

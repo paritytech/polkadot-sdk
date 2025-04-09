@@ -868,6 +868,8 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 // TODO - AHM: this pallet is currently in place, but does nothing. Upon AHM, it should become
 // activated.
 impl ah_client::Config for Runtime {
+	type CurrencyBalance = Balance;
+	type Fallback = Staking;
 	type RuntimeEvent = RuntimeEvent;
 	type AssetHubOrigin =
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
