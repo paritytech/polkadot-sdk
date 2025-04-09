@@ -190,6 +190,8 @@ pub trait QueueFootprintQuery<Origin> {
 	/// Let's consider that each message would result in a new page. Then, for the messages
 	/// `["1", "2", "3"]`, and `total_pages_limit = 2`, `get_batches_footprints()` would return:
 	/// ```
+	/// use frame_support::traits::BatchFootprint;
+	///
 	/// vec![
 	/// 	BatchFootprint {
 	/// 		msgs_count: 1,
@@ -201,7 +203,7 @@ pub trait QueueFootprintQuery<Origin> {
 	/// 		size_in_bytes: 2,
 	/// 		new_pages_count: 2,
 	/// 	}
-	/// ]
+	/// ];
 	/// ```
 	fn get_batches_footprints<'a>(
 		origin: Origin,
