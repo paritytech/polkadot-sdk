@@ -12,9 +12,9 @@ members = [
 	"bridges/bin/runtime-common",
 	"bridges/chains/chain-asset-hub-rococo",
 	"bridges/chains/chain-asset-hub-westend",
-	"bridges/chains/chain-bridge-hub-cumulus",
 	"bridges/chains/chain-bridge-hub-rococo",
 	"bridges/chains/chain-bridge-hub-westend",
+	"bridges/chains/chain-cumulus",
 	"bridges/chains/chain-polkadot-bulletin",
 	"bridges/chains/chain-rococo",
 	"bridges/chains/chain-westend",
@@ -656,7 +656,7 @@ bounded-vec = { version = "0.7" }
 bp-asset-hub-rococo = { path = "bridges/chains/chain-asset-hub-rococo", default-features = false }
 bp-asset-hub-westend = { path = "bridges/chains/chain-asset-hub-westend", default-features = false }
 bp-beefy = { path = "bridges/primitives/beefy", default-features = false }
-bp-bridge-hub-cumulus = { path = "bridges/chains/chain-bridge-hub-cumulus", default-features = false }
+bp-bridge-hub-cumulus = { path = "bridges/chains/chain-cumulus", default-features = false }
 bp-bridge-hub-rococo = { path = "bridges/chains/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-westend = { path = "bridges/chains/chain-bridge-hub-westend", default-features = false }
 bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false }
@@ -789,7 +789,7 @@ frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/fr
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "substrate/frame/executive", default-features = false }
-frame-metadata = { version = "20.0.0", default-features = false }
+frame-metadata = { version = "21.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false }
 frame-storage-access-test-runtime = { path = "substrate/utils/frame/storage-access-test-runtime", default-features = false }
 frame-support = { path = "substrate/frame/support", default-features = false }
@@ -872,7 +872,7 @@ macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
 memory-db = { version = "0.32.0", default-features = false }
-merkleized-metadata = { version = "0.4.0" }
+merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
 metered = { version = "0.6.1", default-features = false, package = "prioritized-metered-channel" }
