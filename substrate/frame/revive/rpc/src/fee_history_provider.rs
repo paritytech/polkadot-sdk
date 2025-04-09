@@ -9,21 +9,24 @@ use sp_core::U256;
 use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
 
+/// The size of the fee history cache.
 const CACHE_SIZE: u32 = 1024;
 
 #[derive(Default, Clone)]
-pub struct FeeHistoryCacheItem {
-	pub base_fee: u64,
-	pub gas_used_ratio: f64,
-	pub rewards: Vec<u64>,
+struct FeeHistoryCacheItem {
+	base_fee: u64,
+	gas_used_ratio: f64,
+	rewards: Vec<u64>,
 }
 
+/// Manages the fee history cache.
 #[derive(Default, Clone)]
 pub struct FeeHistoryProvider {
-	pub fee_history_cache: Arc<RwLock<BTreeMap<SubstrateBlockNumber, FeeHistoryCacheItem>>>,
+	fee_history_cache: Arc<RwLock<BTreeMap<SubstrateBlockNumber, FeeHistoryCacheItem>>>,
 }
 
 impl FeeHistoryProvider {
+	/// Update the fee history cache with the given block and receipts.
 	pub async fn update_fee_history(&self, block: &Block, receipts: &[ReceiptInfo]) {
 		// Evenly spaced percentile list from 0.0 to 100.0 with a 0.5 resolution.
 		// This means we cache 200 percentile points.
@@ -81,6 +84,7 @@ impl FeeHistoryProvider {
 		cache.insert(block_number, result);
 	}
 
+	/// Get the fee history for the given block range.
 	pub async fn fee_history(
 		&self,
 		block_count: u32,
@@ -153,7 +157,6 @@ impl FeeHistoryProvider {
 
 #[tokio::test]
 async fn test_update_fee_history() {
-	// Create a sample block with rounded numbers
 	let block = Block {
 		number: U256::from(200u64),
 		base_fee_per_gas: Some(U256::from(1000u64)),
@@ -162,7 +165,6 @@ async fn test_update_fee_history() {
 		..Default::default()
 	};
 
-	// Create three sample receipts with rounded numbers
 	let receipts = vec![
 		ReceiptInfo {
 			gas_used: U256::from(200u64),
@@ -181,13 +183,12 @@ async fn test_update_fee_history() {
 		},
 	];
 
-	// Create the FeeHistoryProvider
 	let provider = FeeHistoryProvider { fee_history_cache: Arc::new(RwLock::new(BTreeMap::new())) };
 	provider.update_fee_history(&block, &receipts).await;
 
-	// Update fee history with the sample block and receipts
 	let fee_history_result =
 		provider.fee_history(1, 200, Some(vec![0.0f64, 50.0, 100.0])).await.unwrap();
+
 	let expected_result = FeeHistoryResult {
 		oldest_block: U256::from(200),
 		base_fee_per_gas: vec![U256::from(1000), U256::from(1000)],
