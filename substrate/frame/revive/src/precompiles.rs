@@ -15,21 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{exec::ExecResult,  Config, Error, ExecReturnValue, Origin, H160, LOG_TARGET};
+use crate::{exec::ExecResult, Config, Error, ExecReturnValue, Origin, H160, LOG_TARGET};
 
 mod xcm;
 pub use xcm::*;
 
-
 /// Determine if the given address is a mutating precompile.
 /// For now, we consider that all addresses between 0x1 and 0xff are reserved for precompiles.
 pub fn is_mutating_precompile(address: &H160) -> bool {
-	let bytes = address.as_bytes();
-    let is_precompile=bytes.starts_with(&[0u8; 19]) && bytes[19] != 0;
-    match bytes[19] {
-        10u8 => true && is_precompile,
-        _ => false,
-    }
+    const MUTATING_PRECOMPILES: &[u8] = &[10]; 
+    let bytes = address.as_bytes();
+    let is_precompile = bytes.starts_with(&[0u8; 19]) && bytes[19] != 0;
+    is_precompile && MUTATING_PRECOMPILES.contains(&bytes[19])
 }
 
 pub struct MutatingPrecompiles<T: Config> {
@@ -41,7 +38,7 @@ pub trait MutatingPrecompile<T: Config> {
 }
 
 impl<T: Config> MutatingPrecompiles<T> {
-	pub fn execute(addr: H160,  input: &[u8], origin: &Origin<T>) -> ExecResult {
+	pub fn execute(addr: H160, input: &[u8], origin: &Origin<T>) -> ExecResult {
 		match addr.as_bytes()[19] {
 			10u8 => XcmPrecompile::execute(input, origin),
 			_ => return Err(Error::<T>::UnsupportedPrecompileAddress.into()),
@@ -51,5 +48,4 @@ impl<T: Config> MutatingPrecompiles<T> {
 			Error::<T>::PrecompileFailure.into()
 		})
 	}
-	
 }
