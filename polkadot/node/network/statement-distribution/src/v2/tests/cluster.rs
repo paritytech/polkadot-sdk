@@ -96,7 +96,7 @@ fn share_seconded_circulated_to_cluster() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 					protocol_v3::StatementDistributionMessage::Statement(
 						r,
 						s,
@@ -603,7 +603,7 @@ fn cluster_statements_shared_seconded_first() {
 
 				assert_matches!(
 					&messages[0].1,
-					Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
@@ -614,7 +614,7 @@ fn cluster_statements_shared_seconded_first() {
 
 				assert_matches!(
 					&messages[1].1,
-					Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 						protocol_v3::StatementDistributionMessage::Statement(
 							r,
 							s,
@@ -702,7 +702,7 @@ fn cluster_accounts_for_implicit_view() {
 			overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+				ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 					protocol_v3::StatementDistributionMessage::Statement(
 						r,
 						s,
@@ -743,7 +743,7 @@ fn cluster_accounts_for_implicit_view() {
 					&messages[0],
 					(
 						peers,
-						Versioned::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
 							protocol_v3::StatementDistributionMessage::Statement(
 								r,
 								s,

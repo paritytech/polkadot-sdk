@@ -16,13 +16,6 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[dependencies]
-clap = { features = ["derive"], workspace = true }
-honggfuzz = { workspace = true }
-rand = { features = ["small_rng", "std"], workspace = true, default-features = true }
-sp-npos-elections = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-
 [[bin]]
 name = "reduce"
 path = "src/reduce.rs"
@@ -38,3 +31,10 @@ path = "src/phragmms_balancing.rs"
 [[bin]]
 name = "phragmen_pjr"
 path = "src/phragmen_pjr.rs"
+
+[dependencies]
+clap = { features = ["derive"], workspace = true }
+honggfuzz = { workspace = true }
+rand = { features = ["small_rng", "std"], workspace = true, default-features = true }
+sp-npos-elections = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }

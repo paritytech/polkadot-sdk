@@ -21,7 +21,7 @@ use crate::*;
 use polkadot_node_network_protocol::{
 	grid_topology::TopologyPeerInfo,
 	request_response::{outgoing::Recipient, ReqProtocolNames},
-	v2::{BackedCandidateAcknowledgement, BackedCandidateManifest},
+	v3::{BackedCandidateAcknowledgement, BackedCandidateManifest},
 	view, ObservedRole,
 };
 use polkadot_node_primitives::{Statement, StatementWithPVD};
@@ -885,7 +885,7 @@ async fn send_peer_message(
 	virtual_overseer
 		.send(FromOrchestra::Communication {
 			msg: StatementDistributionMessage::NetworkBridgeUpdate(
-				NetworkBridgeEvent::PeerMessage(peer, Versioned::V3(message)),
+				NetworkBridgeEvent::PeerMessage(peer, ValidationProtocols::V3(message)),
 			),
 		})
 		.await;
