@@ -25,9 +25,9 @@ sp-runtime.workspace = true
 sp-weights.workspace = true
 
 [dev-dependencies]
-pallet-preimage = { default-features = true, path = "../preimage" }
-sp-core = { path = "../../primitives/core", default-features = false }
-substrate-test-utils = { path = "../../test-utils" }
+pallet-preimage = { default-features = true, workspace = true }
+sp-core = { workspace = true, default-features = false }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
@@ -36,6 +36,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 std = [
@@ -45,6 +46,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-weights/std",
@@ -52,5 +54,6 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-preimage/try-runtime",
 	"sp-runtime/try-runtime",
 ]

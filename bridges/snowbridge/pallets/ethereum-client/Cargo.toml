@@ -19,33 +19,33 @@ exclude-from-umbrella = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-hex-literal = { optional = true, workspace = true, default-features = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, workspace = true, default-features = true }
-serde_json = { optional = true, workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
-sp-core.workspace = true
-sp-io = { optional = true, workspace = true }
-sp-runtime.workspace = true
-sp-std.workspace = true
+hex-literal = { optional = true, workspace = true, default-features = true }
+log = { workspace = true }
 pallet-timestamp = { optional = true, workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { optional = true, workspace = true, default-features = true }
+serde_json = { optional = true, workspace = true, default-features = true }
 snowbridge-beacon-primitives.workspace = true
 snowbridge-core.workspace = true
 snowbridge-ethereum.workspace = true
 snowbridge-pallet-ethereum-client-fixtures = { optional = true, workspace = true }
 snowbridge-verification-primitives.workspace = true
+sp-core.workspace = true
+sp-io = { optional = true, workspace = true }
+sp-runtime.workspace = true
+sp-std.workspace = true
 static_assertions = { workspace = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
-pallet-timestamp = { default-features = true, path = "../../../../substrate/frame/timestamp" }
+pallet-timestamp = { default-features = true, workspace = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-snowbridge-pallet-ethereum-client-fixtures = { default-features = true, path = "fixtures" }
-sp-io = { default-features = true, path = "../../../../substrate/primitives/io" }
+snowbridge-pallet-ethereum-client-fixtures = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

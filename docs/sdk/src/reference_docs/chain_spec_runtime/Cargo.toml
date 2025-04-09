@@ -12,16 +12,16 @@ publish = false
 [dependencies]
 codec = { workspace = true }
 docify = { workspace = true }
-frame-support.workspace = true
-scale-info = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 frame = { features = ["experimental", "runtime"], workspace = true }
+frame-support.workspace = true
 pallet-balances.workspace = true
 pallet-sudo.workspace = true
 pallet-timestamp.workspace = true
-pallet-transaction-payment.workspace = true
 pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-transaction-payment.workspace = true
+scale-info = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-core.workspace = true
 sp-genesis-builder.workspace = true
@@ -32,9 +32,9 @@ sp-runtime = { features = ["serde"], workspace = true }
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-chain-spec-builder = { default-features = true, path = "../../../../../substrate/bin/utils/chain-spec-builder", package = "staging-chain-spec-builder" }
+chain-spec-builder = { default-features = true, workspace = true }
 cmd_lib = { workspace = true }
-sc-chain-spec = { default-features = true, path = "../../../../../substrate/client/chain-spec" }
+sc-chain-spec = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

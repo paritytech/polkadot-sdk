@@ -23,8 +23,8 @@ cfg-expr = { workspace = true }
 derive-syn-parse = { workspace = true }
 docify = { workspace = true }
 expander = { workspace = true }
-frame-support-procedural-tools.workspace = true
 frame-support-procedural-tools.default-features = true
+frame-support-procedural-tools.workspace = true
 itertools = { workspace = true }
 macro_magic = { features = ["proc_support"], workspace = true }
 proc-macro-warning = { workspace = true }
@@ -35,21 +35,29 @@ syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-frame-support = { path = "..", default-features = false }
-frame-system = { path = "../../system", default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
 pretty_assertions = { workspace = true }
 regex = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-core = { path = "../../../primitives/core", default-features = false }
-sp-io = { path = "../../../primitives/io", default-features = false }
-sp-metadata-ir = { path = "../../../primitives/metadata-ir", default-features = false }
-sp-runtime = { features = ["serde"], path = "../../../primitives/runtime", default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-metadata-ir = { workspace = true, default-features = false }
+sp-runtime = { features = ["serde"], workspace = true, default-features = false }
 static_assertions = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-core/std",
 	"sp-crypto-hashing/std",
+	"sp-io/std",
+	"sp-metadata-ir/std",
+	"sp-runtime/std",
 ]
 no-metadata-docs = []
 experimental = []

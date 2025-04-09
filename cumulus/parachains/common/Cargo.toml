@@ -1,6 +1,6 @@
 [package]
 name = "parachains-common"
-version = "20.0.0"
+version = "21.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Logic which is common to all parachain runtimes"
@@ -16,31 +16,31 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
+cumulus-primitives-core.workspace = true
+cumulus-primitives-utility.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
+log = { workspace = true }
 pallet-asset-tx-payment.workspace = true
 pallet-assets.workspace = true
 pallet-authorship.workspace = true
 pallet-balances.workspace = true
+pallet-collator-selection.workspace = true
 pallet-message-queue.workspace = true
+pallet-xcm.workspace = true
+parachain-info.workspace = true
+polkadot-primitives.workspace = true
+scale-info = { features = ["derive"], workspace = true }
 sp-consensus-aura.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
-pallet-xcm.workspace = true
-polkadot-primitives.workspace = true
-xcm.workspace = true
 xcm-executor.workspace = true
-cumulus-primitives-core.workspace = true
-cumulus-primitives-utility.workspace = true
-pallet-collator-selection.workspace = true
-parachain-info.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
-pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+pallet-authorship = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]
