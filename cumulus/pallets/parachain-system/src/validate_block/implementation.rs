@@ -42,13 +42,6 @@ use sp_state_machine::OverlayedChanges;
 use sp_trie::{MemoryDB, ProofSizeProvider};
 use trie_recorder::SizeOnlyRecorderProvider;
 
-type TrieBackend<B> = sp_state_machine::TrieBackend<
-	MemoryDB<HashingFor<B>>,
-	HashingFor<B>,
-	trie_cache::CacheProvider<HashingFor<B>>,
-	SizeOnlyRecorderProvider<HashingFor<B>>,
->;
-
 type Ext<'a, Block, Backend> = sp_state_machine::Ext<'a, HashingFor<Block>, Backend>;
 
 fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
