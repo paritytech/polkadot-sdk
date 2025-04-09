@@ -39,6 +39,8 @@ pub fn roll_next() {
 
 	Session::on_initialize(next);
 	StakingAhClient::on_initialize(next);
+	Staking::on_initialize(next);
+	Staking::on_finalize(next);
 }
 
 parameter_types! {
@@ -206,8 +208,8 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type SlashDeferDuration = ConstU32<3>;
-	type BondingDuration = ConstU32<4>;
+	type SlashDeferDuration = ConstU32<2>;
+	type BondingDuration = ConstU32<3>;
 }
 
 impl pallet_root_offences::Config for Runtime {
