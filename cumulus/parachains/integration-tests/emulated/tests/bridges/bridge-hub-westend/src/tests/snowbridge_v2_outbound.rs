@@ -112,7 +112,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 		};
 
 		// Submit a delivery receipt
-		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt));
+		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(receipt));
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -271,7 +271,7 @@ fn transfer_relay_token_from_ah() {
 		};
 
 		// Submit a delivery receipt
-		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt));
+		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(receipt));
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -358,7 +358,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 		};
 
 		// Submit a delivery receipt
-		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt));
+		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(receipt));
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -454,7 +454,7 @@ fn transact_with_agent_from_asset_hub() {
 		};
 
 		// Submit a delivery receipt
-		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt));
+		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(receipt));
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -538,7 +538,7 @@ fn transact_with_agent_from_asset_hub_without_any_asset_transfer() {
 		};
 
 		// Submit a delivery receipt
-		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt));
+		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(receipt));
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -655,7 +655,7 @@ fn register_token_from_penpal() {
 		};
 
 		// Submit a delivery receipt
-		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt));
+		assert_ok!(EthereumOutboundQueueV2::process_delivery_receipt(receipt));
 
 		assert_expected_events!(
 			BridgeHubWestend,
@@ -820,7 +820,7 @@ fn invalid_nonce_for_delivery_receipt_fails() {
 		};
 
 		assert_err!(
-			EthereumOutboundQueueV2::process_delivery_receipt(relayer, receipt),
+			EthereumOutboundQueueV2::process_delivery_receipt(receipt),
 			Error::<Runtime>::InvalidPendingNonce
 		);
 	});
