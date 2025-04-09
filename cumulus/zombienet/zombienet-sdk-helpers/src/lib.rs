@@ -56,6 +56,22 @@ fn find_event_and_decode_fields<T: Decode>(
 	Ok(result)
 }
 
+/// Wait for `num_blocks` blocks.
+pub async fn wait_num_blocks(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	num_blocks: u32,
+) -> Result<(), anyhow::Error> {
+	let mut counter = 0;
+	let mut blocks_sub = relay_client.blocks().subscribe_best().await?;
+	while let Some(_block) = blocks_sub.next().await {
+		counter += 1;
+		if counter >= num_blocks + 1 {
+			return Ok(())
+		}
+	}
+	Ok(())
+}
+
 // Helper function for asserting the throughput of parachains (total number of backed candidates in
 // a window of relay chain blocks), after the first session change.
 // Blocks with session changes are generally ignores.
