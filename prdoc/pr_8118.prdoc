@@ -1,8 +1,8 @@
-title: Make a subset of conversions explicit
+title: Make a subset of conversions explicit and safer
 doc:
 - audience: [Node Dev, Runtime Dev]
   description: |-
-	Make some of the conversions safer or explicit.
+    Make a subset of conversions explicit and safer.
 crates:
 - name: polkadot-runtime-parachains
   bump: patch 
