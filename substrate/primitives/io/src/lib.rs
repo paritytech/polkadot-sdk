@@ -1897,7 +1897,7 @@ mod tracing_setup {
 #[cfg(not(all(substrate_runtime, feature = "with-tracing")))]
 mod tracing_setup {
 	/// Initialize tracing of sp_tracing not necessary – noop. To enable build
-	/// without std and with the `with-tracing`-feature.
+	/// when not both `substrate_runtime` and `with-tracing`-feature.
 	pub fn init_tracing() {}
 }
 
