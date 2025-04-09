@@ -13,43 +13,20 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//
 
-//! Error handling related code and Error/Result definitions.
-
+use fatality::thiserror::Error;
 use futures::channel::oneshot;
 
-use polkadot_node_network_protocol::request_response::incoming;
-use polkadot_node_primitives::UncheckedSignedFullStatement;
-use polkadot_node_subsystem::{errors::SubsystemError, RuntimeApiError};
-use polkadot_node_subsystem_util::{backing_implicit_view, runtime};
+use polkadot_node_subsystem::RuntimeApiError;
+use polkadot_node_subsystem_util::backing_implicit_view;
 use polkadot_primitives::vstaging::CandidateDescriptorVersion;
-
-use crate::LOG_TARGET;
 
 /// General result.
 pub type Result<T> = std::result::Result<T, Error>;
 
-use fatality::Nested;
-
-#[allow(missing_docs)]
-#[fatality::fatality(splitable)]
+/// General subsystem error.
+#[derive(Error, Debug)]
 pub enum Error {
-	#[fatal]
-	#[error("Receiving message from overseer failed")]
-	SubsystemReceive(#[from] SubsystemError),
-
-	#[fatal(forward)]
-	#[error("Retrieving next incoming request failed")]
-	IncomingRequest(#[from] incoming::Error),
-
-	#[fatal(forward)]
-	#[error("Error while accessing runtime information")]
-	Runtime(#[from] runtime::Error),
-
-	#[error("Error while accessing Runtime API")]
-	RuntimeApi(#[from] RuntimeApiError),
-
 	#[error(transparent)]
 	ImplicitViewFetchError(backing_implicit_view::FetchError),
 
@@ -58,12 +35,6 @@ pub enum Error {
 
 	#[error("Response receiver for validator groups request cancelled")]
 	CancelledValidatorGroups(oneshot::Canceled),
-
-	#[error("Response receiver for availability cores request cancelled")]
-	CancelledAvailabilityCores(oneshot::Canceled),
-
-	#[error("CollationSeconded contained statement with invalid signature")]
-	InvalidStatementSignature(UncheckedSignedFullStatement),
 
 	#[error("Response receiver for session index request cancelled")]
 	CancelledSessionIndex(oneshot::Canceled),
@@ -76,11 +47,13 @@ pub enum Error {
 
 	#[error("No state for the relay parent")]
 	RelayParentStateNotFound,
+
+	#[error("Error while accessing Runtime API")]
+	RuntimeApi(#[from] RuntimeApiError),
 }
 
-/// An error happened on the validator side of the protocol when attempting
-/// to start seconding a candidate.
-#[derive(Debug, thiserror::Error)]
+/// An error occurred when attempting to start seconding a candidate.
+#[derive(Debug, Error)]
 pub enum SecondingError {
 	#[error("Error while accessing Runtime API")]
 	RuntimeApi(#[from] RuntimeApiError),
@@ -136,8 +109,8 @@ impl SecondingError {
 	}
 }
 
-/// A validator failed to request a collation due to an error.
-#[derive(Debug, thiserror::Error)]
+/// Failed to request a collation due to an error.
+#[derive(Debug, Error)]
 pub enum FetchError {
 	#[error("Collation was not previously advertised")]
 	NotAdvertised,
@@ -153,18 +126,4 @@ pub enum FetchError {
 
 	#[error("Peer's protocol doesn't match the advertisement")]
 	ProtocolMismatch,
-}
-
-/// Utility for eating top level errors and log them.
-///
-/// We basically always want to try and continue on error. This utility function is meant to
-/// consume top-level errors by simply logging them.
-pub fn log_error(result: Result<()>, ctx: &'static str) -> std::result::Result<(), FatalError> {
-	match result.into_nested()? {
-		Ok(()) => Ok(()),
-		Err(jfyi) => {
-			gum::warn!(target: LOG_TARGET, error = ?jfyi, ctx);
-			Ok(())
-		},
-	}
 }
