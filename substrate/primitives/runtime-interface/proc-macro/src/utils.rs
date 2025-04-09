@@ -237,8 +237,7 @@ pub fn get_function_argument_types(sig: &Signature) -> impl Iterator<Item = Box<
 	get_function_arguments(sig).map(|pt| pt.ty)
 }
 
-/// Returns the function argument names and types, minus any `self`. If any of the arguments
-/// is a reference, the underlying type without the ref is returned.
+/// Returns the function argument names and types, minus any `self`.
 pub fn get_function_argument_names_and_types(
 	sig: &Signature,
 ) -> impl Iterator<Item = (Box<Pat>, Box<Type>)> + '_ {
