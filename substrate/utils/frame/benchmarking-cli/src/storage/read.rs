@@ -54,11 +54,7 @@ impl StorageCmd {
 		let mut child_nodes = Vec::new();
 		// Interesting part here:
 		// Read all the keys in the database and measure the time it takes to access each.
-		info!("Reading {} keys in batches of {}", keys.len(), self.params.batch_size);
-		let remainder = keys.len() % self.params.batch_size;
-		if self.params.on_block_validation && remainder != 0 {
-			info!("Remaining {} keys will be skipped", remainder);
-		}
+		info!("Reading {} keys", keys.len());
 
 		// Read using the same TrieBackend and recorder for up to `batch_size` keys.
 		// This would allow us to measure the amortized cost of reading a key.
@@ -74,12 +70,13 @@ impl StorageCmd {
 		let mut read_in_batch = 0;
 		let mut on_validation_batch = vec![];
 		let mut on_validation_size = 0;
+		let last_key = keys.last().unwrap();
 		for key in keys.as_slice() {
 			match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
 				(true, Some(info)) => {
 					// child tree key
 					for ck in client.child_storage_keys(best_hash, info.clone(), None, None)? {
-						child_nodes.push((ck.clone(), info.clone()));
+						child_nodes.push((ck, info.clone()));
 					}
 				},
 				_ => {
@@ -97,11 +94,10 @@ impl StorageCmd {
 				},
 			}
 			read_in_batch += 1;
+			let is_batch_full = read_in_batch >= self.params.batch_size || key == last_key;
 
 			// Read keys on block validation
-			if on_validation_batch.len() >= self.params.batch_size &&
-				self.params.on_block_validation
-			{
+			if is_batch_full && self.params.on_block_validation {
 				let root = backend.root();
 				let storage_proof = recorder_clone
 					.clone()
@@ -144,7 +140,8 @@ impl StorageCmd {
 				on_validation_size = 0;
 			}
 
-			if read_in_batch >= self.params.batch_size {
+			// Reload recorder
+			if is_batch_full {
 				// Using a new recorder for every read vs using the same for the entire batch
 				// produces significant different results. Since in the real use case we use a
 				// single recorder per block, simulate the same behavior by creating a new
@@ -167,6 +164,7 @@ impl StorageCmd {
 			child_nodes.shuffle(&mut rng);
 
 			info!("Reading {} child keys", child_nodes.len());
+			let (last_child_key, last_child_info) = child_nodes.last().unwrap();
 			for (key, info) in child_nodes.as_slice() {
 				on_validation_batch.push((key.0.clone(), Some(info.clone())));
 				let start = Instant::now();
@@ -179,11 +177,11 @@ impl StorageCmd {
 					record.append(v.len(), start.elapsed())?;
 				}
 				read_in_batch += 1;
+				let is_batch_full = read_in_batch >= self.params.batch_size ||
+					(last_child_key == key && last_child_info == info);
 
 				// Read child keys on block validation
-				if on_validation_batch.len() >= self.params.batch_size &&
-					self.params.on_block_validation
-				{
+				if is_batch_full && self.params.on_block_validation {
 					let root = backend.root();
 					let storage_proof = recorder_clone
 						.clone()
@@ -229,7 +227,8 @@ impl StorageCmd {
 					on_validation_size = 0;
 				}
 
-				if read_in_batch >= self.params.batch_size {
+				// Reload recorder
+				if is_batch_full {
 					// Using a new recorder for every read vs using the same for the entire batch
 					// produces significant different results. Since in the real use case we use a
 					// single recorder per block, simulate the same behavior by creating a new
