@@ -277,7 +277,7 @@ mod benchmarks {
 			frame_system::Pallet::<T>::block_number().saturating_add(BlockNumberFor::<T>::from(c));
 		AuthorizedCodeHash::<T>::insert(
 			&para_id,
-			AuthorizedCodeHashAndExpiry::from((code.hash(), expire_at))
+			AuthorizedCodeHashAndExpiry::from((code.hash(), expire_at)),
 		);
 		generate_disordered_pruning::<T>();
 
