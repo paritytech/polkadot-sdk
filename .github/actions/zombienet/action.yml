@@ -22,22 +22,30 @@ runs:
 
     - name: common_vars
       shell: bash
+      env:
+        TEST_NAME: ${{ inputs.test }}
+        LOCAL_DIR: ${{ inputs.local-dir }}
+        CONCURRENCY: ${{ inputs.concurrency }}
       run: |
         echo "Vars"
         echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
         echo "COL_IMAGE: $COL_IMAGE"
         echo "Inputs"
-        echo "test: ${{ inputs.test}}"
-        echo "local-dir: ${{ inputs.local-dir }}"
-        echo "concurrency: ${{ inputs.concurrency }}"
+        echo "test: $TEST_NAME"
+        echo "local-dir: $LOCAL_DIR"
+        echo "concurrency: $CONCURRENCY"
 
     - name: zombie_test
       shell: bash
+      env:
+        TEST_NAME: ${{ inputs.test }}
+        LOCAL_DIR: ${{ inputs.local-dir }}
+        CONCURRENCY: ${{ inputs.concurrency }}
       run: |
         /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-          --local-dir="$(pwd)/${{ inputs.local-dir }}" \
-          --concurrency=${{ inputs.concurrency }} \
-          --test="${{ inputs.test }}"
+          --local-dir="$(pwd)/$LOCAL_DIR" \
+          --concurrency=$CONCURRENCY \
+          --test="$TEST_NAME"
 
     - name: upload_logs
       uses: actions/upload-artifact@v4
