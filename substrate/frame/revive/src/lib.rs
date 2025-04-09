@@ -1308,9 +1308,8 @@ where
 			return Err(EthTransactError::Message("Invalid transaction".into()));
 		};
 
-		let payload = unsigned_tx.dummy_signed_payload();
-		let eth_dispatch_call = crate::Call::<T>::eth_transact { payload };
-
+		let eth_dispatch_call =
+			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
 		let fee = tx_fee(eth_dispatch_call, dispatch_info);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
