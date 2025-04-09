@@ -15,13 +15,11 @@ workspace = true
 
 [dependencies]
 # Bridge Dependencies
-
 bp-messages = { workspace = true }
 bp-polkadot-core = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate Based Dependencies
-
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 parachains-common = { workspace = true }
