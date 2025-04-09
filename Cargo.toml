@@ -12,9 +12,9 @@ members = [
 	"bridges/bin/runtime-common",
 	"bridges/chains/chain-asset-hub-rococo",
 	"bridges/chains/chain-asset-hub-westend",
-	"bridges/chains/chain-bridge-hub-cumulus",
 	"bridges/chains/chain-bridge-hub-rococo",
 	"bridges/chains/chain-bridge-hub-westend",
+	"bridges/chains/chain-cumulus",
 	"bridges/chains/chain-polkadot-bulletin",
 	"bridges/chains/chain-rococo",
 	"bridges/chains/chain-westend",
@@ -656,7 +656,7 @@ bounded-vec = { version = "0.7" }
 bp-asset-hub-rococo = { path = "bridges/chains/chain-asset-hub-rococo", default-features = false }
 bp-asset-hub-westend = { path = "bridges/chains/chain-asset-hub-westend", default-features = false }
 bp-beefy = { path = "bridges/primitives/beefy", default-features = false }
-bp-bridge-hub-cumulus = { path = "bridges/chains/chain-bridge-hub-cumulus", default-features = false }
+bp-bridge-hub-cumulus = { path = "bridges/chains/chain-cumulus", default-features = false }
 bp-bridge-hub-rococo = { path = "bridges/chains/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-westend = { path = "bridges/chains/chain-bridge-hub-westend", default-features = false }
 bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false }
