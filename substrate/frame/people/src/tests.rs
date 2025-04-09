@@ -3100,7 +3100,7 @@ fn replay_protection_for_alias() {
 		let alice_sec = Simple::new_secret([1u8; 32]);
 		let alice_pub = Simple::member_from_secret(&alice_sec);
 		let alice_index = PeoplePallet::reserve_new_id();
-		PeoplePallet::recognize_personhood(alice_index, Some(alice_pub.clone())).unwrap();
+		PeoplePallet::recognize_personhood(alice_index, Some(alice_pub)).unwrap();
 		assert_ok!(PeoplePallet::onboard_people(RuntimeOrigin::none()));
 		assert_ok!(PeoplePallet::build_ring(RuntimeOrigin::none(), 0, None));
 		let generate_alias_tx_ext_for_call = |call: RuntimeCall| {
@@ -3109,7 +3109,7 @@ fn replay_protection_for_alias() {
 			let msg = (&EXTENSION_VERSION, &call, &other_tx_ext)
 				.using_encoded(sp_io::hashing::blake2_256);
 			// Open a commitment (using Alice’s public key and public data)
-			let commitment = Simple::open(&alice_pub, Some(alice_pub.clone()).into_iter()).unwrap();
+			let commitment = Simple::open(&alice_pub, Some(alice_pub).into_iter()).unwrap();
 			// Create a VRF proof and compute the alias output from the call message.
 			let (proof, alias_value) =
 				Simple::create(commitment, &alice_sec, &MOCK_CONTEXT, &msg).unwrap();
