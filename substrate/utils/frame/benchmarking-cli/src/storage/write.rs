@@ -26,7 +26,7 @@ use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::Backend as StateBackend;
 use sp_trie::{PrefixedMemoryDB, StorageProof};
 
-use log::{info, trace};
+use log::{info, trace, warn};
 use rand::prelude::*;
 use sp_storage::{ChildInfo, StateVersion};
 use std::{
@@ -40,7 +40,12 @@ use crate::shared::{new_rng, BenchRecord};
 
 impl StorageCmd {
 	/// Benchmarks the time it takes to write a single Storage item.
+	///
 	/// Uses the latest state that is available for the given client.
+	///
+	/// Unlike reading benchmark, where we read every single key, here we write a batch of keys in
+	/// one time. So writing a remaining keys with the size much smaller than batch size can
+	/// dramatically distort the results. To avoid this, we skip the remaining keys.
 	pub(crate) fn bench_write<Block, BA, H, C>(
 		&self,
 		client: Arc<C>,
@@ -87,11 +92,10 @@ impl StorageCmd {
 			let (k, original_v) = key_value?;
 			match (self.params.include_child_trees, self.is_child_key(k.to_vec())) {
 				(true, Some(info)) => {
-					let child_keys =
-						client.child_storage_keys(best_hash, info.clone(), None, None)?;
-					for ck in child_keys {
-						child_nodes.push((ck.clone(), info.clone()));
-					}
+					let child_keys = client
+						.child_storage_keys(best_hash, info.clone(), None, None)?
+						.collect::<Vec<_>>();
+					child_nodes.push((child_keys, info.clone()));
 				},
 				_ => {
 					// regular key
@@ -145,6 +149,7 @@ impl StorageCmd {
 						measure_per_key_amortised_write_cost_on_block_validation::<Block>(
 							&trie,
 							batched_keys.clone(),
+							None,
 							storage_proof,
 						)?
 					} else {
@@ -176,54 +181,100 @@ impl StorageCmd {
 		}
 
 		if self.params.include_child_trees {
-			child_nodes.shuffle(&mut rng);
-			info!("Writing {} child keys", child_nodes.len());
+			info!("Writing {} child keys", child_nodes.iter().map(|(c, _)| c.len()).sum::<usize>());
+			for (mut child_keys, info) in child_nodes {
+				if child_keys.len() < self.params.batch_size {
+					warn!(
+						"{} child keys will be skipped because it's less than batch size",
+						child_keys.len()
+					);
+					continue;
+				}
 
-			for (key, info) in child_nodes {
-				if let Some(original_v) = client
-					.child_storage(best_hash, &info.clone(), &key)
-					.expect("Checked above to exist")
-				{
-					let mut new_v = vec![0; original_v.0.len()];
+				child_keys.shuffle(&mut rng);
 
-					loop {
-						rng.fill_bytes(&mut new_v[..]);
-						if check_new_value::<Block>(
-							db.clone(),
-							&trie,
-							&key.0,
-							&new_v,
-							self.state_version(),
-							state_col,
-							Some(&info),
-						) {
-							break
+				for key in child_keys {
+					if let Some(original_v) = client
+						.child_storage(best_hash, &info, &key)
+						.expect("Checked above to exist")
+					{
+						let mut new_v = vec![0; original_v.0.len()];
+
+						loop {
+							rng.fill_bytes(&mut new_v[..]);
+							if check_new_value::<Block>(
+								db.clone(),
+								&trie,
+								&key.0,
+								&new_v,
+								self.state_version(),
+								state_col,
+								Some(&info),
+							) {
+								break
+							}
 						}
-					}
-					batched_keys.push((key.0, new_v.to_vec()));
+						batched_keys.push((key.0, new_v.to_vec()));
+						if batched_keys.len() < self.params.batch_size {
+							continue
+						}
 
-					if batched_keys.len() < self.params.batch_size {
-						continue
-					}
-
-					let trie =
-						DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
+						let (size, duration) = if self.params.on_block_validation {
+							let recorder =
+								(!self.params.disable_pov_recorder).then(|| Default::default());
+							let recorder_clone = recorder.clone();
+							let trie = DbStateBuilder::<HashingFor<Block>>::new(
+								storage.clone(),
+								original_root,
+							)
 							.with_optional_cache(
 								shared_trie_cache.as_ref().map(|c| c.local_cache()),
 							)
-							.with_optional_recorder(None)
+							.with_optional_recorder(recorder)
 							.build();
 
-					let (size, duration) = measure_per_key_amortised_write_cost::<Block>(
-						db.clone(),
-						&trie,
-						batched_keys.clone(),
-						self.state_version(),
-						state_col,
-						Some(&info),
-					)?;
-					record.append(size, duration)?;
-					batched_keys.clear();
+							for (key, _) in batched_keys.iter() {
+								let _v = trie
+									.child_storage(&info, key)
+									.expect("Checked above to exist")
+									.ok_or("Value unexpectedly empty")?;
+							}
+
+							let storage_proof = recorder_clone.map(|r| r.drain_storage_proof());
+
+							measure_per_key_amortised_write_cost_on_block_validation::<Block>(
+								&trie,
+								batched_keys.clone(),
+								None,
+								storage_proof,
+							)?
+						} else {
+							// For every batched write use a different trie instance and recorder,
+							// so we don't benefit from past runs.
+							let recorder =
+								(!self.params.disable_pov_recorder).then(|| Default::default());
+							let trie = DbStateBuilder::<HashingFor<Block>>::new(
+								storage.clone(),
+								original_root,
+							)
+							.with_optional_cache(
+								shared_trie_cache.as_ref().map(|c| c.local_cache()),
+							)
+							.with_optional_recorder(recorder)
+							.build();
+
+							measure_per_key_amortised_write_cost::<Block>(
+								db.clone(),
+								&trie,
+								batched_keys.clone(),
+								self.state_version(),
+								state_col,
+								Some(&info),
+							)?
+						};
+						record.append(size, duration)?;
+						batched_keys.clear();
+					}
 				}
 			}
 		}
@@ -296,6 +347,7 @@ fn measure_per_key_amortised_write_cost<Block: BlockT>(
 fn measure_per_key_amortised_write_cost_on_block_validation<Block: BlockT>(
 	trie: &DbState<HashingFor<Block>>,
 	changes: Vec<(Vec<u8>, Vec<u8>)>,
+	maybe_child_info: Option<&ChildInfo>,
 	storage_proof: Option<StorageProof>,
 ) -> Result<(usize, Duration)> {
 	let root = trie.root();
@@ -306,7 +358,11 @@ fn measure_per_key_amortised_write_cost_on_block_validation<Block: BlockT>(
 		storage_proof.clone().encoded_compact_size::<HashingFor<Block>>(*root)
 	);
 	let compact = storage_proof.into_compact_proof::<HashingFor<Block>>(*root).unwrap();
-	let params = StorageAccessParams::<Block>::new_write(*root, compact, changes.clone());
+	let params = StorageAccessParams::<Block>::new_write(
+		*root,
+		compact,
+		(changes.clone(), maybe_child_info.cloned()),
+	);
 
 	info!("validate_block with {} keys", changes.len());
 	let wasm_module = get_wasm_module();

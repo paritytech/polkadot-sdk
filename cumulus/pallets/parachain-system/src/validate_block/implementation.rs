@@ -509,10 +509,16 @@ pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
 					},
 				}
 			},
-		StorageAccessPayload::Write(changes) => {
+		StorageAccessPayload::Write((changes, maybe_child_info)) => {
 			let delta = changes.iter().map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
-			// TODO: add child keys writing
-			let root = backend.storage_root(delta, StateVersion::V1);
+			match maybe_child_info {
+				Some(child_info) => {
+					backend.child_storage_root(&child_info, delta, StateVersion::V1);
+				},
+				None => {
+					backend.storage_root(delta, StateVersion::V1);
+				},
+			}
 		},
 	}
 }
