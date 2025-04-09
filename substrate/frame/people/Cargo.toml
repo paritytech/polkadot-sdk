@@ -14,20 +14,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
-log = { workspace = true }
-scale-info = { workspace = true, features = ["derive"] }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
 sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-verifiable = { workspace = true, features = ["small-ring"]}
+verifiable = { workspace = true, features = ["small-ring"] }
 
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

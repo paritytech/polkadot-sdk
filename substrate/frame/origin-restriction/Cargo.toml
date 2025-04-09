@@ -13,42 +13,42 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
-log = { workspace = true }
-scale-info = { workspace = true, features = ["derive"] }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
 sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-pallet-transaction-payment = { workspace = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-transaction-payment/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
-	"sp-runtime/std",
 	"sp-io/std",
-	"pallet-transaction-payment/std",
+	"sp-runtime/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"sp-runtime/try-runtime",
 ]
