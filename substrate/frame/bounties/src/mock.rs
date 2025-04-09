@@ -100,7 +100,7 @@ impl Pay for TestTreasuryPay {
 	) -> Result<Self::Id, Self::Error> {
 		Ok(0)
 	}
-	fn check_payment(id: Self::Id) -> PaymentStatus {
+	fn check_payment(_: Self::Id) -> PaymentStatus {
 		PaymentStatus::InProgress
 	}
 	#[cfg(feature = "runtime-benchmarks")]

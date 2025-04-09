@@ -236,6 +236,8 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 	/// The bounty is closed, and the funds are being refunded to the original source (e.g.,
 	/// Treasury).
 	RefundAttempted {
+		/// The curator of this bounty.
+		curator: Option<AccountId>,
 		/// The refund status.
 		///
 		/// Once the refund is successful, the bounty is removed from the storage.
@@ -441,12 +443,20 @@ pub mod pallet {
 		/// A bounty is claimed by beneficiary.
 		BountyClaimed {
 			index: BountyIndex,
+			beneficiary: T::Beneficiary,
+			curator_stash: T::Beneficiary,
+		},
+		/// Payments to the beneficiary and curator stash have been successfully concluded.
+		BountyPayoutProcessed {
+			index: BountyIndex,
 			asset_kind: T::AssetKind,
 			value: BalanceOf<T, I>,
 			beneficiary: T::Beneficiary,
 		},
 		/// A bounty is cancelled.
 		BountyCanceled { index: BountyIndex },
+		/// A bounty is cancelled.
+		BountyRefundProcessed { index: BountyIndex },
 		/// A bounty expiry is extended.
 		BountyExtended { index: BountyIndex },
 		/// A bounty is approved.
@@ -457,6 +467,10 @@ pub mod pallet {
 		CuratorUnassigned { bounty_id: BountyIndex },
 		/// A bounty curator is accepted.
 		CuratorAccepted { bounty_id: BountyIndex, curator: T::AccountId },
+		/// A payment failed and can be retried.
+		PaymentFailed { index: BountyIndex, payment_id: PaymentIdOf<T, I> },
+		/// A payment happened and can be checked.
+		Paid { index: BountyIndex, payment_id: PaymentIdOf<T, I> },
 	}
 
 	/// Number of bounty proposals that have been made.
@@ -911,6 +925,11 @@ pub mod pallet {
 							(beneficiary.clone(), None),
 						)?;
 
+					Self::deposit_event(Event::<T, I>::BountyClaimed {
+						index: bounty_id,
+						beneficiary: beneficiary.clone(),
+						curator_stash: curator_stash.clone(),
+					});
 					bounty.status = BountyStatus::PayoutAttempted {
 						curator: curator.clone(),
 						curator_stash: (curator_stash.clone(), curator_payment_status),
@@ -945,7 +964,7 @@ pub mod pallet {
 		///
 		/// ## Events
 		/// - Emits `BountyRejected` if the bounty was in the `Proposed` state.
-		/// - Emits `RefundAttempted` if the bounty was already funded and is being refunded.
+		/// - Emits `BountyCanceled` if the bounty was already funded and is being refunded.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -969,7 +988,7 @@ pub mod pallet {
 						Error::<T, I>::HasActiveChildBounty
 					);
 
-					match &bounty.status {
+					let maybe_curator = match &bounty.status {
 						BountyStatus::Proposed => {
 							// The reject origin would like to cancel a proposed bounty.
 							BountyDescriptions::<T, I>::remove(bounty_id);
@@ -995,14 +1014,11 @@ pub mod pallet {
 						},
 						BountyStatus::Funded | BountyStatus::CuratorProposed { .. } => {
 							// Nothing extra to do besides the refund payment below.
+							None
 						},
 						BountyStatus::Active { curator, .. } => {
-							// Tiago: I should only unreserve once payment succeeds right?
-							// Cancelled by council, refund deposit of the working curator.
-							let err_amount =
-								T::Currency::unreserve(curator, bounty.curator_deposit);
-							debug_assert!(err_amount.is_zero());
-							// Then execute refund payment below.
+							// Nothing extra to do besides the refund payment below.
+							Some(curator)
 						},
 						BountyStatus::PendingPayout { .. } |
 						BountyStatus::PayoutAttempted { .. } => {
@@ -1019,10 +1035,14 @@ pub mod pallet {
 							// if it failed
 							return Err(Error::<T, I>::PendingPayout.into())
 						},
-					}
+					};
 
 					let payment_status = Self::do_process_refund_payment(bounty_id, &bounty, None)?;
-					bounty.status = BountyStatus::RefundAttempted { payment_status };
+					bounty.status = BountyStatus::RefundAttempted {
+						payment_status,
+						curator: maybe_curator.cloned(),
+					};
+					Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
 
 					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
 				},
@@ -1099,8 +1119,8 @@ pub mod pallet {
 		/// - `fee`: The fee that the curator will receive upon successful claim.
 		///
 		/// ## Events
-		/// - Emits `BountyApproved` when the bounty is successfully approved.
-		/// - Emits `CuratorProposed` when the curator is assigned.
+		/// - Emits `BountyApproved` and `CuratorProposed` when the bounty is approved and curator
+		///   assigned.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -1199,7 +1219,7 @@ pub mod pallet {
 						<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
 					)
 				},
-				RefundAttempted { ref payment_status } => {
+				RefundAttempted { ref payment_status, ref curator } => {
 					let new_payment_status = Self::do_process_refund_payment(
 						bounty_id,
 						&bounty,
@@ -1207,7 +1227,10 @@ pub mod pallet {
 					)?;
 					// TODO: change weight
 					(
-						RefundAttempted { payment_status: new_payment_status },
+						RefundAttempted {
+							payment_status: new_payment_status,
+							curator: curator.clone(),
+						},
 						<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
 					)
 				},
@@ -1259,8 +1282,8 @@ pub mod pallet {
 		///
 		/// ## Events
 		/// - Emits `BountyBecameActive` when the bounty transitions to `Active`.
-		/// - Emits `BountyClaimed` when the payout process completes successfully.
-		/// - Emits `BountyCanceled` if the refund is successful.
+		/// - Emits `BountyPayoutProcessed` when the payout payments complete successfully.
+		/// - Emits `BountyRefundProcessed` when the refund payment completes successfully.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -1283,6 +1306,7 @@ pub mod pallet {
 						&bounty,
 						payment_status.clone(),
 					)?;
+					// TODO: change weight
 					match new_payment_status {
 						PaymentState::Succeeded => (
 							BountyStatus::Funded,
@@ -1300,6 +1324,7 @@ pub mod pallet {
 						&bounty,
 						payment_status.clone(),
 					)?;
+					// TODO: change weight
 					match new_payment_status {
 						PaymentState::Succeeded => (
 							BountyStatus::CuratorProposed { curator: curator.clone() },
@@ -1314,17 +1339,21 @@ pub mod pallet {
 						),
 					}
 				},
-				RefundAttempted { ref payment_status } => {
+				RefundAttempted { ref payment_status, ref curator } => {
 					let new_payment_status = Self::do_check_refund_payment_status(
 						bounty_id,
 						&bounty,
 						payment_status.clone(),
+						curator.clone(),
 					)?;
 					// TODO: change weight
 					match new_payment_status {
 						PaymentState::Succeeded => return Ok(Pays::No.into()),
 						_ => (
-							BountyStatus::RefundAttempted { payment_status: new_payment_status },
+							BountyStatus::RefundAttempted {
+								payment_status: new_payment_status,
+								curator: curator.clone(),
+							},
 							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
 						),
 					}
@@ -1581,6 +1610,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		)
 		.map_err(|_| Error::<T, I>::FundingError)?;
 
+		Self::deposit_event(Event::<T, I>::Paid { index: bounty_id, payment_id: id });
+
 		Ok(PaymentState::Attempted { id })
 	}
 
@@ -1603,6 +1634,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			bounty.value,
 		)
 		.map_err(|_| Error::<T, I>::RefundError)?;
+
+		Self::deposit_event(Event::<T, I>::Paid { index: bounty_id, payment_id: id });
 
 		Ok(PaymentState::Attempted { id })
 	}
@@ -1637,6 +1670,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			)
 			.map_err(|_| Error::<T, I>::PayoutError)?;
 			curator_status = Some(PaymentState::Attempted { id });
+			Self::deposit_event(Event::<T, I>::Paid { index: bounty_id, payment_id: id });
 		}
 
 		// Retry beneficiary payout if needed
@@ -1649,6 +1683,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			)
 			.map_err(|_| Error::<T, I>::PayoutError)?;
 			beneficiary_status = Some(PaymentState::Attempted { id });
+			Self::deposit_event(Event::<T, I>::Paid { index: bounty_id, payment_id: id });
 		}
 
 		// Both will always be `Some` if we are here
@@ -1673,7 +1708,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(PaymentState::Succeeded)
 			},
 			PaymentStatus::InProgress => return Err(Error::<T, I>::FundingInconclusive.into()),
-			PaymentStatus::Unknown | PaymentStatus::Failure => return Ok(PaymentState::Failed),
+			PaymentStatus::Unknown | PaymentStatus::Failure => {
+				Self::deposit_event(Event::<T, I>::PaymentFailed { index: bounty_id, payment_id });
+				return Ok(PaymentState::Failed)
+			},
 		}
 	}
 
@@ -1681,22 +1719,30 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		bounty_id: BountyIndex,
 		bounty: &BountyOf<T, I>,
 		payment_status: PaymentState<PaymentIdOf<T, I>>,
+		curator: Option<T::AccountId>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
 		let payment_id = payment_status.get_attempt_id().ok_or(Error::<T, I>::UnexpectedStatus)?;
 
 		match <T as pallet::Config<I>>::Paymaster::check_payment(payment_id) {
 			PaymentStatus::Success => {
+				if let Some(curator) = curator {
+					// Cancelled by council, refund deposit of the working curator.
+					let err_amount = T::Currency::unreserve(&curator, bounty.curator_deposit);
+					debug_assert!(err_amount.is_zero());
+				}
 				// refund succeeded, cleanup the bounty
 				Self::remove_bounty(bounty_id);
-				Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
+				Self::deposit_event(Event::<T, I>::BountyRefundProcessed { index: bounty_id });
 				Ok(PaymentState::Succeeded)
 			},
 			PaymentStatus::InProgress =>
 			// nothing new to report
 				Err(Error::<T, I>::RefundInconclusive.into()),
-			PaymentStatus::Unknown | PaymentStatus::Failure =>
-			// assume payment has failed, allow user to retry
-				Ok(PaymentState::Failed),
+			PaymentStatus::Unknown | PaymentStatus::Failure => {
+				// assume payment has failed, allow user to retry
+				Self::deposit_event(Event::<T, I>::PaymentFailed { index: bounty_id, payment_id });
+				Ok(PaymentState::Failed)
+			},
 		}
 	}
 
@@ -1730,6 +1776,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						},
 						PaymentStatus::Unknown | PaymentStatus::Failure => {
 							payments_progressed += 1;
+							Self::deposit_event(Event::<T, I>::PaymentFailed {
+								index: bounty_id,
+								payment_id: *id,
+							});
 							*payment_status = PaymentState::Failed;
 						},
 					},
@@ -1749,7 +1799,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// Unreserve the curator deposit when payment succeeds
 			let err_amount = T::Currency::unreserve(&curator, bounty.curator_deposit);
 			debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
-			Self::deposit_event(Event::<T, I>::BountyClaimed {
+			Self::deposit_event(Event::<T, I>::BountyPayoutProcessed {
 				index: bounty_id,
 				asset_kind: bounty.asset_kind.clone(),
 				value: payout,

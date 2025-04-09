@@ -23,10 +23,7 @@ use super::{Event as BountiesEvent, *};
 use crate as pallet_bounties;
 use crate::mock::{Bounties, *};
 
-use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok, dispatch::PostDispatchInfo,
-	traits::Currency,
-};
+use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, traits::Currency};
 use sp_runtime::traits::Dispatchable;
 
 type UtilityCall = pallet_utility::Call<Test>;
@@ -109,7 +106,6 @@ fn propose_bounty_validation_works() {
 }
 
 #[test]
-#[allow(deprecated)]
 fn close_bounty_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
@@ -198,7 +194,7 @@ fn approve_bounty_works() {
 		assert_eq!(Balances::reserved_balance(proposer), 0);
 		assert_eq!(Balances::free_balance(proposer), 100);
 		assert_eq!(
-			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
 			Bounty {
 				proposer,
 				fee: 0,
@@ -356,7 +352,7 @@ fn approve_bounty_with_curator_works() {
 		// Then
 		expect_events(vec![BountiesEvent::BountyBecameActive { index: bounty_id }]);
 		assert_eq!(
-			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
 			Bounty {
 				proposer,
 				fee,
@@ -409,13 +405,23 @@ fn approve_bounty_with_curator_works() {
 		// When
 		go_to_block(4); // block_number >= unlock_at
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(curator), bounty_id));
+		assert_eq!(
+			last_event(),
+			BountiesEvent::BountyClaimed { index: bounty_id, beneficiary, curator_stash }
+		);
 		approve_payment(curator_stash, bounty_id, asset_kind, fee); // curator_stash fee
 		approve_payment(beneficiary, bounty_id, asset_kind, value - fee); // beneficiary payout
-																	// Then (final state)
+
+		// Then (final state)
 		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 0);
 		assert_eq!(
 			last_event(),
-			BountiesEvent::BountyClaimed { index: 0, asset_kind: 1, value: 40, beneficiary: 5 }
+			BountiesEvent::BountyPayoutProcessed {
+				index: bounty_id,
+				asset_kind,
+				value: value - fee,
+				beneficiary
+			}
 		);
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(bounty_id), None);
 	});
@@ -619,6 +625,7 @@ fn approve_bounty_with_curator_proposed_unassign_works() {
 		approve_payment(bounty_account, bounty_id, asset_kind, value);
 
 		// Then
+		assert_eq!(last_event(), BountiesEvent::BountyBecameActive { index: bounty_id });
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
 			Bounty {
@@ -687,8 +694,9 @@ fn assign_curator_works() {
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_id, curator, fee));
 
 		// Then
+		assert_eq!(last_event(), BountiesEvent::CuratorProposed { bounty_id, curator });
 		assert_eq!(
-			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
 			Bounty {
 				proposer,
 				fee,
@@ -892,6 +900,10 @@ fn award_and_claim_bounty_works() {
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(1), bounty_id));
 
 		// Then (PaymentState::Attempted)
+		assert_eq!(
+			last_event(),
+			BountiesEvent::BountyClaimed { index: bounty_id, beneficiary, curator_stash }
+		);
 		let curator_payment_id =
 			get_payment_id(bounty_id, Some(curator_stash)).expect("no payment attempt");
 		let beneficiary_payment_id =
@@ -920,17 +932,16 @@ fn award_and_claim_bounty_works() {
 		);
 
 		// When (PaymentState::Success)
-		let (final_fee, payout) = Bounties::calculate_curator_fee_and_payout(bounty_id, fee, value);
-		approve_payment(curator_stash, bounty_id, asset_kind, final_fee); // pay curator_stash final_fee
-		approve_payment(beneficiary, bounty_id, asset_kind, payout); // pay beneficiary payout
+		approve_payment(curator_stash, bounty_id, asset_kind, fee); // pay curator_stash final_fee
+		approve_payment(beneficiary, bounty_id, asset_kind, value - fee); // pay beneficiary payout
 
 		// Then
 		assert_eq!(
 			last_event(),
-			BountiesEvent::BountyClaimed {
+			BountiesEvent::BountyPayoutProcessed {
 				index: bounty_id,
 				asset_kind,
-				value: payout,
+				value: value - fee,
 				beneficiary
 			}
 		);
@@ -989,7 +1000,7 @@ fn claim_handles_high_fee() {
 		// Then
 		assert_eq!(
 			last_event(),
-			BountiesEvent::BountyClaimed {
+			BountiesEvent::BountyPayoutProcessed {
 				index: bounty_id,
 				asset_kind,
 				value: payout,
@@ -1045,6 +1056,10 @@ fn cancel_and_refund() {
 
 		// Then (PaymentState::Attempted)
 		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
+		expect_events(vec![
+			BountiesEvent::Paid { index: bounty_id, payment_id },
+			BountiesEvent::BountyCanceled { index: bounty_id },
+		]);
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
 			Bounty {
@@ -1055,7 +1070,8 @@ fn cancel_and_refund() {
 				value,
 				bond: 85,
 				status: BountyStatus::RefundAttempted {
-					payment_status: PaymentState::Attempted { id: payment_id }
+					payment_status: PaymentState::Attempted { id: payment_id },
+					curator: None,
 				},
 			}
 		);
@@ -1067,7 +1083,93 @@ fn cancel_and_refund() {
 		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 0);
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
 		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
-		assert_eq!(last_event(), BountiesEvent::BountyCanceled { index: bounty_id });
+		assert_eq!(last_event(), BountiesEvent::BountyRefundProcessed { index: bounty_id });
+	});
+}
+
+#[test]
+fn cancel_and_refund_with_curator() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given
+		let proposer = 0;
+		let asset_kind = 1;
+		let value = 50;
+		let curator = 4;
+		let curator_stash = 5;
+		let fee = 10;
+		let bounty_id = 0;
+		Balances::make_free_balance_be(&curator, 101);
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(proposer),
+			Box::new(asset_kind),
+			value,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty_with_curator(
+			RuntimeOrigin::root(),
+			bounty_id,
+			curator,
+			fee
+		));
+		let bounty_account =
+			Bounties::bounty_account_id(bounty_id, asset_kind).expect("conversion failed");
+		approve_payment(bounty_account, bounty_id, asset_kind, value);
+		go_to_block(2);
+		assert_ok!(Bounties::accept_curator(
+			RuntimeOrigin::signed(curator),
+			bounty_id,
+			curator_stash
+		));
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
+			Bounty {
+				proposer,
+				fee,
+				curator_deposit: 5,
+				asset_kind,
+				value,
+				bond: 85,
+				status: BountyStatus::Active { curator, curator_stash, update_due: 22 },
+			}
+		);
+
+		// When
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), bounty_id));
+
+		// Then (PaymentState::Attempted)
+		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
+		expect_events(vec![
+			BountiesEvent::Paid { index: bounty_id, payment_id },
+			BountiesEvent::BountyCanceled { index: bounty_id },
+		]);
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
+			Bounty {
+				proposer,
+				fee,
+				curator_deposit: 5,
+				asset_kind,
+				value,
+				bond: 85,
+				status: BountyStatus::RefundAttempted {
+					payment_status: PaymentState::Attempted { id: payment_id },
+					curator: Some(curator),
+				},
+			}
+		);
+		assert_eq!(Balances::free_balance(curator), 101 - 5);
+		assert_eq!(Balances::reserved_balance(curator), 5);
+
+		// When
+		approve_payment(Bounties::account_id(), bounty_id, asset_kind, value);
+
+		// Then (PaymentState::Success)
+		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 0);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
+		assert_eq!(last_event(), BountiesEvent::BountyRefundProcessed { index: bounty_id });
+		assert_eq!(Balances::free_balance(curator), 101);
+		assert_eq!(Balances::reserved_balance(curator), 0); // deposit refunded
 	});
 }
 
@@ -1108,10 +1210,11 @@ fn award_and_cancel() {
 		// Instead unassign the curator to slash them and then close.
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), bounty_id));
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), bounty_id));
+		assert_eq!(last_event(), BountiesEvent::BountyCanceled { index: bounty_id });
 		approve_payment(Bounties::account_id(), bounty_id, asset_kind, value);
 
 		// Then
-		assert_eq!(last_event(), BountiesEvent::BountyCanceled { index: bounty_id });
+		assert_eq!(last_event(), BountiesEvent::BountyRefundProcessed { index: bounty_id });
 		assert_eq!(Balances::free_balance(bounty_account), 0);
 		// Slashed.
 		assert_eq!(Balances::free_balance(0), 95);
@@ -1551,10 +1654,14 @@ fn check_and_process_funding_and_payout_payment_works() {
 			b"12345".to_vec()
 		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_id));
+		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
+		expect_events(vec![
+			BountiesEvent::Paid { index: bounty_id, payment_id },
+			BountiesEvent::BountyApproved { index: bounty_id },
+		]);
 
 		// When/Then (check BountyStatus::Approved - PaymentState::Attempted -
 		// PaymentStatus::InProgress)
-		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::InProgress);
 		assert_noop!(
 			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id),
@@ -1565,6 +1672,7 @@ fn check_and_process_funding_and_payout_payment_works() {
 		// PaymentStatus::Failure)
 		set_status(payment_id, PaymentStatus::Failure);
 		let res = Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id);
+		assert_eq!(last_event(), BountiesEvent::PaymentFailed { index: bounty_id, payment_id });
 		assert_eq!(res.unwrap().pays_fee, Pays::Yes);
 
 		// When/Then (check BountyStatus::Approved - PaymentState::Failed)
@@ -1576,12 +1684,14 @@ fn check_and_process_funding_and_payout_payment_works() {
 		// When (process BountyStatus::Approved and check PaymentState::Success)
 		assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_id));
 		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
+		assert_eq!(last_event(), BountiesEvent::Paid { index: bounty_id, payment_id });
 		set_status(payment_id, PaymentStatus::Success);
 		assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id));
 
 		// Then
+		assert_eq!(last_event(), BountiesEvent::BountyBecameActive { index: bounty_id });
 		assert_eq!(
-			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
 			Bounty {
 				proposer,
 				fee: 0,
@@ -1593,7 +1703,7 @@ fn check_and_process_funding_and_payout_payment_works() {
 			}
 		);
 
-		// Given (claim_bounty)f
+		// Given (claim_bounty)
 		let curator = 4;
 		let fee = 1;
 		let curator_stash = 7;
@@ -1604,47 +1714,134 @@ fn check_and_process_funding_and_payout_payment_works() {
 		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(curator), 0, beneficiary));
 		go_to_block(5);
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(beneficiary), 0));
-
-		// When (check BountyStatus::PayoutAttempted - PaymentState::Attempted - 2x
-		// PaymentStatus::InProgress)
+		let curator_payment_id =
+			get_payment_id(bounty_id, Some(curator_stash)).expect("no payment attempt");
 		let beneficiary_payment_id =
 			get_payment_id(bounty_id, Some(beneficiary)).expect("no payment attempt");
 		set_status(beneficiary_payment_id, PaymentStatus::InProgress);
-		let curator_payment_id =
-			get_payment_id(bounty_id, Some(curator_stash)).expect("no payment attempt");
+		expect_events(vec![
+			BountiesEvent::Paid { index: bounty_id, payment_id: curator_payment_id },
+			BountiesEvent::Paid { index: bounty_id, payment_id: beneficiary_payment_id },
+			BountiesEvent::BountyClaimed { index: bounty_id, beneficiary, curator_stash },
+		]);
+
+		// When (check BountyStatus::PayoutAttempted - PaymentState::Attempted -
+		// 2x PaymentStatus::InProgress)
 		set_status(curator_payment_id, PaymentStatus::InProgress);
 		assert_noop!(
 			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id),
 			Error::<Test>::PayoutInconclusive
 		);
 
-		// When/Then (check BountyStatus::PayoutAttempted - 2x PaymentState::Attempted - 1x
-		// PaymentStatus::Failure 1x PaymentStatus::InProgress)
-		let (final_fee, payout) = Bounties::calculate_curator_fee_and_payout(bounty_id, fee, value);
+		// When/Then (check BountyStatus::PayoutAttempted - 2x PaymentState::Attempted -
+		// 1x PaymentStatus::Failure 1x PaymentStatus::InProgress)
 		set_status(beneficiary_payment_id, PaymentStatus::Failure);
-		unpay(beneficiary, asset_kind, payout);
+		unpay(beneficiary, asset_kind, value - fee);
 		let res = Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id);
 		assert_eq!(res.unwrap().pays_fee, Pays::Yes);
+		assert_eq!(
+			last_event(),
+			BountiesEvent::PaymentFailed { index: bounty_id, payment_id: beneficiary_payment_id }
+		);
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
+			Bounty {
+				proposer,
+				fee,
+				curator_deposit: 3,
+				asset_kind,
+				value,
+				bond: 85,
+				status: BountyStatus::PayoutAttempted {
+					curator,
+					curator_stash: (
+						curator_stash,
+						PaymentState::Attempted { id: curator_payment_id }
+					),
+					beneficiary: (beneficiary, PaymentState::Failed)
+				}
+			}
+		);
 
-		// When/Then (check BountyStatus::PayoutAttempted - 1x PaymentState::Failed 1x
-		// PaymentState::Attempted)
+		// When/Then (check BountyStatus::PayoutAttempted - 1x PaymentState::Failed -
+		// 1x PaymentState::Attempted)
 		assert_noop!(
 			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id),
 			Error::<Test>::UnexpectedStatus
 		);
 
-		// When/Then (process BountyStatus::PayoutAttempted and check 1x PaymentState::Success 1x
-		// PaymentState::Attempted)
+		// When (process BountyStatus::PayoutAttempted)
 		assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_id));
-		approve_payment(beneficiary, bounty_id, asset_kind, payout);
 		assert_noop!(
 			Bounties::process_payment(RuntimeOrigin::signed(user), bounty_id),
 			Error::<Test>::UnexpectedStatus
 		);
 
-		// When/Then (process BountyStatus::PayoutAttempted and check 2x PaymentState::Success)
+		// Then
+		let beneficiary_payment_id =
+			get_payment_id(bounty_id, Some(beneficiary)).expect("no payment attempt");
+		assert_eq!(
+			last_event(),
+			BountiesEvent::Paid { index: bounty_id, payment_id: beneficiary_payment_id }
+		);
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
+			Bounty {
+				proposer,
+				fee,
+				curator_deposit: 3,
+				asset_kind,
+				value,
+				bond: 85,
+				status: BountyStatus::PayoutAttempted {
+					curator,
+					curator_stash: (
+						curator_stash,
+						PaymentState::Attempted { id: curator_payment_id }
+					),
+					beneficiary: (
+						beneficiary,
+						PaymentState::Attempted { id: beneficiary_payment_id }
+					)
+				}
+			}
+		);
+
+		// When (check 1x PaymentState::Success 1x PaymentState::Attempted)
+		approve_payment(beneficiary, bounty_id, asset_kind, value - fee);
+
+		// Then
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
+			Bounty {
+				proposer,
+				fee,
+				curator_deposit: 3,
+				asset_kind,
+				value,
+				bond: 85,
+				status: BountyStatus::PayoutAttempted {
+					curator,
+					curator_stash: (
+						curator_stash,
+						PaymentState::Attempted { id: curator_payment_id }
+					),
+					beneficiary: (beneficiary, PaymentState::Succeeded)
+				}
+			}
+		);
 		assert!(get_payment_id(bounty_id, Some(beneficiary)).is_none());
-		approve_payment(curator_stash, bounty_id, asset_kind, final_fee);
+
+		// When (check 2x PaymentState::Success)
+		approve_payment(curator_stash, bounty_id, asset_kind, fee);
+
+		// Then
+		expect_events(vec![BountiesEvent::BountyPayoutProcessed {
+			index: bounty_id,
+			asset_kind,
+			value: value - fee,
+			beneficiary,
+		}]);
 		let bounty_account =
 			Bounties::bounty_account_id(bounty_id, asset_kind).expect("conversion failed");
 		assert_eq!(Balances::free_balance(bounty_account), 0);
@@ -1676,10 +1873,15 @@ fn check_payment_status_approved_with_curator() {
 			curator,
 			fee
 		));
+		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
+		expect_events(vec![
+			BountiesEvent::Paid { index: bounty_id, payment_id },
+			BountiesEvent::BountyApproved { index: bounty_id },
+			BountiesEvent::CuratorProposed { bounty_id, curator },
+		]);
 
 		// When/Then (check BountyStatus::ApprovedWithCurator - PaymentState::Attempted -
 		// PaymentStatus::InProgress)
-		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::InProgress);
 		assert_noop!(
 			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id),
@@ -1701,10 +1903,12 @@ fn check_payment_status_approved_with_curator() {
 		// When (process BountyStatus::ApprovedWithCurator and check PaymentState::Success)
 		assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_id));
 		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
+		assert_eq!(last_event(), BountiesEvent::Paid { index: bounty_id, payment_id });
 		set_status(payment_id, PaymentStatus::Success);
 		assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id));
 
 		// Then
+		assert_eq!(last_event(), BountiesEvent::BountyBecameActive { index: bounty_id });
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(bounty_id).unwrap(),
 			Bounty {
@@ -1739,10 +1943,14 @@ fn check_and_process_refund_payment_works() {
 		set_status(payment_id, PaymentStatus::Success);
 		assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id));
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
+		expect_events(vec![
+			BountiesEvent::Paid { index: bounty_id, payment_id },
+			BountiesEvent::BountyCanceled { index: bounty_id },
+		]);
 
 		// When/Then (check BountyStatus::RefundAttempted - PaymentState::Attempted -
 		// PaymentStatus::InProgress)
-		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::InProgress);
 		assert_noop!(
 			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id),
@@ -1764,11 +1972,12 @@ fn check_and_process_refund_payment_works() {
 		// When (process BountyStatus::RefundAttempted and check PaymentState::Success)
 		assert_ok!(Bounties::process_payment(RuntimeOrigin::signed(user), bounty_id));
 		let payment_id = get_payment_id(bounty_id, None).expect("no payment attempt");
+		assert_eq!(last_event(), BountiesEvent::Paid { index: bounty_id, payment_id });
 		set_status(payment_id, PaymentStatus::Success);
 		assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id));
 
 		// Then
-		assert_eq!(last_event(), BountiesEvent::BountyCanceled { index: bounty_id });
+		assert_eq!(last_event(), BountiesEvent::BountyRefundProcessed { index: bounty_id });
 		let bounty_account =
 			Bounties::bounty_account_id(bounty_id, asset_kind).expect("conversion failed");
 		assert_eq!(Balances::free_balance(bounty_account), 0);

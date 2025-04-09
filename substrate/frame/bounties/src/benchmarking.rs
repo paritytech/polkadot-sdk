@@ -87,6 +87,10 @@ fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
+fn assert_has_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
+}
+
 pub fn get_payment_id<T: Config<I>, I: 'static>(
 	bounty_id: BountyIndex,
 	to: Option<T::Beneficiary>,
@@ -128,7 +132,7 @@ pub fn set_payment_status<T: Config<I>, I: 'static>(
 	match &mut bounty.status {
 		BountyStatus::Approved { payment_status } |
 		BountyStatus::ApprovedWithCurator { payment_status, .. } |
-		BountyStatus::RefundAttempted { payment_status } => *payment_status = new_payment_status,
+		BountyStatus::RefundAttempted { payment_status, .. } => *payment_status = new_payment_status,
 		BountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } => {
 			curator_stash.1 = new_payment_status.clone();
 			beneficiary.1 = new_payment_status;
@@ -212,7 +216,7 @@ fn create_funded_bounty<T: Config<I>, I: 'static>(
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
 	let setup = initialize_approved_bounty::<T, I>(origin)?;
 	let payment_id = get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-	<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id, PaymentStatus::Success);
+	<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
 	Bounties::<T, I>::check_payment_status(
 		RawOrigin::Signed(setup.caller.clone()).into(),
 		setup.bounty_id,
@@ -608,10 +612,7 @@ mod benchmarks {
 			initialize_approved_bounty::<T, I>(origin)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(
-				payment_id,
-				PaymentStatus::Success,
-			);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
 			true
 		} else {
 			false
@@ -649,10 +650,7 @@ mod benchmarks {
 			initialize_approved_bounty::<T, I>(origin)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(
-				payment_id,
-				PaymentStatus::Success,
-			);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
 			true
 		} else {
 			false
@@ -701,10 +699,7 @@ mod benchmarks {
 			Bounties::<T, I>::close_bounty(origin, setup.bounty_id)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(
-				payment_id,
-				PaymentStatus::Success,
-			);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
 			true
 		} else {
 			false
@@ -725,7 +720,9 @@ mod benchmarks {
 		}
 
 		if spend_exists {
-			assert_last_event::<T, I>(Event::BountyCanceled { index: setup.bounty_id }.into());
+			assert_last_event::<T, I>(
+				Event::BountyRefundProcessed { index: setup.bounty_id }.into(),
+			);
 			assert!(pallet_bounties::Bounties::<T, I>::get(setup.bounty_id).is_none());
 		}
 
@@ -768,14 +765,8 @@ mod benchmarks {
 			let beneficiary_payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, Some(setup.beneficiary.clone()))
 					.expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(
-				curator_payment_id,
-				PaymentStatus::Success,
-			);
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(
-				beneficiary_payment_id,
-				PaymentStatus::Success,
-			);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(curator_payment_id);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(beneficiary_payment_id);
 			true
 		} else {
 			false
@@ -797,7 +788,7 @@ mod benchmarks {
 
 		if spend_exists {
 			assert_last_event::<T, I>(
-				Event::BountyClaimed {
+				Event::BountyPayoutProcessed {
 					index: setup.bounty_id,
 					asset_kind: setup.asset_kind,
 					value: asset_payout,
@@ -819,10 +810,7 @@ mod benchmarks {
 			let setup = initialize_approved_bounty::<T, I>(origin)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(
-				payment_id,
-				PaymentStatus::Failure,
-			);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
 			set_payment_status::<T, I>(setup.bounty_id, PaymentState::Failed);
 			true
 		} else {
@@ -846,6 +834,7 @@ mod benchmarks {
 		if spend_exists {
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
+			assert_last_event::<T, I>(Event::Paid { index: setup.bounty_id, payment_id }.into());
 			assert_ne!(
 				<T as pallet::Config<I>>::Paymaster::check_payment(payment_id),
 				PaymentStatus::Failure
@@ -869,10 +858,7 @@ mod benchmarks {
 			Bounties::<T, I>::close_bounty(origin, setup.bounty_id)?;
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(
-				payment_id,
-				PaymentStatus::Failure,
-			);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(payment_id);
 			set_payment_status::<T, I>(setup.bounty_id, PaymentState::Failed);
 			true
 		} else {
@@ -896,6 +882,7 @@ mod benchmarks {
 		if spend_exists {
 			let payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, None).expect("no payment attempt");
+			assert_last_event::<T, I>(Event::Paid { index: setup.bounty_id, payment_id }.into());
 			assert_ne!(
 				<T as pallet::Config<I>>::Paymaster::check_payment(payment_id),
 				PaymentStatus::Failure
@@ -926,14 +913,8 @@ mod benchmarks {
 			let beneficiary_payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, Some(setup.beneficiary))
 					.expect("no payment attempt");
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(
-				curator_payment_id,
-				PaymentStatus::Failure,
-			);
-			<T as pallet::Config<I>>::Paymaster::ensure_concluded(
-				beneficiary_payment_id,
-				PaymentStatus::Failure,
-			);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(curator_payment_id);
+			<T as pallet::Config<I>>::Paymaster::ensure_concluded(beneficiary_payment_id);
 			set_payment_status::<T, I>(setup.bounty_id, PaymentState::Failed);
 			true
 		} else {
@@ -961,6 +942,12 @@ mod benchmarks {
 			let beneficiary_payment_id =
 				get_payment_id::<T, I>(setup.bounty_id, Some(setup.beneficiary))
 					.expect("no payment attempt");
+			assert_has_event::<T, I>(
+				Event::Paid { index: setup.bounty_id, payment_id: curator_payment_id }.into(),
+			);
+			assert_has_event::<T, I>(
+				Event::Paid { index: setup.bounty_id, payment_id: beneficiary_payment_id }.into(),
+			);
 			assert_ne!(
 				<T as pallet::Config<I>>::Paymaster::check_payment(curator_payment_id),
 				PaymentStatus::Failure
