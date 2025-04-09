@@ -796,7 +796,10 @@ fn existential_deposit_respected_when_reserving() {
 		assert_eq!(Balances::reserved_balance(1), 1);
 
 		// Cannot reserve any more of the free balance.
-		assert_noop!(Balances::reserve(&1, 1), DispatchError::ConsumerRemaining);
+		// free = 100
+		// reserved = 1
+		// existential deposit = 100
+		assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions);
 	});
 }
 
