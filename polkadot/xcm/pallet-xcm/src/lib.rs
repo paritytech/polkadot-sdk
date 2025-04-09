@@ -1004,9 +1004,8 @@ pub mod pallet {
 						timeout,
 						maybe_match_querier: Some(Location::here().into()),
 					},
-					VersionNotifier { origin, is_active } => {
-						QueryStatus::VersionNotifier { origin, is_active }
-					},
+					VersionNotifier { origin, is_active } =>
+						QueryStatus::VersionNotifier { origin, is_active },
 					Ready { response, at } => QueryStatus::Ready { response, at },
 				}
 			}
@@ -1567,17 +1566,16 @@ pub mod pallet {
 			ensure!(origin_location != new_aliaser, Error::<T>::BadLocation);
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
-				(0, [AccountId32 { network: _, id }]) => {
-					Location::new(0, [AccountId32 { network: None, id: *id }])
-				},
+				(0, [AccountId32 { network: _, id }]) =>
+					Location::new(0, [AccountId32 { network: None, id: *id }]),
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?new_aliaser, ?expires);
 			ensure!(origin_location != new_aliaser, Error::<T>::BadLocation);
 			if let Some(expiry) = expires {
 				ensure!(
-					expiry
-						> frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>(),
+					expiry >
+						frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>(),
 					Error::<T>::ExpiresInPast
 				);
 			}
@@ -1632,9 +1630,8 @@ pub mod pallet {
 			ensure!(origin_location != to_remove, Error::<T>::BadLocation);
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
-				(0, [AccountId32 { network: _, id }]) => {
-					Location::new(0, [AccountId32 { network: None, id: *id }])
-				},
+				(0, [AccountId32 { network: _, id }]) =>
+					Location::new(0, [AccountId32 { network: None, id: *id }]),
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::remove_authorized_alias", ?origin_location, ?to_remove);
@@ -1683,9 +1680,8 @@ pub mod pallet {
 			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
-				(0, [AccountId32 { network: _, id }]) => {
-					Location::new(0, [AccountId32 { network: None, id: *id }])
-				},
+				(0, [AccountId32 { network: _, id }]) =>
+					Location::new(0, [AccountId32 { network: None, id: *id }]),
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::remove_all_authorized_aliases", ?origin_location);
@@ -1981,9 +1977,8 @@ impl<T: Config> Pallet<T> {
 					fees,
 					weight_limit,
 				)?,
-				TransferType::RemoteReserve(_) => {
-					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into())
-				},
+				TransferType::RemoteReserve(_) =>
+					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 			};
 			FeesHandling::Separate { local_xcm, remote_xcm }
 		};
@@ -3105,12 +3100,12 @@ impl<T: Config> Pallet<T> {
 		Ok(Self::authorized_aliasers(target)?.into_iter().any(|aliaser| {
 			// `aliasers` and `origin` have already been transformed to `desired_version`, we
 			// can just directly compare them.
-			aliaser.location == origin
-				&& aliaser
+			aliaser.location == origin &&
+				aliaser
 					.expiry
 					.map(|expiry| {
-						frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>()
-							< expiry
+						frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>() <
+							expiry
 					})
 					.unwrap_or(true)
 		}))
@@ -3266,8 +3261,8 @@ impl<T: Config> Pallet<T> {
 		// check `RemoteLockedFungibles`
 		ensure!(
 			!RemoteLockedFungibles::<T>::iter()
-				.any(|(key, data)| key.needs_migration(minimal_allowed_xcm_version)
-					|| data.needs_migration(minimal_allowed_xcm_version)),
+				.any(|(key, data)| key.needs_migration(minimal_allowed_xcm_version) ||
+					data.needs_migration(minimal_allowed_xcm_version)),
 			TryRuntimeError::Other(
 				"`RemoteLockedFungibles` data should be migrated to the higher xcm version!"
 			)
@@ -3596,12 +3591,11 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 	) -> bool {
 		let mut versioned = VersionedAssets::from(assets.clone());
 		match ticket.unpack() {
-			(0, [GeneralIndex(i)]) => {
+			(0, [GeneralIndex(i)]) =>
 				versioned = match versioned.into_version(*i as u32) {
 					Ok(v) => v,
 					Err(()) => return false,
-				}
-			},
+				},
 			(0, []) => (),
 			_ => return false,
 		};
@@ -3627,17 +3621,15 @@ impl<T: Config> OnResponse for Pallet<T> {
 		querier: Option<&Location>,
 	) -> bool {
 		match Queries::<T>::get(query_id) {
-			Some(QueryStatus::Pending { responder, maybe_match_querier, .. }) => {
-				Location::try_from(responder).map_or(false, |r| origin == &r)
-					&& maybe_match_querier.map_or(true, |match_querier| {
+			Some(QueryStatus::Pending { responder, maybe_match_querier, .. }) =>
+				Location::try_from(responder).map_or(false, |r| origin == &r) &&
+					maybe_match_querier.map_or(true, |match_querier| {
 						Location::try_from(match_querier).map_or(false, |match_querier| {
 							querier.map_or(false, |q| q == &match_querier)
 						})
-					})
-			},
-			Some(QueryStatus::VersionNotifier { origin: r, .. }) => {
-				Location::try_from(r).map_or(false, |r| origin == &r)
-			},
+					}),
+			Some(QueryStatus::VersionNotifier { origin: r, .. }) =>
+				Location::try_from(r).map_or(false, |r| origin == &r),
 			_ => false,
 		}
 	}
@@ -3917,13 +3909,12 @@ where
 
 	fn try_origin(outer: O) -> Result<Self::Success, O> {
 		match outer.caller().try_into() {
-			Ok(Origin::Xcm(ref location)) => {
+			Ok(Origin::Xcm(ref location)) =>
 				if let Ok(location) = location.clone().try_into() {
 					if F::contains(&location) {
 						return Ok(location);
 					}
-				}
-			},
+				},
 			_ => (),
 		}
 
