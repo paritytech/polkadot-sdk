@@ -23,23 +23,31 @@ use cumulus_primitives_core::{
 	ParaId,
 };
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
-use futures::StreamExt;
+use futures::{future::Fuse, pin_mut, FutureExt, StreamExt};
 use ip_network::IpNetwork;
 use log::{debug, trace, warn};
 use prost::Message;
 use sc_network::{
-	config::OutgoingResponse, multiaddr::Protocol, request_responses::IncomingRequest,
-	service::traits::NetworkService, KademliaKey, Multiaddr,
+	config::OutgoingResponse,
+	event::{DhtEvent, Event},
+	multiaddr::Protocol,
+	request_responses::IncomingRequest,
+	service::traits::NetworkService,
+	KademliaKey, Multiaddr,
 };
 use sp_consensus_babe::{digests::CompatibleDigestItem, Epoch, Randomness};
 use sp_runtime::traits::Header as _;
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, pin::Pin, sync::Arc};
+use tokio::time::Sleep;
 
 /// Log target for this file.
 const LOG_TARGET: &str = "bootnodes::advertisement";
 
 /// Maximum number of addresses to return via requset-response protocol.
 const MAX_ADDRESSES: usize = 32;
+
+/// Delay before retrying the DHT content provider publish operation.
+const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// Parachain bootnode advertisement parameters.
 pub struct BootnodeAdvertisementParams {
@@ -71,6 +79,8 @@ pub struct BootnodeAdvertisement {
 	relay_chain_network: Arc<dyn NetworkService>,
 	current_epoch_key: Option<KademliaKey>,
 	next_epoch_key: Option<KademliaKey>,
+	current_epoch_publish_retry: Pin<Box<Fuse<Sleep>>>,
+	next_epoch_publish_retry: Pin<Box<Fuse<Sleep>>>,
 	request_receiver: async_channel::Receiver<IncomingRequest>,
 	parachain_network: Arc<dyn NetworkService>,
 	advertise_non_global_ips: bool,
@@ -122,6 +132,8 @@ impl BootnodeAdvertisement {
 			relay_chain_network,
 			current_epoch_key: None,
 			next_epoch_key: None,
+			current_epoch_publish_retry: Box::pin(Fuse::terminated()),
+			next_epoch_publish_retry: Box::pin(Fuse::terminated()),
 			request_receiver,
 			parachain_network,
 			advertise_non_global_ips,
@@ -202,6 +214,10 @@ impl BootnodeAdvertisement {
 				return;
 			}
 
+			// Epoch changed, cancel retry attempts.
+			self.current_epoch_publish_retry = Box::pin(Fuse::terminated());
+			self.next_epoch_publish_retry = Box::pin(Fuse::terminated());
+
 			debug!(target: LOG_TARGET, "New epoch started, readvertising parachain bootnode.");
 
 			let (current_epoch_key, next_epoch_key) =
@@ -259,14 +275,22 @@ impl BootnodeAdvertisement {
 					_ => {},
 				}
 
+				if Some(&next_epoch_key) == self.next_epoch_key.as_ref() {
+					debug!(
+						target: LOG_TARGET,
+						"Re-advertising bootnode for next epoch key {}",
+						hex::encode(next_epoch_key.as_ref()),
+					);
+				} else {
+					debug!(
+						target: LOG_TARGET,
+						"Advertising bootnode for next epoch key {}",
+						hex::encode(next_epoch_key.as_ref()),
+					);
+				}
+
 				self.relay_chain_network.start_providing(next_epoch_key.clone());
 				self.next_epoch_key = Some(next_epoch_key.clone());
-
-				debug!(
-					target: LOG_TARGET,
-					"Advertising bootnode for next epoch key {}",
-					hex::encode(next_epoch_key.as_ref()),
-				);
 			}
 		} else {
 			// First advertisement on startup.
@@ -449,10 +473,91 @@ impl BootnodeAdvertisement {
 		}
 	}
 
+	fn handle_dht_event(&mut self, event: DhtEvent) {
+		match event {
+			DhtEvent::StartedProviding(key) =>
+				if Some(&key) == self.current_epoch_key.as_ref() {
+					debug!(
+						target: LOG_TARGET,
+						"Successfully published provider for current epoch key {}",
+						hex::encode(key.as_ref()),
+					);
+				} else if Some(&key) == self.next_epoch_key.as_ref() {
+					debug!(
+						target: LOG_TARGET,
+						"Successfully published provider for next epoch key {}",
+						hex::encode(key.as_ref()),
+					);
+				},
+			DhtEvent::StartProvidingFailed(key) =>
+				if Some(&key) == self.current_epoch_key.as_ref() {
+					debug!(
+						target: LOG_TARGET,
+						"Failed to publish provider for current epoch key {}. Retrying in {RETRY_DELAY:?}",
+						hex::encode(key.as_ref()),
+					);
+					self.current_epoch_publish_retry =
+						Box::pin(tokio::time::sleep(RETRY_DELAY).fuse());
+				} else if Some(&key) == self.next_epoch_key.as_ref() {
+					debug!(
+						target: LOG_TARGET,
+						"Failed to publish provider for next epoch key {}. Retrying in {RETRY_DELAY:?}",
+						hex::encode(key.as_ref()),
+					);
+					self.next_epoch_publish_retry =
+						Box::pin(tokio::time::sleep(RETRY_DELAY).fuse());
+				},
+			_ => {},
+		}
+	}
+
+	fn retry_for_current_epoch(&mut self) {
+		if let Some(current_epoch_key) = self.current_epoch_key.clone() {
+			debug!(
+				target: LOG_TARGET,
+				"Retrying advertising bootnode for current epoch key {}",
+				hex::encode(current_epoch_key.as_ref()),
+			);
+			self.relay_chain_network.start_providing(current_epoch_key);
+		} else {
+			warn!(
+				target: LOG_TARGET,
+				"Retrying advertising bootnode for current epoch failed: no key. This is a bug."
+			);
+		}
+	}
+
+	fn retry_for_next_epoch(&mut self) {
+		if let Some(next_epoch_key) = self.next_epoch_key.clone() {
+			debug!(
+				target: LOG_TARGET,
+				"Retrying advertising bootnode for next epoch key {}",
+				hex::encode(next_epoch_key.as_ref()),
+			);
+			self.relay_chain_network.start_providing(next_epoch_key);
+		} else {
+			warn!(
+				target: LOG_TARGET,
+				"Retrying advertising bootnode for next epoch failed: no key. This is a bug."
+			);
+		}
+	}
+
 	/// Run the bootnode advertisement service.
 	pub async fn run(mut self) -> RelayChainResult<()> {
 		let mut import_notification_stream =
 			self.relay_chain_interface.import_notification_stream().await?;
+		let dht_event_stream = self
+			.relay_chain_network
+			.event_stream("parachain-bootnode-discovery")
+			.filter_map(|e| async move {
+				match e {
+					Event::Dht(e) => Some(e),
+					_ => None,
+				}
+			})
+			.fuse();
+		pin_mut!(dht_event_stream);
 
 		loop {
 			tokio::select! {
@@ -477,7 +582,10 @@ impl BootnodeAdvertisement {
 						);
 						return Ok(());
 					}
-				}
+				},
+				event = dht_event_stream.select_next_some() => self.handle_dht_event(event),
+				() = &mut self.current_epoch_publish_retry => self.retry_for_current_epoch(),
+				() = &mut self.next_epoch_publish_retry => self.retry_for_next_epoch(),
 			}
 		}
 	}

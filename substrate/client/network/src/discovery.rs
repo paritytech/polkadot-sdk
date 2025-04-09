@@ -96,8 +96,12 @@ const MAX_KNOWN_EXTERNAL_ADDRESSES: usize = 32;
 /// record is replicated to.
 pub const DEFAULT_KADEMLIA_REPLICATION_FACTOR: usize = 20;
 
-// The minimum number of peers we expect an answer before we terminate the request.
+/// The minimum number of peers we expect an answer before we terminate the request.
 const GET_RECORD_REDUNDANCY_FACTOR: u32 = 4;
+
+/// Query timeout for Kademlia requests. We need to increase this for record/provider publishing
+/// to not timeout most of the time.
+const KAD_QUERY_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// `DiscoveryBehaviour` configuration.
 ///
@@ -227,6 +231,8 @@ impl DiscoveryConfig {
 			config.set_replication_factor(kademlia_replication_factor);
 
 			config.set_record_filtering(libp2p::kad::StoreInserts::FilterBoth);
+
+			config.set_query_timeout(KAD_QUERY_TIMEOUT);
 
 			// By default Kademlia attempts to insert all peers into its routing table once a
 			// dialing attempt succeeds. In order to control which peer is added, disable the
