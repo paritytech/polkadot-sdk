@@ -27,8 +27,8 @@ crates:
 - name: pallet-people
   bump: major
 - name: frame-support
-  bump: major
+  bump: minor
 - name: frame-system
-  bump: major
+  bump: minor
 - name: polkadot-sdk
   bump: major
