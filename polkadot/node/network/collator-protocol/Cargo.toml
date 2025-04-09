@@ -48,4 +48,4 @@ polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
 default = []
-experimental-collator-protocol = [ "async-trait" ]
+experimental-collator-protocol = ["async-trait"]
