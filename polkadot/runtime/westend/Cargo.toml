@@ -62,12 +62,10 @@ pallet-beefy-mmr = { workspace = true }
 pallet-conviction-voting = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-election-provider-multi-phase = { workspace = true }
-pallet-elections-phragmen = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-indices = { workspace = true }
-pallet-membership = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-meta-tx = { workspace = true }
 pallet-migrations = { workspace = true }
@@ -84,10 +82,8 @@ pallet-referenda = { workspace = true }
 pallet-root-testing = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
-pallet-society = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-runtime-api = { workspace = true }
-pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
@@ -161,12 +157,10 @@ std = [
 	"pallet-delegated-staking/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
-	"pallet-elections-phragmen/std",
 	"pallet-fast-unstake/std",
 	"pallet-grandpa/std",
 	"pallet-identity/std",
 	"pallet-indices/std",
-	"pallet-membership/std",
 	"pallet-message-queue/std",
 	"pallet-meta-tx/std",
 	"pallet-migrations/std",
@@ -186,10 +180,8 @@ std = [
 	"pallet-scheduler/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session/std",
-	"pallet-society/std",
 	"pallet-staking-runtime-api/std",
 	"pallet-staking/std",
-	"pallet-state-trie-migration/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
@@ -252,12 +244,10 @@ runtime-benchmarks = [
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
-	"pallet-elections-phragmen/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
@@ -274,9 +264,7 @@ runtime-benchmarks = [
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
-	"pallet-society/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
-	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
@@ -316,12 +304,10 @@ try-runtime = [
 	"pallet-conviction-voting/try-runtime",
 	"pallet-delegated-staking/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
-	"pallet-elections-phragmen/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-indices/try-runtime",
-	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-meta-tx/try-runtime",
 	"pallet-migrations/try-runtime",
@@ -337,9 +323,7 @@ try-runtime = [
 	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-society/try-runtime",
 	"pallet-staking/try-runtime",
-	"pallet-state-trie-migration/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
