@@ -32,6 +32,8 @@ pallet-balances.default-features = true
 pallet-balances.workspace = true
 pallet-message-queue.default-features = true
 pallet-message-queue.workspace = true
+pallet-timestamp.default-features = true
+pallet-timestamp.workspace = true
 parachains-common.default-features = true
 parachains-common.workspace = true
 paste = { workspace = true, default-features = true }
