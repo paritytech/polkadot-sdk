@@ -54,13 +54,10 @@ use polkadot_primitives::{
 	CollatorPair, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId, SessionIndex,
 };
 
-use super::LOG_TARGET;
-use crate::{
-	error::{log_error, Error, FatalError, Result},
-	modify_reputation,
-};
+use crate::{modify_reputation, LOG_TARGET};
 
 mod collation;
+mod error;
 mod metrics;
 #[cfg(test)]
 mod tests;
@@ -70,6 +67,7 @@ use collation::{
 	ActiveCollationFetches, Collation, CollationSendResult, CollationStatus,
 	VersionedCollationRequest, WaitingCollationFetches,
 };
+use error::{log_error, Error, FatalError, Result};
 use validators_buffer::{
 	ResetInterestTimeout, ValidatorGroupsBuffer, RESET_INTEREST_TIMEOUT, VALIDATORS_BUFFER_CAPACITY,
 };
