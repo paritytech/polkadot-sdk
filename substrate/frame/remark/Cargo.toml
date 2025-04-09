@@ -26,17 +26,8 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
-[dev-dependencies]
-sp-core = { workspace = true }
-
 [features]
 default = ["std"]
-runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -47,6 +38,12 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
