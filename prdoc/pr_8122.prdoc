@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Accommodate small changes to unstable V16 metadata format
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The frame-metadata version is bumped, which leads to a few minor changes to our sp-metadata-ir crate
+      to accommodate small changes in the unstable V16 metadata format. 
+
+crates:
+  - name: sp-metadata-ir
+    bump: major

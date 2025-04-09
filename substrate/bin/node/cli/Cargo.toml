@@ -27,13 +27,25 @@ maintenance = { status = "actively-developed" }
 is-it-maintained-issue-resolution = { repository = "paritytech/polkadot-sdk" }
 is-it-maintained-open-issues = { repository = "paritytech/polkadot-sdk" }
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [[bin]]
 name = "substrate-node"
 path = "bin/main.rs"
 required-features = ["cli"]
 
-[lib]
-crate-type = ["cdylib", "rlib"]
+[[bench]]
+name = "transaction_pool"
+harness = false
+
+[[bench]]
+name = "block_production"
+harness = false
+
+[[bench]]
+name = "executor"
+harness = false
 
 [dependencies]
 # third-party dependencies
@@ -166,7 +178,12 @@ clap_complete = { optional = true, workspace = true }
 
 node-inspect = { optional = true, workspace = true, default-features = true }
 
-polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-monitor", "substrate-build-script-utils"], optional = true, workspace = true, default-features = true }
+polkadot-sdk = { features = [
+	"frame-benchmarking-cli",
+	"sc-cli",
+	"sc-storage-monitor",
+	"substrate-build-script-utils",
+], optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["cli"]
@@ -181,15 +198,3 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 ]
-
-[[bench]]
-name = "transaction_pool"
-harness = false
-
-[[bench]]
-name = "block_production"
-harness = false
-
-[[bench]]
-name = "executor"
-harness = false

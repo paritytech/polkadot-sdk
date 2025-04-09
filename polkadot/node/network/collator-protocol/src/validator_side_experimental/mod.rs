@@ -14,4 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Stub - the fundamental logic of this crate is the integration tests.
+mod metrics;
+
+use polkadot_node_subsystem::overseer;
+use sp_keystore::KeystorePtr;
+
+pub use metrics::Metrics;
+
+/// The main run loop
+#[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
+pub(crate) async fn run<Context>(
+	_ctx: Context,
+	_keystore: KeystorePtr,
+	_metrics: Metrics,
+) -> std::result::Result<(), std::convert::Infallible> {
+	Ok(())
+}

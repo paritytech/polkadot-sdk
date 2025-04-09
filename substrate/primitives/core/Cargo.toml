@@ -15,6 +15,13 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[lib]
+bench = false
+
+[[bench]]
+name = "bench"
+harness = false
+
 [dependencies]
 bip39 = { workspace = true, default-features = false, features = ["alloc"] }
 bitflags = { workspace = true }
@@ -62,9 +69,7 @@ secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = tru
 # bls crypto
 w3f-bls = { optional = true, workspace = true }
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/davxy/ring-vrf", branch = "locked", default-features = false, features = [
-	"substrate-curves",
-], optional = true }
+ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
 
 [target.'cfg(not(substrate_runtime))'.dependencies]
 sp-externalities = { workspace = true, default-features = false }
@@ -76,18 +81,10 @@ criterion = { workspace = true, default-features = true }
 regex = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 
-[[bench]]
-name = "bench"
-harness = false
-
-[lib]
-bench = false
-
 [features]
 default = ["std"]
-
 std = [
-	"bandersnatch_vrfs?/std",
+	"ark-vrf?/std",
 	"bip39/rand",
 	"bip39/std",
 	"blake2/std",
@@ -161,4 +158,4 @@ bls-experimental = ["w3f-bls"]
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bandersnatch-experimental = ["bandersnatch_vrfs"]
+bandersnatch-experimental = ["ark-vrf"]
