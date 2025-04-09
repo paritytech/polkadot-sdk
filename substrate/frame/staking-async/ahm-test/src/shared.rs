@@ -1,6 +1,6 @@
+use crate::*;
 use frame::testing_prelude::*;
 use std::cell::UnsafeCell;
-use crate::*;
 
 thread_local! {
 	pub static RC_STATE: UnsafeCell<TestState> = UnsafeCell::new(Default::default());
@@ -51,32 +51,54 @@ pub fn migrate_state() {
 		let active_era = pallet_staking::ActiveEra::<rc::Runtime>::take().unwrap();
 		shared::in_ah(|| {
 			pallet_staking_async::CurrentEra::<ah::Runtime>::set(current_era);
-			pallet_staking_async::ActiveEra::<ah::Runtime>::set(Some(pallet_staking_async::ActiveEraInfo {
-				index: active_era.index,
-				start: active_era.start,
-			}));
+			pallet_staking_async::ActiveEra::<ah::Runtime>::set(Some(
+				pallet_staking_async::ActiveEraInfo {
+					index: active_era.index,
+					start: active_era.start,
+				},
+			));
 		});
 
 		for (era, reward_points) in pallet_staking::ErasRewardPoints::<rc::Runtime>::drain() {
-			shared::in_ah(||
-				pallet_staking_async::ErasRewardPoints::<ah::Runtime>::insert(era, pallet_staking_async::EraRewardPoints {
-					total: reward_points.total,
-					individual: reward_points.individual.clone(),
-				})
-			);
+			shared::in_ah(|| {
+				pallet_staking_async::ErasRewardPoints::<ah::Runtime>::insert(
+					era,
+					pallet_staking_async::EraRewardPoints {
+						total: reward_points.total,
+						individual: reward_points.individual.clone(),
+					},
+				)
+			});
 		}
 
 		// exposure
-		for (era, account, overview) in pallet_staking::ErasStakersOverview::<rc::Runtime>::drain() {
-			shared::in_ah(|| pallet_staking_async::ErasStakersOverview::<ah::Runtime>::insert(era, account, overview));
+		for (era, account, overview) in pallet_staking::ErasStakersOverview::<rc::Runtime>::drain()
+		{
+			shared::in_ah(|| {
+				pallet_staking_async::ErasStakersOverview::<ah::Runtime>::insert(
+					era, account, overview,
+				)
+			});
 		}
 
-		for ((era, account, page), exposure_page) in pallet_staking::ErasStakersPaged::<rc::Runtime>::drain() {
-			shared::in_ah(|| pallet_staking_async::ErasStakersPaged::<ah::Runtime>::insert((era, account, page), exposure_page.clone()));
+		for ((era, account, page), exposure_page) in
+			pallet_staking::ErasStakersPaged::<rc::Runtime>::drain()
+		{
+			shared::in_ah(|| {
+				pallet_staking_async::ErasStakersPaged::<ah::Runtime>::insert(
+					(era, account, page),
+					exposure_page.clone(),
+				)
+			});
 		}
 
 		for (era, session_index) in pallet_staking::ErasStartSessionIndex::<rc::Runtime>::drain() {
-			shared::in_ah(|| pallet_staking_async::ErasStartSessionIndex::<ah::Runtime>::insert(era, session_index));
+			shared::in_ah(|| {
+				pallet_staking_async::ErasStartSessionIndex::<ah::Runtime>::insert(
+					era,
+					session_index,
+				)
+			});
 		}
 	})
 }

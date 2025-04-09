@@ -604,7 +604,12 @@ impl<T: Config> Rotator<T> {
 		let session_progress =
 			start_session.saturating_add(1).defensive_saturating_sub(era_start_session);
 
-		log!(debug, "Session progress: {:?}, target_plan_era_session: {:?}", session_progress, target_plan_era_session);
+		log!(
+			debug,
+			"Session progress: {:?}, target_plan_era_session: {:?}",
+			session_progress,
+			target_plan_era_session
+		);
 		session_progress >= target_plan_era_session
 	}
 

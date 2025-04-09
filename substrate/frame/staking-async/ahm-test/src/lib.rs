@@ -245,16 +245,20 @@ mod tests {
 			// rc_client::Pallet::<ah::Runtime>::on_migration_end();
 
 			// This should be done at the end of migration
-			pallet_staking_async::ForceEra::<ah::Runtime>::set(pallet_staking_async::Forcing::NotForcing);
+			pallet_staking_async::ForceEra::<ah::Runtime>::set(
+				pallet_staking_async::Forcing::NotForcing,
+			);
 
-			assert_eq!(pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 5).unwrap(),
-					   pallet_staking_async::slashing::OffenceRecord {
-						   reporter: None,
-						   reported_era: 1,
-						   exposure_page: 0,
-						   slash_fraction: Perbill::from_percent(100),
-						   prior_slash_fraction: Perbill::from_percent(0),
-					   });
+			assert_eq!(
+				pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 5).unwrap(),
+				pallet_staking_async::slashing::OffenceRecord {
+					reporter: None,
+					reported_era: 1,
+					exposure_page: 0,
+					slash_fraction: Perbill::from_percent(100),
+					prior_slash_fraction: Perbill::from_percent(0),
+				}
+			);
 
 			// next block would process this offence
 			ah::roll_next();
@@ -263,7 +267,11 @@ mod tests {
 			// offence is deferred by two eras, ie 1 + 2 = 3. Note that this is one era less than
 			// staking-classic since slashing happens in multi-block, and we want to apply all
 			// slashes before the era 4 starts.
-			assert!(pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(3, (5, Perbill::from_percent(100), 0)).is_some());
+			assert!(pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(5, Perbill::from_percent(100), 0)
+			)
+			.is_some());
 		});
 
 		// NOW: lets verify we kick off the election at the appropriate time
@@ -294,7 +302,10 @@ mod tests {
 		// AH receives the session report.
 		assert_eq!(shared::CounterRCAHSessionReport::get(), 1);
 		shared::in_ah(|| {
-			assert_eq!(pallet_staking_async::ForceEra::<ah::Runtime>::get(), pallet_staking_async::Forcing::NotForcing);
+			assert_eq!(
+				pallet_staking_async::ForceEra::<ah::Runtime>::get(),
+				pallet_staking_async::Forcing::NotForcing
+			);
 			assert_eq!(pallet_staking_async::ActiveEra::<ah::Runtime>::get().unwrap().index, 1);
 			assert_eq!(pallet_staking_async::CurrentEra::<ah::Runtime>::get(), Some(1 + 1));
 
@@ -303,7 +314,8 @@ mod tests {
 		});
 
 		shared::in_rc(|| {
-			let (planned_era, next_validator_set) = ah_client::ValidatorSet::<rc::Runtime>::get().unwrap();
+			let (planned_era, next_validator_set) =
+				ah_client::ValidatorSet::<rc::Runtime>::get().unwrap();
 			assert_eq!(planned_era, 2);
 			assert!(next_validator_set.len() >= rc::MinimumValidatorSetSize::get() as usize);
 		});
