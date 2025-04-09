@@ -120,7 +120,7 @@ const LOG_TARGET: &str = "runtime::staking::rc-client";
 macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
-			target: crate::LOG_TARGET,
+			target: $crate::LOG_TARGET,
 			concat!("[{:?}] ⬆️ ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
 		)
 	};
@@ -172,10 +172,10 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 	}
 
 	/// Merge oneself with another instance.
-	pub fn merge(mut self, other: Self) -> Result<Self, ()> {
+	pub fn merge(mut self, other: Self) -> Result<Self, UnexpectedKind> {
 		if self.id != other.id || self.prune_up_to != other.prune_up_to {
 			// Must be some bug -- don't merge.
-			return Err(());
+			return Err(UnexpectedKind::ValidatorSetIntegrityFailed);
 		}
 		self.new_validator_set.extend(other.new_validator_set);
 		self.leftover = other.leftover;
@@ -192,7 +192,9 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 			.into_iter()
 			.map(|new_validator_set| Self { new_validator_set, leftover: true, ..self })
 			.collect::<Vec<_>>();
-		parts.last_mut().map(|x| x.leftover = false);
+		if let Some(x) = parts.last_mut() {
+			x.leftover = false
+		}
 		parts
 	}
 }
@@ -239,12 +241,12 @@ impl<AccountId> SessionReport<AccountId> {
 	}
 
 	/// Merge oneself with another instance.
-	pub fn merge(mut self, other: Self) -> Result<Self, ()> {
+	pub fn merge(mut self, other: Self) -> Result<Self, UnexpectedKind> {
 		if self.end_index != other.end_index ||
 			self.activation_timestamp != other.activation_timestamp
 		{
 			// Must be some bug -- don't merge.
-			return Err(());
+			return Err(UnexpectedKind::SessionReportIntegrityFailed);
 		}
 		self.validator_points.extend(other.validator_points);
 		self.leftover = other.leftover;
@@ -261,7 +263,9 @@ impl<AccountId> SessionReport<AccountId> {
 			.into_iter()
 			.map(|validator_points| Self { validator_points, leftover: true, ..self })
 			.collect::<Vec<_>>();
-		parts.last_mut().map(|x| x.leftover = false);
+		if let Some(x) = parts.last_mut() {
+			x.leftover = false
+		}
 		parts
 	}
 }
@@ -358,13 +362,24 @@ pub mod pallet {
 			validator_points_counts: u32,
 			leftover: bool,
 		},
-		/// We could not merge, and therefore dropped a buffered message.
-		///
-		/// Note that this event is more resembling an error, but we use an event because in this
-		/// pallet we need to mutate storage upon some failures.
-		CouldNotMergeAndDropped,
 		/// A new offence was reported.
 		OffenceReceived { slash_session: SessionIndex, offences_count: u32 },
+		/// Something occurred that should never happen under normal operation.
+		/// Logged as an event for fail-safe observability.
+		Unexpected(UnexpectedKind),
+	}
+
+	/// Represents unexpected or invariant-breaking conditions encountered during execution.
+	///
+	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has
+	/// failed. While these should never occur under normal operation, they are useful for
+	/// diagnosing issues in production or test environments.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	pub enum UnexpectedKind {
+		/// We could not merge the chunks, and therefore dropped the session report.
+		SessionReportIntegrityFailed,
+		/// We could not merge the chunks, and therefore dropped the validator set.
+		ValidatorSetIntegrityFailed,
 	}
 
 	#[pallet::error]
@@ -431,8 +446,8 @@ pub mod pallet {
 				None => Ok(report),
 			};
 
-			if let Err(_) = maybe_new_session_report {
-				Self::deposit_event(Event::CouldNotMergeAndDropped);
+			if let Err(e) = maybe_new_session_report {
+				Self::deposit_event(Event::Unexpected(e));
 				debug_assert!(
 					IncompleteSessionReport::<T>::get().is_none(),
 					"we have ::take() it above, we don't want to keep the old data"

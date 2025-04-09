@@ -75,7 +75,7 @@ const LOG_TARGET: &str = "runtime::staking::ah-client";
 macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
-			target: crate::LOG_TARGET,
+			target: $crate::LOG_TARGET,
 			concat!("[{:?}] ⬇️ ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
 		)
 	};
@@ -406,7 +406,7 @@ pub mod pallet {
 				None => Ok(report),
 			};
 
-			if let Err(_) = maybe_merged_report {
+			if maybe_merged_report.is_err() {
 				Self::deposit_event(Event::CouldNotMergeAndDropped);
 				debug_assert!(
 					IncompleteValidatorSetReport::<T>::get().is_none(),

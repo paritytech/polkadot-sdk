@@ -869,6 +869,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 // activated.
 impl ah_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type CurrencyBalance = Balance;
 	type AssetHubOrigin =
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
 	type AdminOrigin = EnsureRoot<AccountId>;
@@ -877,6 +878,7 @@ impl ah_client::Config for Runtime {
 	type MinimumValidatorSetSize = ConstU32<4>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
+	type Fallback = Staking;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
