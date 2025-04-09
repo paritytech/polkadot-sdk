@@ -39,7 +39,7 @@ use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, ExtrinsicLike, HashingFor, Header as HeaderT};
 use sp_state_machine::OverlayedChanges;
-use sp_trie::{MemoryDB, ProofSizeProvider};
+use sp_trie::ProofSizeProvider;
 use trie_recorder::SizeOnlyRecorderProvider;
 
 type Ext<'a, Block, Backend> = sp_state_machine::Ext<'a, HashingFor<Block>, Backend>;
