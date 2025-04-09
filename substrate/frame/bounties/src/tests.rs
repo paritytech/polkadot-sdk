@@ -1077,7 +1077,8 @@ fn cancel_and_refund() {
 		);
 
 		// When
-		approve_payment(Bounties::account_id(), bounty_id, asset_kind, value);
+		let treasury_account = Bounties::account_id();
+		approve_payment(treasury_account, bounty_id, asset_kind, value);
 
 		// Then (PaymentState::Success)
 		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 0);
@@ -1161,7 +1162,8 @@ fn cancel_and_refund_with_curator() {
 		assert_eq!(Balances::reserved_balance(curator), 5);
 
 		// When
-		approve_payment(Bounties::account_id(), bounty_id, asset_kind, value);
+		let treasury_account = Bounties::account_id();
+		approve_payment(treasury_account, bounty_id, asset_kind, value);
 
 		// Then (PaymentState::Success)
 		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 0);
@@ -1211,7 +1213,8 @@ fn award_and_cancel() {
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), bounty_id));
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), bounty_id));
 		assert_eq!(last_event(), BountiesEvent::BountyCanceled { index: bounty_id });
-		approve_payment(Bounties::account_id(), bounty_id, asset_kind, value);
+		let treasury_account = Bounties::account_id();
+		approve_payment(treasury_account, bounty_id, asset_kind, value);
 
 		// Then
 		assert_eq!(last_event(), BountiesEvent::BountyRefundProcessed { index: bounty_id });

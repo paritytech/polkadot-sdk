@@ -262,11 +262,11 @@ pub enum PaymentState<Id> {
 	Succeeded,
 }
 impl<Id: Clone> PaymentState<Id> {
-	fn is_pending_or_failed(&self) -> bool {
+	pub fn is_pending_or_failed(&self) -> bool {
 		matches!(self, PaymentState::Pending | PaymentState::Failed)
 	}
 
-	fn get_attempt_id(&self) -> Option<Id> {
+	pub fn get_attempt_id(&self) -> Option<Id> {
 		match self {
 			PaymentState::Attempted { id } => Some(id.clone()),
 			_ => None,
@@ -446,7 +446,7 @@ pub mod pallet {
 			beneficiary: T::Beneficiary,
 			curator_stash: T::Beneficiary,
 		},
-		/// Payments to the beneficiary and curator stash have been successfully concluded.
+		/// Payout payments to the beneficiary and curator stash have concluded successfully.
 		BountyPayoutProcessed {
 			index: BountyIndex,
 			asset_kind: T::AssetKind,
@@ -455,7 +455,7 @@ pub mod pallet {
 		},
 		/// A bounty is cancelled.
 		BountyCanceled { index: BountyIndex },
-		/// A bounty is cancelled.
+		/// Refund payment has concluded successfully.
 		BountyRefundProcessed { index: BountyIndex },
 		/// A bounty expiry is extended.
 		BountyExtended { index: BountyIndex },
@@ -1036,7 +1036,7 @@ pub mod pallet {
 							// finished with calling `check_payment_status`
 							// or retrying payment with `process_payment`
 							// if it failed
-							return Err(Error::<T, I>::PendingPayout.into())
+							return Err(Error::<T, I>::UnexpectedStatus.into())
 						},
 					};
 
@@ -1762,7 +1762,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// processing successfully. For If one payment succeeds and another fails, both count as
 		// "progressed" since they advanced the state machine.
 		let (mut payments_progressed, mut payments_succeeded) = (0, 0);
-		// check both curator, and beneficiary payments
+		// check both curator stash, and beneficiary payments
 		let (mut curator_stash_status, mut beneficiary_status) = (curator_stash.1, beneficiary.1);
 		for payment_status in [&mut curator_stash_status, &mut beneficiary_status] {
 			match payment_status {
