@@ -18,7 +18,8 @@
 use super::*;
 
 use polkadot_node_network_protocol::{
-	peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames, Versioned,
+	peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames, CollationProtocols,
+	ValidationProtocols,
 };
 
 use polkadot_node_subsystem::{
@@ -208,20 +209,12 @@ where
 			);
 
 			match msg {
-				Versioned::V3(msg) => send_validation_message_v3(
+				ValidationProtocols::V3(msg) => send_validation_message_v3(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 					notification_sinks,
 				),
-				_ => {
-					gum::warn!(
-						target: LOG_TARGET,
-						action = "SendValidationMessages",
-						"Can't send validation message with unsupported protocol version. Message: {:?}",
-						msg,
-					);
-				},
 			}
 		},
 		NetworkBridgeTxMessage::SendValidationMessages(msgs) => {
@@ -234,20 +227,12 @@ where
 
 			for (peers, msg) in msgs {
 				match msg {
-					Versioned::V3(msg) => send_validation_message_v3(
+					ValidationProtocols::V3(msg) => send_validation_message_v3(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
 						notification_sinks,
 					),
-					_ => {
-						gum::warn!(
-							target: LOG_TARGET,
-							action = "SendValidationMessages",
-							"Can't send validation message with unsupported protocol version. Message: {:?}",
-							msg,
-						);
-					},
 				}
 			}
 		},
@@ -259,13 +244,13 @@ where
 			);
 
 			match msg {
-				Versioned::V1(msg) => send_collation_message_v1(
+				CollationProtocols::V1(msg) => send_collation_message_v1(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
 					notification_sinks,
 				),
-				Versioned::V2(msg) | Versioned::V3(msg) => send_collation_message_v2(
+				CollationProtocols::V2(msg) => send_collation_message_v2(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -282,13 +267,13 @@ where
 
 			for (peers, msg) in msgs {
 				match msg {
-					Versioned::V1(msg) => send_collation_message_v1(
+					CollationProtocols::V1(msg) => send_collation_message_v1(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
 						notification_sinks,
 					),
-					Versioned::V2(msg) | Versioned::V3(msg) => send_collation_message_v2(
+					CollationProtocols::V2(msg) => send_collation_message_v2(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
@@ -321,7 +306,6 @@ where
 					Requests::CollationFetchingV2(_) => metrics.on_message("collation_fetching_v2"),
 					Requests::PoVFetchingV1(_) => metrics.on_message("pov_fetching_v1"),
 					Requests::DisputeSendingV1(_) => metrics.on_message("dispute_sending_v1"),
-					Requests::StatementFetchingV1(_) => metrics.on_message("statement_fetching_v1"),
 					Requests::AttestedCandidateV2(_) => metrics.on_message("attested_candidate_v2"),
 				}
 

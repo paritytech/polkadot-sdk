@@ -17,7 +17,7 @@ bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
-schnellru.workspace = true
+schnellru = { workspace = true }
 
 sp-core = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
@@ -47,5 +47,5 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
-default = [ "experimental-collator-protocol" ]
+default = []
 experimental-collator-protocol = [ "async-trait" ]
