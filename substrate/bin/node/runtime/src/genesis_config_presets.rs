@@ -169,7 +169,7 @@ fn collective(endowed: &[AccountId]) -> Vec<AccountId> {
 	let endowed_accounts_count = endowed.len();
 	endowed
 		.iter()
-		.take(((endowed_accounts_count + 1) / 2).min(MAX_COLLECTIVE_SIZE))
+		.take((endowed_accounts_count.div_ceil(2)).min(MAX_COLLECTIVE_SIZE))
 		.cloned()
 		.collect()
 }
