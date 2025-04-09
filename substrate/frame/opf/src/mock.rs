@@ -139,14 +139,14 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 					confirm_period: 2,
 					min_enactment_period: 4,
 					min_approval: Curve::LinearDecreasing {
-						length: Perbill::from_percent(100),
-						floor: Perbill::from_percent(50),
-						ceil: Perbill::from_percent(100),
+						length: Perbill::from_percent(2),
+						floor: Perbill::from_percent(1),
+						ceil: Perbill::from_percent(2),
 					},
 					min_support: Curve::LinearDecreasing {
-						length: Perbill::from_percent(100),
+						length: Perbill::from_percent(2),
 						floor: Perbill::from_percent(0),
-						ceil: Perbill::from_percent(100),
+						ceil: Perbill::from_percent(2),
 					},
 				},
 			},
@@ -224,7 +224,7 @@ impl pallet_referenda::Config for Test {
 	type Tally = pallet_conviction_voting::TallyOf<Test>;
 	type SubmissionDeposit = ConstU64<2>;
 	type MaxQueued = ConstU32<3>;
-	type UndecidingTimeout = ConstU64<5>;
+	type UndecidingTimeout = ConstU64<20>;
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TestTracksInfo;
 	type Preimages = Preimage;

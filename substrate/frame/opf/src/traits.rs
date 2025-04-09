@@ -246,15 +246,14 @@ where
 					.ok_or_else(|| DispatchError::Other("No track info found"))?;
 				// Check when the referendum was submitted
 				let submitted = info.submitted;
-				// if prepare period has passed place decision deposit
-				if submitted.saturating_add(track.prepare_period) > now {
+				
 					pallet_referenda::Pallet::<T, I>::place_decision_deposit(
 						origin,
 						index,
 					).map_err(|_| {
 						DispatchError::Other("Failed to place decision deposit")
 					})?;
-				}
+				
 				let decision_period: u128 = track.decision_period.try_into().map_err(|_| {
 					DispatchError::Other("Failed to convert decision period to u128")
 				})?;

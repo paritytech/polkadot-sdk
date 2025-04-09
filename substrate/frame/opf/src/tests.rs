@@ -150,14 +150,21 @@ fn rewards_calculation_works() {
 		let batch = project_list();
 		
 		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch));
-		let voting_period = <Test as Config>::Governance::get_time_periods(1).ok().unwrap().total_period;
-		println!("voting_period: {:?}", voting_period);
+
+		let time_periods = <Test as Config>::Governance::get_time_periods(1).ok().unwrap();
+
+		let voting_period = time_periods.total_period.try_into().unwrap_or(0);
+		let prepare_period = time_periods.prepare_period.try_into().unwrap_or(0);
+		let decision_period = time_periods.decision_period.try_into().unwrap_or(0);
+		let enactment_period = time_periods.min_enactment_period.try_into().unwrap_or(0);
+		let confirm_period = time_periods.confirm_period.try_into().unwrap_or(0);
+		
+	
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
-		// convert voting_period to u64
-		let voting_period_64 = voting_period.try_into().unwrap_or(0);
 		//round_end_block
-		let round_end = now.saturating_add(voting_period_64);
-		assert_eq!(round_end>0, true);
+		let round_end = now.saturating_add(voting_period);
+		let decision_block = now.saturating_add(decision_period + prepare_period);
+		assert_eq!(decision_block>0, true);
 
 		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to
 		// 2000*BSX locked
@@ -201,14 +208,22 @@ fn rewards_calculation_works() {
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
 
 		let infos = WhiteListedProjectAccounts::<Test>::get(&101).unwrap();
+
+		let scheduled = pallet_scheduler::Agenda::<Test>::get(21);
+		println!("Scheduled: {:?}", scheduled);
+
 		let referendum_info =
 			<Test as Config>::Governance::get_referendum_info(infos.index).unwrap();
-		
-		run_to_block(round_end);
+		println!("Referendum info: {:?}", referendum_info);
+		run_to_block(round_info.round_ending_block);
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
-		
+		let referendum_info =
+			<Test as Config>::Governance::get_referendum_info(infos.index).unwrap();
 
-		assert_eq!(now, round_info.round_ending_block);
+		let referendum_status =
+			<Test as Config>::Governance::handle_referendum_info(referendum_info).unwrap();
+		// Referendum 101 status is Approved
+			assert_eq!(referendum_status, ReferendumStates::Approved);
 
 		// The right events are emitted
 		expect_events(vec![
@@ -225,19 +240,14 @@ fn rewards_calculation_works() {
 		assert_eq!(reward_101, 58000);
 		assert_eq!(reward_102, 16000);
 
+
 		// Proposal Enactment did not happened yet
 		assert_eq!(Spends::<Test>::contains_key(101), false);
+		
 
 		next_block();
-
-		let referendum_status =
-			<Test as Config>::Governance::handle_referendum_info(referendum_info).unwrap();
-			println!("referendum_status: {:?}", referendum_status);
-		/*assert_eq!(referendum_status, ReferendumStates::Approved);
-		
-		
 		// Enactment happened as expected
-		assert_eq!(Spends::<Test>::contains_key(101), true);
+		/*assert_eq!(Spends::<Test>::contains_key(101), true);
 
 		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
 			project_id: 102,
