@@ -23822,7 +23822,7 @@ version = "2.0.0"
 name = "staging-xcm"
 version = "7.0.1"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "bounded-collections 0.2.3",
  "derive-where",
  "environmental",
