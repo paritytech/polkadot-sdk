@@ -754,7 +754,6 @@ impl<'a, H: Hasher> TrieCache<'a, H> {
 		if !cache.is_empty() {
 			let mut value_cache = local.value_cache.lock();
 			let partial_hash = ValueCacheKey::hash_partial_data(&storage_root);
-
 			cache.into_iter().for_each(|(k, v)| {
 				let hash = ValueCacheKeyHash::from_hasher_and_storage_key(partial_hash.clone(), &k);
 				let k = ValueCacheRef { storage_root, storage_key: &k, hash };
@@ -874,6 +873,8 @@ impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use rand::{thread_rng, Rng};
+	use sp_core::H256;
 	use trie_db::{Bytes, Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut};
 
 	type MemoryDB = crate::MemoryDB<sp_core::Blake2Hasher>;
@@ -1200,5 +1201,120 @@ mod tests {
 		}
 
 		assert!(shared_cache.used_memory_size() < CACHE_SIZE_RAW);
+	}
+
+	#[test]
+	fn test_trusted_works() {
+		let (mut db, root) = create_trie();
+		// Configure cache size to make sure it is large enough to hold all the data.
+		let cache_size = CacheSize::new(1024 * 1024 * 1024);
+		let num_test_keys: usize = 40000;
+		let shared_cache = Cache::new(cache_size, None);
+
+		// Create a random array of bytes to use as a value.
+		let mut rng = thread_rng();
+		let random_keys: Vec<Vec<u8>> =
+			(0..num_test_keys).map(|_| (0..100).map(|_| rng.gen()).collect()).collect();
+
+		let value = vec![10u8; 100];
+
+		// Populate the trie cache with, use a local untrusted cache and confirm not everything ends
+		// up in the shared trie cache.
+		let root = {
+			let local_cache = shared_cache.local_cache();
+
+			let mut new_root = root;
+
+			{
+				let mut cache = local_cache.as_trie_db_mut_cache();
+				{
+					let mut trie =
+						TrieDBMutBuilder::<Layout>::from_existing(&mut db, &mut new_root)
+							.with_cache(&mut cache)
+							.build();
+
+					// Ensure we add enough data that would overflow the cache.
+					for key in random_keys.iter() {
+						trie.insert(key.as_ref(), &value).unwrap();
+					}
+				}
+
+				cache.merge_into(&local_cache, new_root);
+			}
+			new_root
+		};
+		let shared_value_cache_len = shared_cache.read_lock_inner().value_cache().lru.len();
+		assert!(shared_value_cache_len < num_test_keys / 10);
+
+		// Read keys and check shared cache hits we should have a lot of misses.
+		let stats = read_to_check_cache(&shared_cache, &mut db, root, &random_keys, value.clone());
+		assert_eq!(stats.value_cache.shared_hits, shared_value_cache_len as u64);
+
+		assert_ne!(stats.value_cache.shared_fetch_attempts, stats.value_cache.shared_hits);
+		assert_ne!(stats.node_cache.shared_fetch_attempts, stats.node_cache.shared_hits);
+
+		// Update the keys in the trie and check on subsequent reads all reads hit the shared cache.
+		let shared_value_cache_len = shared_cache.read_lock_inner().value_cache().lru.len();
+		let new_value = vec![9u8; 100];
+		let root = {
+			let local_cache = shared_cache.local_cache_trusted();
+
+			let mut new_root = root;
+
+			{
+				let mut cache = local_cache.as_trie_db_mut_cache();
+				{
+					let mut trie =
+						TrieDBMutBuilder::<Layout>::from_existing(&mut db, &mut new_root)
+							.with_cache(&mut cache)
+							.build();
+
+					// Ensure we add enough data that would overflow the cache.
+					for key in random_keys.iter() {
+						trie.insert(key.as_ref(), &new_value).unwrap();
+					}
+				}
+
+				cache.merge_into(&local_cache, new_root);
+			}
+			new_root
+		};
+
+		// Check on subsequent reads all reads hit the shared cache.
+		let stats =
+			read_to_check_cache(&shared_cache, &mut db, root, &random_keys, new_value.clone());
+
+		assert_eq!(stats.value_cache.shared_fetch_attempts, stats.value_cache.shared_hits);
+		assert_eq!(stats.node_cache.shared_fetch_attempts, stats.node_cache.shared_hits);
+
+		assert_eq!(stats.value_cache.shared_fetch_attempts, stats.value_cache.local_fetch_attempts);
+		assert_eq!(stats.node_cache.shared_fetch_attempts, stats.node_cache.local_fetch_attempts);
+
+		// The length of the shared value cache should contain everything that existed before + all
+		// keys that got updated with a trusted cache.
+		assert_eq!(
+			shared_cache.read_lock_inner().value_cache().lru.len(),
+			shared_value_cache_len + num_test_keys
+		);
+	}
+
+	// Helper function to read from the trie.
+	//
+	// Returns the cache stats.
+	fn read_to_check_cache(
+		shared_cache: &Cache,
+		db: &mut MemoryDB,
+		root: H256,
+		keys: &Vec<Vec<u8>>,
+		expected_value: Vec<u8>,
+	) -> TrieHitStatsSnapshot {
+		let local_cache = shared_cache.local_cache();
+		let mut cache = local_cache.as_trie_db_cache(root);
+		let trie = TrieDBBuilder::<Layout>::new(db, &root).with_cache(&mut cache).build();
+
+		for key in keys.iter() {
+			assert_eq!(trie.get(key.as_ref()).unwrap().unwrap(), expected_value);
+		}
+		local_cache.stats.snapshot()
 	}
 }
