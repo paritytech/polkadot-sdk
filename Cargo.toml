@@ -10,11 +10,11 @@ resolver = "2"
 
 members = [
 	"bridges/bin/runtime-common",
-	"cumulus/parachains/runtimes/assets/asset-hub-rococo/primitives",
-	"cumulus/parachains/runtimes/assets/asset-hub-westend/primitives",
+	"cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives",
+	"cumulus/parachains/runtimes/assets/asset-hub-westend/bridge-primitives",
 	"bridges/chains/chain-bridge-hub-cumulus",
-	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/primitives",
-	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend/primitives",
+	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/bridge-primitives",
+	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend/bridge-primitives",
 	"bridges/chains/chain-polkadot-bulletin",
 	"polkadot/runtime/rococo/bridge-primitives",
 	"polkadot/runtime/westend/bridge-primitives",
@@ -654,12 +654,12 @@ blake3 = { version = "1.5" }
 bn = { package = "substrate-bn", version = "0.6", default-features = false }
 bounded-collections = { version = "0.2.3", default-features = false }
 bounded-vec = { version = "0.7" }
-bp-asset-hub-rococo = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo/primitives", default-features = false }
-bp-asset-hub-westend = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend/primitives", default-features = false }
+bp-asset-hub-rococo = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives", default-features = false }
+bp-asset-hub-westend = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend/bridge-primitives", default-features = false }
 bp-beefy = { path = "bridges/primitives/beefy", default-features = false }
 bp-bridge-hub-cumulus = { path = "bridges/chains/chain-bridge-hub-cumulus", default-features = false }
-bp-bridge-hub-rococo = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/primitives", default-features = false }
-bp-bridge-hub-westend = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend/primitives", default-features = false }
+bp-bridge-hub-rococo = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/bridge-primitives", default-features = false }
+bp-bridge-hub-westend = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend/bridge-primitives", default-features = false }
 bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "bridges/primitives/parachains", default-features = false }
