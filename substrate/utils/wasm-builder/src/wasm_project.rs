@@ -942,8 +942,10 @@ fn build_bloaty_blob(
 	//
 	// Also see:
 	// https://blog.rust-lang.org/2024/09/24/webassembly-targets-change-in-default-target-features.html#disabling-on-by-default-webassembly-proposals
-	if let Some(arg) = target.rustc_target_build_std(&cargo_cmd) {
-		build_cmd.arg("-Z").arg(arg);
+	if let Some(args) = target.rustc_target_build_std(&cargo_cmd) {
+		for arg in args {
+			build_cmd.arg(arg);
+		}
 
 		if !cargo_cmd.supports_nightly_features() {
 			build_cmd.env("RUSTC_BOOTSTRAP", "1");

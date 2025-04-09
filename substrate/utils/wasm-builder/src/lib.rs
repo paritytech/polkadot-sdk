@@ -459,8 +459,11 @@ impl RuntimeTarget {
 		}
 	}
 
-	/// Figures out the build-std argument.
-	fn rustc_target_build_std(self, cargo_command: &CargoCommand) -> Option<&'static str> {
+	/// Figures out the build-std arguments.
+	fn rustc_target_build_std(
+		self,
+		cargo_command: &CargoCommand,
+	) -> Option<&'static [&'static str]> {
 		if !crate::get_bool_environment_variable(crate::WASM_BUILD_STD).unwrap_or_else(
 			|| match self {
 				RuntimeTarget::Wasm => !cargo_command.is_wasm32v1_none_target_available(),
@@ -475,6 +478,10 @@ impl RuntimeTarget {
 		// We only build `core` and `alloc` crates since wasm-builder disables `std` featue for
 		// runtime. Thus the runtime is `#![no_std]` crate.
 
-		Some("build-std=core,alloc")
+		static FLAGS: &[&str] =
+			["-Z", "build-std=core,alloc", "-Z", "build-std-features=core/panic_immediate_abort"]
+				.as_slice();
+
+		Some(FLAGS)
 	}
 }
