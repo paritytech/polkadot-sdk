@@ -6,12 +6,19 @@ title: Clamp Core Fellowship Benchmarks to Runtime MaxRank Configuration
 doc:
   - audience: Runtime Dev
     description: |      
-      Enables reliable benchmarking for constrained configurations like `MaxRank=1` while
+
+      This change modifies the `MaxRank` type in the Core Fellowship pallet configuration from
+      `u32` to `u16`. Runtime developers updating to this version must:
+        - Change any `ConstU32<N>` usages for `MaxRank` to `ConstU16<N>`
+
+      Enabling reliable benchmarking for constrained configurations like `MaxRank=1` while
       maintaining compatibility with larger rank ranges.
+
+
 
 crates:
   - name: pallet-core-fellowship
-    bump: minor
+    bump: major
   - name: collectives-westend-runtime
     bump: minor
   - name: kitchensink-runtime
