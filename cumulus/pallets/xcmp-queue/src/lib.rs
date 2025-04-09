@@ -656,6 +656,8 @@ impl<T: Config> Pallet<T> {
 			drop_threshold,
 		);
 
+		// `batches_footprints[n]` contains the footprint of the batch `xcms[0..n]`,
+		// so as `n` increases `batches_footprints[n]` contains the footprint of a bigger batch.
 		let best_batch_idx = batches_footprints.binary_search_by(|batch_info| {
 			let required_weight = T::WeightInfo::enqueue_xcmp_messages(
 				batch_info.new_pages_count,

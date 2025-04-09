@@ -184,6 +184,25 @@ pub trait QueueFootprintQuery<Origin> {
 
 	/// Get the `BatchFootprint` for each batch of messages `[0..n]`
 	/// as long as the total number of pages would be <= `total_pages_limit`.
+	///
+	/// # Examples
+	///
+	/// Let's consider that each message would result in a new page. Then, for the messages
+	/// `["1", "2", "3"]`, and `total_pages_limit = 2`, `get_batches_footprints()` would return:
+	/// ```
+	/// vec![
+	/// 	BatchFootprint {
+	/// 		msgs_count: 1,
+	/// 		size_in_bytes: 1,
+	/// 		new_pages_count: 1,
+	/// 	},
+	/// 	BatchFootprint {
+	/// 		msgs_count: 2,
+	/// 		size_in_bytes: 2,
+	/// 		new_pages_count: 2,
+	/// 	}
+	/// ]
+	/// ```
 	fn get_batches_footprints<'a>(
 		origin: Origin,
 		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
