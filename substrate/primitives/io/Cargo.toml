@@ -20,8 +20,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 bytes = { workspace = true }
 codec = { features = ["bytes"], workspace = true }
-libsecp256k1 = { optional = true, workspace = true, default-features = true }
-log = { optional = true, workspace = true, default-features = true }
 secp256k1 = { features = ["global-context", "recovery"], optional = true, workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-crypto-hashing = { workspace = true }
@@ -39,8 +37,8 @@ sp-keystore = { workspace = true, default-features = false }
 sp-trie = { workspace = true, default-features = false }
 sp-state-machine = { workspace = true, default-features = false }
 log = { workspace = true, default-features = true }
-libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"] }
-secp256k1 = { version = "0.28.2", default-features = false, features = ["alloc", "recovery"] }
+libsecp256k1 = { workspace = true, default-features = false, features = ["static-context"] }
+secp256k1 = { workspace = true, default-features = false, features = ["alloc", "recovery"] }
 
 # Required for backwards compatibility reason, but only used for verifying when `UseDalekExt` is set.
 ed25519-dalek = { workspace = true }

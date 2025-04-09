@@ -42,7 +42,6 @@ use scale_info::TypeInfo;
 pub use serde;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use sp_std::prelude::*;
 
 pub use sp_debug_derive::RuntimeDebug;
 
