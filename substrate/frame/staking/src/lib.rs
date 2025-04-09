@@ -1120,10 +1120,8 @@ impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::Accoun
 	fn convert(
 		validator: T::AccountId,
 	) -> Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> {
-		ActiveEra::<T>::get()
-			.map(|active_era| ErasStakersOverview::<T>::contains_key(active_era.index, &validator))
-			.unwrap_or(false)
-			.then_some(ExistenceOrLegacyExposure::Exists)
+			T::SessionInterface::validators().contains(&validator)
+				.then_some(ExistenceOrLegacyExposure::Exists)
 	}
 }
 
