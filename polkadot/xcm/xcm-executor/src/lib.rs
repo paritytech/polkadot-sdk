@@ -607,7 +607,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	fn take_fee(&mut self, fees: Assets, reason: FeeReason) -> XcmResult {
 		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
-			return Ok(());
+			return Ok(())
 		}
 		tracing::trace!(
 			target: "xcm::fees",
@@ -706,7 +706,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			.filter(|id| asset_needed_for_fees.id.ne(&id))
 		else {
 			// either nothing to swap or we're already holding the right asset
-			return asset_needed_for_fees;
+			return asset_needed_for_fees
 		};
 		Config::AssetExchanger::quote_exchange_price(
 			&(asset_wanted_for_fees.clone(), Fungible(0)).into(),
