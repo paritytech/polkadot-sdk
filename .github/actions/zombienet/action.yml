@@ -24,7 +24,7 @@ runs:
       shell: bash
       env:
         TEST_NAME: ${{ inputs.test }}
-        LOCAL_DIR: ${{ inputs.local-dir }}
+        LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |
         echo "Vars"
@@ -32,18 +32,18 @@ runs:
         echo "COL_IMAGE: $COL_IMAGE"
         echo "Inputs"
         echo "test: $TEST_NAME"
-        echo "local-dir: $LOCAL_DIR"
+        echo "local-dir: $LOCAL_PATH"
         echo "concurrency: $CONCURRENCY"
 
     - name: zombie_test
       shell: bash
       env:
         TEST_NAME: ${{ inputs.test }}
-        LOCAL_DIR: ${{ inputs.local-dir }}
+        LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |
         /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-          --local-dir="$(pwd)/$LOCAL_DIR" \
+          --local-dir="$(pwd)/$LOCAL_PATH" \
           --concurrency=$CONCURRENCY \
           --test="$TEST_NAME"
 
