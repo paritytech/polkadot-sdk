@@ -616,11 +616,11 @@ arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
 assert_matches = { version = "1.5.0" }
 asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo", version = "0.1.0" }
-asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.24.1" }
+asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.24.2" }
 asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend", version = "0.1.0" }
-asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", version = "0.27.1" }
-asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false, version = "21.0.1" }
-assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false, version = "0.19.0" }
+asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", version = "0.27.2" }
+asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false, version = "21.0.2" }
+assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false, version = "0.19.1" }
 async-channel = { version = "1.8.0" }
 async-std = { version = "1.9.0" }
 async-trait = { version = "0.1.79" }
@@ -661,10 +661,10 @@ bp-xcm-bridge-hub = { path = "bridges/primitives/xcm-bridge-hub", default-featur
 bp-xcm-bridge-hub-router = { path = "bridges/primitives/xcm-bridge-hub-router", default-features = false, version = "0.15.0" }
 bridge-hub-common = { path = "cumulus/parachains/runtimes/bridge-hubs/common", default-features = false, version = "0.12.0" }
 bridge-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo", version = "0.1.0" }
-bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.18.2" }
+bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.18.3" }
 bridge-hub-test-utils = { path = "cumulus/parachains/runtimes/bridge-hubs/test-utils", default-features = false }
 bridge-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend", version = "0.1.0" }
-bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false, version = "0.15.2" }
+bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false, version = "0.15.3" }
 bridge-runtime-common = { path = "bridges/bin/runtime-common", default-features = false, version = "0.19.2" }
 bs58 = { version = "0.5.1", default-features = false }
 build-helper = { version = "0.1.1" }
@@ -685,7 +685,7 @@ cmd_lib = { version = "1.9.5" }
 coarsetime = { version = "0.1.22" }
 codec = { version = "3.6.12", default-features = false, package = "parity-scale-codec" }
 collectives-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/collectives/collectives-westend", version = "0.1.0" }
-collectives-westend-runtime = { path = "cumulus/parachains/runtimes/collectives/collectives-westend", version = "17.1.0" }
+collectives-westend-runtime = { path = "cumulus/parachains/runtimes/collectives/collectives-westend", version = "17.1.1" }
 color-eyre = { version = "0.6.3", default-features = false }
 color-print = { version = "0.3.4" }
 colored = { version = "2.0.4" }
@@ -694,9 +694,9 @@ console = { version = "0.15.8" }
 const-hex = { version = "1.10.0", default-features = false }
 contracts-rococo-runtime = { path = "cumulus/parachains/runtimes/contracts/contracts-rococo", version = "0.20.1" }
 coretime-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo", version = "0.1.0" }
-coretime-rococo-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-rococo", version = "0.13.1" }
+coretime-rococo-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-rococo", version = "0.13.2" }
 coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend", version = "0.1.0" }
-coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend", version = "0.13.1" }
+coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend", version = "0.13.2" }
 cpu-time = { version = "1.0.0" }
 criterion = { version = "0.5.1", default-features = false }
 cumulus-client-cli = { path = "cumulus/client/cli", default-features = false, version = "0.21.1" }
@@ -1015,7 +1015,7 @@ parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-f
 parachain-template-runtime = { path = "templates/parachain/runtime", version = "0.1.0" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false, version = "19.0.0" }
 parachains-relay = { path = "bridges/relays/parachains", version = "0.1.0" }
-parachains-runtimes-test-utils = { path = "cumulus/parachains/runtimes/test-utils", default-features = false, version = "20.0.1" }
+parachains-runtimes-test-utils = { path = "cumulus/parachains/runtimes/test-utils", default-features = false, version = "20.0.2" }
 parity-bytes = { version = "0.1.2", default-features = false }
 parity-db = { version = "0.4.12" }
 parity-wasm = { version = "0.45.0" }
@@ -1026,9 +1026,9 @@ pbkdf2 = { version = "0.12.2", default-features = false }
 penpal-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal", version = "0.1.0" }
 penpal-runtime = { path = "cumulus/parachains/runtimes/testing/penpal", version = "0.27.1" }
 people-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-rococo", version = "0.1.0" }
-people-rococo-runtime = { path = "cumulus/parachains/runtimes/people/people-rococo", version = "0.13.1" }
+people-rococo-runtime = { path = "cumulus/parachains/runtimes/people/people-rococo", version = "0.13.2" }
 people-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend", version = "0.1.0" }
-people-westend-runtime = { path = "cumulus/parachains/runtimes/people/people-westend", version = "0.13.1" }
+people-westend-runtime = { path = "cumulus/parachains/runtimes/people/people-westend", version = "0.13.2" }
 pin-project = { version = "1.1.3" }
 platforms = { version = "3.4" }
 polkadot-approval-distribution = { path = "polkadot/node/network/approval-distribution", default-features = false, version = "21.0.0" }
@@ -1382,7 +1382,7 @@ xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.17.1" }
 xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "18.0.2" }
 xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false, version = "11.0.1" }
-xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false, version = "0.5.1" }
+xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false, version = "0.5.2" }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false, version = "18.0.0" }
 zeroize = { version = "1.7.0", default-features = false }
 zombienet-sdk = { version = "0.2.13" }
