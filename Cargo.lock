@@ -892,6 +892,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d5dde061bd34119e902bbb2d9b90c5692635cf59fb91d582c2b68043f1b8293"
 
 [[package]]
+name = "array-bytes"
+version = "9.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4449507daf4f07a8c8309e122d32a53d15c9f33e77eaf01c839fea42ccd4d673"
+dependencies = [
+ "smallvec",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1116,7 +1125,6 @@ dependencies = [
  "rococo-runtime-constants",
  "scale-info",
  "serde_json",
- "snowbridge-inbound-queue-primitives",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -1253,7 +1261,6 @@ dependencies = [
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
- "snowbridge-inbound-queue-primitives",
  "snowbridge-outbound-queue-primitives",
  "snowbridge-pallet-system-frontend",
  "snowbridge-runtime-common",
@@ -1775,7 +1782,7 @@ checksum = "89e25b6adfb930f02d1981565a6e5d9c547ac15a96606256d3b59040e5cd4ca3"
 name = "binary-merkle-tree"
 version = "13.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "hash-db",
  "log",
  "parity-scale-codec",
@@ -2255,7 +2262,6 @@ dependencies = [
  "bp-runtime",
  "frame-support",
  "frame-system",
- "hex",
  "hex-literal",
  "pallet-utility",
  "parity-scale-codec",
@@ -2599,7 +2605,6 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
- "hex",
  "hex-literal",
  "pallet-asset-conversion",
  "pallet-assets",
@@ -3019,11 +3024,6 @@ dependencies = [
  "cmd_lib",
  "docify",
  "frame-support",
- "pallet-balances",
- "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "sc-chain-spec",
@@ -3035,7 +3035,6 @@ dependencies = [
  "sp-genesis-builder",
  "sp-keyring",
  "sp-runtime 31.0.1",
- "staging-chain-spec-builder",
  "substrate-wasm-builder",
 ]
 
@@ -3136,15 +3135,6 @@ dependencies = [
  "crypto-common",
  "inout",
  "zeroize",
-]
-
-[[package]]
-name = "ckb-merkle-mountain-range"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56ccb671c5921be8a84686e6212ca184cb1d7c51cadcdbfcbd1cc3f042f5dfb8"
-dependencies = [
- "cfg-if",
 ]
 
 [[package]]
@@ -4491,7 +4481,6 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
- "cumulus-test-runtime",
  "environmental",
  "frame-benchmarking",
  "frame-support",
@@ -4505,7 +4494,6 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "rand 0.8.5",
- "sc-client-api",
  "scale-info",
  "sp-consensus-slots",
  "sp-core 28.0.0",
@@ -4513,7 +4501,6 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-inherents",
  "sp-io 30.0.0",
- "sp-keyring",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-std 14.0.0",
@@ -4794,7 +4781,7 @@ dependencies = [
 name = "cumulus-relay-chain-minimal-node"
 version = "0.7.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-trait",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
@@ -6456,7 +6443,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 name = "frame-benchmarking"
 version = "28.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-support",
  "frame-support-procedural",
  "frame-system",
@@ -6486,7 +6473,7 @@ name = "frame-benchmarking-cli"
 version = "32.0.0"
 dependencies = [
  "Inflector",
- "array-bytes",
+ "array-bytes 6.2.2",
  "chrono",
  "clap",
  "comfy-table",
@@ -6635,7 +6622,7 @@ name = "frame-executive"
 version = "28.0.0"
 dependencies = [
  "aquamarine",
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-support",
  "frame-system",
  "frame-try-runtime",
@@ -6690,9 +6677,9 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "20.0.0"
+version = "21.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26de808fa6461f2485dc51811aefed108850064994fb4a62b3ac21ffa62ac8df"
+checksum = "20dfd1d7eae1d94e32e869e2fb272d81f52dd8db57820a373adb83ea24d7d862"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -6704,10 +6691,10 @@ dependencies = [
 name = "frame-metadata-hash-extension"
 version = "0.1.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "const-hex",
  "docify",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "frame-support",
  "frame-system",
  "log",
@@ -6768,12 +6755,12 @@ version = "28.0.0"
 dependencies = [
  "Inflector",
  "aquamarine",
- "array-bytes",
+ "array-bytes 6.2.2",
  "binary-merkle-tree",
  "bitflags 1.3.2",
  "docify",
  "environmental",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "frame-support-procedural",
  "frame-system",
  "impl-trait-for-tuples",
@@ -6828,13 +6815,11 @@ dependencies = [
  "quote 1.0.40",
  "regex",
  "scale-info",
- "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-metadata-ir 0.6.0",
  "sp-runtime 31.0.1",
- "static_assertions",
- "syn 2.0.100",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -6863,7 +6848,7 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "frame-support",
  "frame-support-test-pallet",
  "frame-system",
@@ -7393,7 +7378,6 @@ dependencies = [
  "cumulus-pallet-xcm",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
- "cumulus-primitives-timestamp",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -8528,47 +8512,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
-name = "jemalloc_pprof"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96368c0fc161a0a1a20b3952b6fd31ee342fffc87ed9e48ac1ed49fb25686655"
-dependencies = [
- "anyhow",
- "libc",
- "mappings",
- "once_cell",
- "pprof_util",
- "tempfile",
- "tikv-jemalloc-ctl",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "jiff"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c102670231191d07d37a35af3eb77f1f0dbf7a71be51a962dcd57ea607be7260"
-dependencies = [
- "jiff-static",
- "log",
- "portable-atomic",
- "portable-atomic-util",
- "serde",
-]
-
-[[package]]
-name = "jiff-static"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cdde31a9d349f1b1f51a0b3714a5940ac022976f4b49485fc04be052b183b4c"
-dependencies = [
- "proc-macro2 1.0.94",
- "quote 1.0.40",
- "syn 2.0.100",
-]
-
-[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8893,7 +8836,7 @@ checksum = "c33070833c9ee02266356de0c43f723152bd38bd96ddf52c82b3af10c9138b28"
 name = "kitchensink-runtime"
 version = "3.0.0-dev"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "log",
  "node-primitives",
  "pallet-example-mbm",
@@ -9967,17 +9910,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
-name = "mappings"
-version = "0.5.1"
+name = "match_cfg"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fa2605f461115ef6336342b12f0d8cabdfd7b258fed86f5f98c725535843601"
-dependencies = [
- "anyhow",
- "libc",
- "once_cell",
- "pprof_util",
- "tracing",
-]
+checksum = "ffbee8634e0d45d258acb448e7eaab3fce7a0a467395d4d9f228e3c1f01fb2e4"
 
 [[package]]
 name = "matchers"
@@ -10061,15 +9997,15 @@ dependencies = [
 
 [[package]]
 name = "merkleized-metadata"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc9b7ac0ce054412d9a85ff39bac27aec27483b06cef8756b57d9c29d448d081"
+checksum = "b3e3e3f549d27d2dc054372f320ddf68045a833fab490563ff70d4cf1b9d91ea"
 dependencies = [
- "array-bytes",
+ "array-bytes 9.1.2",
  "blake3",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "parity-scale-codec",
- "scale-decode 0.13.1",
+ "scale-decode 0.16.0",
  "scale-info",
 ]
 
@@ -10589,7 +10525,7 @@ checksum = "43794a0ace135be66a25d3ae77d41b91615fb68ae937f904090203e81f755b65"
 name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-trait",
  "clap",
  "derive_more 0.99.19",
@@ -10992,9 +10928,9 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "openssl"
-version = "0.10.71"
+version = "0.10.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e14130c6a98cd258fdcb0fb6d744152343ff729cbfcb28c656a9d12b999fbcd"
+checksum = "fedfea7d58a1f73118430a55da6a286e7b044961736ce96a16a17068ea25e5da"
 dependencies = [
  "bitflags 2.9.0",
  "cfg-if",
@@ -11024,9 +10960,9 @@ checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.106"
+version = "0.9.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bb61ea9811cc39e3c2069f40b8b8e2e70d8569b361f879786cc7ed48b777cdd"
+checksum = "8288979acd84749c744a9014b4382d42b8f7b2592847b5afb2ed29e5d16ede07"
 dependencies = [
  "cc",
  "libc",
@@ -11108,7 +11044,7 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 name = "pallet-alliance"
 version = "27.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11177,10 +11113,8 @@ dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-storage 19.0.0",
 ]
 
 [[package]]
@@ -11233,10 +11167,8 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-storage 19.0.0",
 ]
 
 [[package]]
@@ -11462,7 +11394,7 @@ dependencies = [
 name = "pallet-beefy-mmr"
 version = "28.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "binary-merkle-tree",
  "frame-benchmarking",
  "frame-support",
@@ -11507,13 +11439,13 @@ dependencies = [
  "bp-beefy",
  "bp-runtime",
  "bp-test-utils",
- "ckb-merkle-mountain-range",
  "frame-support",
  "frame-system",
  "log",
  "pallet-beefy-mmr",
  "pallet-mmr",
  "parity-scale-codec",
+ "polkadot-ckb-merkle-mountain-range",
  "rand 0.8.5",
  "scale-info",
  "serde",
@@ -11714,7 +11646,7 @@ dependencies = [
 name = "pallet-contracts"
 version = "27.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "environmental",
  "frame-benchmarking",
@@ -11954,7 +11886,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-election-provider-support-benchmarking",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rand 0.8.5",
@@ -12094,10 +12025,8 @@ name = "pallet-example-single-block-migrations"
 version = "0.0.1"
 dependencies = [
  "docify",
- "frame-executive",
  "frame-support",
  "frame-system",
- "frame-try-runtime",
  "log",
  "pallet-balances",
  "parity-scale-codec",
@@ -12141,8 +12070,7 @@ dependencies = [
 name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "frame-support",
  "frame-system",
  "log",
@@ -12820,11 +12748,10 @@ name = "pallet-revive"
 version = "0.1.0"
 dependencies = [
  "alloy-core",
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "derive_more 0.99.19",
  "environmental",
- "ethabi-decode",
  "ethereum-types",
  "frame-benchmarking",
  "frame-support",
@@ -12984,7 +12911,6 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",
@@ -12998,7 +12924,6 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -13037,7 +12962,7 @@ dependencies = [
 name = "pallet-sassafras"
 version = "0.3.5-dev"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -13079,7 +13004,6 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -13120,7 +13044,6 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -13151,7 +13074,6 @@ dependencies = [
  "rand_chacha 0.3.1",
  "scale-info",
  "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -13264,7 +13186,6 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -13294,7 +13215,6 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-inherents",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -13333,7 +13253,6 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -13368,7 +13287,7 @@ dependencies = [
 name = "pallet-transaction-storage"
 version = "27.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -13377,7 +13296,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 28.0.0",
  "sp-inherents",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -13428,7 +13346,6 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -13460,7 +13377,6 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
@@ -13477,7 +13393,6 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -13526,7 +13441,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -13951,7 +13865,6 @@ dependencies = [
  "primitive-types 0.13.1",
  "scale-info",
  "smallvec",
- "snowbridge-inbound-queue-primitives",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -14975,7 +14888,7 @@ name = "polkadot-node-core-pvf"
 version = "7.0.0"
 dependencies = [
  "always-assert",
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "criterion",
  "futures",
@@ -15269,7 +15182,6 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "rand 0.8.5",
- "sc-client-api",
  "schnellru",
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",
@@ -15352,7 +15264,6 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-aura",
  "sp-core 28.0.0",
- "sp-crypto-hashing 0.1.0",
  "sp-genesis-builder",
  "sp-inherents",
  "sp-keystore 0.34.0",
@@ -16044,10 +15955,8 @@ dependencies = [
  "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-aura",
- "pallet-authorship",
  "pallet-babe",
  "pallet-balances",
- "pallet-broker",
  "pallet-collective",
  "pallet-contracts",
  "pallet-default-config-example",
@@ -16057,23 +15966,17 @@ dependencies = [
  "pallet-example-single-block-migrations",
  "pallet-examples",
  "pallet-grandpa",
- "pallet-multisig",
  "pallet-nfts",
  "pallet-preimage",
- "pallet-proxy",
- "pallet-referenda",
  "pallet-scheduler",
  "pallet-skip-feeless-payment",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-uniques",
- "pallet-utility",
  "pallet-xcm",
- "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
  "polkadot-sdk 0.1.0",
- "polkadot-sdk-docs-first-pallet",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
  "rand 0.8.5",
@@ -16163,7 +16066,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "log",
- "pallet-examples",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -16305,14 +16207,12 @@ dependencies = [
 name = "polkadot-statement-distribution"
 version = "7.0.0"
 dependencies = [
- "arrayvec 0.7.6",
  "assert_matches",
  "async-channel 1.9.0",
  "bitvec",
  "fatality",
  "futures",
  "futures-timer",
- "indexmap 2.8.0",
  "parity-scale-codec",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
@@ -16331,7 +16231,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-keystore 0.34.0",
- "sp-staking",
  "sp-tracing 16.0.0",
  "thiserror 1.0.69",
  "tracing-gum",
@@ -16359,7 +16258,6 @@ dependencies = [
  "futures",
  "hex",
  "itertools 0.11.0",
- "jemalloc_pprof",
  "kvdb-memorydb",
  "orchestra",
  "parity-scale-codec",
@@ -16933,19 +16831,6 @@ dependencies = [
  "symbolic-demangle",
  "tempfile",
  "thiserror 2.0.12",
-]
-
-[[package]]
-name = "pprof_util"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c620a1858d6ebf10d7c60256629078b2d106968d0e6ff63b850d9ecd84008fbe"
-dependencies = [
- "anyhow",
- "flate2",
- "num",
- "paste",
- "prost 0.11.9",
 ]
 
 [[package]]
@@ -18132,7 +18017,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -18880,7 +18764,7 @@ dependencies = [
 name = "sc-chain-spec"
 version = "28.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "clap",
  "docify",
  "memmap2 0.9.5",
@@ -18921,7 +18805,7 @@ dependencies = [
 name = "sc-cli"
 version = "0.36.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "chrono",
  "clap",
  "fdlimit",
@@ -18991,7 +18875,7 @@ dependencies = [
 name = "sc-client-db"
 version = "0.35.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "criterion",
  "hash-db",
  "kitchensink-runtime",
@@ -19152,7 +19036,7 @@ dependencies = [
 name = "sc-consensus-beefy"
 version = "13.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
  "futures",
@@ -19225,7 +19109,7 @@ name = "sc-consensus-grandpa"
 version = "0.19.0"
 dependencies = [
  "ahash 0.8.11",
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "async-trait",
  "dyn-clone",
@@ -19382,7 +19266,7 @@ dependencies = [
 name = "sc-executor"
 version = "0.32.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "criterion",
  "num_cpus",
@@ -19548,7 +19432,7 @@ dependencies = [
 name = "sc-keystore"
 version = "25.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "parking_lot 0.12.3",
  "serde_json",
  "sp-application-crypto 30.0.0",
@@ -19562,8 +19446,8 @@ dependencies = [
 name = "sc-mixnet"
 version = "0.4.0"
 dependencies = [
- "array-bytes",
- "arrayvec 0.7.6",
+ "array-bytes 6.2.2",
+ "arrayvec 0.7.4",
  "blake2 0.10.6",
  "bytes",
  "futures",
@@ -19589,7 +19473,7 @@ dependencies = [
 name = "sc-network"
 version = "0.34.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "async-channel 1.9.0",
  "async-trait",
@@ -19681,7 +19565,7 @@ dependencies = [
 name = "sc-network-light"
 version = "0.33.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "futures",
  "log",
@@ -19701,7 +19585,7 @@ dependencies = [
 name = "sc-network-statement"
 version = "0.16.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "futures",
  "log",
@@ -19720,7 +19604,7 @@ dependencies = [
 name = "sc-network-sync"
 version = "0.33.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
  "fork-tree",
@@ -19791,7 +19675,7 @@ dependencies = [
 name = "sc-network-transactions"
 version = "0.33.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "futures",
  "log",
  "parity-scale-codec",
@@ -19957,7 +19841,7 @@ dependencies = [
 name = "sc-rpc-spec-v2"
 version = "0.34.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "async-trait",
  "futures",
@@ -20097,7 +19981,7 @@ dependencies = [
 name = "sc-service-test"
 version = "2.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "fdlimit",
  "futures",
@@ -20360,19 +20244,6 @@ dependencies = [
  "scale-info",
  "scale-type-resolver",
  "serde",
-]
-
-[[package]]
-name = "scale-decode"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e98f3262c250d90e700bb802eb704e1f841e03331c2eb815e46516c4edbf5b27"
-dependencies = [
- "derive_more 0.99.19",
- "parity-scale-codec",
- "scale-bits 0.6.0",
- "scale-type-resolver",
- "smallvec",
 ]
 
 [[package]]
@@ -21498,7 +21369,6 @@ name = "snowbridge-core"
 version = "0.2.0"
 dependencies = [
  "bp-relayers",
- "ethabi-decode",
  "frame-support",
  "frame-system",
  "hex-literal",
@@ -21563,7 +21433,7 @@ dependencies = [
 name = "snowbridge-merkle-tree"
 version = "0.2.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "hex",
  "hex-literal",
  "parity-scale-codec",
@@ -21634,12 +21504,9 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
- "snowbridge-core",
  "snowbridge-merkle-tree",
- "snowbridge-outbound-queue-primitives",
  "sp-api 26.0.0",
  "sp-std 14.0.0",
- "staging-xcm",
 ]
 
 [[package]]
@@ -21674,7 +21541,6 @@ version = "0.9.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
- "snowbridge-core",
  "snowbridge-verification-primitives",
  "sp-core 28.0.0",
  "sp-std 14.0.0",
@@ -21729,7 +21595,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex",
  "hex-literal",
  "log",
  "pallet-balances",
@@ -21853,7 +21718,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-core",
@@ -21877,13 +21741,10 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-balances",
- "pallet-xcm",
  "parity-scale-codec",
- "polkadot-primitives",
  "scale-info",
  "snowbridge-core",
  "snowbridge-outbound-queue-primitives",
- "snowbridge-pallet-outbound-queue-v2",
  "snowbridge-pallet-system",
  "snowbridge-test-utils",
  "sp-core 28.0.0",
@@ -21972,14 +21833,11 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex",
  "log",
- "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-outbound-queue-primitives",
  "sp-core 28.0.0",
- "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -22408,7 +22266,7 @@ dependencies = [
 name = "sp-consensus-beefy"
 version = "13.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -22480,7 +22338,7 @@ name = "sp-core"
 version = "28.0.0"
 dependencies = [
  "ark-vrf",
- "array-bytes",
+ "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
@@ -22530,7 +22388,7 @@ version = "32.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb2dac7e47c7ddbb61efe196d5cce99f6ea88926c961fa39909bfeae46fc5a7b"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
@@ -22577,7 +22435,7 @@ version = "33.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3368e32f6fda6e20b8af51f94308d033ab70a021e87f6abbd3fed5aca942b745"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
@@ -22624,7 +22482,7 @@ version = "35.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4532774405a712a366a98080cbb4daa28c38ddff0ec595902ad6ee6a78a809f8"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
@@ -22982,7 +22840,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -23012,7 +22870,7 @@ dependencies = [
 name = "sp-mmr-primitives"
 version = "26.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "log",
  "parity-scale-codec",
  "polkadot-ckb-merkle-mountain-range",
@@ -23181,7 +23039,6 @@ dependencies = [
  "polkavm-derive 0.18.0",
  "primitive-types 0.13.1",
  "rustversion",
- "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
  "sp-runtime-interface-proc-macro 17.0.0",
@@ -23328,7 +23185,7 @@ name = "sp-state-machine"
 version = "0.35.0"
 dependencies = [
  "arbitrary",
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "hash-db",
  "log",
@@ -23531,7 +23388,7 @@ name = "sp-trie"
 version = "29.0.0"
 dependencies = [
  "ahash 0.8.11",
- "array-bytes",
+ "array-bytes 6.2.2",
  "criterion",
  "hash-db",
  "memory-db",
@@ -24005,7 +23862,7 @@ dependencies = [
 name = "staging-node-cli"
 version = "3.0.0-dev"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_cmd",
  "clap",
  "clap_complete",
@@ -24075,7 +23932,7 @@ version = "2.0.0"
 name = "staging-xcm"
 version = "7.0.1"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "bounded-collections",
  "derive-where",
  "environmental",
@@ -24491,7 +24348,7 @@ dependencies = [
 name = "substrate-test-client"
 version = "2.0.1"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-trait",
  "futures",
  "parity-scale-codec",
@@ -24515,7 +24372,7 @@ dependencies = [
 name = "substrate-test-runtime"
 version = "2.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-executive",
  "frame-metadata-hash-extension",
  "frame-support",
@@ -24637,12 +24494,12 @@ dependencies = [
 name = "substrate-wasm-builder"
 version = "17.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "build-helper",
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
@@ -25459,15 +25316,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-parachains"
-version = "1.0.0"
-dependencies = [
- "parity-scale-codec",
- "test-parachain-adder",
- "test-parachain-halt",
-]
-
-[[package]]
 name = "test-runtime-constants"
 version = "1.0.0"
 dependencies = [
@@ -25686,9 +25534,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.44.1"
+version = "1.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f382da615b842244d4b8738c82ed1275e6c5dd90c459a30941cd07080b06c91a"
+checksum = "492a604e2fd7f814268a378409e6c92b5525d747d10db9a229723f55a417958c"
 dependencies = [
  "backtrace",
  "bytes",
@@ -26745,7 +26593,7 @@ name = "wasm-loader"
 version = "0.21.3"
 source = "git+https://github.com/chevdor/subwasm?rev=v0.21.3#aa8acb6fdfb34144ac51ab95618a9b37fa251295"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "log",
  "multibase 0.9.1",
  "multihash 0.19.3",
@@ -27258,12 +27106,10 @@ dependencies = [
  "pallet-delegated-staking",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
- "pallet-elections-phragmen",
  "pallet-fast-unstake",
  "pallet-grandpa",
  "pallet-identity",
  "pallet-indices",
- "pallet-membership",
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-migrations",
@@ -27283,10 +27129,8 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
- "pallet-society",
  "pallet-staking",
  "pallet-staking-runtime-api",
- "pallet-state-trie-migration",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -27926,7 +27770,7 @@ dependencies = [
 name = "xcm-emulator"
 version = "0.5.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
@@ -27937,6 +27781,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-message-queue",
+ "pallet-timestamp",
  "parachains-common",
  "parity-scale-codec",
  "paste",
@@ -27994,7 +27839,6 @@ dependencies = [
 name = "xcm-runtime-apis"
 version = "0.1.1"
 dependencies = [
- "frame-executive",
  "frame-support",
  "frame-system",
  "hex-literal",
