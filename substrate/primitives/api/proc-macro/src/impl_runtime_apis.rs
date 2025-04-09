@@ -15,11 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::utils::{
-	extract_api_version, extract_block_type_from_trait_path, extract_impl_trait,
-	extract_parameter_names_types_and_borrows, generate_crate_access,
-	generate_runtime_mod_name_for_trait, prefix_function_with_trait, versioned_trait_name,
-	AllowSelfRefInParameters, ApiVersion, RequireQualifiedTraitPath,
+use crate::{
+	runtime_metadata::Kind,
+	utils::{
+		extract_api_version, extract_block_type_from_trait_path, extract_impl_trait,
+		extract_parameter_names_types_and_borrows, generate_crate_access,
+		generate_runtime_mod_name_for_trait, prefix_function_with_trait, versioned_trait_name,
+		AllowSelfRefInParameters, ApiVersion, RequireQualifiedTraitPath,
+	},
 };
 
 use proc_macro2::{Span, TokenStream};
@@ -32,7 +35,7 @@ use syn::{
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
 	visit_mut::{self, VisitMut},
-	Attribute, Ident, ImplItem, ItemImpl, Path, Signature, Type, TypePath,
+	Attribute, Ident, ImplItem, ItemImpl, ItemMod, Path, Signature, Type, TypePath,
 };
 
 use std::collections::HashMap;
@@ -40,20 +43,52 @@ use std::collections::HashMap;
 /// The structure used for parsing the runtime api implementations.
 struct RuntimeApiImpls {
 	impls: Vec<ItemImpl>,
+	uses: Vec<TypePath>,
+}
+
+mod custom_kw {
+	use syn::custom_keyword;
+
+	custom_keyword!(external_impls);
 }
 
 impl Parse for RuntimeApiImpls {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let mut impls = Vec::new();
-
+		let mut uses = Vec::new();
 		while !input.is_empty() {
-			impls.push(ItemImpl::parse(input)?);
+			if input.peek(custom_kw::external_impls) || input.peek2(syn::Token![!]) {
+				let content;
+				input.parse::<custom_kw::external_impls>()?;
+				input.parse::<syn::Token![!]>()?;
+				syn::braced!(content in input);
+				let items = content.parse_terminated(syn::TypePath::parse, syn::Token![,])?;
+				for item in items.into_iter() {
+					uses.push(item)
+				}
+			} else {
+				match input.parse::<ItemImpl>() {
+					Ok(res) => impls.push(res),
+					Err(e) => {
+						let mut error = syn::Error::new(
+							input.span(),
+							r#"Invalid syntax inside block.
+				supported item are:
+				  - impl blocks
+				  - references to other impl_api_blocks through `external_impls!{ <comma separated list of module paths> }
+				  "#,
+						);
+						error.combine(e);
+						return Err(error)
+					},
+				}
+			}
 		}
 
 		if impls.is_empty() {
 			Err(Error::new(Span::call_site(), "No api implementation given!"))
 		} else {
-			Ok(Self { impls })
+			Ok(Self { impls, uses })
 		}
 	}
 }
@@ -192,7 +227,7 @@ fn generate_impl_calls(
 }
 
 /// Generate the dispatch function that is used in native to call into the runtime.
-fn generate_dispatch_function(impls: &[ItemImpl]) -> Result<TokenStream> {
+fn generate_dispatch_function(impls: &[ItemImpl], kind: Kind) -> Result<TokenStream> {
 	let data = Ident::new("_sp_api_input_data_", Span::call_site());
 	let c = generate_crate_access();
 	let impl_calls =
@@ -205,13 +240,33 @@ fn generate_dispatch_function(impls: &[ItemImpl]) -> Result<TokenStream> {
 					#name => Some(#c::Encode::encode(&{ #impl_ })),
 				)
 			});
-
+	let other_branches = match kind {
+		Kind::Main(paths) => {
+			let items = paths
+				.iter()
+				.map(|x| {
+					quote::quote! {
+						if let Some(res) = #x::internal::api::dispatch(method, #data) {
+							return Some(res);
+						}
+					}
+				})
+				.collect::<Vec<TokenStream>>();
+			quote::quote! {
+				#(#items)*
+				None
+			}
+		},
+		Kind::Ext => quote::quote! { None },
+	};
 	Ok(quote!(
 		#c::std_enabled! {
 			pub fn dispatch(method: &str, mut #data: &[u8]) -> Option<Vec<u8>> {
 				match method {
 					#( #impl_calls )*
-					_ => None,
+					_ => {
+						#other_branches
+					},
 				}
 			}
 		}
@@ -264,13 +319,13 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 		#crate_::std_enabled! {
 			/// Implements all runtime apis for the client side.
 			pub struct RuntimeApiImpl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block> + 'static> {
-				call: &'static C,
-				transaction_depth: std::cell::RefCell<u16>,
-				changes: std::cell::RefCell<#crate_::OverlayedChanges<#crate_::HashingFor<Block>>>,
-				recorder: std::option::Option<#crate_::ProofRecorder<Block>>,
-				call_context: #crate_::CallContext,
-				extensions: std::cell::RefCell<#crate_::Extensions>,
-				extensions_generated_for: std::cell::RefCell<std::option::Option<Block::Hash>>,
+				pub(crate) call: &'static C,
+				pub(crate) transaction_depth: std::cell::RefCell<u16>,
+				pub(crate) changes: std::cell::RefCell<#crate_::OverlayedChanges<#crate_::HashingFor<Block>>>,
+				pub(crate) recorder: std::option::Option<#crate_::ProofRecorder<Block>>,
+				pub(crate) call_context: #crate_::CallContext,
+				pub(crate) extensions: std::cell::RefCell<#crate_::Extensions>,
+				pub(crate) extensions_generated_for: std::cell::RefCell<std::option::Option<Block::Hash>>,
 			}
 
 			#[automatically_derived]
@@ -374,7 +429,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 			{
 				type RuntimeApi = RuntimeApiImpl<Block, C>;
 
-				fn construct_runtime_api<'a>(
+			fn construct_runtime_api<'a>(
 					call: &'a C,
 				) -> #crate_::ApiRef<'a, Self::RuntimeApi> {
 					RuntimeApiImpl {
@@ -391,7 +446,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 
 			#[automatically_derived]
 			impl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block>> RuntimeApiImpl<Block, C> {
-				fn commit_or_rollback_transaction(&self, commit: bool) {
+				pub(crate) fn commit_or_rollback_transaction(&self, commit: bool) {
 					let proof = "\
                     We only close a transaction when we opened one ourself.
                     Other parts of the runtime that make use of transactions (state-machine)
@@ -431,7 +486,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					std::result::Result::expect(res, proof);
 				}
 
-				fn start_transaction(&self) {
+				pub(crate) fn start_transaction(&self) {
 					#crate_::OverlayedChanges::start_transaction(
 						&mut std::cell::RefCell::borrow_mut(&self.changes)
 					);
@@ -776,9 +831,8 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 		let api_ver = api_ver.map(|a| quote!( #a )).unwrap_or_else(|| base_api_version);
 		populate_runtime_api_versions(&mut result, &mut sections, attrs, id, api_ver, &c);
 	}
-
 	Ok(quote!(
-		pub const RUNTIME_API_VERSIONS: #c::ApisVec = #c::create_apis_vec!([ #( #result ),* ]);
+		pub const PARTIAL_RUNTIME_API_VERSIONS: &[([u8;8], u32)] = &[ #( #result ),* ];
 
 		#( #sections )*
 	))
@@ -818,26 +872,69 @@ fn rename_self_in_trait_impls(impls: &mut [ItemImpl]) {
 /// The implementation of the `impl_runtime_apis!` macro.
 pub fn impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	// Parse all impl blocks
-	let RuntimeApiImpls { impls: mut api_impls } = parse_macro_input!(input as RuntimeApiImpls);
+	let RuntimeApiImpls { impls: mut api_impls, uses } =
+		parse_macro_input!(input as RuntimeApiImpls);
 
-	impl_runtime_apis_impl_inner(&mut api_impls)
+	impl_runtime_apis_impl_inner(&mut api_impls, &uses)
 		.unwrap_or_else(|e| e.to_compile_error())
 		.into()
 }
 
-fn impl_runtime_apis_impl_inner(api_impls: &mut [ItemImpl]) -> Result<TokenStream> {
+fn impl_runtime_apis_impl_inner(
+	api_impls: &mut [ItemImpl],
+	uses: &[TypePath],
+) -> Result<TokenStream> {
 	rename_self_in_trait_impls(api_impls);
 
-	let dispatch_impl = generate_dispatch_function(api_impls)?;
 	let api_impls_for_runtime = generate_api_impl_for_runtime(api_impls)?;
 	let base_runtime_api = generate_runtime_api_base_structures()?;
 	let runtime_api_versions = generate_runtime_api_versions(api_impls)?;
 	let wasm_interface = generate_wasm_interface(api_impls)?;
 	let api_impls_for_runtime_api = generate_api_impl_for_runtime_api(api_impls)?;
+	let dispatch_impl = generate_dispatch_function(api_impls, Kind::Main(&uses))?;
 
-	let runtime_metadata = crate::runtime_metadata::generate_impl_runtime_metadata(api_impls)?;
+	let runtime_metadata =
+		crate::runtime_metadata::generate_impl_runtime_metadata(api_impls, Kind::Main(&uses))?;
 
-	let impl_ = quote!(
+	let c = generate_crate_access();
+
+	let runtime_api_versions_full = quote! {
+
+		pub const RUNTIME_API_VERSIONS: #c::ApisVec = {
+			const LEN: usize = #(#uses::internal::PARTIAL_RUNTIME_API_VERSIONS.len() + )* PARTIAL_RUNTIME_API_VERSIONS.len() + 0;
+			const ARR: [([u8;8], u32); LEN] = {
+				let mut arr: [([u8;8], u32); LEN] = [([0;8],0); LEN];
+				let mut base: usize = 0;
+				{
+					let mut i = 0;
+					while i < PARTIAL_RUNTIME_API_VERSIONS.len() {
+						arr[base + i] = PARTIAL_RUNTIME_API_VERSIONS[i];
+						i += 1;
+					}
+					base += PARTIAL_RUNTIME_API_VERSIONS.len();
+				}
+				#({
+					let s = #uses::internal::PARTIAL_RUNTIME_API_VERSIONS;
+					let mut i = 0;
+					while i < s.len() {
+						arr[base + i] = s[i];
+						i += 1;
+					}
+					base += s.len();
+				})*
+				if base != LEN { panic!("invalid length"); }
+				arr
+			};
+			#c::create_apis_vec!(ARR)
+		};
+	};
+
+	let impl_ = quote! {
+		#(
+			#[allow(unused_imports)]
+			pub use #uses::*;
+		)*
+
 		#base_runtime_api
 
 		#api_impls_for_runtime
@@ -848,6 +945,8 @@ fn impl_runtime_apis_impl_inner(api_impls: &mut [ItemImpl]) -> Result<TokenStrea
 
 		#runtime_metadata
 
+		#runtime_api_versions_full
+
 		pub mod api {
 			use super::*;
 
@@ -855,9 +954,75 @@ fn impl_runtime_apis_impl_inner(api_impls: &mut [ItemImpl]) -> Result<TokenStrea
 
 			#wasm_interface
 		}
-	);
+	};
 
 	let impl_ = expander::Expander::new("impl_runtime_apis")
+		.dry(std::env::var("EXPAND_MACROS").is_err())
+		.verbose(true)
+		.write_to_out_dir(impl_)
+		.expect("Does not fail because of IO in OUT_DIR; qed");
+
+	Ok(impl_)
+}
+
+/// The implementation of the `impl_runtime_apis_ext` macro.
+pub fn impl_runtime_apis_impl_ext(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+	let module = parse_macro_input!(input as ItemMod);
+	let (_, items) = module.content.unwrap();
+	let contents = quote::quote! { #(#items)* };
+	let contents: proc_macro::TokenStream = contents.into();
+	// Parse all impl blocks
+	let RuntimeApiImpls { impls: mut api_impls, uses } =
+		parse_macro_input!(contents as RuntimeApiImpls);
+
+	impl_runtime_apis_impl_inner_ext(module.ident, &mut api_impls, &uses)
+		.unwrap_or_else(|e| e.to_compile_error())
+		.into()
+}
+
+fn impl_runtime_apis_impl_inner_ext(
+	module: Ident,
+	api_impls: &mut [ItemImpl],
+	uses: &[TypePath],
+) -> Result<TokenStream> {
+	rename_self_in_trait_impls(api_impls);
+	let dispatch_impl = generate_dispatch_function(api_impls, Kind::Ext)?;
+	let api_impls_for_runtime = generate_api_impl_for_runtime(api_impls)?;
+	let runtime_api_versions = generate_runtime_api_versions(api_impls)?;
+	let wasm_interface = generate_wasm_interface(api_impls)?;
+	let api_impls_for_runtime_api = generate_api_impl_for_runtime_api(api_impls)?;
+
+	let runtime_metadata =
+		crate::runtime_metadata::generate_impl_runtime_metadata(api_impls, Kind::Ext)?;
+	let impl_ = quote!(
+			pub mod #module {
+				#(
+					pub use #uses::*;
+				)*
+
+				#api_impls_for_runtime
+
+				#api_impls_for_runtime_api
+
+				pub mod internal {
+					use super::*;
+
+					#runtime_api_versions
+
+					#runtime_metadata
+
+					pub mod api {
+						use super::*;
+
+						#dispatch_impl
+
+						#wasm_interface
+					}
+				}
+			}
+	);
+
+	let impl_ = expander::Expander::new("impl_runtime_apis_ext")
 		.dry(std::env::var("EXPAND_MACROS").is_err())
 		.verbose(true)
 		.write_to_out_dir(impl_)
@@ -914,7 +1079,7 @@ mod tests {
 		};
 
 		// Parse the items
-		let RuntimeApiImpls { impls: mut api_impls } =
+		let RuntimeApiImpls { impls: mut api_impls, uses: _ } =
 			syn::parse2::<RuntimeApiImpls>(code).unwrap();
 
 		// Run the renamer which is being run first in the `impl_runtime_apis!` macro.
