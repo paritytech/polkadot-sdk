@@ -15,11 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{cmd::StorageCmd, get_wasm_module};
-use crate::shared::{new_rng, BenchRecord};
 use codec::Encode;
 use cumulus_pallet_parachain_system::validate_block::StorageAccessParams;
-use log::info;
+use log::{info, warn};
 use rand::prelude::*;
 use sc_cli::{Error, Result};
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
@@ -27,6 +25,9 @@ use sp_api::CallApiAt;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::{backend::AsTrieBackend, Backend};
 use std::{fmt::Debug, sync::Arc, time::Instant};
+
+use super::{cmd::StorageCmd, get_wasm_module, MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION};
+use crate::shared::{new_rng, BenchRecord};
 
 impl StorageCmd {
 	/// Benchmarks the time it takes to read a single Storage item.
@@ -42,6 +43,14 @@ impl StorageCmd {
 		BA: ClientBackend<B>,
 		<<B as BlockT>::Header as HeaderT>::Number: From<u32>,
 	{
+		if self.params.on_block_validation &&
+			self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
+		{
+			warn!(
+				"Batch size is too large. This may cause problems with runtime memory allocation. Better set batch size to {} or less.",
+				MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
+			);
+		}
 		let mut record = BenchRecord::default();
 		let best_hash = client.usage_info().chain.best_hash;
 

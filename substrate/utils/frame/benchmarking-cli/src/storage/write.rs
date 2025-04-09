@@ -17,6 +17,8 @@
 
 use codec::Encode;
 use cumulus_pallet_parachain_system::validate_block::StorageAccessParams;
+use log::{info, trace, warn};
+use rand::prelude::*;
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::{DbHash, DbState, DbStateBuilder};
@@ -24,18 +26,15 @@ use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::Backend as StateBackend;
-use sp_trie::{PrefixedMemoryDB, StorageProof};
-
-use log::{info, trace, warn};
-use rand::prelude::*;
 use sp_storage::{ChildInfo, StateVersion};
+use sp_trie::{PrefixedMemoryDB, StorageProof};
 use std::{
 	fmt::Debug,
 	sync::Arc,
 	time::{Duration, Instant},
 };
 
-use super::{cmd::StorageCmd, get_wasm_module};
+use super::{cmd::StorageCmd, get_wasm_module, MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION};
 use crate::shared::{new_rng, BenchRecord};
 
 impl StorageCmd {
@@ -59,6 +58,14 @@ impl StorageCmd {
 		BA: ClientBackend<Block>,
 		C: UsageProvider<Block> + HeaderBackend<Block> + StorageProvider<Block, BA>,
 	{
+		if self.params.on_block_validation &&
+			self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
+		{
+			warn!(
+				"Batch size is too large. This may cause problems with runtime memory allocation. Better set batch size to {} or less.",
+				MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
+			);
+		}
 		// Store the time that it took to write each value.
 		let mut record = BenchRecord::default();
 

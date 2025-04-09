@@ -20,10 +20,12 @@ use super::{
 	trie_cache, trie_recorder, MemoryOptimizedValidationParams, StorageAccessParams,
 	StorageAccessPayload,
 };
+use codec::Decode;
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
+use sp_state_machine::Backend;
 
 use polkadot_parachain_primitives::primitives::{
 	HeadData, RelayChainBlockNumber, ValidationResult,
@@ -424,10 +426,11 @@ fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 
 fn host_offchain_index_clear(_key: &[u8]) {}
 
+/// Imitates `validate_block`, but only performs the storage access.
+///
+/// This is used to benchmark the storage access cost.
+#[doc(hidden)]
 pub fn proceed_storage_access<B: BlockT>(mut params: &[u8]) {
-	use codec::Decode;
-	use sp_state_machine::Backend;
-
 	let StorageAccessParams { state_root, storage_proof, payload, is_dry_run } =
 		StorageAccessParams::<B>::decode(&mut params)
 			.expect("Invalid arguments to `validate_block`.");

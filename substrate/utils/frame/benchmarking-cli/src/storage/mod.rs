@@ -22,6 +22,10 @@ pub mod write;
 
 pub use cmd::StorageCmd;
 
+/// Empirically, the maximum batch size for block validation should be no more than 10,000.
+/// Bigger sizes may cause problems with runtime memory allocation.
+pub(crate) const MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION: usize = 10_000;
+
 pub(crate) fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::WasmModule> {
 	use frame_storage_access_test_runtime::WASM_BINARY;
 	use polkadot_node_core_pvf_common::executor_interface::DEFAULT_CONFIG;

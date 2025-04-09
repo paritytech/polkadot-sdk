@@ -125,16 +125,16 @@ pub struct StorageParams {
 	/// should be activated.
 	///
 	/// Hence, when generating weights for a parachain this should be activated and when generating
-	/// a weight for a standalone chain this should be deactivated.
+	/// weights for a standalone chain this should be deactivated.
 	#[arg(long, default_value = "false")]
 	pub disable_pov_recorder: bool,
 
-	/// The batch size for the write benchmark.
+	/// The batch size for the read/write benchmark.
 	///
 	/// Since the write size needs to also include the cost of computing the storage root, which is
 	/// done once at the end of the block, the batch size is used to simulate multiple writes in a
 	/// block.
-	#[arg(long, default_value_t = 10_000)]
+	#[arg(long, default_value_t = 100_000)]
 	pub batch_size: usize,
 
 	/// Run the benchmark on block validation.
