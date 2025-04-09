@@ -5,7 +5,7 @@ doc:
     Fix various compilation issues for crates in polkadot-sdk after upgrading degrade to 0.4.1.
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: patch 
 - name: pallet-bridge-parachains
   bump: patch
 - name: polkadot-node-core-chain-selection

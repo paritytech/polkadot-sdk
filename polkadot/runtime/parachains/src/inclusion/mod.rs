@@ -353,8 +353,6 @@ pub mod pallet {
 		/// The `para_head` hash in the candidate descriptor doesn't match the hash of the actual
 		/// para head in the commitments.
 		ParaHeadMismatch,
-		/// Out of bounds conversion.
-		OutOfBoundsConversion,
 	}
 
 	/// Candidates pending availability by `ParaId`. They form a chain starting from the latest
@@ -393,8 +391,6 @@ enum AcceptanceCheckErr {
 	HrmpWatermark,
 	/// The candidate violated this outbound HRMP acceptance criteria.
 	OutboundHrmp,
-	/// Check involves size convertion to pointer size which is out of bounds.
-	UnsupportedPointerSize,
 }
 
 impl From<dmp::ProcessedDownwardMessagesAcceptanceErr> for AcceptanceCheckErr {
@@ -1185,7 +1181,6 @@ impl AcceptanceCheckErr {
 			UpwardMessages => Error::<T>::InvalidUpwardMessages,
 			HrmpWatermark => Error::<T>::HrmpWatermarkMishandling,
 			OutboundHrmp => Error::<T>::InvalidOutboundHrmp,
-			UnsupportedPointerSize => Error::<T>::OutOfBoundsConversion,
 		}
 	}
 }
@@ -1325,26 +1320,15 @@ impl<T: Config> CandidateCheckContext<T> {
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
 	) -> Result<(), AcceptanceCheckErr> {
 		// Safe convertions when `self.config.max_head_data_size` is in bounds of `usize` type.
-		let max_head_data_size =
-			usize::try_from(self.config.max_head_data_size).map_err(|err| {
-				log::error!(
-					target: LOG_TARGET,
-					"Acceptance check involves an unsupported conversion to pointer size: {err}",
-				);
-				AcceptanceCheckErr::UnsupportedPointerSize
-			})?;
+		let max_head_data_size = usize::try_from(self.config.max_head_data_size)
+			.map_err(|_| AcceptanceCheckErr::HeadDataTooLarge)?;
 		ensure!(head_data.0.len() <= max_head_data_size, AcceptanceCheckErr::HeadDataTooLarge,);
 
 		// if any, the code upgrade attempt is allowed.
 		if let Some(new_validation_code) = new_validation_code {
 			// Safe convertions when `self.config.max_code_size` is in bounds of `usize` type.
-			let max_code_size = usize::try_from(self.config.max_code_size).map_err(|err| {
-				log::error!(
-					target: LOG_TARGET,
-					"Acceptance check involves an unsupported conversion to pointer size: {err}",
-				);
-				AcceptanceCheckErr::UnsupportedPointerSize
-			})?;
+			let max_code_size = usize::try_from(self.config.max_code_size)
+				.map_err(|_| AcceptanceCheckErr::NewCodeTooLarge)?;
 
 			ensure!(
 				paras::Pallet::<T>::can_upgrade_validation_code(para_id),
