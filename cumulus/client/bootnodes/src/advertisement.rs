@@ -25,7 +25,7 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::{future::Fuse, pin_mut, FutureExt, StreamExt};
 use ip_network::IpNetwork;
-use log::{debug, trace, warn};
+use log::{debug, error, trace, warn};
 use prost::Message;
 use sc_network::{
 	config::OutgoingResponse,
@@ -520,7 +520,7 @@ impl BootnodeAdvertisement {
 			);
 			self.relay_chain_network.start_providing(current_epoch_key);
 		} else {
-			warn!(
+			error!(
 				target: LOG_TARGET,
 				"Retrying advertising bootnode for current epoch failed: no key. This is a bug."
 			);
@@ -536,7 +536,7 @@ impl BootnodeAdvertisement {
 			);
 			self.relay_chain_network.start_providing(next_epoch_key);
 		} else {
-			warn!(
+			error!(
 				target: LOG_TARGET,
 				"Retrying advertising bootnode for next epoch failed: no key. This is a bug."
 			);
