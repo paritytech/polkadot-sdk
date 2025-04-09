@@ -84,26 +84,76 @@ pub mod v0 {
 pub mod v1 {
 	use super::*;
 
+	#[cfg(feature = "try-runtime")]
+	use sp_core::U256;
+
 	/// Halves the gas price.
 	pub struct FeePerGasMigration<T>(PhantomData<T>);
+
+	#[cfg(feature = "try-runtime")]
+	impl<T> FeePerGasMigration<T>
+	where
+		T: Config,
+	{
+		/// Calculate the fee required to pay for gas on Ethereum.
+		fn calculate_remote_fee_v1(params: &PricingParametersOf<T>) -> U256 {
+			use snowbridge_outbound_queue_primitives::v1::{
+				AgentExecuteCommand, Command, ConstantGasMeter, GasMeter,
+			};
+			let command = Command::AgentExecute {
+				agent_id: H256::zero(),
+				command: AgentExecuteCommand::TransferToken {
+					token: H160::zero(),
+					recipient: H160::zero(),
+					amount: 0,
+				},
+			};
+			let gas_used_at_most = ConstantGasMeter::maximum_gas_used_at_most(&command);
+			params
+				.fee_per_gas
+				.saturating_mul(gas_used_at_most.into())
+				.saturating_add(params.rewards.remote)
+		}
+
+		/// Calculate the fee required to pay for gas on Ethereum.
+		fn calculate_remote_fee_v2(params: &PricingParametersOf<T>) -> U256 {
+			use snowbridge_outbound_queue_primitives::v2::{Command, ConstantGasMeter, GasMeter};
+			let command = Command::UnlockNativeToken {
+				token: H160::zero(),
+				recipient: H160::zero(),
+				amount: 0,
+			};
+			let gas_used_at_most = ConstantGasMeter::maximum_dispatch_gas_used_at_most(&command);
+			params
+				.fee_per_gas
+				.saturating_mul(gas_used_at_most.into())
+				.saturating_add(params.rewards.remote)
+		}
+	}
+
+	/// The percentage gas increase. We must adjust the fee per gas by this percentage.
+	const GAS_INCREASE_PERCENTAGE: u64 = 70;
 
 	impl<T> UncheckedOnRuntimeUpgrade for FeePerGasMigration<T>
 	where
 		T: Config,
 	{
 		fn on_runtime_upgrade() -> Weight {
-			let mut pricing_parameters = Pallet::<T>::parameters();
-			let old_fee_per_gas = pricing_parameters.fee_per_gas;
+			let mut params = Pallet::<T>::parameters();
 
-			pricing_parameters.fee_per_gas /= 2;
+			let old_fee_per_gas = params.fee_per_gas;
 
-			let new_fee_per_gas = pricing_parameters.fee_per_gas;
-			PricingParameters::<T>::put(pricing_parameters);
+			// Fee per gas can be set based on a percentage in order to keep the remote fee the
+			// same.
+			params.fee_per_gas = params.fee_per_gas * GAS_INCREASE_PERCENTAGE / 100;
 
 			log::info!(
 				target: LOG_TARGET,
-				"Fee per gas migrated from {old_fee_per_gas} to {new_fee_per_gas}.",
+				"Fee per gas migrated from {old_fee_per_gas:?} to {0:?}.",
+				params.fee_per_gas,
 			);
+
+			PricingParameters::<T>::put(params);
 			T::DbWeight::get().reads_writes(1, 1)
 		}
 
@@ -111,41 +161,50 @@ pub mod v1 {
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			use codec::Encode;
 
-			let pricing_parameters = Pallet::<T>::parameters();
+			let params = Pallet::<T>::parameters();
+			let remote_fee_v1 = Self::calculate_remote_fee_v1(&params);
+			let remote_fee_v2 = Self::calculate_remote_fee_v2(&params);
+
 			log::info!(
 				target: LOG_TARGET,
-				"Pre fee per gas migration pricing parameters = {pricing_parameters:?}"
+				"Pre fee per gas migration: pricing parameters = {params:?}, remote_fee_v1 = {remote_fee_v1:?}, remote_fee_v2 = {remote_fee_v2:?}"
 			);
-			Ok(pricing_parameters.encode())
+			Ok((params, remote_fee_v1, remote_fee_v2).encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			use codec::Decode;
 
-			let old_pricing_parameters: PricingParametersOf<T> =
-				Decode::decode(&mut &state[..]).unwrap();
-			let new_pricing_parameters = Pallet::<T>::parameters();
+			let (old_params, old_remote_fee_v1, old_remote_fee_v2): (
+				PricingParametersOf<T>,
+				U256,
+				U256,
+			) = Decode::decode(&mut &state[..]).unwrap();
 
+			let params = Pallet::<T>::parameters();
+			ensure!(old_params.exchange_rate == params.exchange_rate, "Exchange rate unchanged.");
+			ensure!(old_params.rewards == params.rewards, "Rewards unchanged.");
 			ensure!(
-				old_pricing_parameters.exchange_rate == new_pricing_parameters.exchange_rate,
-				"Exchange rate unchanged."
-			);
-			ensure!(
-				old_pricing_parameters.rewards == new_pricing_parameters.rewards,
-				"Rewards unchanged."
-			);
-			ensure!(
-				(old_pricing_parameters.fee_per_gas / 2) == new_pricing_parameters.fee_per_gas,
+				(old_params.fee_per_gas * GAS_INCREASE_PERCENTAGE / 100) == params.fee_per_gas,
 				"Fee per gas halved."
 			);
+			ensure!(old_params.multiplier == params.multiplier, "Multiplier unchanged.");
+
+			let remote_fee_v1 = Self::calculate_remote_fee_v1(&params);
+			let remote_fee_v2 = Self::calculate_remote_fee_v2(&params);
 			ensure!(
-				old_pricing_parameters.multiplier == new_pricing_parameters.multiplier,
-				"Multiplier unchanged."
+				remote_fee_v1 <= old_remote_fee_v1,
+				"The v1 remote fee can cover the cost of the previous fee."
 			);
+			ensure!(
+				remote_fee_v2 <= old_remote_fee_v2,
+				"The v2 remote fee can cover the cost of the previous fee."
+			);
+
 			log::info!(
 				target: LOG_TARGET,
-				"Post fee per gas migration pricing parameters = {new_pricing_parameters:?}"
+				"Post fee per gas migration: pricing parameters = {params:?} remote_fee_v1 = {remote_fee_v1:?} remote_fee_v2 = {remote_fee_v2:?}"
 			);
 			Ok(())
 		}
