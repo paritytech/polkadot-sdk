@@ -74,8 +74,7 @@
 //! * end 1, start 2, plan 3 (new validator set returned)
 //! * end 2, start 3 (new validator set activated), plan 4
 //! * end 3, start 4, plan 5
-//! * end 4, start 5, plan 6 (ah-client to already return validator set)
-//!   and so on.
+//! * end 4, start 5, plan 6 (ah-client to already return validator set) and so on.
 //!
 //! Staking should then do the following:
 //!

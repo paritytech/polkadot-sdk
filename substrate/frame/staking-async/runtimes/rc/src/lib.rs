@@ -773,8 +773,11 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedMaxSubmissions = SignedMaxSubmissions;
 	type SignedMaxRefunds = SignedMaxRefunds;
 	type SignedRewardBase = SignedRewardBase;
-	type SignedDepositBase =
-		pallet_election_provider_multi_phase::GeometricDepositBase<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>;
+	type SignedDepositBase = pallet_election_provider_multi_phase::GeometricDepositBase<
+		Balance,
+		SignedFixedDeposit,
+		SignedDepositIncreaseFactor,
+	>;
 	type SignedDepositByte = SignedDepositByte;
 	type SignedDepositWeight = ();
 	type SignedMaxWeight =
