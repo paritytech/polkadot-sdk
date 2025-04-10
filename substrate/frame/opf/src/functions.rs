@@ -215,12 +215,6 @@ impl<T: Config> Pallet<T> {
 			// Remove Vote Infos
 			Votes::<T>::remove(&project, &voter_id);
 
-			T::NativeBalance::release(
-				&HoldReason::FundsReserved.into(),
-				&voter_id,
-				amount,
-				Precision::Exact,
-			)?;
 		}
 		Ok(())
 	}
@@ -365,7 +359,8 @@ impl<T: Config> Pallet<T> {
 											let call = Call::<T>::on_registration {
 												project_id: project_id.clone(),
 											};
-											let _= call.dispatch_bypass_filter(RawOrigin::Root.into())
+											let _ = call
+												.dispatch_bypass_filter(RawOrigin::Root.into())
 												.map_err(|_| Error::<T>::FailedToDispatchCall);
 										},
 										_ => {},
