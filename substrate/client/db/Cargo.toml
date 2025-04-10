@@ -15,6 +15,13 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "state_access"
+harness = false
+
+[lib]
+bench = false
+
 [dependencies]
 codec = { features = ["derive"], workspace = true, default-features = true }
 hash-db = { workspace = true, default-features = true }
@@ -54,10 +61,3 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 rocksdb = ["kvdb-rocksdb"]
-
-[[bench]]
-name = "state_access"
-harness = false
-
-[lib]
-bench = false

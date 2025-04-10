@@ -10,14 +10,8 @@ resolver = "2"
 
 members = [
 	"bridges/bin/runtime-common",
-	"bridges/chains/chain-asset-hub-rococo",
-	"bridges/chains/chain-asset-hub-westend",
-	"bridges/chains/chain-bridge-hub-cumulus",
-	"bridges/chains/chain-bridge-hub-rococo",
-	"bridges/chains/chain-bridge-hub-westend",
+	"bridges/chains/chain-cumulus",
 	"bridges/chains/chain-polkadot-bulletin",
-	"bridges/chains/chain-rococo",
-	"bridges/chains/chain-westend",
 	"bridges/modules/beefy",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
@@ -122,11 +116,15 @@ members = [
 	"cumulus/parachains/pallets/parachain-info",
 	"cumulus/parachains/pallets/ping",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo",
+	"cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives",
 	"cumulus/parachains/runtimes/assets/asset-hub-westend",
+	"cumulus/parachains/runtimes/assets/asset-hub-westend/bridge-primitives",
 	"cumulus/parachains/runtimes/assets/common",
 	"cumulus/parachains/runtimes/assets/test-utils",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo",
+	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/bridge-primitives",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend",
+	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend/bridge-primitives",
 	"cumulus/parachains/runtimes/bridge-hubs/common",
 	"cumulus/parachains/runtimes/bridge-hubs/test-utils",
 	"cumulus/parachains/runtimes/collectives/collectives-westend",
@@ -211,7 +209,6 @@ members = [
 	"polkadot/node/tracking-allocator",
 	"polkadot/node/zombienet-backchannel",
 	"polkadot/parachain",
-	"polkadot/parachain/test-parachains",
 	"polkadot/parachain/test-parachains/adder",
 	"polkadot/parachain/test-parachains/adder/collator",
 	"polkadot/parachain/test-parachains/halt",
@@ -225,10 +222,12 @@ members = [
 	"polkadot/runtime/metrics",
 	"polkadot/runtime/parachains",
 	"polkadot/runtime/rococo",
+	"polkadot/runtime/rococo/bridge-primitives",
 	"polkadot/runtime/rococo/constants",
 	"polkadot/runtime/test-runtime",
 	"polkadot/runtime/test-runtime/constants",
 	"polkadot/runtime/westend",
+	"polkadot/runtime/westend/bridge-primitives",
 	"polkadot/runtime/westend/constants",
 	"polkadot/statement-table",
 	"polkadot/utils/generate-bags",
@@ -654,22 +653,22 @@ blake3 = { version = "1.5" }
 bn = { package = "substrate-bn", version = "0.6", default-features = false }
 bounded-collections = { version = "0.2.3", default-features = false }
 bounded-vec = { version = "0.7" }
-bp-asset-hub-rococo = { path = "bridges/chains/chain-asset-hub-rococo", default-features = false }
-bp-asset-hub-westend = { path = "bridges/chains/chain-asset-hub-westend", default-features = false }
+bp-asset-hub-rococo = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives", default-features = false }
+bp-asset-hub-westend = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend/bridge-primitives", default-features = false }
 bp-beefy = { path = "bridges/primitives/beefy", default-features = false }
-bp-bridge-hub-cumulus = { path = "bridges/chains/chain-bridge-hub-cumulus", default-features = false }
-bp-bridge-hub-rococo = { path = "bridges/chains/chain-bridge-hub-rococo", default-features = false }
-bp-bridge-hub-westend = { path = "bridges/chains/chain-bridge-hub-westend", default-features = false }
+bp-bridge-hub-cumulus = { path = "bridges/chains/chain-cumulus", default-features = false }
+bp-bridge-hub-rococo = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/bridge-primitives", default-features = false }
+bp-bridge-hub-westend = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend/bridge-primitives", default-features = false }
 bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "bridges/primitives/parachains", default-features = false }
 bp-polkadot-bulletin = { path = "bridges/chains/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "bridges/primitives/relayers", default-features = false }
-bp-rococo = { path = "bridges/chains/chain-rococo", default-features = false }
+bp-rococo = { path = "polkadot/runtime/rococo/bridge-primitives", default-features = false }
 bp-runtime = { path = "bridges/primitives/runtime", default-features = false }
 bp-test-utils = { path = "bridges/primitives/test-utils", default-features = false }
-bp-westend = { path = "bridges/chains/chain-westend", default-features = false }
+bp-westend = { path = "polkadot/runtime/westend/bridge-primitives", default-features = false }
 bp-xcm-bridge-hub = { path = "bridges/primitives/xcm-bridge-hub", default-features = false }
 bp-xcm-bridge-hub-router = { path = "bridges/primitives/xcm-bridge-hub-router", default-features = false }
 bridge-hub-common = { path = "cumulus/parachains/runtimes/bridge-hubs/common", default-features = false }
@@ -790,7 +789,7 @@ frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/fr
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "substrate/frame/executive", default-features = false }
-frame-metadata = { version = "20.0.0", default-features = false }
+frame-metadata = { version = "21.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false }
 frame-support = { path = "substrate/frame/support", default-features = false }
 frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false }
@@ -845,7 +844,6 @@ is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 isahc = { version = "1.2" }
 itertools = { version = "0.11" }
-jemalloc_pprof = { version = "0.4" }
 jobserver = { version = "0.1.26" }
 jsonpath_lib = { version = "0.3" }
 jsonrpsee = { version = "0.24.3" }
@@ -873,7 +871,7 @@ macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
 memory-db = { version = "0.32.0", default-features = false }
-merkleized-metadata = { version = "0.4.0" }
+merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
 metered = { version = "0.6.1", default-features = false, package = "prioritized-metered-channel" }
@@ -882,7 +880,7 @@ minimal-template-node = { path = "templates/minimal/node" }
 minimal-template-runtime = { path = "templates/minimal/runtime" }
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
-mmr-lib = { version = "0.5.2", package = "ckb-merkle-mountain-range" }
+mmr-lib = { version = "0.8.1", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
 mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false }
 mockall = { version = "0.13.1" }
 multiaddr = { version = "0.18.1" }
@@ -1238,6 +1236,7 @@ sha1 = { version = "0.10.6" }
 sha2 = { version = "0.10.7", default-features = false }
 sha3 = { version = "0.10.0", default-features = false }
 shlex = { version = "1.3.0" }
+simple-mermaid = { version = "0.1.1" }
 slot-range-helper = { path = "polkadot/runtime/common/slot_range_helper", default-features = false }
 slotmap = { version = "1.0" }
 smallvec = { version = "1.11.0", default-features = false }
@@ -1329,6 +1328,7 @@ sp-version-proc-macro = { path = "substrate/primitives/version/proc-macro", defa
 sp-wasm-interface = { path = "substrate/primitives/wasm-interface", default-features = false }
 sp-weights = { path = "substrate/primitives/weights", default-features = false }
 spinners = { version = "4.1.1" }
+sqlx = { version = "0.8.2" }
 ss58-registry = { version = "1.34.0", default-features = false }
 ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
@@ -1370,7 +1370,7 @@ tikv-jemalloc-ctl = { version = "0.5.0" }
 tikv-jemallocator = { version = "0.5.0" }
 time = { version = "0.3" }
 tiny-keccak = { version = "2.0.2" }
-tokio = { version = "1.40.0", default-features = false }
+tokio = { version = "1.43.1", default-features = false }
 tokio-retry = { version = "0.3.0" }
 tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.4" }
