@@ -25,6 +25,11 @@ pub use bp_polkadot_core::{
 	EXTRA_STORAGE_PROOF_SIZE, TX_EXTRA_BYTES,
 };
 
+pub use parachains_common::{
+	AVERAGE_ON_INITIALIZE_RATIO, MAXIMUM_BLOCK_WEIGHT, MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING,
+	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+};
+
 use bp_messages::*;
 use bp_polkadot_core::SuffixedCommonTransactionExtension;
 use bp_runtime::extensions::{
@@ -39,41 +44,14 @@ use frame_support::{
 use frame_system::limits;
 use sp_std::time::Duration;
 
+/// Average block time for Cumulus-based parachains
+pub const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(SLOT_DURATION);
+
 /// Maximal asset hub header size.
 pub const MAX_ASSET_HUB_HEADER_SIZE: u32 = 4_096;
 
 /// Maximal bridge hub header size.
 pub const MAX_BRIDGE_HUB_HEADER_SIZE: u32 = 4_096;
-
-/// Average block interval in Cumulus-based parachains.
-///
-/// Corresponds to the `MILLISECS_PER_BLOCK` from `parachains_common` crate.
-pub const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_secs(12);
-
-/// All cumulus bridge hubs allow normal extrinsics to fill block up to 75 percent.
-///
-/// This is a copy-paste from the cumulus repo's `parachains-common` crate.
-pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-
-/// All cumulus bridge hubs chains allow for 0.5 seconds of compute with a 6-second average block
-/// time.
-///
-/// This is a copy-paste from the cumulus repo's `parachains-common` crate.
-const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(constants::WEIGHT_REF_TIME_PER_SECOND, 0)
-	.saturating_div(2)
-	.set_proof_size(polkadot_primitives::MAX_POV_SIZE as u64);
-
-/// We allow for 2 seconds of compute with a 6 second average block.
-const MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING: Weight = Weight::from_parts(
-	constants::WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
-	polkadot_primitives::MAX_POV_SIZE as u64,
-);
-
-/// All cumulus bridge hubs assume that about 5 percent of the block weight is consumed by
-/// `on_initialize` handlers. This is used to limit the maximal weight of a single extrinsic.
-///
-/// This is a copy-paste from the cumulus repo's `parachains-common` crate.
-pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(5);
 
 parameter_types! {
 	/// Size limit of the Cumulus-based bridge hub blocks.
