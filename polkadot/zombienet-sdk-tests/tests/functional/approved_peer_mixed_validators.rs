@@ -99,8 +99,8 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	// The min throughput for para 15 is going to be lower, but it depends on how the old validators
-	// are distributed into backing groups.
+	// The min throughput for para 2000 is going to be lower, but it depends on how the old
+	// validators are distributed into backing groups.
 	assert_finalized_para_throughput(
 		&relay_client,
 		15,
