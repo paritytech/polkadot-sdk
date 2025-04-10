@@ -379,7 +379,7 @@ impl BlockTests {
 				.unwrap_or(*n as RelayChainBlockNumber);
 			// clear pending updates, as applicable
 			if let Some(upgrade_block) = self.pending_upgrade {
-				if *n >= u64::from(upgrade_block) {
+				if n >= upgrade_block.into() {
 					self.pending_upgrade = None;
 				}
 			}

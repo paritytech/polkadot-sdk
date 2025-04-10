@@ -260,8 +260,7 @@ where
 		_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 		_assignment: &polkadot_node_primitives::approval::v2::AssignmentCertV2,
 		_backing_groups: Vec<polkadot_primitives::GroupIndex>,
-	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment>
-	{
+	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment> {
 		self.1(validator_index)
 	}
 }
@@ -816,7 +815,7 @@ impl ChainBuilder {
 			parent_hash != Self::GENESIS_PARENT_HASH,
 			"cannot add block with genesis parent hash"
 		);
-		assert!(self.blocks_by_hash.len() < usize::from(u8::MAX));
+		assert!(self.blocks_by_hash.len() < u8::MAX.into());
 		self.add_block_inner(hash, parent_hash, number, config)
 	}
 

@@ -246,7 +246,7 @@ impl Backend for DbBackend {
 			})
 			.enumerate()
 			.take_while(|(idx, r)| {
-				r.as_ref().map_or(true, |(at, _)| *at <= up_to && *idx < max_elements)
+				r.as_ref().map_or(true, |(at, _)| *at <= up_to.into() && *idx < max_elements)
 			})
 			.map(|(_, v)| v)
 			.collect::<Result<Vec<_>, _>>()?;

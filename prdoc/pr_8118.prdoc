@@ -1,34 +1,8 @@
-title: Make a subset of conversions explicit and safer
+title: Safer conversions in polkadot-runtime-parachains
 doc:
 - audience: [Node Dev, Runtime Dev]
   description: |-
-    Use From impls or type annotations for a subset of type inference based conversions.
+    Use TryFrom impls instead of `as` operator for conversions.
 crates:
 - name: polkadot-runtime-parachains
   bump: patch 
-- name: pallet-bridge-parachains
-  bump: patch
-- name: polkadot-node-core-chain-selection
-  bump: patch
-- name: polkadot-runtime-common
-  bump: patch
-- name: substrate-wasm-builder
-  bump: patch
-- name: pallet-revive
-  bump: patch
-- name: pallet-society
-  bump: patch
-- name: pallet-staking
-  bump: patch
-- name: sp-npos-elections
-  bump: patch
-- name: pallet-broker
-  bump: patch
-- name: pallet-nomination-pools
-  bump: patch
-- name: polkadot-node-core-approval-voting
-  bump: patch
-- name: polkadot-service
-  bump: patch
-- name: cumulus-pallet-parachain-system
-  bump: patch
