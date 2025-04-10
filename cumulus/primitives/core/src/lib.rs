@@ -21,11 +21,14 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
+pub mod parachain_block_data;
+
+pub use parachain_block_data::ParachainBlockData;
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,
@@ -35,13 +38,11 @@ pub use polkadot_primitives::{
 	vstaging::{ClaimQueueOffset, CoreSelector},
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
-
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,
 	ConsensusEngineId,
 };
-
 pub use xcm::latest::prelude::*;
 
 /// A module that re-exports relevant relay chain definitions.
@@ -198,61 +199,6 @@ pub enum ServiceQuality {
 	Fast,
 }
 
-/// The parachain block that is created by a collator.
-///
-/// This is send as PoV (proof of validity block) to the relay-chain validators. There it will be
-/// passed to the parachain validation Wasm blob to be validated.
-#[derive(codec::Encode, codec::Decode, Clone)]
-pub struct ParachainBlockData<B: BlockT> {
-	/// The header of the parachain block.
-	header: B::Header,
-	/// The extrinsics of the parachain block.
-	extrinsics: alloc::vec::Vec<B::Extrinsic>,
-	/// The data that is required to emulate the storage accesses executed by all extrinsics.
-	storage_proof: sp_trie::CompactProof,
-}
-
-impl<B: BlockT> ParachainBlockData<B> {
-	/// Creates a new instance of `Self`.
-	pub fn new(
-		header: <B as BlockT>::Header,
-		extrinsics: alloc::vec::Vec<<B as BlockT>::Extrinsic>,
-		storage_proof: sp_trie::CompactProof,
-	) -> Self {
-		Self { header, extrinsics, storage_proof }
-	}
-
-	/// Convert `self` into the stored block.
-	pub fn into_block(self) -> B {
-		B::new(self.header, self.extrinsics)
-	}
-
-	/// Convert `self` into the stored header.
-	pub fn into_header(self) -> B::Header {
-		self.header
-	}
-
-	/// Returns the header.
-	pub fn header(&self) -> &B::Header {
-		&self.header
-	}
-
-	/// Returns the extrinsics.
-	pub fn extrinsics(&self) -> &[B::Extrinsic] {
-		&self.extrinsics
-	}
-
-	/// Returns the [`CompactProof`](sp_trie::CompactProof).
-	pub fn storage_proof(&self) -> &sp_trie::CompactProof {
-		&self.storage_proof
-	}
-
-	/// Deconstruct into the inner parts.
-	pub fn deconstruct(self) -> (B::Header, alloc::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
-		(self.header, self.extrinsics, self.storage_proof)
-	}
-}
-
 /// A consensus engine ID indicating that this is a Cumulus Parachain.
 pub const CUMULUS_CONSENSUS_ID: ConsensusEngineId = *b"CMLS";
 
@@ -262,12 +208,39 @@ pub enum CumulusDigestItem {
 	/// A digest item indicating the relay-parent a parachain block was built against.
 	#[codec(index = 0)]
 	RelayParent(relay_chain::Hash),
+	/// A digest item indicating which core to select on the relay chain for this block.
+	#[codec(index = 1)]
+	SelectCore {
+		/// The selector that determines the actual core.
+		selector: CoreSelector,
+		/// The claim queue offset that determines how far "into the future" the core is selected.
+		claim_queue_offset: ClaimQueueOffset,
+	},
 }
 
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
 		DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode())
+	}
+
+	/// Find [`CumulusDigestItem::SelectCore`] in the given `digest`.
+	///
+	/// If there are multiple valid digests, this returns the value of the first one, although
+	/// well-behaving runtimes should not produce headers with more than one.
+	pub fn find_select_core(digest: &Digest) -> Option<(CoreSelector, ClaimQueueOffset)> {
+		digest.convert_first(|d| match d {
+			DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::SelectCore { selector, claim_queue_offset }) =
+					CumulusDigestItem::decode_all(&mut &val[..])
+				else {
+					return None
+				};
+
+				Some((selector, claim_queue_offset))
+			},
+			_ => None,
+		})
 	}
 }
 
@@ -387,7 +360,11 @@ pub struct CollationInfo {
 
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
-	#[api_version(2)]
+	///
+	/// Version history:
+	/// - Version 2: Changed [`Self::collect_collation_info`] signature
+	/// - Version 3: Signals to the node to use version 1 of [`ParachainBlockData`].
+	#[api_version(3)]
 	pub trait CollectCollationInfo {
 		/// Collect information about a collation.
 		#[changed_in(2)]
