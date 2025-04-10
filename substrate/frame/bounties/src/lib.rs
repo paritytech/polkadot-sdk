@@ -1790,7 +1790,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PaymentState::Succeeded => {
 					payments_succeeded += 1;
 				},
-				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
+				_ => { } // return function without error so we could drive the next payment
 			}
 		}
 

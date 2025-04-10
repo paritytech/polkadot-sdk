@@ -1770,7 +1770,7 @@ fn check_and_process_funding_and_payout_payment_works() {
 		// 1x PaymentState::Attempted)
 		assert_noop!(
 			Bounties::check_payment_status(RuntimeOrigin::signed(user), bounty_id),
-			Error::<Test>::UnexpectedStatus
+			Error::<Test>::PayoutInconclusive
 		);
 
 		// When (process BountyStatus::PayoutAttempted)
