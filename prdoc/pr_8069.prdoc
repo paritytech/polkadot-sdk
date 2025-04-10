@@ -4,7 +4,7 @@
 title: Benchmark storage access on block validation
 
 doc:
-  - audience: Node Dev
+  - audience: [Runtime Dev, Node Dev]
     description: |
       Adds checking storage weights on block validation for both read and write benchmarks.
 
