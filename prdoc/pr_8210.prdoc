@@ -2,14 +2,7 @@ title: '[xcm-builder][origin_conversion] LocationAsSuperuser converter introduce
 doc:
 - audience: Runtime Dev
   description: |-
-    Relates to: https://github.com/polkadot-fellows/runtimes/issues/651
-    Already used by: https://github.com/polkadot-fellows/runtimes/pull/626
-
-    # Description
-
-    This PR introduces a `LocationAsSuperuser` struct that implements `ConvertOrigin` to allow specific `Location`s defined through XCM configuration to act as Root on the local chain.
-
-    Implementation is generic over `Location` but was created for purposes of allowing AssetHub system chain (by other system chains and relay chains) to execute Root level extrinsics like `authorize_upgrade` on them.
+    Introduces a `LocationAsSuperuser` struct that implements `ConvertOrigin` to allow specific `Location`s defined through XCM configuration to act as Root on the local chain. Implementation is generic over `Location` but was created for purposes of allowing AssetHub system chain (by other system chains and relay chains) to execute Root level extrinsics like `authorize_upgrade` on them.
 crates:
 - name: staging-xcm-builder
   bump: patch
