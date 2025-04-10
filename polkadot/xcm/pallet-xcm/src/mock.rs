@@ -564,6 +564,7 @@ impl pallet_xcm::Config for Test {
 	type XcmTeleportFilter = EverythingBut<XcmTeleportFiltered>;
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
+	type Trader = <XcmConfig as xcm_executor::Config>::Trader;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;

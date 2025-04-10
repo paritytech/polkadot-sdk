@@ -31,7 +31,7 @@ use xcm::prelude::*;
 use crate::{
 	traits::{
 		DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute, TransactAsset,
-		WeightBounds, WeightTrader,
+		WeightBounds, WeightFee, WeightTrader,
 	},
 	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
@@ -172,36 +172,28 @@ impl WeightToFee {
 
 /// Test weight trader that just buys weight with the native asset (`Here`) and
 /// uses the test `WeightToFee`.
-pub struct TestTrader {
-	weight_bought_so_far: Weight,
-}
+pub struct TestTrader;
 impl WeightTrader for TestTrader {
-	fn new() -> Self {
-		Self { weight_bought_so_far: Weight::zero() }
-	}
-
-	fn buy_weight(
-		&mut self,
-		weight: Weight,
-		payment: AssetsInHolding,
-		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
-		let amount = WeightToFee::weight_to_fee(&weight);
-		let required: Asset = (Here, amount).into();
-		let unused = payment.checked_sub(required).map_err(|_| XcmError::TooExpensive)?;
-		self.weight_bought_so_far.saturating_add(weight);
-		Ok(unused)
-	}
-
-	fn refund_weight(&mut self, weight: Weight, _context: &XcmContext) -> Option<Asset> {
-		let weight = weight.min(self.weight_bought_so_far);
-		let amount = WeightToFee::weight_to_fee(&weight);
-		self.weight_bought_so_far -= weight;
-		if amount > 0 {
-			Some((Here, amount).into())
-		} else {
-			None
+	fn weight_fee(
+		weight: &Weight,
+		asset_id: &AssetId,
+		_context: Option<&XcmContext>,
+	) -> Result<WeightFee, XcmError> {
+		if asset_id.0 != Here.into() {
+			return Err(XcmError::FeesNotMet);
 		}
+
+		let amount = WeightToFee::weight_to_fee(&weight);
+		Ok(WeightFee::Desired(amount))
+	}
+
+	fn take_fee(asset_id: &AssetId, _amount: u128) -> bool {
+		if asset_id.0 != Here.into() {
+			return false;
+		}
+
+		// Just burn the asset
+		true
 	}
 }
 

@@ -27,7 +27,10 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureSigned};
 use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
 use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
-use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm_executor::{
+	traits::{ConvertLocation, WeightFee},
+	XcmExecutor,
+};
 
 pub type TxExtension = (
 	frame_system::CheckNonZeroSender<Test>,
@@ -188,17 +191,16 @@ type Barrier = AllowUnpaidExecutionFrom<Everything>;
 #[derive(Clone)]
 pub struct DummyWeightTrader;
 impl WeightTrader for DummyWeightTrader {
-	fn new() -> Self {
-		DummyWeightTrader
+	fn weight_fee(
+		weight: &Weight,
+		asset_id: &AssetId,
+		context: Option<&XcmContext>,
+	) -> Result<WeightFee, XcmError> {
+		Ok(WeightFee::Desired(0))
 	}
 
-	fn buy_weight(
-		&mut self,
-		_weight: Weight,
-		_payment: xcm_executor::AssetsInHolding,
-		_context: &XcmContext,
-	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
-		Ok(xcm_executor::AssetsInHolding::default())
+	fn take_fee(_asset_id: &AssetId, _amount: u128) -> bool {
+		true
 	}
 }
 

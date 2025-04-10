@@ -389,21 +389,12 @@ impl xcm_executor::Config for XcmConfig {
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type Trader = (
 		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToAuthor<Runtime>>,
-		cumulus_primitives_utility::SwapFirstAssetTrader<
+		cumulus_primitives_utility::SwapAssetTrader<
 			RelayLocation,
-			crate::AssetConversion,
+			Identity,
+			StartsWith<TrustBackedAssetsPalletLocation>,
 			WeightToFee,
-			crate::NativeAndAssets,
-			(
-				TrustBackedAssetsAsLocation<
-					TrustBackedAssetsPalletLocation,
-					Balance,
-					xcm::latest::Location,
-				>,
-				ForeignAssetsConvertedConcreteId,
-			),
-			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
-			AccountId,
+			crate::AssetConversion,
 		>,
 	);
 	type ResponseHandler = PolkadotXcm;
@@ -471,6 +462,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
+	type Trader = <XcmConfig as xcm_executor::Config>::Trader;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;

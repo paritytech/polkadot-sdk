@@ -92,6 +92,18 @@ pub type TrustBackedAssetsAsLocation<
 	TryConvertInto,
 >;
 
+pub type ForeignAssetsFilter<AdditionalLocationExclusionFilter> = EverythingBut<(
+	// Excludes relay/parent chain currency
+	Equals<ParentLocation>,
+	// Here we rely on fact that something like this works:
+	// assert!(Location::new(1,
+	// [Parachain(100)]).starts_with(&Location::parent()));
+	// assert!([Parachain(100)].into().starts_with(&Here));
+	StartsWith<LocalLocationPattern>,
+	// Here we can exclude more stuff or leave it as `()`
+	AdditionalLocationExclusionFilter,
+)>;
+
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
 /// `Location`.
 ///
@@ -109,17 +121,7 @@ pub type ForeignAssetsConvertedConcreteId<
 > = MatchedConvertedConcreteId<
 	AssetId,
 	Balance,
-	EverythingBut<(
-		// Excludes relay/parent chain currency
-		Equals<ParentLocation>,
-		// Here we rely on fact that something like this works:
-		// assert!(Location::new(1,
-		// [Parachain(100)]).starts_with(&Location::parent()));
-		// assert!([Parachain(100)].into().starts_with(&Here));
-		StartsWith<LocalLocationPattern>,
-		// Here we can exclude more stuff or leave it as `()`
-		AdditionalLocationExclusionFilter,
-	)>,
+	ForeignAssetsFilter<AdditionalLocationExclusionFilter>,
 	LocationToAssetIdConverter,
 	BalanceConverter,
 >;

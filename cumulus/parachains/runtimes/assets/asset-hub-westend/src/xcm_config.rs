@@ -22,7 +22,7 @@ use super::{
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
-	TrustBackedAssetsAsLocation,
+	ForeignAssetsFilter, TrustBackedAssetsAsLocation,
 };
 use frame_support::{
 	parameter_types,
@@ -44,7 +44,7 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
-use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
+use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
 use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -158,18 +158,22 @@ pub type UniquesTransactor = NonFungiblesAdapter<
 	CheckingAccount,
 >;
 
+pub type ExcludeFromForeignAssets = (
+	// Ignore `TrustBackedAssets` explicitly
+	StartsWith<TrustBackedAssetsPalletLocation>,
+	// Ignore asset which starts explicitly with our `GlobalConsensus(NetworkId)`, means:
+	// - foreign assets from our consensus should be: `Location {parents: 1, X*(Parachain(xyz),
+	//   ..)}
+	// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` wont be
+	//   accepted here
+	StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
+);
+
+pub type ForeignAssetsOnlyFilter = ForeignAssetsFilter<ExcludeFromForeignAssets>;
+
 /// `AssetId`/`Balance` converter for `ForeignAssets`.
 pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConvertedConcreteId<
-	(
-		// Ignore `TrustBackedAssets` explicitly
-		StartsWith<TrustBackedAssetsPalletLocation>,
-		// Ignore asset which starts explicitly with our `GlobalConsensus(NetworkId)`, means:
-		// - foreign assets from our consensus should be: `Location {parents: 1, X*(Parachain(xyz),
-		//   ..)}
-		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` wont
-		//   be accepted here
-		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
-	),
+	ExcludeFromForeignAssets,
 	Balance,
 	xcm::v5::Location,
 >;
@@ -410,29 +414,21 @@ impl xcm_executor::Config for XcmConfig {
 			Balances,
 			ResolveTo<StakingPot, Balances>,
 		>,
-		cumulus_primitives_utility::SwapFirstAssetTrader<
+		cumulus_primitives_utility::SwapAssetTrader<
 			WestendLocation,
-			crate::AssetConversion,
+			Identity,
+			(StartsWith<TrustBackedAssetsPalletLocation>, ForeignAssetsOnlyFilter),
 			WeightToFee,
-			crate::NativeAndNonPoolAssets,
-			(
-				TrustBackedAssetsAsLocation<
-					TrustBackedAssetsPalletLocation,
-					Balance,
-					xcm::v5::Location,
-				>,
-				ForeignAssetsConvertedConcreteId,
-			),
-			ResolveAssetTo<StakingPot, crate::NativeAndNonPoolAssets>,
-			AccountId,
+			crate::AssetConversion,
 		>,
 		// This trader allows to pay with `is_sufficient=true` "Trust Backed" assets from dedicated
 		// `pallet_assets` instance - `Assets`.
-		cumulus_primitives_utility::TakeFirstAssetTrader<
+		cumulus_primitives_utility::ConcreteAssetTrader<
 			AccountId,
-			AssetFeeAsExistentialDepositMultiplierFeeCharger,
-			TrustBackedAssetsConvertedConcreteId,
+			assets_common::AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+			StartsWith<TrustBackedAssetsPalletLocation>,
 			Assets,
+			AssetFeeAsExistentialDepositMultiplierFeeCharger,
 			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
 				FungiblesTransactor,
 				AccountId,
@@ -441,11 +437,14 @@ impl xcm_executor::Config for XcmConfig {
 		>,
 		// This trader allows to pay with `is_sufficient=true` "Foreign" assets from dedicated
 		// `pallet_assets` instance - `ForeignAssets`.
-		cumulus_primitives_utility::TakeFirstAssetTrader<
+		cumulus_primitives_utility::ConcreteAssetTrader<
 			AccountId,
-			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
-			ForeignAssetsConvertedConcreteId,
+			WithLatestLocationConverter<
+				<Runtime as pallet_assets::Config<ForeignAssetsInstance>>::AssetId,
+			>,
+			ForeignAssetsOnlyFilter,
 			ForeignAssets,
+			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
 			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
 				ForeignFungiblesTransactor,
 				AccountId,
@@ -533,6 +532,7 @@ impl pallet_xcm::Config for Runtime {
 		RuntimeCall,
 		MaxInstructions,
 	>;
+	type Trader = <XcmConfig as xcm_executor::Config>::Trader;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;

@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::AssetsInHolding;
 use core::result::Result;
 use xcm::latest::{prelude::*, Weight};
 
@@ -29,98 +28,160 @@ pub trait WeightBounds<RuntimeCall> {
 	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, ()>;
 }
 
-/// Charge for weight in order to execute XCM.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WeightFee {
+	Desired(u128),
+	Swap { required_fee: (AssetId, u128), swap_amount: u128 },
+}
+
+// FIXME docs
+/// Get the weight price in order to buy it to execute XCM.
 ///
 /// A `WeightTrader` may also be put into a tuple, in which case the default behavior of
-/// `buy_weight` and `refund_weight` would be to attempt to call each tuple element's own
+/// `weight_price` would be to attempt to call each tuple element's own
 /// implementation of these two functions, in the order of which they appear in the tuple,
 /// returning early when a successful result is returned.
-pub trait WeightTrader: Sized {
-	/// Create a new trader instance.
-	fn new() -> Self;
+pub trait WeightTrader {
+	fn weight_fee(
+		weight: &Weight,
+		desired_asset_id: &AssetId,
+		context: Option<&XcmContext>,
+	) -> Result<WeightFee, XcmError>;
 
-	/// Purchase execution weight credit in return for up to a given `payment`. If less of the
-	/// payment is required then the surplus is returned. If the `payment` cannot be used to pay
-	/// for the `weight`, then an error is returned.
-	fn buy_weight(
-		&mut self,
-		weight: Weight,
-		payment: AssetsInHolding,
-		context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError>;
-
-	/// Attempt a refund of `weight` into some asset. The caller does not guarantee that the weight
-	/// was purchased using `buy_weight`.
-	///
-	/// Default implementation refunds nothing.
-	fn refund_weight(&mut self, _weight: Weight, _context: &XcmContext) -> Option<Asset> {
-		None
+	fn refund_amount(
+		weight: &Weight,
+		used_asset_id: &AssetId,
+		_paid_amount: u128,
+		context: Option<&XcmContext>,
+	) -> Option<u128> {
+		Self::weight_fee(weight, used_asset_id, context)
+			.ok()
+			.map(|wf| if let WeightFee::Desired(amount) = wf { Some(amount) } else { None })
+			.flatten()
 	}
+
+	fn take_fee(asset_id: &AssetId, amount: u128) -> bool;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl WeightTrader for Tuple {
-	fn new() -> Self {
-		for_tuples!( ( #( Tuple::new() ),* ) )
-	}
-
-	fn buy_weight(
-		&mut self,
-		weight: Weight,
-		payment: AssetsInHolding,
-		context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
-		let mut too_expensive_error_found = false;
-		let mut last_error = None;
+	fn weight_fee(
+		weight: &Weight,
+		desired_asset_id: &AssetId,
+		context: Option<&XcmContext>,
+	) -> Result<WeightFee, XcmError> {
 		for_tuples!( #(
 			let weight_trader = core::any::type_name::<Tuple>();
 
-			match Tuple.buy_weight(weight, payment.clone(), context) {
-				Ok(assets) => {
+			match Tuple::weight_fee(weight, desired_asset_id, context) {
+				Ok(fee) => {
 					tracing::trace!(
-						target: "xcm::buy_weight", 
+						target: "xcm::weight_trader", 
 						%weight_trader,
-						"Buy weight succeeded",
+						"Getting weight price succeeded",
 					);
 
-					return Ok(assets)
-				},
+					return Ok(fee);
+				}
 				Err(error) => {
-					if let XcmError::TooExpensive = error {
-						too_expensive_error_found = true;
-					}
-					last_error = Some(error);
-
 					tracing::trace!(
-						target: "xcm::buy_weight", 
+						target: "xcm::weight_trader", 
 						?error,
 						%weight_trader,
-						"Weight trader failed",
+						"Getting weight price failed",
 					);
 				}
 			}
 		)* );
 
 		tracing::trace!(
-			target: "xcm::buy_weight",
-			"Buy weight failed",
+			target: "xcm::weight_trader",
+			"Getting weight price failed",
 		);
 
-		// if we have multiple traders, and first one returns `TooExpensive` and others fail e.g.
-		// `AssetNotFound` then it is more accurate to return `TooExpensive` then `AssetNotFound`
-		Err(if too_expensive_error_found {
-			XcmError::TooExpensive
-		} else {
-			last_error.unwrap_or(XcmError::TooExpensive)
-		})
+		Err(XcmError::TooExpensive)
 	}
 
-	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
+	fn refund_amount(
+		weight: &Weight,
+		used_asset_id: &AssetId,
+		paid_amount: u128,
+		context: Option<&XcmContext>,
+	) -> Option<u128> {
 		for_tuples!( #(
-			if let Some(asset) = Tuple.refund_weight(weight, context) {
-				return Some(asset);
+			let weight_trader = core::any::type_name::<Tuple>();
+
+			match Tuple::refund_amount(weight, used_asset_id, paid_amount, context) {
+				Some(refund_amount) => {
+					tracing::trace!(
+						target: "xcm::weight_trader", 
+						%weight_trader,
+						"Getting refund amount succeeded",
+					);
+
+					return Some(refund_amount);
+				},
+				None => {
+					tracing::trace!(
+						target: "xcm::weight_trader", 
+						%weight_trader,
+						"Getting refund amount failed"
+					);
+				}
 			}
 		)* );
+
+		tracing::trace!(
+			target: "xcm::weight_trader",
+			"Getting refund amount failed",
+		);
+
 		None
+	}
+
+	fn take_fee(asset_id: &AssetId, amount: u128) -> bool {
+		for_tuples!( #(
+			let weight_trader = core::any::type_name::<Tuple>();
+
+			if Tuple::take_fee(asset_id, amount) {
+				tracing::trace!(
+					target: "xcm::weight_trader", 
+					%weight_trader,
+					"Asset is taken",
+				);
+				return true;
+			} else {
+				tracing::trace!(
+					target: "xcm::weight_trader", 
+					%weight_trader,
+					"Asset is skipped",
+				);
+			}
+		)* );
+
+		tracing::trace!(
+			target: "xcm::weight_trader",
+			"All assets are skipped",
+		);
+
+		false
+	}
+}
+
+// FIXME docs
+/// Must not be used in production
+pub mod testing {
+	use super::*;
+
+	pub trait TraderTest {
+		fn test_buy_weight(
+			&mut self,
+			weight: Weight,
+			max_payment: Asset,
+		) -> Result<(AssetId, u128), XcmError>;
+
+		fn test_refund_weight(&mut self, weight: Weight) -> Option<(AssetId, u128)>;
+
+		fn test_take_fee(self);
 	}
 }

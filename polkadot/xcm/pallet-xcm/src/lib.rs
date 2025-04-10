@@ -64,7 +64,7 @@ use xcm_executor::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
 		DropAssets, EventEmitter, FeeManager, FeeReason, MatchesFungible, OnResponse, Properties,
 		QueryHandler, QueryResponseStatus, RecordXcm, TransactAsset, TransferType,
-		VersionChangeNotifier, WeightBounds, XcmAssetTransfers,
+		VersionChangeNotifier, WeightBounds, WeightFee, WeightTrader, XcmAssetTransfers,
 	},
 	AssetsInHolding,
 };
@@ -280,6 +280,8 @@ pub mod pallet {
 
 		/// Means of measuring the weight consumed by an XCM message locally.
 		type Weigher: WeightBounds<<Self as Config>::RuntimeCall>;
+
+		type Trader: WeightTrader;
 
 		/// This chain's Universal Location.
 		type UniversalLocation: Get<InteriorLocation>;
@@ -2951,6 +2953,21 @@ impl<T: Config> Pallet<T> {
 			tracing::error!(target: "xcm::pallet_xcm::query_xcm_weight", ?message, "Error when querying XCM weight");
 			XcmPaymentApiError::WeightNotComputable
 		})
+	}
+
+	pub fn query_weight_to_asset_fee(
+		weight: Weight,
+		asset_id: VersionedAssetId,
+	) -> Result<u128, XcmPaymentApiError> {
+		let asset_id: AssetId =
+			asset_id.try_into().map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
+
+		let weight_fee = T::Trader::weight_fee(&weight, &asset_id, None)
+			.map_err(|_| XcmPaymentApiError::AssetNotFound)?;
+		match weight_fee {
+			WeightFee::Desired(amount) => Ok(amount),
+			WeightFee::Swap { swap_amount, .. } => Ok(swap_amount),
+		}
 	}
 
 	/// Given a `destination` and XCM `message`, return assets to be charged as XCM delivery fees.
