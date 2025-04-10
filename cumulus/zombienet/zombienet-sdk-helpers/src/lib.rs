@@ -87,7 +87,7 @@ pub async fn assert_finalized_para_throughput(
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
 	// Wait for the first session, block production on the parachain will start after that.
-	wait_for_first_session_change(&mut blocks_sub).await?;
+	// wait_for_first_session_change(&mut blocks_sub).await?;
 
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
