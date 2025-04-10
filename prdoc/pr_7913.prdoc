@@ -1,6 +1,6 @@
 title: 'Fix assert_expected_events macro'
 doc:
-- audience: Node Dev
+- audience: Runtime Dev
   description: 'This PR fixes the assert_expected_events macro used in integration tests. Before this PR, the macro did not correctly assert field values. This change might result in tests failing that previously passed, due to false negatives.'
 crates:
 - name: xcm-emulator
