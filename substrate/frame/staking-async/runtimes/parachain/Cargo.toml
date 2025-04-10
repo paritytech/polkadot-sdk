@@ -8,10 +8,6 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 
-# helps with debugging omni-bencher
-[profile.release]
-# debug = true
-
 [lints]
 workspace = true
 

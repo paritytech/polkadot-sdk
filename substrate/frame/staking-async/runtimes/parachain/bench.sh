@@ -36,16 +36,16 @@ case "$1" in
 esac
 
 if [ "$2" != "no-compile" ]; then
-    VALIDATOR_COUNT=${VALIDATOR_COUNT} VALIDATORS=${VALIDATORS} NOMINATORS=${NOMINATORS} RUST_LOG=${LOG} cargo build -p pallet-staking-async-parachain-runtime --features runtime-benchmarks
+    WASMTIME_BACKTRACE_DETAILS=1 VALIDATOR_COUNT=${VALIDATOR_COUNT} VALIDATORS=${VALIDATORS} NOMINATORS=${NOMINATORS} RUST_LOG=${LOG} WASM_BUILD_TYPE=debug cargo build --release -p pallet-staking-async-parachain-runtime --features runtime-benchmarks
 else
       echo "Skipping compilation because 'no-compile' argument was provided."
 fi
 
-RUST_LOG=${LOG}  \
+WASMTIME_BACKTRACE_DETAILS=1 RUST_LOG=${LOG}  \
   frame-omni-bencher v1 benchmark pallet \
   --pallet pallet-election-provider-multi-block \
   --extrinsic "export_terminal" \
-  --runtime ../../../../../target/debug/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.wasm \
+  --runtime ../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.compressed.wasm \
   --steps $STEPS \
   --repeat $REPEAT \
   --genesis-builder-policy=none \
