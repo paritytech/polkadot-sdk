@@ -15,6 +15,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
+				// Not strictly necessary for the test, but to keep it consistent
+				// with the parachain part we also pass `--no-mdns` to the relaychain.
 				.with_default_args(vec!["-lparachain=debug".into(), "--no-mdns".into()])
 				// Have to set a `with_node` outside of the loop below, so that `r` has the right
 				// type.
@@ -69,7 +71,7 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 	let genesis_block = blocks_sub.next().await.expect("to receive genesis block")?;
 	assert_eq!(genesis_block.number(), 0);
 
-	// Prodicung the first block is a good indicator the colators have connected to each other.
+	// Producing the first block is a good indicator the colators have connected to each other.
 	let first_block = blocks_sub.next().await.expect("to receive first block")?;
 	assert_eq!(first_block.number(), 1);
 
