@@ -783,10 +783,8 @@ pub mod pallet {
 			// - `InstantAllowed` is `true` and `origin` is `InstantOrigin`.
 			let maybe_ensure_instant = if voting_period < T::FastTrackVotingPeriod::get() {
 				Some(origin)
-			} else if let Err(origin) = T::FastTrackOrigin::try_origin(origin) {
-				Some(origin)
 			} else {
-				None
+				T::FastTrackOrigin::try_origin(origin).err()
 			};
 			if let Some(ensure_instant) = maybe_ensure_instant {
 				T::InstantOrigin::ensure_origin(ensure_instant)?;
