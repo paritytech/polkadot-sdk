@@ -162,7 +162,7 @@ to the release branch
 6. Trigger [Release - Promote RC to final candidate on S3](/.github/workflows/release-31_promote-rc-to-final.yml)
 to have it as a final rc on the S3
 7. Publish deb package for the `polkadot` binary using
-[Release - Publish polkadot deb package](/.github/workflows/release-40_publish-deb-package.yml)
+[Release - Publish Polkadot deb package](/.github/workflows/release-40_publish-deb-package.yml)
 8. Adjust the release draft and publish release on the GitHub.
 9. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
 
