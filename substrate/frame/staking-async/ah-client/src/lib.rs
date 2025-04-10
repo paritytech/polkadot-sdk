@@ -30,7 +30,7 @@
 //! All incoming messages are handled via [`Call`]. They are all gated to be dispatched only by
 //! [`Config::AssetHubOrigin`]. The only one is:
 //!
-//! * [`Call::new_validator_set`]: A new validator set for a planning session index.
+//! * [`Call::validator_set`]: A new validator set for a planning session index.
 //!
 //! ## Outgoing Messages
 //!
