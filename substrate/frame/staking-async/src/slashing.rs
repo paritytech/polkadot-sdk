@@ -329,7 +329,7 @@ fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T:
 
 /// Infallible function to process an offence.
 pub(crate) fn process_offence<T: Config>() -> Weight {
-	// todo(ank4n): this needs to be properly benched.
+	// todo: this needs to be properly benched.
 	let mut consumed_weight = Weight::from_parts(0, 0);
 	let mut add_db_reads_writes = |reads, writes| {
 		consumed_weight += T::DbWeight::get().reads_writes(reads, writes);

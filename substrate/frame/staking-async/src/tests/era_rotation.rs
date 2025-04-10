@@ -1,3 +1,5 @@
+use crate::session_rotation::Eras;
+
 use super::*;
 
 #[test]
@@ -176,6 +178,36 @@ fn activation_timestamp_when_era_planning_not_complete() {
 #[should_panic]
 fn max_era_duration_safety_guard() {
 	todo!("a safety guard that ensures that there is an upper bound on how long an era duration can be. Should prevent us from parabolic inflation in case of some crazy bug.");
+}
+
+#[test]
+fn era_cleanup_history_depth_works() {
+	// TODO: try-state for it
+	ExtBuilder::default().build_and_execute(|| {
+		// when we go forward to `HistoryDepth - 1`
+		assert_eq!(active_era(), 1);
+
+		Session::roll_until_active_era(HistoryDepth::get() - 1);
+		assert!(Eras::<T>::era_present(1));
+
+		assert!(matches!(
+			&staking_events_since_last_call()[..],
+			&[
+				..,
+				Event::SessionRotated { starting_session: 236, active_era: 78, planned_era: 79 },
+				Event::EraPaid { era_index: 78, validator_payout: 7500, remainder: 7500 },
+				Event::SessionRotated { starting_session: 237, active_era: 79, planned_era: 79 }
+			]
+		));
+
+		Session::roll_until_active_era(HistoryDepth::get());
+		assert!(Eras::<T>::era_present(1));
+
+		// then first era info should have been deleted
+		Session::roll_until_active_era(HistoryDepth::get() + 1);
+		assert!(!Eras::<T>::era_present(1));
+
+	});
 }
 
 mod inflation {

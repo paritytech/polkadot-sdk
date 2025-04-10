@@ -293,7 +293,6 @@ fn reward_destination_staked() {
 				stash: 11,
 				total: 1000,
 				active: 1000,
-				legacy_claimed_rewards: Default::default(),
 				unlocking: Default::default(),
 			}
 		);
@@ -321,7 +320,6 @@ fn reward_destination_staked() {
 				stash: 11,
 				total: 8500,
 				active: 8500,
-				legacy_claimed_rewards: Default::default(),
 				unlocking: Default::default(),
 			}
 		);
@@ -359,7 +357,6 @@ fn reward_to_stake_works() {
 					total: 69,
 					active: 69,
 					unlocking: Default::default(),
-					legacy_claimed_rewards: bounded_vec![],
 				},
 			);
 
@@ -406,7 +403,6 @@ fn reward_destination_stash() {
 				stash: 11,
 				total: 1000,
 				active: 1000,
-				legacy_claimed_rewards: Default::default(),
 				unlocking: Default::default(),
 			}
 		);
@@ -435,7 +431,6 @@ fn reward_destination_stash() {
 				stash: 11,
 				total: 1000,
 				active: 1000,
-				legacy_claimed_rewards: Default::default(),
 				unlocking: Default::default(),
 			}
 		);
@@ -456,7 +451,6 @@ fn reward_destination_account() {
 				stash: 11,
 				total: 1000,
 				active: 1000,
-				legacy_claimed_rewards: Default::default(),
 				unlocking: Default::default(),
 			}
 		);
@@ -485,7 +479,6 @@ fn reward_destination_account() {
 				stash: 11,
 				total: 1000,
 				active: 1000,
-				legacy_claimed_rewards: Default::default(),
 				unlocking: Default::default(),
 			}
 		);
@@ -950,17 +943,6 @@ fn test_multi_page_payout_stakers_by_page() {
 			assert!(asset::stakeable_balance::<Test>(&(1000 + i)) > balance + i as Balance);
 		}
 
-		// verify we no longer track rewards in `legacy_claimed_rewards` vec
-		assert_eq!(
-			Staking::ledger(11.into()).unwrap(),
-			StakingLedgerInspect {
-				stash: 11,
-				total: 1000,
-				active: 1000,
-				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![]
-			}
-		);
 
 		// verify rewards are tracked to prevent double claims
 		for page in 0..Eras::<Test>::exposure_page_count(2, &11) {
@@ -1143,18 +1125,6 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		for i in 0..100 {
 			assert!(asset::stakeable_balance::<Test>(&(1000 + i)) > balance + i as Balance);
 		}
-
-		// verify we no longer track rewards in `legacy_claimed_rewards` vec
-		assert_eq!(
-			Staking::ledger(11.into()).unwrap(),
-			StakingLedgerInspect {
-				stash: 11,
-				total: 1000,
-				active: 1000,
-				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![]
-			}
-		);
 
 		// verify rewards are tracked to prevent double claims
 		for page in 0..Eras::<Test>::exposure_page_count(2, &11) {
@@ -1638,50 +1608,6 @@ fn payout_stakers_handles_weight_refund() {
 	});
 }
 
-#[test]
-fn bond_during_era_does_not_populate_legacy_claimed_rewards() {
-	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
-		bond_validator(9, 1000);
-		assert_eq!(
-			Staking::ledger(9.into()).unwrap(),
-			StakingLedgerInspect {
-				stash: 9,
-				total: 1000,
-				active: 1000,
-				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![],
-			}
-		);
-		Session::roll_until_active_era(5);
-
-		bond_validator(11, 1000);
-		assert_eq!(
-			Staking::ledger(11.into()).unwrap(),
-			StakingLedgerInspect {
-				stash: 11,
-				total: 1000,
-				active: 1000,
-				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![],
-			}
-		);
-
-		let current_era = 99;
-		Session::roll_until_active_era(current_era);
-
-		bond_validator(13, 1000);
-		assert_eq!(
-			Staking::ledger(13.into()).unwrap(),
-			StakingLedgerInspect {
-				stash: 13,
-				total: 1000,
-				active: 1000,
-				unlocking: Default::default(),
-				legacy_claimed_rewards: Default::default(),
-			}
-		);
-	});
-}
 
 #[test]
 fn test_runtime_api_pending_rewards() {
@@ -1754,40 +1680,4 @@ fn test_runtime_api_pending_rewards() {
 		// and payout works again for validator two.
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
 	});
-}
-
-#[test]
-fn should_retain_payout_era_info_only_upto_history_depth() {
-	todo!("below test seems really wrong")
-	// ExtBuilder::default().build_and_execute(|| {
-	// 	// remove existing exposure
-	// 	Pallet::<Test>::clear_era_information(0);
-	// 	let validator_stash = 10;
-
-	// 	for era in 0..4 {
-	// 		ErasClaimedRewards::<Test>::insert(era, &validator_stash, vec![0, 1, 2]);
-	// 		for page in 0..3 {
-	// 			ErasStakersPaged::<Test>::insert(
-	// 				(era, &validator_stash, page),
-	// 				ExposurePage { page_total: 100, others: vec![] },
-	// 			);
-	// 		}
-	// 	}
-
-	// 	for i in 0..4 {
-	// 		// Count of entries remaining in ErasClaimedRewards = total - cleared_count
-	// 		assert_eq!(ErasClaimedRewards::<Test>::iter().count(), (4 - i));
-	// 		// 1 claimed_rewards entry for each era
-	// 		assert_eq!(ErasClaimedRewards::<Test>::iter_prefix(i as EraIndex).count(), 1);
-	// 		// 3 entries (pages) for each era
-	// 		assert_eq!(ErasStakersPaged::<Test>::iter_prefix((i as EraIndex,)).count(), 3);
-
-	// 		// when clear era info
-	// 		Pallet::<Test>::clear_era_information(i as EraIndex);
-
-	// 		// then all era entries are cleared
-	// 		assert_eq!(ErasClaimedRewards::<Test>::iter_prefix(i as EraIndex).count(), 0);
-	// 		assert_eq!(ErasStakersPaged::<Test>::iter_prefix((i as EraIndex,)).count(), 0);
-	// 	}
-	// });
 }

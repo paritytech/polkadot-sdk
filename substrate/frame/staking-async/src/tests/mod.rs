@@ -97,7 +97,6 @@ fn basic_setup_session_queuing_should_work() {
 				total: 1500,
 				active: 1500,
 				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![],
 			}
 		);
 
@@ -126,7 +125,6 @@ fn basic_setup_works() {
 				total: 1000,
 				active: 1000,
 				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![],
 			}
 		);
 		// Account 21 controls its own stash, which is 200 * balance_factor units
@@ -137,7 +135,6 @@ fn basic_setup_works() {
 				total: 1000,
 				active: 1000,
 				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![],
 			}
 		);
 		// Account 1 does not control any stash
@@ -161,7 +158,6 @@ fn basic_setup_works() {
 				total: 500,
 				active: 500,
 				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![],
 			}
 		);
 		assert_eq!(Nominators::<Test>::get(101).unwrap().targets, vec![11, 21]);
@@ -452,7 +448,6 @@ mod staking_interface {
 						total: 1000,
 						active: 1000,
 						unlocking: Default::default(),
-						legacy_claimed_rewards: bounded_vec![],
 					}
 				);
 				assert_eq!(
@@ -470,7 +465,6 @@ mod staking_interface {
 						total: 1000,
 						active: 0,
 						unlocking: bounded_vec![UnlockChunk { value: 1000, era: 4 }],
-						legacy_claimed_rewards: bounded_vec![],
 					},
 				);
 
@@ -550,7 +544,6 @@ mod staking_unchecked {
 					total: 1100,
 					active: 1100 - 200,
 					unlocking: bounded_vec![UnlockChunk { value: 200, era: 1 + 3 }],
-					legacy_claimed_rewards: bounded_vec![],
 				}
 			);
 
@@ -1122,7 +1115,6 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 				total: stake,
 				active: stake,
 				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![1],
 			},
 		);
 		// Set staker (unsafe, can reduce balance below actual stake)

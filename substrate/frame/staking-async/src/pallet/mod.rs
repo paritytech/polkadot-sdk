@@ -166,12 +166,6 @@ pub mod pallet {
 		///
 		/// If migrating an existing pallet from storage value to config value,
 		/// this should be set to same value or greater as in storage.
-		///
-		/// Note: `HistoryDepth` is used as the upper bound for the `BoundedVec`
-		/// item `StakingLedger.legacy_claimed_rewards`. Setting this value lower than
-		/// the existing value can lead to inconsistencies in the
-		/// `StakingLedger` and will need to be handled properly in a migration.
-		/// The test `reducing_history_depth_abrupt` shows this effect.
 		#[pallet::constant]
 		type HistoryDepth: Get<u32>;
 
@@ -231,10 +225,6 @@ pub mod pallet {
 		/// Supported actions: (1) cancel deferred slash, (2) set minimum commission.
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// Interface for interacting with a session pallet.
-		/// TODO: this is not needed anymore -- there is no session pallet for us to talk to.
-		// type SessionInterface: SessionInterface<Self::AccountId>;
 
 		/// The payout for validators and the system for the current era.
 		/// See [Era payout](./index.html#era-payout).
@@ -935,7 +925,6 @@ pub mod pallet {
 		}
 	}
 
-	// TODO: remove unused.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -962,8 +951,6 @@ pub mod pallet {
 		OldSlashingReportDiscarded {
 			session_index: SessionIndex,
 		},
-		/// A new set of stakers was elected.
-		StakersElected,
 		/// An account has bonded this amount. \[stash, amount\]
 		///
 		/// NOTE: This event is only emitted when funds are bonded via a dispatchable. Notably,
@@ -993,8 +980,6 @@ pub mod pallet {
 			nominator: T::AccountId,
 			stash: T::AccountId,
 		},
-		/// The election failed. No new era is planned.
-		StakingElectionFailed,
 		/// An account has stopped participating as either a validator or nominator.
 		Chilled {
 			stash: T::AccountId,
@@ -2404,7 +2389,7 @@ pub mod pallet {
 		///   call fails with `EraNotStarted`.
 		/// - The fee is waived if the slash is successfully applied.
 		///
-		/// ## TODO: Future Improvement
+		/// ## Future Improvement
 		/// - Implement an **off-chain worker (OCW) task** to automatically apply slashes when there
 		///   is unused block space, improving efficiency.
 		#[pallet::call_index(31)]

@@ -111,10 +111,11 @@ fn get_ledger_bad_state_fails() {
 #[test]
 fn bond_works() {
 	ExtBuilder::default().build_and_execute(|| {
+		asset::set_stakeable_balance::<T>(&42, 1000);
 		assert!(!StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
 		assert!(<Bonded<Test>>::get(&42).is_none());
 
-		let mut ledger: StakingLedger<Test> = StakingLedger::default_from(42);
+		let mut ledger: StakingLedger<Test> = StakingLedger::new(42, 84);
 		let reward_dest = RewardDestination::Account(10);
 
 		assert_ok!(ledger.clone().bond(reward_dest));
@@ -125,8 +126,9 @@ fn bond_works() {
 		// cannot bond again.
 		assert!(ledger.clone().bond(reward_dest).is_err());
 
-		// once bonded, update works as expected.
-		ledger.legacy_claimed_rewards = bounded_vec![1];
+		// once bonded, unbonding (or any other update) works as expected.
+		ledger.unlocking = bounded_vec![UnlockChunk { era: 42, value: 42 }];
+		ledger.active -= 42;
 		assert_ok!(ledger.update());
 	})
 }

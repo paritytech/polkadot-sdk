@@ -142,7 +142,7 @@ fn offence_ensures_new_era_without_clobbering() {
 }
 
 #[test]
-fn offence_chills_validator() {
+fn add_slash_works() {
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		assert_eq_uvec!(session_validators(), vec![11, 21]);
 
@@ -162,8 +162,8 @@ fn offence_chills_validator() {
 			]
 		);
 
+		// no one is chilled, FYI
 		assert!(Validators::<T>::contains_key(11));
-		todo!("is the above correct??")
 	});
 }
 
@@ -781,7 +781,6 @@ fn staker_cannot_bail_deferred_slash() {
 					active: 0,
 					total: 500,
 					stash: 101,
-					legacy_claimed_rewards: bounded_vec![],
 					unlocking: bounded_vec![UnlockChunk { era: 4u32, value: 500 }],
 				}
 			);

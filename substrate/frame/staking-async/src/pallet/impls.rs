@@ -275,15 +275,14 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::InvalidPage.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		);
 
-		// Note: if era has no reward to be claimed, era may be future. better not to update
-		// `ledger.legacy_claimed_rewards` in this case.
+		// Note: if era has no reward to be claimed, era may be future.
 		let era_payout = Eras::<T>::get_validators_reward(era).ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
 
 		let account = StakingAccount::Stash(validator_stash.clone());
-		let mut ledger = Self::ledger(account.clone()).or_else(|_| {
+		let ledger = Self::ledger(account.clone()).or_else(|_| {
 			if StakingLedger::<T>::is_bonded(account) {
 				Err(Error::<T>::NotController.into())
 			} else {
@@ -291,10 +290,6 @@ impl<T: Config> Pallet<T> {
 			}
 		})?;
 
-		// clean up older claimed rewards
-		ledger
-			.legacy_claimed_rewards
-			.retain(|&x| x >= current_era.saturating_sub(history_depth));
 		ledger.clone().update()?;
 
 		let stash = ledger.stash.clone();
@@ -1190,16 +1185,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 				offence_era,
 			});
 
-			// TODO(ank4n): handled in ah_client. Verify it works correctly before removing the
-			// commented out code. if offence_era == active_era.index {
-			// 	// offence is in the current active era. Report it to session to maybe disable the
-			// 	// validator.
-			// 	add_db_reads_writes(2, 2);
-			// 	T::SessionInterface::report_offence(
-			// 		validator.clone(),
-			// 		OffenceSeverity(slash_fraction),
-			// 	);
-			// }
 			add_db_reads_writes(1, 0);
 			let prior_slash_fraction = ValidatorSlashInEra::<T>::get(offence_era, &validator)
 				.map_or(Zero::zero(), |(f, _)| f);
@@ -1960,16 +1945,4 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
-
-	/* todo(ank4n): move to session try runtime
-	// Sorted by index
-	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
-		ensure!(
-			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0].0 <= pair[1].0),
-			"DisabledValidators is not sorted"
-		);
-		Ok(())
-	}
-
-	 */
 }

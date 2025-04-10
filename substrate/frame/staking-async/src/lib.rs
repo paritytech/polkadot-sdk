@@ -269,14 +269,6 @@ pub struct StakingLedger<T: Config> {
 	/// in, first out queue where the new (higher value) eras get pushed on the back.
 	pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
 
-	/// List of eras for which the stakers behind a validator have claimed rewards. Only updated
-	/// for validators.
-	///
-	/// This is deprecated as of V14 in favor of `T::ErasClaimedRewards` and will be removed in
-	/// future. Refer to issue <https://github.com/paritytech/polkadot-sdk/issues/433>
-	/// TODO: remove this
-	pub legacy_claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
-
 	/// The controller associated with this ledger's stash.
 	///
 	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
@@ -326,7 +318,6 @@ impl<T: Config> StakingLedger<T> {
 			total,
 			active: self.active,
 			unlocking,
-			legacy_claimed_rewards: self.legacy_claimed_rewards,
 			controller: self.controller,
 		}
 	}

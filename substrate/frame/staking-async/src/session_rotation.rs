@@ -106,6 +106,34 @@ use sp_staking::{
 pub struct Eras<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Eras<T> {
+	#[cfg(test)]
+	pub(crate) fn era_present(active_era: EraIndex) -> bool {
+		// check double maps are not empty
+		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(active_era).count() != 0;
+		// assert!(ErasClaimedRewards::<T>::iter_prefix_values(active_era).count() != 0);
+		let e1 = ErasStakersPaged::<T>::iter_prefix_values((active_era,)).count() != 0;
+		let e2 = ErasStakersOverview::<T>::iter_prefix_values(active_era).count() != 0;
+
+		// check maps are not empty
+		let e3 = ErasValidatorReward::<T>::contains_key(active_era);
+		// assert!(ErasRewardPoints::<T>::contains_key(active_era));
+		let e4 = ErasTotalStake::<T>::contains_key(active_era);
+		let e5 = ErasStartSessionIndex::<T>::contains_key(active_era);
+
+		assert!(
+			!(e0 ^ e1 ^ e2 ^ e3 ^ e4 ^ e5),
+			"era info not consistent for era {}, {}, {}, {}, {}, {}, {}",
+			active_era,
+			e0,
+			e1,
+			e2,
+			e3,
+			e4,
+			e5
+		);
+
+		e0
+	}
 	pub(crate) fn prune_era(era: EraIndex) {
 		// TODO: lazy deletion -- after an era is marked is delete-able, all of the info associated
 		// with it can be removed.
