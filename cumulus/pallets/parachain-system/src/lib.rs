@@ -486,6 +486,9 @@ pub mod pallet {
 			// like for example from scheduler, we only kill the storage entry if it was not yet
 			// updated in the current block.
 			if !<DidSetValidationCode<T>>::get() {
+				// NOTE: Killing here is required to at least include the trie nodes down to the key
+				// in the proof. Because this value will be read in `validate_block` and thus,
+				// needs to be reachable by the proof.
 				NewValidationCode::<T>::kill();
 				weight += T::DbWeight::get().writes(1);
 			}
@@ -508,10 +511,25 @@ pub mod pallet {
 
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			ProcessedDownwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpWatermark::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			UpwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpOutboundMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			CustomValidationHeadData::<T>::kill();
 
 			weight += T::DbWeight::get().writes(6);

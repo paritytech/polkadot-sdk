@@ -38,17 +38,10 @@ use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, ExtrinsicLike, HashingFor, Header as HeaderT};
 use sp_state_machine::OverlayedChanges;
-use sp_trie::{MemoryDB, ProofSizeProvider};
+use sp_trie::ProofSizeProvider;
 use trie_recorder::SizeOnlyRecorderProvider;
 
-type TrieBackend<B> = sp_state_machine::TrieBackend<
-	MemoryDB<HashingFor<B>>,
-	HashingFor<B>,
-	trie_cache::CacheProvider<HashingFor<B>>,
-	SizeOnlyRecorderProvider<HashingFor<B>>,
->;
-
-type Ext<'a, B> = sp_state_machine::Ext<'a, HashingFor<B>, TrieBackend<B>>;
+type Ext<'a, Block, Backend> = sp_state_machine::Ext<'a, HashingFor<Block>, Backend>;
 
 fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 	sp_externalities::with_externalities(f).expect("Environmental externalities not set.")
@@ -178,9 +171,6 @@ where
 
 	core::mem::drop(proof);
 
-	// We use the same recorder across all blocks. Each node only contributed once to the total size
-	// of the storage proof.
-	let mut recorder = SizeOnlyRecorderProvider::new();
 	let cache_provider = trie_cache::CacheProvider::new();
 	// We use the storage root of the `parent_head` to ensure that it is the correct root.
 	// This is already being done above while creating the in-memory db, but let's be paranoid!!
@@ -189,14 +179,23 @@ where
 		*parent_header.state_root(),
 		cache_provider,
 	)
-	.with_recorder(recorder.clone())
 	.build();
+
+	// We use the same recorder when executing all blocks. So, each node only contributes once to
+	// the total size of the storage proof. This recorder should only be used for `execute_block`.
+	let mut execute_recorder = SizeOnlyRecorderProvider::default();
+	// `backend` with the `execute_recorder`. As the `execute_recorder`, this should only be used
+	// for `execute_block`.
+	let execute_backend = sp_state_machine::TrieBackendBuilder::wrap(&backend)
+		.with_recorder(execute_recorder.clone())
+		.build();
 
 	// We let all blocks contribute to the same overlay. Data written by a previous block will be
 	// directly accessible without going to the db.
 	let mut overlay = OverlayedChanges::default();
 
 	for (block_index, block) in blocks.into_iter().enumerate() {
+		parent_header = block.header().clone();
 		let inherent_data = extract_parachain_inherent_data(&block);
 
 		validate_validation_data(
@@ -206,9 +205,10 @@ where
 			&parachain_head,
 		);
 
+		// We don't need the recorder or the overlay in here.
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
-			&mut recorder,
+			&mut Default::default(),
 			&mut Default::default(),
 			|| {
 				let relay_chain_proof = crate::RelayChainStateProof::new(
@@ -234,14 +234,25 @@ where
 		);
 
 		run_with_externalities_and_recorder::<B, _, _>(
-			&backend,
-			&mut recorder,
+			&execute_backend,
+			// Here is the only place where we want to use the recorder.
+			// We want to ensure that we not accidentally read something from the proof, that was
+			// not yet read and thus, alter the proof size. Otherwise we end up with mismatches in
+			// later blocks.
+			&mut execute_recorder,
 			&mut overlay,
 			|| {
-				parent_header = block.header().clone();
-
 				E::execute_block(block);
+			},
+		);
 
+		run_with_externalities_and_recorder::<B, _, _>(
+			&backend,
+			&mut Default::default(),
+			// We are only reading here, but need to know what the old block has written. Thus, we
+			// are passing here the overlay.
+			&mut overlay,
+			|| {
 				new_validation_code =
 					new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
 
@@ -298,9 +309,8 @@ where
 				UMPSignal::SelectCore(selector, offset) => match &selected_core {
 					Some(selected_core) if *selected_core != (selector, offset) => {
 						panic!(
-							"All `SelectCore` signals need to select the same core {:?} vs {:?}",
-							selected_core,
-							(selector, offset)
+							"All `SelectCore` signals need to select the same core: {selected_core:?} vs {:?}",
+							(selector, offset),
 						)
 					},
 					Some(_) => {},
@@ -369,13 +379,13 @@ fn validate_validation_data(
 }
 
 /// Run the given closure with the externalities and recorder set.
-fn run_with_externalities_and_recorder<B: BlockT, R, F: FnOnce() -> R>(
-	backend: &TrieBackend<B>,
-	recorder: &mut SizeOnlyRecorderProvider<HashingFor<B>>,
-	overlay: &mut OverlayedChanges<HashingFor<B>>,
+fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
+	backend: &impl sp_state_machine::Backend<HashingFor<Block>>,
+	recorder: &mut SizeOnlyRecorderProvider<HashingFor<Block>>,
+	overlay: &mut OverlayedChanges<HashingFor<Block>>,
 	execute: F,
 ) -> R {
-	let mut ext = Ext::<B>::new(overlay, backend);
+	let mut ext = Ext::<Block, _>::new(overlay, backend);
 
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }

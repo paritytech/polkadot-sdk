@@ -96,9 +96,8 @@ pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
 	recorded_keys: Rc<RefCell<BTreeMap<Rc<[u8]>, RecordedForKey>>>,
 }
 
-impl<H: Hasher> SizeOnlyRecorderProvider<H> {
-	/// Create a new instance of [`SizeOnlyRecorderProvider`]
-	pub fn new() -> Self {
+impl<H: Hasher> Default for SizeOnlyRecorderProvider<H> {
+	fn default() -> Self {
 		Self {
 			seen_nodes: Default::default(),
 			encoded_size: Default::default(),
@@ -197,7 +196,7 @@ mod tests {
 		for _ in 1..10 {
 			let reference_recorder = Recorder::default();
 			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
-				SizeOnlyRecorderProvider::new();
+				SizeOnlyRecorderProvider::default();
 			let reference_cache: SharedTrieCache<sp_core::Blake2Hasher> =
 				SharedTrieCache::new(CacheSize::new(1024 * 5));
 			let cache_for_test: SharedTrieCache<sp_core::Blake2Hasher> =
@@ -252,7 +251,7 @@ mod tests {
 		for _ in 1..10 {
 			let reference_recorder = Recorder::default();
 			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
-				SizeOnlyRecorderProvider::new();
+				SizeOnlyRecorderProvider::default();
 			{
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
 				let reference_trie =

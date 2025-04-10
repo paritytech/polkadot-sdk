@@ -11,6 +11,10 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[[bench]]
+name = "prepare_rococo_runtime"
+harness = false
+
 [dependencies]
 blake3 = { workspace = true }
 cfg-if = { workspace = true }
@@ -32,6 +36,11 @@ sp-maybe-compressed-blob = { workspace = true, default-features = true }
 tikv-jemallocator = { workspace = true }
 tikv-jemalloc-ctl = { workspace = true }
 
+[dev-dependencies]
+criterion = { features = ["cargo_bench_support"], workspace = true }
+rococo-runtime = { workspace = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+
 [features]
 builder = []
 jemalloc-allocator = [
@@ -39,12 +48,3 @@ jemalloc-allocator = [
 	"dep:tikv-jemallocator",
 	"polkadot-node-core-pvf-common/jemalloc-allocator",
 ]
-
-[dev-dependencies]
-criterion = { features = ["cargo_bench_support"], workspace = true }
-rococo-runtime = { workspace = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
-
-[[bench]]
-name = "prepare_rococo_runtime"
-harness = false
