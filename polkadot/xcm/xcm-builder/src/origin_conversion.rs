@@ -337,7 +337,7 @@ impl<RuntimeOrigin: Clone, EnsureBodyOrigin: EnsureOrigin<RuntimeOrigin>, Body: 
 ///
 /// This is typically used when configuring `pallet-xcm` to allow a remote `Location`
 /// to act as the `Root` origin on the local chain.
-pub struct LocationAsSuperuser<SuperuserLocation, RuntimeOrigin>(
+pub struct LocationAsSuperuser<WhitelistedSuperuserLocations, RuntimeOrigin>(
 	PhantomData<(SuperuserLocation, RuntimeOrigin)>,
 );
 impl<SuperuserLocation: Contains<Location>, RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
