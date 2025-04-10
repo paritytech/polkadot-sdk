@@ -583,7 +583,7 @@ mod test {
 		}
 		.into();
 
-		let dummy_signed_payload = tx.dummy_signed_payload();
+		let dummy_signed_payload = tx.clone().dummy_signed_payload();
 		let payload = Account::default().sign_transaction(tx).signed_payload();
 		assert_eq!(dummy_signed_payload.len(), payload.len());
 	}
