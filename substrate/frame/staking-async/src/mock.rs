@@ -22,6 +22,7 @@ use crate::{
 	session_rotation::{Eras, Rotator},
 	*,
 };
+
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, BoundedSupports, BoundedSupportsOf, ElectionProvider, PageIndex, SequentialPhragmen,
@@ -38,7 +39,9 @@ use sp_core::ConstBool;
 use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage};
-use sp_staking::{currency_to_vote::SaturatingCurrencyToVote, OnStakingUpdate, SessionIndex};
+use sp_staking::{
+	currency_to_vote::SaturatingCurrencyToVote, OnStakingUpdate, SessionIndex, StakingAccount,
+};
 
 pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
 pub(crate) const BLOCK_TIME: u64 = 1000;

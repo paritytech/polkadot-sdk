@@ -32,7 +32,7 @@ use mock::*;
 use sp_runtime::{
 	assert_eq_error_rate, bounded_vec, traits::BadOrigin, Perbill, Percent, TokenError,
 };
-use sp_staking::{Stake, StakingInterface};
+use sp_staking::{Stake, StakingAccount, StakingInterface};
 use substrate_test_utils::assert_eq_uvec;
 
 mod bonding;
