@@ -19,3 +19,5 @@ crates:
   bump: major
 - name: polkadot-runtime-parachains
   bump: patch
+- name: cumulus-pallet-parachain-system
+  bump: patch
