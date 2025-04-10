@@ -347,10 +347,10 @@ impl<WhitelistedSuperuserLocations: Contains<Location>, RuntimeOrigin: OriginTra
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		tracing::trace!(
+		log::trace!(
 			target: "xcm::origin_conversion",
-			?origin, ?kind,
-			"LocationAsSuperuser",
+			"LocationAsSuperuser origin: {:?}, kind: {:?}",
+			origin, kind,
 		);
 		match (kind, &origin) {
 			(OriginKind::Superuser, loc) if WhitelistedSuperuserLocations::contains(loc) =>
