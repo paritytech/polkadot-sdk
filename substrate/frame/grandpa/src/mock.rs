@@ -110,8 +110,8 @@ impl pallet_session::Config for Test {
 
 impl pallet_session::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = pallet_staking::Existence;
-	type FullIdentificationOf = pallet_staking::ExistenceOf<Test>;
+	type FullIdentification = pallet_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
+	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Test>;
 }
 
 impl pallet_authorship::Config for Test {

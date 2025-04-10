@@ -504,8 +504,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	// TODO - AHM: should eventually become AssetHubStakingClient
-	type EventHandler = Staking;
+	type EventHandler = AssetHubStakingClient;
 }
 
 parameter_types! {
@@ -530,8 +529,7 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	// TODO - AHM: should eventually become AssetHubStakingClient
-	type SessionManager = session_historical::NoteHistoricalRoot<Self, Staking>;
+	type SessionManager = session_historical::NoteHistoricalRoot<Self, AssetHubStakingClient>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
@@ -959,8 +957,7 @@ impl pallet_treasury::Config for Runtime {
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = session_historical::IdentificationTuple<Self>;
-	// TODO - AHM: should eventually become AssetHubStakingClient
-	type OnOffenceHandler = Staking;
+	type OnOffenceHandler = AssetHubStakingClient;
 }
 
 impl pallet_authority_discovery::Config for Runtime {
@@ -1366,9 +1363,8 @@ impl parachains_session_info::Config for Runtime {
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
-	// TODO - AHM: should eventually become AssetHubStakingClient
 	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, Staking>;
+		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
@@ -1541,9 +1537,8 @@ impl assigned_slots::Config for Runtime {
 
 impl parachains_disputes::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// TODO - AHM: should eventually become AssetHubStakingClient
 	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, Staking>;
+		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
 	type SlashingHandler = parachains_slashing::SlashValidatorsForDisputes<ParasSlashing>;
 	type WeightInfo = weights::polkadot_runtime_parachains_disputes::WeightInfo<Runtime>;
 }

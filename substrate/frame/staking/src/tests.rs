@@ -4302,7 +4302,7 @@ fn offences_weight_calculated_correctly() {
 			>,
 		> = (1..10)
 			.map(|i| OffenceDetails {
-				offender: (i, ()),
+				offender: (i, ExistenceOrLegacyExposure::Exists),
 				reporters: vec![],
 			})
 			.collect();

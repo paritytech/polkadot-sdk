@@ -51,7 +51,7 @@ use sp_staking::{
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Existence, ExistenceOrLegacyExposure, Exposure, Forcing,
+	BalanceOf, EraInfo, EraPayout, ExistenceOrLegacyExposure, Exposure, Forcing,
 	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger,
 	ValidatorPrefs, STAKING_ID,
@@ -1598,23 +1598,6 @@ impl<T: Config>
 				validators.into_iter().map(|v| (v, ExistenceOrLegacyExposure::Exists)).collect()
 			},
 		)
-	}
-	fn start_session(start_index: SessionIndex) {
-		<Self as pallet_session::SessionManager<_>>::start_session(start_index)
-	}
-	fn end_session(end_index: SessionIndex) {
-		<Self as pallet_session::SessionManager<_>>::end_session(end_index)
-	}
-}
-
-impl<T: Config> historical::SessionManager<T::AccountId, Existence> for Pallet<T> {
-	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, Existence)>> {
-		<Self as pallet_session::SessionManager<_>>::new_session(new_index)
-			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
-	}
-	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<(T::AccountId, Existence)>> {
-		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index)
-			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
 	}
 	fn start_session(start_index: SessionIndex) {
 		<Self as pallet_session::SessionManager<_>>::start_session(start_index)
