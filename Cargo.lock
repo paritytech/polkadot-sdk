@@ -885,6 +885,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f840fb7195bcfc5e17ea40c26e5ce6d5b9ce5d584466e17703209657e459ae0"
 
 [[package]]
+name = "array-bytes"
+version = "9.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4449507daf4f07a8c8309e122d32a53d15c9f33e77eaf01c839fea42ccd4d673"
+dependencies = [
+ "smallvec",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1793,7 +1802,7 @@ checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 name = "binary-merkle-tree"
 version = "13.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "hash-db",
  "log",
  "parity-scale-codec",
@@ -2149,6 +2158,7 @@ dependencies = [
  "bp-runtime",
  "frame-support",
  "frame-system",
+ "parachains-common",
  "polkadot-primitives",
  "sp-api 26.0.0",
  "sp-std 14.0.0",
@@ -4714,6 +4724,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
  "staging-xcm",
+ "tracing",
 ]
 
 [[package]]
@@ -4834,7 +4845,7 @@ dependencies = [
 name = "cumulus-relay-chain-minimal-node"
 version = "0.7.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-trait",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
@@ -6430,7 +6441,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 name = "frame-benchmarking"
 version = "28.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-support",
  "frame-support-procedural",
  "frame-system",
@@ -6460,7 +6471,7 @@ name = "frame-benchmarking-cli"
 version = "32.0.0"
 dependencies = [
  "Inflector",
- "array-bytes",
+ "array-bytes 6.2.2",
  "chrono",
  "clap",
  "comfy-table",
@@ -6609,7 +6620,7 @@ name = "frame-executive"
 version = "28.0.0"
 dependencies = [
  "aquamarine",
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-support",
  "frame-system",
  "frame-try-runtime",
@@ -6664,9 +6675,9 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "20.0.0"
+version = "21.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26de808fa6461f2485dc51811aefed108850064994fb4a62b3ac21ffa62ac8df"
+checksum = "20dfd1d7eae1d94e32e869e2fb272d81f52dd8db57820a373adb83ea24d7d862"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -6678,10 +6689,10 @@ dependencies = [
 name = "frame-metadata-hash-extension"
 version = "0.1.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "const-hex",
  "docify",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "frame-support",
  "frame-system",
  "log",
@@ -6742,12 +6753,12 @@ version = "28.0.0"
 dependencies = [
  "Inflector",
  "aquamarine",
- "array-bytes",
+ "array-bytes 6.2.2",
  "binary-merkle-tree",
  "bitflags 1.3.2",
  "docify",
  "environmental",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "frame-support-procedural",
  "frame-system",
  "impl-trait-for-tuples",
@@ -6835,7 +6846,7 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "frame-support",
  "frame-support-test-pallet",
  "frame-system",
@@ -8771,7 +8782,7 @@ checksum = "c33070833c9ee02266356de0c43f723152bd38bd96ddf52c82b3af10c9138b28"
 name = "kitchensink-runtime"
 version = "3.0.0-dev"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "log",
  "node-primitives",
  "pallet-example-mbm",
@@ -9924,15 +9935,15 @@ dependencies = [
 
 [[package]]
 name = "merkleized-metadata"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc9b7ac0ce054412d9a85ff39bac27aec27483b06cef8756b57d9c29d448d081"
+checksum = "b3e3e3f549d27d2dc054372f320ddf68045a833fab490563ff70d4cf1b9d91ea"
 dependencies = [
- "array-bytes",
+ "array-bytes 9.1.2",
  "blake3",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "parity-scale-codec",
- "scale-decode 0.13.1",
+ "scale-decode 0.16.0",
  "scale-info",
 ]
 
@@ -10458,7 +10469,7 @@ checksum = "43794a0ace135be66a25d3ae77d41b91615fb68ae937f904090203e81f755b65"
 name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-trait",
  "clap",
  "derive_more 0.99.17",
@@ -10979,7 +10990,7 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 name = "pallet-alliance"
 version = "27.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11329,7 +11340,7 @@ dependencies = [
 name = "pallet-beefy-mmr"
 version = "28.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "binary-merkle-tree",
  "frame-benchmarking",
  "frame-support",
@@ -11581,7 +11592,7 @@ dependencies = [
 name = "pallet-contracts"
 version = "27.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "environmental",
  "frame-benchmarking",
@@ -12005,7 +12016,7 @@ dependencies = [
 name = "pallet-example-view-functions"
 version = "1.0.0"
 dependencies = [
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "frame-support",
  "frame-system",
  "log",
@@ -12658,7 +12669,7 @@ name = "pallet-revive"
 version = "0.1.0"
 dependencies = [
  "alloy-core",
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "derive_more 0.99.17",
  "environmental",
@@ -12872,7 +12883,7 @@ dependencies = [
 name = "pallet-sassafras"
 version = "0.3.5-dev"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -13197,7 +13208,7 @@ dependencies = [
 name = "pallet-transaction-storage"
 version = "27.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -14823,7 +14834,7 @@ name = "polkadot-node-core-pvf"
 version = "7.0.0"
 dependencies = [
  "always-assert",
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "criterion",
  "futures",
@@ -18672,7 +18683,7 @@ dependencies = [
 name = "sc-chain-spec"
 version = "28.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "clap",
  "docify",
  "memmap2 0.9.3",
@@ -18713,7 +18724,7 @@ dependencies = [
 name = "sc-cli"
 version = "0.36.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "chrono",
  "clap",
  "fdlimit",
@@ -18783,7 +18794,7 @@ dependencies = [
 name = "sc-client-db"
 version = "0.35.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "criterion",
  "hash-db",
  "kitchensink-runtime",
@@ -18944,7 +18955,7 @@ dependencies = [
 name = "sc-consensus-beefy"
 version = "13.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
  "futures",
@@ -19017,7 +19028,7 @@ name = "sc-consensus-grandpa"
 version = "0.19.0"
 dependencies = [
  "ahash 0.8.11",
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "async-trait",
  "dyn-clone",
@@ -19174,7 +19185,7 @@ dependencies = [
 name = "sc-executor"
 version = "0.32.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "criterion",
  "num_cpus",
@@ -19340,7 +19351,7 @@ dependencies = [
 name = "sc-keystore"
 version = "25.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "parking_lot 0.12.3",
  "serde_json",
  "sp-application-crypto 30.0.0",
@@ -19354,7 +19365,7 @@ dependencies = [
 name = "sc-mixnet"
 version = "0.4.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "arrayvec 0.7.4",
  "blake2 0.10.6",
  "bytes",
@@ -19381,7 +19392,7 @@ dependencies = [
 name = "sc-network"
 version = "0.34.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "async-channel 1.9.0",
  "async-trait",
@@ -19473,7 +19484,7 @@ dependencies = [
 name = "sc-network-light"
 version = "0.33.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "futures",
  "log",
@@ -19493,7 +19504,7 @@ dependencies = [
 name = "sc-network-statement"
 version = "0.16.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "futures",
  "log",
@@ -19512,7 +19523,7 @@ dependencies = [
 name = "sc-network-sync"
 version = "0.33.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
  "fork-tree",
@@ -19583,7 +19594,7 @@ dependencies = [
 name = "sc-network-transactions"
 version = "0.33.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "futures",
  "log",
  "parity-scale-codec",
@@ -19749,7 +19760,7 @@ dependencies = [
 name = "sc-rpc-spec-v2"
 version = "0.34.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "async-trait",
  "futures",
@@ -19889,7 +19900,7 @@ dependencies = [
 name = "sc-service-test"
 version = "2.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "fdlimit",
  "futures",
@@ -20152,19 +20163,6 @@ dependencies = [
  "scale-info",
  "scale-type-resolver",
  "serde",
-]
-
-[[package]]
-name = "scale-decode"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e98f3262c250d90e700bb802eb704e1f841e03331c2eb815e46516c4edbf5b27"
-dependencies = [
- "derive_more 0.99.17",
- "parity-scale-codec",
- "scale-bits 0.6.0",
- "scale-type-resolver",
- "smallvec",
 ]
 
 [[package]]
@@ -21343,7 +21341,7 @@ dependencies = [
 name = "snowbridge-merkle-tree"
 version = "0.2.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "hex",
  "hex-literal",
  "parity-scale-codec",
@@ -22176,7 +22174,7 @@ dependencies = [
 name = "sp-consensus-beefy"
 version = "13.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -22248,7 +22246,7 @@ name = "sp-core"
 version = "28.0.0"
 dependencies = [
  "ark-vrf",
- "array-bytes",
+ "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
@@ -22298,7 +22296,7 @@ version = "32.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb2dac7e47c7ddbb61efe196d5cce99f6ea88926c961fa39909bfeae46fc5a7b"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
@@ -22345,7 +22343,7 @@ version = "33.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3368e32f6fda6e20b8af51f94308d033ab70a021e87f6abbd3fed5aca942b745"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
@@ -22392,7 +22390,7 @@ version = "35.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4532774405a712a366a98080cbb4daa28c38ddff0ec595902ad6ee6a78a809f8"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
  "bounded-collections",
@@ -22750,7 +22748,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -22780,7 +22778,7 @@ dependencies = [
 name = "sp-mmr-primitives"
 version = "26.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "log",
  "parity-scale-codec",
  "polkadot-ckb-merkle-mountain-range",
@@ -23096,7 +23094,7 @@ name = "sp-state-machine"
 version = "0.35.0"
 dependencies = [
  "arbitrary",
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_matches",
  "hash-db",
  "log",
@@ -23299,7 +23297,7 @@ name = "sp-trie"
 version = "29.0.0"
 dependencies = [
  "ahash 0.8.11",
- "array-bytes",
+ "array-bytes 6.2.2",
  "criterion",
  "hash-db",
  "memory-db",
@@ -23781,7 +23779,7 @@ dependencies = [
 name = "staging-node-cli"
 version = "3.0.0-dev"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "assert_cmd",
  "clap",
  "clap_complete",
@@ -23851,7 +23849,7 @@ version = "2.0.0"
 name = "staging-xcm"
 version = "7.0.1"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "bounded-collections",
  "derive-where",
  "environmental",
@@ -24267,7 +24265,7 @@ dependencies = [
 name = "substrate-test-client"
 version = "2.0.1"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "async-trait",
  "futures",
  "parity-scale-codec",
@@ -24291,7 +24289,7 @@ dependencies = [
 name = "substrate-test-runtime"
 version = "2.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "frame-executive",
  "frame-metadata-hash-extension",
  "frame-support",
@@ -24413,12 +24411,12 @@ dependencies = [
 name = "substrate-wasm-builder"
 version = "17.0.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "build-helper",
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 20.0.0",
+ "frame-metadata 21.0.0",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
@@ -25464,9 +25462,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.40.0"
+version = "1.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2b070231665d27ad9ec9b8df639893f46727666c6767db40317fbe920a5d998"
+checksum = "e6b88822cbe49de4185e3a4cbf8321dd487cf5fe0c5c65695fef6346371e9c48"
 dependencies = [
  "backtrace",
  "bytes",
@@ -25492,9 +25490,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "2.4.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "693d596312e88961bc67d7f1f97af8a70227d9f90c31bba5806eec004978d752"
+checksum = "6e06d43f1345a3bcd39f6a56dbb7dcab2ba47e68e8ac134855e7e2bdbaf8cab8"
 dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.38",
@@ -26512,7 +26510,7 @@ name = "wasm-loader"
 version = "0.21.3"
 source = "git+https://github.com/chevdor/subwasm?rev=v0.21.3#aa8acb6fdfb34144ac51ab95618a9b37fa251295"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "log",
  "multibase 0.9.1",
  "multihash 0.19.1",
@@ -27603,7 +27601,7 @@ dependencies = [
 name = "xcm-emulator"
 version = "0.5.0"
 dependencies = [
- "array-bytes",
+ "array-bytes 6.2.2",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",

@@ -147,13 +147,7 @@ impl Decodable for TransactionLegacyUnsigned {
 			},
 			value: rlp.val_at(4)?,
 			input: Bytes(rlp.val_at(5)?),
-			chain_id: {
-				if let Ok(chain_id) = rlp.val_at(6) {
-					Some(chain_id)
-				} else {
-					None
-				}
-			},
+			chain_id: rlp.val_at(6).ok(),
 			..Default::default()
 		})
 	}
