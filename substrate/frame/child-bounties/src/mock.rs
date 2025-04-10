@@ -58,7 +58,7 @@ impl Pay for TestBountiesPay {
 	type Error = ();
 
 	fn pay(
-		from: &Self::Beneficiary,
+		_: &Self::Beneficiary,
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
@@ -104,7 +104,7 @@ impl Pay for TestTreasuryPay {
 	) -> Result<Self::Id, Self::Error> {
 		Ok(0)
 	}
-	fn check_payment(id: Self::Id) -> PaymentStatus {
+	fn check_payment(_: Self::Id) -> PaymentStatus {
 		PaymentStatus::InProgress
 	}
 	#[cfg(feature = "runtime-benchmarks")]
@@ -205,7 +205,7 @@ impl pallet_bounties::Config for Test {
 }
 
 parameter_types! {
-	pub static MaxActiveChildBountyCount: u32 = 2;
+	pub static MaxActiveChildBountyCount: u32 = 3;
 }
 impl pallet_child_bounties::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -282,22 +282,13 @@ impl ExtBuilder {
 	}
 }
 
-pub fn last_event() -> ChildBountiesEvent<Test> {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| if let RuntimeEvent::ChildBounties(inner) = e { Some(inner) } else { None })
-		.last()
-		.unwrap()
-}
-
 /// paid balance for a given account and asset ids
 pub fn paid(who: AccountId, asset_id: u32) -> u64 {
 	PAID.with(|p| p.borrow().get(&(who, asset_id)).cloned().unwrap_or(0))
 }
 
 /// reduce paid balance for a given account and asset ids
-fn unpay(who: AccountId, asset_id: u32, amount: u64) {
+pub fn unpay(who: AccountId, asset_id: u32, amount: u64) {
 	PAID.with(|p| p.borrow_mut().entry((who, asset_id)).or_default().saturating_reduce(amount))
 }
 
@@ -316,6 +307,36 @@ pub fn approve_last_child_bounty_payment() {
 pub fn reject_last_child_bounty_payment() {
 	let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
 	STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Failure));
+}
+
+pub fn last_event() -> ChildBountiesEvent<Test> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::ChildBounties(inner) = e { Some(inner) } else { None })
+		.last()
+		.unwrap()
+}
+
+pub fn last_events(n: usize) -> Vec<ChildBountiesEvent<Test>> {
+	let mut res = System::events()
+		.into_iter()
+		.rev()
+		.filter_map(|e| {
+			if let RuntimeEvent::ChildBounties(inner) = e.event {
+				Some(inner)
+			} else {
+				None
+			}
+		})
+		.take(n)
+		.collect::<Vec<_>>();
+	res.reverse();
+	res
+}
+
+pub fn expect_events(e: Vec<ChildBountiesEvent<Test>>) {
+	assert_eq!(last_events(e.len()), e);
 }
 
 pub fn get_bounty_payment_id(i: BountyIndex, to: Option<AccountId>) -> Option<u64> {
