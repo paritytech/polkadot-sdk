@@ -107,7 +107,11 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, MultiSignature, MultiSigner, Percent, Permill,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{SessionIndex, EraIndex};
+use pallet_staking::UseValidatorsMap;
+use pallet_staking_async_ah_client as ah_client;
+use pallet_staking_async_rc_client as rc_client;
+
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -125,7 +129,6 @@ use xcm_runtime_apis::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
-use pallet_staking::UseValidatorsMap;
 pub use pallet_timestamp::Call as TimestampCall;
 use sp_runtime::traits::Get;
 #[cfg(any(feature = "std", test))]
@@ -538,8 +541,8 @@ impl pallet_session::Config for Runtime {
 
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = pallet_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Runtime>;
+	type FullIdentification = ah_client::ExistenceOrLegacyExposure<AccountId, Balance>;
+	type FullIdentificationOf = ah_client::ExistenceOrLegacyExposureOf<Runtime>;
 }
 
 pub struct MaybeSignedPhase;
@@ -728,9 +731,9 @@ parameter_types! {
 	// Six sessions in an era (6 hours).
 	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
 	// 2 eras for unbonding (12 hours).
-	pub const BondingDuration: sp_staking::EraIndex = 2;
+	pub const BondingDuration: EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
-	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
+	pub const SlashDeferDuration: EraIndex = 1;
 	pub const MaxExposurePageSize: u32 = 64;
 	// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
 	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
@@ -775,10 +778,6 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type Filter = Nothing;
 }
-
-use pallet_staking_async_ah_client as ah_client;
-use pallet_staking_async_rc_client as rc_client;
-
 #[derive(Encode, Decode)]
 enum AssetHubRuntimePallets<AccountId> {
 	// TODO - AHM: check index
