@@ -279,7 +279,7 @@ fn bidding_works() {
 		assert_eq!(Pot::<Test>::get(), 1_800);
 		assert_eq!(Balances::free_balance(Society::account_id()), 8_800);
 		// No more candidates satisfy the requirements
-		assert_eq!(candidacies(), Vec::<(u128, Candidacy<u128, u64>)>::new());
+		assert_eq!(candidacies(), vec![]);
 		assert_ok!(Society::defender_vote(Origin::signed(10), true)); // Keep defender around
 															  // Next period
 		System::run_to_block::<AllPalletsWithSystem>(16);

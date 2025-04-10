@@ -510,7 +510,7 @@ where
 			.flat_map(|(_, subrange)| {
 				subrange
 					.iter()
-					.filter(|(nonce, _)| range.contains(*nonce))
+					.filter(|(nonce, _)| range.contains(nonce))
 					.map(|(_, details)| details.dispatch_weight)
 			})
 			.fold(Weight::zero(), |total, weight| total.saturating_add(weight))
