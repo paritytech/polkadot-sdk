@@ -206,12 +206,12 @@ where
 
 #[cfg(test)]
 mod tests {
-	use crate::{delta_trie_root, recorder::IgnoredNodes, HashDB, StorageProof};
-
 	use super::*;
+	use crate::{delta_trie_root, recorder::IgnoredNodes, HashDB, StorageProof};
 	use codec::Encode;
 	use hash_db::AsHashDB;
 	use sp_core::{Blake2Hasher, H256};
+	use std::collections::HashSet;
 	use trie_db::{DBValue, Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut};
 
 	type MemoryDB = crate::MemoryDB<sp_core::Blake2Hasher>;
@@ -380,11 +380,15 @@ mod tests {
 			nodes_to_ignore,
 		);
 
-		let proof = StorageProof::merge([
-			recorder.to_storage_proof(),
-			recorder2.to_storage_proof(),
-			recorder3.to_storage_proof(),
-		]);
+		let proof = recorder.to_storage_proof();
+		let proof2 = recorder2.to_storage_proof();
+		let proof3 = recorder3.to_storage_proof();
+
+		let mut combined = HashSet::<Vec<u8>>::from_iter(proof.into_iter_nodes());
+		proof2.iter_nodes().for_each(|n| assert!(combined.insert(n.clone())));
+		proof3.iter_nodes().for_each(|n| assert!(combined.insert(n.clone())));
+
+		let proof = StorageProof::new(combined.into_iter());
 
 		let compact_proof = encode_compact::<Layout, _>(&proof.to_memory_db(), &root).unwrap();
 
