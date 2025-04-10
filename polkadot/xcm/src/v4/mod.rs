@@ -56,8 +56,6 @@ pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Reanchorable, Result,
 	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
-// These parts of XCM v3 are unchanged in XCM v4, and are re-imported here.
-pub use super::v3::{MaxDispatchErrorLen, MaybeErrorCode, OriginKind, WeightLimit};
 
 /// This module's XCM version.
 pub const VERSION: super::Version = 4;
@@ -214,6 +212,10 @@ pub mod prelude {
 parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
 	pub MaxPalletsInfo: u32 = 64;
+	/// Maximum size of the encoded error code coming from a `Dispatch` result, used for
+	/// `MaybeErrorCode`. This is not (yet) enforced, so it's just an indication of expectation.
+	#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+	pub MaxDispatchErrorLen: u32 = 128;
 }
 
 #[derive(
@@ -277,6 +279,32 @@ impl PalletInfo {
 		let module_name = BoundedVec::try_from(module_name).map_err(|_| Error::Overflow)?;
 
 		Ok(Self { index, name, module_name, major, minor, patch })
+	}
+}
+
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum MaybeErrorCode {
+	Success,
+	Error(BoundedVec<u8, MaxDispatchErrorLen>),
+	TruncatedError(BoundedVec<u8, MaxDispatchErrorLen>),
+}
+
+impl From<Vec<u8>> for MaybeErrorCode {
+	fn from(v: Vec<u8>) -> Self {
+		match BoundedVec::try_from(v) {
+			Ok(error) => MaybeErrorCode::Error(error),
+			Err(error) => MaybeErrorCode::TruncatedError(BoundedVec::truncate_from(error)),
+		}
+	}
+}
+
+impl Default for MaybeErrorCode {
+	fn default() -> MaybeErrorCode {
+		MaybeErrorCode::Success
 	}
 }
 
@@ -394,6 +422,60 @@ impl TryFrom<OldQueryResponseInfo> for QueryResponseInfo {
 			max_weight: old.max_weight,
 		})
 	}
+}
+
+/// An optional weight limit.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum WeightLimit {
+	/// No weight limit imposed.
+	Unlimited,
+	/// Weight limit imposed of the inner value.
+	Limited(Weight),
+}
+
+impl From<Option<Weight>> for WeightLimit {
+	fn from(x: Option<Weight>) -> Self {
+		match x {
+			Some(w) => WeightLimit::Limited(w),
+			None => WeightLimit::Unlimited,
+		}
+	}
+}
+
+impl From<WeightLimit> for Option<Weight> {
+	fn from(x: WeightLimit) -> Self {
+		match x {
+			WeightLimit::Limited(w) => Some(w),
+			WeightLimit::Unlimited => None,
+		}
+	}
+}
+
+/// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum OriginKind {
+	/// Origin should just be the native dispatch origin representation for the sender in the
+	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
+	/// if coming from a chain, though there may be others if the `MultiLocation` XCM origin has a
+	/// primary/native dispatch origin form.
+	Native,
+
+	/// Origin should just be the standard account-based origin with the sovereign account of
+	/// the sender. For Cumulus/Frame chains, this is the `Signed` origin.
+	SovereignAccount,
+
+	/// Origin should be the super-user. For Cumulus/Frame chains, this is the `Root` origin.
+	/// This will not usually be an available option.
+	Superuser,
+
+	/// Origin should be interpreted as an XCM native origin and the `MultiLocation` should be
+	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
+	/// the `pallet_xcm::Origin::Xcm` type.
+	Xcm,
 }
 
 /// Contextual data pertaining to a specific list of XCM instructions.

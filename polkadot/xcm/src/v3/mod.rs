@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Version 3 of the Cross-Consensus Message format data structures.
+//! WARNING: DEPRECATED, please use version 4 or 5.
 
 use super::v4::{
 	Instruction as NewInstruction, PalletInfo as NewPalletInfo,
@@ -57,6 +58,7 @@ pub const VERSION: super::Version = 3;
 /// An identifier for a query.
 pub type QueryId = u64;
 
+/// DEPRECATED. Please use XCMv4 or XCMv5 instead.
 #[derive(Default, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
