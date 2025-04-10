@@ -776,6 +776,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
+	// TODO: Set this to everything once AHM migration starts.
 	type Filter = Nothing;
 }
 #[derive(Encode, Decode)]
