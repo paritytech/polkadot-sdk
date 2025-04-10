@@ -146,7 +146,7 @@ impl pallet_session::Config for Test {
 	type SessionHandler = (OtherSessionHandler,);
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = crate::StashOf<Test>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type DisablingStrategy =
 		pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
@@ -155,8 +155,8 @@ impl pallet_session::Config for Test {
 
 impl pallet_session::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = Existence;
-	type FullIdentificationOf = ExistenceOf<Test>;
+	type FullIdentification = ExistenceOrLegacyExposure<AccountId, Balance>;
+	type FullIdentificationOf = ExistenceOrLegacyExposureOf<Test>;
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
@@ -781,7 +781,10 @@ pub(crate) fn offence_from(
 	offender: AccountId,
 	reporter: Option<Vec<AccountId>>,
 ) -> OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>> {
-	OffenceDetails { offender: (offender, ()), reporters: reporter.unwrap_or_default() }
+	OffenceDetails {
+		offender: (offender, ExistenceOrLegacyExposure::Exists),
+		reporters: reporter.unwrap_or_default(),
+	}
 }
 
 pub(crate) fn add_slash(who: &AccountId) {

@@ -221,8 +221,8 @@
 //! [here](https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model).
 //!
 //! Total reward is split among validators and their nominators depending on the number of points
-//! they received during the era. Points are added to a validator using
-//! [`reward_by_ids`](Pallet::reward_by_ids).
+//! they received during the era. Points are added to a validator using the method
+//! [`frame_support::traits::RewardsReporter::reward_by_ids`] implemented by the [`Pallet`].
 //!
 //! [`Pallet`] implements [`pallet_authorship::EventHandler`] to add reward points to block producer
 //! and block producer of referenced uncles.
@@ -332,7 +332,6 @@ use sp_runtime::{
 use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
-	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
@@ -1059,16 +1058,6 @@ impl Default for Forcing {
 	}
 }
 
-/// A `Convert` implementation that finds the stash of the given controller account,
-/// if any.
-pub struct StashOf<T>(core::marker::PhantomData<T>);
-
-impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
-	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
-		StakingLedger::<T>::paired_account(StakingAccount::Controller(controller))
-	}
-}
-
 /// A typed conversion from stash account ID to the active exposure of nominators
 /// on that account.
 ///
@@ -1087,20 +1076,8 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	}
 }
 
-/// A type representing the presence of a validator. Encodes as a unit type.
-pub type Existence = ();
-
-/// A converter type that returns `Some(())` if the validator exists in the current active era,
-/// otherwise `None`. This serves as a lightweight presence check for validators.
-pub struct ExistenceOf<T>(core::marker::PhantomData<T>);
-impl<T: Config> Convert<T::AccountId, Option<Existence>> for ExistenceOf<T> {
-	fn convert(validator: T::AccountId) -> Option<Existence> {
-		Validators::<T>::contains_key(&validator).then_some(())
-	}
-}
-
 /// A compatibility wrapper type used to represent the presence of a validator in the current era.
-/// Encodes as type [`Existence`] but can decode from legacy [`Exposure`] values for backward
+/// Encodes as unit type but can decode from legacy [`Exposure`] values for backward
 /// compatibility.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, RuntimeDebug, TypeInfo, DecodeWithMemTracking)]
 pub enum ExistenceOrLegacyExposure<A, B: HasCompact> {
@@ -1120,7 +1097,6 @@ impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::Accoun
 	fn convert(
 		validator: T::AccountId,
 	) -> Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> {
-		// TODO: Move this to AH Client.
 		T::SessionInterface::validators()
 			.contains(&validator)
 			.then_some(ExistenceOrLegacyExposure::Exists)
