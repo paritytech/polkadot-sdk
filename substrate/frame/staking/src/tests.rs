@@ -43,7 +43,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	SessionIndex,
+	SessionIndex, StakingAccount,
 };
 use substrate_test_utils::assert_eq_uvec;
 
@@ -7128,6 +7128,7 @@ mod staking_unchecked {
 }
 mod ledger {
 	use super::*;
+	use sp_staking::StakingAccount;
 
 	#[test]
 	fn paired_account_works() {

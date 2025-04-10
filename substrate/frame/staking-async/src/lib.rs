@@ -64,7 +64,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
-	EraIndex, ExposurePage, OnStakingUpdate, PagedExposureMetadata, StakingAccount,
+	EraIndex, ExposurePage, OnStakingUpdate, PagedExposureMetadata,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
