@@ -612,7 +612,7 @@ async fn construct_and_distribute_receipt(
 				commitments.head_data.hash(),
 				validation_code_hash,
 			),
-			commitments,
+			commitments: commitments.clone(),
 		};
 
 		ccr.check_core_index(&transposed_claim_queue)
@@ -653,8 +653,15 @@ async fn construct_and_distribute_receipt(
 		?relay_parent,
 		para_id = %para_id,
 		?core_index,
-		"candidate is generated",
+		"Candidate generated",
 	);
+	gum::trace!(
+		target: LOG_TARGET,
+		?commitments,
+		candidate_hash = ?receipt.hash(),
+		"Candidate commitments",
+	);
+
 	metrics.on_collation_generated();
 
 	sender
