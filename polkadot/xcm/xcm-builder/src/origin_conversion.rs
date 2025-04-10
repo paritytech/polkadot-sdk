@@ -333,7 +333,7 @@ impl<RuntimeOrigin: Clone, EnsureBodyOrigin: EnsureOrigin<RuntimeOrigin>, Body: 
 	}
 }
 
-/// Implements `ConvertOrigin` to convert a `Location` into `RuntimeOrigin::root()`.
+/// Implements `ConvertOrigin` to convert specific `Location`s into `RuntimeOrigin::root()`.
 ///
 /// This is typically used when configuring `pallet-xcm` to allow a remote `Location`
 /// to act as the `Root` origin on the local chain.

@@ -7,13 +7,9 @@ doc:
 
     # Description
 
-    This PR introduces a `LocationAsSuperuser` struct that implements `ConvertOrigin` to allow some `Location` chosen by the XCM configuration to act as Root on the local chain.
+    This PR introduces a `LocationAsSuperuser` struct that implements `ConvertOrigin` to allow specific `Location`s defined through XCM configuration to act as Root on the local chain.
 
     Implementation is generic over `Location` but was created for purposes of allowing AssetHub system chain (by other system chains and relay chains) to execute Root level extrinsics like `authorize_upgrade` on them.
-
-    ## TODO
-    * [ ] backport to stable2412
-    * [ ] backport to stable2503
 crates:
 - name: staging-xcm-builder
   bump: patch
