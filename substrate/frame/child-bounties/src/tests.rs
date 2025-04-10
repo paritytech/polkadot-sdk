@@ -2472,7 +2472,7 @@ fn check_and_process_refund_payment_works() {
 		let child_value = 10_000;
 		let bounty_account =
 			Bounties::bounty_account_id(bounty_id, asset_kind).expect("conversion failed");
-		
+
 		Balances::make_free_balance_be(&parent_curator, parent_fee * 100);
 		assert_ok!(Bounties::propose_bounty(
 			RuntimeOrigin::signed(parent_curator),

@@ -945,13 +945,15 @@ pub mod pallet {
 		/// Only `T::RejectOrigin` is able to cancel a bounty.
 		///
 		/// ## Details
-		/// - If the bounty is in the `Proposed` state, the deposit will be slashed and the bounty removed.
-		/// - If the bounty is in the `Funded` or `CuratorProposed` state, a refund payment is initiated.
-		/// - If the bounty is in the `Active` state, a refund payment is initiated and the bounty 
+		/// - If the bounty is in the `Proposed` state, the deposit will be slashed and the bounty
+		///   removed.
+		/// - If the bounty is in the `Funded` or `CuratorProposed` state, a refund payment is
+		///   initiated.
+		/// - If the bounty is in the `Active` state, a refund payment is initiated and the bounty
 		///   status is updated with the curator account.
 		/// - If the bounty is already in the payout phase, it cannot be canceled.
-		/// - When a payment is initiated, the bounty status must be updated via the `check_payment_status`
-		///   dispatchable.
+		/// - When a payment is initiated, the bounty status must be updated via the
+		///   `check_payment_status` dispatchable.
 		/// - In case of a refund payment failure, the bounty status must be updated with the
 		///   `check_payment_status` dispatchable before retrying with `process_payment` call.
 		///
@@ -1271,7 +1273,7 @@ pub mod pallet {
 		///   beneficiary payouts. If both payments succeed, the bounty is removed, and the
 		///   curator's deposit is unreserved. If any payment failed, the bounty status is updated.
 		/// - If the bounty is in the `RefundAttempted` state, it checks whether the refund has been
-		///   completed. If successful, the bounty is removed, and the curator's deposit is returned 
+		///   completed. If successful, the bounty is removed, and the curator's deposit is returned
 		///   if a curator was already assigned.
 		/// - If no progress is made in the state machine, an error is returned.
 		///
@@ -1784,7 +1786,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PaymentState::Succeeded => {
 					payments_succeeded += 1;
 				},
-				_ => { } // return function without error so we could drive the next payment
+				_ => {}, // return function without error so we could drive the next payment
 			}
 		}
 

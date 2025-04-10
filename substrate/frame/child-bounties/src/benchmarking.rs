@@ -170,7 +170,11 @@ pub fn set_child_payment_status<T: Config<I>, I: 'static>(
 		_ => {},
 	};
 
-	pallet_child_bounties::ChildBounties::<T, I>::insert(parent_bounty_id, child_bounty_id, child_bounty);
+	pallet_child_bounties::ChildBounties::<T, I>::insert(
+		parent_bounty_id,
+		child_bounty_id,
+		child_bounty,
+	);
 }
 
 fn setup_parent_bounty<T: Config<I>, I: 'static>(
@@ -668,8 +672,10 @@ mod benchmarks {
 	#[benchmark]
 	fn check_payment_status_payout_attempted() -> Result<(), BenchmarkError> {
 		let setup = create_awarded_child_bounty::<T, I>()?;
-		let (fee, asset_payout) =
-			ChildBounties::<T, I>::calculate_curator_fee_and_payout(setup.child_fee, setup.child_value);
+		let (fee, asset_payout) = ChildBounties::<T, I>::calculate_curator_fee_and_payout(
+			setup.child_fee,
+			setup.child_value,
+		);
 
 		let child_bounty_account =
 			ChildBounties::<T, I>::child_bounty_account_id(setup.bounty_id, setup.child_bounty_id);
@@ -686,7 +692,7 @@ mod benchmarks {
 			asset_payout,
 		);
 		set_block_number::<T, I>(T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get());
-		let _  = ChildBounties::<T, I>::claim_child_bounty(
+		let _ = ChildBounties::<T, I>::claim_child_bounty(
 			RawOrigin::Signed(setup.curator.clone()).into(),
 			setup.bounty_id,
 			setup.child_bounty_id,
@@ -735,11 +741,15 @@ mod benchmarks {
 	#[benchmark]
 	fn process_payment_approved() -> Result<(), BenchmarkError> {
 		let setup = initialize_child_bounty::<T, I>()?;
-		
+
 		let payment_id = get_child_payment_id::<T, I>(setup.bounty_id, setup.child_bounty_id, None)
 			.expect("no payment attempt");
 		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
-		set_child_payment_status::<T, I>(setup.bounty_id, setup.child_bounty_id, PaymentState::Failed);
+		set_child_payment_status::<T, I>(
+			setup.bounty_id,
+			setup.child_bounty_id,
+			PaymentState::Failed,
+		);
 
 		#[extrinsic_call]
 		process_payment(
@@ -750,7 +760,10 @@ mod benchmarks {
 
 		let payment_id = get_child_payment_id::<T, I>(setup.bounty_id, setup.child_bounty_id, None)
 			.expect("no payment attempt");
-		assert_last_event::<T, I>(Event::Paid { index: setup.bounty_id, child_index: setup.child_bounty_id, payment_id }.into());
+		assert_last_event::<T, I>(
+			Event::Paid { index: setup.bounty_id, child_index: setup.child_bounty_id, payment_id }
+				.into(),
+		);
 		assert_ne!(
 			<T as pallet_bounties::Config<I>>::Paymaster::check_payment(payment_id),
 			PaymentStatus::Failure
@@ -777,7 +790,11 @@ mod benchmarks {
 		let payment_id = get_child_payment_id::<T, I>(setup.bounty_id, setup.child_bounty_id, None)
 			.expect("no payment attempt");
 		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
-		set_child_payment_status::<T, I>(setup.bounty_id, setup.child_bounty_id, PaymentState::Failed);
+		set_child_payment_status::<T, I>(
+			setup.bounty_id,
+			setup.child_bounty_id,
+			PaymentState::Failed,
+		);
 
 		#[extrinsic_call]
 		process_payment(
@@ -788,7 +805,10 @@ mod benchmarks {
 
 		let payment_id = get_child_payment_id::<T, I>(setup.bounty_id, setup.child_bounty_id, None)
 			.expect("no payment attempt");
-		assert_last_event::<T, I>(Event::Paid { index: setup.bounty_id, child_index: setup.child_bounty_id, payment_id }.into());
+		assert_last_event::<T, I>(
+			Event::Paid { index: setup.bounty_id, child_index: setup.child_bounty_id, payment_id }
+				.into(),
+		);
 		assert_ne!(
 			<T as pallet_bounties::Config<I>>::Paymaster::check_payment(payment_id),
 			PaymentStatus::Failure
@@ -817,15 +837,21 @@ mod benchmarks {
 			setup.bounty_id,
 			setup.child_bounty_id,
 			Some(setup.child_curator_stash.clone()),
-		).expect("no payment attempt");
+		)
+		.expect("no payment attempt");
 		let beneficiary_payment_id = get_child_payment_id::<T, I>(
 			setup.bounty_id,
 			setup.child_bounty_id,
 			Some(setup.beneficiary.clone()),
-		).expect("no payment attempt");
+		)
+		.expect("no payment attempt");
 		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(curator_payment_id);
 		<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(beneficiary_payment_id);
-		set_child_payment_status::<T, I>(setup.bounty_id, setup.child_bounty_id, PaymentState::Failed);
+		set_child_payment_status::<T, I>(
+			setup.bounty_id,
+			setup.child_bounty_id,
+			PaymentState::Failed,
+		);
 
 		#[extrinsic_call]
 		process_payment(
@@ -838,14 +864,30 @@ mod benchmarks {
 			setup.bounty_id,
 			setup.child_bounty_id,
 			Some(setup.child_curator_stash),
-		).expect("no payment attempt");
+		)
+		.expect("no payment attempt");
 		let beneficiary_payment_id = get_child_payment_id::<T, I>(
 			setup.bounty_id,
 			setup.child_bounty_id,
 			Some(setup.beneficiary.clone()),
-		).expect("no payment attempt");
-		assert_has_event::<T, I>(Event::Paid { index: setup.bounty_id, child_index: setup.child_bounty_id, payment_id: curator_payment_id }.into());
-		assert_has_event::<T, I>(Event::Paid { index: setup.bounty_id, child_index: setup.child_bounty_id, payment_id: beneficiary_payment_id }.into());
+		)
+		.expect("no payment attempt");
+		assert_has_event::<T, I>(
+			Event::Paid {
+				index: setup.bounty_id,
+				child_index: setup.child_bounty_id,
+				payment_id: curator_payment_id,
+			}
+			.into(),
+		);
+		assert_has_event::<T, I>(
+			Event::Paid {
+				index: setup.bounty_id,
+				child_index: setup.child_bounty_id,
+				payment_id: beneficiary_payment_id,
+			}
+			.into(),
+		);
 		assert_ne!(
 			<T as pallet_bounties::Config<I>>::Paymaster::check_payment(curator_payment_id),
 			PaymentStatus::Failure
