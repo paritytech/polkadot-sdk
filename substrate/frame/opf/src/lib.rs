@@ -265,6 +265,8 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// This referendum does not exists
 		ReferendumNotFound,
+
+		FailedToDispatchCall,
 	}
 
 	#[pallet::hooks]
@@ -313,9 +315,7 @@ pub mod pallet {
 			round_infos.batch_submitted = true;
 
 			let mut round_ending_block = round_infos.round_ending_block;
-			let round_start = round_infos.round_starting_block;
 			let mut projects_submitted: Vec<ProjectId<T>> = vec![];
-			let mut wrapped_time_periods: Option<TimePeriods> = None;
 
 			for project_id in &projects_id {
 				ProjectInfo::<T>::new(project_id.clone());
@@ -328,7 +328,7 @@ pub mod pallet {
 				// Prepare the proposal call
 				let call = Call::<T>::on_registration { project_id: project_id.clone() };
 
-				let referendum_index = Self::start_referendum(project_id.clone(), call)?;
+				let referendum_index = Self::start_referendum(project_id.clone(), call.into())?;
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 					.ok_or(Error::<T>::NoProjectAvailable)?;
 				new_infos.index = referendum_index;
@@ -337,13 +337,14 @@ pub mod pallet {
 					*value = Some(new_infos);
 				});
 				let time_periods = T::Governance::get_time_periods(referendum_index.into())?;
-				wrapped_time_periods = Some(time_periods.clone());
-				let total_period_128 = time_periods.total_period;
+				let enactment_period_128 = time_periods.min_enactment_period;
+				let round_period_128 =
+					time_periods.total_period.saturating_sub(enactment_period_128);
 				// convert decision_period to block number, as it is a u128
-				let total_period: ProvidedBlockNumberFor<T> =
-					total_period_128.try_into().map_err(|_| Error::<T>::InvalidResult)?;
+				let round_period: ProvidedBlockNumberFor<T> =
+					round_period_128.try_into().map_err(|_| Error::<T>::InvalidResult)?;
 				if round_infos.round_ending_block == round_infos.round_starting_block {
-					round_ending_block = round_ending_block.saturating_add(total_period.into());
+					round_ending_block = round_ending_block.saturating_add(round_period.into());
 					round_infos.round_ending_block = round_ending_block;
 					round_infos.time_periods = Some(time_periods);
 				}

@@ -32,9 +32,9 @@ impl<T: Config> Pallet<T> {
 
 	pub fn start_referendum(
 		caller: ProjectId<T>,
-		proposal_call: pallet::Call<T>,
+		proposal_call: <T as Config>::RuntimeCall,
 	) -> Result<u32, DispatchError> {
-		let proposal0 = Box::new(Self::get_formatted_call(proposal_call.into()));
+		let proposal0 = Box::new(proposal_call);
 		let call = Call::<T>::execute_call_dispatch { caller: caller.clone(), proposal: proposal0 };
 		let call_formatted = Self::get_formatted_call(call.into());
 		let proposal = T::Governance::create_proposal(call_formatted.into());
@@ -82,7 +82,7 @@ impl<T: Config> Pallet<T> {
 			*val = Some(round.clone());
 		});
 
-		let mut new_vote = VoteInfo {
+		let new_vote = VoteInfo {
 			amount,
 			round: round.clone(),
 			fund,
@@ -324,21 +324,23 @@ impl<T: Config> Pallet<T> {
 			if round_infos.round_ending_block != round_infos.round_starting_block {
 				let round_ending_block = round_infos.round_ending_block;
 				let mut prep_period = 0;
+				let mut min_enactment_period = 0;
 				if let Some(period) = round_infos.time_periods {
 					prep_period = period.prepare_period;
+					min_enactment_period = period.min_enactment_period;
 				}
 				let prepare_period = Self::convert_u128_to_block_number(prep_period);
+				let enactment_period = Self::convert_u128_to_block_number(min_enactment_period);
 				let decision_block =
 					round_infos.round_starting_block.saturating_add(prepare_period);
+				let projects_submitted = round_infos.projects_submitted.clone();
 				if now >= decision_block {
-					let projects_submitted = round_infos.projects_submitted.clone();
-					for project_id in projects_submitted {
+					for project_id in &projects_submitted {
 						if WhiteListedProjectAccounts::<T>::contains_key(&project_id) {
 							let infos = WhiteListedProjectAccounts::<T>::get(&project_id);
 							if let Some(project_infos) = infos {
-								let ref_index = project_infos.index;
 								// Enter decision period
-								let decision_period = T::Governance::enter_decision_period(
+								let _decision_period = T::Governance::enter_decision_period(
 									project_infos.index.into(),
 									project_id.clone(),
 								);
@@ -348,6 +350,31 @@ impl<T: Config> Pallet<T> {
 				}
 
 				if now >= round_ending_block {
+					if now >= round_ending_block.saturating_add(enactment_period) {
+						for project_id in projects_submitted {
+							let infos = WhiteListedProjectAccounts::<T>::get(&project_id);
+							if let Some(project_infos) = infos {
+								let ref_index = project_infos.index;
+								let referendum_infos =
+									T::Governance::get_referendum_info(ref_index.into()).unwrap();
+								let referendum_status =
+									T::Governance::handle_referendum_info(referendum_infos);
+								if let Some(referendum_status) = referendum_status {
+									match referendum_status {
+										ReferendumStates::Approved => {
+											let call = Call::<T>::on_registration {
+												project_id: project_id.clone(),
+											};
+											let _= call.dispatch_bypass_filter(RawOrigin::Root.into())
+												.map_err(|_| Error::<T>::FailedToDispatchCall);
+										},
+										_ => {},
+									}
+								}
+							}
+						}
+					}
+
 					// Emmit event
 					Self::deposit_event(Event::<T>::VoteActionLocked {
 						round_number: round_infos.round_number,

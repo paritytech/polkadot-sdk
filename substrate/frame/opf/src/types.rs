@@ -191,7 +191,6 @@ pub struct VoteInfo<T: Config> {
 // If no conviction, user's funds are released at the end of the voting round
 impl<T: Config> VoteInfo<T> {
 	pub fn funds_unlock(&mut self) {
-		let conviction_coeff = <u8 as From<Conviction>>::from(self.conviction);
 		let funds_unlock_block = self.round.round_ending_block;
 		self.funds_unlock_block = funds_unlock_block;
 	}

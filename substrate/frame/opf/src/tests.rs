@@ -90,7 +90,6 @@ fn cannot_register_twice_in_same_round() {
 		// The storage infos are correct
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
 		assert_eq!(round_info.batch_submitted, true);
-		let round_index = NextVotingRoundNumber::<Test>::get();
 		assert_noop!(
 			Opf::register_projects_batch(RawOrigin::Root.into(), batch),
 			Error::<Test>::BatchAlreadySubmitted
@@ -103,12 +102,6 @@ fn conviction_vote_works() {
 	new_test_ext().execute_with(|| {
 		next_block();
 		let batch = project_list();
-		let voting_period = <Test as Config>::VotingPeriod::get();
-		let vote_validity = <Test as Config>::VoteValidityPeriod::get();
-		let now = <Test as Config>::BlockNumberProvider::current_block_number();
-		//round_end_block
-
-		let round_end = now.saturating_add(voting_period);
 
 		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch));
 		let round = VotingRounds::<Test>::get(0).unwrap();
@@ -150,15 +143,9 @@ fn rewards_calculation_works() {
 
 		let time_periods = <Test as Config>::Governance::get_time_periods(1).ok().unwrap();
 
-		let voting_period = time_periods.total_period.try_into().unwrap_or(0);
 		let prepare_period = time_periods.prepare_period.try_into().unwrap_or(0);
 		let decision_period = time_periods.decision_period.try_into().unwrap_or(0);
-		let enactment_period = time_periods.min_enactment_period.try_into().unwrap_or(0);
-		let confirm_period = time_periods.confirm_period.try_into().unwrap_or(0);
-
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
-		//round_end_block
-		let round_end = now.saturating_add(voting_period);
 		let decision_block = now.saturating_add(decision_period + prepare_period);
 		assert_eq!(decision_block > 0, true);
 
@@ -205,14 +192,9 @@ fn rewards_calculation_works() {
 
 		let infos = WhiteListedProjectAccounts::<Test>::get(&101).unwrap();
 
-		let scheduled = pallet_scheduler::Agenda::<Test>::get(21);
-		println!("Scheduled: {:?}", scheduled);
-
-		let referendum_info =
-			<Test as Config>::Governance::get_referendum_info(infos.index).unwrap();
-		println!("Referendum info: {:?}", referendum_info);
 		run_to_block(round_info.round_ending_block);
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
+		println!("now: {:?}", now);
 		let referendum_info =
 			<Test as Config>::Governance::get_referendum_info(infos.index).unwrap();
 
@@ -239,19 +221,17 @@ fn rewards_calculation_works() {
 
 		run_to_block(22);
 
-		let scheduled = pallet_scheduler::Agenda::<Test>::get(21);
-		println!("Scheduled: {:?}", scheduled);
 		// Enactment happened as expected
-		//assert_eq!(Spends::<Test>::contains_key(101), true);
+		assert_eq!(Spends::<Test>::contains_key(101), true);
 
-		/*expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
+		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
 			project_id: 102,
 			amount: reward_102,
 		})]);
 		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
 			project_id: 101,
 			amount: reward_101,
-		})]);*/
+		})]);
 	})
 }
 

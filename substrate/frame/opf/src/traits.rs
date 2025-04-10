@@ -239,7 +239,6 @@ where
 		index: Self::Index,
 		project_id: AccountIdOf<T>,
 	) -> Result<u128, DispatchError> {
-		let now = T::BlockNumberProvider::current_block_number();
 		let origin = RawOrigin::Signed(project_id.clone()).into();
 		let info = Self::get_referendum_info(index)
 			.ok_or_else(|| DispatchError::Other("No referendum info found"))?;
@@ -248,8 +247,6 @@ where
 				let track_id = info.track;
 				let track = T::Tracks::info(track_id)
 					.ok_or_else(|| DispatchError::Other("No track info found"))?;
-				// Check when the referendum was submitted
-				let submitted = info.submitted;
 
 				pallet_referenda::Pallet::<T, I>::place_decision_deposit(origin, index)
 					.map_err(|_| DispatchError::Other("Failed to place decision deposit"))?;
