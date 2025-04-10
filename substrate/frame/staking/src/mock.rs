@@ -781,7 +781,10 @@ pub(crate) fn offence_from(
 	offender: AccountId,
 	reporter: Option<Vec<AccountId>>,
 ) -> OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>> {
-	OffenceDetails { offender: (offender, ExistenceOrLegacyExposure::Exists), reporters: reporter.unwrap_or_default() }
+	OffenceDetails {
+		offender: (offender, ExistenceOrLegacyExposure::Exists),
+		reporters: reporter.unwrap_or_default(),
+	}
 }
 
 pub(crate) fn add_slash(who: &AccountId) {
