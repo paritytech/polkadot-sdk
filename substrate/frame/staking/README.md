@@ -232,9 +232,10 @@ Any funds already placed into stash can be the target of the following operation
 
 The controller account can free a portion (or all) of the funds using the
 [`unbond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.unbond) call. Note that the
-funds are not immediately accessible. Instead, a duration denoted by
+funds may either require a waiting period based on the
 [`BondingDuration`](https://docs.rs/pallet-staking/latest/pallet_staking/trait.Config.html#associatedtype.BondingDuration)
-(in number of eras) must pass until the funds can actually be removed. Once the `BondingDuration` is over, the
+(in number of eras) before they can be accessed, or they may be eligible for shorter periods using the fast unbonding feature.
+For regular unbonding, once the waiting duration is over, the
 [`withdraw_unbonded`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.withdraw_unbonded)
 call can be used to actually withdraw the funds.
 
