@@ -731,6 +731,7 @@ mod tests {
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
 		type AssignCoretime = ();
+		type AuthorizeCurrentCodeOrigin = EnsureRoot<Self::AccountId>;
 	}
 
 	impl parachains_shared::Config for Test {

@@ -129,6 +129,7 @@ impl paras::Config for Test {
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type AuthorizeCurrentCodeOrigin = frame_system::EnsureRoot<u64>;
 }
 
 impl configuration::Config for Test {
