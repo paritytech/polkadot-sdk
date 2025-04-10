@@ -36,6 +36,7 @@ pub fn roll_next() {
 	System::set_block_number(next);
 	// Timestamp is always the RC block number * 1000
 	Timestamp::set_timestamp(next * 1000);
+	Authorship::on_initialize(next);
 
 	Session::on_initialize(next);
 	StakingAhClient::on_initialize(next);
@@ -176,7 +177,7 @@ impl FindAuthor<AccountId> for Author11 {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = Author11;
-	type EventHandler = ();
+	type EventHandler = StakingAhClient;
 }
 
 parameter_types! {

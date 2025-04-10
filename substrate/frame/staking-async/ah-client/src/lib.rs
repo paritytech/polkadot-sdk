@@ -649,9 +649,8 @@ pub mod pallet {
 			BufferedOffences::<T>::take().into_iter().for_each(|(slash_session, offences)| {
 				T::SendToAssetHub::relay_new_offence(slash_session, offences)
 			});
-
-			// TODO: set `pallet_staking::ForceEra` to `ForceNone`.
 		}
+
 		fn do_set_mode(new_mode: OperatingMode) {
 			let old_mode = Mode::<T>::get();
 			let unexpected = match new_mode {

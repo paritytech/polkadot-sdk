@@ -23,7 +23,7 @@ pub fn put_ah_state(ah: TestState) {
 	})
 }
 
-pub fn in_ah(f: impl Fn() -> ()) {
+pub fn in_ah(f: impl FnMut() -> ()) {
 	AH_STATE.with(|state| unsafe {
 		let ptr = state.get();
 		(*ptr).execute_with(f)
@@ -37,7 +37,7 @@ pub fn put_rc_state(rc: TestState) {
 	})
 }
 
-pub fn in_rc(f: impl Fn() -> ()) {
+pub fn in_rc(f: impl FnMut() -> ()) {
 	RC_STATE.with(|state| unsafe {
 		let ptr = state.get();
 		(*ptr).execute_with(f)

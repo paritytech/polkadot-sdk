@@ -420,7 +420,7 @@ fn splitted_drops_too_small_validator_set() {
 #[test]
 
 fn sends_offence_report() {
-	// todo(ank4n):
+	// todo:
 	// Test
 	// - pre-verification of offence on RC.
 	// - disabling of validator in active era.
@@ -525,8 +525,6 @@ mod blocking {
 
 			// nothing is queued; No outgoing messages expected in passive mode.
 			assert_eq!(LocalQueue::get().unwrap(), vec![]);
-
-			// TODO add buffer mode to the test
 
 			// make pallet active
 			Mode::<T>::put(OperatingMode::Active);

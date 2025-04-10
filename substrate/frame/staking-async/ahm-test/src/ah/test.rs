@@ -181,7 +181,7 @@ fn on_receive_session_report() {
 
 #[test]
 fn roll_many_eras() {
-	// todo(ank4n):
+	// todo:
 	// - Ensure rewards can be claimed at correct era.
 	// - assert outgoing messages, including id and prune_up_to.
 	ExtBuilder::default().local_queue().build().execute_with(|| {
@@ -364,7 +364,7 @@ fn receives_session_report_in_future() {
 
 #[test]
 fn on_new_offence() {
-	// todo(ank4n):
+	// todo:
 	// - Offence Report sent to AH.
 	// - Offence processed, and slashed.
 	// - Check if offenders only one at a time!
