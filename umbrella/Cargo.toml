@@ -1036,7 +1036,7 @@ version = "0.19.0"
 path = "../bridges/primitives/runtime"
 default-features = false
 optional = true
-version = "0.19.0"
+version = "0.19.1"
 
 [dependencies.bp-test-utils]
 path = "../bridges/primitives/test-utils"
@@ -2296,7 +2296,7 @@ version = "0.18.0"
 path = "../polkadot/xcm"
 default-features = false
 optional = true
-version = "15.0.2"
+version = "15.0.3"
 
 [dependencies.staging-xcm-builder]
 path = "../polkadot/xcm/xcm-builder"
