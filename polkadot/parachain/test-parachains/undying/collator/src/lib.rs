@@ -721,7 +721,7 @@ mod tests {
 		let collator = Collator::new(1_000, 1, false);
 		let graveyard_size = collator.state.lock().unwrap().graveyard_size;
 
-		let mut head = calculate_head_and_state_for_number(10, graveyard_size, 1).unwrap().0;
+		let mut head = calculate_head_and_state_for_number(10, graveyard_size, 1, false).unwrap().0;
 
 		for i in 1..10 {
 			head = collator.state.lock().unwrap().advance(head).unwrap().1;
