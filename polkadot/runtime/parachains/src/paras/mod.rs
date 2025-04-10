@@ -2510,8 +2510,8 @@ impl<T: Config> Pallet<T> {
 	) -> Result<AuthorizedCodeHashAndExpiry<BlockNumberFor<T>>, Error<T>> {
 		let authorized = AuthorizedCodeHash::<T>::get(para).ok_or(Error::<T>::NothingAuthorized)?;
 		let now = frame_system::Pallet::<T>::block_number();
-		ensure!(authorized.code_hash == code.hash(), Error::<T>::Unauthorized);
 		ensure!(authorized.expire_at > now, Error::<T>::InvalidBlockNumber);
+		ensure!(authorized.code_hash == code.hash(), Error::<T>::Unauthorized);
 		Ok(authorized)
 	}
 }
