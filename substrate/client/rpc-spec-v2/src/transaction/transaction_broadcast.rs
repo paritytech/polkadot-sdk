@@ -150,14 +150,26 @@ where
 		// Save the tx hash to remove it later.
 		let tx_hash = pool.hash_of(&decoded_extrinsic);
 
-		let client = self.client.clone();
+		// The compiler can no longer deduce the type of the stream and complains
+		// about `one type is more general than the other`.
+		let mut best_block_import_stream: std::pin::Pin<
+			Box<dyn Stream<Item = <Pool::Block as BlockT>::Hash> + Send>,
+		> =
+			Box::pin(self.client.import_notification_stream().filter_map(
+				|notification| async move { notification.is_new_best.then_some(notification.hash) },
+			));
 
 		let broadcast_transaction_fut = async move {
 			// Flag to determine if the we should broadcast the transaction again.
 			let mut is_done = false;
 
 			while !is_done {
-				let best_block_hash = client.info().best_hash;
+				// Wait for the last block to become available.
+				let Some(best_block_hash) =
+					last_stream_element(&mut best_block_import_stream).await
+				else {
+					return;
+				};
 
 				let mut stream = match pool
 					.submit_and_watch(best_block_hash, TX_SOURCE, decoded_extrinsic.clone())
