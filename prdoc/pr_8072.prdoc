@@ -6,18 +6,16 @@ doc:
 
     Closes https://github.com/paritytech/polkadot-sdk/issues/1825.
 crates:
-- name: polkadot-service
-  bump: minor
 - name: cumulus-relay-chain-inprocess-interface
-  bump: minor
+  bump: major
 - name: cumulus-relay-chain-interface
-  bump: minor
+  bump: major
 - name: cumulus-relay-chain-minimal-node
   bump: minor
 - name: cumulus-relay-chain-rpc-interface
-  bump: minor
+  bump: major
 - name: cumulus-client-bootnodes
-  bump: minor
+  bump: patch
 - name: polkadot-omni-node-lib
   bump: minor
 - name: cumulus-client-service
@@ -25,11 +23,11 @@ crates:
 - name: sc-network
   bump: minor
 - name: sc-authority-discovery
-  bump: minor
+  bump: patch
 - name: cumulus-client-consensus-common
   bump: minor
 - name: cumulus-client-network
-  bump: minor
+  bump: major
 - name: cumulus-client-pov-recovery
   bump: minor
 - name: polkadot-sdk
