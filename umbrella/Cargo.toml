@@ -1768,7 +1768,7 @@ version = "34.0.0"
 path = "../substrate/primitives/io"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.0.1"
 
 [dependencies.sp-keyring]
 path = "../substrate/primitives/keyring"
@@ -1936,13 +1936,13 @@ version = "14.1.0"
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "16.0.4"
+version = "16.0.5"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
 default-features = false
 optional = true
-version = "16.0.0"
+version = "16.0.1"
 
 [dependencies.substrate-bip39]
 path = "../substrate/utils/substrate-bip39"
@@ -2818,7 +2818,7 @@ version = "37.0.0"
 path = "../substrate/utils/wasm-builder"
 default-features = false
 optional = true
-version = "24.0.0"
+version = "23.0.1"
 
 [dependencies.tracing-gum]
 path = "../polkadot/node/gum"

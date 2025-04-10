@@ -19994,7 +19994,7 @@ dependencies = [
 
 [[package]]
 name = "sp-io"
-version = "38.0.0"
+version = "38.0.1"
 dependencies = [
  "bytes",
  "docify",
@@ -20639,7 +20639,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "16.0.4"
+version = "16.0.5"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -20668,7 +20668,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "16.0.0"
+version = "16.0.1"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -21147,7 +21147,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-wasm-builder"
-version = "24.0.0"
+version = "23.0.1"
 dependencies = [
  "array-bytes",
  "build-helper",

@@ -1220,7 +1220,7 @@ sp-debug-derive = { path = "substrate/primitives/debug-derive", default-features
 sp-externalities = { path = "substrate/primitives/externalities", default-features = false, version = "0.29.0" }
 sp-genesis-builder = { path = "substrate/primitives/genesis-builder", default-features = false, version = "0.15.0" }
 sp-inherents = { path = "substrate/primitives/inherents", default-features = false, version = "34.0.0" }
-sp-io = { path = "substrate/primitives/io", default-features = false, version = "38.0.0" }
+sp-io = { path = "substrate/primitives/io", default-features = false, version = "38.0.1" }
 sp-keyring = { path = "substrate/primitives/keyring", default-features = false, version = "39.0.0" }
 sp-keystore = { path = "substrate/primitives/keystore", default-features = false, version = "0.40.0" }
 sp-maybe-compressed-blob = { path = "substrate/primitives/maybe-compressed-blob", default-features = false, version = "11.0.0" }
@@ -1273,7 +1273,7 @@ substrate-test-runtime = { path = "substrate/test-utils/runtime", version = "2.0
 substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client", version = "2.0.0" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
-substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false, version = "24.0.0" }
+substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false, version = "23.0.1" }
 syn = { version = "2.0.53" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
@@ -1335,10 +1335,10 @@ westend-runtime-constants = { path = "polkadot/runtime/westend/constants", defau
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system", version = "0.1.0" }
 x25519-dalek = { version = "2.0" }
 xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm", version = "14.1.0" }
-xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "16.0.4" }
+xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "16.0.5" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.15.0" }
-xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "16.0.0" }
+xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "16.0.1" }
 xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false, version = "10.1.0" }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false, version = "0.3.1" }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false, version = "16.0.0" }

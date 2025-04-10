@@ -1,6 +1,6 @@
 [package]
 name = "substrate-wasm-builder"
-version = "24.0.0"
+version = "23.0.1"
 authors.workspace = true
 description = "Utility for building WASM binaries (polkadot v1.15.0)"
 edition.workspace = true
