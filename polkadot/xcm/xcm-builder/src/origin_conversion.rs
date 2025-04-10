@@ -338,7 +338,8 @@ impl<RuntimeOrigin: Clone, EnsureBodyOrigin: EnsureOrigin<RuntimeOrigin>, Body: 
 pub struct LocationAsSuperuser<WhitelistedSuperuserLocations, RuntimeOrigin>(
 	PhantomData<(WhitelistedSuperuserLocations, RuntimeOrigin)>,
 );
-impl<WhitelistedSuperuserLocations: Contains<Location>, RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
+impl<WhitelistedSuperuserLocations: Contains<Location>, RuntimeOrigin: OriginTrait>
+	ConvertOrigin<RuntimeOrigin>
 	for LocationAsSuperuser<WhitelistedSuperuserLocations, RuntimeOrigin>
 {
 	fn convert_origin(
