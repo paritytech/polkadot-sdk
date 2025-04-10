@@ -2,7 +2,7 @@ title: Make a subset of conversions explicit and safer
 doc:
 - audience: [Node Dev, Runtime Dev]
   description: |-
-    Make a subset of conversions explicit and safer.
+    Use From impls or type annotations for a subset of type inference based conversions.
 crates:
 - name: polkadot-runtime-parachains
   bump: patch 
