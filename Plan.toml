@@ -411,9 +411,9 @@ to = "0.35.0"
 [[crate]]
 # substrate/primitives/io
 name = "sp-io"
-from = "37.0.0"
-to = "38.0.0"
-bump = "major"
+from = "38.0.0"
+to = "38.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -774,8 +774,8 @@ reason = "changed"
 # substrate/utils/wasm-builder
 name = "substrate-wasm-builder"
 from = "23.0.0"
-to = "24.0.0"
-bump = "major"
+to = "23.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1677,9 +1677,9 @@ reason = "changed"
 [[crate]]
 # polkadot/xcm/xcm-executor
 name = "staging-xcm-executor"
-from = "15.0.0"
-to = "16.0.0"
-bump = "major"
+from = "16.0.0"
+to = "16.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1905,8 +1905,8 @@ reason = "changed"
 [[crate]]
 # polkadot/xcm/xcm-builder
 name = "staging-xcm-builder"
-from = "16.0.3"
-to = "16.0.4"
+from = "16.0.4"
+to = "16.0.5"
 bump = "patch"
 reason = "changed"
 
