@@ -83,7 +83,7 @@ impl Pay for TestBountiesPay {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
-		set_status(id, PaymentStatus::Failure)
+		set_status(id, PaymentStatus::Success)
 	}
 }
 
@@ -183,12 +183,13 @@ parameter_types! {
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMax: Balance = 1_000;
 	pub const CuratorDepositMin: Balance = 3;
+	pub static BountyUpdatePeriod: u64 = 10;
 }
 impl pallet_bounties::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
-	type BountyUpdatePeriod = ConstU64<10>;
+	type BountyUpdatePeriod = BountyUpdatePeriod;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
@@ -295,18 +296,6 @@ pub fn unpay(who: AccountId, asset_id: u32, amount: u64) {
 /// set status for a given payment id
 pub fn set_status(id: u64, s: PaymentStatus) {
 	STATUS.with(|m| m.borrow_mut().insert(id, s));
-}
-
-/// set the status of the last child-bounty payment to `PaymentStatus::Success`.
-pub fn approve_last_child_bounty_payment() {
-	let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-	STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Success));
-}
-
-/// set the status of the last child-bounty payment to `PaymentStatus::Failure`.
-pub fn reject_last_child_bounty_payment() {
-	let last_id = LAST_ID.with(|last_id| *last_id.borrow() - 1);
-	STATUS.with(|m| m.borrow_mut().insert(last_id, PaymentStatus::Failure));
 }
 
 pub fn last_event() -> ChildBountiesEvent<Test> {

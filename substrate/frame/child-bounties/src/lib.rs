@@ -101,12 +101,6 @@ type ChildBountyOf<T, I> = ChildBounty<
 	PaymentIdOf<T, I>,
 	<T as pallet_treasury::Config<I>>::Beneficiary,
 >;
-type ChildBountyStatusOf<T, I> = ChildBountyStatus<
-	<T as frame_system::Config>::AccountId,
-	BlockNumberFor<T, I>,
-	PaymentIdOf<T, I>,
-	<T as pallet_treasury::Config<I>>::Beneficiary,
->;
 /// The status of a child-bounty.
 pub type ChildBountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> =
 	pallet_bounties::BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>;
@@ -166,7 +160,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind>;
+		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 	}
 
 	#[pallet::error]
@@ -366,9 +360,7 @@ pub mod pallet {
 				parent_bounty_id,
 				child_bounty_id.saturating_add(1),
 			);
-			ParentChildBounties::<T, I>::mutate(parent_bounty_id, |count| {
-				count.saturating_inc()
-			});
+			ParentChildBounties::<T, I>::mutate(parent_bounty_id, |count| count.saturating_inc());
 
 			// Create child-bounty instance.
 			Self::create_child_bounty(
@@ -397,9 +389,6 @@ pub mod pallet {
 		/// - `child_bounty_id`: Index of child-bounty.
 		/// - `curator`: Address of child-bounty curator.
 		/// - `fee`: payment fee to child-bounty curator for execution.
-		///
-		/// ## Events
-		/// Emits [`Event::ChildBountyCuratorProposed`] if successful.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::propose_curator())]
 		pub fn propose_curator(
@@ -896,9 +885,10 @@ pub mod pallet {
 			#[pallet::compact] child_bounty_id: BountyIndex,
 		) -> DispatchResultWithPostInfo {
 			use pallet_bounties::BountyStatus::*;
-			 
+
 			ensure_signed(origin)?;
-			let mut child_bounty = ChildBounties::<T, I>::get(parent_bounty_id, child_bounty_id).ok_or(BountiesError::<T, I>::InvalidIndex)?;
+			let mut child_bounty = ChildBounties::<T, I>::get(parent_bounty_id, child_bounty_id)
+				.ok_or(BountiesError::<T, I>::InvalidIndex)?;
 			let parent_bounty = Self::parent_bounty(parent_bounty_id)?;
 
 			let (new_status, weight) = match child_bounty.status {
@@ -971,7 +961,7 @@ pub mod pallet {
 				},
 				_ => return Err(BountiesError::<T, I>::UnexpectedStatus.into()),
 			};
-			
+
 			child_bounty.status = new_status;
 			ChildBounties::<T, I>::insert(parent_bounty_id, child_bounty_id, child_bounty);
 
