@@ -943,7 +943,6 @@ fn test_multi_page_payout_stakers_by_page() {
 			assert!(asset::stakeable_balance::<Test>(&(1000 + i)) > balance + i as Balance);
 		}
 
-
 		// verify rewards are tracked to prevent double claims
 		for page in 0..Eras::<Test>::exposure_page_count(2, &11) {
 			assert_eq!(Eras::<Test>::is_rewards_claimed(2, &11, page), true);
@@ -1607,7 +1606,6 @@ fn payout_stakers_handles_weight_refund() {
 		assert_eq!(extract_actual_weight(&result, &info), zero_nom_payouts_weight);
 	});
 }
-
 
 #[test]
 fn test_runtime_api_pending_rewards() {

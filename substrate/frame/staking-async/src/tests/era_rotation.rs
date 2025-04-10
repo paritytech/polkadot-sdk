@@ -206,7 +206,6 @@ fn era_cleanup_history_depth_works() {
 		// then first era info should have been deleted
 		Session::roll_until_active_era(HistoryDepth::get() + 1);
 		assert!(!Eras::<T>::era_present(1));
-
 	});
 }
 

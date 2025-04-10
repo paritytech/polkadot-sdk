@@ -25,10 +25,9 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, OneSessionHandler},
+	traits::{ConstBool, ConstU32, ConstU64, OneSessionHandler},
 };
 use pallet_staking::{BalanceOf, StakerStatus};
-use frame_support::traits::ConstBool;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
 
