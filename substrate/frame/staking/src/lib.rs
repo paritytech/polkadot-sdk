@@ -332,7 +332,6 @@ use sp_runtime::{
 use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
-	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
@@ -1056,16 +1055,6 @@ pub enum Forcing {
 impl Default for Forcing {
 	fn default() -> Self {
 		Forcing::NotForcing
-	}
-}
-
-/// A `Convert` implementation that finds the stash of the given controller account,
-/// if any.
-pub struct StashOf<T>(core::marker::PhantomData<T>);
-
-impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
-	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
-		StakingLedger::<T>::paired_account(StakingAccount::Controller(controller))
 	}
 }
 

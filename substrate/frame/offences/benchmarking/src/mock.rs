@@ -94,7 +94,7 @@ impl pallet_session::Config for Test {
 	type SessionHandler = TestSessionHandler;
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Test>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
 }

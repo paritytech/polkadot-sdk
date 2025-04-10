@@ -146,7 +146,7 @@ impl pallet_session::Config for Test {
 	type SessionHandler = (OtherSessionHandler,);
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = crate::StashOf<Test>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type DisablingStrategy =
 		pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
