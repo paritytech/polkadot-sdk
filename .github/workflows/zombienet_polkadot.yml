@@ -52,7 +52,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0001-parachains-pvf.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
           concurrency: 1
 
   #
@@ -76,7 +76,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0002-parachains-disputes.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
           concurrency: 1
 
   #
@@ -99,7 +99,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0003-beefy-and-mmr.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
 
   #
   zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate:
@@ -122,7 +122,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0004-parachains-garbage-candidate.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
 
   #
   zombienet-polkadot-functional-0006-parachains-max-tranche0:
@@ -144,7 +144,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0006-parachains-max-tranche0.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
 
   #
   zombienet-polkadot-functional-0007-dispute-freshly-finalized:
@@ -167,7 +167,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0007-dispute-freshly-finalized.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
 
   #
   zombienet-polkadot-functional-0008-dispute-old-finalized:
@@ -190,7 +190,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0008-dispute-old-finalized.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
 
   #
   zombienet-polkadot-functional-0009-approval-voting-coalescing:
@@ -212,7 +212,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0009-approval-voting-coalescing.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
 
   #
   zombienet-polkadot-functional-0010-validator-disabling:
@@ -235,7 +235,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0010-validator-disabling.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
   #
   #
   zombienet-polkadot-functional-0013-systematic-chunk-recovery:
@@ -257,7 +257,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0013-systematic-chunk-recovery.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
   #
   #
   zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
@@ -281,7 +281,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0014-chunk-fetching-network-compatibility.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
   #
   #
   zombienet-polkadot-functional-0015-coretime-shared-core:
@@ -307,7 +307,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0015-coretime-shared-core.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
   #
   #
   zombienet-polkadot-functional-0018-shared-core-idle-parachain:
@@ -333,7 +333,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0018-shared-core-idle-parachain.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
   #
   #
   zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness:
@@ -359,7 +359,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0019-coretime-collation-fetching-fairness.zndsl"
-          local-dir: "$LOCAL_DIR/functional"
+          local-dir: "${{ env.LOCAL_DIR }}/functional"
 
   #
   # smoke
@@ -383,7 +383,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0001-parachains-smoke-test.zndsl"
-          local-dir: "$LOCAL_DIR/smoke"
+          local-dir: "${{ env.LOCAL_DIR }}/smoke"
   #
   #
   zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
@@ -405,7 +405,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0002-parachains-upgrade-smoke-test.zndsl"
-          local-dir: "$LOCAL_DIR/smoke"
+          local-dir: "${{ env.LOCAL_DIR }}/smoke"
   #
   # (skipped in gitlab)
   zombienet-polkadot-smoke-0003-deregister-register-validator:
@@ -426,7 +426,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0003-deregister-register-validator-smoke.zndsl"
-          local-dir: "$LOCAL_DIR/smoke"
+          local-dir: "${{ env.LOCAL_DIR }}/smoke"
   #
   #
   zombienet-polkadot-smoke-0004-coretime-smoke-test:
@@ -448,7 +448,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0004-coretime-smoke-test.zndsl"
-          local-dir: "$LOCAL_DIR/smoke"
+          local-dir: "${{ env.LOCAL_DIR }}/smoke"
   #
   #
   zombienet-polkadot-smoke-0005-precompile-pvf-smoke:
@@ -470,7 +470,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0005-precompile-pvf-smoke.zndsl"
-          local-dir: "$LOCAL_DIR/smoke"
+          local-dir: "${{ env.LOCAL_DIR }}/smoke"
 
   #
   # misc
@@ -494,7 +494,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0001-paritydb.zndsl"
-          local-dir: "$LOCAL_DIR/misc"
+          local-dir: "${{ env.LOCAL_DIR }}/misc"
 
   # TODO: needs to resolve how to pass the GH_TOKEN to pods
   #
@@ -524,7 +524,7 @@ jobs:
   #       uses: ./.github/actions/zombienet
   #       with:
   #         test: "0002-upgrade-node.zndsl"
-  #         local-dir: "$LOCAL_DIR/misc"
+  #         local-dir: "${{ env.LOCAL_DIR }}/misc"
 
 
   #
@@ -551,7 +551,7 @@ jobs:
         uses: ./.github/actions/zombienet
         with:
           test: "0001-dispute-valid-block.zndsl"
-          local-dir: "$LOCAL_DIR/integrationtests"
+          local-dir: "${{ env.LOCAL_DIR }}/integrationtests"
 
   #
   # sdk tests
