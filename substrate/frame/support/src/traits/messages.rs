@@ -193,11 +193,13 @@ pub trait QueueFootprintQuery<Origin> {
 	/// use frame_support::traits::BatchFootprint;
 	///
 	/// vec![
+	/// 	// The footprint of batch ["1"]
 	/// 	BatchFootprint {
 	/// 		msgs_count: 1,
 	/// 		size_in_bytes: 1,
 	/// 		new_pages_count: 1,
 	/// 	},
+	/// 	// The footprint of batch ["1", "2"]
 	/// 	BatchFootprint {
 	/// 		msgs_count: 2,
 	/// 		size_in_bytes: 2,
