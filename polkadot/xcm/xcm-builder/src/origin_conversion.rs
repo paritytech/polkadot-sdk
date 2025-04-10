@@ -333,15 +333,13 @@ impl<RuntimeOrigin: Clone, EnsureBodyOrigin: EnsureOrigin<RuntimeOrigin>, Body: 
 	}
 }
 
-/// Implements `ConvertOrigin` to convert specific `Location`s into `RuntimeOrigin::root()`.
-///
-/// This is typically used when configuring `pallet-xcm` to allow a remote `Location`
-/// to act as the `Root` origin on the local chain.
+/// Converter that allows specific `Location`s to act as a superuser (`RuntimeOrigin::root()`)
+/// if it matches the predefined `WhitelistedSuperuserLocations` filter and `OriginKind::Superuser`.
 pub struct LocationAsSuperuser<WhitelistedSuperuserLocations, RuntimeOrigin>(
-	PhantomData<(SuperuserLocation, RuntimeOrigin)>,
+	PhantomData<(WhitelistedSuperuserLocations, RuntimeOrigin)>,
 );
-impl<SuperuserLocation: Contains<Location>, RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
-	for LocationAsSuperuser<SuperuserLocation, RuntimeOrigin>
+impl<WhitelistedSuperuserLocations: Contains<Location>, RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
+	for LocationAsSuperuser<WhitelistedSuperuserLocations, RuntimeOrigin>
 {
 	fn convert_origin(
 		origin: impl Into<Location>,
@@ -354,7 +352,7 @@ impl<SuperuserLocation: Contains<Location>, RuntimeOrigin: OriginTrait> ConvertO
 			"LocationAsSuperuser",
 		);
 		match (kind, &origin) {
-			(OriginKind::Superuser, loc) if SuperuserLocation::contains(loc) =>
+			(OriginKind::Superuser, loc) if WhitelistedSuperuserLocations::contains(loc) =>
 				Ok(RuntimeOrigin::root()),
 			_ => Err(origin),
 		}
