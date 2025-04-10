@@ -116,7 +116,7 @@ impl TransactionPool for MiddlewarePool {
 			Err(err) => {
 				let _ = sender.send(MiddlewarePoolEvent::PoolError {
 					transaction: transaction.clone(),
-					err: err.to_string(),
+					err: format!("Inner submit_and_watch error: {:?}", err),
 				});
 				return Err(err);
 			},
