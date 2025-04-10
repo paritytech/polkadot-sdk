@@ -662,6 +662,11 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 			_ => Err(o),
 		}
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
 }
 
 impl pallet_staking_async_ah_client::Config for Runtime {

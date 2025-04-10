@@ -326,6 +326,11 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 		}
 		.map_err(|_| origin)
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		unreachable!()
+	}
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -859,14 +864,15 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn try
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
 }
 
 // TODO - AHM: this pallet is currently in place, but does nothing. Upon AHM, it should become
 // activated.
 impl ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
-	type Fallback = Staking;
 	type RuntimeEvent = RuntimeEvent;
 	type AssetHubOrigin =
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
@@ -876,6 +882,7 @@ impl ah_client::Config for Runtime {
 	type MinimumValidatorSetSize = ConstU32<4>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
+	type Fallback = Staking;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
