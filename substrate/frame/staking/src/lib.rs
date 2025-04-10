@@ -377,7 +377,7 @@ pub type NegativeImbalanceOf<T> =
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
@@ -1120,9 +1120,9 @@ impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::Accoun
 	fn convert(
 		validator: T::AccountId,
 	) -> Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> {
-		ActiveEra::<T>::get()
-			.map(|active_era| ErasStakersOverview::<T>::contains_key(active_era.index, &validator))
-			.unwrap_or(false)
+		// TODO: Move this to AH Client.
+		T::SessionInterface::validators()
+			.contains(&validator)
 			.then_some(ExistenceOrLegacyExposure::Exists)
 	}
 }

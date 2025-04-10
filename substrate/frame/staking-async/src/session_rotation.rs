@@ -597,14 +597,20 @@ impl<T: Config> Rotator<T> {
 	fn is_plan_era_deadline(start_session: SessionIndex, active_era: EraIndex) -> bool {
 		let planning_era_offset = T::PlanningEraOffset::get().min(T::SessionsPerEra::get());
 		// session at which we should plan the new era.
-		let plan_era_session = T::SessionsPerEra::get().saturating_sub(planning_era_offset);
+		let target_plan_era_session = T::SessionsPerEra::get().saturating_sub(planning_era_offset);
 		let era_start_session = ErasStartSessionIndex::<T>::get(&active_era).unwrap_or(0);
 
 		// progress of the active era in sessions.
 		let session_progress =
 			start_session.saturating_add(1).defensive_saturating_sub(era_start_session);
 
-		session_progress == plan_era_session
+		log!(
+			debug,
+			"Session progress: {:?}, target_plan_era_session: {:?}",
+			session_progress,
+			target_plan_era_session
+		);
+		session_progress >= target_plan_era_session
 	}
 
 	fn cleanup_old_era(starting_era: EraIndex) {

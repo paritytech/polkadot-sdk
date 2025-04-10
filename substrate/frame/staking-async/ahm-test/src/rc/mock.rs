@@ -39,6 +39,8 @@ pub fn roll_next() {
 
 	Session::on_initialize(next);
 	StakingAhClient::on_initialize(next);
+	Staking::on_initialize(next);
+	Staking::on_finalize(next);
 }
 
 parameter_types! {
@@ -206,8 +208,8 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type SlashDeferDuration = ConstU32<3>;
-	type BondingDuration = ConstU32<4>;
+	type SlashDeferDuration = ConstU32<2>;
+	type BondingDuration = ConstU32<3>;
 }
 
 impl pallet_root_offences::Config for Runtime {
@@ -225,10 +227,6 @@ parameter_types! {
 	pub static MinimumValidatorSetSize: u32 = 4;
 	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
 	pub static LocalQueueLastIndex: usize = 0;
-	// // counts how many times a new offence message is sent from RC -> AH.
-	// pub static CounterRCAHNewOffence: u32 = 0;
-	// // counts how many times a new session report is sent from RC -> AH.
-	// pub static CounterRCAHSessionReport: u32 = 0;
 }
 
 impl LocalQueue {
@@ -271,7 +269,7 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 			));
 			LocalQueue::set(Some(local_queue));
 		} else {
-			shared::CounterRCAHNewOffence::set(shared::CounterRCAHNewOffence::get() + 1);
+			shared::CounterRCAHNewOffence::mutate(|x| *x += 1);
 			shared::in_ah(|| {
 				let origin = crate::ah::RuntimeOrigin::root();
 				rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence(
@@ -290,7 +288,7 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 				.push((System::block_number(), OutgoingMessages::SessionReport(session_report)));
 			LocalQueue::set(Some(local_queue));
 		} else {
-			shared::CounterRCAHSessionReport::set(shared::CounterRCAHSessionReport::get() + 1);
+			shared::CounterRCAHSessionReport::mutate(|x| *x += 1);
 			shared::in_ah(|| {
 				let origin = crate::ah::RuntimeOrigin::root();
 				rc_client::Pallet::<crate::ah::Runtime>::relay_session_report(

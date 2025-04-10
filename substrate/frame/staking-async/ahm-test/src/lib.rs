@@ -157,7 +157,8 @@ mod tests {
 				vec![(2, Perbill::from_percent(100))],
 			));
 
-			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(5).len(), 1);
+			// offence is expected to be deferred to era 1 + 3 = 4
+			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).len(), 1);
 		});
 
 		// Ensure AH does not receive any
@@ -200,11 +201,11 @@ mod tests {
 			// let's create a new offence.
 			assert_ok!(RootOffences::create_offence(
 				rc::RuntimeOrigin::root(),
-				vec![(3, Perbill::from_percent(100))],
+				vec![(5, Perbill::from_percent(100))],
 			));
 
 			// no new unapplied slashes are created (other than the previously created).
-			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(5).len(), 1);
+			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).len(), 1);
 
 			// there is a buffered offence in the AHClient.
 			assert_eq!(ah_client::BufferedOffences::<rc::Runtime>::get().len(), 1);
@@ -213,7 +214,7 @@ mod tests {
 				(
 					current_session,
 					vec![rc_client::Offence {
-						offender: 3,
+						offender: 5,
 						reporters: vec![],
 						slash_fraction: Perbill::from_percent(100),
 					}],
@@ -225,10 +226,109 @@ mod tests {
 		assert_eq!(shared::CounterRCAHNewOffence::get(), 0);
 		assert_eq!(shared::CounterRCAHSessionReport::get(), 0);
 
+		// let's migrate state from RC::staking-classic to AH::staking-async
+		shared::migrate_state();
+
 		// SCENE (3): AHM migration ends.
-		// Migrate state (era, session, block points).
-		// Send offences.
-		// Election starts at next session boundary.
-		// new validator set.
+		// TODO
+		// - era reward points during migration are accounted correctly.
+		shared::in_rc(|| {
+			ah_client::Pallet::<rc::Runtime>::on_migration_end();
+			assert_eq!(ah_client::Mode::<rc::Runtime>::get(), OperatingMode::Active);
+
+			// offence in the migration period is reported to AH.
+			assert_eq!(shared::CounterRCAHNewOffence::get(), 1);
+		});
+
+		shared::in_ah(|| {
+			// TODO: Centralise following migration end logic in one place.
+			// rc_client::Pallet::<ah::Runtime>::on_migration_end();
+
+			// This should be done at the end of migration
+			pallet_staking_async::ForceEra::<ah::Runtime>::set(
+				pallet_staking_async::Forcing::NotForcing,
+			);
+
+			assert_eq!(
+				pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 5).unwrap(),
+				pallet_staking_async::slashing::OffenceRecord {
+					reporter: None,
+					reported_era: 1,
+					exposure_page: 0,
+					slash_fraction: Perbill::from_percent(100),
+					prior_slash_fraction: Perbill::from_percent(0),
+				}
+			);
+
+			// next block would process this offence
+			ah::roll_next();
+
+			assert_eq!(pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 5), None);
+			// offence is deferred by two eras, ie 1 + 2 = 3. Note that this is one era less than
+			// staking-classic since slashing happens in multi-block, and we want to apply all
+			// slashes before the era 4 starts.
+			assert!(pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(5, Perbill::from_percent(100), 0)
+			)
+			.is_some());
+		});
+
+		// NOW: lets verify we kick off the election at the appropriate time
+		shared::in_ah(|| {
+			// roll another block just to strongly prove election is not kicked off at the end of
+			// migration.
+			ah::roll_next();
+
+			// ensure no election is kicked off yet
+			// (when election is kicked off, current_era = active_era + 1)
+			assert_eq!(pallet_staking_async::CurrentEra::<ah::Runtime>::get(), Some(1));
+			assert_eq!(pallet_staking_async::ActiveEra::<ah::Runtime>::get().unwrap().index, 1);
+			// also no session report is sent to AH yet.
+			assert_eq!(shared::CounterRCAHSessionReport::get(), 0);
+		});
+
+		// It was more than 6 sessions since the last election, on RC, so an election is already
+		// overdue. The next session change should trigger an election.
+
+		shared::in_rc(|| {
+			assert_eq!(pallet_session::CurrentIndex::<rc::Runtime>::get(), 12);
+			rc::roll_until_matches(
+				|| pallet_session::CurrentIndex::<rc::Runtime>::get() == 13,
+				true,
+			);
+		});
+
+		// AH receives the session report.
+		assert_eq!(shared::CounterRCAHSessionReport::get(), 1);
+		shared::in_ah(|| {
+			assert_eq!(
+				pallet_staking_async::ForceEra::<ah::Runtime>::get(),
+				pallet_staking_async::Forcing::NotForcing
+			);
+			assert_eq!(pallet_staking_async::ActiveEra::<ah::Runtime>::get().unwrap().index, 1);
+			assert_eq!(pallet_staking_async::CurrentEra::<ah::Runtime>::get(), Some(1 + 1));
+
+			// ensure new validator is sent once election is complete.
+			ah::roll_until_matches(|| shared::CounterAHRCValidatorSet::get() == 1, true)
+		});
+
+		shared::in_rc(|| {
+			let (planned_era, next_validator_set) =
+				ah_client::ValidatorSet::<rc::Runtime>::get().unwrap();
+			assert_eq!(planned_era, 2);
+			assert!(next_validator_set.len() >= rc::MinimumValidatorSetSize::get() as usize);
+		});
+
+		shared::in_ah(|| {
+			assert_eq!(pallet_staking_async::ActiveEra::<ah::Runtime>::get().unwrap().index, 1);
+			// at next session, the validator set is queued but not applied yet.
+			ah::roll_until_matches(|| shared::CounterRCAHSessionReport::get() == 2, true);
+			// active era is still 1.
+			assert_eq!(pallet_staking_async::ActiveEra::<ah::Runtime>::get().unwrap().index, 1);
+			// the following session, the validator set is applied.
+			ah::roll_until_matches(|| shared::CounterRCAHSessionReport::get() == 3, true);
+			assert_eq!(pallet_staking_async::ActiveEra::<ah::Runtime>::get().unwrap().index, 2);
+		});
 	}
 }

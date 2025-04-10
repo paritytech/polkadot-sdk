@@ -27,7 +27,6 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
-use pallet_staking::NullIdentity;
 use sp_runtime::{traits::IdentityLookup, BuildStorage, KeyTypeId};
 
 type AccountId = u64;

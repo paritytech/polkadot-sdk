@@ -74,6 +74,7 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+	type Balance = u128;
 	type AccountStore = System;
 }
 
@@ -282,6 +283,7 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 			local_queue.push((System::block_number(), OutgoingMessages::ValidatorSet(report)));
 			LocalQueue::set(Some(local_queue));
 		} else {
+			shared::CounterAHRCValidatorSet::mutate(|x| *x += 1);
 			shared::in_rc(|| {
 				let origin = crate::rc::RuntimeOrigin::root();
 				pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::validator_set(

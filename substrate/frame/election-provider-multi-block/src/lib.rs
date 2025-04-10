@@ -607,7 +607,7 @@ pub mod pallet {
 			};
 
 			// in all cases, go to next phase
-			let next_phase = current_phase.clone().next();
+			let next_phase = current_phase.next();
 
 			let weight2 = match next_phase {
 				Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
@@ -1304,7 +1304,8 @@ where
 		Self::roll_until_matches(|| Self::current_phase().is_signed());
 		// ensure snapshot is full.
 		crate::Snapshot::<T>::ensure_full_snapshot().expect("Snapshot is not full");
-		OffchainWorkerMiner::<T>::mine_solution(T::Pages::get(), false).expect("mine_solution failed")
+		OffchainWorkerMiner::<T>::mine_solution(T::Pages::get(), false)
+			.expect("mine_solution failed")
 	}
 
 	pub(crate) fn submit_full_solution(
