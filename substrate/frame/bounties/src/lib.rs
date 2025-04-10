@@ -135,12 +135,6 @@ pub type BountyOf<T, I> = Bounty<
 	PaymentIdOf<T, I>,
 	<T as pallet_treasury::Config<I>>::Beneficiary,
 >;
-type BountyStatusOf<T, I> = BountyStatus<
-	<T as frame_system::Config>::AccountId,
-	BlockNumberFor<T, I>,
-	PaymentIdOf<T, I>,
-	<T as pallet_treasury::Config<I>>::Beneficiary,
->;
 type BlockNumberFor<T, I = ()> =
 	<<T as pallet_treasury::Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
