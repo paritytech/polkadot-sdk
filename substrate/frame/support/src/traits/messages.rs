@@ -187,8 +187,9 @@ pub trait QueueFootprintQuery<Origin> {
 	///
 	/// # Examples
 	///
-	/// Let's consider that each message would result in a new page. Then, for the messages
-	/// `["1", "2", "3"]`, and `total_pages_limit = 2`, `get_batches_footprints()` would return:
+	/// Let's consider that each message would result in a new page and that there's already 1
+	/// full page in the queue. Then, for the messages `["1", "2", "3"]`
+	/// and `total_pages_limit = 3`, `get_batches_footprints()` would return:
 	/// ```
 	/// use frame_support::traits::BatchFootprint;
 	///
@@ -197,14 +198,16 @@ pub trait QueueFootprintQuery<Origin> {
 	/// 	BatchFootprint {
 	/// 		msgs_count: 1,
 	/// 		size_in_bytes: 1,
-	/// 		new_pages_count: 1,
+	/// 		new_pages_count: 1, // total pages count = 2
 	/// 	},
 	/// 	// The footprint of batch ["1", "2"]
 	/// 	BatchFootprint {
 	/// 		msgs_count: 2,
 	/// 		size_in_bytes: 2,
-	/// 		new_pages_count: 2,
+	/// 		new_pages_count: 2, // total pages count = 3
 	/// 	}
+	/// 	// For the batch ["1", "2", "3"], the total pages count would be 4, which would exceed
+	/// 	// the `total_pages_limit`.
 	/// ];
 	/// ```
 	fn get_batches_footprints<'a>(
