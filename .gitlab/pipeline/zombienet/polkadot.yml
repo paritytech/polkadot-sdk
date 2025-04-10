@@ -472,3 +472,21 @@ zombienet-polkadot-disputes-slashing:
     - unset NEXTEST_FAILURE_OUTPUT
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- disabling::slashing
+
+zombienet-polkadot-approved-peer-mixed-validators:
+  extends:
+    - .zombienet-polkadot-common
+  needs:
+    - job: build-polkadot-zombienet-tests
+      artifacts: true
+  before_script:
+    - !reference [".zombienet-polkadot-common", "before_script"]
+    # Use an old polkadot version for some of the validators, which does not allow ApprovedPeer UMP signals. 
+    - export OLD_POLKADOT_IMAGE="${POLKADOT_IMAGE}:master-187cddde"
+    - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - export X_INFRA_INSTANCE=spot # use spot by default
+  script:
+    # we want to use `--no-capture` in zombienet tests.
+    - unset NEXTEST_FAILURE_OUTPUT
+    - unset NEXTEST_SUCCESS_OUTPUT
+    - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test
