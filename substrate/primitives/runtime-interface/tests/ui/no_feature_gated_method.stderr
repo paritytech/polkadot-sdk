@@ -100,4 +100,3 @@ warning: unexpected `cfg` condition value: `bar-feature`
    = note: expected values for `feature` are: `default`, `disable_target_static_assertions`, and `std`
    = help: consider adding `bar-feature` as a feature in `Cargo.toml`
    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
-   
