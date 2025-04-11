@@ -1553,87 +1553,106 @@ async fn handle_our_view_change<Context>(
 			gum::debug!(target: LOG_TARGET, relay_parent = ?removed, "Removing relay parent because our view changed.");
 
 			if let Some(block_number) = get_block_number(ctx, *removed).await {
-				// Drain expired collations from tracker
-				// Process collation tracker expires.
 				let expired_collations = state.collation_tracker.drain_expired(block_number);
-
-				for expired_collation in expired_collations {
-					let collation_state = if expired_collation.fetch_latency().is_none() {
-						// If collation was not fetched, we rely on the status provided
-						// by the collator protocol.
-						expired_collation.pre_backing_status.label()
-					} else if expired_collation.backed().is_none() {
-						"fetched"
-					} else if expired_collation.included().is_none() {
-						"backed"
-					} else {
-						"none"
-					};
-
-					let age = expired_collation.expired().unwrap_or_default();
-					gum::debug!(
-						target: crate::LOG_TARGET_STATS,
-						?age,
-						?collation_state,
-						relay_parent = ?removed,
-						?para_id,
-						?expired_collation.head,
-						"Collation expired",
-					);
-
-					state.metrics.on_collation_expired(age as f64, collation_state);
-				}
+				process_expired_collations(expired_collations, *removed, para_id, &state.metrics);
 			}
 
+			// Get all the collations built on top of the removed feaf.
 			let collations = state
 				.per_relay_parent
 				.remove(removed)
 				.map(|per_relay_parent| per_relay_parent.collations)
 				.unwrap_or_default();
-			for mut collation_with_core in collations.into_values() {
-				let collation = collation_with_core.collation();
 
-				let candidate_hash = collation.receipt.hash();
+			for collation_with_core in collations.into_values() {
+				let collation = collation_with_core.collation();
+				let candidate_hash: CandidateHash = collation.receipt.hash();
+
 				state.collation_result_senders.remove(&candidate_hash);
 				state.validator_groups_buf.remove_candidate(&candidate_hash);
 
-				match collation.status {
-					CollationStatus::Created => gum::warn!(
-						target: LOG_TARGET,
-						candidate_hash = ?collation.receipt.hash(),
-						pov_hash = ?collation.pov.hash(),
-						"Collation wasn't advertised to any validator.",
-					),
-					CollationStatus::Advertised => gum::debug!(
-						target: LOG_TARGET,
-						candidate_hash = ?collation.receipt.hash(),
-						pov_hash = ?collation.pov.hash(),
-						"Collation was advertised but not requested by any validator.",
-					),
-					CollationStatus::Requested => {
-						gum::debug!(
-							target: LOG_TARGET,
-							candidate_hash = ?collation.receipt.hash(),
-							pov_hash = ?collation.pov.hash(),
-							"Collation was requested.",
-						);
-					},
-				}
-
-				let collation_status = collation.status.clone();
-				let Some(mut stats) = collation_with_core.take_stats() else { continue };
-
-				// If the collation stats are still available, it means it was never
-				// succesfully fetched, even if a fetch request was received, but not succeed.
-				//
-				// Will expire in it's current state at the next block import.
-				stats.pre_backing_status = collation_status;
-				state.collation_tracker.track(stats);
+				process_out_of_view_collation(&mut state.collation_tracker, collation_with_core);
 			}
+
 			state.waiting_collation_fetches.remove(removed);
 		}
 	}
 	Ok(())
+}
+
+fn process_out_of_view_collation(
+	collation_tracker: &mut CollationTracker,
+	mut collation_with_core: CollationWithCoreIndex,
+) {
+	let collation = collation_with_core.collation();
+	let candidate_hash: CandidateHash = collation.receipt.hash();
+
+	match collation.status {
+		CollationStatus::Created => gum::warn!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			pov_hash = ?collation.pov.hash(),
+			"Collation wasn't advertised to any validator.",
+		),
+		CollationStatus::Advertised => gum::debug!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			pov_hash = ?collation.pov.hash(),
+			"Collation was advertised but not requested by any validator.",
+		),
+		CollationStatus::Requested => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				pov_hash = ?collation.pov.hash(),
+				"Collation was requested.",
+			);
+		},
+	}
+
+	let collation_status = collation.status.clone();
+	let Some(mut stats) = collation_with_core.take_stats() else { return };
+
+	// If the collation stats are still available, it means it was never
+	// succesfully fetched, even if a fetch request was received, but not succeed.
+	//
+	// Will expire in it's current state at the next block import.
+	stats.pre_backing_status = collation_status;
+	collation_tracker.track(stats);
+}
+
+fn process_expired_collations(
+	expired_collations: Vec<CollationStats>,
+	removed: Hash,
+	para_id: ParaId,
+	metrics: &Metrics,
+) {
+	for expired_collation in expired_collations {
+		let collation_state = if expired_collation.fetch_latency().is_none() {
+			// If collation was not fetched, we rely on the status provided
+			// by the collator protocol.
+			expired_collation.pre_backing_status.label()
+		} else if expired_collation.backed().is_none() {
+			"fetched"
+		} else if expired_collation.included().is_none() {
+			"backed"
+		} else {
+			"none"
+		};
+
+		let age = expired_collation.expired().unwrap_or_default();
+		gum::debug!(
+			target: crate::LOG_TARGET_STATS,
+			?age,
+			?collation_state,
+			relay_parent = ?removed,
+			?para_id,
+			?expired_collation.head,
+			"Collation expired",
+		);
+
+		metrics.on_collation_expired(age as f64, collation_state);
+	}
 }
 
 /// The collator protocol collator side main loop.
