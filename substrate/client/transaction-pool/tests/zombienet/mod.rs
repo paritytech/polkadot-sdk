@@ -20,10 +20,12 @@
 //! across integration tests for transaction pool.
 
 use anyhow::anyhow;
+use std::time::SystemTime;
 use tracing_subscriber::EnvFilter;
 use txtesttool::scenario::{ChainType, ScenarioBuilder};
 use zombienet_sdk::{
-	subxt::SubstrateConfig, LocalFileSystem, Network, NetworkConfig, NetworkConfigExt,
+	subxt::SubstrateConfig, GlobalSettingsBuilder, LocalFileSystem, Network, NetworkConfig,
+	NetworkConfigExt,
 };
 
 /// Gathers TOML files paths for relaychains and for parachains' (that use rococo-local based
@@ -78,7 +80,19 @@ impl NetworkSpawner {
 			.with_env_filter(env_filter) // Use the env filter
 			.init();
 
-		let net_config = NetworkConfig::load_from_toml(toml_path).map_err(Error::NetworkInit)?;
+		const TXPOOL_TEST_DIR_ENV: &str = "TXPOOL_TEST_DIR";
+		let net_config = if let Ok(pool_test_dir) = std::env::var(TXPOOL_TEST_DIR_ENV) {
+			let datetime: chrono::DateTime<chrono::Local> = SystemTime::now().into();
+			let formatted_date = datetime.format("%Y%m%d_%H%M%S");
+			let base_dir = format!("{}/test_{}", pool_test_dir, formatted_date);
+			let settings = GlobalSettingsBuilder::new().with_base_dir(base_dir).build().unwrap();
+			NetworkConfig::load_from_toml_with_settings(toml_path, &settings)
+				.map_err(Error::NetworkInit)?
+		} else {
+			tracing::info!("'{TXPOOL_TEST_DIR_ENV}' env not set, proceeding with defaults.");
+			NetworkConfig::load_from_toml(toml_path).map_err(Error::NetworkInit)?
+		};
+
 		Ok(NetworkSpawner {
 			network: net_config
 				.spawn_native()
