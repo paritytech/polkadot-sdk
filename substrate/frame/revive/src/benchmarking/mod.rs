@@ -2028,8 +2028,10 @@ mod benchmarks {
 	}
 
 	// `n`: pairings to perform
+	// This is a slow call: We reduce the number of runs to 20 to avoid the benchmark taking too
+	// long.
 	#[benchmark(pov_mode = Measured)]
-	fn bn128_pairing(n: Linear<0, { limits::code::BLOB_BYTES / 192 }>) {
+	fn bn128_pairing(n: Linear<0, 20>) {
 		let input = pure_precompiles::generate_random_ecpairs(n as usize);
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
