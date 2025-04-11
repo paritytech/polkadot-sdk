@@ -21,6 +21,14 @@ cargo build --release -p polkadot-test-malus
 ```
 *Remember to ensure the resulting binaries (e.g., `./target/release/polkadot-parachain`) are accessible via your system's `PATH`.*
 
+**Example:** You can add the build output directory to your PATH for the current terminal session by running the following command from the workspace root:
+
+```bash
+export PATH="$(pwd)/target/release:$PATH"
+```
+
+This allows Zombienet (`native` provider) to find the executables. You generally need to run this in the same terminal session where you intend to run the tests.
+
 ## Running the Tests
 
 Navigate to the root of the Polkadot SDK workspace.
