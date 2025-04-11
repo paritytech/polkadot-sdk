@@ -55,7 +55,7 @@ where
 		Err(next) => next,
 	};
 
-	let mut upper = Vec::with_capacity((next.len() + 1) / 2);
+	let mut upper = Vec::with_capacity(next.len().div_ceil(2));
 	loop {
 		visitor.move_up();
 
