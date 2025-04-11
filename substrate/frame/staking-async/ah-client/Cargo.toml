@@ -9,8 +9,8 @@ repository.workspace = true
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
-scale-info = { workspace = true, features = ["derive"] }
 log = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
 
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
