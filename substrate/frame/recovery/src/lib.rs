@@ -213,16 +213,16 @@ pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 	PartialEq,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	DebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
 	DecodeWithMemTracking,
 )]
-pub enum DepositKind {
+pub enum DepositKind<T: Config> {
 	/// Recovery configuration deposit
 	RecoveryConfig,
-	/// Active recovery deposit
-	ActiveRecovery,
+	/// Active recovery deposit for an account
+	ActiveRecoveryFor(<T as frame_system::Config>::AccountId),
 }
 
 #[frame::pallet]
@@ -332,7 +332,7 @@ pub mod pallet {
 		/// A deposit has been updated.
 		DepositPoked {
 			who: T::AccountId,
-			kind: DepositKind,
+			kind: DepositKind<T>,
 			old_deposit: BalanceOf<T>,
 			new_deposit: BalanceOf<T>,
 		},
@@ -742,16 +742,21 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Poke / update deposits for recovery configurations and active recoveries.
+		/// Poke deposits for recovery configurations and / or active recoveries.
 		///
 		/// This can be used by accounts to possibly lower their locked amount.
 		///
 		/// The dispatch origin for this call must be _Signed_.
+		/// 
+		/// Parameters:
+		/// - `maybe_account`: Optional recoverable account for which you have an active recovery
+		/// and want to adjust the deposit for the active recovery.
 		///
 		/// This function checks both recovery configuration deposit and active recovery deposits
 		/// of the caller:
 		/// - If the caller has created a recovery configuration, checks and adjusts its deposit
-		/// - If the caller has initiated any active recoveries, checks and adjusts those deposits
+		/// - If the caller has initiated any active recoveries, and provides the account in
+		/// `maybe_account`, checks and adjusts those deposits
 		///
 		/// If any deposit is updated, the difference will be reserved/unreserved from the caller's
 		/// account.
@@ -762,58 +767,17 @@ pub mod pallet {
 		/// Multiple events may be emitted in case both types of deposits are updated.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::poke_deposit(T::MaxFriends::get()))]
-		pub fn poke_deposit(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+		pub fn poke_deposit(origin: OriginFor<T>, maybe_account: Option<AccountIdLookupOf<T>>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let mut deposit_updated = false;
 
-			// Check recovery configuration deposit
-			<Recoverable<T>>::try_mutate(&who, |maybe_config| -> DispatchResult {
-				let Some(config) = maybe_config.as_mut() else { return Ok(()) };
-				let old_deposit = config.deposit;
-				let new_deposit = Self::get_recovery_config_deposit(config.friends.len())?;
+			// Check and update recovery config deposit
+			deposit_updated |= Self::poke_recovery_config_deposit(&who)?;
 
-				if old_deposit == new_deposit {
-					return Ok(());
-				}
-
-				if new_deposit > old_deposit {
-					let extra = new_deposit.saturating_sub(old_deposit);
-					T::Currency::reserve(&who, extra)?;
-				} else {
-					let excess = old_deposit.saturating_sub(new_deposit);
-					let remaining_unreserved = T::Currency::unreserve(&who, excess);
-					if !remaining_unreserved.is_zero() {
-						defensive!(
-							"Failed to unreserve full amount. (Requested, Actual)",
-							(excess, excess.saturating_sub(remaining_unreserved))
-						);
-					}
-				}
-				config.deposit = new_deposit;
-				deposit_updated = true;
-
-				Self::deposit_event(Event::<T>::DepositPoked {
-					who: who.clone(),
-					kind: DepositKind::RecoveryConfig,
-					old_deposit,
-					new_deposit,
-				});
-				Ok(())
-			})?;
-
-			// Check active recovery deposits. Get the deposit required for active recovery.
-			let new_deposit = T::RecoveryDeposit::get();
-
-			// Get all active recoveries where caller is rescuer
-			let active_recoveries: Vec<_> = <ActiveRecoveries<T>>::iter()
-				.filter(|(_, rescuer, _)| rescuer == &who)
-				.map(|(lost_account, _, _)| lost_account)
-				.collect();
-
-			// Update active recovery deposit for all active recoveries
-			for lost_account in active_recoveries {
-				deposit_updated |=
-					Self::update_active_recovery_deposit(&who, &lost_account, new_deposit)?;
+			// Check and update active recovery deposit
+			if let Some(lost_account) = maybe_account {
+				let lost_account = T::Lookup::lookup(lost_account)?;
+				deposit_updated |= Self::poke_active_recovery_deposit(&who, &lost_account)?;
 			}
 
 			Ok(if deposit_updated { Pays::No } else { Pays::Yes }.into())
@@ -843,11 +807,48 @@ impl<T: Config> Pallet<T> {
 			.ok_or(ArithmeticError::Overflow.into())
 	}
 
-	fn update_active_recovery_deposit(
+	/// Helper function to poke the deposit reserved for creating a recovery config
+	fn poke_recovery_config_deposit(who: &T::AccountId) -> Result<bool, DispatchError> {
+		<Recoverable<T>>::try_mutate(&who, |maybe_config| -> Result<bool, DispatchError> {
+			let Some(config) = maybe_config.as_mut() else { return Ok(false) };
+			let old_deposit = config.deposit;
+			let new_deposit = Self::get_recovery_config_deposit(config.friends.len())?;
+
+			if old_deposit == new_deposit {
+				return Ok(false);
+			}
+
+			if new_deposit > old_deposit {
+				let extra = new_deposit.saturating_sub(old_deposit);
+				T::Currency::reserve(&who, extra)?;
+			} else {
+				let excess = old_deposit.saturating_sub(new_deposit);
+				let remaining_unreserved = T::Currency::unreserve(&who, excess);
+				if !remaining_unreserved.is_zero() {
+					defensive!(
+						"Failed to unreserve full amount. (Requested, Actual)",
+						(excess, excess.saturating_sub(remaining_unreserved))
+					);
+				}
+			}
+			config.deposit = new_deposit;
+
+			Self::deposit_event(Event::<T>::DepositPoked {
+				who: who.clone(),
+				kind: DepositKind::RecoveryConfig,
+				old_deposit,
+				new_deposit,
+			});
+			Ok(true)
+		})
+	}
+
+	/// Helper function to poke the deposit reserved for an active recovery
+	fn poke_active_recovery_deposit(
 		who: &T::AccountId,
 		lost_account: &T::AccountId,
-		new_deposit: BalanceOf<T>,
 	) -> Result<bool, DispatchError> {
+		let new_deposit = T::RecoveryDeposit::get();
 		<ActiveRecoveries<T>>::try_mutate(
 			lost_account,
 			who,
@@ -878,12 +879,12 @@ impl<T: Config> Pallet<T> {
 
 				Self::deposit_event(Event::<T>::DepositPoked {
 					who: who.clone(),
-					kind: DepositKind::ActiveRecovery,
+					kind: DepositKind::ActiveRecoveryFor(lost_account.clone()),
 					old_deposit,
 					new_deposit,
 				});
 				Ok(true)
-			},
+			}
 		)
 	}
 }
