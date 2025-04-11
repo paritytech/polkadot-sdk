@@ -865,10 +865,12 @@ async fn validate_candidate_exhaustive(
 	let validation_code_hash = validation_code.hash();
 	let relay_parent = candidate_receipt.descriptor.relay_parent();
 	let para_id = candidate_receipt.descriptor.para_id();
+	let candidate_hash = candidate_receipt.hash();
 
 	gum::debug!(
 		target: LOG_TARGET,
 		?validation_code_hash,
+		?candidate_hash,
 		?para_id,
 		"About to validate a candidate.",
 	);
@@ -888,7 +890,7 @@ async fn validate_candidate_exhaustive(
 		&pov,
 		&validation_code_hash,
 	) {
-		gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (basic checks)");
+		gum::debug!(target: LOG_TARGET, ?para_id, ?candidate_hash, "Invalid candidate (basic checks)");
 		return Ok(ValidationResult::Invalid(e))
 	}
 
@@ -935,7 +937,7 @@ async fn validate_candidate_exhaustive(
 	};
 
 	if let Err(ref error) = result {
-		gum::info!(target: LOG_TARGET, ?para_id, ?error, "Failed to validate candidate");
+		gum::info!(target: LOG_TARGET, ?para_id, ?candidate_hash, ?error, "Failed to validate candidate");
 	}
 
 	match result {
@@ -943,6 +945,7 @@ async fn validate_candidate_exhaustive(
 			gum::warn!(
 				target: LOG_TARGET,
 				?para_id,
+				?candidate_hash,
 				?e,
 				"An internal error occurred during validation, will abstain from voting",
 			);
@@ -1008,7 +1011,16 @@ async fn validate_candidate_exhaustive(
 					gum::info!(
 						target: LOG_TARGET,
 						?para_id,
+						?candidate_hash,
 						"Invalid candidate (commitments hash)"
+					);
+
+					gum::trace!(
+						target: LOG_TARGET,
+						?para_id,
+						?candidate_hash,
+						produced_commitments = ?committed_candidate_receipt.commitments,
+						"Invalid candidate commitments"
 					);
 
 					// If validation produced a new set of commitments, we treat the candidate as
@@ -1031,16 +1043,16 @@ async fn validate_candidate_exhaustive(
 							};
 
 							if let Err(err) = committed_candidate_receipt
-								.check_core_index(&transpose_claim_queue(claim_queue.0))
+								.parse_ump_signals(&transpose_claim_queue(claim_queue.0))
 							{
 								gum::warn!(
 									target: LOG_TARGET,
 									candidate_hash = ?candidate_receipt.hash(),
-									"Candidate core index is invalid: {}",
+									"Invalid UMP signals: {}",
 									err
 								);
 								return Ok(ValidationResult::Invalid(
-									InvalidCandidate::InvalidCoreIndex,
+									InvalidCandidate::InvalidUMPSignals(err),
 								))
 							}
 						},
