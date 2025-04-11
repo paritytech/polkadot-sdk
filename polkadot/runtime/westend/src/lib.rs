@@ -541,7 +541,7 @@ impl pallet_session::Config for Runtime {
 
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = ah_client::ExistenceOrLegacyExposure<AccountId, Balance>;
+	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
 	type FullIdentificationOf = ah_client::ExistenceOrLegacyExposureOf<Runtime>;
 }
 

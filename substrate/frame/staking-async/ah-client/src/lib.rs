@@ -60,12 +60,12 @@ use frame_support::{pallet_prelude::*, traits::RewardsReporter};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_staking::{
 	offence::{OffenceDetails, OffenceSeverity},
-	SessionIndex,
+	ExistenceOrLegacyExposure, SessionIndex,
 };
 
 /// Re-export the `FullIdentification` type from pallet-staking that should be used as in a rc
 /// runtime.
-pub use pallet_staking::{ExistenceOrLegacyExposure, ExistenceOrLegacyExposureOf};
+pub use pallet_staking::ExistenceOrLegacyExposureOf;
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";

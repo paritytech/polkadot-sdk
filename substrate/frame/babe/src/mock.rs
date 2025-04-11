@@ -106,7 +106,7 @@ impl pallet_session::Config for Test {
 
 impl pallet_session::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = pallet_staking::ExistenceOrLegacyExposure<u64, Balance>;
+	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<u64, Balance>;
 	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Test>;
 }
 
@@ -122,9 +122,10 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
+type Balance = u128;
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u128;
+	type Balance = Balance;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 }
