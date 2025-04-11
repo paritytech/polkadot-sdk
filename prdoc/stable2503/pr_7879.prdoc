@@ -1,0 +1,11 @@
+title: '[pallet-revive] Support blocktag in eth_getLogs RPC'
+doc:
+- audience: Runtime Dev
+  description: 'Support "latest" blocktag in ethGetLogs from_block and to_block parameters
+
+    '
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive
+  bump: patch

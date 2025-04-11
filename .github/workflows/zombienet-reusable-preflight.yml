@@ -70,6 +70,16 @@ on:
         description: |
           Id of the build run, needed to download the artifacts.
 
+      POLKADOT_PR_ARTIFACTS_URL:
+        value: ${{ jobs.wait_build_images.outputs.POLKADOT_PR_ARTIFACTS_URL }}
+        description: |
+          url for download polkadot built artifacts (in zip format).
+
+      FLAKY_TESTS:
+        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
+        description: |
+          comma separated list of flaky tests to skip.
+
       # Zombie vars
       PUSHGATEWAY_URL:
         value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
@@ -102,11 +112,11 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     outputs:
-      changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_cumulus: ${{ steps.set_changes.outputs.cumulus_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_polkadot: ${{ steps.set_changes.outputs.polkadot_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_bridges: ${{ steps.set_changes.outputs.bridges_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
-      changes_templates: ${{ steps.set_changes.outputs.templates_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_substrate: true
+      changes_cumulus: true
+      changes_polkadot: true
+      changes_bridges: true
+      changes_templates: true
 
       ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
       ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
@@ -125,6 +135,7 @@ jobs:
       RUN_IN_CI: ${{ steps.set_vars.outputs.RUN_IN_CI }}
       KUBERNETES_CPU_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_CPU_REQUEST }}
       KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
+      FLAKY_TESTS: ${{ steps.set_vars.outputs.FLAKY_TESTS }}
 
     steps:
       - uses: actions/checkout@v4
@@ -139,25 +150,26 @@ jobs:
           echo "currentWorkflowFile=$(echo ${{ github.workflow_ref }} | sed -nE "s/.*(\.github\/workflows\/[a-zA-Z0-9_-]*\.y[a]?ml)@refs.*/\1/p")" >> $GITHUB_OUTPUT
           echo "currentActionDir=$(echo ${{ github.action_path }} | sed -nE "s/.*(\.github\/actions\/[a-zA-Z0-9_-]*)/\1/p")" >> $GITHUB_OUTPUT
 
-      - name: Set changes
-        id: set_changes
-        uses: tj-actions/changed-files@v45
-        with:
-          files_yaml: |
-            substrate:
-              - 'substrate/**/*'
-            cumulus:
-              - 'cumulus/**/*'
-            polkadot:
-              - 'polkadot/**/*'
-            bridges:
-              - 'bridges/**/*'
-            templates:
-              - 'templates/**/*'
-            currentWorkflow:
-              - '${{ steps.current_file.outputs.currentWorkflowFile }}'
-              - '.github/workflows/zombienet-reusable-preflight.yml'
-              - '.github/zombienet-env'
+      # removed due to https://news.ycombinator.com/item?id=43368870
+      #- name: Set changes
+      #  id: set_changes
+      #  uses: tj-actions/changed-files@v45
+      #  with:
+      #    files_yaml: |
+      #      substrate:
+      #        - 'substrate/**/*'
+      #      cumulus:
+      #        - 'cumulus/**/*'
+      #      polkadot:
+      #        - 'polkadot/**/*'
+      #      bridges:
+      #        - 'bridges/**/*'
+      #      templates:
+      #        - 'templates/**/*'
+      #      currentWorkflow:
+      #        - '${{ steps.current_file.outputs.currentWorkflowFile }}'
+      #        - '.github/workflows/zombienet-reusable-preflight.yml'
+      #        - '.github/zombienet-env'
 
       #
       # Set environment vars (including runner/image)
@@ -187,7 +199,6 @@ jobs:
         shell: bash
         run: |
           echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
-          echo "Modified: ${{ steps.set_changes.outputs.modified_keys }}"
           echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
 
   #
@@ -210,6 +221,7 @@ jobs:
           echo "RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}"
           echo "KUBERNETES_CPU_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_CPU_REQUEST }}"
           echo "KUBERNETES_MEMORY_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}"
+          echo "FLAKY_TESTS: ${{ needs.preflight.outputs.FLAKY_TESTS }}"
           #
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
@@ -218,11 +230,12 @@ jobs:
   #
   # Wait until the 'build and push' image workflow success
   wait_build_images:
-    needs: [ci-env]
+    needs: [preflight, ci-env]
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     outputs:
       BUILD_RUN_ID: ${{ steps.wait_build.outputs.BUILD_RUN_ID }}
+      POLKADOT_PR_ARTIFACTS_URL: ${{ steps.get_artifacts_url.outputs.POLKADOT_PR_ARTIFACTS_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -234,6 +247,7 @@ jobs:
           gh --version
           export SHA=${{ github.event.pull_request.head.sha }}
           if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+          DELAYER=10
           while true; do
             STATUS=$(gh run ls -c $SHA -w "Build and push images" --json name,status --jq '.[] | select(.name == "Build and push images") | .status')
             echo "CI workflow status: $STATUS"
@@ -245,7 +259,8 @@ jobs:
               echo "::warning::No CI workflow runs found for this commit"
               exit 1
             fi
-            sleep 10
+            sleep $((60 * DELAYER))
+            DELAYER=1
           done
 
           #check if the build succeeded
@@ -259,3 +274,15 @@ jobs:
             echo "::warning:: CI workflow ('Build and push images') fails with conclusion: $CONCLUSION"
             exit 1
           fi;
+
+      # - name: Get artifacts url for pr
+      #   id: get_artifacts_url
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     gh --version
+      #     export SHA=${{ github.event.pull_request.head.sha }}
+      #     if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+      #     POLKADOT_PR_ARTIFACTS_URL=$(curl "https://api.github.com/repos/paritytech/polkadot-sdk/actions/runs/${{steps.wait_build.outputs.BUILD_RUN_ID}}/artifacts?name=build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}" | jq -r ".artifacts[0].archive_download_url")
+      #     echo "POLKADOT_PR_ARTIFACTS_URL=${POLKADOT_PR_ARTIFACTS_URL}" >> $GITHUB_OUTPUT
+
