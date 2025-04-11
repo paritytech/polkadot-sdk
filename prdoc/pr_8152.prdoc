@@ -1,0 +1,14 @@
+title: '`fatxpool`: some more integration tests'
+doc:
+- audience: Node Dev
+  description: "Some extra tests for `fatxpool`, including long term test:\n- sending\
+    \ 5M transactions,\n- transaction gossiping tests (for network protocol evaluation),\n\
+    \nThe base directory can be specified by setting `TXPOOL_TEST_DIR` env variable.\n\
+    \nIf set every individual test restults will be placed under this path in a directory\
+    \ name formatted as `test_%Y%m%d_%H%M%S`. e.g.:\n```\nexport TXPOOL_TEST_DIR=/home/miszka/test-results\n\
+    cargo test  --release --test integration -- --ignored send_future_and_ready_from_many_accounts_to_parachain\n\
+    ...\n2025-04-11T07:48:15.324966Z  INFO zombienet_orchestrator: \U0001F9F0 base_dir:\
+    \ \"/home/miszka/test-results/test_20250411_094815\"\n...\n```"
+crates:
+- name: sc-transaction-pool
+  bump: minor
