@@ -118,6 +118,8 @@ jobs:
       changes_bridges: true
       changes_templates: true
 
+      CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}
+
       ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
       ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
 
@@ -183,6 +185,9 @@ jobs:
           #
           cat .github/zombienet-env >> $GITHUB_OUTPUT
           cat .github/zombienet-env
+          # global imga from ci
+          cat .github/env >> $GITHUB_OUTPUT
+          cat .github/env
 
       #
       #
@@ -210,6 +215,7 @@ jobs:
     steps:
       - name: Info vars
         run: |
+          echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
           echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
           echo "ZOMBIENET_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}"
           echo "DOCKER_IMAGES_VERSION: ${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
