@@ -311,6 +311,8 @@ impl CollationTracker {
 
 // Information about how collations live their lives.
 struct CollationStats {
+	// The pre-backing collation status information
+	pre_backing_status: CollationStatus,
 	// The block header hash.
 	head: Hash,
 	// The relay parent on top of which collation was built
@@ -332,6 +334,7 @@ struct CollationStats {
 impl CollationStats {
 	pub fn new(head: Hash, relay_parent_number: BlockNumber, metrics: &Metrics) -> Self {
 		Self {
+			pre_backing_status: CollationStatus::Created,
 			head,
 			relay_parent_number,
 			advertised_at: std::time::Instant::now(),
@@ -358,7 +361,8 @@ impl CollationStats {
 	// Returns the age of the collation at the moment of inclusion.
 	pub fn included(&self) -> Option<BlockNumber> {
 		let included_at = self.included_at?;
-		Some(included_at - self.relay_parent_number)
+		let backed_at = self.backed_at?;
+		Some(included_at - backed_at)
 	}
 
 	// Returns time the collation waited to be fetched.
@@ -1555,7 +1559,9 @@ async fn handle_our_view_change<Context>(
 
 				for expired_collation in expired_collations {
 					let collation_state = if expired_collation.fetch_latency().is_none() {
-						"advertised"
+						// If collation was not fetched, we rely on the status provided
+						// by the collator protocol.
+						expired_collation.pre_backing_status.label()
 					} else if expired_collation.backed().is_none() {
 						"fetched"
 					} else if expired_collation.included().is_none() {
@@ -1611,16 +1617,18 @@ async fn handle_our_view_change<Context>(
 							pov_hash = ?collation.pov.hash(),
 							"Collation was requested.",
 						);
-
-						let Some(stats) = collation_with_core.take_stats() else { continue };
-
-						// If the collation stats are stil available, it means it was never
-						// succesfully fetched, even if a fetch request was received.
-						//
-						// Will expire in state "advertised" at the next block import.
-						state.collation_tracker.track(stats);
 					},
 				}
+
+				let collation_status = collation.status.clone();
+				let Some(mut stats) = collation_with_core.take_stats() else { continue };
+
+				// If the collation stats are still available, it means it was never
+				// succesfully fetched, even if a fetch request was received, but not succeed.
+				//
+				// Will expire in it's current state at the next block import.
+				stats.pre_backing_status = collation_status;
+				state.collation_tracker.track(stats);
 			}
 			state.waiting_collation_fetches.remove(removed);
 		}
@@ -1732,6 +1740,10 @@ async fn run_inner<Context>(
 										"Collation fetch latency is {}ms",
 										stats.fetch_latency().unwrap_or_default().as_millis(),
 									);
+
+									// Update the pre-backing status. Should be requested at this point.
+									stats.pre_backing_status = collation_with_core.collation().status.clone();
+									debug_assert_eq!(collation_with_core.collation().status, CollationStatus::Requested);
 
 									// Observe fetch latency metric.
 									stats.fetch_latency_metric.take();
