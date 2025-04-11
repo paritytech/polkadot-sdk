@@ -375,8 +375,10 @@ impl CollationStats {
 impl Drop for CollationStats {
 	fn drop(&mut self) {
 		if let Some(fetch_latency_metric) = self.fetch_latency_metric.take() {
-			// Do not expiration as fetch latency unfetched collations.
-			// Fetched collations should have already observed & dropped the metric.
+			// Tnis metric is only observed when collation was sent fully to the validator..
+			//
+			// If `fetch_latency_metric` is Some it means that the metrics was observed.
+			// We don't want to observe it again and report a higher value at a later point in time.
 			fetch_latency_metric.stop_and_discard();
 		}
 	}
@@ -1412,9 +1414,9 @@ async fn handle_network_msg<Context>(
 	Ok(())
 }
 
-/// Checks candidate events for backed and included collations.
+/// Update collation tracker with the backed and included candidates.
 #[overseer::contextbounds(CollatorProtocol, prefix = crate::overseer)]
-async fn process_candidate_events<Context>(
+async fn process_block_events<Context>(
 	ctx: &mut Context,
 	collation_tracker: &mut CollationTracker,
 	leaf: Hash,
@@ -1505,8 +1507,12 @@ async fn handle_our_view_change<Context>(
 		let claim_queue: ClaimQueueSnapshot = fetch_claim_queue(ctx.sender(), *leaf).await?;
 		state.per_relay_parent.insert(*leaf, PerRelayParent::new(para_id, claim_queue));
 
-		process_candidate_events(ctx, &mut state.collation_tracker, *leaf, para_id, &state.metrics)
-			.await?;
+		if let Err(err) =
+			process_block_events(ctx, &mut state.collation_tracker, *leaf, para_id, &state.metrics)
+				.await
+		{
+			gum::debug!(target: LOG_TARGET_STATS, ?err,  "Failed to process block events");
+		}
 
 		implicit_view
 			.activate_leaf(ctx.sender(), *leaf)
