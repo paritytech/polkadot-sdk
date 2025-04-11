@@ -59,6 +59,15 @@ mod v4 {
 	>;
 }
 
+/// Updates the `Bounty` struct to include the new fields:
+/// - `asset_kind`
+/// - `beneficiary` type (now generic)
+/// - `payment_status` introduced in some `BountyStatus` variants
+///
+/// All existing bounties are read from storage, transformed into the new format, and written
+/// back to storage. The `asset_kind` is initialized with the default value, and all
+/// `beneficiary` and `curator_stash` fields are converted from `AccountId` to `Beneficiary` using
+/// `Into` where applicable.
 pub struct InnerMigrateV4ToV5<T: Config<I>, I: 'static>(PhantomData<(T, I)>);
 
 impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for InnerMigrateV4ToV5<T, I>
