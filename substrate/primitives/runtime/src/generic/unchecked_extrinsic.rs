@@ -20,8 +20,8 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, transaction_extension::TransactionExtension, Checkable, Dispatchable, ExtrinsicLike,
-		ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
+		self, transaction_extension::TransactionExtension, Checkable, Dispatchable, ExtrinsicCall,
+		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -325,7 +325,7 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 	}
 }
 
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> ExtrinsicLike
+impl<Address, Call, Signature, Extension> ExtrinsicLike
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	fn is_signed(&self) -> Option<bool> {
@@ -334,6 +334,16 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo
 
 	fn is_bare(&self) -> bool {
 		matches!(self.preamble, Preamble::Bare(_))
+	}
+}
+
+impl<Address, Call, Signature, Extra> ExtrinsicCall
+	for UncheckedExtrinsic<Address, Call, Signature, Extra>
+{
+	type Call = Call;
+
+	fn call(&self) -> &Call {
+		&self.function
 	}
 }
 

@@ -1402,6 +1402,15 @@ where
 	}
 }
 
+/// An extrinsic on which we can get access to call.
+pub trait ExtrinsicCall: ExtrinsicLike {
+	/// The type of the call.
+	type Call;
+
+	/// Get the call of the extrinsic.
+	fn call(&self) -> &Self::Call;
+}
+
 /// Something that acts like a [`SignaturePayload`](Extrinsic::SignaturePayload) of an
 /// [`Extrinsic`].
 pub trait SignaturePayload {

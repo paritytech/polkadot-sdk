@@ -31,7 +31,10 @@ pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt, ConstU128, ConstU16,
 	ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect, TypedGet,
 };
-use sp_runtime::{traits::Block as BlockT, DispatchError};
+use sp_runtime::{
+	traits::{Block as BlockT, ExtrinsicCall},
+	DispatchError,
+};
 
 #[doc(hidden)]
 pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues";
@@ -902,29 +905,6 @@ pub trait GetBacking {
 pub trait IsInherent<Extrinsic> {
 	/// Whether this extrinsic is an inherent.
 	fn is_inherent(ext: &Extrinsic) -> bool;
-}
-
-/// An extrinsic on which we can get access to call.
-pub trait ExtrinsicCall: sp_runtime::traits::ExtrinsicLike {
-	type Call;
-
-	/// Get the call of the extrinsic.
-	fn call(&self) -> &Self::Call;
-}
-
-impl<Address, Call, Signature, Extra> ExtrinsicCall
-	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
-where
-	Address: TypeInfo,
-	Call: TypeInfo,
-	Signature: TypeInfo,
-	Extra: TypeInfo,
-{
-	type Call = Call;
-
-	fn call(&self) -> &Call {
-		&self.function
-	}
 }
 
 /// Interface for types capable of constructing an inherent extrinsic.
