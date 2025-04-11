@@ -27,6 +27,7 @@ use core::cell::RefCell;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{tokens::UnityAssetBalanceConversion, ConstU32, ConstU64, OnInitialize},
+	weights::constants::ParityDbWeight,
 	PalletId,
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
@@ -139,6 +140,7 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type DbWeight = ParityDbWeight;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]

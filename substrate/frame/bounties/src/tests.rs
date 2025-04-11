@@ -2077,6 +2077,3 @@ fn accept_curator_sets_update_due_correctly() {
 		);
 	});
 }
-
-#[test]
-fn test_migration_v5() {}

@@ -119,6 +119,18 @@ use sp_runtime::{
 	Permill, RuntimeDebug,
 };
 
+pub(crate) const LOG_TARGET: &'static str = "runtime::bounties";
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: crate::LOG_TARGET,
+			concat!("[{:?}] ✍️ ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
+
 type BalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
 type BeneficiaryLookupOf<T, I = ()> = pallet_treasury::BeneficiaryLookupOf<T, I>;
 type PaymentIdOf<T, I = ()> = <<T as crate::Config<I>>::Paymaster as Pay>::Id;
@@ -143,7 +155,6 @@ type BlockNumberFor<T, I = ()> =
 pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary> {
 	/// The account proposing it.
 	pub proposer: AccountId,
-	// TODO: new filed, migration required.
 	/// The kind of asset this bounty is rewarded in.
 	pub asset_kind: AssetKind,
 	/// The (total) amount of the `asset_kind` that should be paid if the bounty is rewarded.
@@ -162,7 +173,6 @@ pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Benefic
 	pub status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
 }
 
-// TODO: breaking changes to the stored type, migration required.
 /// The status of a bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
@@ -287,7 +297,7 @@ pub trait ChildBountyManager<Balance> {
 pub mod pallet {
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
