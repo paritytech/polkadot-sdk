@@ -1412,6 +1412,81 @@ async fn handle_network_msg<Context>(
 	Ok(())
 }
 
+/// Checks candidate events for backed and included collations.
+#[overseer::contextbounds(CollatorProtocol, prefix = crate::overseer)]
+async fn process_candidate_events<Context>(
+	ctx: &mut Context,
+	collation_tracker: &mut CollationTracker,
+	leaf: Hash,
+	para_id: ParaId,
+	metrics: &Metrics,
+) -> Result<()> {
+	if let Ok(events) = get_candidate_events(ctx.sender(), leaf).await {
+		for ev in events {
+			match ev {
+				CandidateEvent::CandidateIncluded(receipt, _, _, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue
+					}
+					let relay_parent = receipt.descriptor.relay_parent();
+					let Some(block_number) = get_block_number(ctx, leaf).await else { continue };
+
+					let Some(stats) = collation_tracker.collation_included(
+						block_number,
+						receipt.descriptor.para_head(),
+						metrics,
+					) else {
+						continue
+					};
+
+					gum::debug!(
+						target: crate::LOG_TARGET_STATS,
+						latency = ?stats.included().unwrap_or_default(),
+						relay_block = ?leaf,
+						?relay_parent,
+						?para_id,
+						?stats.head,
+						"Collation included on relay chain",
+					);
+				},
+				CandidateEvent::CandidateBacked(receipt, _, _, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue
+					}
+					let relay_parent = receipt.descriptor.relay_parent();
+
+					let Some(block_number) = get_block_number(ctx, leaf).await else { continue };
+
+					let Some(stats) = collation_tracker.collation_backed(
+						block_number,
+						receipt.descriptor.para_head(),
+						metrics,
+					) else {
+						continue
+					};
+
+					gum::debug!(
+						target: crate::LOG_TARGET_STATS,
+						latency = ?stats.backed().unwrap_or_default(),
+						relay_block = ?leaf,
+						?relay_parent,
+						?para_id,
+						?stats.head,
+						"Collation backed on relay chain",
+					);
+
+					// Continue measuring inclusion latency.
+					collation_tracker.track(stats);
+				},
+				_ => {
+					// do not care about other events
+				},
+			}
+		}
+	}
+	Ok(())
+}
+
 /// Handles our view changes.
 #[overseer::contextbounds(CollatorProtocol, prefix = crate::overseer)]
 async fn handle_our_view_change<Context>(
@@ -1430,74 +1505,8 @@ async fn handle_our_view_change<Context>(
 		let claim_queue: ClaimQueueSnapshot = fetch_claim_queue(ctx.sender(), *leaf).await?;
 		state.per_relay_parent.insert(*leaf, PerRelayParent::new(para_id, claim_queue));
 
-		// Check for backed & included collations
-		if let Ok(events) = get_candidate_events(ctx.sender(), *leaf).await {
-			for ev in events {
-				match ev {
-					CandidateEvent::CandidateIncluded(receipt, _, _, _) => {
-						if receipt.descriptor.para_id() != para_id {
-							continue
-						}
-						let relay_parent = receipt.descriptor.relay_parent();
-						let Some(block_number) = get_block_number(ctx, *leaf).await else {
-							continue
-						};
-
-						let Some(stats) = state.collation_tracker.collation_included(
-							block_number,
-							receipt.descriptor.para_head(),
-							&state.metrics,
-						) else {
-							continue
-						};
-
-						gum::debug!(
-							target: crate::LOG_TARGET_STATS,
-							latency = ?stats.included().unwrap_or_default(),
-							relay_block = ?leaf,
-							?relay_parent,
-							?para_id,
-							?stats.head,
-							"Collation included on relay chain",
-						);
-					},
-					CandidateEvent::CandidateBacked(receipt, _, _, _) => {
-						if receipt.descriptor.para_id() != para_id {
-							continue
-						}
-						let relay_parent = receipt.descriptor.relay_parent();
-
-						let Some(block_number) = get_block_number(ctx, *leaf).await else {
-							continue
-						};
-
-						let Some(stats) = state.collation_tracker.collation_backed(
-							block_number,
-							receipt.descriptor.para_head(),
-							&state.metrics,
-						) else {
-							continue
-						};
-
-						gum::debug!(
-							target: crate::LOG_TARGET_STATS,
-							latency = ?stats.backed().unwrap_or_default(),
-							relay_block = ?leaf,
-							?relay_parent,
-							?para_id,
-							?stats.head,
-							"Collation backed on relay chain",
-						);
-
-						// Continue measuring inclusion latency.
-						state.collation_tracker.track(stats);
-					},
-					_ => {
-						// do not care about other events
-					},
-				}
-			}
-		}
+		process_candidate_events(ctx, &mut state.collation_tracker, *leaf, para_id, &state.metrics)
+			.await?;
 
 		implicit_view
 			.activate_leaf(ctx.sender(), *leaf)
