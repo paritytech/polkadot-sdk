@@ -42,6 +42,7 @@ sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
