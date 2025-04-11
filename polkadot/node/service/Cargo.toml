@@ -146,9 +146,7 @@ tempfile = { workspace = true }
 
 [features]
 default = ["db", "full-node"]
-
 db = ["sc-service/rocksdb"]
-
 full-node = [
 	"kvdb-rocksdb",
 	"parity-db",

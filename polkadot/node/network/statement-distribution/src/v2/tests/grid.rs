@@ -17,7 +17,7 @@
 use super::*;
 
 use bitvec::order::Lsb0;
-use polkadot_node_network_protocol::v2::{BackedCandidateAcknowledgement, BackedCandidateManifest};
+use polkadot_node_network_protocol::v3::{BackedCandidateAcknowledgement, BackedCandidateManifest};
 use polkadot_node_subsystem::messages::CandidateBackingMessage;
 use polkadot_primitives_test_helpers::make_candidate;
 
@@ -148,7 +148,7 @@ fn backed_candidate_leads_to_advertisement() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -173,7 +173,7 @@ fn backed_candidate_leads_to_advertisement() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -202,9 +202,9 @@ fn backed_candidate_leads_to_advertisement() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
 						),
 					)
@@ -333,7 +333,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 			)
 			.await;
 
@@ -528,9 +528,9 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack),
 							),
 						),
 					)
@@ -572,8 +572,8 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 
 					assert_matches!(
 						&messages[0].1,
-						Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-							protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack)
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+							protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack)
 						)) if *ack == expected_ack
 					);
 				}
@@ -741,7 +741,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -763,9 +763,9 @@ fn received_acknowledgements_for_locally_confirmed() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
 						),
 					)
@@ -1049,7 +1049,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -1109,7 +1109,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 			send_peer_message(
 				&mut overseer,
 				peer_d.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -1210,7 +1210,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -1323,9 +1323,9 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack),
 							),
 						),
 					)
@@ -1361,7 +1361,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			send_peer_message(
 				&mut overseer,
 				peer_d.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -1387,15 +1387,15 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 
 					assert_matches!(
 						&messages[0].1,
-						Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-							protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack)
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+							protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack)
 						)) if *ack == expected_ack
 					);
 
 					assert_matches!(
 						&messages[1].1,
-						Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-							protocol_v2::StatementDistributionMessage::Statement(r, s)
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+							protocol_v3::StatementDistributionMessage::Statement(r, s)
 						)) if *r == relay_parent && s.unchecked_payload() == &CompactStatement::Seconded(candidate_hash) && s.unchecked_validator_index() == v_e
 					);
 				}
@@ -1529,7 +1529,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1554,7 +1554,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1605,8 +1605,8 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 
 					assert_matches!(
 						&messages[0].1,
-						Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-							protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest)
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+							protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest)
 						)) => {
 							assert_eq!(*manifest, expected_manifest);
 						}
@@ -1743,7 +1743,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1768,7 +1768,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1797,9 +1797,9 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
 						),
 					)
@@ -1923,7 +1923,7 @@ fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2140,7 +2140,7 @@ fn advertisements_rejected_from_incorrect_peers() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2159,7 +2159,7 @@ fn advertisements_rejected_from_incorrect_peers() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 			)
 			.await;
 
@@ -2255,7 +2255,7 @@ fn manifest_rejected_with_unknown_relay_parent() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2348,7 +2348,7 @@ fn manifest_rejected_when_not_a_validator() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2446,7 +2446,7 @@ fn manifest_rejected_when_group_does_not_match_para() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2569,7 +2569,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2638,7 +2638,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 			)
 			.await;
 
