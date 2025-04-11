@@ -747,7 +747,7 @@ pub mod pallet {
 		/// This can be used by accounts to possibly lower their locked amount.
 		///
 		/// The dispatch origin for this call must be _Signed_.
-		/// 
+		///
 		/// Parameters:
 		/// - `maybe_account`: Optional recoverable account for which you have an active recovery
 		/// and want to adjust the deposit for the active recovery.
@@ -767,7 +767,10 @@ pub mod pallet {
 		/// Multiple events may be emitted in case both types of deposits are updated.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::poke_deposit(T::MaxFriends::get()))]
-		pub fn poke_deposit(origin: OriginFor<T>, maybe_account: Option<AccountIdLookupOf<T>>) -> DispatchResultWithPostInfo {
+		pub fn poke_deposit(
+			origin: OriginFor<T>,
+			maybe_account: Option<AccountIdLookupOf<T>>,
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let mut deposit_updated = false;
 
@@ -884,7 +887,7 @@ impl<T: Config> Pallet<T> {
 					new_deposit,
 				});
 				Ok(true)
-			}
+			},
 		)
 	}
 }
