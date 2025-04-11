@@ -645,6 +645,7 @@ jobs:
       - build-test-collators
       - build-malus
       - build-linux-substrate
+      - build-templates-node
     if: always() && !cancelled()
     steps:
       - run: |
