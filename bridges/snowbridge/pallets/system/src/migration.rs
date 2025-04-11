@@ -87,7 +87,7 @@ pub mod v1 {
 	#[cfg(feature = "try-runtime")]
 	use sp_core::U256;
 
-	/// Halves the gas price.
+	/// Descreases the fee per gas.
 	pub struct FeePerGasMigration<T>(PhantomData<T>);
 
 	#[cfg(feature = "try-runtime")]
@@ -187,7 +187,7 @@ pub mod v1 {
 			ensure!(old_params.rewards == params.rewards, "Rewards unchanged.");
 			ensure!(
 				(old_params.fee_per_gas * GAS_INCREASE_PERCENTAGE / 100) == params.fee_per_gas,
-				"Fee per gas halved."
+				"Fee per gas decreased."
 			);
 			ensure!(old_params.multiplier == params.multiplier, "Multiplier unchanged.");
 
