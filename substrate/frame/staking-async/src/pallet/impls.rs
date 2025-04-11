@@ -1705,12 +1705,15 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
-		session_rotation::Rotator::<T>::sanity_check();
+		session_rotation::Rotator::<T>::do_try_state()?;
+		session_rotation::Eras::<T>::do_try_state()?;
 		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
 		Self::check_paged_exposures()?;
-		Self::check_count()
+		Self::check_count()?;
+
+		Ok(())
 	}
 
 	/// Invariants:

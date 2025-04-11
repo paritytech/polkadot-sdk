@@ -188,8 +188,6 @@ fn era_cleanup_history_depth_works() {
 		assert_eq!(active_era(), 1);
 
 		Session::roll_until_active_era(HistoryDepth::get() - 1);
-		assert!(Eras::<T>::era_present(1));
-
 		assert!(matches!(
 			&staking_events_since_last_call()[..],
 			&[
@@ -199,15 +197,30 @@ fn era_cleanup_history_depth_works() {
 				Event::SessionRotated { starting_session: 237, active_era: 79, planned_era: 79 }
 			]
 		));
+		assert_ok!(Eras::<T>::era_present(1));
+		assert_ok!(Eras::<T>::era_present(2));
+		// ..
+		assert_ok!(Eras::<T>::era_present(HistoryDepth::get() - 1));
 
 		Session::roll_until_active_era(HistoryDepth::get());
-		assert!(Eras::<T>::era_present(1));
+		assert_ok!(Eras::<T>::era_present(1));
+		assert_ok!(Eras::<T>::era_present(2));
+		// ..
+		assert_ok!(Eras::<T>::era_present(HistoryDepth::get()));
 
 		// then first era info should have been deleted
 		Session::roll_until_active_era(HistoryDepth::get() + 1);
+		assert_ok!(Eras::<T>::era_present(1));
+		assert_ok!(Eras::<T>::era_present(2));
+		// ..
+		assert_ok!(Eras::<T>::era_present(HistoryDepth::get() + 1));
 
-		// FIXME: following assertion fails
-		// assert!(!Eras::<T>::era_present(1));
+		Session::roll_until_active_era(HistoryDepth::get() + 2);
+		assert_ok!(Eras::<T>::era_absent(1));
+		assert_ok!(Eras::<T>::era_present(2));
+		assert_ok!(Eras::<T>::era_present(3));
+		// ..
+		assert_ok!(Eras::<T>::era_present(HistoryDepth::get() + 2));
 	});
 }
 

@@ -337,20 +337,20 @@ fn reward_to_stake_works() {
 		.set_stake(21, 2000)
 		.try_state(false)
 		.build_and_execute(|| {
-			assert_eq!(ValidatorCount::<Test>::get(), 2);
+			assert_eq!(ValidatorCount::<T>::get(), 2);
 			// Confirm account 10 and 20 are validators
-			assert!(<Validators<Test>>::contains_key(&11) && <Validators<Test>>::contains_key(&21));
+			assert!(<Validators<T>>::contains_key(&11) && <Validators<T>>::contains_key(&21));
 
 			assert_eq!(Staking::eras_stakers(active_era(), &11).total, 1000);
 			assert_eq!(Staking::eras_stakers(active_era(), &21).total, 2000);
 
 			// Give the man some money.
-			let _ = asset::set_stakeable_balance::<Test>(&10, 1000);
-			let _ = asset::set_stakeable_balance::<Test>(&20, 1000);
+			let _ = asset::set_stakeable_balance::<T>(&10, 1000);
+			let _ = asset::set_stakeable_balance::<T>(&20, 1000);
 
 			// Bypass logic and change current exposure
-			Eras::<Test>::upsert_exposure(0, &21, Exposure { total: 69, own: 69, others: vec![] });
-			<Ledger<Test>>::insert(
+			Eras::<T>::upsert_exposure(0, &21, Exposure { total: 69, own: 69, others: vec![] });
+			<Ledger<T>>::insert(
 				&20,
 				StakingLedgerInspect {
 					stash: 21,
@@ -362,8 +362,8 @@ fn reward_to_stake_works() {
 
 			// Compute total payout now for whole duration as other parameter won't change
 			let validator_payout_0 = validator_payout_for(time_per_era());
-			Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
-			Pallet::<Test>::reward_by_ids(vec![(21, 1)]);
+			Pallet::<T>::reward_by_ids(vec![(11, 1)]);
+			Pallet::<T>::reward_by_ids(vec![(21, 1)]);
 
 			// New era --> rewards are paid --> stakes are changed
 			Session::roll_until_active_era(2);
@@ -372,7 +372,7 @@ fn reward_to_stake_works() {
 			assert_eq!(Staking::eras_stakers(active_era(), &11).total, 1000);
 			assert_eq!(Staking::eras_stakers(active_era(), &21).total, 2000);
 
-			let _11_balance = asset::stakeable_balance::<Test>(&11);
+			let _11_balance = asset::stakeable_balance::<T>(&11);
 			assert_eq!(_11_balance, 1000 + validator_payout_0 / 2);
 
 			// Trigger another new era as the info are frozen before the era start.
@@ -587,7 +587,7 @@ fn min_commission_works() {
 				RuntimeOrigin::signed(11),
 				ValidatorPrefs { commission: Perbill::from_percent(5), blocked: false }
 			),
-			Error::<Test>::CommissionTooLow
+			Error::<T>::CommissionTooLow
 		);
 
 		// can only change to higher.
@@ -607,12 +607,12 @@ fn min_commission_works() {
 fn set_min_commission_works_with_admin_origin() {
 	ExtBuilder::default().build_and_execute(|| {
 		// no minimum commission set initially
-		assert_eq!(MinCommission::<Test>::get(), Zero::zero());
+		assert_eq!(MinCommission::<T>::get(), Zero::zero());
 
 		// root can set min commission
 		assert_ok!(Staking::set_min_commission(RuntimeOrigin::root(), Perbill::from_percent(10)));
 
-		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(10));
+		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(10));
 
 		// Non privileged origin can not set min_commission
 		assert_noop!(
@@ -632,7 +632,7 @@ fn set_min_commission_works_with_admin_origin() {
 				RuntimeOrigin::signed(11),
 				ValidatorPrefs { commission: Perbill::from_percent(14), blocked: false }
 			),
-			Error::<Test>::CommissionTooLow
+			Error::<T>::CommissionTooLow
 		);
 
 		// setting commission >= min_commission works
@@ -646,14 +646,14 @@ fn set_min_commission_works_with_admin_origin() {
 #[test]
 fn force_apply_min_commission_works() {
 	let prefs = |c| ValidatorPrefs { commission: Perbill::from_percent(c), blocked: false };
-	let validators = || Validators::<Test>::iter().collect::<Vec<_>>();
+	let validators = || Validators::<T>::iter().collect::<Vec<_>>();
 	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(31), prefs(10)));
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(21), prefs(5)));
 
 		// Given
 		assert_eq!(validators(), vec![(31, prefs(10)), (21, prefs(5)), (11, prefs(0))]);
-		MinCommission::<Test>::set(Perbill::from_percent(5));
+		MinCommission::<T>::set(Perbill::from_percent(5));
 
 		// When applying to a commission greater than min
 		assert_ok!(Staking::force_apply_min_commission(RuntimeOrigin::signed(1), 31));
@@ -673,7 +673,7 @@ fn force_apply_min_commission_works() {
 		// When applying commission to a validator that doesn't exist then storage is not altered
 		assert_noop!(
 			Staking::force_apply_min_commission(RuntimeOrigin::signed(1), 420),
-			Error::<Test>::NotStash
+			Error::<T>::NotStash
 		);
 	});
 }
@@ -686,24 +686,24 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 	// * double claim of one era fails
 	ExtBuilder::default().nominate(true).build_and_execute(|| {
 		// Consumed weight for all payout_stakers dispatches that fail
-		let err_weight = <Test as Config>::WeightInfo::payout_stakers_alive_staked(0);
+		let err_weight = <T as Config>::WeightInfo::payout_stakers_alive_staked(0);
 
 		// Check state
-		Payee::<Test>::insert(11, RewardDestination::Account(11));
-		Payee::<Test>::insert(101, RewardDestination::Account(101));
+		Payee::<T>::insert(11, RewardDestination::Account(11));
+		Payee::<T>::insert(101, RewardDestination::Account(101));
 
 		// reward for era 1
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		Pallet::<T>::reward_by_ids(vec![(11, 1)]);
 
 		Session::roll_until_active_era(2);
 
 		// reward for era 2
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		Pallet::<T>::reward_by_ids(vec![(11, 1)]);
 
 		Session::roll_until_active_era(3);
 
 		// reward for era 3
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		Pallet::<T>::reward_by_ids(vec![(11, 1)]);
 
 		// go to the history depth era
 		Session::roll_until_active_era(HistoryDepth::get() + 1);
@@ -713,7 +713,7 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 		assert_noop!(
 			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0),
 			// Fail: Era out of history
-			Error::<Test>::InvalidEraToReward.with_weight(err_weight)
+			Error::<T>::InvalidEraToReward.with_weight(err_weight)
 		);
 
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 1, 0));
@@ -739,13 +739,13 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 		assert_noop!(
 			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0),
 			// Fail: Double claim
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		assert_noop!(
 			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, active_era(), 0),
 			// Fail: Era ongoing
-			Error::<Test>::InvalidEraToReward.with_weight(err_weight)
+			Error::<T>::InvalidEraToReward.with_weight(err_weight)
 		);
 	});
 }
@@ -757,7 +757,7 @@ fn nominators_over_max_exposure_page_size_are_rewarded() {
 		for i in 0..=MaxExposurePageSize::get() {
 			let stash = 10_000 + i as AccountId;
 			let balance = 10_000 + i as Balance;
-			asset::set_stakeable_balance::<Test>(&stash, balance);
+			asset::set_stakeable_balance::<T>(&stash, balance);
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(stash),
 				balance,
@@ -770,7 +770,7 @@ fn nominators_over_max_exposure_page_size_are_rewarded() {
 		Session::roll_until_active_era(2);
 
 		// reward for era 2
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		Pallet::<T>::reward_by_ids(vec![(11, 1)]);
 
 		Session::roll_until_active_era(3);
 		mock::make_all_reward_payment(2);
@@ -780,13 +780,13 @@ fn nominators_over_max_exposure_page_size_are_rewarded() {
 		while i < MaxExposurePageSize::get() {
 			let stash = 10_000 + i as AccountId;
 			let balance = 10_000 + i as Balance;
-			assert!(asset::stakeable_balance::<Test>(&stash) > balance);
+			assert!(asset::stakeable_balance::<T>(&stash) > balance);
 			i += 1;
 		}
 
 		// Assert overflowing nominators from page 1 are also rewarded
 		let stash = 10_000 + i as AccountId;
-		assert!(asset::stakeable_balance::<Test>(&stash) > (10_000 + i) as Balance);
+		assert!(asset::stakeable_balance::<T>(&stash) > (10_000 + i) as Balance);
 	});
 }
 
@@ -799,7 +799,7 @@ fn test_nominators_are_rewarded_for_all_exposure_page() {
 		for i in 0..nominator_count {
 			let stash = 10_000 + i as AccountId;
 			let balance = 10_000 + i as Balance;
-			asset::set_stakeable_balance::<Test>(&stash, balance);
+			asset::set_stakeable_balance::<T>(&stash, balance);
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(stash),
 				balance,
@@ -812,20 +812,19 @@ fn test_nominators_are_rewarded_for_all_exposure_page() {
 		Session::roll_until_active_era(2);
 
 		// give rewards
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
+		Pallet::<T>::reward_by_ids(vec![(11, 1)]);
 
 		Session::roll_until_active_era(3);
 		mock::make_all_reward_payment(2);
 
-		assert_eq!(Eras::<Test>::exposure_page_count(2, &11), 3);
+		assert_eq!(Eras::<T>::exposure_page_count(2, &11), 3);
 
 		// Assert all nominators are rewarded according to their stake
 		for i in 0..nominator_count {
 			// balance of the nominator after the reward payout.
-			let current_balance = asset::stakeable_balance::<Test>(&((10000 + i) as AccountId));
+			let current_balance = asset::stakeable_balance::<T>(&((10000 + i) as AccountId));
 			// balance of the nominator in the previous iteration.
-			let previous_balance =
-				asset::stakeable_balance::<Test>(&((10000 + i - 1) as AccountId));
+			let previous_balance = asset::stakeable_balance::<T>(&((10000 + i - 1) as AccountId));
 			// balance before the reward.
 			let original_balance = 10_000 + i as Balance;
 
@@ -846,7 +845,7 @@ fn test_multi_page_payout_stakers_by_page() {
 
 		// Create a validator:
 		bond_validator(11, balance); // Default(64)
-		assert_eq!(Validators::<Test>::count(), 1);
+		assert_eq!(Validators::<T>::count(), 1);
 
 		// Create nominators, targeting stash of validators
 		for i in 0..100 {
@@ -863,31 +862,31 @@ fn test_multi_page_payout_stakers_by_page() {
 
 		// 100 nominators fit into 2 pages of exposure
 		assert_eq!(MaxExposurePageSize::get(), 64);
-		assert_eq!(Eras::<Test>::exposure_page_count(2, &11), 2);
+		assert_eq!(Eras::<T>::exposure_page_count(2, &11), 2);
 
 		// compute and ensure the reward amount is greater than zero.
 		let payout = validator_payout_for(time_per_era());
 		Session::roll_until_active_era(3);
 
 		// verify the exposures are calculated correctly.
-		let actual_exposure_0 = Eras::<Test>::get_paged_exposure(2, &11, 0).unwrap();
+		let actual_exposure_0 = Eras::<T>::get_paged_exposure(2, &11, 0).unwrap();
 		assert_eq!(actual_exposure_0.total(), total_exposure);
 		assert_eq!(actual_exposure_0.own(), 1000);
 		assert_eq!(actual_exposure_0.others().len(), 64);
 
-		let actual_exposure_1 = Eras::<Test>::get_paged_exposure(2, &11, 1).unwrap();
+		let actual_exposure_1 = Eras::<T>::get_paged_exposure(2, &11, 1).unwrap();
 		assert_eq!(actual_exposure_1.total(), total_exposure);
 		// own stake is only included once in the first page
 		assert_eq!(actual_exposure_1.own(), 0);
 		assert_eq!(actual_exposure_1.others().len(), 100 - 64);
 
-		let pre_payout_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
+		let pre_payout_total_issuance = pallet_balances::TotalIssuance::<T>::get();
 		RewardOnUnbalanceWasCalled::set(false);
 
 		// flush any events
 		let _ = staking_events_since_last_call();
 
-		let controller_balance_before_p0_payout = asset::stakeable_balance::<Test>(&11);
+		let controller_balance_before_p0_payout = asset::stakeable_balance::<T>(&11);
 		// Payout rewards for first exposure page
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
 
@@ -902,11 +901,11 @@ fn test_multi_page_payout_stakers_by_page() {
 			]
 		));
 
-		let controller_balance_after_p0_payout = asset::stakeable_balance::<Test>(&11);
+		let controller_balance_after_p0_payout = asset::stakeable_balance::<T>(&11);
 
 		// verify rewards have been paid out but still some left
-		assert!(pallet_balances::TotalIssuance::<Test>::get() > pre_payout_total_issuance);
-		assert!(pallet_balances::TotalIssuance::<Test>::get() < pre_payout_total_issuance + payout);
+		assert!(pallet_balances::TotalIssuance::<T>::get() > pre_payout_total_issuance);
+		assert!(pallet_balances::TotalIssuance::<T>::get() < pre_payout_total_issuance + payout);
 
 		// verify the validator has been rewarded
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
@@ -927,25 +926,25 @@ fn test_multi_page_payout_stakers_by_page() {
 		));
 
 		// verify the validator was not rewarded the second time
-		assert_eq!(asset::stakeable_balance::<Test>(&11), controller_balance_after_p0_payout);
+		assert_eq!(asset::stakeable_balance::<T>(&11), controller_balance_after_p0_payout);
 
 		// verify all rewards have been paid out
 		assert_eq_error_rate!(
-			pallet_balances::TotalIssuance::<Test>::get(),
+			pallet_balances::TotalIssuance::<T>::get(),
 			pre_payout_total_issuance + payout,
 			2
 		);
 		assert!(RewardOnUnbalanceWasCalled::get());
 
 		// Top 64 nominators of validator 11 automatically paid out, including the validator
-		assert!(asset::stakeable_balance::<Test>(&11) > balance);
+		assert!(asset::stakeable_balance::<T>(&11) > balance);
 		for i in 0..100 {
-			assert!(asset::stakeable_balance::<Test>(&(1000 + i)) > balance + i as Balance);
+			assert!(asset::stakeable_balance::<T>(&(1000 + i)) > balance + i as Balance);
 		}
 
 		// verify rewards are tracked to prevent double claims
-		for page in 0..Eras::<Test>::exposure_page_count(2, &11) {
-			assert_eq!(Eras::<Test>::is_rewards_claimed(2, &11, page), true);
+		for page in 0..Eras::<T>::exposure_page_count(2, &11) {
+			assert_eq!(Eras::<T>::is_rewards_claimed(2, &11, page), true);
 		}
 
 		for i in 4..17 {
@@ -953,25 +952,25 @@ fn test_multi_page_payout_stakers_by_page() {
 
 			// compute and ensure the reward amount is greater than zero.
 			let payout = validator_payout_for(time_per_era());
-			let pre_payout_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
+			let pre_payout_total_issuance = pallet_balances::TotalIssuance::<T>::get();
 
 			Session::roll_until_active_era(i);
 			RewardOnUnbalanceWasCalled::set(false);
 			mock::make_all_reward_payment(i - 1);
 			assert_eq_error_rate!(
-				pallet_balances::TotalIssuance::<Test>::get(),
+				pallet_balances::TotalIssuance::<T>::get(),
 				pre_payout_total_issuance + payout,
 				2
 			);
 			assert!(RewardOnUnbalanceWasCalled::get());
 
 			// verify we track rewards for each era and page
-			for page in 0..Eras::<Test>::exposure_page_count(i - 1, &11) {
-				assert_eq!(Eras::<Test>::is_rewards_claimed(i - 1, &11, page), true);
+			for page in 0..Eras::<T>::exposure_page_count(i - 1, &11) {
+				assert_eq!(Eras::<T>::is_rewards_claimed(i - 1, &11, page), true);
 			}
 		}
 
-		assert_eq!(ErasClaimedRewards::<Test>::get(14, &11), vec![0, 1]);
+		assert_eq!(ErasClaimedRewards::<T>::get(14, &11), vec![0, 1]);
 
 		let last_era = 99;
 		let history_depth = HistoryDepth::get();
@@ -986,7 +985,7 @@ fn test_multi_page_payout_stakers_by_page() {
 
 		// verify we clean up history as we go
 		for era in 0..15 {
-			assert!(ErasClaimedRewards::<Test>::get(era, &11).is_empty());
+			assert!(ErasClaimedRewards::<T>::get(era, &11).is_empty());
 		}
 
 		// verify only page 0 is marked as claimed
@@ -996,7 +995,7 @@ fn test_multi_page_payout_stakers_by_page() {
 			first_claimable_reward_era,
 			0
 		));
-		assert_eq!(ErasClaimedRewards::<Test>::get(first_claimable_reward_era, &11), vec![0]);
+		assert_eq!(ErasClaimedRewards::<T>::get(first_claimable_reward_era, &11), vec![0]);
 
 		// verify page 0 and 1 are marked as claimed
 		assert_ok!(Staking::payout_stakers_by_page(
@@ -1005,7 +1004,7 @@ fn test_multi_page_payout_stakers_by_page() {
 			first_claimable_reward_era,
 			1
 		));
-		assert_eq!(ErasClaimedRewards::<Test>::get(first_claimable_reward_era, &11), vec![0, 1]);
+		assert_eq!(ErasClaimedRewards::<T>::get(first_claimable_reward_era, &11), vec![0, 1]);
 
 		// verify only page 0 is marked as claimed
 		assert_ok!(Staking::payout_stakers_by_page(
@@ -1014,7 +1013,7 @@ fn test_multi_page_payout_stakers_by_page() {
 			last_reward_era,
 			0
 		));
-		assert_eq!(ErasClaimedRewards::<Test>::get(last_reward_era, &11), vec![0]);
+		assert_eq!(ErasClaimedRewards::<T>::get(last_reward_era, &11), vec![0]);
 
 		// verify page 0 and 1 are marked as claimed
 		assert_ok!(Staking::payout_stakers_by_page(
@@ -1023,15 +1022,15 @@ fn test_multi_page_payout_stakers_by_page() {
 			last_reward_era,
 			1
 		));
-		assert_eq!(ErasClaimedRewards::<Test>::get(last_reward_era, &11), vec![0, 1]);
+		assert_eq!(ErasClaimedRewards::<T>::get(last_reward_era, &11), vec![0, 1]);
 
 		// Out of order claims works.
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 69, 0));
-		assert_eq!(ErasClaimedRewards::<Test>::get(69, &11), vec![0]);
+		assert_eq!(ErasClaimedRewards::<T>::get(69, &11), vec![0]);
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 23, 1));
-		assert_eq!(ErasClaimedRewards::<Test>::get(23, &11), vec![1]);
+		assert_eq!(ErasClaimedRewards::<T>::get(23, &11), vec![1]);
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 42, 0));
-		assert_eq!(ErasClaimedRewards::<Test>::get(42, &11), vec![0]);
+		assert_eq!(ErasClaimedRewards::<T>::get(42, &11), vec![0]);
 	});
 }
 
@@ -1043,9 +1042,9 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		let mut total_exposure = balance;
 		// Create a validator:
 		bond_validator(11, balance); // Default(64)
-		assert_eq!(Validators::<Test>::count(), 1);
+		assert_eq!(Validators::<T>::count(), 1);
 
-		let err_weight = <Test as Config>::WeightInfo::payout_stakers_alive_staked(0);
+		let err_weight = <T as Config>::WeightInfo::payout_stakers_alive_staked(0);
 
 		// Create nominators, targeting stash of validators
 		for i in 0..100 {
@@ -1059,41 +1058,41 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		Staking::reward_by_ids(vec![(11, 1)]);
 
 		// Since `MaxExposurePageSize = 64`, there are two pages of validator exposure.
-		assert_eq!(Eras::<Test>::exposure_page_count(2, &11), 2);
+		assert_eq!(Eras::<T>::exposure_page_count(2, &11), 2);
 
 		// compute and ensure the reward amount is greater than zero.
 		let payout = validator_payout_for(time_per_era());
 		Session::roll_until_active_era(3);
 
 		// verify the exposures are calculated correctly.
-		let actual_exposure_0 = Eras::<Test>::get_paged_exposure(2, &11, 0).unwrap();
+		let actual_exposure_0 = Eras::<T>::get_paged_exposure(2, &11, 0).unwrap();
 		assert_eq!(actual_exposure_0.total(), total_exposure);
 		assert_eq!(actual_exposure_0.own(), 1000);
 		assert_eq!(actual_exposure_0.others().len(), 64);
 
-		let actual_exposure_1 = Eras::<Test>::get_paged_exposure(2, &11, 1).unwrap();
+		let actual_exposure_1 = Eras::<T>::get_paged_exposure(2, &11, 1).unwrap();
 		assert_eq!(actual_exposure_1.total(), total_exposure);
 		// own stake is only included once in the first page
 		assert_eq!(actual_exposure_1.own(), 0);
 		assert_eq!(actual_exposure_1.others().len(), 100 - 64);
 
-		let pre_payout_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
+		let pre_payout_total_issuance = pallet_balances::TotalIssuance::<T>::get();
 		RewardOnUnbalanceWasCalled::set(false);
 
-		let controller_balance_before_p0_payout = asset::stakeable_balance::<Test>(&11);
+		let controller_balance_before_p0_payout = asset::stakeable_balance::<T>(&11);
 		// Payout rewards for first exposure page
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, 2));
 		// page 0 is claimed
 		assert_noop!(
 			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
-		let controller_balance_after_p0_payout = asset::stakeable_balance::<Test>(&11);
+		let controller_balance_after_p0_payout = asset::stakeable_balance::<T>(&11);
 
 		// verify rewards have been paid out but still some left
-		assert!(pallet_balances::TotalIssuance::<Test>::get() > pre_payout_total_issuance);
-		assert!(pallet_balances::TotalIssuance::<Test>::get() < pre_payout_total_issuance + payout);
+		assert!(pallet_balances::TotalIssuance::<T>::get() > pre_payout_total_issuance);
+		assert!(pallet_balances::TotalIssuance::<T>::get() < pre_payout_total_issuance + payout);
 
 		// verify the validator has been rewarded
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
@@ -1104,15 +1103,15 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		// cannot claim any more pages
 		assert_noop!(
 			Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, 2),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		// verify the validator was not rewarded the second time
-		assert_eq!(asset::stakeable_balance::<Test>(&11), controller_balance_after_p0_payout);
+		assert_eq!(asset::stakeable_balance::<T>(&11), controller_balance_after_p0_payout);
 
 		// verify all rewards have been paid out
 		assert_eq_error_rate!(
-			pallet_balances::TotalIssuance::<Test>::get(),
+			pallet_balances::TotalIssuance::<T>::get(),
 			pre_payout_total_issuance + payout,
 			2
 		);
@@ -1120,14 +1119,14 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 		// verify all nominators of validator 11 are paid out, including the validator
 		// Validator payout goes to controller.
-		assert!(asset::stakeable_balance::<Test>(&11) > balance);
+		assert!(asset::stakeable_balance::<T>(&11) > balance);
 		for i in 0..100 {
-			assert!(asset::stakeable_balance::<Test>(&(1000 + i)) > balance + i as Balance);
+			assert!(asset::stakeable_balance::<T>(&(1000 + i)) > balance + i as Balance);
 		}
 
 		// verify rewards are tracked to prevent double claims
-		for page in 0..Eras::<Test>::exposure_page_count(2, &11) {
-			assert_eq!(Eras::<Test>::is_rewards_claimed(2, &11, page), true);
+		for page in 0..Eras::<T>::exposure_page_count(2, &11) {
+			assert_eq!(Eras::<T>::is_rewards_claimed(2, &11, page), true);
 		}
 
 		for i in 4..17 {
@@ -1135,25 +1134,25 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 			// compute and ensure the reward amount is greater than zero.
 			let payout = validator_payout_for(time_per_era());
-			let pre_payout_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
+			let pre_payout_total_issuance = pallet_balances::TotalIssuance::<T>::get();
 
 			Session::roll_until_active_era(i);
 			RewardOnUnbalanceWasCalled::set(false);
 			mock::make_all_reward_payment(i - 1);
 			assert_eq_error_rate!(
-				pallet_balances::TotalIssuance::<Test>::get(),
+				pallet_balances::TotalIssuance::<T>::get(),
 				pre_payout_total_issuance + payout,
 				2
 			);
 			assert!(RewardOnUnbalanceWasCalled::get());
 
 			// verify we track rewards for each era and page
-			for page in 0..Eras::<Test>::exposure_page_count(i - 1, &11) {
-				assert_eq!(Eras::<Test>::is_rewards_claimed(i - 1, &11, page), true);
+			for page in 0..Eras::<T>::exposure_page_count(i - 1, &11) {
+				assert_eq!(Eras::<T>::is_rewards_claimed(i - 1, &11, page), true);
 			}
 		}
 
-		assert_eq!(ErasClaimedRewards::<Test>::get(14, &11), vec![0, 1]);
+		assert_eq!(ErasClaimedRewards::<T>::get(14, &11), vec![0, 1]);
 
 		let last_era = 99;
 		let history_depth = HistoryDepth::get();
@@ -1168,7 +1167,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 		// verify we clean up history as we go
 		for era in 0..15 {
-			assert!(ErasClaimedRewards::<Test>::get(era, &11).is_empty());
+			assert!(ErasClaimedRewards::<T>::get(era, &11).is_empty());
 		}
 
 		// verify only page 0 is marked as claimed
@@ -1177,7 +1176,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 			11,
 			first_claimable_reward_era
 		));
-		assert_eq!(ErasClaimedRewards::<Test>::get(first_claimable_reward_era, &11), vec![0]);
+		assert_eq!(ErasClaimedRewards::<T>::get(first_claimable_reward_era, &11), vec![0]);
 
 		// verify page 0 and 1 are marked as claimed
 		assert_ok!(Staking::payout_stakers(
@@ -1185,7 +1184,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 			11,
 			first_claimable_reward_era,
 		));
-		assert_eq!(ErasClaimedRewards::<Test>::get(first_claimable_reward_era, &11), vec![0, 1]);
+		assert_eq!(ErasClaimedRewards::<T>::get(first_claimable_reward_era, &11), vec![0, 1]);
 
 		// change order and verify only page 1 is marked as claimed
 		assert_ok!(Staking::payout_stakers_by_page(
@@ -1194,17 +1193,17 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 			last_reward_era,
 			1
 		));
-		assert_eq!(ErasClaimedRewards::<Test>::get(last_reward_era, &11), vec![1]);
+		assert_eq!(ErasClaimedRewards::<T>::get(last_reward_era, &11), vec![1]);
 
 		// verify page 0 is claimed even when explicit page is not passed
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, last_reward_era,));
 
-		assert_eq!(ErasClaimedRewards::<Test>::get(last_reward_era, &11), vec![1, 0]);
+		assert_eq!(ErasClaimedRewards::<T>::get(last_reward_era, &11), vec![1, 0]);
 
 		// cannot claim any more pages
 		assert_noop!(
 			Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, last_reward_era),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		// Create 4 nominator pages
@@ -1224,22 +1223,22 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 		// Out of order claims works.
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, test_era, 2));
-		assert_eq!(ErasClaimedRewards::<Test>::get(test_era, &11), vec![2]);
+		assert_eq!(ErasClaimedRewards::<T>::get(test_era, &11), vec![2]);
 
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, test_era));
-		assert_eq!(ErasClaimedRewards::<Test>::get(test_era, &11), vec![2, 0]);
+		assert_eq!(ErasClaimedRewards::<T>::get(test_era, &11), vec![2, 0]);
 
 		// cannot claim page 2 again
 		assert_noop!(
 			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, test_era, 2),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, test_era));
-		assert_eq!(ErasClaimedRewards::<Test>::get(test_era, &11), vec![2, 0, 1]);
+		assert_eq!(ErasClaimedRewards::<T>::get(test_era, &11), vec![2, 0, 1]);
 
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, test_era));
-		assert_eq!(ErasClaimedRewards::<Test>::get(test_era, &11), vec![2, 0, 1, 3]);
+		assert_eq!(ErasClaimedRewards::<T>::get(test_era, &11), vec![2, 0, 1, 3]);
 	});
 }
 
@@ -1250,7 +1249,7 @@ fn test_page_count_and_size() {
 		// Track the exposure of the validator and all nominators.
 		// Create a validator:
 		bond_validator(11, balance); // Default(64)
-		assert_eq!(Validators::<Test>::count(), 1);
+		assert_eq!(Validators::<T>::count(), 1);
 
 		// Create nominators, targeting stash of validators
 		for i in 0..100 {
@@ -1262,12 +1261,12 @@ fn test_page_count_and_size() {
 
 		// Since max exposure page size is 64, 2 pages of nominators are created.
 		assert_eq!(MaxExposurePageSize::get(), 64);
-		assert_eq!(Eras::<Test>::exposure_page_count(2, &11), 2);
+		assert_eq!(Eras::<T>::exposure_page_count(2, &11), 2);
 
 		// first page has 64 nominators
-		assert_eq!(Eras::<Test>::get_paged_exposure(2, &11, 0).unwrap().others().len(), 64);
+		assert_eq!(Eras::<T>::get_paged_exposure(2, &11, 0).unwrap().others().len(), 64);
 		// second page has 36 nominators
-		assert_eq!(Eras::<Test>::get_paged_exposure(2, &11, 1).unwrap().others().len(), 36);
+		assert_eq!(Eras::<T>::get_paged_exposure(2, &11, 1).unwrap().others().len(), 36);
 
 		// now lets decrease page size
 		MaxExposurePageSize::set(32);
@@ -1275,26 +1274,26 @@ fn test_page_count_and_size() {
 		Session::roll_until_active_era(3);
 
 		// now we expect 4 pages.
-		assert_eq!(Eras::<Test>::exposure_page_count(3, &11), 4);
+		assert_eq!(Eras::<T>::exposure_page_count(3, &11), 4);
 		// first 3 pages have 32 nominators each
-		assert_eq!(Eras::<Test>::get_paged_exposure(3, &11, 0).unwrap().others().len(), 32);
-		assert_eq!(Eras::<Test>::get_paged_exposure(3, &11, 1).unwrap().others().len(), 32);
-		assert_eq!(Eras::<Test>::get_paged_exposure(3, &11, 2).unwrap().others().len(), 32);
-		assert_eq!(Eras::<Test>::get_paged_exposure(3, &11, 3).unwrap().others().len(), 4);
+		assert_eq!(Eras::<T>::get_paged_exposure(3, &11, 0).unwrap().others().len(), 32);
+		assert_eq!(Eras::<T>::get_paged_exposure(3, &11, 1).unwrap().others().len(), 32);
+		assert_eq!(Eras::<T>::get_paged_exposure(3, &11, 2).unwrap().others().len(), 32);
+		assert_eq!(Eras::<T>::get_paged_exposure(3, &11, 3).unwrap().others().len(), 4);
 
 		// now lets decrease page size even more
 		MaxExposurePageSize::set(5);
 		Session::roll_until_active_era(4);
 
 		// now we expect the max 20 pages (100/5).
-		assert_eq!(Eras::<Test>::exposure_page_count(4, &11), 20);
+		assert_eq!(Eras::<T>::exposure_page_count(4, &11), 20);
 	});
 }
 
 #[test]
 fn payout_stakers_handles_basic_errors() {
 	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
-		let err_weight = <Test as Config>::WeightInfo::payout_stakers_alive_staked(0);
+		let err_weight = <T as Config>::WeightInfo::payout_stakers_alive_staked(0);
 
 		// Same setup as the test above
 		let balance = 1000;
@@ -1313,12 +1312,12 @@ fn payout_stakers_handles_basic_errors() {
 		// Wrong Era, too big
 		assert_noop!(
 			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 3, 0),
-			Error::<Test>::InvalidEraToReward.with_weight(err_weight)
+			Error::<T>::InvalidEraToReward.with_weight(err_weight)
 		);
 		// Wrong Staker
 		assert_noop!(
 			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 10, 2, 0),
-			Error::<Test>::NotStash.with_weight(err_weight)
+			Error::<T>::NotStash.with_weight(err_weight)
 		);
 
 		let last_era = 99;
@@ -1343,7 +1342,7 @@ fn payout_stakers_handles_basic_errors() {
 				expected_start_reward_era - 1,
 				0
 			),
-			Error::<Test>::InvalidEraToReward.with_weight(err_weight)
+			Error::<T>::InvalidEraToReward.with_weight(err_weight)
 		);
 		assert_noop!(
 			Staking::payout_stakers_by_page(
@@ -1352,7 +1351,7 @@ fn payout_stakers_handles_basic_errors() {
 				expected_last_reward_era + 1,
 				0
 			),
-			Error::<Test>::InvalidEraToReward.with_weight(err_weight)
+			Error::<T>::InvalidEraToReward.with_weight(err_weight)
 		);
 		assert_ok!(Staking::payout_stakers_by_page(
 			RuntimeOrigin::signed(1337),
@@ -1383,7 +1382,7 @@ fn payout_stakers_handles_basic_errors() {
 				expected_start_reward_era,
 				0
 			),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		assert_noop!(
@@ -1393,7 +1392,7 @@ fn payout_stakers_handles_basic_errors() {
 				expected_last_reward_era,
 				0
 			),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		assert_noop!(
@@ -1403,7 +1402,7 @@ fn payout_stakers_handles_basic_errors() {
 				expected_last_reward_era,
 				1
 			),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
 		// invalid page
@@ -1414,7 +1413,7 @@ fn payout_stakers_handles_basic_errors() {
 				expected_last_reward_era,
 				2
 			),
-			Error::<Test>::InvalidPage.with_weight(err_weight)
+			Error::<T>::InvalidPage.with_weight(err_weight)
 		);
 	});
 }
@@ -1431,7 +1430,7 @@ fn test_commission_paid_across_pages() {
 			RuntimeOrigin::signed(11),
 			ValidatorPrefs { commission: Perbill::from_percent(commission), blocked: false }
 		));
-		assert_eq!(Validators::<Test>::count(), 1);
+		assert_eq!(Validators::<T>::count(), 1);
 
 		// Create nominators, targeting stash of validators
 		for i in 0..200 {
@@ -1444,35 +1443,31 @@ fn test_commission_paid_across_pages() {
 
 		// Since `MaxExposurePageSize = 64`, there are four pages of validator
 		// exposure.
-		assert_eq!(Eras::<Test>::exposure_page_count(2, &11), 4);
+		assert_eq!(Eras::<T>::exposure_page_count(2, &11), 4);
 
 		// compute and ensure the reward amount is greater than zero.
 		let payout = validator_payout_for(time_per_era());
 		Session::roll_until_active_era(3);
 
-		let initial_balance = asset::stakeable_balance::<Test>(&11);
+		let initial_balance = asset::stakeable_balance::<T>(&11);
 		// Payout rewards for first exposure page
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
 
-		let controller_balance_after_p0_payout = asset::stakeable_balance::<Test>(&11);
+		let controller_balance_after_p0_payout = asset::stakeable_balance::<T>(&11);
 
 		// some commission is paid
 		assert!(initial_balance < controller_balance_after_p0_payout);
 
 		// payout all pages
 		for i in 1..4 {
-			let before_balance = asset::stakeable_balance::<Test>(&11);
+			let before_balance = asset::stakeable_balance::<T>(&11);
 			assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, i));
-			let after_balance = asset::stakeable_balance::<Test>(&11);
+			let after_balance = asset::stakeable_balance::<T>(&11);
 			// some commission is paid for every page
 			assert!(before_balance < after_balance);
 		}
 
-		assert_eq_error_rate!(
-			asset::stakeable_balance::<Test>(&11),
-			initial_balance + payout / 2,
-			1,
-		);
+		assert_eq_error_rate!(asset::stakeable_balance::<T>(&11), initial_balance + payout / 2, 1,);
 	});
 }
 
@@ -1493,10 +1488,10 @@ fn payout_stakers_handles_weight_refund() {
 		assert!(max_nom_rewarded > half_max_nom_rewarded);
 
 		let max_nom_rewarded_weight =
-			<Test as Config>::WeightInfo::payout_stakers_alive_staked(max_nom_rewarded);
+			<T as Config>::WeightInfo::payout_stakers_alive_staked(max_nom_rewarded);
 		let half_max_nom_rewarded_weight =
-			<Test as Config>::WeightInfo::payout_stakers_alive_staked(half_max_nom_rewarded);
-		let zero_nom_payouts_weight = <Test as Config>::WeightInfo::payout_stakers_alive_staked(0);
+			<T as Config>::WeightInfo::payout_stakers_alive_staked(half_max_nom_rewarded);
+		let zero_nom_payouts_weight = <T as Config>::WeightInfo::payout_stakers_alive_staked(0);
 
 		assert!(zero_nom_payouts_weight.any_gt(Weight::zero()));
 		assert!(half_max_nom_rewarded_weight.any_gt(zero_nom_payouts_weight));
@@ -1611,7 +1606,7 @@ fn payout_stakers_handles_weight_refund() {
 fn test_runtime_api_pending_rewards() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN
-		let err_weight = <Test as Config>::WeightInfo::payout_stakers_alive_staked(0);
+		let err_weight = <T as Config>::WeightInfo::payout_stakers_alive_staked(0);
 		let stake = 100;
 
 		// validator with non-paged exposure, rewards marked in legacy claimed rewards.
@@ -1623,7 +1618,7 @@ fn test_runtime_api_pending_rewards() {
 
 		// Set staker
 		for v in validator_one..=validator_three {
-			let _ = asset::set_stakeable_balance::<Test>(&v, stake);
+			let _ = asset::set_stakeable_balance::<T>(&v, stake);
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(v), stake, RewardDestination::Staked));
 		}
 
@@ -1634,7 +1629,7 @@ fn test_runtime_api_pending_rewards() {
 				.into_iter()
 				.collect(),
 		};
-		ErasRewardPoints::<Test>::insert(0, reward);
+		ErasRewardPoints::<T>::insert(0, reward);
 
 		// build exposure
 		let mut individual_exposures: Vec<IndividualExposure<AccountId, Balance>> = vec![];
@@ -1648,33 +1643,33 @@ fn test_runtime_api_pending_rewards() {
 		};
 
 		// add exposure for validators
-		Eras::<Test>::upsert_exposure(0, &validator_one, exposure.clone());
-		Eras::<Test>::upsert_exposure(0, &validator_two, exposure.clone());
+		Eras::<T>::upsert_exposure(0, &validator_one, exposure.clone());
+		Eras::<T>::upsert_exposure(0, &validator_two, exposure.clone());
 
 		// add some reward to be distributed
-		ErasValidatorReward::<Test>::insert(0, 1000);
+		ErasValidatorReward::<T>::insert(0, 1000);
 
 		// SCENARIO: Validator with paged exposure (two pages).
 		// validators have not claimed rewards, so pending rewards is true.
-		assert!(Eras::<Test>::pending_rewards(0, &validator_one));
-		assert!(Eras::<Test>::pending_rewards(0, &validator_two));
+		assert!(Eras::<T>::pending_rewards(0, &validator_one));
+		assert!(Eras::<T>::pending_rewards(0, &validator_two));
 		// and payout works
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0));
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
 		// validators have two pages of exposure, so pending rewards is still true.
-		assert!(Eras::<Test>::pending_rewards(0, &validator_one));
-		assert!(Eras::<Test>::pending_rewards(0, &validator_two));
+		assert!(Eras::<T>::pending_rewards(0, &validator_one));
+		assert!(Eras::<T>::pending_rewards(0, &validator_two));
 		// payout again only for validator one
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0));
 		// now pending rewards is false for validator one
-		assert!(!Eras::<Test>::pending_rewards(0, &validator_one));
+		assert!(!Eras::<T>::pending_rewards(0, &validator_one));
 		// and payout fails for validator one
 		assert_noop!(
 			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
+			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 		// while pending reward is true for validator two
-		assert!(Eras::<Test>::pending_rewards(0, &validator_two));
+		assert!(Eras::<T>::pending_rewards(0, &validator_two));
 		// and payout works again for validator two.
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
 	});
