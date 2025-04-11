@@ -12960,6 +12960,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-session",
+ "sp-staking",
 ]
 
 [[package]]
