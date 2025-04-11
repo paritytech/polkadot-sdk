@@ -57,9 +57,11 @@ warning: unexpected `cfg` condition name: `substrate_runtime`
 24 | #[runtime_interface]
    | ^^^^^^^^^^^^^^^^^^^^
    |
-   = note: using a cfg inside a attribute macro will use the cfgs from the destination crate and not the ones from the defining crate
-   = help: try referring to `runtime_interface` crate for guidance on how handle this unexpected cfg
-   = help: the attribute macro `runtime_interface` may come from an old version of the `sp_runtime_interface_proc_macro` crate, try updating your dependency with `cargo update -p sp_runtime_interface_proc_macro`
+   = help: consider using a Cargo feature instead
+   = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:
+            [lints.rust]
+            unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
+   = help: or consider adding `println!("cargo::rustc-check-cfg=cfg(substrate_runtime)");` to the top of the `build.rs`
    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
    = note: this warning originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -98,3 +100,4 @@ warning: unexpected `cfg` condition value: `bar-feature`
    = note: expected values for `feature` are: `default`, `disable_target_static_assertions`, and `std`
    = help: consider adding `bar-feature` as a feature in `Cargo.toml`
    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   
