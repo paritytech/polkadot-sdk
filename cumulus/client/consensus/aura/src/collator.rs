@@ -41,9 +41,10 @@ use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
 use polkadot_primitives::{Header as PHeader, Id as ParaId};
 
 use futures::prelude::*;
+use sc_client_api::BackendTransaction;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_consensus::BlockOrigin;
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
@@ -75,6 +76,24 @@ pub struct Params<BI, CIDP, RClient, Proposer, CS> {
 	/// The collator service used for bundling proposals into collations and announcing
 	/// to the network.
 	pub collator_service: CS,
+}
+
+/// Result of [`Collator::build_block_and_import`].
+pub struct BuiltBlock<Block: BlockT> {
+	/// The block that was built.
+	pub block: Block,
+	/// The proof that was recorded while building the block.
+	pub proof: StorageProof,
+	/// The transaction resulting from building the block.
+	///
+	/// This contains all the state changes.
+	pub backend_transaction: BackendTransaction<HashingFor<Block>>,
+}
+
+impl<Block: BlockT> From<BuiltBlock<Block>> for ParachainCandidate<Block> {
+	fn from(built: BuiltBlock<Block>) -> Self {
+		Self { block: built.block, proof: built.proof }
+	}
 }
 
 /// A utility struct for writing collation logic that makes use of Aura entirely
@@ -166,7 +185,7 @@ where
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
-	) -> Result<Option<ParachainCandidate<Block>>, Box<dyn Error + Send + 'static>> {
+	) -> Result<Option<BuiltBlock<Block>>, Box<dyn Error + Send + 'static>> {
 		let mut digest = additional_pre_digest.into().unwrap_or_default();
 		digest.push(slot_claim.pre_digest.clone());
 
@@ -183,10 +202,7 @@ where
 			.await
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
 
-		let proposal = match maybe_proposal {
-			None => return Ok(None),
-			Some(p) => p,
-		};
+		let Some(proposal) = maybe_proposal else { return Ok(None) };
 
 		let sealed_importable = seal::<_, P>(
 			proposal.block,
@@ -205,12 +221,22 @@ where
 				.clone(),
 		);
 
+		let Some(backend_transaction) = sealed_importable
+			.state_action
+			.as_storage_changes()
+			.map(|c| c.transaction.clone())
+		else {
+			tracing::error!(target: crate::LOG_TARGET, "Building a block should return storage changes!");
+
+			return Ok(None)
+		};
+
 		self.block_import
 			.import_block(sealed_importable)
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)
 			.await?;
 
-		Ok(Some(ParachainCandidate { block, proof: proposal.proof }))
+		Ok(Some(BuiltBlock { block, proof: proposal.proof, backend_transaction }))
 	}
 
 	/// Propose, seal, import a block and packaging it into a collation.
@@ -245,7 +271,7 @@ where
 
 		let hash = candidate.block.header().hash();
 		if let Some((collation, block_data)) =
-			self.collator_service.build_collation(parent_header, hash, candidate)
+			self.collator_service.build_collation(parent_header, hash, candidate.into())
 		{
 			block_data.log_size_info();
 

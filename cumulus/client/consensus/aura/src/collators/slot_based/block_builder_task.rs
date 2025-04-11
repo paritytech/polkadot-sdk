@@ -25,6 +25,8 @@ use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_primitives::{Block as RelayBlock, Id as ParaId};
+use sp_block_builder::BlockBuilder;
+use sp_trie::recorder::IgnoredNodes;
 
 use super::CollatorMessage;
 use crate::{
@@ -120,8 +122,10 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + GetCoreSelectorApi<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ GetCoreSelectorApi<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ BlockBuilder<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -353,30 +357,59 @@ where
 				validation_data.max_pov_size * 85 / 100
 			} as usize;
 
-			let Ok(Some(candidate)) = collator
-				.build_block_and_import(
-					&parent_header,
-					&slot_claim,
-					None,
-					(parachain_inherent_data, other_inherent_data),
-					authoring_duration,
-					allowed_pov_size,
-				)
-				.await
-			else {
-				tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
-				continue;
+			let Ok(block_rate) = para_client.runtime_api().block_rate(parent_hash) else {
+				tracing::error!(
+					target: crate::LOG_TARGET,
+					"Failed to fetch block rate."
+				);
+				continue
 			};
 
-			let new_block_hash = candidate.block.header().hash();
+			// TODO: Do not use relay chain slot duration, should also be `block_time`.
+			let blocks_per_core = if block_rate.block_time < relay_chain_slot_duration {
+				relay_chain_slot_duration.as_millis() / block_rate.block_time.as_millis()
+			} else {
+				1
+			};
 
-			// Announce the newly built block to our peers.
-			collator.collator_service().announce_block(new_block_hash, None);
+			let mut blocks = Vec::new();
+			let mut proofs = Vec::new();
+			let mut ignored_nodes = IgnoredNodes::default();
+
+			for _ in 0..blocks_per_core {
+				let Ok(Some(res)) = collator
+					.build_block_and_import(
+						&parent_header,
+						&slot_claim,
+						None,
+						(parachain_inherent_data, other_inherent_data),
+						authoring_duration,
+						allowed_pov_size,
+					)
+					.await
+				else {
+					tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
+					continue;
+				};
+
+				let new_block_hash = res.block.header().hash();
+
+				// Announce the newly built block to our peers.
+				collator.collator_service().announce_block(new_block_hash, None);
+
+				ignored_nodes.extend(IgnoredNodes::from_storage_proof(&res.proof));
+				ignored_nodes.extend(IgnoredNodes::from_memory_db(res.backend_transaction));
+
+				blocks.push(res.block);
+				proofs.push(res.proof);
+			}
+
+			let proof = StorageProof::merge(proofs);
 
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
 				parent_header,
-				parachain_candidate: candidate,
+				parachain_candidate: Parachain,
 				validation_code_hash,
 				core_index: *core_index,
 				max_pov_size: validation_data.max_pov_size,

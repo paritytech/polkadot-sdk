@@ -163,6 +163,16 @@ impl<Block: BlockT> StateAction<Block> {
 			StateAction::Skip => true,
 		}
 	}
+
+	/// Returns as storage changes.
+	pub fn as_storage_changes(
+		&self,
+	) -> Option<&sp_state_machine::StorageChanges<HashingFor<Block>>> {
+		match self {
+			StateAction::ApplyChanges(StorageChanges::Changes(changes)) => Some(&changes),
+			_ => None,
+		}
+	}
 }
 
 impl<Block: BlockT> From<StorageChanges<Block>> for StateAction<Block> {

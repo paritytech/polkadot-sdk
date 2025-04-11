@@ -21,8 +21,18 @@
 
 extern crate alloc;
 
+use codec::{Decode, Encode};
+use core::time::Duration;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{traits::Block as BlockT, ApplyExtrinsicResult};
+
+#[derive(Encode, Decode, scale_info::TypeInfo)]
+pub struct BlockRate {
+	/// Time between individual blocks.
+	pub block_time: Duration,
+	/// Maximum time to spend building per block.
+	pub block_building_time: Duration,
+}
 
 sp_api::decl_runtime_apis! {
 	/// The `BlockBuilder` api trait that provides the required functionality for building a block.
@@ -50,5 +60,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Check that the inherents are valid. The inherent data will vary from chain to chain.
 		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult;
+
+		fn block_rate() -> BlockRate;
 	}
 }

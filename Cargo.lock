@@ -21998,6 +21998,8 @@ dependencies = [
 name = "sp-block-builder"
 version = "26.0.0"
 dependencies = [
+ "parity-scale-codec",
+ "scale-info",
  "sp-api 26.0.0",
  "sp-inherents",
  "sp-runtime 31.0.1",

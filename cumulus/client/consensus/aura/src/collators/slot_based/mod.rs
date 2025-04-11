@@ -83,7 +83,7 @@ use polkadot_primitives::{
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_utils::mpsc::tracing_unbounded;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
@@ -254,8 +254,10 @@ struct CollatorMessage<Block: BlockT> {
 	pub relay_parent: RelayHash,
 	/// The header of the parent block.
 	pub parent_header: Block::Header,
-	/// The parachain block candidate.
-	pub parachain_candidate: ParachainCandidate<Block>,
+	/// The built blocks.
+	pub blocks: Vec<Block>,
+	/// The storage proof that was collected while building all the blocks.
+	pub proof: StorageProof,
 	/// The validation code hash at the parent block.
 	pub validation_code_hash: ValidationCodeHash,
 	/// Core index that this block should be submitted on
