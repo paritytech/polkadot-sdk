@@ -1,10 +1,10 @@
 [package]
-name = "bp-asset-hub-rococo"
-description = "Primitives of AssetHubRococo parachain runtime."
-version = "0.4.0"
+name = "bp-asset-hub-westend"
+description = "Primitives of AssetHubWestend parachain runtime."
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
-license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+license = "Apache-2.0"
 repository.workspace = true
 
 [package.metadata.polkadot-sdk]
@@ -27,7 +27,7 @@ bp-bridge-hub-cumulus = { workspace = true }
 bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
 bp-xcm-bridge-hub-router = { workspace = true }
-testnet-parachains-constants = { features = ["rococo"], workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 # Polkadot dependencies
 xcm = { workspace = true }

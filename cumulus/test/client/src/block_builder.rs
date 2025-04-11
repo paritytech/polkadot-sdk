@@ -23,17 +23,13 @@ use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::BlockBuilderBuilder;
 use sp_api::ProvideRuntimeApi;
-use sp_consensus_aura::Slot;
-use sp_runtime::{
-	traits::{Block as BlockT, Header as HeaderT},
-	Digest, DigestItem,
-};
+use sp_consensus_aura::{AuraApi, Slot};
+use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
 
 /// A struct containing a block builder and support data required to build test scenarios.
 pub struct BlockBuilderAndSupportData<'a> {
 	pub block_builder: sc_block_builder::BlockBuilder<'a, Block, Client>,
 	pub persisted_validation_data: PersistedValidationData<PHash, PBlockNumber>,
-	pub slot: Slot,
 }
 
 /// An extension for the Cumulus test client to init a block builder.
@@ -86,9 +82,12 @@ fn init_block_builder(
 	mut relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
 ) -> BlockBuilderAndSupportData<'_> {
-	// This slot will be used for both relay chain and parachain
-	let slot: Slot = (timestamp / cumulus_test_runtime::SLOT_DURATION).into();
-	relay_sproof_builder.current_slot = slot;
+	let slot: Slot =
+		(timestamp / client.runtime_api().slot_duration(at).unwrap().as_millis()).into();
+
+	if relay_sproof_builder.current_slot == 0u64 {
+		relay_sproof_builder.current_slot = (timestamp / 6_000).into();
+	}
 
 	let aura_pre_digest = Digest {
 		logs: vec![DigestItem::PreRuntime(sp_consensus_aura::AURA_ENGINE_ID, slot.encode())],
@@ -133,7 +132,7 @@ fn init_block_builder(
 		.into_iter()
 		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
 
-	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data, slot }
+	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data }
 }
 
 impl InitBlockBuilder for Client {
@@ -155,12 +154,16 @@ impl InitBlockBuilder for Client {
 		let last_timestamp = self.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
 
 		let timestamp = if last_timestamp == 0 {
-			std::time::SystemTime::now()
-				.duration_since(std::time::SystemTime::UNIX_EPOCH)
-				.expect("Time is always after UNIX_EPOCH; qed")
-				.as_millis() as u64
+			if relay_sproof_builder.current_slot != 0u64 {
+				*relay_sproof_builder.current_slot * 6_000
+			} else {
+				std::time::SystemTime::now()
+					.duration_since(std::time::SystemTime::UNIX_EPOCH)
+					.expect("Time is always after UNIX_EPOCH; qed")
+					.as_millis() as u64
+			}
 		} else {
-			last_timestamp + cumulus_test_runtime::SLOT_DURATION
+			last_timestamp + self.runtime_api().slot_duration(at).unwrap().as_millis()
 		};
 
 		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
@@ -195,7 +198,6 @@ impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, C
 			.into_compact_proof::<<Header as HeaderT>::Hashing>(parent_state_root)
 			.expect("Creates the compact proof");
 
-		let (header, extrinsics) = built_block.block.deconstruct();
-		ParachainBlockData::new(header, extrinsics, storage_proof)
+		ParachainBlockData::new(vec![built_block.block], storage_proof)
 	}
 }
