@@ -450,18 +450,42 @@ async fn extract_reputation_bumps_from_ancestry<Sender: CollatorProtocolSenderTr
 					.await?;
 
 			for candidate in candidates_pending_availability {
-				if included_candidates.contains(&candidate.hash()) {
-					// TODO: uncomment after my approved peer PR gets merged.
-					// if let Some(approved_peer) = candidate.commitments.approved_peer() {
-					// 	if let Ok(peer_id) = PeerId::from_bytes(&approved_peer.0) {
-					// 		updates
-					// 			.entry(para_id)
-					// 			.or_default()
-					// 			.entry(peer_id)
-					// 			.or_default()
-					// 			.saturating_add(VALID_INCLUDED_CANDIDATE_BUMP);
-					// 	}
-					// }
+				let candidate_hash = candidate.hash();
+				if included_candidates.contains(&candidate_hash) {
+					match candidate.commitments.ump_signals() {
+						Ok(ump_signals) => {
+							if let Some(approved_peer) = ump_signals.approved_peer() {
+								match PeerId::from_bytes(approved_peer) {
+									Ok(peer_id) => updates
+										.entry(para_id)
+										.or_default()
+										.entry(peer_id)
+										.or_default()
+										.saturating_add(VALID_INCLUDED_CANDIDATE_BUMP),
+									Err(err) => {
+										// Collator sent an invalid peerid. It's only harming
+										// itself.
+										gum::debug!(
+											target: LOG_TARGET,
+											?candidate_hash,
+											"UMP signal contains invalid ApprovedPeer id: {}",
+											err
+										);
+									},
+								}
+							}
+						},
+						Err(err) => {
+							// This should never happen, as the ump signals are checked during
+							// on-chain backing.
+							gum::warn!(
+								target: LOG_TARGET,
+								?candidate_hash,
+								"Failed to parse UMP signals for included candidate: {}",
+								err
+							);
+						},
+					}
 				}
 			}
 		}
