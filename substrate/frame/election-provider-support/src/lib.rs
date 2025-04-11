@@ -492,7 +492,7 @@ pub trait ElectionProvider {
 
 	/// Return the duration of your election.
 	///
-	/// This excludes the duration of the export. For that, use [`duration_with_export`].
+	/// This excludes the duration of the export. For that, use [`Self::duration_with_export`].
 	fn duration() -> Self::BlockNumber;
 
 	/// Return the duration of your election, including the export.
