@@ -85,6 +85,18 @@ use sp_runtime::{
 	DispatchResult, RuntimeDebug,
 };
 
+pub(crate) const LOG_TARGET: &'static str = "runtime::child_bounties";
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: crate::LOG_TARGET,
+			concat!("[{:?}] ✍️ ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
+
 type BeneficiaryLookupOf<T, I = ()> = pallet_treasury::BeneficiaryLookupOf<T, I>;
 type BalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
 type BountiesError<T, I = ()> = pallet_bounties::Error<T, I>;
@@ -104,9 +116,6 @@ type ChildBountyOf<T, I> = ChildBounty<
 /// The status of a child-bounty.
 pub type ChildBountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> =
 	pallet_bounties::BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>;
-
-/// The log target for this pallet.
-const LOG_TARGET: &str = "runtime::child-bounties";
 
 /// A child-bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -134,7 +143,7 @@ pub mod pallet {
 	use super::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -173,7 +182,6 @@ pub mod pallet {
 		TooManyChildBounties,
 	}
 
-	// TODO: add new parameters for events
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {

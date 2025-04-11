@@ -17,3 +17,5 @@
 
 /// Version 1.
 pub mod v1;
+/// Version 2.
+pub mod v2;

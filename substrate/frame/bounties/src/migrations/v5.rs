@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate as pallet_bounties;
 use crate::*;
+use crate as pallet_bounties;
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
@@ -78,7 +78,7 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		let bounties_count: u32 = v4::Bounties::<T, I>::iter().count() as u32;
-		log!(info, "number of bounties before: {:?}", bounties_count);
+		log!(info, "Number of bounties before: {:?}", bounties_count);
 		Ok(bounties_count.encode())
 	}
 

@@ -177,7 +177,7 @@ pub mod v1 {
 				StateType::decode(&mut &state[..]).expect("Can't decode previous state");
 			let new_child_bounty_count = ChildBounties::<T>::iter_keys().count() as u32;
 			let new_child_bounty_descriptions =
-				super::super::ChildBountyDescriptionsV1::<T>::iter_keys().count() as u32;
+				crate::ChildBountyDescriptionsV1::<T>::iter_keys().count() as u32;
 
 			ensure!(
 				old_child_bounty_count == new_child_bounty_count,
