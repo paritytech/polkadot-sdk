@@ -24267,6 +24267,8 @@ version = "4.0.0-dev"
 [[package]]
 name = "substrate-txtesttool"
 version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4116d4d42f14bc24166fd5b3d1d7b90e000e563fa648a87cb9cf27055c53625"
 dependencies = [
  "async-trait",
  "average",
@@ -24410,6 +24412,8 @@ dependencies = [
 [[package]]
 name = "subxt"
 version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03459d84546def5e1d0d22b162754609f18e031522b0319b53306f5829de9c09"
 dependencies = [
  "async-trait",
  "derive-where",
@@ -24462,6 +24466,8 @@ dependencies = [
 [[package]]
 name = "subxt-codegen"
 version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "324c52c09919fec8c22a4b572a466878322e99fe14a9e3d50d6c3700a226ec25"
 dependencies = [
  "heck 0.5.0",
  "parity-scale-codec",
@@ -24506,6 +24512,8 @@ dependencies = [
 [[package]]
 name = "subxt-core"
 version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66ef00be9d64885ec94e478a58e4e39d222024b20013ae7df4fc6ece545391aa"
 dependencies = [
  "base58",
  "blake2 0.10.6",
@@ -24551,6 +24559,8 @@ dependencies = [
 [[package]]
 name = "subxt-lightclient"
 version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce07c2515b2e63b85ec3043fe4461b287af0615d4832c2fe6e81ba780b906bc0"
 dependencies = [
  "futures",
  "futures-util",
@@ -24582,6 +24592,8 @@ dependencies = [
 [[package]]
 name = "subxt-macro"
 version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c2c8da275a620dd676381d72395dfea91f0a6cd849665b4f1d0919371850701"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -24610,6 +24622,8 @@ dependencies = [
 [[package]]
 name = "subxt-metadata"
 version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fff4591673600c4388e21305788282414d26c791b4dee21b7cb0b19c10076f98"
 dependencies = [
  "frame-decode 0.7.0",
  "frame-metadata 20.0.0",
@@ -24623,6 +24637,8 @@ dependencies = [
 [[package]]
 name = "subxt-rpcs"
 version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ba7494d250d65dc3439365ac5e8e0fbb9c3992e6e84b7aa01d69e082249b8b8"
 dependencies = [
  "derive-where",
  "frame-metadata 20.0.0",
@@ -24674,6 +24690,8 @@ dependencies = [
 [[package]]
 name = "subxt-signer"
 version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a2370298a210ed1df26152db7209a85e0ed8cfbce035309c3b37f7b61755377"
 dependencies = [
  "base64 0.22.1",
  "bip32",
@@ -24713,6 +24731,8 @@ dependencies = [
 [[package]]
 name = "subxt-utils-fetchmetadata"
 version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc868b55fe2303788dc7703457af390111940c3da4714b510983284501780ed5"
 dependencies = [
  "hex",
  "parity-scale-codec",
