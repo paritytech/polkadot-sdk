@@ -27,7 +27,7 @@ crates:
 - name: cumulus-client-consensus-common
   bump: minor
 - name: cumulus-client-network
-  bump: major
+  bump: minor
 - name: cumulus-client-pov-recovery
   bump: minor
 - name: polkadot-sdk
