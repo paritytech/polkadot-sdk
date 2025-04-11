@@ -122,7 +122,6 @@ pub type ChildBountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> =
 pub struct ChildBounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary> {
 	/// The parent of this child-bounty.
 	parent_bounty: BountyIndex,
-	// TODO: new filed, migration required.
 	/// The kind of asset this child-bounty is rewarded in.
 	pub asset_kind: AssetKind,
 	/// The (total) amount that should be paid if this child-bounty is rewarded.
