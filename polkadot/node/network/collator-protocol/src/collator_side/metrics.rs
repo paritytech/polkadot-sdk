@@ -68,12 +68,8 @@ impl Metrics {
 	}
 
 	/// Create a timer to measure how much time collations spend before being fetched.
-	pub fn time_collation_fetch_latency(
-		&self,
-	) -> Option<prometheus::prometheus::HistogramTimer> {
-		self.0.as_ref().map(|metrics| {
-			metrics.collation_fetch_latency.start_timer()
-		})
+	pub fn time_collation_fetch_latency(&self) -> Option<prometheus::prometheus::HistogramTimer> {
+		self.0.as_ref().map(|metrics| metrics.collation_fetch_latency.start_timer())
 	}
 	/// Record the time a collation took before expiring.
 	/// Collations can expire in the following states: "advertised, fetched or backed"
@@ -157,8 +153,7 @@ impl metrics::Metrics for Metrics {
 						"How much time collations spend waiting to be fetched",
 					)
 					.buckets(vec![
-						0.001, 0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5, 0.75,
-						1.0, 2.0, 5.0 
+						0.001, 0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5, 0.75, 1.0, 2.0, 5.0,
 					]),
 				)?,
 				registry,
@@ -169,9 +164,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_collation_backing_latency",
 						"How many blocks away from the relay parent are collations backed",
 					)
-					.buckets(vec![
-						1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0,
-					]),
+					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]),
 				)?,
 				registry,
 			)?,
@@ -181,9 +174,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_collation_inclusion_latency",
 						"How many blocks it takes for a backed collation to be included",
 					)
-					.buckets(vec![
-						1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0
-					]),
+					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
 				)?,
 				registry,
 			)?,
@@ -193,9 +184,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_collation_expired",
 						"How many collations expired (not backed or not included)",
 					)
-					.buckets(vec![
-						1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0
-					]),
+					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
 					&["state"],
 				)?,
 				registry,
