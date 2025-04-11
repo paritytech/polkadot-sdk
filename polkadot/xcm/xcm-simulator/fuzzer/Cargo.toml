@@ -10,6 +10,10 @@ publish = false
 [lints]
 workspace = true
 
+[[bin]]
+path = "src/fuzz.rs"
+name = "xcm-fuzzer"
+
 [dependencies]
 arbitrary = { workspace = true }
 codec = { workspace = true, default-features = true }
@@ -60,7 +64,3 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
-
-[[bin]]
-path = "src/fuzz.rs"
-name = "xcm-fuzzer"
