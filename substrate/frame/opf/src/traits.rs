@@ -53,6 +53,23 @@ pub trait ConvictionVotingTrait<AccountId> {
 	fn try_remove_vote(caller: &AccountId, ref_index: Self::Index) -> DispatchResult;
 }
 
+// Implement VotingHooks for pallet_conviction_voting
+impl<T: Config> VotingHooks<AccountIdOf<T>, u32, BalanceOf<T>> for Pallet<T>
+
+{
+	fn on_before_vote(who: &AccountIdOf<T>, ref_index:u32, vote: AccountVoteOf<T> ) -> DispatchResult {
+		// lock user's funds
+		Ok(())
+	}
+	fn on_remove_vote(_who: &AccountIdOf<T>, _ref_index:u32, _status: Status) {
+		// No-op
+	}
+	fn lock_balance_on_unsuccessful_vote(_who: &AccountIdOf<T>, _ref_index:u32) -> Option<BalanceOf<T>> {
+		// No-op
+		None
+	}
+}
+
 impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<AccountIdOf<T>>
 	for pallet_conviction_voting::Pallet<T, I> where <<T as pallet_conviction_voting::Config<I>>::Polls as frame_support::traits::Polling<pallet_conviction_voting::Tally<<<T as pallet_conviction_voting::Config<I>>::Currency as frame_support::traits::Currency<<T as frame_system::Config>::AccountId>>::Balance, <T as pallet_conviction_voting::Config<I>>::MaxTurnout>>>::Index: From<u32>
 {

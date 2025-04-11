@@ -40,7 +40,7 @@ pub use frame_support::{
 	PalletId, Serialize,
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
-pub use pallet_conviction_voting::{Conviction, Tally};
+pub use pallet_conviction_voting::{Conviction, Tally, VotingHooks, Status};
 pub use pallet_referenda::{DecidingStatus, PalletsOriginOf, ReferendumIndex};
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::{
@@ -66,6 +66,7 @@ pub type RoundIndex = u32;
 pub type VoterId<T> = AccountIdOf<T>;
 pub type ProvidedBlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+pub type AccountVoteOf<T> = pallet_conviction_voting::AccountVote<BalanceOf<T>>;
 pub use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 pub type SubmitOrigin<T> = <T as pallet_referenda::Config>::SubmitOrigin;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
