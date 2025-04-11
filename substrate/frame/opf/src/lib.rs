@@ -430,21 +430,10 @@ pub mod pallet {
 			let voter = ensure_signed(origin.clone())?;
 			// Get current voting round & check if we are in voting period or not
 			Self::period_check()?;
-			// Check that voter has enough funds to vote
-			let voter_balance = T::NativeBalance::reducible_balance(
-				&voter,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			);
-			ensure!(voter_balance >= amount, Error::<T>::NotEnoughFunds);
+			
+			
 
-			// Check the available un-holded balance
-			let voter_holds = T::NativeBalance::balance_on_hold(
-				&<T as Config>::RuntimeHoldReason::from(HoldReason::FundsReserved),
-				&voter,
-			);
-			let available_funds = voter_balance.saturating_sub(voter_holds);
-			ensure!(available_funds > amount, Error::<T>::NotEnoughFunds);
+			
 
 			let infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 				.ok_or(Error::<T>::NoProjectAvailable)?;
@@ -490,12 +479,13 @@ pub mod pallet {
 			let voter = ensure_signed(origin.clone())?;
 			// Get current voting round & check if we are in voting period or not
 			Self::period_check()?;
-			// Removal action executed
-			Self::try_remove_vote(voter.clone(), project_id.clone())?;
+			
 			// Remove previous vote from Referendum
 			let infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
 				.ok_or(Error::<T>::NoProjectAvailable)?;
 			T::Conviction::try_remove_vote(&voter, infos.index.into())?;
+			// Removal action executed
+			Self::try_remove_vote(voter.clone(), project_id.clone())?;
 
 			Self::deposit_event(Event::<T>::VoteRemoved { who: voter, project_id });
 			Ok(())

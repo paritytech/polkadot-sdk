@@ -54,17 +54,45 @@ pub trait ConvictionVotingTrait<AccountId> {
 }
 
 // Implement VotingHooks for pallet_conviction_voting
-impl<T: Config> VotingHooks<AccountIdOf<T>, u32, BalanceOf<T>> for Pallet<T>
+impl<T: Config> VotingHooks<AccountIdOf<T>, ReferendumIndex, BalanceOf<T>> for Pallet<T>
 
 {
-	fn on_before_vote(who: &AccountIdOf<T>, ref_index:u32, vote: AccountVoteOf<T> ) -> DispatchResult {
+	fn on_before_vote(who: &AccountIdOf<T>, ref_index:ReferendumIndex, vote: AccountVoteOf<T> ) -> DispatchResult {
 		// lock user's funds
+		let ref_info = T::Governance::get_referendum_info(ref_index.into())
+			.ok_or_else(|| DispatchError::Other("No referendum info found"))?;
+		let ref_status = T::Governance::handle_referendum_info(ref_info.clone())
+			.ok_or_else(|| DispatchError::Other("No referendum status found"))?;
+		match ref_status {
+			ReferendumStates::Ongoing => {
+			let amount = vote.balance();
+			// Check that voter has enough funds to vote
+			let voter_balance = T::NativeBalance::reducible_balance(
+				&who,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			ensure!(voter_balance >= amount, Error::<T>::NotEnoughFunds);
+			// Check the available un-holded balance
+			let voter_holds = T::NativeBalance::balance_on_hold(
+				&<T as Config>::RuntimeHoldReason::from(HoldReason::FundsReserved),
+				&who,
+			);
+			let available_funds = voter_balance.saturating_sub(voter_holds);
+			ensure!(available_funds > amount, Error::<T>::NotEnoughFunds);
+			// Lock the necessary amount
+			T::NativeBalance::hold(&HoldReason::FundsReserved.into(), &who, amount)?;			
+			}
+			_ => {
+				return Err(DispatchError::Other("Not an ongoing referendum"))
+			}
+		};
 		Ok(())
 	}
-	fn on_remove_vote(_who: &AccountIdOf<T>, _ref_index:u32, _status: Status) {
+	fn on_remove_vote(_who: &AccountIdOf<T>, _ref_index:ReferendumIndex, _status: Status) {
 		// No-op
 	}
-	fn lock_balance_on_unsuccessful_vote(_who: &AccountIdOf<T>, _ref_index:u32) -> Option<BalanceOf<T>> {
+	fn lock_balance_on_unsuccessful_vote(_who: &AccountIdOf<T>, _ref_index:ReferendumIndex) -> Option<BalanceOf<T>> {
 		// No-op
 		None
 	}
