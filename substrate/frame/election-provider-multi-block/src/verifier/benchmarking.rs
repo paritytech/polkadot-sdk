@@ -53,7 +53,7 @@ mod benchmarks {
 
 		// roll to signed validation, with a solution stored in the signed pallet
 
-		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
+		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution()?;
 		// roll to verification
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
@@ -83,7 +83,7 @@ mod benchmarks {
 			"Signed validation phase must be larger than the number of pages"
 		);
 
-		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
+		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution()?;
 		// roll to before the last page of verification
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
@@ -133,7 +133,7 @@ mod benchmarks {
 		// but this solution is corrupt
 		let mut paged_solution = crate::Pallet::<T>::roll_to_signed_and_mine_full_solution();
 		paged_solution.score.minimal_stake -= 1;
-		crate::Pallet::<T>::submit_full_solution(paged_solution);
+		crate::Pallet::<T>::submit_full_solution(paged_solution)?;
 
 		// roll to verification
 		crate::Pallet::<T>::roll_until_matches(|| {
@@ -200,7 +200,7 @@ mod benchmarks {
 			v
 		);
 		paged_solution.solution_pages[page_to_corrupt as usize].corrupt();
-		crate::Pallet::<T>::submit_full_solution(paged_solution);
+		crate::Pallet::<T>::submit_full_solution(paged_solution)?;
 
 		// roll to verification
 		crate::Pallet::<T>::roll_until_matches(|| {

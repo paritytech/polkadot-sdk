@@ -513,6 +513,10 @@ pub trait ElectionProvider {
 	/// called. `Ok(false)` means we are doing something, but work is still ongoing. `elect` should
 	/// not be called. `Ok(true)` means we are done and ready for a call to `elect`.
 	fn status() -> Result<bool, ()>;
+
+	/// Signal the election provider that we are about to call `elect` asap, and it should prepare itself.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn asap() {}
 }
 
 /// A (almost) marker trait that signifies an election provider as working synchronously. i.e. being

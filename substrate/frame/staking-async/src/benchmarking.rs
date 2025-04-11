@@ -114,10 +114,10 @@ pub fn create_validator_with_nominators<T: Config>(
 	let new_validators = Rotator::<T>::legacy_try_plan_era();
 	let planned_era = CurrentEra::<T>::get().unwrap_or_default();
 
-	assert_eq!(new_validators.len(), 1);
-	assert_eq!(new_validators[0], v_stash, "Our validator was not selected!");
-	assert_ne!(Validators::<T>::count(), 0);
-	assert_eq!(Nominators::<T>::count(), original_nominator_count + nominators.len() as u32);
+	assert_eq!(new_validators.len(), 1, "New validators is not 1");
+	assert_eq!(new_validators[0], v_stash, "Our validator was not selected");
+	assert_ne!(Validators::<T>::count(), 0, "New validators count wrong");
+	assert_eq!(Nominators::<T>::count(), original_nominator_count + nominators.len() as u32, "New nominators count wrong");
 
 	// Give Era Points
 	let reward = EraRewardPoints::<T::AccountId> {

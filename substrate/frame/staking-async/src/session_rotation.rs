@@ -478,6 +478,8 @@ impl<T: Config> Rotator<T> {
 	pub(crate) fn legacy_try_plan_era() -> Vec<T::AccountId> {
 		// Plan the era,
 		Self::plan_new_era();
+		// signal that we are about to call into elect asap.
+		<<T as Config>::ElectionProvider as ElectionProvider>::asap();
 		// immediately call into the election provider to fetch and process the results. We assume
 		// we are using an instant, onchain election here.
 		let msp = <T::ElectionProvider as ElectionProvider>::msp();
@@ -909,7 +911,7 @@ impl<T: Config> EraElectionPlanner<T> {
 		// collect or update the pref of all winners.
 		for stash in &elected_stashes {
 			let pref = Validators::<T>::get(stash);
-			Eras::<T>::set_validator_prefs(dbg!(new_planned_era), dbg!(stash), pref);
+			Eras::<T>::set_validator_prefs(new_planned_era, stash, pref);
 		}
 
 		log!(

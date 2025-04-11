@@ -38,7 +38,7 @@ fn staking_async_parachain_genesis(
 	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
-	let validator_count = core::option_env!("VALIDATORS")
+	let validator_count = core::option_env!("VALIDATOR_COUNT")
 		.map(|v| v.parse::<u32>().unwrap())
 		.unwrap_or(500);
 	build_struct_json_patch!(RuntimeGenesisConfig {

@@ -766,7 +766,7 @@ pub mod pallet {
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub validator_count: u32,
 		pub invulnerables: BoundedVec<T::AccountId, T::MaxInvulnerables>,
@@ -813,6 +813,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			crate::log!(trace, "initializing with {:?}", self);
 			ValidatorCount::<T>::put(self.validator_count);
 			assert!(
 				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),

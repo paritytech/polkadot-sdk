@@ -28,6 +28,8 @@ benchmark with enough genesis stakers in staking (DataProvider) to fill a page o
 as per VoterSnapshotPerBlock and TargetSnapshotPerBlock. Generate at least \
 2 * VoterSnapshotPerBlock) nominators and TargetSnapshotPerBlock validators";
 
+// TODO: remove unwraps from all benchmarks of this pallet -- it makes debugging via wasm harder
+
 #[benchmarks(where T: crate::signed::Config + crate::unsigned::Config + crate::verifier::Config)]
 mod benchmarks {
 	use super::*;
@@ -181,7 +183,7 @@ mod benchmarks {
 		crate::Pallet::<T>::start().unwrap();
 
 		// submit a full solution.
-		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
+		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution()?;
 
 		// fully verify it in the signed validation phase.
 		assert!(T::Verifier::queued_score().is_none());
@@ -213,17 +215,20 @@ mod benchmarks {
 		crate::Pallet::<T>::start().unwrap();
 
 		// submit a full solution.
-		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution();
+		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution()?;
 
 		// fully verify it in the signed validation phase.
-		assert!(T::Verifier::queued_score().is_none());
+		ensure!(T::Verifier::queued_score().is_none(), "nothing should be queued");
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
 
 		// full solution is queued.
-		assert!(T::Verifier::queued_score().is_some());
-		assert_eq!(verifier::QueuedSolution::<T>::valid_iter().count() as u32, T::Pages::get());
+		ensure!(T::Verifier::queued_score().is_some(), "something should be queued");
+		ensure!(
+			verifier::QueuedSolution::<T>::valid_iter().count() as u32 == T::Pages::get(),
+			"solution should be full"
+		);
 
 		// fetch all pages, except for the last one.
 		for i in 1..T::Pages::get() {

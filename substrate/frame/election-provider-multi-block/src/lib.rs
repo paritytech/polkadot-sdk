@@ -1310,31 +1310,33 @@ where
 
 	pub(crate) fn submit_full_solution(
 		PagedRawSolution { score, solution_pages, .. }: PagedRawSolution<T::MinerConfig>,
-	) {
+	) -> DispatchResultWithPostInfo {
 		use frame_system::RawOrigin;
 		use sp_std::boxed::Box;
 		use types::Pagify;
 
 		// register alice
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
-		signed::Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score).unwrap();
+		signed::Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score)?;
 
 		// submit pages
-		solution_pages
-			.pagify(T::Pages::get())
-			.map(|(index, page)| {
-				signed::Pallet::<T>::submit_page(
-					RawOrigin::Signed(alice.clone()).into(),
-					index,
-					Some(Box::new(page.clone())),
-				)
-			})
-			.collect::<Result<Vec<_>, _>>()
-			.unwrap();
+		for (index, page) in solution_pages
+		.pagify(T::Pages::get()) {
+			signed::Pallet::<T>::submit_page(
+				RawOrigin::Signed(alice.clone()).into(),
+				index,
+				Some(Box::new(page.clone())),
+			).map_err(|e| {
+				log!(error, "submit_page {:?} failed: {:?}", page, e);
+				e
+			})?;
+		}
+
+		Ok(().into())
 	}
 
-	pub(crate) fn roll_to_signed_and_submit_full_solution() {
-		Self::submit_full_solution(Self::roll_to_signed_and_mine_full_solution());
+	pub(crate) fn roll_to_signed_and_submit_full_solution() -> DispatchResultWithPostInfo {
+		Self::submit_full_solution(Self::roll_to_signed_and_mine_full_solution())
 	}
 
 	fn funded_account(seed: &'static str, index: u32) -> T::AccountId {
@@ -1342,7 +1344,7 @@ where
 		use frame_support::traits::fungible::{Inspect, Mutate};
 		let who: T::AccountId = frame_benchmarking::account(seed, index, 777);
 		whitelist!(who);
-		let balance = T::Currency::minimum_balance() * 10000u32.into();
+		let balance = T::Currency::minimum_balance() * 1_0000_0000u32.into();
 		T::Currency::mint_into(&who, balance).unwrap();
 		who
 	}
@@ -1469,6 +1471,15 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 
 			// we're ready
 			Phase::Done | Phase::Export(_) => Ok(true),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn asap() {
+		// prepare our snapshot so we can "hopefully" run a fallback.
+		Self::create_targets_snapshot().unwrap();
+		for p in Self::lsp()..=Self::msp() {
+			Self::create_voters_snapshot_paged(p).unwrap()
 		}
 	}
 }
