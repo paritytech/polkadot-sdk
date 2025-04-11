@@ -688,7 +688,7 @@ impl<T: Config> Pallet<T> {
 		if changed {
 			log!(trace, "resetting disabled validators");
 			// reset disabled validators if active set was changed
-			DisabledValidators::<T>::take();
+			DisabledValidators::<T>::kill();
 		}
 
 		// Increment session index.
@@ -955,19 +955,6 @@ impl<T: Config> Pallet<T> {
 	pub fn disable_index(i: u32) -> bool {
 		let default_severity = OffenceSeverity::default();
 		Self::disable_index_with_severity(i, default_severity)
-	}
-
-	/// Disable the validator identified by `c`. (If using with the staking pallet,
-	/// this would be their *stash* account.)
-	///
-	/// Returns `false` either if the validator could not be found or it was already
-	/// disabled.
-	pub fn disable(c: &T::ValidatorId) -> bool {
-		Validators::<T>::get()
-			.iter()
-			.position(|i| i == c)
-			.map(|i| Self::disable_index(i as u32))
-			.unwrap_or(false)
 	}
 
 	/// Re-enable the validator of index `i`, returns `false` if the validator was not disabled.
