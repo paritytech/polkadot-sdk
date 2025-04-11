@@ -141,7 +141,7 @@ mod pallet {
 		/// verified on the fly.
 		///
 		/// The `paged_solution` may contain at most [`Config::MinerPages`] pages. They are
-		/// interpreted as msp -> lsp, as per [`msp_range_for`].
+		/// interpreted as msp -> lsp, as per [`crate::Pallet::msp_range_for`].
 		///
 		/// For example, if `Pages = 4`, and `MinerPages = 2`, our full snapshot range would be [0,
 		/// 1, 2, 3], with 3 being msp. But, in this case, then the `paged_raw_solution.pages` is

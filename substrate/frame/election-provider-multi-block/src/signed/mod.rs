@@ -21,7 +21,7 @@
 //! accounts, and sorting them based on the best claimed score to the worse.
 //!
 //! During the queuing time, if the queue is full, and a better solution comes in, the weakest
-//! deposit is said to be **Ejected**. Ejected solutions get [`Config::EjectGraceRatio`] of their
+//! deposit is said to be **Ejected**. Ejected solutions get [`signed::Config::EjectGraceRatio`] of their
 //! deposit back. This is because we have to delete any submitted pages from them on the fly. They
 //! always pay their transaction fee as well.
 //!
@@ -34,7 +34,7 @@
 //! 3. **Slashed**: Any invalid solution that wasted valuable blockchain time gets slashed for their
 //!    deposit.
 //! 2. **Discarded**: Any solution after the first correct solution is eligible to be peacefully
-//!    discarded. But, to delete their data, they have to call [`Call::clear_old_round_data`]. Once
+//!    discarded. But, to delete their data, they have to call [`signed::Call::clear_old_round_data`]. Once
 //!    done, they get their full deposit back.
 //!
 //! ## Future Plans:
