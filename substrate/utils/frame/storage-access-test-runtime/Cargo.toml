@@ -13,7 +13,7 @@ publish = false
 workspace = true
 
 [dependencies]
-cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true, features = ["runtime-benchmarks"] }
 sp-runtime = { workspace = true }
 
 [build-dependencies]
@@ -24,5 +24,4 @@ default = ["std"]
 std = [
 	"substrate-wasm-builder",
 	"cumulus-pallet-parachain-system/std",
-	"cumulus-pallet-parachain-system/runtime-benchmarks",
 ]

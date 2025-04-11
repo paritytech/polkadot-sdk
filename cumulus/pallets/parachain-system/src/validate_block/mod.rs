@@ -71,6 +71,7 @@ pub struct MemoryOptimizedValidationParams {
 
 #[derive(codec::Decode, Clone)]
 #[cfg_attr(feature = "std", derive(codec::Encode))]
+#[cfg(feature = "runtime-benchmarks")]
 pub struct StorageAccessParams<B: sp_runtime::traits::Block> {
 	pub state_root: B::Hash,
 	pub storage_proof: sp_trie::CompactProof,
@@ -79,11 +80,13 @@ pub struct StorageAccessParams<B: sp_runtime::traits::Block> {
 }
 
 #[derive(Debug, Clone, codec::Decode, codec::Encode)]
+#[cfg(feature = "runtime-benchmarks")]
 pub enum StorageAccessPayload {
 	Read(crate::Vec<(crate::Vec<u8>, Option<sp_core::storage::ChildInfo>)>),
 	Write((crate::Vec<(crate::Vec<u8>, crate::Vec<u8>)>, Option<sp_core::storage::ChildInfo>)),
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 impl<B: sp_runtime::traits::Block> StorageAccessParams<B> {
 	pub fn new_read(
 		state_root: B::Hash,
