@@ -21,7 +21,10 @@ use crate::utils;
 use alloc::vec::Vec;
 use ark_ec::CurveConfig;
 use ark_ed_on_bls12_377_ext::CurveHooks;
-use sp_runtime_interface::runtime_interface;
+use sp_runtime_interface::{
+	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
+	runtime_interface,
+};
 
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]
@@ -72,7 +75,10 @@ pub trait HostCalls {
 	///   - `base`: `ArkScaleProjective<EdwardsProjective>`.
 	///   - `scalars`: `ArkScale<Vec<EdwardsConfig::ScalarField>>`.
 	/// - Returns encoded: `ArkScaleProjective<EdwardsProjective>`.
-	fn ed_on_bls12_377_te_msm(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+	fn ed_on_bls12_377_te_msm(
+		bases: PassFatPointerAndRead<Vec<u8>>,
+		scalars: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::msm_te::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars)
 	}
 
@@ -82,7 +88,10 @@ pub trait HostCalls {
 	///   - `base`: `ArkScaleProjective<EdwardsProjective>`.
 	///   - `scalar`: `ArkScale<Vec<u64>>`.
 	/// - Returns encoded: `ArkScaleProjective<EdwardsProjective>`.
-	fn ed_on_bls12_377_te_mul_projective(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+	fn ed_on_bls12_377_te_mul_projective(
+		base: PassFatPointerAndRead<Vec<u8>>,
+		scalar: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::mul_projective_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
 	}
 }
