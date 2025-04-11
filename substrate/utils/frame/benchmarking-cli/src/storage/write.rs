@@ -17,7 +17,7 @@
 
 use codec::Encode;
 use cumulus_pallet_parachain_system::validate_block::StorageAccessParams;
-use log::{info, trace, warn};
+use log::{debug, info, trace, warn};
 use rand::prelude::*;
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
@@ -359,7 +359,7 @@ fn measure_per_key_amortised_write_cost_on_block_validation<Block: BlockT>(
 ) -> Result<(usize, Duration)> {
 	let root = trie.root();
 	let storage_proof = storage_proof.expect("Storage proof must exist for block validation");
-	info!(
+	debug!(
 		"POV: len {:?} {:?}",
 		storage_proof.len(),
 		storage_proof.clone().encoded_compact_size::<HashingFor<Block>>(*root)
@@ -371,7 +371,7 @@ fn measure_per_key_amortised_write_cost_on_block_validation<Block: BlockT>(
 		(changes.clone(), maybe_child_info.cloned()),
 	);
 
-	info!("validate_block with {} keys", changes.len());
+	debug!("validate_block with {} keys", changes.len());
 	let wasm_module = get_wasm_module();
 	let mut instance = wasm_module.new_instance().unwrap();
 
@@ -380,13 +380,13 @@ fn measure_per_key_amortised_write_cost_on_block_validation<Block: BlockT>(
 	let dry_run_start = Instant::now();
 	instance.call_export("validate_block", &dry_run_encoded).unwrap();
 	let dry_run_elapsed = dry_run_start.elapsed();
-	info!("validate_block dry-run time {:?}", dry_run_elapsed);
+	debug!("validate_block dry-run time {:?}", dry_run_elapsed);
 
 	let encoded = params.encode();
 	let start = Instant::now();
 	instance.call_export("validate_block", &encoded).unwrap();
 	let elapsed = start.elapsed();
-	info!("validate_block time {:?}", elapsed);
+	debug!("validate_block time {:?}", elapsed);
 
 	let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / changes.len();
 	let result = (
