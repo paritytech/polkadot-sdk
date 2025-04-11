@@ -17,7 +17,9 @@
 
 //! # Test environment for OPF pallet.
 use crate as pallet_opf;
-use crate::Convert;
+use crate::{
+	traits::ReferendumTrait, ConvictionVotingTrait,
+	{Convert, HoldReason, ReferendumStates, Preservation, Fortitude, Error}};
 // Removed unused import: use codec::{Decode, Encode};
 pub use frame_support::{
 	derive_impl, ord_parameter_types,
@@ -25,7 +27,7 @@ pub use frame_support::{
 	parameter_types,
 	traits::{
 		ConstU32, ConstU64, EqualPrivilegeOnly, OnFinalize, OnInitialize, OriginTrait, PollStatus,
-		Polling, VoteTally,
+		Polling, VoteTally,fungible::{Inspect, InspectHold, Mutate, MutateHold},
 	},
 	weights::Weight,
 	PalletId,
@@ -406,6 +408,33 @@ impl HooksHandler {
 
 impl VotingHooks<u64, u32, u64> for HooksHandler {
 	fn on_before_vote(who: &u64, ref_index: u32, vote: AccountVote<u64>) -> DispatchResult {
+		// lock user's funds
+		let ref_info = <Test as pallet_opf::Config>::Governance::get_referendum_info(ref_index).unwrap();
+		let ref_status = <Test as pallet_opf::Config>::Governance::handle_referendum_info(ref_info.clone()).unwrap();
+		match ref_status {
+			ReferendumStates::Ongoing => {
+			let amount = vote.balance();
+			// Check that voter has enough funds to vote
+			let voter_balance = <Test as pallet_opf::Config>::NativeBalance::reducible_balance(
+				&who,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			ensure!(voter_balance >= amount, pallet_opf::Error::<Test>::NotEnoughFunds);
+			// Check the available un-holded balance
+			let voter_holds = <Test as pallet_opf::Config>::NativeBalance::balance_on_hold(
+				&<Test as pallet_opf::Config>::RuntimeHoldReason::from(HoldReason::FundsReserved),
+				&who,
+			);
+			let available_funds = voter_balance.saturating_sub(voter_holds);
+			ensure!(available_funds > amount, Error::<Test>::NotEnoughFunds);
+			// Lock the necessary amount
+			<Test as pallet_opf::Config>::NativeBalance::hold(&HoldReason::FundsReserved.into(), &who, amount)?;			
+			}
+			_ => {
+				return Err(DispatchError::Other("Not an ongoing referendum"))
+			}
+		};
 		LAST_ON_VOTE_DATA.with(|data| {
 			*data.borrow_mut() = Some((*who, ref_index.try_into().unwrap(), vote));
 		});

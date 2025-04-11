@@ -116,11 +116,11 @@ fn conviction_vote_works() {
 		assert_eq!(round_number, 0);
 
 		//Bobs funds are locked
-		/*let bob_hold = <Test as Config>::NativeBalance::total_balance_on_hold(&BOB);
+		let bob_hold = <Test as Config>::NativeBalance::total_balance_on_hold(&BOB);
 		let dave_hold = <Test as Config>::NativeBalance::total_balance_on_hold(&DAVE);
 		assert_eq!(bob_hold, 100);
 		assert_eq!(dave_hold, 100);
-		let round_number = NextVotingRoundNumber::<Test>::get().saturating_sub(1);
+		/*let round_number = NextVotingRoundNumber::<Test>::get().saturating_sub(1);
 		assert_eq!(round_number, 0);
 
 		let bob_vote_unlock = round_end.saturating_add(vote_validity);
@@ -411,7 +411,7 @@ fn not_enough_funds_to_vote() {
 		// Bob vote with wrong amount
 		assert_noop!(
 			Opf::vote(RawOrigin::Signed(BOB).into(), 101, balance_plus, true, Conviction::Locked1x),
-			Error::<Test>::NotEnoughFunds
+			pallet_conviction_voting::Error::<Test>::InsufficientFunds
 		);
 
 		//Bob commits 1/3rd of his balance to project 101
