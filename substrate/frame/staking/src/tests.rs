@@ -8975,7 +8975,7 @@ mod unbonding_queue {
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
-				ConfigOp::Set(config.clone())
+				ConfigOp::Set(config)
 			));
 
 			// Set a known minimum stake.
@@ -8988,11 +8988,11 @@ mod unbonding_queue {
 
 			// Test cases with BondingDuration = 3:
 			// 500 / 500 * 3 = 3
-			assert_eq!(Staking::get_unbond_eras_delta(max_unstake, config.clone()), 3);
+			assert_eq!(Staking::get_unbond_eras_delta(max_unstake, config), 3);
 			// 250 / 500 * 3 = 1.5 → 1
-			assert_eq!(Staking::get_unbond_eras_delta(max_unstake / 2, config.clone()), 1);
+			assert_eq!(Staking::get_unbond_eras_delta(max_unstake / 2, config), 1);
 			// 0 / 500 * 3 = 0
-			assert_eq!(Staking::get_unbond_eras_delta(0, config.clone()), 0);
+			assert_eq!(Staking::get_unbond_eras_delta(0, config), 0);
 			// 1000 / 500 * 3 = 6
 			assert_eq!(Staking::get_unbond_eras_delta(max_unstake * 2, config), 6);
 		});

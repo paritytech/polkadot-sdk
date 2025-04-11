@@ -50,10 +50,10 @@ use sp_staking::{
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
-	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnbondingQueueConfig, ValidatorPrefs,
-	STAKING_ID, Existence, ExistenceOrLegacyExposure,
+	BalanceOf, EraInfo, EraPayout, Existence, ExistenceOrLegacyExposure, Exposure, Forcing,
+	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations,
+	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger,
+	UnbondingQueueConfig, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
