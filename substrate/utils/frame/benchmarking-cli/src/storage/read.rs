@@ -67,18 +67,21 @@ impl StorageCmd {
 
 		// Read using the same TrieBackend and recorder for up to `batch_size` keys.
 		// This would allow us to measure the amortized cost of reading a key.
-		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
-		let mut recorder_clone = recorder.clone();
-		let mut state = client
+		let state = client
 			.state_at(best_hash)
 			.map_err(|_err| Error::Input("State not found".into()))?;
-		let mut as_trie_backend = state.as_trie_backend();
-		let mut backend = sp_state_machine::TrieBackendBuilder::wrap(&as_trie_backend)
-			.with_optional_recorder(recorder)
-			.build();
+		// We reassigne the backend and recorder for every batch size.
+		// Using a new recorder for every read vs using the same for the entire batch
+		// produces significant different results. Since in the real use case we use a
+		// single recorder per block, simulate the same behavior by creating a new
+		// recorder every batch size, so that the amortized cost of reading a key is
+		// measured in conditions closer to the real world.
+		let (mut backend, mut recorder) = self.create_backend::<B, C>(&state);
+
 		let mut read_in_batch = 0;
 		let mut on_validation_batch = vec![];
 		let mut on_validation_size = 0;
+
 		let last_key = keys.last().unwrap();
 		for key in keys.as_slice() {
 			match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
@@ -108,7 +111,7 @@ impl StorageCmd {
 			// Read keys on block validation
 			if is_batch_full && self.params.on_block_validation {
 				let root = backend.root();
-				let storage_proof = recorder_clone
+				let storage_proof = recorder
 					.clone()
 					.map(|r| r.drain_storage_proof())
 					.expect("Storage proof must exist for block validation");
@@ -151,20 +154,7 @@ impl StorageCmd {
 
 			// Reload recorder
 			if is_batch_full {
-				// Using a new recorder for every read vs using the same for the entire batch
-				// produces significant different results. Since in the real use case we use a
-				// single recorder per block, simulate the same behavior by creating a new
-				// recorder every batch size, so that the amortized cost of reading a key is
-				// measured in conditions closer to the real world.
-				let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
-				recorder_clone = recorder.clone();
-				state = client
-					.state_at(best_hash)
-					.map_err(|_err| Error::Input("State not found".to_string()))?;
-				as_trie_backend = state.as_trie_backend();
-				backend = sp_state_machine::TrieBackendBuilder::wrap(&as_trie_backend)
-					.with_optional_recorder(recorder)
-					.build();
+				(backend, recorder) = self.create_backend::<B, C>(&state);
 				read_in_batch = 0;
 			}
 		}
@@ -192,7 +182,7 @@ impl StorageCmd {
 				// Read child keys on block validation
 				if is_batch_full && self.params.on_block_validation {
 					let root = backend.root();
-					let storage_proof = recorder_clone
+					let storage_proof = recorder
 						.clone()
 						.map(|r| r.drain_storage_proof())
 						.expect("Storage proof must exist for block validation");
@@ -238,24 +228,35 @@ impl StorageCmd {
 
 				// Reload recorder
 				if is_batch_full {
-					// Using a new recorder for every read vs using the same for the entire batch
-					// produces significant different results. Since in the real use case we use a
-					// single recorder per block, simulate the same behavior by creating a new
-					// recorder every batch size, so that the amortized cost of reading a key is
-					// measured in conditions closer to the real world.
-					let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
-					state = client
-						.state_at(best_hash)
-						.map_err(|_err| Error::Input("State not found".to_string()))?;
-					as_trie_backend = state.as_trie_backend();
-					backend = sp_state_machine::TrieBackendBuilder::wrap(&as_trie_backend)
-						.with_optional_recorder(recorder)
-						.build();
+					(backend, recorder) = self.create_backend::<B, C>(&state);
 					read_in_batch = 0;
 				}
 			}
 		}
 
 		Ok(record)
+	}
+
+	fn create_backend<'a, B, C>(
+		&self,
+		state: &'a C::StateBackend,
+	) -> (
+		sp_state_machine::TrieBackend<
+			&'a <C::StateBackend as AsTrieBackend<HashingFor<B>>>::TrieBackendStorage,
+			HashingFor<B>,
+			&'a sp_trie::cache::LocalTrieCache<HashingFor<B>>,
+		>,
+		Option<sp_trie::recorder::Recorder<HashingFor<B>>>,
+	)
+	where
+		C: CallApiAt<B>,
+		B: BlockT + Debug,
+	{
+		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
+		let backend = sp_state_machine::TrieBackendBuilder::wrap(state.as_trie_backend())
+			.with_optional_recorder(recorder.clone())
+			.build();
+
+		(backend, recorder)
 	}
 }
