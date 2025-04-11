@@ -140,29 +140,25 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 			},
 		};
 
-	tracing::info!(
-		target: LOG_TARGET,
-		"PoV size {{ header: {:.2}kB, extrinsics: {:.2}kB, storage_proof: {:.2}kB }}",
-		block_data.header().encoded_size() as f64 / 1024f64,
-		block_data.extrinsics().encoded_size() as f64 / 1024f64,
-		block_data.storage_proof().encoded_size() as f64 / 1024f64,
-	);
+	block_data.log_size_info();
 
 	if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 		if let Some(pov_path) = export_pov {
 			if let Ok(Some(relay_parent_header)) =
 				relay_client.header(BlockId::Hash(relay_parent)).await
 			{
-				export_pov_to_path::<Block>(
-					pov_path.clone(),
-					pov.clone(),
-					block_data.header().hash(),
-					*block_data.header().number(),
-					parent_header.clone(),
-					relay_parent_header.state_root,
-					relay_parent_header.number,
-					max_pov_size,
-				);
+				if let Some(header) = block_data.blocks().first().map(|b| b.header()) {
+					export_pov_to_path::<Block>(
+						pov_path.clone(),
+						pov.clone(),
+						header.hash(),
+						*header.number(),
+						parent_header.clone(),
+						relay_parent_header.state_root,
+						relay_parent_header.number,
+						max_pov_size,
+					);
+				}
 			} else {
 				tracing::error!(target: LOG_TARGET, "Failed to get relay parent header from hash: {relay_parent:?}");
 			}
