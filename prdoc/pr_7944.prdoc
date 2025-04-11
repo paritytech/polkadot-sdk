@@ -35,3 +35,5 @@ crates:
     bump: patch
   - name: people-westend-runtime
     bump: patch
+  - name: bp-bridge-hub-westend    
+    bump: patch
