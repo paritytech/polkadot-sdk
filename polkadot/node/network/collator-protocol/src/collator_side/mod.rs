@@ -16,7 +16,7 @@
 
 use std::{
 	collections::{HashMap, HashSet},
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 use bitvec::{bitvec, vec::BitVec};
@@ -39,22 +39,20 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
 	messages::{
-		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
-	},
-	overseer, FromOrchestra, OverseerSignal,
+		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
+	}, overseer, prometheus::prometheus::HistogramTimer, FromOrchestra, OverseerSignal
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	runtime::{fetch_claim_queue, get_group_rotation_info, ClaimQueueSnapshot, RuntimeInfo},
+	runtime::{fetch_claim_queue, get_group_rotation_info, ClaimQueueSnapshot, RuntimeInfo, get_candidate_events},
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, AuthorityDiscoveryId, CandidateHash,
-	CollatorPair, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId, SessionIndex,
+	vstaging::{CandidateReceiptV2 as CandidateReceipt}, AuthorityDiscoveryId, BlockNumber, vstaging::CandidateEvent, CandidateHash, CollatorPair, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId, SessionIndex
 };
 
-use crate::{modify_reputation, LOG_TARGET};
+use crate::{modify_reputation, LOG_TARGET, LOG_TARGET_STATS};
 
 mod collation;
 mod error;
@@ -199,8 +197,165 @@ struct PeerData {
 	unknown_heads: LruMap<Hash, (), ByLength>,
 }
 
+
+// Equal to allowed ancestry len + 1
+const MAX_BACKING_DELAY: BlockNumber = 3;
+// Paras availability period. In practice, candidates time out in exceptional situations.
+const MAX_AVAILABILITY_DELAY: BlockNumber = 10;
+
+// Collations are kept in the tracker, until they are included or expired
+#[derive(Default)]
+struct CollationTracker {
+	// Keep track of collation expiration block number.
+	expire: HashMap<BlockNumber, HashSet<Hash>>,
+	// All un-expired collation entries
+	entries: HashMap<Hash, CollationStats>,
+}
+
+impl CollationTracker {
+	// Mark a tracked collation as backed and return the stats.
+	// After this call, the collation is no longer tracked. To measure
+	// inclusion time call `track` again with the returned stats.
+	//
+	// Block built on top of N is earliest backed at N + 1. 
+	// Returns `None` if the collation is not tracked.
+	pub fn collation_backed(&mut self, block_number: BlockNumber, head: Hash, metrics: &Metrics) -> Option<CollationStats> {
+		self.entries.remove(&head).map(|mut entry| {
+			entry.backed_at = Some(block_number);
+			metrics.on_collation_backed((block_number - entry.relay_parent_number) as f64);
+			entry
+		})
+	}
+
+	// Mark a previously backed collation as included and return the stats.
+	// After this call, the collation is no longer trackable.
+	//
+	// Block built on top of N is earliest backed at N + 1. 
+	// Returns `None` if there collation is not in tracker.
+	pub fn collation_included(&mut self, block_number: BlockNumber, head: Hash, metrics: &Metrics) -> Option<CollationStats> {
+		self.entries.remove(&head).map(|mut entry| {
+			entry.included_at = Some(block_number);
+			if let Some(backed_at) = entry.backed_at {
+				metrics.on_collation_included((block_number - backed_at) as f64);
+			}
+			entry
+		})
+	}
+
+	// Returns all the collations that have expired at `block_number`.
+	pub fn drain_expired(&mut self, block_number: BlockNumber) -> Vec<CollationStats> {
+		let Some(expired) = self.expire.remove(&block_number) else {
+			// No collations built on all seen relay parents at height `block_number`
+			return Vec::new()
+		};
+
+		expired.iter().filter_map(|head| self.entries.remove(head))
+			.map(|mut entry| {
+				entry.expired_at = Some(block_number);
+				entry
+			})
+			.collect::<Vec<_>>()
+	}
+
+	// Track a collation for a given period of time (TTL). TTL depends
+	// on the collation state.
+	// Collation is evicted after it expires.
+	pub fn track(&mut self, mut stats: CollationStats) {
+		// Check the state of collation to compute ttl.
+		let ttl = if stats.fetch_latency().is_none() {
+			// Disable the fetch timer, to prevent bogus observe on drop.
+			if let Some(fetch_latency_metric) = stats.fetch_latency_metric.take() {
+				fetch_latency_metric.stop_and_discard();
+			}
+			// Collation was never fetched, expires ASAP
+			0
+		} else if stats.backed().is_none() {
+			 MAX_BACKING_DELAY
+		} else if stats.included().is_none() {
+			// Set expiration date relative to backing block.
+			stats.backed_at.unwrap_or_default() + MAX_AVAILABILITY_DELAY
+		} else {
+			// If block included no reason to track it.
+			return
+		};
+
+		self.expire.entry(stats.relay_parent_number + ttl)
+			.and_modify(|heads| {heads.insert(stats.head);})
+			.or_insert_with(|| HashSet::from_iter(vec![stats.head].into_iter()));
+		self.entries.insert(stats.head, stats);
+	}
+}
+
+// Information about how collations live their lives.
+struct CollationStats {
+	// The block header hash.
+	head: Hash,
+	// The relay parent on top of which collation was built
+	relay_parent_number: BlockNumber, 
+	// The expiration block number if expired.
+	expired_at: Option<BlockNumber>,
+	// The backed block number if backed.
+	backed_at: Option<BlockNumber>,
+	// The backed block number if backed.
+	included_at: Option<BlockNumber>,
+	// The collation time.
+	fetched_at: Option<Instant>,
+	// Advertisement time
+	advertised_at: Instant,
+	// The collation fetch latency.
+	fetch_latency_metric: Option<HistogramTimer>,
+}
+
+impl CollationStats {
+	pub fn new(head: Hash, relay_parent_number: BlockNumber, metrics: &Metrics) -> Self {
+		Self {
+			head,
+			relay_parent_number,
+			advertised_at: std::time::Instant::now(),
+			backed_at: None,
+			expired_at: None,
+			fetched_at: None,
+			included_at: None,
+			fetch_latency_metric: metrics.time_collation_fetch_latency(),
+		}
+	}
+
+	// Returns the age at which the collation expired.
+	pub fn expired(&self) -> Option<BlockNumber> {
+		let expired_at = self.expired_at?;
+		Some(expired_at - self.relay_parent_number)	}
+
+	// Returns the age of the collation at the moment of backing.
+	pub fn backed(&self) -> Option<BlockNumber> {
+		let backed_at = self.backed_at?;
+		Some(backed_at - self.relay_parent_number)
+	}
+
+	// Returns the age of the collation at the moment of inclusion.
+	pub fn included(&self) -> Option<BlockNumber> {
+		let included_at = self.included_at?;
+		Some(included_at - self.relay_parent_number)
+	}
+
+	// Returns time the collation waited to be fetched.
+	pub fn fetch_latency(&self) -> Option<Duration> {
+		let fetched_at = self.fetched_at?;
+		Some(fetched_at - self.advertised_at)
+	}
+}
+
+impl Drop for CollationStats {
+	fn drop(&mut self) {
+		if let Some(fetch_latency_metric) = self.fetch_latency_metric.take() {
+			// Do not expiration as fetch latency unfetched collations.
+			// Fetched collations should have already observed & dropped the metric.
+			fetch_latency_metric.stop_and_discard();
+		}
+	}
+}
+
 /// A type wrapping a collation and it's designated core index.
-struct CollationWithCoreIndex(Collation, CoreIndex);
+struct CollationWithCoreIndex(Collation, CoreIndex, Option<CollationStats>);
 
 impl CollationWithCoreIndex {
 	/// Returns inner collation ref.
@@ -216,6 +371,11 @@ impl CollationWithCoreIndex {
 	/// Returns inner core index.
 	pub fn core_index(&self) -> &CoreIndex {
 		&self.1
+	}
+
+	/// Takes the stats and returns them.
+	pub fn take_stats(&mut self) -> Option<CollationStats> {
+		self.2.take()
 	}
 }
 
@@ -306,6 +466,9 @@ struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
+	/// An utility for tracking all collations produced by the collator.
+	collation_tracker: CollationTracker,
 }
 
 impl State {
@@ -333,6 +496,7 @@ impl State {
 			active_collation_fetches: Default::default(),
 			advertisement_timeouts: Default::default(),
 			reputation,
+			collation_tracker: Default::default(),
 		}
 	}
 }
@@ -484,11 +648,13 @@ async fn distribute_collation<Context>(
 		ParentHeadData::OnlyHash(parent_head_data_hash)
 	};
 
+	let para_head = receipt.descriptor.para_head();
 	per_relay_parent.collations.insert(
 		candidate_hash,
 		CollationWithCoreIndex(
 			Collation { receipt, pov, parent_head_data, status: CollationStatus::Created },
 			core_index,
+			get_block_number(ctx, candidate_relay_parent).await.map(|n| CollationStats::new(para_head, n, &state.metrics)),
 		),
 	);
 
@@ -1023,6 +1189,7 @@ async fn handle_incoming_request<Context>(
 				waiting.collation_fetch_active = true;
 				// Obtain a timer for sending collation
 				let _ = state.metrics.time_collation_distribution("send");
+
 				send_collation(state, req, receipt, pov, parent_head_data).await;
 			}
 		},
@@ -1044,6 +1211,23 @@ async fn handle_incoming_request<Context>(
 	}
 	Ok(())
 }
+
+// Returns the block number for a given block hash if found.
+#[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
+async fn get_block_number<Context>(
+	ctx: &mut Context,
+	block_hash: Hash,
+) -> Option<BlockNumber>{
+	let (tx, rx) = oneshot::channel();
+			
+	ctx.send_message(ChainApiMessage::BlockNumber(block_hash, tx)).await;
+	
+	match rx.await {
+		Ok(Ok(Some(number))) => Some(number),
+		Ok(Ok(None)) | Ok(Err(_)) | Err(_) => None,
+	}
+}
+
 
 /// Peer's view has changed. Send advertisements for new relay parents
 /// if there're any.
@@ -1217,9 +1401,70 @@ async fn handle_our_view_change<Context>(
 	let added: Vec<_> = view.iter().filter(|h| !implicit_view.contains_leaf(h)).collect();
 
 	for leaf in added {
-		let claim_queue = fetch_claim_queue(ctx.sender(), *leaf).await?;
+		let claim_queue: ClaimQueueSnapshot = fetch_claim_queue(ctx.sender(), *leaf).await?;
 		state.per_relay_parent.insert(*leaf, PerRelayParent::new(para_id, claim_queue));
 
+		// Check for backed & included collations
+		if let Ok(events) = get_candidate_events(ctx.sender(), *leaf).await {
+			for ev in events {
+				match ev {
+					CandidateEvent::CandidateIncluded(receipt, _, _, _) => {
+						if receipt.descriptor.para_id() != para_id {
+							continue
+						}
+						let relay_parent = receipt.descriptor.relay_parent();
+						let Some(block_number) = get_block_number(ctx, *leaf).await else {
+							continue
+						};
+
+						let Some(stats) = state.collation_tracker.collation_included(block_number, receipt.descriptor.para_head(), &state.metrics) else {
+							continue
+						};
+
+						gum::debug!(
+							target: crate::LOG_TARGET_STATS,
+							latency = ?stats.included().unwrap_or_default(),
+							relay_block = ?leaf,
+							?relay_parent,
+							?para_id,
+							?stats.head,
+							"Collation included on relay chain",
+						);
+					},
+					CandidateEvent::CandidateBacked(receipt, _, _, _) => {
+						if receipt.descriptor.para_id() != para_id {
+							continue
+						}
+						let relay_parent = receipt.descriptor.relay_parent();
+						
+						let Some(block_number) = get_block_number(ctx, *leaf).await else {
+							continue
+						};
+
+						let Some(stats) = state.collation_tracker.collation_backed(block_number, receipt.descriptor.para_head(), &state.metrics) else {
+							continue
+						};
+
+						gum::debug!(
+							target: crate::LOG_TARGET_STATS,
+							latency = ?stats.backed().unwrap_or_default(),
+							relay_block = ?leaf,
+							?relay_parent,
+							?para_id,
+							?stats.head,
+							"Collation backed on relay chain",
+						);
+						
+						// Continue measuring inclusion latency.
+						state.collation_tracker.track(stats);
+					},
+					_ => {
+						// do not care about other events
+					},
+				}
+			}
+		}
+		
 		implicit_view
 			.activate_leaf(ctx.sender(), *leaf)
 			.await
@@ -1273,12 +1518,43 @@ async fn handle_our_view_change<Context>(
 		for removed in &pruned {
 			gum::debug!(target: LOG_TARGET, relay_parent = ?removed, "Removing relay parent because our view changed.");
 
+			if let Some(block_number) = get_block_number(ctx, *removed).await {
+				// Drain expired collations from tracker
+				// Process collation tracker expires.
+				let expired_collations = state.collation_tracker.drain_expired(block_number);
+
+				for expired_collation in expired_collations {
+					let collation_state = if expired_collation.fetch_latency().is_none() {
+						"advertised"
+					} else if expired_collation.backed().is_none() {
+						"fetched"
+					} else if expired_collation.included().is_none() {
+						"backed"
+					} else {
+						"none"
+					};
+
+					let age = expired_collation.expired().unwrap_or_default(); 
+					gum::debug!(
+						target: crate::LOG_TARGET_STATS,
+						?age,
+						?collation_state,
+						relay_parent = ?removed,
+						?para_id,
+						?expired_collation.head,
+						"Collation expired",
+					);
+
+					state.metrics.on_collation_expired(age as f64, collation_state);
+				}
+			}
+
 			let collations = state
 				.per_relay_parent
 				.remove(removed)
 				.map(|per_relay_parent| per_relay_parent.collations)
 				.unwrap_or_default();
-			for collation_with_core in collations.into_values() {
+			for mut collation_with_core in collations.into_values() {
 				let collation = collation_with_core.collation();
 
 				let candidate_hash = collation.receipt.hash();
@@ -1298,12 +1574,25 @@ async fn handle_our_view_change<Context>(
 						pov_hash = ?collation.pov.hash(),
 						"Collation was advertised but not requested by any validator.",
 					),
-					CollationStatus::Requested => gum::debug!(
-						target: LOG_TARGET,
-						candidate_hash = ?collation.receipt.hash(),
-						pov_hash = ?collation.pov.hash(),
-						"Collation was requested.",
-					),
+					CollationStatus::Requested => {
+							gum::debug!(
+							target: LOG_TARGET,
+							candidate_hash = ?collation.receipt.hash(),
+							pov_hash = ?collation.pov.hash(),
+							"Collation was requested.",
+						);
+						
+						let Some(stats) = collation_with_core.take_stats() else {
+							continue
+						};
+
+						// If the collation stats are stil available, it means it was never
+						// succesfully fetched, even if a fetch request was received.
+						//
+						// Will expire in state "advertised" at the next block import.
+						state.collation_tracker.track(stats);
+						
+					}
 				}
 			}
 			state.waiting_collation_fetches.remove(removed);
@@ -1379,10 +1668,11 @@ async fn run_inner<Context>(
 			},
 			CollationSendResult { relay_parent, candidate_hash, peer_id, timed_out } =
 				state.active_collation_fetches.select_next_some() => {
+
 				let next = if let Some(waiting) = state.waiting_collation_fetches.get_mut(&relay_parent) {
 					if timed_out {
 						gum::debug!(
-							target: LOG_TARGET,
+							target: LOG_TARGET_STATS,
 							?relay_parent,
 							?peer_id,
 							?candidate_hash,
@@ -1398,6 +1688,31 @@ async fn run_inner<Context>(
 							state.validator_groups_buf.reset_validator_interest(candidate_hash, authority_id);
 						}
 						waiting.waiting_peers.remove(&(peer_id, candidate_hash));
+		
+						// Update collation status to fetched.
+						if let Some(per_relay_parent) =  state.per_relay_parent.get_mut(&relay_parent) {
+							if let Some(collation_with_core) = per_relay_parent.collations.get_mut(&candidate_hash) {
+								let maybe_stats = collation_with_core.take_stats();
+								let our_para_id = collation_with_core.collation().receipt.descriptor.para_id();
+
+								if let Some(mut stats) = maybe_stats {
+									// Update the timestamp when collation has been sent (from subsysytem perspective)
+									stats.fetched_at = Some(std::time::Instant::now());
+									gum::debug!(
+										target: LOG_TARGET_STATS,
+										para_head = ?stats.head,
+										%our_para_id,
+										"Collation fetch latency is {}ms",
+										stats.fetch_latency().unwrap_or_default().as_millis(),
+									);
+			
+									// Observe fetch latency metric.
+									stats.fetch_latency_metric.take();
+									// Next step is to measure backing latency.
+									state.collation_tracker.track(stats);
+								}
+							}
+						}
 					}
 
 					if let Some(next) = waiting.req_queue.pop_front() {

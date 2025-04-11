@@ -45,6 +45,7 @@ mod validator_side;
 mod validator_side_experimental;
 
 const LOG_TARGET: &'static str = "parachain::collator-protocol";
+const LOG_TARGET_STATS: &'static str = "parachain::collator-protocol-stats";
 
 /// A collator eviction policy - how fast to evict collators which are inactive.
 #[derive(Debug, Clone, Copy)]
