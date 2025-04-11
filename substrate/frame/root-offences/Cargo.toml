@@ -49,10 +49,10 @@ std = [
 	"pallet-staking/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-core/std"
 ]
 runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
