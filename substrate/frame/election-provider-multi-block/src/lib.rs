@@ -786,6 +786,7 @@ pub mod pallet {
 	impl<T: Config> Snapshot<T> {
 		// ----------- mutable methods
 		pub(crate) fn set_desired_targets(d: u32) {
+			log!(trace, "Snapshot: set desired_targets = {}", d);
 			DesiredTargets::<T>::put(d);
 		}
 

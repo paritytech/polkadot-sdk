@@ -440,6 +440,12 @@ pub mod pallet {
 				new_validator_set.dedup();
 
 				if (new_validator_set.len() as u32) < T::MinimumValidatorSetSize::get() {
+					log!(
+						warn,
+						"Validator set is too small, dropping it. Size: {}",
+						new_validator_set.len()
+					);
+
 					Self::deposit_event(Event::SetTooSmallAndDropped);
 					debug_assert!(
 						IncompleteValidatorSetReport::<T>::get().is_none(),

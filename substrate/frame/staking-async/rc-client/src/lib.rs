@@ -396,6 +396,7 @@ pub mod pallet {
 			id: u32,
 			prune_up_tp: Option<u32>,
 		) {
+			log!(trace, "Sending new validator set to relay chain: {:?}", new_validator_set);
 			let report = ValidatorSetReport::new_terminal(new_validator_set, id, prune_up_tp);
 			T::SendToRelayChain::validator_set(report);
 		}

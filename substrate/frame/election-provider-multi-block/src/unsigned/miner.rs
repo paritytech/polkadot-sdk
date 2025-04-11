@@ -683,8 +683,9 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		sublog!(
 			debug,
 			"unsigned::base-miner",
-			"mining a solution with {} pages, voter snapshot range will be: {:?}",
+			"mining a solution with {} pages, {} desired_targets, voter snapshot range will be: {:?}",
 			pages,
+			desired_targets,
 			voter_pages_range
 		);
 
