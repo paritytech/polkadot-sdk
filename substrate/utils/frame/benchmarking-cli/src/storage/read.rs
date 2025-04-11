@@ -159,7 +159,7 @@ impl StorageCmd {
 			}
 		}
 
-		if self.params.include_child_trees {
+		if self.params.include_child_trees && !child_nodes.is_empty() {
 			child_nodes.shuffle(&mut rng);
 
 			info!("Reading {} child keys", child_nodes.len());

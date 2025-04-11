@@ -187,7 +187,7 @@ impl StorageCmd {
 			}
 		}
 
-		if self.params.include_child_trees {
+		if self.params.include_child_trees && !child_nodes.is_empty() {
 			info!("Writing {} child keys", child_nodes.iter().map(|(c, _)| c.len()).sum::<usize>());
 			for (mut child_keys, info) in child_nodes {
 				if child_keys.len() < self.params.batch_size {
