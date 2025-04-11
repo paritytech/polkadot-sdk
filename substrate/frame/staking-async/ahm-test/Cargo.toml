@@ -44,7 +44,9 @@ pallet-root-offences = { workspace = true, default-features = true }
 pallet-staking = { workspace = true, default-features = true }
 
 [features]
-std = []
+std = [
+	"log/std"
+]
 try-runtime = [
 	"pallet-balances/try-runtime",
 
@@ -55,4 +57,11 @@ try-runtime = [
 
 	"pallet-session/try-runtime",
 	"pallet-staking-async-ah-client/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-election-provider-multi-block/try-runtime",
+	"pallet-root-offences/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"frame/try-runtime"
 ]
