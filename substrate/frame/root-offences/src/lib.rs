@@ -31,7 +31,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use pallet_session::historical::IdentificationTuple;
-use pallet_staking::{BalanceOf, ExistenceOrLegacyExposure, ExistenceOrLegacyExposureOf};
+use pallet_staking::{BalanceOf, ExistenceOrLegacyExposureOf};
+use sp_staking::ExistenceOrLegacyExposure;
 use sp_runtime::Perbill;
 use sp_staking::offence::OnOffenceHandler;
 

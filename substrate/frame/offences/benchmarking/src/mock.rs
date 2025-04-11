@@ -55,7 +55,7 @@ impl pallet_timestamp::Config for Test {
 }
 impl pallet_session::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = pallet_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
+	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
 	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Test>;
 }
 

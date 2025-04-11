@@ -46,12 +46,12 @@ use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
-	StakingInterface,
+	StakingInterface, ExistenceOrLegacyExposure
 };
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, ExistenceOrLegacyExposure, Exposure, Forcing,
+	BalanceOf, EraInfo, EraPayout, Exposure, Forcing,
 	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger,
 	ValidatorPrefs, STAKING_ID,
