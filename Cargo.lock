@@ -2131,6 +2131,7 @@ dependencies = [
  "bp-runtime",
  "frame-support",
  "frame-system",
+ "parachains-common",
  "polkadot-primitives",
  "sp-api 26.0.0",
  "sp-std 14.0.0",
@@ -4661,6 +4662,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
  "staging-xcm",
+ "tracing",
 ]
 
 [[package]]
@@ -15380,6 +15382,7 @@ name = "polkadot-primitives"
 version = "7.0.0"
 dependencies = [
  "bitvec",
+ "bounded-collections",
  "hex-literal",
  "log",
  "parity-scale-codec",
