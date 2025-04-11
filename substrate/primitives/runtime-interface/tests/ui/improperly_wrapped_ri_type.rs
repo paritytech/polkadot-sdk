@@ -15,25 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Due to https://github.com/dtolnay/trybuild/issues/302, the `substrate_runtime`
-// cfg is also unexpected. This is a `trybuild` bug, and this part of error is not
-// exposed to a real developer.
+mod test {
+	#![allow(unexpected_cfgs)]
 
-use sp_runtime_interface::runtime_interface;
+    use sp_runtime_interface::runtime_interface;
 
-#[runtime_interface]
-trait Test {
-	fn foo() {}
-
-	#[cfg(feature = "bar-feature")]
-	fn bar() {}
-
-	#[cfg(not(feature = "bar-feature"))]
-	fn qux() {}
+	#[runtime_interface]
+    trait Test {
+        fn test(&self, a: Option<u8>) -> Option<u8> {}
+    }
 }
 
-fn main() {
-	test::foo();
-	test::bar();
-	test::qux();
-}
+fn main() {}
