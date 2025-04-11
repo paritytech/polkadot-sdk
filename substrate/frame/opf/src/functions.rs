@@ -214,7 +214,6 @@ impl<T: Config> Pallet<T> {
 
 			// Remove Vote Infos
 			Votes::<T>::remove(&project, &voter_id);
-
 		}
 		Ok(())
 	}
@@ -251,6 +250,7 @@ impl<T: Config> Pallet<T> {
 							.ok_or(Error::<T>::NoProjectAvailable)?;
 						let ref_index = infos.index;
 						let submission_block = infos.submission_block;
+						let spend_created = infos.spend_created;
 
 						// Send calculated reward for reward distribution
 						let project_info = ProjectInfo {
@@ -258,6 +258,7 @@ impl<T: Config> Pallet<T> {
 							submission_block,
 							amount: final_amount,
 							index: ref_index,
+							spend_created,
 						};
 						WhiteListedProjectAccounts::<T>::mutate(project_id.clone(), |val| {
 							*val = Some(project_info.clone());
@@ -355,7 +356,9 @@ impl<T: Config> Pallet<T> {
 									T::Governance::handle_referendum_info(referendum_infos);
 								if let Some(referendum_status) = referendum_status {
 									match referendum_status {
-										ReferendumStates::Approved => {
+										ReferendumStates::Approved
+											if !project_infos.spend_created =>
+										{
 											let call = Call::<T>::on_registration {
 												project_id: project_id.clone(),
 											};

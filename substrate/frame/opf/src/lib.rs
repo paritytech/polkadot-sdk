@@ -527,11 +527,16 @@ pub mod pallet {
 			let now = T::BlockNumberProvider::current_block_number();
 			let mut info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
 			Self::pot_check(info.amount)?;
+
 			if now >= info.expire {
 				Spends::<T>::remove(&project_id);
-				Self::deposit_event(Event::ExpiredClaim { expired_when: info.expire, project_id });
-				Ok(())
-			} else if now < info.expire {
+				Self::deposit_event(Event::ExpiredClaim {
+					expired_when: info.expire,
+					project_id: project_id.clone(),
+				});
+				return Ok(())
+			}
+			if now < info.expire {
 				// transfer the funds
 				Spends::<T>::mutate(project_id.clone(), |val| {
 					info.claimed = true;
@@ -543,18 +548,16 @@ pub mod pallet {
 					project_id: project_id.clone(),
 				});
 				WhiteListedProjectAccounts::<T>::remove(&project_id);
-				Ok(())
-			} else {
-				// Claiming before proposal enactment
-				Err(Error::<T>::NotClaimingPeriod.into())
+				return Ok(())
 			}
+			Ok(())
 		}
 
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::on_registration(T::MaxProjects::get()))]
 		pub fn on_registration(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _who = T::AdminOrigin::ensure_origin(origin.clone())?;
-			let infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
+			let mut infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
 				.ok_or(Error::<T>::NoProjectAvailable)?;
 
 			let ref_index = infos.index;
@@ -570,6 +573,10 @@ pub mod pallet {
 						// Check that the Pot as enough funds for the transfer
 						let remaining_balance = balance.saturating_sub(infos.amount);
 						ensure!(remaining_balance > minimum_balance, Error::<T>::NotEnoughFunds);
+						infos.spend_created = true;
+						WhiteListedProjectAccounts::<T>::mutate(project_id.clone(), |val| {
+							*val = Some(infos.clone())
+						});
 						// create a spend for project to be rewarded
 						let new_spend = SpendInfo::<T>::new(&infos);
 						Self::deposit_event(Event::ProjectFundingAccepted { project_id, amount });

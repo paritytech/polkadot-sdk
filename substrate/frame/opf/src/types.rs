@@ -159,14 +159,24 @@ pub struct ProjectInfo<T: Config> {
 
 	/// Referendum Index
 	pub index: ReferendumIndex,
+
+	/// Has an existing spend been created for this project?
+	pub spend_created: bool,
 }
 
 impl<T: Config> ProjectInfo<T> {
 	pub fn new(project_id: ProjectId<T>) {
 		let submission_block = T::BlockNumberProvider::current_block_number();
 		let amount = Zero::zero();
-		let project_info =
-			ProjectInfo { project_id: project_id.clone(), submission_block, amount, index: 0 };
+		let spend_created = false;
+		let project_info = ProjectInfo {
+			project_id: project_id.clone(),
+			submission_block,
+			amount,
+			index: 0,
+			spend_created,
+		};
+
 		WhiteListedProjectAccounts::<T>::insert(project_id, project_info);
 	}
 }

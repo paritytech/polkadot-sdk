@@ -251,30 +251,18 @@ fn vote_removal_works() {
 
 		// Bob nominate project_102 with an amount of 1000 & conviction of 1 equivalent to
 		// 1000
-		assert_ok!(Opf::vote(
-			RawOrigin::Signed(BOB).into(),
-			101,
-			1000,
-			true,
-			Conviction::Locked1x
-		));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true, Conviction::Locked1x));
 
 		// Eve nominate project_101 with an amount of 5000 & conviction 1x => equivalent to
 		// 5000
-		assert_ok!(Opf::vote(
-			RawOrigin::Signed(EVE).into(),
-			101,
-			5000,
-			true,
-			Conviction::Locked1x
-		));
+		assert_ok!(Opf::vote(RawOrigin::Signed(EVE).into(), 101, 5000, true, Conviction::Locked1x));
 
 		// ProjectFund is correctly updated
 		let project_fund_before = ProjectFunds::<Test>::get(101);
 		assert_eq!(project_fund_before.positive_funds, 6000);
 
 		// Voter's funds are locked
-	/*	let locked_balance0 =
+		/*	let locked_balance0 =
 			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
 				&HoldReason::FundsReserved.into(),
 				&BOB,
@@ -287,10 +275,10 @@ fn vote_removal_works() {
 		assert_ok!(Opf::remove_vote(RawOrigin::Signed(BOB).into(), 101,));
 
 		/*let locked_balance1 =
-			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
-				&HoldReason::FundsReserved.into(),
-				&BOB,
-			);*/
+		<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+			&HoldReason::FundsReserved.into(),
+			&BOB,
+		);*/
 
 		// No more votes in storage and balance is unlocked
 		assert_eq!(Votes::<Test>::get(101, BOB).is_some(), false);
@@ -306,17 +294,11 @@ fn vote_removal_works() {
 fn vote_overwrite_works() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
-		
+
 		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch));
 		// Bob nominate project_101 with an amount of 1000 with a conviction of 2 => amount*2
 		// is the amount allocated to the project
-		assert_ok!(Opf::vote(
-			RawOrigin::Signed(BOB).into(),
-			101,
-			1000,
-			true,
-			Conviction::Locked2x
-		));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true, Conviction::Locked2x));
 
 		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted { who: BOB, project_id: 101 })]);
 
@@ -326,13 +308,7 @@ fn vote_overwrite_works() {
 
 		// Bob nominate project_103 with an amount of 5000 with a conviction of 1 => amount
 		// is the amount allocated to the project
-		assert_ok!(Opf::vote(
-			RawOrigin::Signed(BOB).into(),
-			103,
-			5000,
-			true,
-			Conviction::Locked1x
-		));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 5000, true, Conviction::Locked1x));
 
 		// 10000 is allocated to project 103
 		funds = ProjectFunds::<Test>::get(103);
@@ -346,13 +322,7 @@ fn vote_overwrite_works() {
 		assert_eq!(locked_balance0, 6000);*/
 
 		// Bob changes amount in project_103 to 4500 with conviction 2=> 9000
-		assert_ok!(Opf::vote(
-			RawOrigin::Signed(BOB).into(),
-			103,
-			4500,
-			true,
-			Conviction::Locked2x
-		));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 4500, true, Conviction::Locked2x));
 
 		// Allocated amount to project 103 is now 13500
 		funds = ProjectFunds::<Test>::get(103);
@@ -362,15 +332,14 @@ fn vote_overwrite_works() {
 		let vote_info = Votes::<Test>::get(103, BOB).unwrap();
 
 		/*locked_balance0 =
-			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
-				&HoldReason::FundsReserved.into(),
-				&BOB,
-			);
-			assert_eq!(locked_balance0, 5500);*/
+		<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+			&HoldReason::FundsReserved.into(),
+			&BOB,
+		);
+		assert_eq!(locked_balance0, 5500);*/
 
 		assert_eq!(4500, vote_info.amount);
 		assert_eq!(Conviction::Locked2x, vote_info.conviction);
-		
 	})
 }
 
@@ -387,24 +356,12 @@ fn voting_action_locked() {
 		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch));
 
 		// Bob nominate project_101 with an amount of 1000 and conviction 3 => 3000 locked
-		assert_ok!(Opf::vote(
-			RawOrigin::Signed(BOB).into(),
-			101,
-			1000,
-			true,
-			Conviction::Locked3x
-		));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 101, 1000, true, Conviction::Locked3x));
 
 		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted { who: BOB, project_id: 101 })]);
 
 		// Bob nominate project_103 with an amount of 5000
-		assert_ok!(Opf::vote(
-			RawOrigin::Signed(BOB).into(),
-			103,
-			5000,
-			true,
-			Conviction::Locked1x
-		));
+		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 5000, true, Conviction::Locked1x));
 
 		// Voter's funds are locked
 		/*let locked_balance0 =
@@ -429,13 +386,7 @@ fn voting_action_locked() {
 
 		// Bob cannot edit his vote for project 101
 		assert_noop!(
-			Opf::vote(
-				RawOrigin::Signed(BOB).into(),
-				101,
-				2000,
-				true,
-				Conviction::Locked2x
-			),
+			Opf::vote(RawOrigin::Signed(BOB).into(), 101, 2000, true, Conviction::Locked2x),
 			Error::<Test>::VotingRoundOver
 		);
 	})
@@ -459,13 +410,7 @@ fn not_enough_funds_to_vote() {
 
 		// Bob vote with wrong amount
 		assert_noop!(
-			Opf::vote(
-				RawOrigin::Signed(BOB).into(),
-				101,
-				balance_plus,
-				true,
-				Conviction::Locked1x
-			),
+			Opf::vote(RawOrigin::Signed(BOB).into(), 101, balance_plus, true, Conviction::Locked1x),
 			Error::<Test>::NotEnoughFunds
 		);
 
@@ -488,13 +433,7 @@ fn not_enough_funds_to_vote() {
 
 		//Bob tries to commit total_balance to project 102
 		assert_noop!(
-			Opf::vote(
-				RawOrigin::Signed(BOB).into(),
-				103,
-				balance,
-				true,
-				Conviction::Locked1x
-			),
+			Opf::vote(RawOrigin::Signed(BOB).into(), 103, balance, true, Conviction::Locked1x),
 			Error::<Test>::NotEnoughFunds
 		);
 	})
@@ -514,7 +453,7 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 
 		let prepare_period = time_periods.prepare_period.try_into().unwrap_or(0);
 		let decision_period = time_periods.decision_period.try_into().unwrap_or(0);
-		let mut now = <Test as Config>::BlockNumberProvider::current_block_number();
+		now = <Test as Config>::BlockNumberProvider::current_block_number();
 		let decision_block = now.saturating_add(decision_period + prepare_period);
 
 		assert_ok!(Opf::vote(
@@ -525,13 +464,7 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 			Conviction::None
 		));
 
-		assert_ok!(Opf::vote(
-			RawOrigin::Signed(DAVE).into(),
-			102,
-			amount2,
-			true,
-			Conviction::None
-		));
+		assert_ok!(Opf::vote(RawOrigin::Signed(DAVE).into(), 102, amount2, true, Conviction::None));
 
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(EVE).into(),
@@ -541,7 +474,6 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 			Conviction::Locked1x
 		));
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
-		let infos = WhiteListedProjectAccounts::<Test>::get(&101).unwrap();
 
 		// The Spends Storage should be empty
 		assert_eq!(Spends::<Test>::count(), 0);
@@ -589,15 +521,10 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 			RuntimeEvent::Opf(Event::RewardClaimed { amount: spend_101.amount, project_id: 101 }),
 			//RuntimeEvent::Opf(Event::ExpiredClaim { expired_when: expire, project_id: 102 }),
 		]);
-		
 
-		run_to_block(spend_102.expire+1);
-		now = <Test as Config>::BlockNumberProvider::current_block_number();
-		assert_eq!(now > spend_102.expire, true);
+		run_to_block(spend_102.expire);
 		// Claim does not work after claiming period
 		assert_ok!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 102));
-		/*expect_events(vec![
-			RuntimeEvent::Opf(Event::ExpiredClaim { expired_when: expire, project_id: 102 }),
-		]);*/
+		assert_eq!(Spends::<Test>::get(102).is_some(), false);
 	})
 }
