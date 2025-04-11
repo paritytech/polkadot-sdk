@@ -24,6 +24,8 @@ use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sp_api::CallApiAt;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::{backend::AsTrieBackend, Backend};
+use sp_storage::ChildInfo;
+use sp_trie::StorageProof;
 use std::{fmt::Debug, sync::Arc, time::Instant};
 
 use super::{cmd::StorageCmd, get_wasm_module, MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION};
@@ -115,38 +117,12 @@ impl StorageCmd {
 					.clone()
 					.map(|r| r.drain_storage_proof())
 					.expect("Storage proof must exist for block validation");
-				debug!(
-					"POV: len {:?} {:?}",
-					storage_proof.len(),
-					storage_proof.clone().encoded_compact_size::<HashingFor<B>>(*root)
+				let elapsed = measure_on_block_validation::<B>(
+					*root,
+					storage_proof,
+					on_validation_batch.clone(),
 				);
-
-				debug!("validate_block with {} keys", on_validation_batch.len());
-				let wasm_module = get_wasm_module();
-				let mut instance = wasm_module.new_instance().unwrap();
-				let compact = storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
-				let params =
-					StorageAccessParams::<B>::new_read(*root, compact, on_validation_batch.clone());
-
-				// Dry run to get the time it takes without storage access
-				let dry_run_encoded = params.as_dry_run().encode();
-				let dry_run_start = Instant::now();
-				instance.call_export("validate_block", &dry_run_encoded).unwrap();
-				let dry_run_elapsed = dry_run_start.elapsed();
-				debug!("validate_block dry-run time {:?}", dry_run_elapsed);
-
-				let encoded = params.encode();
-				let start = Instant::now();
-				instance.call_export("validate_block", &encoded).unwrap();
-				let elapsed = start.elapsed();
-				debug!("validate_block time {:?}", elapsed);
-				record.append(
-					on_validation_size / on_validation_batch.len(),
-					std::time::Duration::from_nanos(
-						(elapsed - dry_run_elapsed).as_nanos() as u64 /
-							on_validation_batch.len() as u64,
-					),
-				)?;
+				record.append(on_validation_size / on_validation_batch.len(), elapsed)?;
 
 				on_validation_batch = vec![];
 				on_validation_size = 0;
@@ -186,41 +162,12 @@ impl StorageCmd {
 						.clone()
 						.map(|r| r.drain_storage_proof())
 						.expect("Storage proof must exist for block validation");
-					debug!(
-						"POV: len {:?} {:?}",
-						storage_proof.len(),
-						storage_proof.clone().encoded_compact_size::<HashingFor<B>>(*root)
-					);
-
-					debug!("validate_block with {} keys", on_validation_batch.len());
-					let wasm_module = get_wasm_module();
-					let mut instance = wasm_module.new_instance().unwrap();
-					let compact = storage_proof.into_compact_proof::<HashingFor<B>>(*root).unwrap();
-					let params = StorageAccessParams::<B>::new_read(
+					let elapsed = measure_on_block_validation::<B>(
 						*root,
-						compact,
+						storage_proof,
 						on_validation_batch.clone(),
 					);
-
-					// Dry run to get the time it takes without storage access
-					let dry_run_encoded = params.as_dry_run().encode();
-					let dry_run_start = Instant::now();
-					instance.call_export("validate_block", &dry_run_encoded).unwrap();
-					let dry_run_elapsed = dry_run_start.elapsed();
-					debug!("validate_block dry-run time {:?}", dry_run_elapsed);
-
-					let encoded = params.encode();
-					let start = Instant::now();
-					instance.call_export("validate_block", &encoded).unwrap();
-					let elapsed = start.elapsed();
-					debug!("validate_block time {:?}", elapsed);
-					record.append(
-						on_validation_size / on_validation_batch.len(),
-						std::time::Duration::from_nanos(
-							(elapsed - dry_run_elapsed).as_nanos() as u64 /
-								on_validation_batch.len() as u64,
-						),
-					)?;
+					record.append(on_validation_size / on_validation_batch.len(), elapsed)?;
 
 					on_validation_batch = vec![];
 					on_validation_size = 0;
@@ -259,4 +206,39 @@ impl StorageCmd {
 
 		(backend, recorder)
 	}
+}
+
+fn measure_on_block_validation<B: BlockT + Debug>(
+	root: B::Hash,
+	storage_proof: StorageProof,
+	on_validation_batch: Vec<(Vec<u8>, Option<ChildInfo>)>,
+) -> std::time::Duration {
+	debug!(
+		"POV: len {:?} {:?}",
+		storage_proof.len(),
+		storage_proof.clone().encoded_compact_size::<HashingFor<B>>(root)
+	);
+	let batch_size = on_validation_batch.len();
+	debug!("validate_block with {} keys", batch_size);
+	let wasm_module = get_wasm_module();
+	let mut instance = wasm_module.new_instance().unwrap();
+	let compact = storage_proof.into_compact_proof::<HashingFor<B>>(root).unwrap();
+	let params = StorageAccessParams::<B>::new_read(root, compact, on_validation_batch);
+
+	// Dry run to get the time it takes without storage access
+	let dry_run_encoded = params.as_dry_run().encode();
+	let dry_run_start = Instant::now();
+	instance.call_export("validate_block", &dry_run_encoded).unwrap();
+	let dry_run_elapsed = dry_run_start.elapsed();
+	debug!("validate_block dry-run time {:?}", dry_run_elapsed);
+
+	let encoded = params.encode();
+	let start = Instant::now();
+	instance.call_export("validate_block", &encoded).unwrap();
+	let elapsed = start.elapsed();
+	debug!("validate_block time {:?}", elapsed);
+
+	std::time::Duration::from_nanos(
+		(elapsed - dry_run_elapsed).as_nanos() as u64 / batch_size as u64,
+	)
 }
