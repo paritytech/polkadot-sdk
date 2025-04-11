@@ -340,7 +340,7 @@ mod tests {
 		let mut ignored_nodes =
 			IgnoredNodes::from_storage_proof::<Blake2Hasher>(&recorder.to_storage_proof());
 
-		ignored_nodes.extend(&IgnoredNodes::from_memory_db::<Blake2Hasher, _>(transaction.clone()));
+		ignored_nodes.extend(IgnoredNodes::from_memory_db::<Blake2Hasher, _>(transaction.clone()));
 
 		ignored_nodes
 	}
@@ -359,7 +359,7 @@ mod tests {
 		);
 
 		db.consolidate(transaction.clone());
-		nodes_to_ignore.extend(&build_known_nodes_list(&recorder, &transaction));
+		nodes_to_ignore.extend(build_known_nodes_list(&recorder, &transaction));
 
 		let (recorder2, transaction, root2) = emulate_block_building(
 			&db,
@@ -370,7 +370,7 @@ mod tests {
 		);
 
 		db.consolidate(transaction.clone());
-		nodes_to_ignore.extend(&build_known_nodes_list(&recorder2, &transaction));
+		nodes_to_ignore.extend(build_known_nodes_list(&recorder2, &transaction));
 
 		let (recorder3, _, root3) = emulate_block_building(
 			&db,

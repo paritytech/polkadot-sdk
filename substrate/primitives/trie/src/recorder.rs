@@ -79,8 +79,8 @@ impl<H: Eq + std::hash::Hash + Clone> IgnoredNodes<H> {
 	}
 
 	/// Extend `self` with the other instance of ignored nodes.
-	pub fn extend(&mut self, other: &Self) {
-		self.nodes.extend(other.nodes.iter().cloned());
+	pub fn extend(&mut self, other: Self) {
+		self.nodes.extend(other.nodes.into_iter());
 	}
 
 	/// Returns `true` if the node is ignored.
