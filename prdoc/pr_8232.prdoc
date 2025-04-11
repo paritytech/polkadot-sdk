@@ -1,0 +1,8 @@
+title: 'Implementation of RFC-0097: Unbonding Queue'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Implements the fast unbonding feature for `pallet-staking`.
+crates:
+- name: pallet-staking
+  bump: minor
