@@ -18,9 +18,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true }
 docify = { workspace = true }
 frame = { workspace = true, features = ["runtime"] }
-pallet-balances = { optional = true, workspace = true }
-pallet-proxy = { optional = true, workspace = true }
-pallet-utility = { optional = true, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
@@ -33,9 +30,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame/std",
-	"pallet-balances?/std",
-	"pallet-proxy?/std",
-	"pallet-utility?/std",
 	"scale-info/std",
 ]
 runtime-benchmarks = [
@@ -46,7 +40,7 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"frame/try-runtime",
-	"pallet-balances?/try-runtime",
-	"pallet-proxy?/try-runtime",
-	"pallet-utility?/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-utility/try-runtime",
 ]

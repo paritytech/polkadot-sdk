@@ -11,6 +11,12 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[[bench]]
+name = "availability-recovery-regression-bench"
+path = "benches/availability-recovery-regression-bench.rs"
+harness = false
+required-features = ["subsystem-benchmarks"]
+
 [dependencies]
 async-trait = { workspace = true }
 fatality = { workspace = true }
@@ -43,12 +49,6 @@ sp-tracing = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 polkadot-subsystem-bench = { workspace = true }
-
-[[bench]]
-name = "availability-recovery-regression-bench"
-path = "benches/availability-recovery-regression-bench.rs"
-harness = false
-required-features = ["subsystem-benchmarks"]
 
 [features]
 subsystem-benchmarks = []

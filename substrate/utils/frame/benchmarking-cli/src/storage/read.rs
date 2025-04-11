@@ -15,12 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sc_cli::Result;
-use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
-
 use log::info;
 use rand::prelude::*;
+use sc_cli::{Error, Result};
+use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
+use sp_api::CallApiAt;
+use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
+use sp_state_machine::{backend::AsTrieBackend, Backend};
 use std::{fmt::Debug, sync::Arc, time::Instant};
 
 use super::cmd::StorageCmd;
@@ -29,9 +30,13 @@ use crate::shared::{new_rng, BenchRecord};
 impl StorageCmd {
 	/// Benchmarks the time it takes to read a single Storage item.
 	/// Uses the latest state that is available for the given client.
-	pub(crate) fn bench_read<B, BA, C>(&self, client: Arc<C>) -> Result<BenchRecord>
+	pub(crate) fn bench_read<B, BA, C>(
+		&self,
+		client: Arc<C>,
+		_shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<B>>>,
+	) -> Result<BenchRecord>
 	where
-		C: UsageProvider<B> + StorageProvider<B, BA>,
+		C: UsageProvider<B> + StorageProvider<B, BA> + CallApiAt<B>,
 		B: BlockT + Debug,
 		BA: ClientBackend<B>,
 		<<B as BlockT>::Header as HeaderT>::Number: From<u32>,
@@ -49,6 +54,19 @@ impl StorageCmd {
 		// Interesting part here:
 		// Read all the keys in the database and measure the time it takes to access each.
 		info!("Reading {} keys", keys.len());
+
+		// Read using the same TrieBackend and recorder for up to `batch_size` keys.
+		// This would allow us to measure the amortized cost of reading a key.
+		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
+		let mut state = client
+			.state_at(best_hash)
+			.map_err(|_err| Error::Input("State not found".into()))?;
+		let mut as_trie_backend = state.as_trie_backend();
+		let mut backend = sp_state_machine::TrieBackendBuilder::wrap(&as_trie_backend)
+			.with_optional_recorder(recorder)
+			.build();
+		let mut read_in_batch = 0;
+
 		for key in keys.as_slice() {
 			match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
 				(true, Some(info)) => {
@@ -60,12 +78,30 @@ impl StorageCmd {
 				_ => {
 					// regular key
 					let start = Instant::now();
-					let v = client
-						.storage(best_hash, &key)
+
+					let v = backend
+						.storage(key.0.as_ref())
 						.expect("Checked above to exist")
 						.ok_or("Value unexpectedly empty")?;
-					record.append(v.0.len(), start.elapsed())?;
+					record.append(v.len(), start.elapsed())?;
 				},
+			}
+			read_in_batch += 1;
+			if read_in_batch >= self.params.batch_size {
+				// Using a new recorder for every read vs using the same for the entire batch
+				// produces significant different results. Since in the real use case we use a
+				// single recorder per block, simulate the same behavior by creating a new
+				// recorder every batch size, so that the amortized cost of reading a key is
+				// measured in conditions closer to the real world.
+				let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
+				state = client
+					.state_at(best_hash)
+					.map_err(|_err| Error::Input("State not found".to_string()))?;
+				as_trie_backend = state.as_trie_backend();
+				backend = sp_state_machine::TrieBackendBuilder::wrap(&as_trie_backend)
+					.with_optional_recorder(recorder)
+					.build();
+				read_in_batch = 0;
 			}
 		}
 
@@ -75,11 +111,29 @@ impl StorageCmd {
 			info!("Reading {} child keys", child_nodes.len());
 			for (key, info) in child_nodes.as_slice() {
 				let start = Instant::now();
-				let v = client
-					.child_storage(best_hash, info, key)
+				let v = backend
+					.child_storage(info, key.0.as_ref())
 					.expect("Checked above to exist")
 					.ok_or("Value unexpectedly empty")?;
-				record.append(v.0.len(), start.elapsed())?;
+				record.append(v.len(), start.elapsed())?;
+
+				read_in_batch += 1;
+				if read_in_batch >= self.params.batch_size {
+					// Using a new recorder for every read vs using the same for the entire batch
+					// produces significant different results. Since in the real use case we use a
+					// single recorder per block, simulate the same behavior by creating a new
+					// recorder every batch size, so that the amortized cost of reading a key is
+					// measured in conditions closer to the real world.
+					let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
+					state = client
+						.state_at(best_hash)
+						.map_err(|_err| Error::Input("State not found".to_string()))?;
+					as_trie_backend = state.as_trie_backend();
+					backend = sp_state_machine::TrieBackendBuilder::wrap(&as_trie_backend)
+						.with_optional_recorder(recorder)
+						.build();
+					read_in_batch = 0;
+				}
 			}
 		}
 		Ok(record)

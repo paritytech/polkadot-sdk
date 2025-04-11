@@ -299,6 +299,7 @@ pub mod pallet {
 
 		/// The latest supported version that we advertise. Generally just set it to
 		/// `pallet_xcm::CurrentXcmVersion`.
+		#[pallet::constant]
 		type AdvertisedXcmVersion: Get<XcmVersion>;
 
 		/// The origin that is allowed to call privileged operations on the XCM pallet
