@@ -1322,7 +1322,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		// Safe convertions when `self.config.max_head_data_size` is in bounds of `usize` type.
 		let max_head_data_size = usize::try_from(self.config.max_head_data_size)
 			.map_err(|_| AcceptanceCheckErr::HeadDataTooLarge)?;
-		ensure!(head_data.0.len() <= max_head_data_size, AcceptanceCheckErr::HeadDataTooLarge,);
+		ensure!(head_data.0.len() <= max_head_data_size, AcceptanceCheckErr::HeadDataTooLarge);
 
 		// if any, the code upgrade attempt is allowed.
 		if let Some(new_validation_code) = new_validation_code {
