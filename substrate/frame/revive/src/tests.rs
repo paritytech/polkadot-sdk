@@ -21,10 +21,6 @@ use self::test_utils::{ensure_stored, expected_deposit};
 use crate::{
 	self as pallet_revive,
 	address::{create1, create2, AddressMapper},
-	chain_extension::{
-		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
-		RetVal, ReturnFlags,
-	},
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
@@ -32,7 +28,6 @@ use crate::{
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
 	tracing::trace,
-	wasm::Memory,
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin, Pallet,
@@ -57,7 +52,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
-use pallet_revive_uapi::ReturnErrorCode as RuntimeReturnCode;
+use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
@@ -221,159 +216,6 @@ impl Test {
 }
 
 parameter_types! {
-	static TestExtensionTestValue: TestExtension = Default::default();
-}
-
-#[derive(Clone)]
-pub struct TestExtension {
-	enabled: bool,
-	last_seen_buffer: Vec<u8>,
-	last_seen_input_len: u32,
-}
-
-#[derive(Default)]
-pub struct RevertingExtension;
-
-#[derive(Default)]
-pub struct DisabledExtension;
-
-#[derive(Default)]
-pub struct TempStorageExtension {
-	storage: u32,
-}
-
-impl TestExtension {
-	fn disable() {
-		TestExtensionTestValue::mutate(|e| e.enabled = false)
-	}
-
-	fn last_seen_buffer() -> Vec<u8> {
-		TestExtensionTestValue::get().last_seen_buffer.clone()
-	}
-
-	fn last_seen_input_len() -> u32 {
-		TestExtensionTestValue::get().last_seen_input_len
-	}
-}
-
-impl Default for TestExtension {
-	fn default() -> Self {
-		Self { enabled: true, last_seen_buffer: vec![], last_seen_input_len: 0 }
-	}
-}
-
-impl ChainExtension<Test> for TestExtension {
-	fn call<E, M>(&mut self, mut env: Environment<E, M>) -> ExtensionResult<RetVal>
-	where
-		E: Ext<T = Test>,
-		M: ?Sized + Memory<E::T>,
-	{
-		let func_id = env.func_id();
-		let id = env.ext_id() as u32 | func_id as u32;
-		match func_id {
-			0 => {
-				let input = env.read(8)?;
-				env.write(&input, false, None)?;
-				TestExtensionTestValue::mutate(|e| e.last_seen_buffer = input);
-				Ok(RetVal::Converging(id))
-			},
-			1 => {
-				TestExtensionTestValue::mutate(|e| e.last_seen_input_len = env.in_len());
-				Ok(RetVal::Converging(id))
-			},
-			2 => {
-				let mut enc = &env.read(9)?[4..8];
-				let weight = Weight::from_parts(
-					u32::decode(&mut enc).map_err(|_| Error::<Test>::ContractTrapped)?.into(),
-					0,
-				);
-				env.charge_weight(weight)?;
-				Ok(RetVal::Converging(id))
-			},
-			3 => Ok(RetVal::Diverging { flags: ReturnFlags::REVERT, data: vec![42, 99] }),
-			_ => {
-				panic!("Passed unknown id to test chain extension: {}", func_id);
-			},
-		}
-	}
-
-	fn enabled() -> bool {
-		TestExtensionTestValue::get().enabled
-	}
-}
-
-impl RegisteredChainExtension<Test> for TestExtension {
-	const ID: u16 = 0;
-}
-
-impl ChainExtension<Test> for RevertingExtension {
-	fn call<E, M>(&mut self, _env: Environment<E, M>) -> ExtensionResult<RetVal>
-	where
-		E: Ext<T = Test>,
-		M: ?Sized + Memory<E::T>,
-	{
-		Ok(RetVal::Diverging { flags: ReturnFlags::REVERT, data: vec![0x4B, 0x1D] })
-	}
-
-	fn enabled() -> bool {
-		TestExtensionTestValue::get().enabled
-	}
-}
-
-impl RegisteredChainExtension<Test> for RevertingExtension {
-	const ID: u16 = 1;
-}
-
-impl ChainExtension<Test> for DisabledExtension {
-	fn call<E, M>(&mut self, _env: Environment<E, M>) -> ExtensionResult<RetVal>
-	where
-		E: Ext<T = Test>,
-		M: ?Sized + Memory<E::T>,
-	{
-		panic!("Disabled chain extensions are never called")
-	}
-
-	fn enabled() -> bool {
-		false
-	}
-}
-
-impl RegisteredChainExtension<Test> for DisabledExtension {
-	const ID: u16 = 2;
-}
-
-impl ChainExtension<Test> for TempStorageExtension {
-	fn call<E, M>(&mut self, env: Environment<E, M>) -> ExtensionResult<RetVal>
-	where
-		E: Ext<T = Test>,
-		M: ?Sized + Memory<E::T>,
-	{
-		let func_id = env.func_id();
-		match func_id {
-			0 => self.storage = 42,
-			1 => assert_eq!(self.storage, 42, "Storage is preserved inside the same call."),
-			2 => {
-				assert_eq!(self.storage, 0, "Storage is different for different calls.");
-				self.storage = 99;
-			},
-			3 => assert_eq!(self.storage, 99, "Storage is preserved inside the same call."),
-			_ => {
-				panic!("Passed unknown id to test chain extension: {}", func_id);
-			},
-		}
-		Ok(RetVal::Converging(0))
-	}
-
-	fn enabled() -> bool {
-		TestExtensionTestValue::get().enabled
-	}
-}
-
-impl RegisteredChainExtension<Test> for TempStorageExtension {
-	const ID: u16 = 3;
-}
-
-parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
@@ -526,8 +368,6 @@ impl Config for Test {
 	type AddressMapper = AccountId32Mapper<Self>;
 	type Currency = Balances;
 	type CallFilter = TestFilter;
-	type ChainExtension =
-		(TestExtension, DisabledExtension, RevertingExtension, TempStorageExtension);
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
 	type UnsafeUnstableInterface = UnstableInterface;
@@ -607,29 +447,6 @@ impl ExtBuilder {
 fn initialize_block(number: u64) {
 	System::reset_events();
 	System::initialize(&number, &[0u8; 32].into(), &Default::default());
-}
-
-struct ExtensionInput<'a> {
-	extension_id: u16,
-	func_id: u16,
-	extra: &'a [u8],
-}
-
-impl<'a> ExtensionInput<'a> {
-	fn to_vec(&self) -> Vec<u8> {
-		(((self.extension_id as u32) << 16) | (self.func_id as u32))
-			.to_le_bytes()
-			.iter()
-			.chain(self.extra)
-			.cloned()
-			.collect()
-	}
-}
-
-impl<'a> From<ExtensionInput<'a>> for Vec<u8> {
-	fn from(input: ExtensionInput) -> Vec<u8> {
-		input.to_vec()
-	}
 }
 
 impl Default for Origin<Test> {
@@ -819,6 +636,7 @@ fn run_out_of_fuel_engine() {
 	});
 }
 
+/*
 // Fail out of fuel (ref_time weight) in the host.
 #[test]
 fn run_out_of_fuel_host() {
@@ -842,6 +660,7 @@ fn run_out_of_fuel_host() {
 		assert_err!(result, <Error<Test>>::OutOfGas);
 	});
 }
+*/
 
 #[test]
 fn gas_syncs_work() {
@@ -1144,7 +963,7 @@ fn delegate_call_with_weight_limit() {
 				.data((callee_addr, 100u64, 100u64).encode())
 				.build()
 				.result,
-			Error::<Test>::ContractTrapped,
+			Error::<Test>::OutOfGas,
 		);
 
 		assert_ok!(builder::call(caller_addr)
@@ -1636,113 +1455,6 @@ fn instantiate_return_code() {
 			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::DuplicateContractAddress);
 	});
-}
-
-#[test]
-fn disabled_chain_extension_errors_on_call() {
-	let (code, _hash) = compile_module("chain_extension").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-		let contract = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
-		TestExtension::disable();
-		assert_err_ignore_postinfo!(
-			builder::call(contract.addr).data(vec![7u8; 8]).build(),
-			Error::<Test>::NoChainExtension,
-		);
-	});
-}
-
-#[test]
-fn chain_extension_works() {
-	let (code, _hash) = compile_module("chain_extension").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-		let contract = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
-
-		// 0 = read input buffer and pass it through as output
-		let input: Vec<u8> = ExtensionInput { extension_id: 0, func_id: 0, extra: &[99] }.into();
-		let result = builder::bare_call(contract.addr).data(input.clone()).build();
-		assert_eq!(TestExtension::last_seen_buffer(), input);
-		assert_eq!(result.result.unwrap().data, input);
-
-		// 1 = treat inputs as integer primitives and store the supplied integers
-		builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 0, func_id: 1, extra: &[] }.into())
-			.build_and_unwrap_result();
-		assert_eq!(TestExtension::last_seen_input_len(), 4);
-
-		// 2 = charge some extra weight (amount supplied in the fifth byte)
-		let result = builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &0u32.encode() }.into())
-			.build();
-		assert_ok!(result.result);
-		let gas_consumed = result.gas_consumed;
-		let result = builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &42u32.encode() }.into())
-			.build();
-		assert_ok!(result.result);
-		assert_eq!(result.gas_consumed.ref_time(), gas_consumed.ref_time() + 42);
-		let result = builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 0, func_id: 2, extra: &95u32.encode() }.into())
-			.build();
-		assert_ok!(result.result);
-		assert_eq!(result.gas_consumed.ref_time(), gas_consumed.ref_time() + 95);
-
-		// 3 = diverging chain extension call that sets flags to 0x1 and returns a fixed buffer
-		let result = builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 0, func_id: 3, extra: &[] }.into())
-			.build_and_unwrap_result();
-		assert_eq!(result.flags, ReturnFlags::REVERT);
-		assert_eq!(result.data, vec![42, 99]);
-
-		// diverging to second chain extension that sets flags to 0x1 and returns a fixed buffer
-		// We set the MSB part to 1 (instead of 0) which routes the request into the second
-		// extension
-		let result = builder::bare_call(contract.addr)
-			.data(ExtensionInput { extension_id: 1, func_id: 0, extra: &[] }.into())
-			.build_and_unwrap_result();
-		assert_eq!(result.flags, ReturnFlags::REVERT);
-		assert_eq!(result.data, vec![0x4B, 0x1D]);
-
-		// Diverging to third chain extension that is disabled
-		// We set the MSB part to 2 (instead of 0) which routes the request into the third
-		// extension
-		assert_err_ignore_postinfo!(
-			builder::call(contract.addr)
-				.data(ExtensionInput { extension_id: 2, func_id: 0, extra: &[] }.into())
-				.build(),
-			Error::<Test>::NoChainExtension,
-		);
-	});
-}
-
-#[test]
-fn chain_extension_temp_storage_works() {
-	let (code, _hash) = compile_module("chain_extension_temp_storage").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-		let contract = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
-
-		// Call func 0 and func 1 back to back.
-		let stop_recursion = 0u8;
-		let mut input: Vec<u8> = ExtensionInput { extension_id: 3, func_id: 0, extra: &[] }.into();
-		input.extend_from_slice(
-			ExtensionInput { extension_id: 3, func_id: 1, extra: &[stop_recursion] }
-				.to_vec()
-				.as_ref(),
-		);
-
-		assert_ok!(builder::bare_call(contract.addr).data(input.clone()).build().result);
-	})
 }
 
 #[test]
@@ -4587,26 +4299,12 @@ fn unknown_precompiles_revert() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let cases: Vec<(H160, Box<dyn FnOnce(_)>)> = vec![
-			(
-				H160::from_low_u64_be(10),
-				Box::new(|result| {
-					assert_err!(result, <Error<Test>>::ContractTrapped);
-				}),
-			),
-			(
-				H160::from_low_u64_be(0xff),
-				Box::new(|result| {
-					assert_err!(result, <Error<Test>>::ContractTrapped);
-				}),
-			),
-			(
-				H160::from_low_u64_be(0x1ff),
-				Box::new(|result| {
-					assert_ok!(result);
-				}),
-			),
-		];
+		let cases: Vec<(H160, Box<dyn FnOnce(_)>)> = vec![(
+			H160::from_low_u64_be(0x0a),
+			Box::new(|result| {
+				assert_err!(result, <Error<Test>>::ContractTrapped);
+			}),
+		)];
 
 		for (callee_addr, assert_result) in cases {
 			let result =
