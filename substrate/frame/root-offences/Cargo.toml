@@ -24,9 +24,9 @@ pallet-staking = { workspace = true }
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
-sp-core = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -49,6 +49,7 @@ std = [
 	"pallet-staking/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
+	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",

@@ -188,7 +188,7 @@ pub trait Verifier {
 
 	/// Perform synchronous feasibility check on the given multi-page solution.
 	///
-	/// Same semantics as [`verify_synchronous`], but for multi-page solutions.
+	/// Same semantics as [`Self::verify_synchronous`], but for multi-page solutions.
 	fn verify_synchronous_multi(
 		partial_solution: Vec<Self::Solution>,
 		pages: Vec<PageIndex>,

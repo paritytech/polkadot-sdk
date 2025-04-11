@@ -1088,7 +1088,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	///
 	/// There are three special types of things we can do in a session:
 	/// 1. Plan a new era: We do this one session before the expected era rotation.
-	/// 2. Kick off election: We do this based on the [`T::PlanningEraOffset`] configuration.
+	/// 2. Kick off election: We do this based on the [`Config::PlanningEraOffset`] configuration.
 	/// 3. Activate Next Era: When we receive an activation timestamp in the session report, it
 	/// implies a new validator set has been applied, and we must increment the active era to keep
 	/// the systems in sync.

@@ -1,13 +1,12 @@
 [package]
 name = "pallet-staking-async"
-version = "28.0.0"
+version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "FRAME pallet staking"
-readme = "README.md"
+description = "FRAME pallet staking async"
 
 [lints]
 workspace = true
@@ -16,7 +15,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { features = [ "derive" ], workspace = true }
+codec = { features = ["derive"], workspace = true }
 frame-election-provider-support = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }

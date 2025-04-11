@@ -8,10 +8,10 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-impl-trait-for-tuples = "0.2.2"
 codec = { workspace = true, features = ["derive"] }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-core = { workspace = true }

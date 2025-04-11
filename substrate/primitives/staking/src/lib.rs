@@ -496,7 +496,8 @@ where
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
 		match input.remaining_len() {
-			Ok(Some(x)) if x > 0 => Ok(ExistenceOrLegacyExposure::Exposure(Decode::decode(input)?)),
+			// TODO(ank4n): This is hacky fix (`x>2`). Write a custom decoder for `OffenceDetails`.
+			Ok(Some(x)) if x > 2 => Ok(ExistenceOrLegacyExposure::Exposure(Decode::decode(input)?)),
 			_ => Ok(ExistenceOrLegacyExposure::Exists),
 		}
 	}

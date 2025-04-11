@@ -10945,6 +10945,7 @@ dependencies = [
  "pallet-staking-async-rc-client",
  "pallet-timestamp",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
  "sp-session",
  "sp-staking",
@@ -12959,6 +12960,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-session",
+ "sp-staking",
 ]
 
 [[package]]
@@ -13022,7 +13024,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "28.0.0"
+version = "0.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",

@@ -11,7 +11,9 @@ rpc_port = 9944
 name = "bob"
 validator = true
 rpc_port = 9955
-args = [ "-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace"]
+args = [
+	"-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace",
+]
 
 [[parachains]]
 id = 1100
@@ -20,4 +22,6 @@ chain_spec_path = "./parachain.json"
 [parachains.collator]
 name = "charlie"
 rpc_port = 9966
-args = [ "-lruntime::system=debug,runtime::multiblock-election=debug,runtime::staking=debug,runtime::staking::rc-client=trace"]
+args = [
+	"-lruntime::system=debug,runtime::multiblock-election=debug,runtime::staking=debug,runtime::staking::rc-client=trace",
+]
