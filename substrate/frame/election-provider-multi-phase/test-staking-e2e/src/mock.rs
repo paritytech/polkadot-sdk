@@ -910,7 +910,10 @@ pub(crate) fn on_offence_now(
 // Add offence to validator, slash it.
 pub(crate) fn add_slash(who: &AccountId) {
 	on_offence_now(
-		&[OffenceDetails { offender: (*who, pallet_staking::ExistenceOrLegacyExposure::Exists), reporters: vec![] }],
+		&[OffenceDetails {
+			offender: (*who, pallet_staking::ExistenceOrLegacyExposure::Exists),
+			reporters: vec![],
+		}],
 		&[Perbill::from_percent(10)],
 	);
 }
