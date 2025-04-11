@@ -310,9 +310,7 @@ mod pallet;
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{
-	Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen,
-};
+use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
@@ -331,8 +329,8 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
-	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
-	ExistenceOrLegacyExposure,
+	EraIndex, ExistenceOrLegacyExposure, ExposurePage, OnStakingUpdate, Page,
+	PagedExposureMetadata, SessionIndex,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
@@ -1063,7 +1061,7 @@ impl Default for Forcing {
 /// validator exists in the current era, otherwise `None`.
 pub struct ExistenceOrLegacyExposureOf<T>(core::marker::PhantomData<T>);
 impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>>
-for ExistenceOrLegacyExposureOf<T>
+	for ExistenceOrLegacyExposureOf<T>
 {
 	fn convert(
 		validator: T::AccountId,
