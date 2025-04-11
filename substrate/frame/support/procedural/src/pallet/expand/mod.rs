@@ -124,12 +124,8 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#composites
 	);
 
-	def.item
-		.content
-		.as_mut()
-		.expect("This is checked by parsing")
-		.1
-		.push(syn::Item::Verbatim(new_items));
+	let item = &mut def.item.content.as_mut().expect("This is checked by parsing").1;
+	item.push(syn::Item::Verbatim(new_items));
 
 	def.item.into_token_stream()
 }
