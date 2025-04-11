@@ -24702,6 +24702,8 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
+ "subxt 0.38.1",
+ "subxt-signer 0.38.0",
  "tokio",
  "zombienet-sdk",
 ]
