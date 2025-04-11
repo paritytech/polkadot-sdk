@@ -35,6 +35,12 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 	let type_decl_gen = &def.type_decl_generics(def.pallet_struct.attr_span);
 	let pallet_ident = &def.pallet_struct.pallet;
 	let config_where_clause = &def.config.where_clause;
+	let deprecation_status =
+		match crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &def.item.attrs)
+		{
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
 
 	let mut storages_where_clauses = vec![&def.config.where_clause];
 	storages_where_clauses.extend(def.storages.iter().map(|storage| &storage.where_clause));
@@ -82,6 +88,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		quote::quote_spanned!(def.pallet_struct.attr_span =>
 			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #config_where_clause {
 				#[doc(hidden)]
+				#[allow(deprecated)]
 				pub fn error_metadata() -> Option<#frame_support::__private::metadata_ir::PalletErrorMetadataIR> {
 					Some(<#error_ident<#type_use_gen>>::error_metadata())
 				}
@@ -104,7 +111,11 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 	let storage_names = &def.storages.iter().map(|storage| &storage.ident).collect::<Vec<_>>();
 	let storage_cfg_attrs =
 		&def.storages.iter().map(|storage| &storage.cfg_attrs).collect::<Vec<_>>();
-
+	let storage_maybe_allow_attrs = &def
+		.storages
+		.iter()
+		.map(|storage| crate::deprecation::extract_or_return_allow_attrs(&storage.attrs).collect())
+		.collect::<Vec<Vec<_>>>();
 	// Depending on the flag `without_storage_info` and the storage attribute `unbounded`, we use
 	// partial or full storage info from storage.
 	let storage_info_traits = &def
@@ -144,6 +155,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 
 				#(
 					#(#storage_cfg_attrs)*
+					#(#storage_maybe_allow_attrs)*
 					{
 						let mut storage_info = <
 							#storage_names<#type_use_gen>
@@ -185,12 +197,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 	];
-	let deprecation_status =
-		match crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &def.item.attrs)
-		{
-			Ok(deprecation) => deprecation,
-			Err(e) => return e.into_compile_error(),
-		};
+
 	quote::quote_spanned!(def.pallet_struct.attr_span =>
 		#pallet_error_metadata
 
