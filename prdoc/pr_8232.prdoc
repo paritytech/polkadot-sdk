@@ -5,4 +5,4 @@ doc:
     Implements the fast unbonding feature for `pallet-staking`.
 crates:
 - name: pallet-staking
-  bump: minor
+  bump: major
