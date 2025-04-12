@@ -38,7 +38,14 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	core::intrinsics::abort();
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(not(feature = "std"), not(feature = "runtime-benchmarks")))]
+#[panic_handler]
+#[no_mangle]
+pub fn panic(_info: &core::panic::PanicInfo) -> ! {
+	core::arch::wasm32::unreachable();
+}
+
+#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
 #[no_mangle]
 pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
 	type Block = sp_runtime::generic::Block<
