@@ -18,16 +18,17 @@
 //! # Test environment for OPF pallet.
 use crate as pallet_opf;
 use crate::{
-	traits::ReferendumTrait, ConvictionVotingTrait,
-	{Convert, HoldReason, ReferendumStates, Preservation, Fortitude, Error}};
+	traits::ReferendumTrait, Convert, Error, Fortitude, HoldReason, Preservation, ReferendumStates,
+};
 // Removed unused import: use codec::{Decode, Encode};
 pub use frame_support::{
 	derive_impl, ord_parameter_types,
 	pallet_prelude::{DecodeWithMemTracking, MaxEncodedLen, TypeInfo, *},
 	parameter_types,
 	traits::{
+		fungible::{Inspect, InspectHold, MutateHold},
 		ConstU32, ConstU64, EqualPrivilegeOnly, OnFinalize, OnInitialize, OriginTrait, PollStatus,
-		Polling, VoteTally,fungible::{Inspect, InspectHold, Mutate, MutateHold},
+		Polling, VoteTally,
 	},
 	weights::Weight,
 	PalletId,
@@ -366,74 +367,41 @@ thread_local! {
 
 pub struct HooksHandler;
 
-impl HooksHandler {
-	fn last_on_vote_data() -> Option<(u64, u32, AccountVote<u64>)> {
-		let res = LAST_ON_VOTE_DATA.with(|data| *data.borrow());
-		if let Some((who, ref_index, vote)) = res {
-			Some((who, ref_index.try_into().unwrap(), vote))
-		} else {
-			None
-		}
-	}
-
-	fn last_on_remove_vote_data() -> Option<(u64, u32, Status)> {
-		let res = LAST_ON_REMOVE_VOTE_DATA.with(|data| *data.borrow());
-		if let Some((who, ref_index, ongoing)) = res {
-			Some((who, ref_index.try_into().unwrap(), ongoing))
-		} else {
-			None
-		}
-	}
-
-	fn last_locked_if_unsuccessful_vote_data() -> Option<(u64, u32)> {
-		let res = LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow());
-		if let Some((who, ref_index)) = res {
-			Some((who, ref_index.try_into().unwrap()))
-		} else {
-			None
-		}
-	}
-
-	fn reset() {
-		LAST_ON_VOTE_DATA.with(|data| *data.borrow_mut() = None);
-		LAST_ON_REMOVE_VOTE_DATA.with(|data| *data.borrow_mut() = None);
-		LAST_LOCKED_IF_UNSUCCESSFUL_VOTE_DATA.with(|data| *data.borrow_mut() = None);
-		REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow_mut() = None);
-	}
-
-	fn with_remove_locked_amount(v: u64) {
-		REMOVE_VOTE_LOCKED_AMOUNT.with(|data| *data.borrow_mut() = Some(v));
-	}
-}
-
 impl VotingHooks<u64, u32, u64> for HooksHandler {
 	fn on_before_vote(who: &u64, ref_index: u32, vote: AccountVote<u64>) -> DispatchResult {
 		// lock user's funds
-		let ref_info = <Test as pallet_opf::Config>::Governance::get_referendum_info(ref_index).unwrap();
-		let ref_status = <Test as pallet_opf::Config>::Governance::handle_referendum_info(ref_info.clone()).unwrap();
+		let ref_info =
+			<Test as pallet_opf::Config>::Governance::get_referendum_info(ref_index).unwrap();
+		let ref_status =
+			<Test as pallet_opf::Config>::Governance::handle_referendum_info(ref_info.clone())
+				.unwrap();
 		match ref_status {
 			ReferendumStates::Ongoing => {
-			let amount = vote.balance();
-			// Check that voter has enough funds to vote
-			let voter_balance = <Test as pallet_opf::Config>::NativeBalance::reducible_balance(
-				&who,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			);
-			ensure!(voter_balance >= amount, pallet_opf::Error::<Test>::NotEnoughFunds);
-			// Check the available un-holded balance
-			let voter_holds = <Test as pallet_opf::Config>::NativeBalance::balance_on_hold(
-				&<Test as pallet_opf::Config>::RuntimeHoldReason::from(HoldReason::FundsReserved),
-				&who,
-			);
-			let available_funds = voter_balance.saturating_sub(voter_holds);
-			ensure!(available_funds > amount, Error::<Test>::NotEnoughFunds);
-			// Lock the necessary amount
-			<Test as pallet_opf::Config>::NativeBalance::hold(&HoldReason::FundsReserved.into(), &who, amount)?;			
-			}
-			_ => {
-				return Err(DispatchError::Other("Not an ongoing referendum"))
-			}
+				let amount = vote.balance();
+				// Check that voter has enough funds to vote
+				let voter_balance = <Test as pallet_opf::Config>::NativeBalance::reducible_balance(
+					&who,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				);
+				ensure!(voter_balance >= amount, pallet_opf::Error::<Test>::NotEnoughFunds);
+				// Check the available un-holded balance
+				let voter_holds = <Test as pallet_opf::Config>::NativeBalance::balance_on_hold(
+					&<Test as pallet_opf::Config>::RuntimeHoldReason::from(
+						HoldReason::FundsReserved,
+					),
+					&who,
+				);
+				let available_funds = voter_balance.saturating_sub(voter_holds);
+				ensure!(available_funds > amount, Error::<Test>::NotEnoughFunds);
+				// Lock the necessary amount
+				<Test as pallet_opf::Config>::NativeBalance::hold(
+					&HoldReason::FundsReserved.into(),
+					&who,
+					amount,
+				)?;
+			},
+			_ => return Err(DispatchError::Other("Not an ongoing referendum")),
 		};
 		LAST_ON_VOTE_DATA.with(|data| {
 			*data.borrow_mut() = Some((*who, ref_index.try_into().unwrap(), vote));

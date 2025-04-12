@@ -40,7 +40,7 @@ pub use frame_support::{
 	PalletId, Serialize,
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
-pub use pallet_conviction_voting::{Conviction, Tally, VotingHooks, Status};
+pub use pallet_conviction_voting::{Conviction, Status, Tally, VotingHooks};
 pub use pallet_referenda::{DecidingStatus, PalletsOriginOf, ReferendumIndex};
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::{
@@ -67,7 +67,8 @@ pub type VoterId<T> = AccountIdOf<T>;
 pub type ProvidedBlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 pub type AccountVoteOf<T> = pallet_conviction_voting::AccountVote<BalanceOf<T>>;
-pub type RefInfoOf<T> = <<T as Config>::Governance as ReferendumTrait<AccountIdOf<T>>>::ReferendumInfo;
+pub type RefInfoOf<T> =
+	<<T as Config>::Governance as ReferendumTrait<AccountIdOf<T>>>::ReferendumInfo;
 pub use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 pub type SubmitOrigin<T> = <T as pallet_referenda::Config>::SubmitOrigin;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
@@ -89,6 +90,13 @@ pub enum SpendState {
 	Completed,
 	/// Claimed but Failed.
 	Failed,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct RefStates<T: Config> {
+	pub state: ReferendumStates,
+	pub project_id: ProjectId<T>,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]

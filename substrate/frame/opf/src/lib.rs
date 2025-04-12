@@ -430,10 +430,6 @@ pub mod pallet {
 			let voter = ensure_signed(origin.clone())?;
 			// Get current voting round & check if we are in voting period or not
 			Self::period_check()?;
-			
-			
-
-			
 
 			let infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 				.ok_or(Error::<T>::NoProjectAvailable)?;
@@ -479,7 +475,7 @@ pub mod pallet {
 			let voter = ensure_signed(origin.clone())?;
 			// Get current voting round & check if we are in voting period or not
 			Self::period_check()?;
-			
+
 			// Remove previous vote from Referendum
 			let infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
 				.ok_or(Error::<T>::NoProjectAvailable)?;
@@ -524,7 +520,7 @@ pub mod pallet {
 					expired_when: info.expire,
 					project_id: project_id.clone(),
 				});
-				return Ok(())
+				return Ok(());
 			}
 			if now < info.expire {
 				// transfer the funds
@@ -538,7 +534,7 @@ pub mod pallet {
 					project_id: project_id.clone(),
 				});
 				WhiteListedProjectAccounts::<T>::remove(&project_id);
-				return Ok(())
+				return Ok(());
 			}
 			Ok(())
 		}

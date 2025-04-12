@@ -315,11 +315,11 @@ fn vote_overwrite_works() {
 		assert_eq!(funds.positive_funds, 5000);
 
 		// Voter's funds are locked
-		/*let mut locked_balance0 = <<Test as Config>::NativeBalance as fungible::hold::Inspect<
+		let mut locked_balance0 = <<Test as Config>::NativeBalance as fungible::hold::Inspect<
 			u64,
 		>>::balance_on_hold(&HoldReason::FundsReserved.into(), &BOB);
 		assert!(locked_balance0 > 0);
-		assert_eq!(locked_balance0, 6000);*/
+		assert_eq!(locked_balance0, 6000);
 
 		// Bob changes amount in project_103 to 4500 with conviction 2=> 9000
 		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 4500, true, Conviction::Locked2x));
@@ -364,15 +364,12 @@ fn voting_action_locked() {
 		assert_ok!(Opf::vote(RawOrigin::Signed(BOB).into(), 103, 5000, true, Conviction::Locked1x));
 
 		// Voter's funds are locked
-		/*let locked_balance0 =
+		let locked_balance0 =
 			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
 				&HoldReason::FundsReserved.into(),
 				&BOB,
 			);
 		assert_eq!(locked_balance0, 6000);
-
-		let dem_lock = <Test as pallet_democracy::Config>::Currency::reserved_balance(&BOB);
-		assert_eq!(dem_lock, 6000);
 
 		let bob_bal1 = <Test as Config>::NativeBalance::reducible_balance(
 			&BOB,
@@ -380,7 +377,7 @@ fn voting_action_locked() {
 			Fortitude::Polite,
 		);
 
-		assert_eq!(bob_bal1, bob_bal0.saturating_sub(6000));*/
+		assert_eq!(bob_bal1, bob_bal0.saturating_sub(6000));
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
 		run_to_block(round_info.round_ending_block);
 
@@ -443,18 +440,10 @@ fn not_enough_funds_to_vote() {
 fn spends_creation_works_but_claim_blocked_after_claim_period() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
-		let mut now = <Test as Config>::BlockNumberProvider::current_block_number();
 		let amount1 = 400;
 		let amount2 = 320;
 		let amount3 = 280;
 		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch));
-
-		let time_periods = <Test as Config>::Governance::get_time_periods(1).ok().unwrap();
-
-		let prepare_period = time_periods.prepare_period.try_into().unwrap_or(0);
-		let decision_period = time_periods.decision_period.try_into().unwrap_or(0);
-		now = <Test as Config>::BlockNumberProvider::current_block_number();
-		let decision_block = now.saturating_add(decision_period + prepare_period);
 
 		assert_ok!(Opf::vote(
 			RawOrigin::Signed(ALICE).into(),
@@ -487,7 +476,7 @@ fn spends_creation_works_but_claim_blocked_after_claim_period() {
 		);
 
 		run_to_block(round_info.round_ending_block + 4);
-		now = <Test as Config>::BlockNumberProvider::current_block_number();
+		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 		let expire = now.saturating_add(<Test as Config>::ClaimingPeriod::get());
 
 		let info101 = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
