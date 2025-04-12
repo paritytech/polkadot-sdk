@@ -17,7 +17,7 @@
 
 //! Utilities for proving possession of a particular public key
 
-use crate::crypto::{ByteArray, CryptoType, Pair};
+use crate::crypto::{CryptoType, Pair};
 
 /// The context which attached to pop message to attest its purpose.
 pub const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
@@ -28,8 +28,9 @@ pub trait ProofOfPossessionGenerator: Pair
 where
 	Self::Public: CryptoType,
 {
-	/// The proof of possession generator is supposed to
-	/// produce a "signature" with unique hash context that should
+	/// Proof of possession generator.
+	///
+	/// This is supposed to produce a "signature" with unique hash context that should
 	/// never be used in other signatures. This proves that
 	/// that the secret key is known to the prover. While prevent
 	/// malicious actors to trick an honest party to sign an
@@ -37,15 +38,8 @@ where
 	/// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
 	///   signatures against rogue-key attacks. In , Annual {{International Conference}} on the
 	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer.
-	/// While we enforce hash context separation at the library level in aggregatable schemes, it
-	/// remains as an advisory for the default implementation using signature API used for
-	/// non-aggregatable schemes
 	#[cfg(feature = "full_crypto")]
-	fn generate_proof_of_possession(&mut self) -> Self::Signature {
-		let pub_key_as_bytes = self.public().to_raw_vec();
-		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
-		self.sign(pop_statement.as_slice())
-	}
+	fn generate_proof_of_possession(&mut self) -> Self::Signature;
 }
 
 /// Pair which is able to generate proof of possession. While you don't need a keypair
@@ -63,11 +57,7 @@ where
 	fn verify_proof_of_possession(
 		proof_of_possession: &Self::Signature,
 		allegedly_possessesd_pubkey: &Self::Public,
-	) -> bool {
-		let pub_key_as_bytes = allegedly_possessesd_pubkey.to_raw_vec();
-		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
-		Self::verify(&proof_of_possession, pop_statement, allegedly_possessesd_pubkey)
-	}
+	) -> bool;
 }
 
 /// Marker trait to identify whether the scheme is not aggregatable thus changing
@@ -85,18 +75,41 @@ where
 /// possible to aggregate it to generate a valid proof for a key the attack does not
 /// possess. Therefore we do not require non-aggregatable schemes to prevent PoP
 /// confirming signatures at API level
-pub trait NonAggregatable {}
+pub trait NonAggregatable: Pair {
+	/// Default PoP statement.
+	fn pop_statement(pk: &impl crate::Public) -> Vec<u8> {
+		[POP_CONTEXT_TAG, pk.to_raw_vec().as_slice()].concat()
+	}
+}
 
 impl<T> ProofOfPossessionVerifier for T
 where
-	T: Pair + NonAggregatable,
-	T::Public: CryptoType,
+	T: NonAggregatable,
 {
+	/// The proof of possession verifier is supposed to
+	/// to verify a signature with unique hash context that is
+	/// produced solely for this reason. This proves that
+	/// that the secret key is known to the prover.
+	fn verify_proof_of_possession(
+		proof_of_possession: &Self::Signature,
+		allegedly_possessesd_pubkey: &Self::Public,
+	) -> bool {
+		let pop_statement = Self::pop_statement(allegedly_possessesd_pubkey);
+		Self::verify(&proof_of_possession, pop_statement, allegedly_possessesd_pubkey)
+	}
 }
 
 impl<T> ProofOfPossessionGenerator for T
 where
-	T: Pair + NonAggregatable,
-	T::Public: CryptoType,
+	T: NonAggregatable,
 {
+	/// Default implementation for non-aggregatable signatures.
+	///
+	/// While we enforce hash context separation at the library level in aggregatable schemes,
+	/// it remains as an advisory for the default implementation using signature API used for
+	/// non-aggregatable schemes
+	fn generate_proof_of_possession(&mut self) -> Self::Signature {
+		let pop_statement = Self::pop_statement(&self.public());
+		self.sign(pop_statement.as_slice())
+	}
 }
