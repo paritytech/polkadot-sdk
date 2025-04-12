@@ -19,9 +19,6 @@
 
 use crate::crypto::{CryptoType, Pair};
 
-/// The context which attached to pop message to attest its purpose.
-pub const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
-
 /// Pair which is able to generate proof of possession. This is implemented
 /// in different trait to provide default behavoir
 pub trait ProofOfPossessionGenerator: Pair
@@ -78,6 +75,8 @@ where
 pub trait NonAggregatable: Pair {
 	/// Default PoP statement.
 	fn pop_statement(pk: &impl crate::Public) -> Vec<u8> {
+		/// The context which attached to pop message to attest its purpose.
+		const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
 		[POP_CONTEXT_TAG, pk.to_raw_vec().as_slice()].concat()
 	}
 }
