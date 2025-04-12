@@ -19,9 +19,7 @@ use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
-use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
-use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::westend::{
@@ -30,17 +28,26 @@ use testnet_parachains_constants::westend::{
 
 const STAKING_ASYNC_PARA_ED: Balance = ExistentialDeposit::get();
 
-fn staking_async_parachain_genesis(
+struct GenesisParams {
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
 	dev_stakers: Option<(u32, u32)>,
+	validator_count: u32,
 	root: AccountId,
 	id: ParaId,
-) -> serde_json::Value {
-	let validator_count = core::option_env!("VALIDATOR_COUNT")
-		.map(|v| v.parse::<u32>().unwrap())
-		.unwrap_or(500);
+}
+
+fn staking_async_parachain_genesis(params: GenesisParams) -> serde_json::Value {
+	let GenesisParams {
+		invulnerables,
+		endowed_accounts,
+		endowment,
+		dev_stakers,
+		validator_count,
+		root,
+		id,
+	} = params;
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
@@ -68,70 +75,36 @@ fn staking_async_parachain_genesis(
 	})
 }
 
-/// Encapsulates names of predefined presets.
-mod preset_names {
-	pub const PRESET_GENESIS: &str = "genesis";
-}
-
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-	use preset_names::*;
-	let dev_validators = core::option_env!("VALIDATORS")
-		.map(|v| v.parse::<u32>().unwrap())
-		.unwrap_or(1000);
-	let dev_nominators = core::option_env!("NOMINATORS")
-		.map(|v| v.parse::<u32>().unwrap())
-		.unwrap_or(25_000);
-	let dev_stakers = Some((dev_validators, dev_nominators));
+	let mut dev_and_testnet_params = GenesisParams {
+		invulnerables: vec![
+			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+			(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+		],
+		endowed_accounts: Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
+		endowment: WND * 1_000_000,
+		dev_stakers: Some((100, 2000)),
+		validator_count: 10,
+		root: Sr25519Keyring::Alice.to_account_id(),
+		id: 1100.into(),
+	};
 	let patch = match id.as_ref() {
-		PRESET_GENESIS => staking_async_parachain_genesis(
-			// initial collators.
-			vec![
-				(
-					hex!("d2a4117d7f47cce89f84230a8d4003f42d615261a0854d1bb69da410b4561c07").into(),
-					hex!("d2a4117d7f47cce89f84230a8d4003f42d615261a0854d1bb69da410b4561c07")
-						.unchecked_into(),
-				),
-				(
-					hex!("0ca6cf3fb25cc2dfe510eb1b55c36839ba9cb80dee22de1278f9b48898919563").into(),
-					hex!("0ca6cf3fb25cc2dfe510eb1b55c36839ba9cb80dee22de1278f9b48898919563")
-						.unchecked_into(),
-				),
-			],
-			Vec::new(),
-			STAKING_ASYNC_PARA_ED * 4096,
-			dev_stakers,
-			// Ask Dónal for access, or overwrite from Relay via XCM.
-			hex!("b662f28c3beb0d03e6f4cc9a5d6eb158c609d4ac909a746a2a8dc6b40634be65").into(),
-			1100.into(),
-		),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => staking_async_parachain_genesis(
-			// initial collators.
-			vec![
-				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
-			],
-			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
-			WND * 1_000_000,
-			dev_stakers,
-			Sr25519Keyring::Alice.to_account_id(),
-			1100.into(),
-		),
-		sp_genesis_builder::DEV_RUNTIME_PRESET => staking_async_parachain_genesis(
-			// initial collators.
-			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
-			vec![
-				Sr25519Keyring::Alice.to_account_id(),
-				Sr25519Keyring::Bob.to_account_id(),
-				Sr25519Keyring::AliceStash.to_account_id(),
-				Sr25519Keyring::BobStash.to_account_id(),
-			],
-			WND * 1_000_000,
-			dev_stakers,
-			Sr25519Keyring::Alice.to_account_id(),
-			1100.into(),
-		),
-		_ => return None,
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
+			staking_async_parachain_genesis(dev_and_testnet_params),
+		sp_genesis_builder::DEV_RUNTIME_PRESET =>
+			staking_async_parachain_genesis(dev_and_testnet_params),
+		"bench_ksm" => {
+			dev_and_testnet_params.validator_count = 1_000;
+			dev_and_testnet_params.dev_stakers = Some((4_000, 20_000));
+			staking_async_parachain_genesis(dev_and_testnet_params)
+		},
+		"bench_dot" => {
+			dev_and_testnet_params.validator_count = 500;
+			dev_and_testnet_params.dev_stakers = Some((2_000, 25_000));
+			staking_async_parachain_genesis(dev_and_testnet_params)
+		},
+		_ => panic!("unrecognized genesis preset!"),
 	};
 
 	Some(
@@ -143,10 +116,10 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 
 /// List of supported presets.
 pub fn preset_names() -> Vec<PresetId> {
-	use preset_names::*;
 	vec![
-		PresetId::from(PRESET_GENESIS),
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
+		PresetId::from("bench_ksm"),
+		PresetId::from("bench_dot"),
 	]
 }

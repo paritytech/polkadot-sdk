@@ -289,7 +289,7 @@ pub trait AHStakingInterface {
 	fn on_new_offences(
 		slash_session: SessionIndex,
 		offences: Vec<Offence<Self::AccountId>>,
-	) -> Weight;
+	);
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.

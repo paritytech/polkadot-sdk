@@ -465,23 +465,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
-	pub(crate) fn apply_unapplied_slashes(active_era: EraIndex) {
-		let mut slashes = UnappliedSlashes::<T>::iter_prefix(&active_era).take(1);
-		if let Some((key, slash)) = slashes.next() {
-			log!(
-				debug,
-				"🦹 found slash {:?} scheduled to be executed in era {:?}",
-				slash,
-				active_era,
-			);
-			let offence_era = active_era.saturating_sub(T::SlashDeferDuration::get());
-			slashing::apply_slash::<T>(slash, offence_era);
-			// remove the slash
-			UnappliedSlashes::<T>::remove(&active_era, &key);
-		}
-	}
-
 	#[cfg(test)]
 	pub(crate) fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
 		Eras::<T>::reward_active_era(validators_points)
@@ -1094,6 +1077,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	/// the systems in sync.
 	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
 		log!(debug, "session report received\n{:?}", report,);
+		let consumed_weight = T::WeightInfo::rc_on_session_report();
 
 		let rc_client::SessionReport {
 			end_index,
@@ -1105,28 +1089,23 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 		Eras::<T>::reward_active_era(validator_points.into_iter());
 		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp);
+		// NOTE: we might want to either return these weights so that they are registered in the rc-client pallet, or directly benchmarked there, such that we can use them in the "pre-dispatch" fashion. That said, since these are all `Mandatory` weights, it doesn't make that big of a difference.
+		Self::register_weight(consumed_weight);
 	}
 
 	fn on_new_offences(
 		slash_session: SessionIndex,
 		offences: Vec<rc_client::Offence<T::AccountId>>,
-	) -> Weight {
+	) {
 		log!(debug, "🦹 on_new_offences: {:?}", offences);
-
-		// todo(ank4n): Needs to be properly benched.
-		let mut consumed_weight = Weight::zero();
-		let mut add_db_reads_writes = |reads, writes| {
-			consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
-		};
+		let consumed_weight = T::WeightInfo::rc_on_offence(offences.len() as u32);
 
 		// Find the era to which offence belongs.
-		add_db_reads_writes(1, 0);
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			log!(warn, "🦹 on_new_offences: no active era; ignoring offence");
-			return consumed_weight
+			return
 		};
 
-		add_db_reads_writes(1, 0);
 		let active_era_start_session =
 			ErasStartSessionIndex::<T>::get(active_era.index).unwrap_or(0);
 
@@ -1135,7 +1114,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		let offence_era = if slash_session >= active_era_start_session {
 			active_era.index
 		} else {
-			add_db_reads_writes(1, 0);
 			match BondedEras::<T>::get()
 				.iter()
 				// Reverse because it's more likely to find reports from recent eras.
@@ -1148,12 +1126,11 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 					// defensive: this implies offence is for a discarded era, and should already be
 					// filtered out.
 					log!(warn, "🦹 on_offence: no era found for slash_session; ignoring offence");
-					return Weight::default()
+					return
 				},
 			}
 		};
 
-		add_db_reads_writes(1, 0);
 		let invulnerables = Invulnerables::<T>::get();
 
 		for o in offences {
@@ -1165,7 +1142,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 				continue
 			}
 
-			add_db_reads_writes(1, 0);
 			let Some(exposure_overview) = <ErasStakersOverview<T>>::get(&offence_era, &validator)
 			else {
 				// defensive: this implies offence is for a discarded era, and should already be
@@ -1185,14 +1161,11 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 				offence_era,
 			});
 
-			add_db_reads_writes(1, 0);
 			let prior_slash_fraction = ValidatorSlashInEra::<T>::get(offence_era, &validator)
 				.map_or(Zero::zero(), |(f, _)| f);
 
-			add_db_reads_writes(1, 0);
 			if let Some(existing) = OffenceQueue::<T>::get(offence_era, &validator) {
 				if slash_fraction.deconstruct() > existing.slash_fraction.deconstruct() {
-					add_db_reads_writes(0, 2);
 					OffenceQueue::<T>::insert(
 						offence_era,
 						&validator,
@@ -1228,7 +1201,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 					);
 				}
 			} else if slash_fraction.deconstruct() > prior_slash_fraction.deconstruct() {
-				add_db_reads_writes(0, 3);
 				ValidatorSlashInEra::<T>::insert(
 					offence_era,
 					&validator,
@@ -1285,7 +1257,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			}
 		}
 
-		consumed_weight
+		Self::register_weight(consumed_weight);
 	}
 }
 

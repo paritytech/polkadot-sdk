@@ -2,41 +2,12 @@ source ~/.zshrc
 
 STEPS=2
 REPEAT=1
+
+# if any of the command line arguments are equal to `--log=X`, set X to the below log levels
 LOG="runtime::multiblock-election=debug,runtime::staking-async=debug,polkadot_sdk_frame::benchmark=debug"
 
-# Check if an argument was provided
-if [ -z "$1" ]; then
-    echo "Error: No argument provided."
-    echo "Usage: $0 [dot|ksm|fast]"
-    exit 1
-fi
-
-# Set variables based on argument
-case "$1" in
-    dot)
-        VALIDATOR_COUNT=500
-        NOMINATORS=25000
-        VALIDATORS=2000
-        ;;
-    ksm)
-        VALIDATOR_COUNT=1000
-        NOMINATORS=15000
-        VALIDATORS=4000
-        ;;
-    fast)
-        VALIDATOR_COUNT=100
-        NOMINATORS=100
-        VALIDATORS=20
-        ;;
-    *)
-        echo "Error: Invalid argument \"$1\""
-        echo "Usage: $0 [dot|ksm|fast]"
-        exit 1
-        ;;
-esac
-
 if [ "$3" != "no-compile" ]; then
-    FORCE_WASM_BUILD=$RANDOM  WASMTIME_BACKTRACE_DETAILS=1 VALIDATOR_COUNT=${VALIDATOR_COUNT} VALIDATORS=${VALIDATORS} NOMINATORS=${NOMINATORS} RUST_LOG=${LOG} cargo build --release -p pallet-staking-async-parachain-runtime --features runtime-benchmarks
+    FORCE_WASM_BUILD=$RANDOM  WASMTIME_BACKTRACE_DETAILS=1 RUST_LOG=${LOG} cargo build --release -p pallet-staking-async-parachain-runtime --features runtime-benchmarks
 else
       echo "Skipping compilation because 'no-compile' argument was provided."
 fi
@@ -49,10 +20,12 @@ stat -f "%Sm" $WASM_BLOB_PATH
 
 WASMTIME_BACKTRACE_DETAILS=1 RUST_LOG=${LOG}  \
   frame-omni-bencher v1 benchmark pallet \
-  --pallet $2 \
-  --extrinsic "*" \
+  --pallet "$1" \
+  --extrinsic "all" \
   --runtime $WASM_BLOB_PATH \
   --steps $STEPS \
   --repeat $REPEAT \
+  --genesis-builder-preset $2 \
   --template ../../../../../substrate/.maintain/frame-weight-template.hbs \
   --heap-pages 65000 \
+  --output ./$1_$2.json \

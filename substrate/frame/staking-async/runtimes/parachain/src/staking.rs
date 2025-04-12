@@ -327,10 +327,12 @@ impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
 		let result = send_xcm::<T>(dest, message);
 
 		match result {
-			Ok(_) =>
-				log::info!(target: "runtime", "Successfully sent validator set report to relay chain"),
-			Err(e) =>
-				log::error!(target: "runtime", "Failed to send validator set report to relay chain: {:?}", e),
+			Ok(_) => {
+				log::info!(target: "runtime", "Successfully sent validator set report to relay chain")
+			},
+			Err(e) => {
+				log::error!(target: "runtime", "Failed to send validator set report to relay chain: {:?}", e)
+			},
 		}
 	}
 }

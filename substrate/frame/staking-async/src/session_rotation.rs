@@ -475,7 +475,7 @@ pub struct Rotator<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Rotator<T> {
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn legacy_try_plan_era() -> Vec<T::AccountId> {
+	pub(crate) fn legacy_insta_plan_era() -> Vec<T::AccountId> {
 		// Plan the era,
 		Self::plan_new_era();
 		// signal that we are about to call into elect asap.
@@ -591,7 +591,7 @@ impl<T: Config> Rotator<T> {
 		});
 	}
 
-	fn start_era(
+	pub(crate) fn start_era(
 		ending_era: &ActiveEraInfo,
 		starting_session: SessionIndex,
 		new_era_start_timestamp: u64,

@@ -430,7 +430,7 @@ impl<T: Config> StakingLedger<T> {
 
 		// Helper to update `target` and the ledgers total after accounting for slashing `target`.
 		log!(
-			debug,
+			trace,
 			"slashing {:?} for era {:?} out of {:?}, priority: {:?}, proportional = {:?}",
 			slash_amount,
 			slash_era,

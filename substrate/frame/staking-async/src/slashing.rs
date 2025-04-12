@@ -264,9 +264,9 @@ pub struct OffenceRecord<AccountId> {
 /// - `OffenceQueue`
 /// - `OffenceQueueEras`
 fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T::AccountId>)> {
-	let processing_offence = ProcessingOffence::<T>::get();
+	let maybe_processing_offence = ProcessingOffence::<T>::get();
 
-	if let Some((offence_era, offender, offence_record)) = processing_offence {
+	if let Some((offence_era, offender, offence_record)) = maybe_processing_offence {
 		// If the exposure page is 0, then the offence has been processed.
 		if offence_record.exposure_page == 0 {
 			ProcessingOffence::<T>::kill();

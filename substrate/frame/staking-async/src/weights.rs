@@ -104,6 +104,9 @@ pub trait WeightInfo {
 	fn restore_ledger() -> Weight;
 	fn migrate_currency() -> Weight;
 	fn apply_slash() -> Weight;
+	fn rc_on_offence(v: u32) -> Weight;
+	fn rc_on_session_report() -> Weight;
+	fn process_offence_queue() -> Weight;
 }
 
 /// Weights for `pallet_staking_async` using the Substrate node and recommended hardware.
@@ -834,6 +837,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(233_u64))
 			.saturating_add(T::DbWeight::get().writes(133_u64))
 	}
+
+	fn rc_on_offence(_v: u32) -> Weight {
+		Default::default()
+	}
+
+	fn process_offence_queue() -> Weight {
+		Default::default()
+	}
+
+	fn rc_on_session_report() -> Weight {
+		Default::default()
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1562,5 +1577,17 @@ impl WeightInfo for () {
 		Weight::from_parts(1_647_487_000, 118668)
 			.saturating_add(RocksDbWeight::get().reads(233_u64))
 			.saturating_add(RocksDbWeight::get().writes(133_u64))
+	}
+
+	fn rc_on_offence(_v: u32) -> Weight {
+		Default::default()
+	}
+
+	fn process_offence_queue() -> Weight {
+		Default::default()
+	}
+
+	fn rc_on_session_report() -> Weight {
+		Default::default()
 	}
 }

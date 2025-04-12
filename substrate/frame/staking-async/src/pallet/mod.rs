@@ -1140,26 +1140,44 @@ pub mod pallet {
 		Restricted,
 	}
 
+	impl<T: Config> Pallet<T> {
+		/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
+		pub(crate) fn apply_unapplied_slashes(active_era: EraIndex) -> Weight {
+			let mut slashes = UnappliedSlashes::<T>::iter_prefix(&active_era).take(1);
+			if let Some((key, slash)) = slashes.next() {
+				crate::log!(
+					debug,
+					"🦹 found slash {:?} scheduled to be executed in era {:?}",
+					slash,
+					active_era,
+				);
+				let offence_era = active_era.saturating_sub(T::SlashDeferDuration::get());
+				slashing::apply_slash::<T>(slash, offence_era);
+				// remove the slash
+				UnappliedSlashes::<T>::remove(&active_era, &key);
+				T::WeightInfo::apply_slash()
+			} else {
+				T::DbWeight::get().reads(1)
+			}
+		}
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			// todo(ank4n): Hacky bench. Do it properly.
+			// process our queue.
 			let mut consumed_weight = slashing::process_offence::<T>();
 
+			// apply any pending slashes after `SlashDeferDuration`.
 			consumed_weight.saturating_accrue(T::DbWeight::get().reads(1));
 			if let Some(active_era) = ActiveEra::<T>::get() {
-				let max_slash_page_size = T::MaxExposurePageSize::get();
-				consumed_weight.saturating_accrue(
-					T::DbWeight::get().reads_writes(
-						3 * max_slash_page_size as u64,
-						3 * max_slash_page_size as u64,
-					),
-				);
-				Self::apply_unapplied_slashes(active_era.index);
+				let slash_weight = Self::apply_unapplied_slashes(active_era.index);
+				consumed_weight.saturating_accrue(slash_weight);
 			}
 
+			// maybe plan eras and stuff. Note that this is benchmark as a part of the
+			// election-provider's benchmarks.
 			session_rotation::EraElectionPlanner::<T>::maybe_fetch_election_results();
-
 			consumed_weight
 		}
 
