@@ -27,7 +27,6 @@ pub trait ReferendumTrait<AccountId> {
 		index: Self::Index,
 		project_id: AccountId,
 	) -> Result<u128, DispatchError>;
-	fn get_project_id(index: Self::Index) -> Result<AccountId, DispatchError>;
 }
 
 pub trait ConvictionVotingTrait<AccountId> {
@@ -102,12 +101,7 @@ impl<T: Config> VotingHooks<AccountIdOf<T>, ReferendumIndex, BalanceOf<T>> for P
 		};
 		match ref_status {
 			ReferendumStates::Ongoing => {
-				let project_id =
-					match T::Governance::get_project_id(_ref_index.into()) {
-						Ok(project_id) => project_id,
-						Err(_) => return,
-					};
-				let vote_infos = match Votes::<T>::get(&project_id, _who) {
+				let vote_infos = match Votes::<T>::get(&_ref_index, _who) {
 					Some(vote_infos) => vote_infos,
 					None => return,
 				};
@@ -351,20 +345,4 @@ where
 		}
 	}
 
-	fn get_project_id(index: Self::Index) -> Result<AccountIdOf<T>, DispatchError> {
-		let info = Self::get_referendum_info(index)
-			.ok_or_else(|| DispatchError::Other("No referendum info found"))?;
-		match info {
-			Self::ReferendumInfo::Ongoing(x) => {
-				let origin = x.origin.into();
-				let origin_caller = origin.into_signer();
-				let who = match origin_caller {
-					Some(who) => who,
-					_ => return Err(DispatchError::Other("Not a signed origin")),
-				};
-				Ok(who)
-			},
-			_ => Err(DispatchError::Other("Not an ongoing referendum")),
-		}
-	}
 }

@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T> {
 
 		let infos = WhiteListedProjectAccounts::<T>::get(project.clone())
 			.ok_or(Error::<T>::NoProjectAvailable)?;
-		let _ref_index = infos.index;
+		let ref_index = infos.index;
 
 		let conviction_fund =
 			Self::conviction_amount(amount, conviction).ok_or("Invalid conviction")?;
@@ -92,8 +92,8 @@ impl<T: Config> Pallet<T> {
 
 		// Update Funds unlock block according to the selected conviction
 		//new_vote.funds_unlock();
-		if Votes::<T>::contains_key(&project, &voter_id) {
-			let old_vote = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
+		if Votes::<T>::contains_key(&ref_index, &voter_id) {
+			let old_vote = Votes::<T>::get(&ref_index, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let old_amount = old_vote.amount;
 			let old_conviction = old_vote.conviction;
 			let old_conviction_amount =
@@ -114,11 +114,11 @@ impl<T: Config> Pallet<T> {
 				*val = val0;
 			});
 
-			Votes::<T>::mutate(&project, &voter_id, |value| {
+			Votes::<T>::mutate(&ref_index, &voter_id, |value| {
 				*value = Some(new_vote);
 			});
 		} else {
-			Votes::<T>::insert(&project, &voter_id, new_vote);
+			Votes::<T>::insert(&ref_index, &voter_id, new_vote);
 			ProjectFunds::<T>::mutate(&project, |val| {
 				let mut val0 = val.clone();
 				if fund {
@@ -177,8 +177,11 @@ impl<T: Config> Pallet<T> {
 
 	// Helper function for complete vote data removal from storage.
 	pub fn try_remove_vote(voter_id: VoterId<T>, project: ProjectId<T>) -> DispatchResult {
-		if Votes::<T>::contains_key(&project, &voter_id) {
-			let infos = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
+		let infos = WhiteListedProjectAccounts::<T>::get(project.clone())
+			.ok_or(Error::<T>::NoProjectAvailable)?;
+		let ref_index = infos.index;
+		if Votes::<T>::contains_key(&ref_index, &voter_id) {
+			let infos = Votes::<T>::get(&ref_index, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let amount = infos.amount;
 			let conviction = infos.conviction;
 			let fund = infos.fund;
@@ -213,7 +216,7 @@ impl<T: Config> Pallet<T> {
 			});
 
 			// Remove Vote Infos
-			Votes::<T>::remove(&project, &voter_id);
+			Votes::<T>::remove(&ref_index, &voter_id);
 		}
 		Ok(())
 	}

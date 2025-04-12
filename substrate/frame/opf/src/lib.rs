@@ -176,7 +176,7 @@ pub mod pallet {
 	pub type Votes<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		ProjectId<T>,
+		ReferendumIndex,
 		Twox64Concat,
 		VoterId<T>,
 		VoteInfo<T>,
@@ -441,6 +441,9 @@ pub mod pallet {
 			let converted_amount =
 				T::Conviction::u128_to_balance(u128_amount).ok_or("Failed Conversion!!!")?;
 			let account_vote = T::Conviction::vote_data(fund, conv, converted_amount);
+			if Votes::<T>::contains_key(&ref_index, &voter) {
+				T::Conviction::try_remove_vote(&voter, ref_index.into())?;
+			}
 			T::Conviction::try_vote(&voter, ref_index.into(), account_vote)?;
 
 			Self::try_vote(voter.clone(), project_id.clone(), amount, fund, conviction)?;
@@ -604,11 +607,11 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::release_voter_funds(T::MaxProjects::get()))]
 		pub fn release_voter_funds(
 			origin: OriginFor<T>,
-			project_id: ProjectId<T>,
+			referendum_index: ReferendumIndex,
 		) -> DispatchResult {
 			let voter_id = ensure_signed(origin)?;
-			ensure!(Votes::<T>::contains_key(&project_id, &voter_id), Error::<T>::NoVoteData);
-			let infos = Votes::<T>::get(&project_id, &voter_id).ok_or(Error::<T>::NoVoteData)?;
+			ensure!(Votes::<T>::contains_key(&referendum_index, &voter_id), Error::<T>::NoVoteData);
+			let infos = Votes::<T>::get(&referendum_index, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let release_block = infos.funds_unlock_block;
 			let amount = infos.amount;
 
@@ -621,7 +624,7 @@ pub mod pallet {
 				Precision::Exact,
 			)?;
 
-			Votes::<T>::remove(&project_id, &voter_id);
+			Votes::<T>::remove(&referendum_index, &voter_id);
 			Ok(())
 		}
 
