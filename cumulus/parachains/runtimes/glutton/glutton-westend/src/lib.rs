@@ -167,7 +167,7 @@ parameter_types! {
 	// We do anything the parent chain tells us in this runtime.
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(2);
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
-	pub const SelfParaId: ParaId = ParaId::new(1023);
+	pub const SelfParaId: ParaId = ParaId::new(1300);
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<

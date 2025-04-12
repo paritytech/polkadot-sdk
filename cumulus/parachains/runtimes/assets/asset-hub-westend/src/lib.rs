@@ -771,7 +771,7 @@ impl pallet_proxy::Config for Runtime {
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
-	pub const SelfParaId: ParaId = ParaId::new(1002);
+	pub const SelfParaId: ParaId = ParaId::new(1000);
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {

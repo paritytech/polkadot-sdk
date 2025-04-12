@@ -283,7 +283,7 @@ parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
-	pub const SelfParaId: ParaId = ParaId::new(1990);
+	pub const SelfParaId: ParaId = ParaId::new(1005);
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
