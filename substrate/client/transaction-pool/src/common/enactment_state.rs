@@ -145,7 +145,7 @@ where
 			trace!(
 				target: LOG_TARGET,
 				recent_finalized_block = ?self.recent_finalized_block,
-				new_hash = %new_hash,
+				?new_hash,
 				"Recently finalized block would be retracted by ChainEvent, skipping"
 			);
 			return Ok(EnactmentAction::Skip)
