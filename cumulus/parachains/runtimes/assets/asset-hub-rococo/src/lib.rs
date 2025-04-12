@@ -719,13 +719,14 @@ impl pallet_proxy::Config for Runtime {
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+	pub const SelfParaId: ParaId = ParaId::new(1001);
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
-	type SelfParaId = parachain_info::Pallet<Runtime>;
+	type SelfParaId = SelfParaId;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type OutboundXcmpMessageSource = XcmpQueue;
@@ -1623,12 +1624,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
-		fn id() -> ParaId {
-			ParachainInfo::parachain_id()
-		}
-	}
-
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
@@ -2017,9 +2012,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+	impl cumulus_primitives_core::GetParachainIdentity<Block> for Runtime {
 		fn id() -> ParaId {
-			ParachainInfo::parachain_id()
+			<Runtime as cumulus_pallet_parachain_system::Config>::SelfParaId::get()
 		}
 	}
 }
