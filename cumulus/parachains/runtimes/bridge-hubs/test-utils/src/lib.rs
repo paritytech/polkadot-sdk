@@ -21,7 +21,7 @@ pub mod test_data;
 
 extern crate alloc;
 
-pub use bp_test_utils::test_header;
+pub use bp_test_utils::{test_header, test_header_with_root};
 pub use parachains_runtimes_test_utils::*;
 use sp_runtime::Perbill;
 pub use test_cases::helpers::{

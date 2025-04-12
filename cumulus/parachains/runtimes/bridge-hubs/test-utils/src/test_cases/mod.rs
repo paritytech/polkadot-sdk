@@ -28,10 +28,13 @@ use crate::{test_cases::bridges_prelude::*, test_data};
 
 use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{
-	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
+	target_chain::{
+		DispatchMessage, DispatchMessageData, FromBridgedChainMessagesProof, MessageDispatch,
+	},
 	LaneState, MessageKey, MessagesOperatingMode, OutboundLaneData,
 };
-use bp_runtime::BasicOperatingMode;
+use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
+use bp_runtime::{BasicOperatingMode, HashOf, UnverifiedStorageProofParams};
 use codec::Encode;
 use frame_support::{
 	assert_ok,
@@ -39,6 +42,10 @@ use frame_support::{
 	traits::{Contains, Get, OnFinalize, OnInitialize, OriginTrait},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_bridge_messages::{
+	messages_generation::{encode_all_messages, encode_lane_data, prepare_messages_storage_proof},
+	BridgedChainOf, LaneIdOf, ThisChainOf,
+};
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder,
@@ -70,7 +77,6 @@ pub use for_pallet_xcm_bridge_hub::open_and_close_bridge_works;
 
 // Re-export test_case from assets
 pub use asset_test_utils::include_teleports_for_native_asset_works;
-use pallet_bridge_messages::LaneIdOf;
 
 pub type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -957,4 +963,168 @@ pub(crate) mod for_pallet_xcm_bridge {
 			);
 		});
 	}
+}
+
+/// Helper trait to test bridges with just messages pallet.
+///
+/// This is only used to decrease amount of lines, dedicated to bounds.
+pub trait WithBridgeMessagesHelper {
+	/// This chain runtime.
+	type Runtime: BasicParachainRuntime
+		+ cumulus_pallet_xcmp_queue::Config
+		+ BridgeMessagesConfig<
+			Self::MPI,
+			InboundPayload = test_data::XcmAsPlainPayload,
+			OutboundPayload = test_data::XcmAsPlainPayload,
+		> + pallet_bridge_relayers::Config<Self::RPI, Reward = Self::RelayerReward>;
+	/// All pallets of this chain, excluding system pallet.
+	type AllPalletsWithoutSystem: OnInitialize<BlockNumberFor<Self::Runtime>>
+		+ OnFinalize<BlockNumberFor<Self::Runtime>>;
+	/// Instance of the `pallet-bridge-messages`, used to bridge with remote parachain.
+	type MPI: 'static;
+	/// Instance of the `pallet-bridge-relayers`, used to collect rewards from messages `MPI`
+	/// instance.
+	type RPI: 'static;
+	/// Relayer reward type.
+	type RelayerReward: From<RewardsAccountParams<LaneIdOf<Self::Runtime, Self::MPI>>>;
+}
+
+/// Adapter struct that implements `WithBridgeMessagesHelper`.
+pub struct WithBridgeMessagesHelperAdapter<Runtime, AllPalletsWithoutSystem, MPI, RPI>(
+	core::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, MPI, RPI)>,
+);
+
+impl<Runtime, AllPalletsWithoutSystem, MPI, RPI> WithBridgeMessagesHelper
+	for WithBridgeMessagesHelperAdapter<Runtime, AllPalletsWithoutSystem, MPI, RPI>
+where
+	Runtime: BasicParachainRuntime
+		+ cumulus_pallet_xcmp_queue::Config
+		+ BridgeMessagesConfig<
+			MPI,
+			InboundPayload = test_data::XcmAsPlainPayload,
+			OutboundPayload = test_data::XcmAsPlainPayload,
+		> + pallet_bridge_relayers::Config<RPI>,
+	AllPalletsWithoutSystem:
+		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
+	<Runtime as pallet_bridge_relayers::Config<RPI>>::Reward:
+		From<RewardsAccountParams<LaneIdOf<Runtime, MPI>>>,
+	MPI: 'static,
+	RPI: 'static,
+{
+	type Runtime = Runtime;
+	type AllPalletsWithoutSystem = AllPalletsWithoutSystem;
+	type MPI = MPI;
+	type RPI = RPI;
+	type RelayerReward = Runtime::Reward;
+}
+
+/// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
+/// with message proofs independently submitted.
+/// Also verifies relayer transaction signed extensions work as intended.
+pub fn relayed_incoming_message_proofs_works<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	slot_durations: SlotDurations,
+	runtime_para_id: u32,
+	sibling_parachain_id: u32,
+	local_relay_chain_id: NetworkId,
+	prepare_configuration: impl Fn() -> LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+	ensure_proof_state_root: fn(
+		HashOf<BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+	) -> HashOf<
+		BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+	>,
+	construct_and_apply_extrinsic: fn(
+		sp_keyring::Sr25519Keyring,
+		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
+	) -> sp_runtime::DispatchOutcome,
+	expect_rewards: bool,
+	expect_descend_origin_with_messaging_pallet_instance: bool,
+) where
+	RuntimeHelper: WithBridgeMessagesHelper,
+	AccountIdOf<RuntimeHelper::Runtime>: From<AccountId32>,
+	RuntimeCallOf<RuntimeHelper::Runtime>:
+		From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+{
+	helpers::relayed_incoming_message_works::<
+		RuntimeHelper::Runtime,
+		RuntimeHelper::AllPalletsWithoutSystem,
+		RuntimeHelper::MPI,
+	>(
+		collator_session_key,
+		slot_durations,
+		runtime_para_id,
+		sibling_parachain_id,
+		local_relay_chain_id,
+		construct_and_apply_extrinsic,
+		expect_descend_origin_with_messaging_pallet_instance,
+		|relayer_id_at_this_chain,
+		 relayer_id_at_bridged_chain,
+		 message_destination,
+		 message_nonce,
+		 xcm,
+		 bridged_chain_id| {
+			// prepare configuration
+			let lane_id = prepare_configuration();
+
+			// prepare message
+			let message_payload = test_data::prepare_inbound_xcm(xcm, message_destination);
+			// prepare para storage proof containing message
+			let (para_state_root, para_storage_proof) = prepare_messages_storage_proof::<
+				BridgedChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+				ThisChainOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+				LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
+			>(
+				lane_id,
+				message_nonce..=message_nonce,
+				None,
+				UnverifiedStorageProofParams::from_db_size(message_payload.len() as u32),
+				|_| message_payload.clone(),
+				encode_all_messages,
+				encode_lane_data,
+				false,
+				false,
+			);
+
+			// Ensure proof state root
+			let bridged_header_hash = ensure_proof_state_root(para_state_root);
+
+			// Prepare message proof for `para_state_root`
+			let message_proof = FromBridgedChainMessagesProof {
+				bridged_header_hash,
+				storage_proof: para_storage_proof,
+				lane: lane_id,
+				nonces_start: message_nonce,
+				nonces_end: message_nonce,
+			};
+
+			vec![
+				(
+					BridgeMessagesCall::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::receive_messages_proof {
+						relayer_id_at_bridged_chain,
+						proof: Box::new(message_proof),
+						messages_count: 1,
+						dispatch_weight: Weight::from_parts(1000000000, 0),
+					}.into(),
+					Box::new((
+						helpers::VerifySubmitMessagesProofOutcome::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::expect_last_delivered_nonce(
+							lane_id,
+							1,
+						),
+						if expect_rewards {
+							helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime, RuntimeHelper::RPI>::expect_relayer_reward(
+								relayer_id_at_this_chain,
+								RewardsAccountParams::new(
+									lane_id,
+									bridged_chain_id,
+									RewardsAccountOwner::ThisChain,
+								),
+							)
+						} else {
+							Box::new(())
+						}
+					)),
+				),
+			]
+		},
+	);
 }
