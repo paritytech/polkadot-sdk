@@ -91,13 +91,26 @@ impl<T: Config> VotingHooks<AccountIdOf<T>, ReferendumIndex, BalanceOf<T>> for P
 		Ok(())
 	}
 	fn on_remove_vote(_who: &AccountIdOf<T>, _ref_index: ReferendumIndex, _status: Status) {
-		let ref_info = T::Governance::get_referendum_info(_ref_index.into()).expect("No referendum info found");
+		let ref_info = match T::Governance::get_referendum_info(_ref_index.into()) {
+			Some(info) => info,
+			None => return,
+		};
 
-		let ref_status = T::Governance::handle_referendum_info(ref_info.clone()).expect("No referendum status found");
-			match ref_status {
-				ReferendumStates::Ongoing => {
-				let project_id = T::Governance::get_project_id(_ref_index.into()).expect("No project id found");
-				let vote_infos = Votes::<T>::get(&project_id, _who).expect("No vote info found");
+		let ref_status = match T::Governance::handle_referendum_info(ref_info.clone()){
+			Some(status) => status,
+			None => return,
+		};
+		match ref_status {
+			ReferendumStates::Ongoing => {
+				let project_id =
+					match T::Governance::get_project_id(_ref_index.into()) {
+						Ok(project_id) => project_id,
+						Err(_) => return,
+					};
+				let vote_infos = match Votes::<T>::get(&project_id, _who) {
+					Some(vote_infos) => vote_infos,
+					None => return,
+				};
 				let vote_info = vote_infos;
 				let amount = vote_info.amount;
 				// Unlock user's funds
@@ -106,14 +119,14 @@ impl<T: Config> VotingHooks<AccountIdOf<T>, ReferendumIndex, BalanceOf<T>> for P
 					&_who,
 					amount,
 					Precision::Exact,
-				).ok()
-
-				}
-				_ => {
-					// No-op
-					None
-				}
-			};
+				)
+				.ok()
+			},
+			_ => {
+				// No-op
+				None
+			},
+		};
 	}
 	fn lock_balance_on_unsuccessful_vote(
 		_who: &AccountIdOf<T>,
@@ -176,7 +189,12 @@ where
 
 	fn create_proposal(proposal_call: Self::Call) -> Self::Proposal {
 		let call_formatted = <T as pallet_referenda::Config<I>>::RuntimeCall::from(proposal_call);
-		let bounded_proposal = Self::Preimages::bound(call_formatted).expect("Operation failed");
+		let bounded_proposal = match Self::Preimages::bound(call_formatted){
+			Ok(bounded_proposal) => bounded_proposal,
+			Err(_) => {
+				panic!("Failed to bound proposal");
+			},
+		};
 		bounded_proposal
 	}
 
