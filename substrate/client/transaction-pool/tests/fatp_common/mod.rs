@@ -230,9 +230,9 @@ macro_rules! assert_watcher_stream {
 	($stream:ident, [$( $event:expr ),*]) => {{
 		let expected = vec![ $($event),*];
 		tracing::debug!(
-    		target: LOG_TARGET,
-    		?expected,
-    		expected_len = expected.len(),
+			target: LOG_TARGET,
+			?expected,
+			expected_len = expected.len(),
     		"block now"
 		);
 		let output = futures::executor::block_on_stream($stream).take(expected.len()).collect::<Vec<_>>();
