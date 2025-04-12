@@ -20,6 +20,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 /// Initialize a key-value collection from array.
 ///
 /// Creates a vector of given pairs and calls `collect` on the iterator from it.
@@ -31,8 +33,6 @@ macro_rules! map {
 	);
 }
 
-extern crate alloc;
-
 use alloc::vec::Vec;
 #[doc(hidden)]
 pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -42,7 +42,6 @@ use scale_info::TypeInfo;
 pub use serde;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use sp_runtime_interface::pass_by::{PassByEnum, PassByInner};
 
 pub use sp_debug_derive::RuntimeDebug;
 
@@ -62,11 +61,11 @@ pub use paste;
 mod address_uri;
 pub mod defer;
 pub mod hash;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod hasher;
 pub mod offchain;
 pub mod testing;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub mod traits;
 pub mod uint;
 
@@ -91,9 +90,9 @@ pub use self::{
 };
 pub use crypto::{ByteArray, DeriveJunction, Pair, Public};
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use self::hasher::blake2::Blake2Hasher;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use self::hasher::keccak::KeccakHasher;
 pub use hash_db::Hasher;
 
@@ -180,7 +179,6 @@ impl Deref for OpaqueMetadata {
 	Decode,
 	DecodeWithMemTracking,
 	RuntimeDebug,
-	PassByInner,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -202,7 +200,7 @@ pub trait TypeId {
 /// A log level matching the one from `log` crate.
 ///
 /// Used internally by `sp_io::logging::log` method.
-#[derive(Encode, Decode, PassByEnum, Copy, Clone)]
+#[derive(Encode, Decode, Copy, Clone)]
 pub enum LogLevel {
 	/// `Error` log level.
 	Error = 1_isize,
@@ -214,6 +212,26 @@ pub enum LogLevel {
 	Debug = 4_isize,
 	/// `Trace` log level.
 	Trace = 5_isize,
+}
+
+impl TryFrom<u8> for LogLevel {
+	type Error = ();
+	fn try_from(value: u8) -> Result<Self, ()> {
+		match value {
+			1 => Ok(Self::Error),
+			2 => Ok(Self::Warn),
+			3 => Ok(Self::Info),
+			4 => Ok(Self::Debug),
+			5 => Ok(Self::Trace),
+			_ => Err(()),
+		}
+	}
+}
+
+impl From<LogLevel> for u8 {
+	fn from(value: LogLevel) -> Self {
+		value as Self
+	}
 }
 
 impl From<u32> for LogLevel {
@@ -257,7 +275,7 @@ impl From<LogLevel> for log::Level {
 /// Log level filter that expresses which log levels should be filtered.
 ///
 /// This enum matches the [`log::LevelFilter`] enum.
-#[derive(Encode, Decode, PassByEnum, Copy, Clone)]
+#[derive(Encode, Decode, Copy, Clone)]
 pub enum LogLevelFilter {
 	/// `Off` log level filter.
 	Off = 0_isize,
@@ -271,6 +289,27 @@ pub enum LogLevelFilter {
 	Debug = 4_isize,
 	/// `Trace` log level filter.
 	Trace = 5_isize,
+}
+
+impl TryFrom<u8> for LogLevelFilter {
+	type Error = ();
+	fn try_from(value: u8) -> Result<Self, ()> {
+		match value {
+			0 => Ok(Self::Off),
+			1 => Ok(Self::Error),
+			2 => Ok(Self::Warn),
+			3 => Ok(Self::Info),
+			4 => Ok(Self::Debug),
+			5 => Ok(Self::Trace),
+			_ => Err(()),
+		}
+	}
+}
+
+impl From<LogLevelFilter> for u8 {
+	fn from(value: LogLevelFilter) -> Self {
+		value as Self
+	}
 }
 
 impl From<LogLevelFilter> for log::LevelFilter {
