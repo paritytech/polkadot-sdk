@@ -13,12 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The Ambassador Program's referenda voting tracks.
+//! The Ambassador Fellowship's referenda voting tracks.
 
-use super::Origin;
 use crate::{Balance, BlockNumber, RuntimeOrigin, DAYS, DOLLARS, HOURS};
 use sp_runtime::{str_array as s, Perbill};
 use sp_std::borrow::Cow;
+use frame_support::traits::{CallerTrait};
 
 /// Referendum `TrackId` type.
 pub type TrackId = u16;
@@ -27,15 +27,17 @@ pub type TrackId = u16;
 pub mod constants {
 	use super::TrackId;
 
-	pub const AMBASSADOR_TIER_1: TrackId = 1;
-	pub const AMBASSADOR_TIER_2: TrackId = 2;
-	pub const SENIOR_AMBASSADOR_TIER_3: TrackId = 3;
-	pub const SENIOR_AMBASSADOR_TIER_4: TrackId = 4;
-	pub const HEAD_AMBASSADOR_TIER_5: TrackId = 5;
-	pub const HEAD_AMBASSADOR_TIER_6: TrackId = 6;
-	pub const HEAD_AMBASSADOR_TIER_7: TrackId = 7;
-	pub const MASTER_AMBASSADOR_TIER_8: TrackId = 8;
-	pub const MASTER_AMBASSADOR_TIER_9: TrackId = 9;
+	// Tier A: Learners
+	pub const ASSOCIATE_AMBASSADOR: TrackId = 1;
+	pub const LEAD_AMBASSADOR: TrackId = 2;
+
+	// Tier B: Engagers
+	pub const SENIOR_AMBASSADOR: TrackId = 3;
+	pub const PRINCIPAL_AMBASSADOR: TrackId = 4;
+
+	// Tier C: Drivers
+	pub const GLOBAL_AMBASSADOR: TrackId = 5;
+	pub const GLOBAL_HEAD_AMBASSADOR: TrackId = 6;
 }
 
 /// The type implementing the [`pallet_referenda::TracksInfo`] trait for referenda pallet.
@@ -51,11 +53,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 	fn tracks(
 	) -> impl Iterator<Item = Cow<'static, pallet_referenda::Track<Self::Id, Balance, BlockNumber>>>
 	{
-		static DATA: [pallet_referenda::Track<TrackId, Balance, BlockNumber>; 9] = [
+		static DATA: [pallet_referenda::Track<TrackId, Balance, BlockNumber>; 6] = [
 			pallet_referenda::Track {
-				id: constants::AMBASSADOR_TIER_1,
+				id: constants::ASSOCIATE_AMBASSADOR,
 				info: pallet_referenda::TrackInfo {
-					name: s("ambassador tier 1"),
+					name: s("associate ambassador"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -75,9 +77,9 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				},
 			},
 			pallet_referenda::Track {
-				id: constants::AMBASSADOR_TIER_2,
+				id: constants::LEAD_AMBASSADOR,
 				info: pallet_referenda::TrackInfo {
-					name: s("ambassador tier 2"),
+					name: s("lead ambassador"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -97,9 +99,9 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				},
 			},
 			pallet_referenda::Track {
-				id: constants::SENIOR_AMBASSADOR_TIER_3,
+				id: constants::SENIOR_AMBASSADOR,
 				info: pallet_referenda::TrackInfo {
-					name: s("senior ambassador tier 3"),
+					name: s("senior ambassador"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -119,9 +121,9 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				},
 			},
 			pallet_referenda::Track {
-				id: constants::SENIOR_AMBASSADOR_TIER_4,
+				id: constants::PRINCIPAL_AMBASSADOR,
 				info: pallet_referenda::TrackInfo {
-					name: s("senior ambassador tier 4"),
+					name: s("principal ambassador"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -141,9 +143,9 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				},
 			},
 			pallet_referenda::Track {
-				id: constants::HEAD_AMBASSADOR_TIER_5,
+				id: constants::GLOBAL_AMBASSADOR,
 				info: pallet_referenda::TrackInfo {
-					name: s("head ambassador tier 5"),
+					name: s("global ambassador"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -163,75 +165,9 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				},
 			},
 			pallet_referenda::Track {
-				id: constants::HEAD_AMBASSADOR_TIER_6,
+				id: constants::GLOBAL_HEAD_AMBASSADOR,
 				info: pallet_referenda::TrackInfo {
-					name: s("head ambassador tier 6"),
-					max_deciding: 10,
-					decision_deposit: 5 * DOLLARS,
-					prepare_period: 24 * HOURS,
-					decision_period: 1 * DAYS,
-					confirm_period: 24 * HOURS,
-					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
-						length: Perbill::from_percent(100),
-						floor: Perbill::from_percent(50),
-						ceil: Perbill::from_percent(100),
-					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
-						length: Perbill::from_percent(100),
-						floor: Perbill::from_percent(10),
-						ceil: Perbill::from_percent(50),
-					},
-				},
-			},
-			pallet_referenda::Track {
-				id: constants::HEAD_AMBASSADOR_TIER_7,
-				info: pallet_referenda::TrackInfo {
-					name: s("head ambassador tier 7"),
-					max_deciding: 10,
-					decision_deposit: 5 * DOLLARS,
-					prepare_period: 24 * HOURS,
-					decision_period: 1 * DAYS,
-					confirm_period: 24 * HOURS,
-					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
-						length: Perbill::from_percent(100),
-						floor: Perbill::from_percent(50),
-						ceil: Perbill::from_percent(100),
-					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
-						length: Perbill::from_percent(100),
-						floor: Perbill::from_percent(10),
-						ceil: Perbill::from_percent(50),
-					},
-				},
-			},
-			pallet_referenda::Track {
-				id: constants::MASTER_AMBASSADOR_TIER_8,
-				info: pallet_referenda::TrackInfo {
-					name: s("master ambassador tier 8"),
-					max_deciding: 10,
-					decision_deposit: 5 * DOLLARS,
-					prepare_period: 24 * HOURS,
-					decision_period: 1 * DAYS,
-					confirm_period: 24 * HOURS,
-					min_enactment_period: 1 * HOURS,
-					min_approval: pallet_referenda::Curve::LinearDecreasing {
-						length: Perbill::from_percent(100),
-						floor: Perbill::from_percent(50),
-						ceil: Perbill::from_percent(100),
-					},
-					min_support: pallet_referenda::Curve::LinearDecreasing {
-						length: Perbill::from_percent(100),
-						floor: Perbill::from_percent(10),
-						ceil: Perbill::from_percent(50),
-					},
-				},
-			},
-			pallet_referenda::Track {
-				id: constants::MASTER_AMBASSADOR_TIER_9,
-				info: pallet_referenda::TrackInfo {
-					name: s("master ambassador tier 9"),
+					name: s("global head ambassador"),
 					max_deciding: 10,
 					decision_deposit: 5 * DOLLARS,
 					prepare_period: 24 * HOURS,
@@ -251,32 +187,36 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				},
 			},
 		];
-		DATA.iter().map(Cow::Borrowed)
+		DATA.iter().map(|x| Cow::Borrowed(x))
 	}
 
 	/// Determine the voting track for the given `origin`.
-	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
-		#[cfg(feature = "runtime-benchmarks")]
-		{
-			// For benchmarks, we enable a root origin.
-			// It is important that this is not available in production!
-			let root: Self::RuntimeOrigin = frame_system::RawOrigin::Root.into();
-			if &root == id {
-				return Ok(constants::MASTER_AMBASSADOR_TIER_9)
-			}
+	fn track_for(origin: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
+		use constants::*;
+		use scale_info::prelude::format;
+
+		// Check if it's a system origin
+		if origin.is_root() || origin.is_none() {
+			return Err(());
 		}
 
-		match Origin::try_from(id.clone()) {
-			Ok(Origin::Ambassadors) => Ok(constants::AMBASSADOR_TIER_1),
-			Ok(Origin::AmbassadorsTier2) => Ok(constants::AMBASSADOR_TIER_2),
-			Ok(Origin::SeniorAmbassadors) => Ok(constants::SENIOR_AMBASSADOR_TIER_3),
-			Ok(Origin::SeniorAmbassadorsTier4) => Ok(constants::SENIOR_AMBASSADOR_TIER_4),
-			Ok(Origin::HeadAmbassadors) => Ok(constants::HEAD_AMBASSADOR_TIER_5),
-			Ok(Origin::HeadAmbassadorsTier6) => Ok(constants::HEAD_AMBASSADOR_TIER_6),
-			Ok(Origin::HeadAmbassadorsTier7) => Ok(constants::HEAD_AMBASSADOR_TIER_7),
-			Ok(Origin::MasterAmbassadors) => Ok(constants::MASTER_AMBASSADOR_TIER_8),
-			Ok(Origin::MasterAmbassadorsTier9) => Ok(constants::MASTER_AMBASSADOR_TIER_9),
-			_ => Err(()),
+		let origin_str = format!("{:?}", origin);
+
+		// Check for each ambassador origin by looking at the debug string
+		if origin_str.contains("GlobalHeadAmbassadors") {
+			return Ok(GLOBAL_HEAD_AMBASSADOR);
+		} else if origin_str.contains("GlobalAmbassadors") {
+			return Ok(GLOBAL_AMBASSADOR);
+		} else if origin_str.contains("PrincipalAmbassadors") {
+			return Ok(PRINCIPAL_AMBASSADOR);
+		} else if origin_str.contains("SeniorAmbassadors") {
+			return Ok(SENIOR_AMBASSADOR);
+		} else if origin_str.contains("LeadAmbassadors") {
+			return Ok(LEAD_AMBASSADOR);
+		} else if origin_str.contains("AssociateAmbassadors") {
+			return Ok(ASSOCIATE_AMBASSADOR);
 		}
+
+		Err(())
 	}
 }

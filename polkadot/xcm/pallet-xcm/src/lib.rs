@@ -221,7 +221,7 @@ pub mod pallet {
 		/// support.
 		pub const CurrentXcmVersion: u32 = XCM_VERSION;
 
-		#[derive(Debug, TypeInfo)]
+		#[derive(TypeInfo)]
 		/// The maximum number of distinct locations allowed as authorized aliases for a local origin.
 		pub const MaxAuthorizedAliases: u32 = 10;
 	}

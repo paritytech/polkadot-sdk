@@ -46,7 +46,12 @@ pub mod fellowship;
 
 extern crate alloc;
 
-pub use ambassador::pallet_ambassador_origins;
+pub use ambassador::{
+	origins::pallet_origins as pallet_ambassador_origins, AmbassadorCollective, AmbassadorCore,
+	AmbassadorOptimisticFundingInstance, AmbassadorReferenda, AmbassadorRegistration, AmbassadorSalary,
+	EnsureAmbassador, EnsureAmbassadorsVoice, EnsureAmbassadorsVoiceFrom, EnsureCanDemoteTo,
+	EnsureCanPromoteTo, EnsureCanRetainAt, EnsureGlobalHeadAmbassadorsVoice, Origin as AmbassadorOrigin,
+};
 
 use alloc::{vec, vec::Vec};
 use ambassador::AmbassadorCoreInstance;
@@ -310,7 +315,7 @@ pub enum ProxyType {
 	Alliance,
 	/// Fellowship proxy. Allows calls related to the Fellowship.
 	Fellowship,
-	/// Ambassador proxy. Allows calls related to the Ambassador Program.
+	/// Ambassador proxy. Allows calls related to the Ambassador Fellowship Program.
 	Ambassador,
 }
 impl Default for ProxyType {
@@ -722,13 +727,15 @@ construct_runtime!(
 		// pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
 		FellowshipTreasury: pallet_treasury::<Instance1> = 65,
 
-		// Ambassador Program.
+		// Ambassador Fellowship Program.
 		AmbassadorCollective: pallet_ranked_collective::<Instance2> = 70,
 		AmbassadorReferenda: pallet_referenda::<Instance2> = 71,
 		AmbassadorOrigins: pallet_ambassador_origins = 72,
 		AmbassadorCore: pallet_core_fellowship::<Instance2> = 73,
 		AmbassadorSalary: pallet_salary::<Instance2> = 74,
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
+		AmbassadorOptimisticFunding: pallet_optimistic_funding::<Instance1> = 76,
+		AmbassadorRegistration: pallet_ambassador_registration = 77,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
 	}
