@@ -121,7 +121,7 @@ impl WeightInfo for TestWeightInfo {
 	}
 
 	fn execute() -> Weight {
-		Weight::from_parts(100_000_000, 0)
+		Weight::from_parts(100_000_000, 2000)
 	}
 
 	fn force_xcm_version() -> Weight {

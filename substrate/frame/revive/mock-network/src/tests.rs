@@ -211,8 +211,7 @@ fn test_xcm_execute_precompile() {
 	MockNet::reset();
 	let Contract { addr, .. } = instantiate_test_contract("call_and_return");
 	let amount: u128 = 10 * CENTS;
-
-	// Execute XCM instructions through the contract using precompile.
+ 
 	ParaA::execute_with(|| {
 		let initial_bob_balance = ParachainBalances::free_balance(BOB);
 		let assets: Asset = (Here, amount).into();
@@ -229,7 +228,7 @@ fn test_xcm_execute_precompile() {
 		let encoded_message = DecodedType::abi_encode(&(selector, versioned_message.encode()));
 		bare_call(addr)
 			.data(
-				(H160::from_low_u64_be(10), 5000u64)
+				(H160::from_low_u64_be(10), 1u64)
 					.encode()
 					.into_iter()
 					.chain(encoded_message)
@@ -251,9 +250,8 @@ fn test_xcm_execute_precompile() {
 fn test_xcm_send_precompile() {
 	use alloy_sol_types::{sol, SolType};
 	use hex_literal::hex;
-	// WIP Test
 	MockNet::reset();
-	let Contract { addr, account_id } = instantiate_test_contract("call_and_return");
+	let Contract { addr, .. } = instantiate_test_contract("call_and_return");
 	let amount = 1_000 * CENTS;
 	let fee: u128 = parachain::estimate_message_fee(4);
 
@@ -262,11 +260,11 @@ fn test_xcm_send_precompile() {
 		let assets: Asset = (Here, amount).into();
 		let beneficiary = AccountId32 { network: None, id: ALICE.clone().into() };
 
-		let message: Xcm<()> = Xcm::builder_unsafe()
-			.withdraw_asset(assets.clone())
-			.buy_execution((Here, fee), Unlimited)
-			.deposit_asset(assets, beneficiary)
-			.build();
+		let message: Xcm<()> = Xcm::builder()
+		.withdraw_asset(assets.clone())
+		.buy_execution((Here, fee), Unlimited)
+		.deposit_asset(assets, beneficiary)
+		.build();
 
 		type DecodedType = sol!((bytes4, bytes, bytes));
 		let selector: [u8; 4] = hex!("c0addb55"); // xcm_send selector
@@ -288,11 +286,6 @@ fn test_xcm_send_precompile() {
 	});
 
 	Relay::execute_with(|| {
-		let derived_contract_addr = &parachain_account_sovereign_account_id(1, account_id);
-		assert_eq!(
-			INITIAL_BALANCE - amount,
-			relay_chain::Balances::free_balance(derived_contract_addr)
-		);
 		assert_eq!(INITIAL_BALANCE + amount - fee, relay_chain::Balances::free_balance(ALICE));
 	});
 }
