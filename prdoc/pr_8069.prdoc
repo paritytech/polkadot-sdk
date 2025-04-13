@@ -8,4 +8,8 @@ doc:
     description: |
       Adds checking storage weights on block validation for both read and write benchmarks.
 
-crates: [ ]
+crates:
+  - name: cumulus-pallet-parachain-system
+    bump: patch
+  - name: frame-benchmarking-cli
+    bump: patch
