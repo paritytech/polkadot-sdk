@@ -120,18 +120,59 @@ fn conviction_vote_works() {
 		let dave_hold = <Test as Config>::NativeBalance::total_balance_on_hold(&DAVE);
 		assert_eq!(bob_hold, 100);
 		assert_eq!(dave_hold, 100);
-		/*let round_number = NextVotingRoundNumber::<Test>::get().saturating_sub(1);
-		assert_eq!(round_number, 0);
-
-		let bob_vote_unlock = round_end.saturating_add(vote_validity);
-		let dave_vote_unlock = bob_vote_unlock.saturating_add(vote_validity);
-
-		let bob_vote_info = Votes::<Test>::get(101, BOB).unwrap();
-		let dave_vote_info = Votes::<Test>::get(102, DAVE).unwrap();
-
-		assert_eq!(bob_vote_info.funds_unlock_block, bob_vote_unlock);
-		assert_eq!(dave_vote_info.funds_unlock_block, dave_vote_unlock);*/
+		
 	})
+}
+
+#[test]
+fn test_release_voter_funds_success() {
+	new_test_ext().execute_with(|| {
+		// Setup
+		let batch = project_list();
+
+		assert_ok!(Opf::register_projects_batch(RawOrigin::Root.into(), batch));
+
+		let time_periods = <Test as Config>::Governance::get_time_periods(1).ok().unwrap();
+
+		let prepare_period = time_periods.prepare_period.try_into().unwrap_or(0);
+		let decision_period = time_periods.decision_period.try_into().unwrap_or(0);
+		let now = <Test as Config>::BlockNumberProvider::current_block_number();
+		let decision_block = now.saturating_add(decision_period + prepare_period);
+		assert_eq!(decision_block > 0, true);
+
+		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to
+		// 2000*BSX locked
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			101,
+			1000 * BSX,
+			true,
+			Conviction::Locked2x
+		));
+
+		let round_info = VotingRounds::<Test>::get(0).unwrap();
+		let project_info = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
+		let referendum_index = project_info.index;
+		let vote_info = Votes::<Test>::get(referendum_index, BOB).unwrap();
+		let unlock_block = vote_info.funds_unlock_block;
+		let now = <Test as Config>::BlockNumberProvider::current_block_number();
+		run_to_block(now+6);
+		
+		//Bobs funds are locked
+		let bob_hold1 = <Test as Config>::NativeBalance::total_balance_on_hold(&BOB);
+		assert_eq!(bob_hold1>0, true);
+		// Bob still cannot release his funds
+		assert_ok!(
+			Opf::release_voter_funds(RawOrigin::Signed(BOB).into(), 101, BOB)
+		);
+		expect_events(vec![mock::RuntimeEvent::ConvictionVoting(pallet_conviction_voting::Event::VoteUnlocked {
+			who: 11,
+			 class: 0,
+	 })]);
+		
+
+	
+	});
 }
 
 #[test]

@@ -67,8 +67,6 @@ pub type VoterId<T> = AccountIdOf<T>;
 pub type ProvidedBlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 pub type AccountVoteOf<T> = pallet_conviction_voting::AccountVote<BalanceOf<T>>;
-pub type RefInfoOf<T> =
-	<<T as Config>::Governance as ReferendumTrait<AccountIdOf<T>>>::ReferendumInfo;
 pub use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 pub type SubmitOrigin<T> = <T as pallet_referenda::Config>::SubmitOrigin;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]

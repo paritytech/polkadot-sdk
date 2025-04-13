@@ -607,21 +607,20 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::release_voter_funds(T::MaxProjects::get()))]
 		pub fn release_voter_funds(
 			origin: OriginFor<T>,
-			referendum_index: ReferendumIndex,
+			project_id: ProjectId<T>,
+			voter_id: VoterId<T>,
 		) -> DispatchResult {
-			let voter_id = ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
+			let project_infos =
+				WhiteListedProjectAccounts::<T>::get(project_id.clone())
+					.ok_or(Error::<T>::NoProjectAvailable)?;
+			let referendum_index = project_infos.index;
 			ensure!(Votes::<T>::contains_key(&referendum_index, &voter_id), Error::<T>::NoVoteData);
-			let infos = Votes::<T>::get(&referendum_index, &voter_id).ok_or(Error::<T>::NoVoteData)?;
-			let release_block = infos.funds_unlock_block;
-			let amount = infos.amount;
 
-			let now = T::BlockNumberProvider::current_block_number();
-			ensure!(now >= release_block, Error::<T>::NotUnlockPeriod);
-			T::NativeBalance::release(
-				&HoldReason::FundsReserved.into(),
-				&voter_id,
-				amount,
-				Precision::Exact,
+			T::Conviction::unlock_voter_balance(
+				caller,
+				referendum_index.into(),
+				voter_id.clone(),
 			)?;
 
 			Votes::<T>::remove(&referendum_index, &voter_id);

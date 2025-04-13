@@ -51,6 +51,7 @@ pub trait ConvictionVotingTrait<AccountId> {
 		vote: Self::AccountVote,
 	) -> DispatchResult;
 	fn try_remove_vote(caller: &AccountId, ref_index: Self::Index) -> DispatchResult;
+	fn unlock_voter_balance(caller: AccountId, ref_index: Self::Index, voter: AccountId) -> DispatchResult;
 }
 
 // Implement VotingHooks for pallet_conviction_voting
@@ -162,6 +163,21 @@ impl<T: pallet_conviction_voting::Config<I>, I: 'static> ConvictionVotingTrait<A
 	fn try_remove_vote(caller: &AccountIdOf<T>,ref_index: Self::Index) -> DispatchResult {
 		let origin = RawOrigin::Signed(caller.clone());
 		pallet_conviction_voting::Pallet::<T, I>::remove_vote(origin.into(),None,ref_index)?;
+		Ok(())
+	}
+	fn unlock_voter_balance(
+		caller: AccountIdOf<T>,
+		ref_index: Self::Index,
+		voter: AccountIdOf<T>,
+	) -> DispatchResult{
+		let origin = RawOrigin::Signed(caller.clone());
+		let infos = T::Polls::as_ongoing(ref_index)
+			.ok_or_else(|| DispatchError::Other("No ongoing referendum found"))?;
+		let class = infos.1;
+		// get type AccountIdLookupOf<T> from voter
+		let target = T::Lookup::unlookup(voter.clone());
+		pallet_conviction_voting::Pallet::<T, I>::unlock(origin.into(), class,target.into())?;
+
 		Ok(())
 	}
 }
