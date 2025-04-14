@@ -526,10 +526,24 @@ fn create_project_cargo_toml(
 		//
 		// TODO: Remove this once a new version of `bitvec` (which uses a new version of `radium`
 		//       which doesn't have this problem) is released on crates.io.
-		let patch = toml::toml! {
+		let radium_patch = toml::toml! {
 			[crates-io]
 			radium = { git = "https://github.com/paritytech/radium-0.7-fork.git", rev = "a5da15a15c90fd169d661d206cf0db592487f52b" }
 		};
+
+		let mut patch = wasm_workspace_toml
+			.get("patch")
+			.and_then(|p| p.as_table().cloned())
+			.unwrap_or_default();
+
+		if let Some(existing_crates_io) = patch.get_mut("crates-io").and_then(|t| t.as_table_mut()) {
+			if let Some(radium_table) = radium_patch.get("crates-io").and_then(|t| t.as_table()) {
+				existing_crates_io.extend(radium_table.clone());
+			}
+		} else {
+			patch.insert("crates-io".into(), radium_patch.get("crates-io").unwrap().clone());
+		}
+
 		wasm_workspace_toml.insert("patch".into(), patch.into());
 	}
 
