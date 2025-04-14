@@ -227,12 +227,10 @@ pub mod pallet {
 		fn send(origin: H256, command: Command, fee: u128) -> DispatchResult {
 			let mut message = Message {
 				origin,
-				id: Default::default(),
+				id: frame_system::unique((origin, command, fee)),
 				fee,
 				commands: BoundedVec::try_from(vec![command]).unwrap(),
 			};
-			let hash = sp_io::hashing::blake2_256(&message.encode());
-			message.id = hash.into();
 
 			let ticket = <T as pallet::Config>::OutboundQueue::validate(&message)
 				.map_err(|err| Error::<T>::Send(err))?;
