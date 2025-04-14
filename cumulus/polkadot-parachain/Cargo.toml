@@ -17,7 +17,6 @@ name = "polkadot-parachain"
 path = "src/main.rs"
 
 [dependencies]
-clap = { features = ["derive"], workspace = true }
 color-eyre = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
