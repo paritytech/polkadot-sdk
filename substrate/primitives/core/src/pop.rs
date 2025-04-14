@@ -31,7 +31,7 @@ where
 	/// The proof of possession generator is supposed to
 	/// produce a "signature" with unique hash context that should
 	/// never be used in other signatures. This proves that
-	/// that the secret key is known to the prover. While prevent
+	/// the secret key is known to the prover. While prevent
 	/// malicious actors to trick an honest party to sign an
 	/// unpossessed public key resulting in a rogue key attack (See: Section 4.3 of
 	/// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
