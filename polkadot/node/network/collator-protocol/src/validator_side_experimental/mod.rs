@@ -42,6 +42,9 @@ pub use metrics::Metrics;
 
 use crate::LOG_TARGET;
 
+// See reasoning in Cargo.toml why this temporary useless import is needed.
+use tokio as _;
+
 /// The main run loop.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 pub(crate) async fn run<Context>(
