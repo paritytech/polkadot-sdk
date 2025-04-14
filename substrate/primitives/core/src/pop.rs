@@ -29,6 +29,8 @@ pub trait ProofOfPossessionGenerator: Pair
 where
 	Self::Public: CryptoType,
 {
+	/// Generate proof of possession.
+	///
 	/// The proof of possession generator is supposed to
 	/// produce a "signature" with unique hash context that should
 	/// never be used in other signatures. This proves that
