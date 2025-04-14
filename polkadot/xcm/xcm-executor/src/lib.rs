@@ -289,7 +289,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 
 		if let Some(SetTopic(topic_id)) = message.last() {
 			tracing::trace!(target: "xcm::execute", ?topic_id, "Message still ends with `SetTopic` after `Barrier::should_execute`");
-		} else if orig_topic_id == properties.message_id {
+		} else if properties.message_id.is_some() && orig_topic_id == properties.message_id {
 			// properties.message_id may be updated by `TrailingSetTopicAsId`
 			if let Some(topic_id) = orig_topic_id {
 				message.inner_mut().push(SetTopic(topic_id));
@@ -823,12 +823,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	/// Preserves the original message ID as a topic if none exists and origin is cleared.
 	fn preserve_message_topic<T>(&self, msg: &mut Xcm<T>) {
+		let topic_id = self.context.message_id;
 		if let Some(SetTopic(topic_id)) = msg.last() {
 			tracing::trace!(target: "xcm::send", ?topic_id, "Message already ends with `SetTopic`");
-			// } else if self.context.origin.is_none() && self.context.topic.is_none() {
-			// 	let topic_id = self.context.message_id;
-			// 	msg.inner_mut().push(SetTopic(topic_id));
-			// 	tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` appended to message");
+		} else if self.context.origin.is_none() && self.context.topic.is_none() {
+			msg.inner_mut().push(SetTopic(topic_id));
+			tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` appended to message");
+		} else {
+			tracing::trace!(target: "xcm::send", ?topic_id, "`SetTopic` neither found nor append at the end of message");
 		}
 	}
 
