@@ -70,8 +70,10 @@ where
 	}
 }
 
-/// Marker trait to identify whether the scheme is not aggregatable thus changing
-/// the implementation of the scheme parts such as Proof Of Possession or other specifics.
+/// Marker trait to identify whether the scheme is not aggregatable.
+///
+/// Aggregatable schemes may change/optimize implementation parts such as Proof Of Possession
+/// or other specifics.
 ///
 /// This is specifically because implementation of proof of possession for aggregatable schemes
 /// is security critical.
