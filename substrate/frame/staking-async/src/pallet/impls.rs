@@ -1089,7 +1089,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 		Eras::<T>::reward_active_era(validator_points.into_iter());
 		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp);
-		// NOTE: we might want to either return these weights so that they are registered in the rc-client pallet, or directly benchmarked there, such that we can use them in the "pre-dispatch" fashion. That said, since these are all `Mandatory` weights, it doesn't make that big of a difference.
+		// NOTE: we might want to either return these weights so that they are registered in the
+		// rc-client pallet, or directly benchmarked there, such that we can use them in the
+		// "pre-dispatch" fashion. That said, since these are all `Mandatory` weights, it doesn't
+		// make that big of a difference.
 		Self::register_weight(consumed_weight);
 	}
 

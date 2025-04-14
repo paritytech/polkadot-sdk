@@ -131,7 +131,6 @@ impl<T: Config> Eras<T> {
 			e3
 		};
 
-
 		assert!(
 			vec![e2, e3, e4].windows(2).all(|w| w[0] == w[1]),
 			"era info presence not consistent for era {}: {}, {}, {}",

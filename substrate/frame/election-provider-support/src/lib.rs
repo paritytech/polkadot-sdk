@@ -514,7 +514,8 @@ pub trait ElectionProvider {
 	/// not be called. `Ok(true)` means we are done and ready for a call to `elect`.
 	fn status() -> Result<bool, ()>;
 
-	/// Signal the election provider that we are about to call `elect` asap, and it should prepare itself.
+	/// Signal the election provider that we are about to call `elect` asap, and it should prepare
+	/// itself.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn asap() {}
 }

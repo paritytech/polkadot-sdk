@@ -286,10 +286,7 @@ pub trait AHStakingInterface {
 	/// Report one or more offences on the relay chain.
 	///
 	/// This returns its consumed weight because its complexity is hard to measure.
-	fn on_new_offences(
-		slash_session: SessionIndex,
-		offences: Vec<Offence<Self::AccountId>>,
-	);
+	fn on_new_offences(slash_session: SessionIndex, offences: Vec<Offence<Self::AccountId>>);
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.
