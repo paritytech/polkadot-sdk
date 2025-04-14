@@ -25,7 +25,7 @@ use crate::{
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
-	extra_commands::{ExtraSubcommand, ExtraSubcommands},
+	extra_commands::{ExtraSubcommand, ExtraSubcommands, NoExtraSubcommand},
 	fake_runtime_api,
 	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
@@ -113,13 +113,13 @@ fn new_node_spec(
 /// Entrypoint to run the CLI with optional extra subcommands.
 ///
 /// This function wraps the parsing of arguments and dispatching to either:
-/// - A built-in subcommand (e.g., `build-spec`, `export-genesis-head`)
+/// - A built-in subcommand (e.g., `key`, `export-genesis-head`)
 /// - A user-defined extra subcommand via the `ExtraSubcommand` trait
 ///
 /// # Type Parameters
-/// - `CliConfig`: Runtime-specific configuration (e.g., network, spec versions)
-/// - `Extra`: One or more subcommands implementing `ExtraSubcommand`
-pub fn run<CliConfig, Extra: ExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
+/// - `CliConfig`: Customization trait for user facing information of the node binary CLI
+/// - `Extra`: Type referencing an optional set of subcommands to be handled by the node
+pub fn run<CliConfig, Extra: ExtraSubcommand = NoExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
 where
 	CliConfig: crate::cli::CliConfig,
 	Extra: ExtraSubcommand,
