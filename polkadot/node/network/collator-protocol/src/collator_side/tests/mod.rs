@@ -376,6 +376,13 @@ async fn distribute_collation_with_receipt(
 				}
 			) => {}
 		);
+		// Needed by collation tracker.
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::ChainApi(ChainApiMessage::BlockNumber(.., tx)) => {
+				tx.send(Ok(Some(1))).unwrap();
+			}
+		);
 	}
 
 	DistributeCollation { candidate, pov_block: pov }
@@ -464,6 +471,7 @@ async fn expect_advertise_collation_msg(
 	let mut candidate_hashes: HashSet<_> = expected_candidate_hashes.into_iter().collect();
 	let iter_num = candidate_hashes.len();
 
+	gum::warn!("Just received advertised");
 	for _ in 0..iter_num {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
@@ -702,6 +710,16 @@ fn advertise_and_send_collation() {
 			// Update our view, making the old relay parent go out of the implicit view.
 			update_view(&test_state, &mut virtual_overseer, vec![(test_state.relay_parent, 20)], 1)
 				.await;
+
+			for _ in 0..4 {
+				// Needed by collation tracker.
+				assert_matches!(
+					overseer_recv(&mut virtual_overseer).await,
+					AllMessages::ChainApi(ChainApiMessage::BlockNumber(.., tx)) => {
+						tx.send(Ok(Some(1))).unwrap();
+					}
+				);
+			}
 
 			let peer = test_state.validator_peer_id[2];
 
@@ -1393,6 +1411,13 @@ fn connect_to_buffered_groups() {
 				}
 			);
 
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::ChainApi(ChainApiMessage::BlockNumber(.., tx)) => {
+					tx.send(Ok(Some(1))).unwrap();
+				}
+			);
+
 			let head_a = test_state.relay_parent;
 
 			for (val, peer) in group_a.iter().zip(&peers_a) {
@@ -1459,6 +1484,7 @@ fn connect_to_buffered_groups() {
 				1,
 			)
 			.await;
+
 			test_state.group_rotation_info = test_state.group_rotation_info.bump_rotation();
 
 			let head_b = test_state.relay_parent;
@@ -1486,6 +1512,13 @@ fn connect_to_buffered_groups() {
 					for validator in group_a[1..].iter().chain(&group_b) {
 						assert!(validator_ids.contains(validator));
 					}
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::ChainApi(ChainApiMessage::BlockNumber(.., tx)) => {
+					tx.send(Ok(Some(1))).unwrap();
 				}
 			);
 

@@ -67,6 +67,21 @@ pub(super) async fn update_view(
 		if let Some((hash, number)) = ancestry_iter.next() {
 			assert_matches!(
 				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(
+						..,
+						RuntimeApiRequest::CandidateEvents(
+							tx
+						)
+					)
+				) => {
+
+					tx.send(Ok(vec![])).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
 				AllMessages::ChainApi(ChainApiMessage::BlockHeader(.., tx)) => {
 					let header = Header {
 						parent_hash: get_parent_hash(hash),
@@ -340,6 +355,14 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 				}
 			);
 
+			// Needed by collation tracker.
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::ChainApi(ChainApiMessage::BlockNumber(.., tx)) => {
+					tx.send(Ok(Some(1))).unwrap();
+				}
+			);
+
 			let candidate_hash = candidate.hash();
 
 			// Update peer views.
@@ -370,11 +393,29 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 					)
 					.await;
 				}
+
+				for _ in 0..2 {
+					assert_matches!(
+						overseer_recv(virtual_overseer).await,
+						AllMessages::ChainApi(ChainApiMessage::BlockNumber(.., tx)) => {
+							tx.send(Ok(Some(1))).unwrap();
+						}
+					);
+				}
 			}
 
 			// Head `c` goes out of view.
 			// Build a different candidate for this relay parent and attempt to distribute it.
 			update_view(&test_state, virtual_overseer, vec![(head_a, head_a_num)], 1).await;
+
+			for _ in 0..2 {
+				assert_matches!(
+					overseer_recv(virtual_overseer).await,
+					AllMessages::ChainApi(ChainApiMessage::BlockNumber(.., tx)) => {
+						tx.send(Ok(Some(1))).unwrap();
+					}
+				);
+			}
 
 			let pov = PoV { block_data: BlockData(vec![4, 5, 6]) };
 			let parent_head_data_hash = Hash::repeat_byte(0xBB);
@@ -668,6 +709,13 @@ fn advertise_and_send_collation_by_hash() {
 			update_view(&test_state, &mut virtual_overseer, vec![(head_b, head_b_num)], 1).await;
 			update_view(&test_state, &mut virtual_overseer, vec![(head_a, head_a_num)], 1).await;
 
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::ChainApi(ChainApiMessage::BlockNumber(.., tx)) => {
+					tx.send(Ok(Some(1))).unwrap();
+				}
+			);
+
 			let candidates: Vec<_> = (0..2)
 				.map(|i| {
 					let pov = PoV { block_data: BlockData(vec![i as u8]) };
@@ -681,6 +729,7 @@ fn advertise_and_send_collation_by_hash() {
 					(candidate, pov)
 				})
 				.collect();
+
 			for (candidate, pov) in &candidates {
 				distribute_collation_with_receipt(
 					&mut virtual_overseer,
