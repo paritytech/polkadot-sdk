@@ -61,6 +61,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 		(bp_bridge_hub_westend::BridgeHubWestend, bp_asset_hub_westend::AssetHubWestend);
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
+	type OnNewHead = ();
 }
 
 /// Allows collect and claim rewards for relayers
