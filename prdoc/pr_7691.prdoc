@@ -9,4 +9,4 @@ crates:
 - name: staging-xcm-executor
   bump: patch
 - name: xcm-emulator
-  bump: patch
+  bump: minor
