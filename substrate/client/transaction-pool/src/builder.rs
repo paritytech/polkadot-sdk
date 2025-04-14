@@ -224,7 +224,7 @@ where
 
 	/// Creates an instance of transaction pool.
 	pub fn build(self) -> TransactionPoolHandle<Block, Client> {
-		tracing::debug!(
+		tracing::info!(
 			target: LOG_TARGET,
 			txpool_type = ?self.options.txpool_type,
 			ready = ?self.options.options.ready,
