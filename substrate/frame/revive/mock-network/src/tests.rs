@@ -223,7 +223,8 @@ fn test_xcm_execute_precompile() {
 			.build();
 
 		type DecodedType = sol!((bytes4, bytes));
-		let selector: [u8; 4] = hex!("afceee62"); // xcm_execute selector
+		// xcm_execute selector
+		let selector: [u8; 4] = hex!("afceee62"); 
 		let versioned_message = VersionedXcm::V4(message);
 		let encoded_message = DecodedType::abi_encode(&(selector, versioned_message.encode()));
 		bare_call(addr)
@@ -267,7 +268,8 @@ fn test_xcm_send_precompile() {
 		.build();
 
 		type DecodedType = sol!((bytes4, bytes, bytes));
-		let selector: [u8; 4] = hex!("c0addb55"); // xcm_send selector
+		// xcm_send selector
+		let selector: [u8; 4] = hex!("c0addb55"); 
 		let encoded_message =
 			DecodedType::abi_encode(&(selector, dest.encode(), VersionedXcm::V4(message).encode()));
 
