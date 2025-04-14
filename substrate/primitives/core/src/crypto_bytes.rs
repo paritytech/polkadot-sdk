@@ -26,8 +26,6 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
 
-use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
-
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 #[cfg(feature = "serde")]
@@ -97,26 +95,6 @@ impl<const N: usize, T> Default for CryptoBytes<N, T> {
 	fn default() -> Self {
 		Self([0_u8; N], PhantomData)
 	}
-}
-
-impl<const N: usize, T> PassByInner for CryptoBytes<N, T> {
-	type Inner = [u8; N];
-
-	fn into_inner(self) -> Self::Inner {
-		self.0
-	}
-
-	fn inner(&self) -> &Self::Inner {
-		&self.0
-	}
-
-	fn from_inner(inner: Self::Inner) -> Self {
-		Self(inner, PhantomData)
-	}
-}
-
-impl<const N: usize, T> PassBy for CryptoBytes<N, T> {
-	type PassBy = pass_by::Inner<Self, [u8; N]>;
 }
 
 impl<const N: usize, T> AsRef<[u8]> for CryptoBytes<N, T> {

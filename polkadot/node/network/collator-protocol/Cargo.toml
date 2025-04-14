@@ -47,3 +47,4 @@ polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
 default = []
+experimental-collator-protocol = []
