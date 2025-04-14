@@ -158,7 +158,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	system_version: 1,
+	system_version: 3,
 };
 
 #[cfg(feature = "increment-spec-version")]
