@@ -237,7 +237,6 @@ fn test_xcm_execute_precompile() {
 			)
 			.build_and_unwrap_result();
 
-		// Check if Bob's balance has increased by the expected amount
 		let final_bob_balance = ParachainBalances::free_balance(BOB);
 		assert_eq!(
 			final_bob_balance,
