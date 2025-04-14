@@ -18,4 +18,16 @@ doc:
 
 crates:
     - name: pallet-identity
-      bump: minor
+      bump: patch
+    - name: polkadot-runtime-common
+      bump: patch
+    - name: westend-runtime
+      bump: patch
+    - name: rococo-runtime
+      bump: patch
+    - name: pallet-alliance
+      bump: patch
+    - name: people-rococo-runtime
+      bump: patch
+    - name: people-westend-runtime
+      bump: patch
