@@ -126,15 +126,12 @@ where
 		let outbound_message = Message { id: Some(message_id.into()), channel_id, command };
 
 		// validate the message
-		let (ticket, fee) = OutboundQueue::validate(&outbound_message).map_err(|err| {
+		let (ticket, _) = OutboundQueue::validate(&outbound_message).map_err(|err| {
 			log::error!(target: "xcm::ethereum_blob_exporter", "OutboundQueue validation of message failed. {err:?}");
 			SendError::Unroutable
 		})?;
 
-		// convert fee to Asset
-		let fee = Asset::from((Location::parent(), fee.total())).into();
-
-		Ok(((ticket.encode(), message_id), fee))
+		Ok(((ticket.encode(), message_id), Assets::default()))
 	}
 
 	fn deliver(blob: (Vec<u8>, XcmHash)) -> Result<XcmHash, SendError> {

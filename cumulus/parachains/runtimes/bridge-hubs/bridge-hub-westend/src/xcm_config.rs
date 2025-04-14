@@ -40,7 +40,6 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_runtime::traits::AccountIdConversion;
 use sp_std::marker::PhantomData;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
@@ -232,17 +231,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponentsBridgeHub<
 		WaivedLocations,
-		(
-			XcmExportFeeToSibling<
-				bp_westend::Balance,
-				AccountId,
-				WestendLocation,
-				EthereumNetwork,
-				Self::AssetTransactor,
-				crate::EthereumOutboundQueue,
-			>,
-			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
-		),
+		(SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,),
 	>;
 	type MessageExporter = (
 		XcmOverBridgeHubRococo,

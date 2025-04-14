@@ -35,8 +35,6 @@ use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 const INITIAL_FUND: u128 = 5_000_000_000 * ROCOCO_ED;
 pub const CHAIN_ID: u64 = 11155111;
-const TREASURY_ACCOUNT: [u8; 32] =
-	hex!("6d6f646c70792f74727372790000000000000000000000000000000000000000");
 pub const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const INSUFFICIENT_XCM_FEE: u128 = 1000;
@@ -507,25 +505,6 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 				RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued {..}) => {},
 			]
 		);
-		let events = BridgeHubRococo::events();
-		// Check that the local fee was credited to the Snowbridge sovereign account
-		assert!(
-			events.iter().any(|event| matches!(
-				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
-					if *who == TREASURY_ACCOUNT.into()
-			)),
-			"Snowbridge sovereign takes local fee."
-		);
-		// Check that the remote fee was credited to the AssetHub sovereign account
-		assert!(
-			events.iter().any(|event| matches!(
-				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
-					if *who == assethub_sovereign
-			)),
-			"AssetHub sovereign takes remote fee."
-		);
 	});
 }
 
@@ -661,26 +640,6 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 				RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageAccepted {..}) => {},
 				RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued {..}) => {},
 			]
-		);
-
-		let events = BridgeHubRococo::events();
-		// Check that the local fee was credited to the Snowbridge sovereign account
-		assert!(
-			events.iter().any(|event| matches!(
-				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
-					if *who == TREASURY_ACCOUNT.into()
-			)),
-			"Snowbridge sovereign takes local fee."
-		);
-		// Check that the remote fee was credited to the AssetHub sovereign account
-		assert!(
-			events.iter().any(|event| matches!(
-				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount: _amount })
-					if *who == assethub_sovereign
-			)),
-			"AssetHub sovereign takes remote fee."
 		);
 	});
 }

@@ -18,6 +18,7 @@ pub const LOG_TARGET: &str = "xcm::export-fee-to-sibling";
 /// to Snowbridge and splits off the remote fee and deposits it to the origin
 /// parachain sovereign account. The local fee is then returned back to be handled by
 /// the next fee handler in the chain. Most likely the treasury account.
+#[allow(deprecated)]
 pub struct XcmExportFeeToSibling<
 	Balance,
 	AccountId,
@@ -36,6 +37,7 @@ pub struct XcmExportFeeToSibling<
 	)>,
 );
 
+#[allow(deprecated)]
 impl<Balance, AccountId, FeeAssetLocation, EthereumNetwork, AssetTransactor, FeeProvider> HandleFee
 	for XcmExportFeeToSibling<
 		Balance,
