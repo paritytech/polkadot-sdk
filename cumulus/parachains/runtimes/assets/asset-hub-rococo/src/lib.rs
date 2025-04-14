@@ -1139,6 +1139,7 @@ construct_runtime!(
 		BridgeWestendMessages: pallet_bridge_messages::<Instance1> = 62,
 		BridgeRelayers: pallet_bridge_relayers::<Instance1> = 63,
 		ToWestendOverAssetHubWestendXcmRouter: pallet_xcm_bridge_router::<Instance4> = 64,
+		AssetHubWestendProofRootStore: pallet_bridge_proof_root_store::<Instance1> = 65,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.

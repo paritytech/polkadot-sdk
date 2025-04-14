@@ -1102,6 +1102,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-bridge-messages",
+ "pallet-bridge-proof-root-store",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
  "pallet-message-queue",
@@ -1246,6 +1247,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-bridge-messages",
+ "pallet-bridge-proof-root-store",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
  "pallet-message-queue",
@@ -2098,6 +2100,7 @@ version = "0.4.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
+ "bp-proof-root-store",
  "bp-runtime",
  "bp-xcm-bridge",
  "bp-xcm-bridge-router",
@@ -2118,6 +2121,7 @@ version = "0.3.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
+ "bp-proof-root-store",
  "bp-runtime",
  "bp-xcm-bridge",
  "bp-xcm-bridge-router",

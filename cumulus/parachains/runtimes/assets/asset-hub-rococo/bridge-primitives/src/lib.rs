@@ -29,6 +29,7 @@ use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 pub use bp_xcm_bridge_router::XcmBridgeHubCall;
+pub use bp_proof_root_store::ProofRootStoreCall;
 use frame_support::{
 	dispatch::DispatchClass,
 	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
@@ -50,6 +51,9 @@ pub enum Call {
 	/// `ToWestendXcmRouter` bridge pallet.
 	#[codec(index = 45)]
 	ToWestendXcmRouter(XcmBridgeHubCall<sp_core::H256>),
+	/// `AssetHubWestendProofRootStore` bridge pallet.
+	#[codec(index = 65)]
+	AssetHubWestendProofRootStore(ProofRootStoreCall<Hash, Hash>),
 }
 
 frame_support::parameter_types! {

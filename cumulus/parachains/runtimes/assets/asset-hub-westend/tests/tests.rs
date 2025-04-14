@@ -1845,14 +1845,15 @@ mod bridge_to_rococo_tests {
 			WithAssetHubRococoMessagesInstance, XcmOverAssetHubRococoInstance,
 		},
 		xcm_config::{bridging, LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
-		AllPalletsWithoutSystem, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime,
-		RuntimeEvent, RuntimeOrigin,
+		AllPalletsWithoutSystem, AssetHubRococoProofRootStore, ExistentialDeposit, ParachainSystem,
+		PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
 	};
 	use bp_runtime::{HeaderOf, RangeInclusiveExt};
 	use bridge_hub_test_utils::mock_open_hrmp_channel;
 	use codec::Decode;
 	use frame_support::traits::{ConstU8, ProcessMessageError};
 	use pallet_bridge_messages::BridgedChainOf;
+	use sp_runtime::BoundedVec;
 	use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 	use xcm_builder::{CreateMatcher, MatchXcm};
 
@@ -2021,6 +2022,13 @@ mod bridge_to_rococo_tests {
 					>,
 				>(5, proof_state_root);
 				let bridged_header_hash = bridged_header.hash();
+
+				// Store proof_state_root + bridged_header_hash.
+				AssetHubRococoProofRootStore::do_note_new_roots(BoundedVec::truncate_from(vec![(
+					bridged_header_hash,
+					proof_state_root,
+				)]));
+
 				bridged_header_hash
 			},
 			construct_and_apply_extrinsic,

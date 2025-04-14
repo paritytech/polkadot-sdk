@@ -20,8 +20,9 @@ use crate::{
 	bridge_common_config::{BridgeRelayersInstance, DeliveryRewardInBalance},
 	weights, xcm_config,
 	xcm_config::UniversalLocation,
-	AccountId, Balance, Balances, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent,
-	RuntimeHoldReason, ToRococoOverAssetHubRococoXcmRouter, XcmOverAssetHubRococo,
+	AccountId, AssetHubRococoProofRootStore, Balance, Balances, BridgeRococoMessages, PolkadotXcm,
+	Runtime, RuntimeEvent, RuntimeHoldReason, ToRococoOverAssetHubRococoXcmRouter,
+	XcmOverAssetHubRococo,
 };
 use alloc::{vec, vec::Vec};
 use bp_messages::HashedLaneId;
@@ -31,7 +32,7 @@ use pallet_xcm_bridge::XcmAsPlainPayload;
 
 use frame_support::{
 	parameter_types,
-	traits::{EitherOf, Equals, PalletInfoAccess},
+	traits::{EitherOf, EitherOfDiverse, Equals, PalletInfoAccess},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 use pallet_bridge_relayers::extension::{
@@ -46,7 +47,7 @@ use parachains_common::xcm_config::{
 	AllSiblingSystemParachains, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
-use sp_runtime::traits::Convert;
+use sp_runtime::traits::{ConstU32, Convert};
 use testnet_parachains_constants::westend::currency::UNITS as WND;
 use xcm::{
 	latest::{prelude::*, ROCOCO_GENESIS_HASH},
@@ -101,7 +102,7 @@ impl pallet_bridge_messages::Config<WithAssetHubRococoMessagesInstance> for Runt
 
 	type ThisChain = bp_asset_hub_westend::AssetHubWestend;
 	type BridgedChain = bp_asset_hub_rococo::AssetHubRococo;
-	type BridgedHeaderChain = ParachainHeaderProofs<Self::BridgedChain>;
+	type BridgedHeaderChain = AssetHubRococoHeaders;
 
 	type OutboundPayload = XcmAsPlainPayload;
 	type InboundPayload = XcmAsPlainPayload;
@@ -119,11 +120,42 @@ impl pallet_bridge_messages::Config<WithAssetHubRococoMessagesInstance> for Runt
 	type OnMessagesDelivered = XcmOverAssetHubRococo;
 }
 
-/// TODO: doc + FAIL-CI - implement storage for synced proofs from BridgeHub
-pub struct ParachainHeaderProofs<C>(core::marker::PhantomData<C>);
-impl<C: bp_runtime::Chain> bp_header_chain::HeaderChain<C> for ParachainHeaderProofs<C> {
-	fn finalized_header_state_root(_header_hash: HashOf<C>) -> Option<HashOf<C>> {
-		todo!("TODO: FAIL-CI - implement storage for synced proofs from BridgeHub")
+/// Add support for storing bridged AssetHubRococo state roots.
+pub type AssetHubRococoProofRootStoreInstance = pallet_bridge_proof_root_store::Instance1;
+impl pallet_bridge_proof_root_store::Config<AssetHubRococoProofRootStoreInstance> for Runtime {
+	// TOOD: FAIL-CI weights
+	type WeightInfo = ();
+	type SubmitOrigin = EitherOfDiverse<
+		// `Root` can do whatever
+		EnsureRoot<AccountId>,
+		// and only the local BridgeHub can send updates.
+		EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>,
+	>;
+	// Means `block_hash` of AHR.
+	type Key =
+		HashOf<pallet_bridge_messages::BridgedChainOf<Runtime, WithAssetHubRococoMessagesInstance>>;
+	// Means `state_root` of AHR.
+	type Value =
+		HashOf<pallet_bridge_messages::BridgedChainOf<Runtime, WithAssetHubRococoMessagesInstance>>;
+	// Configured according to the BHW's `ParachainHeadsToKeep`
+	type RootsToKeep = ConstU32<64>;
+}
+
+/// Adapter `bp_header_chain::HeaderChain` implementation which resolves AssetHubRococo `state_root` for `block_hash`.
+pub struct AssetHubRococoHeaders;
+impl
+	bp_header_chain::HeaderChain<
+		pallet_bridge_messages::BridgedChainOf<Runtime, WithAssetHubRococoMessagesInstance>,
+	> for AssetHubRococoHeaders
+{
+	fn finalized_header_state_root(
+		header_hash: HashOf<
+			pallet_bridge_messages::BridgedChainOf<Runtime, WithAssetHubRococoMessagesInstance>,
+		>,
+	) -> Option<
+		HashOf<pallet_bridge_messages::BridgedChainOf<Runtime, WithAssetHubRococoMessagesInstance>>,
+	> {
+		AssetHubRococoProofRootStore::get_root(&header_hash)
 	}
 }
 
@@ -249,6 +281,7 @@ impl pallet_xcm_bridge_router::Config<ToRococoOverAssetHubRococoXcmRouterInstanc
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::RuntimeCall;
 	use bridge_runtime_common::{
 		assert_complete_bridge_types,
 		integrity::{
@@ -256,6 +289,8 @@ mod tests {
 			AssertChainConstants, AssertCompleteBridgeConstants,
 		},
 	};
+	use codec::Encode;
+	use frame_support::BoundedVec;
 
 	/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of
@@ -312,5 +347,29 @@ mod tests {
 		)]
 		.into();
 		assert_eq!(BridgeWestendToRococoMessagesPalletInstance::get(), expected);
+	}
+
+	#[test]
+	fn ensure_encoding_compatibility() {
+		let hash = HashOf::<
+			pallet_bridge_messages::BridgedChainOf<
+				Runtime,
+				WithAssetHubRococoMessagesInstance,
+			>,
+		>::from([1; 32]);
+		let roots = vec![(hash, hash), (hash, hash)];
+
+		assert_eq!(
+			bp_asset_hub_westend::Call::AssetHubRococoProofRootStore(
+				bp_asset_hub_westend::ProofRootStoreCall::note_new_roots { roots: roots.clone() }
+			)
+			.encode(),
+			RuntimeCall::AssetHubRococoProofRootStore(
+				pallet_bridge_proof_root_store::Call::note_new_roots {
+					roots: BoundedVec::truncate_from(roots)
+				}
+			)
+			.encode()
+		);
 	}
 }
