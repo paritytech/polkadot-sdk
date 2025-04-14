@@ -395,7 +395,7 @@ impl<T: Config> Pallet<T> {
 							&validator_stash,
 							era,
 							page,
-						)
+						);
 					}
 				}
 				total_imbalance.subsume(imbalance);
