@@ -3579,12 +3579,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7144d30dcf0fafbce74250a3963025d8d52177934239851c917d29f1df280c2"
 
 [[package]]
-name = "constcat"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f272d0c4cf831b4fa80ee529c7707f76585986e910e1fbce1d7921970bc1a241"
-
-[[package]]
 name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -22169,7 +22163,6 @@ dependencies = [
  "serde_json",
  "sha2 0.10.8",
  "sp-crypto-hashing 0.1.0",
- "sp-crypto-pubkeycrypto-proc-macro",
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
  "sp-runtime-interface 24.0.0",
@@ -22412,15 +22405,6 @@ dependencies = [
  "quote 1.0.38",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 2.0.98",
-]
-
-[[package]]
-name = "sp-crypto-pubkeycrypto-proc-macro"
-version = "0.1.0"
-dependencies = [
- "quote 1.0.37",
- "sp-crypto-hashing 0.1.0",
- "syn 2.0.79",
 ]
 
 [[package]]
@@ -26198,9 +26182,9 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "w3f-bls"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70a3028804c8bbae2a97a15b71ffc0e308c4b01a520994aafa77d56e94e19024"
+checksum = "e6bfb937b3d12077654a9e43e32a4e9c20177dd9fea0f3aba673e7840bb54f32"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381 0.4.0",
@@ -26209,14 +26193,12 @@ dependencies = [
  "ark-serialize 0.4.2",
  "ark-serialize-derive 0.4.2",
  "arrayref",
- "constcat",
  "digest 0.10.7",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "sha2 0.10.8",
  "sha3 0.10.8",
- "thiserror 1.0.65",
  "zeroize",
 ]
 

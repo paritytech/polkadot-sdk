@@ -24,15 +24,13 @@ extern crate alloc;
 
 pub use sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 #[doc(hidden)]
-pub use sp_core::crypto::{
-	DeriveError, Pair, SecretStringError,
-};
+pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
 #[doc(hidden)]
 pub use sp_core::{
 	self,
 	crypto::{ByteArray, CryptoType, Derive, IsWrappedBy, Public, Signature, UncheckedFrom, Wraps},
+	pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	RuntimeDebug,
-	pop::{ProofOfPossessionGenerator, ProofOfPossessionVerifier, POP_CONTEXT_TAG},
 };
 
 #[doc(hidden)]

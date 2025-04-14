@@ -25,7 +25,7 @@ use sp_core::{
 	bls381,
 	crypto::CryptoType,
 	ecdsa, ecdsa_bls381,
-	pop::{ProofOfPossessionVerifier, POP_CONTEXT_TAG},
+	pop::{NonAggregatable, ProofOfPossessionVerifier},
 	testing::{BLS381, ECDSA, ECDSA_BLS381},
 };
 
@@ -63,17 +63,11 @@ impl RuntimePublic for Public {
 		if key_type != ECDSA_BLS381 {
 			return None
 		}
-
 		let pub_key_as_bytes = self.to_raw_vec();
-
 		let (ecdsa_pub_as_bytes, bls381_pub_as_bytes) = split_pub_key_bytes(&pub_key_as_bytes)?;
-
 		let ecdsa_pop = generate_ecdsa_pop(ecdsa_pub_as_bytes)?;
-
 		let bls381_pop = generate_bls381_pop(bls381_pub_as_bytes)?;
-
 		let combined_pop_raw = combine_pop(&ecdsa_pop, &bls381_pop)?;
-
 		Some(Self::Signature::from_raw(combined_pop_raw))
 	}
 
@@ -103,9 +97,9 @@ fn split_pub_key_bytes(
 fn generate_ecdsa_pop(
 	ecdsa_pub_as_bytes: [u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE],
 ) -> Option<ecdsa::Signature> {
-	let ecdsa_statement = [POP_CONTEXT_TAG, ecdsa_pub_as_bytes.as_slice()].concat();
 	let ecdsa_pub = ecdsa::Public::from_raw(ecdsa_pub_as_bytes);
-	sp_io::crypto::ecdsa_sign(ECDSA, &ecdsa_pub, ecdsa_statement.as_slice())
+	let pop_statement = ecdsa::Pair::pop_statement(&ecdsa_pub);
+	sp_io::crypto::ecdsa_sign(ECDSA, &ecdsa_pub, &pop_statement)
 }
 
 /// Helper: Generate BLS381 proof of possession

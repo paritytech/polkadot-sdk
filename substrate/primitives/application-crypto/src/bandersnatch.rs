@@ -23,7 +23,7 @@ pub use sp_core::bandersnatch::*;
 
 use sp_core::{
 	crypto::CryptoType,
-	pop::{POP_CONTEXT_TAG, ProofOfPossessionVerifier},
+	pop::{NonAggregatable, ProofOfPossessionVerifier},
 	Pair as TraitPair,
 };
 
@@ -58,9 +58,8 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		let pub_key_as_bytes = self.to_raw_vec();
-		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
-		sp_io::crypto::bandersnatch_sign(key_type, self, pop_statement.as_slice())
+		let pop_statement = Pair::pop_statement(self);
+		sp_io::crypto::bandersnatch_sign(key_type, self, &pop_statement)
 	}
 
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
