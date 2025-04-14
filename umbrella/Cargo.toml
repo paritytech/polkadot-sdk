@@ -138,6 +138,9 @@ std = [
 	"pallet-society?/std",
 	"pallet-staking-async-ah-client?/std",
 	"pallet-staking-async-rc-client?/std",
+	"pallet-staking-async-reward-fn?/std",
+	"pallet-staking-async-runtime-api?/std",
+	"pallet-staking-async?/std",
 	"pallet-staking-reward-fn?/std",
 	"pallet-staking-runtime-api?/std",
 	"pallet-staking?/std",
@@ -314,6 +317,7 @@ runtime-benchmarks = [
 	"pallet-society?/runtime-benchmarks",
 	"pallet-staking-async-ah-client?/runtime-benchmarks",
 	"pallet-staking-async-rc-client?/runtime-benchmarks",
+	"pallet-staking-async?/runtime-benchmarks",
 	"pallet-staking?/runtime-benchmarks",
 	"pallet-state-trie-migration?/runtime-benchmarks",
 	"pallet-sudo?/runtime-benchmarks",
@@ -447,6 +451,7 @@ try-runtime = [
 	"pallet-society?/try-runtime",
 	"pallet-staking-async-ah-client?/try-runtime",
 	"pallet-staking-async-rc-client?/try-runtime",
+	"pallet-staking-async?/try-runtime",
 	"pallet-staking?/try-runtime",
 	"pallet-state-trie-migration?/try-runtime",
 	"pallet-statement?/try-runtime",
@@ -659,8 +664,13 @@ runtime-full = [
 	"pallet-skip-feeless-payment",
 	"pallet-society",
 	"pallet-staking",
+	"pallet-staking-async",
 	"pallet-staking-async-ah-client",
 	"pallet-staking-async-rc-client",
+	"pallet-staking-async-rc-client",
+	"pallet-staking-async-reward-curve",
+	"pallet-staking-async-reward-fn",
+	"pallet-staking-async-runtime-api",
 	"pallet-staking-reward-curve",
 	"pallet-staking-reward-fn",
 	"pallet-staking-runtime-api",
@@ -1634,6 +1644,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/staking"
 
+[dependencies.pallet-staking-async]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async"
+
 [dependencies.pallet-staking-async-ah-client]
 default-features = false
 optional = true
@@ -1643,6 +1658,21 @@ path = "../substrate/frame/staking-async/ah-client"
 default-features = false
 optional = true
 path = "../substrate/frame/staking-async/rc-client"
+
+[dependencies.pallet-staking-async-reward-curve]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/reward-curve"
+
+[dependencies.pallet-staking-async-reward-fn]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/reward-fn"
+
+[dependencies.pallet-staking-async-runtime-api]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/runtime-api"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

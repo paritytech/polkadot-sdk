@@ -21,8 +21,8 @@ frame = { package = "polkadot-sdk-frame", workspace = true, default-features = t
 frame-support = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
-sp-session = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-session = { workspace = true, default-features = true }
 sp-staking = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 

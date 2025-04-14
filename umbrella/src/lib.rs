@@ -657,6 +657,10 @@ pub use pallet_society;
 #[cfg(feature = "pallet-staking")]
 pub use pallet_staking;
 
+/// FRAME pallet staking async.
+#[cfg(feature = "pallet-staking-async")]
+pub use pallet_staking_async;
+
 /// Pallet handling the communication with staking-rc-client. It's role is to glue the staking
 /// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
 #[cfg(feature = "pallet-staking-async-ah-client")]
@@ -666,6 +670,23 @@ pub use pallet_staking_async_ah_client;
 /// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
 #[cfg(feature = "pallet-staking-async-rc-client")]
 pub use pallet_staking_async_rc_client;
+
+/// Pallet handling the communication with staking-ah-client. It's role is to glue the staking
+/// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
+#[cfg(feature = "pallet-staking-async-rc-client")]
+pub use pallet_staking_async_rc_client;
+
+/// Reward Curve for FRAME staking pallet.
+#[cfg(feature = "pallet-staking-async-reward-curve")]
+pub use pallet_staking_async_reward_curve;
+
+/// Reward function for FRAME staking pallet.
+#[cfg(feature = "pallet-staking-async-reward-fn")]
+pub use pallet_staking_async_reward_fn;
+
+/// RPC runtime API for transaction payment FRAME pallet.
+#[cfg(feature = "pallet-staking-async-runtime-api")]
+pub use pallet_staking_async_runtime_api;
 
 /// Reward Curve for FRAME staking pallet.
 #[cfg(feature = "pallet-staking-reward-curve")]
