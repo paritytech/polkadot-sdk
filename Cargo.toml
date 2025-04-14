@@ -16,6 +16,7 @@ members = [
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
+	"bridges/modules/proof-root-store",
 	"bridges/modules/relayers",
 	"bridges/modules/xcm-bridge",
 	"bridges/modules/xcm-bridge-hub",
@@ -26,6 +27,7 @@ members = [
 	"bridges/primitives/messages",
 	"bridges/primitives/parachains",
 	"bridges/primitives/polkadot-core",
+	"bridges/primitives/proof-root-store",
 	"bridges/primitives/relayers",
 	"bridges/primitives/runtime",
 	"bridges/primitives/test-utils",
@@ -679,6 +681,7 @@ bp-messages = { path = "bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "bridges/primitives/parachains", default-features = false }
 bp-polkadot-bulletin = { path = "bridges/chains/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "bridges/primitives/polkadot-core", default-features = false }
+bp-proof-root-store = { path = "bridges/primitives/proof-root-store", default-features = false }
 bp-relayers = { path = "bridges/primitives/relayers", default-features = false }
 bp-rococo = { path = "polkadot/runtime/rococo/bridge-primitives", default-features = false }
 bp-runtime = { path = "bridges/primitives/runtime", default-features = false }
@@ -944,6 +947,7 @@ pallet-bounties = { path = "substrate/frame/bounties", default-features = false 
 pallet-bridge-grandpa = { path = "bridges/modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "bridges/modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "bridges/modules/parachains", default-features = false }
+pallet-bridge-proof-root-store = { path = "bridges/modules/proof-root-store", default-features = false }
 pallet-bridge-relayers = { path = "bridges/modules/relayers", default-features = false }
 pallet-broker = { path = "substrate/frame/broker", default-features = false }
 pallet-child-bounties = { path = "substrate/frame/child-bounties", default-features = false }
