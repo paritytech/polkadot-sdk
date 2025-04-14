@@ -366,13 +366,14 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 		let (root, count) = if proof.session == <Session<T>>::current_index() {
 			let validators = Self::full_id_validators();
 			let count = validators.len() as ValidatorCount;
-			let trie = ProvingTrie::<T>::generate_for(validators).ok()?;
+			let trie = ProvingTrie::<T>::generate_for(validators).map_err(print_error).ok()?;
 			(trie.root, count)
 		} else {
 			<HistoricalSessions<T>>::get(&proof.session)?
 		};
 
 		if count != proof.validator_count {
+			print_error("InvalidCount");
 			return None
 		}
 

@@ -24,10 +24,7 @@ extern crate alloc;
 
 use crate::currency_to_vote::CurrencyToVote;
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{
-	Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, HasCompact, Input, MaxEncodedLen,
-	Output,
-};
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -465,44 +462,6 @@ impl<
 	}
 }
 
-/// A compatibility wrapper type used to represent the presence of a validator in the current era.
-/// Encodes as unit type but can decode from legacy [`Exposure`] values for backward
-/// compatibility.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, RuntimeDebug, TypeInfo, DecodeWithMemTracking)]
-pub enum ExistenceOrLegacyExposure<A, B: HasCompact> {
-	/// Validator exists in the current era.
-	Exists,
-	/// Legacy `Exposure` data, retained for decoding compatibility.
-	Exposure(Exposure<A, B>),
-}
-
-impl<A, B: HasCompact> Encode for ExistenceOrLegacyExposure<A, B>
-where
-	Exposure<A, B>: Encode,
-{
-	fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
-		match self {
-			ExistenceOrLegacyExposure::Exists => (),
-			ExistenceOrLegacyExposure::Exposure(exposure) => exposure.encode_to(dest),
-		}
-	}
-}
-
-impl<A, B: HasCompact> EncodeLike for ExistenceOrLegacyExposure<A, B> where Exposure<A, B>: Encode {}
-
-impl<A, B: HasCompact> Decode for ExistenceOrLegacyExposure<A, B>
-where
-	Exposure<A, B>: Decode,
-{
-	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
-		match input.remaining_len() {
-			// TODO(ank4n): This is hacky fix (`x>2`). Write a custom decoder for `OffenceDetails`.
-			Ok(Some(x)) if x > 2 => Ok(ExistenceOrLegacyExposure::Exposure(Decode::decode(input)?)),
-			_ => Ok(ExistenceOrLegacyExposure::Exists),
-		}
-	}
-}
-
 /// A snapshot of the stake backing a single validator in the system.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct ExposurePage<AccountId, Balance: HasCompact> {
@@ -869,47 +828,5 @@ mod tests {
 		let split_exposure = exposure_max.split_others(u32::MAX);
 		assert_eq!(split_exposure, exposure);
 		assert_eq!(exposure_max, Exposure { total: 20, own: 20, others: vec![] });
-	}
-
-	#[test]
-	fn existence_encodes_decodes_correctly() {
-		let encoded_existence = ExistenceOrLegacyExposure::<u32, u32>::Exists.encode();
-		assert!(encoded_existence.is_empty());
-
-		// try decoding the existence
-		let decoded_existence =
-			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_existence.as_slice())
-				.unwrap();
-		assert!(matches!(decoded_existence, ExistenceOrLegacyExposure::Exists));
-
-		// check that round-trip encoding works
-		assert_eq!(encoded_existence, decoded_existence.encode());
-	}
-
-	#[test]
-	fn legacy_existence_encodes_decodes_correctly() {
-		let legacy_exposure = Exposure::<u32, u32> {
-			total: 1,
-			own: 2,
-			others: vec![IndividualExposure { who: 3, value: 4 }],
-		};
-
-		let encoded_legacy_exposure = legacy_exposure.encode();
-
-		// try decoding the legacy exposure
-		let decoded_legacy_exposure =
-			ExistenceOrLegacyExposure::<u32, u32>::decode(&mut encoded_legacy_exposure.as_slice())
-				.unwrap();
-		assert_eq!(
-			decoded_legacy_exposure,
-			ExistenceOrLegacyExposure::Exposure(Exposure {
-				total: 1,
-				own: 2,
-				others: vec![IndividualExposure { who: 3, value: 4 }]
-			})
-		);
-
-		// round trip encoding works
-		assert_eq!(encoded_legacy_exposure, decoded_legacy_exposure.encode());
 	}
 }

@@ -11211,6 +11211,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-session",
  "sp-staking",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -12500,6 +12501,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -13054,7 +13056,6 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-session",
- "pallet-staking",
  "pallet-staking-async-rc-client",
  "parity-scale-codec",
  "scale-info",
@@ -23349,6 +23350,7 @@ name = "sp-staking"
 version = "26.0.0"
 dependencies = [
  "impl-trait-for-tuples",
+ "log",
  "parity-scale-codec",
  "scale-info",
  "serde",

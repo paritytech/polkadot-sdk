@@ -106,8 +106,8 @@ impl pallet_session::Config for Test {
 
 impl pallet_session::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<u64, Balance>;
-	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 impl pallet_authorship::Config for Test {
@@ -315,6 +315,7 @@ pub fn new_test_ext_with_pairs(
 }
 
 pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();

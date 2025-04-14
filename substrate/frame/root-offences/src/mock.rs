@@ -147,8 +147,8 @@ impl pallet_staking::Config for Test {
 
 impl pallet_session::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 sp_runtime::impl_opaque_keys! {

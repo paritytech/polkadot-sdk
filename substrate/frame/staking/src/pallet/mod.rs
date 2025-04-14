@@ -696,7 +696,7 @@ pub mod pallet {
 	/// `[active_era - bounding_duration; active_era]`
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type BondedEras<T: Config> =
+	pub type BondedEras<T: Config> =
 		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
 
 	/// All slashing events on validators, mapped by era to the highest slash proportion

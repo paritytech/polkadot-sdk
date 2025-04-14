@@ -152,7 +152,13 @@ mod tests {
 	#[test]
 	fn ah_takes_over_staking_post_migration() {
 		// SCENE (1): Pre AHM Migration
-		shared::put_rc_state(rc::ExtBuilder::default().pre_migration().build());
+		shared::put_rc_state(
+			rc::ExtBuilder::default()
+				.pre_migration()
+				// set session keys for all "potential" validators
+				.session_keys(vec![1, 2, 3, 4, 5, 6, 7, 8])
+				.build(),
+		);
 		shared::put_ah_state(ah::ExtBuilder::default().build());
 
 		shared::in_rc(|| {
@@ -170,9 +176,12 @@ mod tests {
 			// No offence exist so far
 			assert!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).is_empty());
 
+			dbg!(pallet_session::Validators::<rc::Runtime>::get());
+
 			assert_ok!(RootOffences::create_offence(
 				rc::RuntimeOrigin::root(),
 				vec![(2, Perbill::from_percent(100))],
+				None,
 			));
 
 			// offence is expected to be deferred to era 1 + 3 = 4
@@ -247,6 +256,7 @@ mod tests {
 			assert_ok!(RootOffences::create_offence(
 				rc::RuntimeOrigin::root(),
 				vec![(5, Perbill::from_percent(100))],
+				None,
 			));
 
 			// no new unapplied slashes are created (other than the previously created).

@@ -32,7 +32,7 @@ fn send_session_report_no_election_comes_in() {
 					30,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 0,
-						validator_points: vec![],
+						validator_points: vec![(11, 580)],
 						activation_timestamp: None,
 						leftover: false
 					})
@@ -41,7 +41,7 @@ fn send_session_report_no_election_comes_in() {
 					60,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 1,
-						validator_points: vec![],
+						validator_points: vec![(11, 600)],
 						activation_timestamp: None,
 						leftover: false
 					})
@@ -50,7 +50,7 @@ fn send_session_report_no_election_comes_in() {
 					90,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 2,
-						validator_points: vec![],
+						validator_points: vec![(11, 600)],
 						activation_timestamp: None,
 						leftover: false
 					})
@@ -59,7 +59,7 @@ fn send_session_report_no_election_comes_in() {
 					120,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 3,
-						validator_points: vec![],
+						validator_points: vec![(11, 600)],
 						activation_timestamp: None,
 						leftover: false
 					})
@@ -68,7 +68,7 @@ fn send_session_report_no_election_comes_in() {
 					150,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 4,
-						validator_points: vec![],
+						validator_points: vec![(11, 600)],
 						activation_timestamp: None,
 						leftover: false
 					})
@@ -77,7 +77,7 @@ fn send_session_report_no_election_comes_in() {
 					180,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 5,
-						validator_points: vec![],
+						validator_points: vec![(11, 600)],
 						activation_timestamp: None,
 						leftover: false
 					})
@@ -86,7 +86,7 @@ fn send_session_report_no_election_comes_in() {
 					210,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 6,
-						validator_points: vec![],
+						validator_points: vec![(11, 600)],
 						activation_timestamp: None,
 						leftover: false
 					})
@@ -95,7 +95,7 @@ fn send_session_report_no_election_comes_in() {
 					240,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 7,
-						validator_points: vec![],
+						validator_points: vec![(11, 600)],
 						activation_timestamp: None,
 						leftover: false
 					})
@@ -104,7 +104,7 @@ fn send_session_report_no_election_comes_in() {
 					270,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 8,
-						validator_points: vec![],
+						validator_points: vec![(11, 600)],
 						activation_timestamp: None,
 						leftover: false
 					})
@@ -113,7 +113,7 @@ fn send_session_report_no_election_comes_in() {
 					300,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 9,
-						validator_points: vec![],
+						validator_points: vec![(11, 600)],
 						activation_timestamp: None,
 						leftover: false
 					})
@@ -128,6 +128,7 @@ fn upon_receiving_election_queue_and_activate_next_session() {
 	ExtBuilder::default()
 		.session_keys(vec![1, 2, 3, 4, 5])
 		.local_queue()
+		.no_default_author()
 		.build()
 		.execute_with(|| {
 			// roll 3 sessions, and then validator set comes
@@ -355,7 +356,8 @@ fn cleans_validator_points_upon_session_report() {
 				30,
 				OutgoingMessages::SessionReport(SessionReport {
 					end_index: 0,
-					validator_points: vec![(1, 100), (2, 200)],
+					// first two are inserted by us, the other one by the test mock
+					validator_points: vec![(1, 100), (2, 200), (11, 580)],
 					activation_timestamp: None,
 					leftover: false
 				})
@@ -556,7 +558,7 @@ mod blocking {
 					180,
 					OutgoingMessages::SessionReport(SessionReport {
 						end_index: 5,
-						validator_points: vec![],
+						validator_points: vec![(11, 600)],
 						activation_timestamp: None,
 						leftover: false,
 					})

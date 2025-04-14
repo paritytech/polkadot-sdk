@@ -570,8 +570,8 @@ impl pallet_session::Config for Runtime {
 
 impl session_historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
-	type FullIdentificationOf = ah_client::ExistenceOrLegacyExposureOf<Self>;
+	type FullIdentification = sp_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = ah_client::DefaultExposureOf<Self>;
 }
 
 pub struct AssetHubLocation;

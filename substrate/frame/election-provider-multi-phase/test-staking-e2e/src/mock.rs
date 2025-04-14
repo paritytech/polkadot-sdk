@@ -148,8 +148,8 @@ impl pallet_session::Config for Runtime {
 }
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Runtime>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -911,7 +911,7 @@ pub(crate) fn on_offence_now(
 pub(crate) fn add_slash(who: &AccountId) {
 	on_offence_now(
 		&[OffenceDetails {
-			offender: (*who, sp_staking::ExistenceOrLegacyExposure::Exists),
+			offender: (*who, ()),
 			reporters: vec![],
 		}],
 		&[Perbill::from_percent(10)],

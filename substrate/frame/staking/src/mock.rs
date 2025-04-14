@@ -155,8 +155,8 @@ impl pallet_session::Config for Test {
 
 impl pallet_session::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = ExistenceOrLegacyExposure<AccountId, Balance>;
-	type FullIdentificationOf = ExistenceOrLegacyExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = crate::UnitIdentificationOf<Self>;
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
@@ -782,7 +782,7 @@ pub(crate) fn offence_from(
 	reporter: Option<Vec<AccountId>>,
 ) -> OffenceDetails<AccountId, pallet_session::historical::IdentificationTuple<Test>> {
 	OffenceDetails {
-		offender: (offender, ExistenceOrLegacyExposure::Exists),
+		offender: (offender, ()),
 		reporters: reporter.unwrap_or_default(),
 	}
 }

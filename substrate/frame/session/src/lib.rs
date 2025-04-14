@@ -736,14 +736,20 @@ impl<T: Config> Pallet<T> {
 					}
 				}
 			};
-			let queued_amalgamated = next_validators
-				.into_iter()
-				.filter_map(|a| {
-					let k = Self::load_keys(&a)?;
-					check_next_changed(&k);
-					Some((a, k))
-				})
-				.collect::<Vec<_>>();
+			let queued_amalgamated =
+				next_validators
+					.into_iter()
+					.filter_map(|a| {
+						let k =
+							Self::load_keys(&a).or_else(|| {
+								#[cfg(test)]
+								log!(warn, "failed to load session key for {:?}, skipping for next session", a);
+								None
+							})?;
+						check_next_changed(&k);
+						Some((a, k))
+					})
+					.collect::<Vec<_>>();
 
 			(queued_amalgamated, changed)
 		};

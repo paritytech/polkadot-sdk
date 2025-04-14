@@ -30,7 +30,6 @@ use frame_support::{
 use sp_runtime::{traits::IdentityLookup, BuildStorage, KeyTypeId};
 
 type AccountId = u64;
-type Balance = u64;
 type Nonce = u32;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -69,8 +68,8 @@ impl pallet_timestamp::Config for Test {
 }
 impl pallet_session::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 sp_runtime::impl_opaque_keys! {

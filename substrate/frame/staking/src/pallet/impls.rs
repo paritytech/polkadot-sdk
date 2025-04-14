@@ -44,7 +44,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
-	EraIndex, ExistenceOrLegacyExposure, OnStakingUpdate, Page, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -1260,6 +1260,7 @@ impl<T: Config> Pallet<T> {
 			let active_era = ActiveEra::<T>::get();
 			add_db_reads_writes(1, 0);
 			if active_era.is_none() {
+				log!(warn, "🦹 on_offence: Active era not set -- not processing offence");
 				// This offence need not be re-submitted.
 				return consumed_weight
 			}
@@ -1267,7 +1268,7 @@ impl<T: Config> Pallet<T> {
 		};
 		let active_era_start_session_index = ErasStartSessionIndex::<T>::get(active_era)
 			.unwrap_or_else(|| {
-				frame_support::print("Error: start_session_index must be set for current_era");
+				log!(error, "🦹 on_offence: start_session_index must be set for current_era");
 				0
 			});
 		add_db_reads_writes(1, 0);
@@ -1286,7 +1287,10 @@ impl<T: Config> Pallet<T> {
 			match eras.iter().rev().find(|&(_, sesh)| sesh <= &slash_session) {
 				Some((slash_era, _)) => *slash_era,
 				// Before bonding period. defensive - should be filtered out.
-				None => return consumed_weight,
+				None => {
+					log!(warn, "🦹 on_offence: bonded era not found");
+					return consumed_weight
+				},
 			}
 		};
 
@@ -1578,25 +1582,53 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config>
-	historical::SessionManager<T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>
+impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
 	for Pallet<T>
 {
 	fn new_session(
 		new_index: SessionIndex,
-	) -> Option<Vec<(T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>)>> {
+	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
-			validators.into_iter().map(|v| (v, ExistenceOrLegacyExposure::Exists)).collect()
+			validators
+				.into_iter()
+				.map(|v| {
+					let exposure = Exposure::<T::AccountId, BalanceOf<T>>::default();
+					(v, exposure)
+				})
+				.collect()
 		})
 	}
 	fn new_session_genesis(
 		new_index: SessionIndex,
-	) -> Option<Vec<(T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>)>> {
+	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index).map(
 			|validators| {
-				validators.into_iter().map(|v| (v, ExistenceOrLegacyExposure::Exists)).collect()
+				validators
+					.into_iter()
+					.map(|v| {
+						let exposure = Exposure::<T::AccountId, BalanceOf<T>>::default();
+						(v, exposure)
+					})
+					.collect()
 			},
 		)
+	}
+	fn start_session(start_index: SessionIndex) {
+		<Self as pallet_session::SessionManager<_>>::start_session(start_index)
+	}
+	fn end_session(end_index: SessionIndex) {
+		<Self as pallet_session::SessionManager<_>>::end_session(end_index)
+	}
+}
+
+impl<T: Config> historical::SessionManager<T::AccountId, ()> for Pallet<T> {
+	fn new_session(new_index: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
+		<Self as pallet_session::SessionManager<_>>::new_session(new_index)
+			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
+	}
+	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<(T::AccountId, ())>> {
+		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index)
+			.map(|validators| validators.into_iter().map(|v| (v, ())).collect())
 	}
 	fn start_session(start_index: SessionIndex) {
 		<Self as pallet_session::SessionManager<_>>::start_session(start_index)

@@ -60,12 +60,11 @@ use frame_support::{pallet_prelude::*, traits::RewardsReporter};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_staking::{
 	offence::{OffenceDetails, OffenceSeverity},
-	ExistenceOrLegacyExposure, SessionIndex,
+	SessionIndex,
 };
 
 /// Re-export the `FullIdentification` type from pallet-staking that should be used as in a rc
 /// runtime.
-pub use pallet_staking::ExistenceOrLegacyExposureOf;
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
 const LOG_TARGET: &str = "runtime::staking::ah-client";
@@ -124,6 +123,8 @@ pub trait SessionInterface {
 	/// The validator id type of the session pallet
 	type ValidatorId: Clone;
 
+	fn validators() -> Vec<Self::ValidatorId>;
+
 	/// prune up to the given session index.
 	fn prune_up_to(index: SessionIndex);
 
@@ -135,6 +136,10 @@ impl<T: Config + pallet_session::Config + pallet_session::historical::Config> Se
 	for T
 {
 	type ValidatorId = <T as pallet_session::Config>::ValidatorId;
+
+	fn validators() -> Vec<Self::ValidatorId> {
+		pallet_session::Pallet::<T>::validators()
+	}
 
 	fn prune_up_to(index: SessionIndex) {
 		pallet_session::historical::Pallet::<T>::prune_up_to(index)
@@ -192,6 +197,25 @@ impl OperatingMode {
 	}
 }
 
+/// See `pallet_staking::DefaultExposureOf`. This type is the same, except it is duplicated here so
+/// that an rc-runtime can use it after `pallet-staking` is fully removed as a dependency.
+pub struct DefaultExposureOf<T>(core::marker::PhantomData<T>);
+
+impl<T: Config>
+	sp_runtime::traits::Convert<
+		T::AccountId,
+		Option<sp_staking::Exposure<T::AccountId, BalanceOf<T>>>,
+	> for DefaultExposureOf<T>
+{
+	fn convert(
+		validator: T::AccountId,
+	) -> Option<sp_staking::Exposure<T::AccountId, BalanceOf<T>>> {
+		T::SessionInterface::validators()
+			.contains(&validator)
+			.then_some(Default::default())
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::*;
@@ -211,6 +235,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// The balance type of the runtime's currency interface.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
 			+ codec::FullCodec
 			+ DecodeWithMemTracking
@@ -255,7 +281,7 @@ pub mod pallet {
 		type Fallback: pallet_session::SessionManager<Self::AccountId>
 			+ OnOffenceHandler<
 				Self::AccountId,
-				(Self::AccountId, ExistenceOrLegacyExposure<Self::AccountId, BalanceOf<Self>>),
+				(Self::AccountId, sp_staking::Exposure<Self::AccountId, BalanceOf<Self>>),
 				Weight,
 			> + frame_support::traits::RewardsReporter<Self::AccountId>
 			+ pallet_authorship::EventHandler<Self::AccountId, BlockNumberFor<Self>>;
@@ -476,21 +502,19 @@ pub mod pallet {
 	}
 
 	impl<T: Config>
-		historical::SessionManager<
-			T::AccountId,
-			ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>,
-		> for Pallet<T>
+		historical::SessionManager<T::AccountId, sp_staking::Exposure<T::AccountId, BalanceOf<T>>>
+		for Pallet<T>
 	{
 		fn new_session(
 			new_index: sp_staking::SessionIndex,
 		) -> Option<
 			Vec<(
 				<T as frame_system::Config>::AccountId,
-				ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>,
+				sp_staking::Exposure<T::AccountId, BalanceOf<T>>,
 			)>,
 		> {
 			<Self as pallet_session::SessionManager<_>>::new_session(new_index)
-				.map(|v| v.into_iter().map(|v| (v, ExistenceOrLegacyExposure::Exists)).collect())
+				.map(|v| v.into_iter().map(|v| (v, sp_staking::Exposure::default())).collect())
 		}
 
 		// We don't implement `new_session_genesis` because we rely on the default implementation
@@ -534,14 +558,14 @@ pub mod pallet {
 	impl<T: Config>
 		OnOffenceHandler<
 			T::AccountId,
-			(T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>),
+			(T::AccountId, sp_staking::Exposure<T::AccountId, BalanceOf<T>>),
 			Weight,
 		> for Pallet<T>
 	{
 		fn on_offence(
 			offenders: &[OffenceDetails<
 				T::AccountId,
-				(T::AccountId, ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>),
+				(T::AccountId, sp_staking::Exposure<T::AccountId, BalanceOf<T>>),
 			>],
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,

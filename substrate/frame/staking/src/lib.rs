@@ -329,8 +329,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
-	EraIndex, ExistenceOrLegacyExposure, ExposurePage, OnStakingUpdate, Page,
-	PagedExposureMetadata, SessionIndex,
+	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
@@ -1057,18 +1056,72 @@ impl Default for Forcing {
 	}
 }
 
-/// Converts a validator account ID to a Some([`ExistenceOrLegacyExposure::Exists`]) if the
-/// validator exists in the current era, otherwise `None`.
-pub struct ExistenceOrLegacyExposureOf<T>(core::marker::PhantomData<T>);
-impl<T: Config> Convert<T::AccountId, Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>>>
-	for ExistenceOrLegacyExposureOf<T>
+/// A typed conversion from stash account ID to the active exposure of nominators
+/// on that account.
+///
+/// Active exposure is the exposure of the validator set currently validating, i.e. in
+/// `active_era`. It can differ from the latest planned exposure in `current_era`.
+#[deprecated(note = "Use `ExistenceOf` or `ExistenceOrLegacyExposureOf` instead")]
+pub struct ExposureOf<T>(core::marker::PhantomData<T>);
+
+#[allow(deprecated)]
+impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
+	for ExposureOf<T>
 {
-	fn convert(
-		validator: T::AccountId,
-	) -> Option<ExistenceOrLegacyExposure<T::AccountId, BalanceOf<T>>> {
+	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
+		ActiveEra::<T>::get()
+			.map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
+	}
+}
+
+/// Identify a validator with their default exposure.
+///
+/// This type should not be used in a fresh runtime, instead use [`UnitIdentificationOf`].
+///
+/// In the past, a type called [`ExposureOf`] used to return the full exposure of a validator to
+/// identify their exposure. This type is kept, marked as deprecated, for backwards compatibility of
+/// external SDK users, but is no longer used in this repo.
+///
+/// In the new model, we don't need to identify a validator with their full exposure anymore, and
+/// therefore [`UnitIdentificationOf`] is perfectly fine. Yet, for runtimes that used to work with
+/// [`ExposureOf`], we need to be able to decode old identification data, possibly stored in the
+/// historical session pallet in older blocks. Therefore, this type is a good compromise, allowing
+/// old exposure identifications to be decoded, and returning a few zero bytes
+/// (`Exposure::default`) for any new identification request.
+///
+/// A typical usage of this type is:
+///
+/// ```ignore
+/// impl pallet_session::historical::Config for Runtime {
+///     type FullIdentification = sp_staking::Exposure<AccountId, Balance>;
+///     type IdentificationOf = pallet_staking::DefaultExposureOf<Self>
+/// }
+/// ```
+pub struct DefaultExposureOf<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
+	for DefaultExposureOf<T>
+{
+	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
 		T::SessionInterface::validators()
 			.contains(&validator)
-			.then_some(ExistenceOrLegacyExposure::Exists)
+			.then_some(Default::default())
+	}
+}
+
+/// An identification type that signifies the existence of a validator by returning `Some(())`, and
+/// `None` otherwise. Also see the documentation of [`DefaultExposureOf`] for more info.
+///
+/// ```ignore
+/// impl pallet_session::historical::Config for Runtime {
+///     type FullIdentification = ();
+///     type IdentificationOf = pallet_staking::UnitIdentificationOf<Self>
+/// }
+/// ```
+pub struct UnitIdentificationOf<T>(core::marker::PhantomData<T>);
+impl<T: Config> Convert<T::AccountId, Option<()>> for UnitIdentificationOf<T> {
+	fn convert(validator: T::AccountId) -> Option<()> {
+		DefaultExposureOf::<T>::convert(validator).map(|_default_exposure| ())
 	}
 }
 

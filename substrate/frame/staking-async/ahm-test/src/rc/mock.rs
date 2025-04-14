@@ -157,8 +157,8 @@ parameter_types! {
 
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Runtime>;
+	type FullIdentification = sp_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = ah_client::DefaultExposureOf<Self>;
 }
 
 impl pallet_session::Config for Runtime {
@@ -181,19 +181,22 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = ();
 }
 
-/// Author of block is always 11
-pub struct Author11;
-impl FindAuthor<AccountId> for Author11 {
+parameter_types! {
+	pub static DefaultAuthor: Option<AccountId> = Some(11);
+}
+
+pub struct GetAuthor;
+impl FindAuthor<AccountId> for GetAuthor {
 	fn find_author<'a, I>(_digests: I) -> Option<AccountId>
 	where
 		I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
 	{
-		Some(11)
+		DefaultAuthor::get()
 	}
 }
 
 impl pallet_authorship::Config for Runtime {
-	type FindAuthor = Author11;
+	type FindAuthor = GetAuthor;
 	type EventHandler = StakingAhClient;
 }
 
@@ -227,6 +230,7 @@ impl pallet_staking::Config for Runtime {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type SlashDeferDuration = ConstU32<2>;
+	type SessionInterface = Self;
 	type BondingDuration = ConstU32<3>;
 }
 
@@ -375,6 +379,12 @@ impl ExtBuilder {
 	/// Set the session keys for the given accounts.
 	pub fn session_keys(mut self, session_keys: Vec<AccountId>) -> Self {
 		self.session_keys = session_keys;
+		self
+	}
+
+	/// Don't set 11 as the automatic block author of every block
+	pub fn no_default_author(self) -> Self {
+		DefaultAuthor::set(None);
 		self
 	}
 

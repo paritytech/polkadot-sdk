@@ -33,7 +33,6 @@ use sp_runtime::{
 };
 
 type AccountId = u64;
-type Balance = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -55,8 +54,8 @@ impl pallet_timestamp::Config for Test {
 }
 impl pallet_session::historical::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
-	type FullIdentificationOf = pallet_staking::ExistenceOrLegacyExposureOf<Test>;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -198,6 +197,7 @@ frame_support::construct_runtime!(
 );
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	sp_io::TestExternalities::new(t)
 }

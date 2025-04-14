@@ -18,17 +18,10 @@
 //! Offences pallet benchmarking.
 
 use alloc::{vec, vec::Vec};
-
+use codec::Decode;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::{Config as SystemConfig, Pallet as System, RawOrigin};
-
-use sp_runtime::{
-	traits::{Convert, Saturating, StaticLookup},
-	Perbill,
-};
-use sp_staking::offence::ReportOffence;
-
 use pallet_babe::EquivocationOffence as BabeEquivocationOffence;
 use pallet_balances::Config as BalancesConfig;
 use pallet_grandpa::{
@@ -37,12 +30,17 @@ use pallet_grandpa::{
 use pallet_offences::{Config as OffencesConfig, Pallet as Offences};
 use pallet_session::{
 	historical::{Config as HistoricalConfig, IdentificationTuple},
-	Config as SessionConfig, Pallet as Session, SessionManager,
+	Config as SessionConfig, Pallet as Session,
 };
 use pallet_staking::{
 	Config as StakingConfig, Exposure, IndividualExposure, MaxNominationsOf, Pallet as Staking,
 	RewardDestination, ValidatorPrefs,
 };
+use sp_runtime::{
+	traits::{Convert, Saturating, StaticLookup},
+	Perbill,
+};
+use sp_staking::offence::ReportOffence;
 
 const SEED: u32 = 0;
 
@@ -109,6 +107,13 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 		ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
 	Staking::<T>::validate(RawOrigin::Signed(stash.clone()).into(), validator_prefs)?;
 
+	// set some fake keys for the validators.
+	let keys =
+		<T as SessionConfig>::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+			.unwrap();
+	let proof: Vec<u8> = vec![0, 1, 2, 3];
+	Session::<T>::set_keys(RawOrigin::Signed(stash.clone()).into(), keys, proof)?;
+
 	let mut individual_exposures = vec![];
 	let mut nominator_stashes = vec![];
 	// Create n nominators
@@ -145,15 +150,21 @@ fn make_offenders<T: Config>(
 	num_offenders: u32,
 	num_nominators: u32,
 ) -> Result<Vec<IdentificationTuple<T>>, &'static str> {
-	Staking::<T>::new_session(0);
-
 	let mut offenders = vec![];
 	for i in 0..num_offenders {
 		let offender = create_offender::<T>(i + 1, num_nominators)?;
 		offenders.push(offender);
 	}
 
-	Staking::<T>::start_session(0);
+	// such that the election selects them all.
+	pallet_staking::ValidatorCount::<T>::put(num_offenders);
+	pallet_staking::BondedEras::<T>::mutate(|bonded_eras| {
+		bonded_eras.push((0, 0));
+	});
+
+	// rotate two sessions -- in one we get the new validator set, in next we activate it.
+	Session::<T>::rotate_session();
+	Session::<T>::rotate_session();
 
 	let id_tuples = offenders
 		.iter()
@@ -164,17 +175,10 @@ fn make_offenders<T: Config>(
 		.map(|validator_id| {
 			<T as HistoricalConfig>::FullIdentificationOf::convert(validator_id.clone())
 				.map(|full_id| (validator_id, full_id))
-				.expect("failed to convert validator id to full identification")
+				.unwrap()
 		})
 		.collect::<Vec<IdentificationTuple<T>>>();
 	Ok(id_tuples)
-}
-
-#[cfg(test)]
-fn run_staking_next_block<T: Config>() {
-	use frame_support::traits::Hooks;
-	System::<T>::set_block_number(System::<T>::block_number().saturating_add(1u32.into()));
-	Staking::<T>::on_initialize(System::<T>::block_number());
 }
 
 #[cfg(test)]
@@ -239,8 +243,6 @@ mod benchmarks {
 
 		#[cfg(test)]
 		{
-			// slashes applied at the next block.
-			run_staking_next_block::<T>();
 			assert_all_slashes_applied::<T>(n as usize);
 		}
 
@@ -275,8 +277,6 @@ mod benchmarks {
 		}
 		#[cfg(test)]
 		{
-			// slashes applied at the next block.
-			run_staking_next_block::<T>();
 			assert_all_slashes_applied::<T>(n as usize);
 		}
 

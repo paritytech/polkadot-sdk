@@ -541,8 +541,8 @@ impl pallet_session::Config for Runtime {
 
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type FullIdentification = sp_staking::ExistenceOrLegacyExposure<AccountId, Balance>;
-	type FullIdentificationOf = ah_client::ExistenceOrLegacyExposureOf<Runtime>;
+	type FullIdentification = sp_staking::Exposure<AccountId, Balance>;
+	type FullIdentificationOf = pallet_staking::DefaultExposureOf<Self>;
 }
 
 pub struct MaybeSignedPhase;
