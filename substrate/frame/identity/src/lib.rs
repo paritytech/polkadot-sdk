@@ -254,7 +254,7 @@ pub mod pallet {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		/// A set of helper functions for benchmarking.
-		type Helper: BenchmarkHelper<
+		type BenchmarkHelper: BenchmarkHelper<
 			Self::SigningPublicKey,
 			Self::AccountId,
 			Self::OffchainSignature,

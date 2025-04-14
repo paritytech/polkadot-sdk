@@ -10,6 +10,12 @@ doc:
       - Abstracts away the explicit link with Sr25519 schema in the benchmarks, allowing chains with a different one to be able to run them and calculate the weights.
       - Adds a default implementation for the empty tuple that leaves the code equivalent.
 
+      Adding the following to your implementation of the `frame_identity::Config` should be enough:
+      ```diff
+      #[cfg(feature = "runtime-benchmarks")]
+      type BenchmarkHelper = ();
+      ```
+
 crates:
     - name: pallet-identity
       bump: minor

@@ -138,7 +138,7 @@ impl pallet_identity::Config for Test {
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type Helper = BenchmarkHelper;
+	type BenchmarkHelper = BenchmarkHelper;
 	type WeightInfo = ();
 }
 
