@@ -51,10 +51,11 @@ where
 	}
 }
 
-/// Pair which is able to generate proof of possession. While you don't need a keypair
-/// to verify a proof of possession (you only need a public key) we constrain on Pair
-/// to use the Public and Signature types associated to Pair. This is implemented
-/// in different trait (than Public Key) to provide default behavoir
+/// Pair which is able to generate proof of possession.
+///
+/// While you don't need a keypair to verify a proof of possession (you only need a public key)
+/// we constrain on Pair to use the Public and Signature types associated to Pair. 
+/// This is implemented in different trait (than Public Key) to provide default behavior.
 pub trait ProofOfPossessionVerifier: Pair
 where
 	Self::Public: CryptoType,
