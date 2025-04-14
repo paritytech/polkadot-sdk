@@ -22,8 +22,9 @@ use crate::crypto::{ByteArray, CryptoType, Pair};
 /// The context which attached to pop message to attest its purpose.
 pub const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
 
-/// Pair which is able to generate proof of possession. This is implemented
-/// in different trait to provide default behavoir
+/// Pair which is able to generate proof of possession.
+///
+/// This is implemented in different trait to provide default behavior.
 pub trait ProofOfPossessionGenerator: Pair
 where
 	Self::Public: CryptoType,
