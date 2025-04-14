@@ -10947,6 +10947,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "sp-core 28.0.0",
  "sp-session",
  "sp-staking",
  "sp-tracing 16.0.0",

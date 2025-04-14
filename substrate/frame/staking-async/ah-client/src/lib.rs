@@ -593,10 +593,13 @@ pub mod pallet {
 					);
 				}
 
-				// prepare an `Offence` instance for the XCM message
+				// prepare an `Offence` instance for the XCM message. Note that we drop the
+				// identification.
+				let (offender, _full_identification) = offence.offender;
+				let reporters = offence.reporters;
 				offenders_and_slashes.push(rc_client::Offence {
-					offender: offence.offender.0,
-					reporters: offence.reporters,
+					offender,
+					reporters,
 					slash_fraction: *fraction,
 				});
 			}

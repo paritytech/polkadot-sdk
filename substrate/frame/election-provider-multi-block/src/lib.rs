@@ -1326,9 +1326,8 @@ where
 				RawOrigin::Signed(alice.clone()).into(),
 				index,
 				Some(Box::new(page.clone())),
-			).map_err(|e| {
+			).inspect_err(|&e| {
 				log!(error, "submit_page {:?} failed: {:?}", page, e);
-				e
 			})?;
 		}
 

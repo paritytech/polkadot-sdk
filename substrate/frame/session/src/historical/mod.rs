@@ -47,8 +47,10 @@ use sp_trie::{
 use frame_support::{
 	print,
 	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
-	Parameter, LOG_TARGET,
+	Parameter,
 };
+
+const LOG_TARGET: &'static str = "runtime::historical";
 
 use crate::{self as pallet_session, Pallet as Session};
 
@@ -273,7 +275,7 @@ impl<T: Config> ProvingTrie<T> {
 					Some(k) => k,
 				};
 
-				let full_id = (validator, full_id);
+				let id_tuple = (validator, full_id);
 
 				// map each key to the owner index.
 				for key_id in T::Keys::key_ids() {
@@ -286,7 +288,7 @@ impl<T: Config> ProvingTrie<T> {
 
 				// map each owner index to the full identification.
 				let _ = i
-					.using_encoded(|k| full_id.using_encoded(|v| trie.insert(k, v)))
+					.using_encoded(|k| id_tuple.using_encoded(|v| trie.insert(k, v)))
 					.map_err(|_| "failed to insert into trie")?;
 			}
 		}
@@ -363,7 +365,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 		}
 
 		let (id, data) = key;
-		let (root, count) = if proof.session == <Session<T>>::current_index() {
+		let (root, count) = if proof.session == dbg!(<Session<T>>::current_index()) {
 			let validators = Self::full_id_validators();
 			let count = validators.len() as ValidatorCount;
 			let trie = ProvingTrie::<T>::generate_for(validators).map_err(print_error).ok()?;

@@ -198,6 +198,7 @@ fn upon_receiving_election_queue_and_activate_next_session() {
 
 			// rotate one more session
 			roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 4, false);
+
 			// current validators are still the same
 			assert!(pallet_session::Validators::<Runtime>::get().is_empty());
 			// queued has changed
@@ -209,6 +210,7 @@ fn upon_receiving_election_queue_and_activate_next_session() {
 					.collect::<Vec<_>>(),
 				vec![1, 2, 3, 4]
 			);
+
 			assert_eq!(
 				session_events_since_last_call(),
 				vec![
@@ -900,5 +902,79 @@ mod splitting {
 				]
 			);
 		})
+	}
+}
+
+#[cfg(test)]
+mod key_proofs {
+	use frame::traits::KeyOwnerProofSystem;
+	use frame_support::sp_runtime;
+
+	use super::*;
+
+	#[test]
+	#[ignore = "not complete yet"]
+	fn can_generate_valid_latest_key_ownership_proof() {
+		ExtBuilder::default()
+			.local_queue()
+			.session_keys(vec![1, 2, 3, 4])
+			.build()
+			.execute_with(|| {
+				// no sessions exists, cannot generate any proofs
+				assert_eq!(pallet_session::historical::StoredRange::<T>::get(), None);
+				assert_eq!(pallet_session::CurrentIndex::<T>::get(), 0);
+
+				// receive a validator set, and trigger a 3 new sessions, such that we store some
+				// roots.
+				assert_ok!(ah_client::Pallet::<T>::validator_set(
+					RuntimeOrigin::root(),
+					ValidatorSetReport {
+						id: 0,
+						prune_up_to: None,
+						leftover: false,
+						new_validator_set: vec![1, 2, 3, 4],
+					},
+				));
+				roll_until_matches(|| pallet_session::CurrentIndex::<T>::get() == 3, false);
+
+				assert_eq!(
+					historical_events_since_last_call(),
+					vec![
+						pallet_session::historical::Event::RootStored { index: 2 },
+						pallet_session::historical::Event::RootStored { index: 3 },
+						pallet_session::historical::Event::RootStored { index: 4 }
+					]
+				);
+
+				assert_eq!(pallet_session::CurrentIndex::<T>::get(), 3);
+				assert_eq!(pallet_session::historical::StoredRange::<T>::get(), Some((2, 5)));
+
+				// generate the proof for one of the validators
+				use sp_runtime::{key_types::DUMMY, testing::UintAuthorityId, traits::OpaqueKeys};
+
+				let key_ids = <SessionKeys as OpaqueKeys>::key_ids();
+				assert_eq!(key_ids.len(), 1, "we have inserted only one key type in mock");
+
+				let keys = pallet_session::Pallet::<T>::load_keys(&1).unwrap();
+				let our_key = keys.get::<UintAuthorityId>(key_ids[0]);
+				assert_eq!(key_ids[0], DUMMY);
+
+				let proof =
+					pallet_session::historical::Pallet::<T>::prove((DUMMY, &our_key.encode()[..]))
+						.unwrap();
+
+				assert_eq!(proof.session, 3);
+				assert_eq!(proof.validator_count, 4);
+
+				// proof is valid, and it results into a default exposure.
+				assert_eq!(
+					pallet_session::historical::Pallet::<T>::check_proof(
+						(DUMMY, &our_key.encode()[..]),
+						proof
+					)
+					.unwrap(),
+					(1, sp_staking::Exposure::default())
+				)
+			})
 	}
 }
