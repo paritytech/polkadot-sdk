@@ -25,8 +25,7 @@ use crate::RunConfig;
 ///
 /// This trait allows downstream crates using `polkadot-omni-node-lib` to plug in their own custom
 /// subcommands without having to modify the main CLI definition. This is especially useful for
-/// parachain node binaries that want to define optional utilities like exporting data,
-/// telemetry tools, or anything domain-specific.
+/// parachain node binaries that want to define optional utilities.
 ///
 /// ## Implementing a Custom Extra Command
 ///
@@ -34,7 +33,7 @@ use crate::RunConfig;
 ///
 /// 1. Define the subcommand using [`clap::Parser`].
 /// 2. Implement this trait for it.
-/// 3. Register it in your CLI runner via `run::<CliConfig, YourExtraCommand>(config)`.
+/// 3. Use it when running the node via `run::<CliConfig, YourExtraCommand>(run_config)`
 ///
 /// ### Minimal Example:
 ///
