@@ -19,17 +19,19 @@
 
 use crate::crypto::{CryptoType, Pair};
 
-/// Pair which is able to generate proof of possession. This is implemented
-/// in different trait to provide default behavoir
+/// Pair which is able to generate proof of possession.
+///
+/// This is implemented in different trait to provide default behavior.
 pub trait ProofOfPossessionGenerator: Pair
 where
 	Self::Public: CryptoType,
 {
-	/// Proof of possession generator.
+	/// Generate proof of possession.
 	///
-	/// This is supposed to produce a "signature" with unique hash context that should
+	/// The proof of possession generator is supposed to
+	/// produce a "signature" with unique hash context that should
 	/// never be used in other signatures. This proves that
-	/// that the secret key is known to the prover. While prevent
+	/// the secret key is known to the prover. While prevent
 	/// malicious actors to trick an honest party to sign an
 	/// unpossessed public key resulting in a rogue key attack (See: Section 4.3 of
 	/// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
@@ -39,26 +41,30 @@ where
 	fn generate_proof_of_possession(&mut self) -> Self::Signature;
 }
 
-/// Pair which is able to generate proof of possession. While you don't need a keypair
-/// to verify a proof of possession (you only need a public key) we constrain on Pair
-/// to use the Public and Signature types associated to Pair. This is implemented
-/// in different trait (than Public Key) to provide default behavoir
+/// Pair which is able to generate proof of possession.
+///
+/// While you don't need a keypair to verify a proof of possession (you only need a public key)
+/// we constrain on Pair to use the Public and Signature types associated to Pair. 
+/// This is implemented in different trait (than Public Key) to provide default behavior.
 pub trait ProofOfPossessionVerifier: Pair
 where
 	Self::Public: CryptoType,
 {
-	/// The proof of possession verifier is supposed to
-	/// to verify a signature with unique hash context that is
-	/// produced solely for this reason. This proves that
-	/// that the secret key is known to the prover.
+	/// Verify proof of possession.
+	///
+	/// The proof of possession verifier is supposed to to verify a signature with unique hash
+	/// context that is produced solely for this reason. This proves that that the secret key is
+	/// known to the prover.
 	fn verify_proof_of_possession(
 		proof_of_possession: &Self::Signature,
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool;
 }
 
-/// Marker trait to identify whether the scheme is not aggregatable thus changing
-/// the implementation of the scheme parts such as Proof Of Possession or other specifics.
+/// Marker trait to identify whether the scheme is not aggregatable.
+///
+/// Aggregatable schemes may change/optimize implementation parts such as Proof Of Possession
+/// or other specifics.
 ///
 /// This is specifically because implementation of proof of possession for aggregatable schemes
 /// is security critical.
