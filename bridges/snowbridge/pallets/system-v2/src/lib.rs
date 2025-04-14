@@ -179,7 +179,6 @@ pub mod pallet {
 		/// - `sender`: The original sender initiating the call on AH
 		/// - `asset_id`: Location of the asset (relative to this chain)
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
-		/// - `fee`: Ether to pay for the execution cost on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_token())]
 		pub fn register_token(
