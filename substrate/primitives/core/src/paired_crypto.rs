@@ -145,7 +145,7 @@ pub mod ecdsa_bls381 {
 	pub const PUBLIC_KEY_LEN: usize =
 		ecdsa::PUBLIC_KEY_SERIALIZED_SIZE + bls381::PUBLIC_KEY_SERIALIZED_SIZE;
 
-	/// Identifier used for knowing aggregate public key size.
+	/// Aggregate signature serialized size.
 	pub const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
 
