@@ -654,7 +654,7 @@ bp-polkadot-bulletin = { path = "bridges/chains/chain-polkadot-bulletin", defaul
 bp-polkadot-core = { path = "bridges/primitives/polkadot-core", default-features = false, version = "0.19.0" }
 bp-relayers = { path = "bridges/primitives/relayers", default-features = false, version = "0.19.0" }
 bp-rococo = { path = "bridges/chains/chain-rococo", default-features = false, version = "0.18.0" }
-bp-runtime = { path = "bridges/primitives/runtime", default-features = false, version = "0.19.0" }
+bp-runtime = { path = "bridges/primitives/runtime", default-features = false, version = "0.19.1" }
 bp-test-utils = { path = "bridges/primitives/test-utils", default-features = false, version = "0.19.0" }
 bp-westend = { path = "bridges/chains/chain-westend", default-features = false, version = "0.15.0" }
 bp-xcm-bridge-hub = { path = "bridges/primitives/xcm-bridge-hub", default-features = false, version = "0.5.0" }
@@ -1376,7 +1376,7 @@ westend-runtime = { path = "polkadot/runtime/westend", version = "21.1.0" }
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false, version = "18.0.0" }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system", version = "0.1.0" }
 x25519-dalek = { version = "2.0" }
-xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm", version = "15.0.2" }
+xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm", version = "15.0.3" }
 xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "18.1.0" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.17.1" }
