@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true, default-features = false }
 impl-trait-for-tuples = { workspace = true }
+log = { workspace = true, default-features = false }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
 
@@ -29,10 +29,10 @@ sp-runtime = { workspace = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"log/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"log/std",
 ]
 runtime-benchmarks = ["sp-runtime/runtime-benchmarks"]
