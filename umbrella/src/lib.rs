@@ -671,11 +671,6 @@ pub use pallet_staking_async_ah_client;
 #[cfg(feature = "pallet-staking-async-rc-client")]
 pub use pallet_staking_async_rc_client;
 
-/// Pallet handling the communication with staking-ah-client. It's role is to glue the staking
-/// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
-#[cfg(feature = "pallet-staking-async-rc-client")]
-pub use pallet_staking_async_rc_client;
-
 /// Reward Curve for FRAME staking pallet.
 #[cfg(feature = "pallet-staking-async-reward-curve")]
 pub use pallet_staking_async_reward_curve;
