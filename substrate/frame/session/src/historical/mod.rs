@@ -365,7 +365,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 		}
 
 		let (id, data) = key;
-		let (root, count) = if proof.session == dbg!(<Session<T>>::current_index()) {
+		let (root, count) = if proof.session == <Session<T>>::current_index() {
 			let validators = Self::full_id_validators();
 			let count = validators.len() as ValidatorCount;
 			let trie = ProvingTrie::<T>::generate_for(validators).map_err(print_error).ok()?;
