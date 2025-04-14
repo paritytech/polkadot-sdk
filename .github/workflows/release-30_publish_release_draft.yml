@@ -197,7 +197,7 @@ jobs:
         if: ${{ matrix.target == 'aarch64-apple-darwin' }}
         working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
         run: |
-          . ./.github/scripts/common/lib.sh
+          . ../../../.github/scripts/common/lib.sh
 
           mv ${{ matrix.binary }} ${{ matrix.binary }}-aarch64-apple-darwin
           mv ${{ matrix.binary }}.asc ${{ matrix.binary }}-aarch64-apple-darwin.asc
