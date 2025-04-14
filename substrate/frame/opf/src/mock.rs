@@ -413,18 +413,20 @@ impl VotingHooks<u64, u32, u64> for HooksHandler {
 		LAST_ON_REMOVE_VOTE_DATA.with(|data| {
 			*data.borrow_mut() = Some((*who, ref_index.try_into().unwrap(), ongoing));
 		});
-		
-		let ref_info = match <Test as pallet_opf::Config>::Governance::get_referendum_info(ref_index.into()) {
-			Some(info) => info,
-			None => return,
-		};
-		let ref_status = match <Test as pallet_opf::Config>::Governance::handle_referendum_info(ref_info.clone()){
+
+		let ref_info =
+			match <Test as pallet_opf::Config>::Governance::get_referendum_info(ref_index.into()) {
+				Some(info) => info,
+				None => return,
+			};
+		let ref_status = match <Test as pallet_opf::Config>::Governance::handle_referendum_info(
+			ref_info.clone(),
+		) {
 			Some(status) => status,
 			None => return,
 		};
 		match ref_status {
 			ReferendumStates::Ongoing => {
-				
 				let vote_infos = match crate::Votes::<Test>::get(&ref_index, who) {
 					Some(vote_infos) => vote_infos,
 					None => return,
@@ -445,7 +447,6 @@ impl VotingHooks<u64, u32, u64> for HooksHandler {
 				None
 			},
 		};
-
 	}
 
 	fn lock_balance_on_unsuccessful_vote(who: &u64, ref_index: u32) -> Option<u64> {

@@ -99,9 +99,26 @@ pub mod pallet {
 			+ fungible::hold::Mutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ fungible::freeze::Inspect<Self::AccountId>
 			+ fungible::freeze::Mutate<Self::AccountId>;
+
+		/// The type implementing the `ReferendumTrait` for this pallet.
+		///
+		/// This associated type defines the implementation of referendum-related functionality,
+		/// including creating proposals, submitting them, and managing referendum information.
 		type Governance: ReferendumTrait<Self::AccountId>;
+
+		/// The type implementing the `ConvictionVotingTrait` for this pallet.
+		///
+		/// This associated type defines the implementation of conviction voting functionality,
+		/// including vote creation, submission, removal, and balance unlocking.
 		type Conviction: ConvictionVotingTrait<Self::AccountId>;
+
+		/// The type representing hold reasons in the runtime.
+		///
+		/// This associated type must be able to represent the `HoldReason` enum defined in this
+		/// pallet. It's used to communicate reasons for holding funds across different parts of
+		/// the runtime.
 		type RuntimeHoldReason: From<HoldReason>;
+
 		/// Provider for the block number.
 		type BlockNumberProvider: BlockNumberProvider;
 
@@ -611,17 +628,12 @@ pub mod pallet {
 			voter_id: VoterId<T>,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let project_infos =
-				WhiteListedProjectAccounts::<T>::get(project_id.clone())
-					.ok_or(Error::<T>::NoProjectAvailable)?;
+			let project_infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
+				.ok_or(Error::<T>::NoProjectAvailable)?;
 			let referendum_index = project_infos.index;
 			ensure!(Votes::<T>::contains_key(&referendum_index, &voter_id), Error::<T>::NoVoteData);
 
-			T::Conviction::unlock_voter_balance(
-				caller,
-				referendum_index.into(),
-				voter_id.clone(),
-			)?;
+			T::Conviction::unlock_voter_balance(caller, referendum_index.into(), voter_id.clone())?;
 
 			Votes::<T>::remove(&referendum_index, &voter_id);
 			Ok(())

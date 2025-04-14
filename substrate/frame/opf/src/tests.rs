@@ -120,7 +120,6 @@ fn conviction_vote_works() {
 		let dave_hold = <Test as Config>::NativeBalance::total_balance_on_hold(&DAVE);
 		assert_eq!(bob_hold, 100);
 		assert_eq!(dave_hold, 100);
-		
 	})
 }
 
@@ -156,22 +155,16 @@ fn test_release_voter_funds_success() {
 		let vote_info = Votes::<Test>::get(referendum_index, BOB).unwrap();
 		let unlock_block = vote_info.funds_unlock_block;
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
-		run_to_block(now+6);
-		
+		run_to_block(now + 6);
+
 		//Bobs funds are locked
 		let bob_hold1 = <Test as Config>::NativeBalance::total_balance_on_hold(&BOB);
-		assert_eq!(bob_hold1>0, true);
+		assert_eq!(bob_hold1 > 0, true);
 		// Bob still cannot release his funds
-		assert_ok!(
-			Opf::release_voter_funds(RawOrigin::Signed(BOB).into(), 101, BOB)
-		);
-		expect_events(vec![mock::RuntimeEvent::ConvictionVoting(pallet_conviction_voting::Event::VoteUnlocked {
-			who: 11,
-			 class: 0,
-	 })]);
-		
-
-	
+		assert_ok!(Opf::release_voter_funds(RawOrigin::Signed(BOB).into(), 101, BOB));
+		expect_events(vec![mock::RuntimeEvent::ConvictionVoting(
+			pallet_conviction_voting::Event::VoteUnlocked { who: 11, class: 0 },
+		)]);
 	});
 }
 
@@ -303,13 +296,13 @@ fn vote_removal_works() {
 		assert_eq!(project_fund_before.positive_funds, 6000);
 
 		// Voter's funds are locked
-			let locked_balance0 =
+		let locked_balance0 =
 			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
 				&HoldReason::FundsReserved.into(),
 				&BOB,
 			);
 
-			let infos = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
+		let infos = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
 		let ref_index = infos.index;
 		assert_eq!(locked_balance0, 1000);
 		assert_eq!(Votes::<Test>::get(ref_index, BOB).is_some(), true);
@@ -318,10 +311,10 @@ fn vote_removal_works() {
 		assert_ok!(Opf::remove_vote(RawOrigin::Signed(BOB).into(), 101,));
 
 		let locked_balance1 =
-		<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
-			&HoldReason::FundsReserved.into(),
-			&BOB,
-		);
+			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+				&HoldReason::FundsReserved.into(),
+				&BOB,
+			);
 
 		let infos = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
 		let ref_index = infos.index;
@@ -379,10 +372,10 @@ fn vote_overwrite_works() {
 		let vote_info = Votes::<Test>::get(ref_index, BOB).unwrap();
 
 		locked_balance0 =
-		<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
-			&HoldReason::FundsReserved.into(),
-			&BOB,
-		);
+			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+				&HoldReason::FundsReserved.into(),
+				&BOB,
+			);
 		assert_eq!(locked_balance0, 5500);
 
 		assert_eq!(4500, vote_info.amount);

@@ -2,7 +2,15 @@ pub use super::*;
 use frame_support::traits::{ReservableCurrency, VoteTally};
 use pallet_referenda::{Deposit, TallyOf, TracksInfo};
 
+/// Trait for managing referendums in a Substrate-based blockchain.
+///
+/// This trait defines the core functionality for creating, submitting, and managing referendums.
+/// It is designed to be implemented by pallets that need to handle referendum-related operations.
 pub trait ReferendumTrait<AccountId> {
+	/// The type used for referendum indices.
+	///
+	/// This type must be convertible from u32 and implement various traits for ordering,
+	/// serialization, and encoding.
 	type Index: From<u32>
 		+ Parameter
 		+ Member
@@ -11,27 +19,121 @@ pub trait ReferendumTrait<AccountId> {
 		+ Copy
 		+ HasCompact
 		+ MaxEncodedLen;
+
+	/// The type representing a proposal in the referendum system.
 	type Proposal: Parameter + Member + MaxEncodedLen;
+
+	/// The type containing information about a referendum.
 	type ReferendumInfo: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone;
+
+	/// The type handling preimages for proposals.
 	type Preimages;
+
+	/// The type representing a dispatchable call in the runtime.
 	type Call;
+
+	/// The type used for representing time.
 	type Moment;
 
+	/// Creates a new proposal from a given call.
+	///
+	/// # Arguments
+	///
+	/// * `proposal_call` - The call to be proposed as a referendum.
+	///
+	/// # Returns
+	///
+	/// A new proposal of type `Self::Proposal`.
 	fn create_proposal(proposal_call: Self::Call) -> Self::Proposal;
+
+	/// Submits a new proposal for a referendum.
+	///
+	/// # Arguments
+	///
+	/// * `caller` - The account submitting the proposal.
+	/// * `proposal` - The proposal to be submitted.
+	///
+	/// # Returns
+	///
+	/// A result containing the index of the newly created referendum if successful,
+	/// or a `DispatchError` if the submission fails.
 	fn submit_proposal(caller: AccountId, proposal: Self::Proposal) -> Result<u32, DispatchError>;
+
+	/// Retrieves information about a specific referendum.
+	///
+	/// # Arguments
+	///
+	/// * `index` - The index of the referendum to query.
+	///
+	/// # Returns
+	///
+	/// An option containing the referendum information if found, or None if not found.
 	fn get_referendum_info(index: Self::Index) -> Option<Self::ReferendumInfo>;
+
+	/// Processes referendum information and determines its current state.
+	///
+	/// # Arguments
+	///
+	/// * `infos` - The referendum information to process.
+	///
+	/// # Returns
+	///
+	/// An option containing the current state of the referendum, or None if the state
+	/// cannot be determined.
 	fn handle_referendum_info(infos: Self::ReferendumInfo) -> Option<ReferendumStates>;
+
+	/// Retrieves the total count of referendums.
+	///
+	/// # Returns
+	///
+	/// The current count of referendums as `Self::Index`.
 	fn referendum_count() -> Self::Index;
+
+	/// Retrieves the time periods associated with a specific referendum.
+	///
+	/// # Arguments
+	///
+	/// * `index` - The index of the referendum.
+	///
+	/// # Returns
+	///
+	/// A result containing the `TimePeriods` if successful, or a `DispatchError` if retrieval
+	/// fails.
 	fn get_time_periods(index: Self::Index) -> Result<TimePeriods, DispatchError>;
+
+	/// Enters the decision period for a specific referendum.
+	///
+	/// # Arguments
+	///
+	/// * `index` - The index of the referendum.
+	/// * `project_id` - The account ID associated with the project.
+	///
+	/// # Returns
+	///
+	/// A result containing the duration of the decision period as a u128 if successful,
+	/// or a `DispatchError` if entering the decision period fails.
 	fn enter_decision_period(
 		index: Self::Index,
 		project_id: AccountId,
 	) -> Result<u128, DispatchError>;
 }
 
+/// Trait for managing conviction voting in a Substrate-based blockchain.
+///
+/// This trait defines the core functionality for handling votes with conviction,
+/// including vote creation, submission, removal, and balance unlocking.
 pub trait ConvictionVotingTrait<AccountId> {
+	/// The type representing a vote.
 	type Vote;
+
+	/// The type representing an account's vote, which includes both the vote and any associated
+	/// metadata.
 	type AccountVote;
+
+	/// The type used for referendum indices.
+	///
+	/// This type must be convertible from u32 and implement various traits for ordering,
+	/// serialization, and encoding.
 	type Index: From<u32>
 		+ Parameter
 		+ Member
@@ -40,18 +142,82 @@ pub trait ConvictionVotingTrait<AccountId> {
 		+ Copy
 		+ HasCompact
 		+ MaxEncodedLen;
+
+	/// The type used for representing balances.
 	type Balance;
+
+	/// The type used for representing time.
 	type Moment;
 
+	/// Converts a u128 value to the Balance type.
+	///
+	/// # Arguments
+	///
+	/// * `x` - The u128 value to convert.
+	///
+	/// # Returns
+	///
+	/// An option containing the converted Balance if successful, or None if the conversion fails.
 	fn u128_to_balance(x: u128) -> Option<Self::Balance>;
+
+	/// Creates vote data based on the provided parameters.
+	///
+	/// # Arguments
+	///
+	/// * `aye` - A boolean indicating whether the vote is in favor (true) or against (false).
+	/// * `conviction` - The conviction level of the vote.
+	/// * `balance` - The balance amount associated with the vote.
+	///
+	/// # Returns
+	///
+	/// An AccountVote object representing the vote data.
 	fn vote_data(aye: bool, conviction: Conviction, balance: Self::Balance) -> Self::AccountVote;
+
+	/// Attempts to submit a vote for a referendum.
+	///
+	/// # Arguments
+	///
+	/// * `caller` - The account attempting to vote.
+	/// * `ref_index` - The index of the referendum being voted on.
+	/// * `vote` - The AccountVote object containing the vote data.
+	///
+	/// # Returns
+	///
+	/// A DispatchResult indicating success or failure of the vote submission.
 	fn try_vote(
 		caller: &AccountId,
 		ref_index: Self::Index,
 		vote: Self::AccountVote,
 	) -> DispatchResult;
+
+	/// Attempts to remove a vote from a referendum.
+	///
+	/// # Arguments
+	///
+	/// * `caller` - The account attempting to remove the vote.
+	/// * `ref_index` - The index of the referendum from which to remove the vote.
+	///
+	/// # Returns
+	///
+	/// A DispatchResult indicating success or failure of the vote removal.
 	fn try_remove_vote(caller: &AccountId, ref_index: Self::Index) -> DispatchResult;
-	fn unlock_voter_balance(caller: AccountId, ref_index: Self::Index, voter: AccountId) -> DispatchResult;
+
+	/// Attempts to unlock a voter's balance after a referendum has concluded.
+	///
+	/// # Arguments
+	///
+	/// * `caller` - The account initiating the unlock operation.
+	/// * `ref_index` - The index of the referendum for which to unlock the balance.
+	/// * `voter` - The account of the voter whose balance is being unlocked.
+	///
+	/// # Returns
+	///
+	/// A DispatchResult indicating success or failure of the balance unlocking operation.
+	fn unlock_voter_balance(
+		caller: AccountId,
+		ref_index: Self::Index,
+		voter: AccountId,
+	) -> DispatchResult;
 }
 
 // Implement VotingHooks for pallet_conviction_voting
@@ -96,7 +262,7 @@ impl<T: Config> VotingHooks<AccountIdOf<T>, ReferendumIndex, BalanceOf<T>> for P
 			None => return,
 		};
 
-		let ref_status = match T::Governance::handle_referendum_info(ref_info.clone()){
+		let ref_status = match T::Governance::handle_referendum_info(ref_info.clone()) {
 			Some(status) => status,
 			None => return,
 		};
@@ -199,7 +365,7 @@ where
 
 	fn create_proposal(proposal_call: Self::Call) -> Self::Proposal {
 		let call_formatted = <T as pallet_referenda::Config<I>>::RuntimeCall::from(proposal_call);
-		let bounded_proposal = match Self::Preimages::bound(call_formatted){
+		let bounded_proposal = match Self::Preimages::bound(call_formatted) {
 			Ok(bounded_proposal) => bounded_proposal,
 			Err(_) => {
 				panic!("Failed to bound proposal");
@@ -360,5 +526,4 @@ where
 			_ => Err(DispatchError::Other("Not an ongoing referendum")),
 		}
 	}
-
 }
