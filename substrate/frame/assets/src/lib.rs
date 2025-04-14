@@ -248,6 +248,7 @@ where
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{AccountTouch, ContainsPair},
@@ -317,6 +318,7 @@ pub mod pallet {
 		/// The units in which we record balances.
 		type Balance: Member
 			+ Parameter
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ AtLeast32BitUnsigned
 			+ Default
 			+ Copy

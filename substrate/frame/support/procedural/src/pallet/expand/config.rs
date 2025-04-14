@@ -47,6 +47,7 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 			]
 		),
 	);
+	config_item.attrs.retain(|attr| !attr.path().is_ident("deprecated"));
 
 	// insert `frame_system::Config` supertrait with `RuntimeEvent: From<Event<Self>>` if neither
 	// associated type nor type bound is defined.

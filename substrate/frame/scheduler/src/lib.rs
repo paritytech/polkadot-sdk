@@ -324,6 +324,7 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
+	/// Block number at which the agenda began incomplete execution.
 	#[pallet::storage]
 	pub type IncompleteSince<T: Config> = StorageValue<_, BlockNumberFor<T>>;
 
@@ -387,6 +388,8 @@ pub mod pallet {
 		RetryFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task can never be executed since it is overweight.
 		PermanentlyOverweight { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
+		/// Agenda is incomplete from `when`.
+		AgendaIncomplete { when: BlockNumberFor<T> },
 	}
 
 	#[pallet::error]
@@ -1203,6 +1206,7 @@ impl<T: Config> Pallet<T> {
 		}
 		incomplete_since = incomplete_since.min(when);
 		if incomplete_since <= now {
+			Self::deposit_event(Event::AgendaIncomplete { when: incomplete_since });
 			IncompleteSince::<T>::put(incomplete_since);
 		}
 	}
@@ -1236,10 +1240,7 @@ impl<T: Config> Pallet<T> {
 		let mut dropped = 0;
 
 		for (agenda_index, _) in ordered.into_iter().take(max as usize) {
-			let task = match agenda[agenda_index as usize].take() {
-				None => continue,
-				Some(t) => t,
-			};
+			let Some(task) = agenda[agenda_index as usize].take() else { continue };
 			let base_weight = T::WeightInfo::service_task(
 				task.call.lookup_len().map(|x| x as usize),
 				task.maybe_id.is_some(),
@@ -1247,6 +1248,7 @@ impl<T: Config> Pallet<T> {
 			);
 			if !weight.can_consume(base_weight) {
 				postponed += 1;
+				agenda[agenda_index as usize] = Some(task);
 				break
 			}
 			let result = Self::service_task(weight, now, when, agenda_index, *executed == 0, task);

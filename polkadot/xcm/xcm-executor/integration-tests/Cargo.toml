@@ -23,7 +23,6 @@ polkadot-test-client = { workspace = true }
 polkadot-test-runtime = { workspace = true }
 polkadot-test-service = { workspace = true }
 sp-consensus = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true, default-features = true }
@@ -33,4 +32,11 @@ xcm-executor = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = ["frame-support/std", "frame-system/std", "pallet-sudo/std", "polkadot-runtime-parachains/std", "sp-runtime/std", "xcm/std"]
+std = [
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-sudo/std",
+	"polkadot-runtime-parachains/std",
+	"sp-runtime/std",
+	"xcm/std",
+]

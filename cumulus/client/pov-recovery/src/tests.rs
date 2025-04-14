@@ -635,7 +635,10 @@ async fn pending_candidate_height_lower_than_latest_finalized() {
 #[case(RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT)]
 #[case(10)]
 #[tokio::test]
-async fn single_pending_candidate_recovery_success(#[case] runtime_version: u32) {
+async fn single_pending_candidate_recovery_success(
+	#[case] runtime_version: u32,
+	#[values(true, false)] latest_block_data: bool,
+) {
 	sp_tracing::init_for_tests();
 
 	let (recovery_subsystem_tx, mut recovery_subsystem_rx) =
@@ -689,15 +692,20 @@ async fn single_pending_candidate_recovery_success(#[case] runtime_version: u32)
 		)) => {
 			assert_eq!(receipt.hash(), candidate_hash);
 			assert_eq!(session_index, TEST_SESSION_INDEX);
+			let block_data =
+					ParachainBlockData::<Block>::new(
+						vec![Block::new(header.clone(), vec![])], CompactProof { encoded_nodes: vec![] }
+					);
+
 			response_tx.send(
 				Ok(
 					AvailableData {
 						pov: Arc::new(PoV {
-							block_data: ParachainBlockData::<Block>::new(
-								header.clone(),
-								vec![],
-								CompactProof {encoded_nodes: vec![]}
-							).encode().into()
+							block_data: if latest_block_data {
+								block_data
+							} else {
+								block_data.as_v0().unwrap()
+							}.encode().into()
 						}),
 						validation_data: dummy_pvd(),
 					}
@@ -798,9 +806,7 @@ async fn single_pending_candidate_recovery_retry_succeeds() {
 					AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								header.clone(),
-								vec![],
-								CompactProof {encoded_nodes: vec![]}
+								vec![Block::new(header.clone(), Vec::new())], CompactProof { encoded_nodes: vec![] }
 							).encode().into()
 						}),
 						validation_data: dummy_pvd(),
@@ -1105,8 +1111,7 @@ async fn candidate_is_imported_while_awaiting_recovery() {
 		.send(Ok(AvailableData {
 			pov: Arc::new(PoV {
 				block_data: ParachainBlockData::<Block>::new(
-					header.clone(),
-					vec![],
+					vec![Block::new(header.clone(), vec![])],
 					CompactProof { encoded_nodes: vec![] },
 				)
 				.encode()
@@ -1203,8 +1208,7 @@ async fn candidate_is_finalized_while_awaiting_recovery() {
 		.send(Ok(AvailableData {
 			pov: Arc::new(PoV {
 				block_data: ParachainBlockData::<Block>::new(
-					header.clone(),
-					vec![],
+					vec![Block::new(header.clone(), vec![])],
 					CompactProof { encoded_nodes: vec![] },
 				)
 				.encode()
@@ -1291,9 +1295,7 @@ async fn chained_recovery_success() {
 					.send(Ok(AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								header.clone(),
-								vec![],
-								CompactProof { encoded_nodes: vec![] },
+								vec![Block::new(header.clone(), vec![])], CompactProof { encoded_nodes: vec![] }
 							)
 							.encode()
 							.into(),
@@ -1408,8 +1410,7 @@ async fn chained_recovery_child_succeeds_before_parent() {
 			.send(Ok(AvailableData {
 				pov: Arc::new(PoV {
 					block_data: ParachainBlockData::<Block>::new(
-						header.clone(),
-						vec![],
+						vec![Block::new(header.clone(), vec![])],
 						CompactProof { encoded_nodes: vec![] },
 					)
 					.encode()
@@ -1426,6 +1427,110 @@ async fn chained_recovery_child_succeeds_before_parent() {
 		assert_eq!(incoming_blocks[0].header, Some(headers[0].clone()));
 		assert_eq!(incoming_blocks[1].header, Some(headers[1].clone()));
 	});
+
+	// No more recovery messages received.
+	assert_matches!(recovery_subsystem_rx.next().timeout(Duration::from_millis(100)).await, None);
+
+	// No more import requests received
+	assert_matches!(import_requests_rx.next().timeout(Duration::from_millis(100)).await, None);
+}
+
+#[tokio::test]
+async fn recovery_multiple_blocks_per_candidate() {
+	sp_tracing::init_for_tests();
+
+	let (recovery_subsystem_tx, mut recovery_subsystem_rx) =
+		AvailabilityRecoverySubsystemHandle::new();
+	let recovery_delay_range =
+		RecoveryDelayRange { min: Duration::from_millis(0), max: Duration::from_millis(0) };
+	let (_explicit_recovery_chan_tx, explicit_recovery_chan_rx) = mpsc::channel(10);
+	let candidates = make_candidate_chain(1..4);
+	let candidate = candidates.last().unwrap();
+	let headers = candidates
+		.iter()
+		.map(|c| Header::decode(&mut &c.commitments.head_data.0[..]).unwrap())
+		.collect::<Vec<_>>();
+	let header = headers.last().unwrap();
+
+	let relay_chain_client = Relaychain::new(vec![(
+		PHeader {
+			parent_hash: PHash::from_low_u64_be(0),
+			number: 1,
+			state_root: PHash::random(),
+			extrinsics_root: PHash::random(),
+			digest: Default::default(),
+		},
+		vec![candidate.clone()],
+	)]);
+	let mut known_blocks = HashMap::new();
+	known_blocks.insert(GENESIS_HASH, BlockStatus::InChainWithState);
+	let known_blocks = Arc::new(Mutex::new(known_blocks));
+	let (parachain_client, import_notifications_tx, _finality_notifications_tx) =
+		ParachainClient::new(vec![dummy_usage_info(0)], known_blocks.clone());
+	let (parachain_import_queue, mut import_requests_rx) = ParachainImportQueue::new();
+
+	let pov_recovery = PoVRecovery::<Block, _, _>::new(
+		Box::new(recovery_subsystem_tx),
+		recovery_delay_range,
+		Arc::new(parachain_client),
+		Box::new(parachain_import_queue),
+		relay_chain_client,
+		ParaId::new(1000),
+		explicit_recovery_chan_rx,
+		Arc::new(DummySyncOracle::default()),
+	);
+
+	task::spawn(pov_recovery.run());
+
+	// Candidates are recovered in the right order.
+	assert_matches!(
+		recovery_subsystem_rx.next().await,
+		Some(AvailabilityRecoveryMessage::RecoverAvailableData(
+			receipt,
+			session_index,
+			None,
+			None,
+			response_tx
+		)) => {
+			assert_eq!(receipt.hash(), candidate.hash());
+			assert_eq!(session_index, TEST_SESSION_INDEX);
+			response_tx
+				.send(Ok(AvailableData {
+					pov: Arc::new(PoV {
+						block_data: ParachainBlockData::<Block>::new(
+							headers.iter().map(|h| Block::new(h.clone(), vec![])).collect(),
+							CompactProof { encoded_nodes: vec![] },
+						)
+						.encode()
+						.into(),
+					}),
+					validation_data: dummy_pvd(),
+					}))
+				.unwrap();
+		}
+	);
+
+	assert_matches!(import_requests_rx.next().await, Some(incoming_blocks) => {
+		assert_eq!(incoming_blocks.len(), 3);
+		assert_eq!(incoming_blocks.iter().map(|b| b.header.clone().unwrap()).collect::<Vec<_>>(), headers);
+	});
+
+	known_blocks
+		.lock()
+		.expect("Poisoned lock")
+		.insert(header.hash(), BlockStatus::InChainWithState);
+
+	let (unpin_sender, _unpin_receiver) = sc_utils::mpsc::tracing_unbounded("test_unpin", 10);
+	import_notifications_tx
+		.unbounded_send(BlockImportNotification::new(
+			header.hash(),
+			BlockOrigin::ConsensusBroadcast,
+			header.clone(),
+			false,
+			None,
+			unpin_sender,
+		))
+		.unwrap();
 
 	// No more recovery messages received.
 	assert_matches!(recovery_subsystem_rx.next().timeout(Duration::from_millis(100)).await, None);

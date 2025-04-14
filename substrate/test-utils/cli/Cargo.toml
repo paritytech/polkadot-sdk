@@ -22,8 +22,8 @@ nix = { features = ["signal"], workspace = true }
 node-cli = { workspace = true }
 node-primitives = { workspace = true, default-features = true }
 regex = { workspace = true }
-sc-cli = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
+sc-cli = { workspace = true, default-features = false }
+sc-service = { workspace = true, default-features = false }
 sp-rpc = { workspace = true, default-features = true }
 substrate-rpc-client = { workspace = true, default-features = true }
 tokio = { features = ["full"], workspace = true, default-features = true }
