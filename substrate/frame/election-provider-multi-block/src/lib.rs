@@ -1320,13 +1320,13 @@ where
 		signed::Pallet::<T>::register(RawOrigin::Signed(alice.clone()).into(), score)?;
 
 		// submit pages
-		for (index, page) in solution_pages
-		.pagify(T::Pages::get()) {
+		for (index, page) in solution_pages.pagify(T::Pages::get()) {
 			signed::Pallet::<T>::submit_page(
 				RawOrigin::Signed(alice.clone()).into(),
 				index,
 				Some(Box::new(page.clone())),
-			).map_err(|e| {
+			)
+			.map_err(|e| {
 				log!(error, "submit_page {:?} failed: {:?}", page, e);
 				e
 			})?;
