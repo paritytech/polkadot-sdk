@@ -161,7 +161,7 @@ pub mod pallet {
 			let signature = sp_runtime::MultiSignature::Sr25519(
 				sp_io::crypto::sr25519_sign(
 					0.into(),
-					&public.clone().into_account().try_into().unwrap(),
+					&public.into_account().try_into().unwrap(),
 					message,
 				)
 				.unwrap(),
