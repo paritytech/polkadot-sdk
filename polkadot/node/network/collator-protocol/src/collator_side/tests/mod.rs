@@ -471,7 +471,6 @@ async fn expect_advertise_collation_msg(
 	let mut candidate_hashes: HashSet<_> = expected_candidate_hashes.into_iter().collect();
 	let iter_num = candidate_hashes.len();
 
-	gum::warn!("Just received advertised");
 	for _ in 0..iter_num {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
