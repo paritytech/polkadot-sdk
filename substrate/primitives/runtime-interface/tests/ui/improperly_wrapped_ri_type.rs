@@ -15,12 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_runtime_interface::pass_by::PassByInner;
+mod test {
+	#![allow(unexpected_cfgs)]
 
-#[derive(PassByInner)]
-struct Test {
-	data: u32,
-	data2: u32,
+    use sp_runtime_interface::runtime_interface;
+
+	#[runtime_interface]
+    trait Test {
+        fn test(&self, a: Option<u8>) -> Option<u8> {}
+    }
 }
 
 fn main() {}

@@ -5612,9 +5612,9 @@ dependencies = [
 
 [[package]]
 name = "dyn-clone"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "545b22097d44f8a9581187cdf93de7a71e4722bf51200cfaba810865b49a495d"
+checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 
 [[package]]
 name = "easy-cast"
@@ -12264,18 +12264,13 @@ dependencies = [
 name = "pallet-nft-fractionalization"
 version = "10.0.0"
 dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
  "log",
  "pallet-assets",
  "pallet-balances",
  "pallet-nfts",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -22142,6 +22137,7 @@ dependencies = [
  "bs58",
  "criterion",
  "dyn-clonable",
+ "dyn-clone",
  "ed25519-zebra 4.0.3",
  "futures",
  "hash-db",
