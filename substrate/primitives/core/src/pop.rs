@@ -60,10 +60,11 @@ pub trait ProofOfPossessionVerifier: Pair
 where
 	Self::Public: CryptoType,
 {
-	/// The proof of possession verifier is supposed to
-	/// to verify a signature with unique hash context that is
-	/// produced solely for this reason. This proves that
-	/// that the secret key is known to the prover.
+	/// Verify proof of possession.
+	///
+	/// The proof of possession verifier is supposed to to verify a signature with unique hash
+	/// context that is produced solely for this reason. This proves that that the secret key is
+	/// known to the prover.
 	fn verify_proof_of_possession(
 		proof_of_possession: &Self::Signature,
 		allegedly_possessesd_pubkey: &Self::Public,
