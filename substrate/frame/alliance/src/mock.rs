@@ -107,13 +107,9 @@ type EnsureTwoOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<Two
 pub struct BenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_identity::BenchmarkHelper<AccountU64, AccountId, AccountU64> for BenchmarkHelper {
-	fn signer() -> (AccountU64, AccountId) {
-		(AccountU64(0), 0)
-	}
-
-	fn sign(_signer: &AccountU64, _message: &[u8]) -> AccountU64 {
-		AccountU64(0)
+impl pallet_identity::BenchmarkHelper<AccountU64, AccountU64> for BenchmarkHelper {
+	fn sign_message(_message: &[u8]) -> (AccountU64, AccountU64) {
+		(AccountU64(0), AccountU64(0))
 	}
 }
 

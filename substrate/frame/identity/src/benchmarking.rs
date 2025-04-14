@@ -617,9 +617,9 @@ mod benchmarks {
 		let username = bench_username();
 		let bounded_username = bounded_username::<T>(username.clone(), suffix.clone());
 
-		let (public, who_account) = T::BenchmarkHelper::signer();
+		let (public, signature) = T::BenchmarkHelper::sign_message(&bounded_username[..]);
+		let who_account = public.into_account();
 		let who_lookup = T::Lookup::unlookup(who_account.clone());
-		let signature = T::BenchmarkHelper::sign(&public, &bounded_username[..]);
 
 		// Verify signature here to avoid surprise errors at runtime
 		assert!(signature.verify(&bounded_username[..], &who_account));
