@@ -220,7 +220,7 @@ pub trait ConvictionVotingTrait<AccountId> {
 	) -> DispatchResult;
 }
 
-// Implement VotingHooks for pallet_conviction_voting
+/// Implement VotingHooks for pallet_conviction_voting
 impl<T: Config> VotingHooks<AccountIdOf<T>, ReferendumIndex, BalanceOf<T>> for Pallet<T> {
 	fn on_before_vote(
 		who: &AccountIdOf<T>,
