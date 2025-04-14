@@ -251,17 +251,11 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			"Executing message",
 		);
 		let mut properties = Properties { weight_credit, message_id: None };
-		let mut orig_topic_id = None;
 
 		// We only want to record under certain conditions (mainly only during dry-running),
 		// so as to not degrade regular performance.
 		if Config::XcmRecorder::should_record() {
 			Config::XcmRecorder::record(message.clone().into());
-		}
-
-		if let Some(SetTopic(topic_id)) = message.last() {
-			tracing::trace!(target: "xcm::execute", ?topic_id, "Message already ends with `SetTopic` before `Barrier::should_execute`");
-			orig_topic_id = Some(*topic_id);
 		}
 
 		if let Err(e) = Config::Barrier::should_execute(
@@ -286,16 +280,6 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		}
 
 		*id = properties.message_id.unwrap_or(*id);
-
-		if let Some(SetTopic(topic_id)) = message.last() {
-			tracing::trace!(target: "xcm::execute", ?topic_id, "Message still ends with `SetTopic` after `Barrier::should_execute`");
-		} else if properties.message_id.is_some() && orig_topic_id == properties.message_id {
-			// properties.message_id may be updated by `TrailingSetTopicAsId`
-			if let Some(topic_id) = orig_topic_id {
-				message.inner_mut().push(SetTopic(topic_id));
-				tracing::trace!(target: "xcm::execute", ?topic_id, "`SetTopic` appended to message");
-			}
-		}
 
 		let mut vm = Self::new(origin, *id);
 		vm.message_weight = xcm_weight;
