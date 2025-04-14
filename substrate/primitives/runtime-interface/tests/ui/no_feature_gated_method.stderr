@@ -1,46 +1,100 @@
 error[E0425]: cannot find function `bar` in module `test`
-  --> tests/ui/no_feature_gated_method.rs:33:8
+  --> tests/ui/no_feature_gated_method.rs:37:8
    |
-33 |     test::bar();
+37 |     test::bar();
    |           ^^^ not found in `test`
    |
 note: found an item that was configured out
-  --> tests/ui/no_feature_gated_method.rs:25:5
+  --> tests/ui/no_feature_gated_method.rs:29:5
    |
-25 |     fn bar() {}
+29 |     fn bar() {}
    |        ^^^
 note: the item is gated behind the `bar-feature` feature
-  --> tests/ui/no_feature_gated_method.rs:24:8
+  --> tests/ui/no_feature_gated_method.rs:28:8
    |
-24 |     #[cfg(feature = "bar-feature")]
+28 |     #[cfg(feature = "bar-feature")]
    |           ^^^^^^^^^^^^^^^^^^^^^^^
 note: found an item that was configured out
-  --> tests/ui/no_feature_gated_method.rs:25:5
+  --> tests/ui/no_feature_gated_method.rs:29:5
    |
-25 |     fn bar() {}
+29 |     fn bar() {}
    |        ^^^
 note: the item is gated here
-  --> tests/ui/no_feature_gated_method.rs:20:1
+  --> tests/ui/no_feature_gated_method.rs:24:1
    |
-20 | #[runtime_interface]
+24 | #[runtime_interface]
    | ^^^^^^^^^^^^^^^^^^^^
    = note: this error originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-warning: unexpected `cfg` condition value: `bar-feature`
-  --> tests/ui/no_feature_gated_method.rs:24:8
+warning: unexpected `cfg` condition name: `substrate_runtime`
+  --> tests/ui/no_feature_gated_method.rs:28:2
    |
-24 |     #[cfg(feature = "bar-feature")]
+28 |     #[cfg(feature = "bar-feature")]
+   |     ^
+   |
+   = help: expected names are: `clippy`, `debug_assertions`, `doc`, `docsrs`, `doctest`, `feature`, `fmt_debug`, `miri`, `overflow_checks`, `panic`, `proc_macro`, `relocation_model`, `rustfmt`, `sanitize`, `sanitizer_cfi_generalize_pointers`, `sanitizer_cfi_normalize_integers`, `target_abi`, `target_arch`, `target_endian`, `target_env`, `target_family`, `target_feature`, `target_has_atomic`, `target_has_atomic_equal_alignment`, `target_has_atomic_load_store`, `target_os`, `target_pointer_width`, `target_thread_local`, `target_vendor`, `test`, `ub_checks`, `unix`, and `windows`
+   = help: consider using a Cargo feature instead
+   = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:
+            [lints.rust]
+            unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
+   = help: or consider adding `println!("cargo::rustc-check-cfg=cfg(substrate_runtime)");` to the top of the `build.rs`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unexpected `cfg` condition value: `bar-feature`
+  --> tests/ui/no_feature_gated_method.rs:28:8
+   |
+28 |     #[cfg(feature = "bar-feature")]
    |           ^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: expected values for `feature` are: `default`, `disable_target_static_assertions`, and `std`
    = help: consider adding `bar-feature` as a feature in `Cargo.toml`
    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
-   = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unexpected `cfg` condition name: `substrate_runtime`
+  --> tests/ui/no_feature_gated_method.rs:24:1
+   |
+24 | #[runtime_interface]
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: consider using a Cargo feature instead
+   = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:
+            [lints.rust]
+            unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
+   = help: or consider adding `println!("cargo::rustc-check-cfg=cfg(substrate_runtime)");` to the top of the `build.rs`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition name: `substrate_runtime`
+  --> tests/ui/no_feature_gated_method.rs:26:2
+   |
+26 |     fn foo() {}
+   |     ^^
+   |
+   = help: consider using a Cargo feature instead
+   = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:
+            [lints.rust]
+            unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
+   = help: or consider adding `println!("cargo::rustc-check-cfg=cfg(substrate_runtime)");` to the top of the `build.rs`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unexpected `cfg` condition name: `substrate_runtime`
+  --> tests/ui/no_feature_gated_method.rs:31:2
+   |
+31 |     #[cfg(not(feature = "bar-feature"))]
+   |     ^
+   |
+   = help: consider using a Cargo feature instead
+   = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:
+            [lints.rust]
+            unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
+   = help: or consider adding `println!("cargo::rustc-check-cfg=cfg(substrate_runtime)");` to the top of the `build.rs`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
 
 warning: unexpected `cfg` condition value: `bar-feature`
-  --> tests/ui/no_feature_gated_method.rs:27:12
+  --> tests/ui/no_feature_gated_method.rs:31:12
    |
-27 |     #[cfg(not(feature = "bar-feature"))]
+31 |     #[cfg(not(feature = "bar-feature"))]
    |               ^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: expected values for `feature` are: `default`, `disable_target_static_assertions`, and `std`

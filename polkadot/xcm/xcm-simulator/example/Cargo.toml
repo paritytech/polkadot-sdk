@@ -34,6 +34,9 @@ xcm-builder = { workspace = true, default-features = true }
 xcm-executor = { workspace = true, default-features = true }
 xcm-simulator = { workspace = true, default-features = true }
 
+[dev-dependencies]
+sp-tracing = { features = ["test-utils"], workspace = true }
+
 [features]
 default = []
 runtime-benchmarks = [
@@ -50,6 +53,3 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
-
-[dev-dependencies]
-sp-tracing = { features = ["test-utils"], workspace = true }
