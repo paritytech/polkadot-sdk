@@ -3989,17 +3989,16 @@ impl<T: Config> Pallet<T> {
 				// migrated, the total balance would be none.
 				.unwrap_or(T::Currency::total_balance(&pool_account));
 
-			// TODO: double check this
 			if total_balance < bonded_balance + sum_unbonding_balance {
 				log!(
-					warn,
-					"faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
-					pool_id,
-					_pool,
-					total_balance,
-					bonded_balance,
-					sum_unbonding_balance
-				)
+						warn,
+						"possibly faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
+						pool_id,
+						_pool,
+						total_balance,
+						bonded_balance,
+						sum_unbonding_balance
+					)
 			};
 		}
 
