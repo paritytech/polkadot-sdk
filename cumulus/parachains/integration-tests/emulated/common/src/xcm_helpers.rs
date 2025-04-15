@@ -64,7 +64,7 @@ pub fn non_fee_asset(assets: &Assets, fee_idx: usize) -> Option<(Location, u128)
 		Fungible(amount) => amount,
 		_ => return None,
 	};
-	Some((asset.id.0.clone(), asset_amount))
+	Some((asset.id.0, asset_amount))
 }
 
 /// Helper method to get the fee asset used in multiple assets transfer
