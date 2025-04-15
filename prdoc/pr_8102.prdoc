@@ -1,0 +1,30 @@
+title: Make min_peers_to_start_warp_sync configurable
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Close #496
+
+    Make min_peers_to_start_warp_sync configurable.
+
+    In our project we want to use this to allow warp syncing a parachain using only 1 trusted bootnode. Currently we are overriding the `MIN_PEERS_TO_START_WARP_SYNC` variable directly, but that also changes the value when warp syncing the relaychain, and that doesn't look safe.
+
+    ## Integration
+
+    This PR keeps the old behavior by default.
+
+    ## Review Notes
+
+    Intentionally not adding this to the CLI because I don't need it to be configurable by users, only by project developers.
+crates:
+- name: sc-cli
+  bump: major
+- name: sc-network
+  bump: major
+- name: sc-network-sync
+  bump: major
+- name: sc-service
+  bump: major
+- name: cumulus-client-service
+  bump: major
