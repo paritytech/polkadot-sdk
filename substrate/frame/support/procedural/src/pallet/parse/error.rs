@@ -92,11 +92,14 @@ impl ErrorDef {
 					Fields::Named(_) => Some(VariantField { is_named: true }),
 					Fields::Unnamed(_) => Some(VariantField { is_named: false }),
 				};
-				if variant.discriminant.is_some() {
-					let msg = "Invalid pallet::error, unexpected discriminant, discriminants \
-						are not supported";
-					let span = variant.discriminant.as_ref().unwrap().0.span();
-					return Err(syn::Error::new(span, msg))
+
+				match &variant.discriminant {
+					None |
+					Some((_, syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(_), .. }))) => {},
+					Some((_, expr)) => {
+						let msg = "Invalid pallet::error, only integer discriminants are supported";
+						return Err(syn::Error::new(expr.span(), msg))
+					},
 				}
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&variant.attrs);
 
