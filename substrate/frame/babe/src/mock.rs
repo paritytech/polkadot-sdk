@@ -23,6 +23,7 @@ use frame::{
 	deps::sp_runtime::{
 		curve::PiecewiseLinear,
 		testing::{Digest, DigestItem, Header, TestXt},
+		BuildStorage, Perbill,
 	},
 	testing_prelude::*,
 	traits::{Header as _, OpaqueKeys},
@@ -33,6 +34,11 @@ use frame_election_provider_support::{
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
+use sp_core::{
+	crypto::{Pair, VrfSecret},
+	U256,
+};
+use sp_io;
 use sp_staking::{EraIndex, SessionIndex};
 
 type DummyValidatorId = u64;
@@ -96,8 +102,8 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentification = pallet_staking::Existence;
+	type FullIdentificationOf = pallet_staking::ExistenceOf<Test>;
 }
 
 impl pallet_authorship::Config for Test {
@@ -143,9 +149,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<DummyValidatorId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinnersPerPage = ConstU32<100>;
-	type MaxBackersPerWinner = ConstU32<100>;
-	type Sort = ConstBool<true>;
+	type MaxWinners = ConstU32<100>;
 	type Bounds = ElectionsBounds;
 }
 
@@ -335,7 +339,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> TestState 
 		validator_count: 8,
 		force_era: pallet_staking::Forcing::ForceNew,
 		minimum_validator_count: 0,
-		invulnerables: BoundedVec::new(),
+		invulnerables: vec![],
 		..Default::default()
 	};
 

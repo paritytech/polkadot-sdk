@@ -33,7 +33,6 @@ pallet-balances = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 scale-info = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 
 [features]
@@ -43,17 +42,12 @@ std = [
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-balances/std",
 	"pallet-session/std",
 	"pallet-staking/std",
-	"pallet-timestamp/std",
 	"rand/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 	"sp-session/std",
 ]
-
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
