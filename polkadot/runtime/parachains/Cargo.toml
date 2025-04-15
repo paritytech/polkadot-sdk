@@ -83,8 +83,8 @@ std = [
 	"bitvec/std",
 	"codec/std",
 	"frame-benchmarking?/std",
-	"frame-support/std",
 	"frame-election-provider-support?/std",
+	"frame-support/std",
 	"frame-system/std",
 	"log/std",
 	"pallet-authority-discovery/std",
@@ -122,8 +122,8 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
-	"frame-support-test/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
@@ -144,6 +144,7 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
+	"frame-election-provider-support?/try-runtime",
 	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
